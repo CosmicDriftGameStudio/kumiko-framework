@@ -15,14 +15,16 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.40.0",
-    "postgres": "^3.4.5",
     "hono": "^4.7.5",
+    "i18next": "^25.0.1",
     "ioredis": "^5.6.0",
     "jose": "^6.0.11",
-    "zod": "^3.24.2",
-    "i18next": "^25.0.1"
+    "postgres": "^3.4.5",
+    "uuid": "^13.0.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/uuid": "^11.0.0",
     "bun-types": "^1.2.9",
     "drizzle-kit": "^0.31.0"
   }
