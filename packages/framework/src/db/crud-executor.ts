@@ -27,7 +27,7 @@ export type CrudExecutor = {
   ) => Promise<WriteResult<boolean>>;
 
   list: (
-    payload: { cursor?: string; limit?: number; search?: string },
+    payload: { cursor?: string | undefined; limit?: number | undefined; search?: string | undefined },
     user: PipelineUser,
     db: DbConnection,
   ) => Promise<CursorResult<Record<string, unknown>>>;
