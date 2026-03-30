@@ -71,7 +71,7 @@ node -e "const p = require('./features/admin-users/package.json'); console.log(p
 - Factory Functions: `createTextField()`, `createEntity()`, etc.
 
 ```bash
-# Verify: 116 Tests (Step 2-11)
+# Verify: 126 Tests (Step 2-12)
 yarn kumiko test packages/framework/src/engine
 
 # Verify: Feature mit Handler definieren
@@ -203,3 +203,9 @@ yarn kumiko test integration
 - `POST /api/command` — Fire-and-forget (202/403)
 - `GET /health` — Health Check (kein Auth)
 - Alles in-memory testbar via Hono Test Client
+
+### Step 12: SSE Broker + Distributed Locks
+
+- `createSseBroker()` — In-Memory SSE Connection Manager (Channels, Push, Heartbeat)
+- `createSseRoute(broker)` — `GET /api/sse?channel=...` mit Auto-Reconnect Heartbeat
+- `createDistributedLock(redis)` — Atomic Lock/Release mit TTL (Lua-basiert, owner-safe)
