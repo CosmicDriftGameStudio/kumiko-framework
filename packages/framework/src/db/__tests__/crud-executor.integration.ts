@@ -30,6 +30,7 @@ beforeAll(async () => {
     sql`CREATE TABLE crud_users (
       id SERIAL PRIMARY KEY,
       tenant_id INTEGER NOT NULL,
+      version INTEGER DEFAULT 1 NOT NULL,
       inserted_at TIMESTAMP DEFAULT NOW() NOT NULL,
       modified_at TIMESTAMP,
       inserted_by_id INTEGER,
@@ -110,6 +111,78 @@ describe("crud update", () => {
       expect(result.data.previous["firstName"]).toBe("Before");
       expect(result.data.data["modifiedById"]).toBe(1);
     }
+  });
+
+  test("increments version on each update", async () => {
+    const created = await crud.create({ email: "ver@test.de" }, adminUser, testDb.db);
+    if (!created.isSuccess) throw new Error("Setup failed");
+
+    expect(created.data.data["version"]).toBe(1);
+
+    const update1 = await crud.update(
+      { id: created.data.id, changes: { firstName: "V2" } },
+      adminUser,
+      testDb.db,
+    );
+    if (!update1.isSuccess) throw new Error("Update 1 failed");
+    expect(update1.data.data["version"]).toBe(2);
+
+    const update2 = await crud.update(
+      { id: created.data.id, changes: { firstName: "V3" } },
+      adminUser,
+      testDb.db,
+    );
+    if (!update2.isSuccess) throw new Error("Update 2 failed");
+    expect(update2.data.data["version"]).toBe(3);
+  });
+
+  test("optimistic locking: rejects stale version", async () => {
+    const created = await crud.create({ email: "lock@test.de" }, adminUser, testDb.db);
+    if (!created.isSuccess) throw new Error("Setup failed");
+
+    // Update with correct version
+    const update1 = await crud.update(
+      { id: created.data.id, version: 1, changes: { firstName: "OK" } },
+      adminUser,
+      testDb.db,
+    );
+    expect(update1.isSuccess).toBe(true);
+
+    // Try update with stale version (1, but current is now 2)
+    const update2 = await crud.update(
+      { id: created.data.id, version: 1, changes: { firstName: "Stale" } },
+      adminUser,
+      testDb.db,
+    );
+    expect(update2.isSuccess).toBe(false);
+    if (!update2.isSuccess) {
+      expect(update2.error).toContain("version_conflict");
+    }
+  });
+
+  test("optimistic locking: accepts matching version", async () => {
+    const created = await crud.create({ email: "lock2@test.de" }, adminUser, testDb.db);
+    if (!created.isSuccess) throw new Error("Setup failed");
+
+    const result = await crud.update(
+      { id: created.data.id, version: 1, changes: { firstName: "Match" } },
+      adminUser,
+      testDb.db,
+    );
+    expect(result.isSuccess).toBe(true);
+  });
+
+  test("update without version skips locking check", async () => {
+    const created = await crud.create({ email: "nolock@test.de" }, adminUser, testDb.db);
+    if (!created.isSuccess) throw new Error("Setup failed");
+
+    // No version = no check, always succeeds
+    const result = await crud.update(
+      { id: created.data.id, changes: { firstName: "NoCheck" } },
+      adminUser,
+      testDb.db,
+    );
+    expect(result.isSuccess).toBe(true);
   });
 
   test("returns not_found for other tenant", async () => {

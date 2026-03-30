@@ -28,7 +28,7 @@ export type CrudExecutor = {
   ) => Promise<WriteResult<SaveContext>>;
 
   update: (
-    payload: { id: number; changes: Record<string, unknown> },
+    payload: { id: number; version?: number; changes: Record<string, unknown> },
     user: PipelineUser,
     db: DbConnection,
   ) => Promise<WriteResult<SaveContext>>;
@@ -137,10 +137,23 @@ export function createCrudExecutor(
       const previous = await loadById(user.tenantId, payload.id, db);
       if (!previous) return { isSuccess: false, error: "not_found" };
 
+      // Optimistic locking: check version if provided
+      if (payload.version !== undefined) {
+        const currentVersion = previous["version"] as number;
+        if (currentVersion !== payload.version) {
+          return {
+            isSuccess: false,
+            error: `version_conflict: expected ${payload.version}, current ${currentVersion}`,
+          };
+        }
+      }
+
+      const currentVersion = (previous["version"] as number) ?? 1;
       const [row] = await db
         .update(table)
         .set({
           ...payload.changes,
+          version: currentVersion + 1,
           modifiedById: user.id,
           modifiedAt: new Date(),
         })

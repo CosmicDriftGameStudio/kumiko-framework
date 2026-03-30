@@ -48,6 +48,7 @@ beforeAll(async () => {
     CREATE TABLE test_users (
       id SERIAL PRIMARY KEY,
       tenant_id INTEGER NOT NULL,
+      version INTEGER DEFAULT 1 NOT NULL,
       inserted_at TIMESTAMP DEFAULT NOW() NOT NULL,
       modified_at TIMESTAMP,
       inserted_by_id INTEGER,

@@ -32,6 +32,7 @@ export function buildBaseColumns(softDelete: boolean) {
   const base = {
     id: serial("id").primaryKey(),
     tenantId: integer("tenant_id").notNull(),
+    version: integer("version").default(1).notNull(),
     insertedAt: timestamp("inserted_at").defaultNow().notNull(),
     modifiedAt: timestamp("modified_at"),
     insertedById: integer("inserted_by_id"),
