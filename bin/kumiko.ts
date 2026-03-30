@@ -39,15 +39,20 @@ const commands = {
   },
 
   test: {
-    description: "Run tests (test all | test <path>)",
+    description: "Run tests (test | test integration | test all | test <path>)",
     run: async () => {
       const scope = Bun.argv[3];
       if (scope === "all") {
+        console.log("Running unit + integration tests...\n");
         await $`yarn vitest run`;
+        await $`yarn vitest run --config vitest.integration.config.ts`;
+      } else if (scope === "integration") {
+        console.log("Running integration tests (Docker required)...\n");
+        await $`yarn vitest run --config vitest.integration.config.ts`;
       } else if (scope) {
         await $`yarn vitest run ${scope}`;
       } else {
-        await $`yarn vitest run --changed`;
+        await $`yarn vitest run`;
       }
     },
   },
@@ -61,7 +66,8 @@ const commands = {
       for (const [name, cmd] of [
         ["Biome", "yarn biome check ."],
         ["TypeScript", "yarn tsc --noEmit"],
-        ["Tests", "yarn vitest run"],
+        ["Unit Tests", "yarn vitest run"],
+        ["Integration Tests", "yarn vitest run --config vitest.integration.config.ts"],
       ] as const) {
         console.log(`--- ${name} ---`);
         try {
