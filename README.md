@@ -59,3 +59,33 @@ yarn kumiko check
 node -e "const p = require('./features/admin-users/package.json'); console.log(p.dependencies)"
 # -> { '@kumiko/framework': '*' }
 ```
+
+### Step 2: Engine (Registry, defineFeature, Access)
+
+- `defineFeature()` — Features deklarativ registrieren
+- `r.entity()` — Entities mit typisierten Fields und `searchable`
+- `r.writeHandler()` / `r.queryHandler()` — Handler mit Zod-Schema und voller Type-Inference
+- `r.translations()` — i18n Keys pro Feature
+- `createRegistry()` — Sammelt Features, validiert Duplikate, merged Translations
+- `hasAccess()` — Rollen-basierte Zugriffskontrolle mit String-Unions
+- Factory Functions: `createTextField()`, `createEntity()`, etc.
+
+```bash
+# Verify: 27 Engine Tests
+yarn kumiko test packages/framework/src/engine
+
+# Verify: Feature mit Handler definieren
+bun -e "
+import { defineFeature, createEntity, createTextField } from './packages/framework/src/engine';
+
+const feature = defineFeature('demo', (r) => {
+  r.entity('user', createEntity({
+    table: 'Users',
+    fields: { email: createTextField({ searchable: true }) },
+  }));
+});
+
+console.log('Feature:', feature.name);
+console.log('Entities:', Object.keys(feature.entities));
+"
+```
