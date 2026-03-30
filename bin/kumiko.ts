@@ -65,7 +65,7 @@ const commands = {
 
       for (const [name, cmd] of [
         ["Biome", "yarn biome check ."],
-        ["TypeScript", "yarn tsc --noEmit"],
+        ["TypeScript", "yarn tsc --noEmit -p packages/framework/tsconfig.json"],
         ["Unit Tests", "yarn vitest run"],
         ["Integration Tests", "yarn vitest run --config vitest.integration.config.ts"],
       ] as const) {

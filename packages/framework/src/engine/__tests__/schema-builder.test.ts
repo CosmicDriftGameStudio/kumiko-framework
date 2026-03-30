@@ -96,7 +96,7 @@ describe("buildInsertSchema", () => {
     const result = schema.safeParse({ email: "a@b.de" });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.isEnabled).toBe(true); // default applied
+      expect(result.data["isEnabled"]).toBe(true); // default applied
     }
 
     // Invalid: missing required field

@@ -51,6 +51,9 @@
         "noDebugger": "error",
         "noConsole": "warn"
       },
+      "complexity": {
+        "useLiteralKeys": "off"
+      },
       "style": {
         "useConst": "error"
       },
