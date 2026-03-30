@@ -51,6 +51,36 @@ export type EntityDefinition = {
   readonly softDelete?: boolean;
 };
 
+// --- Relations ---
+
+export type BelongsToRelation = {
+  readonly type: "belongsTo";
+  readonly target: string;
+  readonly foreignKey: string;
+  readonly searchInclude?: readonly string[];
+};
+
+export type HasManyRelation = {
+  readonly type: "hasMany";
+  readonly target: string;
+  readonly foreignKey: string;
+};
+
+export type ManyToManyRelation = {
+  readonly type: "manyToMany";
+  readonly target: string;
+  readonly through: {
+    readonly table: string;
+    readonly sourceKey: string;
+    readonly targetKey: string;
+  };
+  readonly searchInclude?: readonly string[];
+};
+
+export type RelationDefinition = BelongsToRelation | HasManyRelation | ManyToManyRelation;
+
+export type EntityRelations = Readonly<Record<string, RelationDefinition>>;
+
 // --- Access ---
 
 export type AccessRule = {
@@ -144,6 +174,7 @@ export type HookMap = Readonly<Record<string, Readonly<Record<string, Validation
 export type FeatureDefinition = {
   readonly name: string;
   readonly entities: Readonly<Record<string, EntityDefinition>>;
+  readonly relations: Readonly<Record<string, EntityRelations>>;
   readonly writeHandlers: Readonly<Record<string, WriteHandlerDef>>;
   readonly queryHandlers: Readonly<Record<string, QueryHandlerDef>>;
   readonly translations: TranslationKeys;
@@ -171,6 +202,8 @@ export type FeatureRegistrar = {
 
   crud(entityName: string, options?: { access?: AccessRule }): void;
 
+  relation(entityName: string, relationName: string, definition: RelationDefinition): void;
+
   hook(type: "validation", name: string, fn: ValidationHookFn): void;
 
   translations(def: TranslationsDef): void;
@@ -187,5 +220,7 @@ export type Registry = {
   getQueryHandler(name: string): QueryHandlerDef | undefined;
   getSearchableFields(entityName: string): readonly string[];
   getSortableFields(entityName: string): readonly string[];
+  getRelations(entityName: string): EntityRelations;
+  getSearchIncludes(entityName: string): ReadonlyMap<string, readonly string[]>;
   getAllTranslations(): TranslationKeys;
 };

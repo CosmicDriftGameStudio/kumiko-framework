@@ -345,3 +345,190 @@ describe("createApp", () => {
     expect(app.registry.getFeature("test")).toBeDefined();
   });
 });
+
+// --- Relations ---
+
+describe("r.relation()", () => {
+  test("registers belongsTo relation", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "user",
+        createEntity({ table: "Users", fields: { departmentId: createTextField() } }),
+      );
+      r.entity(
+        "department",
+        createEntity({ table: "Departments", fields: { name: createTextField() } }),
+      );
+      r.relation("user", "department", {
+        type: "belongsTo",
+        target: "department",
+        foreignKey: "departmentId",
+        searchInclude: ["name"],
+      });
+    });
+
+    expect(feature.relations["user"]).toBeDefined();
+    expect(feature.relations["user"]?.["department"]?.type).toBe("belongsTo");
+  });
+
+  test("registers manyToMany relation", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
+      r.relation("user", "roles", {
+        type: "manyToMany",
+        target: "role",
+        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
+        searchInclude: ["name"],
+      });
+    });
+
+    const rel = feature.relations["user"]?.["roles"];
+    expect(rel?.type).toBe("manyToMany");
+    if (rel?.type === "manyToMany") {
+      expect(rel.through.table).toBe("UserRoles");
+    }
+  });
+
+  test("registers hasMany relation", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("department", createEntity({ table: "Departments", fields: {} }));
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.relation("department", "users", {
+        type: "hasMany",
+        target: "user",
+        foreignKey: "departmentId",
+      });
+    });
+
+    expect(feature.relations["department"]?.["users"]?.type).toBe("hasMany");
+  });
+});
+
+describe("registry relations", () => {
+  test("getRelations returns merged relations", () => {
+    const f1 = defineFeature("users", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
+      r.relation("user", "roles", {
+        type: "manyToMany",
+        target: "role",
+        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
+        searchInclude: ["name"],
+      });
+    });
+
+    const f2 = defineFeature("projects", (r) => {
+      r.entity(
+        "project",
+        createEntity({ table: "Projects", fields: { title: createTextField() } }),
+      );
+      r.relation("user", "projects", {
+        type: "manyToMany",
+        target: "project",
+        through: { table: "UserProjects", sourceKey: "userId", targetKey: "projectId" },
+        searchInclude: ["title"],
+      });
+    });
+
+    const registry = createRegistry([f1, f2]);
+    const rels = registry.getRelations("user");
+    expect(rels["roles"]).toBeDefined();
+    expect(rels["projects"]).toBeDefined();
+  });
+
+  test("getSearchIncludes returns fields to index from relations", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
+      r.entity("department", createEntity({ table: "Depts", fields: { name: createTextField() } }));
+      r.relation("user", "roles", {
+        type: "manyToMany",
+        target: "role",
+        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
+        searchInclude: ["name"],
+      });
+      r.relation("user", "department", {
+        type: "belongsTo",
+        target: "department",
+        foreignKey: "departmentId",
+        searchInclude: ["name"],
+      });
+    });
+
+    const registry = createRegistry([feature]);
+    const includes = registry.getSearchIncludes("user");
+    expect(includes.get("roles")).toEqual(["name"]);
+    expect(includes.get("department")).toEqual(["name"]);
+  });
+
+  test("throws on relation to non-existent entity", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.relation("user", "ghost", {
+        type: "belongsTo",
+        target: "nonexistent",
+        foreignKey: "ghostId",
+      });
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/nonexistent.*does not exist/i);
+  });
+
+  test("throws on duplicate relation name", () => {
+    const f1 = defineFeature("a", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity("role", createEntity({ table: "Roles", fields: {} }));
+      r.relation("user", "roles", {
+        type: "manyToMany",
+        target: "role",
+        through: { table: "UR1", sourceKey: "userId", targetKey: "roleId" },
+      });
+    });
+    const f2 = defineFeature("b", (r) => {
+      r.relation("user", "roles", {
+        type: "manyToMany",
+        target: "role",
+        through: { table: "UR2", sourceKey: "userId", targetKey: "roleId" },
+      });
+    });
+
+    expect(() => createRegistry([f1, f2])).toThrow(/duplicate relation.*user\.roles/i);
+  });
+});
+
+// --- Global Search ---
+
+describe("global search (InMemory)", () => {
+  test("searches across multiple entity indices", async () => {
+    const { createInMemorySearchAdapter } = await import("../../search");
+    const adapter = createInMemorySearchAdapter();
+
+    await adapter.configure("user", { searchableFields: ["email", "name"] });
+    await adapter.configure("project", { searchableFields: ["title"] });
+
+    await adapter.index("user", 1, { email: "marc@test.de", name: "Marc" });
+    await adapter.index("project", 10, { title: "Marc's Project" });
+
+    const results = await adapter.globalSearch("marc", ["user", "project"]);
+
+    expect(results).toHaveLength(2);
+    expect(results.find((r) => r.entity === "user")?.ids).toContain(1);
+    expect(results.find((r) => r.entity === "project")?.ids).toContain(10);
+  });
+
+  test("global search only returns entities with matches", async () => {
+    const { createInMemorySearchAdapter } = await import("../../search");
+    const adapter = createInMemorySearchAdapter();
+
+    await adapter.configure("user", { searchableFields: ["name"] });
+    await adapter.configure("project", { searchableFields: ["title"] });
+
+    await adapter.index("user", 1, { name: "Marc" });
+    await adapter.index("project", 10, { title: "Kumiko" });
+
+    const results = await adapter.globalSearch("marc", ["user", "project"]);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.entity).toBe("user");
+  });
+});

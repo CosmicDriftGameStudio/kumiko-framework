@@ -69,7 +69,8 @@ export function createInMemorySearchAdapter(): SearchAdapter {
           if (value.includes(q)) {
             // Field ranking: earlier in rankingFields = much higher weight
             const rankIndex = rankingFields?.indexOf(fieldName) ?? -1;
-            const fieldWeight = rankIndex >= 0 && rankingFields ? (rankingFields.length - rankIndex) * 1000 : 1;
+            const fieldWeight =
+              rankIndex >= 0 && rankingFields ? (rankingFields.length - rankIndex) * 1000 : 1;
 
             // Match quality bonuses (secondary to field ranking)
             const exactBonus = value === q ? 100 : 0;
@@ -87,6 +88,17 @@ export function createInMemorySearchAdapter(): SearchAdapter {
       // Sort by score descending
       scored.sort((a, b) => b.score - a.score);
       return scored.slice(0, limit).map((s) => s.id);
+    },
+
+    async globalSearch(query, entities, options) {
+      const results: Array<{ entity: string; ids: number[] }> = [];
+      for (const entity of entities) {
+        const ids = await this.search(entity, query, options);
+        if (ids.length > 0) {
+          results.push({ entity, ids });
+        }
+      }
+      return results;
     },
 
     async remove(entity, id) {
