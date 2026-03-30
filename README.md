@@ -71,7 +71,7 @@ node -e "const p = require('./features/admin-users/package.json'); console.log(p
 - Factory Functions: `createTextField()`, `createEntity()`, etc.
 
 ```bash
-# Verify: 59 Tests (Step 2-6)
+# Verify: 80 Tests (Step 2-7)
 yarn kumiko test packages/framework/src/engine
 
 # Verify: Feature mit Handler definieren
@@ -150,3 +150,20 @@ console.log('Query handlers:', Object.keys(feature.queryHandlers));
 - `r.hook("validation", "formName", fn)` — Custom Validation pro Feature
 - `runValidation(registry, "formName", data)` — Sammelt Errors aus allen Features
 - Cross-Field Validation, Business Rules — was Zod allein nicht kann
+
+### Step 7: Drizzle Helpers (DB Layer)
+
+- `buildDrizzleTable()` — Entity-Definition → Drizzle Table mit Base Columns
+- `applyCursorQuery()` — Cursor Pagination + Tenant-Isolation + Search + Soft-Delete
+- `encodeCursor()` / `decodeCursor()` — URL-safe Base64 Cursor
+- `createDbConnection()` — PostgreSQL Verbindung via postgres.js
+- Base Columns: id, tenantId, insertedAt, modifiedAt, insertedById, modifiedById
+- **Erster Integration Test** — echte PostgreSQL Queries
+
+```bash
+# Verify: Unit Tests (kein Docker noetig)
+yarn kumiko test packages/framework/src/db/__tests__/db-helpers.test.ts
+
+# Verify: Integration Tests (Docker muss laufen)
+yarn kumiko test integration
+```
