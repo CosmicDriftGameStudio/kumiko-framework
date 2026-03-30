@@ -86,7 +86,7 @@ export type WriteResult<TData = unknown> =
 
 // --- Pipeline Context (grows with each step) ---
 
-export type PipelineContext = Record<string, never>;
+export type PipelineContext = Record<string, unknown>;
 
 // --- Handler Functions ---
 

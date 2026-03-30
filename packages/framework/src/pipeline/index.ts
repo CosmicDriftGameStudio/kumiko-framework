@@ -1,1 +1,2 @@
-// @kumiko/framework/pipeline — Message dispatcher, 5 message types
+export type { Dispatcher } from "./dispatcher";
+export { createDispatcher } from "./dispatcher";
