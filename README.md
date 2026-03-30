@@ -71,7 +71,7 @@ node -e "const p = require('./features/admin-users/package.json'); console.log(p
 - Factory Functions: `createTextField()`, `createEntity()`, etc.
 
 ```bash
-# Verify: 80 Tests (Step 2-7)
+# Verify: 88 Tests (Step 2-8)
 yarn kumiko test packages/framework/src/engine
 
 # Verify: Feature mit Handler definieren
@@ -167,3 +167,13 @@ yarn kumiko test packages/framework/src/db/__tests__/db-helpers.test.ts
 # Verify: Integration Tests (Docker muss laufen)
 yarn kumiko test integration
 ```
+
+### Step 8: CRUD Executor (echte DB)
+
+- `createCrudExecutor(table, entity, searchableFields)` — generischer CRUD fuer jede Entity
+- create: Insert mit Tenant + Audit Fields
+- update: Partial Update, Tenant-isoliert
+- delete: Soft-Delete oder Hard-Delete je nach Entity Config
+- list: Cursor Pagination + Search
+- detail: Single Row, Tenant-isoliert
+- `createTestDb()` — automatische Test-DB Erstellung/Cleanup (uuid-basiert)
