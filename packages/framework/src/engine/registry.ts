@@ -2,6 +2,11 @@ import type {
   EntityDefinition,
   EntityRelations,
   FeatureDefinition,
+  PostDeleteHookFn,
+  PostSaveHookFn,
+  PreDeleteHookFn,
+  PreQueryHookFn,
+  PreSaveHookFn,
   QueryHandlerDef,
   Registry,
   RelationDefinition,
@@ -15,7 +20,23 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const relationMap = new Map<string, Record<string, RelationDefinition>>();
   const writeHandlerMap = new Map<string, WriteHandlerDef>();
   const queryHandlerMap = new Map<string, QueryHandlerDef>();
+  const preSaveHooks = new Map<string, PreSaveHookFn[]>();
+  const postSaveHooks = new Map<string, PostSaveHookFn[]>();
+  const preDeleteHooks = new Map<string, PreDeleteHookFn[]>();
+  const postDeleteHooks = new Map<string, PostDeleteHookFn[]>();
+  const preQueryHooks = new Map<string, PreQueryHookFn[]>();
   let mergedTranslations: TranslationKeys = {};
+
+  function mergeHookList<T>(
+    map: Map<string, T[]>,
+    source: Readonly<Record<string, readonly T[]>>,
+  ): void {
+    for (const [name, fns] of Object.entries(source)) {
+      const existing = map.get(name) ?? [];
+      existing.push(...(fns as T[]));
+      map.set(name, existing);
+    }
+  }
 
   for (const feature of features) {
     if (featureMap.has(feature.name)) {
@@ -59,6 +80,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
 
     mergedTranslations = { ...mergedTranslations, ...feature.translations };
+
+    // Merge lifecycle hooks
+    mergeHookList(preSaveHooks, feature.hooks.preSave);
+    mergeHookList(postSaveHooks, feature.hooks.postSave);
+    mergeHookList(preDeleteHooks, feature.hooks.preDelete);
+    mergeHookList(postDeleteHooks, feature.hooks.postDelete);
+    mergeHookList(preQueryHooks, feature.hooks.preQuery);
   }
 
   // Validate: all relation targets must reference existing entities
@@ -125,6 +153,26 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
 
       return result;
+    },
+
+    getPreSaveHooks(name: string): readonly PreSaveHookFn[] {
+      return preSaveHooks.get(name) ?? [];
+    },
+
+    getPostSaveHooks(name: string): readonly PostSaveHookFn[] {
+      return postSaveHooks.get(name) ?? [];
+    },
+
+    getPreDeleteHooks(name: string): readonly PreDeleteHookFn[] {
+      return preDeleteHooks.get(name) ?? [];
+    },
+
+    getPostDeleteHooks(name: string): readonly PostDeleteHookFn[] {
+      return postDeleteHooks.get(name) ?? [];
+    },
+
+    getPreQueryHooks(name: string): readonly PreQueryHookFn[] {
+      return preQueryHooks.get(name) ?? [];
     },
 
     getAllTranslations(): TranslationKeys {

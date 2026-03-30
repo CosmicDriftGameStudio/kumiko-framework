@@ -168,7 +168,43 @@ export type ValidationHookFn = (
   data: Readonly<Record<string, unknown>>,
 ) => readonly ValidationError[] | null;
 
-export type HookMap = Readonly<Record<string, Readonly<Record<string, ValidationHookFn>>>>;
+// Lifecycle hooks — preSave can modify data or abort (throw), postSave is fire-and-forget
+export type PreSaveHookFn = (
+  data: Record<string, unknown>,
+  context: PipelineContext,
+) => Promise<Record<string, unknown>>;
+
+export type PostSaveHookFn = (
+  result: { id: number; data: Record<string, unknown> },
+  context: PipelineContext,
+) => Promise<void>;
+
+export type PreDeleteHookFn = (payload: { id: number }, context: PipelineContext) => Promise<void>;
+
+export type PostDeleteHookFn = (payload: { id: number }, context: PipelineContext) => Promise<void>;
+
+export type PreQueryHookFn = (
+  payload: Record<string, unknown>,
+  context: PipelineContext,
+) => Promise<Record<string, unknown>>;
+
+export type LifecycleHookType = "preSave" | "postSave" | "preDelete" | "postDelete" | "preQuery";
+
+export type LifecycleHookFn =
+  | PreSaveHookFn
+  | PostSaveHookFn
+  | PreDeleteHookFn
+  | PostDeleteHookFn
+  | PreQueryHookFn;
+
+export type HookMap = {
+  readonly validation: Readonly<Record<string, ValidationHookFn>>;
+  readonly preSave: Readonly<Record<string, readonly PreSaveHookFn[]>>;
+  readonly postSave: Readonly<Record<string, readonly PostSaveHookFn[]>>;
+  readonly preDelete: Readonly<Record<string, readonly PreDeleteHookFn[]>>;
+  readonly postDelete: Readonly<Record<string, readonly PostDeleteHookFn[]>>;
+  readonly preQuery: Readonly<Record<string, readonly PreQueryHookFn[]>>;
+};
 
 // --- Feature Definition (output of defineFeature) ---
 
@@ -206,6 +242,11 @@ export type FeatureRegistrar = {
   relation(entityName: string, relationName: string, definition: RelationDefinition): void;
 
   hook(type: "validation", name: string, fn: ValidationHookFn): void;
+  hook(type: "preSave", entityOrHandler: string, fn: PreSaveHookFn): void;
+  hook(type: "postSave", entityOrHandler: string, fn: PostSaveHookFn): void;
+  hook(type: "preDelete", entityOrHandler: string, fn: PreDeleteHookFn): void;
+  hook(type: "postDelete", entityOrHandler: string, fn: PostDeleteHookFn): void;
+  hook(type: "preQuery", entityOrHandler: string, fn: PreQueryHookFn): void;
 
   translations(def: TranslationsDef): void;
 };
@@ -223,5 +264,10 @@ export type Registry = {
   getSortableFields(entityName: string): readonly string[];
   getRelations(entityName: string): EntityRelations;
   getSearchIncludes(entityName: string): ReadonlyMap<string, readonly string[]>;
+  getPreSaveHooks(name: string): readonly PreSaveHookFn[];
+  getPostSaveHooks(name: string): readonly PostSaveHookFn[];
+  getPreDeleteHooks(name: string): readonly PreDeleteHookFn[];
+  getPostDeleteHooks(name: string): readonly PostDeleteHookFn[];
+  getPreQueryHooks(name: string): readonly PreQueryHookFn[];
   getAllTranslations(): TranslationKeys;
 };

@@ -5,6 +5,9 @@ import type {
   EntityDefinition,
   FeatureDefinition,
   FeatureRegistrar,
+  HookMap,
+  LifecycleHookFn,
+  LifecycleHookType,
   QueryHandlerDef,
   QueryHandlerFn,
   RelationDefinition,
@@ -15,6 +18,14 @@ import type {
   WriteHandlerFn,
 } from "./types";
 
+const LIFECYCLE_TYPES: readonly LifecycleHookType[] = [
+  "preSave",
+  "postSave",
+  "preDelete",
+  "postDelete",
+  "preQuery",
+];
+
 export function defineFeature(
   name: string,
   setup: (r: FeatureRegistrar) => void,
@@ -23,8 +34,13 @@ export function defineFeature(
   const relations: Record<string, Record<string, RelationDefinition>> = {};
   const writeHandlers: Record<string, WriteHandlerDef> = {};
   const queryHandlers: Record<string, QueryHandlerDef> = {};
-  const hooks: Record<string, Record<string, ValidationHookFn>> = {};
+  const validationHooks: Record<string, ValidationHookFn> = {};
+  const lifecycleHooks: Record<string, Record<string, LifecycleHookFn[]>> = {};
   let translations: TranslationKeys = {};
+
+  for (const t of LIFECYCLE_TYPES) {
+    lifecycleHooks[t] = {};
+  }
 
   const registrar: FeatureRegistrar = {
     entity(entityName: string, definition: EntityDefinition): void {
@@ -76,9 +92,16 @@ export function defineFeature(
       relations[entityName][relationName] = definition;
     },
 
-    hook(type: "validation", hookName: string, fn: ValidationHookFn): void {
-      if (!hooks[type]) hooks[type] = {};
-      hooks[type][hookName] = fn;
+    hook(type: string, hookName: string, fn: LifecycleHookFn | ValidationHookFn): void {
+      if (type === "validation") {
+        validationHooks[hookName] = fn as ValidationHookFn;
+        return;
+      }
+
+      const hookType = type as LifecycleHookType;
+      if (!lifecycleHooks[hookType]) lifecycleHooks[hookType] = {};
+      if (!lifecycleHooks[hookType][hookName]) lifecycleHooks[hookType][hookName] = [];
+      lifecycleHooks[hookType][hookName].push(fn as LifecycleHookFn);
     },
 
     translations(def: TranslationsDef): void {
@@ -95,6 +118,13 @@ export function defineFeature(
     writeHandlers,
     queryHandlers,
     translations,
-    hooks,
+    hooks: {
+      validation: validationHooks,
+      preSave: lifecycleHooks["preSave"] ?? {},
+      postSave: lifecycleHooks["postSave"] ?? {},
+      preDelete: lifecycleHooks["preDelete"] ?? {},
+      postDelete: lifecycleHooks["postDelete"] ?? {},
+      preQuery: lifecycleHooks["preQuery"] ?? {},
+    } as HookMap,
   };
 }

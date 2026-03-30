@@ -10,7 +10,7 @@ export function runValidation(
   const errors: ValidationError[] = [];
 
   for (const feature of registry.features.values()) {
-    const validationHooks = feature.hooks["validation"];
+    const validationHooks = feature.hooks.validation;
     if (!validationHooks) continue;
 
     const hook = validationHooks[hookName];
