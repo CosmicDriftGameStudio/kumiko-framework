@@ -1,4 +1,5 @@
 import type { ZodType, z } from "zod";
+import { buildCrudHandlers } from "./crud-builder";
 import type {
   AccessRule,
   EntityDefinition,
@@ -52,6 +53,18 @@ export function defineFeature(
         handler: handler as QueryHandlerFn,
         ...(options?.access && { access: options.access }),
       };
+    },
+
+    crud(entityName: string, options?: { access?: AccessRule }): void {
+      const entity = entities[entityName];
+      if (!entity) {
+        throw new Error(
+          `Entity "${entityName}" not found. Register it with r.entity() before r.crud().`,
+        );
+      }
+      const crud = buildCrudHandlers(entityName, entity, options);
+      Object.assign(writeHandlers, crud.writeHandlers);
+      Object.assign(queryHandlers, crud.queryHandlers);
     },
 
     translations(def: TranslationsDef): void {

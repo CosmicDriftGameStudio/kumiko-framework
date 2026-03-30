@@ -1,6 +1,7 @@
 // Public API
 
 export { hasAccess } from "./access";
+export { buildCrudHandlers } from "./crud-builder";
 export { defineFeature } from "./define-feature";
 export {
   createBooleanField,

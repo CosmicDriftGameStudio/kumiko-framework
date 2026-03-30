@@ -154,6 +154,8 @@ export type FeatureRegistrar = {
     options?: { access?: AccessRule },
   ): void;
 
+  crud(entityName: string, options?: { access?: AccessRule }): void;
+
   translations(def: TranslationsDef): void;
 };
 

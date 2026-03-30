@@ -71,7 +71,7 @@ node -e "const p = require('./features/admin-users/package.json'); console.log(p
 - Factory Functions: `createTextField()`, `createEntity()`, etc.
 
 ```bash
-# Verify: 40 Engine Tests (Step 2 + 3)
+# Verify: 48 Engine Tests (Step 2 + 3 + 4)
 yarn kumiko test packages/framework/src/engine
 
 # Verify: Feature mit Handler definieren
@@ -115,3 +115,26 @@ console.log('Invalid:', schema.safeParse({ email: 'not-email' }).success);      
 - `buildUpdateSchema()` — Alles partial fuer Updates
 - Automatisch: maxLength, email-Format, select-Optionen, Defaults
 - Kein manuelles Schema-Schreiben pro Entity
+
+### Step 4: CRUD Builder (Entity → Commands)
+
+- `r.crud("user")` → registriert automatisch 5 Handler:
+  - `user.create` (Insert-Schema), `user.update` (Partial + ID), `user.delete` (ID)
+  - `user.list` (Cursor + Search), `user.detail` (ID)
+- Access-Rules werden an alle Handler durchgereicht
+- Handler sind Stubs — echte DB-Logik kommt in Step 8
+
+```bash
+# Verify: CRUD Builder
+bun -e "
+import { defineFeature, createEntity, createTextField } from './packages/framework/src/engine';
+
+const feature = defineFeature('demo', (r) => {
+  r.entity('post', createEntity({ table: 'Posts', fields: { title: createTextField({ required: true }) } }));
+  r.crud('post', { access: { roles: ['Admin'] } });
+});
+
+console.log('Write handlers:', Object.keys(feature.writeHandlers));
+console.log('Query handlers:', Object.keys(feature.queryHandlers));
+"
+```
