@@ -71,7 +71,7 @@ node -e "const p = require('./features/admin-users/package.json'); console.log(p
 - Factory Functions: `createTextField()`, `createEntity()`, etc.
 
 ```bash
-# Verify: 105 Tests (Step 2-10)
+# Verify: 116 Tests (Step 2-11)
 yarn kumiko test packages/framework/src/engine
 
 # Verify: Feature mit Handler definieren
@@ -193,3 +193,13 @@ yarn kumiko test integration
 - `createIdempotencyGuard(redis)` — Dedupliziert Writes per Request-ID (TTL-basiert)
 - `createEventLog(redis)` — Append-only Event Log via Redis Streams
 - `createTestRedis()` — Isolierte Redis-DB pro Test-Suite
+
+### Step 11: Hono Server + Auth + Routes
+
+- `buildServer({ registry, context, jwtSecret })` — Komplette Hono App
+- JWT Auth via jose (sign/verify, Bearer Token)
+- `POST /api/write` — State aendern (200/400)
+- `POST /api/query` — Daten lesen (200/404)
+- `POST /api/command` — Fire-and-forget (202/403)
+- `GET /health` — Health Check (kein Auth)
+- Alles in-memory testbar via Hono Test Client
