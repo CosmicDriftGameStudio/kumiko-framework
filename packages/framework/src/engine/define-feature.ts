@@ -36,7 +36,7 @@ export function defineFeature(
         name: handlerName,
         schema,
         handler: handler as WriteHandlerFn,
-        access: options?.access,
+        ...(options?.access && { access: options.access }),
       };
     },
 
@@ -50,7 +50,7 @@ export function defineFeature(
         name: handlerName,
         schema,
         handler: handler as QueryHandlerFn,
-        access: options?.access,
+        ...(options?.access && { access: options.access }),
       };
     },
 
