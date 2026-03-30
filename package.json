@@ -7,6 +7,7 @@
     "app"
   ],
   "scripts": {
+    "kumiko": "bun run bin/kumiko.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "tsc --build"
