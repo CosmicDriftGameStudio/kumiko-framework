@@ -11,6 +11,7 @@ export {
   createTextField,
 } from "./factories";
 export { createRegistry } from "./registry";
+export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 
 // Types
 export type {

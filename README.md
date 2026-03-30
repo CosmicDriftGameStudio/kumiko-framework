@@ -71,7 +71,7 @@ node -e "const p = require('./features/admin-users/package.json'); console.log(p
 - Factory Functions: `createTextField()`, `createEntity()`, etc.
 
 ```bash
-# Verify: 27 Engine Tests
+# Verify: 40 Engine Tests (Step 2 + 3)
 yarn kumiko test packages/framework/src/engine
 
 # Verify: Feature mit Handler definieren
@@ -88,4 +88,30 @@ const feature = defineFeature('demo', (r) => {
 console.log('Feature:', feature.name);
 console.log('Entities:', Object.keys(feature.entities));
 "
+
+# Verify: Entity → Zod Schema
+bun -e "
+import { createEntity, createTextField, createBooleanField, buildInsertSchema } from './packages/framework/src/engine';
+
+const entity = createEntity({
+  table: 'Users',
+  fields: {
+    email: createTextField({ required: true, format: 'email' }),
+    name: createTextField(),
+    active: createBooleanField({ default: true }),
+  },
+});
+
+const schema = buildInsertSchema(entity);
+console.log('Valid:', schema.safeParse({ email: 'a@b.de' }).success);           // true
+console.log('Default:', schema.parse({ email: 'a@b.de' }).active);             // true
+console.log('Invalid:', schema.safeParse({ email: 'not-email' }).success);      // false
+"
 ```
+
+### Step 3: Schema Builder (Entity → Zod)
+
+- `buildInsertSchema()` — Entity-Definition → Zod Schema fuer Inserts (required + defaults)
+- `buildUpdateSchema()` — Alles partial fuer Updates
+- Automatisch: maxLength, email-Format, select-Optionen, Defaults
+- Kein manuelles Schema-Schreiben pro Entity
