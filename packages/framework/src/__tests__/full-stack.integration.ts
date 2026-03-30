@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer } from "../api/server";
 import { createCrudExecutor } from "../db/crud-executor";
+import type { DbConnection } from "../db/index";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
   createBooleanField,
@@ -13,9 +14,11 @@ import {
   type PipelineUser,
 } from "../engine";
 import { createEventLog } from "../pipeline";
+import type { SearchAdapter } from "../search";
+import { createInMemorySearchAdapter } from "../search";
 import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../testing";
 
-// --- Setup: A realistic feature ---
+// --- Entity + Table ---
 
 const userEntity = createEntity({
   table: "fullstack_users",
@@ -29,53 +32,7 @@ const userEntity = createEntity({
 });
 
 const userTable = buildDrizzleTable("user", userEntity);
-
-const userFeature = defineFeature("users", (r) => {
-  r.entity("user", userEntity);
-
-  r.writeHandler(
-    "user.create",
-    z.object({
-      email: z.string().email(),
-      firstName: z.string().optional(),
-      lastName: z.string().optional(),
-    }),
-    async (event, ctx) => {
-      const db = ctx["db"] as import("../db").DbConnection;
-      const crud = createCrudExecutor(userTable, userEntity, ["email", "firstName", "lastName"]);
-      return crud.create(event.payload, event.user, db);
-    },
-    { access: { roles: ["Admin"] } },
-  );
-
-  r.queryHandler(
-    "user.list",
-    z.object({ search: z.string().optional(), limit: z.number().optional() }),
-    async (query, ctx) => {
-      const db = ctx["db"] as import("../db").DbConnection;
-      const crud = createCrudExecutor(userTable, userEntity, ["email", "firstName", "lastName"]);
-      return crud.list(query.payload, query.user, db);
-    },
-  );
-
-  r.queryHandler("user.detail", z.object({ id: z.number() }), async (query, ctx) => {
-    const db = ctx["db"] as import("../db").DbConnection;
-    const crud = createCrudExecutor(userTable, userEntity, ["email", "firstName", "lastName"]);
-    return crud.detail(query.payload, query.user, db);
-  });
-
-  r.hook("validation", "user.create", (data) => {
-    if (data["email"] === "banned@evil.com") return [{ field: "email", error: "banned_domain" }];
-    return null;
-  });
-
-  r.translations({
-    keys: {
-      "nav.title": { de: "Benutzer", en: "Users" },
-      "field.email": { de: "E-Mail", en: "Email" },
-    },
-  });
-});
+const searchFields = ["email", "firstName", "lastName"];
 
 // --- Test infra ---
 
@@ -83,9 +40,9 @@ const JWT_SECRET = "full-stack-test-secret-minimum-32-chars!!";
 
 let testDb: TestDb;
 let testRedis: TestRedis;
+let searchAdapter: SearchAdapter;
 let app: ReturnType<typeof buildServer>["app"];
 let jwt: ReturnType<typeof buildServer>["jwt"];
-let _eventLog: ReturnType<typeof createEventLog>;
 
 const adminUser: PipelineUser = { id: 1, tenantId: 1, roles: ["Admin"] };
 const guestUser: PipelineUser = { id: 2, tenantId: 1, roles: ["Guest"] };
@@ -94,6 +51,7 @@ const otherTenantAdmin: PipelineUser = { id: 3, tenantId: 2, roles: ["Admin"] };
 beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
+  searchAdapter = createInMemorySearchAdapter();
 
   await testDb.db.execute(sql`
     CREATE TABLE fullstack_users (
@@ -111,13 +69,74 @@ beforeAll(async () => {
     )
   `);
 
-  _eventLog = createEventLog(testRedis.redis);
+  // Feature defined here so it can close over searchAdapter
+  const userFeature = defineFeature("users", (r) => {
+    r.entity("user", userEntity);
 
+    r.writeHandler(
+      "user.create",
+      z.object({
+        email: z.string().email(),
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+      }),
+      async (event, ctx) => {
+        const db = ctx["db"] as DbConnection;
+        const sa = ctx["searchAdapter"] as SearchAdapter;
+        const crud = createCrudExecutor(userTable, userEntity, {
+          searchAdapter: sa,
+          searchableFields: searchFields,
+        });
+        return crud.create(event.payload, event.user, db);
+      },
+      { access: { roles: ["Admin"] } },
+    );
+
+    r.queryHandler(
+      "user.list",
+      z.object({
+        search: z.string().optional(),
+        limit: z.number().optional(),
+        sort: z.string().optional(),
+        sortDirection: z.enum(["asc", "desc"]).optional(),
+      }),
+      async (query, ctx) => {
+        const db = ctx["db"] as DbConnection;
+        const sa = ctx["searchAdapter"] as SearchAdapter;
+        const crud = createCrudExecutor(userTable, userEntity, {
+          searchAdapter: sa,
+          searchableFields: searchFields,
+        });
+        return crud.list(query.payload, query.user, db);
+      },
+    );
+
+    r.queryHandler("user.detail", z.object({ id: z.number() }), async (query, ctx) => {
+      const db = ctx["db"] as DbConnection;
+      const crud = createCrudExecutor(userTable, userEntity, {});
+      return crud.detail(query.payload, query.user, db);
+    });
+
+    r.hook("validation", "user.create", (data) => {
+      if (data["email"] === "banned@evil.com") return [{ field: "email", error: "banned_domain" }];
+      return null;
+    });
+
+    r.translations({
+      keys: {
+        "nav.title": { de: "Benutzer", en: "Users" },
+        "field.email": { de: "E-Mail", en: "Email" },
+      },
+    });
+  });
+
+  const eventLog = createEventLog(testRedis.redis, "kumiko:test:fullstack-log");
   const registry = createRegistry([userFeature]);
   const server = buildServer({
     registry,
-    context: { db: testDb.db, redis: testRedis.redis },
+    context: { db: testDb.db, redis: testRedis.redis, searchAdapter },
     jwtSecret: JWT_SECRET,
+    dispatcherOptions: { eventLog },
   });
   app = server.app;
   jwt = server.jwt;
@@ -143,9 +162,8 @@ async function req(method: string, path: string, user: PipelineUser, body?: unkn
 
 // --- Full Stack Tests ---
 
-describe("full stack: HTTP → Auth → Dispatch → DB", () => {
+describe("full stack: HTTP -> Auth -> Dispatch -> DB", () => {
   test("create user via /api/write and read back via /api/query", async () => {
-    // Create
     const createRes = await req("POST", "/api/write", adminUser, {
       type: "user.create",
       payload: { email: "marc@test.de", firstName: "Marc", lastName: "Test" },
@@ -156,7 +174,6 @@ describe("full stack: HTTP → Auth → Dispatch → DB", () => {
     const userId = createBody.data.id;
     expect(typeof userId).toBe("number");
 
-    // Read back via detail
     const detailRes = await req("POST", "/api/query", adminUser, {
       type: "user.detail",
       payload: { id: userId },
@@ -168,7 +185,7 @@ describe("full stack: HTTP → Auth → Dispatch → DB", () => {
     expect(detailBody.data.tenantId).toBe(1);
   });
 
-  test("search works end-to-end", async () => {
+  test("search via SearchAdapter end-to-end", async () => {
     await req("POST", "/api/write", adminUser, {
       type: "user.create",
       payload: { email: "anna@test.de", firstName: "Anna" },
@@ -183,6 +200,16 @@ describe("full stack: HTTP → Auth → Dispatch → DB", () => {
     expect(body.data.rows.some((r: Record<string, unknown>) => r["email"] === "anna@test.de")).toBe(
       true,
     );
+  });
+
+  test("search returns empty for no match", async () => {
+    const res = await req("POST", "/api/query", adminUser, {
+      type: "user.list",
+      payload: { search: "nonexistent-xyz-12345" },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.rows).toHaveLength(0);
   });
 
   test("tenant isolation: other tenant cannot see data", async () => {
@@ -252,15 +279,25 @@ describe("full stack: command (fire-and-forget)", () => {
     });
     expect(res.status).toBe(202);
 
-    // Verify it actually landed in the DB
+    // Verify it actually landed — search via adapter
     const listRes = await req("POST", "/api/query", adminUser, {
       type: "user.list",
-      payload: { search: "command@test.de" },
+      payload: { search: "command" },
     });
     const body = await listRes.json();
     expect(
       body.data.rows.some((r: Record<string, unknown>) => r["email"] === "command@test.de"),
     ).toBe(true);
+  });
+});
+
+describe("full stack: event log", () => {
+  test("dispatched events are logged", async () => {
+    const eventLog = createEventLog(testRedis.redis, "kumiko:test:fullstack-log");
+    const recent = await eventLog.recent(50);
+    // Previous tests should have logged events
+    expect(recent.length).toBeGreaterThan(0);
+    expect(recent.some((e) => e.type === "user.create")).toBe(true);
   });
 });
 

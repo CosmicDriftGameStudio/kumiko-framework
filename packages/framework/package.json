@@ -11,6 +11,7 @@
     "./ui": "./src/ui/index.ts",
     "./i18n": "./src/i18n/index.ts",
     "./auth": "./src/auth/index.ts",
+    "./search": "./src/search/index.ts",
     "./testing": "./src/testing/index.ts"
   },
   "dependencies": {

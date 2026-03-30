@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { hasAccess } from "../access";
 import { createBooleanField, createEntity, createSelectField, createTextField } from "../factories";
-import { createRegistry, defineFeature } from "../index";
+import { createApp, createRegistry, defineFeature } from "../index";
 import type { PipelineUser } from "../types";
 
 // --- Test Factories ---
@@ -269,5 +269,79 @@ describe("entity options", () => {
   test("softDelete can be enabled", () => {
     const entity = createEntity({ table: "Users", fields: {}, softDelete: true });
     expect(entity.softDelete).toBe(true);
+  });
+});
+
+// --- Sortable fields ---
+
+describe("sortable fields", () => {
+  test("createTextField supports sortable property", () => {
+    const field = createTextField({ sortable: true });
+    expect(field.sortable).toBe(true);
+  });
+
+  test("sortable defaults to false", () => {
+    const field = createTextField();
+    expect(field.sortable).toBe(false);
+  });
+
+  test("registry returns sortable fields for entity", () => {
+    const feature = defineFeature("sortTest", (r) => {
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: {
+            name: createTextField({ sortable: true }),
+            email: createTextField(),
+            rank: createTextField({ sortable: true }),
+          },
+        }),
+      );
+    });
+
+    const registry = createRegistry([feature]);
+    expect(registry.getSortableFields("item")).toEqual(["name", "rank"]);
+    expect(registry.getSortableFields("nonexistent")).toEqual([]);
+  });
+});
+
+// --- createApp with role validation ---
+
+describe("createApp", () => {
+  test("validates feature roles against app-defined roles", () => {
+    const feature = defineFeature("admin", (r) => {
+      r.writeHandler("admin.action", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { roles: ["SuperAdmin"] },
+      });
+    });
+
+    expect(() =>
+      createApp({
+        roles: ["Admin", "User"] as const,
+        features: [feature],
+      }),
+    ).toThrow(/unknown role.*SuperAdmin/i);
+  });
+
+  test("passes when all roles are valid", () => {
+    const feature = defineFeature("admin", (r) => {
+      r.writeHandler("admin.action", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { roles: ["Admin"] },
+      });
+    });
+
+    expect(() =>
+      createApp({
+        roles: ["Admin", "User"] as const,
+        features: [feature],
+      }),
+    ).not.toThrow();
+  });
+
+  test("createApp returns registry", () => {
+    const feature = defineFeature("test", () => {});
+    const app = createApp({ roles: ["Admin"] as const, features: [feature] });
+    expect(app.registry.getFeature("test")).toBeDefined();
   });
 });

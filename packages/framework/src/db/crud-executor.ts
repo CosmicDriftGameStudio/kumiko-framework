@@ -1,11 +1,17 @@
 import { and, eq } from "drizzle-orm";
 import type { PgTableWithColumns } from "drizzle-orm/pg-core";
 import type { EntityDefinition, PipelineUser, WriteResult } from "../engine/types";
+import type { SearchAdapter } from "../search/types";
 import { applyCursorQuery } from "./cursor";
 import type { CursorResult, DbConnection } from "./index";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = PgTableWithColumns<any>;
+
+export type CrudExecutorOptions = {
+  searchAdapter?: SearchAdapter;
+  searchableFields?: readonly string[];
+};
 
 export type CrudExecutor = {
   create: (
@@ -27,7 +33,13 @@ export type CrudExecutor = {
   ) => Promise<WriteResult<boolean>>;
 
   list: (
-    payload: { cursor?: string | undefined; limit?: number | undefined; search?: string | undefined },
+    payload: {
+      cursor?: string | undefined;
+      limit?: number | undefined;
+      search?: string | undefined;
+      sort?: string | undefined;
+      sortDirection?: "asc" | "desc" | undefined;
+    },
     user: PipelineUser,
     db: DbConnection,
   ) => Promise<CursorResult<Record<string, unknown>>>;
@@ -42,9 +54,10 @@ export type CrudExecutor = {
 export function createCrudExecutor(
   table: Table,
   entity: EntityDefinition,
-  searchableFields: readonly string[],
+  options: CrudExecutorOptions = {},
 ): CrudExecutor {
   const softDelete = entity.softDelete ?? false;
+  const { searchAdapter, searchableFields } = options;
 
   function tenantAndId(tenantId: number, id: number) {
     const conditions = [eq(table["tenantId"], tenantId), eq(table["id"], id)];
@@ -52,6 +65,15 @@ export function createCrudExecutor(
       conditions.push(eq(table["isDeleted"], false));
     }
     return and(...conditions);
+  }
+
+  async function indexForSearch(id: number, payload: Record<string, unknown>): Promise<void> {
+    if (!searchAdapter || !searchableFields) return;
+    const fields: Record<string, unknown> = {};
+    for (const f of searchableFields) {
+      if (payload[f] !== undefined) fields[f] = payload[f];
+    }
+    await searchAdapter.index(entity.table, id, fields);
   }
 
   return {
@@ -67,7 +89,9 @@ export function createCrudExecutor(
         .returning();
 
       if (!row) return { isSuccess: false, error: "insert_failed" };
-      return { isSuccess: true, data: row as Record<string, unknown> };
+      const data = row as Record<string, unknown>;
+      await indexForSearch(data["id"] as number, data);
+      return { isSuccess: true, data };
     },
 
     async update(payload, user, db) {
@@ -82,7 +106,9 @@ export function createCrudExecutor(
         .returning();
 
       if (!row) return { isSuccess: false, error: "not_found" };
-      return { isSuccess: true, data: row as Record<string, unknown> };
+      const data = row as Record<string, unknown>;
+      await indexForSearch(data["id"] as number, data);
+      return { isSuccess: true, data };
     },
 
     async delete(payload, user, db) {
@@ -98,6 +124,7 @@ export function createCrudExecutor(
           .returning();
 
         if (!row) return { isSuccess: false, error: "not_found" };
+        if (searchAdapter) await searchAdapter.remove(entity.table, payload.id);
         return { isSuccess: true, data: true };
       }
 
@@ -107,17 +134,25 @@ export function createCrudExecutor(
         .returning();
 
       if (!row) return { isSuccess: false, error: "not_found" };
+      if (searchAdapter) await searchAdapter.remove(entity.table, payload.id);
       return { isSuccess: true, data: true };
     },
 
     async list(payload, user, db) {
       const opts: Parameters<typeof applyCursorQuery>[2] = {
         tenantId: user.tenantId,
-        searchColumns: searchableFields,
       };
       if (payload.cursor) opts.cursor = payload.cursor;
       if (payload.limit) opts.limit = payload.limit;
-      if (payload.search) opts.search = payload.search;
+      if (payload.sort) opts.sort = payload.sort;
+      if (payload.sortDirection) opts.sortDirection = payload.sortDirection;
+
+      // Search goes through SearchAdapter, not SQL
+      if (payload.search && searchAdapter) {
+        const ids = await searchAdapter.search(entity.table, payload.search);
+        if (ids.length === 0) return { rows: [], nextCursor: null };
+        opts.filterIds = ids;
+      }
 
       const rows = await applyCursorQuery(db.select().from(table).$dynamic(), table, opts);
 

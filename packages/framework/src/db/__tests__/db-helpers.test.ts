@@ -109,3 +109,18 @@ describe("buildDrizzleTable", () => {
     expect(table["employmentType"]).toBeDefined();
   });
 });
+
+// --- Sorting in CursorQueryOptions ---
+
+describe("sorting", () => {
+  test("CursorQueryOptions accepts sort and sortDirection", () => {
+    // Type-level test: this should compile
+    const opts: import("../cursor").CursorQueryOptions = {
+      tenantId: 1,
+      sort: "lastName",
+      sortDirection: "asc",
+    };
+    expect(opts.sort).toBe("lastName");
+    expect(opts.sortDirection).toBe("asc");
+  });
+});

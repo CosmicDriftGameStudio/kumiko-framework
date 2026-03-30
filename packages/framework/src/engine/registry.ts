@@ -71,6 +71,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         .map(([name]) => name);
     },
 
+    getSortableFields(entityName: string): readonly string[] {
+      const entity = entityMap.get(entityName);
+      if (!entity) return [];
+      return Object.entries(entity.fields)
+        .filter(([, field]) => field.type === "text" && field.sortable === true)
+        .map(([name]) => name);
+    },
+
     getAllTranslations(): TranslationKeys {
       return mergedTranslations;
     },

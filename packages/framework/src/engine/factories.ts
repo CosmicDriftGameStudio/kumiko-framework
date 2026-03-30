@@ -13,6 +13,7 @@ export function createTextField(overrides?: Partial<Omit<TextFieldDef, "type">>)
     maxLength: 200,
     required: false,
     searchable: false,
+    sortable: false,
     ...overrides,
   };
 }

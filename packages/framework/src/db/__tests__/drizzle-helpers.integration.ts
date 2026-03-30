@@ -133,28 +133,32 @@ describe("cursor pagination", () => {
   });
 });
 
-describe("search", () => {
-  test("filters by search term across searchable columns", async () => {
-    const rows = await query({
-      tenantId: 1,
-      search: "marc",
-      searchColumns: ["email", "firstName"],
-    });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.["email"]).toBe("marc@test.de");
+describe("filterIds (search results from SearchAdapter)", () => {
+  test("filters by ID list from search adapter", async () => {
+    // SearchAdapter returns IDs, cursor query filters by them
+    const rows = await query({ tenantId: 1, filterIds: [1, 2] });
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => [1, 2].includes(r["id"] as number))).toBe(true);
   });
 
-  test("search is case-insensitive", async () => {
-    const rows = await query({ tenantId: 1, search: "ANNA", searchColumns: ["firstName"] });
-    expect(rows).toHaveLength(1);
+  test("empty filterIds returns nothing", async () => {
+    const rows = await query({ tenantId: 1, filterIds: [] });
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("sorting", () => {
+  test("sorts by column ASC", async () => {
+    const rows = await query({ tenantId: 1, sort: "firstName", sortDirection: "asc" });
+    const names = rows.map((r) => r["firstName"]);
+    const sorted = [...names].sort();
+    expect(names).toEqual(sorted);
   });
 
-  test("search across multiple columns (OR)", async () => {
-    const rows = await query({
-      tenantId: 1,
-      search: "admin",
-      searchColumns: ["email", "firstName"],
-    });
-    expect(rows).toHaveLength(1);
+  test("sorts by column DESC", async () => {
+    const rows = await query({ tenantId: 1, sort: "firstName", sortDirection: "desc" });
+    const names = rows.map((r) => r["firstName"]);
+    const sorted = [...names].sort().reverse();
+    expect(names).toEqual(sorted);
   });
 });

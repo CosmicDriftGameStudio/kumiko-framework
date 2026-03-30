@@ -4,4 +4,7 @@ export type { CrudExecutor } from "./crud-executor";
 export { createCrudExecutor } from "./crud-executor";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { applyCursorQuery, decodeCursor, encodeCursor } from "./cursor";
+export type { PgAdapterOptions } from "./pg-adapter";
+export { createPgAdapter } from "./pg-adapter";
 export { buildBaseColumns, buildDrizzleTable } from "./table-builder";
+export type { DbAdapter } from "./types";

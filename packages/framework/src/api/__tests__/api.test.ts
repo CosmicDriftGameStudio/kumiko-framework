@@ -182,3 +182,19 @@ describe("POST /api/command", () => {
     expect(res.status).toBe(403);
   });
 });
+
+// --- SSE ---
+
+describe("GET /api/sse", () => {
+  test("rejects without auth", async () => {
+    const res = await app.request("/api/sse");
+    expect(res.status).toBe(401);
+  });
+
+  test("returns event stream with auth", async () => {
+    const headers = await authHeader(adminUser);
+    const res = await app.request("/api/sse", { headers });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+  });
+});

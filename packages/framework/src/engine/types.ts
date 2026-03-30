@@ -7,6 +7,7 @@ export type TextFieldDef = {
   readonly maxLength?: number;
   readonly required?: boolean;
   readonly searchable?: boolean;
+  readonly sortable?: boolean;
   readonly format?: "email" | "url" | "phone";
   readonly default?: string;
 };
@@ -185,5 +186,6 @@ export type Registry = {
   getWriteHandler(name: string): WriteHandlerDef | undefined;
   getQueryHandler(name: string): QueryHandlerDef | undefined;
   getSearchableFields(entityName: string): readonly string[];
+  getSortableFields(entityName: string): readonly string[];
   getAllTranslations(): TranslationKeys;
 };

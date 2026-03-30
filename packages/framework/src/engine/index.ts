@@ -1,6 +1,8 @@
 // Public API
 
 export { hasAccess } from "./access";
+export type { App, AppConfig } from "./create-app";
+export { createApp } from "./create-app";
 export { buildCrudHandlers } from "./crud-builder";
 export { defineFeature } from "./define-feature";
 export {

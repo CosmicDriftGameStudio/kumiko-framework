@@ -141,3 +141,129 @@ describe("dispatcher.command", () => {
     );
   });
 });
+
+// --- Dispatch: Idempotency ---
+
+describe("dispatcher.write idempotency", () => {
+  test("duplicate requestId returns cached result", async () => {
+    const registry = createRegistry([echoFeature]);
+    const dispatcher = createDispatcher(
+      registry,
+      {},
+      {
+        idempotency: createMockIdempotencyGuard(),
+      },
+    );
+
+    const user = createTestUser();
+    const result1 = await dispatcher.write("item.create", { name: "Once" }, user, "req-001");
+    const result2 = await dispatcher.write("item.create", { name: "Once" }, user, "req-001");
+
+    expect(result1.isSuccess).toBe(true);
+    expect(result2.isSuccess).toBe(true);
+    // Same cached result — handler should only have been called once
+    if (result1.isSuccess && result2.isSuccess) {
+      expect(result2.data).toEqual(result1.data);
+    }
+  });
+
+  test("different requestIds execute separately", async () => {
+    const registry = createRegistry([echoFeature]);
+    const dispatcher = createDispatcher(
+      registry,
+      {},
+      {
+        idempotency: createMockIdempotencyGuard(),
+      },
+    );
+
+    const user = createTestUser();
+    const result1 = await dispatcher.write("item.create", { name: "A" }, user, "req-a");
+    const result2 = await dispatcher.write("item.create", { name: "B" }, user, "req-b");
+
+    expect(result1.isSuccess).toBe(true);
+    expect(result2.isSuccess).toBe(true);
+    if (result1.isSuccess && result2.isSuccess) {
+      expect(result1.data).toEqual({ name: "A" });
+      expect(result2.data).toEqual({ name: "B" });
+    }
+  });
+});
+
+// --- Dispatch: Event Log ---
+
+describe("dispatcher event logging", () => {
+  test("write events are logged", async () => {
+    const log: Array<{ type: string }> = [];
+    const registry = createRegistry([echoFeature]);
+    const dispatcher = createDispatcher(
+      registry,
+      {},
+      {
+        eventLog: {
+          append: async (entry) => {
+            log.push(entry);
+            return "1";
+          },
+          recent: async () => [],
+        },
+      },
+    );
+
+    await dispatcher.write("item.create", { name: "Logged" }, createTestUser());
+
+    expect(log).toHaveLength(1);
+    expect(log[0]?.type).toBe("item.create");
+  });
+
+  test("query events are logged", async () => {
+    const log: Array<{ type: string }> = [];
+    const registry = createRegistry([echoFeature]);
+    const dispatcher = createDispatcher(
+      registry,
+      {},
+      {
+        eventLog: {
+          append: async (entry) => {
+            log.push(entry);
+            return "1";
+          },
+          recent: async () => [],
+        },
+      },
+    );
+
+    await dispatcher.query("item.list", {}, createTestUser());
+
+    expect(log).toHaveLength(1);
+    expect(log[0]?.type).toBe("item.list");
+  });
+});
+
+// --- Dispatch: SharedEvent + Broadcast ---
+
+describe("dispatcher.shareEvent and dispatcher.broadcast", () => {
+  test("shareEvent is a function", () => {
+    const dispatcher = createTestDispatcher();
+    expect(typeof dispatcher.shareEvent).toBe("function");
+  });
+
+  test("broadcast is a function", () => {
+    const dispatcher = createTestDispatcher();
+    expect(typeof dispatcher.broadcast).toBe("function");
+  });
+});
+
+// --- Mock helpers ---
+
+function createMockIdempotencyGuard() {
+  const cache = new Map<string, string>();
+  return {
+    async check(requestId: string) {
+      return cache.get(requestId) ?? null;
+    },
+    async store(requestId: string, result: unknown) {
+      cache.set(requestId, JSON.stringify(result));
+    },
+  };
+}

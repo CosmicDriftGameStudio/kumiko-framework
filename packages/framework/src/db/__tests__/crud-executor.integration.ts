@@ -41,7 +41,7 @@ beforeAll(async () => {
     )`,
   );
 
-  crud = createCrudExecutor(table, entity, ["email", "firstName"]);
+  crud = createCrudExecutor(table, entity, { searchableFields: ["email", "firstName"] });
 });
 
 afterAll(async () => {

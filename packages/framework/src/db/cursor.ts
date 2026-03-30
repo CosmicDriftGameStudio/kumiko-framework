@@ -1,12 +1,13 @@
-import { and, eq, gt, ilike, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 import type { PgSelect } from "drizzle-orm/pg-core";
 
 export type CursorQueryOptions = {
   tenantId: number;
   cursor?: string;
   limit?: number;
-  search?: string;
-  searchColumns?: readonly string[];
+  filterIds?: readonly number[];
+  sort?: string;
+  sortDirection?: "asc" | "desc";
   extraWhere?: SQL;
 };
 
@@ -42,17 +43,12 @@ export function applyCursorQuery<T extends PgSelect>(
     conditions.push(gt(table.id, decodeCursor(options.cursor)));
   }
 
-  if (options.search && options.searchColumns && options.searchColumns.length > 0) {
-    const searchConditions = options.searchColumns
-      .map((col) => {
-        const column = table[col];
-        return column ? ilike(column, `%${options.search}%`) : undefined;
-      })
-      .filter((c): c is SQL => c !== undefined);
-
-    if (searchConditions.length > 0) {
-      const combined = or(...searchConditions);
-      if (combined) conditions.push(combined);
+  if (options.filterIds !== undefined) {
+    if (options.filterIds.length === 0) {
+      // No matching IDs — return empty result
+      conditions.push(eq(table.id, -1));
+    } else {
+      conditions.push(inArray(table.id, options.filterIds as number[]));
     }
   }
 
@@ -62,5 +58,13 @@ export function applyCursorQuery<T extends PgSelect>(
 
   const limit = options.limit ?? 50;
 
-  return query.where(and(...conditions)).limit(limit) as T;
+  let result = query.where(and(...conditions)).limit(limit);
+
+  if (options.sort && table[options.sort]) {
+    const column = table[options.sort];
+    result =
+      options.sortDirection === "desc" ? result.orderBy(desc(column)) : result.orderBy(asc(column));
+  }
+
+  return result as T;
 }
