@@ -9,6 +9,8 @@ const REQUIRED_ENVS = {
   DATABASE_URL: "PostgreSQL connection string",
   TEST_DATABASE_URL: "PostgreSQL test DB connection string",
   REDIS_URL: "Redis connection string",
+  MEILI_URL: "Meilisearch URL",
+  MEILI_MASTER_KEY: "Meilisearch master key",
   JWT_SECRET: "JWT signing secret",
 } as const;
 
@@ -39,8 +41,9 @@ const commands = {
       console.log("Wecke PostgreSQL und Redis auf...");
       await $`docker compose up -d`.quiet();
       await waitForPostgres();
-      console.log(`  PostgreSQL  localhost:${Bun.env.KUMIKO_PG_PORT ?? "15432"}`);
-      console.log(`  Redis       localhost:${Bun.env.KUMIKO_REDIS_PORT ?? "16379"}`);
+      console.log(`  PostgreSQL   localhost:${Bun.env.KUMIKO_PG_PORT ?? "15432"}`);
+      console.log(`  Redis        localhost:${Bun.env.KUMIKO_REDIS_PORT ?? "16379"}`);
+      console.log(`  Meilisearch  localhost:${Bun.env.KUMIKO_MEILI_PORT ?? "17700"}`);
       console.log("\nLaeuft! Happy coding.");
     },
   },
