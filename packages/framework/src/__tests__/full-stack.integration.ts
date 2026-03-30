@@ -118,6 +118,22 @@ beforeAll(async () => {
       },
     );
 
+    r.writeHandler(
+      "user.update",
+      z.object({ id: z.number(), changes: z.record(z.unknown()) }),
+      async (event, ctx) => {
+        const db = ctx["db"] as DbConnection;
+        const sa = ctx["searchAdapter"] as SearchAdapter;
+        const crud = createCrudExecutor(userTable, userEntity, {
+          searchAdapter: sa,
+          searchableFields: searchFields,
+          entityName: "user",
+        });
+        return crud.update(event.payload, event.user, db);
+      },
+      { access: { roles: ["Admin"] } },
+    );
+
     r.queryHandler("user.detail", z.object({ id: z.number() }), async (query, ctx) => {
       const db = ctx["db"] as DbConnection;
       const crud = createCrudExecutor(userTable, userEntity, {});
@@ -375,6 +391,76 @@ describe("full stack: event log", () => {
     // Previous tests should have logged events
     expect(recent.length).toBeGreaterThan(0);
     expect(recent.some((e) => e.type === "user.create")).toBe(true);
+  });
+});
+
+describe("full stack: SaveContext — changes + previous", () => {
+  test("create returns isNew=true with changes and empty previous", async () => {
+    const res = await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "ctx-create@test.de", firstName: "New" },
+    });
+    const body = await res.json();
+
+    expect(body.isSuccess).toBe(true);
+    expect(body.data.isNew).toBe(true);
+    expect(body.data.changes).toEqual({ email: "ctx-create@test.de", firstName: "New" });
+    expect(body.data.previous).toEqual({});
+    expect(body.data.data["email"]).toBe("ctx-create@test.de");
+  });
+
+  test("update returns isNew=false with only changed fields and previous state", async () => {
+    // Create
+    const createRes = await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "ctx-update@test.de", firstName: "Before", lastName: "Unchanged" },
+    });
+    const createBody = await createRes.json();
+    const userId = createBody.data.id;
+
+    // Update only firstName
+    const updateRes = await req("POST", "/api/write", adminUser, {
+      type: "user.update",
+      payload: { id: userId, changes: { firstName: "After" } },
+    });
+    const updateBody = await updateRes.json();
+
+    expect(updateBody.isSuccess).toBe(true);
+    expect(updateBody.data.isNew).toBe(false);
+    expect(updateBody.data.changes).toEqual({ firstName: "After" });
+    expect(updateBody.data.previous["firstName"]).toBe("Before");
+    expect(updateBody.data.previous["lastName"]).toBe("Unchanged");
+    expect(updateBody.data.data["firstName"]).toBe("After");
+    expect(updateBody.data.data["lastName"]).toBe("Unchanged");
+  });
+
+  test("status transition: only triggers on actual change", async () => {
+    // This tests the pattern: "send email when status changes to Started"
+    const createRes = await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "status@test.de", firstName: "Draft" },
+    });
+    const userId = (await createRes.json()).data.id;
+
+    // First update: change firstName to "Started"
+    const update1 = await req("POST", "/api/write", adminUser, {
+      type: "user.update",
+      payload: { id: userId, changes: { firstName: "Started" } },
+    });
+    const body1 = await update1.json();
+    expect(body1.data.changes["firstName"]).toBe("Started");
+    expect(body1.data.previous["firstName"]).toBe("Draft");
+    // Hook would detect: firstName changed from "Draft" to "Started" → trigger!
+
+    // Second update: same value again
+    const update2 = await req("POST", "/api/write", adminUser, {
+      type: "user.update",
+      payload: { id: userId, changes: { firstName: "Started" } },
+    });
+    const body2 = await update2.json();
+    expect(body2.data.changes["firstName"]).toBe("Started");
+    expect(body2.data.previous["firstName"]).toBe("Started");
+    // Hook would detect: firstName "Started" → "Started" → NO trigger!
   });
 });
 

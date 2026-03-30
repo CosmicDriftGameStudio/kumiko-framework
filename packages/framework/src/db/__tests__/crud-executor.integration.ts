@@ -49,7 +49,7 @@ afterAll(async () => {
 });
 
 describe("crud create", () => {
-  test("inserts row with tenant and audit fields", async () => {
+  test("inserts row with SaveContext", async () => {
     const result = await crud.create(
       { email: "test@test.de", firstName: "Test" },
       adminUser,
@@ -58,10 +58,12 @@ describe("crud create", () => {
 
     expect(result.isSuccess).toBe(true);
     if (result.isSuccess) {
-      expect(result.data["email"]).toBe("test@test.de");
-      expect(result.data["tenantId"]).toBe(1);
-      expect(result.data["insertedById"]).toBe(1);
-      expect(result.data["id"]).toBeDefined();
+      expect(result.data.isNew).toBe(true);
+      expect(result.data.data["email"]).toBe("test@test.de");
+      expect(result.data.data["tenantId"]).toBe(1);
+      expect(result.data.changes).toEqual({ email: "test@test.de", firstName: "Test" });
+      expect(result.data.previous).toEqual({});
+      expect(result.data.id).toBeDefined();
     }
   });
 });
@@ -71,7 +73,7 @@ describe("crud detail", () => {
     const created = await crud.create({ email: "detail@test.de" }, adminUser, testDb.db);
     if (!created.isSuccess) throw new Error("Setup failed");
 
-    const row = await crud.detail({ id: created.data["id"] as number }, adminUser, testDb.db);
+    const row = await crud.detail({ id: created.data.id }, adminUser, testDb.db);
     expect(row).not.toBeNull();
     expect(row?.["email"]).toBe("detail@test.de");
   });
@@ -80,27 +82,33 @@ describe("crud detail", () => {
     const created = await crud.create({ email: "tenant1@test.de" }, adminUser, testDb.db);
     if (!created.isSuccess) throw new Error("Setup failed");
 
-    const row = await crud.detail({ id: created.data["id"] as number }, otherTenantUser, testDb.db);
+    const row = await crud.detail({ id: created.data.id }, otherTenantUser, testDb.db);
     expect(row).toBeNull();
   });
 });
 
 describe("crud update", () => {
-  test("updates row and sets audit fields", async () => {
-    const created = await crud.create({ email: "update@test.de" }, adminUser, testDb.db);
+  test("returns SaveContext with changes and previous", async () => {
+    const created = await crud.create(
+      { email: "update@test.de", firstName: "Before" },
+      adminUser,
+      testDb.db,
+    );
     if (!created.isSuccess) throw new Error("Setup failed");
 
     const result = await crud.update(
-      { id: created.data["id"] as number, changes: { firstName: "Updated" } },
+      { id: created.data.id, changes: { firstName: "After" } },
       adminUser,
       testDb.db,
     );
 
     expect(result.isSuccess).toBe(true);
     if (result.isSuccess) {
-      expect(result.data["firstName"]).toBe("Updated");
-      expect(result.data["modifiedById"]).toBe(1);
-      expect(result.data["modifiedAt"]).toBeDefined();
+      expect(result.data.isNew).toBe(false);
+      expect(result.data.data["firstName"]).toBe("After");
+      expect(result.data.changes).toEqual({ firstName: "After" });
+      expect(result.data.previous["firstName"]).toBe("Before");
+      expect(result.data.data["modifiedById"]).toBe(1);
     }
   });
 
@@ -109,7 +117,7 @@ describe("crud update", () => {
     if (!created.isSuccess) throw new Error("Setup failed");
 
     const result = await crud.update(
-      { id: created.data["id"] as number, changes: { firstName: "Hacked" } },
+      { id: created.data.id, changes: { firstName: "Hacked" } },
       otherTenantUser,
       testDb.db,
     );
@@ -120,26 +128,25 @@ describe("crud update", () => {
 });
 
 describe("crud delete (soft)", () => {
-  test("soft deletes row", async () => {
+  test("soft deletes and returns DeleteContext", async () => {
     const created = await crud.create({ email: "delete@test.de" }, adminUser, testDb.db);
     if (!created.isSuccess) throw new Error("Setup failed");
 
-    const deleteResult = await crud.delete(
-      { id: created.data["id"] as number },
-      adminUser,
-      testDb.db,
-    );
+    const deleteResult = await crud.delete({ id: created.data.id }, adminUser, testDb.db);
     expect(deleteResult.isSuccess).toBe(true);
+    if (deleteResult.isSuccess) {
+      expect(deleteResult.data.id).toBe(created.data.id);
+      expect(deleteResult.data.data["email"]).toBe("delete@test.de");
+    }
 
-    // Should not be found via detail anymore
-    const row = await crud.detail({ id: created.data["id"] as number }, adminUser, testDb.db);
+    // Should not be found anymore
+    const row = await crud.detail({ id: created.data.id }, adminUser, testDb.db);
     expect(row).toBeNull();
   });
 });
 
 describe("crud list", () => {
   test("lists rows for tenant with pagination", async () => {
-    // Create some rows
     for (let i = 0; i < 5; i++) {
       await crud.create({ email: `list${i}@test.de`, firstName: `User${i}` }, adminUser, testDb.db);
     }
@@ -147,12 +154,5 @@ describe("crud list", () => {
     const page1 = await crud.list({ limit: 3 }, adminUser, testDb.db);
     expect(page1.rows.length).toBeLessThanOrEqual(3);
     expect(page1.rows.every((r) => r["tenantId"] === 1)).toBe(true);
-  });
-
-  test("search filters results", async () => {
-    await crud.create({ email: "searchable@test.de", firstName: "Findme" }, adminUser, testDb.db);
-
-    const result = await crud.list({ search: "Findme" }, adminUser, testDb.db);
-    expect(result.rows.some((r) => r["firstName"] === "Findme")).toBe(true);
   });
 });

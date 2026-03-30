@@ -1,6 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import type { PgTableWithColumns } from "drizzle-orm/pg-core";
-import type { EntityDefinition, PipelineUser, WriteResult } from "../engine/types";
+import type {
+  DeleteContext,
+  EntityDefinition,
+  PipelineUser,
+  SaveContext,
+  WriteResult,
+} from "../engine/types";
 import type { SearchAdapter } from "../search/types";
 import { applyCursorQuery } from "./cursor";
 import type { CursorResult, DbConnection } from "./index";
@@ -19,19 +25,19 @@ export type CrudExecutor = {
     payload: Record<string, unknown>,
     user: PipelineUser,
     db: DbConnection,
-  ) => Promise<WriteResult<Record<string, unknown>>>;
+  ) => Promise<WriteResult<SaveContext>>;
 
   update: (
     payload: { id: number; changes: Record<string, unknown> },
     user: PipelineUser,
     db: DbConnection,
-  ) => Promise<WriteResult<Record<string, unknown>>>;
+  ) => Promise<WriteResult<SaveContext>>;
 
   delete: (
     payload: { id: number },
     user: PipelineUser,
     db: DbConnection,
-  ) => Promise<WriteResult<boolean>>;
+  ) => Promise<WriteResult<DeleteContext>>;
 
   list: (
     payload: {
@@ -69,6 +75,15 @@ export function createCrudExecutor(
     return and(...conditions);
   }
 
+  async function loadById(
+    tenantId: number,
+    id: number,
+    db: DbConnection,
+  ): Promise<Record<string, unknown> | null> {
+    const [row] = await db.select().from(table).where(tenantAndId(tenantId, id));
+    return (row as Record<string, unknown>) ?? null;
+  }
+
   async function indexForSearch(
     tenantId: number,
     id: number,
@@ -101,11 +116,27 @@ export function createCrudExecutor(
 
       if (!row) return { isSuccess: false, error: "insert_failed" };
       const data = row as Record<string, unknown>;
-      await indexForSearch(user.tenantId, data["id"] as number, data);
-      return { isSuccess: true, data };
+      const id = data["id"] as number;
+
+      await indexForSearch(user.tenantId, id, data);
+
+      return {
+        isSuccess: true,
+        data: {
+          id,
+          data,
+          changes: payload,
+          previous: {},
+          isNew: true,
+        },
+      };
     },
 
     async update(payload, user, db) {
+      // Load previous state BEFORE update
+      const previous = await loadById(user.tenantId, payload.id, db);
+      if (!previous) return { isSuccess: false, error: "not_found" };
+
       const [row] = await db
         .update(table)
         .set({
@@ -116,15 +147,31 @@ export function createCrudExecutor(
         .where(tenantAndId(user.tenantId, payload.id))
         .returning();
 
-      if (!row) return { isSuccess: false, error: "not_found" };
+      if (!row) return { isSuccess: false, error: "update_failed" };
       const data = row as Record<string, unknown>;
-      await indexForSearch(user.tenantId, data["id"] as number, data);
-      return { isSuccess: true, data };
+      const id = data["id"] as number;
+
+      await indexForSearch(user.tenantId, id, data);
+
+      return {
+        isSuccess: true,
+        data: {
+          id,
+          data,
+          changes: payload.changes,
+          previous,
+          isNew: false,
+        },
+      };
     },
 
     async delete(payload, user, db) {
+      // Load data before delete for hooks
+      const existing = await loadById(user.tenantId, payload.id, db);
+      if (!existing) return { isSuccess: false, error: "not_found" };
+
       if (softDelete) {
-        const [row] = await db
+        await db
           .update(table)
           .set({
             isDeleted: true,
@@ -133,22 +180,20 @@ export function createCrudExecutor(
           })
           .where(tenantAndId(user.tenantId, payload.id))
           .returning();
-
-        if (!row) return { isSuccess: false, error: "not_found" };
-        if (searchAdapter && entityName)
-          await searchAdapter.remove(user.tenantId, entityName, payload.id);
-        return { isSuccess: true, data: true };
+      } else {
+        await db
+          .delete(table)
+          .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], payload.id)));
       }
 
-      const [row] = await db
-        .delete(table)
-        .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], payload.id)))
-        .returning();
-
-      if (!row) return { isSuccess: false, error: "not_found" };
-      if (searchAdapter && entityName)
+      if (searchAdapter && entityName) {
         await searchAdapter.remove(user.tenantId, entityName, payload.id);
-      return { isSuccess: true, data: true };
+      }
+
+      return {
+        isSuccess: true,
+        data: { id: payload.id, data: existing },
+      };
     },
 
     async list(payload, user, db) {
@@ -186,9 +231,7 @@ export function createCrudExecutor(
     },
 
     async detail(payload, user, db) {
-      const [row] = await db.select().from(table).where(tenantAndId(user.tenantId, payload.id));
-
-      return (row as Record<string, unknown>) ?? null;
+      return loadById(user.tenantId, payload.id, db);
     },
   };
 }

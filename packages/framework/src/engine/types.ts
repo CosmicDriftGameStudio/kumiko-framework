@@ -168,20 +168,35 @@ export type ValidationHookFn = (
   data: Readonly<Record<string, unknown>>,
 ) => readonly ValidationError[] | null;
 
-// Lifecycle hooks — preSave can modify data or abort (throw), postSave is fire-and-forget
+// --- Save/Delete Context (what hooks receive) ---
+
+export type SaveContext = {
+  readonly id: number;
+  readonly data: Readonly<Record<string, unknown>>;
+  readonly changes: Readonly<Record<string, unknown>>;
+  readonly previous: Readonly<Record<string, unknown>>;
+  readonly isNew: boolean;
+};
+
+export type DeleteContext = {
+  readonly id: number;
+  readonly data: Readonly<Record<string, unknown>>;
+};
+
+// Lifecycle hooks — preSave can modify changes or abort (throw), postSave is fire-and-forget
 export type PreSaveHookFn = (
-  data: Record<string, unknown>,
-  context: PipelineContext,
+  changes: Record<string, unknown>,
+  context: PipelineContext & {
+    readonly previous: Readonly<Record<string, unknown>>;
+    readonly isNew: boolean;
+  },
 ) => Promise<Record<string, unknown>>;
 
-export type PostSaveHookFn = (
-  result: { id: number; data: Record<string, unknown> },
-  context: PipelineContext,
-) => Promise<void>;
+export type PostSaveHookFn = (result: SaveContext, context: PipelineContext) => Promise<void>;
 
-export type PreDeleteHookFn = (payload: { id: number }, context: PipelineContext) => Promise<void>;
+export type PreDeleteHookFn = (payload: DeleteContext, context: PipelineContext) => Promise<void>;
 
-export type PostDeleteHookFn = (payload: { id: number }, context: PipelineContext) => Promise<void>;
+export type PostDeleteHookFn = (payload: DeleteContext, context: PipelineContext) => Promise<void>;
 
 export type PreQueryHookFn = (
   payload: Record<string, unknown>,
