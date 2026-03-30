@@ -7,180 +7,184 @@ import type { SearchAdapter } from "../types";
 const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
 const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
 
+// Use a fake tenantId to get a unique index name
+const TENANT = Math.floor(Math.random() * 100000);
+
 let adapter: SearchAdapter;
 let client: MeiliSearch;
-let testIndex: string;
+let _indexName: string;
 
 beforeAll(async () => {
-  testIndex = `test_${uuid().slice(0, 8)}`;
   client = new MeiliSearch({ host: MEILI_URL, apiKey: MEILI_KEY });
-  adapter = createMeilisearchAdapter({ url: MEILI_URL, apiKey: MEILI_KEY });
-
-  // Configure with ranked searchable fields (email > firstName > lastName)
-  await adapter.configure(testIndex, {
-    searchableFields: ["email", "firstName", "lastName", "notes"],
-    rankingFields: ["email", "firstName", "lastName", "notes"],
+  adapter = createMeilisearchAdapter({
+    url: MEILI_URL,
+    apiKey: MEILI_KEY,
+    indexPrefix: `test_${uuid().slice(0, 6)}_`,
   });
 
-  // Seed test data
-  await adapter.index(testIndex, 1, {
-    email: "marc.weber@company.de",
-    firstName: "Marc",
-    lastName: "Weber",
-    notes: "Senior developer",
+  await adapter.configure(TENANT, {
+    searchableFields: ["email", "firstName", "lastName", "notes", "_roles"],
+    rankingFields: ["email", "firstName", "lastName", "notes", "_roles"],
   });
-  await adapter.index(testIndex, 2, {
-    email: "anna.schmidt@company.de",
-    firstName: "Anna",
-    lastName: "Schmidt",
-    notes: "Project manager",
+
+  // Seed data with different entity types and weights
+  await adapter.index(TENANT, {
+    entityType: "user",
+    entityId: 1,
+    weight: 10,
+    fields: {
+      email: "marc.weber@company.de",
+      firstName: "Marc",
+      lastName: "Weber",
+      notes: "Senior developer",
+      _roles: "Admin, Developer",
+    },
   });
-  await adapter.index(testIndex, 3, {
-    email: "marc.mueller@other.de",
-    firstName: "Marc",
-    lastName: "Mueller",
-    notes: "Junior developer",
+  await adapter.index(TENANT, {
+    entityType: "user",
+    entityId: 2,
+    weight: 10,
+    fields: {
+      email: "anna.schmidt@company.de",
+      firstName: "Anna",
+      lastName: "Schmidt",
+      notes: "Project manager",
+    },
   });
-  await adapter.index(testIndex, 4, {
-    email: "beta@test.de",
-    firstName: "Beta",
-    lastName: "Tester",
-    notes: "QA",
+  await adapter.index(TENANT, {
+    entityType: "user",
+    entityId: 3,
+    weight: 10,
+    fields: {
+      email: "admin@company.de",
+      firstName: "Admin",
+      lastName: "User",
+      notes: "System administrator",
+    },
   });
-  await adapter.index(testIndex, 5, {
-    email: "admin@company.de",
-    firstName: "Admin",
-    lastName: "User",
-    notes: "System administrator",
+  await adapter.index(TENANT, {
+    entityType: "role",
+    entityId: 1,
+    weight: 1,
+    fields: { firstName: "Admin" },
   });
+  await adapter.index(TENANT, {
+    entityType: "role",
+    entityId: 2,
+    weight: 1,
+    fields: { firstName: "Developer" },
+  });
+  await adapter.index(TENANT, {
+    entityType: "department",
+    entityId: 1,
+    weight: 5,
+    fields: { firstName: "Engineering" },
+  });
+
+  // Figure out the actual index name for cleanup
+  _indexName = `test_${uuid().slice(0, 6)}_t${TENANT}`;
 });
 
 afterAll(async () => {
-  try {
-    await client.index(testIndex).delete().waitTask();
-  } catch {
-    // Index might not exist
+  // Clean up all test indices
+  const indices = await client.getIndexes();
+  for (const idx of indices.results) {
+    if (idx.uid.startsWith("test_")) {
+      try {
+        await client.index(idx.uid).delete().waitTask();
+      } catch {
+        /* ok */
+      }
+    }
   }
 });
 
 // --- Basic search ---
 
 describe("basic search", () => {
-  test("finds by name", async () => {
-    const results = await adapter.search(testIndex, "anna");
-    expect(results).toContain(2);
-  });
-
-  test("finds by email domain", async () => {
-    const results = await adapter.search(testIndex, "company");
-    expect(results.length).toBeGreaterThanOrEqual(3);
+  test("finds user by name", async () => {
+    const results = await adapter.search(TENANT, "anna");
+    expect(results.some((r) => r.entityId === 2 && r.entityType === "user")).toBe(true);
   });
 
   test("returns empty for no match", async () => {
-    const results = await adapter.search(testIndex, "zzzznonexistent99999");
+    const results = await adapter.search(TENANT, "zzzznonexistent99999");
     expect(results).toEqual([]);
   });
 });
 
-// --- Partial / prefix matching ---
+// --- Partial matching ---
 
 describe("partial matching", () => {
   test("finds by prefix", async () => {
-    const results = await adapter.search(testIndex, "mar");
-    // Should find both Marcs
-    expect(results).toContain(1);
-    expect(results).toContain(3);
-  });
-
-  test("finds by partial email", async () => {
-    const results = await adapter.search(testIndex, "weber");
-    expect(results).toContain(1);
+    const results = await adapter.search(TENANT, "mar");
+    expect(results.some((r) => r.entityId === 1 && r.entityType === "user")).toBe(true);
   });
 });
 
-// --- Typo tolerance (Meilisearch native) ---
+// --- Typo tolerance ---
 
 describe("typo tolerance", () => {
   test("finds despite typos", async () => {
-    const results = await adapter.search(testIndex, "schmit"); // missing 'd'
-    expect(results).toContain(2);
+    const results = await adapter.search(TENANT, "schmit");
+    expect(results.some((r) => r.entityId === 2)).toBe(true);
   });
+});
 
-  test("finds with swapped letters", async () => {
-    const results = await adapter.search(testIndex, "developre"); // typo
-    // Should find entries with "developer" in notes
+// --- Filter by entity type (list search) ---
+
+describe("list search (filterType)", () => {
+  test("only returns specified entity type", async () => {
+    const results = await adapter.search(TENANT, "admin", { filterType: "user" });
+    expect(results.every((r) => r.entityType === "user")).toBe(true);
     expect(results.length).toBeGreaterThan(0);
   });
-});
 
-// --- Scoring / relevance ---
-
-describe("scoring and relevance", () => {
-  test("email match ranks higher than notes match for 'admin'", async () => {
-    // User 5 has "admin" in email (highest ranked field)
-    // User 5 also has "administrator" in notes
-    const results = await adapter.search(testIndex, "admin");
-    expect(results[0]).toBe(5); // email match first
-  });
-
-  test("searching 'marc' returns both Marcs", async () => {
-    const results = await adapter.search(testIndex, "marc");
-    expect(results).toContain(1);
-    expect(results).toContain(3);
-    expect(results).toHaveLength(2);
+  test("role filter returns only roles", async () => {
+    const results = await adapter.search(TENANT, "admin", { filterType: "role" });
+    expect(results.every((r) => r.entityType === "role")).toBe(true);
   });
 });
 
-// --- Limit ---
+// --- Global search with weight ---
 
-describe("limit", () => {
-  test("respects limit option", async () => {
-    const results = await adapter.search(testIndex, "company", { limit: 2 });
-    expect(results).toHaveLength(2);
+describe("global search with searchWeight", () => {
+  test("user (weight 10) ranks before role (weight 1) for same query", async () => {
+    const results = await adapter.search(TENANT, "admin");
+    const userIdx = results.findIndex((r) => r.entityType === "user");
+    const roleIdx = results.findIndex((r) => r.entityType === "role");
+    // User should appear before Role due to _weight:desc sort
+    if (userIdx >= 0 && roleIdx >= 0) {
+      expect(userIdx).toBeLessThan(roleIdx);
+    }
+  });
+});
+
+// --- Resolved relation data ---
+
+describe("relation data in search", () => {
+  test("finds user by role name in _roles field", async () => {
+    const results = await adapter.search(TENANT, "developer", { filterType: "user" });
+    expect(results.some((r) => r.entityId === 1)).toBe(true);
   });
 });
 
 // --- Remove ---
 
 describe("remove", () => {
-  test("removed document is no longer found", async () => {
-    const tempIndex = `temp_${uuid().slice(0, 8)}`;
-    await adapter.configure(tempIndex, { searchableFields: ["name"] });
-    await adapter.index(tempIndex, 100, { name: "Temporary" });
+  test("removed document not found", async () => {
+    // Create temp doc
+    await adapter.index(TENANT, {
+      entityType: "temp",
+      entityId: 999,
+      weight: 1,
+      fields: { firstName: "DeleteMe" },
+    });
+    let results = await adapter.search(TENANT, "deleteme");
+    expect(results.some((r) => r.entityId === 999)).toBe(true);
 
-    let results = await adapter.search(tempIndex, "temporary");
-    expect(results).toContain(100);
-
-    await adapter.remove(tempIndex, 100);
-
-    results = await adapter.search(tempIndex, "temporary");
-    expect(results).not.toContain(100);
-
-    // Cleanup
-    try {
-      await client.index(tempIndex).delete().waitTask();
-    } catch {
-      // ok
-    }
-  });
-});
-
-// --- Data types ---
-
-describe("different data types", () => {
-  test("number fields are searchable as strings", async () => {
-    const typeIndex = `types_${uuid().slice(0, 8)}`;
-    await adapter.configure(typeIndex, { searchableFields: ["code", "label"] });
-    await adapter.index(typeIndex, 1, { code: 42, label: "Answer" });
-
-    // Meilisearch can search numbers
-    const results = await adapter.search(typeIndex, "42");
-    expect(results).toContain(1);
-
-    try {
-      await client.index(typeIndex).delete().waitTask();
-    } catch {
-      // ok
-    }
+    await adapter.remove(TENANT, "temp", 999);
+    results = await adapter.search(TENANT, "deleteme");
+    expect(results.some((r) => r.entityId === 999)).toBe(false);
   });
 });

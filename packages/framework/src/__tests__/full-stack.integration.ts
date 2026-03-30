@@ -52,7 +52,8 @@ beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
   searchAdapter = createInMemorySearchAdapter();
-  await searchAdapter.configure("fullstack_users", {
+  // Tenant 1 — configure search for all fields
+  await searchAdapter.configure(1, {
     searchableFields: ["email", "firstName", "lastName"],
     rankingFields: ["email", "firstName", "lastName"],
   });
@@ -90,6 +91,7 @@ beforeAll(async () => {
         const crud = createCrudExecutor(userTable, userEntity, {
           searchAdapter: sa,
           searchableFields: searchFields,
+          entityName: "user",
         });
         return crud.create(event.payload, event.user, db);
       },
@@ -110,6 +112,7 @@ beforeAll(async () => {
         const crud = createCrudExecutor(userTable, userEntity, {
           searchAdapter: sa,
           searchableFields: searchFields,
+          entityName: "user",
         });
         return crud.list(query.payload, query.user, db);
       },

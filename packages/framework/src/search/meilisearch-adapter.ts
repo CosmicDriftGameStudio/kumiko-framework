@@ -1,58 +1,78 @@
 import { MeiliSearch } from "meilisearch";
-import type { GlobalSearchResult, SearchAdapter } from "./types";
+import type { SearchAdapter, SearchResult } from "./types";
 
 export type MeilisearchAdapterOptions = {
   url: string;
   apiKey: string;
+  indexPrefix?: string;
 };
+
+function tenantIndex(prefix: string, tenantId: number): string {
+  return `${prefix}t${tenantId}`;
+}
+
+function docId(entityType: string, entityId: number): string {
+  return `${entityType}_${entityId}`;
+}
 
 export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): SearchAdapter {
   const client = new MeiliSearch({ host: options.url, apiKey: options.apiKey });
+  const prefix = options.indexPrefix ?? "kumiko_";
 
   return {
-    async configure(entity, config) {
-      const index = client.index(entity);
+    async configure(tenantId, config) {
+      const index = client.index(tenantIndex(prefix, tenantId));
       const fields = config.rankingFields ?? config.searchableFields;
       await index.updateSearchableAttributes([...fields]).waitTask();
+      await index.updateFilterableAttributes(["_type", "_weight"]).waitTask();
+      await index.updateSortableAttributes(["_weight"]).waitTask();
     },
 
-    async index(entity, id, fields) {
-      await client
-        .index(entity)
-        .addDocuments([{ id, ...fields }], { primaryKey: "id" })
+    async index(tenantId, doc) {
+      const index = client.index(tenantIndex(prefix, tenantId));
+      await index
+        .addDocuments(
+          [
+            {
+              _id: docId(doc.entityType, doc.entityId),
+              _type: doc.entityType,
+              _weight: doc.weight,
+              _entityId: doc.entityId,
+              ...doc.fields,
+            },
+          ],
+          { primaryKey: "_id" },
+        )
         .waitTask();
     },
 
-    async search(entity, query, options) {
-      const results = await client.index(entity).search(query, {
-        limit: options?.limit ?? 50,
-      });
-      return results.hits.map((hit) => hit["id"] as number);
-    },
+    async search(tenantId, query, options) {
+      const index = client.index(tenantIndex(prefix, tenantId));
 
-    async globalSearch(query, entities, options) {
-      const limit = options?.limit ?? 10;
-      const queries = entities.map((entity) => ({
-        indexUid: entity,
-        q: query,
-        limit,
-      }));
-
-      const multiResult = await client.multiSearch({ queries });
-      const results: GlobalSearchResult[] = [];
-
-      for (const result of multiResult.results) {
-        const ids = result.hits.map((hit) => hit["id"] as number);
-        if (ids.length > 0) {
-          results.push({ entity: result.indexUid, ids });
-        }
+      const filter: string[] = [];
+      if (options?.filterType) {
+        filter.push(`_type = "${options.filterType}"`);
       }
 
-      return results;
+      const searchParams: Record<string, unknown> = {
+        limit: options?.limit ?? 50,
+        sort: ["_weight:desc"],
+      };
+      if (filter.length > 0) searchParams["filter"] = filter;
+
+      const results = await index.search(query, searchParams);
+
+      return results.hits.map(
+        (hit): SearchResult => ({
+          entityType: hit["_type"] as string,
+          entityId: hit["_entityId"] as number,
+        }),
+      );
     },
 
-    async remove(entity, id) {
-      await client.index(entity).deleteDocument(id).waitTask();
+    async remove(tenantId, entityType, entityId) {
+      const index = client.index(tenantIndex(prefix, tenantId));
+      await index.deleteDocument(docId(entityType, entityId)).waitTask();
     },
   };
 }

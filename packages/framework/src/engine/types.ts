@@ -49,6 +49,7 @@ export type EntityDefinition = {
   readonly table: string;
   readonly fields: Readonly<Record<string, FieldDefinition>>;
   readonly softDelete?: boolean;
+  readonly searchWeight?: number;
 };
 
 // --- Relations ---

@@ -11,6 +11,7 @@ type Table = PgTableWithColumns<any>;
 export type CrudExecutorOptions = {
   searchAdapter?: SearchAdapter;
   searchableFields?: readonly string[];
+  entityName?: string;
 };
 
 export type CrudExecutor = {
@@ -57,7 +58,8 @@ export function createCrudExecutor(
   options: CrudExecutorOptions = {},
 ): CrudExecutor {
   const softDelete = entity.softDelete ?? false;
-  const { searchAdapter, searchableFields } = options;
+  const { searchAdapter, searchableFields, entityName } = options;
+  const searchWeight = entity.searchWeight ?? 1;
 
   function tenantAndId(tenantId: number, id: number) {
     const conditions = [eq(table["tenantId"], tenantId), eq(table["id"], id)];
@@ -67,13 +69,22 @@ export function createCrudExecutor(
     return and(...conditions);
   }
 
-  async function indexForSearch(id: number, payload: Record<string, unknown>): Promise<void> {
-    if (!searchAdapter || !searchableFields) return;
+  async function indexForSearch(
+    tenantId: number,
+    id: number,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    if (!searchAdapter || !searchableFields || !entityName) return;
     const fields: Record<string, unknown> = {};
     for (const f of searchableFields) {
       if (payload[f] !== undefined) fields[f] = payload[f];
     }
-    await searchAdapter.index(entity.table, id, fields);
+    await searchAdapter.index(tenantId, {
+      entityType: entityName,
+      entityId: id,
+      weight: searchWeight,
+      fields,
+    });
   }
 
   return {
@@ -90,7 +101,7 @@ export function createCrudExecutor(
 
       if (!row) return { isSuccess: false, error: "insert_failed" };
       const data = row as Record<string, unknown>;
-      await indexForSearch(data["id"] as number, data);
+      await indexForSearch(user.tenantId, data["id"] as number, data);
       return { isSuccess: true, data };
     },
 
@@ -107,7 +118,7 @@ export function createCrudExecutor(
 
       if (!row) return { isSuccess: false, error: "not_found" };
       const data = row as Record<string, unknown>;
-      await indexForSearch(data["id"] as number, data);
+      await indexForSearch(user.tenantId, data["id"] as number, data);
       return { isSuccess: true, data };
     },
 
@@ -124,7 +135,8 @@ export function createCrudExecutor(
           .returning();
 
         if (!row) return { isSuccess: false, error: "not_found" };
-        if (searchAdapter) await searchAdapter.remove(entity.table, payload.id);
+        if (searchAdapter && entityName)
+          await searchAdapter.remove(user.tenantId, entityName, payload.id);
         return { isSuccess: true, data: true };
       }
 
@@ -134,7 +146,8 @@ export function createCrudExecutor(
         .returning();
 
       if (!row) return { isSuccess: false, error: "not_found" };
-      if (searchAdapter) await searchAdapter.remove(entity.table, payload.id);
+      if (searchAdapter && entityName)
+        await searchAdapter.remove(user.tenantId, entityName, payload.id);
       return { isSuccess: true, data: true };
     },
 
@@ -147,9 +160,12 @@ export function createCrudExecutor(
       if (payload.sort) opts.sort = payload.sort;
       if (payload.sortDirection) opts.sortDirection = payload.sortDirection;
 
-      // Search goes through SearchAdapter, not SQL
-      if (payload.search && searchAdapter) {
-        const ids = await searchAdapter.search(entity.table, payload.search);
+      // Search goes through SearchAdapter — tenant-scoped, type-filtered
+      if (payload.search && searchAdapter && entityName) {
+        const results = await searchAdapter.search(user.tenantId, payload.search, {
+          filterType: entityName,
+        });
+        const ids = results.map((r) => r.entityId);
         if (ids.length === 0) return { rows: [], nextCursor: null };
         opts.filterIds = ids;
       }

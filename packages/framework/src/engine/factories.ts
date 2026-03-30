@@ -58,10 +58,14 @@ export function createDateField(overrides?: Partial<Omit<DateFieldDef, "type">>)
 }
 
 export function createEntity(
-  def: Omit<EntityDefinition, "softDelete"> & { softDelete?: boolean },
+  def: Omit<EntityDefinition, "softDelete" | "searchWeight"> & {
+    softDelete?: boolean;
+    searchWeight?: number;
+  },
 ): EntityDefinition {
   return {
     softDelete: false,
+    searchWeight: 1,
     ...def,
   };
 }

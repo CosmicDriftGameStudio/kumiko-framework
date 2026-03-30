@@ -1,108 +1,107 @@
-import type { SearchAdapter } from "./types";
+import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types";
 
-type IndexEntry = {
-  id: number;
-  fields: Record<string, string>;
+type StoredDoc = {
+  entityType: string;
+  entityId: number;
+  weight: number;
+  text: Record<string, string>;
 };
 
-type EntityConfig = {
-  searchableFields: readonly string[];
-  rankingFields: readonly string[];
+type TenantIndex = {
+  config: SearchAdapterConfig;
+  docs: Map<string, StoredDoc>;
 };
+
+function docKey(entityType: string, entityId: number): string {
+  return `${entityType}:${entityId}`;
+}
 
 export function createInMemorySearchAdapter(): SearchAdapter {
-  const indices = new Map<string, Map<number, IndexEntry>>();
-  const configs = new Map<string, EntityConfig>();
+  const tenants = new Map<number, TenantIndex>();
 
-  function getOrCreateIndex(entity: string): Map<number, IndexEntry> {
-    let index = indices.get(entity);
-    if (!index) {
-      index = new Map();
-      indices.set(entity, index);
+  function getTenant(tenantId: number): TenantIndex {
+    let tenant = tenants.get(tenantId);
+    if (!tenant) {
+      tenant = { config: { searchableFields: [] }, docs: new Map() };
+      tenants.set(tenantId, tenant);
     }
-    return index;
-  }
-
-  function getConfig(entity: string): EntityConfig {
-    return configs.get(entity) ?? { searchableFields: [], rankingFields: [] };
+    return tenant;
   }
 
   return {
-    async configure(entity, config) {
-      configs.set(entity, {
-        searchableFields: config.searchableFields,
-        rankingFields: config.rankingFields ?? config.searchableFields,
+    async configure(tenantId, config) {
+      const tenant = getTenant(tenantId);
+      tenant.config = config;
+    },
+
+    async index(tenantId, doc) {
+      const tenant = getTenant(tenantId);
+      const text: Record<string, string> = {};
+
+      for (const [key, value] of Object.entries(doc.fields)) {
+        if (value !== null && value !== undefined) {
+          text[key] = String(value).toLowerCase();
+        }
+      }
+
+      tenant.docs.set(docKey(doc.entityType, doc.entityId), {
+        entityType: doc.entityType,
+        entityId: doc.entityId,
+        weight: doc.weight,
+        text,
       });
     },
 
-    async index(entity, id, fields) {
-      const stringFields: Record<string, string> = {};
-      for (const [key, value] of Object.entries(fields)) {
-        if (value !== null && value !== undefined) {
-          stringFields[key] = String(value).toLowerCase();
-        }
-      }
-      getOrCreateIndex(entity).set(id, { id, fields: stringFields });
-    },
-
-    async search(entity, query, options) {
-      const index = indices.get(entity);
-      if (!index) return [];
+    async search(tenantId, query, options) {
+      const tenant = tenants.get(tenantId);
+      if (!tenant) return [];
 
       const q = query.toLowerCase();
       const limit = options?.limit ?? 50;
-      const config = getConfig(entity);
-      const rankingFields = config.rankingFields.length > 0 ? config.rankingFields : null;
+      const filterType = options?.filterType;
+      const rankingFields = tenant.config.rankingFields ?? tenant.config.searchableFields;
 
-      const scored: Array<{ id: number; score: number }> = [];
+      const scored: Array<{ result: SearchResult; score: number }> = [];
 
-      for (const entry of index.values()) {
-        let score = 0;
+      for (const doc of tenant.docs.values()) {
+        if (filterType && doc.entityType !== filterType) continue;
+
+        let matchScore = 0;
         const fieldsToSearch =
-          config.searchableFields.length > 0 ? config.searchableFields : Object.keys(entry.fields);
+          tenant.config.searchableFields.length > 0
+            ? [...tenant.config.searchableFields]
+            : Object.keys(doc.text);
 
-        for (let i = 0; i < fieldsToSearch.length; i++) {
-          const fieldName = fieldsToSearch[i]!;
-          const value = entry.fields[fieldName];
-          if (!value) continue;
+        for (const fieldName of fieldsToSearch) {
+          const value = doc.text[fieldName];
+          if (!value?.includes(q)) continue;
 
-          if (value.includes(q)) {
-            // Field ranking: earlier in rankingFields = much higher weight
-            const rankIndex = rankingFields?.indexOf(fieldName) ?? -1;
-            const fieldWeight =
-              rankIndex >= 0 && rankingFields ? (rankingFields.length - rankIndex) * 1000 : 1;
+          // Field ranking: earlier in ranking = higher weight
+          const rankIndex = rankingFields.indexOf(fieldName);
+          const fieldWeight = rankIndex >= 0 ? (rankingFields.length - rankIndex) * 100 : 1;
 
-            // Match quality bonuses (secondary to field ranking)
-            const exactBonus = value === q ? 100 : 0;
-            const prefixBonus = value.startsWith(q) ? 50 : 0;
+          const exactBonus = value === q ? 50 : 0;
+          const prefixBonus = value.startsWith(q) ? 25 : 0;
 
-            score += fieldWeight + exactBonus + prefixBonus;
-          }
+          matchScore += fieldWeight + exactBonus + prefixBonus;
         }
 
-        if (score > 0) {
-          scored.push({ id: entry.id, score });
+        if (matchScore > 0) {
+          // Entity weight multiplier from searchWeight
+          const totalScore = matchScore * doc.weight;
+          scored.push({
+            result: { entityType: doc.entityType, entityId: doc.entityId },
+            score: totalScore,
+          });
         }
       }
 
-      // Sort by score descending
       scored.sort((a, b) => b.score - a.score);
-      return scored.slice(0, limit).map((s) => s.id);
+      return scored.slice(0, limit).map((s) => s.result);
     },
 
-    async globalSearch(query, entities, options) {
-      const results: Array<{ entity: string; ids: number[] }> = [];
-      for (const entity of entities) {
-        const ids = await this.search(entity, query, options);
-        if (ids.length > 0) {
-          results.push({ entity, ids });
-        }
-      }
-      return results;
-    },
-
-    async remove(entity, id) {
-      indices.get(entity)?.delete(id);
+    async remove(tenantId, entityType, entityId) {
+      tenants.get(tenantId)?.docs.delete(docKey(entityType, entityId));
     },
   };
 }

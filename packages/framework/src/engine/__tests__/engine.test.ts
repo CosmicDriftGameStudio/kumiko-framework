@@ -497,38 +497,57 @@ describe("registry relations", () => {
   });
 });
 
-// --- Global Search ---
+// --- Global Search (new tenant-based API) ---
 
-describe("global search (InMemory)", () => {
-  test("searches across multiple entity indices", async () => {
+describe("global search", () => {
+  test("searches across entity types in same tenant", async () => {
     const { createInMemorySearchAdapter } = await import("../../search");
     const adapter = createInMemorySearchAdapter();
+    await adapter.configure(1, { searchableFields: ["email", "name", "title"] });
 
-    await adapter.configure("user", { searchableFields: ["email", "name"] });
-    await adapter.configure("project", { searchableFields: ["title"] });
+    await adapter.index(1, {
+      entityType: "user",
+      entityId: 1,
+      weight: 10,
+      fields: { email: "marc@test.de", name: "Marc" },
+    });
+    await adapter.index(1, {
+      entityType: "project",
+      entityId: 10,
+      weight: 5,
+      fields: { title: "Marc's Project" },
+    });
 
-    await adapter.index("user", 1, { email: "marc@test.de", name: "Marc" });
-    await adapter.index("project", 10, { title: "Marc's Project" });
-
-    const results = await adapter.globalSearch("marc", ["user", "project"]);
-
+    const results = await adapter.search(1, "marc");
     expect(results).toHaveLength(2);
-    expect(results.find((r) => r.entity === "user")?.ids).toContain(1);
-    expect(results.find((r) => r.entity === "project")?.ids).toContain(10);
+    expect(results[0]?.entityType).toBe("user"); // higher weight
+    expect(results[1]?.entityType).toBe("project");
   });
 
-  test("global search only returns entities with matches", async () => {
+  test("no filter = all types, filterType = one type", async () => {
     const { createInMemorySearchAdapter } = await import("../../search");
     const adapter = createInMemorySearchAdapter();
+    await adapter.configure(1, { searchableFields: ["name"] });
 
-    await adapter.configure("user", { searchableFields: ["name"] });
-    await adapter.configure("project", { searchableFields: ["title"] });
+    await adapter.index(1, {
+      entityType: "user",
+      entityId: 1,
+      weight: 1,
+      fields: { name: "Marc" },
+    });
+    await adapter.index(1, {
+      entityType: "project",
+      entityId: 10,
+      weight: 1,
+      fields: { name: "Kumiko" },
+    });
 
-    await adapter.index("user", 1, { name: "Marc" });
-    await adapter.index("project", 10, { title: "Kumiko" });
+    const all = await adapter.search(1, "marc");
+    expect(all).toHaveLength(1);
+    expect(all[0]?.entityType).toBe("user");
 
-    const results = await adapter.globalSearch("marc", ["user", "project"]);
-    expect(results).toHaveLength(1);
-    expect(results[0]?.entity).toBe("user");
+    const projects = await adapter.search(1, "kumiko", { filterType: "project" });
+    expect(projects).toHaveLength(1);
+    expect(projects[0]?.entityType).toBe("project");
   });
 });
