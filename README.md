@@ -71,7 +71,7 @@ node -e "const p = require('./features/admin-users/package.json'); console.log(p
 - Factory Functions: `createTextField()`, `createEntity()`, etc.
 
 ```bash
-# Verify: 98 Tests (Step 2-9)
+# Verify: 105 Tests (Step 2-10)
 yarn kumiko test packages/framework/src/engine
 
 # Verify: Feature mit Handler definieren
@@ -186,3 +186,10 @@ yarn kumiko test integration
 - `dispatcher.command("type", payload, user)` — Fire-and-forget
 - Automatisch: Zod-Validation, Access-Check, Validation Hooks
 - Kein Handler kann diese Checks umgehen
+
+### Step 10: Redis Pipeline (Event Broker + Idempotency + Event Log)
+
+- `createEventBroker(pub, sub)` — Redis Pub/Sub fuer SharedEvents
+- `createIdempotencyGuard(redis)` — Dedupliziert Writes per Request-ID (TTL-basiert)
+- `createEventLog(redis)` — Append-only Event Log via Redis Streams
+- `createTestRedis()` — Isolierte Redis-DB pro Test-Suite

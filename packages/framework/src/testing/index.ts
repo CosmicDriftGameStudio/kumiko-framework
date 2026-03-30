@@ -49,6 +49,31 @@ export async function createTestDb(baseUrl?: string): Promise<TestDb> {
   };
 }
 
+// --- Redis ---
+
+export type TestRedis = {
+  redis: import("ioredis").default;
+  cleanup: () => Promise<void>;
+};
+
+export async function createTestRedis(): Promise<TestRedis> {
+  const Redis = (await import("ioredis")).default;
+  const redisUrl = requireEnv("REDIS_URL");
+  const dbIndex = Math.floor(Math.random() * 15) + 1;
+  const redis = new Redis(redisUrl, { db: dbIndex });
+  await redis.flushdb();
+
+  return {
+    redis,
+    cleanup: async () => {
+      await redis.flushdb();
+      redis.disconnect();
+    },
+  };
+}
+
+// --- Helpers ---
+
 export async function createTestTable(
   db: ReturnType<typeof drizzle>,
   tableSql: string,
