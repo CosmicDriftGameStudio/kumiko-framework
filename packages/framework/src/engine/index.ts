@@ -13,7 +13,6 @@ export {
 } from "./factories";
 export { createRegistry } from "./registry";
 export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
-
 // Types
 export type {
   AccessRule,
@@ -34,8 +33,11 @@ export type {
   TextFieldDef,
   TranslationKeys,
   TranslationsDef,
+  ValidationError,
+  ValidationHookFn,
   WriteEvent,
   WriteHandlerDef,
   WriteHandlerFn,
   WriteResult,
 } from "./types";
+export { runValidation } from "./validation";

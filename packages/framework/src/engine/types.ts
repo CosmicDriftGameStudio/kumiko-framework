@@ -125,6 +125,19 @@ export type TranslationsDef = {
   readonly keys: TranslationKeys;
 };
 
+// --- Hooks ---
+
+export type ValidationError = {
+  readonly field: string;
+  readonly error: string;
+};
+
+export type ValidationHookFn = (
+  data: Readonly<Record<string, unknown>>,
+) => readonly ValidationError[] | null;
+
+export type HookMap = Readonly<Record<string, Readonly<Record<string, ValidationHookFn>>>>;
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
@@ -133,6 +146,7 @@ export type FeatureDefinition = {
   readonly writeHandlers: Readonly<Record<string, WriteHandlerDef>>;
   readonly queryHandlers: Readonly<Record<string, QueryHandlerDef>>;
   readonly translations: TranslationKeys;
+  readonly hooks: HookMap;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -155,6 +169,8 @@ export type FeatureRegistrar = {
   ): void;
 
   crud(entityName: string, options?: { access?: AccessRule }): void;
+
+  hook(type: "validation", name: string, fn: ValidationHookFn): void;
 
   translations(def: TranslationsDef): void;
 };

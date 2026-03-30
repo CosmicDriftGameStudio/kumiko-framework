@@ -9,6 +9,7 @@ import type {
   QueryHandlerFn,
   TranslationKeys,
   TranslationsDef,
+  ValidationHookFn,
   WriteHandlerDef,
   WriteHandlerFn,
 } from "./types";
@@ -20,6 +21,7 @@ export function defineFeature(
   const entities: Record<string, EntityDefinition> = {};
   const writeHandlers: Record<string, WriteHandlerDef> = {};
   const queryHandlers: Record<string, QueryHandlerDef> = {};
+  const hooks: Record<string, Record<string, ValidationHookFn>> = {};
   let translations: TranslationKeys = {};
 
   const registrar: FeatureRegistrar = {
@@ -67,6 +69,11 @@ export function defineFeature(
       Object.assign(queryHandlers, crud.queryHandlers);
     },
 
+    hook(type: "validation", hookName: string, fn: ValidationHookFn): void {
+      if (!hooks[type]) hooks[type] = {};
+      hooks[type][hookName] = fn;
+    },
+
     translations(def: TranslationsDef): void {
       translations = { ...translations, ...def.keys };
     },
@@ -80,5 +87,6 @@ export function defineFeature(
     writeHandlers,
     queryHandlers,
     translations,
+    hooks,
   };
 }

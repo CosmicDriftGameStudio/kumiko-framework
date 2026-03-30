@@ -71,7 +71,7 @@ node -e "const p = require('./features/admin-users/package.json'); console.log(p
 - Factory Functions: `createTextField()`, `createEntity()`, etc.
 
 ```bash
-# Verify: 48 Engine Tests (Step 2 + 3 + 4)
+# Verify: 59 Tests (Step 2-6)
 yarn kumiko test packages/framework/src/engine
 
 # Verify: Feature mit Handler definieren
@@ -138,3 +138,15 @@ console.log('Write handlers:', Object.keys(feature.writeHandlers));
 console.log('Query handlers:', Object.keys(feature.queryHandlers));
 "
 ```
+
+### Step 5: i18n Engine
+
+- `createI18n(registry, { defaultLocale: "de" })` — Translations aus allen Features
+- Fallback auf Default-Locale wenn Sprache fehlt
+- Key zurueck wenn Translation nicht existiert
+
+### Step 6: Validation Hooks
+
+- `r.hook("validation", "formName", fn)` — Custom Validation pro Feature
+- `runValidation(registry, "formName", data)` — Sammelt Errors aus allen Features
+- Cross-Field Validation, Business Rules — was Zod allein nicht kann
