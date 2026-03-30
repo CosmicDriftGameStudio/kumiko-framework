@@ -52,6 +52,10 @@ beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
   searchAdapter = createInMemorySearchAdapter();
+  await searchAdapter.configure("fullstack_users", {
+    searchableFields: ["email", "firstName", "lastName"],
+    rankingFields: ["email", "firstName", "lastName"],
+  });
 
   await testDb.db.execute(sql`
     CREATE TABLE fullstack_users (
@@ -225,6 +229,76 @@ describe("full stack: HTTP -> Auth -> Dispatch -> DB", () => {
     });
     const body = await detailRes.json();
     expect(body.data).toBeNull();
+  });
+});
+
+describe("full stack: search + sorting combined", () => {
+  test("sort results by lastName ASC", async () => {
+    // Create users with known lastNames
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "sort-z@test.de", firstName: "Zara", lastName: "Zebra" },
+    });
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "sort-a@test.de", firstName: "Adam", lastName: "Alpha" },
+    });
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "sort-m@test.de", firstName: "Mia", lastName: "Mitte" },
+    });
+
+    const res = await req("POST", "/api/query", adminUser, {
+      type: "user.list",
+      payload: { sort: "lastName", sortDirection: "asc" },
+    });
+    const body = await res.json();
+    const names = body.data.rows.map((r: Record<string, unknown>) => r["lastName"]).filter(Boolean);
+    const sorted = [...names].sort();
+    expect(names).toEqual(sorted);
+  });
+
+  test("sort results by lastName DESC", async () => {
+    const res = await req("POST", "/api/query", adminUser, {
+      type: "user.list",
+      payload: { sort: "lastName", sortDirection: "desc" },
+    });
+    const body = await res.json();
+    const names = body.data.rows.map((r: Record<string, unknown>) => r["lastName"]).filter(Boolean);
+    const sorted = [...names].sort().reverse();
+    expect(names).toEqual(sorted);
+  });
+
+  test("search + sort combined: find and sort", async () => {
+    // Search for "sort-" prefix in email, sort by lastName
+    const res = await req("POST", "/api/query", adminUser, {
+      type: "user.list",
+      payload: { search: "sort-", sort: "lastName", sortDirection: "asc" },
+    });
+    const body = await res.json();
+    const names = body.data.rows.map((r: Record<string, unknown>) => r["lastName"]);
+    expect(names).toEqual(["Alpha", "Mitte", "Zebra"]);
+  });
+
+  test("search scoring: email match ranks higher", async () => {
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "findme@test.de", firstName: "Other", lastName: "Person" },
+    });
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "other@test.de", firstName: "Findme", lastName: "Name" },
+    });
+
+    const res = await req("POST", "/api/query", adminUser, {
+      type: "user.list",
+      payload: { search: "findme" },
+    });
+    const body = await res.json();
+    // Both should be found
+    expect(body.data.rows.length).toBeGreaterThanOrEqual(2);
+    // Email match (findme@test.de) should come first due to ranking
+    expect(body.data.rows[0]["email"]).toBe("findme@test.de");
   });
 });
 

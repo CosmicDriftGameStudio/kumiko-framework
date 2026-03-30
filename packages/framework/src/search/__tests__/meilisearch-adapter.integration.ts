@@ -15,6 +15,44 @@ beforeAll(async () => {
   testIndex = `test_${uuid().slice(0, 8)}`;
   client = new MeiliSearch({ host: MEILI_URL, apiKey: MEILI_KEY });
   adapter = createMeilisearchAdapter({ url: MEILI_URL, apiKey: MEILI_KEY });
+
+  // Configure with ranked searchable fields (email > firstName > lastName)
+  await adapter.configure(testIndex, {
+    searchableFields: ["email", "firstName", "lastName", "notes"],
+    rankingFields: ["email", "firstName", "lastName", "notes"],
+  });
+
+  // Seed test data
+  await adapter.index(testIndex, 1, {
+    email: "marc.weber@company.de",
+    firstName: "Marc",
+    lastName: "Weber",
+    notes: "Senior developer",
+  });
+  await adapter.index(testIndex, 2, {
+    email: "anna.schmidt@company.de",
+    firstName: "Anna",
+    lastName: "Schmidt",
+    notes: "Project manager",
+  });
+  await adapter.index(testIndex, 3, {
+    email: "marc.mueller@other.de",
+    firstName: "Marc",
+    lastName: "Mueller",
+    notes: "Junior developer",
+  });
+  await adapter.index(testIndex, 4, {
+    email: "beta@test.de",
+    firstName: "Beta",
+    lastName: "Tester",
+    notes: "QA",
+  });
+  await adapter.index(testIndex, 5, {
+    email: "admin@company.de",
+    firstName: "Admin",
+    lastName: "User",
+    notes: "System administrator",
+  });
 });
 
 afterAll(async () => {
@@ -25,39 +63,124 @@ afterAll(async () => {
   }
 });
 
-describe("MeilisearchAdapter", () => {
-  test("indexes and searches documents", async () => {
-    await adapter.index(testIndex, 1, { email: "marc@test.de", firstName: "Marc" });
-    await adapter.index(testIndex, 2, { email: "anna@test.de", firstName: "Anna" });
-    await adapter.index(testIndex, 3, { email: "beta@test.de", firstName: "Beta" });
+// --- Basic search ---
 
+describe("basic search", () => {
+  test("finds by name", async () => {
+    const results = await adapter.search(testIndex, "anna");
+    expect(results).toContain(2);
+  });
+
+  test("finds by email domain", async () => {
+    const results = await adapter.search(testIndex, "company");
+    expect(results.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("returns empty for no match", async () => {
+    const results = await adapter.search(testIndex, "zzzznonexistent99999");
+    expect(results).toEqual([]);
+  });
+});
+
+// --- Partial / prefix matching ---
+
+describe("partial matching", () => {
+  test("finds by prefix", async () => {
+    const results = await adapter.search(testIndex, "mar");
+    // Should find both Marcs
+    expect(results).toContain(1);
+    expect(results).toContain(3);
+  });
+
+  test("finds by partial email", async () => {
+    const results = await adapter.search(testIndex, "weber");
+    expect(results).toContain(1);
+  });
+});
+
+// --- Typo tolerance (Meilisearch native) ---
+
+describe("typo tolerance", () => {
+  test("finds despite typos", async () => {
+    const results = await adapter.search(testIndex, "schmit"); // missing 'd'
+    expect(results).toContain(2);
+  });
+
+  test("finds with swapped letters", async () => {
+    const results = await adapter.search(testIndex, "developre"); // typo
+    // Should find entries with "developer" in notes
+    expect(results.length).toBeGreaterThan(0);
+  });
+});
+
+// --- Scoring / relevance ---
+
+describe("scoring and relevance", () => {
+  test("email match ranks higher than notes match for 'admin'", async () => {
+    // User 5 has "admin" in email (highest ranked field)
+    // User 5 also has "administrator" in notes
+    const results = await adapter.search(testIndex, "admin");
+    expect(results[0]).toBe(5); // email match first
+  });
+
+  test("searching 'marc' returns both Marcs", async () => {
     const results = await adapter.search(testIndex, "marc");
     expect(results).toContain(1);
-    expect(results).not.toContain(2);
+    expect(results).toContain(3);
+    expect(results).toHaveLength(2);
   });
+});
 
-  test("search is fuzzy and typo-tolerant", async () => {
-    await adapter.index(testIndex, 10, { name: "Philadelphia" });
+// --- Limit ---
 
-    // Meilisearch handles typos
-    const results = await adapter.search(testIndex, "philadelpha");
-    expect(results).toContain(10);
+describe("limit", () => {
+  test("respects limit option", async () => {
+    const results = await adapter.search(testIndex, "company", { limit: 2 });
+    expect(results).toHaveLength(2);
   });
+});
 
-  test("remove deletes from index", async () => {
-    await adapter.index(testIndex, 20, { name: "ToDelete" });
+// --- Remove ---
 
-    let results = await adapter.search(testIndex, "ToDelete");
-    expect(results).toContain(20);
+describe("remove", () => {
+  test("removed document is no longer found", async () => {
+    const tempIndex = `temp_${uuid().slice(0, 8)}`;
+    await adapter.configure(tempIndex, { searchableFields: ["name"] });
+    await adapter.index(tempIndex, 100, { name: "Temporary" });
 
-    await adapter.remove(testIndex, 20);
+    let results = await adapter.search(tempIndex, "temporary");
+    expect(results).toContain(100);
 
-    results = await adapter.search(testIndex, "ToDelete");
-    expect(results).not.toContain(20);
+    await adapter.remove(tempIndex, 100);
+
+    results = await adapter.search(tempIndex, "temporary");
+    expect(results).not.toContain(100);
+
+    // Cleanup
+    try {
+      await client.index(tempIndex).delete().waitTask();
+    } catch {
+      // ok
+    }
   });
+});
 
-  test("search returns empty for no matches", async () => {
-    const results = await adapter.search(testIndex, "zzzznonexistent12345");
-    expect(results).toEqual([]);
+// --- Data types ---
+
+describe("different data types", () => {
+  test("number fields are searchable as strings", async () => {
+    const typeIndex = `types_${uuid().slice(0, 8)}`;
+    await adapter.configure(typeIndex, { searchableFields: ["code", "label"] });
+    await adapter.index(typeIndex, 1, { code: 42, label: "Answer" });
+
+    // Meilisearch can search numbers
+    const results = await adapter.search(typeIndex, "42");
+    expect(results).toContain(1);
+
+    try {
+      await client.index(typeIndex).delete().waitTask();
+    } catch {
+      // ok
+    }
   });
 });
