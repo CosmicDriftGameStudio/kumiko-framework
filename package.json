@@ -1,0 +1,20 @@
+{
+  "name": "kumiko",
+  "private": true,
+  "workspaces": [
+    "packages/framework",
+    "features/*",
+    "app"
+  ],
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc --build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "bun-types": "^1.2.9",
+    "typescript": "^5.8.2",
+    "vitest": "^3.1.1"
+  }
+}

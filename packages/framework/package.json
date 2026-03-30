@@ -1,0 +1,27 @@
+{
+  "name": "@kumiko/framework",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./engine": "./src/engine/index.ts",
+    "./db": "./src/db/index.ts",
+    "./pipeline": "./src/pipeline/index.ts",
+    "./api": "./src/api/index.ts",
+    "./ui": "./src/ui/index.ts",
+    "./i18n": "./src/i18n/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.40.0",
+    "hono": "^4.7.5",
+    "ioredis": "^5.6.0",
+    "jose": "^6.0.11",
+    "zod": "^3.24.2",
+    "i18next": "^25.0.1"
+  },
+  "devDependencies": {
+    "bun-types": "^1.2.9"
+  }
+}
