@@ -1,53 +1,80 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun";
+import { existsSync } from "node:fs";
+
+// --- ENV Check ---
+
+const REQUIRED_ENVS = {
+  DATABASE_URL: "PostgreSQL connection string",
+  TEST_DATABASE_URL: "PostgreSQL test DB connection string",
+  REDIS_URL: "Redis connection string",
+  JWT_SECRET: "JWT signing secret",
+} as const;
+
+function checkEnv(): void {
+  if (!existsSync(".env")) {
+    console.warn("\n  WARNING: No .env file found. Run: cp .env.example .env\n");
+    return;
+  }
+
+  const missing: string[] = [];
+  for (const [name, desc] of Object.entries(REQUIRED_ENVS)) {
+    if (!Bun.env[name]) missing.push(`  ${name} — ${desc}`);
+  }
+
+  if (missing.length > 0) {
+    console.warn(`\n  Hmm, da fehlt was:\n${missing.join("\n")}\n  -> cp .env.example .env\n`);
+  } else {
+    console.log("  ENV ok");
+  }
+}
 
 // --- Commands ---
 
 const commands = {
   dev: {
-    description: "Start Docker services (PostgreSQL + Redis)",
+    description: "Feuer frei! Docker Services hochfahren",
     run: async () => {
-      console.log("Starting services...");
+      console.log("Wecke PostgreSQL und Redis auf...");
       await $`docker compose up -d`.quiet();
       await waitForPostgres();
-      console.log(`  PostgreSQL: localhost:${Bun.env.KUMIKO_PG_PORT ?? "15432"}`);
-      console.log(`  Redis:      localhost:${Bun.env.KUMIKO_REDIS_PORT ?? "16379"}`);
-      console.log("Ready.");
+      console.log(`  PostgreSQL  localhost:${Bun.env.KUMIKO_PG_PORT ?? "15432"}`);
+      console.log(`  Redis       localhost:${Bun.env.KUMIKO_REDIS_PORT ?? "16379"}`);
+      console.log("\nLaeuft! Happy coding.");
     },
   },
 
   stop: {
-    description: "Stop Docker services",
+    description: "Feierabend. Docker Services stoppen",
     run: async () => {
-      console.log("Stopping services...");
+      console.log("Fahre alles runter...");
       await $`docker compose down`.quiet();
-      console.log("Stopped.");
+      console.log("Alles aus. Bis morgen!");
     },
   },
 
   reset: {
-    description: "Wipe everything and start fresh",
+    description: "Tabula rasa. Alles platt, alles neu",
     run: async () => {
-      console.log("Resetting...");
+      console.log("Loesche alles und starte frisch...");
       await $`docker compose down -v`.quiet();
       await $`docker compose up -d`.quiet();
       await waitForPostgres();
-      // db migrate + seed come with Step 7
-      console.log("Reset complete.");
+      console.log("Wie neu. Kein Byte ueberlebt.");
     },
   },
 
   test: {
-    description: "Run tests (test | test integration | test all | test <path>)",
+    description: "Tests laufen lassen (test | integration | all | <path>)",
     run: async () => {
       const scope = Bun.argv[3];
       if (scope === "all") {
-        console.log("Running unit + integration tests...\n");
+        console.log("Volle Breitseite — Unit + Integration...\n");
         await $`yarn vitest run`;
         await $`yarn vitest run --config vitest.integration.config.ts`;
       } else if (scope === "integration") {
-        console.log("Running integration tests (Docker required)...\n");
+        console.log("Integration Tests (Docker muss laufen)...\n");
         await $`yarn vitest run --config vitest.integration.config.ts`;
       } else if (scope) {
         await $`yarn vitest run ${scope}`;
@@ -58,9 +85,9 @@ const commands = {
   },
 
   check: {
-    description: "Run Biome + TypeScript + Tests",
+    description: "Alles pruefen: Lint, Types, Tests",
     run: async () => {
-      console.log("Running all checks...\n");
+      console.log("Checke alles durch...\n");
       const results: Array<{ name: string; ok: boolean }> = [];
 
       for (const [name, cmd] of [
@@ -79,17 +106,18 @@ const commands = {
         console.log();
       }
 
-      console.log("Results:");
+      const allGood = results.every((r) => r.ok);
+      console.log(allGood ? "Alles im gruenen Bereich!" : "Da gibt's was zu tun:");
       for (const r of results) {
         console.log(`  ${r.ok ? "PASS" : "FAIL"} ${r.name}`);
       }
 
-      if (results.some((r) => !r.ok)) process.exit(1);
+      if (!allGood) process.exit(1);
     },
   },
 
   status: {
-    description: "Show project status",
+    description: "Was geht? Services, Git, alles auf einen Blick",
     run: async () => {
       // Docker services
       console.log("--- Services ---");
@@ -120,11 +148,11 @@ const commands = {
 async function interactiveMenu(): Promise<void> {
   const entries = Object.entries(commands);
 
-  console.log("\n  kumiko CLI\n");
+  console.log("\n  Kumiko — Was soll's sein?\n");
   entries.forEach(([name, cmd], i) => {
     console.log(`  ${i + 1}) ${name.padEnd(10)} ${cmd.description}`);
   });
-  console.log(`  q) quit\n`);
+  console.log(`  q) tschuess\n`);
 
   process.stdout.write("  > ");
 
@@ -177,16 +205,27 @@ async function waitForPostgres(retries = 30): Promise<void> {
 
 // --- Entry point ---
 
+checkEnv();
+
 const command = Bun.argv[2];
 
 if (!command) {
   await interactiveMenu();
 } else {
-  const handler = commands[command as keyof typeof commands];
-  if (!handler) {
-    console.error(`Unknown command: ${command}`);
-    console.error("Run 'yarn kumiko' for interactive menu.");
-    process.exit(1);
+  if (command === "help") {
+    const entries = Object.entries(commands);
+    console.log("\n  kumiko CLI\n");
+    for (const [name, cmd] of entries) {
+      console.log(`  ${name.padEnd(14)} ${cmd.description}`);
+    }
+    console.log();
+  } else {
+    const handler = commands[command as keyof typeof commands];
+    if (!handler) {
+      console.error(`Unknown command: ${command}`);
+      console.error("Run 'yarn kumiko help' for available commands.");
+      process.exit(1);
+    }
+    await handler.run();
   }
-  await handler.run();
 }

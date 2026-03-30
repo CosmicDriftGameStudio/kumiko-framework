@@ -3,7 +3,15 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { v4 as uuid } from "uuid";
 
-const DEFAULT_TEST_URL = "postgresql://kumiko:kumiko@localhost:15432/kumiko_test";
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `Missing required env var: ${name}. Copy .env.example to .env and fill in values.`,
+    );
+  }
+  return value;
+}
 
 export type TestDb = {
   db: ReturnType<typeof drizzle>;
@@ -12,17 +20,16 @@ export type TestDb = {
   cleanup: () => Promise<void>;
 };
 
-export async function createTestDb(
-  baseUrl: string = process.env["TEST_DATABASE_URL"] ?? DEFAULT_TEST_URL,
-): Promise<TestDb> {
+export async function createTestDb(baseUrl?: string): Promise<TestDb> {
+  const url = baseUrl ?? requireEnv("TEST_DATABASE_URL");
   const dbName = `kumiko_test_${uuid().slice(0, 8)}`;
-  const adminUrl = baseUrl.replace(/\/[^/]+$/, "/postgres");
+  const adminUrl = url.replace(/\/[^/]+$/, "/postgres");
 
   const adminClient = postgres(adminUrl);
   await adminClient.unsafe(`CREATE DATABASE "${dbName}"`);
   await adminClient.end();
 
-  const testUrl = baseUrl.replace(/\/[^/]+$/, `/${dbName}`);
+  const testUrl = url.replace(/\/[^/]+$/, `/${dbName}`);
   const client = postgres(testUrl);
   const db = drizzle(client);
 

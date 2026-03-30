@@ -6,8 +6,13 @@ import { createBooleanField, createEntity, createTextField } from "../../engine"
 import { applyCursorQuery, encodeCursor } from "../cursor";
 import { buildDrizzleTable } from "../table-builder";
 
-const TEST_DB_URL =
-  process.env["TEST_DATABASE_URL"] ?? "postgresql://kumiko:kumiko@localhost:15432/kumiko_test";
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required env var: ${name}`);
+  return value;
+}
+
+const TEST_DB_URL = requireEnv("TEST_DATABASE_URL");
 
 type Row = Record<string, unknown>;
 
