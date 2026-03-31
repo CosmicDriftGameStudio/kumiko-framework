@@ -13,6 +13,7 @@ export {
   createSelectField,
   createTextField,
 } from "./factories";
+export { checkWriteFields, filterReadFields } from "./field-access";
 export { createRegistry } from "./registry";
 export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 // Types
@@ -26,6 +27,7 @@ export type {
   EntityRelations,
   FeatureDefinition,
   FeatureRegistrar,
+  FieldAccess,
   FieldDefinition,
   HasManyRelation,
   HookMap,

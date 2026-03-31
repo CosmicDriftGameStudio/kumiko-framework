@@ -2,6 +2,11 @@ import type { ZodType, z } from "zod";
 
 // --- Field Types ---
 
+export type FieldAccess = {
+  readonly read?: readonly string[];
+  readonly write?: readonly string[];
+};
+
 export type TextFieldDef = {
   readonly type: "text";
   readonly maxLength?: number;
@@ -10,12 +15,14 @@ export type TextFieldDef = {
   readonly sortable?: boolean;
   readonly format?: "email" | "url" | "phone";
   readonly default?: string;
+  readonly access?: FieldAccess;
 };
 
 export type BooleanFieldDef = {
   readonly type: "boolean";
   readonly required?: boolean;
   readonly default?: boolean;
+  readonly access?: FieldAccess;
 };
 
 export type SelectFieldDef<TOptions extends readonly string[] = readonly string[]> = {
@@ -23,17 +30,20 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly options: TOptions;
   readonly required?: boolean;
   readonly default?: TOptions[number];
+  readonly access?: FieldAccess;
 };
 
 export type NumberFieldDef = {
   readonly type: "number";
   readonly required?: boolean;
   readonly default?: number;
+  readonly access?: FieldAccess;
 };
 
 export type DateFieldDef = {
   readonly type: "date";
   readonly required?: boolean;
+  readonly access?: FieldAccess;
 };
 
 export type FieldDefinition =

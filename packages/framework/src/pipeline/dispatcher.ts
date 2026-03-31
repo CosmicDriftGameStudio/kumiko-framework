@@ -1,4 +1,5 @@
 import { hasAccess } from "../engine/access";
+import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import type {
   PipelineContext,
   PipelineUser,
@@ -84,8 +85,24 @@ export function createDispatcher(
         return { isSuccess: false, error: `validation_hook: ${messages}` };
       }
 
-      // Run handler with lifecycle context
+      // Field-level write access check
       const entityName = extractEntityName(type);
+      if (entityName) {
+        const entity = registry.getEntity(entityName);
+        if (entity) {
+          // Check direct payload fields (create) and changes object (update)
+          const fieldsToCheck = (parsed.data as Record<string, unknown>)["changes"] as
+            | Record<string, unknown>
+            | undefined;
+          const writePayload = fieldsToCheck ?? (parsed.data as Record<string, unknown>);
+          const deniedField = checkWriteFields(entity, writePayload, user);
+          if (deniedField) {
+            return { isSuccess: false, error: `field_access_denied: ${deniedField}` };
+          }
+        }
+      }
+
+      // Run handler with lifecycle context
       const handlerContext = { ...context, _entityName: entityName, _userId: user.id };
 
       const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
@@ -117,7 +134,29 @@ export function createDispatcher(
         throw new Error(`validation_failed: ${parsed.error.message}`);
       }
 
-      const result = await handler.handler({ type, payload: parsed.data, user }, context);
+      let result = await handler.handler({ type, payload: parsed.data, user }, context);
+
+      // Filter read fields on query results
+      const entityName = extractEntityName(type);
+      if (entityName) {
+        const entity = registry.getEntity(entityName);
+        if (entity && result && typeof result === "object") {
+          if (Array.isArray(result)) {
+            result = result.map((row: Record<string, unknown>) =>
+              filterReadFields(entity, row, user),
+            );
+          } else if ("rows" in (result as Record<string, unknown>)) {
+            const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null };
+            result = {
+              ...r,
+              rows: r.rows.map((row) => filterReadFields(entity, row, user)),
+            };
+          } else {
+            result = filterReadFields(entity, result as Record<string, unknown>, user);
+          }
+        }
+      }
+
       await logEvent(type, parsed.data, user);
       return result;
     },
