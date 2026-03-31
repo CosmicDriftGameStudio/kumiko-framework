@@ -74,10 +74,12 @@ const commands = {
       const scope = Bun.argv[3];
       if (scope === "all") {
         console.log("Volle Breitseite — Unit + Integration...\n");
+        await $`node vitest.integration.guard.js`;
         await $`yarn vitest run`;
         await $`yarn vitest run --config vitest.integration.config.ts`;
       } else if (scope === "integration") {
         console.log("Integration Tests (Docker muss laufen)...\n");
+        await $`node vitest.integration.guard.js`;
         await $`yarn vitest run --config vitest.integration.config.ts`;
       } else if (scope) {
         await $`yarn vitest run ${scope}`;
@@ -97,6 +99,7 @@ const commands = {
         ["Biome", "yarn biome check ."],
         ["TypeScript", "yarn tsc --noEmit -p packages/framework/tsconfig.json"],
         ["Unit Tests", "yarn vitest run"],
+        ["Integration Guard", "node vitest.integration.guard.js"],
         ["Integration Tests", "yarn vitest run --config vitest.integration.config.ts"],
       ] as const) {
         console.log(`--- ${name} ---`);
