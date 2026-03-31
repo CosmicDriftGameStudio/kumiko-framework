@@ -28,7 +28,7 @@ export type CrudExecutor = {
   ) => Promise<WriteResult<SaveContext>>;
 
   update: (
-    payload: { id: number; version?: number; changes: Record<string, unknown> },
+    payload: { id: number; version?: number | undefined; changes: Record<string, unknown> },
     user: PipelineUser,
     db: DbConnection,
   ) => Promise<WriteResult<SaveContext>>;
