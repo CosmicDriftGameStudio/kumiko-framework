@@ -346,6 +346,207 @@ describe("createApp", () => {
   });
 });
 
+// --- r.requires() ---
+
+describe("r.requires()", () => {
+  test("feature with satisfied dependency boots fine", () => {
+    const config = defineFeature("config", () => {});
+    const invoicing = defineFeature("invoicing", (r) => {
+      r.requires("config");
+    });
+
+    expect(() => createRegistry([config, invoicing])).not.toThrow();
+  });
+
+  test("feature with missing dependency fails at boot", () => {
+    const invoicing = defineFeature("invoicing", (r) => {
+      r.requires("config");
+    });
+
+    expect(() => createRegistry([invoicing])).toThrow(
+      /feature "invoicing" requires feature "config" which is not registered/i,
+    );
+  });
+
+  test("multiple requires all validated", () => {
+    const invoicing = defineFeature("invoicing", (r) => {
+      r.requires("config", "files");
+    });
+    const config = defineFeature("config", () => {});
+
+    expect(() => createRegistry([config, invoicing])).toThrow(
+      /feature "invoicing" requires feature "files" which is not registered/i,
+    );
+  });
+
+  test("requires stores dependency names on feature", () => {
+    const feature = defineFeature("invoicing", (r) => {
+      r.requires("config", "files");
+    });
+
+    expect(feature.requires).toEqual(["config", "files"]);
+  });
+});
+
+// --- r.config() ---
+
+describe("r.config()", () => {
+  test("registers config keys on feature", () => {
+    const feature = defineFeature("invoicing", (r) => {
+      r.config({
+        keys: {
+          defaultVat: {
+            type: "number",
+            default: 19,
+            scope: "tenant",
+            access: { write: ["Admin"], read: ["all"] },
+          },
+        },
+      });
+    });
+
+    expect(feature.configKeys["defaultVat"]).toBeDefined();
+    expect(feature.configKeys["defaultVat"]?.type).toBe("number");
+    expect(feature.configKeys["defaultVat"]?.scope).toBe("tenant");
+  });
+
+  test("registry stores config keys with feature prefix", () => {
+    const feature = defineFeature("invoicing", (r) => {
+      r.config({
+        keys: {
+          defaultVat: {
+            type: "number",
+            default: 19,
+            scope: "tenant",
+            access: { write: ["Admin"], read: ["all"] },
+          },
+          showNetPrices: {
+            type: "boolean",
+            default: true,
+            scope: "user",
+            access: { write: ["all"], read: ["all"] },
+          },
+        },
+      });
+    });
+
+    const registry = createRegistry([feature]);
+    expect(registry.getConfigKey("invoicing.defaultVat")).toBeDefined();
+    expect(registry.getConfigKey("invoicing.defaultVat")?.type).toBe("number");
+    expect(registry.getConfigKey("invoicing.showNetPrices")?.scope).toBe("user");
+    expect(registry.getConfigKey("nonexistent.key")).toBeUndefined();
+  });
+
+  test("getAllConfigKeys returns all keys across features", () => {
+    const f1 = defineFeature("invoicing", (r) => {
+      r.config({
+        keys: {
+          vat: {
+            type: "number",
+            default: 19,
+            scope: "tenant",
+            access: { write: ["Admin"], read: ["all"] },
+          },
+        },
+      });
+    });
+    const f2 = defineFeature("notifications", (r) => {
+      r.config({
+        keys: {
+          push: {
+            type: "boolean",
+            default: true,
+            scope: "user",
+            access: { write: ["all"], read: ["all"] },
+          },
+        },
+      });
+    });
+
+    const registry = createRegistry([f1, f2]);
+    const all = registry.getAllConfigKeys();
+    expect(all.size).toBe(2);
+    expect(all.has("invoicing.vat")).toBe(true);
+    expect(all.has("notifications.push")).toBe(true);
+  });
+
+  test("throws on duplicate config key across features", () => {
+    const f1 = defineFeature("a", (r) => {
+      r.config({
+        keys: {
+          key1: { type: "text", scope: "system", access: { write: ["Admin"], read: ["all"] } },
+        },
+      });
+    });
+    // Same feature name = duplicate feature error (already tested)
+    // Different feature name but same qualified key is impossible since prefix differs
+    // So this test verifies the same feature can't register twice
+    const f2 = defineFeature("a", (r) => {
+      r.config({
+        keys: {
+          key1: { type: "text", scope: "system", access: { write: ["Admin"], read: ["all"] } },
+        },
+      });
+    });
+
+    expect(() => createRegistry([f1, f2])).toThrow(/duplicate feature/i);
+  });
+
+  test("encrypted config key is stored", () => {
+    const feature = defineFeature("integration", (r) => {
+      r.config({
+        keys: {
+          apiSecret: {
+            type: "text",
+            scope: "tenant",
+            encrypted: true,
+            access: { write: ["SystemAdmin"], read: ["SystemAdmin"] },
+          },
+        },
+      });
+    });
+
+    const registry = createRegistry([feature]);
+    expect(registry.getConfigKey("integration.apiSecret")?.encrypted).toBe(true);
+  });
+
+  test("createApp validates config key roles", () => {
+    const feature = defineFeature("invoicing", (r) => {
+      r.config({
+        keys: {
+          vat: {
+            type: "number",
+            default: 19,
+            scope: "tenant",
+            access: { write: ["FakeRole"], read: ["all"] },
+          },
+        },
+      });
+    });
+
+    expect(() => createApp({ roles: ["Admin"] as const, features: [feature] })).toThrow(
+      /unknown role.*FakeRole/i,
+    );
+  });
+
+  test("createApp allows 'all' and 'system' as special roles", () => {
+    const feature = defineFeature("invoicing", (r) => {
+      r.config({
+        keys: {
+          vat: {
+            type: "number",
+            default: 19,
+            scope: "tenant",
+            access: { write: ["system"], read: ["all"] },
+          },
+        },
+      });
+    });
+
+    expect(() => createApp({ roles: ["Admin"] as const, features: [feature] })).not.toThrow();
+  });
+});
+
 // --- Relations ---
 
 describe("r.relation()", () => {

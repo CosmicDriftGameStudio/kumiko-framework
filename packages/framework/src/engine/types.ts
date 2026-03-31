@@ -236,21 +236,47 @@ export type HookMap = {
   readonly preQuery: Readonly<Record<string, readonly PreQueryHookFn[]>>;
 };
 
+// --- Config ---
+
+export type ConfigScope = "system" | "tenant" | "user";
+
+export type ConfigKeyAccess = {
+  readonly read: readonly string[];
+  readonly write: readonly string[];
+};
+
+export type ConfigKeyDefinition = {
+  readonly type: "text" | "number" | "boolean" | "select";
+  readonly default?: string | number | boolean;
+  readonly scope: ConfigScope;
+  readonly access: ConfigKeyAccess;
+  readonly encrypted?: boolean;
+  readonly options?: readonly string[]; // for select type
+};
+
+export type ConfigDefinition = {
+  readonly keys: Readonly<Record<string, ConfigKeyDefinition>>;
+};
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
   readonly name: string;
+  readonly requires: readonly string[];
   readonly entities: Readonly<Record<string, EntityDefinition>>;
   readonly relations: Readonly<Record<string, EntityRelations>>;
   readonly writeHandlers: Readonly<Record<string, WriteHandlerDef>>;
   readonly queryHandlers: Readonly<Record<string, QueryHandlerDef>>;
   readonly translations: TranslationKeys;
   readonly hooks: HookMap;
+  readonly configKeys: Readonly<Record<string, ConfigKeyDefinition>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
 
 export type FeatureRegistrar = {
+  requires(...featureNames: string[]): void;
+
   entity(name: string, definition: EntityDefinition): void;
 
   writeHandler<TSchema extends ZodType>(
@@ -277,6 +303,8 @@ export type FeatureRegistrar = {
   hook(type: "preDelete", entityOrHandler: string, fn: PreDeleteHookFn): void;
   hook(type: "postDelete", entityOrHandler: string, fn: PostDeleteHookFn): void;
   hook(type: "preQuery", entityOrHandler: string, fn: PreQueryHookFn): void;
+
+  config(definition: ConfigDefinition): void;
 
   translations(def: TranslationsDef): void;
 };
@@ -305,4 +333,6 @@ export type Registry = {
   getPostDeleteHooks(name: string): readonly PostDeleteHookFn[];
   getPreQueryHooks(name: string): readonly PreQueryHookFn[];
   getAllTranslations(): TranslationKeys;
+  getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined;
+  getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition>;
 };

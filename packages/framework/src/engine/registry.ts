@@ -1,4 +1,5 @@
 import type {
+  ConfigKeyDefinition,
   EntityDefinition,
   EntityRelations,
   FeatureDefinition,
@@ -31,6 +32,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const preDeleteHooks = new Map<string, PreDeleteHookFn[]>();
   const postDeleteHooks = new Map<string, PostDeleteHookFn[]>();
   const preQueryHooks = new Map<string, PreQueryHookFn[]>();
+  const configKeyMap = new Map<string, ConfigKeyDefinition>();
   let mergedTranslations: TranslationKeys = {};
 
   function mergeHookList<T>(
@@ -85,6 +87,17 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       queryHandlerMap.set(name, handler);
     }
 
+    // Merge config keys with feature prefix
+    for (const [key, keyDef] of Object.entries(feature.configKeys)) {
+      const qualifiedKey = `${feature.name}.${key}`;
+      if (configKeyMap.has(qualifiedKey)) {
+        throw new Error(
+          `Duplicate config key: "${qualifiedKey}" (registered by multiple features)`,
+        );
+      }
+      configKeyMap.set(qualifiedKey, keyDef);
+    }
+
     mergedTranslations = { ...mergedTranslations, ...feature.translations };
 
     // Merge lifecycle hooks
@@ -101,6 +114,17 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       if (!entityMap.has(rel.target)) {
         throw new Error(
           `Relation "${entityName}.${relName}" targets entity "${rel.target}" which does not exist`,
+        );
+      }
+    }
+  }
+
+  // Validate: all required features must be registered
+  for (const feature of features) {
+    for (const required of feature.requires) {
+      if (!featureMap.has(required)) {
+        throw new Error(
+          `Feature "${feature.name}" requires feature "${required}" which is not registered`,
         );
       }
     }
@@ -195,6 +219,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllTranslations(): TranslationKeys {
       return mergedTranslations;
+    },
+
+    getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined {
+      return configKeyMap.get(qualifiedKey);
+    },
+
+    getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition> {
+      return configKeyMap;
     },
   };
 }

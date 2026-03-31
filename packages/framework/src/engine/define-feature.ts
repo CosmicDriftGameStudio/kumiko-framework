@@ -2,6 +2,8 @@ import type { ZodType, z } from "zod";
 import { buildCrudHandlers } from "./crud-builder";
 import type {
   AccessRule,
+  ConfigDefinition,
+  ConfigKeyDefinition,
   EntityDefinition,
   FeatureDefinition,
   FeatureRegistrar,
@@ -30,12 +32,14 @@ export function defineFeature(
   name: string,
   setup: (r: FeatureRegistrar) => void,
 ): FeatureDefinition {
+  const requires: string[] = [];
   const entities: Record<string, EntityDefinition> = {};
   const relations: Record<string, Record<string, RelationDefinition>> = {};
   const writeHandlers: Record<string, WriteHandlerDef> = {};
   const queryHandlers: Record<string, QueryHandlerDef> = {};
   const validationHooks: Record<string, ValidationHookFn> = {};
   const lifecycleHooks: Record<string, Record<string, LifecycleHookFn[]>> = {};
+  const configKeys: Record<string, ConfigKeyDefinition> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -43,6 +47,10 @@ export function defineFeature(
   }
 
   const registrar: FeatureRegistrar = {
+    requires(...featureNames: string[]): void {
+      requires.push(...featureNames);
+    },
+
     entity(entityName: string, definition: EntityDefinition): void {
       entities[entityName] = definition;
     },
@@ -104,6 +112,12 @@ export function defineFeature(
       lifecycleHooks[hookType][hookName].push(fn as LifecycleHookFn);
     },
 
+    config(definition: ConfigDefinition): void {
+      for (const [key, keyDef] of Object.entries(definition.keys)) {
+        configKeys[key] = keyDef;
+      }
+    },
+
     translations(def: TranslationsDef): void {
       translations = { ...translations, ...def.keys };
     },
@@ -113,6 +127,7 @@ export function defineFeature(
 
   return {
     name,
+    requires,
     entities,
     relations,
     writeHandlers,
@@ -126,5 +141,6 @@ export function defineFeature(
       postDelete: lifecycleHooks["postDelete"] ?? {},
       preQuery: lifecycleHooks["preQuery"] ?? {},
     } as HookMap,
+    configKeys,
   };
 }
