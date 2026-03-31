@@ -14,6 +14,12 @@ import type {
   WriteHandlerDef,
 } from "./types";
 
+type IncomingRelation = {
+  sourceEntity: string;
+  relationName: string;
+  relation: RelationDefinition;
+};
+
 export function createRegistry(features: readonly FeatureDefinition[]): Registry {
   const featureMap = new Map<string, FeatureDefinition>();
   const entityMap = new Map<string, EntityDefinition>();
@@ -152,6 +158,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         }
       }
 
+      return result;
+    },
+
+    getIncomingRelations(entityName: string): readonly IncomingRelation[] {
+      const result: IncomingRelation[] = [];
+      for (const [source, rels] of relationMap) {
+        for (const [relName, rel] of Object.entries(rels)) {
+          if (rel.target === entityName) {
+            result.push({ sourceEntity: source, relationName: relName, relation: rel });
+          }
+        }
+      }
       return result;
     },
 

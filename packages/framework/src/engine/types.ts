@@ -54,17 +54,21 @@ export type EntityDefinition = {
 
 // --- Relations ---
 
+export type OnDeleteStrategy = "cascade" | "restrict" | "setNull" | "nothing";
+
 export type BelongsToRelation = {
   readonly type: "belongsTo";
   readonly target: string;
   readonly foreignKey: string;
   readonly searchInclude?: readonly string[];
+  readonly onDelete?: OnDeleteStrategy;
 };
 
 export type HasManyRelation = {
   readonly type: "hasMany";
   readonly target: string;
   readonly foreignKey: string;
+  readonly onDelete?: OnDeleteStrategy;
 };
 
 export type ManyToManyRelation = {
@@ -76,6 +80,7 @@ export type ManyToManyRelation = {
     readonly targetKey: string;
   };
   readonly searchInclude?: readonly string[];
+  readonly onDelete?: OnDeleteStrategy;
 };
 
 export type RelationDefinition = BelongsToRelation | HasManyRelation | ManyToManyRelation;
@@ -279,6 +284,11 @@ export type Registry = {
   getSortableFields(entityName: string): readonly string[];
   getRelations(entityName: string): EntityRelations;
   getSearchIncludes(entityName: string): ReadonlyMap<string, readonly string[]>;
+  getIncomingRelations(entityName: string): ReadonlyArray<{
+    sourceEntity: string;
+    relationName: string;
+    relation: RelationDefinition;
+  }>;
   getPreSaveHooks(name: string): readonly PreSaveHookFn[];
   getPostSaveHooks(name: string): readonly PostSaveHookFn[];
   getPreDeleteHooks(name: string): readonly PreDeleteHookFn[];

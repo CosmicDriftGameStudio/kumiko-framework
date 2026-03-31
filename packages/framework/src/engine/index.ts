@@ -32,6 +32,7 @@ export type {
   LifecycleHookType,
   ManyToManyRelation,
   NumberFieldDef,
+  OnDeleteStrategy,
   PipelineContext,
   PipelineUser,
   PostDeleteHookFn,
