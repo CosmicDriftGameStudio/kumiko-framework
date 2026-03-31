@@ -15,7 +15,12 @@ import {
   type PipelineUser,
   type SaveContext,
 } from "../engine";
-import { type AuditTrailEntry, createEventLog, type SystemHooks } from "../pipeline";
+import {
+  type AuditTrailEntry,
+  createEventLog,
+  createIdempotencyGuard,
+  type SystemHooks,
+} from "../pipeline";
 import {
   createAuditTrailHook,
   createSearchIndexHook,
@@ -193,12 +198,13 @@ beforeAll(async () => {
   };
 
   const eventLog = createEventLog(testRedis.redis, "kumiko:test:fullstack-log");
+  const idempotency = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 60 });
 
   const server = buildServer({
     registry,
     context: { db: testDb.db, redis: testRedis.redis, searchAdapter },
     jwtSecret: JWT_SECRET,
-    dispatcherOptions: { eventLog },
+    dispatcherOptions: { eventLog, idempotency },
     systemHooks,
     sseBroker,
   });
@@ -553,6 +559,61 @@ describe("full stack: SSE route", () => {
     expect(res.headers.get("content-type")).toContain("text/event-stream");
   });
 });
+
+// =============================================================================
+// Idempotency (Redis-backed, end-to-end)
+// =============================================================================
+
+describe("full stack: idempotency", () => {
+  test("duplicate requestId returns cached result, no double insert", async () => {
+    const requestId = "idem-fullstack-001";
+
+    const res1 = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "idem@test.de" },
+        requestId,
+      })
+    ).json();
+    expect(res1.isSuccess).toBe(true);
+    const firstId = res1.data.id;
+
+    // Same requestId → should return cached result, NOT create a second user
+    const res2 = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "idem@test.de" },
+        requestId,
+      })
+    ).json();
+    expect(res2.isSuccess).toBe(true);
+    expect(res2.data.id).toBe(firstId);
+  });
+
+  test("different requestIds create separate records", async () => {
+    const res1 = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "idem-a@test.de" },
+        requestId: "idem-a",
+      })
+    ).json();
+
+    const res2 = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "idem-b@test.de" },
+        requestId: "idem-b",
+      })
+    ).json();
+
+    expect(res1.data.id).not.toBe(res2.data.id);
+  });
+});
+
+// =============================================================================
+// Health
+// =============================================================================
 
 describe("full stack: health", () => {
   test("GET /health", async () => {

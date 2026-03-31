@@ -8,7 +8,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
   api.post("/write", async (c) => {
     const user = getUser(c);
     const body = await c.req.json<{ type: string; payload: unknown; requestId?: string }>();
-    const result = await dispatcher.write(body.type, body.payload, user);
+    const result = await dispatcher.write(body.type, body.payload, user, body.requestId);
     return c.json(result, result.isSuccess ? 200 : 400);
   });
 
