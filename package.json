@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": [
     "packages/framework",
+    "packages/core-features",
     "features/*",
     "app"
   ],
