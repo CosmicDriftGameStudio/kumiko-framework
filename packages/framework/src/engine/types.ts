@@ -46,12 +46,48 @@ export type DateFieldDef = {
   readonly access?: FieldAccess;
 };
 
+export type FileFieldDef = {
+  readonly type: "file";
+  readonly maxSize?: string; // e.g. "10mb"
+  readonly accept?: readonly string[]; // e.g. ["pdf", "doc"]
+  readonly access?: FieldAccess;
+};
+
+export type ImageFieldDef = {
+  readonly type: "image";
+  readonly maxSize?: string;
+  readonly accept?: readonly string[]; // e.g. ["jpg", "png"]
+  readonly thumbnails?: boolean;
+  readonly access?: FieldAccess;
+};
+
+export type FilesFieldDef = {
+  readonly type: "files";
+  readonly maxSize?: string;
+  readonly accept?: readonly string[];
+  readonly maxCount?: number;
+  readonly access?: FieldAccess;
+};
+
+export type ImagesFieldDef = {
+  readonly type: "images";
+  readonly maxSize?: string;
+  readonly accept?: readonly string[];
+  readonly maxCount?: number;
+  readonly thumbnails?: boolean;
+  readonly access?: FieldAccess;
+};
+
 export type FieldDefinition =
   | TextFieldDef
   | BooleanFieldDef
   | SelectFieldDef
   | NumberFieldDef
-  | DateFieldDef;
+  | DateFieldDef
+  | FileFieldDef
+  | ImageFieldDef
+  | FilesFieldDef
+  | ImagesFieldDef;
 
 // --- Entity ---
 

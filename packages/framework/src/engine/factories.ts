@@ -2,6 +2,10 @@ import type {
   BooleanFieldDef,
   DateFieldDef,
   EntityDefinition,
+  FileFieldDef,
+  FilesFieldDef,
+  ImageFieldDef,
+  ImagesFieldDef,
   NumberFieldDef,
   SelectFieldDef,
   TextFieldDef,
@@ -55,6 +59,24 @@ export function createDateField(overrides?: Partial<Omit<DateFieldDef, "type">>)
     required: false,
     ...overrides,
   };
+}
+
+export function createFileField(overrides?: Partial<Omit<FileFieldDef, "type">>): FileFieldDef {
+  return { type: "file", ...overrides };
+}
+
+export function createImageField(overrides?: Partial<Omit<ImageFieldDef, "type">>): ImageFieldDef {
+  return { type: "image", ...overrides };
+}
+
+export function createFilesField(overrides?: Partial<Omit<FilesFieldDef, "type">>): FilesFieldDef {
+  return { type: "files", ...overrides };
+}
+
+export function createImagesField(
+  overrides?: Partial<Omit<ImagesFieldDef, "type">>,
+): ImagesFieldDef {
+  return { type: "images", ...overrides };
 }
 
 export function createEntity(

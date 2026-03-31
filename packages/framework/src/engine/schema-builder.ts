@@ -28,6 +28,16 @@ function fieldToZod(field: FieldDefinition): z.ZodTypeAny {
     case "date": {
       return z.string().date();
     }
+    case "file":
+    case "image": {
+      // Single file: stores fileRefId as number
+      return z.number();
+    }
+    case "files":
+    case "images": {
+      // Multi file: array of fileRefIds
+      return z.array(z.number());
+    }
   }
 }
 
@@ -39,7 +49,8 @@ export function buildInsertSchema(
   for (const [name, field] of Object.entries(entity.fields)) {
     const zodField = fieldToZod(field);
     const hasDefault = "default" in field && field.default !== undefined;
-    shape[name] = field.required || hasDefault ? zodField : zodField.optional();
+    const isRequired = "required" in field && field.required === true;
+    shape[name] = isRequired || hasDefault ? zodField : zodField.optional();
   }
 
   return z.object(shape);

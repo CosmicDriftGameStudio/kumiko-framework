@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import type { PipelineContext, Registry } from "../engine/types";
+import type { FileRoutesOptions } from "../files/file-routes";
+import { createFileRoutes } from "../files/file-routes";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
 import { createLifecyclePipeline, type SystemHooks } from "../pipeline/lifecycle-pipeline";
@@ -17,6 +19,7 @@ export type ServerOptions = {
   dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
   systemHooks?: SystemHooks;
   sseBroker?: SseBroker;
+  files?: Omit<FileRoutesOptions, "db"> & { db?: FileRoutesOptions["db"] };
 };
 
 export type KumikoServer = {
@@ -42,6 +45,17 @@ export function buildServer(options: ServerOptions): KumikoServer {
   app.use("/api/*", authMiddleware(jwt));
   app.route("/api", createApiRoutes(dispatcher));
   app.route("/api", createSseRoute(sseBroker));
+
+  if (options.files) {
+    const fileDb = options.files.db ?? (options.context["db"] as FileRoutesOptions["db"]);
+    app.route(
+      "/api",
+      createFileRoutes({
+        ...options.files,
+        db: fileDb,
+      }),
+    );
+  }
 
   return { app, jwt, sseBroker };
 }

@@ -18,6 +18,14 @@ function fieldToColumn(name: string, field: FieldDefinition) {
       return integer(snakeName);
     case "date":
       return timestamp(snakeName);
+    case "file":
+    case "image":
+      // Single file: stores fileRefId as integer
+      return integer(snakeName);
+    case "files":
+    case "images":
+      // Multi file: no column in entity table, resolved via FileRef table
+      return null;
   }
 }
 
@@ -51,7 +59,10 @@ export function buildDrizzleTable(_entityName: string, entity: EntityDefinition)
   const fieldColumns: Record<string, ReturnType<typeof fieldToColumn>> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {
-    fieldColumns[name] = fieldToColumn(name, field);
+    const col = fieldToColumn(name, field);
+    if (col !== null) {
+      fieldColumns[name] = col;
+    }
   }
 
   return pgTable(entity.table, {
