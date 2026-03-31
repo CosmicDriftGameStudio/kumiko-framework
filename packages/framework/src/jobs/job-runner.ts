@@ -1,0 +1,151 @@
+import { type Job, Queue, Worker } from "bullmq";
+import type { PipelineContext, Registry } from "../engine/types";
+
+export type JobRunner = {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  dispatch(jobName: string, payload?: Record<string, unknown>): Promise<string>;
+};
+
+export type JobRunnerOptions = {
+  registry: Registry;
+  context: PipelineContext;
+  redisUrl: string;
+  queueName?: string;
+  onJobStart?: (jobName: string, jobId: string) => void;
+  onJobComplete?: (jobName: string, jobId: string, duration: number) => void;
+  onJobFailed?: (jobName: string, jobId: string, error: string) => void;
+};
+
+function parseRedisOpts(url: string): { host: string; port: number; db?: number | undefined } {
+  const parsed = new URL(url);
+  const result: { host: string; port: number; db?: number | undefined } = {
+    host: parsed.hostname,
+    port: Number(parsed.port) || 6379,
+  };
+  if (parsed.pathname.length > 1) {
+    result.db = Number(parsed.pathname.slice(1));
+  }
+  return result;
+}
+
+export function createJobRunner(options: JobRunnerOptions): JobRunner {
+  const { registry, context, redisUrl } = options;
+  const queueName = options.queueName ?? "kumiko-jobs";
+  const redisOpts = parseRedisOpts(redisUrl);
+
+  const allJobs = registry.getAllJobs();
+  const queue = new Queue(queueName, { connection: redisOpts });
+  let worker: Worker | null = null;
+
+  async function handleJob(bullJob: Job): Promise<void> {
+    const jobName = bullJob.name;
+    const jobDef = allJobs.get(jobName);
+    if (!jobDef) {
+      throw new Error(`Unknown job: ${jobName}`);
+    }
+
+    const jobId = bullJob.id ?? "unknown";
+    const startTime = Date.now();
+    options.onJobStart?.(jobName, jobId);
+
+    try {
+      const payload = (bullJob.data as Record<string, unknown>) ?? {};
+      await jobDef.handler(payload, context);
+
+      const duration = Date.now() - startTime;
+      options.onJobComplete?.(jobName, jobId, duration);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      options.onJobFailed?.(jobName, jobId, errorMsg);
+      throw err; // Let BullMQ handle retries
+    }
+  }
+
+  return {
+    async start(): Promise<void> {
+      // Start worker
+      worker = new Worker(queueName, handleJob, {
+        connection: redisOpts,
+        concurrency: 5,
+      });
+
+      // Register scheduled (cron) jobs
+      for (const [name, jobDef] of allJobs) {
+        if ("cron" in jobDef.trigger) {
+          await queue.upsertJobScheduler(
+            `scheduler-${name.replace(/\./g, "-")}`,
+            { pattern: jobDef.trigger.cron },
+            { name, data: {} },
+          );
+        }
+      }
+
+      // Run boot jobs
+      for (const [name, jobDef] of allJobs) {
+        if (jobDef.runOnBoot) {
+          await queue.add(name, {}, { jobId: `boot-${name.replace(/\./g, "-")}` });
+        }
+      }
+    },
+
+    async stop(): Promise<void> {
+      if (worker) {
+        await worker.close();
+        worker = null;
+      }
+      await queue.close();
+    },
+
+    async dispatch(jobName: string, payload?: Record<string, unknown>): Promise<string> {
+      const jobDef = allJobs.get(jobName);
+      if (!jobDef) {
+        throw new Error(`Unknown job: ${jobName}`);
+      }
+
+      const concurrency = jobDef.concurrency ?? "parallel";
+      const bullOpts: Record<string, unknown> = {};
+
+      // Apply concurrency mode
+      switch (concurrency) {
+        case "skip": {
+          // Check if a job with this name is already active
+          const active = await queue.getActive();
+          const waiting = await queue.getWaiting();
+          const isRunning = [...active, ...waiting].some((j) => j.name === jobName);
+          if (isRunning) {
+            return "skipped";
+          }
+          break;
+        }
+        case "replace": {
+          // Remove waiting jobs with the same name
+          const waiting = await queue.getWaiting();
+          for (const j of waiting) {
+            if (j.name === jobName && j.id) {
+              await j.remove();
+            }
+          }
+          break;
+        }
+        case "sequential": {
+          // BullMQ group-based sequential: use jobName as group key
+          // This ensures only one job of this type runs at a time
+          bullOpts["group"] = { id: jobName };
+          break;
+        }
+        case "debounce": {
+          const debounceMs = jobDef.debounceMs ?? 5000;
+          bullOpts["debounce"] = { id: jobName, ttl: debounceMs };
+          break;
+        }
+        default:
+          // parallel — no restrictions
+          break;
+      }
+
+      const job = await queue.add(jobName, payload ?? {}, bullOpts);
+      return job.id ?? "unknown";
+    },
+  };
+}

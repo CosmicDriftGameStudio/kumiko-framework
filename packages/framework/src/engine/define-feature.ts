@@ -8,6 +8,8 @@ import type {
   FeatureDefinition,
   FeatureRegistrar,
   HookMap,
+  JobDefinition,
+  JobHandlerFn,
   LifecycleHookFn,
   LifecycleHookType,
   QueryHandlerDef,
@@ -40,6 +42,7 @@ export function defineFeature(
   const validationHooks: Record<string, ValidationHookFn> = {};
   const lifecycleHooks: Record<string, Record<string, LifecycleHookFn[]>> = {};
   const configKeys: Record<string, ConfigKeyDefinition> = {};
+  const jobs: Record<string, JobDefinition> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -118,6 +121,10 @@ export function defineFeature(
       }
     },
 
+    job(jobName: string, options: Omit<JobDefinition, "name">, handler: JobHandlerFn): void {
+      jobs[jobName] = { ...options, name: jobName, handler };
+    },
+
     translations(def: TranslationsDef): void {
       translations = { ...translations, ...def.keys };
     },
@@ -142,5 +149,6 @@ export function defineFeature(
       preQuery: lifecycleHooks["preQuery"] ?? {},
     } as HookMap,
     configKeys,
+    jobs,
   };
 }

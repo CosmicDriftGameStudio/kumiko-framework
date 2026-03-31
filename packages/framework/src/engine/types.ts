@@ -294,6 +294,34 @@ export type ConfigDefinition = {
   readonly keys: Readonly<Record<string, ConfigKeyDefinition>>;
 };
 
+// --- Jobs ---
+
+export type JobHandlerFn = (
+  payload: Record<string, unknown>,
+  context: PipelineContext,
+) => Promise<void>;
+
+export type ConcurrencyMode = "parallel" | "skip" | "replace" | "sequential" | "debounce";
+
+export type JobTrigger =
+  | { readonly on: string }
+  | { readonly cron: string }
+  | { readonly manual: true };
+
+export type JobDefinition = {
+  readonly name: string;
+  readonly handler: JobHandlerFn;
+  readonly trigger: JobTrigger;
+  readonly concurrency?: ConcurrencyMode | undefined;
+  readonly maxPerTenant?: number | undefined;
+  readonly debounceMs?: number | undefined;
+  readonly retries?: number | undefined;
+  readonly backoff?: "fixed" | "exponential" | undefined;
+  readonly timeout?: number | undefined;
+  readonly schema?: ZodType | undefined;
+  readonly runOnBoot?: boolean | undefined;
+};
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
@@ -306,6 +334,7 @@ export type FeatureDefinition = {
   readonly translations: TranslationKeys;
   readonly hooks: HookMap;
   readonly configKeys: Readonly<Record<string, ConfigKeyDefinition>>;
+  readonly jobs: Readonly<Record<string, JobDefinition>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -342,6 +371,8 @@ export type FeatureRegistrar = {
 
   config(definition: ConfigDefinition): void;
 
+  job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
+
   translations(def: TranslationsDef): void;
 };
 
@@ -371,4 +402,6 @@ export type Registry = {
   getAllTranslations(): TranslationKeys;
   getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined;
   getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition>;
+  getJob(qualifiedName: string): JobDefinition | undefined;
+  getAllJobs(): ReadonlyMap<string, JobDefinition>;
 };

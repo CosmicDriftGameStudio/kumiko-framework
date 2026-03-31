@@ -15,6 +15,7 @@
     "./testing": "./src/testing/index.ts"
   },
   "dependencies": {
+    "bullmq": "^5.71.1",
     "drizzle-orm": "^0.40.0",
     "hono": "^4.7.5",
     "i18next": "^25.0.1",

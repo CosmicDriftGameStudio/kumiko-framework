@@ -20,7 +20,7 @@ export function parseMaxSize(maxSize: string): number {
   const match = maxSize.match(/^(\d+)(kb|mb|gb)$/i);
   if (!match) throw new Error(`Invalid maxSize format: "${maxSize}". Use e.g. "10mb", "500kb".`);
   const value = Number(match[1]);
-  const unit = match[2]!.toLowerCase();
+  const unit = (match[2] ?? "").toLowerCase();
   switch (unit) {
     case "kb":
       return value * 1024;

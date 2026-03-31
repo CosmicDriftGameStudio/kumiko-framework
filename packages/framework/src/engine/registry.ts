@@ -3,6 +3,7 @@ import type {
   EntityDefinition,
   EntityRelations,
   FeatureDefinition,
+  JobDefinition,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -33,6 +34,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const postDeleteHooks = new Map<string, PostDeleteHookFn[]>();
   const preQueryHooks = new Map<string, PreQueryHookFn[]>();
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
+  const jobMap = new Map<string, JobDefinition>();
   let mergedTranslations: TranslationKeys = {};
 
   function mergeHookList<T>(
@@ -96,6 +98,15 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         );
       }
       configKeyMap.set(qualifiedKey, keyDef);
+    }
+
+    // Merge jobs with feature prefix
+    for (const [name, jobDef] of Object.entries(feature.jobs)) {
+      const qualifiedName = `${feature.name}.${name}`;
+      if (jobMap.has(qualifiedName)) {
+        throw new Error(`Duplicate job: "${qualifiedName}" (registered by multiple features)`);
+      }
+      jobMap.set(qualifiedName, { ...jobDef, name: qualifiedName });
     }
 
     mergedTranslations = { ...mergedTranslations, ...feature.translations };
@@ -227,6 +238,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition> {
       return configKeyMap;
+    },
+
+    getJob(qualifiedName: string): JobDefinition | undefined {
+      return jobMap.get(qualifiedName);
+    },
+
+    getAllJobs(): ReadonlyMap<string, JobDefinition> {
+      return jobMap;
     },
   };
 }
