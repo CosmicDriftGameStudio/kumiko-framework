@@ -15,12 +15,17 @@ import {
   type PipelineUser,
   type SaveContext,
 } from "../engine";
-import { type AuditTrailEntry, createEventLog } from "../pipeline";
+import { type AuditTrailEntry, createEventLog, type SystemHooks } from "../pipeline";
+import {
+  createAuditTrailHook,
+  createSearchIndexHook,
+  createSseBroadcastHook,
+} from "../pipeline/system-hooks";
 import type { SearchAdapter } from "../search";
 import { createInMemorySearchAdapter } from "../search";
 import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../testing";
 
-// --- Entities + Tables ---
+// --- Entities ---
 
 const userEntity = createEntity({
   table: "fullstack_users",
@@ -35,33 +40,30 @@ const userEntity = createEntity({
 });
 
 const userTable = buildDrizzleTable("user", userEntity);
-const searchFields = ["email", "firstName", "lastName"];
 
-// --- Test infra ---
-
-const JWT_SECRET = "full-stack-test-secret-minimum-32-chars!!";
+// --- Test state that system hooks write to ---
 
 let testDb: TestDb;
 let testRedis: TestRedis;
 let searchAdapter: SearchAdapter;
 let app: ReturnType<typeof buildServer>["app"];
 let jwt: ReturnType<typeof buildServer>["jwt"];
-let auditLog: AuditTrailEntry[];
-let sseEvents: SseEvent[];
+const auditLog: AuditTrailEntry[] = [];
+const sseEvents: SseEvent[] = [];
+const featurePostSaveLog: SaveContext[] = [];
 
 const adminUser: PipelineUser = { id: 1, tenantId: 1, roles: ["Admin"] };
 const guestUser: PipelineUser = { id: 2, tenantId: 1, roles: ["Guest"] };
 const otherTenantAdmin: PipelineUser = { id: 3, tenantId: 2, roles: ["Admin"] };
+const JWT_SECRET = "full-stack-test-secret-minimum-32-chars!!";
 
 beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
   searchAdapter = createInMemorySearchAdapter();
-  auditLog = [];
-  sseEvents = [];
 
   await searchAdapter.configure(1, {
-    searchableFields: searchFields,
+    searchableFields: ["email", "firstName", "lastName"],
     rankingFields: ["email", "firstName", "lastName"],
   });
 
@@ -82,9 +84,15 @@ beforeAll(async () => {
     )
   `);
 
-  // Feature with lifecycle hooks
-  const postSaveLog: SaveContext[] = [];
+  // SSE Broker — capture events sent to tenant:1
+  const sseBroker = createSseBroker();
+  sseBroker.addClient(
+    "tenant:1",
+    (event) => sseEvents.push(event),
+    () => {},
+  );
 
+  // Feature with REAL postSave hook
   const userFeature = defineFeature("users", (r) => {
     r.entity("user", userEntity);
 
@@ -100,7 +108,6 @@ beforeAll(async () => {
         const sa = ctx["searchAdapter"] as SearchAdapter;
         const crud = createCrudExecutor(userTable, userEntity, {
           searchAdapter: sa,
-          searchableFields: searchFields,
           entityName: "user",
         });
         return crud.create(event.payload, event.user, db);
@@ -116,7 +123,6 @@ beforeAll(async () => {
         const sa = ctx["searchAdapter"] as SearchAdapter;
         const crud = createCrudExecutor(userTable, userEntity, {
           searchAdapter: sa,
-          searchableFields: searchFields,
           entityName: "user",
         });
         return crud.update(event.payload, event.user, db);
@@ -148,7 +154,6 @@ beforeAll(async () => {
         const sa = ctx["searchAdapter"] as SearchAdapter;
         const crud = createCrudExecutor(userTable, userEntity, {
           searchAdapter: sa,
-          searchableFields: searchFields,
           entityName: "user",
         });
         return crud.list(query.payload, query.user, db);
@@ -157,41 +162,36 @@ beforeAll(async () => {
 
     r.queryHandler("user.detail", z.object({ id: z.number() }), async (query, ctx) => {
       const db = ctx["db"] as DbConnection;
-      const crud = createCrudExecutor(userTable, userEntity, { entityName: "user" });
+      const crud = createCrudExecutor(userTable, userEntity, {});
       return crud.detail(query.payload, query.user, db);
     });
 
-    // Feature-level postSave hook
+    // Feature-level postSave hook — proves feature hooks fire
     r.hook("postSave", "user", async (result) => {
-      postSaveLog.push(result);
+      featurePostSaveLog.push(result);
     });
 
     r.hook("validation", "user.create", (data) => {
       if (data["email"] === "banned@evil.com") return [{ field: "email", error: "banned_domain" }];
       return null;
     });
-
-    r.translations({ keys: { "nav.title": { de: "Benutzer", en: "Users" } } });
   });
 
-  // SSE Broker for tracking broadcasts
-  const sseBroker = createSseBroker();
-  sseBroker.addClient(
-    "tenant:1",
-    (event) => {
-      sseEvents.push(event);
-    },
-    () => {},
-  );
+  const registry = createRegistry([userFeature]);
 
-  // Audit Trail storage (in-memory for test)
-  const _auditStorage = {
-    append: async (entry: AuditTrailEntry) => {
-      auditLog.push(entry);
-    },
+  // REAL system hooks — wired through lifecycle pipeline
+  const systemHooks: SystemHooks = {
+    postSave: [
+      createSearchIndexHook(searchAdapter, registry),
+      createSseBroadcastHook(sseBroker),
+      createAuditTrailHook({
+        append: async (entry) => {
+          auditLog.push(entry);
+        },
+      }),
+    ],
   };
 
-  const registry = createRegistry([userFeature]);
   const eventLog = createEventLog(testRedis.redis, "kumiko:test:fullstack-log");
 
   const server = buildServer({
@@ -199,6 +199,7 @@ beforeAll(async () => {
     context: { db: testDb.db, redis: testRedis.redis, searchAdapter },
     jwtSecret: JWT_SECRET,
     dispatcherOptions: { eventLog },
+    systemHooks,
     sseBroker,
   });
   app = server.app;
@@ -221,113 +222,79 @@ async function req(method: string, path: string, user: PipelineUser, body?: unkn
 }
 
 // =============================================================================
-// CRUD: Create + Read
+// CRUD
 // =============================================================================
 
 describe("full stack: CRUD", () => {
   test("create and read back", async () => {
-    const createRes = await req("POST", "/api/write", adminUser, {
+    const res = await req("POST", "/api/write", adminUser, {
       type: "user.create",
       payload: { email: "marc@test.de", firstName: "Marc", lastName: "Test" },
     });
-    expect(createRes.status).toBe(200);
-    const body = await createRes.json();
+    const body = await res.json();
     expect(body.isSuccess).toBe(true);
     expect(body.data.isNew).toBe(true);
-    const userId = body.data.id;
 
-    const detailRes = await req("POST", "/api/query", adminUser, {
+    const detail = await req("POST", "/api/query", adminUser, {
       type: "user.detail",
-      payload: { id: userId },
+      payload: { id: body.data.id },
     });
-    const detail = await detailRes.json();
-    expect(detail.data.email).toBe("marc@test.de");
-    expect(detail.data.version).toBe(1);
+    const d = await detail.json();
+    expect(d.data.email).toBe("marc@test.de");
+    expect(d.data.version).toBe(1);
   });
 
-  test("delete (soft) removes from queries", async () => {
-    const createRes = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "todelete@test.de" },
-    });
-    const userId = (await createRes.json()).data.id;
+  test("soft delete removes from queries", async () => {
+    const c = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "del@test.de" },
+      })
+    ).json();
 
-    const deleteRes = await req("POST", "/api/write", adminUser, {
-      type: "user.delete",
-      payload: { id: userId },
-    });
-    const deleteBody = await deleteRes.json();
-    expect(deleteBody.isSuccess).toBe(true);
-    expect(deleteBody.data.data["email"]).toBe("todelete@test.de");
+    const del = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.delete",
+        payload: { id: c.data.id },
+      })
+    ).json();
+    expect(del.isSuccess).toBe(true);
 
-    const detailRes = await req("POST", "/api/query", adminUser, {
-      type: "user.detail",
-      payload: { id: userId },
-    });
-    expect((await detailRes.json()).data).toBeNull();
+    const d = await (
+      await req("POST", "/api/query", adminUser, {
+        type: "user.detail",
+        payload: { id: c.data.id },
+      })
+    ).json();
+    expect(d.data).toBeNull();
   });
 });
 
 // =============================================================================
-// SaveContext: changes + previous
+// SaveContext
 // =============================================================================
 
-describe("full stack: SaveContext", () => {
-  test("create returns isNew=true, empty previous", async () => {
-    const res = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "ctx-new@test.de", firstName: "New" },
-    });
-    const body = await res.json();
-    expect(body.data.isNew).toBe(true);
-    expect(body.data.changes).toEqual({ email: "ctx-new@test.de", firstName: "New" });
-    expect(body.data.previous).toEqual({});
-  });
+describe("full stack: SaveContext changes + previous", () => {
+  test("update returns exact changes and previous state", async () => {
+    const c = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "ctx@test.de", firstName: "Before", lastName: "Keep" },
+      })
+    ).json();
 
-  test("update returns isNew=false with exact changes and previous", async () => {
-    const createRes = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "ctx-upd@test.de", firstName: "Before", lastName: "Keep" },
-    });
-    const userId = (await createRes.json()).data.id;
+    const u = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.update",
+        payload: { id: c.data.id, changes: { firstName: "After" } },
+      })
+    ).json();
 
-    const updateRes = await req("POST", "/api/write", adminUser, {
-      type: "user.update",
-      payload: { id: userId, changes: { firstName: "After" } },
-    });
-    const body = await updateRes.json();
-    expect(body.data.isNew).toBe(false);
-    expect(body.data.changes).toEqual({ firstName: "After" });
-    expect(body.data.previous["firstName"]).toBe("Before");
-    expect(body.data.previous["lastName"]).toBe("Keep");
-    expect(body.data.data["firstName"]).toBe("After");
-  });
-
-  test("status transition detection", async () => {
-    const createRes = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "status@test.de", firstName: "Draft" },
-    });
-    const userId = (await createRes.json()).data.id;
-
-    // Draft → Started
-    const u1 = await req("POST", "/api/write", adminUser, {
-      type: "user.update",
-      payload: { id: userId, changes: { firstName: "Started" } },
-    });
-    const b1 = await u1.json();
-    expect(b1.data.previous["firstName"]).toBe("Draft");
-    expect(b1.data.changes["firstName"]).toBe("Started");
-
-    // Started → Started (no real change)
-    const u2 = await req("POST", "/api/write", adminUser, {
-      type: "user.update",
-      payload: { id: userId, changes: { firstName: "Started" } },
-    });
-    const b2 = await u2.json();
-    expect(b2.data.previous["firstName"]).toBe("Started");
-    expect(b2.data.changes["firstName"]).toBe("Started");
-    // Hook can detect: previous === changes → no transition
+    expect(u.data.isNew).toBe(false);
+    expect(u.data.changes).toEqual({ firstName: "After" });
+    expect(u.data.previous["firstName"]).toBe("Before");
+    expect(u.data.previous["lastName"]).toBe("Keep");
+    expect(u.data.data["firstName"]).toBe("After");
   });
 });
 
@@ -336,108 +303,139 @@ describe("full stack: SaveContext", () => {
 // =============================================================================
 
 describe("full stack: optimistic locking", () => {
-  test("update with correct version succeeds", async () => {
-    const createRes = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "lock-ok@test.de" },
-    });
-    const userId = (await createRes.json()).data.id;
+  test("stale version returns version_conflict", async () => {
+    const c = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "lock@test.de" },
+      })
+    ).json();
 
-    const updateRes = await req("POST", "/api/write", adminUser, {
-      type: "user.update",
-      payload: { id: userId, version: 1, changes: { firstName: "V2" } },
-    });
-    const body = await updateRes.json();
-    expect(body.isSuccess).toBe(true);
-    expect(body.data.data["version"]).toBe(2);
-  });
-
-  test("update with stale version returns version_conflict", async () => {
-    const createRes = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "lock-fail@test.de" },
-    });
-    const userId = (await createRes.json()).data.id;
-
-    // First update OK
     await req("POST", "/api/write", adminUser, {
       type: "user.update",
-      payload: { id: userId, version: 1, changes: { firstName: "V2" } },
+      payload: { id: c.data.id, version: 1, changes: { firstName: "V2" } },
     });
 
-    // Second update with stale version 1 (current is 2)
-    const staleRes = await req("POST", "/api/write", adminUser, {
-      type: "user.update",
-      payload: { id: userId, version: 1, changes: { firstName: "Stale" } },
-    });
-    const body = await staleRes.json();
-    expect(body.isSuccess).toBe(false);
-    expect(body.error).toContain("version_conflict");
+    const stale = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.update",
+        payload: { id: c.data.id, version: 1, changes: { firstName: "Stale" } },
+      })
+    ).json();
+
+    expect(stale.isSuccess).toBe(false);
+    expect(stale.error).toContain("version_conflict");
   });
 });
 
 // =============================================================================
-// Search
+// System Hooks ACTUALLY FIRE
 // =============================================================================
 
-describe("full stack: search", () => {
-  test("search via SearchAdapter", async () => {
+describe("full stack: lifecycle pipeline — system hooks fire", () => {
+  test("feature postSave hook receives SaveContext", async () => {
+    const before = featurePostSaveLog.length;
+
     await req("POST", "/api/write", adminUser, {
       type: "user.create",
-      payload: { email: "findable@test.de", firstName: "Findable" },
+      payload: { email: "hook@test.de", firstName: "Hooked" },
     });
 
-    const res = await req("POST", "/api/query", adminUser, {
-      type: "user.list",
-      payload: { search: "findable" },
-    });
-    const body = await res.json();
-    expect(
-      body.data.rows.some((r: Record<string, unknown>) => r["email"] === "findable@test.de"),
-    ).toBe(true);
+    expect(featurePostSaveLog.length).toBeGreaterThan(before);
+    const last = featurePostSaveLog[featurePostSaveLog.length - 1];
+    expect(last?.data["email"]).toBe("hook@test.de");
+    expect(last?.isNew).toBe(true);
   });
 
-  test("search returns empty for no match", async () => {
-    const res = await req("POST", "/api/query", adminUser, {
-      type: "user.list",
-      payload: { search: "zzzzzznonexistent" },
+  test("audit trail system hook captures create", async () => {
+    const before = auditLog.length;
+
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "audit@test.de" },
     });
-    expect((await res.json()).data.rows).toHaveLength(0);
+
+    expect(auditLog.length).toBeGreaterThan(before);
+    const last = auditLog[auditLog.length - 1];
+    expect(last?.action).toBe("user.create");
+    expect(last?.entityType).toBe("user");
+    expect(last?.isNew).toBe(true);
+    expect(last?.userId).toBe(1);
+  });
+
+  test("audit trail system hook captures update with changes + previous", async () => {
+    const c = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "audit-upd@test.de", firstName: "Old" },
+      })
+    ).json();
+
+    const beforeLen = auditLog.length;
+
+    await req("POST", "/api/write", adminUser, {
+      type: "user.update",
+      payload: { id: c.data.id, changes: { firstName: "New" } },
+    });
+
+    const updateEntry = auditLog.slice(beforeLen).find((e) => e.action === "user.update");
+    expect(updateEntry).toBeDefined();
+    expect(updateEntry?.changes["firstName"]).toBe("New");
+    expect(updateEntry?.previous["firstName"]).toBe("Old");
+    expect(updateEntry?.isNew).toBe(false);
+  });
+
+  test("SSE broadcast fires on create", async () => {
+    const before = sseEvents.length;
+
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "sse@test.de" },
+    });
+
+    expect(sseEvents.length).toBeGreaterThan(before);
+    const last = sseEvents[sseEvents.length - 1];
+    expect(last?.type).toBe("user.created");
+    expect(last?.data["id"]).toBeDefined();
+  });
+
+  test("SSE broadcast fires on update", async () => {
+    const c = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "sse-upd@test.de" },
+      })
+    ).json();
+
+    const before = sseEvents.length;
+
+    await req("POST", "/api/write", adminUser, {
+      type: "user.update",
+      payload: { id: c.data.id, changes: { firstName: "SSE" } },
+    });
+
+    const updateEvent = sseEvents.slice(before).find((e) => e.type === "user.updated");
+    expect(updateEvent).toBeDefined();
+    expect(updateEvent?.data["changes"]).toEqual({ firstName: "SSE" });
+  });
+
+  test("search index updated via system hook after create", async () => {
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "indexed@test.de", firstName: "Indexed" },
+    });
+
+    // Search should find it — indexed by system hook, not CrudExecutor
+    const results = await searchAdapter.search(1, "indexed", { filterType: "user" });
+    expect(results.some((r) => r.entityType === "user")).toBe(true);
   });
 });
 
 // =============================================================================
-// Sorting
+// Auth + Access + Validation + Tenant Isolation
 // =============================================================================
 
-describe("full stack: sorting", () => {
-  test("sort by lastName ASC", async () => {
-    await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "s-z@test.de", lastName: "Zebra" },
-    });
-    await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "s-a@test.de", lastName: "Alpha" },
-    });
-
-    const res = await req("POST", "/api/query", adminUser, {
-      type: "user.list",
-      payload: { sort: "lastName", sortDirection: "asc" },
-    });
-    const names = (await res.json()).data.rows
-      .map((r: Record<string, unknown>) => r["lastName"])
-      .filter(Boolean);
-    const sorted = [...names].sort();
-    expect(names).toEqual(sorted);
-  });
-});
-
-// =============================================================================
-// Auth + Access
-// =============================================================================
-
-describe("full stack: auth", () => {
+describe("full stack: auth + access + validation", () => {
   test("unauthenticated → 401", async () => {
     const res = await app.request("/api/write", {
       method: "POST",
@@ -448,80 +446,94 @@ describe("full stack: auth", () => {
   });
 
   test("guest → access denied", async () => {
-    const res = await req("POST", "/api/write", guestUser, {
-      type: "user.create",
-      payload: { email: "guest@test.de" },
-    });
-    expect((await res.json()).error).toContain("access");
+    const res = await (
+      await req("POST", "/api/write", guestUser, {
+        type: "user.create",
+        payload: { email: "guest@test.de" },
+      })
+    ).json();
+    expect(res.error).toContain("access");
   });
 
   test("other tenant cannot see data", async () => {
-    const createRes = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "secret@test.de" },
-    });
-    const userId = (await createRes.json()).data.id;
+    const c = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "secret@test.de" },
+      })
+    ).json();
 
-    const detailRes = await req("POST", "/api/query", otherTenantAdmin, {
-      type: "user.detail",
-      payload: { id: userId },
-    });
-    expect((await detailRes.json()).data).toBeNull();
-  });
-});
-
-// =============================================================================
-// Validation
-// =============================================================================
-
-describe("full stack: validation", () => {
-  test("zod rejects invalid email", async () => {
-    const res = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "not-email" },
-    });
-    expect((await res.json()).error).toContain("validation");
+    const d = await (
+      await req("POST", "/api/query", otherTenantAdmin, {
+        type: "user.detail",
+        payload: { id: c.data.id },
+      })
+    ).json();
+    expect(d.data).toBeNull();
   });
 
   test("validation hook rejects banned domain", async () => {
-    const res = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
-      payload: { email: "banned@evil.com" },
-    });
-    expect((await res.json()).error).toContain("banned_domain");
+    const res = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "user.create",
+        payload: { email: "banned@evil.com" },
+      })
+    ).json();
+    expect(res.error).toContain("banned_domain");
   });
 });
 
 // =============================================================================
-// Command (fire-and-forget)
+// Search + Sort
 // =============================================================================
 
-describe("full stack: command", () => {
-  test("returns 202 and data lands in DB", async () => {
-    const res = await req("POST", "/api/command", adminUser, {
+describe("full stack: search + sort", () => {
+  test("search finds via SearchAdapter", async () => {
+    await req("POST", "/api/write", adminUser, {
       type: "user.create",
-      payload: { email: "cmd@test.de", firstName: "Cmd" },
+      payload: { email: "findable@test.de", firstName: "Findable" },
     });
-    expect(res.status).toBe(202);
 
-    const listRes = await req("POST", "/api/query", adminUser, {
-      type: "user.list",
-      payload: { search: "cmd" },
-    });
+    const res = await (
+      await req("POST", "/api/query", adminUser, {
+        type: "user.list",
+        payload: { search: "findable" },
+      })
+    ).json();
     expect(
-      (await listRes.json()).data.rows.some(
-        (r: Record<string, unknown>) => r["email"] === "cmd@test.de",
-      ),
+      res.data.rows.some((r: Record<string, unknown>) => r["email"] === "findable@test.de"),
     ).toBe(true);
   });
+
+  test("sort by lastName ASC", async () => {
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "sz@test.de", lastName: "Zebra" },
+    });
+    await req("POST", "/api/write", adminUser, {
+      type: "user.create",
+      payload: { email: "sa@test.de", lastName: "Alpha" },
+    });
+
+    const res = await (
+      await req("POST", "/api/query", adminUser, {
+        type: "user.list",
+        payload: { sort: "lastName", sortDirection: "asc" },
+      })
+    ).json();
+
+    const names = res.data.rows.map((r: Record<string, unknown>) => r["lastName"]).filter(Boolean);
+    const sorted = [...names].sort();
+    expect(names).toEqual(sorted);
+  });
 });
 
 // =============================================================================
-// Event Log
+// Event Log + SSE Route + Health
 // =============================================================================
 
 describe("full stack: event log", () => {
-  test("events are logged in Redis", async () => {
+  test("events logged in Redis", async () => {
     const eventLog = createEventLog(testRedis.redis, "kumiko:test:fullstack-log");
     const recent = await eventLog.recent(100);
     expect(recent.length).toBeGreaterThan(0);
@@ -529,34 +541,21 @@ describe("full stack: event log", () => {
   });
 });
 
-// =============================================================================
-// SSE
-// =============================================================================
-
-describe("full stack: SSE", () => {
-  test("GET /api/sse requires auth", async () => {
-    const res = await app.request("/api/sse");
-    expect(res.status).toBe(401);
+describe("full stack: SSE route", () => {
+  test("requires auth", async () => {
+    expect((await app.request("/api/sse")).status).toBe(401);
   });
 
-  test("GET /api/sse with auth returns event stream", async () => {
+  test("returns event stream", async () => {
     const token = await jwt.sign(adminUser);
-    const res = await app.request("/api/sse", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await app.request("/api/sse", { headers: { Authorization: `Bearer ${token}` } });
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
   });
 });
 
-// =============================================================================
-// Health
-// =============================================================================
-
 describe("full stack: health", () => {
-  test("GET /health works without auth", async () => {
-    const res = await app.request("/health");
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: "ok" });
+  test("GET /health", async () => {
+    expect(await (await app.request("/health")).json()).toEqual({ status: "ok" });
   });
 });

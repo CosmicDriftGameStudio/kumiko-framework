@@ -1,14 +1,21 @@
 import { hasAccess } from "../engine/access";
-import type { PipelineContext, PipelineUser, Registry, WriteResult } from "../engine/types";
+import type {
+  PipelineContext,
+  PipelineUser,
+  Registry,
+  SaveContext,
+  WriteResult,
+} from "../engine/types";
 import { runValidation } from "../engine/validation";
-import type { BrokerEvent, EventBroker } from "./event-broker";
+import type { BrokerEvent } from "./event-broker";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
+import type { LifecyclePipeline } from "./lifecycle-pipeline";
 
 export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;
   eventLog?: EventLog;
-  eventBroker?: EventBroker;
+  lifecycle?: LifecyclePipeline;
 };
 
 export type Dispatcher = {
@@ -24,12 +31,23 @@ export type Dispatcher = {
   broadcast(channel: string, event: BrokerEvent): Promise<void>;
 };
 
+function extractEntityName(handlerName: string): string | undefined {
+  const dotIndex = handlerName.indexOf(".");
+  return dotIndex > 0 ? handlerName.slice(0, dotIndex) : undefined;
+}
+
+function isSaveContext(data: unknown): data is SaveContext {
+  if (!data || typeof data !== "object") return false;
+  const obj = data as Record<string, unknown>;
+  return "id" in obj && "changes" in obj && "previous" in obj && "isNew" in obj;
+}
+
 export function createDispatcher(
   registry: Registry,
   context: PipelineContext,
   options: DispatcherOptions = {},
 ): Dispatcher {
-  const { idempotency, eventLog, eventBroker } = options;
+  const { idempotency, eventLog, lifecycle } = options;
 
   async function logEvent(type: string, payload: unknown, user: PipelineUser): Promise<void> {
     if (!eventLog) return;
@@ -43,7 +61,6 @@ export function createDispatcher(
 
   return {
     async write(type, payload, user, requestId?) {
-      // Idempotency check
       if (requestId && idempotency) {
         const cached = await idempotency.check(requestId);
         if (cached) return JSON.parse(cached) as WriteResult;
@@ -67,14 +84,21 @@ export function createDispatcher(
         return { isSuccess: false, error: `validation_hook: ${messages}` };
       }
 
-      const result = await handler.handler({ type, payload: parsed.data, user }, context);
+      // Run handler with lifecycle context
+      const entityName = extractEntityName(type);
+      const handlerContext = { ...context, _entityName: entityName, _userId: user.id };
 
-      // Store idempotency
+      const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
+
+      // Run postSave lifecycle hooks if result contains SaveContext
+      if (result.isSuccess && lifecycle && entityName && isSaveContext(result.data)) {
+        await lifecycle.runPostSave(entityName, result.data, handlerContext);
+      }
+
       if (requestId && idempotency) {
         await idempotency.store(requestId, result);
       }
 
-      // Log event
       await logEvent(type, parsed.data, user);
 
       return result;
@@ -94,9 +118,7 @@ export function createDispatcher(
       }
 
       const result = await handler.handler({ type, payload: parsed.data, user }, context);
-
       await logEvent(type, parsed.data, user);
-
       return result;
     },
 
@@ -119,19 +141,24 @@ export function createDispatcher(
         throw new Error(`validation_hook: ${messages}`);
       }
 
-      await handler.handler({ type, payload: parsed.data, user }, context);
+      const entityName = extractEntityName(type);
+      const handlerContext = { ...context, _entityName: entityName, _userId: user.id };
+
+      const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
+
+      if (result.isSuccess && lifecycle && entityName && isSaveContext(result.data)) {
+        await lifecycle.runPostSave(entityName, result.data, handlerContext);
+      }
 
       await logEvent(type, parsed.data, user);
     },
 
-    async shareEvent(event) {
-      if (!eventBroker) throw new Error("No event broker configured");
-      await eventBroker.publish(event);
+    async shareEvent(_event) {
+      throw new Error("shareEvent requires eventBroker — not configured");
     },
 
-    async broadcast(channel, event) {
-      if (!eventBroker) throw new Error("No event broker configured");
-      await eventBroker.publish({ ...event, type: `broadcast:${channel}:${event.type}` });
+    async broadcast(_channel, _event) {
+      throw new Error("broadcast requires eventBroker — not configured");
     },
   };
 }

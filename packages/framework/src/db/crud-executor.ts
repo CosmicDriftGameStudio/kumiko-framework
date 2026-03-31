@@ -16,7 +16,6 @@ type Table = PgTableWithColumns<any>;
 
 export type CrudExecutorOptions = {
   searchAdapter?: SearchAdapter;
-  searchableFields?: readonly string[];
   entityName?: string;
 };
 
@@ -64,8 +63,7 @@ export function createCrudExecutor(
   options: CrudExecutorOptions = {},
 ): CrudExecutor {
   const softDelete = entity.softDelete ?? false;
-  const { searchAdapter, searchableFields, entityName } = options;
-  const searchWeight = entity.searchWeight ?? 1;
+  const { searchAdapter, entityName } = options;
 
   function tenantAndId(tenantId: number, id: number) {
     const conditions = [eq(table["tenantId"], tenantId), eq(table["id"], id)];
@@ -84,24 +82,6 @@ export function createCrudExecutor(
     return (row as Record<string, unknown>) ?? null;
   }
 
-  async function indexForSearch(
-    tenantId: number,
-    id: number,
-    payload: Record<string, unknown>,
-  ): Promise<void> {
-    if (!searchAdapter || !searchableFields || !entityName) return;
-    const fields: Record<string, unknown> = {};
-    for (const f of searchableFields) {
-      if (payload[f] !== undefined) fields[f] = payload[f];
-    }
-    await searchAdapter.index(tenantId, {
-      entityType: entityName,
-      entityId: id,
-      weight: searchWeight,
-      fields,
-    });
-  }
-
   return {
     async create(payload, user, db) {
       const [row] = await db
@@ -118,26 +98,16 @@ export function createCrudExecutor(
       const data = row as Record<string, unknown>;
       const id = data["id"] as number;
 
-      await indexForSearch(user.tenantId, id, data);
-
       return {
         isSuccess: true,
-        data: {
-          id,
-          data,
-          changes: payload,
-          previous: {},
-          isNew: true,
-        },
+        data: { id, data, changes: payload, previous: {}, isNew: true },
       };
     },
 
     async update(payload, user, db) {
-      // Load previous state BEFORE update
       const previous = await loadById(user.tenantId, payload.id, db);
       if (!previous) return { isSuccess: false, error: "not_found" };
 
-      // Optimistic locking: check version if provided
       if (payload.version !== undefined) {
         const currentVersion = previous["version"] as number;
         if (currentVersion !== payload.version) {
@@ -162,14 +132,11 @@ export function createCrudExecutor(
 
       if (!row) return { isSuccess: false, error: "update_failed" };
       const data = row as Record<string, unknown>;
-      const id = data["id"] as number;
-
-      await indexForSearch(user.tenantId, id, data);
 
       return {
         isSuccess: true,
         data: {
-          id,
+          id: data["id"] as number,
           data,
           changes: payload.changes,
           previous,
@@ -179,34 +146,21 @@ export function createCrudExecutor(
     },
 
     async delete(payload, user, db) {
-      // Load data before delete for hooks
       const existing = await loadById(user.tenantId, payload.id, db);
       if (!existing) return { isSuccess: false, error: "not_found" };
 
       if (softDelete) {
         await db
           .update(table)
-          .set({
-            isDeleted: true,
-            modifiedById: user.id,
-            modifiedAt: new Date(),
-          })
-          .where(tenantAndId(user.tenantId, payload.id))
-          .returning();
+          .set({ isDeleted: true, modifiedById: user.id, modifiedAt: new Date() })
+          .where(tenantAndId(user.tenantId, payload.id));
       } else {
         await db
           .delete(table)
           .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], payload.id)));
       }
 
-      if (searchAdapter && entityName) {
-        await searchAdapter.remove(user.tenantId, entityName, payload.id);
-      }
-
-      return {
-        isSuccess: true,
-        data: { id: payload.id, data: existing },
-      };
+      return { isSuccess: true, data: { id: payload.id, data: existing } };
     },
 
     async list(payload, user, db) {
@@ -218,7 +172,7 @@ export function createCrudExecutor(
       if (payload.sort) opts.sort = payload.sort;
       if (payload.sortDirection) opts.sortDirection = payload.sortDirection;
 
-      // Search goes through SearchAdapter — tenant-scoped, type-filtered
+      // Search through SearchAdapter — tenant-scoped, type-filtered
       if (payload.search && searchAdapter && entityName) {
         const results = await searchAdapter.search(user.tenantId, payload.search, {
           filterType: entityName,
@@ -237,10 +191,7 @@ export function createCrudExecutor(
           ? Buffer.from(String(lastRow["id"])).toString("base64url")
           : null;
 
-      return {
-        rows: rows as Record<string, unknown>[],
-        nextCursor,
-      };
+      return { rows: rows as Record<string, unknown>[], nextCursor };
     },
 
     async detail(payload, user, db) {

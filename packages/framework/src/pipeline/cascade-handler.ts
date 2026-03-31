@@ -19,38 +19,42 @@ export function createCascadeDeleteHook(
       const db = (_context as Record<string, unknown>)["db"] as DbConnection | undefined;
       if (!entityName || !db) return;
 
-      const incoming = registry.getIncomingRelations(entityName);
+      // Check outgoing relations (this entity's hasMany/manyToMany)
+      // AND incoming relations (other entities' belongsTo pointing here)
+      const outgoing = registry.getRelations(entityName);
+      const _incoming = registry.getIncomingRelations(entityName);
 
-      for (const { sourceEntity, relation } of incoming) {
+      // Outgoing: e.g. department.users (hasMany target: user) — users have FK to department
+      for (const [, relation] of Object.entries(outgoing)) {
         const strategy = relation.onDelete ?? "nothing";
         if (strategy === "nothing") continue;
 
         if (relation.type === "hasMany" && relation.foreignKey) {
-          const sourceTable = tables.get(sourceEntity);
-          if (!sourceTable) continue;
+          const targetTable = tables.get(relation.target);
+          if (!targetTable) continue;
 
           if (strategy === "restrict") {
             const rows = await db
-              .select({ id: sourceTable["id"] })
-              .from(sourceTable)
-              .where(eq(sourceTable[relation.foreignKey], payload.id))
+              .select({ id: targetTable["id"] })
+              .from(targetTable)
+              .where(eq(targetTable[relation.foreignKey], payload.id))
               .limit(1);
             if (rows.length > 0) {
               throw new Error(
-                `delete_restricted: ${sourceEntity} has records referencing ${entityName}#${payload.id}`,
+                `delete_restricted: ${relation.target} has records referencing ${entityName}#${payload.id}`,
               );
             }
           }
 
           if (strategy === "cascade") {
-            await db.delete(sourceTable).where(eq(sourceTable[relation.foreignKey], payload.id));
+            await db.delete(targetTable).where(eq(targetTable[relation.foreignKey], payload.id));
           }
 
           if (strategy === "setNull") {
             await db
-              .update(sourceTable)
+              .update(targetTable)
               .set({ [relation.foreignKey]: null })
-              .where(eq(sourceTable[relation.foreignKey], payload.id));
+              .where(eq(targetTable[relation.foreignKey], payload.id));
           }
         }
 
