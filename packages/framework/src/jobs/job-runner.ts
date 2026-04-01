@@ -1,16 +1,21 @@
 import { type Job, Queue, Worker } from "bullmq";
 import type { PipelineContext, Registry } from "../engine/types";
 
-export type JobRunner = {
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  dispatch(jobName: string, payload?: Record<string, unknown>): Promise<string>;
-};
-
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
   message: string;
   timestamp: Date;
+};
+
+export type JobMeta = {
+  triggeredById?: number | undefined;
+  payload?: string | undefined;
+};
+
+export type JobRunner = {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  dispatch(jobName: string, payload?: Record<string, unknown>, meta?: JobMeta): Promise<string>;
 };
 
 export type JobRunnerOptions = {
@@ -18,7 +23,7 @@ export type JobRunnerOptions = {
   context: PipelineContext;
   redisUrl: string;
   queueName?: string;
-  onJobStart?: (jobName: string, jobId: string) => void;
+  onJobStart?: (jobName: string, jobId: string, meta: JobMeta) => void;
   onJobComplete?: (jobName: string, jobId: string, duration: number, logs: JobLogEntry[]) => void;
   onJobFailed?: (jobName: string, jobId: string, error: string, logs: JobLogEntry[]) => void;
 };
@@ -55,6 +60,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const startTime = Date.now();
     const logs: JobLogEntry[] = [];
 
+    // Extract meta from job data
+    const rawData = bullJob.data as Record<string, unknown>;
+    const meta: JobMeta = {
+      triggeredById: rawData["_triggeredById"] as number | undefined,
+      payload: rawData["_payload"] as string | undefined,
+    };
+
+    // Build handler payload (without internal meta fields)
+    const payload: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(rawData)) {
+      if (!k.startsWith("_")) payload[k] = v;
+    }
+
     const jobContext: PipelineContext = {
       ...context,
       log: (message: string) => {
@@ -68,10 +86,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       },
     };
 
-    await options.onJobStart?.(jobName, jobId);
+    await options.onJobStart?.(jobName, jobId, meta);
 
     try {
-      const payload = (bullJob.data as Record<string, unknown>) ?? {};
       await jobDef.handler(payload, jobContext);
 
       const duration = Date.now() - startTime;
@@ -80,13 +97,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       const errorMsg = err instanceof Error ? err.message : String(err);
       logs.push({ level: "error", message: errorMsg, timestamp: new Date() });
       await options.onJobFailed?.(jobName, jobId, errorMsg, logs);
-      throw err; // Let BullMQ handle retries
+      throw err;
     }
   }
 
   return {
     async start(): Promise<void> {
-      // Start worker
       worker = new Worker(queueName, handleJob, {
         connection: redisOpts,
         concurrency: 5,
@@ -119,7 +135,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       await queue.close();
     },
 
-    async dispatch(jobName: string, payload?: Record<string, unknown>): Promise<string> {
+    async dispatch(
+      jobName: string,
+      payload?: Record<string, unknown>,
+      meta?: JobMeta,
+    ): Promise<string> {
       const jobDef = allJobs.get(jobName);
       if (!jobDef) {
         throw new Error(`Unknown job: ${jobName}`);
@@ -128,10 +148,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       const concurrency = jobDef.concurrency ?? "parallel";
       const bullOpts: Record<string, unknown> = {};
 
-      // Apply concurrency mode
       switch (concurrency) {
         case "skip": {
-          // Check if a job with this name is already active
           const active = await queue.getActive();
           const waiting = await queue.getWaiting();
           const isRunning = [...active, ...waiting].some((j) => j.name === jobName);
@@ -141,7 +159,6 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           break;
         }
         case "replace": {
-          // Remove waiting jobs with the same name
           const waiting = await queue.getWaiting();
           for (const j of waiting) {
             if (j.name === jobName && j.id) {
@@ -151,8 +168,6 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           break;
         }
         case "sequential": {
-          // BullMQ group-based sequential: use jobName as group key
-          // This ensures only one job of this type runs at a time
           bullOpts["group"] = { id: jobName };
           break;
         }
@@ -162,16 +177,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           break;
         }
         default:
-          // parallel — no restrictions
           break;
       }
 
-      // Apply retries, backoff, timeout from job definition
       if (jobDef.retries !== undefined) bullOpts["attempts"] = jobDef.retries + 1;
       if (jobDef.backoff) bullOpts["backoff"] = { type: jobDef.backoff };
       if (jobDef.timeout) bullOpts["timeout"] = jobDef.timeout;
 
-      const job = await queue.add(jobName, payload ?? {}, bullOpts);
+      // Pack meta into job data with _ prefix
+      const data: Record<string, unknown> = { ...payload };
+      if (meta?.triggeredById !== undefined) data["_triggeredById"] = meta.triggeredById;
+      if (meta?.payload !== undefined) data["_payload"] = meta.payload;
+
+      const job = await queue.add(jobName, data, bullOpts);
       return job.id ?? "unknown";
     },
   };
