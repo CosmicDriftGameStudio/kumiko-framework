@@ -7,14 +7,20 @@ export type JobRunner = {
   dispatch(jobName: string, payload?: Record<string, unknown>): Promise<string>;
 };
 
+export type JobLogEntry = {
+  level: "info" | "warn" | "error";
+  message: string;
+  timestamp: Date;
+};
+
 export type JobRunnerOptions = {
   registry: Registry;
   context: PipelineContext;
   redisUrl: string;
   queueName?: string;
   onJobStart?: (jobName: string, jobId: string) => void;
-  onJobComplete?: (jobName: string, jobId: string, duration: number) => void;
-  onJobFailed?: (jobName: string, jobId: string, error: string) => void;
+  onJobComplete?: (jobName: string, jobId: string, duration: number, logs: JobLogEntry[]) => void;
+  onJobFailed?: (jobName: string, jobId: string, error: string, logs: JobLogEntry[]) => void;
 };
 
 function parseRedisOpts(url: string): { host: string; port: number; db?: number | undefined } {
@@ -47,17 +53,33 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
     const jobId = bullJob.id ?? "unknown";
     const startTime = Date.now();
-    options.onJobStart?.(jobName, jobId);
+    const logs: JobLogEntry[] = [];
+
+    const jobContext: PipelineContext = {
+      ...context,
+      log: (message: string) => {
+        logs.push({ level: "info", message, timestamp: new Date() });
+      },
+      warn: (message: string) => {
+        logs.push({ level: "warn", message, timestamp: new Date() });
+      },
+      logError: (message: string) => {
+        logs.push({ level: "error", message, timestamp: new Date() });
+      },
+    };
+
+    await options.onJobStart?.(jobName, jobId);
 
     try {
       const payload = (bullJob.data as Record<string, unknown>) ?? {};
-      await jobDef.handler(payload, context);
+      await jobDef.handler(payload, jobContext);
 
       const duration = Date.now() - startTime;
-      options.onJobComplete?.(jobName, jobId, duration);
+      await options.onJobComplete?.(jobName, jobId, duration, logs);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      options.onJobFailed?.(jobName, jobId, errorMsg);
+      logs.push({ level: "error", message: errorMsg, timestamp: new Date() });
+      await options.onJobFailed?.(jobName, jobId, errorMsg, logs);
       throw err; // Let BullMQ handle retries
     }
   }
