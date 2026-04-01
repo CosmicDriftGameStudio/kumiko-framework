@@ -127,6 +127,20 @@ describe("scenario 2: scheduled job", () => {
       expect.unreachable("Expected cron trigger");
     }
   });
+
+  test("cron job fires via BullMQ scheduler", async () => {
+    clearLog();
+    await withRunner(async () => {
+      // Cron fires every second — wait long enough for at least one execution
+      for (let i = 0; i < 10; i++) {
+        await sleep(500);
+        const entries = jobLog.filter((e) => e.name === "test.scheduled");
+        if (entries.length > 0) break;
+      }
+      const entries = jobLog.filter((e) => e.name === "test.scheduled");
+      expect(entries.length).toBeGreaterThanOrEqual(1);
+    });
+  });
 });
 
 // --- Scenario 3: Manual trigger ---

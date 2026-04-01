@@ -291,6 +291,18 @@ describe("error handling", () => {
     expect(res.status).toBe(404);
   });
 
+  test("upload wrong file type for entity field is rejected", async () => {
+    const pdfContent = new TextEncoder().encode("fake-pdf-content");
+    const res = await uploadFile(adminUser, "document.pdf", pdfContent, "application/pdf", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo", // logo only accepts png, jpg
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("invalid_file_type");
+  });
+
   test("upload without auth returns 401", async () => {
     const formData = new FormData();
     formData.append("file", new File([new Uint8Array(10)], "test.png", { type: "image/png" }));

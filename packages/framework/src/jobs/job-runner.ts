@@ -144,6 +144,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           break;
       }
 
+      // Apply retries, backoff, timeout from job definition
+      if (jobDef.retries !== undefined) bullOpts["attempts"] = jobDef.retries + 1;
+      if (jobDef.backoff) bullOpts["backoff"] = { type: jobDef.backoff };
+      if (jobDef.timeout) bullOpts["timeout"] = jobDef.timeout;
+
       const job = await queue.add(jobName, payload ?? {}, bullOpts);
       return job.id ?? "unknown";
     },

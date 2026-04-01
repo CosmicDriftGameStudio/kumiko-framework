@@ -12,8 +12,8 @@ export type FileStorageProvider = {
 };
 
 export type FileValidationOptions = {
-  readonly maxSize?: string; // e.g. "10mb", "500kb"
-  readonly accept?: readonly string[]; // e.g. ["pdf", "jpg"]
+  readonly maxSize?: string | undefined;
+  readonly accept?: readonly string[] | undefined;
 };
 
 export function parseMaxSize(maxSize: string): number {

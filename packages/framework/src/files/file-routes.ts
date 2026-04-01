@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { v4 as uuid } from "uuid";
 import { getUser } from "../api/auth-middleware";
 import type { DbConnection } from "../db/connection";
+import type { FieldDefinition, Registry } from "../engine/types";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileStorageProvider } from "./types";
 import { buildStorageKey, validateFile } from "./types";
@@ -10,6 +11,7 @@ import { buildStorageKey, validateFile } from "./types";
 export type FileRoutesOptions = {
   db: DbConnection;
   storageProvider: FileStorageProvider;
+  registry?: Registry;
   maxUploadSize?: string; // global default, e.g. "10mb"
 };
 
@@ -43,11 +45,30 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const entityId = typeof body["entityId"] === "string" ? Number(body["entityId"]) : undefined;
     const fieldName = typeof body["fieldName"] === "string" ? body["fieldName"] : undefined;
 
-    // Validate file
-    const maxSize = options.maxUploadSize ?? "10mb";
+    // Validate against entity field definition if available
+    let maxSize = options.maxUploadSize ?? "10mb";
+    let accept: readonly string[] | undefined;
+
+    if (options.registry && entityType && fieldName) {
+      const entity = options.registry.getEntity(entityType);
+      if (entity) {
+        const fieldDef = entity.fields[fieldName] as FieldDefinition | undefined;
+        if (
+          fieldDef &&
+          (fieldDef.type === "file" ||
+            fieldDef.type === "image" ||
+            fieldDef.type === "files" ||
+            fieldDef.type === "images")
+        ) {
+          if (fieldDef.maxSize) maxSize = fieldDef.maxSize;
+          if (fieldDef.accept) accept = fieldDef.accept;
+        }
+      }
+    }
+
     const validationError = validateFile(
       { fileName: file.name, mimeType: file.type, size: file.size },
-      { maxSize },
+      { maxSize, accept },
     );
     if (validationError) {
       return c.json({ error: validationError }, 400);

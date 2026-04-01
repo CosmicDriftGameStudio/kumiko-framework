@@ -53,6 +53,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
       createFileRoutes({
         ...options.files,
         db: fileDb,
+        registry: options.registry,
       }),
     );
   }
