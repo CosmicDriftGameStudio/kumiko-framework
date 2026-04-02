@@ -14,6 +14,11 @@ export type App = {
 export function createApp(config: AppConfig): App {
   const validRoles = new Set(config.roles);
 
+  // "system" is reserved for SYSTEM_USER — cannot be used as an app role
+  if (validRoles.has("system")) {
+    throw new Error('Role "system" is reserved for SYSTEM_USER and cannot be used as an app role');
+  }
+
   // Special roles that don't need to be in the app's role list
   const systemRoles = new Set(["all", "system"]);
 

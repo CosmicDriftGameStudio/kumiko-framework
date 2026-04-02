@@ -1,4 +1,5 @@
 import { type Job, Queue, Worker } from "bullmq";
+import { createSystemUser } from "../engine/system-user";
 import type { PipelineContext, Registry } from "../engine/types";
 
 export type JobLogEntry = {
@@ -74,8 +75,15 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       if (!k.startsWith("_")) payload[k] = v;
     }
 
+    // Determine tenantId from payload or meta
+    const tenantId =
+      (payload["tenantId"] as number | undefined) ??
+      (rawData["_tenantId"] as number | undefined) ??
+      0;
+
     const jobContext: PipelineContext = {
       ...context,
+      systemUser: createSystemUser(tenantId),
       log: (message: string) => {
         logs.push({ level: "info", message, timestamp: new Date() });
       },
