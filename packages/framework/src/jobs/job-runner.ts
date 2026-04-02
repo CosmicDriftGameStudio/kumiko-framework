@@ -16,6 +16,7 @@ export type JobRunner = {
   start(): Promise<void>;
   stop(): Promise<void>;
   dispatch(jobName: string, payload?: Record<string, unknown>, meta?: JobMeta): Promise<string>;
+  handleEvent(eventName: string, payload: Record<string, unknown>): Promise<void>;
 };
 
 export type JobRunnerOptions = {
@@ -191,6 +192,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
       const job = await queue.add(jobName, data, bullOpts);
       return job.id ?? "unknown";
+    },
+
+    async handleEvent(eventName: string, payload: Record<string, unknown>): Promise<void> {
+      for (const [name, jobDef] of allJobs) {
+        if ("on" in jobDef.trigger && jobDef.trigger.on === eventName) {
+          await queue.add(name, payload);
+        }
+      }
     },
   };
 }

@@ -118,6 +118,14 @@ export function createDispatcher(
 
       await logEvent(type, parsed.data, user);
 
+      // Trigger event-based jobs
+      if (result.isSuccess && context["jobRunner"]) {
+        const jobRunner = context["jobRunner"] as {
+          handleEvent: (eventName: string, payload: Record<string, unknown>) => Promise<void>;
+        };
+        await jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>);
+      }
+
       return result;
     },
 
