@@ -22,6 +22,7 @@ import {
   type SystemHooks,
 } from "../pipeline";
 import {
+  createAuditTrailDeleteHook,
   createAuditTrailHook,
   createSearchIndexHook,
   createSseBroadcastHook,
@@ -173,8 +174,8 @@ beforeAll(async () => {
       return crud.detail(query.payload, query.user, db);
     });
 
-    // Feature-level postSave hook — proves feature hooks fire
-    r.hook("postSave", "user", async (result) => {
+    // Feature-level entity hook — proves entity hooks fire for all writes
+    r.entityHook("postSave", "user", async (result) => {
       featurePostSaveLog.push(result);
     });
 
@@ -192,6 +193,13 @@ beforeAll(async () => {
       createSearchIndexHook(searchAdapter, registry),
       createSseBroadcastHook(sseBroker),
       createAuditTrailHook({
+        append: async (entry) => {
+          auditLog.push(entry);
+        },
+      }),
+    ],
+    postDelete: [
+      createAuditTrailDeleteHook({
         append: async (entry) => {
           auditLog.push(entry);
         },
@@ -275,6 +283,28 @@ describe("full stack: CRUD", () => {
       })
     ).json();
     expect(d.data).toBeNull();
+  });
+
+  test("delete triggers audit trail via postDelete hook", async () => {
+    const c = await (
+      await req("POST", "/api/write", adminUser, {
+        type: "users.user.create",
+        payload: { email: "audit-del@test.de" },
+      })
+    ).json();
+
+    const beforeLen = auditLog.length;
+
+    await req("POST", "/api/write", adminUser, {
+      type: "users.user.delete",
+      payload: { id: c.data.id },
+    });
+
+    const deleteEntry = auditLog.slice(beforeLen).find((e) => e.action === "users.user.delete");
+    expect(deleteEntry).toBeDefined();
+    expect(deleteEntry?.entityType).toBe("user");
+    expect(deleteEntry?.entityId).toBe(c.data.id);
+    expect(deleteEntry?.isNew).toBe(false);
   });
 });
 
@@ -386,7 +416,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       payload: { id: c.data.id, changes: { firstName: "New" } },
     });
 
-    const updateEntry = auditLog.slice(beforeLen).find((e) => e.action === "user.update");
+    const updateEntry = auditLog.slice(beforeLen).find((e) => e.action === "users.user.update");
     expect(updateEntry).toBeDefined();
     expect(updateEntry?.changes["firstName"]).toBe("New");
     expect(updateEntry?.previous["firstName"]).toBe("Old");
@@ -545,7 +575,7 @@ describe("full stack: event log", () => {
     const eventLog = createEventLog(testRedis.redis, "kumiko:test:fullstack-log");
     const recent = await eventLog.recent(100);
     expect(recent.length).toBeGreaterThan(0);
-    expect(recent.some((e) => e.type === "user.create")).toBe(true);
+    expect(recent.some((e) => e.type === "users.user.create")).toBe(true);
   });
 });
 

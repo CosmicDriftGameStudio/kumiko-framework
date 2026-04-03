@@ -78,14 +78,14 @@ beforeAll(async () => {
 
     r.relation("department", "users", {
       type: "hasMany",
-      target: "cascade.user",
+      target: "user",
       foreignKey: "departmentId",
       onDelete: "restrict",
     });
 
     r.relation("user", "sessions", {
       type: "hasMany",
-      target: "cascade.session",
+      target: "session",
       foreignKey: "userId",
       onDelete: "cascade",
     });
@@ -108,12 +108,12 @@ describe("cascade delete: restrict", () => {
 
     await userCrud.create({ name: "Marc", departmentId: dept.data.id }, admin, testDb.db);
 
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["cascade.user", userTable]]));
+    const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
 
     await expect(
       cascadeHook.fn(
-        { id: dept.data.id, data: { tenantId: 1 } },
-        { db: testDb.db, _entityName: "cascade.department" },
+        { id: dept.data.id, data: { tenantId: 1 }, entityName: "department" },
+        { db: testDb.db },
       ),
     ).rejects.toThrow(/delete_restricted/);
   });
@@ -122,12 +122,12 @@ describe("cascade delete: restrict", () => {
     const dept = await departmentCrud.create({ name: "Empty" }, admin, testDb.db);
     if (!dept.isSuccess) throw new Error("Setup failed");
 
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["cascade.user", userTable]]));
+    const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
 
     await expect(
       cascadeHook.fn(
-        { id: dept.data.id, data: { tenantId: 1 } },
-        { db: testDb.db, _entityName: "cascade.department" },
+        { id: dept.data.id, data: { tenantId: 1 }, entityName: "department" },
+        { db: testDb.db },
       ),
     ).resolves.toBeUndefined();
   });
@@ -147,14 +147,11 @@ describe("cascade delete: cascade", () => {
     expect(sessionsBefore.length).toBe(2);
 
     // Run cascade
-    const cascadeHook = createCascadeDeleteHook(
-      registry,
-      new Map([["cascade.session", sessionTable]]),
-    );
+    const cascadeHook = createCascadeDeleteHook(registry, new Map([["session", sessionTable]]));
 
     await cascadeHook.fn(
-      { id: user.data.id, data: { tenantId: 1 } },
-      { db: testDb.db, _entityName: "cascade.user" },
+      { id: user.data.id, data: { tenantId: 1 }, entityName: "user" },
+      { db: testDb.db },
     );
 
     // Sessions should be gone

@@ -44,7 +44,9 @@ export function createEventLog(redis: Redis, streamKey = "kumiko:events:log"): E
       return entries.map(([_id, fields]) => {
         const obj: Record<string, string> = {};
         for (let i = 0; i < fields.length; i += 2) {
-          obj[fields[i]!] = fields[i + 1]!;
+          const key = fields[i];
+          const val = fields[i + 1];
+          if (key !== undefined && val !== undefined) obj[key] = val;
         }
         return obj as unknown as EventLogEntry;
       });

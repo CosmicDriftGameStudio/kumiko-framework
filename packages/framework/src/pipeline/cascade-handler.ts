@@ -15,7 +15,7 @@ export function createCascadeDeleteHook(
     name: SystemHookNames.cascadeDelete,
     priority: SystemHookPriorities.cascadeDelete,
     fn: async (payload, ctx) => {
-      const entityName = ctx._entityName;
+      const entityName = payload.entityName;
       if (!entityName || !ctx.db) return;
       const db = ctx.db;
 

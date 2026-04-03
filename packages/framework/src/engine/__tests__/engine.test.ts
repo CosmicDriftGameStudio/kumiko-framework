@@ -220,8 +220,8 @@ describe("createRegistry", () => {
     });
 
     const registry = createRegistry([f1, f2]);
-    expect(registry.getEntity("admin.user")?.table).toBe("Users");
-    expect(registry.getEntity("blog.post")?.table).toBe("Posts");
+    expect(registry.getEntity("user")?.table).toBe("Users");
+    expect(registry.getEntity("post")?.table).toBe("Posts");
     expect(registry.getEntity("nonexistent")).toBeUndefined();
   });
 
@@ -250,7 +250,7 @@ describe("createRegistry", () => {
     expect(() => createRegistry([f1, f2])).toThrow(/duplicate feature.*shared/i);
   });
 
-  test("different features can have same entity short name (prefixed differently)", () => {
+  test("duplicate entity name across features throws", () => {
     const f1 = defineFeature("a", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
     });
@@ -258,10 +258,7 @@ describe("createRegistry", () => {
       r.entity("user", createEntity({ table: "Users2", fields: {} }));
     });
 
-    // No error — "a.user" and "b.user" are distinct
-    const registry = createRegistry([f1, f2]);
-    expect(registry.getEntity("a.user")?.table).toBe("Users");
-    expect(registry.getEntity("b.user")?.table).toBe("Users2");
+    expect(() => createRegistry([f1, f2])).toThrow(/duplicate entity.*user/i);
   });
 
   test("different features can have same handler short name (prefixed differently)", () => {
@@ -335,7 +332,7 @@ describe("createRegistry", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getSearchableFields("admin.user")).toEqual(["email", "lastName"]);
+    expect(registry.getSearchableFields("user")).toEqual(["email", "lastName"]);
     expect(registry.getSearchableFields("nonexistent")).toEqual([]);
   });
 });
@@ -408,7 +405,7 @@ describe("sortable fields", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getSortableFields("sortTest.item")).toEqual(["name", "rank"]);
+    expect(registry.getSortableFields("item")).toEqual(["name", "rank"]);
     expect(registry.getSortableFields("nonexistent")).toEqual([]);
   });
 });
@@ -708,7 +705,7 @@ describe("r.relation()", () => {
       );
       r.relation("user", "department", {
         type: "belongsTo",
-        target: "test.department",
+        target: "department",
         foreignKey: "departmentId",
         searchInclude: ["name"],
       });
@@ -724,7 +721,7 @@ describe("r.relation()", () => {
       r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "test.role",
+        target: "role",
         through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
         searchInclude: ["name"],
       });
@@ -743,7 +740,7 @@ describe("r.relation()", () => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
       r.relation("department", "users", {
         type: "hasMany",
-        target: "test.user",
+        target: "user",
         foreignKey: "departmentId",
       });
     });
@@ -759,14 +756,14 @@ describe("registry relations", () => {
       r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "users.role",
+        target: "role",
         through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
         searchInclude: ["name"],
       });
     });
 
     const registry = createRegistry([f1]);
-    const rels = registry.getRelations("users.user");
+    const rels = registry.getRelations("user");
     expect(rels["roles"]).toBeDefined();
   });
 
@@ -777,20 +774,20 @@ describe("registry relations", () => {
       r.entity("department", createEntity({ table: "Depts", fields: { name: createTextField() } }));
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "test.role",
+        target: "role",
         through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
         searchInclude: ["name"],
       });
       r.relation("user", "department", {
         type: "belongsTo",
-        target: "test.department",
+        target: "department",
         foreignKey: "departmentId",
         searchInclude: ["name"],
       });
     });
 
     const registry = createRegistry([feature]);
-    const includes = registry.getSearchIncludes("test.user");
+    const includes = registry.getSearchIncludes("user");
     expect(includes.get("roles")).toEqual(["name"]);
     expect(includes.get("department")).toEqual(["name"]);
   });
@@ -815,18 +812,18 @@ describe("registry relations", () => {
       r.entity("role", createEntity({ table: "Roles", fields: {} }));
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "a.role",
+        target: "role",
         through: { table: "UR1", sourceKey: "userId", targetKey: "roleId" },
       });
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "a.role",
+        target: "role",
         through: { table: "UR2", sourceKey: "userId", targetKey: "roleId" },
       });
     });
 
     const registry = createRegistry([f1]);
-    const rels = registry.getRelations("a.user");
+    const rels = registry.getRelations("user");
     // Last write wins
     expect((rels["roles"] as { through: { table: string } }).through.table).toBe("UR2");
   });

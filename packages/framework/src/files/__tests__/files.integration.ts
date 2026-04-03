@@ -189,7 +189,7 @@ describe("file upload flow via API", () => {
 
   test("upload a logo image", async () => {
     const res = await uploadFile(adminUser, "logo.png", testPngContent, "image/png", {
-      entityType: "tenant.tenant",
+      entityType: "tenant",
       entityId: "1",
       fieldName: "logo",
     });
@@ -200,7 +200,7 @@ describe("file upload flow via API", () => {
     expect(body.fileName).toBe("logo.png");
     expect(body.mimeType).toBe("image/png");
     expect(body.size).toBe(testPngContent.length);
-    expect(body.storageKey).toContain("1/tenant.tenant/1/logo/");
+    expect(body.storageKey).toContain("1/tenant/1/logo/");
 
     uploadedFileId = body.id;
   });
@@ -221,7 +221,7 @@ describe("file upload flow via API", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.fileName).toBe("logo.png");
-    expect(body.entityType).toBe("tenant.tenant");
+    expect(body.entityType).toBe("tenant");
     expect(body.entityId).toBe(1);
     expect(body.fieldName).toBe("logo");
   });
@@ -294,7 +294,7 @@ describe("error handling", () => {
   test("upload wrong file type for entity field is rejected", async () => {
     const pdfContent = new TextEncoder().encode("fake-pdf-content");
     const res = await uploadFile(adminUser, "document.pdf", pdfContent, "application/pdf", {
-      entityType: "tenant.tenant",
+      entityType: "tenant",
       entityId: "1",
       fieldName: "logo", // logo only accepts png, jpg
     });

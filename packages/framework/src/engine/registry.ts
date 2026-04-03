@@ -37,9 +37,15 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const preDeleteHooks = new Map<string, PreDeleteHookFn[]>();
   const postDeleteHooks = new Map<string, PostDeleteHookFn[]>();
   const preQueryHooks = new Map<string, PreQueryHookFn[]>();
+  // Entity hooks — keyed by entity name, NOT prefixed
+  const entityPostSaveHooks = new Map<string, PostSaveHookFn[]>();
+  const entityPreDeleteHooks = new Map<string, PreDeleteHookFn[]>();
+  const entityPostDeleteHooks = new Map<string, PostDeleteHookFn[]>();
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
   const jobMap = new Map<string, JobDefinition>();
   const eventMap = new Map<string, EventDef>();
+  // Handler → entity mapping (populated from entities + handler name convention)
+  const handlerEntityMap = new Map<string, string>();
   const extensionMap = new Map<string, RegistrarExtensionDef>();
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const allReferenceData: ReferenceDataDef[] = [];
@@ -50,8 +56,20 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     return `${featureName}.${name}`;
   }
 
-  // Prefix lifecycle hooks with feature name
-  function mergeHookListPrefixed<T>(
+  // Merge hooks without prefix (entity hooks)
+  function mergeHookList<T>(
+    map: Map<string, T[]>,
+    source: Readonly<Record<string, readonly T[]>>,
+  ): void {
+    for (const [name, fns] of Object.entries(source)) {
+      const existing = map.get(name) ?? [];
+      existing.push(...(fns as T[]));
+      map.set(name, existing);
+    }
+  }
+
+  // Merge hooks with feature prefix (handler hooks)
+  function mergeHookListQualified<T>(
     map: Map<string, T[]>,
     source: Readonly<Record<string, readonly T[]>>,
     featureName: string,
@@ -70,28 +88,26 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
     featureMap.set(feature.name, feature);
 
-    // Entities: featureName.entityName
+    // Entities: NOT prefixed — entity names must be globally unique
     for (const [name, entity] of Object.entries(feature.entities)) {
-      const qualified = qualify(feature.name, name);
-      if (entityMap.has(qualified)) {
-        throw new Error(`Duplicate entity: "${qualified}" (registered by multiple features)`);
+      if (entityMap.has(name)) {
+        throw new Error(`Duplicate entity: "${name}" (registered by multiple features)`);
       }
-      entityMap.set(qualified, entity);
+      entityMap.set(name, entity);
     }
 
-    // Relations: featureName.entityName → featureName.relName
+    // Relations: entityName (not prefixed)
     for (const [entityName, rels] of Object.entries(feature.relations)) {
-      const qualifiedEntity = qualify(feature.name, entityName);
-      const existing = relationMap.get(qualifiedEntity) ?? {};
+      const existing = relationMap.get(entityName) ?? {};
       for (const [relName, relDef] of Object.entries(rels)) {
         if (existing[relName]) {
           throw new Error(
-            `Duplicate relation: "${qualifiedEntity}.${relName}" (registered by multiple features)`,
+            `Duplicate relation: "${entityName}.${relName}" (registered by multiple features)`,
           );
         }
         existing[relName] = relDef;
       }
-      relationMap.set(qualifiedEntity, existing);
+      relationMap.set(entityName, existing);
     }
 
     // Write handlers: featureName.handlerName
@@ -147,12 +163,17 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       mergedTranslations[`${feature.name}:${key}`] = value;
     }
 
-    // Lifecycle hooks: prefixed with feature name
-    mergeHookListPrefixed(preSaveHooks, feature.hooks.preSave, feature.name);
-    mergeHookListPrefixed(postSaveHooks, feature.hooks.postSave, feature.name);
-    mergeHookListPrefixed(preDeleteHooks, feature.hooks.preDelete, feature.name);
-    mergeHookListPrefixed(postDeleteHooks, feature.hooks.postDelete, feature.name);
-    mergeHookListPrefixed(preQueryHooks, feature.hooks.preQuery, feature.name);
+    // Lifecycle hooks: handler-based, qualified with feature prefix
+    mergeHookListQualified(preSaveHooks, feature.hooks.preSave, feature.name);
+    mergeHookListQualified(postSaveHooks, feature.hooks.postSave, feature.name);
+    mergeHookListQualified(preDeleteHooks, feature.hooks.preDelete, feature.name);
+    mergeHookListQualified(postDeleteHooks, feature.hooks.postDelete, feature.name);
+    mergeHookListQualified(preQueryHooks, feature.hooks.preQuery, feature.name);
+
+    // Entity hooks: NOT prefixed, keyed by entity name
+    mergeHookList(entityPostSaveHooks, feature.entityHooks.postSave);
+    mergeHookList(entityPreDeleteHooks, feature.entityHooks.preDelete);
+    mergeHookList(entityPostDeleteHooks, feature.entityHooks.postDelete);
 
     // Registrar extensions: collect definitions and usages
     for (const [extName, extDef] of Object.entries(feature.registrarExtensions)) {
@@ -178,52 +199,63 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     // extendSchema: merge extra fields into entity definition
     if (ext.extendSchema) {
-      // Find the prefixed entity name in the entityMap
-      for (const [qualifiedName, entity] of entityMap) {
-        const shortName = qualifiedName.split(".").pop();
-        if (shortName === usage.entityName || qualifiedName === usage.entityName) {
-          const extraFields = ext.extendSchema(usage.entityName);
-          const merged = { ...entity, fields: { ...entity.fields, ...extraFields } };
-          entityMap.set(qualifiedName, merged);
-          break;
-        }
+      const entity = entityMap.get(usage.entityName);
+      if (entity) {
+        const extraFields = ext.extendSchema(usage.entityName);
+        const merged = { ...entity, fields: { ...entity.fields, ...extraFields } };
+        entityMap.set(usage.entityName, merged);
       }
     }
 
-    // hooks: register extension hooks for the entity
+    // Extension hooks → entity hooks (fire for all writes on the entity)
     if (ext.hooks) {
-      // Find the prefixed entity name
-      for (const qualifiedName of entityMap.keys()) {
-        const shortName = qualifiedName.split(".").pop();
-        if (shortName === usage.entityName || qualifiedName === usage.entityName) {
-          if (ext.hooks.preSave) {
-            const existing = preSaveHooks.get(qualifiedName) ?? [];
+      if (ext.hooks.postSave) {
+        const existing = entityPostSaveHooks.get(usage.entityName) ?? [];
+        existing.push(ext.hooks.postSave);
+        entityPostSaveHooks.set(usage.entityName, existing);
+      }
+      if (ext.hooks.preDelete) {
+        const existing = entityPreDeleteHooks.get(usage.entityName) ?? [];
+        existing.push(ext.hooks.preDelete);
+        entityPreDeleteHooks.set(usage.entityName, existing);
+      }
+      if (ext.hooks.postDelete) {
+        const existing = entityPostDeleteHooks.get(usage.entityName) ?? [];
+        existing.push(ext.hooks.postDelete);
+        entityPostDeleteHooks.set(usage.entityName, existing);
+      }
+      // preSave on extensions: store as handler hook for all CRUD handlers of this entity
+      if (ext.hooks.preSave) {
+        // Find all write handlers that belong to this entity
+        for (const qualifiedHandler of writeHandlerMap.keys()) {
+          const dotIdx = qualifiedHandler.indexOf(".");
+          if (dotIdx < 0) continue;
+          const handlerName = qualifiedHandler.slice(dotIdx + 1);
+          const entityDot = handlerName.indexOf(".");
+          if (entityDot < 0) continue;
+          const candidate = handlerName.slice(0, entityDot);
+          if (candidate === usage.entityName) {
+            const existing = preSaveHooks.get(qualifiedHandler) ?? [];
             existing.push(ext.hooks.preSave);
-            preSaveHooks.set(qualifiedName, existing);
+            preSaveHooks.set(qualifiedHandler, existing);
           }
-          if (ext.hooks.postSave) {
-            const existing = postSaveHooks.get(qualifiedName) ?? [];
-            existing.push(ext.hooks.postSave);
-            postSaveHooks.set(qualifiedName, existing);
-          }
-          if (ext.hooks.preDelete) {
-            const existing = preDeleteHooks.get(qualifiedName) ?? [];
-            existing.push(ext.hooks.preDelete);
-            preDeleteHooks.set(qualifiedName, existing);
-          }
-          if (ext.hooks.postDelete) {
-            const existing = postDeleteHooks.get(qualifiedName) ?? [];
-            existing.push(ext.hooks.postDelete);
-            postDeleteHooks.set(qualifiedName, existing);
-          }
-          if (ext.hooks.preQuery) {
-            const existing = preQueryHooks.get(qualifiedName) ?? [];
-            existing.push(ext.hooks.preQuery);
-            preQueryHooks.set(qualifiedName, existing);
-          }
-          break;
         }
       }
+    }
+  }
+
+  // Build handler → entity mapping: "users.user.create" → "user"
+  // Convention: handler name starts with entity name (from r.crud())
+  for (const qualifiedHandler of [...writeHandlerMap.keys(), ...queryHandlerMap.keys()]) {
+    // qualifiedHandler = "featureName.handlerName" where handlerName might be "entityName.action"
+    const dotIdx = qualifiedHandler.indexOf(".");
+    if (dotIdx < 0) continue;
+    const handlerName = qualifiedHandler.slice(dotIdx + 1); // e.g. "user.create"
+    const entityDot = handlerName.indexOf(".");
+    if (entityDot < 0) continue;
+    const candidateEntity = handlerName.slice(0, entityDot); // e.g. "user"
+    if (entityMap.has(candidateEntity)) {
+      handlerEntityMap.set(qualifiedHandler, candidateEntity);
     }
   }
 
@@ -336,8 +368,25 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       return preQueryHooks.get(name) ?? [];
     },
 
+    // Entity hooks — fire for all writes on an entity
+    getEntityPostSaveHooks(entityName: string): readonly PostSaveHookFn[] {
+      return entityPostSaveHooks.get(entityName) ?? [];
+    },
+
+    getEntityPreDeleteHooks(entityName: string): readonly PreDeleteHookFn[] {
+      return entityPreDeleteHooks.get(entityName) ?? [];
+    },
+
+    getEntityPostDeleteHooks(entityName: string): readonly PostDeleteHookFn[] {
+      return entityPostDeleteHooks.get(entityName) ?? [];
+    },
+
     getAllTranslations(): TranslationKeys {
       return mergedTranslations;
+    },
+
+    getHandlerEntity(qualifiedHandler: string): string | undefined {
+      return handlerEntityMap.get(qualifiedHandler);
     },
 
     getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined {

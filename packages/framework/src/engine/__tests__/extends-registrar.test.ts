@@ -91,13 +91,13 @@ describe("extendsRegistrar", () => {
     });
 
     const registry = createRegistry([ext, consumer]);
-    const entity = registry.getEntity("fleet.vehicle");
+    const entity = registry.getEntity("vehicle");
     expect(entity?.fields["name"]).toBeDefined();
     expect(entity?.fields["customData"]).toBeDefined();
     expect(entity?.fields["customData"]?.type).toBe("text");
   });
 
-  test("extension hooks are registered on the entity", () => {
+  test("extension preSave hooks fire for CRUD handlers of the entity", () => {
     const preSaveFn = vi.fn(async (changes: Record<string, unknown>) => changes);
 
     const ext = defineFeature("audit", (r) => {
@@ -108,13 +108,39 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
+      r.entity("vehicle", createEntity({ table: "Vehicles", fields: { name: createTextField() } }));
+      r.crud("vehicle");
+      r.useExtension("audited", "vehicle");
+    });
+
+    const registry = createRegistry([ext, consumer]);
+    // preSave hooks are registered per handler — check CRUD handler names
+    const createHooks = registry.getPreSaveHooks("fleet.vehicle.create");
+    expect(createHooks).toHaveLength(1);
+    expect(createHooks[0]).toBe(preSaveFn);
+
+    const updateHooks = registry.getPreSaveHooks("fleet.vehicle.update");
+    expect(updateHooks).toHaveLength(1);
+  });
+
+  test("extension postSave hooks are entity hooks", () => {
+    const postSaveFn = vi.fn(async () => {});
+
+    const ext = defineFeature("audit", (r) => {
+      r.extendsRegistrar("audited", {
+        hooks: {
+          postSave: postSaveFn,
+        },
+      });
+    });
+    const consumer = defineFeature("fleet", (r) => {
       r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
       r.useExtension("audited", "vehicle");
     });
 
     const registry = createRegistry([ext, consumer]);
-    const hooks = registry.getPreSaveHooks("fleet.vehicle");
+    const hooks = registry.getEntityPostSaveHooks("vehicle");
     expect(hooks).toHaveLength(1);
-    expect(hooks[0]).toBe(preSaveFn);
+    expect(hooks[0]).toBe(postSaveFn);
   });
 });

@@ -13,8 +13,8 @@ export function createSearchIndexHook(
   return {
     name: SystemHookNames.searchIndex,
     priority: SystemHookPriorities.searchIndex,
-    fn: async (result, ctx) => {
-      const entityName = ctx._entityName;
+    fn: async (result) => {
+      const entityName = result.entityName;
       if (!entityName) return;
 
       const entity = registry.getEntity(entityName);
@@ -45,8 +45,8 @@ export function createSearchRemoveHook(
   return {
     name: SystemHookNames.searchRemove,
     priority: SystemHookPriorities.searchIndex,
-    fn: async (payload, ctx) => {
-      const entityName = ctx._entityName;
+    fn: async (payload) => {
+      const entityName = payload.entityName;
       if (!entityName) return;
 
       const tenantId = payload.data["tenantId"] as number;
@@ -61,8 +61,8 @@ export function createSseBroadcastHook(sseBroker: SseBroker): SystemHookDef<Post
   return {
     name: SystemHookNames.sseBroadcast,
     priority: SystemHookPriorities.sseBroadcast,
-    fn: async (result, ctx) => {
-      const entityName = ctx._entityName;
+    fn: async (result) => {
+      const entityName = result.entityName;
       if (!entityName) return;
 
       const tenantId = result.data["tenantId"] as number;
@@ -84,8 +84,8 @@ export function createSseDeleteBroadcastHook(
   return {
     name: SystemHookNames.sseDeleteBroadcast,
     priority: SystemHookPriorities.sseBroadcast,
-    fn: async (payload, ctx) => {
-      const entityName = ctx._entityName;
+    fn: async (payload) => {
+      const entityName = payload.entityName;
       if (!entityName) return;
 
       const tenantId = payload.data["tenantId"] as number;
@@ -120,16 +120,14 @@ export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<
     name: SystemHookNames.auditTrail,
     priority: SystemHookPriorities.auditTrail,
     fn: async (result, ctx) => {
-      const entityName = ctx._entityName;
+      const entityName = result.entityName;
       if (!entityName) return;
-
-      const fallbackAction = result.isNew ? `${entityName}.create` : `${entityName}.update`;
 
       await storage.append({
         timestamp: new Date(),
         tenantId: result.data["tenantId"] as number,
         userId: ctx._userId ?? 0,
-        action: ctx._handlerType ?? fallbackAction,
+        action: ctx._handlerType ?? `${entityName}.${result.isNew ? "create" : "update"}`,
         entityType: entityName,
         entityId: result.id,
         changes: result.changes as Record<string, unknown>,
@@ -147,7 +145,7 @@ export function createAuditTrailDeleteHook(
     name: SystemHookNames.auditTrailDelete,
     priority: SystemHookPriorities.auditTrail,
     fn: async (payload, ctx) => {
-      const entityName = ctx._entityName;
+      const entityName = payload.entityName;
       if (!entityName) return;
 
       await storage.append({

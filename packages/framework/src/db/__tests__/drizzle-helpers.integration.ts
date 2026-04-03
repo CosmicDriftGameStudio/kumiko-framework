@@ -32,7 +32,9 @@ let client: ReturnType<typeof postgres>;
 let db: ReturnType<typeof drizzle>;
 
 beforeAll(async () => {
-  const adminClient = postgres(TEST_DB_URL.replace(/\/[^/]+$/, "/postgres"));
+  const adminClient = postgres(TEST_DB_URL.replace(/\/[^/]+$/, "/postgres"), {
+    onnotice: () => {},
+  });
   try {
     await adminClient`DROP DATABASE IF EXISTS kumiko_test_step7`;
     await adminClient`CREATE DATABASE kumiko_test_step7`;
@@ -83,7 +85,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await client.end();
-  const adminClient = postgres(TEST_DB_URL.replace(/\/[^/]+$/, "/postgres"));
+  const adminClient = postgres(TEST_DB_URL.replace(/\/[^/]+$/, "/postgres"), {
+    onnotice: () => {},
+  });
   try {
     await adminClient`DROP DATABASE IF EXISTS kumiko_test_step7`;
   } finally {

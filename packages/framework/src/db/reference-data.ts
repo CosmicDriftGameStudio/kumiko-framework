@@ -24,7 +24,11 @@ export async function seedReferenceData(
     if (!table) continue;
     if (def.data.length === 0) continue;
 
-    const upsertKey = def.upsertKey ?? Object.keys(def.data[0]!)[0]!;
+    const firstRow = def.data[0];
+    if (!firstRow) continue;
+    const firstKey = Object.keys(firstRow)[0];
+    if (!firstKey) continue;
+    const upsertKey = def.upsertKey ?? firstKey;
     const snakeKey = toSnakeCase(upsertKey);
 
     for (const row of def.data) {

@@ -2,6 +2,7 @@ import { hasAccess } from "../engine/access";
 import { ErrorCodes } from "../engine/constants";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import type {
+  DeleteContext,
   HandlerContext,
   HandlerRef,
   PipelineContext,
@@ -41,17 +42,17 @@ export type Dispatcher = {
   broadcast(channel: string, event: BrokerEvent): Promise<void>;
 };
 
-// Handler name format: "featureName.entityName.action"
-// Entity name in registry: "featureName.entityName"
-function extractEntityName(handlerName: string): string | undefined {
-  const lastDot = handlerName.lastIndexOf(".");
-  return lastDot > 0 ? handlerName.slice(0, lastDot) : undefined;
-}
-
 function isSaveContext(data: unknown): data is SaveContext {
   if (!data || typeof data !== "object") return false;
   const obj = data as Record<string, unknown>;
   return "id" in obj && "changes" in obj && "previous" in obj && "isNew" in obj;
+}
+
+function isDeleteContext(data: unknown): data is DeleteContext {
+  if (!data || typeof data !== "object") return false;
+  const obj = data as Record<string, unknown>;
+  // DeleteContext has id + data but NOT changes/previous/isNew
+  return "id" in obj && "data" in obj && !("isNew" in obj);
 }
 
 export function createDispatcher(
@@ -101,11 +102,10 @@ export function createDispatcher(
       }
 
       // Field-level write access check
-      const entityName = extractEntityName(type);
+      const entityName = registry.getHandlerEntity(type);
       if (entityName) {
         const entity = registry.getEntity(entityName);
         if (entity) {
-          // Check direct payload fields (create) and changes object (update)
           const fieldsToCheck = (parsed.data as Record<string, unknown>)["changes"] as
             | Record<string, unknown>
             | undefined;
@@ -120,16 +120,20 @@ export function createDispatcher(
       // Run handler with lifecycle context
       const handlerContext = {
         ...context,
-        _entityName: entityName,
         _userId: user.id,
         _handlerType: type,
       } as HandlerContext;
 
       const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
-      // Run postSave lifecycle hooks if result contains SaveContext
-      if (result.isSuccess && lifecycle && entityName && isSaveContext(result.data)) {
-        await lifecycle.runPostSave(entityName, result.data, handlerContext);
+      // Run lifecycle hooks based on result type
+      if (result.isSuccess && lifecycle) {
+        if (isSaveContext(result.data)) {
+          await lifecycle.runPostSave(type, result.data, handlerContext);
+        } else if (isDeleteContext(result.data)) {
+          await lifecycle.runPreDelete(type, result.data, handlerContext);
+          await lifecycle.runPostDelete(type, result.data, handlerContext);
+        }
       }
 
       if (requestId && idempotency) {
@@ -172,8 +176,8 @@ export function createDispatcher(
         context as HandlerContext,
       );
 
-      // Filter read fields on query results
-      const entityName = extractEntityName(type);
+      // Field-level read filter
+      const entityName = registry.getHandlerEntity(type);
       if (entityName) {
         const entity = registry.getEntity(entityName);
         if (entity && result && typeof result === "object") {
@@ -217,18 +221,21 @@ export function createDispatcher(
         throw new Error(`${ErrorCodes.validationHook}: ${messages}`);
       }
 
-      const entityName = extractEntityName(type);
       const handlerContext = {
         ...context,
-        _entityName: entityName,
         _userId: user.id,
         _handlerType: type,
       } as HandlerContext;
 
       const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
-      if (result.isSuccess && lifecycle && entityName && isSaveContext(result.data)) {
-        await lifecycle.runPostSave(entityName, result.data, handlerContext);
+      if (result.isSuccess && lifecycle) {
+        if (isSaveContext(result.data)) {
+          await lifecycle.runPostSave(type, result.data, handlerContext);
+        } else if (isDeleteContext(result.data)) {
+          await lifecycle.runPreDelete(type, result.data, handlerContext);
+          await lifecycle.runPostDelete(type, result.data, handlerContext);
+        }
       }
 
       await logEvent(type, parsed.data, user);

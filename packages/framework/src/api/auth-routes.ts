@@ -10,7 +10,15 @@ type MembershipRow = {
   roles: string[];
 };
 
-export function createAuthRoutes(dispatcher: Dispatcher, jwt: JwtHelper): Hono {
+export type AuthRoutesConfig = {
+  membershipQuery: string; // qualified query handler name, e.g. config.membershipQuery
+};
+
+export function createAuthRoutes(
+  dispatcher: Dispatcher,
+  jwt: JwtHelper,
+  config: AuthRoutesConfig,
+): Hono {
   const api = new Hono();
 
   // GET /auth/tenants — list tenants the current user belongs to
@@ -19,7 +27,7 @@ export function createAuthRoutes(dispatcher: Dispatcher, jwt: JwtHelper): Hono {
 
     try {
       const memberships = (await dispatcher.query(
-        "tenant.tenant.memberships",
+        config.membershipQuery,
         { userId: user.id },
         user,
       )) as MembershipRow[];
@@ -53,7 +61,7 @@ export function createAuthRoutes(dispatcher: Dispatcher, jwt: JwtHelper): Hono {
     try {
       // Check membership
       const memberships = (await dispatcher.query(
-        "tenant.tenant.memberships",
+        config.membershipQuery,
         { userId: user.id },
         user,
       )) as MembershipRow[];

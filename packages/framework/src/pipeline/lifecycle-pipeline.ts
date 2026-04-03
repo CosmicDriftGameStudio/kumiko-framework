@@ -24,19 +24,23 @@ export type SystemHooks = {
 
 export type LifecyclePipeline = {
   runPreSave(
-    entityName: string,
+    handlerName: string,
     changes: Record<string, unknown>,
     previous: Readonly<Record<string, unknown>>,
     isNew: boolean,
     context: PipelineContext,
   ): Promise<Record<string, unknown>>;
 
-  runPostSave(entityName: string, result: SaveContext, context: PipelineContext): Promise<void>;
+  runPostSave(handlerName: string, result: SaveContext, context: PipelineContext): Promise<void>;
 
-  runPreDelete(entityName: string, payload: DeleteContext, context: PipelineContext): Promise<void>;
+  runPreDelete(
+    handlerName: string,
+    payload: DeleteContext,
+    context: PipelineContext,
+  ): Promise<void>;
 
   runPostDelete(
-    entityName: string,
+    handlerName: string,
     payload: DeleteContext,
     context: PipelineContext,
   ): Promise<void>;
@@ -51,12 +55,12 @@ export function createLifecyclePipeline(
   }
 
   return {
-    async runPreSave(entityName, changes, previous, isNew, context) {
+    async runPreSave(handlerName, changes, previous, isNew, context) {
       let currentChanges = changes;
       const hookContext = { ...context, previous, isNew };
 
-      // Feature hooks first (priority 0-99 implicitly)
-      for (const hook of registry.getPreSaveHooks(entityName)) {
+      // Handler hooks (keyed by qualified handler name)
+      for (const hook of registry.getPreSaveHooks(handlerName)) {
         currentChanges = await hook(currentChanges, hookContext);
       }
 
@@ -70,19 +74,30 @@ export function createLifecyclePipeline(
       return currentChanges;
     },
 
-    async runPostSave(entityName, result, context) {
+    async runPostSave(handlerName, result, context) {
       const errors: Array<{ name: string; error: unknown }> = [];
 
-      // Feature hooks first
-      for (const hook of registry.getPostSaveHooks(entityName)) {
+      // Handler hooks (keyed by qualified handler name)
+      for (const hook of registry.getPostSaveHooks(handlerName)) {
         try {
           await hook(result, context);
         } catch (e) {
-          errors.push({ name: `feature:${entityName}`, error: e });
+          errors.push({ name: `handler:${handlerName}`, error: e });
         }
       }
 
-      // System hooks by priority — don't block on errors
+      // Entity hooks (keyed by entity name from result)
+      if (result.entityName) {
+        for (const hook of registry.getEntityPostSaveHooks(result.entityName)) {
+          try {
+            await hook(result, context);
+          } catch (e) {
+            errors.push({ name: `entity:${result.entityName}`, error: e });
+          }
+        }
+      }
+
+      // System hooks by priority
       if (systemHooks.postSave) {
         for (const sysHook of sortByPriority(systemHooks.postSave)) {
           try {
@@ -93,19 +108,25 @@ export function createLifecyclePipeline(
         }
       }
 
-      // Log errors but don't throw — DB write is already committed
       if (errors.length > 0) {
         console.error(
-          `[lifecycle] postSave errors for ${entityName}#${result.id}:`,
+          `[lifecycle] postSave errors for ${handlerName}:`,
           errors.map((e) => `${e.name}: ${e.error}`),
         );
       }
     },
 
-    async runPreDelete(entityName, payload, context) {
-      // Feature hooks
-      for (const hook of registry.getPreDeleteHooks(entityName)) {
+    async runPreDelete(handlerName, payload, context) {
+      // Handler hooks
+      for (const hook of registry.getPreDeleteHooks(handlerName)) {
         await hook(payload, context);
+      }
+
+      // Entity hooks
+      if (payload.entityName) {
+        for (const hook of registry.getEntityPreDeleteHooks(payload.entityName)) {
+          await hook(payload, context);
+        }
       }
 
       // System hooks
@@ -116,15 +137,26 @@ export function createLifecyclePipeline(
       }
     },
 
-    async runPostDelete(entityName, payload, context) {
+    async runPostDelete(handlerName, payload, context) {
       const errors: Array<{ name: string; error: unknown }> = [];
 
-      // Feature hooks
-      for (const hook of registry.getPostDeleteHooks(entityName)) {
+      // Handler hooks
+      for (const hook of registry.getPostDeleteHooks(handlerName)) {
         try {
           await hook(payload, context);
         } catch (e) {
-          errors.push({ name: `feature:${entityName}`, error: e });
+          errors.push({ name: `handler:${handlerName}`, error: e });
+        }
+      }
+
+      // Entity hooks
+      if (payload.entityName) {
+        for (const hook of registry.getEntityPostDeleteHooks(payload.entityName)) {
+          try {
+            await hook(payload, context);
+          } catch (e) {
+            errors.push({ name: `entity:${payload.entityName}`, error: e });
+          }
         }
       }
 
@@ -141,7 +173,7 @@ export function createLifecyclePipeline(
 
       if (errors.length > 0) {
         console.error(
-          `[lifecycle] postDelete errors for ${entityName}#${payload.id}:`,
+          `[lifecycle] postDelete errors for ${handlerName}:`,
           errors.map((e) => `${e.name}: ${e.error}`),
         );
       }

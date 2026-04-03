@@ -14,6 +14,9 @@ import type {
   JobHandlerFn,
   LifecycleHookFn,
   LifecycleHookType,
+  PostDeleteHookFn,
+  PostSaveHookFn,
+  PreDeleteHookFn,
   QueryHandlerDef,
   QueryHandlerFn,
   ReferenceDataDef,
@@ -51,6 +54,9 @@ export function defineFeature(
   const jobs: Record<string, JobDefinition> = {};
   const events: Record<string, { name: string; schema: ZodType }> = {};
   const configReads: string[] = [];
+  const entityPostSave: Record<string, PostSaveHookFn[]> = {};
+  const entityPreDelete: Record<string, PreDeleteHookFn[]> = {};
+  const entityPostDelete: Record<string, PostDeleteHookFn[]> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const referenceData: ReferenceDataDef[] = [];
@@ -89,9 +95,11 @@ export function defineFeature(
         };
         return { name: def.name };
       }
+      if (!schema || !handler)
+        throw new Error("writeHandler inline form requires schema + handler");
       writeHandlers[nameOrDef] = {
         name: nameOrDef,
-        schema: schema!,
+        schema,
         handler: handler as WriteHandlerFn,
         ...(options?.access && { access: options.access }),
       };
@@ -114,9 +122,11 @@ export function defineFeature(
         };
         return { name: def.name };
       }
+      if (!schema || !handler)
+        throw new Error("queryHandler inline form requires schema + handler");
       queryHandlers[nameOrDef] = {
         name: nameOrDef,
-        schema: schema!,
+        schema,
         handler: handler as QueryHandlerFn,
         ...(options?.access && { access: options.access }),
       };
@@ -151,16 +161,39 @@ export function defineFeature(
       relations[entityName][relationName] = definition;
     },
 
-    hook(type: string, hookName: string, fn: LifecycleHookFn | ValidationHookFn): void {
+    hook(
+      type: string,
+      hookName: string | readonly string[],
+      fn: LifecycleHookFn | ValidationHookFn,
+    ): void {
+      const names = Array.isArray(hookName) ? hookName : [hookName];
+
       if (type === "validation") {
-        validationHooks[hookName] = fn as ValidationHookFn;
+        for (const n of names) {
+          validationHooks[n] = fn as ValidationHookFn;
+        }
         return;
       }
 
       const hookType = type as LifecycleHookType;
       if (!lifecycleHooks[hookType]) lifecycleHooks[hookType] = {};
-      if (!lifecycleHooks[hookType][hookName]) lifecycleHooks[hookType][hookName] = [];
-      lifecycleHooks[hookType][hookName].push(fn as LifecycleHookFn);
+      for (const n of names) {
+        if (!lifecycleHooks[hookType][n]) lifecycleHooks[hookType][n] = [];
+        lifecycleHooks[hookType][n].push(fn as LifecycleHookFn);
+      }
+    },
+
+    entityHook(type: string, entityName: string, fn: LifecycleHookFn): void {
+      if (type === "postSave") {
+        if (!entityPostSave[entityName]) entityPostSave[entityName] = [];
+        entityPostSave[entityName].push(fn as PostSaveHookFn);
+      } else if (type === "preDelete") {
+        if (!entityPreDelete[entityName]) entityPreDelete[entityName] = [];
+        entityPreDelete[entityName].push(fn as PreDeleteHookFn);
+      } else if (type === "postDelete") {
+        if (!entityPostDelete[entityName]) entityPostDelete[entityName] = [];
+        entityPostDelete[entityName].push(fn as PostDeleteHookFn);
+      }
     },
 
     config(definition: ConfigDefinition): void {
@@ -227,6 +260,11 @@ export function defineFeature(
       postDelete: lifecycleHooks["postDelete"] ?? {},
       preQuery: lifecycleHooks["preQuery"] ?? {},
     } as HookMap,
+    entityHooks: {
+      postSave: entityPostSave,
+      preDelete: entityPreDelete,
+      postDelete: entityPostDelete,
+    },
     configKeys,
     jobs,
     registrarExtensions,

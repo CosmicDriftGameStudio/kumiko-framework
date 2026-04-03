@@ -186,7 +186,6 @@ export type PipelineContext = {
   readonly warn?: (msg: string) => void;
   readonly logError?: (msg: string) => void;
   readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
-  readonly _entityName?: string | undefined;
   readonly _userId?: number | undefined;
   readonly _handlerType?: string | undefined;
 };
@@ -203,7 +202,6 @@ export type HandlerContext = {
   readonly warn?: (msg: string) => void;
   readonly logError?: (msg: string) => void;
   readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
-  readonly _entityName?: string | undefined;
   readonly _userId?: number | undefined;
   readonly _handlerType?: string | undefined;
 };
@@ -302,11 +300,13 @@ export type SaveContext = {
   readonly changes: Readonly<Record<string, unknown>>;
   readonly previous: Readonly<Record<string, unknown>>;
   readonly isNew: boolean;
+  readonly entityName?: string | undefined;
 };
 
 export type DeleteContext = {
   readonly id: number;
   readonly data: Readonly<Record<string, unknown>>;
+  readonly entityName?: string | undefined;
 };
 
 // Lifecycle hooks — preSave can modify changes or abort (throw), postSave is fire-and-forget
@@ -338,6 +338,7 @@ export type LifecycleHookFn =
   | PostDeleteHookFn
   | PreQueryHookFn;
 
+// Handler hooks — keyed by handler name (qualified)
 export type HookMap = {
   readonly validation: Readonly<Record<string, ValidationHookFn>>;
   readonly preSave: Readonly<Record<string, readonly PreSaveHookFn[]>>;
@@ -345,6 +346,13 @@ export type HookMap = {
   readonly preDelete: Readonly<Record<string, readonly PreDeleteHookFn[]>>;
   readonly postDelete: Readonly<Record<string, readonly PostDeleteHookFn[]>>;
   readonly preQuery: Readonly<Record<string, readonly PreQueryHookFn[]>>;
+};
+
+// Entity hooks — keyed by entity name, fire for ALL writes on that entity
+export type EntityHookMap = {
+  readonly postSave: Readonly<Record<string, readonly PostSaveHookFn[]>>;
+  readonly preDelete: Readonly<Record<string, readonly PreDeleteHookFn[]>>;
+  readonly postDelete: Readonly<Record<string, readonly PostDeleteHookFn[]>>;
 };
 
 // --- Config ---
@@ -448,6 +456,7 @@ export type FeatureDefinition = {
   readonly queryHandlers: Readonly<Record<string, QueryHandlerDef>>;
   readonly translations: TranslationKeys;
   readonly hooks: HookMap;
+  readonly entityHooks: EntityHookMap;
   readonly configKeys: Readonly<Record<string, ConfigKeyDefinition>>;
   readonly jobs: Readonly<Record<string, JobDefinition>>;
   readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
@@ -493,12 +502,17 @@ export type FeatureRegistrar = {
 
   relation(entityName: string, relationName: string, definition: RelationDefinition): void;
 
-  hook(type: "validation", name: string, fn: ValidationHookFn): void;
-  hook(type: "preSave", entityOrHandler: string, fn: PreSaveHookFn): void;
-  hook(type: "postSave", entityOrHandler: string, fn: PostSaveHookFn): void;
-  hook(type: "preDelete", entityOrHandler: string, fn: PreDeleteHookFn): void;
-  hook(type: "postDelete", entityOrHandler: string, fn: PostDeleteHookFn): void;
-  hook(type: "preQuery", entityOrHandler: string, fn: PreQueryHookFn): void;
+  hook(type: "validation", name: string | readonly string[], fn: ValidationHookFn): void;
+  hook(type: "preSave", handler: string | readonly string[], fn: PreSaveHookFn): void;
+  hook(type: "postSave", handler: string | readonly string[], fn: PostSaveHookFn): void;
+  hook(type: "preDelete", handler: string | readonly string[], fn: PreDeleteHookFn): void;
+  hook(type: "postDelete", handler: string | readonly string[], fn: PostDeleteHookFn): void;
+  hook(type: "preQuery", handler: string | readonly string[], fn: PreQueryHookFn): void;
+
+  // Entity hooks — fire for ALL writes on an entity (e.g. search indexing, SSE)
+  entityHook(type: "postSave", entity: string, fn: PostSaveHookFn): void;
+  entityHook(type: "preDelete", entity: string, fn: PreDeleteHookFn): void;
+  entityHook(type: "postDelete", entity: string, fn: PostDeleteHookFn): void;
 
   config(definition: ConfigDefinition): void;
 
@@ -547,6 +561,11 @@ export type Registry = {
   getPreDeleteHooks(name: string): readonly PreDeleteHookFn[];
   getPostDeleteHooks(name: string): readonly PostDeleteHookFn[];
   getPreQueryHooks(name: string): readonly PreQueryHookFn[];
+  // Entity hooks — fire for all writes on an entity
+  getEntityPostSaveHooks(entityName: string): readonly PostSaveHookFn[];
+  getEntityPreDeleteHooks(entityName: string): readonly PreDeleteHookFn[];
+  getEntityPostDeleteHooks(entityName: string): readonly PostDeleteHookFn[];
+  getHandlerEntity(qualifiedHandler: string): string | undefined;
   getAllTranslations(): TranslationKeys;
   getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined;
   getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition>;

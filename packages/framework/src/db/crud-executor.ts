@@ -153,7 +153,7 @@ export function createCrudExecutor(
 
       return {
         isSuccess: true,
-        data: { id, data, changes: payload, previous: {}, isNew: true },
+        data: { id, data, changes: payload, previous: {}, isNew: true, entityName },
       };
     },
 
@@ -194,6 +194,7 @@ export function createCrudExecutor(
           changes: payload.changes,
           previous,
           isNew: false,
+          entityName,
         },
       };
     },
@@ -219,7 +220,7 @@ export function createCrudExecutor(
           .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], payload.id)));
       }
 
-      return { isSuccess: true, data: { id: payload.id, data: existing } };
+      return { isSuccess: true, data: { id: payload.id, data: existing, entityName } };
     },
 
     async restore(payload, user, db) {
@@ -258,6 +259,7 @@ export function createCrudExecutor(
           changes: { isDeleted: false },
           previous: data,
           isNew: false,
+          entityName,
         },
       };
     },

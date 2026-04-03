@@ -10,7 +10,7 @@ let subscriberRedis: Redis;
 
 beforeAll(async () => {
   testRedis = await createTestRedis();
-  const redisUrl = process.env["REDIS_URL"]!;
+  const redisUrl = process.env["REDIS_URL"] ?? "redis://localhost:6379";
   subscriberRedis = new Redis(redisUrl, { db: testRedis.redis.options.db });
 });
 
@@ -85,7 +85,8 @@ describe("idempotency guard", () => {
     const cached = await guard.check(requestId);
 
     expect(cached).not.toBeNull();
-    expect(JSON.parse(cached!)).toEqual({ isSuccess: true, data: { id: 1 } });
+    if (!cached) throw new Error("expected cached value");
+    expect(JSON.parse(cached)).toEqual({ isSuccess: true, data: { id: 1 } });
   });
 
   test("expires after TTL", async () => {

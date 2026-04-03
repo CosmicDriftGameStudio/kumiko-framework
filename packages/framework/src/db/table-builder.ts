@@ -41,7 +41,6 @@ function toSnakeCase(str: string): string {
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables lose column types
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables lose column types
 type DrizzleTable = TableColumns<any>;
 
 export function buildBaseColumns(softDelete: boolean) {

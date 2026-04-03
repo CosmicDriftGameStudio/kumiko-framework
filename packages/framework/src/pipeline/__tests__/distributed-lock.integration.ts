@@ -34,7 +34,8 @@ describe("distributed lock", () => {
     const token = await lock.acquire("test-lock-3");
     expect(token).not.toBeNull();
 
-    const released = await lock.release("test-lock-3", token!);
+    if (!token) throw new Error("expected token");
+    const released = await lock.release("test-lock-3", token);
     expect(released).toBe(true);
 
     const token2 = await lock.acquire("test-lock-3");
