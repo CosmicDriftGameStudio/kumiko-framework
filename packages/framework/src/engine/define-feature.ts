@@ -8,6 +8,7 @@ import type {
   EntityDefinition,
   FeatureDefinition,
   FeatureRegistrar,
+  HandlerRef,
   HookMap,
   JobDefinition,
   JobHandlerFn,
@@ -75,9 +76,8 @@ export function defineFeature(
       schema?: TSchema,
       handler?: WriteHandlerFn<z.infer<TSchema>>,
       options?: { access?: AccessRule },
-    ): void {
+    ): HandlerRef {
       if (typeof nameOrDef === "object") {
-        // Object form: r.writeHandler(defineWriteHandler({ name, schema, handler }))
         const def = nameOrDef;
         writeHandlers[def.name] = {
           name: def.name,
@@ -85,15 +85,15 @@ export function defineFeature(
           handler: def.handler as WriteHandlerFn,
           ...(def.access && { access: def.access }),
         };
-      } else {
-        // Inline form: r.writeHandler("name", schema, handler, options)
-        writeHandlers[nameOrDef] = {
-          name: nameOrDef,
-          schema: schema!,
-          handler: handler as WriteHandlerFn,
-          ...(options?.access && { access: options.access }),
-        };
+        return { name: def.name };
       }
+      writeHandlers[nameOrDef] = {
+        name: nameOrDef,
+        schema: schema!,
+        handler: handler as WriteHandlerFn,
+        ...(options?.access && { access: options.access }),
+      };
+      return { name: nameOrDef };
     },
 
     queryHandler<TSchema extends ZodType>(
@@ -101,9 +101,8 @@ export function defineFeature(
       schema?: TSchema,
       handler?: QueryHandlerFn<z.infer<TSchema>>,
       options?: { access?: AccessRule },
-    ): void {
+    ): HandlerRef {
       if (typeof nameOrDef === "object") {
-        // Object form: r.queryHandler(defineQueryHandler({ name, schema, handler }))
         const def = nameOrDef;
         queryHandlers[def.name] = {
           name: def.name,
@@ -111,18 +110,18 @@ export function defineFeature(
           handler: def.handler as QueryHandlerFn,
           ...(def.access && { access: def.access }),
         };
-      } else {
-        // Inline form: r.queryHandler("name", schema, handler, options)
-        queryHandlers[nameOrDef] = {
-          name: nameOrDef,
-          schema: schema!,
-          handler: handler as QueryHandlerFn,
-          ...(options?.access && { access: options.access }),
-        };
+        return { name: def.name };
       }
+      queryHandlers[nameOrDef] = {
+        name: nameOrDef,
+        schema: schema!,
+        handler: handler as QueryHandlerFn,
+        ...(options?.access && { access: options.access }),
+      };
+      return { name: nameOrDef };
     },
 
-    crud(entityName: string, options?: { access?: AccessRule }): void {
+    crud(entityName: string, options?: { access?: AccessRule }) {
       const entity = entities[entityName];
       if (!entity) {
         throw new Error(
@@ -132,6 +131,17 @@ export function defineFeature(
       const crud = buildCrudHandlers(entityName, entity, options);
       Object.assign(writeHandlers, crud.writeHandlers);
       Object.assign(queryHandlers, crud.queryHandlers);
+      return {
+        handlers: {
+          create: { name: `${entityName}.create` },
+          update: { name: `${entityName}.update` },
+          delete: { name: `${entityName}.delete` },
+        },
+        queries: {
+          list: { name: `${entityName}.list` },
+          detail: { name: `${entityName}.detail` },
+        },
+      };
     },
 
     relation(entityName: string, relationName: string, definition: RelationDefinition): void {

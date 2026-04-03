@@ -18,10 +18,18 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     }
   }
 
+  let hasEncryptedFields = false;
+
   for (const feature of features) {
     validateCircularDeps(feature.name, featureMap);
-    validateEncryptedFields(feature);
+    if (validateEncryptedFields(feature)) hasEncryptedFields = true;
     validateExtensionUsages(feature, extensionProviders);
+  }
+
+  if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
+    throw new Error(
+      "ENCRYPTION_KEY environment variable is required (encrypted fields in use)",
+    );
   }
 }
 
@@ -58,11 +66,14 @@ function validateCircularDeps(
 
 // --- Encrypted field validation ---
 
-function validateEncryptedFields(feature: FeatureDefinition): void {
+// Returns true if any encrypted fields were found
+function validateEncryptedFields(feature: FeatureDefinition): boolean {
+  let found = false;
   for (const [entityName, entity] of Object.entries(feature.entities)) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       if (field.type !== "text") continue;
       if (!field.encrypted) continue;
+      found = true;
 
       if (field.searchable) {
         throw new Error(
@@ -76,6 +87,7 @@ function validateEncryptedFields(feature: FeatureDefinition): void {
       }
     }
   }
+  return found;
 }
 
 // --- Extension usage validation ---

@@ -93,7 +93,30 @@ describe("boot-validator", () => {
     expect(() => validateBoot(features)).toThrow(/token.*cannot be both encrypted and sortable/i);
   });
 
-  test("allows encrypted field without searchable/sortable", () => {
+  test("allows encrypted field when ENCRYPTION_KEY is set", () => {
+    process.env["ENCRYPTION_KEY"] = "test-key";
+    try {
+      const features = [
+        defineFeature("a", (r) => {
+          r.entity(
+            "secret",
+            createEntity({
+              table: "Secrets",
+              fields: {
+                apiKey: { type: "text", encrypted: true },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    } finally {
+      delete process.env["ENCRYPTION_KEY"];
+    }
+  });
+
+  test("throws when encrypted fields exist but ENCRYPTION_KEY not set", () => {
+    delete process.env["ENCRYPTION_KEY"];
     const features = [
       defineFeature("a", (r) => {
         r.entity(
@@ -107,7 +130,7 @@ describe("boot-validator", () => {
         );
       }),
     ];
-    expect(() => validateBoot(features)).not.toThrow();
+    expect(() => validateBoot(features)).toThrow(/ENCRYPTION_KEY.*required/i);
   });
 
   // --- Extension usage without requires ---

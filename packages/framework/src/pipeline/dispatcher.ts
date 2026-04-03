@@ -33,9 +33,11 @@ export type Dispatcher = {
   broadcast(channel: string, event: BrokerEvent): Promise<void>;
 };
 
+// Handler name format: "featureName.entityName.action"
+// Entity name in registry: "featureName.entityName"
 function extractEntityName(handlerName: string): string | undefined {
-  const dotIndex = handlerName.indexOf(".");
-  return dotIndex > 0 ? handlerName.slice(0, dotIndex) : undefined;
+  const lastDot = handlerName.lastIndexOf(".");
+  return lastDot > 0 ? handlerName.slice(0, lastDot) : undefined;
 }
 
 function isSaveContext(data: unknown): data is SaveContext {

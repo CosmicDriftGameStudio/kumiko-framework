@@ -21,19 +21,20 @@ describe("createI18n", () => {
     });
   });
 
-  test("looks up translation by key and locale", () => {
+  test("looks up translation by prefixed key and locale", () => {
     const registry = createRegistry([adminFeature]);
     const i18n = createI18n(registry, { defaultLocale: "de" });
 
-    expect(i18n.t("nav.title", "de")).toBe("Benutzer");
-    expect(i18n.t("nav.title", "en")).toBe("Users");
+    // Keys are prefixed: featureName:key
+    expect(i18n.t("adminUsers:nav.title", "de")).toBe("Benutzer");
+    expect(i18n.t("adminUsers:nav.title", "en")).toBe("Users");
   });
 
   test("falls back to default locale", () => {
     const registry = createRegistry([adminFeature]);
     const i18n = createI18n(registry, { defaultLocale: "de" });
 
-    expect(i18n.t("nav.title", "fr")).toBe("Benutzer");
+    expect(i18n.t("adminUsers:nav.title", "fr")).toBe("Benutzer");
   });
 
   test("returns key if translation not found", () => {
@@ -43,28 +44,29 @@ describe("createI18n", () => {
     expect(i18n.t("nonexistent.key", "de")).toBe("nonexistent.key");
   });
 
-  test("merges translations across features", () => {
+  test("different features have separate namespaces (no collision)", () => {
     const registry = createRegistry([adminFeature, profileFeature]);
     const i18n = createI18n(registry, { defaultLocale: "de" });
 
-    // Keys from different features are in the same namespace
-    expect(i18n.t("nav.title", "de")).toBe("Profil"); // last feature wins
-    expect(i18n.t("field.email", "de")).toBe("E-Mail");
+    // Same short key, different prefix — no collision
+    expect(i18n.t("adminUsers:nav.title", "de")).toBe("Benutzer");
+    expect(i18n.t("userProfile:nav.title", "de")).toBe("Profil");
+    expect(i18n.t("adminUsers:field.email", "de")).toBe("E-Mail");
   });
 
   test("uses default locale when none specified", () => {
     const registry = createRegistry([adminFeature]);
     const i18n = createI18n(registry, { defaultLocale: "de" });
 
-    expect(i18n.t("nav.title")).toBe("Benutzer");
+    expect(i18n.t("adminUsers:nav.title")).toBe("Benutzer");
   });
 
-  test("getAllKeys returns all translation keys", () => {
+  test("getAllKeys returns prefixed translation keys", () => {
     const registry = createRegistry([adminFeature]);
     const i18n = createI18n(registry, { defaultLocale: "de" });
 
     const keys = i18n.getAllKeys();
-    expect(keys).toContain("nav.title");
-    expect(keys).toContain("field.email");
+    expect(keys).toContain("adminUsers:nav.title");
+    expect(keys).toContain("adminUsers:field.email");
   });
 });

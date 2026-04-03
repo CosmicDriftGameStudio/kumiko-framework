@@ -53,6 +53,25 @@ describe("defineFeature", () => {
     expect(feature.writeHandlers["user.invite"]?.name).toBe("user.invite");
   });
 
+  test("writeHandler returns typed HandlerRef", () => {
+    let ref: { name: string } | undefined;
+    defineFeature("test", (r) => {
+      ref = r.writeHandler("order.create", z.object({}), async () => ({
+        isSuccess: true,
+        data: null,
+      }));
+    });
+    expect(ref?.name).toBe("order.create");
+  });
+
+  test("queryHandler returns typed HandlerRef", () => {
+    let ref: { name: string } | undefined;
+    defineFeature("test", (r) => {
+      ref = r.queryHandler("order.list", z.object({}), async () => []);
+    });
+    expect(ref?.name).toBe("order.list");
+  });
+
   test("collects write handlers via object form (defineWriteHandler)", () => {
     const handler = defineWriteHandler({
       name: "user.create",
@@ -252,18 +271,37 @@ describe("createRegistry", () => {
     expect(() => createRegistry([f1, f2])).toThrow(/duplicate feature.*admin/i);
   });
 
-  test("merges translations across features", () => {
+  test("merges translations with feature prefix (i18next namespace)", () => {
     const f1 = defineFeature("admin", (r) => {
-      r.translations({ keys: { "admin.title": { de: "Admin", en: "Admin" } } });
+      r.translations({ keys: { "nav.title": { de: "Admin", en: "Admin" } } });
     });
     const f2 = defineFeature("profile", (r) => {
-      r.translations({ keys: { "profile.title": { de: "Profil", en: "Profile" } } });
+      r.translations({ keys: { "nav.title": { de: "Profil", en: "Profile" } } });
     });
 
     const registry = createRegistry([f1, f2]);
     const all = registry.getAllTranslations();
-    expect(all["admin.title"]).toEqual({ de: "Admin", en: "Admin" });
-    expect(all["profile.title"]).toEqual({ de: "Profil", en: "Profile" });
+    // Keys prefixed with featureName: (colon = i18next namespace)
+    expect(all["admin:nav.title"]).toEqual({ de: "Admin", en: "Admin" });
+    expect(all["profile:nav.title"]).toEqual({ de: "Profil", en: "Profile" });
+  });
+
+  test("r.crud() returns typed handler and query refs", () => {
+    const feature = defineFeature("orders", (r) => {
+      r.entity("order", createEntity({ table: "Orders", fields: { name: createTextField() } }));
+      const crud = r.crud("order");
+
+      expect(crud.handlers.create.name).toBe("order.create");
+      expect(crud.handlers.update.name).toBe("order.update");
+      expect(crud.handlers.delete.name).toBe("order.delete");
+      expect(crud.queries.list.name).toBe("order.list");
+      expect(crud.queries.detail.name).toBe("order.detail");
+    });
+
+    // Verify handlers actually registered
+    const registry = createRegistry([feature]);
+    expect(registry.getWriteHandler("orders.order.create")).toBeDefined();
+    expect(registry.getQueryHandler("orders.order.list")).toBeDefined();
   });
 
   test("returns searchable fields for entity", () => {

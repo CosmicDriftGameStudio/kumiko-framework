@@ -204,6 +204,24 @@ export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
   context: PipelineContext,
 ) => Promise<TResult>;
 
+// --- Handler References (returned by r.writeHandler / r.queryHandler) ---
+
+export type HandlerRef = {
+  readonly name: string;
+};
+
+export type CrudRefs = {
+  readonly handlers: {
+    readonly create: HandlerRef;
+    readonly update: HandlerRef;
+    readonly delete: HandlerRef;
+  };
+  readonly queries: {
+    readonly list: HandlerRef;
+    readonly detail: HandlerRef;
+  };
+};
+
 // --- Handler Definitions (stored in feature/registry) ---
 
 export type WriteHandlerDef = {
@@ -410,26 +428,26 @@ export type FeatureRegistrar = {
   entity(name: string, definition: EntityDefinition): void;
 
   // Object form (from defineWriteHandler):
-  writeHandler<TSchema extends ZodType>(def: WriteHandlerDefinition<TSchema>): void;
+  writeHandler<TSchema extends ZodType>(def: WriteHandlerDefinition<TSchema>): HandlerRef;
   // Inline form (for small handlers):
   writeHandler<TSchema extends ZodType>(
     name: string,
     schema: TSchema,
     handler: WriteHandlerFn<z.infer<TSchema>>,
     options?: { access?: AccessRule },
-  ): void;
+  ): HandlerRef;
 
   // Object form (from defineQueryHandler):
-  queryHandler<TSchema extends ZodType>(def: QueryHandlerDefinition<TSchema>): void;
+  queryHandler<TSchema extends ZodType>(def: QueryHandlerDefinition<TSchema>): HandlerRef;
   // Inline form (for small handlers):
   queryHandler<TSchema extends ZodType>(
     name: string,
     schema: TSchema,
     handler: QueryHandlerFn<z.infer<TSchema>>,
     options?: { access?: AccessRule },
-  ): void;
+  ): HandlerRef;
 
-  crud(entityName: string, options?: { access?: AccessRule }): void;
+  crud(entityName: string, options?: { access?: AccessRule }): CrudRefs;
 
   relation(entityName: string, relationName: string, definition: RelationDefinition): void;
 

@@ -41,7 +41,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const extensionMap = new Map<string, RegistrarExtensionDef>();
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const allReferenceData: ReferenceDataDef[] = [];
-  let mergedTranslations: TranslationKeys = {};
+  let mergedTranslations: Record<string, Record<string, string>> = {};
 
   // Prefix helper: featureName.name
   function qualify(featureName: string, name: string): string {
@@ -130,7 +130,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       jobMap.set(qualifiedName, { ...jobDef, name: qualifiedName });
     }
 
-    mergedTranslations = { ...mergedTranslations, ...feature.translations };
+    // Translations prefixed with featureName: (i18next namespace convention)
+    for (const [key, value] of Object.entries(feature.translations)) {
+      mergedTranslations[`${feature.name}:${key}`] = value;
+    }
 
     // Lifecycle hooks: prefixed with feature name
     mergeHookListPrefixed(preSaveHooks, feature.hooks.preSave, feature.name);
