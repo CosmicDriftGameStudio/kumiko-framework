@@ -1,12 +1,12 @@
 import { eq, sql } from "drizzle-orm";
-import type { PgTableWithColumns } from "drizzle-orm/pg-core";
+import type { TableColumns } from "../db/dialect";
 import type { DbConnection } from "../db/connection";
 import type { PreDeleteHookFn, Registry } from "../engine/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
 import { ErrorCodes, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
-type TableMap = ReadonlyMap<string, PgTableWithColumns<any>>;
+type TableMap = ReadonlyMap<string, TableColumns<any>>;
 
 export function createCascadeDeleteHook(
   registry: Registry,

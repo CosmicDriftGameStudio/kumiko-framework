@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import type { PgTableWithColumns } from "drizzle-orm/pg-core";
+import type { TableColumns } from "../../db/dialect";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { type CrudExecutor, createCrudExecutor } from "../../db/crud-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
@@ -16,7 +16,7 @@ import { createTestDb, type TestDb } from "../../testing";
 import { createCascadeDeleteHook } from "../cascade-handler";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
-type Table = PgTableWithColumns<any>;
+type Table = TableColumns<any>;
 
 let testDb: TestDb;
 let registry: Registry;

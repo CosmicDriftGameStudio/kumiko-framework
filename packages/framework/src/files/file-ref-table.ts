@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { integer, table as pgTable, serial, text, timestamp } from "../db/dialect";
 
 export const fileRefsTable = pgTable("file_refs", {
   id: serial("id").primaryKey(),

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
-import type { PgSelect } from "drizzle-orm/pg-core";
+import type { SelectQuery as PgSelect } from "./dialect";
 
 export type CursorQueryOptions = {
   tenantId: number;

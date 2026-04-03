@@ -1,5 +1,4 @@
-import type { PgTableWithColumns } from "drizzle-orm/pg-core";
-import { boolean, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, serial, table as pgTable, text, timestamp, type TableColumns } from "./dialect";
 import type { EntityDefinition, FieldDefinition } from "../engine/types";
 
 function fieldToColumn(name: string, field: FieldDefinition) {
@@ -34,7 +33,8 @@ function toSnakeCase(str: string): string {
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables lose column types
-type DrizzleTable = PgTableWithColumns<any>;
+// biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables lose column types
+type DrizzleTable = TableColumns<any>;
 
 export function buildBaseColumns(softDelete: boolean) {
   const base = {

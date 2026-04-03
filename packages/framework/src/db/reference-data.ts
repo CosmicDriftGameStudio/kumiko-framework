@@ -1,10 +1,10 @@
 import { eq, sql } from "drizzle-orm";
-import type { PgTableWithColumns } from "drizzle-orm/pg-core";
+import type { TableColumns } from "./dialect";
 import type { ReferenceDataDef } from "../engine/types";
 import type { DbConnection } from "./connection";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
-type Table = PgTableWithColumns<any>;
+type Table = TableColumns<any>;
 
 /**
  * Seed reference data at boot time.

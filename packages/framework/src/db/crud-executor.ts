@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { PgTableWithColumns } from "drizzle-orm/pg-core";
+import type { TableColumns } from "./dialect";
 import type {
   DeleteContext,
   EntityDefinition,
@@ -12,7 +12,7 @@ import { applyCursorQuery } from "./cursor";
 import type { CursorResult, DbConnection } from "./index";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
-type Table = PgTableWithColumns<any>;
+type Table = TableColumns<any>;
 
 export type CrudExecutorOptions = {
   searchAdapter?: SearchAdapter;

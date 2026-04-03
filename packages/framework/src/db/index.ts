@@ -9,5 +9,7 @@ export { createEncryptionProvider } from "./encryption";
 export type { PgAdapterOptions } from "./pg-adapter";
 export { createPgAdapter } from "./pg-adapter";
 export { seedReferenceData } from "./reference-data";
+export { table, serial, text, integer, boolean, timestamp, uniqueIndex } from "./dialect";
+export type { TableColumns, SelectQuery } from "./dialect";
 export { buildBaseColumns, buildDrizzleTable } from "./table-builder";
 export type { DbAdapter } from "./types";
