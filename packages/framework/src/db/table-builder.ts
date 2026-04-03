@@ -48,7 +48,12 @@ export function buildBaseColumns(softDelete: boolean) {
   };
 
   if (softDelete) {
-    return { ...base, isDeleted: boolean("is_deleted").default(false).notNull() };
+    return {
+      ...base,
+      isDeleted: boolean("is_deleted").default(false).notNull(),
+      deletedAt: timestamp("deleted_at"),
+      deletedById: integer("deleted_by_id"),
+    };
   }
 
   return base;

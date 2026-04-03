@@ -17,6 +17,12 @@ type Table = PgTableWithColumns<any>;
 export type CrudExecutorOptions = {
   searchAdapter?: SearchAdapter;
   entityName?: string;
+  encryptionProvider?: EncryptionProvider;
+};
+
+type EncryptionProvider = {
+  encrypt(plaintext: string): string;
+  decrypt(ciphertext: string): string;
 };
 
 export type CrudExecutor = {
@@ -37,6 +43,12 @@ export type CrudExecutor = {
     user: SessionUser,
     db: DbConnection,
   ) => Promise<WriteResult<DeleteContext>>;
+
+  restore: (
+    payload: { id: number },
+    user: SessionUser,
+    db: DbConnection,
+  ) => Promise<WriteResult<SaveContext>>;
 
   list: (
     payload: {
@@ -63,7 +75,48 @@ export function createCrudExecutor(
   options: CrudExecutorOptions = {},
 ): CrudExecutor {
   const softDelete = entity.softDelete ?? false;
-  const { searchAdapter, entityName } = options;
+  const { searchAdapter, entityName, encryptionProvider } = options;
+
+  // Find fields that need encryption
+  const encryptedFields = new Set<string>();
+  for (const [name, field] of Object.entries(entity.fields)) {
+    if (field.type === "text" && field.encrypted) {
+      encryptedFields.add(name);
+    }
+  }
+
+  function encryptPayload(payload: Record<string, unknown>): Record<string, unknown> {
+    if (!encryptionProvider || encryptedFields.size === 0) return payload;
+    const result = { ...payload };
+    for (const field of encryptedFields) {
+      if (typeof result[field] === "string") {
+        result[field] = encryptionProvider.encrypt(result[field] as string);
+      }
+    }
+    return result;
+  }
+
+  function decryptRow(row: Record<string, unknown>): Record<string, unknown> {
+    if (!encryptionProvider || encryptedFields.size === 0) return row;
+    const result = { ...row };
+    for (const field of encryptedFields) {
+      if (typeof result[field] === "string") {
+        result[field] = encryptionProvider.decrypt(result[field] as string);
+      }
+    }
+    return result;
+  }
+
+  function maskRow(row: Record<string, unknown>): Record<string, unknown> {
+    if (encryptedFields.size === 0) return row;
+    const result = { ...row };
+    for (const field of encryptedFields) {
+      if (result[field] !== undefined && result[field] !== null) {
+        result[field] = "••••••";
+      }
+    }
+    return result;
+  }
 
   function tenantAndId(tenantId: number, id: number) {
     const conditions = [eq(table["tenantId"], tenantId), eq(table["id"], id)];
@@ -87,7 +140,7 @@ export function createCrudExecutor(
       const [row] = await db
         .insert(table)
         .values({
-          ...payload,
+          ...encryptPayload(payload),
           tenantId: user.tenantId,
           insertedById: user.id,
           insertedAt: new Date(),
@@ -122,7 +175,7 @@ export function createCrudExecutor(
       const [row] = await db
         .update(table)
         .set({
-          ...payload.changes,
+          ...encryptPayload(payload.changes),
           version: currentVersion + 1,
           modifiedById: user.id,
           modifiedAt: new Date(),
@@ -152,7 +205,13 @@ export function createCrudExecutor(
       if (softDelete) {
         await db
           .update(table)
-          .set({ isDeleted: true, modifiedById: user.id, modifiedAt: new Date() })
+          .set({
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletedById: user.id,
+            modifiedById: user.id,
+            modifiedAt: new Date(),
+          })
           .where(tenantAndId(user.tenantId, payload.id));
       } else {
         await db
@@ -161,6 +220,46 @@ export function createCrudExecutor(
       }
 
       return { isSuccess: true, data: { id: payload.id, data: existing } };
+    },
+
+    async restore(payload, user, db) {
+      if (!softDelete) return { isSuccess: false, error: "soft_delete_not_enabled" };
+
+      // Find the soft-deleted row (bypass isDeleted filter)
+      const [row] = await db
+        .select()
+        .from(table)
+        .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], payload.id)));
+
+      if (!row) return { isSuccess: false, error: "not_found" };
+      const data = row as Record<string, unknown>;
+      if (!data["isDeleted"]) return { isSuccess: false, error: "not_deleted" };
+
+      const [restored] = await db
+        .update(table)
+        .set({
+          isDeleted: false,
+          deletedAt: null,
+          deletedById: null,
+          modifiedById: user.id,
+          modifiedAt: new Date(),
+        })
+        .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], payload.id)))
+        .returning();
+
+      if (!restored) return { isSuccess: false, error: "restore_failed" };
+      const restoredData = restored as Record<string, unknown>;
+
+      return {
+        isSuccess: true,
+        data: {
+          id: payload.id,
+          data: restoredData,
+          changes: { isDeleted: false },
+          previous: data,
+          isNew: false,
+        },
+      };
     },
 
     async list(payload, user, db) {
@@ -191,11 +290,12 @@ export function createCrudExecutor(
           ? Buffer.from(String(lastRow["id"])).toString("base64url")
           : null;
 
-      return { rows: rows as Record<string, unknown>[], nextCursor };
+      return { rows: (rows as Record<string, unknown>[]).map(maskRow), nextCursor };
     },
 
     async detail(payload, user, db) {
-      return loadById(user.tenantId, payload.id, db);
+      const row = await loadById(user.tenantId, payload.id, db);
+      return row ? maskRow(row) : null;
     },
   };
 }
