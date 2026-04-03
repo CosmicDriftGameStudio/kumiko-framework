@@ -72,6 +72,26 @@ describe("defineFeature", () => {
     expect(ref?.name).toBe("order.list");
   });
 
+  test("r.defineEvent returns typed EventDef and registers on feature", () => {
+    let eventRef: { name: string } | undefined;
+    const feature = defineFeature("orders", (r) => {
+      eventRef = r.defineEvent("order.created", z.object({ orderId: z.number() }));
+    });
+
+    expect(eventRef?.name).toBe("order.created");
+    expect(feature.events["order.created"]).toBeDefined();
+    expect(feature.events["order.created"]?.schema).toBeDefined();
+  });
+
+  test("registry prefixes event names with feature name", () => {
+    const feature = defineFeature("orders", (r) => {
+      r.defineEvent("order.created", z.object({ orderId: z.number() }));
+    });
+    const registry = createRegistry([feature]);
+    expect(registry.getEvent("orders.order.created")).toBeDefined();
+    expect(registry.getEvent("order.created")).toBeUndefined();
+  });
+
   test("collects write handlers via object form (defineWriteHandler)", () => {
     const handler = defineWriteHandler({
       name: "user.create",

@@ -175,4 +175,82 @@ describe("boot-validator", () => {
 
     expect(() => validateBoot([ext, consumer])).not.toThrow();
   });
+
+  // --- FILE_STORAGE_PROVIDER ---
+
+  test("throws when file fields exist but FILE_STORAGE_PROVIDER not set", () => {
+    delete process.env["FILE_STORAGE_PROVIDER"];
+    const features = [
+      defineFeature("a", (r) => {
+        r.entity(
+          "doc",
+          createEntity({
+            table: "Docs",
+            fields: { contract: { type: "file" } },
+          }),
+        );
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/FILE_STORAGE_PROVIDER.*required/i);
+  });
+
+  test("passes when file fields exist and FILE_STORAGE_PROVIDER is set", () => {
+    process.env["FILE_STORAGE_PROVIDER"] = "local";
+    try {
+      const features = [
+        defineFeature("a", (r) => {
+          r.entity(
+            "doc",
+            createEntity({
+              table: "Docs",
+              fields: { photo: { type: "image" } },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    } finally {
+      delete process.env["FILE_STORAGE_PROVIDER"];
+    }
+  });
+
+  // --- extendSchema column collision ---
+
+  test("throws when extendSchema column conflicts with existing field", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.entity(
+          "item",
+          createEntity({
+            table: "Items",
+            fields: { name: createTextField() },
+          }),
+        );
+        r.extendsRegistrar("custom", {
+          extendSchema: () => ({ name: { type: "text" as const } }),
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /extendSchema column "name" conflicts.*entity "item"/i,
+    );
+  });
+
+  test("passes when extendSchema adds non-conflicting column", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.entity(
+          "item",
+          createEntity({
+            table: "Items",
+            fields: { name: createTextField() },
+          }),
+        );
+        r.extendsRegistrar("custom", {
+          extendSchema: () => ({ extra: { type: "text" as const } }),
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
 });

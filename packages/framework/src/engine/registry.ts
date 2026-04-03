@@ -2,6 +2,7 @@ import type {
   ConfigKeyDefinition,
   EntityDefinition,
   EntityRelations,
+  EventDef,
   FeatureDefinition,
   JobDefinition,
   PostDeleteHookFn,
@@ -38,6 +39,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const preQueryHooks = new Map<string, PreQueryHookFn[]>();
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
   const jobMap = new Map<string, JobDefinition>();
+  const eventMap = new Map<string, EventDef>();
   const extensionMap = new Map<string, RegistrarExtensionDef>();
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const allReferenceData: ReferenceDataDef[] = [];
@@ -128,6 +130,12 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         throw new Error(`Duplicate job: "${qualifiedName}" (registered by multiple features)`);
       }
       jobMap.set(qualifiedName, { ...jobDef, name: qualifiedName });
+    }
+
+    // Events: featureName.eventName
+    for (const [eventName, eventDef] of Object.entries(feature.events)) {
+      const qualified = qualify(feature.name, eventName);
+      eventMap.set(qualified, { ...eventDef, name: qualified });
     }
 
     // Translations prefixed with featureName: (i18next namespace convention)
@@ -290,6 +298,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllJobs(): ReadonlyMap<string, JobDefinition> {
       return jobMap;
+    },
+
+    getEvent(qualifiedName: string): EventDef | undefined {
+      return eventMap.get(qualifiedName);
     },
 
     getExtension(name: string): RegistrarExtensionDef | undefined {

@@ -204,6 +204,13 @@ export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
   context: PipelineContext,
 ) => Promise<TResult>;
 
+// --- Event Definitions ---
+
+export type EventDef<TPayload = unknown> = {
+  readonly name: string;
+  readonly schema: ZodType<TPayload>;
+};
+
 // --- Handler References (returned by r.writeHandler / r.queryHandler) ---
 
 export type HandlerRef = {
@@ -417,6 +424,7 @@ export type FeatureDefinition = {
   readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
   readonly extensionUsages: readonly RegistrarExtensionRegistration[];
   readonly referenceData: readonly ReferenceDataDef[];
+  readonly events: Readonly<Record<string, EventDef>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -464,6 +472,8 @@ export type FeatureRegistrar = {
 
   translations(def: TranslationsDef): void;
 
+  defineEvent<TPayload>(name: string, schema: ZodType<TPayload>): EventDef<TPayload>;
+
   referenceData(
     entityName: string,
     data: readonly Record<string, unknown>[],
@@ -509,6 +519,7 @@ export type Registry = {
   getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition>;
   getJob(qualifiedName: string): JobDefinition | undefined;
   getAllJobs(): ReadonlyMap<string, JobDefinition>;
+  getEvent(qualifiedName: string): EventDef | undefined;
   getExtension(name: string): RegistrarExtensionDef | undefined;
   getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[];
   getAllReferenceData(): readonly ReferenceDataDef[];

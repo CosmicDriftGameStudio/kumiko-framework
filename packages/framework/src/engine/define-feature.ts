@@ -49,6 +49,7 @@ export function defineFeature(
   const lifecycleHooks: Record<string, Record<string, LifecycleHookFn[]>> = {};
   const configKeys: Record<string, ConfigKeyDefinition> = {};
   const jobs: Record<string, JobDefinition> = {};
+  const events: Record<string, { name: string; schema: ZodType }> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const referenceData: ReferenceDataDef[] = [];
@@ -175,6 +176,12 @@ export function defineFeature(
       translations = { ...translations, ...def.keys };
     },
 
+    defineEvent<TPayload>(eventName: string, schema: ZodType<TPayload>) {
+      const def = { name: eventName, schema };
+      events[eventName] = def;
+      return def;
+    },
+
     referenceData(
       entityName: string,
       data: readonly Record<string, unknown>[],
@@ -220,5 +227,6 @@ export function defineFeature(
     registrarExtensions,
     extensionUsages,
     referenceData,
+    events,
   };
 }

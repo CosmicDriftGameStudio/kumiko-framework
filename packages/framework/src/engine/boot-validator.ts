@@ -1,5 +1,7 @@
 import type { FeatureDefinition } from "./types";
 
+const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
+
 /**
  * Validates all feature configurations at boot time.
  * Throws on the first error found — fail fast.
@@ -10,25 +12,42 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     featureMap.set(f.name, f);
   }
 
-  // Collect all extension names across features
-  const extensionProviders = new Map<string, string>(); // extensionName → featureName
+  // Collect all extension names and their schema extensions
+  const extensionProviders = new Map<string, string>();
   for (const f of features) {
     for (const extName of Object.keys(f.registrarExtensions)) {
       extensionProviders.set(extName, f.name);
     }
   }
 
+  // Collect all config keys across features (for cross-feature reference validation)
+  const allConfigKeys = new Set<string>();
+  for (const f of features) {
+    for (const key of Object.keys(f.configKeys)) {
+      allConfigKeys.add(`${f.name}.${key}`);
+    }
+  }
+
   let hasEncryptedFields = false;
+  let hasFileFields = false;
 
   for (const feature of features) {
     validateCircularDeps(feature.name, featureMap);
     if (validateEncryptedFields(feature)) hasEncryptedFields = true;
+    if (validateFileFields(feature)) hasFileFields = true;
     validateExtensionUsages(feature, extensionProviders);
+    validateExtendSchemaCollisions(feature);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
     throw new Error(
       "ENCRYPTION_KEY environment variable is required (encrypted fields in use)",
+    );
+  }
+
+  if (hasFileFields && !process.env["FILE_STORAGE_PROVIDER"]) {
+    throw new Error(
+      "FILE_STORAGE_PROVIDER environment variable is required (file/image fields in use)",
     );
   }
 }
@@ -66,7 +85,6 @@ function validateCircularDeps(
 
 // --- Encrypted field validation ---
 
-// Returns true if any encrypted fields were found
 function validateEncryptedFields(feature: FeatureDefinition): boolean {
   let found = false;
   for (const [entityName, entity] of Object.entries(feature.entities)) {
@@ -90,6 +108,17 @@ function validateEncryptedFields(feature: FeatureDefinition): boolean {
   return found;
 }
 
+// --- File field detection ---
+
+function validateFileFields(feature: FeatureDefinition): boolean {
+  for (const entity of Object.values(feature.entities)) {
+    for (const field of Object.values(entity.fields)) {
+      if (FILE_FIELD_TYPES.has(field.type)) return true;
+    }
+  }
+  return false;
+}
+
 // --- Extension usage validation ---
 
 function validateExtensionUsages(
@@ -98,14 +127,34 @@ function validateExtensionUsages(
 ): void {
   for (const usage of feature.extensionUsages) {
     const providerFeature = extensionProviders.get(usage.extensionName);
-    if (!providerFeature) continue; // Unknown extension — will be caught at registry level
+    if (!providerFeature) continue;
 
-    // Check that the feature has a requires or optionalRequires on the provider
     const allDeps = [...feature.requires, ...feature.optionalRequires];
     if (!allDeps.includes(providerFeature)) {
       throw new Error(
         `Feature "${feature.name}" uses extension "${usage.extensionName}" but missing requires("${providerFeature}")`,
       );
+    }
+  }
+}
+
+// --- extendSchema column collision detection ---
+
+function validateExtendSchemaCollisions(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities)) {
+    const existingFields = new Set(Object.keys(entity.fields));
+
+    // Check if any registered extension would collide with existing fields
+    for (const ext of Object.values(feature.registrarExtensions)) {
+      if (!ext.extendSchema) continue;
+      const extraFields = ext.extendSchema(entityName);
+      for (const fieldName of Object.keys(extraFields)) {
+        if (existingFields.has(fieldName)) {
+          throw new Error(
+            `extendSchema column "${fieldName}" conflicts with existing field on entity "${entityName}"`,
+          );
+        }
+      }
     }
   }
 }
