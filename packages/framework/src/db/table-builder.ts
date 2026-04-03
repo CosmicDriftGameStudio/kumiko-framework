@@ -59,7 +59,11 @@ export function buildBaseColumns(softDelete: boolean) {
   return base;
 }
 
-export function buildDrizzleTable(_entityName: string, entity: EntityDefinition): DrizzleTable {
+export function buildDrizzleTable(
+  entityName: string,
+  entity: EntityDefinition,
+  options?: { featureName?: string },
+): DrizzleTable {
   const baseColumns = buildBaseColumns(entity.softDelete ?? false);
   const fieldColumns: Record<string, ReturnType<typeof fieldToColumn>> = {};
 
@@ -70,7 +74,12 @@ export function buildDrizzleTable(_entityName: string, entity: EntityDefinition)
     }
   }
 
-  return pgTable(entity.table, {
+  // Table name: featureName_tableName when feature prefix is provided
+  const tableName = options?.featureName
+    ? `${options.featureName}_${entity.table}`
+    : entity.table;
+
+  return pgTable(tableName, {
     ...baseColumns,
     ...fieldColumns,
   });
