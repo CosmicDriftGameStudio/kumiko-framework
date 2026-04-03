@@ -15,9 +15,9 @@ export function createCascadeDeleteHook(
   return {
     name: SystemHookNames.cascadeDelete,
     priority: SystemHookPriorities.cascadeDelete,
-    fn: async (payload, _context) => {
-      const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
-      const db = (_context as Record<string, unknown>)["db"] as DbConnection | undefined;
+    fn: async (payload, ctx) => {
+      const entityName = ctx._entityName;
+      const db = ctx.db as DbConnection | undefined;
       if (!entityName || !db) return;
 
       // Check outgoing relations (this entity's hasMany/manyToMany)

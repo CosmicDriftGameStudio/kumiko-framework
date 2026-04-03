@@ -1,6 +1,7 @@
 import { hasAccess } from "../engine/access";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import type {
+  HandlerRef,
   PipelineContext,
   SessionUser,
   Registry,
@@ -20,15 +21,21 @@ export type DispatcherOptions = {
   lifecycle?: LifecyclePipeline;
 };
 
+type HandlerType = string | HandlerRef;
+
+function resolveType(type: HandlerType): string {
+  return typeof type === "string" ? type : type.name;
+}
+
 export type Dispatcher = {
   write(
-    type: string,
+    type: HandlerType,
     payload: unknown,
     user: SessionUser,
     requestId?: string,
   ): Promise<WriteResult>;
-  query(type: string, payload: unknown, user: SessionUser): Promise<unknown>;
-  command(type: string, payload: unknown, user: SessionUser): Promise<void>;
+  query(type: HandlerType, payload: unknown, user: SessionUser): Promise<unknown>;
+  command(type: HandlerType, payload: unknown, user: SessionUser): Promise<void>;
   shareEvent(event: BrokerEvent): Promise<void>;
   broadcast(channel: string, event: BrokerEvent): Promise<void>;
 };
@@ -64,7 +71,8 @@ export function createDispatcher(
   }
 
   return {
-    async write(type, payload, user, requestId?) {
+    async write(typeOrRef, payload, user, requestId?) {
+      const type = resolveType(typeOrRef);
       if (requestId && idempotency) {
         const cached = await idempotency.check(requestId);
         if (cached) return JSON.parse(cached) as WriteResult;
@@ -132,7 +140,8 @@ export function createDispatcher(
       return result;
     },
 
-    async query(type, payload, user) {
+    async query(typeOrRef, payload, user) {
+      const type = resolveType(typeOrRef);
       const handler = registry.getQueryHandler(type);
       if (!handler) throw new Error(`${ErrorCodes.handlerNotFound}: ${type}`);
 
@@ -172,7 +181,8 @@ export function createDispatcher(
       return result;
     },
 
-    async command(type, payload, user) {
+    async command(typeOrRef, payload, user) {
+      const type = resolveType(typeOrRef);
       const handler = registry.getWriteHandler(type);
       if (!handler) throw new Error(`${ErrorCodes.handlerNotFound}: ${type}`);
 

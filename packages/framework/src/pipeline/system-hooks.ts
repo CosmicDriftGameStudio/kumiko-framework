@@ -1,8 +1,8 @@
 import type { SseBroker, SseEvent } from "../api/sse-broker";
+import { SystemHookNames, SystemHookPriorities, tenantChannel } from "../engine/constants";
 import type { PostDeleteHookFn, PostSaveHookFn, Registry } from "../engine/types";
 import type { SearchAdapter } from "../search/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
-import { SystemHookNames, SystemHookPriorities } from "../engine/constants";
 
 // --- Search Index Hook ---
 
@@ -13,10 +13,8 @@ export function createSearchIndexHook(
   return {
     name: SystemHookNames.searchIndex,
     priority: SystemHookPriorities.searchIndex,
-    fn: async (result, _context) => {
-      // Determine entity name from the registry by matching the data
-      // For now, we need the entityName in context
-      const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
+    fn: async (result, ctx) => {
+      const entityName = ctx._entityName;
       if (!entityName) return;
 
       const entity = registry.getEntity(entityName);
@@ -29,8 +27,6 @@ export function createSearchIndexHook(
       for (const f of searchableFields) {
         if (result.data[f] !== undefined) fields[f] = result.data[f];
       }
-
-      // TODO: resolve relations with searchInclude and add as _relName fields
 
       const tenantId = result.data["tenantId"] as number;
       await searchAdapter.index(tenantId, {
@@ -49,8 +45,8 @@ export function createSearchRemoveHook(
   return {
     name: SystemHookNames.searchRemove,
     priority: SystemHookPriorities.searchIndex,
-    fn: async (payload, _context) => {
-      const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
+    fn: async (payload, ctx) => {
+      const entityName = ctx._entityName;
       if (!entityName) return;
 
       const tenantId = payload.data["tenantId"] as number;
@@ -65,12 +61,11 @@ export function createSseBroadcastHook(sseBroker: SseBroker): SystemHookDef<Post
   return {
     name: SystemHookNames.sseBroadcast,
     priority: SystemHookPriorities.sseBroadcast,
-    fn: async (result, _context) => {
-      const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
+    fn: async (result, ctx) => {
+      const entityName = ctx._entityName;
       if (!entityName) return;
 
       const tenantId = result.data["tenantId"] as number;
-      const channel = `tenant:${tenantId}`;
       const eventType = result.isNew ? `${entityName}.created` : `${entityName}.updated`;
 
       const event: SseEvent = {
@@ -78,7 +73,7 @@ export function createSseBroadcastHook(sseBroker: SseBroker): SystemHookDef<Post
         data: { id: result.id, changes: result.changes },
       };
 
-      sseBroker.pushToChannel(channel, event);
+      sseBroker.pushToChannel(tenantChannel(tenantId), event);
     },
   };
 }
@@ -89,14 +84,12 @@ export function createSseDeleteBroadcastHook(
   return {
     name: SystemHookNames.sseDeleteBroadcast,
     priority: SystemHookPriorities.sseBroadcast,
-    fn: async (payload, _context) => {
-      const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
+    fn: async (payload, ctx) => {
+      const entityName = ctx._entityName;
       if (!entityName) return;
 
       const tenantId = payload.data["tenantId"] as number;
-      const channel = `tenant:${tenantId}`;
-
-      sseBroker.pushToChannel(channel, {
+      sseBroker.pushToChannel(tenantChannel(tenantId), {
         type: `${entityName}.deleted`,
         data: { id: payload.id },
       });
@@ -126,20 +119,17 @@ export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<
   return {
     name: SystemHookNames.auditTrail,
     priority: SystemHookPriorities.auditTrail,
-    fn: async (result, _context) => {
-      const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
-      const userId = (_context as Record<string, unknown>)["_userId"] as number | undefined;
-      const handlerType = (_context as Record<string, unknown>)["_handlerType"] as string | undefined;
+    fn: async (result, ctx) => {
+      const entityName = ctx._entityName;
       if (!entityName) return;
 
-      // Audit action derived from handler type — no manual string construction
       const fallbackAction = result.isNew ? `${entityName}.create` : `${entityName}.update`;
 
       await storage.append({
         timestamp: new Date(),
         tenantId: result.data["tenantId"] as number,
-        userId: userId ?? 0,
-        action: handlerType ?? fallbackAction,
+        userId: ctx._userId ?? 0,
+        action: ctx._handlerType ?? fallbackAction,
         entityType: entityName,
         entityId: result.id,
         changes: result.changes as Record<string, unknown>,
@@ -156,17 +146,15 @@ export function createAuditTrailDeleteHook(
   return {
     name: SystemHookNames.auditTrailDelete,
     priority: SystemHookPriorities.auditTrail,
-    fn: async (payload, _context) => {
-      const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
-      const userId = (_context as Record<string, unknown>)["_userId"] as number | undefined;
-      const handlerType = (_context as Record<string, unknown>)["_handlerType"] as string | undefined;
+    fn: async (payload, ctx) => {
+      const entityName = ctx._entityName;
       if (!entityName) return;
 
       await storage.append({
         timestamp: new Date(),
         tenantId: payload.data["tenantId"] as number,
-        userId: userId ?? 0,
-        action: handlerType ?? `${entityName}.delete`,
+        userId: ctx._userId ?? 0,
+        action: ctx._handlerType ?? `${entityName}.delete`,
         entityType: entityName,
         entityId: payload.id,
         changes: {},
