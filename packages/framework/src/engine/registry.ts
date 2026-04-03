@@ -163,11 +163,63 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     allReferenceData.push(...feature.referenceData);
   }
 
-  // Process extension usages: call onRegister for each usage
+  // Process extension usages: call onRegister, apply extendSchema, register hooks
   for (const usage of extensionUsages) {
     const ext = extensionMap.get(usage.extensionName);
-    if (ext?.onRegister) {
+    if (!ext) continue;
+
+    if (ext.onRegister) {
       ext.onRegister(usage.entityName, usage.options);
+    }
+
+    // extendSchema: merge extra fields into entity definition
+    if (ext.extendSchema) {
+      // Find the prefixed entity name in the entityMap
+      for (const [qualifiedName, entity] of entityMap) {
+        const shortName = qualifiedName.split(".").pop();
+        if (shortName === usage.entityName || qualifiedName === usage.entityName) {
+          const extraFields = ext.extendSchema(usage.entityName);
+          const merged = { ...entity, fields: { ...entity.fields, ...extraFields } };
+          entityMap.set(qualifiedName, merged);
+          break;
+        }
+      }
+    }
+
+    // hooks: register extension hooks for the entity
+    if (ext.hooks) {
+      // Find the prefixed entity name
+      for (const qualifiedName of entityMap.keys()) {
+        const shortName = qualifiedName.split(".").pop();
+        if (shortName === usage.entityName || qualifiedName === usage.entityName) {
+          if (ext.hooks.preSave) {
+            const existing = preSaveHooks.get(qualifiedName) ?? [];
+            existing.push(ext.hooks.preSave);
+            preSaveHooks.set(qualifiedName, existing);
+          }
+          if (ext.hooks.postSave) {
+            const existing = postSaveHooks.get(qualifiedName) ?? [];
+            existing.push(ext.hooks.postSave);
+            postSaveHooks.set(qualifiedName, existing);
+          }
+          if (ext.hooks.preDelete) {
+            const existing = preDeleteHooks.get(qualifiedName) ?? [];
+            existing.push(ext.hooks.preDelete);
+            preDeleteHooks.set(qualifiedName, existing);
+          }
+          if (ext.hooks.postDelete) {
+            const existing = postDeleteHooks.get(qualifiedName) ?? [];
+            existing.push(ext.hooks.postDelete);
+            postDeleteHooks.set(qualifiedName, existing);
+          }
+          if (ext.hooks.preQuery) {
+            const existing = preQueryHooks.get(qualifiedName) ?? [];
+            existing.push(ext.hooks.preQuery);
+            preQueryHooks.set(qualifiedName, existing);
+          }
+          break;
+        }
+      }
     }
   }
 

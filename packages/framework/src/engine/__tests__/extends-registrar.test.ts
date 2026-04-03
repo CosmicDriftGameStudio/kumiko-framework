@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { createEntity, createRegistry, defineFeature } from "../index";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../index";
 
 describe("extendsRegistrar", () => {
   test("r.useExtension records usage with name, entity, and options", () => {
@@ -69,5 +69,49 @@ describe("extendsRegistrar", () => {
     expect(registry.getExtensionUsages("tags")).toHaveLength(2);
     expect(registry.getExtensionUsages("commentable")).toHaveLength(1);
     expect(registry.getExtensionUsages("nonexistent")).toHaveLength(0);
+  });
+
+  test("extendSchema merges extra fields into entity definition", () => {
+    const ext = defineFeature("customFields", (r) => {
+      r.extendsRegistrar("customFields", {
+        extendSchema: () => ({
+          customData: { type: "text" as const },
+        }),
+      });
+    });
+    const consumer = defineFeature("fleet", (r) => {
+      r.entity("vehicle", createEntity({
+        table: "Vehicles",
+        fields: { name: createTextField() },
+      }));
+      r.useExtension("customFields", "vehicle");
+    });
+
+    const registry = createRegistry([ext, consumer]);
+    const entity = registry.getEntity("fleet.vehicle");
+    expect(entity?.fields["name"]).toBeDefined();
+    expect(entity?.fields["customData"]).toBeDefined();
+    expect(entity?.fields["customData"]?.type).toBe("text");
+  });
+
+  test("extension hooks are registered on the entity", () => {
+    const preSaveFn = vi.fn(async (changes: Record<string, unknown>) => changes);
+
+    const ext = defineFeature("audit", (r) => {
+      r.extendsRegistrar("audited", {
+        hooks: {
+          preSave: preSaveFn,
+        },
+      });
+    });
+    const consumer = defineFeature("fleet", (r) => {
+      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.useExtension("audited", "vehicle");
+    });
+
+    const registry = createRegistry([ext, consumer]);
+    const hooks = registry.getPreSaveHooks("fleet.vehicle");
+    expect(hooks).toHaveLength(1);
+    expect(hooks[0]).toBe(preSaveFn);
   });
 });
