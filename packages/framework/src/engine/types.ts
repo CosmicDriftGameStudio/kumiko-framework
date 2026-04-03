@@ -1,4 +1,7 @@
 import type { ZodType, z } from "zod";
+import type { DbConnection } from "../db/connection";
+import type { EncryptionProvider } from "../db/encryption";
+import type { SearchAdapter } from "../search/types";
 import type { WriteHandlerDefinition, QueryHandlerDefinition } from "./define-handler";
 
 // --- Field Types ---
@@ -174,13 +177,13 @@ export type WriteResult<TData = unknown> =
 
 export type PipelineContext = {
   // Core (always available in handlers)
-  readonly db?: unknown;
+  readonly db?: DbConnection;
   readonly registry?: Registry;
-  readonly redis?: unknown;
+  readonly redis?: unknown; // ioredis — dynamic import, no static type
   // Core Features (available when the corresponding feature is loaded)
-  readonly jobRunner?: unknown;
-  readonly configResolver?: unknown;
-  readonly searchAdapter?: unknown;
+  readonly jobRunner?: unknown; // JobRunner — typed in @kumiko/framework/jobs
+  readonly configResolver?: unknown; // ConfigResolver — typed in @kumiko/core-features/config
+  readonly searchAdapter?: SearchAdapter;
   readonly systemUser?: SessionUser;
   readonly log?: (msg: string) => void;
   readonly warn?: (msg: string) => void;

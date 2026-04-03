@@ -1,9 +1,9 @@
 import { eq, sql } from "drizzle-orm";
-import type { TableColumns } from "../db/dialect";
 import type { DbConnection } from "../db/connection";
+import type { TableColumns } from "../db/dialect";
+import { ErrorCodes, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 import type { PreDeleteHookFn, Registry } from "../engine/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
-import { ErrorCodes, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type TableMap = ReadonlyMap<string, TableColumns<any>>;
@@ -17,8 +17,8 @@ export function createCascadeDeleteHook(
     priority: SystemHookPriorities.cascadeDelete,
     fn: async (payload, ctx) => {
       const entityName = ctx._entityName;
-      const db = ctx.db as DbConnection | undefined;
-      if (!entityName || !db) return;
+      if (!entityName || !ctx.db) return;
+      const db = ctx.db;
 
       // Check outgoing relations (this entity's hasMany/manyToMany)
       // AND incoming relations (other entities' belongsTo pointing here)
