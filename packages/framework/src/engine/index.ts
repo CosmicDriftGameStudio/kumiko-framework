@@ -4,8 +4,23 @@ export { hasAccess } from "./access";
 export { validateBoot } from "./boot-validator";
 export type { App, AppConfig } from "./create-app";
 export { createApp } from "./create-app";
+export {
+  ErrorCodes,
+  SystemHookNames,
+  SystemHookPriorities,
+  MessageKind,
+  LifecycleHookTypes,
+  ConfigScopes,
+  OnDeleteStrategies,
+  ConcurrencyModes,
+  tenantChannel,
+} from "./constants";
+export type { ErrorCode, SystemHookName } from "./constants";
 export { buildCrudHandlers } from "./crud-builder";
 export { defineFeature } from "./define-feature";
+export { defineWriteHandler, defineQueryHandler } from "./define-handler";
+export type { WriteHandlerDefinition, QueryHandlerDefinition } from "./define-handler";
+export { defineRoles } from "./define-roles";
 export {
   createBooleanField,
   createDateField,
