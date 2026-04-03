@@ -60,7 +60,7 @@ describe("health", () => {
 
 describe("auth middleware", () => {
   test("rejects request without token", async () => {
-    const res = await req("POST", "/api/write", { type: "item.create", payload: { name: "x" } });
+    const res = await req("POST", "/api/write", { type: "test.item.create", payload: { name: "x" } });
     expect(res.status).toBe(401);
   });
 
@@ -68,7 +68,7 @@ describe("auth middleware", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "item.create", payload: { name: "x" } },
+      { type: "test.item.create", payload: { name: "x" } },
       {
         Authorization: "Bearer invalid.token.here",
       },
@@ -81,7 +81,7 @@ describe("auth middleware", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "item.create", payload: { name: "Test" } },
+      { type: "test.item.create", payload: { name: "Test" } },
       headers,
     );
     expect(res.status).toBe(200);
@@ -96,7 +96,7 @@ describe("POST /api/write", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "item.create", payload: { name: "Hello" } },
+      { type: "test.item.create", payload: { name: "Hello" } },
       headers,
     );
 
@@ -111,7 +111,7 @@ describe("POST /api/write", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "item.create", payload: { name: "" } },
+      { type: "test.item.create", payload: { name: "" } },
       headers,
     );
 
@@ -125,7 +125,7 @@ describe("POST /api/write", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "item.create", payload: { name: "Test" } },
+      { type: "test.item.create", payload: { name: "Test" } },
       headers,
     );
 
@@ -140,7 +140,7 @@ describe("POST /api/write", () => {
 describe("POST /api/query", () => {
   test("dispatches query and returns data", async () => {
     const headers = await authHeader(adminUser);
-    const res = await req("POST", "/api/query", { type: "item.list", payload: {} }, headers);
+    const res = await req("POST", "/api/query", { type: "test.item.list", payload: {} }, headers);
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -162,7 +162,7 @@ describe("POST /api/command", () => {
     const res = await req(
       "POST",
       "/api/command",
-      { type: "item.create", payload: { name: "Fire" } },
+      { type: "test.item.create", payload: { name: "Fire" } },
       headers,
     );
 
@@ -176,7 +176,7 @@ describe("POST /api/command", () => {
     const res = await req(
       "POST",
       "/api/command",
-      { type: "item.create", payload: { name: "x" } },
+      { type: "test.item.create", payload: { name: "x" } },
       headers,
     );
     expect(res.status).toBe(403);

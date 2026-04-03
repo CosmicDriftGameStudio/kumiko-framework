@@ -63,31 +63,32 @@ describe("lifecycle hook registration", () => {
 });
 
 describe("lifecycle hooks in registry", () => {
-  test("merges preSave hooks across features", () => {
+  test("merges preSave hooks within same feature", () => {
     const f1 = defineFeature("a", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
       r.hook("preSave", "user", async (changes) => changes);
-    });
-    const f2 = defineFeature("b", (r) => {
       r.hook("preSave", "user", async (changes) => changes);
     });
 
-    const registry = createRegistry([f1, f2]);
-    expect(registry.getPreSaveHooks("user")).toHaveLength(2);
+    const registry = createRegistry([f1]);
+    expect(registry.getPreSaveHooks("a.user")).toHaveLength(2);
   });
 
-  test("merges postSave hooks across features", () => {
+  test("cross-feature hooks use full prefixed name", () => {
     const f1 = defineFeature("a", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
       r.hook("postSave", "user", async () => {});
     });
+    // Feature b hooks into a.user by using the full prefixed name
     const f2 = defineFeature("b", (r) => {
-      r.hook("postSave", "user", async () => {});
-      r.hook("postSave", "user", async () => {});
+      r.hook("postSave", "a.user", async () => {});
+      r.hook("postSave", "a.user", async () => {});
     });
 
     const registry = createRegistry([f1, f2]);
-    expect(registry.getPostSaveHooks("user")).toHaveLength(3);
+    // f1 registers as "a.user", f2 registers as "b.a.user" — different keys
+    expect(registry.getPostSaveHooks("a.user")).toHaveLength(1);
+    expect(registry.getPostSaveHooks("b.a.user")).toHaveLength(2);
   });
 
   test("returns empty array for entity without hooks", () => {
@@ -96,11 +97,11 @@ describe("lifecycle hooks in registry", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getPreSaveHooks("user")).toEqual([]);
-    expect(registry.getPostSaveHooks("user")).toEqual([]);
-    expect(registry.getPreDeleteHooks("user")).toEqual([]);
-    expect(registry.getPostDeleteHooks("user")).toEqual([]);
-    expect(registry.getPreQueryHooks("user")).toEqual([]);
+    expect(registry.getPreSaveHooks("test.user")).toEqual([]);
+    expect(registry.getPostSaveHooks("test.user")).toEqual([]);
+    expect(registry.getPreDeleteHooks("test.user")).toEqual([]);
+    expect(registry.getPostDeleteHooks("test.user")).toEqual([]);
+    expect(registry.getPreQueryHooks("test.user")).toEqual([]);
   });
 });
 

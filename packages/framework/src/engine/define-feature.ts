@@ -1,5 +1,6 @@
 import type { ZodType, z } from "zod";
 import { buildCrudHandlers } from "./crud-builder";
+import type { WriteHandlerDefinition, QueryHandlerDefinition } from "./define-handler";
 import type {
   AccessRule,
   ConfigDefinition,
@@ -59,31 +60,55 @@ export function defineFeature(
     },
 
     writeHandler<TSchema extends ZodType>(
-      handlerName: string,
-      schema: TSchema,
-      handler: WriteHandlerFn<z.infer<TSchema>>,
+      nameOrDef: string | WriteHandlerDefinition<TSchema>,
+      schema?: TSchema,
+      handler?: WriteHandlerFn<z.infer<TSchema>>,
       options?: { access?: AccessRule },
     ): void {
-      writeHandlers[handlerName] = {
-        name: handlerName,
-        schema,
-        handler: handler as WriteHandlerFn,
-        ...(options?.access && { access: options.access }),
-      };
+      if (typeof nameOrDef === "object") {
+        // Object form: r.writeHandler(defineWriteHandler({ name, schema, handler }))
+        const def = nameOrDef;
+        writeHandlers[def.name] = {
+          name: def.name,
+          schema: def.schema,
+          handler: def.handler as WriteHandlerFn,
+          ...(def.access && { access: def.access }),
+        };
+      } else {
+        // Inline form: r.writeHandler("name", schema, handler, options)
+        writeHandlers[nameOrDef] = {
+          name: nameOrDef,
+          schema: schema!,
+          handler: handler as WriteHandlerFn,
+          ...(options?.access && { access: options.access }),
+        };
+      }
     },
 
     queryHandler<TSchema extends ZodType>(
-      handlerName: string,
-      schema: TSchema,
-      handler: QueryHandlerFn<z.infer<TSchema>>,
+      nameOrDef: string | QueryHandlerDefinition<TSchema>,
+      schema?: TSchema,
+      handler?: QueryHandlerFn<z.infer<TSchema>>,
       options?: { access?: AccessRule },
     ): void {
-      queryHandlers[handlerName] = {
-        name: handlerName,
-        schema,
-        handler: handler as QueryHandlerFn,
-        ...(options?.access && { access: options.access }),
-      };
+      if (typeof nameOrDef === "object") {
+        // Object form: r.queryHandler(defineQueryHandler({ name, schema, handler }))
+        const def = nameOrDef;
+        queryHandlers[def.name] = {
+          name: def.name,
+          schema: def.schema,
+          handler: def.handler as QueryHandlerFn,
+          ...(def.access && { access: def.access }),
+        };
+      } else {
+        // Inline form: r.queryHandler("name", schema, handler, options)
+        queryHandlers[nameOrDef] = {
+          name: nameOrDef,
+          schema: schema!,
+          handler: handler as QueryHandlerFn,
+          ...(options?.access && { access: options.access }),
+        };
+      }
     },
 
     crud(entityName: string, options?: { access?: AccessRule }): void {

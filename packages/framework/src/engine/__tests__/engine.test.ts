@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { hasAccess } from "../access";
+import { defineWriteHandler, defineQueryHandler } from "../define-handler";
 import { createBooleanField, createEntity, createSelectField, createTextField } from "../factories";
 import { createApp, createRegistry, defineFeature } from "../index";
 import type { SessionUser } from "../types";
@@ -52,6 +53,25 @@ describe("defineFeature", () => {
     expect(feature.writeHandlers["user.invite"]?.name).toBe("user.invite");
   });
 
+  test("collects write handlers via object form (defineWriteHandler)", () => {
+    const handler = defineWriteHandler({
+      name: "user.create",
+      schema: z.object({ email: z.string().email() }),
+      access: { roles: ["Admin"] },
+      handler: async (event) => {
+        return { isSuccess: true, data: { id: 1, email: event.payload.email } };
+      },
+    });
+
+    const feature = defineFeature("test", (r) => {
+      r.writeHandler(handler);
+    });
+
+    expect(feature.writeHandlers["user.create"]).toBeDefined();
+    expect(feature.writeHandlers["user.create"]?.name).toBe("user.create");
+    expect(feature.writeHandlers["user.create"]?.access?.roles).toEqual(["Admin"]);
+  });
+
   test("collects query handlers with inferred types", () => {
     const schema = z.object({ userId: z.number() });
 
@@ -63,6 +83,23 @@ describe("defineFeature", () => {
     });
 
     expect(feature.queryHandlers["user.detail"]).toBeDefined();
+  });
+
+  test("collects query handlers via object form (defineQueryHandler)", () => {
+    const handler = defineQueryHandler({
+      name: "user.list",
+      schema: z.object({ limit: z.number().optional() }),
+      handler: async () => {
+        return [{ id: 1, email: "test@test.de" }];
+      },
+    });
+
+    const feature = defineFeature("test", (r) => {
+      r.queryHandler(handler);
+    });
+
+    expect(feature.queryHandlers["user.list"]).toBeDefined();
+    expect(feature.queryHandlers["user.list"]?.name).toBe("user.list");
   });
 
   test("collects translations", () => {
@@ -150,8 +187,8 @@ describe("createRegistry", () => {
     });
 
     const registry = createRegistry([f1, f2]);
-    expect(registry.getEntity("user")?.table).toBe("Users");
-    expect(registry.getEntity("post")?.table).toBe("Posts");
+    expect(registry.getEntity("admin.user")?.table).toBe("Users");
+    expect(registry.getEntity("blog.post")?.table).toBe("Posts");
     expect(registry.getEntity("nonexistent")).toBeUndefined();
   });
 
@@ -164,11 +201,23 @@ describe("createRegistry", () => {
     });
 
     const registry = createRegistry([f1, f2]);
-    expect(registry.getWriteHandler("user.invite")).toBeDefined();
-    expect(registry.getQueryHandler("profile.me")).toBeDefined();
+    expect(registry.getWriteHandler("admin.user.invite")).toBeDefined();
+    expect(registry.getQueryHandler("profile.profile.me")).toBeDefined();
   });
 
-  test("throws on duplicate entity names", () => {
+  test("throws on duplicate entity names (same feature name)", () => {
+    const f1 = defineFeature("shared", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+    });
+    const f2 = defineFeature("shared", (r) => {
+      r.entity("user", createEntity({ table: "Users2", fields: {} }));
+    });
+
+    // Duplicate feature name throws first
+    expect(() => createRegistry([f1, f2])).toThrow(/duplicate feature.*shared/i);
+  });
+
+  test("different features can have same entity short name (prefixed differently)", () => {
     const f1 = defineFeature("a", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
     });
@@ -176,10 +225,13 @@ describe("createRegistry", () => {
       r.entity("user", createEntity({ table: "Users2", fields: {} }));
     });
 
-    expect(() => createRegistry([f1, f2])).toThrow(/duplicate entity.*user/i);
+    // No error — "a.user" and "b.user" are distinct
+    const registry = createRegistry([f1, f2]);
+    expect(registry.getEntity("a.user")?.table).toBe("Users");
+    expect(registry.getEntity("b.user")?.table).toBe("Users2");
   });
 
-  test("throws on duplicate handler names", () => {
+  test("different features can have same handler short name (prefixed differently)", () => {
     const f1 = defineFeature("a", (r) => {
       r.writeHandler("user.invite", z.object({}), async () => ({ isSuccess: true, data: null }));
     });
@@ -187,7 +239,10 @@ describe("createRegistry", () => {
       r.writeHandler("user.invite", z.object({}), async () => ({ isSuccess: true, data: null }));
     });
 
-    expect(() => createRegistry([f1, f2])).toThrow(/duplicate.*handler.*user\.invite/i);
+    // No error — "a.user.invite" and "b.user.invite" are distinct
+    const registry = createRegistry([f1, f2]);
+    expect(registry.getWriteHandler("a.user.invite")).toBeDefined();
+    expect(registry.getWriteHandler("b.user.invite")).toBeDefined();
   });
 
   test("throws on duplicate feature names", () => {
@@ -228,7 +283,7 @@ describe("createRegistry", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getSearchableFields("user")).toEqual(["email", "lastName"]);
+    expect(registry.getSearchableFields("admin.user")).toEqual(["email", "lastName"]);
     expect(registry.getSearchableFields("nonexistent")).toEqual([]);
   });
 });
@@ -301,7 +356,7 @@ describe("sortable fields", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getSortableFields("item")).toEqual(["name", "rank"]);
+    expect(registry.getSortableFields("sortTest.item")).toEqual(["name", "rank"]);
     expect(registry.getSortableFields("nonexistent")).toEqual([]);
   });
 });
@@ -562,7 +617,7 @@ describe("r.relation()", () => {
       );
       r.relation("user", "department", {
         type: "belongsTo",
-        target: "department",
+        target: "test.department",
         foreignKey: "departmentId",
         searchInclude: ["name"],
       });
@@ -578,7 +633,7 @@ describe("r.relation()", () => {
       r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "role",
+        target: "test.role",
         through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
         searchInclude: ["name"],
       });
@@ -597,7 +652,7 @@ describe("r.relation()", () => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
       r.relation("department", "users", {
         type: "hasMany",
-        target: "user",
+        target: "test.user",
         foreignKey: "departmentId",
       });
     });
@@ -607,35 +662,21 @@ describe("r.relation()", () => {
 });
 
 describe("registry relations", () => {
-  test("getRelations returns merged relations", () => {
+  test("getRelations returns relations within same feature", () => {
     const f1 = defineFeature("users", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
       r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "role",
+        target: "users.role",
         through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
         searchInclude: ["name"],
       });
     });
 
-    const f2 = defineFeature("projects", (r) => {
-      r.entity(
-        "project",
-        createEntity({ table: "Projects", fields: { title: createTextField() } }),
-      );
-      r.relation("user", "projects", {
-        type: "manyToMany",
-        target: "project",
-        through: { table: "UserProjects", sourceKey: "userId", targetKey: "projectId" },
-        searchInclude: ["title"],
-      });
-    });
-
-    const registry = createRegistry([f1, f2]);
-    const rels = registry.getRelations("user");
+    const registry = createRegistry([f1]);
+    const rels = registry.getRelations("users.user");
     expect(rels["roles"]).toBeDefined();
-    expect(rels["projects"]).toBeDefined();
   });
 
   test("getSearchIncludes returns fields to index from relations", () => {
@@ -645,20 +686,20 @@ describe("registry relations", () => {
       r.entity("department", createEntity({ table: "Depts", fields: { name: createTextField() } }));
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "role",
+        target: "test.role",
         through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
         searchInclude: ["name"],
       });
       r.relation("user", "department", {
         type: "belongsTo",
-        target: "department",
+        target: "test.department",
         foreignKey: "departmentId",
         searchInclude: ["name"],
       });
     });
 
     const registry = createRegistry([feature]);
-    const includes = registry.getSearchIncludes("user");
+    const includes = registry.getSearchIncludes("test.user");
     expect(includes.get("roles")).toEqual(["name"]);
     expect(includes.get("department")).toEqual(["name"]);
   });
@@ -676,25 +717,27 @@ describe("registry relations", () => {
     expect(() => createRegistry([feature])).toThrow(/nonexistent.*does not exist/i);
   });
 
-  test("throws on duplicate relation name", () => {
+  test("second relation with same name on same entity overwrites in feature definition", () => {
+    // Within a single feature, the second r.relation() call overwrites the first
     const f1 = defineFeature("a", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
       r.entity("role", createEntity({ table: "Roles", fields: {} }));
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "role",
+        target: "a.role",
         through: { table: "UR1", sourceKey: "userId", targetKey: "roleId" },
       });
-    });
-    const f2 = defineFeature("b", (r) => {
       r.relation("user", "roles", {
         type: "manyToMany",
-        target: "role",
+        target: "a.role",
         through: { table: "UR2", sourceKey: "userId", targetKey: "roleId" },
       });
     });
 
-    expect(() => createRegistry([f1, f2])).toThrow(/duplicate relation.*user\.roles/i);
+    const registry = createRegistry([f1]);
+    const rels = registry.getRelations("a.user");
+    // Last write wins
+    expect((rels["roles"] as { through: { table: string } }).through.table).toBe("UR2");
   });
 });
 

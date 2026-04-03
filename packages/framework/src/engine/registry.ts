@@ -37,14 +37,22 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const jobMap = new Map<string, JobDefinition>();
   let mergedTranslations: TranslationKeys = {};
 
-  function mergeHookList<T>(
+  // Prefix helper: featureName.name
+  function qualify(featureName: string, name: string): string {
+    return `${featureName}.${name}`;
+  }
+
+  // Prefix lifecycle hooks with feature name
+  function mergeHookListPrefixed<T>(
     map: Map<string, T[]>,
     source: Readonly<Record<string, readonly T[]>>,
+    featureName: string,
   ): void {
     for (const [name, fns] of Object.entries(source)) {
-      const existing = map.get(name) ?? [];
+      const qualified = qualify(featureName, name);
+      const existing = map.get(qualified) ?? [];
       existing.push(...(fns as T[]));
-      map.set(name, existing);
+      map.set(qualified, existing);
     }
   }
 
@@ -54,44 +62,51 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
     featureMap.set(feature.name, feature);
 
+    // Entities: featureName.entityName
     for (const [name, entity] of Object.entries(feature.entities)) {
-      if (entityMap.has(name)) {
-        throw new Error(`Duplicate entity: "${name}" (registered by multiple features)`);
+      const qualified = qualify(feature.name, name);
+      if (entityMap.has(qualified)) {
+        throw new Error(`Duplicate entity: "${qualified}" (registered by multiple features)`);
       }
-      entityMap.set(name, entity);
+      entityMap.set(qualified, entity);
     }
 
-    // Merge relations — multiple features can add relations to the same entity
+    // Relations: featureName.entityName → featureName.relName
     for (const [entityName, rels] of Object.entries(feature.relations)) {
-      const existing = relationMap.get(entityName) ?? {};
+      const qualifiedEntity = qualify(feature.name, entityName);
+      const existing = relationMap.get(qualifiedEntity) ?? {};
       for (const [relName, relDef] of Object.entries(rels)) {
         if (existing[relName]) {
           throw new Error(
-            `Duplicate relation: "${entityName}.${relName}" (registered by multiple features)`,
+            `Duplicate relation: "${qualifiedEntity}.${relName}" (registered by multiple features)`,
           );
         }
         existing[relName] = relDef;
       }
-      relationMap.set(entityName, existing);
+      relationMap.set(qualifiedEntity, existing);
     }
 
+    // Write handlers: featureName.handlerName
     for (const [name, handler] of Object.entries(feature.writeHandlers)) {
-      if (writeHandlerMap.has(name)) {
-        throw new Error(`Duplicate write handler: "${name}" (registered by multiple features)`);
+      const qualified = qualify(feature.name, name);
+      if (writeHandlerMap.has(qualified)) {
+        throw new Error(`Duplicate write handler: "${qualified}" (registered by multiple features)`);
       }
-      writeHandlerMap.set(name, handler);
+      writeHandlerMap.set(qualified, { ...handler, name: qualified });
     }
 
+    // Query handlers: featureName.handlerName
     for (const [name, handler] of Object.entries(feature.queryHandlers)) {
-      if (queryHandlerMap.has(name)) {
-        throw new Error(`Duplicate query handler: "${name}" (registered by multiple features)`);
+      const qualified = qualify(feature.name, name);
+      if (queryHandlerMap.has(qualified)) {
+        throw new Error(`Duplicate query handler: "${qualified}" (registered by multiple features)`);
       }
-      queryHandlerMap.set(name, handler);
+      queryHandlerMap.set(qualified, { ...handler, name: qualified });
     }
 
-    // Merge config keys with feature prefix
+    // Config keys: featureName.key (already prefixed before this change)
     for (const [key, keyDef] of Object.entries(feature.configKeys)) {
-      const qualifiedKey = `${feature.name}.${key}`;
+      const qualifiedKey = qualify(feature.name, key);
       if (configKeyMap.has(qualifiedKey)) {
         throw new Error(
           `Duplicate config key: "${qualifiedKey}" (registered by multiple features)`,
@@ -100,9 +115,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       configKeyMap.set(qualifiedKey, keyDef);
     }
 
-    // Merge jobs with feature prefix
+    // Jobs: featureName.jobName (already prefixed before this change)
     for (const [name, jobDef] of Object.entries(feature.jobs)) {
-      const qualifiedName = `${feature.name}.${name}`;
+      const qualifiedName = qualify(feature.name, name);
       if (jobMap.has(qualifiedName)) {
         throw new Error(`Duplicate job: "${qualifiedName}" (registered by multiple features)`);
       }
@@ -111,12 +126,12 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     mergedTranslations = { ...mergedTranslations, ...feature.translations };
 
-    // Merge lifecycle hooks
-    mergeHookList(preSaveHooks, feature.hooks.preSave);
-    mergeHookList(postSaveHooks, feature.hooks.postSave);
-    mergeHookList(preDeleteHooks, feature.hooks.preDelete);
-    mergeHookList(postDeleteHooks, feature.hooks.postDelete);
-    mergeHookList(preQueryHooks, feature.hooks.preQuery);
+    // Lifecycle hooks: prefixed with feature name
+    mergeHookListPrefixed(preSaveHooks, feature.hooks.preSave, feature.name);
+    mergeHookListPrefixed(postSaveHooks, feature.hooks.postSave, feature.name);
+    mergeHookListPrefixed(preDeleteHooks, feature.hooks.preDelete, feature.name);
+    mergeHookListPrefixed(postDeleteHooks, feature.hooks.postDelete, feature.name);
+    mergeHookListPrefixed(preQueryHooks, feature.hooks.preQuery, feature.name);
   }
 
   // Validate: all relation targets must reference existing entities

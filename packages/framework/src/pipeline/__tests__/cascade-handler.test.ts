@@ -24,13 +24,13 @@ describe("getIncomingRelations", () => {
 
     r.relation("department", "users", {
       type: "hasMany",
-      target: "user",
+      target: "core.user",
       foreignKey: "departmentId",
       onDelete: "restrict",
     });
     r.relation("user", "sessions", {
       type: "hasMany",
-      target: "session",
+      target: "core.session",
       foreignKey: "userId",
       onDelete: "cascade",
     });
@@ -39,24 +39,24 @@ describe("getIncomingRelations", () => {
   const registry = createRegistry([feature]);
 
   test("finds hasMany relation pointing to user from department", () => {
-    const incoming = registry.getIncomingRelations("user");
+    const incoming = registry.getIncomingRelations("core.user");
     expect(
-      incoming.some((r) => r.sourceEntity === "department" && r.relation.onDelete === "restrict"),
+      incoming.some((r) => r.sourceEntity === "core.department" && r.relation.onDelete === "restrict"),
     ).toBe(true);
   });
 
   test("finds hasMany relation pointing to session from user", () => {
-    const incoming = registry.getIncomingRelations("session");
+    const incoming = registry.getIncomingRelations("core.session");
     expect(incoming).toHaveLength(1);
     expect(incoming[0]?.relation.onDelete).toBe("cascade");
   });
 
   test("no incoming relations for department", () => {
-    expect(registry.getIncomingRelations("department")).toEqual([]);
+    expect(registry.getIncomingRelations("core.department")).toEqual([]);
   });
 
   test("onDelete strategy preserved", () => {
-    const rels = registry.getRelations("department");
+    const rels = registry.getRelations("core.department");
     expect(rels["users"]?.onDelete).toBe("restrict");
   });
 });

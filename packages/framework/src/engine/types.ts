@@ -1,4 +1,5 @@
 import type { ZodType, z } from "zod";
+import type { WriteHandlerDefinition, QueryHandlerDefinition } from "./define-handler";
 
 // --- Field Types ---
 
@@ -168,8 +169,27 @@ export type WriteResult<TData = unknown> =
   | { readonly isSuccess: false; readonly error: string };
 
 // --- Pipeline Context (grows with each step) ---
+// All known context keys are listed here. Add new keys explicitly — no Record<string, unknown>.
 
-export type PipelineContext = Record<string, unknown>;
+export type PipelineContext = {
+  // Core (always available in handlers)
+  readonly db?: unknown;
+  readonly registry?: Registry;
+  readonly redis?: unknown;
+  // Core Features (available when the corresponding feature is loaded)
+  readonly jobRunner?: unknown;
+  readonly configResolver?: unknown;
+  readonly searchAdapter?: unknown;
+  readonly systemUser?: SessionUser;
+  readonly log?: (msg: string) => void;
+  readonly warn?: (msg: string) => void;
+  readonly logError?: (msg: string) => void;
+  // Job execution context: who triggered this job (not a full user, just origin info)
+  readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
+  // Internal: set by dispatcher during handler execution
+  readonly _entityName?: string | undefined;
+  readonly _userId?: number | undefined;
+};
 
 // --- Handler Functions ---
 
@@ -345,6 +365,9 @@ export type FeatureRegistrar = {
 
   entity(name: string, definition: EntityDefinition): void;
 
+  // Object form (from defineWriteHandler):
+  writeHandler<TSchema extends ZodType>(def: WriteHandlerDefinition<TSchema>): void;
+  // Inline form (for small handlers):
   writeHandler<TSchema extends ZodType>(
     name: string,
     schema: TSchema,
@@ -352,6 +375,9 @@ export type FeatureRegistrar = {
     options?: { access?: AccessRule },
   ): void;
 
+  // Object form (from defineQueryHandler):
+  queryHandler<TSchema extends ZodType>(def: QueryHandlerDefinition<TSchema>): void;
+  // Inline form (for small handlers):
   queryHandler<TSchema extends ZodType>(
     name: string,
     schema: TSchema,
