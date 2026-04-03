@@ -118,12 +118,12 @@ export function createDispatcher(
 
       await logEvent(type, parsed.data, user);
 
-      // Trigger event-based jobs
+      // Trigger event-based jobs with user context
       if (result.isSuccess && context["jobRunner"]) {
         const jobRunner = context["jobRunner"] as {
-          handleEvent: (eventName: string, payload: Record<string, unknown>) => Promise<void>;
+          handleEvent: (eventName: string, payload: Record<string, unknown>, user?: PipelineUser) => Promise<void>;
         };
-        await jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>);
+        await jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>, user);
       }
 
       return result;

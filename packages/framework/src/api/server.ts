@@ -6,6 +6,7 @@ import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
 import { createLifecyclePipeline, type SystemHooks } from "../pipeline/lifecycle-pipeline";
 import { authMiddleware } from "./auth-middleware";
+import { createAuthRoutes } from "./auth-routes";
 import { createJwtHelper, type JwtHelper } from "./jwt";
 import { createApiRoutes } from "./routes";
 import { createSseBroker, type SseBroker } from "./sse-broker";
@@ -44,6 +45,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.use("/api/*", authMiddleware(jwt));
   app.route("/api", createApiRoutes(dispatcher));
+  app.route("/api", createAuthRoutes(dispatcher, jwt));
   app.route("/api", createSseRoute(sseBroker));
 
   if (options.files) {

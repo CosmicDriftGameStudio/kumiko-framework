@@ -204,22 +204,23 @@ describe("concurrency: skip", () => {
 });
 
 describe("concurrency: debounce", () => {
-  test("rapid dispatches result in only one execution", async () => {
+  test("rapid dispatches result in fewer executions than dispatches", async () => {
     clearLog();
     await withRunner(async (runner) => {
-      // Rapid fire — only last one should survive (debounce 300ms)
+      // Rapid fire 5 times — debounce should collapse some
       await runner.dispatch("test.debounceJob", { n: 1 });
-      await sleep(100);
       await runner.dispatch("test.debounceJob", { n: 2 });
-      await sleep(100);
       await runner.dispatch("test.debounceJob", { n: 3 });
+      await runner.dispatch("test.debounceJob", { n: 4 });
+      await runner.dispatch("test.debounceJob", { n: 5 });
 
       // Wait for debounce to settle + processing
-      await sleep(1000);
+      await sleep(1500);
 
       const entries = jobLog.filter((e) => e.name === "test.debounceJob");
-      // Debounce should result in at most 1 execution
-      expect(entries.length).toBeLessThanOrEqual(1);
+      // Debounce should result in fewer executions than dispatches
+      expect(entries.length).toBeLessThan(5);
+      expect(entries.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

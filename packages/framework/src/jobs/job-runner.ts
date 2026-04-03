@@ -1,6 +1,6 @@
 import { type Job, Queue, Worker } from "bullmq";
 import { createSystemUser } from "../engine/system-user";
-import type { PipelineContext, Registry } from "../engine/types";
+import type { PipelineContext, PipelineUser, Registry } from "../engine/types";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
@@ -17,7 +17,11 @@ export type JobRunner = {
   start(): Promise<void>;
   stop(): Promise<void>;
   dispatch(jobName: string, payload?: Record<string, unknown>, meta?: JobMeta): Promise<string>;
-  handleEvent(eventName: string, payload: Record<string, unknown>): Promise<void>;
+  handleEvent(
+    eventName: string,
+    payload: Record<string, unknown>,
+    user?: PipelineUser,
+  ): Promise<void>;
 };
 
 export type JobRunnerOptions = {
@@ -75,15 +79,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       if (!k.startsWith("_")) payload[k] = v;
     }
 
-    // Determine tenantId from payload or meta
+    // Determine tenantId and triggeredBy from meta
     const tenantId =
-      (payload["tenantId"] as number | undefined) ??
       (rawData["_tenantId"] as number | undefined) ??
+      (payload["tenantId"] as number | undefined) ??
       0;
+    const triggeredById = (rawData["_triggeredById"] as number | undefined) ?? null;
 
     const jobContext: PipelineContext = {
       ...context,
       systemUser: createSystemUser(tenantId),
+      triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
       log: (message: string) => {
         logs.push({ level: "info", message, timestamp: new Date() });
       },
@@ -202,10 +208,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       return job.id ?? "unknown";
     },
 
-    async handleEvent(eventName: string, payload: Record<string, unknown>): Promise<void> {
+    async handleEvent(
+      eventName: string,
+      payload: Record<string, unknown>,
+      user?: PipelineUser,
+    ): Promise<void> {
       for (const [name, jobDef] of allJobs) {
         if ("on" in jobDef.trigger && jobDef.trigger.on === eventName) {
-          await queue.add(name, payload);
+          const data: Record<string, unknown> = { ...payload };
+          if (user) {
+            data["_tenantId"] = user.tenantId;
+            data["_triggeredById"] = user.id;
+          }
+          await queue.add(name, data);
         }
       }
     },
