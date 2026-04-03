@@ -320,6 +320,7 @@ export type JobDefinition = {
   readonly timeout?: number | undefined;
   readonly schema?: ZodType | undefined;
   readonly runOnBoot?: boolean | undefined;
+  readonly perTenant?: boolean | undefined;
 };
 
 // --- Feature Definition (output of defineFeature) ---

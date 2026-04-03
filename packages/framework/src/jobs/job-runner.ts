@@ -29,6 +29,7 @@ export type JobRunnerOptions = {
   context: PipelineContext;
   redisUrl: string;
   queueName?: string;
+  getActiveTenantIds?: () => Promise<number[]>;
   onJobStart?: (jobName: string, jobId: string, meta: JobMeta) => void;
   onJobComplete?: (jobName: string, jobId: string, duration: number, logs: JobLogEntry[]) => void;
   onJobFailed?: (jobName: string, jobId: string, error: string, logs: JobLogEntry[]) => void;
@@ -56,7 +57,22 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   let worker: Worker | null = null;
 
   async function handleJob(bullJob: Job): Promise<void> {
-    const jobName = bullJob.name;
+    const rawName = bullJob.name;
+
+    // Handle perTenant dispatch jobs — fan out to one job per tenant
+    if (rawName.startsWith("_perTenant:")) {
+      const actualName = rawName.slice("_perTenant:".length);
+      if (!options.getActiveTenantIds) {
+        throw new Error(`perTenant job "${actualName}" requires getActiveTenantIds option`);
+      }
+      const tenantIds = await options.getActiveTenantIds();
+      for (const tenantId of tenantIds) {
+        await queue.add(actualName, { ...bullJob.data, _tenantId: tenantId });
+      }
+      return;
+    }
+
+    const jobName = rawName;
     const jobDef = allJobs.get(jobName);
     if (!jobDef) {
       throw new Error(`Unknown job: ${jobName}`);
@@ -129,7 +145,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           await queue.upsertJobScheduler(
             `scheduler-${name.replace(/\./g, "-")}`,
             { pattern: jobDef.trigger.cron },
-            { name, data: {} },
+            {
+              name: jobDef.perTenant ? `_perTenant:${name}` : name,
+              data: {},
+            },
           );
         }
       }
@@ -137,7 +156,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // Run boot jobs
       for (const [name, jobDef] of allJobs) {
         if (jobDef.runOnBoot) {
-          await queue.add(name, {}, { jobId: `boot-${name.replace(/\./g, "-")}` });
+          const bootName = jobDef.perTenant ? `_perTenant:${name}` : name;
+          await queue.add(bootName, {}, { jobId: `boot-${name.replace(/\./g, "-")}` });
         }
       }
     },
@@ -158,6 +178,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       const jobDef = allJobs.get(jobName);
       if (!jobDef) {
         throw new Error(`Unknown job: ${jobName}`);
+      }
+
+      // perTenant: dispatch the fan-out wrapper instead
+      if (jobDef.perTenant) {
+        const job = await queue.add(`_perTenant:${jobName}`, payload ?? {});
+        return job.id ?? "unknown";
       }
 
       const concurrency = jobDef.concurrency ?? "parallel";
