@@ -176,22 +176,17 @@ export function defineFeature(
     extendsRegistrar(extensionName: string, def: RegistrarExtensionDef): void {
       registrarExtensions[extensionName] = def;
     },
+
+    useExtension(
+      extensionName: string,
+      entityName: string,
+      options?: Record<string, unknown>,
+    ): void {
+      extensionUsages.push({ extensionName, entityName, options });
+    },
   };
 
-  // Wrap registrar with Proxy so that r.customFields("entity") works dynamically.
-  // When a feature calls r.someExtension("entity", options), we record the usage.
-  const proxiedRegistrar = new Proxy(registrar, {
-    get(target, prop: string) {
-      if (prop in target) return target[prop as keyof typeof target];
-
-      // Dynamic extension call: r.extensionName(entityName, options?)
-      return (entityName: string, options?: Record<string, unknown>) => {
-        extensionUsages.push({ extensionName: prop, entityName, options });
-      };
-    },
-  }) as FeatureRegistrar;
-
-  setup(proxiedRegistrar);
+  setup(registrar);
 
   return {
     name,

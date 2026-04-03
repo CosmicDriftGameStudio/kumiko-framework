@@ -379,7 +379,7 @@ export type RegistrarExtensionRegistration = {
 export type ReferenceDataDef = {
   readonly entityName: string;
   readonly data: readonly Record<string, unknown>[];
-  readonly upsertKey?: string; // Field to match on for upsert (default: first field)
+  readonly upsertKey?: string | undefined; // Field to match on for upsert (default: first field)
 };
 
 // --- Feature Definition (output of defineFeature) ---
@@ -454,9 +454,13 @@ export type FeatureRegistrar = {
 
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
-  // Dynamic: called when a feature uses an extension registered by another feature
-  // e.g., r.customFields("order") after another feature called r.extendsRegistrar("customFields", ...)
-  [extensionName: string]: unknown;
+  // Use an extension registered by another feature.
+  // e.g., r.useExtension("customFields", "order") instead of r.customFields("order")
+  useExtension(
+    extensionName: string,
+    entityName: string,
+    options?: Record<string, unknown>,
+  ): void;
 };
 
 // --- Registry (created from features) ---

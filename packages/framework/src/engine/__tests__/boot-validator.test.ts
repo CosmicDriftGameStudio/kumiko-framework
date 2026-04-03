@@ -118,8 +118,7 @@ describe("boot-validator", () => {
     });
     const consumer = defineFeature("fleet", (r) => {
       r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
-      // biome-ignore lint/suspicious/noExplicitAny: dynamic extension call
-      (r as any).tags("vehicle");
+      r.useExtension("tags", "vehicle");
       // Missing: r.requires("tags")
     });
 
@@ -135,8 +134,7 @@ describe("boot-validator", () => {
     const consumer = defineFeature("fleet", (r) => {
       r.requires("tags");
       r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
-      // biome-ignore lint/suspicious/noExplicitAny: dynamic extension call
-      (r as any).tags("vehicle");
+      r.useExtension("tags", "vehicle");
     });
 
     expect(() => validateBoot([ext, consumer])).not.toThrow();
@@ -149,8 +147,7 @@ describe("boot-validator", () => {
     const consumer = defineFeature("fleet", (r) => {
       r.optionalRequires("tags");
       r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
-      // biome-ignore lint/suspicious/noExplicitAny: dynamic extension call
-      (r as any).tags("vehicle");
+      r.useExtension("tags", "vehicle");
     });
 
     expect(() => validateBoot([ext, consumer])).not.toThrow();

@@ -399,6 +399,18 @@ describe("createApp", () => {
     const app = createApp({ roles: ["Admin"] as const, features: [feature] });
     expect(app.registry.getFeature("test")).toBeDefined();
   });
+
+  test("softDeleteDefault is true by default, configurable via softDelete", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+    });
+
+    const app1 = createApp({ roles: ["Admin"], features: [feature] });
+    expect(app1.softDeleteDefault).toBe(true);
+
+    const app2 = createApp({ roles: ["Admin"], features: [feature], softDelete: false });
+    expect(app2.softDeleteDefault).toBe(false);
+  });
 });
 
 // --- r.requires() ---
