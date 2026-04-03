@@ -1,7 +1,7 @@
-import { eq, sql } from "drizzle-orm";
-import type { TableColumns } from "./dialect";
+import { eq } from "drizzle-orm";
 import type { ReferenceDataDef } from "../engine/types";
 import type { DbConnection } from "./connection";
+import type { TableColumns } from "./dialect";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;

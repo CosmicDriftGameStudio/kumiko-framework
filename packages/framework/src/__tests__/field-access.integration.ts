@@ -3,7 +3,6 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer } from "../api/server";
 import { createCrudExecutor } from "../db/crud-executor";
-import type { DbConnection } from "../db/index";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
   createEntity,
@@ -13,8 +12,8 @@ import {
   defineFeature,
   type SessionUser,
 } from "../engine";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../testing";
 import { ErrorCodes } from "../engine/constants";
+import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../testing";
 
 // --- Entity with field-level access ---
 
@@ -75,7 +74,7 @@ beforeAll(async () => {
         notes: z.string().optional(),
       }),
       async (event, ctx) => {
-        const db = ctx["db"] as DbConnection;
+        const db = ctx.db;
         const crud = createCrudExecutor(employeeTable, employeeEntity, { entityName: "employee" });
         return crud.create(event.payload, event.user, db);
       },
@@ -86,7 +85,7 @@ beforeAll(async () => {
       "employee.update",
       z.object({ id: z.number(), version: z.number().optional(), changes: z.record(z.unknown()) }),
       async (event, ctx) => {
-        const db = ctx["db"] as DbConnection;
+        const db = ctx.db;
         const crud = createCrudExecutor(employeeTable, employeeEntity, { entityName: "employee" });
         return crud.update(event.payload, event.user, db);
       },
@@ -97,7 +96,7 @@ beforeAll(async () => {
       "employee.detail",
       z.object({ id: z.number() }),
       async (query, ctx) => {
-        const db = ctx["db"] as DbConnection;
+        const db = ctx.db;
         const crud = createCrudExecutor(employeeTable, employeeEntity, { entityName: "employee" });
         return crud.detail(query.payload, query.user, db);
       },
@@ -134,7 +133,7 @@ async function req(method: string, path: string, user: SessionUser, body?: unkno
 async function seedEmployee(): Promise<number> {
   const res = await (
     await req("POST", "/api/write", adminUser, {
-      type: "employee.create",
+      type: "employees.employee.create",
       payload: { email: "test@test.de", firstName: "Test", salary: 75000, notes: "Internal note" },
     })
   ).json();
@@ -155,7 +154,7 @@ describe("field-level read access", () => {
   test("Admin sees all fields", async () => {
     const res = await (
       await req("POST", "/api/query", adminUser, {
-        type: "employee.detail",
+        type: "employees.employee.detail",
         payload: { id: employeeId },
       })
     ).json();
@@ -169,7 +168,7 @@ describe("field-level read access", () => {
   test("Accounting sees salary but not notes", async () => {
     const res = await (
       await req("POST", "/api/query", accountingUser, {
-        type: "employee.detail",
+        type: "employees.employee.detail",
         payload: { id: employeeId },
       })
     ).json();
@@ -183,7 +182,7 @@ describe("field-level read access", () => {
   test("Employee sees neither salary nor notes", async () => {
     const res = await (
       await req("POST", "/api/query", employeeUser, {
-        type: "employee.detail",
+        type: "employees.employee.detail",
         payload: { id: employeeId },
       })
     ).json();
@@ -204,7 +203,7 @@ describe("field-level write access", () => {
     const id = await seedEmployee();
     const res = await (
       await req("POST", "/api/write", adminUser, {
-        type: "employee.update",
+        type: "employees.employee.update",
         payload: { id, changes: { salary: 80000 } },
       })
     ).json();
@@ -216,7 +215,7 @@ describe("field-level write access", () => {
     const id = await seedEmployee();
     const res = await (
       await req("POST", "/api/write", employeeUser, {
-        type: "employee.update",
+        type: "employees.employee.update",
         payload: { id, changes: { salary: 999999 } },
       })
     ).json();
@@ -230,7 +229,7 @@ describe("field-level write access", () => {
     const id = await seedEmployee();
     const res = await (
       await req("POST", "/api/write", employeeUser, {
-        type: "employee.update",
+        type: "employees.employee.update",
         payload: { id, changes: { firstName: "Updated" } },
       })
     ).json();
@@ -242,7 +241,7 @@ describe("field-level write access", () => {
   test("Employee cannot create with salary — error", async () => {
     const res = await (
       await req("POST", "/api/write", employeeUser, {
-        type: "employee.create",
+        type: "employees.employee.create",
         payload: { email: "new@test.de", salary: 50000 },
       })
     ).json();
@@ -255,7 +254,7 @@ describe("field-level write access", () => {
     const id = await seedEmployee();
     const res = await (
       await req("POST", "/api/write", accountingUser, {
-        type: "employee.update",
+        type: "employees.employee.update",
         payload: { id, changes: { salary: 60000 } },
       })
     ).json();

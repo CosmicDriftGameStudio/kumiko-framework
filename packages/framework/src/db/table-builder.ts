@@ -1,5 +1,13 @@
-import { boolean, integer, serial, table as pgTable, text, timestamp, type TableColumns } from "./dialect";
 import type { EntityDefinition, FieldDefinition } from "../engine/types";
+import {
+  boolean,
+  integer,
+  table as pgTable,
+  serial,
+  type TableColumns,
+  text,
+  timestamp,
+} from "./dialect";
 
 function fieldToColumn(name: string, field: FieldDefinition) {
   const snakeName = toSnakeCase(name);
@@ -60,7 +68,7 @@ export function buildBaseColumns(softDelete: boolean) {
 }
 
 export function buildDrizzleTable(
-  entityName: string,
+  _entityName: string,
   entity: EntityDefinition,
   options?: { featureName?: string },
 ): DrizzleTable {
@@ -75,9 +83,7 @@ export function buildDrizzleTable(
   }
 
   // Table name: featureName_tableName when feature prefix is provided
-  const tableName = options?.featureName
-    ? `${options.featureName}_${entity.table}`
-    : entity.table;
+  const tableName = options?.featureName ? `${options.featureName}_${entity.table}` : entity.table;
 
   return pgTable(tableName, {
     ...baseColumns,

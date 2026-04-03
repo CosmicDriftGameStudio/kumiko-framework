@@ -1,12 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
-import {
-  createEntity,
-  createRegistry,
-  createTextField,
-  defineFeature,
-} from "../../engine";
-import { TestUsers, createTestUser } from "../../testing/fixtures";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import { createTestUser, TestUsers } from "../../testing/fixtures";
 import { buildServer } from "../server";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
@@ -32,7 +27,11 @@ const { app, jwt } = buildServer({ registry, context: {}, jwtSecret: JWT_SECRET 
 const adminUser = TestUsers.admin;
 const guestUser = createTestUser({ id: 2, roles: ["Guest"] });
 
-async function authHeader(user: { id: number; tenantId: number; roles: readonly string[] }): Promise<Record<string, string>> {
+async function authHeader(user: {
+  id: number;
+  tenantId: number;
+  roles: readonly string[];
+}): Promise<Record<string, string>> {
   const token = await jwt.sign(user);
   return { Authorization: `Bearer ${token}` };
 }
@@ -60,7 +59,10 @@ describe("health", () => {
 
 describe("auth middleware", () => {
   test("rejects request without token", async () => {
-    const res = await req("POST", "/api/write", { type: "test.item.create", payload: { name: "x" } });
+    const res = await req("POST", "/api/write", {
+      type: "test.item.create",
+      payload: { name: "x" },
+    });
     expect(res.status).toBe(401);
   });
 

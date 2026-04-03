@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { Dispatcher } from "../pipeline/dispatcher";
+import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
-import { Routes } from "./api-constants";
 
 type MembershipRow = {
   userId: number;

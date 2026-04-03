@@ -40,9 +40,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
-    throw new Error(
-      "ENCRYPTION_KEY environment variable is required (encrypted fields in use)",
-    );
+    throw new Error("ENCRYPTION_KEY environment variable is required (encrypted fields in use)");
   }
 
   if (hasFileFields && !process.env["FILE_STORAGE_PROVIDER"]) {

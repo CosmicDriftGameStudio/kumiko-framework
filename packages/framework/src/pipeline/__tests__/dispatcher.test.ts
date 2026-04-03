@@ -1,11 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
-import {
-  createEntity,
-  createRegistry,
-  createTextField,
-  defineFeature,
-} from "../../engine";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import { createTestUser } from "../../testing/fixtures";
 import { createDispatcher } from "../dispatcher";
 
@@ -71,7 +66,11 @@ describe("dispatcher.write", () => {
 
   test("runs validation hooks", async () => {
     const dispatcher = createTestDispatcher();
-    const result = await dispatcher.write("echo.item.create", { name: "forbidden" }, createTestUser());
+    const result = await dispatcher.write(
+      "echo.item.create",
+      { name: "forbidden" },
+      createTestUser(),
+    );
 
     expect(result.isSuccess).toBe(false);
     if (!result.isSuccess) {
@@ -103,9 +102,9 @@ describe("dispatcher.query", () => {
   test("rejects invalid query payload", async () => {
     const dispatcher = createTestDispatcher();
 
-    await expect(dispatcher.query("echo.item.list", { search: 123 }, createTestUser())).rejects.toThrow(
-      /validation/i,
-    );
+    await expect(
+      dispatcher.query("echo.item.list", { search: 123 }, createTestUser()),
+    ).rejects.toThrow(/validation/i);
   });
 
   test("throws for unknown query handler", async () => {

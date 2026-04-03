@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
+import { createTestUser } from "../../testing/fixtures";
 import { hasAccess } from "../access";
-import { defineWriteHandler, defineQueryHandler } from "../define-handler";
+import { defineQueryHandler, defineWriteHandler } from "../define-handler";
 import { createBooleanField, createEntity, createSelectField, createTextField } from "../factories";
 import { createApp, createRegistry, defineFeature } from "../index";
-import { createTestUser } from "../../testing/fixtures";
 
 // --- defineFeature ---
 

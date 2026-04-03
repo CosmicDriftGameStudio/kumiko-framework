@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { createEntity, createTextField, defineFeature } from "../index";
 import { validateBoot } from "../boot-validator";
+import { createEntity, createTextField, defineFeature } from "../index";
 
 describe("boot-validator", () => {
   test("passes for valid features with no issues", () => {
@@ -73,7 +73,9 @@ describe("boot-validator", () => {
         );
       }),
     ];
-    expect(() => validateBoot(features)).toThrow(/apiKey.*cannot be both encrypted and searchable/i);
+    expect(() => validateBoot(features)).toThrow(
+      /apiKey.*cannot be both encrypted and searchable/i,
+    );
   });
 
   test("rejects encrypted + sortable field", () => {
@@ -145,9 +147,7 @@ describe("boot-validator", () => {
       // Missing: r.requires("tags")
     });
 
-    expect(() => validateBoot([ext, consumer])).toThrow(
-      /fleet.*uses extension "tags".*requires/i,
-    );
+    expect(() => validateBoot([ext, consumer])).toThrow(/fleet.*uses extension "tags".*requires/i);
   });
 
   test("passes when extension used with requires", () => {

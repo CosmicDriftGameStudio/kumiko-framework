@@ -1,8 +1,7 @@
 import type { ZodType, z } from "zod";
 import type { DbConnection } from "../db/connection";
-import type { EncryptionProvider } from "../db/encryption";
 import type { SearchAdapter } from "../search/types";
-import type { WriteHandlerDefinition, QueryHandlerDefinition } from "./define-handler";
+import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 
 // --- Field Types ---
 
@@ -518,11 +517,7 @@ export type FeatureRegistrar = {
 
   // Use an extension registered by another feature.
   // e.g., r.useExtension("customFields", "order") instead of r.customFields("order")
-  useExtension(
-    extensionName: string,
-    entityName: string,
-    options?: Record<string, unknown>,
-  ): void;
+  useExtension(extensionName: string, entityName: string, options?: Record<string, unknown>): void;
 };
 
 // --- Registry (created from features) ---

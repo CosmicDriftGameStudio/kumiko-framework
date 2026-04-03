@@ -1,14 +1,14 @@
 import { and, eq } from "drizzle-orm";
-import type { TableColumns } from "./dialect";
 import type {
   DeleteContext,
   EntityDefinition,
-  SessionUser,
   SaveContext,
+  SessionUser,
   WriteResult,
 } from "../engine/types";
 import type { SearchAdapter } from "../search/types";
 import { applyCursorQuery } from "./cursor";
+import type { TableColumns } from "./dialect";
 import type { CursorResult, DbConnection } from "./index";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -96,7 +96,7 @@ export function createCrudExecutor(
     return result;
   }
 
-  function decryptRow(row: Record<string, unknown>): Record<string, unknown> {
+  function _decryptRow(row: Record<string, unknown>): Record<string, unknown> {
     if (!encryptionProvider || encryptedFields.size === 0) return row;
     const result = { ...row };
     for (const field of encryptedFields) {

@@ -1,12 +1,22 @@
 import type { Hono } from "hono";
-import type { SessionUser } from "../engine/types";
 import type { JwtHelper } from "../api/jwt";
+import type { SessionUser } from "../engine/types";
 
 export type RequestHelper = {
-  write: (type: string, payload: unknown, user: SessionUser, requestId?: string) => Promise<Response>;
+  write: (
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+    requestId?: string,
+  ) => Promise<Response>;
   query: (type: string, payload: unknown, user: SessionUser) => Promise<Response>;
   command: (type: string, payload: unknown, user: SessionUser) => Promise<Response>;
-  raw: (method: string, path: string, body?: unknown, headers?: Record<string, string>) => Promise<Response>;
+  raw: (
+    method: string,
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ) => Promise<Response>;
 };
 
 export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {

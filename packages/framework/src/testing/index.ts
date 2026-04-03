@@ -74,8 +74,8 @@ export async function createTestRedis(): Promise<TestRedis> {
 
 // --- Shared Test Utilities ---
 
-export { expectSuccess, expectError } from "./assertions";
-export { TestUsers, createTestUser } from "./fixtures";
+export { expectError, expectSuccess } from "./assertions";
+export { createTestUser, TestUsers } from "./fixtures";
 export type { RequestHelper } from "./request-helper";
 export { createRequestHelper } from "./request-helper";
 export { sleep } from "./utils";

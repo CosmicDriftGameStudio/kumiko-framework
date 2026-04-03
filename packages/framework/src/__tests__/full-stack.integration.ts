@@ -4,7 +4,6 @@ import { z } from "zod";
 import { buildServer } from "../api/server";
 import { createSseBroker, type SseEvent } from "../api/sse-broker";
 import { createCrudExecutor } from "../db/crud-executor";
-import type { DbConnection } from "../db/index";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
   createBooleanField,
@@ -12,9 +11,10 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type SessionUser,
   type SaveContext,
+  type SessionUser,
 } from "../engine";
+import { ErrorCodes } from "../engine/constants";
 import {
   type AuditTrailEntry,
   createEventLog,
@@ -29,7 +29,6 @@ import {
 import type { SearchAdapter } from "../search";
 import { createInMemorySearchAdapter } from "../search";
 import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../testing";
-import { ErrorCodes } from "../engine/constants";
 
 // --- Entities ---
 
@@ -83,6 +82,8 @@ beforeAll(async () => {
       inserted_by_id INTEGER,
       modified_by_id INTEGER,
       is_deleted BOOLEAN DEFAULT FALSE NOT NULL,
+      deleted_at TIMESTAMP,
+      deleted_by_id INTEGER,
       email TEXT,
       first_name TEXT,
       last_name TEXT,
@@ -110,7 +111,7 @@ beforeAll(async () => {
         lastName: z.string().optional(),
       }),
       async (event, ctx) => {
-        const db = ctx["db"] as DbConnection;
+        const db = ctx.db;
         const sa = ctx["searchAdapter"] as SearchAdapter;
         const crud = createCrudExecutor(userTable, userEntity, {
           searchAdapter: sa,
@@ -125,7 +126,7 @@ beforeAll(async () => {
       "user.update",
       z.object({ id: z.number(), version: z.number().optional(), changes: z.record(z.unknown()) }),
       async (event, ctx) => {
-        const db = ctx["db"] as DbConnection;
+        const db = ctx.db;
         const sa = ctx["searchAdapter"] as SearchAdapter;
         const crud = createCrudExecutor(userTable, userEntity, {
           searchAdapter: sa,
@@ -140,7 +141,7 @@ beforeAll(async () => {
       "user.delete",
       z.object({ id: z.number() }),
       async (event, ctx) => {
-        const db = ctx["db"] as DbConnection;
+        const db = ctx.db;
         const crud = createCrudExecutor(userTable, userEntity, { entityName: "user" });
         return crud.delete(event.payload, event.user, db);
       },
@@ -156,7 +157,7 @@ beforeAll(async () => {
         sortDirection: z.enum(["asc", "desc"]).optional(),
       }),
       async (query, ctx) => {
-        const db = ctx["db"] as DbConnection;
+        const db = ctx.db;
         const sa = ctx["searchAdapter"] as SearchAdapter;
         const crud = createCrudExecutor(userTable, userEntity, {
           searchAdapter: sa,
@@ -167,7 +168,7 @@ beforeAll(async () => {
     );
 
     r.queryHandler("user.detail", z.object({ id: z.number() }), async (query, ctx) => {
-      const db = ctx["db"] as DbConnection;
+      const db = ctx.db;
       const crud = createCrudExecutor(userTable, userEntity, {});
       return crud.detail(query.payload, query.user, db);
     });
@@ -235,7 +236,7 @@ async function req(method: string, path: string, user: SessionUser, body?: unkno
 describe("full stack: CRUD", () => {
   test("create and read back", async () => {
     const res = await req("POST", "/api/write", adminUser, {
-      type: "user.create",
+      type: "users.user.create",
       payload: { email: "marc@test.de", firstName: "Marc", lastName: "Test" },
     });
     const body = await res.json();
@@ -243,7 +244,7 @@ describe("full stack: CRUD", () => {
     expect(body.data.isNew).toBe(true);
 
     const detail = await req("POST", "/api/query", adminUser, {
-      type: "user.detail",
+      type: "users.user.detail",
       payload: { id: body.data.id },
     });
     const d = await detail.json();
@@ -254,14 +255,14 @@ describe("full stack: CRUD", () => {
   test("soft delete removes from queries", async () => {
     const c = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "del@test.de" },
       })
     ).json();
 
     const del = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.delete",
+        type: "users.user.delete",
         payload: { id: c.data.id },
       })
     ).json();
@@ -269,7 +270,7 @@ describe("full stack: CRUD", () => {
 
     const d = await (
       await req("POST", "/api/query", adminUser, {
-        type: "user.detail",
+        type: "users.user.detail",
         payload: { id: c.data.id },
       })
     ).json();
@@ -285,14 +286,14 @@ describe("full stack: SaveContext changes + previous", () => {
   test("update returns exact changes and previous state", async () => {
     const c = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "ctx@test.de", firstName: "Before", lastName: "Keep" },
       })
     ).json();
 
     const u = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.update",
+        type: "users.user.update",
         payload: { id: c.data.id, changes: { firstName: "After" } },
       })
     ).json();
@@ -313,19 +314,19 @@ describe("full stack: optimistic locking", () => {
   test("stale version returns version_conflict", async () => {
     const c = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "lock@test.de" },
       })
     ).json();
 
     await req("POST", "/api/write", adminUser, {
-      type: "user.update",
+      type: "users.user.update",
       payload: { id: c.data.id, version: 1, changes: { firstName: "V2" } },
     });
 
     const stale = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.update",
+        type: "users.user.update",
         payload: { id: c.data.id, version: 1, changes: { firstName: "Stale" } },
       })
     ).json();
@@ -344,7 +345,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     const before = featurePostSaveLog.length;
 
     await req("POST", "/api/write", adminUser, {
-      type: "user.create",
+      type: "users.user.create",
       payload: { email: "hook@test.de", firstName: "Hooked" },
     });
 
@@ -358,13 +359,13 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     const before = auditLog.length;
 
     await req("POST", "/api/write", adminUser, {
-      type: "user.create",
+      type: "users.user.create",
       payload: { email: "audit@test.de" },
     });
 
     expect(auditLog.length).toBeGreaterThan(before);
     const last = auditLog[auditLog.length - 1];
-    expect(last?.action).toBe("user.create");
+    expect(last?.action).toBe("users.user.create");
     expect(last?.entityType).toBe("user");
     expect(last?.isNew).toBe(true);
     expect(last?.userId).toBe(1);
@@ -373,7 +374,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
   test("audit trail system hook captures update with changes + previous", async () => {
     const c = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "audit-upd@test.de", firstName: "Old" },
       })
     ).json();
@@ -381,7 +382,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     const beforeLen = auditLog.length;
 
     await req("POST", "/api/write", adminUser, {
-      type: "user.update",
+      type: "users.user.update",
       payload: { id: c.data.id, changes: { firstName: "New" } },
     });
 
@@ -396,7 +397,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     const before = sseEvents.length;
 
     await req("POST", "/api/write", adminUser, {
-      type: "user.create",
+      type: "users.user.create",
       payload: { email: "sse@test.de" },
     });
 
@@ -409,7 +410,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
   test("SSE broadcast fires on update", async () => {
     const c = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "sse-upd@test.de" },
       })
     ).json();
@@ -417,7 +418,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     const before = sseEvents.length;
 
     await req("POST", "/api/write", adminUser, {
-      type: "user.update",
+      type: "users.user.update",
       payload: { id: c.data.id, changes: { firstName: "SSE" } },
     });
 
@@ -428,7 +429,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
 
   test("search index updated via system hook after create", async () => {
     await req("POST", "/api/write", adminUser, {
-      type: "user.create",
+      type: "users.user.create",
       payload: { email: "indexed@test.de", firstName: "Indexed" },
     });
 
@@ -447,7 +448,7 @@ describe("full stack: auth + access + validation", () => {
     const res = await app.request("/api/write", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "user.create", payload: { email: "x@x.de" } }),
+      body: JSON.stringify({ type: "users.user.create", payload: { email: "x@x.de" } }),
     });
     expect(res.status).toBe(401);
   });
@@ -455,7 +456,7 @@ describe("full stack: auth + access + validation", () => {
   test("guest → access denied", async () => {
     const res = await (
       await req("POST", "/api/write", guestUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "guest@test.de" },
       })
     ).json();
@@ -465,14 +466,14 @@ describe("full stack: auth + access + validation", () => {
   test("other tenant cannot see data", async () => {
     const c = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "secret@test.de" },
       })
     ).json();
 
     const d = await (
       await req("POST", "/api/query", otherTenantAdmin, {
-        type: "user.detail",
+        type: "users.user.detail",
         payload: { id: c.data.id },
       })
     ).json();
@@ -482,7 +483,7 @@ describe("full stack: auth + access + validation", () => {
   test("validation hook rejects banned domain", async () => {
     const res = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "banned@evil.com" },
       })
     ).json();
@@ -497,13 +498,13 @@ describe("full stack: auth + access + validation", () => {
 describe("full stack: search + sort", () => {
   test("search finds via SearchAdapter", async () => {
     await req("POST", "/api/write", adminUser, {
-      type: "user.create",
+      type: "users.user.create",
       payload: { email: "findable@test.de", firstName: "Findable" },
     });
 
     const res = await (
       await req("POST", "/api/query", adminUser, {
-        type: "user.list",
+        type: "users.user.list",
         payload: { search: "findable" },
       })
     ).json();
@@ -514,17 +515,17 @@ describe("full stack: search + sort", () => {
 
   test("sort by lastName ASC", async () => {
     await req("POST", "/api/write", adminUser, {
-      type: "user.create",
+      type: "users.user.create",
       payload: { email: "sz@test.de", lastName: "Zebra" },
     });
     await req("POST", "/api/write", adminUser, {
-      type: "user.create",
+      type: "users.user.create",
       payload: { email: "sa@test.de", lastName: "Alpha" },
     });
 
     const res = await (
       await req("POST", "/api/query", adminUser, {
-        type: "user.list",
+        type: "users.user.list",
         payload: { sort: "lastName", sortDirection: "asc" },
       })
     ).json();
@@ -571,7 +572,7 @@ describe("full stack: idempotency", () => {
 
     const res1 = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "idem@test.de" },
         requestId,
       })
@@ -582,7 +583,7 @@ describe("full stack: idempotency", () => {
     // Same requestId → should return cached result, NOT create a second user
     const res2 = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "idem@test.de" },
         requestId,
       })
@@ -594,7 +595,7 @@ describe("full stack: idempotency", () => {
   test("different requestIds create separate records", async () => {
     const res1 = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "idem-a@test.de" },
         requestId: "idem-a",
       })
@@ -602,7 +603,7 @@ describe("full stack: idempotency", () => {
 
     const res2 = await (
       await req("POST", "/api/write", adminUser, {
-        type: "user.create",
+        type: "users.user.create",
         payload: { email: "idem-b@test.de" },
         requestId: "idem-b",
       })

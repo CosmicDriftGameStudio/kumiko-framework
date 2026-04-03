@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
 import type { SseBroker } from "./sse-broker";
-import { Routes } from "./api-constants";
 
 export function createSseRoute(broker: SseBroker) {
   const route = new Hono();

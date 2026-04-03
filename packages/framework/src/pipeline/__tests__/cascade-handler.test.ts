@@ -41,7 +41,9 @@ describe("getIncomingRelations", () => {
   test("finds hasMany relation pointing to user from department", () => {
     const incoming = registry.getIncomingRelations("core.user");
     expect(
-      incoming.some((r) => r.sourceEntity === "core.department" && r.relation.onDelete === "restrict"),
+      incoming.some(
+        (r) => r.sourceEntity === "core.department" && r.relation.onDelete === "restrict",
+      ),
     ).toBe(true);
   });
 

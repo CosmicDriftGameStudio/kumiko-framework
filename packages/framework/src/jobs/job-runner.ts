@@ -1,6 +1,6 @@
 import { type Job, Queue, Worker } from "bullmq";
 import { createSystemUser } from "../engine/system-user";
-import type { PipelineContext, SessionUser, Registry } from "../engine/types";
+import type { PipelineContext, Registry, SessionUser } from "../engine/types";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";

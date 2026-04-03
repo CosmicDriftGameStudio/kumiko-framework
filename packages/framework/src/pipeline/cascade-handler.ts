@@ -1,5 +1,4 @@
 import { eq, sql } from "drizzle-orm";
-import type { DbConnection } from "../db/connection";
 import type { TableColumns } from "../db/dialect";
 import { ErrorCodes, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 import type { PreDeleteHookFn, Registry } from "../engine/types";

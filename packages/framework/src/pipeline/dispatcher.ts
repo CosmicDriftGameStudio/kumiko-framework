@@ -1,12 +1,13 @@
 import { hasAccess } from "../engine/access";
+import { ErrorCodes } from "../engine/constants";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import type {
   HandlerContext,
   HandlerRef,
   PipelineContext,
-  SessionUser,
   Registry,
   SaveContext,
+  SessionUser,
   WriteResult,
 } from "../engine/types";
 import { runValidation } from "../engine/validation";
@@ -14,7 +15,6 @@ import type { BrokerEvent } from "./event-broker";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecyclePipeline } from "./lifecycle-pipeline";
-import { ErrorCodes } from "../engine/constants";
 
 export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;
@@ -88,7 +88,10 @@ export function createDispatcher(
 
       const parsed = handler.schema.safeParse(payload);
       if (!parsed.success) {
-        return { isSuccess: false, error: `${ErrorCodes.validationFailed}: ${parsed.error.message}` };
+        return {
+          isSuccess: false,
+          error: `${ErrorCodes.validationFailed}: ${parsed.error.message}`,
+        };
       }
 
       const hookErrors = runValidation(registry, type, parsed.data as Record<string, unknown>);
@@ -115,7 +118,12 @@ export function createDispatcher(
       }
 
       // Run handler with lifecycle context
-      const handlerContext = { ...context, _entityName: entityName, _userId: user.id, _handlerType: type } as HandlerContext;
+      const handlerContext = {
+        ...context,
+        _entityName: entityName,
+        _userId: user.id,
+        _handlerType: type,
+      } as HandlerContext;
 
       const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
@@ -133,7 +141,11 @@ export function createDispatcher(
       // Trigger event-based jobs with user context
       if (result.isSuccess && context["jobRunner"]) {
         const jobRunner = context["jobRunner"] as {
-          handleEvent: (eventName: string, payload: Record<string, unknown>, user?: SessionUser) => Promise<void>;
+          handleEvent: (
+            eventName: string,
+            payload: Record<string, unknown>,
+            user?: SessionUser,
+          ) => Promise<void>;
         };
         await jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>, user);
       }
@@ -155,7 +167,10 @@ export function createDispatcher(
         throw new Error(`${ErrorCodes.validationFailed}: ${parsed.error.message}`);
       }
 
-      let result = await handler.handler({ type, payload: parsed.data, user }, context as HandlerContext);
+      let result = await handler.handler(
+        { type, payload: parsed.data, user },
+        context as HandlerContext,
+      );
 
       // Filter read fields on query results
       const entityName = extractEntityName(type);
@@ -203,7 +218,12 @@ export function createDispatcher(
       }
 
       const entityName = extractEntityName(type);
-      const handlerContext = { ...context, _entityName: entityName, _userId: user.id, _handlerType: type } as HandlerContext;
+      const handlerContext = {
+        ...context,
+        _entityName: entityName,
+        _userId: user.id,
+        _handlerType: type,
+      } as HandlerContext;
 
       const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 

@@ -43,7 +43,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const extensionMap = new Map<string, RegistrarExtensionDef>();
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const allReferenceData: ReferenceDataDef[] = [];
-  let mergedTranslations: Record<string, Record<string, string>> = {};
+  const mergedTranslations: Record<string, Record<string, string>> = {};
 
   // Prefix helper: featureName.name
   function qualify(featureName: string, name: string): string {
@@ -98,7 +98,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     for (const [name, handler] of Object.entries(feature.writeHandlers)) {
       const qualified = qualify(feature.name, name);
       if (writeHandlerMap.has(qualified)) {
-        throw new Error(`Duplicate write handler: "${qualified}" (registered by multiple features)`);
+        throw new Error(
+          `Duplicate write handler: "${qualified}" (registered by multiple features)`,
+        );
       }
       writeHandlerMap.set(qualified, { ...handler, name: qualified });
     }
@@ -107,7 +109,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     for (const [name, handler] of Object.entries(feature.queryHandlers)) {
       const qualified = qualify(feature.name, name);
       if (queryHandlerMap.has(qualified)) {
-        throw new Error(`Duplicate query handler: "${qualified}" (registered by multiple features)`);
+        throw new Error(
+          `Duplicate query handler: "${qualified}" (registered by multiple features)`,
+        );
       }
       queryHandlerMap.set(qualified, { ...handler, name: qualified });
     }

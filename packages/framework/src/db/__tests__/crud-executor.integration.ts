@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField, type SessionUser } from "../../engine";
+import { ErrorCodes } from "../../engine/constants";
 import { createTestDb, type TestDb } from "../../testing";
 import { type CrudExecutor, createCrudExecutor } from "../crud-executor";
 import { buildDrizzleTable } from "../table-builder";
-import { ErrorCodes } from "../../engine/constants";
 
 const entity = createEntity({
   table: "crud_users",

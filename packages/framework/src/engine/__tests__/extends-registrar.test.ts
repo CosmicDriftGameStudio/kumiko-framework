@@ -80,10 +80,13 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity("vehicle", createEntity({
-        table: "Vehicles",
-        fields: { name: createTextField() },
-      }));
+      r.entity(
+        "vehicle",
+        createEntity({
+          table: "Vehicles",
+          fields: { name: createTextField() },
+        }),
+      );
       r.useExtension("customFields", "vehicle");
     });
 

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createRegistry, defineFeature } from "../../engine";
 import type { PipelineContext, Registry } from "../../engine/types";
-import { createTestRedis, type TestRedis, sleep } from "../../testing";
+import { createTestRedis, sleep, type TestRedis } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
 // --- Shared state ---
@@ -15,7 +15,6 @@ const jobLog: Array<{ name: string; payload: Record<string, unknown>; timestamp:
 function clearLog() {
   jobLog.length = 0;
 }
-
 
 // --- Feature with test jobs ---
 

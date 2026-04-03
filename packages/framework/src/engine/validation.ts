@@ -17,9 +17,7 @@ export function runValidation(
     // The hookName from the dispatcher is prefixed (e.g., "echo.item.create").
     // Strip the feature prefix to find the hook.
     const prefix = `${featureName}.`;
-    const shortName = hookName.startsWith(prefix)
-      ? hookName.slice(prefix.length)
-      : hookName;
+    const shortName = hookName.startsWith(prefix) ? hookName.slice(prefix.length) : hookName;
 
     const hook = validationHooks[shortName];
     if (!hook) continue;

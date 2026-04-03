@@ -1,11 +1,5 @@
 import type { ZodType, z } from "zod";
-import type {
-  AccessRule,
-  HandlerContext,
-  WriteEvent,
-  WriteResult,
-  QueryEvent,
-} from "./types";
+import type { AccessRule, HandlerContext, QueryEvent, WriteEvent, WriteResult } from "./types";
 
 // --- Write Handler Definition ---
 

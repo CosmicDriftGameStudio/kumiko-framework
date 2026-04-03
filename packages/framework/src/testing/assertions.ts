@@ -16,8 +16,6 @@ export function expectError(
     throw new Error("Expected error but got success");
   }
   if (errorSubstring && !result.error.includes(errorSubstring)) {
-    throw new Error(
-      `Expected error containing "${errorSubstring}" but got: ${result.error}`,
-    );
+    throw new Error(`Expected error containing "${errorSubstring}" but got: ${result.error}`);
   }
 }

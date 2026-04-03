@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
-import type { TableColumns } from "../../db/dialect";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { type CrudExecutor, createCrudExecutor } from "../../db/crud-executor";
+import type { TableColumns } from "../../db/dialect";
 import { buildDrizzleTable } from "../../db/table-builder";
 import {
   createEntity,
@@ -9,8 +9,8 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type SessionUser,
   type Registry,
+  type SessionUser,
 } from "../../engine";
 import { createTestDb, type TestDb } from "../../testing";
 import { createCascadeDeleteHook } from "../cascade-handler";
@@ -78,14 +78,14 @@ beforeAll(async () => {
 
     r.relation("department", "users", {
       type: "hasMany",
-      target: "user",
+      target: "cascade.user",
       foreignKey: "departmentId",
       onDelete: "restrict",
     });
 
     r.relation("user", "sessions", {
       type: "hasMany",
-      target: "session",
+      target: "cascade.session",
       foreignKey: "userId",
       onDelete: "cascade",
     });
@@ -108,12 +108,12 @@ describe("cascade delete: restrict", () => {
 
     await userCrud.create({ name: "Marc", departmentId: dept.data.id }, admin, testDb.db);
 
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
+    const cascadeHook = createCascadeDeleteHook(registry, new Map([["cascade.user", userTable]]));
 
     await expect(
       cascadeHook.fn(
         { id: dept.data.id, data: { tenantId: 1 } },
-        { db: testDb.db, _entityName: "department" },
+        { db: testDb.db, _entityName: "cascade.department" },
       ),
     ).rejects.toThrow(/delete_restricted/);
   });
@@ -122,12 +122,12 @@ describe("cascade delete: restrict", () => {
     const dept = await departmentCrud.create({ name: "Empty" }, admin, testDb.db);
     if (!dept.isSuccess) throw new Error("Setup failed");
 
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
+    const cascadeHook = createCascadeDeleteHook(registry, new Map([["cascade.user", userTable]]));
 
     await expect(
       cascadeHook.fn(
         { id: dept.data.id, data: { tenantId: 1 } },
-        { db: testDb.db, _entityName: "department" },
+        { db: testDb.db, _entityName: "cascade.department" },
       ),
     ).resolves.toBeUndefined();
   });
@@ -147,11 +147,14 @@ describe("cascade delete: cascade", () => {
     expect(sessionsBefore.length).toBe(2);
 
     // Run cascade
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["session", sessionTable]]));
+    const cascadeHook = createCascadeDeleteHook(
+      registry,
+      new Map([["cascade.session", sessionTable]]),
+    );
 
     await cascadeHook.fn(
       { id: user.data.id, data: { tenantId: 1 } },
-      { db: testDb.db, _entityName: "user" },
+      { db: testDb.db, _entityName: "cascade.user" },
     );
 
     // Sessions should be gone

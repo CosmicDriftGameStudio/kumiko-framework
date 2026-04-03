@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Dispatcher } from "../pipeline/dispatcher";
-import { getUser } from "./auth-middleware";
 import { Routes } from "./api-constants";
+import { getUser } from "./auth-middleware";
 
 export function createApiRoutes(dispatcher: Dispatcher) {
   const api = new Hono();

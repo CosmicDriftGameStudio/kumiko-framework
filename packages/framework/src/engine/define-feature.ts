@@ -1,6 +1,6 @@
 import type { ZodType, z } from "zod";
 import { buildCrudHandlers } from "./crud-builder";
-import type { WriteHandlerDefinition, QueryHandlerDefinition } from "./define-handler";
+import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 import type {
   AccessRule,
   ConfigDefinition,
