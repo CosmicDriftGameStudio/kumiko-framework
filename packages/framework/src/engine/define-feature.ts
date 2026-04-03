@@ -73,8 +73,8 @@ export function defineFeature(
       entities[entityName] = definition;
     },
 
-    writeHandler<TSchema extends ZodType>(
-      nameOrDef: string | WriteHandlerDefinition<TSchema>,
+    writeHandler<TName extends string, TSchema extends ZodType>(
+      nameOrDef: string | WriteHandlerDefinition<TName, TSchema>,
       schema?: TSchema,
       handler?: WriteHandlerFn<z.infer<TSchema>>,
       options?: { access?: AccessRule },
@@ -98,8 +98,8 @@ export function defineFeature(
       return { name: nameOrDef };
     },
 
-    queryHandler<TSchema extends ZodType>(
-      nameOrDef: string | QueryHandlerDefinition<TSchema>,
+    queryHandler<TName extends string, TSchema extends ZodType>(
+      nameOrDef: string | QueryHandlerDefinition<TName, TSchema>,
       schema?: TSchema,
       handler?: QueryHandlerFn<z.infer<TSchema>>,
       options?: { access?: AccessRule },

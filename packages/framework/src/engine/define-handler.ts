@@ -3,8 +3,12 @@ import type { AccessRule, HandlerContext, QueryEvent, WriteEvent, WriteResult } 
 
 // --- Write Handler Definition ---
 
-export type WriteHandlerDefinition<TSchema extends ZodType = ZodType, TData = unknown> = {
-  readonly name: string;
+export type WriteHandlerDefinition<
+  TName extends string = string,
+  TSchema extends ZodType = ZodType,
+  TData = unknown,
+> = {
+  readonly name: TName;
   readonly schema: TSchema;
   readonly access?: AccessRule;
   readonly handler: (
@@ -13,16 +17,24 @@ export type WriteHandlerDefinition<TSchema extends ZodType = ZodType, TData = un
   ) => Promise<WriteResult<TData>>;
 };
 
-export function defineWriteHandler<TSchema extends ZodType, TData = unknown>(
-  def: WriteHandlerDefinition<TSchema, TData>,
-): WriteHandlerDefinition<TSchema, TData> {
+export function defineWriteHandler<
+  const TName extends string,
+  TSchema extends ZodType,
+  TData = unknown,
+>(
+  def: WriteHandlerDefinition<TName, TSchema, TData>,
+): WriteHandlerDefinition<TName, TSchema, TData> {
   return def;
 }
 
 // --- Query Handler Definition ---
 
-export type QueryHandlerDefinition<TSchema extends ZodType = ZodType, TResult = unknown> = {
-  readonly name: string;
+export type QueryHandlerDefinition<
+  TName extends string = string,
+  TSchema extends ZodType = ZodType,
+  TResult = unknown,
+> = {
+  readonly name: TName;
   readonly schema: TSchema;
   readonly access?: AccessRule;
   readonly handler: (
@@ -31,8 +43,12 @@ export type QueryHandlerDefinition<TSchema extends ZodType = ZodType, TResult = 
   ) => Promise<TResult>;
 };
 
-export function defineQueryHandler<TSchema extends ZodType, TResult = unknown>(
-  def: QueryHandlerDefinition<TSchema, TResult>,
-): QueryHandlerDefinition<TSchema, TResult> {
+export function defineQueryHandler<
+  const TName extends string,
+  TSchema extends ZodType,
+  TResult = unknown,
+>(
+  def: QueryHandlerDefinition<TName, TSchema, TResult>,
+): QueryHandlerDefinition<TName, TSchema, TResult> {
   return def;
 }
