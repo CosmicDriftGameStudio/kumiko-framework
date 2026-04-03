@@ -15,6 +15,8 @@ import type {
   LifecycleHookType,
   QueryHandlerDef,
   QueryHandlerFn,
+  RegistrarExtensionDef,
+  RegistrarExtensionRegistration,
   RelationDefinition,
   TranslationKeys,
   TranslationsDef,
@@ -36,6 +38,7 @@ export function defineFeature(
   setup: (r: FeatureRegistrar) => void,
 ): FeatureDefinition {
   const requires: string[] = [];
+  const optionalRequires: string[] = [];
   const entities: Record<string, EntityDefinition> = {};
   const relations: Record<string, Record<string, RelationDefinition>> = {};
   const writeHandlers: Record<string, WriteHandlerDef> = {};
@@ -44,6 +47,8 @@ export function defineFeature(
   const lifecycleHooks: Record<string, Record<string, LifecycleHookFn[]>> = {};
   const configKeys: Record<string, ConfigKeyDefinition> = {};
   const jobs: Record<string, JobDefinition> = {};
+  const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
+  const extensionUsages: RegistrarExtensionRegistration[] = [];
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -53,6 +58,10 @@ export function defineFeature(
   const registrar: FeatureRegistrar = {
     requires(...featureNames: string[]): void {
       requires.push(...featureNames);
+    },
+
+    optionalRequires(...featureNames: string[]): void {
+      optionalRequires.push(...featureNames);
     },
 
     entity(entityName: string, definition: EntityDefinition): void {
@@ -153,13 +162,31 @@ export function defineFeature(
     translations(def: TranslationsDef): void {
       translations = { ...translations, ...def.keys };
     },
+
+    extendsRegistrar(extensionName: string, def: RegistrarExtensionDef): void {
+      registrarExtensions[extensionName] = def;
+    },
   };
 
-  setup(registrar);
+  // Wrap registrar with Proxy so that r.customFields("entity") works dynamically.
+  // When a feature calls r.someExtension("entity", options), we record the usage.
+  const proxiedRegistrar = new Proxy(registrar, {
+    get(target, prop: string) {
+      if (prop in target) return target[prop as keyof typeof target];
+
+      // Dynamic extension call: r.extensionName(entityName, options?)
+      return (entityName: string, options?: Record<string, unknown>) => {
+        extensionUsages.push({ extensionName: prop, entityName, options });
+      };
+    },
+  }) as FeatureRegistrar;
+
+  setup(proxiedRegistrar);
 
   return {
     name,
     requires,
+    optionalRequires,
     entities,
     relations,
     writeHandlers,
@@ -175,5 +202,7 @@ export function defineFeature(
     } as HookMap,
     configKeys,
     jobs,
+    registrarExtensions,
+    extensionUsages,
   };
 }

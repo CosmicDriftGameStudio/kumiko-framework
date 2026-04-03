@@ -343,11 +343,42 @@ export type JobDefinition = {
   readonly perTenant?: boolean | undefined;
 };
 
+// --- Registrar Extensions ---
+
+export type RegistrarExtensionHooks = {
+  readonly preSave?: PreSaveHookFn;
+  readonly postSave?: PostSaveHookFn;
+  readonly preDelete?: PreDeleteHookFn;
+  readonly postDelete?: PostDeleteHookFn;
+  readonly preQuery?: PreQueryHookFn;
+};
+
+export type UiExtensionDef = {
+  readonly editSection?: string;
+  readonly listColumns?: string;
+  readonly filters?: string;
+};
+
+export type RegistrarExtensionDef = {
+  readonly onRegister?: (entityName: string, options?: Record<string, unknown>) => void;
+  readonly extendSchema?: (entityName: string) => Record<string, FieldDefinition>;
+  readonly hooks?: RegistrarExtensionHooks;
+  readonly extendSearch?: (entityName: string) => Record<string, unknown>;
+  readonly uiExtension?: UiExtensionDef;
+};
+
+export type RegistrarExtensionRegistration = {
+  readonly extensionName: string;
+  readonly entityName: string;
+  readonly options?: Record<string, unknown> | undefined;
+};
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
   readonly name: string;
   readonly requires: readonly string[];
+  readonly optionalRequires: readonly string[];
   readonly entities: Readonly<Record<string, EntityDefinition>>;
   readonly relations: Readonly<Record<string, EntityRelations>>;
   readonly writeHandlers: Readonly<Record<string, WriteHandlerDef>>;
@@ -356,12 +387,15 @@ export type FeatureDefinition = {
   readonly hooks: HookMap;
   readonly configKeys: Readonly<Record<string, ConfigKeyDefinition>>;
   readonly jobs: Readonly<Record<string, JobDefinition>>;
+  readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
+  readonly extensionUsages: readonly RegistrarExtensionRegistration[];
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
 
 export type FeatureRegistrar = {
   requires(...featureNames: string[]): void;
+  optionalRequires(...featureNames: string[]): void;
 
   entity(name: string, definition: EntityDefinition): void;
 
@@ -401,6 +435,12 @@ export type FeatureRegistrar = {
   job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
 
   translations(def: TranslationsDef): void;
+
+  extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
+
+  // Dynamic: called when a feature uses an extension registered by another feature
+  // e.g., r.customFields("order") after another feature called r.extendsRegistrar("customFields", ...)
+  [extensionName: string]: unknown;
 };
 
 // --- Registry (created from features) ---
@@ -431,4 +471,6 @@ export type Registry = {
   getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition>;
   getJob(qualifiedName: string): JobDefinition | undefined;
   getAllJobs(): ReadonlyMap<string, JobDefinition>;
+  getExtension(name: string): RegistrarExtensionDef | undefined;
+  getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[];
 };

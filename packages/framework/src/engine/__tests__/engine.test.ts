@@ -441,6 +441,33 @@ describe("r.requires()", () => {
 
     expect(feature.requires).toEqual(["config", "files"]);
   });
+
+  test("optionalRequires stores optional dependency names", () => {
+    const feature = defineFeature("invoicing", (r) => {
+      r.requires("config");
+      r.optionalRequires("tags", "customFields");
+    });
+
+    expect(feature.requires).toEqual(["config"]);
+    expect(feature.optionalRequires).toEqual(["tags", "customFields"]);
+  });
+
+  test("missing optionalRequires does not throw in registry", () => {
+    const f1 = defineFeature("a", (r) => {
+      r.optionalRequires("nonexistent");
+    });
+
+    // No error — optional dependency is not enforced
+    expect(() => createRegistry([f1])).not.toThrow();
+  });
+
+  test("missing required feature still throws in registry", () => {
+    const f1 = defineFeature("a", (r) => {
+      r.requires("nonexistent");
+    });
+
+    expect(() => createRegistry([f1])).toThrow(/requires.*nonexistent/i);
+  });
 });
 
 // --- r.config() ---

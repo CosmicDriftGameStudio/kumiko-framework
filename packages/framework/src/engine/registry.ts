@@ -10,6 +10,8 @@ import type {
   PreQueryHookFn,
   PreSaveHookFn,
   QueryHandlerDef,
+  RegistrarExtensionDef,
+  RegistrarExtensionRegistration,
   Registry,
   RelationDefinition,
   TranslationKeys,
@@ -35,6 +37,8 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const preQueryHooks = new Map<string, PreQueryHookFn[]>();
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
   const jobMap = new Map<string, JobDefinition>();
+  const extensionMap = new Map<string, RegistrarExtensionDef>();
+  const extensionUsages: RegistrarExtensionRegistration[] = [];
   let mergedTranslations: TranslationKeys = {};
 
   // Prefix helper: featureName.name
@@ -132,6 +136,25 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     mergeHookListPrefixed(preDeleteHooks, feature.hooks.preDelete, feature.name);
     mergeHookListPrefixed(postDeleteHooks, feature.hooks.postDelete, feature.name);
     mergeHookListPrefixed(preQueryHooks, feature.hooks.preQuery, feature.name);
+
+    // Registrar extensions: collect definitions and usages
+    for (const [extName, extDef] of Object.entries(feature.registrarExtensions)) {
+      if (extensionMap.has(extName)) {
+        throw new Error(
+          `Duplicate registrar extension: "${extName}" (registered by multiple features)`,
+        );
+      }
+      extensionMap.set(extName, extDef);
+    }
+    extensionUsages.push(...feature.extensionUsages);
+  }
+
+  // Process extension usages: call onRegister for each usage
+  for (const usage of extensionUsages) {
+    const ext = extensionMap.get(usage.extensionName);
+    if (ext?.onRegister) {
+      ext.onRegister(usage.entityName, usage.options);
+    }
   }
 
   // Validate: all relation targets must reference existing entities
@@ -261,6 +284,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllJobs(): ReadonlyMap<string, JobDefinition> {
       return jobMap;
+    },
+
+    getExtension(name: string): RegistrarExtensionDef | undefined {
+      return extensionMap.get(name);
+    },
+
+    getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[] {
+      return extensionUsages.filter((u) => u.extensionName === extensionName);
     },
   };
 }
