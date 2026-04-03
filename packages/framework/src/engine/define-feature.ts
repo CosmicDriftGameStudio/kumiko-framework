@@ -15,6 +15,7 @@ import type {
   LifecycleHookType,
   QueryHandlerDef,
   QueryHandlerFn,
+  ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
   RelationDefinition,
@@ -49,6 +50,7 @@ export function defineFeature(
   const jobs: Record<string, JobDefinition> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
+  const referenceData: ReferenceDataDef[] = [];
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -163,6 +165,14 @@ export function defineFeature(
       translations = { ...translations, ...def.keys };
     },
 
+    referenceData(
+      entityName: string,
+      data: readonly Record<string, unknown>[],
+      options?: { upsertKey?: string },
+    ): void {
+      referenceData.push({ entityName, data, upsertKey: options?.upsertKey });
+    },
+
     extendsRegistrar(extensionName: string, def: RegistrarExtensionDef): void {
       registrarExtensions[extensionName] = def;
     },
@@ -204,5 +214,6 @@ export function defineFeature(
     jobs,
     registrarExtensions,
     extensionUsages,
+    referenceData,
   };
 }

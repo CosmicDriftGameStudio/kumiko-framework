@@ -14,6 +14,7 @@ export type TextFieldDef = {
   readonly required?: boolean;
   readonly searchable?: boolean;
   readonly sortable?: boolean;
+  readonly encrypted?: boolean;
   readonly format?: "email" | "url" | "phone";
   readonly default?: string;
   readonly access?: FieldAccess;
@@ -373,6 +374,14 @@ export type RegistrarExtensionRegistration = {
   readonly options?: Record<string, unknown> | undefined;
 };
 
+// --- Reference Data ---
+
+export type ReferenceDataDef = {
+  readonly entityName: string;
+  readonly data: readonly Record<string, unknown>[];
+  readonly upsertKey?: string; // Field to match on for upsert (default: first field)
+};
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
@@ -389,6 +398,7 @@ export type FeatureDefinition = {
   readonly jobs: Readonly<Record<string, JobDefinition>>;
   readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
   readonly extensionUsages: readonly RegistrarExtensionRegistration[];
+  readonly referenceData: readonly ReferenceDataDef[];
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -436,6 +446,12 @@ export type FeatureRegistrar = {
 
   translations(def: TranslationsDef): void;
 
+  referenceData(
+    entityName: string,
+    data: readonly Record<string, unknown>[],
+    options?: { upsertKey?: string },
+  ): void;
+
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
   // Dynamic: called when a feature uses an extension registered by another feature
@@ -473,4 +489,5 @@ export type Registry = {
   getAllJobs(): ReadonlyMap<string, JobDefinition>;
   getExtension(name: string): RegistrarExtensionDef | undefined;
   getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[];
+  getAllReferenceData(): readonly ReferenceDataDef[];
 };

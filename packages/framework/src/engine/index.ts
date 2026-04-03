@@ -1,6 +1,7 @@
 // Public API
 
 export { hasAccess } from "./access";
+export { validateBoot } from "./boot-validator";
 export type { App, AppConfig } from "./create-app";
 export { createApp } from "./create-app";
 export { buildCrudHandlers } from "./crud-builder";

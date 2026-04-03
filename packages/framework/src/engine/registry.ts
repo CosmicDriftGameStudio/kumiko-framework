@@ -10,6 +10,7 @@ import type {
   PreQueryHookFn,
   PreSaveHookFn,
   QueryHandlerDef,
+  ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
   Registry,
@@ -39,6 +40,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const jobMap = new Map<string, JobDefinition>();
   const extensionMap = new Map<string, RegistrarExtensionDef>();
   const extensionUsages: RegistrarExtensionRegistration[] = [];
+  const allReferenceData: ReferenceDataDef[] = [];
   let mergedTranslations: TranslationKeys = {};
 
   // Prefix helper: featureName.name
@@ -147,6 +149,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       extensionMap.set(extName, extDef);
     }
     extensionUsages.push(...feature.extensionUsages);
+    allReferenceData.push(...feature.referenceData);
   }
 
   // Process extension usages: call onRegister for each usage
@@ -292,6 +295,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[] {
       return extensionUsages.filter((u) => u.extensionName === extensionName);
+    },
+
+    getAllReferenceData(): readonly ReferenceDataDef[] {
+      return allReferenceData;
     },
   };
 }

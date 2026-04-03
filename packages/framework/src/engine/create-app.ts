@@ -1,14 +1,17 @@
+import { validateBoot } from "./boot-validator";
 import { createRegistry } from "./registry";
 import type { FeatureDefinition, Registry } from "./types";
 
 export type AppConfig = {
   roles: readonly string[];
   features: readonly FeatureDefinition[];
+  softDelete?: boolean; // Global default for all entities (default: true)
 };
 
 export type App = {
   registry: Registry;
   roles: readonly string[];
+  softDeleteDefault: boolean;
 };
 
 export function createApp(config: AppConfig): App {
@@ -57,8 +60,14 @@ export function createApp(config: AppConfig): App {
     }
   }
 
+  const softDeleteDefault = config.softDelete ?? true;
+
+  // Run boot-time validation before creating registry
+  validateBoot(config.features);
+
   return {
     registry: createRegistry(config.features),
     roles: config.roles,
+    softDeleteDefault,
   };
 }

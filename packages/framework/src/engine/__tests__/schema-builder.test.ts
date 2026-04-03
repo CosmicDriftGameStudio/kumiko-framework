@@ -3,6 +3,10 @@ import {
   createBooleanField,
   createDateField,
   createEntity,
+  createFileField,
+  createFilesField,
+  createImageField,
+  createImagesField,
   createNumberField,
   createSelectField,
   createTextField,
@@ -104,6 +108,35 @@ describe("buildInsertSchema", () => {
 
     // Invalid: wrong type
     expect(schema.safeParse({ email: "a@b.de", isEnabled: "nope" }).success).toBe(false);
+  });
+
+  test("file field accepts number (fileRefId)", () => {
+    const entity = createEntity({ table: "Test", fields: { contract: createFileField() } });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ contract: 42 }).success).toBe(true);
+    expect(schema.safeParse({ contract: "not-a-number" }).success).toBe(false);
+  });
+
+  test("image field accepts number (fileRefId)", () => {
+    const entity = createEntity({ table: "Test", fields: { avatar: createImageField() } });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ avatar: 1 }).success).toBe(true);
+    expect(schema.safeParse({ avatar: "photo.jpg" }).success).toBe(false);
+  });
+
+  test("files field accepts array of numbers", () => {
+    const entity = createEntity({ table: "Test", fields: { docs: createFilesField() } });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ docs: [1, 2, 3] }).success).toBe(true);
+    expect(schema.safeParse({ docs: [1, "two"] }).success).toBe(false);
+    expect(schema.safeParse({ docs: 1 }).success).toBe(false);
+  });
+
+  test("images field accepts array of numbers", () => {
+    const entity = createEntity({ table: "Test", fields: { photos: createImagesField() } });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ photos: [10, 20] }).success).toBe(true);
+    expect(schema.safeParse({ photos: "nope" }).success).toBe(false);
   });
 
   test("required text rejects empty string", () => {
