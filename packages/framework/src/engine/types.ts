@@ -466,7 +466,9 @@ export type FeatureRegistrar = {
   entity(name: string, definition: EntityDefinition): void;
 
   // Object form (from defineWriteHandler):
-  writeHandler<TName extends string, TSchema extends ZodType>(def: WriteHandlerDefinition<TName, TSchema>): HandlerRef;
+  writeHandler<TName extends string, TSchema extends ZodType>(
+    def: WriteHandlerDefinition<TName, TSchema>,
+  ): HandlerRef;
   // Inline form (for small handlers):
   writeHandler<TSchema extends ZodType>(
     name: string,
@@ -476,7 +478,9 @@ export type FeatureRegistrar = {
   ): HandlerRef;
 
   // Object form (from defineQueryHandler):
-  queryHandler<TName extends string, TSchema extends ZodType>(def: QueryHandlerDefinition<TName, TSchema>): HandlerRef;
+  queryHandler<TName extends string, TSchema extends ZodType>(
+    def: QueryHandlerDefinition<TName, TSchema>,
+  ): HandlerRef;
   // Inline form (for small handlers):
   queryHandler<TSchema extends ZodType>(
     name: string,

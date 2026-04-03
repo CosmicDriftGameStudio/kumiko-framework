@@ -19,7 +19,7 @@ export function createAuthRoutes(dispatcher: Dispatcher, jwt: JwtHelper): Hono {
 
     try {
       const memberships = (await dispatcher.query(
-        "tenant.memberships",
+        "tenant.tenant.memberships",
         { userId: user.id },
         user,
       )) as MembershipRow[];
@@ -53,7 +53,7 @@ export function createAuthRoutes(dispatcher: Dispatcher, jwt: JwtHelper): Hono {
     try {
       // Check membership
       const memberships = (await dispatcher.query(
-        "tenant.memberships",
+        "tenant.tenant.memberships",
         { userId: user.id },
         user,
       )) as MembershipRow[];

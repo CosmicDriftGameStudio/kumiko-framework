@@ -37,6 +37,8 @@ beforeAll(async () => {
       inserted_by_id INTEGER,
       modified_by_id INTEGER,
       is_deleted BOOLEAN DEFAULT FALSE NOT NULL,
+      deleted_at TIMESTAMP,
+      deleted_by_id INTEGER,
       email TEXT,
       first_name TEXT,
       is_enabled BOOLEAN DEFAULT TRUE NOT NULL

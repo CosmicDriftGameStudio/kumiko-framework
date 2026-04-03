@@ -28,16 +28,16 @@ const ordersFeature = defineFeature("orders", (r) => {
   );
 });
 
-// Feature B: has a job that triggers on "orders.create"
+// Feature B: has a job that triggers on "orders.orders.create" (prefixed)
 const notificationsFeature = defineFeature("notifications", (r) => {
-  r.job("sendOrderConfirmation", { trigger: { on: "orders.create" } }, async (payload) => {
+  r.job("sendOrderConfirmation", { trigger: { on: "orders.orders.create" } }, async (payload) => {
     jobExecutions.push({ name: "notifications.sendOrderConfirmation", payload });
   });
 });
 
 // Feature C: has ANOTHER job on the same event — both should fire
 const analyticsFeature = defineFeature("analytics", (r) => {
-  r.job("trackOrder", { trigger: { on: "orders.create" } }, async (payload) => {
+  r.job("trackOrder", { trigger: { on: "orders.orders.create" } }, async (payload) => {
     jobExecutions.push({ name: "analytics.trackOrder", payload });
   });
 
@@ -109,7 +109,7 @@ describe("event trigger: write handler fires matching jobs", () => {
   test("orders.create triggers both notification and analytics jobs", async () => {
     jobExecutions.length = 0;
 
-    const result = await writeApi(adminUser, "orders.create", {
+    const result = await writeApi(adminUser, "orders.orders.create", {
       product: "Widget",
       amount: 3,
     });
@@ -141,8 +141,8 @@ describe("event trigger: write handler fires matching jobs", () => {
   test("multiple orders each trigger jobs independently", async () => {
     jobExecutions.length = 0;
 
-    await writeApi(adminUser, "orders.create", { product: "A", amount: 1 });
-    await writeApi(adminUser, "orders.create", { product: "B", amount: 2 });
+    await writeApi(adminUser, "orders.orders.create", { product: "A", amount: 1 });
+    await writeApi(adminUser, "orders.orders.create", { product: "B", amount: 2 });
 
     await sleep(1500);
 
