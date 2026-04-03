@@ -1,4 +1,4 @@
-import type { EntityDefinition, PipelineUser } from "./types";
+import type { EntityDefinition, SessionUser } from "./types";
 
 /**
  * Removes fields from data that the user is not allowed to read.
@@ -7,7 +7,7 @@ import type { EntityDefinition, PipelineUser } from "./types";
 export function filterReadFields(
   entity: EntityDefinition,
   data: Readonly<Record<string, unknown>>,
-  user: PipelineUser,
+  user: SessionUser,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
@@ -39,7 +39,7 @@ export function filterReadFields(
 export function checkWriteFields(
   entity: EntityDefinition,
   changes: Readonly<Record<string, unknown>>,
-  user: PipelineUser,
+  user: SessionUser,
 ): string | null {
   for (const key of Object.keys(changes)) {
     const field = entity.fields[key];

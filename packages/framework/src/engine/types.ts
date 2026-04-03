@@ -141,7 +141,7 @@ export type AccessRule = {
 
 // --- Pipeline User ---
 
-export type PipelineUser = {
+export type SessionUser = {
   readonly id: number;
   readonly tenantId: number;
   readonly roles: readonly string[];
@@ -152,13 +152,13 @@ export type PipelineUser = {
 export type WriteEvent<TPayload = unknown> = {
   readonly type: string;
   readonly payload: TPayload;
-  readonly user: PipelineUser;
+  readonly user: SessionUser;
 };
 
 export type QueryEvent<TPayload = unknown> = {
   readonly type: string;
   readonly payload: TPayload;
-  readonly user: PipelineUser;
+  readonly user: SessionUser;
 };
 
 // --- Handler Results ---

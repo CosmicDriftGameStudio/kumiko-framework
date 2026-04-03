@@ -3,7 +3,7 @@ import type { PgTableWithColumns } from "drizzle-orm/pg-core";
 import type {
   DeleteContext,
   EntityDefinition,
-  PipelineUser,
+  SessionUser,
   SaveContext,
   WriteResult,
 } from "../engine/types";
@@ -22,19 +22,19 @@ export type CrudExecutorOptions = {
 export type CrudExecutor = {
   create: (
     payload: Record<string, unknown>,
-    user: PipelineUser,
+    user: SessionUser,
     db: DbConnection,
   ) => Promise<WriteResult<SaveContext>>;
 
   update: (
     payload: { id: number; version?: number | undefined; changes: Record<string, unknown> },
-    user: PipelineUser,
+    user: SessionUser,
     db: DbConnection,
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (
     payload: { id: number },
-    user: PipelineUser,
+    user: SessionUser,
     db: DbConnection,
   ) => Promise<WriteResult<DeleteContext>>;
 
@@ -46,13 +46,13 @@ export type CrudExecutor = {
       sort?: string | undefined;
       sortDirection?: "asc" | "desc" | undefined;
     },
-    user: PipelineUser,
+    user: SessionUser,
     db: DbConnection,
   ) => Promise<CursorResult<Record<string, unknown>>>;
 
   detail: (
     payload: { id: number },
-    user: PipelineUser,
+    user: SessionUser,
     db: DbConnection,
   ) => Promise<Record<string, unknown> | null>;
 };

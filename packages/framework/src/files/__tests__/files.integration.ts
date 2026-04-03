@@ -13,7 +13,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine";
-import type { PipelineUser } from "../../engine/types";
+import type { SessionUser } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../testing";
 import { FILE_REFS_TABLE_SQL } from "../file-ref-table";
 import { createLocalProvider } from "../local-provider";
@@ -26,8 +26,8 @@ let app: Hono;
 let jwt: JwtHelper;
 let storagePath: string;
 
-const adminUser: PipelineUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const otherTenantUser: PipelineUser = { id: 2, tenantId: 2, roles: ["Admin"] };
+const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
+const otherTenantUser: SessionUser = { id: 2, tenantId: 2, roles: ["Admin"] };
 const JWT_SECRET = "files-test-secret-at-least-32-characters!!";
 
 // A tenant feature with a logo field
@@ -85,7 +85,7 @@ afterAll(async () => {
 // --- Helpers ---
 
 async function uploadFile(
-  user: PipelineUser,
+  user: SessionUser,
   fileName: string,
   content: Uint8Array,
   mimeType: string,
@@ -106,7 +106,7 @@ async function uploadFile(
   });
 }
 
-async function getFile(user: PipelineUser, fileId: number): Promise<Response> {
+async function getFile(user: SessionUser, fileId: number): Promise<Response> {
   const token = await jwt.sign(user);
   return app.request(`/api/files/${fileId}`, {
     method: "GET",
@@ -114,7 +114,7 @@ async function getFile(user: PipelineUser, fileId: number): Promise<Response> {
   });
 }
 
-async function getFileMeta(user: PipelineUser, fileId: number): Promise<Response> {
+async function getFileMeta(user: SessionUser, fileId: number): Promise<Response> {
   const token = await jwt.sign(user);
   return app.request(`/api/files/${fileId}/meta`, {
     method: "GET",
@@ -122,7 +122,7 @@ async function getFileMeta(user: PipelineUser, fileId: number): Promise<Response
   });
 }
 
-async function deleteFile(user: PipelineUser, fileId: number): Promise<Response> {
+async function deleteFile(user: SessionUser, fileId: number): Promise<Response> {
   const token = await jwt.sign(user);
   return app.request(`/api/files/${fileId}`, {
     method: "DELETE",

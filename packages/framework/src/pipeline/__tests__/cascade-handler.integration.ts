@@ -9,7 +9,7 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type PipelineUser,
+  type SessionUser,
   type Registry,
 } from "../../engine";
 import { createTestDb, type TestDb } from "../../testing";
@@ -27,7 +27,7 @@ let departmentCrud: CrudExecutor;
 let userCrud: CrudExecutor;
 let sessionCrud: CrudExecutor;
 
-const admin: PipelineUser = { id: 1, tenantId: 1, roles: ["Admin"] };
+const admin: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
 
 const departmentEntity = createEntity({
   table: "cascade_departments",

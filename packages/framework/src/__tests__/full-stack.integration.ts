@@ -12,7 +12,7 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type PipelineUser,
+  type SessionUser,
   type SaveContext,
 } from "../engine";
 import {
@@ -57,9 +57,9 @@ const auditLog: AuditTrailEntry[] = [];
 const sseEvents: SseEvent[] = [];
 const featurePostSaveLog: SaveContext[] = [];
 
-const adminUser: PipelineUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const guestUser: PipelineUser = { id: 2, tenantId: 1, roles: ["Guest"] };
-const otherTenantAdmin: PipelineUser = { id: 3, tenantId: 2, roles: ["Admin"] };
+const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
+const guestUser: SessionUser = { id: 2, tenantId: 1, roles: ["Guest"] };
+const otherTenantAdmin: SessionUser = { id: 3, tenantId: 2, roles: ["Admin"] };
 const JWT_SECRET = "full-stack-test-secret-minimum-32-chars!!";
 
 beforeAll(async () => {
@@ -217,7 +217,7 @@ afterAll(async () => {
   await testRedis.cleanup();
 });
 
-async function req(method: string, path: string, user: PipelineUser, body?: unknown) {
+async function req(method: string, path: string, user: SessionUser, body?: unknown) {
   const token = await jwt.sign(user);
   const init: RequestInit = {
     method,

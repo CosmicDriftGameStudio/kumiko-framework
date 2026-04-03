@@ -1,5 +1,5 @@
 import * as jose from "jose";
-import type { PipelineUser } from "../engine/types";
+import type { SessionUser } from "../engine/types";
 
 export type JwtPayload = {
   sub: number;
@@ -8,7 +8,7 @@ export type JwtPayload = {
 };
 
 export type JwtHelper = {
-  sign(user: PipelineUser): Promise<string>;
+  sign(user: SessionUser): Promise<string>;
   verify(token: string): Promise<JwtPayload>;
 };
 

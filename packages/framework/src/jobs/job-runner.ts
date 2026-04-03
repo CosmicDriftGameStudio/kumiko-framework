@@ -1,6 +1,6 @@
 import { type Job, Queue, Worker } from "bullmq";
 import { createSystemUser } from "../engine/system-user";
-import type { PipelineContext, PipelineUser, Registry } from "../engine/types";
+import type { PipelineContext, SessionUser, Registry } from "../engine/types";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
@@ -20,7 +20,7 @@ export type JobRunner = {
   handleEvent(
     eventName: string,
     payload: Record<string, unknown>,
-    user?: PipelineUser,
+    user?: SessionUser,
   ): Promise<void>;
 };
 
@@ -237,7 +237,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     async handleEvent(
       eventName: string,
       payload: Record<string, unknown>,
-      user?: PipelineUser,
+      user?: SessionUser,
     ): Promise<void> {
       for (const [name, jobDef] of allJobs) {
         if ("on" in jobDef.trigger && jobDef.trigger.on === eventName) {

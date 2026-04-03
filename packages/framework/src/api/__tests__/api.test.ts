@@ -5,7 +5,7 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type PipelineUser,
+  type SessionUser,
 } from "../../engine";
 import { buildServer } from "../server";
 
@@ -29,10 +29,10 @@ const testFeature = defineFeature("test", (r) => {
 const registry = createRegistry([testFeature]);
 const { app, jwt } = buildServer({ registry, context: {}, jwtSecret: JWT_SECRET });
 
-const adminUser: PipelineUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const guestUser: PipelineUser = { id: 2, tenantId: 1, roles: ["Guest"] };
+const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
+const guestUser: SessionUser = { id: 2, tenantId: 1, roles: ["Guest"] };
 
-async function authHeader(user: PipelineUser): Promise<Record<string, string>> {
+async function authHeader(user: SessionUser): Promise<Record<string, string>> {
   const token = await jwt.sign(user);
   return { Authorization: `Bearer ${token}` };
 }

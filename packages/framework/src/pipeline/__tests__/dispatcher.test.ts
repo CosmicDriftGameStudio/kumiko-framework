@@ -5,11 +5,11 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type PipelineUser,
+  type SessionUser,
 } from "../../engine";
 import { createDispatcher } from "../dispatcher";
 
-function createTestUser(overrides?: Partial<PipelineUser>): PipelineUser {
+function createTestUser(overrides?: Partial<SessionUser>): SessionUser {
   return { id: 1, tenantId: 1, roles: ["Admin"], ...overrides };
 }
 

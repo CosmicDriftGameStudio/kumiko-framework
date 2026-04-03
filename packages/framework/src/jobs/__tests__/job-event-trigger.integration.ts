@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { createRegistry, defineFeature } from "../../engine";
-import type { PipelineUser } from "../../engine/types";
+import type { SessionUser } from "../../engine/types";
 import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
@@ -58,7 +58,7 @@ let app: Hono;
 let jwt: JwtHelper;
 let jobRunner: JobRunner;
 
-const adminUser: PipelineUser = { id: 1, tenantId: 1, roles: ["Admin"] };
+const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
 const JWT_SECRET = "event-trigger-test-secret-minimum-32-chars!!";
 
 beforeAll(async () => {
@@ -96,7 +96,7 @@ afterAll(async () => {
 
 // --- Helpers ---
 
-async function writeApi(user: PipelineUser, type: string, payload: unknown) {
+async function writeApi(user: SessionUser, type: string, payload: unknown) {
   const token = await jwt.sign(user);
   const res = await app.request("/api/write", {
     method: "POST",

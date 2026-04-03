@@ -2,7 +2,7 @@ import { hasAccess } from "../engine/access";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import type {
   PipelineContext,
-  PipelineUser,
+  SessionUser,
   Registry,
   SaveContext,
   WriteResult,
@@ -23,11 +23,11 @@ export type Dispatcher = {
   write(
     type: string,
     payload: unknown,
-    user: PipelineUser,
+    user: SessionUser,
     requestId?: string,
   ): Promise<WriteResult>;
-  query(type: string, payload: unknown, user: PipelineUser): Promise<unknown>;
-  command(type: string, payload: unknown, user: PipelineUser): Promise<void>;
+  query(type: string, payload: unknown, user: SessionUser): Promise<unknown>;
+  command(type: string, payload: unknown, user: SessionUser): Promise<void>;
   shareEvent(event: BrokerEvent): Promise<void>;
   broadcast(channel: string, event: BrokerEvent): Promise<void>;
 };
@@ -50,7 +50,7 @@ export function createDispatcher(
 ): Dispatcher {
   const { idempotency, eventLog, lifecycle } = options;
 
-  async function logEvent(type: string, payload: unknown, user: PipelineUser): Promise<void> {
+  async function logEvent(type: string, payload: unknown, user: SessionUser): Promise<void> {
     if (!eventLog) return;
     await eventLog.append({
       type,
@@ -121,7 +121,7 @@ export function createDispatcher(
       // Trigger event-based jobs with user context
       if (result.isSuccess && context["jobRunner"]) {
         const jobRunner = context["jobRunner"] as {
-          handleEvent: (eventName: string, payload: Record<string, unknown>, user?: PipelineUser) => Promise<void>;
+          handleEvent: (eventName: string, payload: Record<string, unknown>, user?: SessionUser) => Promise<void>;
         };
         await jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>, user);
       }

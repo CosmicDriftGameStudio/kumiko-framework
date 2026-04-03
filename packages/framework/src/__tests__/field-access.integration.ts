@@ -11,7 +11,7 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type PipelineUser,
+  type SessionUser,
 } from "../engine";
 import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../testing";
 
@@ -38,9 +38,9 @@ let testRedis: TestRedis;
 let app: ReturnType<typeof buildServer>["app"];
 let jwt: ReturnType<typeof buildServer>["jwt"];
 
-const adminUser: PipelineUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const accountingUser: PipelineUser = { id: 2, tenantId: 1, roles: ["Accounting"] };
-const employeeUser: PipelineUser = { id: 3, tenantId: 1, roles: ["Employee"] };
+const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
+const accountingUser: SessionUser = { id: 2, tenantId: 1, roles: ["Accounting"] };
+const employeeUser: SessionUser = { id: 3, tenantId: 1, roles: ["Employee"] };
 
 beforeAll(async () => {
   testDb = await createTestDb();
@@ -119,7 +119,7 @@ afterAll(async () => {
   await testRedis.cleanup();
 });
 
-async function req(method: string, path: string, user: PipelineUser, body?: unknown) {
+async function req(method: string, path: string, user: SessionUser, body?: unknown) {
   const token = await jwt.sign(user);
   const init: RequestInit = {
     method,

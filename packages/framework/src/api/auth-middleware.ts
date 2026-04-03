@@ -1,5 +1,5 @@
 import type { Context, Next } from "hono";
-import type { PipelineUser } from "../engine/types";
+import type { SessionUser } from "../engine/types";
 import type { JwtHelper } from "./jwt";
 
 const USER_KEY = "pipelineUser";
@@ -14,7 +14,7 @@ export function authMiddleware(jwt: JwtHelper) {
     const token = header.slice(7);
     try {
       const payload = await jwt.verify(token);
-      const user: PipelineUser = {
+      const user: SessionUser = {
         id: payload.sub,
         tenantId: payload.tenantId,
         roles: payload.roles,
@@ -27,6 +27,6 @@ export function authMiddleware(jwt: JwtHelper) {
   };
 }
 
-export function getUser(c: Context): PipelineUser {
-  return c.get(USER_KEY) as PipelineUser;
+export function getUser(c: Context): SessionUser {
+  return c.get(USER_KEY) as SessionUser;
 }

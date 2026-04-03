@@ -53,7 +53,7 @@ export type {
   NumberFieldDef,
   OnDeleteStrategy,
   PipelineContext,
-  PipelineUser,
+  SessionUser,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,

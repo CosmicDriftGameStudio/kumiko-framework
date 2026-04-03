@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { createBooleanField, createEntity, createTextField, type PipelineUser } from "../../engine";
+import { createBooleanField, createEntity, createTextField, type SessionUser } from "../../engine";
 import { createTestDb, type TestDb } from "../../testing";
 import { type CrudExecutor, createCrudExecutor } from "../crud-executor";
 import { buildDrizzleTable } from "../table-builder";
@@ -20,8 +20,8 @@ const table = buildDrizzleTable("crudUser", entity);
 let testDb: TestDb;
 let crud: CrudExecutor;
 
-const adminUser: PipelineUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const otherTenantUser: PipelineUser = { id: 2, tenantId: 2, roles: ["Admin"] };
+const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
+const otherTenantUser: SessionUser = { id: 2, tenantId: 2, roles: ["Admin"] };
 
 beforeAll(async () => {
   testDb = await createTestDb();
