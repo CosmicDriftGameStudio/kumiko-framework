@@ -1,6 +1,7 @@
 import { hasAccess } from "../engine/access";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import type {
+  HandlerContext,
   HandlerRef,
   PipelineContext,
   SessionUser,
@@ -114,7 +115,7 @@ export function createDispatcher(
       }
 
       // Run handler with lifecycle context
-      const handlerContext = { ...context, _entityName: entityName, _userId: user.id, _handlerType: type };
+      const handlerContext = { ...context, _entityName: entityName, _userId: user.id, _handlerType: type } as HandlerContext;
 
       const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
@@ -154,7 +155,7 @@ export function createDispatcher(
         throw new Error(`${ErrorCodes.validationFailed}: ${parsed.error.message}`);
       }
 
-      let result = await handler.handler({ type, payload: parsed.data, user }, context);
+      let result = await handler.handler({ type, payload: parsed.data, user }, context as HandlerContext);
 
       // Filter read fields on query results
       const entityName = extractEntityName(type);
@@ -202,7 +203,7 @@ export function createDispatcher(
       }
 
       const entityName = extractEntityName(type);
-      const handlerContext = { ...context, _entityName: entityName, _userId: user.id, _handlerType: type };
+      const handlerContext = { ...context, _entityName: entityName, _userId: user.id, _handlerType: type } as HandlerContext;
 
       const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 

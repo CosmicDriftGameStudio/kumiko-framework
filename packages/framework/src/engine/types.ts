@@ -172,40 +172,66 @@ export type WriteResult<TData = unknown> =
   | { readonly isSuccess: true; readonly data: TData }
   | { readonly isSuccess: false; readonly error: string };
 
-// --- Pipeline Context (grows with each step) ---
-// All known context keys are listed here. Add new keys explicitly — no Record<string, unknown>.
+// --- Context Types ---
 
+// Base: passed through the system, all optional
 export type PipelineContext = {
-  // Core (always available in handlers)
   readonly db?: DbConnection;
   readonly registry?: Registry;
-  readonly redis?: unknown; // ioredis — dynamic import, no static type
-  // Core Features (available when the corresponding feature is loaded)
-  readonly jobRunner?: unknown; // JobRunner — typed in @kumiko/framework/jobs
-  readonly configResolver?: unknown; // ConfigResolver — typed in @kumiko/core-features/config
+  readonly redis?: unknown;
+  readonly jobRunner?: unknown;
+  readonly configResolver?: unknown;
   readonly searchAdapter?: SearchAdapter;
   readonly systemUser?: SessionUser;
   readonly log?: (msg: string) => void;
   readonly warn?: (msg: string) => void;
   readonly logError?: (msg: string) => void;
-  // Job execution context: who triggered this job (not a full user, just origin info)
   readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
-  // Internal: set by dispatcher during handler execution
   readonly _entityName?: string | undefined;
   readonly _userId?: number | undefined;
   readonly _handlerType?: string | undefined;
+};
+
+// Handler execution: db + registry guaranteed
+export type HandlerContext = {
+  readonly db: DbConnection;
+  readonly registry: Registry;
+  readonly searchAdapter?: SearchAdapter;
+  readonly configResolver?: unknown;
+  readonly jobRunner?: unknown;
+  readonly systemUser?: SessionUser;
+  readonly log?: (msg: string) => void;
+  readonly warn?: (msg: string) => void;
+  readonly logError?: (msg: string) => void;
+  readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
+  readonly _entityName?: string | undefined;
+  readonly _userId?: number | undefined;
+  readonly _handlerType?: string | undefined;
+};
+
+// Job execution: db + registry + systemUser + logging guaranteed
+export type JobContext = {
+  readonly db: DbConnection;
+  readonly registry: Registry;
+  readonly systemUser: SessionUser;
+  readonly log: (msg: string) => void;
+  readonly warn: (msg: string) => void;
+  readonly logError: (msg: string) => void;
+  readonly triggeredBy: { readonly id: number; readonly tenantId: number } | null;
+  readonly jobRunner?: unknown;
+  readonly configResolver?: unknown;
 };
 
 // --- Handler Functions ---
 
 export type WriteHandlerFn<TPayload = unknown, TData = unknown> = (
   event: WriteEvent<TPayload>,
-  context: PipelineContext,
+  context: HandlerContext,
 ) => Promise<WriteResult<TData>>;
 
 export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
   query: QueryEvent<TPayload>,
-  context: PipelineContext,
+  context: HandlerContext,
 ) => Promise<TResult>;
 
 // --- Event Definitions ---

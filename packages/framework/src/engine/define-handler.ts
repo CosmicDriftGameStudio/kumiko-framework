@@ -1,7 +1,7 @@
 import type { ZodType, z } from "zod";
 import type {
   AccessRule,
-  PipelineContext,
+  HandlerContext,
   WriteEvent,
   WriteResult,
   QueryEvent,
@@ -15,7 +15,7 @@ export type WriteHandlerDefinition<TSchema extends ZodType = ZodType, TData = un
   readonly access?: AccessRule;
   readonly handler: (
     event: WriteEvent<z.infer<TSchema>>,
-    context: PipelineContext,
+    context: HandlerContext,
   ) => Promise<WriteResult<TData>>;
 };
 
@@ -33,7 +33,7 @@ export type QueryHandlerDefinition<TSchema extends ZodType = ZodType, TResult = 
   readonly access?: AccessRule;
   readonly handler: (
     query: QueryEvent<z.infer<TSchema>>,
-    context: PipelineContext,
+    context: HandlerContext,
   ) => Promise<TResult>;
 };
 

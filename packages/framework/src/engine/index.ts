@@ -69,6 +69,8 @@ export type {
   ManyToManyRelation,
   NumberFieldDef,
   OnDeleteStrategy,
+  HandlerContext,
+  JobContext,
   PipelineContext,
   SessionUser,
   PostDeleteHookFn,
