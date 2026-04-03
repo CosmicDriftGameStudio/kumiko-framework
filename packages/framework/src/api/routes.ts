@@ -1,18 +1,19 @@
 import { Hono } from "hono";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { getUser } from "./auth-middleware";
+import { Routes } from "./api-constants";
 
 export function createApiRoutes(dispatcher: Dispatcher) {
   const api = new Hono();
 
-  api.post("/write", async (c) => {
+  api.post(Routes.write, async (c) => {
     const user = getUser(c);
     const body = await c.req.json<{ type: string; payload: unknown; requestId?: string }>();
     const result = await dispatcher.write(body.type, body.payload, user, body.requestId);
     return c.json(result, result.isSuccess ? 200 : 400);
   });
 
-  api.post("/query", async (c) => {
+  api.post(Routes.query, async (c) => {
     const user = getUser(c);
     const body = await c.req.json<{ type: string; payload: unknown }>();
 
@@ -26,7 +27,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     }
   });
 
-  api.post("/command", async (c) => {
+  api.post(Routes.command, async (c) => {
     const user = getUser(c);
     const body = await c.req.json<{ type: string; payload: unknown }>();
 

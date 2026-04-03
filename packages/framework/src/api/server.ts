@@ -11,6 +11,7 @@ import { createJwtHelper, type JwtHelper } from "./jwt";
 import { createApiRoutes } from "./routes";
 import { createSseBroker, type SseBroker } from "./sse-broker";
 import { createSseRoute } from "./sse-route";
+import { Routes } from "./api-constants";
 
 export type ServerOptions = {
   registry: Registry;
@@ -42,7 +43,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   const app = new Hono();
 
-  app.get("/health", (c) => c.json({ status: "ok" }));
+  app.get(Routes.health, (c) => c.json({ status: "ok" }));
   app.use("/api/*", authMiddleware(jwt));
   app.route("/api", createApiRoutes(dispatcher));
   app.route("/api", createAuthRoutes(dispatcher, jwt));

@@ -14,6 +14,7 @@ import {
   type SessionUser,
 } from "../engine";
 import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../testing";
+import { ErrorCodes } from "../engine/constants";
 
 // --- Entity with field-level access ---
 
@@ -221,7 +222,7 @@ describe("field-level write access", () => {
     ).json();
 
     expect(res.isSuccess).toBe(false);
-    expect(res.error).toContain("field_access_denied");
+    expect(res.error).toContain(ErrorCodes.fieldAccessDenied);
     expect(res.error).toContain("salary");
   });
 
@@ -247,7 +248,7 @@ describe("field-level write access", () => {
     ).json();
 
     expect(res.isSuccess).toBe(false);
-    expect(res.error).toContain("field_access_denied");
+    expect(res.error).toContain(ErrorCodes.fieldAccessDenied);
   });
 
   test("Accounting cannot update salary (only read)", async () => {
@@ -260,6 +261,6 @@ describe("field-level write access", () => {
     ).json();
 
     expect(res.isSuccess).toBe(false);
-    expect(res.error).toContain("field_access_denied");
+    expect(res.error).toContain(ErrorCodes.fieldAccessDenied);
   });
 });

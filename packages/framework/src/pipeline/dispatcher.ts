@@ -12,6 +12,7 @@ import type { BrokerEvent } from "./event-broker";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecyclePipeline } from "./lifecycle-pipeline";
+import { ErrorCodes } from "../engine/constants";
 
 export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;
@@ -68,21 +69,21 @@ export function createDispatcher(
       }
 
       const handler = registry.getWriteHandler(type);
-      if (!handler) return { isSuccess: false, error: `handler_not_found: ${type}` };
+      if (!handler) return { isSuccess: false, error: `${ErrorCodes.handlerNotFound}: ${type}` };
 
       if (handler.access && !hasAccess(user, handler.access)) {
-        return { isSuccess: false, error: `access_denied: ${type}` };
+        return { isSuccess: false, error: `${ErrorCodes.accessDenied}: ${type}` };
       }
 
       const parsed = handler.schema.safeParse(payload);
       if (!parsed.success) {
-        return { isSuccess: false, error: `validation_failed: ${parsed.error.message}` };
+        return { isSuccess: false, error: `${ErrorCodes.validationFailed}: ${parsed.error.message}` };
       }
 
       const hookErrors = runValidation(registry, type, parsed.data as Record<string, unknown>);
       if (hookErrors) {
         const messages = hookErrors.map((e) => `${e.field}: ${e.error}`).join(", ");
-        return { isSuccess: false, error: `validation_hook: ${messages}` };
+        return { isSuccess: false, error: `${ErrorCodes.validationHook}: ${messages}` };
       }
 
       // Field-level write access check
@@ -97,7 +98,7 @@ export function createDispatcher(
           const writePayload = fieldsToCheck ?? (parsed.data as Record<string, unknown>);
           const deniedField = checkWriteFields(entity, writePayload, user);
           if (deniedField) {
-            return { isSuccess: false, error: `field_access_denied: ${deniedField}` };
+            return { isSuccess: false, error: `${ErrorCodes.fieldAccessDenied}: ${deniedField}` };
           }
         }
       }
@@ -131,15 +132,15 @@ export function createDispatcher(
 
     async query(type, payload, user) {
       const handler = registry.getQueryHandler(type);
-      if (!handler) throw new Error(`handler_not_found: ${type}`);
+      if (!handler) throw new Error(`${ErrorCodes.handlerNotFound}: ${type}`);
 
       if (handler.access && !hasAccess(user, handler.access)) {
-        throw new Error(`access_denied: ${type}`);
+        throw new Error(`${ErrorCodes.accessDenied}: ${type}`);
       }
 
       const parsed = handler.schema.safeParse(payload);
       if (!parsed.success) {
-        throw new Error(`validation_failed: ${parsed.error.message}`);
+        throw new Error(`${ErrorCodes.validationFailed}: ${parsed.error.message}`);
       }
 
       let result = await handler.handler({ type, payload: parsed.data, user }, context);
@@ -171,21 +172,21 @@ export function createDispatcher(
 
     async command(type, payload, user) {
       const handler = registry.getWriteHandler(type);
-      if (!handler) throw new Error(`handler_not_found: ${type}`);
+      if (!handler) throw new Error(`${ErrorCodes.handlerNotFound}: ${type}`);
 
       if (handler.access && !hasAccess(user, handler.access)) {
-        throw new Error(`access_denied: ${type}`);
+        throw new Error(`${ErrorCodes.accessDenied}: ${type}`);
       }
 
       const parsed = handler.schema.safeParse(payload);
       if (!parsed.success) {
-        throw new Error(`validation_failed: ${parsed.error.message}`);
+        throw new Error(`${ErrorCodes.validationFailed}: ${parsed.error.message}`);
       }
 
       const hookErrors = runValidation(registry, type, parsed.data as Record<string, unknown>);
       if (hookErrors) {
         const messages = hookErrors.map((e) => `${e.field}: ${e.error}`).join(", ");
-        throw new Error(`validation_hook: ${messages}`);
+        throw new Error(`${ErrorCodes.validationHook}: ${messages}`);
       }
 
       const entityName = extractEntityName(type);

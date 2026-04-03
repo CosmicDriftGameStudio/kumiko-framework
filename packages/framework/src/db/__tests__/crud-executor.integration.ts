@@ -4,6 +4,7 @@ import { createBooleanField, createEntity, createTextField, type SessionUser } f
 import { createTestDb, type TestDb } from "../../testing";
 import { type CrudExecutor, createCrudExecutor } from "../crud-executor";
 import { buildDrizzleTable } from "../table-builder";
+import { ErrorCodes } from "../../engine/constants";
 
 const entity = createEntity({
   table: "crud_users",
@@ -156,7 +157,7 @@ describe("crud update", () => {
     );
     expect(update2.isSuccess).toBe(false);
     if (!update2.isSuccess) {
-      expect(update2.error).toContain("version_conflict");
+      expect(update2.error).toContain(ErrorCodes.versionConflict);
     }
   });
 

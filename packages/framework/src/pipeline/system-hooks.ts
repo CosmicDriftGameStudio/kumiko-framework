@@ -2,6 +2,7 @@ import type { SseBroker, SseEvent } from "../api/sse-broker";
 import type { PostDeleteHookFn, PostSaveHookFn, Registry } from "../engine/types";
 import type { SearchAdapter } from "../search/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
+import { SystemHookNames, SystemHookPriorities } from "../engine/constants";
 
 // --- Search Index Hook ---
 
@@ -10,8 +11,8 @@ export function createSearchIndexHook(
   registry: Registry,
 ): SystemHookDef<PostSaveHookFn> {
   return {
-    name: "system:search-index",
-    priority: 1000,
+    name: SystemHookNames.searchIndex,
+    priority: SystemHookPriorities.searchIndex,
     fn: async (result, _context) => {
       // Determine entity name from the registry by matching the data
       // For now, we need the entityName in context
@@ -46,8 +47,8 @@ export function createSearchRemoveHook(
   searchAdapter: SearchAdapter,
 ): SystemHookDef<PostDeleteHookFn> {
   return {
-    name: "system:search-remove",
-    priority: 1000,
+    name: SystemHookNames.searchRemove,
+    priority: SystemHookPriorities.searchIndex,
     fn: async (payload, _context) => {
       const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
       if (!entityName) return;
@@ -62,8 +63,8 @@ export function createSearchRemoveHook(
 
 export function createSseBroadcastHook(sseBroker: SseBroker): SystemHookDef<PostSaveHookFn> {
   return {
-    name: "system:sse-broadcast",
-    priority: 1001,
+    name: SystemHookNames.sseBroadcast,
+    priority: SystemHookPriorities.sseBroadcast,
     fn: async (result, _context) => {
       const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
       if (!entityName) return;
@@ -86,8 +87,8 @@ export function createSseDeleteBroadcastHook(
   sseBroker: SseBroker,
 ): SystemHookDef<PostDeleteHookFn> {
   return {
-    name: "system:sse-delete-broadcast",
-    priority: 1001,
+    name: SystemHookNames.sseDeleteBroadcast,
+    priority: SystemHookPriorities.sseBroadcast,
     fn: async (payload, _context) => {
       const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
       if (!entityName) return;
@@ -123,8 +124,8 @@ export type AuditTrailStorage = {
 
 export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<PostSaveHookFn> {
   return {
-    name: "system:audit-trail",
-    priority: 1002,
+    name: SystemHookNames.auditTrail,
+    priority: SystemHookPriorities.auditTrail,
     fn: async (result, _context) => {
       const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
       const userId = (_context as Record<string, unknown>)["_userId"] as number | undefined;
@@ -149,8 +150,8 @@ export function createAuditTrailDeleteHook(
   storage: AuditTrailStorage,
 ): SystemHookDef<PostDeleteHookFn> {
   return {
-    name: "system:audit-trail-delete",
-    priority: 1002,
+    name: SystemHookNames.auditTrailDelete,
+    priority: SystemHookPriorities.auditTrail,
     fn: async (payload, _context) => {
       const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
       const userId = (_context as Record<string, unknown>)["_userId"] as number | undefined;

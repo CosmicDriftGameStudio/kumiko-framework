@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { getUser } from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
+import { Routes } from "./api-constants";
 
 type MembershipRow = {
   userId: number;
@@ -13,7 +14,7 @@ export function createAuthRoutes(dispatcher: Dispatcher, jwt: JwtHelper): Hono {
   const api = new Hono();
 
   // GET /auth/tenants — list tenants the current user belongs to
-  api.get("/auth/tenants", async (c) => {
+  api.get(Routes.authTenants, async (c) => {
     const user = getUser(c);
 
     try {
@@ -40,7 +41,7 @@ export function createAuthRoutes(dispatcher: Dispatcher, jwt: JwtHelper): Hono {
   });
 
   // POST /auth/switch-tenant — switch to a different tenant
-  api.post("/auth/switch-tenant", async (c) => {
+  api.post(Routes.authSwitchTenant, async (c) => {
     const user = getUser(c);
     const body = await c.req.json<{ tenantId: number }>();
     const targetTenantId = body.tenantId;

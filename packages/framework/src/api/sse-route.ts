@@ -2,11 +2,12 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { getUser } from "./auth-middleware";
 import type { SseBroker } from "./sse-broker";
+import { Routes } from "./api-constants";
 
 export function createSseRoute(broker: SseBroker) {
   const route = new Hono();
 
-  route.get("/sse", async (c) => {
+  route.get(Routes.sse, async (c) => {
     const user = getUser(c);
     const channel = c.req.query("channel") ?? `tenant:${user.tenantId}`;
 

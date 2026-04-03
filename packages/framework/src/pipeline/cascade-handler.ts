@@ -3,6 +3,7 @@ import type { PgTableWithColumns } from "drizzle-orm/pg-core";
 import type { DbConnection } from "../db/connection";
 import type { PreDeleteHookFn, Registry } from "../engine/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
+import { ErrorCodes, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type TableMap = ReadonlyMap<string, PgTableWithColumns<any>>;
@@ -12,8 +13,8 @@ export function createCascadeDeleteHook(
   tables: TableMap,
 ): SystemHookDef<PreDeleteHookFn> {
   return {
-    name: "system:cascade-delete",
-    priority: 500,
+    name: SystemHookNames.cascadeDelete,
+    priority: SystemHookPriorities.cascadeDelete,
     fn: async (payload, _context) => {
       const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
       const db = (_context as Record<string, unknown>)["db"] as DbConnection | undefined;
@@ -41,7 +42,7 @@ export function createCascadeDeleteHook(
               .limit(1);
             if (rows.length > 0) {
               throw new Error(
-                `delete_restricted: ${relation.target} has records referencing ${entityName}#${payload.id}`,
+                `${ErrorCodes.deleteRestricted}: ${relation.target} has records referencing ${entityName}#${payload.id}`,
               );
             }
           }
@@ -69,7 +70,7 @@ export function createCascadeDeleteHook(
             const rows = result as unknown as unknown[];
             if (rows.length > 0) {
               throw new Error(
-                `delete_restricted: ${throughTableName} has records referencing ${entityName}#${payload.id}`,
+                `${ErrorCodes.deleteRestricted}: ${throughTableName} has records referencing ${entityName}#${payload.id}`,
               );
             }
           }

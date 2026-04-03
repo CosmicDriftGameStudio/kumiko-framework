@@ -29,6 +29,7 @@ import {
 import type { SearchAdapter } from "../search";
 import { createInMemorySearchAdapter } from "../search";
 import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../testing";
+import { ErrorCodes } from "../engine/constants";
 
 // --- Entities ---
 
@@ -330,7 +331,7 @@ describe("full stack: optimistic locking", () => {
     ).json();
 
     expect(stale.isSuccess).toBe(false);
-    expect(stale.error).toContain("version_conflict");
+    expect(stale.error).toContain(ErrorCodes.versionConflict);
   });
 });
 
