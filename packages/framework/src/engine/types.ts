@@ -190,6 +190,7 @@ export type PipelineContext = {
   // Internal: set by dispatcher during handler execution
   readonly _entityName?: string | undefined;
   readonly _userId?: number | undefined;
+  readonly _handlerType?: string | undefined;
 };
 
 // --- Handler Functions ---
@@ -425,6 +426,7 @@ export type FeatureDefinition = {
   readonly extensionUsages: readonly RegistrarExtensionRegistration[];
   readonly referenceData: readonly ReferenceDataDef[];
   readonly events: Readonly<Record<string, EventDef>>;
+  readonly configReads: readonly string[]; // Qualified config keys this feature reads
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -473,6 +475,9 @@ export type FeatureRegistrar = {
   translations(def: TranslationsDef): void;
 
   defineEvent<TPayload>(name: string, schema: ZodType<TPayload>): EventDef<TPayload>;
+
+  // Declare config keys this feature reads from other features (for boot validation)
+  readsConfig(...qualifiedKeys: string[]): void;
 
   referenceData(
     entityName: string,

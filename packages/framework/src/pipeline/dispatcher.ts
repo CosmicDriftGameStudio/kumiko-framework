@@ -106,7 +106,7 @@ export function createDispatcher(
       }
 
       // Run handler with lifecycle context
-      const handlerContext = { ...context, _entityName: entityName, _userId: user.id };
+      const handlerContext = { ...context, _entityName: entityName, _userId: user.id, _handlerType: type };
 
       const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
@@ -192,7 +192,7 @@ export function createDispatcher(
       }
 
       const entityName = extractEntityName(type);
-      const handlerContext = { ...context, _entityName: entityName, _userId: user.id };
+      const handlerContext = { ...context, _entityName: entityName, _userId: user.id, _handlerType: type };
 
       const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 

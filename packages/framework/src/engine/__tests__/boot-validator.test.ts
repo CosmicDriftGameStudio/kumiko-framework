@@ -236,6 +236,40 @@ describe("boot-validator", () => {
     );
   });
 
+  // --- Config key cross-feature references ---
+
+  test("throws when readsConfig references non-existent key", () => {
+    const features = [
+      defineFeature("invoicing", (r) => {
+        r.readsConfig("payments.gateway");
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /invoicing.*reads config "payments.gateway".*no feature defines/i,
+    );
+  });
+
+  test("passes when readsConfig references existing key", () => {
+    const features = [
+      defineFeature("payments", (r) => {
+        r.config({
+          keys: {
+            gateway: {
+              type: "text",
+              scope: "tenant",
+              access: { read: ["all"], write: ["Admin"] },
+            },
+          },
+        });
+      }),
+      defineFeature("invoicing", (r) => {
+        r.requires("payments");
+        r.readsConfig("payments.gateway");
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
   test("passes when extendSchema adds non-conflicting column", () => {
     const features = [
       defineFeature("a", (r) => {

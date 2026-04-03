@@ -129,13 +129,17 @@ export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<
     fn: async (result, _context) => {
       const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
       const userId = (_context as Record<string, unknown>)["_userId"] as number | undefined;
+      const handlerType = (_context as Record<string, unknown>)["_handlerType"] as string | undefined;
       if (!entityName) return;
+
+      // Audit action derived from handler type — no manual string construction
+      const fallbackAction = result.isNew ? `${entityName}.create` : `${entityName}.update`;
 
       await storage.append({
         timestamp: new Date(),
         tenantId: result.data["tenantId"] as number,
         userId: userId ?? 0,
-        action: result.isNew ? `${entityName}.create` : `${entityName}.update`,
+        action: handlerType ?? fallbackAction,
         entityType: entityName,
         entityId: result.id,
         changes: result.changes as Record<string, unknown>,
@@ -155,13 +159,14 @@ export function createAuditTrailDeleteHook(
     fn: async (payload, _context) => {
       const entityName = (_context as Record<string, unknown>)["_entityName"] as string | undefined;
       const userId = (_context as Record<string, unknown>)["_userId"] as number | undefined;
+      const handlerType = (_context as Record<string, unknown>)["_handlerType"] as string | undefined;
       if (!entityName) return;
 
       await storage.append({
         timestamp: new Date(),
         tenantId: payload.data["tenantId"] as number,
         userId: userId ?? 0,
-        action: `${entityName}.delete`,
+        action: handlerType ?? `${entityName}.delete`,
         entityType: entityName,
         entityId: payload.id,
         changes: {},

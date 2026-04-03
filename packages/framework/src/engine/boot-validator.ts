@@ -50,6 +50,25 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
       "FILE_STORAGE_PROVIDER environment variable is required (file/image fields in use)",
     );
   }
+
+  validateConfigReads(features, allConfigKeys);
+}
+
+// --- Config key cross-feature reference validation ---
+
+function validateConfigReads(
+  features: readonly FeatureDefinition[],
+  allConfigKeys: ReadonlySet<string>,
+): void {
+  for (const feature of features) {
+    for (const key of feature.configReads) {
+      if (!allConfigKeys.has(key)) {
+        throw new Error(
+          `Feature "${feature.name}" reads config "${key}" but no feature defines that key`,
+        );
+      }
+    }
+  }
 }
 
 // --- Circular dependency detection ---

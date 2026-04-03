@@ -50,6 +50,7 @@ export function defineFeature(
   const configKeys: Record<string, ConfigKeyDefinition> = {};
   const jobs: Record<string, JobDefinition> = {};
   const events: Record<string, { name: string; schema: ZodType }> = {};
+  const configReads: string[] = [];
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const referenceData: ReferenceDataDef[] = [];
@@ -182,6 +183,10 @@ export function defineFeature(
       return def;
     },
 
+    readsConfig(...qualifiedKeys: string[]): void {
+      configReads.push(...qualifiedKeys);
+    },
+
     referenceData(
       entityName: string,
       data: readonly Record<string, unknown>[],
@@ -228,5 +233,6 @@ export function defineFeature(
     extensionUsages,
     referenceData,
     events,
+    configReads,
   };
 }
