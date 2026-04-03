@@ -1,3 +1,4 @@
+import { getTableName } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createSelectField, createTextField } from "../../engine";
 import { decodeCursor, encodeCursor } from "../cursor";
@@ -116,13 +117,7 @@ describe("buildDrizzleTable", () => {
     });
 
     const table = buildDrizzleTable("order", entity, { featureName: "shop" });
-    // Drizzle's internal table name should be prefixed
-    const tableConfig = (table as Record<string, unknown>)[Symbol.for("drizzle:Name")] as string | undefined;
-    // Fallback: check the pgTable name via Drizzle internals
-    const name = tableConfig ?? Object.getOwnPropertySymbols(table)
-      .map(s => (table as Record<symbol, unknown>)[s])
-      .find(v => typeof v === "string" && v.includes("shop"));
-    expect(name).toContain("shop_orders");
+    expect(getTableName(table)).toBe("shop_orders");
   });
 
   test("without featureName, table name is unchanged", () => {
@@ -132,10 +127,7 @@ describe("buildDrizzleTable", () => {
     });
 
     const table = buildDrizzleTable("order", entity);
-    const symbols = Object.getOwnPropertySymbols(table);
-    const names = symbols.map(s => (table as Record<symbol, unknown>)[s]).filter(v => typeof v === "string");
-    expect(names.some(n => (n as string).includes("orders"))).toBe(true);
-    expect(names.some(n => (n as string).includes("_orders"))).toBe(false);
+    expect(getTableName(table)).toBe("orders");
   });
 });
 

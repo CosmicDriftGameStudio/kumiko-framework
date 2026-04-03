@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createRegistry, defineFeature } from "../../engine";
 import type { PipelineContext, Registry } from "../../engine/types";
-import { createTestRedis, type TestRedis } from "../../testing";
+import { createTestRedis, type TestRedis, sleep } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
 // --- Shared state ---
@@ -16,9 +16,6 @@ function clearLog() {
   jobLog.length = 0;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 // --- Feature with test jobs ---
 

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { createRegistry, defineFeature } from "../../engine";
+import { sleep } from "../../testing/utils";
 import type { SessionUser } from "../../engine/types";
 import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
@@ -11,9 +12,6 @@ import { createJobRunner, type JobRunner } from "../job-runner";
 
 const jobExecutions: Array<{ name: string; payload: Record<string, unknown> }> = [];
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 // --- Features ---
 
