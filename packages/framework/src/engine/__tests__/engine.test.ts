@@ -4,13 +4,7 @@ import { hasAccess } from "../access";
 import { defineWriteHandler, defineQueryHandler } from "../define-handler";
 import { createBooleanField, createEntity, createSelectField, createTextField } from "../factories";
 import { createApp, createRegistry, defineFeature } from "../index";
-import type { SessionUser } from "../types";
-
-// --- Test Factories ---
-
-function createTestUser(overrides?: Partial<SessionUser>): SessionUser {
-  return { id: 1, tenantId: 1, roles: ["Admin"], ...overrides };
-}
+import { createTestUser } from "../../testing/fixtures";
 
 // --- defineFeature ---
 

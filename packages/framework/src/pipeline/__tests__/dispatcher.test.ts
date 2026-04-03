@@ -5,13 +5,9 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type SessionUser,
 } from "../../engine";
+import { createTestUser } from "../../testing/fixtures";
 import { createDispatcher } from "../dispatcher";
-
-function createTestUser(overrides?: Partial<SessionUser>): SessionUser {
-  return { id: 1, tenantId: 1, roles: ["Admin"], ...overrides };
-}
 
 const echoFeature = defineFeature("echo", (r) => {
   r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));

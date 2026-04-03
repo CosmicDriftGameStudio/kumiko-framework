@@ -5,8 +5,8 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type SessionUser,
 } from "../../engine";
+import { TestUsers, createTestUser } from "../../testing/fixtures";
 import { buildServer } from "../server";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
@@ -29,10 +29,10 @@ const testFeature = defineFeature("test", (r) => {
 const registry = createRegistry([testFeature]);
 const { app, jwt } = buildServer({ registry, context: {}, jwtSecret: JWT_SECRET });
 
-const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const guestUser: SessionUser = { id: 2, tenantId: 1, roles: ["Guest"] };
+const adminUser = TestUsers.admin;
+const guestUser = createTestUser({ id: 2, roles: ["Guest"] });
 
-async function authHeader(user: SessionUser): Promise<Record<string, string>> {
+async function authHeader(user: { id: number; tenantId: number; roles: readonly string[] }): Promise<Record<string, string>> {
   const token = await jwt.sign(user);
   return { Authorization: `Bearer ${token}` };
 }
