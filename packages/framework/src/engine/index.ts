@@ -17,6 +17,7 @@ export {
   createSelectField,
   createTextField,
 } from "./factories";
+export { access, createSystemConfig, createTenantConfig, createUserConfig } from "./config-helpers";
 export { checkWriteFields, filterReadFields } from "./field-access";
 export { createRegistry } from "./registry";
 export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
