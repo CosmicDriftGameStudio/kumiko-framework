@@ -180,12 +180,14 @@ export function createLifecycleHooks(
   };
 }
 
-// Build a unique eventId from handler + payload identity + phase.
-// Uses entity id if available (SaveContext/DeleteContext), otherwise null (no dedup possible).
+// Build a unique eventId from handler + entity identity + version + phase.
+// version makes it unique per write (incremented on every update).
 function buildEventId(handlerName: string, payload: unknown, phase: string): string | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
   const id = p["id"] as number | undefined;
   if (!id) return null;
-  return `${handlerName}:${id}:${phase}`;
+  const data = p["data"] as Record<string, unknown> | undefined;
+  const version = data?.["version"] as number | undefined;
+  return `${handlerName}:${id}:${version ?? 0}:${phase}`;
 }
