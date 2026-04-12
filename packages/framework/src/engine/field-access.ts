@@ -19,14 +19,31 @@ export function filterReadFields(
       continue;
     }
 
+    // Check top-level access first
     const readRoles = field.access?.read;
-    if (!readRoles || readRoles.length === 0) {
-      // No access restriction — everyone can read
-      result[key] = value;
-    } else if (user.roles.some((role) => readRoles.includes(role))) {
+    if (readRoles && readRoles.length > 0 && !user.roles.some((role) => readRoles.includes(role))) {
+      continue; // entire field stripped
+    }
+
+    // For embedded fields: filter sub-fields with access restrictions
+    if (field.type === "embedded" && value && typeof value === "object") {
+      const filtered: Record<string, unknown> = {};
+      for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
+        const subField = field.schema[subKey];
+        const subReadRoles = subField?.access?.read;
+        if (
+          subReadRoles &&
+          subReadRoles.length > 0 &&
+          !user.roles.some((role) => subReadRoles.includes(role))
+        ) {
+          continue; // sub-field stripped
+        }
+        filtered[subKey] = subValue;
+      }
+      result[key] = filtered;
+    } else {
       result[key] = value;
     }
-    // else: field is stripped from response
   }
 
   return result;

@@ -23,9 +23,31 @@ export function createSearchIndexHook(
       const searchableFields = registry.getSearchableFields(entityName);
       if (searchableFields.length === 0) return;
 
+      // Collect embedded field names for sub-field resolution
+      const embeddedFields = new Set<string>();
+      for (const [fname, fdef] of Object.entries(entity.fields)) {
+        if (fdef.type === "embedded") embeddedFields.add(fname);
+      }
+
       const fields: Record<string, unknown> = {};
       for (const f of searchableFields) {
-        if (result.data[f] !== undefined) fields[f] = result.data[f];
+        // Embedded sub-fields: address_street → result.data.address.street
+        const underscoreIdx = f.indexOf("_");
+        if (underscoreIdx > 0) {
+          const parentKey = f.slice(0, underscoreIdx);
+          if (embeddedFields.has(parentKey)) {
+            const subKey = f.slice(underscoreIdx + 1);
+            const parent = result.data[parentKey];
+            if (parent && typeof parent === "object") {
+              const value = (parent as Record<string, unknown>)[subKey];
+              if (value !== undefined) fields[f] = value;
+            }
+            continue;
+          }
+        }
+        if (result.data[f] !== undefined) {
+          fields[f] = result.data[f];
+        }
       }
 
       const tenantId = result.data["tenantId"] as number;

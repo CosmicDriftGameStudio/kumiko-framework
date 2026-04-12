@@ -65,6 +65,13 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
           if (field.type === "text" && field.searchable) {
             searchableFields.push(fieldName);
           }
+          if (field.type === "embedded") {
+            for (const [subName, subField] of Object.entries(field.schema)) {
+              if (subField.searchable) {
+                searchableFields.push(`${fieldName}_${subName}`);
+              }
+            }
+          }
         }
       }
     }
