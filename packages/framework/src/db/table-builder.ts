@@ -2,7 +2,7 @@ import type { EntityDefinition, FieldDefinition } from "../engine/types";
 import {
   boolean,
   integer,
-  numeric,
+  numericAsNumber,
   table as pgTable,
   serial,
   type TableColumns,
@@ -14,7 +14,7 @@ type ColumnBuilder =
   | ReturnType<typeof text>
   | ReturnType<typeof integer>
   | ReturnType<typeof boolean>
-  | ReturnType<typeof numeric>
+  | ReturnType<typeof numericAsNumber>
   | ReturnType<typeof timestamp>
   | ReturnType<typeof serial>;
 
@@ -43,7 +43,7 @@ function fieldToColumns(
       return { [name]: integer(snakeName) };
     case "money":
       return {
-        [name]: numeric(snakeName, { precision: 19, scale: 4 }),
+        [name]: numericAsNumber(snakeName),
         [`${name}Currency`]: text(`${snakeName}_currency`).default(entity.defaultCurrency ?? "EUR"),
       };
     case "date":
