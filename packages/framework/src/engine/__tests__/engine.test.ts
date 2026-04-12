@@ -652,6 +652,66 @@ describe("createApp", () => {
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow("empty schema");
   });
+
+  test("rejects embedded sub-field with invalid type", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: {
+            address: createEmbeddedField({
+              // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
+              street: { type: "embedded" as any },
+            }),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'invalid type "embedded"',
+    );
+  });
+
+  test("rejects embedded sub-field with unknown type", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: {
+            address: createEmbeddedField({
+              // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
+              street: { type: "money" as any },
+            }),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'invalid type "money"',
+    );
+  });
+
+  test("accepts valid embedded field with all sub-field types", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: {
+            meta: createEmbeddedField({
+              label: { type: "text", required: true },
+              count: { type: "number" },
+              active: { type: "boolean" },
+              created: { type: "date" },
+            }),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
+  });
 });
 
 // --- r.requires() ---
