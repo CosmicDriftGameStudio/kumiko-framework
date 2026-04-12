@@ -26,6 +26,7 @@ export { FrameworkError } from "./errors";
 export {
   createBooleanField,
   createDateField,
+  createEmbeddedField,
   createEntity,
   createFileField,
   createFilesField,

@@ -1,6 +1,19 @@
 import { z } from "zod";
-import type { EntityDefinition, FieldDefinition } from "./types";
+import type { EmbeddedSubFieldDef, EntityDefinition, FieldDefinition } from "./types";
 import { DEFAULT_CURRENCIES } from "./types";
+
+function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
+  switch (subField.type) {
+    case "text":
+      return subField.required ? z.string().min(1) : z.string();
+    case "number":
+      return z.number();
+    case "boolean":
+      return z.boolean();
+    case "date":
+      return z.string().date();
+  }
+}
 
 function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.ZodTypeAny {
   switch (field.type) {
@@ -33,6 +46,14 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
         amount: z.number(),
         currency: z.enum([first, ...rest]),
       });
+    }
+    case "embedded": {
+      const shape: Record<string, z.ZodTypeAny> = {};
+      for (const [subName, subField] of Object.entries(field.schema)) {
+        const zodSub = embeddedSubFieldToZod(subField);
+        shape[subName] = subField.required ? zodSub : zodSub.optional();
+      }
+      return z.object(shape);
     }
     case "date": {
       return z.string().date();

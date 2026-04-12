@@ -65,10 +65,9 @@ export function createCascadeDeleteHook(
           const targetKey = relation.through.targetKey;
 
           if (strategy === "restrict") {
-            const result = await db.execute(
-              sql`SELECT 1 FROM ${sql.identifier(throughTableName)} WHERE ${sql.identifier(targetKey)} = ${payload.id} LIMIT 1`,
+            const rows = await db.execute<{ n: number }>(
+              sql`SELECT 1 AS n FROM ${sql.identifier(throughTableName)} WHERE ${sql.identifier(targetKey)} = ${payload.id} LIMIT 1`,
             );
-            const rows = result as unknown as unknown[];
             if (rows.length > 0) {
               throw new FrameworkError(
                 ErrorCodes.deleteRestricted,

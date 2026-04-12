@@ -10,6 +10,7 @@ export type {
 export {
   boolean,
   integer,
+  jsonb,
   numeric,
   pgTable as table,
   serial,

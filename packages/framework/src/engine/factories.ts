@@ -1,6 +1,7 @@
 import type {
   BooleanFieldDef,
   DateFieldDef,
+  EmbeddedFieldDef,
   EntityDefinition,
   FileFieldDef,
   FilesFieldDef,
@@ -57,6 +58,17 @@ export function createNumberField(
 export function createMoneyField(overrides?: Partial<Omit<MoneyFieldDef, "type">>): MoneyFieldDef {
   return {
     type: "money",
+    ...overrides,
+  };
+}
+
+export function createEmbeddedField(
+  schema: EmbeddedFieldDef["schema"],
+  overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema">>,
+): EmbeddedFieldDef {
+  return {
+    type: "embedded",
+    schema,
     ...overrides,
   };
 }

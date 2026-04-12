@@ -6,6 +6,7 @@ import type {
   AppContext,
   HandlerContext,
   HandlerRef,
+  JobRunnerRef,
   LifecycleResult,
   Registry,
   SessionUser,
@@ -15,14 +16,6 @@ import { runValidation } from "../engine/validation";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
-
-export type JobRunnerRef = {
-  handleEvent: (
-    eventName: string,
-    payload: Record<string, unknown>,
-    user?: SessionUser,
-  ) => Promise<void>;
-};
 
 export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;

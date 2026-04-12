@@ -35,6 +35,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateCircularDeps(feature.name, featureMap);
     if (validateEncryptedFields(feature)) hasEncryptedFields = true;
     if (validateFileFields(feature)) hasFileFields = true;
+    validateEmbeddedFields(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
   }
@@ -151,6 +152,32 @@ function validateExtensionUsages(
       throw new Error(
         `Feature "${feature.name}" uses extension "${usage.extensionName}" but missing requires("${providerFeature}")`,
       );
+    }
+  }
+}
+
+// --- Embedded field validation ---
+
+const VALID_EMBEDDED_SUB_TYPES = new Set(["text", "number", "boolean", "date"]);
+
+function validateEmbeddedFields(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities)) {
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      if (field.type !== "embedded") continue;
+
+      if (!field.schema || Object.keys(field.schema).length === 0) {
+        throw new Error(
+          `Embedded field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has an empty schema`,
+        );
+      }
+
+      for (const [subName, subField] of Object.entries(field.schema)) {
+        if (!VALID_EMBEDDED_SUB_TYPES.has(subField.type)) {
+          throw new Error(
+            `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid type "${subField.type}". Allowed: ${[...VALID_EMBEDDED_SUB_TYPES].join(", ")}`,
+          );
+        }
+      }
     }
   }
 }

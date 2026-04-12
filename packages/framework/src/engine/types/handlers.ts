@@ -41,11 +41,20 @@ export type WriteResult<TData = unknown> =
 // Forward import: Registry is in feature.ts (circular type import — fine in TS)
 import type { Registry } from "./feature";
 
+// Minimal interface for job event triggers (framework-owned, concrete type in jobs/)
+export type JobRunnerRef = {
+  handleEvent(
+    eventName: string,
+    payload: Record<string, unknown>,
+    user?: SessionUser,
+  ): Promise<void>;
+};
+
 // Shared optional fields across all execution contexts
 type SharedContextFields = {
-  readonly redis?: unknown;
-  readonly jobRunner?: unknown;
-  readonly configResolver?: unknown;
+  readonly redis?: import("ioredis").default;
+  readonly jobRunner?: JobRunnerRef;
+  readonly configResolver?: unknown; // Typed in core-features (cross-package boundary)
   readonly searchAdapter?: SearchAdapter;
 };
 

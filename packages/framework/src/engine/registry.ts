@@ -335,9 +335,20 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     getSearchableFields(entityName: string): readonly string[] {
       const entity = entityMap.get(entityName);
       if (!entity) return [];
-      return Object.entries(entity.fields)
-        .filter(([, field]) => field.type === "text" && field.searchable === true)
-        .map(([name]) => name);
+      const result: string[] = [];
+      for (const [name, field] of Object.entries(entity.fields)) {
+        if (field.type === "text" && field.searchable === true) {
+          result.push(name);
+        }
+        if (field.type === "embedded") {
+          for (const [subName, subField] of Object.entries(field.schema)) {
+            if (subField.searchable === true) {
+              result.push(`${name}_${subName}`);
+            }
+          }
+        }
+      }
+      return result;
     },
 
     getSortableFields(entityName: string): readonly string[] {

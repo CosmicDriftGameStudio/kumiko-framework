@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   createBooleanField,
   createDateField,
+  createEmbeddedField,
   createEntity,
   createFileField,
   createFilesField,
@@ -190,6 +191,91 @@ describe("buildInsertSchema", () => {
     });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ name: "" }).success).toBe(false);
+  });
+
+  test("embedded field accepts object matching schema", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        address: createEmbeddedField({
+          street: { type: "text", required: true },
+          zip: { type: "text", required: true },
+          city: { type: "text", required: true },
+          country: { type: "text" },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(
+      schema.safeParse({
+        address: { street: "Hauptstr. 1", zip: "10115", city: "Berlin" },
+      }).success,
+    ).toBe(true);
+  });
+
+  test("embedded field rejects missing required sub-field", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        address: createEmbeddedField({
+          street: { type: "text", required: true },
+          city: { type: "text", required: true },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ address: { street: "Hauptstr." } }).success).toBe(false);
+  });
+
+  test("embedded field rejects wrong sub-field type", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        address: createEmbeddedField({
+          zip: { type: "number" },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ address: { zip: "not-a-number" } }).success).toBe(false);
+    expect(schema.safeParse({ address: { zip: 10115 } }).success).toBe(true);
+  });
+
+  test("embedded field accepts optional sub-fields", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        address: createEmbeddedField({
+          street: { type: "text", required: true },
+          notes: { type: "text" },
+        }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ address: { street: "Main St" } }).success).toBe(true);
+  });
+
+  test("optional embedded field can be omitted", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        name: createTextField({ required: true }),
+        address: createEmbeddedField({ street: { type: "text" } }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ name: "Test" }).success).toBe(true);
+  });
+
+  test("required embedded field cannot be omitted", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: {
+        address: createEmbeddedField({ street: { type: "text" } }, { required: true }),
+      },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({}).success).toBe(false);
   });
 });
 

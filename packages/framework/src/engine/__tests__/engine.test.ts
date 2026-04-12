@@ -5,6 +5,7 @@ import { hasAccess } from "../access";
 import { defineQueryHandler, defineWriteHandler } from "../define-handler";
 import {
   createBooleanField,
+  createEmbeddedField,
   createEntity,
   createMoneyField,
   createSelectField,
@@ -634,6 +635,22 @@ describe("createApp", () => {
     expect(() =>
       createApp({ roles: ["Admin"], features: [feature], currencies: ["BHD"] }),
     ).not.toThrow();
+  });
+
+  test("rejects embedded field with empty schema", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: {
+            // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
+            meta: createEmbeddedField({} as any),
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow("empty schema");
   });
 });
 

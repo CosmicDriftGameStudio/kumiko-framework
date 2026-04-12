@@ -1,5 +1,5 @@
 export { createCascadeDeleteHook } from "./cascade-handler";
-export type { Dispatcher, JobRunnerRef } from "./dispatcher";
+export type { Dispatcher } from "./dispatcher";
 export { createDispatcher } from "./dispatcher";
 export type { DistributedLock } from "./distributed-lock";
 export { createDistributedLock } from "./distributed-lock";

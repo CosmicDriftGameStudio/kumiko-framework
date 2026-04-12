@@ -67,6 +67,22 @@ export const DEFAULT_CURRENCIES = [
 
 export type DefaultCurrency = (typeof DEFAULT_CURRENCIES)[number];
 
+// --- Embedded Object ---
+
+export type EmbeddedSubFieldDef = {
+  readonly type: "text" | "number" | "boolean" | "date";
+  readonly required?: boolean;
+  readonly searchable?: boolean;
+  readonly access?: FieldAccess;
+};
+
+export type EmbeddedFieldDef = {
+  readonly type: "embedded";
+  readonly required?: boolean;
+  readonly schema: Readonly<Record<string, EmbeddedSubFieldDef>>;
+  readonly access?: FieldAccess;
+};
+
 export type DateFieldDef = {
   readonly type: "date";
   readonly required?: boolean;
@@ -111,6 +127,7 @@ export type FieldDefinition =
   | SelectFieldDef
   | NumberFieldDef
   | MoneyFieldDef
+  | EmbeddedFieldDef
   | DateFieldDef
   | FileFieldDef
   | ImageFieldDef

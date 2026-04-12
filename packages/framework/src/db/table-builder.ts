@@ -2,6 +2,7 @@ import type { EntityDefinition, FieldDefinition } from "../engine/types";
 import {
   boolean,
   integer,
+  jsonb,
   numericAsNumber,
   table as pgTable,
   serial,
@@ -15,6 +16,7 @@ type ColumnBuilder =
   | ReturnType<typeof integer>
   | ReturnType<typeof boolean>
   | ReturnType<typeof numericAsNumber>
+  | ReturnType<typeof jsonb>
   | ReturnType<typeof timestamp>
   | ReturnType<typeof serial>;
 
@@ -46,6 +48,8 @@ function fieldToColumns(
         [name]: numericAsNumber(snakeName),
         [`${name}Currency`]: text(`${snakeName}_currency`).default(entity.defaultCurrency ?? "EUR"),
       };
+    case "embedded":
+      return { [name]: jsonb(snakeName).default({}) };
     case "date":
       return { [name]: timestamp(snakeName) };
     case "file":
