@@ -9,6 +9,7 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
+  type SessionUser,
 } from "../engine";
 import { ErrorCodes } from "../engine/constants";
 import {
@@ -16,9 +17,9 @@ import {
   createTestDb,
   createTestRedis,
   createTestUser,
-  TestUsers,
   type TestDb,
   type TestRedis,
+  TestUsers,
 } from "../testing";
 
 // --- Entity with field-level access ---

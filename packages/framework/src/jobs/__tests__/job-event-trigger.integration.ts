@@ -2,13 +2,13 @@ import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
-import { createRegistry, defineFeature } from "../../engine";
+import { createRegistry, defineFeature, type SessionUser } from "../../engine";
 import {
   createTestDb,
   createTestRedis,
-  TestUsers,
   type TestDb,
   type TestRedis,
+  TestUsers,
   waitFor,
 } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";

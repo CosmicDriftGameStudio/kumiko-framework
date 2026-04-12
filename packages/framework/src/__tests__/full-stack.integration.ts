@@ -12,7 +12,13 @@ import {
 import { ErrorCodes } from "../engine/constants";
 import { createEventLog } from "../pipeline";
 import type { SearchAdapter } from "../search";
-import { createEntityTable, createTestUser, setupTestStack, TestUsers, type TestStack } from "../testing";
+import {
+  createEntityTable,
+  createTestUser,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../testing";
 
 // --- Entities ---
 

@@ -11,8 +11,16 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
+  type SessionUser,
 } from "../../engine";
-import { createEntityTable, createTestDb, createTestUser, pushTables, TestUsers, type TestDb } from "../../testing";
+import {
+  createEntityTable,
+  createTestDb,
+  createTestUser,
+  pushTables,
+  type TestDb,
+  TestUsers,
+} from "../../testing";
 import { fileRefsTable } from "../file-ref-table";
 import { createLocalProvider } from "../local-provider";
 import { parseMaxSize, validateFile } from "../types";

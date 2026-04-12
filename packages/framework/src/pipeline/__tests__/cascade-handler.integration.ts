@@ -10,7 +10,7 @@ import {
   defineFeature,
   type Registry,
 } from "../../engine";
-import { createEntityTable, createTestDb, TestUsers, type TestDb } from "../../testing";
+import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../testing";
 import { createCascadeDeleteHook } from "../cascade-handler";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
