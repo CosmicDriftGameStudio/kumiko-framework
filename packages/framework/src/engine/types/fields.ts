@@ -39,6 +39,34 @@ export type NumberFieldDef = {
   readonly access?: FieldAccess;
 };
 
+export type MoneyFieldDef = {
+  readonly type: "money";
+  readonly required?: boolean;
+  readonly access?: FieldAccess;
+};
+
+// --- Currency ---
+
+export const DEFAULT_CURRENCIES = [
+  "EUR",
+  "USD",
+  "GBP",
+  "CHF",
+  "JPY",
+  "SEK",
+  "NOK",
+  "DKK",
+  "PLN",
+  "CZK",
+  "CAD",
+  "AUD",
+  "NZD",
+  "CNY",
+  "INR",
+] as const;
+
+export type DefaultCurrency = (typeof DEFAULT_CURRENCIES)[number];
+
 export type DateFieldDef = {
   readonly type: "date";
   readonly required?: boolean;
@@ -82,6 +110,7 @@ export type FieldDefinition =
   | BooleanFieldDef
   | SelectFieldDef
   | NumberFieldDef
+  | MoneyFieldDef
   | DateFieldDef
   | FileFieldDef
   | ImageFieldDef
@@ -91,8 +120,9 @@ export type FieldDefinition =
 // --- Entity ---
 
 export type EntityDefinition = {
-  readonly table: string;
+  readonly table?: string;
   readonly fields: Readonly<Record<string, FieldDefinition>>;
   readonly softDelete?: boolean;
   readonly searchWeight?: number;
+  readonly defaultCurrency?: string;
 };

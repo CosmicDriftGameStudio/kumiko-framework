@@ -2,7 +2,7 @@ import { getTableName } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createSelectField, createTextField } from "../../engine";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { buildBaseColumns, buildDrizzleTable } from "../table-builder";
+import { buildBaseColumns, buildDrizzleTable, toTableName } from "../table-builder";
 
 // --- Cursor encoding ---
 
@@ -128,6 +128,64 @@ describe("buildDrizzleTable", () => {
 
     const table = buildDrizzleTable("order", entity);
     expect(getTableName(table)).toBe("orders");
+  });
+
+  test("derives table name from entityName when table is omitted", () => {
+    const entity = createEntity({ fields: { name: createTextField() } });
+    const table = buildDrizzleTable("task", entity);
+    expect(getTableName(table)).toBe("tasks");
+  });
+
+  test("derives table name with featureName prefix when table is omitted", () => {
+    const entity = createEntity({ fields: { name: createTextField() } });
+    const table = buildDrizzleTable("order", entity, { featureName: "shop" });
+    expect(getTableName(table)).toBe("shop_orders");
+  });
+});
+
+// --- toTableName ---
+
+describe("toTableName", () => {
+  test.each([
+    ["task", "tasks"],
+    ["user", "users"],
+    ["tenant", "tenants"],
+  ])("simple plural: %s → %s", (input, expected) => {
+    expect(toTableName(input)).toBe(expected);
+  });
+
+  test.each([
+    ["category", "categories"],
+    ["entity", "entities"],
+    ["policy", "policies"],
+  ])("y → ies: %s → %s", (input, expected) => {
+    expect(toTableName(input)).toBe(expected);
+  });
+
+  test.each([
+    ["key", "keys"],
+    ["survey", "surveys"],
+    ["day", "days"],
+  ])("vowel+y stays: %s → %s", (input, expected) => {
+    expect(toTableName(input)).toBe(expected);
+  });
+
+  test.each([
+    ["status", "statuses"],
+    ["address", "addresses"],
+    ["match", "matches"],
+    ["tax", "taxes"],
+    ["wish", "wishes"],
+  ])("sibilant → es: %s → %s", (input, expected) => {
+    expect(toTableName(input)).toBe(expected);
+  });
+
+  test.each([
+    ["memberTask", "member_tasks"],
+    ["userProfile", "user_profiles"],
+    ["orderItem", "order_items"],
+  ])("camelCase → snake_case + plural: %s → %s", (input, expected) => {
+    expect(toTableName(input)).toBe(expected);
   });
 });
 

@@ -8,6 +8,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine";
+import { toTableName } from "../table-builder";
 import type { FeatureDefinition } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../testing";
 import { generateSchemaSource } from "../schema-generator";
@@ -54,9 +55,9 @@ async function applySchema(features: readonly FeatureDefinition[]): Promise<stri
 
 // Helper: convert entity to CREATE TABLE SQL (mirrors what drizzle-kit push would do)
 function entityToCreateTableSql(
-  _entityName: string,
+  entityName: string,
   entity: {
-    table: string;
+    table?: string;
     fields: Record<string, { type: string; default?: unknown }>;
     softDelete?: boolean;
   },
@@ -89,6 +90,10 @@ function entityToCreateTableSql(
       case "number":
         columns.push(`"${snakeName}" INTEGER`);
         break;
+      case "money":
+        columns.push(`"${snakeName}" NUMERIC(19,4)`);
+        columns.push(`"${snakeName}_currency" TEXT DEFAULT 'EUR'`);
+        break;
       case "boolean":
         if (field.default !== undefined) {
           columns.push(
@@ -109,7 +114,8 @@ function entityToCreateTableSql(
     }
   }
 
-  return `CREATE TABLE "${entity.table}" (\n  ${columns.join(",\n  ")}\n)`;
+  const tableName = entity.table ?? toTableName(entityName);
+  return `CREATE TABLE "${tableName}" (\n  ${columns.join(",\n  ")}\n)`;
 }
 
 // Helper: read column info from information_schema

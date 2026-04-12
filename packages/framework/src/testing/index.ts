@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { v4 as uuid } from "uuid";
+import { toTableName } from "../db/table-builder";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -100,6 +101,7 @@ export async function createTestTable(
 export async function createEntityTable(
   db: ReturnType<typeof drizzle>,
   entity: import("../engine/types").EntityDefinition,
+  entityName?: string,
 ): Promise<void> {
   const columns: string[] = [
     '"id" SERIAL PRIMARY KEY',
@@ -124,7 +126,9 @@ export async function createEntityTable(
     if (col) columns.push(col);
   }
 
-  await db.execute(sql.raw(`CREATE TABLE "${entity.table}" (\n  ${columns.join(",\n  ")}\n)`));
+  const tableName = entity.table ?? (entityName ? toTableName(entityName) : undefined);
+  if (!tableName) throw new Error("Entity has no table name — set entity.table or pass entityName");
+  await db.execute(sql.raw(`CREATE TABLE "${tableName}" (\n  ${columns.join(",\n  ")}\n)`));
 }
 
 function fieldToSqlColumn(
@@ -138,6 +142,8 @@ function fieldToSqlColumn(
       return `"${sn}" TEXT`;
     case "number":
       return `"${sn}" INTEGER`;
+    case "money":
+      return `"${sn}" NUMERIC(19,4)`;
     case "boolean":
       return field.default !== undefined
         ? `"${sn}" BOOLEAN DEFAULT ${String(field.default).toUpperCase()} NOT NULL`

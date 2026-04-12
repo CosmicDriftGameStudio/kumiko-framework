@@ -12,5 +12,5 @@ export type { PgAdapterOptions } from "./pg-adapter";
 export { createPgAdapter } from "./pg-adapter";
 export { seedReferenceData } from "./reference-data";
 export { generateSchemaSource } from "./schema-generator";
-export { buildBaseColumns, buildDrizzleTable } from "./table-builder";
+export { buildBaseColumns, buildDrizzleTable, toTableName } from "./table-builder";
 export type { DbAdapter } from "./types";

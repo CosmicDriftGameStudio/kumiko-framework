@@ -1,4 +1,5 @@
 import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../engine/types";
+import { toTableName } from "./table-builder";
 
 /**
  * Generates a Drizzle schema file from feature entity definitions.
@@ -74,15 +75,15 @@ function generateTableCode(
 
   // Entity field columns
   for (const [fieldName, field] of Object.entries(entity.fields)) {
-    const result = generateFieldColumn(fieldName, field);
-    if (result) {
+    const results = generateFieldColumns(fieldName, field, entity);
+    for (const result of results) {
       columns.push(`  ${result.code}`);
       for (const imp of result.imports) imports.add(imp);
     }
   }
 
   const exportName = `${entityName}Table`;
-  const tableName = entity.table;
+  const tableName = entity.table ?? toTableName(entityName);
 
   const code = [
     `// Entity: ${entityName} (feature: ${featureName})`,
@@ -99,46 +100,50 @@ type FieldCodeResult = {
   imports: string[];
 };
 
-function generateFieldColumn(fieldName: string, field: FieldDefinition): FieldCodeResult | null {
+function generateFieldColumns(
+  fieldName: string,
+  field: FieldDefinition,
+  entity: EntityDefinition,
+): FieldCodeResult[] {
   const snakeName = toSnakeCase(fieldName);
 
   switch (field.type) {
     case "text":
     case "select":
-      return {
-        code: `${fieldName}: text("${snakeName}")`,
-        imports: ["text"],
-      };
+      return [{ code: `${fieldName}: text("${snakeName}")`, imports: ["text"] }];
     case "number":
-      return {
-        code: `${fieldName}: integer("${snakeName}")`,
-        imports: ["integer"],
-      };
+      return [{ code: `${fieldName}: integer("${snakeName}")`, imports: ["integer"] }];
+    case "money": {
+      const defaultCurrency = entity.defaultCurrency ?? "EUR";
+      return [
+        {
+          code: `${fieldName}: numeric("${snakeName}", { precision: 19, scale: 4 })`,
+          imports: ["numeric"],
+        },
+        {
+          code: `${fieldName}Currency: text("${snakeName}_currency").default("${defaultCurrency}")`,
+          imports: ["text"],
+        },
+      ];
+    }
     case "boolean":
       if (field.default !== undefined) {
-        return {
-          code: `${fieldName}: boolean("${snakeName}").default(${field.default}).notNull()`,
-          imports: ["boolean"],
-        };
+        return [
+          {
+            code: `${fieldName}: boolean("${snakeName}").default(${field.default}).notNull()`,
+            imports: ["boolean"],
+          },
+        ];
       }
-      return {
-        code: `${fieldName}: boolean("${snakeName}")`,
-        imports: ["boolean"],
-      };
+      return [{ code: `${fieldName}: boolean("${snakeName}")`, imports: ["boolean"] }];
     case "date":
-      return {
-        code: `${fieldName}: timestamp("${snakeName}")`,
-        imports: ["timestamp"],
-      };
+      return [{ code: `${fieldName}: timestamp("${snakeName}")`, imports: ["timestamp"] }];
     case "file":
     case "image":
-      return {
-        code: `${fieldName}: integer("${snakeName}")`,
-        imports: ["integer"],
-      };
+      return [{ code: `${fieldName}: integer("${snakeName}")`, imports: ["integer"] }];
     case "files":
     case "images":
-      return null; // Multi-file: no column, resolved via FileRef table
+      return [];
   }
 }
 
