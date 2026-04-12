@@ -1,7 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sql } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { JwtHelper } from "../../api/jwt";
@@ -14,8 +13,8 @@ import {
   defineFeature,
 } from "../../engine";
 import type { SessionUser } from "../../engine/types";
-import { createEntityTable, createTestDb, type TestDb } from "../../testing";
-import { FILE_REFS_TABLE_SQL } from "../file-ref-table";
+import { createEntityTable, createTestDb, pushTables, type TestDb } from "../../testing";
+import { fileRefsTable } from "../file-ref-table";
 import { createLocalProvider } from "../local-provider";
 import { parseMaxSize, validateFile } from "../types";
 
@@ -48,7 +47,7 @@ beforeAll(async () => {
   storagePath = await mkdtemp(join(tmpdir(), "kumiko-files-test-"));
 
   // Create tables
-  await testDb.db.execute(sql.raw(FILE_REFS_TABLE_SQL));
+  await pushTables(testDb.db, { fileRefsTable });
   await createEntityTable(testDb.db, testTenantEntity);
 
   const registry = createRegistry([tenantFeature]);

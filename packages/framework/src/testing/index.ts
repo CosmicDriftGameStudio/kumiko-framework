@@ -87,14 +87,6 @@ export { waitFor } from "./wait-for";
 
 // --- Helpers ---
 
-/** @deprecated Use createEntityTable instead — will be removed once core-features use Drizzle tables */
-export async function createTestTable(
-  db: ReturnType<typeof drizzle>,
-  tableSql: string,
-): Promise<void> {
-  await db.execute(sql.raw(tableSql));
-}
-
 /**
  * Syncs a Drizzle table to the database via drizzle-kit migration.
  * No manual SQL — Drizzle generates CREATE/ALTER TABLE statements.

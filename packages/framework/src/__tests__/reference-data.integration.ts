@@ -1,9 +1,8 @@
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { integer, table as pgTable, serial, text } from "../db/dialect";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
-import { createTestDb, type TestDb } from "../testing";
+import { createTestDb, pushTables, type TestDb } from "../testing";
 
 // --- Tables ---
 
@@ -26,23 +25,7 @@ let testDb: TestDb;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-
-  await testDb.db.execute(sql`
-    CREATE TABLE ref_countries (
-      code TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      region TEXT
-    )
-  `);
-
-  await testDb.db.execute(sql`
-    CREATE TABLE ref_statuses (
-      id SERIAL PRIMARY KEY,
-      slug TEXT NOT NULL UNIQUE,
-      label TEXT NOT NULL,
-      sort_order INTEGER DEFAULT 0
-    )
-  `);
+  await pushTables(testDb.db, { countryTable, statusTable });
 });
 
 afterAll(async () => {

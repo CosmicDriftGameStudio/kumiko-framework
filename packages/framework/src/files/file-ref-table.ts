@@ -14,18 +14,3 @@ export const fileRefsTable = pgTable("file_refs", {
   insertedById: integer("inserted_by_id"),
 });
 
-export const FILE_REFS_TABLE_SQL = `
-  CREATE TABLE IF NOT EXISTS file_refs (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER NOT NULL,
-    storage_key TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    mime_type TEXT NOT NULL,
-    size INTEGER NOT NULL,
-    entity_type TEXT,
-    entity_id INTEGER,
-    field_name TEXT,
-    inserted_at TIMESTAMP DEFAULT NOW() NOT NULL,
-    inserted_by_id INTEGER
-  )
-`;
