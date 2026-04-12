@@ -127,13 +127,13 @@ describe("scenario 2: scheduled job", () => {
   test("cron job fires via BullMQ scheduler", async () => {
     clearLog();
     await withRunner(async () => {
-      // BullMQ scheduler needs time to register the cron — give it longer windows
+      // BullMQ scheduler needs time to register the repeatable cron + first tick
       await waitFor(
         () => {
           const entries = jobLog.filter((e) => e.name === "test.scheduled");
           expect(entries.length).toBeGreaterThanOrEqual(1);
         },
-        { delays: [1000, 2000, 3000] },
+        { delays: [2000, 2000, 2000, 2000] },
       );
     });
   });
