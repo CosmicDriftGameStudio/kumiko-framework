@@ -60,7 +60,12 @@ export async function seedReferenceData(
           updated++;
         }
       } else {
-        await db.insert(table).values(row);
+        await db.insert(table).values({
+          ...row,
+          tenantId: 0, // Reference data is global — tenant 0 = system
+          version: 1,
+          insertedAt: new Date(),
+        });
         inserted++;
       }
     }
