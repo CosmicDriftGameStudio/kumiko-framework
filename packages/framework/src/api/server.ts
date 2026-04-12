@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import type { PipelineContext, Registry } from "../engine/types";
+import type { AppContext, Registry } from "../engine/types";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
-import { createLifecyclePipeline, type SystemHooks } from "../pipeline/lifecycle-pipeline";
+import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
 import { Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
@@ -15,7 +15,7 @@ import { createSseRoute } from "./sse-route";
 
 export type ServerOptions = {
   registry: Registry;
-  context: PipelineContext;
+  context: AppContext;
   jwtSecret: string;
   jwtIssuer?: string;
   dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
@@ -35,7 +35,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const jwt = createJwtHelper(options.jwtSecret, options.jwtIssuer);
   const sseBroker = options.sseBroker ?? createSseBroker();
 
-  const lifecycle = createLifecyclePipeline(options.registry, options.systemHooks);
+  const lifecycle = createLifecycleHooks(options.registry, options.systemHooks);
 
   const dispatcher = createDispatcher(options.registry, options.context, {
     ...options.dispatcherOptions,

@@ -1,6 +1,6 @@
 import type {
+  AppContext,
   HandlerContext,
-  PipelineContext,
   Registry,
   SessionUser,
   WriteResult,
@@ -15,7 +15,7 @@ export type TestDispatcher = {
   query(handlerName: string, payload: Record<string, unknown>, user: SessionUser): Promise<unknown>;
 };
 
-export function createTestDispatcher(registry: Registry, ctx: PipelineContext): TestDispatcher {
+export function createTestDispatcher(registry: Registry, ctx: AppContext): TestDispatcher {
   // In tests, db is always present — safe to treat as HandlerContext
   const handlerCtx = ctx as HandlerContext;
   return {

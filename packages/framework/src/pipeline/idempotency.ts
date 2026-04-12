@@ -1,4 +1,5 @@
 import type Redis from "ioredis";
+import { RedisKeys } from "./redis-keys";
 
 export type IdempotencyGuard = {
   check(requestId: string): Promise<string | null>;
@@ -10,7 +11,7 @@ export function createIdempotencyGuard(
   options: { ttlSeconds?: number } = {},
 ): IdempotencyGuard {
   const ttl = options.ttlSeconds ?? 300;
-  const prefix = "kumiko:idempotency:";
+  const prefix = RedisKeys.idempotency;
 
   return {
     async check(requestId) {

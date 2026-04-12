@@ -1,6 +1,6 @@
 import { type Job, Queue, Worker } from "bullmq";
 import { createSystemUser } from "../engine/system-user";
-import type { PipelineContext, Registry, SessionUser } from "../engine/types";
+import type { AppContext, Registry, SessionUser } from "../engine/types";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
@@ -26,7 +26,7 @@ export type JobRunner = {
 
 export type JobRunnerOptions = {
   registry: Registry;
-  context: PipelineContext;
+  context: AppContext;
   redisUrl: string;
   queueName?: string;
   getActiveTenantIds?: () => Promise<number[]>;
@@ -102,7 +102,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       0;
     const triggeredById = (rawData["_triggeredById"] as number | undefined) ?? null;
 
-    const jobContext: PipelineContext = {
+    const jobContext: AppContext = {
       ...context,
       systemUser: createSystemUser(tenantId),
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,

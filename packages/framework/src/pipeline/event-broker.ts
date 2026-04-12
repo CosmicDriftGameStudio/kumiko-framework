@@ -1,4 +1,5 @@
 import type Redis from "ioredis";
+import { RedisKeys } from "./redis-keys";
 
 export type BrokerEvent = {
   type: string;
@@ -13,7 +14,7 @@ export type EventBroker = {
 };
 
 export function createEventBroker(publisher: Redis, subscriber: Redis): EventBroker {
-  const channel = "kumiko:events";
+  const channel = RedisKeys.events;
   const handlers = new Map<string, Array<(event: BrokerEvent) => Promise<void>>>();
 
   return {

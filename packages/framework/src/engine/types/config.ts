@@ -1,7 +1,7 @@
 import type { ZodType } from "zod";
 import type { ConcurrencyMode, ConfigScope } from "../constants";
 import type { FieldDefinition } from "./fields";
-import type { PipelineContext } from "./handlers";
+import type { AppContext } from "./handlers";
 import type {
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -32,10 +32,7 @@ export type ConfigDefinition = {
 
 // --- Jobs ---
 
-export type JobHandlerFn = (
-  payload: Record<string, unknown>,
-  context: PipelineContext,
-) => Promise<void>;
+export type JobHandlerFn = (payload: Record<string, unknown>, context: AppContext) => Promise<void>;
 
 export type JobTrigger =
   | { readonly on: string }

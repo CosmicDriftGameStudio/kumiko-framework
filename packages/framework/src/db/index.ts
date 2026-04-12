@@ -12,5 +12,5 @@ export { createEncryptionProvider } from "./encryption";
 export type { PgAdapterOptions } from "./pg-adapter";
 export { createPgAdapter } from "./pg-adapter";
 export { seedReferenceData } from "./reference-data";
-export { buildBaseColumns, buildDrizzleTable, toTableName } from "./table-builder";
+export { buildBaseColumns, buildDrizzleTable, toSnakeCase, toTableName } from "./table-builder";
 export type { DbAdapter } from "./types";

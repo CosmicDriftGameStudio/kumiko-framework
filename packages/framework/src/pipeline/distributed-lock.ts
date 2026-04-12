@@ -1,12 +1,13 @@
 import type Redis from "ioredis";
 import { v4 as uuid } from "uuid";
+import { RedisKeys } from "./redis-keys";
 
 export type DistributedLock = {
   acquire(key: string, options?: { ttlSeconds?: number }): Promise<string | null>;
   release(key: string, token: string): Promise<boolean>;
 };
 
-export function createDistributedLock(redis: Redis, prefix = "kumiko:lock:"): DistributedLock {
+export function createDistributedLock(redis: Redis, prefix = RedisKeys.lock): DistributedLock {
   // Lua script for atomic check-and-delete (safe Redis server-side eval, not JS eval)
   const releaseScript = `
     if redis.call("get", KEYS[1]) == ARGV[1] then

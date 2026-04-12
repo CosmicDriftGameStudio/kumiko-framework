@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createRegistry, defineFeature } from "../../engine";
-import type { PipelineContext, Registry } from "../../engine/types";
+import type { AppContext, Registry } from "../../engine/types";
 import { createTestRedis, sleep, type TestRedis, waitFor } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
@@ -80,7 +80,7 @@ async function withRunner(
   fn: (runner: JobRunner, registry: Registry) => Promise<void>,
 ): Promise<void> {
   const registry = createRegistry([testFeature]);
-  const context: PipelineContext = {};
+  const context: AppContext = {};
   const runner = createJobRunner({
     registry,
     context,

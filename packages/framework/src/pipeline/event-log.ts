@@ -1,4 +1,5 @@
 import type Redis from "ioredis";
+import { RedisKeys } from "./redis-keys";
 
 export type EventLogEntry = {
   type: string;
@@ -18,7 +19,7 @@ export type EventLog = {
   recent(count?: number): Promise<EventLogEntry[]>;
 };
 
-export function createEventLog(redis: Redis, streamKey = "kumiko:events:log"): EventLog {
+export function createEventLog(redis: Redis, streamKey = RedisKeys.eventLog): EventLog {
   return {
     async append(entry) {
       const id = await redis.xadd(

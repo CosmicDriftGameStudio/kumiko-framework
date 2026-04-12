@@ -1,5 +1,5 @@
 export { createCascadeDeleteHook } from "./cascade-handler";
-export type { Dispatcher } from "./dispatcher";
+export type { Dispatcher, JobRunnerRef } from "./dispatcher";
 export { createDispatcher } from "./dispatcher";
 export type { DistributedLock } from "./distributed-lock";
 export { createDistributedLock } from "./distributed-lock";
@@ -9,8 +9,8 @@ export type { EventLog, EventLogEntry } from "./event-log";
 export { createEventLog } from "./event-log";
 export type { IdempotencyGuard } from "./idempotency";
 export { createIdempotencyGuard } from "./idempotency";
-export type { LifecyclePipeline, SystemHookDef, SystemHooks } from "./lifecycle-pipeline";
-export { createLifecyclePipeline } from "./lifecycle-pipeline";
+export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline";
+export { createLifecycleHooks } from "./lifecycle-pipeline";
 export type { AuditTrailEntry, AuditTrailStorage } from "./system-hooks";
 export {
   createAuditTrailDeleteHook,

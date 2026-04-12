@@ -93,7 +93,7 @@ describe("cascade delete: restrict", () => {
 
     await expect(
       cascadeHook.fn(
-        { id: dept.data.id, data: { tenantId: 1 }, entityName: "department" },
+        { kind: "delete", id: dept.data.id, data: { tenantId: 1 }, entityName: "department" },
         { db: testDb.db },
       ),
     ).rejects.toThrow(/delete_restricted/);
@@ -107,7 +107,7 @@ describe("cascade delete: restrict", () => {
 
     await expect(
       cascadeHook.fn(
-        { id: dept.data.id, data: { tenantId: 1 }, entityName: "department" },
+        { kind: "delete", id: dept.data.id, data: { tenantId: 1 }, entityName: "department" },
         { db: testDb.db },
       ),
     ).resolves.toBeUndefined();
@@ -131,7 +131,7 @@ describe("cascade delete: cascade", () => {
     const cascadeHook = createCascadeDeleteHook(registry, new Map([["session", sessionTable]]));
 
     await cascadeHook.fn(
-      { id: user.data.id, data: { tenantId: 1 }, entityName: "user" },
+      { kind: "delete", id: user.data.id, data: { tenantId: 1 }, entityName: "user" },
       { db: testDb.db },
     );
 

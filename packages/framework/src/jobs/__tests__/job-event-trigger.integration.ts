@@ -71,12 +71,11 @@ beforeAll(async () => {
     queueName: `kumiko-event-trigger-test-${Date.now()}`,
   });
 
-  const context = { jobRunner };
-
   const server = buildServer({
     registry,
-    context,
+    context: {},
     jwtSecret: JWT_SECRET,
+    dispatcherOptions: { jobRunner },
   });
   app = server.app;
   jwt = server.jwt;

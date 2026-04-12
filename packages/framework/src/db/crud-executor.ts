@@ -7,7 +7,7 @@ import type {
   WriteResult,
 } from "../engine/types";
 import type { SearchAdapter } from "../search/types";
-import { applyCursorQuery } from "./cursor";
+import { applyCursorQuery, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
 import type { CursorResult, DbConnection } from "./index";
 
@@ -258,6 +258,7 @@ export function createCrudExecutor(
       return {
         isSuccess: true,
         data: {
+          kind: "save",
           id: payload.id,
           data: restoredData,
           changes: { isDeleted: false },
@@ -292,9 +293,7 @@ export function createCrudExecutor(
       const limit = payload.limit ?? 50;
       const lastRow = rows[rows.length - 1] as Record<string, unknown> | undefined;
       const nextCursor =
-        rows.length === limit && lastRow
-          ? Buffer.from(String(lastRow["id"])).toString("base64url")
-          : null;
+        rows.length === limit && lastRow ? encodeCursor(lastRow["id"] as number) : null;
 
       return { rows: (rows as Record<string, unknown>[]).map(maskRow), nextCursor };
     },

@@ -235,20 +235,6 @@ describe("dispatcher event logging", () => {
   });
 });
 
-// --- Dispatch: SharedEvent + Broadcast ---
-
-describe("dispatcher.shareEvent and dispatcher.broadcast", () => {
-  test("shareEvent is a function", () => {
-    const dispatcher = createTestDispatcher();
-    expect(typeof dispatcher.shareEvent).toBe("function");
-  });
-
-  test("broadcast is a function", () => {
-    const dispatcher = createTestDispatcher();
-    expect(typeof dispatcher.broadcast).toBe("function");
-  });
-});
-
 // --- Mock helpers ---
 
 function createMockIdempotencyGuard() {

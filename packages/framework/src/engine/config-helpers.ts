@@ -1,3 +1,4 @@
+import type { ConfigScope } from "./constants";
 import type { ConfigKeyDefinition } from "./types";
 
 // --- Access Presets ---
@@ -20,18 +21,28 @@ type ConfigKeyOptions = {
   options?: readonly string[]; // for select type
 };
 
-// --- Factories ---
+// --- Scope Defaults ---
 
-export function createTenantConfig(
+const SCOPE_DEFAULTS: Record<ConfigScope, { write: readonly string[]; read: readonly string[] }> = {
+  tenant: { write: access.admin, read: access.all },
+  system: { write: access.system, read: access.admin },
+  user: { write: access.all, read: access.all },
+};
+
+// --- Factory ---
+
+function createConfigKey(
+  scope: ConfigScope,
   type: ConfigKeyDefinition["type"],
   opts: ConfigKeyOptions = {},
 ): ConfigKeyDefinition {
+  const defaults = SCOPE_DEFAULTS[scope];
   return {
     type,
-    scope: "tenant",
+    scope,
     access: {
-      write: opts.write ?? access.admin,
-      read: opts.read ?? access.all,
+      write: opts.write ?? defaults.write,
+      read: opts.read ?? defaults.read,
     },
     ...(opts.default !== undefined ? { default: opts.default } : {}),
     ...(opts.encrypted ? { encrypted: true } : {}),
@@ -39,34 +50,25 @@ export function createTenantConfig(
   };
 }
 
+// --- Public API (preserves existing signatures) ---
+
+export function createTenantConfig(
+  type: ConfigKeyDefinition["type"],
+  opts?: ConfigKeyOptions,
+): ConfigKeyDefinition {
+  return createConfigKey("tenant", type, opts);
+}
+
 export function createSystemConfig(
   type: ConfigKeyDefinition["type"],
-  opts: ConfigKeyOptions = {},
+  opts?: ConfigKeyOptions,
 ): ConfigKeyDefinition {
-  return {
-    type,
-    scope: "system",
-    access: {
-      write: opts.write ?? access.system,
-      read: opts.read ?? access.admin,
-    },
-    ...(opts.default !== undefined ? { default: opts.default } : {}),
-    ...(opts.options ? { options: opts.options } : {}),
-  };
+  return createConfigKey("system", type, opts);
 }
 
 export function createUserConfig(
   type: ConfigKeyDefinition["type"],
-  opts: ConfigKeyOptions = {},
+  opts?: ConfigKeyOptions,
 ): ConfigKeyDefinition {
-  return {
-    type,
-    scope: "user",
-    access: {
-      write: opts.write ?? access.all,
-      read: opts.read ?? access.all,
-    },
-    ...(opts.default !== undefined ? { default: opts.default } : {}),
-    ...(opts.options ? { options: opts.options } : {}),
-  };
+  return createConfigKey("user", type, opts);
 }

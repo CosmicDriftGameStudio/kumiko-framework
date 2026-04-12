@@ -1,27 +1,34 @@
 import { hasAccess } from "../engine/access";
-import { ErrorCodes } from "../engine/constants";
+import { type ErrorCode, ErrorCodes } from "../engine/constants";
 import { FrameworkError } from "../engine/errors";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import type {
-  DeleteContext,
+  AppContext,
   HandlerContext,
   HandlerRef,
-  PipelineContext,
+  LifecycleResult,
   Registry,
-  SaveContext,
   SessionUser,
   WriteResult,
 } from "../engine/types";
 import { runValidation } from "../engine/validation";
-import type { BrokerEvent } from "./event-broker";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
-import type { LifecyclePipeline } from "./lifecycle-pipeline";
+import type { LifecycleHooks } from "./lifecycle-pipeline";
+
+export type JobRunnerRef = {
+  handleEvent: (
+    eventName: string,
+    payload: Record<string, unknown>,
+    user?: SessionUser,
+  ) => Promise<void>;
+};
 
 export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;
   eventLog?: EventLog;
-  lifecycle?: LifecyclePipeline;
+  lifecycle?: LifecycleHooks;
+  jobRunner?: JobRunnerRef;
 };
 
 type HandlerType = string | HandlerRef;
@@ -39,29 +46,14 @@ export type Dispatcher = {
   ): Promise<WriteResult>;
   query(type: HandlerType, payload: unknown, user: SessionUser): Promise<unknown>;
   command(type: HandlerType, payload: unknown, user: SessionUser): Promise<void>;
-  shareEvent(event: BrokerEvent): Promise<void>;
-  broadcast(channel: string, event: BrokerEvent): Promise<void>;
 };
-
-function isSaveContext(data: unknown): data is SaveContext {
-  if (!data || typeof data !== "object") return false;
-  const obj = data as Record<string, unknown>;
-  return "id" in obj && "changes" in obj && "previous" in obj && "isNew" in obj;
-}
-
-function isDeleteContext(data: unknown): data is DeleteContext {
-  if (!data || typeof data !== "object") return false;
-  const obj = data as Record<string, unknown>;
-  // DeleteContext has id + data but NOT changes/previous/isNew
-  return "id" in obj && "data" in obj && !("isNew" in obj);
-}
 
 export function createDispatcher(
   registry: Registry,
-  context: PipelineContext,
+  context: AppContext,
   options: DispatcherOptions = {},
 ): Dispatcher {
-  const { idempotency, eventLog, lifecycle } = options;
+  const { idempotency, eventLog, lifecycle, jobRunner } = options;
 
   async function logEvent(type: string, payload: unknown, user: SessionUser): Promise<void> {
     if (!eventLog) return;
@@ -73,86 +65,94 @@ export function createDispatcher(
     });
   }
 
+  function buildHandlerContext(type: string, user: SessionUser): HandlerContext {
+    return { ...context, _userId: user.id, _handlerType: type } as HandlerContext;
+  }
+
+  async function runLifecycle(
+    type: string,
+    data: unknown,
+    handlerContext: HandlerContext,
+  ): Promise<void> {
+    if (!lifecycle || !data || typeof data !== "object" || !("kind" in data)) return;
+    const result = data as LifecycleResult;
+    if (result.kind === "save") {
+      await lifecycle.runPostSave(type, result, handlerContext);
+    } else if (result.kind === "delete") {
+      await lifecycle.runPreDelete(type, result, handlerContext);
+      await lifecycle.runPostDelete(type, result, handlerContext);
+    }
+  }
+
+  // Shared write pipeline: validates, executes handler, runs lifecycle + side effects.
+  // Used by both write() and command().
+  async function executeWrite(
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+  ): Promise<WriteResult> {
+    const handler = registry.getWriteHandler(type);
+    if (!handler) return { isSuccess: false, error: `${ErrorCodes.handlerNotFound}: ${type}` };
+
+    if (handler.access && !hasAccess(user, handler.access)) {
+      return { isSuccess: false, error: `${ErrorCodes.accessDenied}: ${type}` };
+    }
+
+    const parsed = handler.schema.safeParse(payload);
+    if (!parsed.success) {
+      return { isSuccess: false, error: `${ErrorCodes.validationFailed}: ${parsed.error.message}` };
+    }
+
+    const hookErrors = runValidation(registry, type, parsed.data as Record<string, unknown>);
+    if (hookErrors) {
+      const messages = hookErrors.map((e) => `${e.field}: ${e.error}`).join(", ");
+      return { isSuccess: false, error: `${ErrorCodes.validationHook}: ${messages}` };
+    }
+
+    // Field-level write access check
+    const entityName = registry.getHandlerEntity(type);
+    if (entityName) {
+      const entity = registry.getEntity(entityName);
+      if (entity) {
+        const fieldsToCheck = (parsed.data as Record<string, unknown>)["changes"] as
+          | Record<string, unknown>
+          | undefined;
+        const writePayload = fieldsToCheck ?? (parsed.data as Record<string, unknown>);
+        const deniedField = checkWriteFields(entity, writePayload, user);
+        if (deniedField) {
+          return { isSuccess: false, error: `${ErrorCodes.fieldAccessDenied}: ${deniedField}` };
+        }
+      }
+    }
+
+    const handlerContext = buildHandlerContext(type, user);
+    const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
+
+    if (result.isSuccess) {
+      await runLifecycle(type, result.data, handlerContext);
+
+      if (jobRunner) {
+        await jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>, user);
+      }
+    }
+
+    await logEvent(type, parsed.data, user);
+    return result;
+  }
+
   return {
     async write(typeOrRef, payload, user, requestId?) {
       const type = resolveType(typeOrRef);
+
       if (requestId && idempotency) {
         const cached = await idempotency.check(requestId);
         if (cached) return JSON.parse(cached) as WriteResult;
       }
 
-      const handler = registry.getWriteHandler(type);
-      if (!handler) return { isSuccess: false, error: `${ErrorCodes.handlerNotFound}: ${type}` };
-
-      if (handler.access && !hasAccess(user, handler.access)) {
-        return { isSuccess: false, error: `${ErrorCodes.accessDenied}: ${type}` };
-      }
-
-      const parsed = handler.schema.safeParse(payload);
-      if (!parsed.success) {
-        return {
-          isSuccess: false,
-          error: `${ErrorCodes.validationFailed}: ${parsed.error.message}`,
-        };
-      }
-
-      const hookErrors = runValidation(registry, type, parsed.data as Record<string, unknown>);
-      if (hookErrors) {
-        const messages = hookErrors.map((e) => `${e.field}: ${e.error}`).join(", ");
-        return { isSuccess: false, error: `${ErrorCodes.validationHook}: ${messages}` };
-      }
-
-      // Field-level write access check
-      const entityName = registry.getHandlerEntity(type);
-      if (entityName) {
-        const entity = registry.getEntity(entityName);
-        if (entity) {
-          const fieldsToCheck = (parsed.data as Record<string, unknown>)["changes"] as
-            | Record<string, unknown>
-            | undefined;
-          const writePayload = fieldsToCheck ?? (parsed.data as Record<string, unknown>);
-          const deniedField = checkWriteFields(entity, writePayload, user);
-          if (deniedField) {
-            return { isSuccess: false, error: `${ErrorCodes.fieldAccessDenied}: ${deniedField}` };
-          }
-        }
-      }
-
-      // Run handler with lifecycle context
-      const handlerContext = {
-        ...context,
-        _userId: user.id,
-        _handlerType: type,
-      } as HandlerContext;
-
-      const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
-
-      // Run lifecycle hooks based on result type
-      if (result.isSuccess && lifecycle) {
-        if (isSaveContext(result.data)) {
-          await lifecycle.runPostSave(type, result.data, handlerContext);
-        } else if (isDeleteContext(result.data)) {
-          await lifecycle.runPreDelete(type, result.data, handlerContext);
-          await lifecycle.runPostDelete(type, result.data, handlerContext);
-        }
-      }
+      const result = await executeWrite(type, payload, user);
 
       if (requestId && idempotency) {
         await idempotency.store(requestId, result);
-      }
-
-      await logEvent(type, parsed.data, user);
-
-      // Trigger event-based jobs with user context
-      if (result.isSuccess && context["jobRunner"]) {
-        const jobRunner = context["jobRunner"] as {
-          handleEvent: (
-            eventName: string,
-            payload: Record<string, unknown>,
-            user?: SessionUser,
-          ) => Promise<void>;
-        };
-        await jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>, user);
       }
 
       return result;
@@ -204,50 +204,15 @@ export function createDispatcher(
 
     async command(typeOrRef, payload, user) {
       const type = resolveType(typeOrRef);
-      const handler = registry.getWriteHandler(type);
-      if (!handler) throw new FrameworkError(ErrorCodes.handlerNotFound, type);
+      const result = await executeWrite(type, payload, user);
 
-      if (handler.access && !hasAccess(user, handler.access)) {
-        throw new FrameworkError(ErrorCodes.accessDenied, type);
+      if (!result.isSuccess) {
+        // Error format: "error_code: detail" — extract code for proper HTTP status
+        const colonIdx = result.error.indexOf(": ");
+        const code = colonIdx > 0 ? result.error.slice(0, colonIdx) : result.error;
+        const detail = colonIdx > 0 ? result.error.slice(colonIdx + 2) : undefined;
+        throw new FrameworkError(code as ErrorCode, detail);
       }
-
-      const parsed = handler.schema.safeParse(payload);
-      if (!parsed.success) {
-        throw new FrameworkError(ErrorCodes.validationFailed, parsed.error.message);
-      }
-
-      const hookErrors = runValidation(registry, type, parsed.data as Record<string, unknown>);
-      if (hookErrors) {
-        const messages = hookErrors.map((e) => `${e.field}: ${e.error}`).join(", ");
-        throw new FrameworkError(ErrorCodes.validationHook, messages);
-      }
-
-      const handlerContext = {
-        ...context,
-        _userId: user.id,
-        _handlerType: type,
-      } as HandlerContext;
-
-      const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
-
-      if (result.isSuccess && lifecycle) {
-        if (isSaveContext(result.data)) {
-          await lifecycle.runPostSave(type, result.data, handlerContext);
-        } else if (isDeleteContext(result.data)) {
-          await lifecycle.runPreDelete(type, result.data, handlerContext);
-          await lifecycle.runPostDelete(type, result.data, handlerContext);
-        }
-      }
-
-      await logEvent(type, parsed.data, user);
-    },
-
-    async shareEvent(_event) {
-      throw new Error("shareEvent requires eventBroker — not configured");
-    },
-
-    async broadcast(_channel, _event) {
-      throw new Error("broadcast requires eventBroker — not configured");
     },
   };
 }

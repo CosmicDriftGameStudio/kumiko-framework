@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { ReferenceDataDef } from "../engine/types";
 import type { DbConnection } from "./connection";
 import type { TableColumns } from "./dialect";
+import { toSnakeCase } from "./table-builder";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
@@ -72,8 +73,4 @@ export async function seedReferenceData(
   }
 
   return { inserted, updated };
-}
-
-function toSnakeCase(str: string): string {
-  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }

@@ -149,6 +149,7 @@ describe("postSave hook behavior", () => {
 
     await hook(
       {
+        kind: "save",
         id: 42,
         data: { email: "new@test.de", status: "Started" },
         changes: { status: "Started" },
@@ -176,6 +177,7 @@ describe("postSave hook behavior", () => {
     // First time: Draft → Started → send email
     await hook(
       {
+        kind: "save",
         id: 1,
         data: {},
         changes: { status: "Started" },
@@ -190,6 +192,7 @@ describe("postSave hook behavior", () => {
     shouldSendEmail = false;
     await hook(
       {
+        kind: "save",
         id: 1,
         data: {},
         changes: { status: "Started" },
@@ -209,7 +212,10 @@ describe("preDelete hook behavior", () => {
       receivedData = payload.data as Record<string, unknown>;
     };
 
-    await hook({ id: 1, data: { email: "delete-me@test.de", hasOrders: true } }, {});
+    await hook(
+      { kind: "delete", id: 1, data: { email: "delete-me@test.de", hasOrders: true } },
+      {},
+    );
     expect(receivedData?.["email"]).toBe("delete-me@test.de");
   });
 
@@ -218,7 +224,7 @@ describe("preDelete hook behavior", () => {
       if (payload.data["hasOrders"]) throw new Error("has_dependencies");
     };
 
-    await expect(hook({ id: 1, data: { hasOrders: true } }, {})).rejects.toThrow(
+    await expect(hook({ kind: "delete", id: 1, data: { hasOrders: true } }, {})).rejects.toThrow(
       "has_dependencies",
     );
   });
