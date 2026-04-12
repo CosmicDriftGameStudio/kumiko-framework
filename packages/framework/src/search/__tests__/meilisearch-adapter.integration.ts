@@ -1,4 +1,4 @@
-import { MeiliSearch } from "meilisearch";
+import { Meilisearch } from "meilisearch";
 import { v4 as uuid } from "uuid";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createMeilisearchAdapter } from "../meilisearch-adapter";
@@ -11,11 +11,11 @@ const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
 const TENANT = Math.floor(Math.random() * 100000);
 
 let adapter: SearchAdapter;
-let client: MeiliSearch;
+let client: Meilisearch;
 let _indexName: string;
 
 beforeAll(async () => {
-  client = new MeiliSearch({ host: MEILI_URL, apiKey: MEILI_KEY });
+  client = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });
   adapter = createMeilisearchAdapter({
     url: MEILI_URL,
     apiKey: MEILI_KEY,

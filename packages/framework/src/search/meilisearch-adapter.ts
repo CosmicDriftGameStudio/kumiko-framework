@@ -1,4 +1,4 @@
-import { MeiliSearch } from "meilisearch";
+import { Meilisearch } from "meilisearch";
 import type { SearchAdapter, SearchResult } from "./types";
 
 export type MeilisearchAdapterOptions = {
@@ -16,7 +16,7 @@ function docId(entityType: string, entityId: number): string {
 }
 
 export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): SearchAdapter {
-  const client = new MeiliSearch({ host: options.url, apiKey: options.apiKey });
+  const client = new Meilisearch({ host: options.url, apiKey: options.apiKey });
   const prefix = options.indexPrefix ?? "kumiko_";
 
   return {
@@ -63,7 +63,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       const results = await index.search(query, searchParams);
 
       return results.hits.map(
-        (hit): SearchResult => ({
+        (hit: Record<string, unknown>): SearchResult => ({
           entityType: hit["_type"] as string,
           entityId: hit["_entityId"] as number,
         }),
