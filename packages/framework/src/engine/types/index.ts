@@ -45,12 +45,12 @@ export type {
 export { DEFAULT_CURRENCIES } from "./fields";
 export type {
   AccessRule,
+  AppContext,
   CrudRefs,
   EventDef,
   HandlerContext,
   HandlerRef,
   JobContext,
-  PipelineContext,
   QueryEvent,
   QueryHandlerDef,
   QueryHandlerFn,
@@ -65,6 +65,7 @@ export type {
   EntityHookMap,
   HookMap,
   LifecycleHookFn,
+  LifecycleResult,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,

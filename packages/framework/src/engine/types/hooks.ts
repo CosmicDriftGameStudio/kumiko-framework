@@ -1,4 +1,4 @@
-import type { PipelineContext } from "./handlers";
+import type { AppContext } from "./handlers";
 
 // --- Validation ---
 
@@ -14,6 +14,7 @@ export type ValidationHookFn = (
 // --- Save/Delete Context (what hooks receive) ---
 
 export type SaveContext = {
+  readonly kind: "save";
   readonly id: number;
   readonly data: Readonly<Record<string, unknown>>;
   readonly changes: Readonly<Record<string, unknown>>;
@@ -23,30 +24,33 @@ export type SaveContext = {
 };
 
 export type DeleteContext = {
+  readonly kind: "delete";
   readonly id: number;
   readonly data: Readonly<Record<string, unknown>>;
   readonly entityName?: string | undefined;
 };
 
+export type LifecycleResult = SaveContext | DeleteContext;
+
 // --- Lifecycle Hooks ---
 
 export type PreSaveHookFn = (
   changes: Record<string, unknown>,
-  context: PipelineContext & {
+  context: AppContext & {
     readonly previous: Readonly<Record<string, unknown>>;
     readonly isNew: boolean;
   },
 ) => Promise<Record<string, unknown>>;
 
-export type PostSaveHookFn = (result: SaveContext, context: PipelineContext) => Promise<void>;
+export type PostSaveHookFn = (result: SaveContext, context: AppContext) => Promise<void>;
 
-export type PreDeleteHookFn = (payload: DeleteContext, context: PipelineContext) => Promise<void>;
+export type PreDeleteHookFn = (payload: DeleteContext, context: AppContext) => Promise<void>;
 
-export type PostDeleteHookFn = (payload: DeleteContext, context: PipelineContext) => Promise<void>;
+export type PostDeleteHookFn = (payload: DeleteContext, context: AppContext) => Promise<void>;
 
 export type PreQueryHookFn = (
   payload: Record<string, unknown>,
-  context: PipelineContext,
+  context: AppContext,
 ) => Promise<Record<string, unknown>>;
 
 export type LifecycleHookFn =

@@ -43,6 +43,7 @@ export { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "./system-user";
 // Types
 export type {
   AccessRule,
+  AppContext,
   BelongsToRelation,
   BooleanFieldDef,
   ConcurrencyMode,
@@ -73,7 +74,6 @@ export type {
   ManyToManyRelation,
   NumberFieldDef,
   OnDeleteStrategy,
-  PipelineContext,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
