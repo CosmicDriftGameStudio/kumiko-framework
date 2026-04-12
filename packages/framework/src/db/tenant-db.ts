@@ -36,9 +36,10 @@ type TenantSelect = {
 };
 
 type TenantSelectQuery = PromiseLike<Record<string, unknown>[]> & {
-  where(condition: SQL): TenantSelectQuery;
+  where(condition: SQL | undefined): TenantSelectQuery;
   limit(n: number): TenantSelectQuery;
-  orderBy(...columns: SQL[]): TenantSelectQuery;
+  // biome-ignore lint/suspicious/noExplicitAny: Drizzle columns and SQL both valid
+  orderBy(...columns: any[]): TenantSelectQuery;
 };
 
 type TenantInsert = {
@@ -54,7 +55,7 @@ type TenantUpdate = {
 };
 
 type TenantUpdateSet = PromiseLike<void> & {
-  where(condition: SQL): TenantUpdateWhere;
+  where(condition: SQL | undefined): TenantUpdateWhere;
   returning(): PromiseLike<Record<string, unknown>[]>;
 };
 
@@ -63,7 +64,7 @@ type TenantUpdateWhere = PromiseLike<void> & {
 };
 
 type TenantDelete = {
-  where(condition: SQL): PromiseLike<void>;
+  where(condition: SQL | undefined): PromiseLike<void>;
 };
 
 export function createTenantDb(
