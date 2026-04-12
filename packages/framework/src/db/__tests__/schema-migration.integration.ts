@@ -8,10 +8,10 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine";
-import { toTableName } from "../table-builder";
 import type { FeatureDefinition } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../testing";
 import { generateSchemaSource } from "../schema-generator";
+import { toTableName } from "../table-builder";
 
 /**
  * Integration tests for the schema migration workflow.

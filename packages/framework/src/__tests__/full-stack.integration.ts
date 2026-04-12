@@ -150,15 +150,15 @@ describe("full stack: CRUD", () => {
       },
       adminUser,
     );
-    expect(data.isNew).toBe(true);
+    expect(data["isNew"]).toBe(true);
 
     const detail = await stack.http.queryOk<Record<string, unknown>>(
       "users.user.detail",
-      { id: data.id },
+      { id: data["id"] },
       adminUser,
     );
-    expect(detail.email).toBe("marc@test.de");
-    expect(detail.version).toBe(1);
+    expect(detail["email"]).toBe("marc@test.de");
+    expect(detail["version"]).toBe(1);
   });
 
   test("soft delete removes from queries", async () => {
@@ -173,7 +173,7 @@ describe("full stack: CRUD", () => {
     const del = await stack.http.writeOk(
       "users.user.delete",
       {
-        id: created.id,
+        id: created["id"],
       },
       adminUser,
     );
@@ -181,7 +181,7 @@ describe("full stack: CRUD", () => {
 
     const detail = await stack.http.queryOk<null>(
       "users.user.detail",
-      { id: created.id },
+      { id: created["id"] },
       adminUser,
     );
     expect(detail).toBeNull();
@@ -198,12 +198,12 @@ describe("full stack: CRUD", () => {
 
     stack.events.reset();
 
-    await stack.http.writeOk("users.user.delete", { id: created.id }, adminUser);
+    await stack.http.writeOk("users.user.delete", { id: created["id"] }, adminUser);
 
     const deleteEntry = stack.events.audit.find((e) => e.action === "users.user.delete");
     expect(deleteEntry).toBeDefined();
     expect(deleteEntry?.entityType).toBe("user");
-    expect(deleteEntry?.entityId).toBe(created.id);
+    expect(deleteEntry?.entityId).toBe(created["id"]);
     expect(deleteEntry?.isNew).toBe(false);
   });
 });
@@ -227,17 +227,17 @@ describe("full stack: SaveContext changes + previous", () => {
     const updated = await stack.http.writeOk(
       "users.user.update",
       {
-        id: created.id,
+        id: created["id"],
         changes: { firstName: "After" },
       },
       adminUser,
     );
 
-    expect(updated.isNew).toBe(false);
-    expect(updated.changes).toEqual({ firstName: "After" });
-    expect(updated.previous["firstName"]).toBe("Before");
-    expect(updated.previous["lastName"]).toBe("Keep");
-    expect(updated.data["firstName"]).toBe("After");
+    expect(updated["isNew"]).toBe(false);
+    expect(updated["changes"]).toEqual({ firstName: "After" });
+    expect((updated["previous"] as Record<string, unknown>)["firstName"]).toBe("Before");
+    expect((updated["previous"] as Record<string, unknown>)["lastName"]).toBe("Keep");
+    expect((updated["data"] as Record<string, unknown>)["firstName"]).toBe("After");
   });
 });
 
@@ -258,7 +258,7 @@ describe("full stack: optimistic locking", () => {
     await stack.http.writeOk(
       "users.user.update",
       {
-        id: created.id,
+        id: created["id"],
         version: 1,
         changes: { firstName: "V2" },
       },
@@ -268,7 +268,7 @@ describe("full stack: optimistic locking", () => {
     const error = await stack.http.writeErr(
       "users.user.update",
       {
-        id: created.id,
+        id: created["id"],
         version: 1,
         changes: { firstName: "Stale" },
       },
@@ -330,7 +330,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     await stack.http.writeOk(
       "users.user.update",
       {
-        id: created.id,
+        id: created["id"],
         changes: { firstName: "New" },
       },
       adminUser,
@@ -371,7 +371,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     await stack.http.writeOk(
       "users.user.update",
       {
-        id: created.id,
+        id: created["id"],
         changes: { firstName: "SSE" },
       },
       adminUser,
@@ -433,7 +433,7 @@ describe("full stack: auth + access + validation", () => {
 
     const detail = await stack.http.queryOk<null>(
       "users.user.detail",
-      { id: created.id },
+      { id: created["id"] },
       otherTenantAdmin,
     );
     expect(detail).toBeNull();
@@ -557,7 +557,7 @@ describe("full stack: idempotency", () => {
       adminUser,
       requestId,
     );
-    const firstId = res1.id;
+    const firstId = res1["id"];
 
     // Same requestId → should return cached result, NOT create a second user
     const res2 = await stack.http.writeOk(
@@ -568,7 +568,7 @@ describe("full stack: idempotency", () => {
       adminUser,
       requestId,
     );
-    expect(res2.id).toBe(firstId);
+    expect(res2["id"]).toBe(firstId);
   });
 
   test("different requestIds create separate records", async () => {
@@ -590,7 +590,7 @@ describe("full stack: idempotency", () => {
       "idem-b",
     );
 
-    expect(res1.id).not.toBe(res2.id);
+    expect(res1["id"]).not.toBe(res2["id"]);
   });
 });
 

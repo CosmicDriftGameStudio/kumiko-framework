@@ -3,7 +3,13 @@ import { z } from "zod";
 import { createTestUser } from "../../testing/fixtures";
 import { hasAccess } from "../access";
 import { defineQueryHandler, defineWriteHandler } from "../define-handler";
-import { createBooleanField, createEntity, createSelectField, createTextField } from "../factories";
+import {
+  createBooleanField,
+  createEntity,
+  createMoneyField,
+  createSelectField,
+  createTextField,
+} from "../factories";
 import { createApp, createRegistry, defineFeature } from "../index";
 
 // --- defineFeature ---
@@ -555,6 +561,79 @@ describe("createApp", () => {
 
     const app2 = createApp({ roles: ["Admin"], features: [feature], softDelete: false });
     expect(app2.softDeleteDefault).toBe(false);
+  });
+
+  test("currencies includes defaults and custom additions", () => {
+    const feature = defineFeature("test", () => {});
+    const app = createApp({
+      roles: ["Admin"],
+      features: [feature],
+      currencies: ["BHD", "SAR"],
+    });
+    expect(app.currencies).toContain("EUR");
+    expect(app.currencies).toContain("BHD");
+    expect(app.currencies).toContain("SAR");
+  });
+
+  test("rejects money field without defaultCurrency on entity", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: { total: createMoneyField({ required: true }) },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      "has money fields but no defaultCurrency",
+    );
+  });
+
+  test("rejects unknown defaultCurrency", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: { total: createMoneyField() },
+          defaultCurrency: "FAKE",
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'defaultCurrency "FAKE" which is not in the currencies list',
+    );
+  });
+
+  test("accepts money field with valid defaultCurrency", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: { total: createMoneyField({ required: true }) },
+          defaultCurrency: "EUR",
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
+  });
+
+  test("accepts custom currency when added to app config", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: { total: createMoneyField() },
+          defaultCurrency: "BHD",
+        }),
+      );
+    });
+    expect(() =>
+      createApp({ roles: ["Admin"], features: [feature], currencies: ["BHD"] }),
+    ).not.toThrow();
   });
 });
 

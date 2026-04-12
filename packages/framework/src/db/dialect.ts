@@ -8,6 +8,7 @@ export type {
 export {
   boolean,
   integer,
+  numeric,
   pgTable as table,
   serial,
   text,

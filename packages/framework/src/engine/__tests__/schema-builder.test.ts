@@ -7,6 +7,7 @@ import {
   createFilesField,
   createImageField,
   createImagesField,
+  createMoneyField,
   createNumberField,
   createSelectField,
   createTextField,
@@ -137,6 +138,49 @@ describe("buildInsertSchema", () => {
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ photos: [10, 20] }).success).toBe(true);
     expect(schema.safeParse({ photos: "nope" }).success).toBe(false);
+  });
+
+  test("money field accepts { amount, currency } object", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { price: createMoneyField({ required: true }) },
+      defaultCurrency: "EUR",
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ price: { amount: 1250, currency: "EUR" } }).success).toBe(true);
+    expect(schema.safeParse({ price: { amount: 99.99, currency: "USD" } }).success).toBe(true);
+  });
+
+  test("money field rejects invalid currency", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { price: createMoneyField() },
+      defaultCurrency: "EUR",
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ price: { amount: 100, currency: "FAKE" } }).success).toBe(false);
+  });
+
+  test("money field rejects plain number", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { price: createMoneyField() },
+      defaultCurrency: "EUR",
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ price: 1250 }).success).toBe(false);
+  });
+
+  test("money field with custom currencies", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { price: createMoneyField() },
+      defaultCurrency: "BHD",
+    });
+    const customCurrencies = ["EUR", "USD", "BHD"] as const;
+    const schema = buildInsertSchema(entity, customCurrencies);
+    expect(schema.safeParse({ price: { amount: 500, currency: "BHD" } }).success).toBe(true);
+    expect(schema.safeParse({ price: { amount: 500, currency: "GBP" } }).success).toBe(false);
   });
 
   test("required text rejects empty string", () => {

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { FrameworkError } from "../engine/errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { Routes } from "./api-constants";
@@ -23,7 +24,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       return c.json({ data: result });
     } catch (e) {
       if (e instanceof FrameworkError) {
-        return c.json({ error: e.message, code: e.code }, e.httpStatus);
+        return c.json({ error: e.message, code: e.code }, e.httpStatus as ContentfulStatusCode);
       }
       const message = e instanceof Error ? e.message : "unknown_error";
       return c.json({ error: message }, 500);
@@ -39,7 +40,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       return c.json({ ok: true }, 202);
     } catch (e) {
       if (e instanceof FrameworkError) {
-        return c.json({ error: e.message, code: e.code }, e.httpStatus);
+        return c.json({ error: e.message, code: e.code }, e.httpStatus as ContentfulStatusCode);
       }
       const message = e instanceof Error ? e.message : "unknown_error";
       return c.json({ error: message }, 500);

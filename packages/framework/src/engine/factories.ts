@@ -6,6 +6,7 @@ import type {
   FilesFieldDef,
   ImageFieldDef,
   ImagesFieldDef,
+  MoneyFieldDef,
   NumberFieldDef,
   SelectFieldDef,
   TextFieldDef,
@@ -49,6 +50,13 @@ export function createNumberField(
   return {
     type: "number",
     required: false,
+    ...overrides,
+  };
+}
+
+export function createMoneyField(overrides?: Partial<Omit<MoneyFieldDef, "type">>): MoneyFieldDef {
+  return {
+    type: "money",
     ...overrides,
   };
 }

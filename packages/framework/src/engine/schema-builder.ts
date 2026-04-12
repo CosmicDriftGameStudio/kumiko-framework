@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { EntityDefinition, FieldDefinition } from "./types";
+import { DEFAULT_CURRENCIES } from "./types";
 
-function fieldToZod(field: FieldDefinition): z.ZodTypeAny {
+function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.ZodTypeAny {
   switch (field.type) {
     case "text": {
       let schema = z.string();
@@ -25,6 +26,14 @@ function fieldToZod(field: FieldDefinition): z.ZodTypeAny {
       const schema = z.number();
       return field.default !== undefined ? schema.default(field.default) : schema;
     }
+    case "money": {
+      const [first, ...rest] = currencies;
+      if (!first) throw new Error("No currencies configured");
+      return z.object({
+        amount: z.number(),
+        currency: z.enum([first, ...rest]),
+      });
+    }
     case "date": {
       return z.string().date();
     }
@@ -43,11 +52,12 @@ function fieldToZod(field: FieldDefinition): z.ZodTypeAny {
 
 export function buildInsertSchema(
   entity: EntityDefinition,
+  currencies: readonly string[] = [...DEFAULT_CURRENCIES],
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {
-    const zodField = fieldToZod(field);
+    const zodField = fieldToZod(field, currencies);
     const hasDefault = "default" in field && field.default !== undefined;
     const isRequired = "required" in field && field.required === true;
     shape[name] = isRequired || hasDefault ? zodField : zodField.optional();
@@ -58,11 +68,12 @@ export function buildInsertSchema(
 
 export function buildUpdateSchema(
   entity: EntityDefinition,
+  currencies: readonly string[] = [...DEFAULT_CURRENCIES],
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {
-    shape[name] = fieldToZod(field).optional();
+    shape[name] = fieldToZod(field, currencies).optional();
   }
 
   return z.object(shape);

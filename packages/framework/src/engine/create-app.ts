@@ -1,17 +1,20 @@
 import { validateBoot } from "./boot-validator";
 import { createRegistry } from "./registry";
 import type { FeatureDefinition, Registry } from "./types";
+import { DEFAULT_CURRENCIES } from "./types";
 
 export type AppConfig = {
   roles: readonly string[];
   features: readonly FeatureDefinition[];
   softDelete?: boolean; // Global default for all entities (default: true)
+  currencies?: readonly string[]; // Extends DEFAULT_CURRENCIES
 };
 
 export type App = {
   registry: Registry;
   roles: readonly string[];
   softDeleteDefault: boolean;
+  currencies: readonly string[];
 };
 
 export function createApp(config: AppConfig): App {
@@ -62,6 +65,26 @@ export function createApp(config: AppConfig): App {
 
   const softDeleteDefault = config.softDelete ?? true;
 
+  // Merge default + custom currencies, deduplicate
+  const currencies = [...new Set([...DEFAULT_CURRENCIES, ...(config.currencies ?? [])])];
+
+  // Validate defaultCurrency on entities that have money fields
+  for (const feature of config.features) {
+    for (const [entityName, entity] of Object.entries(feature.entities)) {
+      const hasMoneyField = Object.values(entity.fields).some((f) => f.type === "money");
+      if (entity.defaultCurrency && !currencies.includes(entity.defaultCurrency)) {
+        throw new Error(
+          `Entity "${entityName}" in feature "${feature.name}" has defaultCurrency "${entity.defaultCurrency}" which is not in the currencies list. Available: ${currencies.join(", ")}`,
+        );
+      }
+      if (hasMoneyField && !entity.defaultCurrency) {
+        throw new Error(
+          `Entity "${entityName}" in feature "${feature.name}" has money fields but no defaultCurrency. Set defaultCurrency on the entity definition.`,
+        );
+      }
+    }
+  }
+
   // Run boot-time validation before creating registry
   validateBoot(config.features);
 
@@ -69,5 +92,6 @@ export function createApp(config: AppConfig): App {
     registry: createRegistry(config.features),
     roles: config.roles,
     softDeleteDefault,
+    currencies,
   };
 }
