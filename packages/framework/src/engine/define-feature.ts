@@ -1,4 +1,5 @@
 import type { ZodType, z } from "zod";
+import { LifecycleHookTypes } from "./constants";
 import { buildCrudHandlers } from "./crud-builder";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 import type {
@@ -30,13 +31,7 @@ import type {
   WriteHandlerFn,
 } from "./types";
 
-const LIFECYCLE_TYPES: readonly LifecycleHookType[] = [
-  "preSave",
-  "postSave",
-  "preDelete",
-  "postDelete",
-  "preQuery",
-];
+const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
 
 export function defineFeature(
   name: string,
@@ -162,7 +157,7 @@ export function defineFeature(
     },
 
     hook(
-      type: string,
+      type: LifecycleHookType | "validation",
       hookName: string | readonly string[],
       fn: LifecycleHookFn | ValidationHookFn,
     ): void {
@@ -175,7 +170,7 @@ export function defineFeature(
         return;
       }
 
-      const hookType = type as LifecycleHookType;
+      const hookType = type;
       if (!lifecycleHooks[hookType]) lifecycleHooks[hookType] = {};
       for (const n of names) {
         if (!lifecycleHooks[hookType][n]) lifecycleHooks[hookType][n] = [];
@@ -183,7 +178,11 @@ export function defineFeature(
       }
     },
 
-    entityHook(type: string, entityName: string, fn: LifecycleHookFn): void {
+    entityHook(
+      type: "postSave" | "preDelete" | "postDelete",
+      entityName: string,
+      fn: LifecycleHookFn,
+    ): void {
       if (type === "postSave") {
         if (!entityPostSave[entityName]) entityPostSave[entityName] = [];
         entityPostSave[entityName].push(fn as PostSaveHookFn);
