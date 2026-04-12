@@ -121,7 +121,10 @@ describe("schema migration workflows", () => {
 
   test("workflow 2: add field to existing entity → ADD COLUMN", async () => {
     // Initial entity with just email
-    const initialEntity = createEntity({ table: "wf2_users", fields: { email: createTextField() } });
+    const initialEntity = createEntity({
+      table: "wf2_users",
+      fields: { email: createTextField() },
+    });
     await pushTables(testDb.db, { user: buildDrizzleTable("user", initialEntity) });
 
     // Developer adds a new field
@@ -144,7 +147,7 @@ describe("schema migration workflows", () => {
     expect(source).toContain('displayName: text("display_name")');
 
     // Push updated schema — drizzle-kit generates ALTER TABLE ADD COLUMN
-    const updatedEntity = feature.entities["user"]!;
+    const updatedEntity = feature.entities["user"] as import("../../engine/types").EntityDefinition;
     await pushTables(
       testDb.db,
       { user: buildDrizzleTable("user", updatedEntity) },
@@ -159,7 +162,10 @@ describe("schema migration workflows", () => {
 
   test("workflow 3: add required boolean field with default → safe ADD COLUMN", async () => {
     // Initial entity with just name
-    const initialEntity = createEntity({ table: "wf3_projects", fields: { name: createTextField() } });
+    const initialEntity = createEntity({
+      table: "wf3_projects",
+      fields: { name: createTextField() },
+    });
     const initialTable = buildDrizzleTable("project", initialEntity);
     await pushTables(testDb.db, { project: initialTable });
 

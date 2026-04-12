@@ -13,4 +13,3 @@ export const fileRefsTable = pgTable("file_refs", {
   insertedAt: timestamp("inserted_at").defaultNow().notNull(),
   insertedById: integer("inserted_by_id"),
 });
-
