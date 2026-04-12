@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
+import { z } from "zod";
 import { createEntity, createRegistry, defineFeature } from "../index";
 import type { PostSaveHookFn, PreDeleteHookFn, PreSaveHookFn, SaveContext } from "../types";
+
+const stubHandler = async () => ({ isSuccess: true as const, data: null });
 
 describe("lifecycle hook registration", () => {
   test("preSave hooks are registered", () => {
@@ -66,6 +69,7 @@ describe("lifecycle hooks in registry", () => {
   test("merges preSave hooks within same feature", () => {
     const f1 = defineFeature("a", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.writeHandler("user", z.object({}), stubHandler);
       r.hook("preSave", "user", async (changes) => changes);
       r.hook("preSave", "user", async (changes) => changes);
     });
@@ -77,10 +81,12 @@ describe("lifecycle hooks in registry", () => {
   test("cross-feature hooks use full prefixed name", () => {
     const f1 = defineFeature("a", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.writeHandler("user", z.object({}), stubHandler);
       r.hook("postSave", "user", async () => {});
     });
     // Feature b hooks into a.user by using the full prefixed name
     const f2 = defineFeature("b", (r) => {
+      r.writeHandler("a.user", z.object({}), stubHandler);
       r.hook("postSave", "a.user", async () => {});
       r.hook("postSave", "a.user", async () => {});
     });

@@ -145,7 +145,11 @@ function validateExtensionUsages(
 ): void {
   for (const usage of feature.extensionUsages) {
     const providerFeature = extensionProviders.get(usage.extensionName);
-    if (!providerFeature) continue;
+    if (!providerFeature) {
+      throw new Error(
+        `Feature "${feature.name}" uses extension "${usage.extensionName}" on entity "${usage.entityName}" but no feature defines that extension`,
+      );
+    }
 
     const allDeps = [...feature.requires, ...feature.optionalRequires];
     if (!allDeps.includes(providerFeature)) {

@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import { z } from "zod";
 import {
   createEntity,
   createRegistry,
@@ -13,6 +14,8 @@ import { createLifecycleHooks, type SystemHooks } from "../lifecycle-pipeline";
 function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHookFn[] }) {
   const feature = defineFeature("test", (r) => {
     r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+    // Dummy handler so hook targets resolve (boot validation requires it)
+    r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }));
     if (hooks?.preSave) {
       for (const h of hooks.preSave) r.hook("preSave", "user", h);
     }

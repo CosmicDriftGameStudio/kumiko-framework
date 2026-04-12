@@ -313,6 +313,48 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
+  // Validate: lifecycle hook targets must reference existing handlers
+  const allHandlers = new Set([...writeHandlerMap.keys(), ...queryHandlerMap.keys()]);
+  const lifecycleHookMaps = [
+    { map: preSaveHooks, phase: "preSave" },
+    { map: postSaveHooks, phase: "postSave" },
+    { map: preDeleteHooks, phase: "preDelete" },
+    { map: postDeleteHooks, phase: "postDelete" },
+    { map: preQueryHooks, phase: "preQuery" },
+  ] as const;
+
+  for (const { map, phase } of lifecycleHookMaps) {
+    for (const hookTarget of map.keys()) {
+      if (!allHandlers.has(hookTarget)) {
+        throw new Error(
+          `${phase} hook targets "${hookTarget}" but no handler with that name exists. ` +
+            `Check for typos — the hook will never fire.`,
+        );
+      }
+    }
+  }
+
+  // Validate: job event triggers must reference existing handlers
+  for (const [jobName, jobDef] of jobMap) {
+    if ("on" in jobDef.trigger) {
+      const eventName = jobDef.trigger.on;
+      if (!allHandlers.has(eventName)) {
+        throw new Error(
+          `Job "${jobName}" triggers on "${eventName}" but no handler with that name exists`,
+        );
+      }
+    }
+  }
+
+  // Validate: extension usages must reference existing extensions
+  for (const usage of extensionUsages) {
+    if (!extensionMap.has(usage.extensionName)) {
+      throw new Error(
+        `Extension usage "${usage.extensionName}" on entity "${usage.entityName}" references an extension that does not exist`,
+      );
+    }
+  }
+
   return {
     features: featureMap,
 

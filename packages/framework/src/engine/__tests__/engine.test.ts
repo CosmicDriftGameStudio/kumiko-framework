@@ -1135,3 +1135,50 @@ describe("global search", () => {
     expect(projects[0]?.entityType).toBe("project");
   });
 });
+
+// --- Boot Validation: dangling references ---
+
+describe("registry boot validation", () => {
+  test("throws for lifecycle hook targeting non-existent handler", () => {
+    const feature = defineFeature("test", (r) => {
+      r.hook("postSave", "nonexistent.handler", async () => {});
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/postSave.*nonexistent.*never fire/i);
+  });
+
+  test("throws for job event trigger targeting non-existent handler", () => {
+    const feature = defineFeature("test", (r) => {
+      r.job("myJob", { trigger: { on: "ghost.handler" } }, async () => {});
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/myJob.*ghost\.handler.*no handler/i);
+  });
+
+  test("throws for extension usage referencing non-existent extension", () => {
+    const feature = defineFeature("test", (r) => {
+      r.useExtension("nonexistent", "user");
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/nonexistent.*does not exist/i);
+  });
+
+  test("allows valid hook targets", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("item", createEntity({ table: "Items", fields: {} }));
+      r.writeHandler("item.create", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.hook("postSave", "item.create", async () => {});
+    });
+
+    expect(() => createRegistry([feature])).not.toThrow();
+  });
+
+  test("allows cron and manual job triggers (no handler reference)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.job("cleanup", { trigger: { cron: "0 * * * *" } }, async () => {});
+      r.job("sync", { trigger: { manual: true } }, async () => {});
+    });
+
+    expect(() => createRegistry([feature])).not.toThrow();
+  });
+});

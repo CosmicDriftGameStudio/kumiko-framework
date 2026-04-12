@@ -42,12 +42,18 @@ const notificationsFeature = defineFeature("notifications", (r) => {
 
 // Feature C: has ANOTHER job on the same event — both should fire
 const analyticsFeature = defineFeature("analytics", (r) => {
+  // Dummy handler so the trackUser job trigger has a valid target
+  r.writeHandler("users.create", z.object({}), async () => ({
+    isSuccess: true as const,
+    data: null,
+  }));
+
   r.job("trackOrder", { trigger: { on: "orders.orders.create" } }, async (payload) => {
     jobExecutions.push({ name: "analytics.trackOrder", payload });
   });
 
   // Job on a different event — should NOT fire on orders.create
-  r.job("trackUser", { trigger: { on: "users.create" } }, async (payload) => {
+  r.job("trackUser", { trigger: { on: "analytics.users.create" } }, async (payload) => {
     jobExecutions.push({ name: "analytics.trackUser", payload });
   });
 });
