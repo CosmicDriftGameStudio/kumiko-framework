@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 import type { DbConnection } from "../../db/connection";
+import type { TenantDb } from "../../db/tenant-db";
 import type { SearchAdapter } from "../../search/types";
 
 // --- Access ---
@@ -71,9 +72,9 @@ export type AppContext = SharedContextFields & {
   readonly _handlerType?: string | undefined;
 };
 
-// Handler execution: db + registry guaranteed
+// Handler execution: db (tenant-scoped) + registry guaranteed
 export type HandlerContext = SharedContextFields & {
-  readonly db: DbConnection;
+  readonly db: TenantDb;
   readonly registry: Registry;
   readonly systemUser?: SessionUser;
   readonly log?: (msg: string) => void;

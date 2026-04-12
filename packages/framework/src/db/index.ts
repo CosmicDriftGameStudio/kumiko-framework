@@ -13,4 +13,6 @@ export type { PgAdapterOptions } from "./pg-adapter";
 export { createPgAdapter } from "./pg-adapter";
 export { seedReferenceData } from "./reference-data";
 export { buildBaseColumns, buildDrizzleTable, toSnakeCase, toTableName } from "./table-builder";
+export type { TenantDb } from "./tenant-db";
+export { createTenantDb } from "./tenant-db";
 export type { DbAdapter } from "./types";

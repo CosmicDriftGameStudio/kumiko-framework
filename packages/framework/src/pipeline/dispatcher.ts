@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { buildDrizzleTable } from "../db/table-builder";
+import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
 import { type ErrorCode, ErrorCodes } from "../engine/constants";
 import { FrameworkError } from "../engine/errors";
@@ -86,7 +87,8 @@ export function createDispatcher(
   }
 
   function buildHandlerContext(type: string, user: SessionUser): HandlerContext {
-    return { ...context, _userId: user.id, _handlerType: type } as HandlerContext;
+    const db = context.db ? createTenantDb(context.db, user.tenantId) : undefined;
+    return { ...context, db, _userId: user.id, _handlerType: type } as HandlerContext;
   }
 
   async function runLifecycle(
@@ -145,10 +147,12 @@ export function createDispatcher(
       }
     }
 
+    const handlerContext = buildHandlerContext(type, user);
+
     // Auto transition guard: if entity has transitions and handler doesn't skip it
     if (entityName && !handler.skipTransitionGuard) {
       const entity = registry.getEntity(entityName);
-      if (entity?.transitions && context.db) {
+      if (entity?.transitions && handlerContext.db) {
         const parsedData = parsed.data as Record<string, unknown>;
         const changes = (parsedData["changes"] as Record<string, unknown>) ?? parsedData;
         const id = (parsedData["id"] as number) ?? undefined;
@@ -160,10 +164,10 @@ export function createDispatcher(
           const table = getTable(entityName);
           if (!table) continue;
 
-          const [row] = await context.db
+          const [row] = await handlerContext.db
             .select()
             .from(table)
-            .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], id)));
+            .where(eq(table["id"], id));
 
           if (!row) continue;
           const currentValue = (row as Record<string, unknown>)[fieldName] as string;
@@ -172,7 +176,6 @@ export function createDispatcher(
       }
     }
 
-    const handlerContext = buildHandlerContext(type, user);
     const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
     if (result.isSuccess) {

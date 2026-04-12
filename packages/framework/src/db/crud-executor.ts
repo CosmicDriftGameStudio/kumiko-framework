@@ -9,7 +9,8 @@ import type {
 import type { SearchAdapter } from "../search/types";
 import { applyCursorQuery, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
-import type { CursorResult, DbConnection } from "./index";
+import type { CursorResult } from "./index";
+import type { TenantDb } from "./tenant-db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
@@ -29,25 +30,25 @@ export type CrudExecutor = {
   create: (
     payload: Record<string, unknown>,
     user: SessionUser,
-    db: DbConnection,
+    db: TenantDb,
   ) => Promise<WriteResult<SaveContext>>;
 
   update: (
     payload: { id: number; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
-    db: DbConnection,
+    db: TenantDb,
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (
     payload: { id: number },
     user: SessionUser,
-    db: DbConnection,
+    db: TenantDb,
   ) => Promise<WriteResult<DeleteContext>>;
 
   restore: (
     payload: { id: number },
     user: SessionUser,
-    db: DbConnection,
+    db: TenantDb,
   ) => Promise<WriteResult<SaveContext>>;
 
   list: (
@@ -59,13 +60,13 @@ export type CrudExecutor = {
       sortDirection?: "asc" | "desc" | undefined;
     },
     user: SessionUser,
-    db: DbConnection,
+    db: TenantDb,
   ) => Promise<CursorResult<Record<string, unknown>>>;
 
   detail: (
     payload: { id: number },
     user: SessionUser,
-    db: DbConnection,
+    db: TenantDb,
   ) => Promise<Record<string, unknown> | null>;
 };
 
@@ -107,31 +108,19 @@ export function createCrudExecutor(
     return result;
   }
 
-  function maskRow(row: Record<string, unknown>): Record<string, unknown> {
-    if (encryptedFields.size === 0) return row;
-    const result = { ...row };
-    for (const field of encryptedFields) {
-      if (result[field] !== undefined && result[field] !== null) {
-        result[field] = "••••••";
-      }
-    }
-    return result;
-  }
-
-  function tenantAndId(tenantId: number, id: number) {
-    const conditions = [eq(table["tenantId"], tenantId), eq(table["id"], id)];
+  function idFilter(id: number) {
+    const conditions = [eq(table["id"], id)];
     if (softDelete && table["isDeleted"]) {
       conditions.push(eq(table["isDeleted"], false));
     }
-    return and(...conditions);
+    return and(...conditions)!;
   }
 
   async function loadById(
-    tenantId: number,
     id: number,
-    db: DbConnection,
+    db: TenantDb,
   ): Promise<Record<string, unknown> | null> {
-    const [row] = await db.select().from(table).where(tenantAndId(tenantId, id));
+    const [row] = await db.select().from(table).where(idFilter(id));
     return (row as Record<string, unknown>) ?? null;
   }
 
@@ -141,7 +130,6 @@ export function createCrudExecutor(
         .insert(table)
         .values({
           ...encryptPayload(payload),
-          tenantId: user.tenantId,
           insertedById: user.id,
           insertedAt: new Date(),
         })
@@ -158,7 +146,7 @@ export function createCrudExecutor(
     },
 
     async update(payload, user, db) {
-      const previous = await loadById(user.tenantId, payload.id, db);
+      const previous = await loadById(payload.id, db);
       if (!previous) return { isSuccess: false, error: "not_found" };
 
       if (payload.version !== undefined) {
@@ -180,7 +168,7 @@ export function createCrudExecutor(
           modifiedById: user.id,
           modifiedAt: new Date(),
         })
-        .where(tenantAndId(user.tenantId, payload.id))
+        .where(eq(table["id"], payload.id))
         .returning();
 
       if (!row) return { isSuccess: false, error: "update_failed" };
@@ -201,7 +189,7 @@ export function createCrudExecutor(
     },
 
     async delete(payload, user, db) {
-      const existing = await loadById(user.tenantId, payload.id, db);
+      const existing = await loadById(payload.id, db);
       if (!existing) return { isSuccess: false, error: "not_found" };
 
       if (softDelete) {
@@ -214,11 +202,9 @@ export function createCrudExecutor(
             modifiedById: user.id,
             modifiedAt: new Date(),
           })
-          .where(tenantAndId(user.tenantId, payload.id));
+          .where(eq(table["id"], payload.id));
       } else {
-        await db
-          .delete(table)
-          .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], payload.id)));
+        await db.delete(table).where(eq(table["id"], payload.id));
       }
 
       return {
@@ -230,11 +216,11 @@ export function createCrudExecutor(
     async restore(payload, user, db) {
       if (!softDelete) return { isSuccess: false, error: "soft_delete_not_enabled" };
 
-      // Find the soft-deleted row (bypass isDeleted filter)
+      // Find the soft-deleted row (bypass isDeleted filter — use only id)
       const [row] = await db
         .select()
         .from(table)
-        .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], payload.id)));
+        .where(eq(table["id"], payload.id));
 
       if (!row) return { isSuccess: false, error: "not_found" };
       const data = row as Record<string, unknown>;
@@ -249,7 +235,7 @@ export function createCrudExecutor(
           modifiedById: user.id,
           modifiedAt: new Date(),
         })
-        .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], payload.id)))
+        .where(eq(table["id"], payload.id))
         .returning();
 
       if (!restored) return { isSuccess: false, error: "restore_failed" };
@@ -271,7 +257,7 @@ export function createCrudExecutor(
 
     async list(payload, user, db) {
       const opts: Parameters<typeof applyCursorQuery>[2] = {
-        tenantId: user.tenantId,
+        tenantId: db.tenantId,
       };
       if (payload.cursor) opts.cursor = payload.cursor;
       if (payload.limit) opts.limit = payload.limit;
@@ -288,7 +274,9 @@ export function createCrudExecutor(
         opts.filterIds = ids;
       }
 
-      const rows = await applyCursorQuery(db.select().from(table).$dynamic(), table, opts);
+      // applyCursorQuery expects a raw Drizzle $dynamic() query — use internal raw db
+      // The tenant filter is handled by applyCursorQuery via opts.tenantId
+      const rows = await applyCursorQuery(db.select().from(table) as ReturnType<typeof applyCursorQuery>, table, opts);
 
       const limit = payload.limit ?? 50;
       const lastRow = rows[rows.length - 1] as Record<string, unknown> | undefined;
@@ -299,7 +287,7 @@ export function createCrudExecutor(
     },
 
     async detail(payload, user, db) {
-      const row = await loadById(user.tenantId, payload.id, db);
+      const row = await loadById(payload.id, db);
       return row ? maskRow(row) : null;
     },
   };
