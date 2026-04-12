@@ -106,14 +106,20 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       ...context,
       systemUser: createSystemUser(tenantId),
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
-      log: (message: string) => {
-        logs.push({ level: "info", message, timestamp: new Date() });
-      },
-      warn: (message: string) => {
-        logs.push({ level: "warn", message, timestamp: new Date() });
-      },
-      logError: (message: string) => {
-        logs.push({ level: "error", message, timestamp: new Date() });
+      log: {
+        info(message: string) {
+          logs.push({ level: "info", message, timestamp: new Date() });
+        },
+        warn(message: string) {
+          logs.push({ level: "warn", message, timestamp: new Date() });
+        },
+        error(message: string) {
+          logs.push({ level: "error", message, timestamp: new Date() });
+        },
+        debug() {},
+        child() {
+          return this;
+        },
       },
     };
 

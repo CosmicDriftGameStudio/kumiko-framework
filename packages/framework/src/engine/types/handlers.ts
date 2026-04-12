@@ -1,6 +1,7 @@
 import type { ZodType } from "zod";
 import type { DbConnection } from "../../db/connection";
 import type { TenantDb } from "../../db/tenant-db";
+import type { Logger } from "../../logging/types";
 import type { SearchAdapter } from "../../search/types";
 
 // --- Access ---
@@ -64,9 +65,7 @@ export type AppContext = SharedContextFields & {
   readonly db?: DbConnection | TenantDb;
   readonly registry?: Registry;
   readonly systemUser?: SessionUser;
-  readonly log?: (msg: string) => void;
-  readonly warn?: (msg: string) => void;
-  readonly logError?: (msg: string) => void;
+  readonly log?: Logger;
   readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
   readonly _userId?: number | undefined;
   readonly _handlerType?: string | undefined;
@@ -77,9 +76,7 @@ export type HandlerContext = SharedContextFields & {
   readonly db: TenantDb;
   readonly registry: Registry;
   readonly systemUser?: SessionUser;
-  readonly log?: (msg: string) => void;
-  readonly warn?: (msg: string) => void;
-  readonly logError?: (msg: string) => void;
+  readonly log?: Logger;
   readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
   readonly _userId?: number | undefined;
   readonly _handlerType?: string | undefined;
@@ -90,9 +87,7 @@ export type JobContext = SharedContextFields & {
   readonly db: DbConnection;
   readonly registry: Registry;
   readonly systemUser: SessionUser;
-  readonly log: (msg: string) => void;
-  readonly warn: (msg: string) => void;
-  readonly logError: (msg: string) => void;
+  readonly log: Logger;
   readonly triggeredBy: { readonly id: number; readonly tenantId: number } | null;
 };
 

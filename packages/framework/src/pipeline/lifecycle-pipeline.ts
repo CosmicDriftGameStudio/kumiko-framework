@@ -108,10 +108,14 @@ export function createLifecycleHooks(
     }
 
     if (errors.length > 0) {
-      console.error(
-        `[lifecycle] ${opts.phase} errors for ${opts.handlerName}:`,
-        errors.map((e) => `${e.name}: ${e.error}`),
-      );
+      const log = opts.context.log;
+      const msg = `${opts.phase} errors for ${opts.handlerName}`;
+      const details = errors.map((e) => `${e.name}: ${e.error}`);
+      if (log) {
+        log.error(msg, { errors: details });
+      } else {
+        console.error(`[lifecycle] ${msg}:`, details);
+      }
     }
   }
 

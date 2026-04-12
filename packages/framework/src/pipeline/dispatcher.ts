@@ -95,7 +95,8 @@ export function createDispatcher(
           isSystem ? "system" : "tenant",
         )
       : undefined;
-    return { ...context, db, _userId: user.id, _handlerType: type } as HandlerContext;
+    const log = context.log?.child({ handler: type, tenantId: user.tenantId, userId: user.id });
+    return { ...context, db, log, _userId: user.id, _handlerType: type } as HandlerContext;
   }
 
   async function runLifecycle(

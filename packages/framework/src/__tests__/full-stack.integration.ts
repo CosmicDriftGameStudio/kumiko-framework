@@ -64,7 +64,11 @@ const userFeature = defineFeature("users", (r) => {
 
   r.writeHandler(
     "user.update",
-    z.object({ id: z.number(), version: z.number().optional(), changes: z.record(z.string(), z.unknown()) }),
+    z.object({
+      id: z.number(),
+      version: z.number().optional(),
+      changes: z.record(z.string(), z.unknown()),
+    }),
     async (event, ctx) => {
       const crud = createCrudExecutor(userTable, userEntity, {
         searchAdapter: ctx["searchAdapter"] as SearchAdapter,
