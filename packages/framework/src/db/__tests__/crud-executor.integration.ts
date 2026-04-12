@@ -10,6 +10,7 @@ import {
 } from "../../testing";
 import { type CrudExecutor, createCrudExecutor } from "../crud-executor";
 import { buildDrizzleTable } from "../table-builder";
+import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const entity = createEntity({
   table: "crud_users",
@@ -25,16 +26,19 @@ const table = buildDrizzleTable("crudUser", entity);
 
 let testDb: TestDb;
 let crud: CrudExecutor;
+let adminDb: TenantDb;
+let otherTenantDb: TenantDb;
 
 const adminUser = TestUsers.admin;
 const otherTenantUser = createTestUser({ id: 2, tenantId: 2 });
 
 beforeAll(async () => {
   testDb = await createTestDb();
-
   await createEntityTable(testDb.db, entity);
 
   crud = createCrudExecutor(table, entity);
+  adminDb = createTenantDb(testDb.db, adminUser.tenantId);
+  otherTenantDb = createTenantDb(testDb.db, otherTenantUser.tenantId);
 });
 
 afterAll(async () => {
@@ -46,7 +50,7 @@ describe("crud create", () => {
     const result = await crud.create(
       { email: "test@test.de", firstName: "Test" },
       adminUser,
-      testDb.db,
+      adminDb,
     );
 
     expect(result.isSuccess).toBe(true);
@@ -63,19 +67,19 @@ describe("crud create", () => {
 
 describe("crud detail", () => {
   test("finds row by id and tenant", async () => {
-    const created = await crud.create({ email: "detail@test.de" }, adminUser, testDb.db);
+    const created = await crud.create({ email: "detail@test.de" }, adminUser, adminDb);
     if (!created.isSuccess) throw new Error("Setup failed");
 
-    const row = await crud.detail({ id: created.data.id }, adminUser, testDb.db);
+    const row = await crud.detail({ id: created.data.id }, adminUser, adminDb);
     expect(row).not.toBeNull();
     expect(row?.["email"]).toBe("detail@test.de");
   });
 
   test("returns null for other tenant", async () => {
-    const created = await crud.create({ email: "tenant1@test.de" }, adminUser, testDb.db);
+    const created = await crud.create({ email: "tenant1@test.de" }, adminUser, adminDb);
     if (!created.isSuccess) throw new Error("Setup failed");
 
-    const row = await crud.detail({ id: created.data.id }, otherTenantUser, testDb.db);
+    const row = await crud.detail({ id: created.data.id }, otherTenantUser, otherTenantDb);
     expect(row).toBeNull();
   });
 });
@@ -85,14 +89,14 @@ describe("crud update", () => {
     const created = await crud.create(
       { email: "update@test.de", firstName: "Before" },
       adminUser,
-      testDb.db,
+      adminDb,
     );
     if (!created.isSuccess) throw new Error("Setup failed");
 
     const result = await crud.update(
       { id: created.data.id, changes: { firstName: "After" } },
       adminUser,
-      testDb.db,
+      adminDb,
     );
 
     expect(result.isSuccess).toBe(true);
@@ -106,7 +110,7 @@ describe("crud update", () => {
   });
 
   test("increments version on each update", async () => {
-    const created = await crud.create({ email: "ver@test.de" }, adminUser, testDb.db);
+    const created = await crud.create({ email: "ver@test.de" }, adminUser, adminDb);
     if (!created.isSuccess) throw new Error("Setup failed");
 
     expect(created.data.data["version"]).toBe(1);
@@ -114,7 +118,7 @@ describe("crud update", () => {
     const update1 = await crud.update(
       { id: created.data.id, changes: { firstName: "V2" } },
       adminUser,
-      testDb.db,
+      adminDb,
     );
     if (!update1.isSuccess) throw new Error("Update 1 failed");
     expect(update1.data.data["version"]).toBe(2);
@@ -122,29 +126,27 @@ describe("crud update", () => {
     const update2 = await crud.update(
       { id: created.data.id, changes: { firstName: "V3" } },
       adminUser,
-      testDb.db,
+      adminDb,
     );
     if (!update2.isSuccess) throw new Error("Update 2 failed");
     expect(update2.data.data["version"]).toBe(3);
   });
 
   test("optimistic locking: rejects stale version", async () => {
-    const created = await crud.create({ email: "lock@test.de" }, adminUser, testDb.db);
+    const created = await crud.create({ email: "lock@test.de" }, adminUser, adminDb);
     if (!created.isSuccess) throw new Error("Setup failed");
 
-    // Update with correct version
     const update1 = await crud.update(
       { id: created.data.id, version: 1, changes: { firstName: "OK" } },
       adminUser,
-      testDb.db,
+      adminDb,
     );
     expect(update1.isSuccess).toBe(true);
 
-    // Try update with stale version (1, but current is now 2)
     const update2 = await crud.update(
       { id: created.data.id, version: 1, changes: { firstName: "Stale" } },
       adminUser,
-      testDb.db,
+      adminDb,
     );
     expect(update2.isSuccess).toBe(false);
     if (!update2.isSuccess) {
@@ -153,38 +155,37 @@ describe("crud update", () => {
   });
 
   test("optimistic locking: accepts matching version", async () => {
-    const created = await crud.create({ email: "lock2@test.de" }, adminUser, testDb.db);
+    const created = await crud.create({ email: "lock2@test.de" }, adminUser, adminDb);
     if (!created.isSuccess) throw new Error("Setup failed");
 
     const result = await crud.update(
       { id: created.data.id, version: 1, changes: { firstName: "Match" } },
       adminUser,
-      testDb.db,
+      adminDb,
     );
     expect(result.isSuccess).toBe(true);
   });
 
   test("update without version skips locking check", async () => {
-    const created = await crud.create({ email: "nolock@test.de" }, adminUser, testDb.db);
+    const created = await crud.create({ email: "nolock@test.de" }, adminUser, adminDb);
     if (!created.isSuccess) throw new Error("Setup failed");
 
-    // No version = no check, always succeeds
     const result = await crud.update(
       { id: created.data.id, changes: { firstName: "NoCheck" } },
       adminUser,
-      testDb.db,
+      adminDb,
     );
     expect(result.isSuccess).toBe(true);
   });
 
   test("returns not_found for other tenant", async () => {
-    const created = await crud.create({ email: "update2@test.de" }, adminUser, testDb.db);
+    const created = await crud.create({ email: "update2@test.de" }, adminUser, adminDb);
     if (!created.isSuccess) throw new Error("Setup failed");
 
     const result = await crud.update(
       { id: created.data.id, changes: { firstName: "Hacked" } },
       otherTenantUser,
-      testDb.db,
+      otherTenantDb,
     );
 
     expect(result.isSuccess).toBe(false);
@@ -194,18 +195,17 @@ describe("crud update", () => {
 
 describe("crud delete (soft)", () => {
   test("soft deletes and returns DeleteContext", async () => {
-    const created = await crud.create({ email: "delete@test.de" }, adminUser, testDb.db);
+    const created = await crud.create({ email: "delete@test.de" }, adminUser, adminDb);
     if (!created.isSuccess) throw new Error("Setup failed");
 
-    const deleteResult = await crud.delete({ id: created.data.id }, adminUser, testDb.db);
+    const deleteResult = await crud.delete({ id: created.data.id }, adminUser, adminDb);
     expect(deleteResult.isSuccess).toBe(true);
     if (deleteResult.isSuccess) {
       expect(deleteResult.data.id).toBe(created.data.id);
       expect(deleteResult.data.data["email"]).toBe("delete@test.de");
     }
 
-    // Should not be found anymore
-    const row = await crud.detail({ id: created.data.id }, adminUser, testDb.db);
+    const row = await crud.detail({ id: created.data.id }, adminUser, adminDb);
     expect(row).toBeNull();
   });
 });
@@ -213,10 +213,14 @@ describe("crud delete (soft)", () => {
 describe("crud list", () => {
   test("lists rows for tenant with pagination", async () => {
     for (let i = 0; i < 5; i++) {
-      await crud.create({ email: `list${i}@test.de`, firstName: `User${i}` }, adminUser, testDb.db);
+      await crud.create(
+        { email: `list${i}@test.de`, firstName: `User${i}` },
+        adminUser,
+        adminDb,
+      );
     }
 
-    const page1 = await crud.list({ limit: 3 }, adminUser, testDb.db);
+    const page1 = await crud.list({ limit: 3 }, adminUser, adminDb);
     expect(page1.rows.length).toBeLessThanOrEqual(3);
     expect(page1.rows.every((r) => r["tenantId"] === 1)).toBe(true);
   });

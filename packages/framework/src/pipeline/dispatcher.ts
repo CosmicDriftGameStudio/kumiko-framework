@@ -87,7 +87,10 @@ export function createDispatcher(
   }
 
   function buildHandlerContext(type: string, user: SessionUser): HandlerContext {
-    const db = context.db ? createTenantDb(context.db, user.tenantId) : undefined;
+    const isSystem = registry.isHandlerSystemScoped(type);
+    const db = context.db
+      ? createTenantDb(context.db, user.tenantId, isSystem ? { unscoped: true } : undefined)
+      : undefined;
     return { ...context, db, _userId: user.id, _handlerType: type } as HandlerContext;
   }
 
@@ -222,9 +225,10 @@ export function createDispatcher(
         throw new FrameworkError(ErrorCodes.validationFailed, parsed.error.message);
       }
 
+      const handlerContext = buildHandlerContext(type, user);
       let result = await handler.handler(
         { type, payload: parsed.data, user },
-        context as HandlerContext,
+        handlerContext,
       );
 
       // Field-level read filter

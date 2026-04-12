@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 import type {
   DeleteContext,
   EntityDefinition,
@@ -7,7 +7,7 @@ import type {
   WriteResult,
 } from "../engine/types";
 import type { SearchAdapter } from "../search/types";
-import { applyCursorQuery, encodeCursor } from "./cursor";
+import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
 import type { CursorResult } from "./index";
 import type { TenantDb } from "./tenant-db";
@@ -103,6 +103,17 @@ export function createCrudExecutor(
     for (const field of encryptedFields) {
       if (typeof result[field] === "string") {
         result[field] = encryptionProvider.decrypt(result[field] as string);
+      }
+    }
+    return result;
+  }
+
+  function maskRow(row: Record<string, unknown>): Record<string, unknown> {
+    if (encryptedFields.size === 0) return row;
+    const result = { ...row };
+    for (const field of encryptedFields) {
+      if (result[field] !== undefined && result[field] !== null) {
+        result[field] = "••••••";
       }
     }
     return result;
@@ -256,29 +267,45 @@ export function createCrudExecutor(
     },
 
     async list(payload, user, db) {
-      const opts: Parameters<typeof applyCursorQuery>[2] = {
-        tenantId: db.tenantId,
-      };
-      if (payload.cursor) opts.cursor = payload.cursor;
-      if (payload.limit) opts.limit = payload.limit;
-      if (payload.sort) opts.sort = payload.sort;
-      if (payload.sortDirection) opts.sortDirection = payload.sortDirection;
+      const limit = payload.limit ?? 50;
 
       // Search through SearchAdapter — tenant-scoped, type-filtered
+      let filterIds: number[] | undefined;
       if (payload.search && searchAdapter && entityName) {
         const results = await searchAdapter.search(user.tenantId, payload.search, {
           filterType: entityName,
         });
-        const ids = results.map((r) => r.entityId);
-        if (ids.length === 0) return { rows: [], nextCursor: null };
-        opts.filterIds = ids;
+        filterIds = results.map((r) => r.entityId);
+        if (filterIds.length === 0) return { rows: [], nextCursor: null };
       }
 
-      // applyCursorQuery expects a raw Drizzle $dynamic() query — use internal raw db
-      // The tenant filter is handled by applyCursorQuery via opts.tenantId
-      const rows = await applyCursorQuery(db.select().from(table) as ReturnType<typeof applyCursorQuery>, table, opts);
+      // Build WHERE conditions (tenant filter is automatic via TenantDb)
+      const conditions: SQL[] = [];
+      if (softDelete && table["isDeleted"]) {
+        conditions.push(eq(table["isDeleted"], false));
+      }
+      if (payload.cursor) {
+        conditions.push(gt(table["id"], decodeCursor(payload.cursor)));
+      }
+      if (filterIds) {
+        conditions.push(inArray(table["id"], filterIds));
+      }
 
-      const limit = payload.limit ?? 50;
+      let query = conditions.length > 0
+        ? db.select().from(table).where(and(...conditions)!)
+        : db.select().from(table);
+
+      query = query.limit(limit);
+
+      if (payload.sort && table[payload.sort]) {
+        const column = table[payload.sort];
+        query = payload.sortDirection === "desc"
+          ? query.orderBy(desc(column))
+          : query.orderBy(asc(column));
+      }
+
+      const rows = await query;
+
       const lastRow = rows[rows.length - 1] as Record<string, unknown> | undefined;
       const nextCursor =
         rows.length === limit && lastRow ? encodeCursor(lastRow["id"] as number) : null;

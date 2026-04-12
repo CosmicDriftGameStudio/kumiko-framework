@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { type CrudExecutor, createCrudExecutor } from "../../db/crud-executor";
 import type { TableColumns } from "../../db/dialect";
 import { buildDrizzleTable } from "../../db/table-builder";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import {
   createEntity,
   createNumberField,
@@ -17,6 +18,7 @@ import { createCascadeDeleteHook } from "../cascade-handler";
 type Table = TableColumns<any>;
 
 let testDb: TestDb;
+let tdb: TenantDb;
 let registry: Registry;
 let departmentTable: Table;
 let userTable: Table;
@@ -42,6 +44,7 @@ const sessionEntity = createEntity({
 
 beforeAll(async () => {
   testDb = await createTestDb();
+  tdb = createTenantDb(testDb.db, admin.tenantId);
 
   await createEntityTable(testDb.db, departmentEntity);
   await createEntityTable(testDb.db, userEntity);
@@ -83,23 +86,23 @@ afterAll(async () => {
 
 describe("cascade delete: restrict", () => {
   test("blocks delete when related records exist", async () => {
-    const dept = await departmentCrud.create({ name: "Engineering" }, admin, testDb.db);
+    const dept = await departmentCrud.create({ name: "Engineering" }, admin, tdb);
     if (!dept.isSuccess) throw new Error("Setup failed");
 
-    await userCrud.create({ name: "Marc", departmentId: dept.data.id }, admin, testDb.db);
+    await userCrud.create({ name: "Marc", departmentId: dept.data.id }, admin, tdb);
 
     const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
 
     await expect(
       cascadeHook.fn(
         { kind: "delete", id: dept.data.id, data: { tenantId: 1 }, entityName: "department" },
-        { db: testDb.db },
+        { db: tdb },
       ),
     ).rejects.toThrow(/delete_restricted/);
   });
 
   test("allows delete when no related records", async () => {
-    const dept = await departmentCrud.create({ name: "Empty" }, admin, testDb.db);
+    const dept = await departmentCrud.create({ name: "Empty" }, admin, tdb);
     if (!dept.isSuccess) throw new Error("Setup failed");
 
     const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
@@ -107,7 +110,7 @@ describe("cascade delete: restrict", () => {
     await expect(
       cascadeHook.fn(
         { kind: "delete", id: dept.data.id, data: { tenantId: 1 }, entityName: "department" },
-        { db: testDb.db },
+        { db: tdb },
       ),
     ).resolves.toBeUndefined();
   });
@@ -115,14 +118,14 @@ describe("cascade delete: restrict", () => {
 
 describe("cascade delete: cascade", () => {
   test("deletes related records when parent is deleted", async () => {
-    const user = await userCrud.create({ name: "Cascade User" }, admin, testDb.db);
+    const user = await userCrud.create({ name: "Cascade User" }, admin, tdb);
     if (!user.isSuccess) throw new Error("Setup failed");
 
-    await sessionCrud.create({ userId: user.data.id, token: "abc" }, admin, testDb.db);
-    await sessionCrud.create({ userId: user.data.id, token: "def" }, admin, testDb.db);
+    await sessionCrud.create({ userId: user.data.id, token: "abc" }, admin, tdb);
+    await sessionCrud.create({ userId: user.data.id, token: "def" }, admin, tdb);
 
     // Verify sessions exist
-    const before = await sessionCrud.list({}, admin, testDb.db);
+    const before = await sessionCrud.list({}, admin, tdb);
     const sessionsBefore = before.rows.filter((r) => r["userId"] === user.data.id);
     expect(sessionsBefore.length).toBe(2);
 
@@ -131,11 +134,11 @@ describe("cascade delete: cascade", () => {
 
     await cascadeHook.fn(
       { kind: "delete", id: user.data.id, data: { tenantId: 1 }, entityName: "user" },
-      { db: testDb.db },
+      { db: tdb },
     );
 
     // Sessions should be gone
-    const after = await sessionCrud.list({}, admin, testDb.db);
+    const after = await sessionCrud.list({}, admin, tdb);
     const sessionsAfter = after.rows.filter((r) => r["userId"] === user.data.id);
     expect(sessionsAfter.length).toBe(0);
   });

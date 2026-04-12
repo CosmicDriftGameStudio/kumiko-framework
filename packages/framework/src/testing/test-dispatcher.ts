@@ -1,3 +1,5 @@
+import type { DbConnection } from "../db/connection";
+import { createTenantDb } from "../db/tenant-db";
 import type {
   AppContext,
   HandlerContext,
@@ -16,13 +18,22 @@ export type TestDispatcher = {
 };
 
 export function createTestDispatcher(registry: Registry, ctx: AppContext): TestDispatcher {
-  // In tests, db is always present — safe to treat as HandlerContext
-  const handlerCtx = ctx as HandlerContext;
+  function buildDb(handlerName: string, user: SessionUser) {
+    if (!ctx.db) return undefined;
+    const isSystem = registry.isHandlerSystemScoped(handlerName);
+    return createTenantDb(
+      ctx.db as DbConnection,
+      user.tenantId,
+      isSystem ? { unscoped: true } : undefined,
+    );
+  }
+
   return {
     async write(handlerName, payload, user) {
       const handler = registry.getWriteHandler(handlerName);
       if (!handler) throw new Error(`Write handler "${handlerName}" not found in registry`);
       const parsed = handler.schema.parse(payload);
+      const handlerCtx = { ...ctx, db: buildDb(handlerName, user) } as HandlerContext;
       return handler.handler({ type: handlerName, payload: parsed, user }, handlerCtx);
     },
 
@@ -30,6 +41,7 @@ export function createTestDispatcher(registry: Registry, ctx: AppContext): TestD
       const handler = registry.getQueryHandler(handlerName);
       if (!handler) throw new Error(`Query handler "${handlerName}" not found in registry`);
       const parsed = handler.schema.parse(payload);
+      const handlerCtx = { ...ctx, db: buildDb(handlerName, user) } as HandlerContext;
       return handler.handler({ type: handlerName, payload: parsed, user }, handlerCtx);
     },
   };

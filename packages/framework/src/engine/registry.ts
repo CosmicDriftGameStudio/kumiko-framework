@@ -47,6 +47,8 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const eventMap = new Map<string, EventDef>();
   // Handler → entity mapping (populated from entities + handler name convention)
   const handlerEntityMap = new Map<string, string>();
+  // Handler → feature mapping (for systemScope check)
+  const handlerFeatureMap = new Map<string, string>();
   const extensionMap = new Map<string, RegistrarExtensionDef>();
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const allReferenceData: ReferenceDataDef[] = [];
@@ -120,6 +122,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         );
       }
       writeHandlerMap.set(qualified, { ...handler, name: qualified });
+      handlerFeatureMap.set(qualified, feature.name);
     }
 
     // Query handlers: featureName.handlerName
@@ -131,6 +134,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         );
       }
       queryHandlerMap.set(qualified, { ...handler, name: qualified });
+      handlerFeatureMap.set(qualified, feature.name);
     }
 
     // Config keys: featureName.key (already prefixed before this change)
@@ -473,6 +477,12 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getHandlerEntity(qualifiedHandler: string): string | undefined {
       return handlerEntityMap.get(qualifiedHandler);
+    },
+
+    isHandlerSystemScoped(qualifiedHandler: string): boolean {
+      const featureName = handlerFeatureMap.get(qualifiedHandler);
+      if (!featureName) return false;
+      return featureMap.get(featureName)?.systemScope ?? false;
     },
 
     getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined {

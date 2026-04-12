@@ -40,6 +40,7 @@ import type { EntityRelations, RelationDefinition } from "./relations";
 
 export type FeatureDefinition = {
   readonly name: string;
+  readonly systemScope: boolean;
   readonly requires: readonly string[];
   readonly optionalRequires: readonly string[];
   readonly entities: Readonly<Record<string, EntityDefinition>>;
@@ -63,6 +64,7 @@ export type FeatureDefinition = {
 type RefOrRefs = NameOrRef | readonly NameOrRef[];
 
 export type FeatureRegistrar = {
+  systemScope(): void;
   requires(...featureNames: string[]): void;
   optionalRequires(...featureNames: string[]): void;
 
@@ -151,6 +153,7 @@ export type Registry = {
   getEntityPreDeleteHooks(entityName: string): readonly PreDeleteHookFn[];
   getEntityPostDeleteHooks(entityName: string): readonly PostDeleteHookFn[];
   getHandlerEntity(qualifiedHandler: string): string | undefined;
+  isHandlerSystemScoped(qualifiedHandler: string): boolean;
   getAllTranslations(): TranslationKeys;
   getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined;
   getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition>;

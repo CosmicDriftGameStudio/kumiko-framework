@@ -61,7 +61,7 @@ type SharedContextFields = {
 
 // All optional — used at pipeline/system boundaries
 export type AppContext = SharedContextFields & {
-  readonly db?: DbConnection;
+  readonly db?: DbConnection | TenantDb;
   readonly registry?: Registry;
   readonly systemUser?: SessionUser;
   readonly log?: (msg: string) => void;

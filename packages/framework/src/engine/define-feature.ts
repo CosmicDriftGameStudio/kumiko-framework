@@ -65,7 +65,13 @@ export function defineFeature(
     lifecycleHooks[t] = {};
   }
 
+  let isSystemScoped = false;
+
   const registrar: FeatureRegistrar = {
+    systemScope(): void {
+      isSystemScoped = true;
+    },
+
     requires(...featureNames: string[]): void {
       requires.push(...featureNames);
     },
@@ -266,6 +272,7 @@ export function defineFeature(
 
   return {
     name,
+    systemScope: isSystemScoped,
     requires,
     optionalRequires,
     entities,

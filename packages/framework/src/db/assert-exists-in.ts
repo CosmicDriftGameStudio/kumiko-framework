@@ -1,18 +1,18 @@
 import { and, eq } from "drizzle-orm";
 import type { ValidationError } from "../engine/types";
 import type { DbConnection } from "./connection";
+import type { TenantDb } from "./tenant-db";
 
 /**
  * Generic constraint helper: asserts a value exists in a table.
  * Works like a DB constraint with business logic — usable for any lookup table.
  *
- * Examples:
- *   - Currency exists globally? → currency table (no tenantId)
- *   - Currency allowed for tenant? → tenantCurrency table with tenantId + isActive: true
- *   - Category active? → category table with isActive: true
+ * Accepts both DbConnection and TenantDb. When using TenantDb, the automatic
+ * tenant filter is applied. Use tenantId option for explicit tenant filtering
+ * on raw DbConnection.
  */
 export async function assertExistsIn(
-  db: DbConnection,
+  db: DbConnection | TenantDb,
   // biome-ignore lint/suspicious/noExplicitAny: Drizzle table types are dynamic
   entity: any,
   options: {
