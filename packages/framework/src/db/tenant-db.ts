@@ -1,4 +1,4 @@
-import { and, eq, or, type SQL } from "drizzle-orm";
+import { and, type Column, eq, or, type SQL } from "drizzle-orm";
 import type { DbConnection } from "./connection";
 import type { TableColumns } from "./dialect";
 
@@ -35,11 +35,12 @@ type TenantSelect = {
   from(table: Table): TenantSelectQuery;
 };
 
+type WhereCondition = SQL | undefined;
+
 type TenantSelectQuery = PromiseLike<Record<string, unknown>[]> & {
-  where(condition: SQL | undefined): TenantSelectQuery;
+  where(condition: WhereCondition): TenantSelectQuery;
   limit(n: number): TenantSelectQuery;
-  // biome-ignore lint/suspicious/noExplicitAny: Drizzle columns and SQL both valid
-  orderBy(...columns: any[]): TenantSelectQuery;
+  orderBy(...columns: (SQL | Column)[]): TenantSelectQuery;
 };
 
 type TenantInsert = {
@@ -55,7 +56,7 @@ type TenantUpdate = {
 };
 
 type TenantUpdateSet = PromiseLike<void> & {
-  where(condition: SQL | undefined): TenantUpdateWhere;
+  where(condition: WhereCondition): TenantUpdateWhere;
   returning(): PromiseLike<Record<string, unknown>[]>;
 };
 
@@ -64,7 +65,7 @@ type TenantUpdateWhere = PromiseLike<void> & {
 };
 
 type TenantDelete = {
-  where(condition: SQL | undefined): PromiseLike<void>;
+  where(condition: WhereCondition): PromiseLike<void>;
 };
 
 export function createTenantDb(
