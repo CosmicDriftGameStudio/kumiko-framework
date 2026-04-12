@@ -7,7 +7,7 @@
     "defaultBranch": "main"
   },
   "files": {
-    "includes": ["packages/**", "features/**", "app/**"]
+    "includes": ["packages/**", "samples/**", "app/**"]
   },
   "assist": {
     "actions": {

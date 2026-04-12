@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["packages/**/*.integration.ts", "features/**/*.integration.ts"],
+    include: ["packages/**/*.integration.ts", "samples/**/*.integration.ts"],
     reporters: ["dot"],
     passWithNoTests: true,
     testTimeout: 15000,
@@ -18,7 +18,7 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      include: ["packages/framework/src/**", "features/*/src/**"],
+      include: ["packages/framework/src/**", "samples/*/src/**"],
     },
   },
 });

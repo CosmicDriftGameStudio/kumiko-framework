@@ -23,8 +23,6 @@
   "references": [
     { "path": "packages/framework" },
     { "path": "packages/core-features" },
-    { "path": "features/admin-users" },
-    { "path": "features/user-profile" },
     { "path": "app" }
   ],
   "files": []
