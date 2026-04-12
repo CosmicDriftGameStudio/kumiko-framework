@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer } from "../api/server";
@@ -13,7 +12,13 @@ import {
   type SessionUser,
 } from "../engine";
 import { ErrorCodes } from "../engine/constants";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../testing";
+import {
+  createEntityTable,
+  createTestDb,
+  createTestRedis,
+  type TestDb,
+  type TestRedis,
+} from "../testing";
 
 // --- Entity with field-level access ---
 
@@ -46,21 +51,7 @@ beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
 
-  await testDb.db.execute(sql`
-    CREATE TABLE fa_employees (
-      id SERIAL PRIMARY KEY,
-      tenant_id INTEGER NOT NULL,
-      version INTEGER DEFAULT 1 NOT NULL,
-      inserted_at TIMESTAMP DEFAULT NOW() NOT NULL,
-      modified_at TIMESTAMP,
-      inserted_by_id INTEGER,
-      modified_by_id INTEGER,
-      email TEXT,
-      first_name TEXT,
-      salary INTEGER,
-      notes TEXT
-    )
-  `);
+  await createEntityTable(testDb.db, employeeEntity);
 
   const feature = defineFeature("employees", (r) => {
     r.entity("employee", employeeEntity);

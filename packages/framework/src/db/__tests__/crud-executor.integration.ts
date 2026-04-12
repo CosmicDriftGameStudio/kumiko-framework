@@ -1,8 +1,7 @@
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField, type SessionUser } from "../../engine";
 import { ErrorCodes } from "../../engine/constants";
-import { createTestDb, type TestDb } from "../../testing";
+import { createEntityTable, createTestDb, type TestDb } from "../../testing";
 import { type CrudExecutor, createCrudExecutor } from "../crud-executor";
 import { buildDrizzleTable } from "../table-builder";
 
@@ -27,23 +26,7 @@ const otherTenantUser: SessionUser = { id: 2, tenantId: 2, roles: ["Admin"] };
 beforeAll(async () => {
   testDb = await createTestDb();
 
-  await testDb.db.execute(
-    sql`CREATE TABLE crud_users (
-      id SERIAL PRIMARY KEY,
-      tenant_id INTEGER NOT NULL,
-      version INTEGER DEFAULT 1 NOT NULL,
-      inserted_at TIMESTAMP DEFAULT NOW() NOT NULL,
-      modified_at TIMESTAMP,
-      inserted_by_id INTEGER,
-      modified_by_id INTEGER,
-      is_deleted BOOLEAN DEFAULT FALSE NOT NULL,
-      deleted_at TIMESTAMP,
-      deleted_by_id INTEGER,
-      email TEXT,
-      first_name TEXT,
-      is_enabled BOOLEAN DEFAULT TRUE NOT NULL
-    )`,
-  );
+  await createEntityTable(testDb.db, entity);
 
   crud = createCrudExecutor(table, entity);
 });

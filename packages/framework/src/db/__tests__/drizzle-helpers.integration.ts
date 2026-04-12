@@ -1,8 +1,8 @@
-import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
+import { createEntityTable } from "../../testing";
 import { applyCursorQuery, encodeCursor } from "../cursor";
 import { buildDrizzleTable } from "../table-builder";
 
@@ -46,23 +46,7 @@ beforeAll(async () => {
   client = postgres(testUrl);
   db = drizzle(client);
 
-  await db.execute(sql`
-    CREATE TABLE test_users (
-      id SERIAL PRIMARY KEY,
-      tenant_id INTEGER NOT NULL,
-      version INTEGER DEFAULT 1 NOT NULL,
-      inserted_at TIMESTAMP DEFAULT NOW() NOT NULL,
-      modified_at TIMESTAMP,
-      inserted_by_id INTEGER,
-      modified_by_id INTEGER,
-      is_deleted BOOLEAN DEFAULT FALSE NOT NULL,
-      deleted_at TIMESTAMP,
-      deleted_by_id INTEGER,
-      email TEXT,
-      first_name TEXT,
-      is_enabled BOOLEAN DEFAULT TRUE NOT NULL
-    )
-  `);
+  await createEntityTable(db, entity);
 
   const rows = [
     { tenantId: 1, email: "admin@test.de", firstName: "Admin" },

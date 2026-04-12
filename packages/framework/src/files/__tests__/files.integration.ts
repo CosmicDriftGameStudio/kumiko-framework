@@ -14,7 +14,7 @@ import {
   defineFeature,
 } from "../../engine";
 import type { SessionUser } from "../../engine/types";
-import { createTestDb, type TestDb } from "../../testing";
+import { createEntityTable, createTestDb, type TestDb } from "../../testing";
 import { FILE_REFS_TABLE_SQL } from "../file-ref-table";
 import { createLocalProvider } from "../local-provider";
 import { parseMaxSize, validateFile } from "../types";
@@ -31,17 +31,16 @@ const otherTenantUser: SessionUser = { id: 2, tenantId: 2, roles: ["Admin"] };
 const JWT_SECRET = "files-test-secret-at-least-32-characters!!";
 
 // A tenant feature with a logo field
+const testTenantEntity = createEntity({
+  table: "test_tenants",
+  fields: {
+    name: createTextField({ required: true }),
+    logo: createImageField({ maxSize: "2mb", accept: ["png", "jpg"] }),
+  },
+});
+
 const tenantFeature = defineFeature("tenant", (r) => {
-  r.entity(
-    "tenant",
-    createEntity({
-      table: "test_tenants",
-      fields: {
-        name: createTextField({ required: true }),
-        logo: createImageField({ maxSize: "2mb", accept: ["png", "jpg"] }),
-      },
-    }),
-  );
+  r.entity("tenant", testTenantEntity);
 });
 
 beforeAll(async () => {
@@ -50,19 +49,7 @@ beforeAll(async () => {
 
   // Create tables
   await testDb.db.execute(sql.raw(FILE_REFS_TABLE_SQL));
-  await testDb.db.execute(sql`
-    CREATE TABLE test_tenants (
-      id SERIAL PRIMARY KEY,
-      tenant_id INTEGER NOT NULL,
-      version INTEGER DEFAULT 1 NOT NULL,
-      inserted_at TIMESTAMP DEFAULT NOW() NOT NULL,
-      modified_at TIMESTAMP,
-      inserted_by_id INTEGER,
-      modified_by_id INTEGER,
-      name TEXT,
-      logo INTEGER
-    )
-  `);
+  await createEntityTable(testDb.db, testTenantEntity);
 
   const registry = createRegistry([tenantFeature]);
   const storageProvider = createLocalProvider(storagePath);

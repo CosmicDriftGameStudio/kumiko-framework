@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { type CrudExecutor, createCrudExecutor } from "../../db/crud-executor";
 import type { TableColumns } from "../../db/dialect";
@@ -12,7 +11,7 @@ import {
   type Registry,
   type SessionUser,
 } from "../../engine";
-import { createTestDb, type TestDb } from "../../testing";
+import { createEntityTable, createTestDb, type TestDb } from "../../testing";
 import { createCascadeDeleteHook } from "../cascade-handler";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -45,27 +44,9 @@ const sessionEntity = createEntity({
 beforeAll(async () => {
   testDb = await createTestDb();
 
-  await testDb.db.execute(sql`
-    CREATE TABLE cascade_departments (
-      id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, version INTEGER DEFAULT 1 NOT NULL,
-      inserted_at TIMESTAMP DEFAULT NOW() NOT NULL, modified_at TIMESTAMP,
-      inserted_by_id INTEGER, modified_by_id INTEGER, name TEXT
-    )
-  `);
-  await testDb.db.execute(sql`
-    CREATE TABLE cascade_users (
-      id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, version INTEGER DEFAULT 1 NOT NULL,
-      inserted_at TIMESTAMP DEFAULT NOW() NOT NULL, modified_at TIMESTAMP,
-      inserted_by_id INTEGER, modified_by_id INTEGER, name TEXT, department_id INTEGER
-    )
-  `);
-  await testDb.db.execute(sql`
-    CREATE TABLE cascade_sessions (
-      id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, version INTEGER DEFAULT 1 NOT NULL,
-      inserted_at TIMESTAMP DEFAULT NOW() NOT NULL, modified_at TIMESTAMP,
-      inserted_by_id INTEGER, modified_by_id INTEGER, user_id INTEGER, token TEXT
-    )
-  `);
+  await createEntityTable(testDb.db, departmentEntity);
+  await createEntityTable(testDb.db, userEntity);
+  await createEntityTable(testDb.db, sessionEntity);
 
   departmentTable = buildDrizzleTable("department", departmentEntity);
   userTable = buildDrizzleTable("user", userEntity);

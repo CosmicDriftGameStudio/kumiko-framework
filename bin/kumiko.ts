@@ -122,6 +122,44 @@ const commands = {
     },
   },
 
+  migrate: {
+    description: "DB-Schema migrieren (push | generate | status)",
+    run: async () => {
+      const subCommand = Bun.argv[3];
+
+      // Always regenerate schema from entities first
+      console.log("Generiere Schema aus Entity-Definitionen...");
+      await $`bun run drizzle/generate.ts`;
+
+      switch (subCommand) {
+        case "generate":
+          // Generate SQL migration files (for production)
+          console.log("\nGeneriere Migration-Files...");
+          await $`yarn drizzle-kit generate`;
+          break;
+        case "status":
+          // Show what would change (dry-run)
+          console.log("\nPrüfe Aenderungen...");
+          try {
+            await $`yarn drizzle-kit check`;
+          } catch {
+            console.log("  Schema-Aenderungen erkannt. Nutze 'yarn kumiko migrate' zum Anwenden.");
+          }
+          break;
+        case "drop":
+          // Drop a migration
+          await $`yarn drizzle-kit drop`;
+          break;
+        default:
+          // Default: push schema directly (dev workflow)
+          console.log("\nWende Schema-Aenderungen an...");
+          await $`yarn drizzle-kit push`;
+          console.log("\nDB ist aktuell.");
+          break;
+      }
+    },
+  },
+
   status: {
     description: "Was geht? Services, Git, alles auf einen Blick",
     run: async () => {
