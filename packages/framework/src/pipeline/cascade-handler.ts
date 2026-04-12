@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import type { TableColumns } from "../db/dialect";
 import { ErrorCodes, SystemHookNames, SystemHookPriorities } from "../engine/constants";
+import { FrameworkError } from "../engine/errors";
 import type { PreDeleteHookFn, Registry } from "../engine/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
 
@@ -40,8 +41,9 @@ export function createCascadeDeleteHook(
               .where(eq(targetTable[relation.foreignKey], payload.id))
               .limit(1);
             if (rows.length > 0) {
-              throw new Error(
-                `${ErrorCodes.deleteRestricted}: ${relation.target} has records referencing ${entityName}#${payload.id}`,
+              throw new FrameworkError(
+                ErrorCodes.deleteRestricted,
+                `${relation.target} has records referencing ${entityName}#${payload.id}`,
               );
             }
           }
@@ -68,8 +70,9 @@ export function createCascadeDeleteHook(
             );
             const rows = result as unknown as unknown[];
             if (rows.length > 0) {
-              throw new Error(
-                `${ErrorCodes.deleteRestricted}: ${throughTableName} has records referencing ${entityName}#${payload.id}`,
+              throw new FrameworkError(
+                ErrorCodes.deleteRestricted,
+                `${throughTableName} has records referencing ${entityName}#${payload.id}`,
               );
             }
           }

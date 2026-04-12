@@ -75,10 +75,14 @@ export async function createTestRedis(): Promise<TestRedis> {
 // --- Shared Test Utilities ---
 
 export { expectError, expectSuccess } from "./assertions";
+export { createEventCollector, type EventCollector } from "./event-collector";
 export { createTestUser, TestUsers } from "./fixtures";
 export type { RequestHelper } from "./request-helper";
 export { createRequestHelper } from "./request-helper";
-export { sleep } from "./utils";
+export { createTestDispatcher, type TestDispatcher } from "./test-dispatcher";
+export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack";
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export { waitFor } from "./wait-for";
 
 // --- Helpers ---
 

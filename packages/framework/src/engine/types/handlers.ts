@@ -1,0 +1,140 @@
+import type { ZodType } from "zod";
+import type { DbConnection } from "../../db/connection";
+import type { SearchAdapter } from "../../search/types";
+
+// --- Access ---
+
+export type AccessRule = {
+  readonly roles: readonly string[];
+};
+
+// --- Pipeline User ---
+
+export type SessionUser = {
+  readonly id: number;
+  readonly tenantId: number;
+  readonly roles: readonly string[];
+};
+
+// --- Handler Events ---
+
+export type WriteEvent<TPayload = unknown> = {
+  readonly type: string;
+  readonly payload: TPayload;
+  readonly user: SessionUser;
+};
+
+export type QueryEvent<TPayload = unknown> = {
+  readonly type: string;
+  readonly payload: TPayload;
+  readonly user: SessionUser;
+};
+
+// --- Handler Results ---
+
+export type WriteResult<TData = unknown> =
+  | { readonly isSuccess: true; readonly data: TData }
+  | { readonly isSuccess: false; readonly error: string };
+
+// --- Context Types ---
+
+// Forward import: Registry is in feature.ts (circular type import — fine in TS)
+import type { Registry } from "./feature";
+
+// Shared optional fields across all execution contexts
+type SharedContextFields = {
+  readonly redis?: unknown;
+  readonly jobRunner?: unknown;
+  readonly configResolver?: unknown;
+  readonly searchAdapter?: SearchAdapter;
+};
+
+// All optional — used at pipeline/system boundaries
+export type PipelineContext = SharedContextFields & {
+  readonly db?: DbConnection;
+  readonly registry?: Registry;
+  readonly systemUser?: SessionUser;
+  readonly log?: (msg: string) => void;
+  readonly warn?: (msg: string) => void;
+  readonly logError?: (msg: string) => void;
+  readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
+  readonly _userId?: number | undefined;
+  readonly _handlerType?: string | undefined;
+};
+
+// Handler execution: db + registry guaranteed
+export type HandlerContext = SharedContextFields & {
+  readonly db: DbConnection;
+  readonly registry: Registry;
+  readonly systemUser?: SessionUser;
+  readonly log?: (msg: string) => void;
+  readonly warn?: (msg: string) => void;
+  readonly logError?: (msg: string) => void;
+  readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
+  readonly _userId?: number | undefined;
+  readonly _handlerType?: string | undefined;
+};
+
+// Job execution: db + registry + systemUser + logging guaranteed
+export type JobContext = SharedContextFields & {
+  readonly db: DbConnection;
+  readonly registry: Registry;
+  readonly systemUser: SessionUser;
+  readonly log: (msg: string) => void;
+  readonly warn: (msg: string) => void;
+  readonly logError: (msg: string) => void;
+  readonly triggeredBy: { readonly id: number; readonly tenantId: number } | null;
+};
+
+// --- Handler Functions ---
+
+export type WriteHandlerFn<TPayload = unknown, TData = unknown> = (
+  event: WriteEvent<TPayload>,
+  context: HandlerContext,
+) => Promise<WriteResult<TData>>;
+
+export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
+  query: QueryEvent<TPayload>,
+  context: HandlerContext,
+) => Promise<TResult>;
+
+// --- Event Definitions ---
+
+export type EventDef<TPayload = unknown> = {
+  readonly name: string;
+  readonly schema: ZodType<TPayload>;
+};
+
+// --- Handler References ---
+
+export type HandlerRef = {
+  readonly name: string;
+};
+
+export type CrudRefs = {
+  readonly handlers: {
+    readonly create: HandlerRef;
+    readonly update: HandlerRef;
+    readonly delete: HandlerRef;
+  };
+  readonly queries: {
+    readonly list: HandlerRef;
+    readonly detail: HandlerRef;
+  };
+};
+
+// --- Handler Definitions (stored in feature/registry) ---
+
+export type WriteHandlerDef = {
+  readonly name: string;
+  readonly schema: ZodType;
+  readonly handler: WriteHandlerFn;
+  readonly access?: AccessRule;
+};
+
+export type QueryHandlerDef = {
+  readonly name: string;
+  readonly schema: ZodType;
+  readonly handler: QueryHandlerFn;
+  readonly access?: AccessRule;
+};

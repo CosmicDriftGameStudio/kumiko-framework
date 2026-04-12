@@ -3,6 +3,7 @@
 export { hasAccess } from "./access";
 export { validateBoot } from "./boot-validator";
 export { access, createSystemConfig, createTenantConfig, createUserConfig } from "./config-helpers";
+export { FrameworkError } from "./errors";
 export type { ErrorCode, SystemHookName } from "./constants";
 export {
   ConcurrencyModes,

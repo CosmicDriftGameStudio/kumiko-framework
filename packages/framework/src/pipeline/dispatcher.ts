@@ -1,5 +1,6 @@
 import { hasAccess } from "../engine/access";
 import { ErrorCodes } from "../engine/constants";
+import { FrameworkError } from "../engine/errors";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import type {
   DeleteContext,
@@ -160,15 +161,15 @@ export function createDispatcher(
     async query(typeOrRef, payload, user) {
       const type = resolveType(typeOrRef);
       const handler = registry.getQueryHandler(type);
-      if (!handler) throw new Error(`${ErrorCodes.handlerNotFound}: ${type}`);
+      if (!handler) throw new FrameworkError(ErrorCodes.handlerNotFound, type);
 
       if (handler.access && !hasAccess(user, handler.access)) {
-        throw new Error(`${ErrorCodes.accessDenied}: ${type}`);
+        throw new FrameworkError(ErrorCodes.accessDenied, type);
       }
 
       const parsed = handler.schema.safeParse(payload);
       if (!parsed.success) {
-        throw new Error(`${ErrorCodes.validationFailed}: ${parsed.error.message}`);
+        throw new FrameworkError(ErrorCodes.validationFailed, parsed.error.message);
       }
 
       let result = await handler.handler(
@@ -204,21 +205,21 @@ export function createDispatcher(
     async command(typeOrRef, payload, user) {
       const type = resolveType(typeOrRef);
       const handler = registry.getWriteHandler(type);
-      if (!handler) throw new Error(`${ErrorCodes.handlerNotFound}: ${type}`);
+      if (!handler) throw new FrameworkError(ErrorCodes.handlerNotFound, type);
 
       if (handler.access && !hasAccess(user, handler.access)) {
-        throw new Error(`${ErrorCodes.accessDenied}: ${type}`);
+        throw new FrameworkError(ErrorCodes.accessDenied, type);
       }
 
       const parsed = handler.schema.safeParse(payload);
       if (!parsed.success) {
-        throw new Error(`${ErrorCodes.validationFailed}: ${parsed.error.message}`);
+        throw new FrameworkError(ErrorCodes.validationFailed, parsed.error.message);
       }
 
       const hookErrors = runValidation(registry, type, parsed.data as Record<string, unknown>);
       if (hookErrors) {
         const messages = hookErrors.map((e) => `${e.field}: ${e.error}`).join(", ");
-        throw new Error(`${ErrorCodes.validationHook}: ${messages}`);
+        throw new FrameworkError(ErrorCodes.validationHook, messages);
       }
 
       const handlerContext = {
