@@ -8,6 +8,7 @@ import type {
   Registry,
   SaveContext,
 } from "../engine/types";
+import type { EventDedup } from "./event-dedup";
 
 export type SystemHookDef<TFn> = {
   readonly name: string;
@@ -38,10 +39,17 @@ export type LifecycleHooks = {
   runPostDelete(handlerName: string, payload: DeleteContext, context: AppContext): Promise<void>;
 };
 
+export type LifecycleOptions = {
+  eventDedup?: EventDedup;
+};
+
 export function createLifecycleHooks(
   registry: Registry,
   systemHooks: SystemHooks = {},
+  options: LifecycleOptions = {},
 ): LifecycleHooks {
+  const { eventDedup } = options;
+
   function sortByPriority<T extends { priority: number }>(hooks: readonly T[]): T[] {
     return [...hooks].sort((a, b) => a.priority - b.priority);
   }
@@ -60,6 +68,15 @@ export function createLifecycleHooks(
       | undefined;
     phase: string;
   }): Promise<void> {
+    // Event dedup: skip entire hook set if already processed
+    if (eventDedup) {
+      const eventId = buildEventId(opts.handlerName, opts.payload, opts.phase);
+      if (eventId) {
+        const acquired = await eventDedup.tryAcquire(eventId);
+        if (!acquired) return;
+      }
+    }
+
     const errors: Array<{ name: string; error: unknown }> = [];
 
     for (const hook of opts.getHandlerHooks(opts.handlerName)) {
@@ -161,4 +178,14 @@ export function createLifecycleHooks(
       });
     },
   };
+}
+
+// Build a unique eventId from handler + payload identity + phase.
+// Uses entity id if available (SaveContext/DeleteContext), otherwise null (no dedup possible).
+function buildEventId(handlerName: string, payload: unknown, phase: string): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const p = payload as Record<string, unknown>;
+  const id = p["id"] as number | undefined;
+  if (!id) return null;
+  return `${handlerName}:${id}:${phase}`;
 }

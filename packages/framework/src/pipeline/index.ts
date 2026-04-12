@@ -3,6 +3,8 @@ export type { Dispatcher } from "./dispatcher";
 export { createDispatcher } from "./dispatcher";
 export type { DistributedLock } from "./distributed-lock";
 export { createDistributedLock } from "./distributed-lock";
+export type { EventDedup } from "./event-dedup";
+export { createEventDedup } from "./event-dedup";
 export type { BrokerEvent, EventBroker } from "./event-broker";
 export { createEventBroker } from "./event-broker";
 export type { EventLog, EventLogEntry } from "./event-log";

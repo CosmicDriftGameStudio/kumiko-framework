@@ -3,6 +3,7 @@
 
 export const RedisKeys = {
   idempotency: "kumiko:idempotency:",
+  eventDedup: "kumiko:event-dedup:",
   lock: "kumiko:lock:",
   events: "kumiko:events",
   eventLog: "kumiko:events:log",

@@ -4,6 +4,7 @@ import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
+import type { EventDedup } from "../pipeline/event-dedup";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
 import { Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
@@ -20,6 +21,7 @@ export type ServerOptions = {
   jwtIssuer?: string;
   dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
   systemHooks?: SystemHooks;
+  eventDedup?: EventDedup;
   sseBroker?: SseBroker;
   auth?: AuthRoutesConfig;
   files?: Omit<FileRoutesOptions, "db"> & { db?: FileRoutesOptions["db"] };
@@ -35,7 +37,9 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const jwt = createJwtHelper(options.jwtSecret, options.jwtIssuer);
   const sseBroker = options.sseBroker ?? createSseBroker();
 
-  const lifecycle = createLifecycleHooks(options.registry, options.systemHooks);
+  const lifecycle = createLifecycleHooks(options.registry, options.systemHooks, {
+    eventDedup: options.eventDedup,
+  });
 
   const dispatcher = createDispatcher(options.registry, options.context, {
     ...options.dispatcherOptions,

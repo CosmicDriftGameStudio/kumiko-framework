@@ -2,6 +2,7 @@ import Redis from "ioredis";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createTestRedis, type TestRedis } from "../../testing";
 import { createEventBroker } from "../event-broker";
+import { createEventDedup } from "../event-dedup";
 import { createEventLog } from "../event-log";
 import { createIdempotencyGuard } from "../idempotency";
 
@@ -129,5 +130,62 @@ describe("event log", () => {
 
     const recent = await log.recent(3);
     expect(recent).toHaveLength(3);
+  });
+});
+
+// --- Event Dedup ---
+
+describe("event dedup", () => {
+  test("first acquire succeeds", async () => {
+    const dedup = createEventDedup(testRedis.redis);
+    const acquired = await dedup.tryAcquire("evt-first-001");
+    expect(acquired).toBe(true);
+  });
+
+  test("second acquire for same eventId fails", async () => {
+    const dedup = createEventDedup(testRedis.redis);
+    const eventId = "evt-dup-002";
+
+    const first = await dedup.tryAcquire(eventId);
+    const second = await dedup.tryAcquire(eventId);
+
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+  });
+
+  test("different eventIds are independent", async () => {
+    const dedup = createEventDedup(testRedis.redis);
+
+    const a = await dedup.tryAcquire("evt-a-003");
+    const b = await dedup.tryAcquire("evt-b-003");
+
+    expect(a).toBe(true);
+    expect(b).toBe(true);
+  });
+
+  test("expires after TTL, re-acquire succeeds", async () => {
+    const dedup = createEventDedup(testRedis.redis, { ttlSeconds: 1 });
+    const eventId = "evt-ttl-004";
+
+    expect(await dedup.tryAcquire(eventId)).toBe(true);
+    expect(await dedup.tryAcquire(eventId)).toBe(false);
+
+    await new Promise((r) => setTimeout(r, 1100));
+
+    expect(await dedup.tryAcquire(eventId)).toBe(true);
+  });
+
+  test("concurrent acquires — only one wins", async () => {
+    const dedup = createEventDedup(testRedis.redis);
+    const eventId = "evt-race-005";
+
+    const results = await Promise.all([
+      dedup.tryAcquire(eventId),
+      dedup.tryAcquire(eventId),
+      dedup.tryAcquire(eventId),
+    ]);
+
+    const winners = results.filter((r) => r === true);
+    expect(winners).toHaveLength(1);
   });
 });

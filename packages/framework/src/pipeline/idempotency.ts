@@ -15,12 +15,12 @@ export function createIdempotencyGuard(
 
   return {
     async check(requestId) {
-      const cached = await redis.get(`${prefix}${requestId}`);
-      return cached;
+      return redis.get(`${prefix}${requestId}`);
     },
 
     async store(requestId, result) {
-      await redis.set(`${prefix}${requestId}`, JSON.stringify(result), "EX", ttl);
+      // SET NX: only store if not already stored (atomic, prevents race between concurrent requests)
+      await redis.set(`${prefix}${requestId}`, JSON.stringify(result), "EX", ttl, "NX");
     },
   };
 }
