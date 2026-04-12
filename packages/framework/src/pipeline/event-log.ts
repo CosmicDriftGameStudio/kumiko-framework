@@ -19,7 +19,7 @@ export type EventLog = {
   recent(count?: number): Promise<EventLogEntry[]>;
 };
 
-export function createEventLog(redis: Redis, streamKey = RedisKeys.eventLog): EventLog {
+export function createEventLog(redis: Redis, streamKey: string = RedisKeys.eventLog): EventLog {
   return {
     async append(entry) {
       const id = await redis.xadd(
