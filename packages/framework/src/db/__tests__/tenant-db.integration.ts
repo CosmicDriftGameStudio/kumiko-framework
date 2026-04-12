@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } from "../../testing";
-import { integer, table as pgTable, serial, text, timestamp } from "../dialect";
+import { table as pgTable, serial, text, timestamp } from "../dialect";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
 
@@ -255,19 +255,19 @@ describe("scoped mode (default)", () => {
 });
 
 // =============================================================================
-// MODE 2: Unscoped (r.systemScope()) — no tenant filter, tenantId as default
+// MODE 2: System (r.systemScope()) — no tenant filter, tenantId as default
 // =============================================================================
 
-describe("unscoped mode (systemScope)", () => {
+describe("system mode (r.systemScope())", () => {
   test("select returns rows from ALL tenants", async () => {
     const scoped1 = createTenantDb(testDb.db, tenant1.tenantId);
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
 
-    await scoped1.insert(table).values({ name: "Unscoped-T1" }).returning();
-    await scoped2.insert(table).values({ name: "Unscoped-T2" }).returning();
+    await scoped1.insert(table).values({ name: "System-T1" }).returning();
+    await scoped2.insert(table).values({ name: "System-T2" }).returning();
 
-    const unscopedDb = createTenantDb(testDb.db, tenant1.tenantId, { unscoped: true });
-    const rows = await unscopedDb.select().from(table);
+    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
+    const rows = await systemDb.select().from(table);
 
     const tenantIds = new Set(rows.map((r) => (r as Record<string, unknown>)["tenantId"]));
     // Must see rows from at least 2 different tenants
@@ -275,19 +275,19 @@ describe("unscoped mode (systemScope)", () => {
   });
 
   test("insert uses tenantId as default but handler can override", async () => {
-    const unscopedDb = createTenantDb(testDb.db, tenant1.tenantId, { unscoped: true });
+    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
 
     // Without explicit tenantId — uses the default (tenant1)
-    const [defaultRow] = await unscopedDb
+    const [defaultRow] = await systemDb
       .insert(table)
-      .values({ name: "UnscopedDefault" })
+      .values({ name: "SystemDefault" })
       .returning();
     expect((defaultRow as Record<string, unknown>)["tenantId"]).toBe(1);
 
     // With explicit tenantId — handler's value wins
-    const [overrideRow] = await unscopedDb
+    const [overrideRow] = await systemDb
       .insert(table)
-      .values({ name: "UnscopedOverride", tenantId: 99 })
+      .values({ name: "SystemOverride", tenantId: 99 })
       .returning();
     expect((overrideRow as Record<string, unknown>)["tenantId"]).toBe(99);
   });
@@ -296,7 +296,7 @@ describe("unscoped mode (systemScope)", () => {
     // Config feature sets tenantId = null for system-scoped values
     // This requires the column to allow NULL — using systemTable which has no tenantId col,
     // but we can test the spread order logic directly:
-    const unscopedDb = createTenantDb(testDb.db, tenant1.tenantId, { unscoped: true });
+    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
 
     // In scoped mode, tenantId: 77 would be overridden to 1
     const scopedDb = createTenantDb(testDb.db, tenant1.tenantId);
@@ -307,16 +307,16 @@ describe("unscoped mode (systemScope)", () => {
     expect((scopedRow as Record<string, unknown>)["tenantId"]).toBe(1); // forced
 
     // In unscoped mode, explicit tenantId wins
-    const [unscopedRow] = await unscopedDb
+    const [unscopedRow] = await systemDb
       .insert(table)
-      .values({ name: "UnscopedExplicit", tenantId: 77 })
+      .values({ name: "SystemExplicit", tenantId: 77 })
       .returning();
     expect((unscopedRow as Record<string, unknown>)["tenantId"]).toBe(77); // handler wins
   });
 
   test("update affects rows from any tenant", async () => {
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
-    const [row] = await scoped2.insert(table).values({ name: "T2-Unscoped-Upd" }).returning();
+    const [row] = await scoped2.insert(table).values({ name: "T2-System-Upd" }).returning();
     const id = (row as Record<string, unknown>)["id"] as number;
 
     // Scoped tenant 1 cannot update tenant 2's row
@@ -329,23 +329,23 @@ describe("unscoped mode (systemScope)", () => {
     expect(scopedResult).toHaveLength(0);
 
     // Unscoped CAN update tenant 2's row
-    const unscopedDb = createTenantDb(testDb.db, tenant1.tenantId, { unscoped: true });
-    const [updated] = await unscopedDb
+    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
+    const [updated] = await systemDb
       .update(table)
-      .set({ name: "UnscopedWin" })
+      .set({ name: "SystemWin" })
       .where(eq(table["id"], id))
       .returning();
-    expect((updated as Record<string, unknown>)["name"]).toBe("UnscopedWin");
+    expect((updated as Record<string, unknown>)["name"]).toBe("SystemWin");
   });
 
   test("delete affects rows from any tenant", async () => {
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
-    const [row] = await scoped2.insert(table).values({ name: "T2-Unscoped-Del" }).returning();
+    const [row] = await scoped2.insert(table).values({ name: "T2-System-Del" }).returning();
     const id = (row as Record<string, unknown>)["id"] as number;
 
     // Unscoped can delete tenant 2's row from tenant 1 context
-    const unscopedDb = createTenantDb(testDb.db, tenant1.tenantId, { unscoped: true });
-    await unscopedDb.delete(table).where(eq(table["id"], id));
+    const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
+    await systemDb.delete(table).where(eq(table["id"], id));
 
     // Verify it's gone
     const remaining = await scoped2.select().from(table).where(eq(table["id"], id));

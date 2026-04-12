@@ -24,7 +24,7 @@ export function createTestDispatcher(registry: Registry, ctx: AppContext): TestD
     return createTenantDb(
       ctx.db as DbConnection,
       user.tenantId,
-      isSystem ? { unscoped: true } : undefined,
+      isSystem ? "system" : "tenant",
     );
   }
 

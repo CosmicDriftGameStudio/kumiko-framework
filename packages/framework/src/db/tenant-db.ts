@@ -8,12 +8,22 @@ type Table = TableColumns<any>;
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle column selection
 type ColumnSelection = Record<string, any>;
 
-export type TenantDbOptions = {
-  readonly unscoped?: boolean;
-};
+/**
+ * TenantDb scope modes:
+ *
+ * - "tenant" (default): SELECT/UPDATE/DELETE filtered by tenantId + reference data (tenantId=0).
+ *   INSERT forces tenantId — handler cannot override.
+ *
+ * - "system" (r.systemScope()): No tenant filter on reads/updates/deletes.
+ *   INSERT uses tenantId as default but handler can override (e.g. tenantId: null for system config).
+ *
+ * Tables without a tenantId column are always unfiltered regardless of mode.
+ */
+export type TenantDbMode = "tenant" | "system";
 
 export type TenantDb = {
   readonly tenantId: number;
+  readonly mode: TenantDbMode;
   select(): TenantSelect;
   select(columns: ColumnSelection): TenantSelect;
   insert(table: Table): TenantInsert;
@@ -56,62 +66,87 @@ type TenantDelete = {
   where(condition: SQL): PromiseLike<void>;
 };
 
-export function createTenantDb(
-  db: DbConnection,
-  tenantId: number,
-  options?: TenantDbOptions,
-): TenantDb {
-  const unscoped = options?.unscoped ?? false;
-
+export function createTenantDb(db: DbConnection, tenantId: number, mode: TenantDbMode = "tenant"): TenantDb {
   function hasTenantColumn(table: Table): boolean {
     return table["tenantId"] !== undefined;
   }
 
-  function tenantFilter(table: Table, ...extra: SQL[]): SQL | undefined {
-    // Unscoped mode: no tenant filter on reads/updates/deletes (system-scoped features)
-    // Also skip if table doesn't have a tenantId column
-    if (unscoped || !hasTenantColumn(table)) {
+  // --- Read filter (SELECT/UPDATE/DELETE WHERE clause) ---
+
+  function readFilter(table: Table, ...extra: SQL[]): SQL | undefined {
+    if (!hasTenantColumn(table)) {
       return extra.length > 0 ? and(...extra) : undefined;
     }
-    // Include own tenant + global data (tenantId = 0 = system/reference data)
-    const tenantCondition = or(eq(table["tenantId"], tenantId), eq(table["tenantId"], 0))!;
-    const conditions = [tenantCondition, ...extra];
-    return and(...conditions)!;
+
+    if (mode === "system") {
+      // System mode: no tenant restriction, only pass through extra conditions
+      return extra.length > 0 ? and(...extra) : undefined;
+    }
+
+    // Tenant mode: own data + reference data (tenantId = 0)
+    const ownOrGlobal = or(eq(table["tenantId"], tenantId), eq(table["tenantId"], 0))!;
+    return extra.length > 0 ? and(ownOrGlobal, ...extra) : ownOrGlobal;
   }
 
-  // Wraps a Drizzle query into a chainable thenable with tenant filter
+  // --- Write values (INSERT tenantId handling) ---
+
+  function insertValues(table: Table, data: Record<string, unknown>): Record<string, unknown> {
+    if (!hasTenantColumn(table)) return data;
+
+    if (mode === "system") {
+      // System mode: tenantId is a default, handler can override (e.g. null for system config)
+      return { tenantId, ...data };
+    }
+
+    // Tenant mode: tenantId is forced, handler cannot override
+    return { ...data, tenantId };
+  }
+
+  // --- Select wrapper (lazy filter + chainable) ---
+
   function wrapSelect(
     // biome-ignore lint/suspicious/noExplicitAny: Drizzle internal query type
     query: any,
     table: Table,
-    applied: boolean,
+    filtered: boolean,
   ): TenantSelectQuery {
-    // Lazily apply tenant filter when awaited (if not yet applied via .where())
-    function getFiltered() {
-      if (applied) return query;
-      const filter = tenantFilter(table);
+    function ensureFiltered() {
+      if (filtered) return query;
+      const filter = readFilter(table);
       return filter ? query.where(filter) : query;
     }
 
     return {
       where(condition: SQL) {
-        const filter = tenantFilter(table, condition);
+        const filter = readFilter(table, condition);
         return wrapSelect(filter ? query.where(filter) : query.where(condition), table, true);
       },
       limit(n: number) {
-        return wrapSelect(getFiltered().limit(n), table, true);
+        return wrapSelect(ensureFiltered().limit(n), table, true);
       },
       orderBy(...columns: SQL[]) {
-        return wrapSelect(getFiltered().orderBy(...columns), table, true);
+        return wrapSelect(ensureFiltered().orderBy(...columns), table, true);
       },
       then(resolve, reject) {
-        return getFiltered().then((rows: Record<string, unknown>[]) => resolve(rows), reject);
+        return ensureFiltered().then((rows: Record<string, unknown>[]) => resolve(rows), reject);
       },
     } as TenantSelectQuery;
   }
 
+  // --- Where helper for update/delete ---
+
+  function whereClause(table: Table, condition: SQL): SQL {
+    const filter = readFilter(table, condition);
+    return filter ?? condition;
+  }
+
+  function whereAll(table: Table): SQL | undefined {
+    return readFilter(table);
+  }
+
   return {
     tenantId,
+    mode,
 
     select(columns?: ColumnSelection) {
       return {
@@ -125,14 +160,7 @@ export function createTenantDb(
     insert(table: Table) {
       return {
         values(data: Record<string, unknown>) {
-          // Scoped: TenantDb's tenantId wins (security — can't override)
-          // Unscoped: handler's value wins (system features set tenantId explicitly or null)
-          const values = !hasTenantColumn(table)
-            ? data
-            : unscoped
-              ? { tenantId, ...data }
-              : { ...data, tenantId };
-          const q = db.insert(table).values(values);
+          const q = db.insert(table).values(insertValues(table, data));
           return {
             returning() {
               return q.returning() as PromiseLike<Record<string, unknown>[]>;
@@ -151,8 +179,7 @@ export function createTenantDb(
           const q = db.update(table).set(data);
           return {
             where(condition: SQL) {
-              const filter = tenantFilter(table, condition);
-              const wq = q.where(filter ?? condition);
+              const wq = q.where(whereClause(table, condition));
               return {
                 returning() {
                   return wq.returning() as PromiseLike<Record<string, unknown>[]>;
@@ -163,12 +190,12 @@ export function createTenantDb(
               } as TenantUpdateWhere;
             },
             returning() {
-              const filter = tenantFilter(table);
+              const filter = whereAll(table);
               const wq = filter ? q.where(filter) : q;
               return wq.returning() as PromiseLike<Record<string, unknown>[]>;
             },
             then(resolve, reject) {
-              const filter = tenantFilter(table);
+              const filter = whereAll(table);
               const wq = filter ? q.where(filter) : q;
               return (wq as unknown as PromiseLike<void>).then(resolve, reject);
             },
@@ -180,10 +207,7 @@ export function createTenantDb(
     delete(table: Table) {
       return {
         where(condition: SQL) {
-          const filter = tenantFilter(table, condition);
-          return db
-            .delete(table)
-            .where(filter ?? condition) as unknown as PromiseLike<void>;
+          return db.delete(table).where(whereClause(table, condition)) as unknown as PromiseLike<void>;
         },
       };
     },

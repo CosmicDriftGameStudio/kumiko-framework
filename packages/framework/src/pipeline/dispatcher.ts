@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
@@ -89,7 +89,7 @@ export function createDispatcher(
   function buildHandlerContext(type: string, user: SessionUser): HandlerContext {
     const isSystem = registry.isHandlerSystemScoped(type);
     const db = context.db
-      ? createTenantDb(context.db, user.tenantId, isSystem ? { unscoped: true } : undefined)
+      ? createTenantDb(context.db, user.tenantId, isSystem ? "system" : "tenant")
       : undefined;
     return { ...context, db, _userId: user.id, _handlerType: type } as HandlerContext;
   }
@@ -167,10 +167,7 @@ export function createDispatcher(
           const table = getTable(entityName);
           if (!table) continue;
 
-          const [row] = await handlerContext.db
-            .select()
-            .from(table)
-            .where(eq(table["id"], id));
+          const [row] = await handlerContext.db.select().from(table).where(eq(table["id"], id));
 
           if (!row) continue;
           const currentValue = (row as Record<string, unknown>)[fieldName] as string;
@@ -226,10 +223,7 @@ export function createDispatcher(
       }
 
       const handlerContext = buildHandlerContext(type, user);
-      let result = await handler.handler(
-        { type, payload: parsed.data, user },
-        handlerContext,
-      );
+      let result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
       // Field-level read filter
       const entityName = registry.getHandlerEntity(type);

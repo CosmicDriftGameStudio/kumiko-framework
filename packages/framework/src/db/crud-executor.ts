@@ -127,10 +127,7 @@ export function createCrudExecutor(
     return and(...conditions)!;
   }
 
-  async function loadById(
-    id: number,
-    db: TenantDb,
-  ): Promise<Record<string, unknown> | null> {
+  async function loadById(id: number, db: TenantDb): Promise<Record<string, unknown> | null> {
     const [row] = await db.select().from(table).where(idFilter(id));
     return (row as Record<string, unknown>) ?? null;
   }
@@ -228,10 +225,7 @@ export function createCrudExecutor(
       if (!softDelete) return { isSuccess: false, error: "soft_delete_not_enabled" };
 
       // Find the soft-deleted row (bypass isDeleted filter — use only id)
-      const [row] = await db
-        .select()
-        .from(table)
-        .where(eq(table["id"], payload.id));
+      const [row] = await db.select().from(table).where(eq(table["id"], payload.id));
 
       if (!row) return { isSuccess: false, error: "not_found" };
       const data = row as Record<string, unknown>;
@@ -291,17 +285,22 @@ export function createCrudExecutor(
         conditions.push(inArray(table["id"], filterIds));
       }
 
-      let query = conditions.length > 0
-        ? db.select().from(table).where(and(...conditions)!)
-        : db.select().from(table);
+      let query =
+        conditions.length > 0
+          ? db
+              .select()
+              .from(table)
+              .where(and(...conditions)!)
+          : db.select().from(table);
 
       query = query.limit(limit);
 
       if (payload.sort && table[payload.sort]) {
         const column = table[payload.sort];
-        query = payload.sortDirection === "desc"
-          ? query.orderBy(desc(column))
-          : query.orderBy(asc(column));
+        query =
+          payload.sortDirection === "desc"
+            ? query.orderBy(desc(column))
+            : query.orderBy(asc(column));
       }
 
       const rows = await query;
@@ -313,7 +312,7 @@ export function createCrudExecutor(
       return { rows: (rows as Record<string, unknown>[]).map(maskRow), nextCursor };
     },
 
-    async detail(payload, user, db) {
+    async detail(payload, _user, db) {
       const row = await loadById(payload.id, db);
       return row ? maskRow(row) : null;
     },

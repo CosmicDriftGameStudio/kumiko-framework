@@ -213,11 +213,7 @@ describe("crud delete (soft)", () => {
 describe("crud list", () => {
   test("lists rows for tenant with pagination", async () => {
     for (let i = 0; i < 5; i++) {
-      await crud.create(
-        { email: `list${i}@test.de`, firstName: `User${i}` },
-        adminUser,
-        adminDb,
-      );
+      await crud.create({ email: `list${i}@test.de`, firstName: `User${i}` }, adminUser, adminDb);
     }
 
     const page1 = await crud.list({ limit: 3 }, adminUser, adminDb);
