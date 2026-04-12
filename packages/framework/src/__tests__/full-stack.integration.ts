@@ -43,9 +43,9 @@ const featurePostSaveLog: SaveContext[] = [];
 // --- Feature definition ---
 
 const userFeature = defineFeature("users", (r) => {
-  r.entity("user", userEntity);
+  const user = r.entity("user", userEntity);
 
-  r.writeHandler(
+  const createHandler = r.writeHandler(
     "user.create",
     z.object({
       email: z.string().email(),
@@ -107,11 +107,11 @@ const userFeature = defineFeature("users", (r) => {
     return crud.detail(query.payload, query.user, ctx.db);
   });
 
-  r.entityHook("postSave", "user", async (result) => {
+  r.entityHook("postSave", user, async (result) => {
     featurePostSaveLog.push(result);
   });
 
-  r.hook("validation", "user.create", (data) => {
+  r.hook("validation", createHandler, (data) => {
     if (data["email"] === "banned@evil.com") return [{ field: "email", error: "banned_domain" }];
     return null;
   });
