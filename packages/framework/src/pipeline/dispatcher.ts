@@ -51,6 +51,30 @@ export function createDispatcher(
 ): Dispatcher {
   const { idempotency, eventLog, lifecycle, jobRunner } = options;
 
+  // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
+  const tableCache = new Map<string, ReturnType<typeof buildDrizzleTable>>();
+  const transitionCache = new Map<string, ReadonlyMap<string, ReadonlySet<string>>>();
+
+  function getTable(entityName: string): ReturnType<typeof buildDrizzleTable> | undefined {
+    if (tableCache.has(entityName)) return tableCache.get(entityName);
+    const entity = registry.getEntity(entityName);
+    if (!entity) return undefined;
+    const table = buildDrizzleTable(entityName, entity);
+    tableCache.set(entityName, table);
+    return table;
+  }
+
+  function getTransitions(
+    fieldName: string,
+    transitionMap: Record<string, readonly string[]>,
+  ): ReadonlyMap<string, ReadonlySet<string>> {
+    const key = fieldName;
+    if (transitionCache.has(key)) return transitionCache.get(key)!;
+    const transitions = defineTransitions(transitionMap);
+    transitionCache.set(key, transitions);
+    return transitions;
+  }
+
   async function logEvent(type: string, payload: unknown, user: SessionUser): Promise<void> {
     if (!eventLog) return;
     await eventLog.append({
@@ -133,8 +157,9 @@ export function createDispatcher(
           const newValue = changes[fieldName] as string | undefined;
           if (!newValue || !id) continue;
 
-          // Load current state from DB
-          const table = buildDrizzleTable(entityName, entity);
+          const table = getTable(entityName);
+          if (!table) continue;
+
           const [row] = await context.db
             .select()
             .from(table)
@@ -142,8 +167,7 @@ export function createDispatcher(
 
           if (!row) continue;
           const currentValue = (row as Record<string, unknown>)[fieldName] as string;
-          const transitions = defineTransitions(transitionMap);
-          guardTransition(transitions, currentValue, newValue);
+          guardTransition(getTransitions(fieldName, transitionMap), currentValue, newValue);
         }
       }
     }
