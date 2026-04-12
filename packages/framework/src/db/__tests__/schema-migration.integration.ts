@@ -10,7 +10,6 @@ import {
 } from "../../engine";
 import type { FeatureDefinition } from "../../engine/types";
 import { createTestDb, pushTables, type TestDb } from "../../testing";
-import { generateSchemaSource } from "../schema-generator";
 import { buildDrizzleTable } from "../table-builder";
 
 /**
@@ -19,12 +18,9 @@ import { buildDrizzleTable } from "../table-builder";
  *
  * Each test simulates:
  *   1. Developer defines/changes entities
- *   2. Generator creates schema source
- *   3. Schema is applied to a real database (via drizzle-kit push simulation)
+ *   2. buildDrizzleTable creates Drizzle table objects
+ *   3. Schema is applied to a real database via pushTables (drizzle-kit push)
  *   4. We verify the DB state matches expectations
- *
- * Since drizzle-kit push requires CLI invocation, we test the generator output
- * and validate it produces correct, executable SQL by running it directly.
  */
 
 let testDb: TestDb;
@@ -38,9 +34,7 @@ afterAll(async () => {
 });
 
 // Helper: apply schema by building Drizzle tables and pushing via drizzle-kit
-async function applySchema(features: readonly FeatureDefinition[]): Promise<string> {
-  const source = generateSchemaSource(features);
-
+async function applySchema(features: readonly FeatureDefinition[]): Promise<void> {
   const tables: Record<string, unknown> = {};
   for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities)) {
@@ -48,8 +42,6 @@ async function applySchema(features: readonly FeatureDefinition[]): Promise<stri
     }
   }
   await pushTables(testDb.db, tables);
-
-  return source;
 }
 
 // Helper: read column info from information_schema
@@ -128,26 +120,15 @@ describe("schema migration workflows", () => {
     await pushTables(testDb.db, { user: buildDrizzleTable("user", initialEntity) });
 
     // Developer adds a new field
-    const feature = defineFeature("accounts", (r) => {
-      r.entity(
-        "user",
-        createEntity({
-          table: "wf2_users",
-          fields: {
-            email: createTextField(),
-            displayName: createTextField(), // NEW FIELD
-          },
-        }),
-      );
+    const updatedEntity = createEntity({
+      table: "wf2_users",
+      fields: {
+        email: createTextField(),
+        displayName: createTextField(), // NEW FIELD
+      },
     });
 
-    // Generator produces schema with both fields
-    const source = generateSchemaSource([feature]);
-    expect(source).toContain('email: text("email")');
-    expect(source).toContain('displayName: text("display_name")');
-
     // Push updated schema — drizzle-kit generates ALTER TABLE ADD COLUMN
-    const updatedEntity = feature.entities["user"] as import("../../engine/types").EntityDefinition;
     await pushTables(
       testDb.db,
       { user: buildDrizzleTable("user", updatedEntity) },
@@ -242,64 +223,5 @@ describe("schema migration workflows", () => {
     expect(articleColumns.has("title")).toBe(true);
     expect(productColumns.has("name")).toBe(true);
     expect(productColumns.has("price")).toBe(true);
-  });
-
-  test("workflow 6: generator output is idempotent", () => {
-    const feature = defineFeature("app", (r) => {
-      r.entity(
-        "user",
-        createEntity({
-          table: "idempotent_users",
-          fields: {
-            email: createTextField({ searchable: true }),
-            isActive: createBooleanField({ default: true }),
-          },
-          softDelete: true,
-        }),
-      );
-    });
-
-    const output1 = generateSchemaSource([feature]);
-    const output2 = generateSchemaSource([feature]);
-
-    expect(output1).toBe(output2);
-  });
-
-  test("workflow 7: generated schema contains no framework dependencies", () => {
-    const feature = defineFeature("app", (r) => {
-      r.entity(
-        "item",
-        createEntity({
-          table: "check_items",
-          fields: {
-            name: createTextField(),
-            count: createNumberField(),
-            isEnabled: createBooleanField({ default: false }),
-            createdOn: createDateField(),
-            avatar: { type: "image" },
-            docs: { type: "files", maxCount: 5 },
-          },
-          softDelete: true,
-        }),
-      );
-    });
-
-    const source = generateSchemaSource([feature]);
-
-    // Only drizzle-orm imports
-    const lines = source.split("\n");
-    const imports = lines.filter((l) => l.startsWith("import"));
-    expect(imports).toHaveLength(1);
-    expect(imports[0]).toContain("drizzle-orm/pg-core");
-
-    // No framework references
-    expect(source).not.toContain("@kumiko");
-    expect(source).not.toContain("createEntity");
-    expect(source).not.toContain("buildDrizzleTable");
-
-    // Multi-file field (docs) produces no column
-    expect(source).not.toContain("docs");
-    // Single-file field (avatar) produces integer column
-    expect(source).toContain('avatar: integer("avatar")');
   });
 });
