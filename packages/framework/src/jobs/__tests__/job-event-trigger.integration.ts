@@ -4,8 +4,7 @@ import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { createRegistry, defineFeature } from "../../engine";
 import type { SessionUser } from "../../engine/types";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../../testing";
-import { sleep } from "../../testing/utils";
+import { createTestDb, createTestRedis, waitFor, type TestDb, type TestRedis } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
 // --- Track job executions ---
@@ -116,20 +115,19 @@ describe("event trigger: write handler fires matching jobs", () => {
     expect(result.isSuccess).toBe(true);
 
     // Wait for BullMQ to process
-    await sleep(1500);
+    await waitFor(() => {
+      const notification = jobExecutions.find(
+        (e) => e.name === "notifications.sendOrderConfirmation",
+      );
+      const analytics = jobExecutions.find((e) => e.name === "analytics.trackOrder");
 
-    // Both jobs should have fired
-    const notification = jobExecutions.find(
-      (e) => e.name === "notifications.sendOrderConfirmation",
-    );
-    const analytics = jobExecutions.find((e) => e.name === "analytics.trackOrder");
+      expect(notification).toBeDefined();
+      expect(notification?.payload["product"]).toBe("Widget");
+      expect(notification?.payload["amount"]).toBe(3);
 
-    expect(notification).toBeDefined();
-    expect(notification?.payload["product"]).toBe("Widget");
-    expect(notification?.payload["amount"]).toBe(3);
-
-    expect(analytics).toBeDefined();
-    expect(analytics?.payload["product"]).toBe("Widget");
+      expect(analytics).toBeDefined();
+      expect(analytics?.payload["product"]).toBe("Widget");
+    });
   });
 
   test("unrelated jobs do NOT fire", async () => {
@@ -144,15 +142,15 @@ describe("event trigger: write handler fires matching jobs", () => {
     await writeApi(adminUser, "orders.orders.create", { product: "A", amount: 1 });
     await writeApi(adminUser, "orders.orders.create", { product: "B", amount: 2 });
 
-    await sleep(1500);
+    await waitFor(() => {
+      const notifications = jobExecutions.filter(
+        (e) => e.name === "notifications.sendOrderConfirmation",
+      );
+      expect(notifications.length).toBe(2);
 
-    const notifications = jobExecutions.filter(
-      (e) => e.name === "notifications.sendOrderConfirmation",
-    );
-    expect(notifications.length).toBe(2);
-
-    const products = notifications.map((e) => e.payload["product"]);
-    expect(products).toContain("A");
-    expect(products).toContain("B");
+      const products = notifications.map((e) => e.payload["product"]);
+      expect(products).toContain("A");
+      expect(products).toContain("B");
+    });
   });
 });

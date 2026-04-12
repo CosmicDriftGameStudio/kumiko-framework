@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createRegistry, defineFeature } from "../../engine";
 import type { PipelineContext, Registry } from "../../engine/types";
-import { createTestRedis, sleep, type TestRedis } from "../../testing";
+import { createTestRedis, sleep, waitFor, type TestRedis } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
 // --- Shared state ---
@@ -102,10 +102,10 @@ describe("scenario 1: boot job", () => {
   test("runOnBoot job executes when runner starts", async () => {
     clearLog();
     await withRunner(async () => {
-      // Wait for boot job to process
-      await sleep(1000);
-      const bootEntries = jobLog.filter((e) => e.name === "test.bootSync");
-      expect(bootEntries.length).toBeGreaterThanOrEqual(1);
+      await waitFor(() => {
+        const bootEntries = jobLog.filter((e) => e.name === "test.bootSync");
+        expect(bootEntries.length).toBeGreaterThanOrEqual(1);
+      });
     });
   });
 });
@@ -127,14 +127,10 @@ describe("scenario 2: scheduled job", () => {
   test("cron job fires via BullMQ scheduler", async () => {
     clearLog();
     await withRunner(async () => {
-      // Cron fires every second — wait long enough for at least one execution
-      for (let i = 0; i < 10; i++) {
-        await sleep(500);
+      await waitFor(() => {
         const entries = jobLog.filter((e) => e.name === "test.scheduled");
-        if (entries.length > 0) break;
-      }
-      const entries = jobLog.filter((e) => e.name === "test.scheduled");
-      expect(entries.length).toBeGreaterThanOrEqual(1);
+        expect(entries.length).toBeGreaterThanOrEqual(1);
+      });
     });
   });
 });
@@ -146,11 +142,11 @@ describe("scenario 3: manual trigger", () => {
     clearLog();
     await withRunner(async (runner) => {
       await runner.dispatch("test.manualReport", { reportId: 42 });
-      await sleep(500);
-
-      const entries = jobLog.filter((e) => e.name === "test.manualReport");
-      expect(entries.length).toBe(1);
-      expect(entries[0]?.payload).toEqual({ reportId: 42 });
+      await waitFor(() => {
+        const entries = jobLog.filter((e) => e.name === "test.manualReport");
+        expect(entries.length).toBe(1);
+        expect(entries[0]?.payload).toEqual({ reportId: 42 });
+      });
     });
   });
 
@@ -170,10 +166,10 @@ describe("concurrency: parallel", () => {
       await runner.dispatch("test.parallelJob", { n: 1 });
       await runner.dispatch("test.parallelJob", { n: 2 });
       await runner.dispatch("test.parallelJob", { n: 3 });
-      await sleep(1000);
-
-      const entries = jobLog.filter((e) => e.name === "test.parallelJob");
-      expect(entries.length).toBe(3);
+      await waitFor(() => {
+        const entries = jobLog.filter((e) => e.name === "test.parallelJob");
+        expect(entries.length).toBe(3);
+      });
     });
   });
 });
@@ -238,9 +234,10 @@ describe("error handling", () => {
 
       // Worker should still be alive — dispatch another job
       await runner.dispatch("test.manualReport", { after: "failure" });
-      await sleep(500);
-      const entries = jobLog.filter((e) => e.name === "test.manualReport");
-      expect(entries.length).toBeGreaterThanOrEqual(1);
+      await waitFor(() => {
+        const entries = jobLog.filter((e) => e.name === "test.manualReport");
+        expect(entries.length).toBeGreaterThanOrEqual(1);
+      });
     });
   });
 });

@@ -81,7 +81,7 @@ export type { RequestHelper } from "./request-helper";
 export { createRequestHelper } from "./request-helper";
 export { createTestDispatcher, type TestDispatcher } from "./test-dispatcher";
 export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack";
-export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export { sleep } from "./utils";
 export { waitFor } from "./wait-for";
 
 // --- Helpers ---

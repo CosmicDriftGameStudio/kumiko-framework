@@ -315,6 +315,102 @@ describe("createRegistry", () => {
     expect(registry.getQueryHandler("orders.order.list")).toBeDefined();
   });
 
+  test("throws when write handler is not entity-mapped in feature with field-access", () => {
+    const feature = defineFeature("hr", (r) => {
+      r.entity(
+        "employee",
+        createEntity({
+          table: "employees",
+          fields: {
+            name: createTextField(),
+            salary: createTextField({ access: { write: ["Admin"] } }),
+          },
+        }),
+      );
+      // Handler name "promote" has no entity prefix → can't be mapped
+      r.writeHandler("promote", z.object({}), async () => ({ isSuccess: true, data: null }));
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/hr\.promote.*not mapped.*entityName\.action/i);
+  });
+
+  test("allows unmapped write handlers when feature has no field-access rules", () => {
+    const feature = defineFeature("admin", (r) => {
+      r.entity("setting", createEntity({ table: "settings", fields: { key: createTextField() } }));
+      // No field-access rules on entity → "reset" without entity prefix is fine
+      r.writeHandler("reset", z.object({}), async () => ({ isSuccess: true, data: null }));
+    });
+
+    expect(() => createRegistry([feature])).not.toThrow();
+  });
+
+  test("entity-mapped handlers pass validation with field-access", () => {
+    const feature = defineFeature("hr", (r) => {
+      r.entity(
+        "employee",
+        createEntity({
+          table: "employees",
+          fields: {
+            name: createTextField(),
+            salary: createTextField({ access: { write: ["Admin"] } }),
+          },
+        }),
+      );
+      // "employee.promote" follows convention → mapped to entity "employee"
+      r.writeHandler("employee.promote", z.object({}), async () => ({
+        isSuccess: true,
+        data: null,
+      }));
+    });
+
+    expect(() => createRegistry([feature])).not.toThrow();
+  });
+
+  test("throws when dotted query handler references unknown entity (typo protection)", () => {
+    const feature = defineFeature("hr", (r) => {
+      r.entity(
+        "employee",
+        createEntity({
+          table: "employees",
+          fields: {
+            salary: createTextField({ access: { read: ["Admin"] } }),
+          },
+        }),
+      );
+      r.writeHandler("employee.create", z.object({}), async () => ({
+        isSuccess: true,
+        data: null,
+      }));
+      // Typo: "emp" instead of "employee"
+      r.queryHandler("emp.list", z.object({}), async () => []);
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/emp.*does not exist/i);
+  });
+
+  test("allows standalone query handlers without dot in features with field-access", () => {
+    const feature = defineFeature("hr", (r) => {
+      r.entity(
+        "employee",
+        createEntity({
+          table: "employees",
+          fields: {
+            salary: createTextField({ access: { read: ["Admin"] } }),
+          },
+        }),
+      );
+      r.writeHandler("employee.create", z.object({}), async () => ({
+        isSuccess: true,
+        data: null,
+      }));
+      // Standalone queries — no dot, intentionally not entity-bound
+      r.queryHandler("dashboard", z.object({}), async () => ({ total: 42 }));
+      r.queryHandler("orgChart", z.object({}), async () => []);
+    });
+
+    expect(() => createRegistry([feature])).not.toThrow();
+  });
+
   test("returns searchable fields for entity", () => {
     const feature = defineFeature("admin", (r) => {
       r.entity(

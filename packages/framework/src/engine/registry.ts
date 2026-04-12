@@ -259,6 +259,38 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
+  // Validate: handlers in features with field-access rules must be entity-mapped.
+  // Without entity mapping, field-level access checks are silently skipped (security gap).
+  // Convention: "entityName.action" = entity-bound (must resolve), "action" = standalone (no filter).
+  for (const feature of features) {
+    if (!hasFieldAccessRules(feature)) continue;
+
+    // Write handlers: ALL must be entity-mapped (security-critical, writes need field-access checks)
+    for (const handlerName of Object.keys(feature.writeHandlers)) {
+      const qualified = qualify(feature.name, handlerName);
+      if (!handlerEntityMap.has(qualified)) {
+        throw new Error(
+          `Write handler "${qualified}" is not mapped to any entity, but feature "${feature.name}" has field-level access rules. ` +
+            `Name must follow "entityName.action" convention (e.g. "user.create") so field-access checks apply.`,
+        );
+      }
+    }
+
+    // Query handlers: only those with a dot must resolve (typo protection).
+    // No dot = standalone query (dashboard, stats) — intentionally not entity-bound.
+    for (const handlerName of Object.keys(feature.queryHandlers)) {
+      if (!handlerName.includes(".")) continue;
+      const qualified = qualify(feature.name, handlerName);
+      if (!handlerEntityMap.has(qualified)) {
+        const entityGuess = handlerName.slice(0, handlerName.indexOf("."));
+        throw new Error(
+          `Query handler "${qualified}" looks entity-bound ("${entityGuess}.…") but entity "${entityGuess}" does not exist. ` +
+            `Either fix the entity name, or remove the dot to mark it as a standalone query (e.g. "dashboard" instead of "dashboard.list").`,
+        );
+      }
+    }
+  }
+
   // Validate: all relation targets must reference existing entities
   for (const [entityName, rels] of relationMap) {
     for (const [relName, rel] of Object.entries(rels)) {
@@ -421,4 +453,16 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       return allReferenceData;
     },
   };
+}
+
+/** Returns true if any entity in the feature has field-level access rules (read or write). */
+function hasFieldAccessRules(feature: FeatureDefinition): boolean {
+  for (const entity of Object.values(feature.entities)) {
+    for (const field of Object.values(entity.fields)) {
+      if (field.access?.read?.length || field.access?.write?.length) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
