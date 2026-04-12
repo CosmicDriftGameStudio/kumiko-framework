@@ -66,7 +66,11 @@ type TenantDelete = {
   where(condition: SQL): PromiseLike<void>;
 };
 
-export function createTenantDb(db: DbConnection, tenantId: number, mode: TenantDbMode = "tenant"): TenantDb {
+export function createTenantDb(
+  db: DbConnection,
+  tenantId: number,
+  mode: TenantDbMode = "tenant",
+): TenantDb {
   function hasTenantColumn(table: Table): boolean {
     return table["tenantId"] !== undefined;
   }
@@ -127,8 +131,15 @@ export function createTenantDb(db: DbConnection, tenantId: number, mode: TenantD
       orderBy(...columns: SQL[]) {
         return wrapSelect(ensureFiltered().orderBy(...columns), table, true);
       },
-      then(resolve, reject) {
-        return ensureFiltered().then((rows: Record<string, unknown>[]) => resolve(rows), reject);
+      // biome-ignore lint/suspicious/noThenProperty: thenable for await
+      then(
+        resolve: ((value: Record<string, unknown>[]) => void) | null,
+        reject: ((reason: unknown) => void) | null,
+      ) {
+        return ensureFiltered().then(
+          (rows: Record<string, unknown>[]) => resolve?.(rows),
+          reject ?? undefined,
+        );
       },
     } as TenantSelectQuery;
   }
@@ -165,8 +176,9 @@ export function createTenantDb(db: DbConnection, tenantId: number, mode: TenantD
             returning() {
               return q.returning() as PromiseLike<Record<string, unknown>[]>;
             },
+            // biome-ignore lint/suspicious/noThenProperty: thenable for await
             then(resolve, reject) {
-              return (q as PromiseLike<void>).then(resolve, reject);
+              return (q as unknown as PromiseLike<void>).then(resolve, reject);
             },
           } as TenantInsertValues;
         },
@@ -184,6 +196,7 @@ export function createTenantDb(db: DbConnection, tenantId: number, mode: TenantD
                 returning() {
                   return wq.returning() as PromiseLike<Record<string, unknown>[]>;
                 },
+                // biome-ignore lint/suspicious/noThenProperty: thenable for await
                 then(resolve, reject) {
                   return (wq as unknown as PromiseLike<void>).then(resolve, reject);
                 },
@@ -194,6 +207,7 @@ export function createTenantDb(db: DbConnection, tenantId: number, mode: TenantD
               const wq = filter ? q.where(filter) : q;
               return wq.returning() as PromiseLike<Record<string, unknown>[]>;
             },
+            // biome-ignore lint/suspicious/noThenProperty: thenable for await
             then(resolve, reject) {
               const filter = whereAll(table);
               const wq = filter ? q.where(filter) : q;
@@ -207,7 +221,9 @@ export function createTenantDb(db: DbConnection, tenantId: number, mode: TenantD
     delete(table: Table) {
       return {
         where(condition: SQL) {
-          return db.delete(table).where(whereClause(table, condition)) as unknown as PromiseLike<void>;
+          return db
+            .delete(table)
+            .where(whereClause(table, condition)) as unknown as PromiseLike<void>;
         },
       };
     },

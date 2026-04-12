@@ -39,7 +39,7 @@ export async function assertExistsIn(
   const [row] = await db
     .select()
     .from(entity)
-    .where(and(...conditions));
+    .where(and(...conditions)!);
 
   if (!row) {
     return {

@@ -4,7 +4,7 @@ import { createBooleanField, createEntity, createTextField } from "../../engine"
 import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } from "../../testing";
 import { table as pgTable, serial, text, timestamp } from "../dialect";
 import { buildDrizzleTable } from "../table-builder";
-import { createTenantDb, type TenantDb } from "../tenant-db";
+import { createTenantDb } from "../tenant-db";
 
 // --- Entity table (has tenantId via buildBaseColumns) ---
 
@@ -51,7 +51,8 @@ describe("scoped mode (default)", () => {
     test("auto-injects tenantId into values", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-      const [row] = await tdb.insert(table).values({ name: "Item 1" }).returning();
+      const rows = await tdb.insert(table).values({ name: "Item 1" }).returning();
+      const row = rows[0]!;
       expect(row["tenantId"]).toBe(1);
       expect(row["name"]).toBe("Item 1");
     });
@@ -59,7 +60,8 @@ describe("scoped mode (default)", () => {
     test("cannot override tenantId via values", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-      const [row] = await tdb.insert(table).values({ name: "Sneaky", tenantId: 999 }).returning();
+      const rows = await tdb.insert(table).values({ name: "Sneaky", tenantId: 999 }).returning();
+      const row = rows[0]!;
       expect(row["tenantId"]).toBe(1);
     });
   });
@@ -278,10 +280,7 @@ describe("system mode (r.systemScope())", () => {
     const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
 
     // Without explicit tenantId — uses the default (tenant1)
-    const [defaultRow] = await systemDb
-      .insert(table)
-      .values({ name: "SystemDefault" })
-      .returning();
+    const [defaultRow] = await systemDb.insert(table).values({ name: "SystemDefault" }).returning();
     expect((defaultRow as Record<string, unknown>)["tenantId"]).toBe(1);
 
     // With explicit tenantId — handler's value wins

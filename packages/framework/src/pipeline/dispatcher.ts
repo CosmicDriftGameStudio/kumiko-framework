@@ -89,7 +89,11 @@ export function createDispatcher(
   function buildHandlerContext(type: string, user: SessionUser): HandlerContext {
     const isSystem = registry.isHandlerSystemScoped(type);
     const db = context.db
-      ? createTenantDb(context.db, user.tenantId, isSystem ? "system" : "tenant")
+      ? createTenantDb(
+          context.db as import("../db/connection").DbConnection,
+          user.tenantId,
+          isSystem ? "system" : "tenant",
+        )
       : undefined;
     return { ...context, db, _userId: user.id, _handlerType: type } as HandlerContext;
   }

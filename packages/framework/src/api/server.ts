@@ -53,7 +53,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   app.route("/api", createSseRoute(sseBroker));
 
   if (options.files) {
-    const fileDb = options.files.db ?? options.context.db;
+    const fileDb = options.files.db ?? (options.context.db as FileRoutesOptions["db"]);
     if (!fileDb) throw new Error("files option requires db in context or files.db");
     app.route(
       "/api",

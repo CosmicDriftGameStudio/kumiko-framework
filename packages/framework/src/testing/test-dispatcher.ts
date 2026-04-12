@@ -21,11 +21,7 @@ export function createTestDispatcher(registry: Registry, ctx: AppContext): TestD
   function buildDb(handlerName: string, user: SessionUser) {
     if (!ctx.db) return undefined;
     const isSystem = registry.isHandlerSystemScoped(handlerName);
-    return createTenantDb(
-      ctx.db as DbConnection,
-      user.tenantId,
-      isSystem ? "system" : "tenant",
-    );
+    return createTenantDb(ctx.db as DbConnection, user.tenantId, isSystem ? "system" : "tenant");
   }
 
   return {
