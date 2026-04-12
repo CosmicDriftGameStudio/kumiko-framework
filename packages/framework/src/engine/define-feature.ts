@@ -92,6 +92,7 @@ export function defineFeature(
           schema: def.schema,
           handler: def.handler as WriteHandlerFn,
           ...(def.access && { access: def.access }),
+          ...(def.skipTransitionGuard && { skipTransitionGuard: true }),
         };
         return { name: def.name };
       }

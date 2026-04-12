@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { TableColumns } from "../db/dialect";
 import { ErrorCodes, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 import { FrameworkError } from "../engine/errors";

@@ -151,27 +151,20 @@ describe("schema migration workflows", () => {
     await pushTables(testDb.db, { project: initialTable });
 
     // Insert a row first (to prove ADD COLUMN with default doesn't break existing rows)
-    await testDb.db.execute(
-      sql.raw(`INSERT INTO "wf3_projects" (tenant_id, name) VALUES (1, 'Test Project')`),
-    );
+    await testDb.db.insert(initialTable).values({ tenantId: 1, name: "Test Project" });
 
     // Developer adds boolean field with default
     const updatedEntity = createEntity({
       table: "wf3_projects",
       fields: { name: createTextField(), isArchived: createBooleanField({ default: false }) },
     });
-    await pushTables(
-      testDb.db,
-      { project: buildDrizzleTable("project", updatedEntity) },
-      { project: initialTable },
-    );
+    const updatedTable = buildDrizzleTable("project", updatedEntity);
+    await pushTables(testDb.db, { project: updatedTable }, { project: initialTable });
 
     // Existing row should have the default value
-    const rows = await testDb.db.execute<{ name: string; is_archived: boolean }>(
-      sql.raw(`SELECT name, is_archived FROM "wf3_projects"`),
-    );
+    const rows = await testDb.db.select().from(updatedTable);
 
-    expect(rows[0]).toMatchObject({ name: "Test Project", is_archived: false });
+    expect(rows[0]).toMatchObject({ name: "Test Project", isArchived: false });
   });
 
   test("workflow 4: activate soft delete → adds 3 columns", async () => {

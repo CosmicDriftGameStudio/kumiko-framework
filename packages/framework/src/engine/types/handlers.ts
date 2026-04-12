@@ -152,6 +152,7 @@ export type WriteHandlerDef = {
   readonly schema: ZodType;
   readonly handler: WriteHandlerFn;
   readonly access?: AccessRule;
+  readonly skipTransitionGuard?: boolean;
 };
 
 export type QueryHandlerDef = {

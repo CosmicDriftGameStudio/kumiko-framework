@@ -24,7 +24,7 @@ export function guardTransition(
   to: string,
 ): void {
   const allowed = transitions.get(from);
-  if (!allowed || !allowed.has(to)) {
+  if (!allowed?.has(to)) {
     const validTargets = allowed ? [...allowed].join(", ") : "none";
     throw new FrameworkError(
       "validation_failed",

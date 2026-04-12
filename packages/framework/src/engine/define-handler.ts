@@ -11,6 +11,7 @@ export type WriteHandlerDefinition<
   readonly name: TName;
   readonly schema: TSchema;
   readonly access?: AccessRule;
+  readonly skipTransitionGuard?: boolean;
   readonly handler: (
     event: WriteEvent<z.infer<TSchema>>,
     context: HandlerContext,

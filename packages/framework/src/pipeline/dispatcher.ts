@@ -1,7 +1,10 @@
+import { and, eq } from "drizzle-orm";
+import { buildDrizzleTable } from "../db/table-builder";
 import { hasAccess } from "../engine/access";
 import { type ErrorCode, ErrorCodes } from "../engine/constants";
 import { FrameworkError } from "../engine/errors";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
+import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type {
   AppContext,
   HandlerContext,
@@ -114,6 +117,33 @@ export function createDispatcher(
         const deniedField = checkWriteFields(entity, writePayload, user);
         if (deniedField) {
           return { isSuccess: false, error: `${ErrorCodes.fieldAccessDenied}: ${deniedField}` };
+        }
+      }
+    }
+
+    // Auto transition guard: if entity has transitions and handler doesn't skip it
+    if (entityName && !handler.skipTransitionGuard) {
+      const entity = registry.getEntity(entityName);
+      if (entity?.transitions && context.db) {
+        const parsedData = parsed.data as Record<string, unknown>;
+        const changes = (parsedData["changes"] as Record<string, unknown>) ?? parsedData;
+        const id = (parsedData["id"] as number) ?? undefined;
+
+        for (const [fieldName, transitionMap] of Object.entries(entity.transitions)) {
+          const newValue = changes[fieldName] as string | undefined;
+          if (!newValue || !id) continue;
+
+          // Load current state from DB
+          const table = buildDrizzleTable(entityName, entity);
+          const [row] = await context.db
+            .select()
+            .from(table)
+            .where(and(eq(table["tenantId"], user.tenantId), eq(table["id"], id)));
+
+          if (!row) continue;
+          const currentValue = (row as Record<string, unknown>)[fieldName] as string;
+          const transitions = defineTransitions(transitionMap);
+          guardTransition(transitions, currentValue, newValue);
         }
       }
     }
