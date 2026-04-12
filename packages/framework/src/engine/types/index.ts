@@ -43,6 +43,7 @@ export type {
   NumberFieldDef,
   SelectFieldDef,
   TextFieldDef,
+  TransitionMap,
 } from "./fields";
 export { DEFAULT_CURRENCIES } from "./fields";
 export type {

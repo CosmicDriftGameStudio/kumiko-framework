@@ -36,6 +36,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     if (validateEncryptedFields(feature)) hasEncryptedFields = true;
     if (validateFileFields(feature)) hasFileFields = true;
     validateEmbeddedFields(feature);
+    validateTransitions(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
   }
@@ -180,6 +181,48 @@ function validateEmbeddedFields(feature: FeatureDefinition): void {
           throw new Error(
             `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid type "${subField.type}". Allowed: ${[...VALID_EMBEDDED_SUB_TYPES].join(", ")}`,
           );
+        }
+      }
+    }
+  }
+}
+
+// --- Transition validation ---
+
+function validateTransitions(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities)) {
+    if (!entity.transitions) continue;
+
+    for (const [fieldName, transitionMap] of Object.entries(entity.transitions)) {
+      const field = entity.fields[fieldName];
+
+      if (!field) {
+        throw new Error(
+          `Transitions defined for unknown field "${fieldName}" on entity "${entityName}" in feature "${feature.name}"`,
+        );
+      }
+
+      if (field.type !== "select") {
+        throw new Error(
+          `Transitions defined for field "${fieldName}" on entity "${entityName}" but field type is "${field.type}" (must be "select")`,
+        );
+      }
+
+      const validOptions = new Set(field.options);
+
+      // Check all states in the transition map
+      for (const [from, targets] of Object.entries(transitionMap)) {
+        if (!validOptions.has(from)) {
+          throw new Error(
+            `Transition state "${from}" on "${entityName}.${fieldName}" is not a valid option. Valid: ${[...validOptions].join(", ")}`,
+          );
+        }
+        for (const to of targets) {
+          if (!validOptions.has(to)) {
+            throw new Error(
+              `Transition target "${to}" (from "${from}") on "${entityName}.${fieldName}" is not a valid option. Valid: ${[...validOptions].join(", ")}`,
+            );
+          }
         }
       }
     }

@@ -40,6 +40,7 @@ export {
 export { checkWriteFields, filterReadFields } from "./field-access";
 export { createRegistry } from "./registry";
 export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
+export { defineTransitions, guardTransition } from "./state-machine";
 export { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "./system-user";
 // Types
 export type {

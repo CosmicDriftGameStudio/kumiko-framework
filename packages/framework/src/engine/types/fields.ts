@@ -136,10 +136,16 @@ export type FieldDefinition =
 
 // --- Entity ---
 
+// --- State Transitions ---
+
+export type TransitionMap = Readonly<Record<string, readonly string[]>>;
+
 export type EntityDefinition = {
   readonly table?: string;
   readonly fields: Readonly<Record<string, FieldDefinition>>;
   readonly softDelete?: boolean;
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
+  /** Allowed state transitions per field. Boot validates against select options. */
+  readonly transitions?: Readonly<Record<string, TransitionMap>>;
 };

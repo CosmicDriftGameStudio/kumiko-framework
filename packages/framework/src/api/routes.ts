@@ -11,8 +11,17 @@ export function createApiRoutes(dispatcher: Dispatcher) {
   api.post(Routes.write, async (c) => {
     const user = getUser(c);
     const body = await c.req.json<{ type: string; payload: unknown; requestId?: string }>();
-    const result = await dispatcher.write(body.type, body.payload, user, body.requestId);
-    return c.json(result, result.isSuccess ? 200 : 400);
+
+    try {
+      const result = await dispatcher.write(body.type, body.payload, user, body.requestId);
+      return c.json(result, result.isSuccess ? 200 : 400);
+    } catch (e) {
+      if (e instanceof FrameworkError) {
+        return c.json({ isSuccess: false, error: e.message }, e.httpStatus as ContentfulStatusCode);
+      }
+      const message = e instanceof Error ? e.message : "unknown_error";
+      return c.json({ isSuccess: false, error: message }, 500);
+    }
   });
 
   api.post(Routes.query, async (c) => {

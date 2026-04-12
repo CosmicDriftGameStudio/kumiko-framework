@@ -712,6 +712,89 @@ describe("createApp", () => {
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
   });
+
+  test("rejects transitions on non-select field", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: { title: createTextField() },
+          transitions: {
+            title: { a: ["b"] },
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'type is "text" (must be "select")',
+    );
+  });
+
+  test("rejects transitions with unknown state", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: {
+            status: createSelectField({ options: ["draft", "sent", "paid"] as const }),
+          },
+          transitions: {
+            status: {
+              draft: ["sent"],
+              sent: ["paid"],
+              paid: ["unknown_state"],
+            },
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow('"unknown_state"');
+  });
+
+  test("rejects transitions for unknown field", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          table: "Docs",
+          fields: { title: createTextField() },
+          transitions: {
+            nonExistent: { a: ["b"] },
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      'unknown field "nonExistent"',
+    );
+  });
+
+  test("accepts valid transitions matching select options", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          fields: {
+            status: createSelectField({
+              options: ["draft", "sent", "paid", "cancelled"] as const,
+            }),
+          },
+          transitions: {
+            status: {
+              draft: ["sent"],
+              sent: ["paid", "cancelled"],
+              paid: [],
+              cancelled: [],
+            },
+          },
+        }),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
+  });
 });
 
 // --- r.requires() ---
