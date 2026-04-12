@@ -19,6 +19,7 @@ import type {
   TranslationKeys,
   WriteHandlerDef,
 } from "./types";
+import { resolveName } from "./types/handlers";
 
 type IncomingRelation = {
   sourceEntity: string;
@@ -337,7 +338,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // Validate: job event triggers must reference existing handlers
   for (const [jobName, jobDef] of jobMap) {
     if ("on" in jobDef.trigger) {
-      const eventName = jobDef.trigger.on;
+      const eventName = resolveName(jobDef.trigger.on);
       if (!allHandlers.has(eventName)) {
         throw new Error(
           `Job "${jobName}" triggers on "${eventName}" but no handler with that name exists`,

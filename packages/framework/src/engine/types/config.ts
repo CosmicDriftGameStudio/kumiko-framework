@@ -35,7 +35,7 @@ export type ConfigDefinition = {
 export type JobHandlerFn = (payload: Record<string, unknown>, context: AppContext) => Promise<void>;
 
 export type JobTrigger =
-  | { readonly on: string }
+  | { readonly on: import("./handlers").NameOrRef }
   | { readonly cron: string }
   | { readonly manual: true };
 

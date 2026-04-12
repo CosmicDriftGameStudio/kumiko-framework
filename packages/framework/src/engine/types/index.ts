@@ -50,11 +50,13 @@ export type {
   AccessRule,
   AppContext,
   CrudRefs,
+  EntityRef,
   EventDef,
   HandlerContext,
   HandlerRef,
   JobContext,
   JobRunnerRef,
+  NameOrRef,
   QueryEvent,
   QueryHandlerDef,
   QueryHandlerFn,
@@ -64,6 +66,7 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "./handlers";
+export { resolveName } from "./handlers";
 export type {
   DeleteContext,
   EntityHookMap,

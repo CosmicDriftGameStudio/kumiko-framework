@@ -56,6 +56,7 @@ export type {
   DateFieldDef,
   DeleteContext,
   EntityDefinition,
+  EntityRef,
   EntityRelations,
   FeatureDefinition,
   FeatureRegistrar,
@@ -74,6 +75,7 @@ export type {
   JobTrigger,
   LifecycleHookType,
   ManyToManyRelation,
+  NameOrRef,
   NumberFieldDef,
   OnDeleteStrategy,
   PostDeleteHookFn,
@@ -100,4 +102,5 @@ export type {
   WriteResult,
 } from "./types";
 export { DEFAULT_CURRENCIES } from "./types";
+export { resolveName } from "./types/handlers";
 export { runValidation } from "./validation";

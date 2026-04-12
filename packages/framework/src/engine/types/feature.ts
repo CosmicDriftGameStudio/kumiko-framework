@@ -15,8 +15,10 @@ import type { EntityDefinition } from "./fields";
 import type {
   AccessRule,
   CrudRefs,
+  EntityRef,
   EventDef,
   HandlerRef,
+  NameOrRef,
   QueryHandlerDef,
   QueryHandlerFn,
   WriteHandlerDef,
@@ -58,11 +60,13 @@ export type FeatureDefinition = {
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
 
+type RefOrRefs = NameOrRef | readonly NameOrRef[];
+
 export type FeatureRegistrar = {
   requires(...featureNames: string[]): void;
   optionalRequires(...featureNames: string[]): void;
 
-  entity(name: string, definition: EntityDefinition): void;
+  entity(name: string, definition: EntityDefinition): EntityRef;
 
   writeHandler<TName extends string, TSchema extends ZodType>(
     def: WriteHandlerDefinition<TName, TSchema>,
@@ -84,20 +88,20 @@ export type FeatureRegistrar = {
     options?: { access?: AccessRule },
   ): HandlerRef;
 
-  crud(entityName: string, options?: { access?: AccessRule }): CrudRefs;
+  crud(entity: NameOrRef, options?: { access?: AccessRule }): CrudRefs;
 
-  relation(entityName: string, relationName: string, definition: RelationDefinition): void;
+  relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;
 
-  hook(type: "validation", name: string | readonly string[], fn: ValidationHookFn): void;
-  hook(type: "preSave", handler: string | readonly string[], fn: PreSaveHookFn): void;
-  hook(type: "postSave", handler: string | readonly string[], fn: PostSaveHookFn): void;
-  hook(type: "preDelete", handler: string | readonly string[], fn: PreDeleteHookFn): void;
-  hook(type: "postDelete", handler: string | readonly string[], fn: PostDeleteHookFn): void;
-  hook(type: "preQuery", handler: string | readonly string[], fn: PreQueryHookFn): void;
+  hook(type: "validation", target: RefOrRefs, fn: ValidationHookFn): void;
+  hook(type: "preSave", target: RefOrRefs, fn: PreSaveHookFn): void;
+  hook(type: "postSave", target: RefOrRefs, fn: PostSaveHookFn): void;
+  hook(type: "preDelete", target: RefOrRefs, fn: PreDeleteHookFn): void;
+  hook(type: "postDelete", target: RefOrRefs, fn: PostDeleteHookFn): void;
+  hook(type: "preQuery", target: RefOrRefs, fn: PreQueryHookFn): void;
 
-  entityHook(type: "postSave", entity: string, fn: PostSaveHookFn): void;
-  entityHook(type: "preDelete", entity: string, fn: PreDeleteHookFn): void;
-  entityHook(type: "postDelete", entity: string, fn: PostDeleteHookFn): void;
+  entityHook(type: "postSave", entity: NameOrRef, fn: PostSaveHookFn): void;
+  entityHook(type: "preDelete", entity: NameOrRef, fn: PreDeleteHookFn): void;
+  entityHook(type: "postDelete", entity: NameOrRef, fn: PostDeleteHookFn): void;
 
   config(definition: ConfigDefinition): void;
 
@@ -110,14 +114,14 @@ export type FeatureRegistrar = {
   readsConfig(...qualifiedKeys: string[]): void;
 
   referenceData(
-    entityName: string,
+    entity: NameOrRef,
     data: readonly Record<string, unknown>[],
     options?: { upsertKey?: string },
   ): void;
 
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
-  useExtension(extensionName: string, entityName: string, options?: Record<string, unknown>): void;
+  useExtension(extensionName: string, entity: NameOrRef, options?: Record<string, unknown>): void;
 };
 
 // --- Registry (created from features) ---

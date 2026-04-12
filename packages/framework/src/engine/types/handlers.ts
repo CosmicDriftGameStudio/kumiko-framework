@@ -114,13 +114,26 @@ export type EventDef<TPayload = unknown> = {
   readonly schema: ZodType<TPayload>;
 };
 
-// --- Handler References ---
+// --- References ---
+
+// Anything that carries a name — accepted by hooks, relations, jobs, etc.
+export type NameOrRef = string | { readonly name: string };
+
+export function resolveName(ref: NameOrRef): string {
+  return typeof ref === "string" ? ref : ref.name;
+}
+
+export type EntityRef = {
+  readonly name: string;
+  readonly table: string;
+};
 
 export type HandlerRef = {
   readonly name: string;
 };
 
 export type CrudRefs = {
+  readonly entity: EntityRef;
   readonly handlers: {
     readonly create: HandlerRef;
     readonly update: HandlerRef;

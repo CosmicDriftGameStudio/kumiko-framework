@@ -1,4 +1,5 @@
 import type { ZodType, z } from "zod";
+import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
 import { buildCrudHandlers } from "./crud-builder";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
@@ -7,6 +8,7 @@ import type {
   ConfigDefinition,
   ConfigKeyDefinition,
   EntityDefinition,
+  EntityRef,
   FeatureDefinition,
   FeatureRegistrar,
   HandlerRef,
@@ -15,6 +17,7 @@ import type {
   JobHandlerFn,
   LifecycleHookFn,
   LifecycleHookType,
+  NameOrRef,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -30,6 +33,7 @@ import type {
   WriteHandlerDef,
   WriteHandlerFn,
 } from "./types";
+import { resolveName } from "./types/handlers";
 
 const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
 
@@ -70,8 +74,9 @@ export function defineFeature(
       optionalRequires.push(...featureNames);
     },
 
-    entity(entityName: string, definition: EntityDefinition): void {
+    entity(entityName: string, definition: EntityDefinition): EntityRef {
       entities[entityName] = definition;
+      return { name: entityName, table: definition.table ?? toTableName(entityName) };
     },
 
     writeHandler<TName extends string, TSchema extends ZodType>(
@@ -128,7 +133,8 @@ export function defineFeature(
       return { name: nameOrDef };
     },
 
-    crud(entityName: string, options?: { access?: AccessRule }) {
+    crud(entityRef: NameOrRef, options?: { access?: AccessRule }) {
+      const entityName = resolveName(entityRef);
       const entity = entities[entityName];
       if (!entity) {
         throw new Error(
@@ -139,6 +145,7 @@ export function defineFeature(
       Object.assign(writeHandlers, crud.writeHandlers);
       Object.assign(queryHandlers, crud.queryHandlers);
       return {
+        entity: { name: entityName, table: entity.table ?? toTableName(entityName) },
         handlers: {
           create: { name: `${entityName}.create` },
           update: { name: `${entityName}.update` },
@@ -151,17 +158,19 @@ export function defineFeature(
       };
     },
 
-    relation(entityName: string, relationName: string, definition: RelationDefinition): void {
+    relation(entityRef: NameOrRef, relationName: string, definition: RelationDefinition): void {
+      const entityName = resolveName(entityRef);
       if (!relations[entityName]) relations[entityName] = {};
       relations[entityName][relationName] = definition;
     },
 
     hook(
       type: LifecycleHookType | "validation",
-      hookName: string | readonly string[],
+      target: NameOrRef | readonly NameOrRef[],
       fn: LifecycleHookFn | ValidationHookFn,
     ): void {
-      const names = Array.isArray(hookName) ? hookName : [hookName];
+      const targets = Array.isArray(target) ? target : [target];
+      const names = targets.map(resolveName);
 
       if (type === "validation") {
         for (const n of names) {
@@ -180,9 +189,10 @@ export function defineFeature(
 
     entityHook(
       type: "postSave" | "preDelete" | "postDelete",
-      entityName: string,
+      entityRef: NameOrRef,
       fn: LifecycleHookFn,
     ): void {
+      const entityName = resolveName(entityRef);
       if (type === "postSave") {
         if (!entityPostSave[entityName]) entityPostSave[entityName] = [];
         entityPostSave[entityName].push(fn as PostSaveHookFn);
@@ -201,8 +211,15 @@ export function defineFeature(
       }
     },
 
-    job(jobName: string, options: Omit<JobDefinition, "name">, handler: JobHandlerFn): void {
-      jobs[jobName] = { ...options, name: jobName, handler };
+    job(
+      jobName: string,
+      options: Omit<JobDefinition, "name" | "handler">,
+      handler: JobHandlerFn,
+    ): void {
+      // Resolve NameOrRef in trigger.on to string for storage
+      const trigger =
+        "on" in options.trigger ? { on: resolveName(options.trigger.on) } : options.trigger;
+      jobs[jobName] = { ...options, trigger, name: jobName, handler };
     },
 
     translations(def: TranslationsDef): void {
@@ -220,11 +237,15 @@ export function defineFeature(
     },
 
     referenceData(
-      entityName: string,
+      entityRef: NameOrRef,
       data: readonly Record<string, unknown>[],
       options?: { upsertKey?: string },
     ): void {
-      referenceData.push({ entityName, data, upsertKey: options?.upsertKey });
+      referenceData.push({
+        entityName: resolveName(entityRef),
+        data,
+        upsertKey: options?.upsertKey,
+      });
     },
 
     extendsRegistrar(extensionName: string, def: RegistrarExtensionDef): void {
@@ -233,10 +254,10 @@ export function defineFeature(
 
     useExtension(
       extensionName: string,
-      entityName: string,
+      entityRef: NameOrRef,
       options?: Record<string, unknown>,
     ): void {
-      extensionUsages.push({ extensionName, entityName, options });
+      extensionUsages.push({ extensionName, entityName: resolveName(entityRef), options });
     },
   };
 
