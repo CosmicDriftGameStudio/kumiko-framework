@@ -97,4 +97,5 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "./types";
+export { DEFAULT_CURRENCIES } from "./types";
 export { runValidation } from "./validation";
