@@ -76,10 +76,7 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
 
   return {
     write: writeRaw,
-
-    async query(type, payload, user) {
-      return queryRaw(type, payload, user);
-    },
+    query: queryRaw,
 
     async command(type, payload, user) {
       const headers = await authHeader(user);
