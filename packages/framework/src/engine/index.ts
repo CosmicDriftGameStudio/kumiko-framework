@@ -31,6 +31,7 @@ export {
   createFilesField,
   createImageField,
   createImagesField,
+  createMoneyField,
   createNumberField,
   createSelectField,
   createTextField,

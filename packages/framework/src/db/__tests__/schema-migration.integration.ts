@@ -9,9 +9,9 @@ import {
   defineFeature,
 } from "../../engine";
 import type { FeatureDefinition } from "../../engine/types";
-import { createTestDb, type TestDb } from "../../testing";
+import { createTestDb, pushTables, type TestDb } from "../../testing";
 import { generateSchemaSource } from "../schema-generator";
-import { toTableName } from "../table-builder";
+import { buildDrizzleTable } from "../table-builder";
 
 /**
  * Integration tests for the schema migration workflow.
@@ -37,85 +37,19 @@ afterAll(async () => {
   await testDb?.cleanup();
 });
 
-// Helper: extract CREATE TABLE statements from generated schema and execute them
+// Helper: apply schema by building Drizzle tables and pushing via drizzle-kit
 async function applySchema(features: readonly FeatureDefinition[]): Promise<string> {
   const source = generateSchemaSource(features);
 
-  // Parse table definitions from the generated source and create tables
-  // We use a simplified approach: build actual Drizzle tables and use raw SQL
+  const tables: Record<string, unknown> = {};
   for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities)) {
-      const tableSql = entityToCreateTableSql(entityName, entity);
-      await testDb.db.execute(sql.raw(tableSql));
+      tables[entityName] = buildDrizzleTable(entityName, entity);
     }
   }
+  await pushTables(testDb.db, tables);
 
   return source;
-}
-
-// Helper: convert entity to CREATE TABLE SQL (mirrors what drizzle-kit push would do)
-function entityToCreateTableSql(
-  entityName: string,
-  entity: {
-    table?: string;
-    fields: Record<string, { type: string; default?: unknown }>;
-    softDelete?: boolean;
-  },
-): string {
-  const columns: string[] = [
-    '"id" SERIAL PRIMARY KEY',
-    '"tenant_id" INTEGER NOT NULL',
-    '"version" INTEGER DEFAULT 1 NOT NULL',
-    '"inserted_at" TIMESTAMP DEFAULT NOW() NOT NULL',
-    '"modified_at" TIMESTAMP',
-    '"inserted_by_id" INTEGER',
-    '"modified_by_id" INTEGER',
-  ];
-
-  if (entity.softDelete) {
-    columns.push(
-      '"is_deleted" BOOLEAN DEFAULT FALSE NOT NULL',
-      '"deleted_at" TIMESTAMP',
-      '"deleted_by_id" INTEGER',
-    );
-  }
-
-  for (const [name, field] of Object.entries(entity.fields)) {
-    const snakeName = name.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
-    switch (field.type) {
-      case "text":
-      case "select":
-        columns.push(`"${snakeName}" TEXT`);
-        break;
-      case "number":
-        columns.push(`"${snakeName}" INTEGER`);
-        break;
-      case "money":
-        columns.push(`"${snakeName}" NUMERIC(19,4)`);
-        columns.push(`"${snakeName}_currency" TEXT DEFAULT 'EUR'`);
-        break;
-      case "boolean":
-        if (field.default !== undefined) {
-          columns.push(
-            `"${snakeName}" BOOLEAN DEFAULT ${String(field.default).toUpperCase()} NOT NULL`,
-          );
-        } else {
-          columns.push(`"${snakeName}" BOOLEAN`);
-        }
-        break;
-      case "date":
-        columns.push(`"${snakeName}" TIMESTAMP`);
-        break;
-      case "file":
-      case "image":
-        columns.push(`"${snakeName}" INTEGER`);
-        break;
-      // files/images: no column
-    }
-  }
-
-  const tableName = entity.table ?? toTableName(entityName);
-  return `CREATE TABLE "${tableName}" (\n  ${columns.join(",\n  ")}\n)`;
 }
 
 // Helper: read column info from information_schema
@@ -186,21 +120,9 @@ describe("schema migration workflows", () => {
   });
 
   test("workflow 2: add field to existing entity → ADD COLUMN", async () => {
-    // Initial entity
-    await testDb.db.execute(
-      sql.raw(`
-      CREATE TABLE "wf2_users" (
-        "id" SERIAL PRIMARY KEY,
-        "tenant_id" INTEGER NOT NULL,
-        "version" INTEGER DEFAULT 1 NOT NULL,
-        "inserted_at" TIMESTAMP DEFAULT NOW() NOT NULL,
-        "modified_at" TIMESTAMP,
-        "inserted_by_id" INTEGER,
-        "modified_by_id" INTEGER,
-        "email" TEXT
-      )
-    `),
-    );
+    // Initial entity with just email
+    const initialEntity = createEntity({ table: "wf2_users", fields: { email: createTextField() } });
+    await pushTables(testDb.db, { user: buildDrizzleTable("user", initialEntity) });
 
     // Developer adds a new field
     const feature = defineFeature("accounts", (r) => {
@@ -221,8 +143,13 @@ describe("schema migration workflows", () => {
     expect(source).toContain('email: text("email")');
     expect(source).toContain('displayName: text("display_name")');
 
-    // Simulate ADD COLUMN (what drizzle-kit push would do)
-    await testDb.db.execute(sql.raw(`ALTER TABLE "wf2_users" ADD COLUMN "display_name" TEXT`));
+    // Push updated schema — drizzle-kit generates ALTER TABLE ADD COLUMN
+    const updatedEntity = feature.entities["user"]!;
+    await pushTables(
+      testDb.db,
+      { user: buildDrizzleTable("user", updatedEntity) },
+      { user: buildDrizzleTable("user", initialEntity) },
+    );
 
     const columns = await getTableColumns("wf2_users");
     expect(columns.has("display_name")).toBe(true);
@@ -231,20 +158,10 @@ describe("schema migration workflows", () => {
   });
 
   test("workflow 3: add required boolean field with default → safe ADD COLUMN", async () => {
-    await testDb.db.execute(
-      sql.raw(`
-      CREATE TABLE "wf3_projects" (
-        "id" SERIAL PRIMARY KEY,
-        "tenant_id" INTEGER NOT NULL,
-        "version" INTEGER DEFAULT 1 NOT NULL,
-        "inserted_at" TIMESTAMP DEFAULT NOW() NOT NULL,
-        "modified_at" TIMESTAMP,
-        "inserted_by_id" INTEGER,
-        "modified_by_id" INTEGER,
-        "name" TEXT
-      )
-    `),
-    );
+    // Initial entity with just name
+    const initialEntity = createEntity({ table: "wf3_projects", fields: { name: createTextField() } });
+    const initialTable = buildDrizzleTable("project", initialEntity);
+    await pushTables(testDb.db, { project: initialTable });
 
     // Insert a row first (to prove ADD COLUMN with default doesn't break existing rows)
     await testDb.db.execute(
@@ -252,8 +169,14 @@ describe("schema migration workflows", () => {
     );
 
     // Developer adds boolean field with default
-    await testDb.db.execute(
-      sql.raw(`ALTER TABLE "wf3_projects" ADD COLUMN "is_archived" BOOLEAN DEFAULT FALSE NOT NULL`),
+    const updatedEntity = createEntity({
+      table: "wf3_projects",
+      fields: { name: createTextField(), isArchived: createBooleanField({ default: false }) },
+    });
+    await pushTables(
+      testDb.db,
+      { project: buildDrizzleTable("project", updatedEntity) },
+      { project: initialTable },
     );
 
     // Existing row should have the default value

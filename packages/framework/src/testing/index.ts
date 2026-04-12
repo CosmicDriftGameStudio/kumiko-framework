@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { v4 as uuid } from "uuid";
-import { toTableName } from "../db/table-builder";
+import { buildDrizzleTable } from "../db/table-builder";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -87,6 +87,7 @@ export { waitFor } from "./wait-for";
 
 // --- Helpers ---
 
+/** @deprecated Use createEntityTable instead — will be removed once core-features use Drizzle tables */
 export async function createTestTable(
   db: ReturnType<typeof drizzle>,
   tableSql: string,
@@ -95,66 +96,36 @@ export async function createTestTable(
 }
 
 /**
- * Creates a table from an EntityDefinition — no manual SQL needed.
- * Generates base columns + entity field columns, matching buildDrizzleTable output.
+ * Syncs a Drizzle table to the database via drizzle-kit migration.
+ * No manual SQL — Drizzle generates CREATE/ALTER TABLE statements.
  */
 export async function createEntityTable(
   db: ReturnType<typeof drizzle>,
   entity: import("../engine/types").EntityDefinition,
   entityName?: string,
 ): Promise<void> {
-  const columns: string[] = [
-    '"id" SERIAL PRIMARY KEY',
-    '"tenant_id" INTEGER NOT NULL',
-    '"version" INTEGER DEFAULT 1 NOT NULL',
-    '"inserted_at" TIMESTAMP DEFAULT NOW() NOT NULL',
-    '"modified_at" TIMESTAMP',
-    '"inserted_by_id" INTEGER',
-    '"modified_by_id" INTEGER',
-  ];
-
-  if (entity.softDelete) {
-    columns.push(
-      '"is_deleted" BOOLEAN DEFAULT FALSE NOT NULL',
-      '"deleted_at" TIMESTAMP',
-      '"deleted_by_id" INTEGER',
-    );
-  }
-
-  for (const [name, field] of Object.entries(entity.fields)) {
-    const col = fieldToSqlColumn(name, field);
-    if (col) columns.push(col);
-  }
-
-  const tableName = entity.table ?? (entityName ? toTableName(entityName) : undefined);
-  if (!tableName) throw new Error("Entity has no table name — set entity.table or pass entityName");
-  await db.execute(sql.raw(`CREATE TABLE "${tableName}" (\n  ${columns.join(",\n  ")}\n)`));
+  const table = buildDrizzleTable(entityName ?? "entity", entity);
+  await pushTables(db, { [entityName ?? "entity"]: table });
 }
 
-function fieldToSqlColumn(
-  name: string,
-  field: import("../engine/types").FieldDefinition,
-): string | null {
-  const sn = name.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
-  switch (field.type) {
-    case "text":
-    case "select":
-      return `"${sn}" TEXT`;
-    case "number":
-      return `"${sn}" INTEGER`;
-    case "money":
-      return `"${sn}" NUMERIC(19,4)`;
-    case "boolean":
-      return field.default !== undefined
-        ? `"${sn}" BOOLEAN DEFAULT ${String(field.default).toUpperCase()} NOT NULL`
-        : `"${sn}" BOOLEAN`;
-    case "date":
-      return `"${sn}" TIMESTAMP`;
-    case "file":
-    case "image":
-      return `"${sn}" INTEGER`;
-    case "files":
-    case "images":
-      return null;
+/**
+ * Pushes Drizzle table definitions to the database.
+ * Uses drizzle-kit's generateDrizzleJson + generateMigration to produce SQL,
+ * then executes it. Same SQL that `drizzle-kit push` would generate.
+ *
+ * @param prevTables - Previous table definitions (for ALTER TABLE scenarios).
+ *                     If omitted, assumes empty DB (CREATE TABLE).
+ */
+export async function pushTables(
+  db: ReturnType<typeof drizzle>,
+  tables: Record<string, unknown>,
+  prevTables?: Record<string, unknown>,
+): Promise<void> {
+  const { generateDrizzleJson, generateMigration } = await import("drizzle-kit/api");
+  const prevJson = generateDrizzleJson(prevTables ?? {});
+  const targetJson = generateDrizzleJson(tables);
+  const statements = await generateMigration(prevJson, targetJson);
+  for (const stmt of statements) {
+    await db.execute(sql.raw(stmt));
   }
 }
