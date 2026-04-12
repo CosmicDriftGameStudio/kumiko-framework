@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { createBooleanField, createEntity, createTextField, type SessionUser } from "../../engine";
+import { createBooleanField, createEntity, createTextField } from "../../engine";
 import { ErrorCodes } from "../../engine/constants";
-import { createEntityTable, createTestDb, type TestDb } from "../../testing";
+import { createEntityTable, createTestDb, createTestUser, TestUsers, type TestDb } from "../../testing";
 import { type CrudExecutor, createCrudExecutor } from "../crud-executor";
 import { buildDrizzleTable } from "../table-builder";
 
@@ -20,8 +20,8 @@ const table = buildDrizzleTable("crudUser", entity);
 let testDb: TestDb;
 let crud: CrudExecutor;
 
-const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const otherTenantUser: SessionUser = { id: 2, tenantId: 2, roles: ["Admin"] };
+const adminUser = TestUsers.admin;
+const otherTenantUser = createTestUser({ id: 2, tenantId: 2 });
 
 beforeAll(async () => {
   testDb = await createTestDb();

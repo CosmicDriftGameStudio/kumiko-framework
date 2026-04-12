@@ -9,13 +9,14 @@ import {
   createRegistry,
   createTextField,
   defineFeature,
-  type SessionUser,
 } from "../engine";
 import { ErrorCodes } from "../engine/constants";
 import {
   createEntityTable,
   createTestDb,
   createTestRedis,
+  createTestUser,
+  TestUsers,
   type TestDb,
   type TestRedis,
 } from "../testing";
@@ -43,9 +44,9 @@ let testRedis: TestRedis;
 let app: ReturnType<typeof buildServer>["app"];
 let jwt: ReturnType<typeof buildServer>["jwt"];
 
-const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const accountingUser: SessionUser = { id: 2, tenantId: 1, roles: ["Accounting"] };
-const employeeUser: SessionUser = { id: 3, tenantId: 1, roles: ["Employee"] };
+const adminUser = TestUsers.admin;
+const accountingUser = createTestUser({ id: 2, roles: ["Accounting"] });
+const employeeUser = createTestUser({ id: 3, roles: ["Employee"] });
 
 beforeAll(async () => {
   testDb = await createTestDb();

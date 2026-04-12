@@ -9,9 +9,8 @@ import {
   createTextField,
   defineFeature,
   type Registry,
-  type SessionUser,
 } from "../../engine";
-import { createEntityTable, createTestDb, type TestDb } from "../../testing";
+import { createEntityTable, createTestDb, TestUsers, type TestDb } from "../../testing";
 import { createCascadeDeleteHook } from "../cascade-handler";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -26,7 +25,7 @@ let departmentCrud: CrudExecutor;
 let userCrud: CrudExecutor;
 let sessionCrud: CrudExecutor;
 
-const admin: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
+const admin = TestUsers.admin;
 
 const departmentEntity = createEntity({
   table: "cascade_departments",

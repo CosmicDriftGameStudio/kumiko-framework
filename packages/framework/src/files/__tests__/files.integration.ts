@@ -12,8 +12,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine";
-import type { SessionUser } from "../../engine/types";
-import { createEntityTable, createTestDb, pushTables, type TestDb } from "../../testing";
+import { createEntityTable, createTestDb, createTestUser, pushTables, TestUsers, type TestDb } from "../../testing";
 import { fileRefsTable } from "../file-ref-table";
 import { createLocalProvider } from "../local-provider";
 import { parseMaxSize, validateFile } from "../types";
@@ -25,8 +24,8 @@ let app: Hono;
 let jwt: JwtHelper;
 let storagePath: string;
 
-const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const otherTenantUser: SessionUser = { id: 2, tenantId: 2, roles: ["Admin"] };
+const adminUser = TestUsers.admin;
+const otherTenantUser = createTestUser({ id: 2, tenantId: 2 });
 const JWT_SECRET = "files-test-secret-at-least-32-characters!!";
 
 // A tenant feature with a logo field

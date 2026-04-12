@@ -8,12 +8,11 @@ import {
   createTextField,
   defineFeature,
   type SaveContext,
-  type SessionUser,
 } from "../engine";
 import { ErrorCodes } from "../engine/constants";
 import { createEventLog } from "../pipeline";
 import type { SearchAdapter } from "../search";
-import { createEntityTable, setupTestStack, type TestStack } from "../testing";
+import { createEntityTable, createTestUser, setupTestStack, TestUsers, type TestStack } from "../testing";
 
 // --- Entities ---
 
@@ -116,9 +115,9 @@ const userFeature = defineFeature("users", (r) => {
 
 let stack: TestStack;
 
-const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
-const guestUser: SessionUser = { id: 2, tenantId: 1, roles: ["Guest"] };
-const otherTenantAdmin: SessionUser = { id: 3, tenantId: 2, roles: ["Admin"] };
+const adminUser = TestUsers.admin;
+const guestUser = createTestUser({ id: 2, roles: ["Guest"] });
+const otherTenantAdmin = createTestUser({ id: 3, tenantId: 2 });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [userFeature] });

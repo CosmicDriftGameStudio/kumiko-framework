@@ -3,8 +3,14 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { createRegistry, defineFeature } from "../../engine";
-import type { SessionUser } from "../../engine/types";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis, waitFor } from "../../testing";
+import {
+  createTestDb,
+  createTestRedis,
+  TestUsers,
+  type TestDb,
+  type TestRedis,
+  waitFor,
+} from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
 // --- Track job executions ---
@@ -54,7 +60,7 @@ let app: Hono;
 let jwt: JwtHelper;
 let jobRunner: JobRunner;
 
-const adminUser: SessionUser = { id: 1, tenantId: 1, roles: ["Admin"] };
+const adminUser = TestUsers.admin;
 const JWT_SECRET = "event-trigger-test-secret-minimum-32-chars!!";
 
 beforeAll(async () => {
