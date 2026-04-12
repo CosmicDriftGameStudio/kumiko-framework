@@ -1,12 +1,36 @@
 import { type Job, Queue, Worker } from "bullmq";
 import { createSystemUser } from "../engine/system-user";
 import type { AppContext, Registry, SessionUser } from "../engine/types";
+import type { Logger } from "../logging/types";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
   message: string;
   timestamp: Date;
 };
+
+function createJobLogger(logs: JobLogEntry[]): Logger {
+  function push(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
+    const message = data ? `${msg} ${JSON.stringify(data)}` : msg;
+    logs.push({ level, message, timestamp: new Date() });
+  }
+  const logger: Logger = {
+    info(msg, data) {
+      push("info", msg, data);
+    },
+    warn(msg, data) {
+      push("warn", msg, data);
+    },
+    error(msg, data) {
+      push("error", msg, data);
+    },
+    debug() {},
+    child() {
+      return logger;
+    },
+  };
+  return logger;
+}
 
 export type JobMeta = {
   triggeredById?: number | undefined;
@@ -106,21 +130,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       ...context,
       systemUser: createSystemUser(tenantId),
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
-      log: {
-        info(message: string) {
-          logs.push({ level: "info", message, timestamp: new Date() });
-        },
-        warn(message: string) {
-          logs.push({ level: "warn", message, timestamp: new Date() });
-        },
-        error(message: string) {
-          logs.push({ level: "error", message, timestamp: new Date() });
-        },
-        debug() {},
-        child() {
-          return this;
-        },
-      },
+      log: createJobLogger(logs),
     };
 
     await options.onJobStart?.(jobName, jobId, meta);

@@ -249,6 +249,45 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
+  // Precompute: searchable/sortable fields, search includes, incoming relations
+  const searchableFieldsCache = new Map<string, readonly string[]>();
+  const sortableFieldsCache = new Map<string, readonly string[]>();
+  const searchIncludesCache = new Map<string, ReadonlyMap<string, readonly string[]>>();
+  const incomingRelationsCache = new Map<string, IncomingRelation[]>();
+
+  for (const [name, entity] of entityMap) {
+    const searchable: string[] = [];
+    const sortable: string[] = [];
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      if (field.type === "text" && field.searchable === true) searchable.push(fieldName);
+      if (field.type === "text" && field.sortable === true) sortable.push(fieldName);
+      if (field.type === "embedded") {
+        for (const [subName, subField] of Object.entries(field.schema)) {
+          if (subField.searchable === true) searchable.push(`${fieldName}_${subName}`);
+        }
+      }
+    }
+    searchableFieldsCache.set(name, searchable);
+    sortableFieldsCache.set(name, sortable);
+  }
+
+  for (const [entityName, rels] of relationMap) {
+    const includes = new Map<string, readonly string[]>();
+    for (const [relName, rel] of Object.entries(rels)) {
+      if ((rel.type === "belongsTo" || rel.type === "manyToMany") && rel.searchInclude?.length) {
+        includes.set(relName, rel.searchInclude);
+      }
+    }
+    searchIncludesCache.set(entityName, includes);
+
+    // Build reverse index for incoming relations
+    for (const [relName, rel] of Object.entries(rels)) {
+      const existing = incomingRelationsCache.get(rel.target) ?? [];
+      existing.push({ sourceEntity: entityName, relationName: relName, relation: rel });
+      incomingRelationsCache.set(rel.target, existing);
+    }
+  }
+
   // Build handler → entity mapping: "users.user.create" → "user"
   // Convention: handler name starts with entity name (from r.crud())
   for (const qualifiedHandler of [...writeHandlerMap.keys(), ...queryHandlerMap.keys()]) {
@@ -380,30 +419,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     },
 
     getSearchableFields(entityName: string): readonly string[] {
-      const entity = entityMap.get(entityName);
-      if (!entity) return [];
-      const result: string[] = [];
-      for (const [name, field] of Object.entries(entity.fields)) {
-        if (field.type === "text" && field.searchable === true) {
-          result.push(name);
-        }
-        if (field.type === "embedded") {
-          for (const [subName, subField] of Object.entries(field.schema)) {
-            if (subField.searchable === true) {
-              result.push(`${name}_${subName}`);
-            }
-          }
-        }
-      }
-      return result;
+      return searchableFieldsCache.get(entityName) ?? [];
     },
 
     getSortableFields(entityName: string): readonly string[] {
-      const entity = entityMap.get(entityName);
-      if (!entity) return [];
-      return Object.entries(entity.fields)
-        .filter(([, field]) => field.type === "text" && field.sortable === true)
-        .map(([name]) => name);
+      return sortableFieldsCache.get(entityName) ?? [];
     },
 
     getRelations(entityName: string): EntityRelations {
@@ -411,31 +431,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     },
 
     getSearchIncludes(entityName: string): ReadonlyMap<string, readonly string[]> {
-      const rels = relationMap.get(entityName) ?? {};
-      const result = new Map<string, readonly string[]>();
-
-      for (const [relName, rel] of Object.entries(rels)) {
-        if (rel.type === "belongsTo" && rel.searchInclude && rel.searchInclude.length > 0) {
-          result.set(relName, rel.searchInclude);
-        }
-        if (rel.type === "manyToMany" && rel.searchInclude && rel.searchInclude.length > 0) {
-          result.set(relName, rel.searchInclude);
-        }
-      }
-
-      return result;
+      return searchIncludesCache.get(entityName) ?? new Map();
     },
 
     getIncomingRelations(entityName: string): readonly IncomingRelation[] {
-      const result: IncomingRelation[] = [];
-      for (const [source, rels] of relationMap) {
-        for (const [relName, rel] of Object.entries(rels)) {
-          if (rel.target === entityName) {
-            result.push({ sourceEntity: source, relationName: relName, relation: rel });
-          }
-        }
-      }
-      return result;
+      return incomingRelationsCache.get(entityName) ?? [];
     },
 
     getPreSaveHooks(name: string): readonly PreSaveHookFn[] {

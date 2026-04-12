@@ -8,9 +8,7 @@ export type LoggerOptions = {
 
 export function createLogger(options: LoggerOptions = {}): Logger {
   const level = options.level ?? (process.env["LOG_LEVEL"] as LoggerOptions["level"]) ?? "info";
-  const pretty =
-    options.pretty ??
-    (process.env["LOG_FORMAT"] === "pretty" || process.env["NODE_ENV"] !== "production");
+  const pretty = options.pretty ?? process.env["LOG_FORMAT"] === "pretty";
 
   const pinoLogger = pino({
     level,
