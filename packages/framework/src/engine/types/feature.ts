@@ -1,7 +1,17 @@
 import type { ZodType, z } from "zod";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
+import type {
+  ConfigDefinition,
+  ConfigKeyDefinition,
+  JobDefinition,
+  JobHandlerFn,
+  ReferenceDataDef,
+  RegistrarExtensionDef,
+  RegistrarExtensionRegistration,
+  TranslationKeys,
+  TranslationsDef,
+} from "./config";
 import type { EntityDefinition } from "./fields";
-import type { EntityRelations, RelationDefinition } from "./relations";
 import type {
   AccessRule,
   CrudRefs,
@@ -22,17 +32,7 @@ import type {
   PreSaveHookFn,
   ValidationHookFn,
 } from "./hooks";
-import type {
-  ConfigDefinition,
-  ConfigKeyDefinition,
-  JobDefinition,
-  JobHandlerFn,
-  ReferenceDataDef,
-  RegistrarExtensionDef,
-  RegistrarExtensionRegistration,
-  TranslationKeys,
-  TranslationsDef,
-} from "./config";
+import type { EntityRelations, RelationDefinition } from "./relations";
 
 // --- Feature Definition (output of defineFeature) ---
 

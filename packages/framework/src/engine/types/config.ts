@@ -1,6 +1,5 @@
 import type { ZodType } from "zod";
-import type { ConfigScope } from "../constants";
-import type { ConcurrencyMode } from "../constants";
+import type { ConcurrencyMode, ConfigScope } from "../constants";
 import type { FieldDefinition } from "./fields";
 import type { PipelineContext } from "./handlers";
 import type {

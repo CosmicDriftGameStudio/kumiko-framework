@@ -26,17 +26,9 @@ export type RequestHelper = {
     requestId?: string,
   ) => Promise<T>;
   /** write + json + assert isSuccess === false — returns error string */
-  writeErr: (
-    type: string,
-    payload: unknown,
-    user: SessionUser,
-  ) => Promise<string>;
+  writeErr: (type: string, payload: unknown, user: SessionUser) => Promise<string>;
   /** query + json — returns data directly */
-  queryOk: <T = unknown>(
-    type: string,
-    payload: unknown,
-    user: SessionUser,
-  ) => Promise<T>;
+  queryOk: <T = unknown>(type: string, payload: unknown, user: SessionUser) => Promise<T>;
 };
 
 export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {

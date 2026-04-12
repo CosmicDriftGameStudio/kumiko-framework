@@ -3,7 +3,6 @@
 export { hasAccess } from "./access";
 export { validateBoot } from "./boot-validator";
 export { access, createSystemConfig, createTenantConfig, createUserConfig } from "./config-helpers";
-export { FrameworkError } from "./errors";
 export type { ErrorCode, SystemHookName } from "./constants";
 export {
   ConcurrencyModes,
@@ -23,6 +22,7 @@ export { defineFeature } from "./define-feature";
 export type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 export { defineQueryHandler, defineWriteHandler } from "./define-handler";
 export { defineRoles } from "./define-roles";
+export { FrameworkError } from "./errors";
 export {
   createBooleanField,
   createDateField,

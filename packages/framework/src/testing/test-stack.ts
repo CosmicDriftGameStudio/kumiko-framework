@@ -2,8 +2,8 @@ import type { Hono } from "hono";
 import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
-import type { FeatureDefinition, Registry } from "../engine/types";
 import { createRegistry } from "../engine/registry";
+import type { FeatureDefinition, Registry } from "../engine/types";
 import { createEventLog, createIdempotencyGuard } from "../pipeline";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
 import {

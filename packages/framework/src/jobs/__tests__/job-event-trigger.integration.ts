@@ -4,7 +4,7 @@ import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { createRegistry, defineFeature } from "../../engine";
 import type { SessionUser } from "../../engine/types";
-import { createTestDb, createTestRedis, waitFor, type TestDb, type TestRedis } from "../../testing";
+import { createTestDb, createTestRedis, type TestDb, type TestRedis, waitFor } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
 // --- Track job executions ---

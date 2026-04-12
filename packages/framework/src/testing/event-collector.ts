@@ -1,6 +1,6 @@
-import type { AuditTrailEntry, AuditTrailStorage } from "../pipeline/system-hooks";
 import type { SseEvent } from "../api/sse-broker";
 import type { SaveContext } from "../engine/types";
+import type { AuditTrailEntry, AuditTrailStorage } from "../pipeline/system-hooks";
 
 export type EventCollector = {
   readonly audit: AuditTrailEntry[];
