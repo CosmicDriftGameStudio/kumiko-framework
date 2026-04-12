@@ -40,7 +40,7 @@ describe("defineFeature", () => {
   });
 
   test("collects write handlers with inferred types", () => {
-    const schema = z.object({ email: z.string().email() });
+    const schema = z.object({ email: z.email() });
 
     const feature = defineFeature("test", (r) => {
       r.writeHandler("user.invite", schema, async (event) => {
@@ -96,7 +96,7 @@ describe("defineFeature", () => {
   test("collects write handlers via object form (defineWriteHandler)", () => {
     const handler = defineWriteHandler({
       name: "user.create",
-      schema: z.object({ email: z.string().email() }),
+      schema: z.object({ email: z.email() }),
       access: { roles: ["Admin"] },
       handler: async (event) => {
         return { isSuccess: true, data: { id: 1, email: event.payload.email } };

@@ -48,7 +48,7 @@ const userFeature = defineFeature("users", (r) => {
   const createHandler = r.writeHandler(
     "user.create",
     z.object({
-      email: z.string().email(),
+      email: z.email(),
       firstName: z.string().optional(),
       lastName: z.string().optional(),
     }),
@@ -64,7 +64,7 @@ const userFeature = defineFeature("users", (r) => {
 
   r.writeHandler(
     "user.update",
-    z.object({ id: z.number(), version: z.number().optional(), changes: z.record(z.unknown()) }),
+    z.object({ id: z.number(), version: z.number().optional(), changes: z.record(z.string(), z.unknown()) }),
     async (event, ctx) => {
       const crud = createCrudExecutor(userTable, userEntity, {
         searchAdapter: ctx["searchAdapter"] as SearchAdapter,

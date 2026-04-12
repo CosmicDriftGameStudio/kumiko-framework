@@ -39,7 +39,7 @@ const dedupFeature = defineFeature("dedup", (r) => {
 
   r.writeHandler(
     "item.update",
-    z.object({ id: z.number(), version: z.number().optional(), changes: z.record(z.unknown()) }),
+    z.object({ id: z.number(), version: z.number().optional(), changes: z.record(z.string(), z.unknown()) }),
     async (event, ctx) => {
       const crud = createCrudExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.update(event.payload, event.user, ctx.db);

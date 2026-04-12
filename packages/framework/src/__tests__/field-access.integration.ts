@@ -76,7 +76,7 @@ beforeAll(async () => {
 
     r.writeHandler(
       "employee.update",
-      z.object({ id: z.number(), version: z.number().optional(), changes: z.record(z.unknown()) }),
+      z.object({ id: z.number(), version: z.number().optional(), changes: z.record(z.string(), z.unknown()) }),
       async (event, ctx) => {
         const db = ctx.db;
         const crud = createCrudExecutor(employeeTable, employeeEntity, { entityName: "employee" });
