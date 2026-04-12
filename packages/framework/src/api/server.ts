@@ -37,9 +37,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const jwt = createJwtHelper(options.jwtSecret, options.jwtIssuer);
   const sseBroker = options.sseBroker ?? createSseBroker();
 
-  const lifecycle = createLifecycleHooks(options.registry, options.systemHooks, {
-    eventDedup: options.eventDedup,
-  });
+  const lifecycle = createLifecycleHooks(
+    options.registry,
+    options.systemHooks,
+    options.eventDedup ? { eventDedup: options.eventDedup } : undefined,
+  );
 
   const dispatcher = createDispatcher(options.registry, options.context, {
     ...options.dispatcherOptions,

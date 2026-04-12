@@ -9,10 +9,7 @@ export type EventDedup = {
   tryAcquire(eventId: string): Promise<boolean>;
 };
 
-export function createEventDedup(
-  redis: Redis,
-  options: { ttlSeconds?: number } = {},
-): EventDedup {
+export function createEventDedup(redis: Redis, options: { ttlSeconds?: number } = {}): EventDedup {
   const ttl = options.ttlSeconds ?? 300;
   const prefix = RedisKeys.eventDedup;
 
