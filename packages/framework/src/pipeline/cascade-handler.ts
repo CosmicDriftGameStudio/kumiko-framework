@@ -61,25 +61,26 @@ export function createCascadeDeleteHook(
         }
 
         if (relation.type === "manyToMany" && relation.through) {
-          const throughTableName = relation.through.table;
+          const throughTable = tables.get(relation.through.table);
+          if (!throughTable) continue;
           const targetKey = relation.through.targetKey;
 
           if (strategy === "restrict") {
-            const rows = await db.execute<{ n: number }>(
-              sql`SELECT 1 AS n FROM ${sql.identifier(throughTableName)} WHERE ${sql.identifier(targetKey)} = ${payload.id} LIMIT 1`,
-            );
+            const rows = await db
+              .select({ id: throughTable["id"] })
+              .from(throughTable)
+              .where(eq(throughTable[targetKey], payload.id))
+              .limit(1);
             if (rows.length > 0) {
               throw new FrameworkError(
                 ErrorCodes.deleteRestricted,
-                `${throughTableName} has records referencing ${entityName}#${payload.id}`,
+                `${relation.through.table} has records referencing ${entityName}#${payload.id}`,
               );
             }
           }
 
           if (strategy === "cascade") {
-            await db.execute(
-              sql`DELETE FROM ${sql.identifier(throughTableName)} WHERE ${sql.identifier(targetKey)} = ${payload.id}`,
-            );
+            await db.delete(throughTable).where(eq(throughTable[targetKey], payload.id));
           }
         }
       }
