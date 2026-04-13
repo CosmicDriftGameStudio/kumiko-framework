@@ -69,7 +69,6 @@ export type NotificationDefinition = {
   readonly trigger: { readonly on: string };
   readonly recipient: NotificationRecipientFn;
   readonly data: NotificationDataFn;
-  readonly channels: readonly string[] | undefined;
 };
 
 // --- Translations ---

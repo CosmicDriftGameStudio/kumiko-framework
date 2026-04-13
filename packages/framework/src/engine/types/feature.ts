@@ -119,7 +119,6 @@ export type FeatureRegistrar = {
       readonly trigger: { readonly on: NameOrRef };
       readonly recipient: NotificationRecipientFn;
       readonly data: NotificationDataFn;
-      readonly channels?: readonly string[];
     },
   ): void;
 

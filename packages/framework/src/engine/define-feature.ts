@@ -239,7 +239,6 @@ export function defineFeature(
         readonly trigger: { readonly on: NameOrRef };
         readonly recipient: NotificationRecipientFn;
         readonly data: NotificationDataFn;
-        readonly channels?: readonly string[];
       },
     ): void {
       notifications[notificationName] = {
@@ -247,7 +246,6 @@ export function defineFeature(
         trigger: { on: resolveName(definition.trigger.on) },
         recipient: definition.recipient,
         data: definition.data,
-        channels: definition.channels,
       };
     },
 
