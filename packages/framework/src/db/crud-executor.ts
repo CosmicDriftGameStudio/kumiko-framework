@@ -6,6 +6,7 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
+import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
 import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
@@ -19,6 +20,7 @@ export type CrudExecutorOptions = {
   searchAdapter?: SearchAdapter;
   entityName?: string;
   encryptionProvider?: EncryptionProvider;
+  entityCache?: EntityCache;
 };
 
 type EncryptionProvider = {
@@ -76,7 +78,7 @@ export function createCrudExecutor(
   options: CrudExecutorOptions = {},
 ): CrudExecutor {
   const softDelete = entity.softDelete ?? false;
-  const { searchAdapter, entityName, encryptionProvider } = options;
+  const { searchAdapter, entityName, encryptionProvider, entityCache } = options;
 
   // Find fields that need encryption
   const encryptedFields = new Set<string>();
@@ -147,6 +149,10 @@ export function createCrudExecutor(
       const data = row as Record<string, unknown>;
       const id = data["id"] as number;
 
+      if (entityCache && entityName) {
+        await entityCache.set(user.tenantId, entityName, id, data);
+      }
+
       return {
         isSuccess: true,
         data: { kind: "save", id, data, changes: payload, previous: {}, isNew: true, entityName },
@@ -182,6 +188,10 @@ export function createCrudExecutor(
       if (!row) return { isSuccess: false, error: "update_failed" };
       const data = row as Record<string, unknown>;
 
+      if (entityCache && entityName) {
+        await entityCache.set(user.tenantId, entityName, payload.id, data);
+      }
+
       return {
         isSuccess: true,
         data: {
@@ -213,6 +223,10 @@ export function createCrudExecutor(
           .where(eq(table["id"], payload.id));
       } else {
         await db.delete(table).where(eq(table["id"], payload.id));
+      }
+
+      if (entityCache && entityName) {
+        await entityCache.del(user.tenantId, entityName, payload.id);
       }
 
       return {
@@ -303,18 +317,40 @@ export function createCrudExecutor(
             : query.orderBy(asc(column));
       }
 
-      const rows = await query;
+      const rows = (await query) as Record<string, unknown>[];
 
-      const lastRow = rows[rows.length - 1] as Record<string, unknown> | undefined;
+      // Fill cache with loaded rows (detail queries benefit from this)
+      if (entityCache && entityName && rows.length > 0) {
+        await entityCache.mset(
+          user.tenantId,
+          entityName,
+          rows.map((r) => ({ id: r["id"] as number, data: r })),
+        );
+      }
+
+      const lastRow = rows[rows.length - 1];
       const nextCursor =
         rows.length === limit && lastRow ? encodeCursor(lastRow["id"] as number) : null;
 
-      return { rows: (rows as Record<string, unknown>[]).map(maskRow), nextCursor };
+      return { rows: rows.map(maskRow), nextCursor };
     },
 
-    async detail(payload, _user, db) {
+    async detail(payload, user, db) {
+      // Cache check
+      if (entityCache && entityName) {
+        const cached = await entityCache.get(user.tenantId, entityName, payload.id);
+        if (cached) return maskRow(cached);
+      }
+
       const row = await loadById(payload.id, db);
-      return row ? maskRow(row) : null;
+      if (!row) return null;
+
+      // Cache fill
+      if (entityCache && entityName) {
+        await entityCache.set(user.tenantId, entityName, payload.id, row);
+      }
+
+      return maskRow(row);
     },
   };
 }

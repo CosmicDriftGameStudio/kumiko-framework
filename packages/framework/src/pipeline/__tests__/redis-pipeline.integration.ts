@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createTestRedis, type TestRedis } from "../../testing";
+import { createEntityCache } from "../entity-cache";
 import { createEventBroker } from "../event-broker";
 import { createEventDedup } from "../event-dedup";
 import { createEventLog } from "../event-log";
@@ -187,5 +188,108 @@ describe("event dedup", () => {
 
     const winners = results.filter((r) => r === true);
     expect(winners).toHaveLength(1);
+  });
+});
+
+// --- Entity Cache ---
+
+describe("entity cache", () => {
+  test("get returns null on miss", async () => {
+    const cache = createEntityCache(testRedis.redis);
+    const result = await cache.get(1, "order", 999);
+    expect(result).toBeNull();
+  });
+
+  test("set + get returns cached data", async () => {
+    const cache = createEntityCache(testRedis.redis);
+    await cache.set(1, "order", 1, { id: 1, name: "Test Order" });
+    const result = await cache.get(1, "order", 1);
+    expect(result).toEqual({ id: 1, name: "Test Order" });
+  });
+
+  test("del invalidates cached data", async () => {
+    const cache = createEntityCache(testRedis.redis);
+    await cache.set(1, "order", 2, { id: 2, name: "Delete Me" });
+    await cache.del(1, "order", 2);
+    expect(await cache.get(1, "order", 2)).toBeNull();
+  });
+
+  test("tenant isolation — same entity id, different tenants", async () => {
+    const cache = createEntityCache(testRedis.redis);
+    await cache.set(1, "order", 10, { id: 10, name: "Tenant 1" });
+    await cache.set(2, "order", 10, { id: 10, name: "Tenant 2" });
+
+    expect((await cache.get(1, "order", 10))?.["name"]).toBe("Tenant 1");
+    expect((await cache.get(2, "order", 10))?.["name"]).toBe("Tenant 2");
+  });
+
+  test("mget returns hits and skips misses", async () => {
+    const cache = createEntityCache(testRedis.redis);
+    await cache.set(1, "user", 1, { id: 1, name: "Alice" });
+    await cache.set(1, "user", 3, { id: 3, name: "Charlie" });
+    // id 2 not cached
+
+    const result = await cache.mget(1, "user", [1, 2, 3]);
+    expect(result.size).toBe(2);
+    expect(result.get(1)?.["name"]).toBe("Alice");
+    expect(result.get(3)?.["name"]).toBe("Charlie");
+    expect(result.has(2)).toBe(false);
+  });
+
+  test("mset caches multiple entities in one call", async () => {
+    const cache = createEntityCache(testRedis.redis);
+    await cache.mset(1, "product", [
+      { id: 10, data: { id: 10, name: "Widget" } },
+      { id: 11, data: { id: 11, name: "Gadget" } },
+      { id: 12, data: { id: 12, name: "Doohickey" } },
+    ]);
+
+    const result = await cache.mget(1, "product", [10, 11, 12]);
+    expect(result.size).toBe(3);
+    expect(result.get(11)?.["name"]).toBe("Gadget");
+  });
+
+  test("mget + mset pattern: load misses, cache them", async () => {
+    const cache = createEntityCache(testRedis.redis);
+
+    // Pre-cache 2 of 4
+    await cache.set(1, "item", 1, { id: 1, name: "Cached A" });
+    await cache.set(1, "item", 3, { id: 3, name: "Cached C" });
+
+    // Request all 4
+    const requestedIds = [1, 2, 3, 4];
+    const hits = await cache.mget(1, "item", requestedIds);
+
+    // Find misses
+    const missIds = requestedIds.filter((id) => !hits.has(id));
+    expect(missIds).toEqual([2, 4]);
+
+    // Simulate DB load for misses
+    const fromDb = [
+      { id: 2, name: "From DB B" },
+      { id: 4, name: "From DB D" },
+    ];
+
+    // Cache the misses
+    await cache.mset(
+      1,
+      "item",
+      fromDb.map((row) => ({ id: row.id, data: row })),
+    );
+
+    // Now all 4 are cached
+    const allCached = await cache.mget(1, "item", requestedIds);
+    expect(allCached.size).toBe(4);
+    expect(allCached.get(1)?.["name"]).toBe("Cached A");
+    expect(allCached.get(2)?.["name"]).toBe("From DB B");
+  });
+
+  test("expires after TTL", async () => {
+    const cache = createEntityCache(testRedis.redis, { ttlSeconds: 1 });
+    await cache.set(1, "temp", 1, { id: 1 });
+
+    expect(await cache.get(1, "temp", 1)).not.toBeNull();
+    await new Promise((r) => setTimeout(r, 1100));
+    expect(await cache.get(1, "temp", 1)).toBeNull();
   });
 });
