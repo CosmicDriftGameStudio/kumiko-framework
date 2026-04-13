@@ -5,6 +5,9 @@ import type {
   ConfigKeyDefinition,
   JobDefinition,
   JobHandlerFn,
+  NotificationDataFn,
+  NotificationDefinition,
+  NotificationRecipientFn,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
@@ -55,6 +58,7 @@ export type FeatureDefinition = {
   readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
   readonly extensionUsages: readonly RegistrarExtensionRegistration[];
   readonly referenceData: readonly ReferenceDataDef[];
+  readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;
   readonly configReads: readonly string[];
 };
@@ -109,6 +113,16 @@ export type FeatureRegistrar = {
 
   job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
 
+  notification(
+    name: string,
+    definition: {
+      readonly trigger: { readonly on: NameOrRef };
+      readonly recipient: NotificationRecipientFn;
+      readonly data: NotificationDataFn;
+      readonly channels?: readonly string[];
+    },
+  ): void;
+
   translations(def: TranslationsDef): void;
 
   defineEvent<TPayload>(name: string, schema: ZodType<TPayload>): EventDef<TPayload>;
@@ -162,5 +176,6 @@ export type Registry = {
   getEvent(qualifiedName: string): EventDef | undefined;
   getExtension(name: string): RegistrarExtensionDef | undefined;
   getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[];
+  getAllNotifications(): ReadonlyMap<string, NotificationDefinition>;
   getAllReferenceData(): readonly ReferenceDataDef[];
 };

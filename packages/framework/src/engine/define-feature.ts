@@ -16,6 +16,9 @@ import type {
   JobDefinition,
   JobHandlerFn,
   LifecycleHookFn,
+  NotificationDataFn,
+  NotificationDefinition,
+  NotificationRecipientFn,
   LifecycleHookType,
   NameOrRef,
   PostDeleteHookFn,
@@ -56,6 +59,7 @@ export function defineFeature(
   const entityPostSave: Record<string, PostSaveHookFn[]> = {};
   const entityPreDelete: Record<string, PreDeleteHookFn[]> = {};
   const entityPostDelete: Record<string, PostDeleteHookFn[]> = {};
+  const notifications: Record<string, NotificationDefinition> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const referenceData: ReferenceDataDef[] = [];
@@ -229,6 +233,24 @@ export function defineFeature(
       jobs[jobName] = { ...options, trigger, name: jobName, handler };
     },
 
+    notification(
+      notificationName: string,
+      definition: {
+        readonly trigger: { readonly on: NameOrRef };
+        readonly recipient: NotificationRecipientFn;
+        readonly data: NotificationDataFn;
+        readonly channels?: readonly string[];
+      },
+    ): void {
+      notifications[notificationName] = {
+        name: notificationName,
+        trigger: { on: resolveName(definition.trigger.on) },
+        recipient: definition.recipient,
+        data: definition.data,
+        channels: definition.channels,
+      };
+    },
+
     translations(def: TranslationsDef): void {
       translations = { ...translations, ...def.keys };
     },
@@ -295,6 +317,7 @@ export function defineFeature(
     },
     configKeys,
     jobs,
+    notifications,
     registrarExtensions,
     extensionUsages,
     referenceData,

@@ -5,6 +5,7 @@ import type {
   EventDef,
   FeatureDefinition,
   JobDefinition,
+  NotificationDefinition,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -44,6 +45,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const entityPostDeleteHooks = new Map<string, PostDeleteHookFn[]>();
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
   const jobMap = new Map<string, JobDefinition>();
+  const notificationMap = new Map<string, NotificationDefinition>();
   const eventMap = new Map<string, EventDef>();
   // Handler → entity mapping (populated from entities + handler name convention)
   const handlerEntityMap = new Map<string, string>();
@@ -155,6 +157,24 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         throw new Error(`Duplicate job: "${qualifiedName}" (registered by multiple features)`);
       }
       jobMap.set(qualifiedName, { ...jobDef, name: qualifiedName });
+    }
+
+    // Notifications: featureName.notificationName → stored + auto postSave hook
+    for (const [name, notifDef] of Object.entries(feature.notifications)) {
+      const qualifiedName = qualify(feature.name, name);
+      const triggerOn = qualify(feature.name, notifDef.trigger.on);
+      const resolved = { ...notifDef, name: qualifiedName, trigger: { on: triggerOn } };
+      notificationMap.set(qualifiedName, resolved);
+
+      // Auto-register postSave hook on the trigger handler
+      if (!postSaveHooks.has(triggerOn)) postSaveHooks.set(triggerOn, []);
+      postSaveHooks.get(triggerOn)!.push(async (result, context) => {
+        if (!context.notify) return;
+        const to = resolved.recipient(result);
+        if (to === null) return;
+        const data = resolved.data(result);
+        await context.notify(qualifiedName, { to, data });
+      });
     }
 
     // Events: featureName.eventName
@@ -511,6 +531,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[] {
       return extensionUsages.filter((u) => u.extensionName === extensionName);
+    },
+
+    getAllNotifications(): ReadonlyMap<string, NotificationDefinition> {
+      return notificationMap;
     },
 
     getAllReferenceData(): readonly ReferenceDataDef[] {

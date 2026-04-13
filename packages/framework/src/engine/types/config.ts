@@ -54,6 +54,24 @@ export type JobDefinition = {
   readonly perTenant?: boolean | undefined;
 };
 
+// --- Notifications ---
+
+export type NotificationRecipientFn = (
+  result: import("./hooks").SaveContext,
+) => number | readonly number[] | null;
+
+export type NotificationDataFn = (
+  result: import("./hooks").SaveContext,
+) => Record<string, unknown>;
+
+export type NotificationDefinition = {
+  readonly name: string;
+  readonly trigger: { readonly on: string };
+  readonly recipient: NotificationRecipientFn;
+  readonly data: NotificationDataFn;
+  readonly channels: readonly string[] | undefined;
+};
+
 // --- Translations ---
 
 export type TranslationEntry = Readonly<Record<string, string>>;
