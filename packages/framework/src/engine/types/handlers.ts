@@ -1,7 +1,9 @@
+import type { Redis } from "ioredis";
 import type { ZodType } from "zod";
 import type { DbConnection } from "../../db/connection";
 import type { TenantDb } from "../../db/tenant-db";
 import type { Logger } from "../../logging/types";
+import type { EntityCache } from "../../pipeline/entity-cache";
 import type { SearchAdapter } from "../../search/types";
 
 // --- Access ---
@@ -54,11 +56,11 @@ export type JobRunnerRef = {
 
 // Shared optional fields across all execution contexts
 type SharedContextFields = {
-  readonly redis?: import("ioredis").default;
+  readonly redis?: Redis;
   readonly jobRunner?: JobRunnerRef;
   readonly configResolver?: unknown; // Typed in core-features (cross-package boundary)
   readonly searchAdapter?: SearchAdapter;
-  readonly entityCache?: import("../../pipeline/entity-cache").EntityCache;
+  readonly entityCache?: EntityCache;
 };
 
 // All optional — used at pipeline/system boundaries
