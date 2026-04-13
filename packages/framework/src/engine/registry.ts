@@ -374,7 +374,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // Done after all features are registered so cross-feature triggers work
   const allHandlerNames = new Set([...writeHandlerMap.keys(), ...queryHandlerMap.keys()]);
   for (const [qualifiedName, notifDef] of notificationMap) {
-    const featureName = notificationFeatureMap.get(qualifiedName)!;
+    const featureName = notificationFeatureMap.get(qualifiedName) as string;
     // Try as-is first (cross-feature fully qualified QN), then qualify with own feature name as write handler
     let triggerOn: string;
     if (allHandlerNames.has(notifDef.trigger.on)) {

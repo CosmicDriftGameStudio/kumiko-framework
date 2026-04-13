@@ -71,7 +71,8 @@ export function createDispatcher(
     transitionMap: Record<string, readonly string[]>,
   ): ReadonlyMap<string, ReadonlySet<string>> {
     const key = fieldName;
-    if (transitionCache.has(key)) return transitionCache.get(key)!;
+    if (transitionCache.has(key))
+      return transitionCache.get(key) as ReadonlyMap<string, ReadonlySet<string>>;
     const transitions = defineTransitions(transitionMap);
     transitionCache.set(key, transitions);
     return transitions;

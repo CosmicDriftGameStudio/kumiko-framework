@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, type SQL } from "drizzle-orm";
 import type { ValidationError } from "../engine/types";
 import type { DbConnection } from "./connection";
 import type { TenantDb } from "./tenant-db";
@@ -39,7 +39,7 @@ export async function assertExistsIn(
   const [row] = await db
     .select()
     .from(entity)
-    .where(and(...conditions)!);
+    .where(and(...conditions) as SQL);
 
   if (!row) {
     return {

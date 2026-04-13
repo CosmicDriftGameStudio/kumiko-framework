@@ -126,7 +126,7 @@ export function createCrudExecutor(
     if (softDelete && table["isDeleted"]) {
       conditions.push(eq(table["isDeleted"], false));
     }
-    return and(...conditions)!;
+    return and(...conditions) as SQL;
   }
 
   async function loadById(id: number, db: TenantDb): Promise<Record<string, unknown> | null> {
@@ -304,7 +304,7 @@ export function createCrudExecutor(
           ? db
               .select()
               .from(table)
-              .where(and(...conditions)!)
+              .where(and(...conditions) as SQL)
           : db.select().from(table);
 
       query = query.limit(limit);

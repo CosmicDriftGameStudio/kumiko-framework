@@ -58,7 +58,7 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
       for (let i = 0; i < ids.length; i++) {
         const raw = values[i];
         if (raw) {
-          result.set(ids[i]!, JSON.parse(raw) as Record<string, unknown>);
+          result.set(ids[i] as number, JSON.parse(raw) as Record<string, unknown>);
         }
       }
       return result;

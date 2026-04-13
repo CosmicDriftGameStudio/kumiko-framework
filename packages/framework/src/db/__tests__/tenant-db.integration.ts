@@ -52,17 +52,15 @@ describe("scoped mode (default)", () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
       const rows = await tdb.insert(table).values({ name: "Item 1" }).returning();
-      const row = rows[0]!;
-      expect(row["tenantId"]).toBe(1);
-      expect(row["name"]).toBe("Item 1");
+      expect(rows[0]?.["tenantId"]).toBe(1);
+      expect(rows[0]?.["name"]).toBe("Item 1");
     });
 
     test("cannot override tenantId via values", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
       const rows = await tdb.insert(table).values({ name: "Sneaky", tenantId: 999 }).returning();
-      const row = rows[0]!;
-      expect(row["tenantId"]).toBe(1);
+      expect(rows[0]?.["tenantId"]).toBe(1);
     });
   });
 

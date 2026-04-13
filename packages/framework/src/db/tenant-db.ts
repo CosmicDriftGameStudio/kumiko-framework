@@ -90,7 +90,7 @@ export function createTenantDb(
     }
 
     // Tenant mode: own data + reference data (tenantId = 0)
-    const ownOrGlobal = or(eq(table["tenantId"], tenantId), eq(table["tenantId"], 0))!;
+    const ownOrGlobal = or(eq(table["tenantId"], tenantId), eq(table["tenantId"], 0)) as SQL;
     return extra.length > 0 ? and(ownOrGlobal, ...extra) : ownOrGlobal;
   }
 
