@@ -38,6 +38,8 @@ export {
   createTextField,
 } from "./factories";
 export { checkWriteFields, filterReadFields } from "./field-access";
+export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
+export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";
 export { createRegistry } from "./registry";
 export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 export { defineTransitions, guardTransition } from "./state-machine";

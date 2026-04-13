@@ -1,5 +1,6 @@
 import type { SseBroker, SseEvent } from "../api/sse-broker";
 import { SystemHookNames, SystemHookPriorities, tenantChannel } from "../engine/constants";
+import { qn } from "../engine/qualified-name";
 import type { PostDeleteHookFn, PostSaveHookFn, Registry } from "../engine/types";
 import type { SearchAdapter } from "../search/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
@@ -88,7 +89,9 @@ export function createSseBroadcastHook(sseBroker: SseBroker): SystemHookDef<Post
       if (!entityName) return;
 
       const tenantId = result.data["tenantId"] as number;
-      const eventType = result.isNew ? `${entityName}.created` : `${entityName}.updated`;
+      const eventType = result.isNew
+        ? qn("system", "event", `${entityName}:created`)
+        : qn("system", "event", `${entityName}:updated`);
 
       const event: SseEvent = {
         type: eventType,
@@ -112,7 +115,7 @@ export function createSseDeleteBroadcastHook(
 
       const tenantId = payload.data["tenantId"] as number;
       sseBroker.pushToChannel(tenantChannel(tenantId), {
-        type: `${entityName}.deleted`,
+        type: qn("system", "event", `${entityName}:deleted`),
         data: { id: payload.id },
       });
     },
@@ -149,7 +152,9 @@ export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<
         timestamp: new Date(),
         tenantId: result.data["tenantId"] as number,
         userId: ctx._userId ?? 0,
-        action: ctx._handlerType ?? `${entityName}.${result.isNew ? "create" : "update"}`,
+        action:
+          ctx._handlerType ??
+          qn("system", "event", `${entityName}:${result.isNew ? "create" : "update"}`),
         entityType: entityName,
         entityId: result.id,
         changes: result.changes as Record<string, unknown>,
@@ -174,7 +179,7 @@ export function createAuditTrailDeleteHook(
         timestamp: new Date(),
         tenantId: payload.data["tenantId"] as number,
         userId: ctx._userId ?? 0,
-        action: ctx._handlerType ?? `${entityName}.delete`,
+        action: ctx._handlerType ?? qn("system", "event", `${entityName}:delete`),
         entityType: entityName,
         entityId: payload.id,
         changes: {},

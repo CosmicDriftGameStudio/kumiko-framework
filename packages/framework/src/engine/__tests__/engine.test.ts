@@ -43,59 +43,59 @@ describe("defineFeature", () => {
     const schema = z.object({ email: z.email() });
 
     const feature = defineFeature("test", (r) => {
-      r.writeHandler("user.invite", schema, async (event) => {
+      r.writeHandler("user:invite", schema, async (event) => {
         // event.payload.email is inferred as string
         const _email: string = event.payload.email;
         return { isSuccess: true, data: { id: 1 } };
       });
     });
 
-    expect(feature.writeHandlers["user.invite"]).toBeDefined();
-    expect(feature.writeHandlers["user.invite"]?.name).toBe("user.invite");
+    expect(feature.writeHandlers["user:invite"]).toBeDefined();
+    expect(feature.writeHandlers["user:invite"]?.name).toBe("user:invite");
   });
 
   test("writeHandler returns typed HandlerRef", () => {
     let ref: { name: string } | undefined;
     defineFeature("test", (r) => {
-      ref = r.writeHandler("order.create", z.object({}), async () => ({
+      ref = r.writeHandler("order:create", z.object({}), async () => ({
         isSuccess: true,
         data: null,
       }));
     });
-    expect(ref?.name).toBe("order.create");
+    expect(ref?.name).toBe("order:create");
   });
 
   test("queryHandler returns typed HandlerRef", () => {
     let ref: { name: string } | undefined;
     defineFeature("test", (r) => {
-      ref = r.queryHandler("order.list", z.object({}), async () => []);
+      ref = r.queryHandler("order:list", z.object({}), async () => []);
     });
-    expect(ref?.name).toBe("order.list");
+    expect(ref?.name).toBe("order:list");
   });
 
   test("r.defineEvent returns typed EventDef and registers on feature", () => {
     let eventRef: { name: string } | undefined;
     const feature = defineFeature("orders", (r) => {
-      eventRef = r.defineEvent("order.created", z.object({ orderId: z.number() }));
+      eventRef = r.defineEvent("order:created", z.object({ orderId: z.number() }));
     });
 
-    expect(eventRef?.name).toBe("order.created");
-    expect(feature.events["order.created"]).toBeDefined();
-    expect(feature.events["order.created"]?.schema).toBeDefined();
+    expect(eventRef?.name).toBe("order:created");
+    expect(feature.events["order:created"]).toBeDefined();
+    expect(feature.events["order:created"]?.schema).toBeDefined();
   });
 
   test("registry prefixes event names with feature name", () => {
     const feature = defineFeature("orders", (r) => {
-      r.defineEvent("order.created", z.object({ orderId: z.number() }));
+      r.defineEvent("order:created", z.object({ orderId: z.number() }));
     });
     const registry = createRegistry([feature]);
-    expect(registry.getEvent("orders.order.created")).toBeDefined();
-    expect(registry.getEvent("order.created")).toBeUndefined();
+    expect(registry.getEvent("orders:event:order:created")).toBeDefined();
+    expect(registry.getEvent("order:created")).toBeUndefined();
   });
 
   test("collects write handlers via object form (defineWriteHandler)", () => {
     const handler = defineWriteHandler({
-      name: "user.create",
+      name: "user:create",
       schema: z.object({ email: z.email() }),
       access: { roles: ["Admin"] },
       handler: async (event) => {
@@ -107,27 +107,27 @@ describe("defineFeature", () => {
       r.writeHandler(handler);
     });
 
-    expect(feature.writeHandlers["user.create"]).toBeDefined();
-    expect(feature.writeHandlers["user.create"]?.name).toBe("user.create");
-    expect(feature.writeHandlers["user.create"]?.access?.roles).toEqual(["Admin"]);
+    expect(feature.writeHandlers["user:create"]).toBeDefined();
+    expect(feature.writeHandlers["user:create"]?.name).toBe("user:create");
+    expect(feature.writeHandlers["user:create"]?.access?.roles).toEqual(["Admin"]);
   });
 
   test("collects query handlers with inferred types", () => {
     const schema = z.object({ userId: z.number() });
 
     const feature = defineFeature("test", (r) => {
-      r.queryHandler("user.detail", schema, async (query) => {
+      r.queryHandler("user:detail", schema, async (query) => {
         const _id: number = query.payload.userId;
         return { id: _id, email: "test@test.de" };
       });
     });
 
-    expect(feature.queryHandlers["user.detail"]).toBeDefined();
+    expect(feature.queryHandlers["user:detail"]).toBeDefined();
   });
 
   test("collects query handlers via object form (defineQueryHandler)", () => {
     const handler = defineQueryHandler({
-      name: "user.list",
+      name: "user:list",
       schema: z.object({ limit: z.number().optional() }),
       handler: async () => {
         return [{ id: 1, email: "test@test.de" }];
@@ -138,8 +138,8 @@ describe("defineFeature", () => {
       r.queryHandler(handler);
     });
 
-    expect(feature.queryHandlers["user.list"]).toBeDefined();
-    expect(feature.queryHandlers["user.list"]?.name).toBe("user.list");
+    expect(feature.queryHandlers["user:list"]).toBeDefined();
+    expect(feature.queryHandlers["user:list"]?.name).toBe("user:list");
   });
 
   test("collects translations", () => {
@@ -158,14 +158,14 @@ describe("defineFeature", () => {
   test("handlers can have access rules", () => {
     const feature = defineFeature("test", (r) => {
       r.writeHandler(
-        "user.invite",
+        "user:invite",
         z.object({ email: z.string() }),
         async () => ({ isSuccess: true, data: null }),
         { access: { roles: ["Admin", "SystemAdmin"] } },
       );
     });
 
-    expect(feature.writeHandlers["user.invite"]?.access?.roles).toEqual(["Admin", "SystemAdmin"]);
+    expect(feature.writeHandlers["user:invite"]?.access?.roles).toEqual(["Admin", "SystemAdmin"]);
   });
 });
 
@@ -234,15 +234,15 @@ describe("createRegistry", () => {
 
   test("looks up handlers across features", () => {
     const f1 = defineFeature("admin", (r) => {
-      r.writeHandler("user.invite", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }));
     });
     const f2 = defineFeature("profile", (r) => {
-      r.queryHandler("profile.me", z.object({}), async () => ({ id: 1 }));
+      r.queryHandler("profile:me", z.object({}), async () => ({ id: 1 }));
     });
 
     const registry = createRegistry([f1, f2]);
-    expect(registry.getWriteHandler("admin.user.invite")).toBeDefined();
-    expect(registry.getQueryHandler("profile.profile.me")).toBeDefined();
+    expect(registry.getWriteHandler("admin:write:user:invite")).toBeDefined();
+    expect(registry.getQueryHandler("profile:query:profile:me")).toBeDefined();
   });
 
   test("throws on duplicate entity names (same feature name)", () => {
@@ -270,16 +270,16 @@ describe("createRegistry", () => {
 
   test("different features can have same handler short name (prefixed differently)", () => {
     const f1 = defineFeature("a", (r) => {
-      r.writeHandler("user.invite", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }));
     });
     const f2 = defineFeature("b", (r) => {
-      r.writeHandler("user.invite", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }));
     });
 
-    // No error — "a.user.invite" and "b.user.invite" are distinct
+    // No error — "a:write:user:invite" and "b:write:user:invite" are distinct
     const registry = createRegistry([f1, f2]);
-    expect(registry.getWriteHandler("a.user.invite")).toBeDefined();
-    expect(registry.getWriteHandler("b.user.invite")).toBeDefined();
+    expect(registry.getWriteHandler("a:write:user:invite")).toBeDefined();
+    expect(registry.getWriteHandler("b:write:user:invite")).toBeDefined();
   });
 
   test("throws on duplicate feature names", () => {
@@ -314,17 +314,17 @@ describe("createRegistry", () => {
 
       expect(crud.entity.name).toBe("order");
       expect(crud.entity.table).toBe("Orders");
-      expect(crud.handlers.create.name).toBe("order.create");
-      expect(crud.handlers.update.name).toBe("order.update");
-      expect(crud.handlers.delete.name).toBe("order.delete");
-      expect(crud.queries.list.name).toBe("order.list");
-      expect(crud.queries.detail.name).toBe("order.detail");
+      expect(crud.handlers.create.name).toBe("order:create");
+      expect(crud.handlers.update.name).toBe("order:update");
+      expect(crud.handlers.delete.name).toBe("order:delete");
+      expect(crud.queries.list.name).toBe("order:list");
+      expect(crud.queries.detail.name).toBe("order:detail");
     });
 
     // Verify handlers actually registered
     const registry = createRegistry([feature]);
-    expect(registry.getWriteHandler("orders.order.create")).toBeDefined();
-    expect(registry.getQueryHandler("orders.order.list")).toBeDefined();
+    expect(registry.getWriteHandler("orders:write:order:create")).toBeDefined();
+    expect(registry.getQueryHandler("orders:query:order:list")).toBeDefined();
   });
 
   test("throws when write handler is not entity-mapped in feature with field-access", () => {
@@ -343,7 +343,7 @@ describe("createRegistry", () => {
       r.writeHandler("promote", z.object({}), async () => ({ isSuccess: true, data: null }));
     });
 
-    expect(() => createRegistry([feature])).toThrow(/hr\.promote.*not mapped.*entityName\.action/i);
+    expect(() => createRegistry([feature])).toThrow(/hr:write:promote.*not mapped.*entity:action/i);
   });
 
   test("allows unmapped write handlers when feature has no field-access rules", () => {
@@ -368,8 +368,8 @@ describe("createRegistry", () => {
           },
         }),
       );
-      // "employee.promote" follows convention → mapped to entity "employee"
-      r.writeHandler("employee.promote", z.object({}), async () => ({
+      // "employee:promote" follows convention → mapped to entity "employee"
+      r.writeHandler("employee:promote", z.object({}), async () => ({
         isSuccess: true,
         data: null,
       }));
@@ -389,15 +389,15 @@ describe("createRegistry", () => {
           },
         }),
       );
-      r.writeHandler("employee.create", z.object({}), async () => ({
+      r.writeHandler("employee:create", z.object({}), async () => ({
         isSuccess: true,
         data: null,
       }));
       // Typo: "emp" instead of "employee"
-      r.queryHandler("emp.list", z.object({}), async () => []);
+      r.queryHandler("emp:list", z.object({}), async () => []);
     });
 
-    expect(() => createRegistry([feature])).toThrow(/emp.*does not exist/i);
+    expect(() => createRegistry([feature])).toThrow(/emp:list.*entity-bound.*no matching entity/i);
   });
 
   test("allows standalone query handlers without dot in features with field-access", () => {
@@ -411,7 +411,7 @@ describe("createRegistry", () => {
           },
         }),
       );
-      r.writeHandler("employee.create", z.object({}), async () => ({
+      r.writeHandler("employee:create", z.object({}), async () => ({
         isSuccess: true,
         data: null,
       }));
@@ -914,10 +914,10 @@ describe("r.config()", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getConfigKey("invoicing.defaultVat")).toBeDefined();
-    expect(registry.getConfigKey("invoicing.defaultVat")?.type).toBe("number");
-    expect(registry.getConfigKey("invoicing.showNetPrices")?.scope).toBe("user");
-    expect(registry.getConfigKey("nonexistent.key")).toBeUndefined();
+    expect(registry.getConfigKey("invoicing:config:default-vat")).toBeDefined();
+    expect(registry.getConfigKey("invoicing:config:default-vat")?.type).toBe("number");
+    expect(registry.getConfigKey("invoicing:config:show-net-prices")?.scope).toBe("user");
+    expect(registry.getConfigKey("nonexistent:config:key")).toBeUndefined();
   });
 
   test("getAllConfigKeys returns all keys across features", () => {
@@ -949,8 +949,8 @@ describe("r.config()", () => {
     const registry = createRegistry([f1, f2]);
     const all = registry.getAllConfigKeys();
     expect(all.size).toBe(2);
-    expect(all.has("invoicing.vat")).toBe(true);
-    expect(all.has("notifications.push")).toBe(true);
+    expect(all.has("invoicing:config:vat")).toBe(true);
+    expect(all.has("notifications:config:push")).toBe(true);
   });
 
   test("throws on duplicate config key across features", () => {
@@ -990,7 +990,7 @@ describe("r.config()", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getConfigKey("integration.apiSecret")?.encrypted).toBe(true);
+    expect(registry.getConfigKey("integration:config:api-secret")?.encrypted).toBe(true);
   });
 
   test("createApp validates config key roles", () => {
@@ -1237,10 +1237,10 @@ describe("registry boot validation", () => {
 
   test("throws for job event trigger targeting non-existent handler", () => {
     const feature = defineFeature("test", (r) => {
-      r.job("myJob", { trigger: { on: "ghost.handler" } }, async () => {});
+      r.job("myJob", { trigger: { on: "ghost-handler" } }, async () => {});
     });
 
-    expect(() => createRegistry([feature])).toThrow(/myJob.*ghost\.handler.*no handler/i);
+    expect(() => createRegistry([feature])).toThrow(/my-job.*ghost-handler.*no handler/i);
   });
 
   test("throws for extension usage referencing non-existent extension", () => {

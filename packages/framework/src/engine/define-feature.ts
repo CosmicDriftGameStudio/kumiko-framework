@@ -63,6 +63,7 @@ export function defineFeature(
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const referenceData: ReferenceDataDef[] = [];
+  const handlerEntityMappings: Record<string, string> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -70,6 +71,17 @@ export function defineFeature(
   }
 
   let isSystemScoped = false;
+
+  // Map handler name to entity via colon convention.
+  // "task:create" → entity "task". No colon → standalone handler, no mapping.
+  function tryMapEntity(handlerName: string): void {
+    const colonIdx = handlerName.indexOf(":");
+    if (colonIdx < 0) return;
+    const candidate = handlerName.slice(0, colonIdx);
+    if (entities[candidate]) {
+      handlerEntityMappings[handlerName] = candidate;
+    }
+  }
 
   const registrar: FeatureRegistrar = {
     systemScope(): void {
@@ -104,6 +116,7 @@ export function defineFeature(
           ...(def.access && { access: def.access }),
           ...(def.skipTransitionGuard && { skipTransitionGuard: true }),
         };
+        tryMapEntity(def.name);
         return { name: def.name };
       }
       if (!schema || !handler)
@@ -114,6 +127,7 @@ export function defineFeature(
         handler: handler as WriteHandlerFn,
         ...(options?.access && { access: options.access }),
       };
+      tryMapEntity(nameOrDef);
       return { name: nameOrDef };
     },
 
@@ -131,6 +145,7 @@ export function defineFeature(
           handler: def.handler as QueryHandlerFn,
           ...(def.access && { access: def.access }),
         };
+        tryMapEntity(def.name);
         return { name: def.name };
       }
       if (!schema || !handler)
@@ -141,6 +156,7 @@ export function defineFeature(
         handler: handler as QueryHandlerFn,
         ...(options?.access && { access: options.access }),
       };
+      tryMapEntity(nameOrDef);
       return { name: nameOrDef };
     },
 
@@ -155,16 +171,23 @@ export function defineFeature(
       const crud = buildCrudHandlers(entityName, entity, options);
       Object.assign(writeHandlers, crud.writeHandlers);
       Object.assign(queryHandlers, crud.queryHandlers);
+      // Explicit entity mapping for all CRUD handlers
+      for (const handlerName of Object.keys(crud.writeHandlers)) {
+        handlerEntityMappings[handlerName] = entityName;
+      }
+      for (const queryName of Object.keys(crud.queryHandlers)) {
+        handlerEntityMappings[queryName] = entityName;
+      }
       return {
         entity: { name: entityName, table: entity.table ?? toTableName(entityName) },
         handlers: {
-          create: { name: `${entityName}.create` },
-          update: { name: `${entityName}.update` },
-          delete: { name: `${entityName}.delete` },
+          create: { name: `${entityName}:create` },
+          update: { name: `${entityName}:update` },
+          delete: { name: `${entityName}:delete` },
         },
         queries: {
-          list: { name: `${entityName}.list` },
-          detail: { name: `${entityName}.detail` },
+          list: { name: `${entityName}:list` },
+          detail: { name: `${entityName}:detail` },
         },
       };
     },
@@ -321,5 +344,6 @@ export function defineFeature(
     referenceData,
     events,
     configReads,
+    handlerEntityMappings,
   };
 }

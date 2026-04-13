@@ -59,7 +59,7 @@ beforeAll(async () => {
     r.entity("employee", employeeEntity);
 
     r.writeHandler(
-      "employee.create",
+      "employee:create",
       z.object({
         email: z.string(),
         firstName: z.string().optional(),
@@ -75,7 +75,7 @@ beforeAll(async () => {
     );
 
     r.writeHandler(
-      "employee.update",
+      "employee:update",
       z.object({
         id: z.number(),
         version: z.number().optional(),
@@ -90,7 +90,7 @@ beforeAll(async () => {
     );
 
     r.queryHandler(
-      "employee.detail",
+      "employee:detail",
       z.object({ id: z.number() }),
       async (query, ctx) => {
         const db = ctx.db;
@@ -130,7 +130,7 @@ async function req(method: string, path: string, user: SessionUser, body?: unkno
 async function seedEmployee(): Promise<number> {
   const res = await (
     await req("POST", "/api/write", adminUser, {
-      type: "employees.employee.create",
+      type: "employees:write:employee:create",
       payload: { email: "test@test.de", firstName: "Test", salary: 75000, notes: "Internal note" },
     })
   ).json();
@@ -151,7 +151,7 @@ describe("field-level read access", () => {
   test("Admin sees all fields", async () => {
     const res = await (
       await req("POST", "/api/query", adminUser, {
-        type: "employees.employee.detail",
+        type: "employees:query:employee:detail",
         payload: { id: employeeId },
       })
     ).json();
@@ -165,7 +165,7 @@ describe("field-level read access", () => {
   test("Accounting sees salary but not notes", async () => {
     const res = await (
       await req("POST", "/api/query", accountingUser, {
-        type: "employees.employee.detail",
+        type: "employees:query:employee:detail",
         payload: { id: employeeId },
       })
     ).json();
@@ -179,7 +179,7 @@ describe("field-level read access", () => {
   test("Employee sees neither salary nor notes", async () => {
     const res = await (
       await req("POST", "/api/query", employeeUser, {
-        type: "employees.employee.detail",
+        type: "employees:query:employee:detail",
         payload: { id: employeeId },
       })
     ).json();
@@ -200,7 +200,7 @@ describe("field-level write access", () => {
     const id = await seedEmployee();
     const res = await (
       await req("POST", "/api/write", adminUser, {
-        type: "employees.employee.update",
+        type: "employees:write:employee:update",
         payload: { id, changes: { salary: 80000 } },
       })
     ).json();
@@ -212,7 +212,7 @@ describe("field-level write access", () => {
     const id = await seedEmployee();
     const res = await (
       await req("POST", "/api/write", employeeUser, {
-        type: "employees.employee.update",
+        type: "employees:write:employee:update",
         payload: { id, changes: { salary: 999999 } },
       })
     ).json();
@@ -226,7 +226,7 @@ describe("field-level write access", () => {
     const id = await seedEmployee();
     const res = await (
       await req("POST", "/api/write", employeeUser, {
-        type: "employees.employee.update",
+        type: "employees:write:employee:update",
         payload: { id, changes: { firstName: "Updated" } },
       })
     ).json();
@@ -238,7 +238,7 @@ describe("field-level write access", () => {
   test("Employee cannot create with salary — error", async () => {
     const res = await (
       await req("POST", "/api/write", employeeUser, {
-        type: "employees.employee.create",
+        type: "employees:write:employee:create",
         payload: { email: "new@test.de", salary: 50000 },
       })
     ).json();
@@ -251,7 +251,7 @@ describe("field-level write access", () => {
     const id = await seedEmployee();
     const res = await (
       await req("POST", "/api/write", accountingUser, {
-        type: "employees.employee.update",
+        type: "employees:write:employee:update",
         payload: { id, changes: { salary: 60000 } },
       })
     ).json();

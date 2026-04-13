@@ -28,7 +28,7 @@ describe("event broker", () => {
     const broker = createEventBroker(testRedis.redis, subscriberRedis);
     const received: unknown[] = [];
 
-    broker.subscribe("test.created", async (event) => {
+    broker.subscribe("system:event:test:created", async (event) => {
       received.push(event.payload);
     });
 
@@ -37,7 +37,7 @@ describe("event broker", () => {
     // Small delay for subscription to be ready
     await new Promise((r) => setTimeout(r, 50));
 
-    await broker.publish({ type: "test.created", payload: { id: 1, name: "hello" } });
+    await broker.publish({ type: "system:event:test:created", payload: { id: 1, name: "hello" } });
 
     // Wait for message delivery
     await new Promise((r) => setTimeout(r, 100));
@@ -113,13 +113,13 @@ describe("event log", () => {
   test("appends and retrieves events", async () => {
     const log = createEventLog(testRedis.redis);
 
-    await log.append({ type: "user.create", payload: { email: "a@b.de" }, userId: 1, tenantId: 1 });
-    await log.append({ type: "user.update", payload: { name: "Marc" }, userId: 1, tenantId: 1 });
+    await log.append({ type: "user:create", payload: { email: "a@b.de" }, userId: 1, tenantId: 1 });
+    await log.append({ type: "user:update", payload: { name: "Marc" }, userId: 1, tenantId: 1 });
 
     const recent = await log.recent(10);
     expect(recent.length).toBeGreaterThanOrEqual(2);
-    expect(recent[0]?.type).toBe("user.update"); // most recent first
-    expect(recent[1]?.type).toBe("user.create");
+    expect(recent[0]?.type).toBe("user:update"); // most recent first
+    expect(recent[1]?.type).toBe("user:create");
   });
 
   test("limits returned entries", async () => {

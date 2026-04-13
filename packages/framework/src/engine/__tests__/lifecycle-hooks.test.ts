@@ -75,7 +75,7 @@ describe("lifecycle hooks in registry", () => {
     });
 
     const registry = createRegistry([f1]);
-    expect(registry.getPreSaveHooks("a.user")).toHaveLength(2);
+    expect(registry.getPreSaveHooks("a:write:user")).toHaveLength(2);
   });
 
   test("cross-feature hooks use full prefixed name", () => {
@@ -92,9 +92,9 @@ describe("lifecycle hooks in registry", () => {
     });
 
     const registry = createRegistry([f1, f2]);
-    // f1 registers as "a.user", f2 registers as "b.a.user" — different keys
-    expect(registry.getPostSaveHooks("a.user")).toHaveLength(1);
-    expect(registry.getPostSaveHooks("b.a.user")).toHaveLength(2);
+    // f1 registers as "a:write:user", f2 registers as "b:write:a-user" — different keys
+    expect(registry.getPostSaveHooks("a:write:user")).toHaveLength(1);
+    expect(registry.getPostSaveHooks("b:write:a-user")).toHaveLength(2);
   });
 
   test("returns empty array for entity without hooks", () => {
@@ -103,11 +103,11 @@ describe("lifecycle hooks in registry", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getPreSaveHooks("test.user")).toEqual([]);
-    expect(registry.getPostSaveHooks("test.user")).toEqual([]);
-    expect(registry.getPreDeleteHooks("test.user")).toEqual([]);
-    expect(registry.getPostDeleteHooks("test.user")).toEqual([]);
-    expect(registry.getPreQueryHooks("test.user")).toEqual([]);
+    expect(registry.getPreSaveHooks("test:write:user")).toEqual([]);
+    expect(registry.getPostSaveHooks("test:write:user")).toEqual([]);
+    expect(registry.getPreDeleteHooks("test:write:user")).toEqual([]);
+    expect(registry.getPostDeleteHooks("test:write:user")).toEqual([]);
+    expect(registry.getPreQueryHooks("test:query:user")).toEqual([]);
   });
 });
 

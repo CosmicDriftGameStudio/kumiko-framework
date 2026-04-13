@@ -19,10 +19,10 @@ const jobExecutions: Array<{ name: string; payload: Record<string, unknown> }> =
 
 // --- Features ---
 
-// Feature A: has a write handler "orders.create"
+// Feature A: has a write handler "orders:create"
 const ordersFeature = defineFeature("orders", (r) => {
   r.writeHandler(
-    "orders.create",
+    "orders:create",
     z.object({ product: z.string(), amount: z.number() }),
     async (event) => {
       return {
@@ -33,28 +33,32 @@ const ordersFeature = defineFeature("orders", (r) => {
   );
 });
 
-// Feature B: has a job that triggers on "orders.orders.create" (prefixed)
+// Feature B: has a job that triggers on "orders:write:orders:create" (prefixed)
 const notificationsFeature = defineFeature("notifications", (r) => {
-  r.job("sendOrderConfirmation", { trigger: { on: "orders.orders.create" } }, async (payload) => {
-    jobExecutions.push({ name: "notifications.sendOrderConfirmation", payload });
-  });
+  r.job(
+    "sendOrderConfirmation",
+    { trigger: { on: "orders:write:orders:create" } },
+    async (payload) => {
+      jobExecutions.push({ name: "notifications:job:send-order-confirmation", payload });
+    },
+  );
 });
 
 // Feature C: has ANOTHER job on the same event — both should fire
 const analyticsFeature = defineFeature("analytics", (r) => {
   // Dummy handler so the trackUser job trigger has a valid target
-  r.writeHandler("users.create", z.object({}), async () => ({
+  r.writeHandler("users:create", z.object({}), async () => ({
     isSuccess: true as const,
     data: null,
   }));
 
-  r.job("trackOrder", { trigger: { on: "orders.orders.create" } }, async (payload) => {
-    jobExecutions.push({ name: "analytics.trackOrder", payload });
+  r.job("trackOrder", { trigger: { on: "orders:write:orders:create" } }, async (payload) => {
+    jobExecutions.push({ name: "analytics:job:track-order", payload });
   });
 
   // Job on a different event — should NOT fire on orders.create
-  r.job("trackUser", { trigger: { on: "analytics.users.create" } }, async (payload) => {
-    jobExecutions.push({ name: "analytics.trackUser", payload });
+  r.job("trackUser", { trigger: { on: "analytics:write:users:create" } }, async (payload) => {
+    jobExecutions.push({ name: "analytics:job:track-user", payload });
   });
 });
 
@@ -119,7 +123,7 @@ describe("event trigger: write handler fires matching jobs", () => {
   test("orders.create triggers both notification and analytics jobs", async () => {
     jobExecutions.length = 0;
 
-    const result = await writeApi(adminUser, "orders.orders.create", {
+    const result = await writeApi(adminUser, "orders:write:orders:create", {
       product: "Widget",
       amount: 3,
     });
@@ -128,9 +132,9 @@ describe("event trigger: write handler fires matching jobs", () => {
     // Wait for BullMQ to process
     await waitFor(() => {
       const notification = jobExecutions.find(
-        (e) => e.name === "notifications.sendOrderConfirmation",
+        (e) => e.name === "notifications:job:send-order-confirmation",
       );
-      const analytics = jobExecutions.find((e) => e.name === "analytics.trackOrder");
+      const analytics = jobExecutions.find((e) => e.name === "analytics:job:track-order");
 
       expect(notification).toBeDefined();
       expect(notification?.payload["product"]).toBe("Widget");
@@ -142,20 +146,20 @@ describe("event trigger: write handler fires matching jobs", () => {
   });
 
   test("unrelated jobs do NOT fire", async () => {
-    // analytics.trackUser listens on "users.create", not "orders.create"
-    const trackUser = jobExecutions.find((e) => e.name === "analytics.trackUser");
+    // analytics.trackUser listens on "users:create", not "orders:create"
+    const trackUser = jobExecutions.find((e) => e.name === "analytics:job:track-user");
     expect(trackUser).toBeUndefined();
   });
 
   test("multiple orders each trigger jobs independently", async () => {
     jobExecutions.length = 0;
 
-    await writeApi(adminUser, "orders.orders.create", { product: "A", amount: 1 });
-    await writeApi(adminUser, "orders.orders.create", { product: "B", amount: 2 });
+    await writeApi(adminUser, "orders:write:orders:create", { product: "A", amount: 1 });
+    await writeApi(adminUser, "orders:write:orders:create", { product: "B", amount: 2 });
 
     await waitFor(() => {
       const notifications = jobExecutions.filter(
-        (e) => e.name === "notifications.sendOrderConfirmation",
+        (e) => e.name === "notifications:job:send-order-confirmation",
       );
       expect(notifications.length).toBe(2);
 

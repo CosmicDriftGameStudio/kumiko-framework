@@ -8,18 +8,18 @@ const echoFeature = defineFeature("echo", (r) => {
   r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
 
   r.writeHandler(
-    "item.create",
+    "item:create",
     z.object({ name: z.string().min(1) }),
     async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
     { access: { roles: ["Admin"] } },
   );
 
-  r.queryHandler("item.list", z.object({ search: z.string().optional() }), async (query) => ({
+  r.queryHandler("item:list", z.object({ search: z.string().optional() }), async (query) => ({
     items: [],
     search: query.payload.search,
   }));
 
-  r.hook("validation", "item.create", (data) => {
+  r.hook("validation", "item:create", (data) => {
     if (data["name"] === "forbidden") return [{ field: "name", error: "forbidden_name" }];
     return null;
   });
@@ -35,7 +35,11 @@ function createTestDispatcher() {
 describe("dispatcher.write", () => {
   test("validates payload and calls handler", async () => {
     const dispatcher = createTestDispatcher();
-    const result = await dispatcher.write("echo.item.create", { name: "Test" }, createTestUser());
+    const result = await dispatcher.write(
+      "echo:write:item:create",
+      { name: "Test" },
+      createTestUser(),
+    );
 
     expect(result.isSuccess).toBe(true);
     if (result.isSuccess) {
@@ -45,7 +49,7 @@ describe("dispatcher.write", () => {
 
   test("rejects invalid payload", async () => {
     const dispatcher = createTestDispatcher();
-    const result = await dispatcher.write("echo.item.create", { name: "" }, createTestUser());
+    const result = await dispatcher.write("echo:write:item:create", { name: "" }, createTestUser());
 
     expect(result.isSuccess).toBe(false);
     if (!result.isSuccess) {
@@ -56,7 +60,7 @@ describe("dispatcher.write", () => {
   test("rejects unauthorized user", async () => {
     const dispatcher = createTestDispatcher();
     const guest = createTestUser({ roles: ["Guest"] });
-    const result = await dispatcher.write("echo.item.create", { name: "Test" }, guest);
+    const result = await dispatcher.write("echo:write:item:create", { name: "Test" }, guest);
 
     expect(result.isSuccess).toBe(false);
     if (!result.isSuccess) {
@@ -67,7 +71,7 @@ describe("dispatcher.write", () => {
   test("runs validation hooks", async () => {
     const dispatcher = createTestDispatcher();
     const result = await dispatcher.write(
-      "echo.item.create",
+      "echo:write:item:create",
       { name: "forbidden" },
       createTestUser(),
     );
@@ -94,7 +98,11 @@ describe("dispatcher.write", () => {
 describe("dispatcher.query", () => {
   test("validates and calls query handler", async () => {
     const dispatcher = createTestDispatcher();
-    const result = await dispatcher.query("echo.item.list", { search: "hello" }, createTestUser());
+    const result = await dispatcher.query(
+      "echo:query:item:list",
+      { search: "hello" },
+      createTestUser(),
+    );
 
     expect(result).toEqual({ items: [], search: "hello" });
   });
@@ -103,7 +111,7 @@ describe("dispatcher.query", () => {
     const dispatcher = createTestDispatcher();
 
     await expect(
-      dispatcher.query("echo.item.list", { search: 123 }, createTestUser()),
+      dispatcher.query("echo:query:item:list", { search: 123 }, createTestUser()),
     ).rejects.toThrow(/validation/i);
   });
 
@@ -123,7 +131,7 @@ describe("dispatcher.command", () => {
     const dispatcher = createTestDispatcher();
     // Command uses write handlers but discards the result
     await expect(
-      dispatcher.command("echo.item.create", { name: "Fire" }, createTestUser()),
+      dispatcher.command("echo:write:item:create", { name: "Fire" }, createTestUser()),
     ).resolves.toBeUndefined();
   });
 
@@ -131,9 +139,9 @@ describe("dispatcher.command", () => {
     const dispatcher = createTestDispatcher();
     const guest = createTestUser({ roles: ["Guest"] });
 
-    await expect(dispatcher.command("echo.item.create", { name: "Test" }, guest)).rejects.toThrow(
-      /access/i,
-    );
+    await expect(
+      dispatcher.command("echo:write:item:create", { name: "Test" }, guest),
+    ).rejects.toThrow(/access/i);
   });
 });
 
@@ -151,8 +159,18 @@ describe("dispatcher.write idempotency", () => {
     );
 
     const user = createTestUser();
-    const result1 = await dispatcher.write("echo.item.create", { name: "Once" }, user, "req-001");
-    const result2 = await dispatcher.write("echo.item.create", { name: "Once" }, user, "req-001");
+    const result1 = await dispatcher.write(
+      "echo:write:item:create",
+      { name: "Once" },
+      user,
+      "req-001",
+    );
+    const result2 = await dispatcher.write(
+      "echo:write:item:create",
+      { name: "Once" },
+      user,
+      "req-001",
+    );
 
     expect(result1.isSuccess).toBe(true);
     expect(result2.isSuccess).toBe(true);
@@ -173,8 +191,8 @@ describe("dispatcher.write idempotency", () => {
     );
 
     const user = createTestUser();
-    const result1 = await dispatcher.write("echo.item.create", { name: "A" }, user, "req-a");
-    const result2 = await dispatcher.write("echo.item.create", { name: "B" }, user, "req-b");
+    const result1 = await dispatcher.write("echo:write:item:create", { name: "A" }, user, "req-a");
+    const result2 = await dispatcher.write("echo:write:item:create", { name: "B" }, user, "req-b");
 
     expect(result1.isSuccess).toBe(true);
     expect(result2.isSuccess).toBe(true);
@@ -205,10 +223,10 @@ describe("dispatcher event logging", () => {
       },
     );
 
-    await dispatcher.write("echo.item.create", { name: "Logged" }, createTestUser());
+    await dispatcher.write("echo:write:item:create", { name: "Logged" }, createTestUser());
 
     expect(log).toHaveLength(1);
-    expect(log[0]?.type).toBe("echo.item.create");
+    expect(log[0]?.type).toBe("echo:write:item:create");
   });
 
   test("query events are logged", async () => {
@@ -228,10 +246,10 @@ describe("dispatcher event logging", () => {
       },
     );
 
-    await dispatcher.query("echo.item.list", {}, createTestUser());
+    await dispatcher.query("echo:query:item:list", {}, createTestUser());
 
     expect(log).toHaveLength(1);
-    expect(log[0]?.type).toBe("echo.item.list");
+    expect(log[0]?.type).toBe("echo:query:item:list");
   });
 });
 

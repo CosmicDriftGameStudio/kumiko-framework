@@ -54,7 +54,7 @@ describe("runPreSave", () => {
     });
 
     const pipeline = createLifecycleHooks(registry);
-    await pipeline.runPreSave("test.user", { email: "x" }, {}, true, {});
+    await pipeline.runPreSave("test:write:user", { email: "x" }, {}, true, {});
     expect(calls).toEqual(["a", "b"]);
   });
 
@@ -66,7 +66,13 @@ describe("runPreSave", () => {
     });
 
     const pipeline = createLifecycleHooks(registry);
-    const result = await pipeline.runPreSave("test.user", { email: "MARC@TEST.DE" }, {}, true, {});
+    const result = await pipeline.runPreSave(
+      "test:write:user",
+      { email: "MARC@TEST.DE" },
+      {},
+      true,
+      {},
+    );
     expect(result["email"]).toBe("marc@test.de");
   });
 
@@ -95,7 +101,7 @@ describe("runPreSave", () => {
     };
 
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPreSave("test.user", {}, {}, true, {});
+    await pipeline.runPreSave("test:write:user", {}, {}, true, {});
     expect(calls).toEqual(["feature", "system"]);
   });
 
@@ -125,7 +131,7 @@ describe("runPreSave", () => {
     };
 
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPreSave("test.user", {}, {}, true, {});
+    await pipeline.runPreSave("test:write:user", {}, {}, true, {});
     expect(calls).toEqual(["a", "b"]);
   });
 
@@ -139,7 +145,9 @@ describe("runPreSave", () => {
     });
 
     const pipeline = createLifecycleHooks(registry);
-    await expect(pipeline.runPreSave("test.user", {}, {}, true, {})).rejects.toThrow("blocked");
+    await expect(pipeline.runPreSave("test:write:user", {}, {}, true, {})).rejects.toThrow(
+      "blocked",
+    );
   });
 });
 
@@ -183,7 +191,7 @@ describe("runPostSave", () => {
     };
 
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPostSave("test.user", savectx, {});
+    await pipeline.runPostSave("test:write:user", savectx, {});
     expect(calls).toEqual(["feature", "search", "sse", "audit"]);
   });
 
@@ -213,7 +221,7 @@ describe("runPostSave", () => {
 
     const pipeline = createLifecycleHooks(registry, systemHooks);
     // Should not throw
-    await pipeline.runPostSave("test.user", savectx, {});
+    await pipeline.runPostSave("test:write:user", savectx, {});
 
     // System hook still ran despite feature hook failure
     expect(calls).toContain("search-ran");
@@ -254,7 +262,7 @@ describe("runPostSave", () => {
     };
 
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPostSave("test.user", savectx, {});
+    await pipeline.runPostSave("test:write:user", savectx, {});
 
     expect(calls).toEqual(["sse-ran", "audit-ran"]);
     consoleSpy.mockRestore();

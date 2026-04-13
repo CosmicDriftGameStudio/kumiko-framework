@@ -115,11 +115,11 @@ describe("extendsRegistrar", () => {
 
     const registry = createRegistry([ext, consumer]);
     // preSave hooks are registered per handler — check CRUD handler names
-    const createHooks = registry.getPreSaveHooks("fleet.vehicle.create");
+    const createHooks = registry.getPreSaveHooks("fleet:write:vehicle:create");
     expect(createHooks).toHaveLength(1);
     expect(createHooks[0]).toBe(preSaveFn);
 
-    const updateHooks = registry.getPreSaveHooks("fleet.vehicle.update");
+    const updateHooks = registry.getPreSaveHooks("fleet:write:vehicle:update");
     expect(updateHooks).toHaveLength(1);
   });
 

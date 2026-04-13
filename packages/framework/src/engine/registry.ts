@@ -1,3 +1,4 @@
+import { type QnType, qn, toKebab } from "./qualified-name";
 import type {
   ConfigKeyDefinition,
   EntityDefinition,
@@ -57,9 +58,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const allReferenceData: ReferenceDataDef[] = [];
   const mergedTranslations: Record<string, Record<string, string>> = {};
 
-  // Prefix helper: featureName.name
-  function qualify(featureName: string, name: string): string {
-    return `${featureName}.${name}`;
+  // Qualified name helper: builds "scope:type:name" from feature + type + short name.
+  // Both feature name and handler name are converted to kebab-case.
+  function qualify(featureName: string, type: QnType, name: string): string {
+    return qn(toKebab(featureName), type, toKebab(name));
   }
 
   // Merge hooks without prefix (entity hooks)
@@ -74,14 +76,17 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
-  // Merge hooks with feature prefix (handler hooks)
+  // Merge hooks with feature prefix (handler hooks).
+  // Hook keys are handler QNs — hooks don't get their own QN, they're keyed by the handler they target.
+  // The hookQnType indicates whether the targeted handler is a write or query handler.
   function mergeHookListQualified<T>(
     map: Map<string, T[]>,
     source: Readonly<Record<string, readonly T[]>>,
     featureName: string,
+    hookQnType: QnType,
   ): void {
     for (const [name, fns] of Object.entries(source)) {
-      const qualified = qualify(featureName, name);
+      const qualified = qualify(featureName, hookQnType, name);
       const existing = map.get(qualified) ?? [];
       existing.push(...(fns as T[]));
       map.set(qualified, existing);
@@ -116,9 +121,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       relationMap.set(entityName, existing);
     }
 
-    // Write handlers: featureName.handlerName
+    // Write handlers: scope:write:name
     for (const [name, handler] of Object.entries(feature.writeHandlers)) {
-      const qualified = qualify(feature.name, name);
+      const qualified = qualify(feature.name, "write", name);
       if (writeHandlerMap.has(qualified)) {
         throw new Error(
           `Duplicate write handler: "${qualified}" (registered by multiple features)`,
@@ -128,9 +133,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       handlerFeatureMap.set(qualified, feature.name);
     }
 
-    // Query handlers: featureName.handlerName
+    // Query handlers: scope:query:name
     for (const [name, handler] of Object.entries(feature.queryHandlers)) {
-      const qualified = qualify(feature.name, name);
+      const qualified = qualify(feature.name, "query", name);
       if (queryHandlerMap.has(qualified)) {
         throw new Error(
           `Duplicate query handler: "${qualified}" (registered by multiple features)`,
@@ -140,9 +145,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       handlerFeatureMap.set(qualified, feature.name);
     }
 
-    // Config keys: featureName.key (already prefixed before this change)
+    // Config keys: scope:config:name
     for (const [key, keyDef] of Object.entries(feature.configKeys)) {
-      const qualifiedKey = qualify(feature.name, key);
+      const qualifiedKey = qualify(feature.name, "config", key);
       if (configKeyMap.has(qualifiedKey)) {
         throw new Error(
           `Duplicate config key: "${qualifiedKey}" (registered by multiple features)`,
@@ -151,18 +156,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       configKeyMap.set(qualifiedKey, keyDef);
     }
 
-    // Jobs: featureName.jobName (already prefixed before this change)
+    // Jobs: scope:job:name
     for (const [name, jobDef] of Object.entries(feature.jobs)) {
-      const qualifiedName = qualify(feature.name, name);
+      const qualifiedName = qualify(feature.name, "job", name);
       if (jobMap.has(qualifiedName)) {
         throw new Error(`Duplicate job: "${qualifiedName}" (registered by multiple features)`);
       }
       jobMap.set(qualifiedName, { ...jobDef, name: qualifiedName });
     }
 
-    // Notifications: collect with raw trigger — resolved after all features are registered
+    // Notifications: scope:notify:name
     for (const [name, notifDef] of Object.entries(feature.notifications)) {
-      const qualifiedName = qualify(feature.name, name);
+      const qualifiedName = qualify(feature.name, "notify", name);
       notificationMap.set(qualifiedName, {
         ...notifDef,
         name: qualifiedName,
@@ -171,9 +176,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       notificationFeatureMap.set(qualifiedName, feature.name);
     }
 
-    // Events: featureName.eventName
+    // Events: scope:event:name
     for (const [eventName, eventDef] of Object.entries(feature.events)) {
-      const qualified = qualify(feature.name, eventName);
+      const qualified = qualify(feature.name, "event", eventName);
       eventMap.set(qualified, { ...eventDef, name: qualified });
     }
 
@@ -182,12 +187,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       mergedTranslations[`${feature.name}:${key}`] = value;
     }
 
-    // Lifecycle hooks: handler-based, qualified with feature prefix
-    mergeHookListQualified(preSaveHooks, feature.hooks.preSave, feature.name);
-    mergeHookListQualified(postSaveHooks, feature.hooks.postSave, feature.name);
-    mergeHookListQualified(preDeleteHooks, feature.hooks.preDelete, feature.name);
-    mergeHookListQualified(postDeleteHooks, feature.hooks.postDelete, feature.name);
-    mergeHookListQualified(preQueryHooks, feature.hooks.preQuery, feature.name);
+    // Lifecycle hooks: keyed by handler QN.
+    // Save/delete hooks target write handlers, query hooks target query handlers.
+    mergeHookListQualified(preSaveHooks, feature.hooks.preSave, feature.name, "write");
+    mergeHookListQualified(postSaveHooks, feature.hooks.postSave, feature.name, "write");
+    mergeHookListQualified(preDeleteHooks, feature.hooks.preDelete, feature.name, "write");
+    mergeHookListQualified(postDeleteHooks, feature.hooks.postDelete, feature.name, "write");
+    mergeHookListQualified(preQueryHooks, feature.hooks.preQuery, feature.name, "query");
 
     // Entity hooks: NOT prefixed, keyed by entity name
     mergeHookList(entityPostSaveHooks, feature.entityHooks.postSave);
@@ -205,6 +211,21 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
     extensionUsages.push(...feature.extensionUsages);
     allReferenceData.push(...feature.referenceData);
+  }
+
+  // Build handler → entity mapping from explicit feature declarations (set by r.crud() and tryMapEntity).
+  // Must happen before extension processing since extension preSave hooks need entity mappings.
+  for (const feature of features) {
+    for (const [handlerName, entityName] of Object.entries(feature.handlerEntityMappings)) {
+      const writeQn = qualify(feature.name, "write", handlerName);
+      const queryQn = qualify(feature.name, "query", handlerName);
+      if (writeHandlerMap.has(writeQn)) {
+        handlerEntityMap.set(writeQn, entityName);
+      }
+      if (queryHandlerMap.has(queryQn)) {
+        handlerEntityMap.set(queryQn, entityName);
+      }
+    }
   }
 
   // Process extension usages: call onRegister, apply extendSchema, register hooks
@@ -245,15 +266,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
       // preSave on extensions: store as handler hook for all CRUD handlers of this entity
       if (ext.hooks.preSave) {
-        // Find all write handlers that belong to this entity
+        // Find all write handlers that belong to this entity via handlerEntityMap
         for (const qualifiedHandler of writeHandlerMap.keys()) {
-          const dotIdx = qualifiedHandler.indexOf(".");
-          if (dotIdx < 0) continue;
-          const handlerName = qualifiedHandler.slice(dotIdx + 1);
-          const entityDot = handlerName.indexOf(".");
-          if (entityDot < 0) continue;
-          const candidate = handlerName.slice(0, entityDot);
-          if (candidate === usage.entityName) {
+          if (handlerEntityMap.get(qualifiedHandler) === usage.entityName) {
             const existing = preSaveHooks.get(qualifiedHandler) ?? [];
             existing.push(ext.hooks.preSave);
             preSaveHooks.set(qualifiedHandler, existing);
@@ -302,21 +317,6 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
-  // Build handler → entity mapping: "users.user.create" → "user"
-  // Convention: handler name starts with entity name (from r.crud())
-  for (const qualifiedHandler of [...writeHandlerMap.keys(), ...queryHandlerMap.keys()]) {
-    // qualifiedHandler = "featureName.handlerName" where handlerName might be "entityName.action"
-    const dotIdx = qualifiedHandler.indexOf(".");
-    if (dotIdx < 0) continue;
-    const handlerName = qualifiedHandler.slice(dotIdx + 1); // e.g. "user.create"
-    const entityDot = handlerName.indexOf(".");
-    if (entityDot < 0) continue;
-    const candidateEntity = handlerName.slice(0, entityDot); // e.g. "user"
-    if (entityMap.has(candidateEntity)) {
-      handlerEntityMap.set(qualifiedHandler, candidateEntity);
-    }
-  }
-
   // Validate: handlers in features with field-access rules must be entity-mapped.
   // Without entity mapping, field-level access checks are silently skipped (security gap).
   // Convention: "entityName.action" = entity-bound (must resolve), "action" = standalone (no filter).
@@ -325,25 +325,24 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     // Write handlers: ALL must be entity-mapped (security-critical, writes need field-access checks)
     for (const handlerName of Object.keys(feature.writeHandlers)) {
-      const qualified = qualify(feature.name, handlerName);
+      const qualified = qualify(feature.name, "write", handlerName);
       if (!handlerEntityMap.has(qualified)) {
         throw new Error(
           `Write handler "${qualified}" is not mapped to any entity, but feature "${feature.name}" has field-level access rules. ` +
-            `Name must follow "entityName.action" convention (e.g. "user.create") so field-access checks apply.`,
+            `Name must follow "entity:action" convention (e.g. "user:create") so field-access checks apply.`,
         );
       }
     }
 
-    // Query handlers: only those with a dot must resolve (typo protection).
-    // No dot = standalone query (dashboard, stats) — intentionally not entity-bound.
+    // Query handlers: only those with a dash must resolve (typo protection).
+    // No dash = standalone query (dashboard, stats) — intentionally not entity-bound.
     for (const handlerName of Object.keys(feature.queryHandlers)) {
-      if (!handlerName.includes(".")) continue;
-      const qualified = qualify(feature.name, handlerName);
+      if (!handlerName.includes(":")) continue;
+      const qualified = qualify(feature.name, "query", handlerName);
       if (!handlerEntityMap.has(qualified)) {
-        const entityGuess = handlerName.slice(0, handlerName.indexOf("."));
         throw new Error(
-          `Query handler "${qualified}" looks entity-bound ("${entityGuess}.…") but entity "${entityGuess}" does not exist. ` +
-            `Either fix the entity name, or remove the dot to mark it as a standalone query (e.g. "dashboard" instead of "dashboard.list").`,
+          `Query handler "${qualified}" looks entity-bound but no matching entity exists. ` +
+            `Either fix the entity name, or use a name without colons for standalone queries.`,
         );
       }
     }
@@ -376,17 +375,23 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const allHandlerNames = new Set([...writeHandlerMap.keys(), ...queryHandlerMap.keys()]);
   for (const [qualifiedName, notifDef] of notificationMap) {
     const featureName = notificationFeatureMap.get(qualifiedName)!;
-    // Try as-is first (cross-feature fully qualified), then qualify with own feature name
+    // Try as-is first (cross-feature fully qualified QN), then qualify with own feature name as write handler
     let triggerOn: string;
     if (allHandlerNames.has(notifDef.trigger.on)) {
       triggerOn = notifDef.trigger.on;
     } else {
-      triggerOn = qualify(featureName, notifDef.trigger.on);
-      if (!allHandlerNames.has(triggerOn)) {
+      // Try as write handler first (most common), then query
+      const writeQn = qualify(featureName, "write", notifDef.trigger.on);
+      const queryQn = qualify(featureName, "query", notifDef.trigger.on);
+      if (allHandlerNames.has(writeQn)) {
+        triggerOn = writeQn;
+      } else if (allHandlerNames.has(queryQn)) {
+        triggerOn = queryQn;
+      } else {
         throw new Error(
           `Notification "${qualifiedName}" triggers on "${notifDef.trigger.on}" ` +
             `but no handler with that name exists. ` +
-            `Tried: "${notifDef.trigger.on}" and "${triggerOn}"`,
+            `Tried: "${notifDef.trigger.on}", "${writeQn}", and "${queryQn}"`,
         );
       }
     }
@@ -427,10 +432,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // Validate: job event triggers must reference existing handlers
   for (const [jobName, jobDef] of jobMap) {
     if ("on" in jobDef.trigger) {
-      const eventName = resolveName(jobDef.trigger.on);
-      if (!allHandlers.has(eventName)) {
+      const rawName = resolveName(jobDef.trigger.on);
+      // If already a valid QN (cross-feature ref), check directly
+      if (allHandlers.has(rawName)) continue;
+      // Otherwise resolve: try the raw name as-is, it may already be qualified
+      if (!allHandlers.has(rawName)) {
         throw new Error(
-          `Job "${jobName}" triggers on "${eventName}" but no handler with that name exists`,
+          `Job "${jobName}" triggers on "${rawName}" but no handler with that name exists`,
         );
       }
     }

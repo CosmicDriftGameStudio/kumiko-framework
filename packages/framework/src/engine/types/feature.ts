@@ -61,6 +61,8 @@ export type FeatureDefinition = {
   readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;
   readonly configReads: readonly string[];
+  // Explicit handler → entity mapping set by r.crud() and r.writeHandler()/r.queryHandler()
+  readonly handlerEntityMappings: Readonly<Record<string, string>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---

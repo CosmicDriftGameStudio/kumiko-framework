@@ -25,14 +25,14 @@ export function buildCrudHandlers(
   const accessSpread = options?.access ? { access: options.access } : {};
 
   const writeHandlers: Record<string, WriteHandlerDef> = {
-    [`${entityName}.create`]: {
-      name: `${entityName}.create`,
+    [`${entityName}:create`]: {
+      name: `${entityName}:create`,
       schema: insertSchema,
       handler: stubWrite,
       ...accessSpread,
     },
-    [`${entityName}.update`]: {
-      name: `${entityName}.update`,
+    [`${entityName}:update`]: {
+      name: `${entityName}:update`,
       schema: z.object({
         id: z.number(),
         changes: updateSchema,
@@ -40,8 +40,8 @@ export function buildCrudHandlers(
       handler: stubWrite,
       ...accessSpread,
     },
-    [`${entityName}.delete`]: {
-      name: `${entityName}.delete`,
+    [`${entityName}:delete`]: {
+      name: `${entityName}:delete`,
       schema: z.object({ id: z.number() }),
       handler: stubWrite,
       ...accessSpread,
@@ -49,8 +49,8 @@ export function buildCrudHandlers(
   };
 
   const queryHandlers: Record<string, QueryHandlerDef> = {
-    [`${entityName}.list`]: {
-      name: `${entityName}.list`,
+    [`${entityName}:list`]: {
+      name: `${entityName}:list`,
       schema: z.object({
         cursor: z.string().optional(),
         limit: z.number().optional(),
@@ -59,8 +59,8 @@ export function buildCrudHandlers(
       handler: stubQuery,
       ...accessSpread,
     },
-    [`${entityName}.detail`]: {
-      name: `${entityName}.detail`,
+    [`${entityName}:detail`]: {
+      name: `${entityName}:detail`,
       schema: z.object({ id: z.number() }),
       handler: stubQuery,
       ...accessSpread,

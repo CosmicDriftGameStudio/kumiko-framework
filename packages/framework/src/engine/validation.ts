@@ -1,3 +1,4 @@
+import { parseQn, toKebab } from "./qualified-name";
 import type { Registry, ValidationError } from "./types";
 
 export type { ValidationError };
@@ -9,21 +10,23 @@ export function runValidation(
 ): readonly ValidationError[] | null {
   const errors: ValidationError[] = [];
 
+  // hookName is a qualified name like "feature:write:task:create".
+  // Validation hooks are stored with the unqualified short name in the feature definition.
+  const parsed = parseQn(hookName);
+
   for (const [featureName, feature] of registry.features) {
+    if (toKebab(featureName) !== parsed.scope) continue;
+
     const validationHooks = feature.hooks.validation;
     if (!validationHooks) continue;
 
-    // Validation hooks are stored with the short name in the feature definition.
-    // The hookName from the dispatcher is prefixed (e.g., "echo.item.create").
-    // Strip the feature prefix to find the hook.
-    const prefix = `${featureName}.`;
-    const shortName = hookName.startsWith(prefix) ? hookName.slice(prefix.length) : hookName;
-
-    const hook = validationHooks[shortName];
-    if (!hook) continue;
-
-    const result = hook(data);
-    if (result) errors.push(...result);
+    // Find the hook by matching the QN name segment against the stored short name.
+    // Both use colon convention (e.g. "task:create"), so direct match works.
+    const hook = validationHooks[parsed.name];
+    if (hook) {
+      const result = hook(data);
+      if (result) errors.push(...result);
+    }
   }
 
   return errors.length > 0 ? errors : null;

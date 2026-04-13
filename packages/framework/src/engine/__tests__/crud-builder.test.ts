@@ -20,11 +20,11 @@ describe("r.crud()", () => {
       r.crud("post");
     });
 
-    expect(feature.writeHandlers["post.create"]).toBeDefined();
-    expect(feature.writeHandlers["post.update"]).toBeDefined();
-    expect(feature.writeHandlers["post.delete"]).toBeDefined();
-    expect(feature.queryHandlers["post.list"]).toBeDefined();
-    expect(feature.queryHandlers["post.detail"]).toBeDefined();
+    expect(feature.writeHandlers["post:create"]).toBeDefined();
+    expect(feature.writeHandlers["post:update"]).toBeDefined();
+    expect(feature.writeHandlers["post:delete"]).toBeDefined();
+    expect(feature.queryHandlers["post:list"]).toBeDefined();
+    expect(feature.queryHandlers["post:detail"]).toBeDefined();
   });
 
   test("create handler validates with insert schema", () => {
@@ -33,7 +33,7 @@ describe("r.crud()", () => {
       r.crud("user");
     });
 
-    const createHandler = feature.writeHandlers["user.create"];
+    const createHandler = feature.writeHandlers["user:create"];
     // Required email must be present
     expect(createHandler?.schema.safeParse({ email: "a@b.de" }).success).toBe(true);
     // Missing required field fails
@@ -48,7 +48,7 @@ describe("r.crud()", () => {
       r.crud("user");
     });
 
-    const updateHandler = feature.writeHandlers["user.update"];
+    const updateHandler = feature.writeHandlers["user:update"];
     // Partial update with id
     expect(updateHandler?.schema.safeParse({ id: 1, changes: { firstName: "Marc" } }).success).toBe(
       true,
@@ -67,7 +67,7 @@ describe("r.crud()", () => {
       r.crud("user");
     });
 
-    const deleteHandler = feature.writeHandlers["user.delete"];
+    const deleteHandler = feature.writeHandlers["user:delete"];
     expect(deleteHandler?.schema.safeParse({ id: 1 }).success).toBe(true);
     expect(deleteHandler?.schema.safeParse({}).success).toBe(false);
   });
@@ -78,7 +78,7 @@ describe("r.crud()", () => {
       r.crud("user");
     });
 
-    const listHandler = feature.queryHandlers["user.list"];
+    const listHandler = feature.queryHandlers["user:list"];
     // All optional
     expect(listHandler?.schema.safeParse({}).success).toBe(true);
     // With params
@@ -93,7 +93,7 @@ describe("r.crud()", () => {
       r.crud("user");
     });
 
-    const detailHandler = feature.queryHandlers["user.detail"];
+    const detailHandler = feature.queryHandlers["user:detail"];
     expect(detailHandler?.schema.safeParse({ id: 1 }).success).toBe(true);
     expect(detailHandler?.schema.safeParse({}).success).toBe(false);
   });
@@ -104,11 +104,11 @@ describe("r.crud()", () => {
       r.crud("post", { access: { roles: ["Admin"] } });
     });
 
-    expect(feature.writeHandlers["post.create"]?.access?.roles).toEqual(["Admin"]);
-    expect(feature.writeHandlers["post.update"]?.access?.roles).toEqual(["Admin"]);
-    expect(feature.writeHandlers["post.delete"]?.access?.roles).toEqual(["Admin"]);
-    expect(feature.queryHandlers["post.list"]?.access?.roles).toEqual(["Admin"]);
-    expect(feature.queryHandlers["post.detail"]?.access?.roles).toEqual(["Admin"]);
+    expect(feature.writeHandlers["post:create"]?.access?.roles).toEqual(["Admin"]);
+    expect(feature.writeHandlers["post:update"]?.access?.roles).toEqual(["Admin"]);
+    expect(feature.writeHandlers["post:delete"]?.access?.roles).toEqual(["Admin"]);
+    expect(feature.queryHandlers["post:list"]?.access?.roles).toEqual(["Admin"]);
+    expect(feature.queryHandlers["post:detail"]?.access?.roles).toEqual(["Admin"]);
   });
 
   test("throws if entity not registered before crud", () => {

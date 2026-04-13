@@ -57,7 +57,7 @@ const userFeature = defineFeature("users", (r) => {
   const user = r.entity("user", userEntity);
 
   const createHandler = r.writeHandler(
-    "user.create",
+    "user:create",
     z.object({
       email: z.email(),
       firstName: z.string().optional(),
@@ -68,7 +68,7 @@ const userFeature = defineFeature("users", (r) => {
   );
 
   r.writeHandler(
-    "user.update",
+    "user:update",
     z.object({
       id: z.number(),
       version: z.number().optional(),
@@ -79,14 +79,14 @@ const userFeature = defineFeature("users", (r) => {
   );
 
   r.writeHandler(
-    "user.delete",
+    "user:delete",
     z.object({ id: z.number() }),
     async (event, ctx) => userCrud(ctx).delete(event.payload, event.user, ctx.db),
     { access: { roles: ["Admin"] } },
   );
 
   r.queryHandler(
-    "user.list",
+    "user:list",
     z.object({
       search: z.string().optional(),
       limit: z.number().optional(),
@@ -96,7 +96,7 @@ const userFeature = defineFeature("users", (r) => {
     async (query, ctx) => userCrud(ctx).list(query.payload, query.user, ctx.db),
   );
 
-  r.queryHandler("user.detail", z.object({ id: z.number() }), async (query, ctx) =>
+  r.queryHandler("user:detail", z.object({ id: z.number() }), async (query, ctx) =>
     userCrud(ctx).detail(query.payload, query.user, ctx.db),
   );
 
@@ -140,7 +140,7 @@ beforeEach(() => {
 describe("full stack: CRUD", () => {
   test("create and read back", async () => {
     const data = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "marc@test.de",
         firstName: "Marc",
@@ -151,7 +151,7 @@ describe("full stack: CRUD", () => {
     expect(data["isNew"]).toBe(true);
 
     const detail = await stack.http.queryOk<Record<string, unknown>>(
-      "users.user.detail",
+      "users:query:user:detail",
       { id: data["id"] },
       adminUser,
     );
@@ -161,7 +161,7 @@ describe("full stack: CRUD", () => {
 
   test("soft delete removes from queries", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "del@test.de",
       },
@@ -169,7 +169,7 @@ describe("full stack: CRUD", () => {
     );
 
     const del = await stack.http.writeOk(
-      "users.user.delete",
+      "users:write:user:delete",
       {
         id: created["id"],
       },
@@ -178,7 +178,7 @@ describe("full stack: CRUD", () => {
     expect(del).toBeDefined();
 
     const detail = await stack.http.queryOk<null>(
-      "users.user.detail",
+      "users:query:user:detail",
       { id: created["id"] },
       adminUser,
     );
@@ -187,7 +187,7 @@ describe("full stack: CRUD", () => {
 
   test("delete triggers audit trail via postDelete hook", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "audit-del@test.de",
       },
@@ -196,9 +196,9 @@ describe("full stack: CRUD", () => {
 
     stack.events.reset();
 
-    await stack.http.writeOk("users.user.delete", { id: created["id"] }, adminUser);
+    await stack.http.writeOk("users:write:user:delete", { id: created["id"] }, adminUser);
 
-    const deleteEntry = stack.events.audit.find((e) => e.action === "users.user.delete");
+    const deleteEntry = stack.events.audit.find((e) => e.action === "users:write:user:delete");
     expect(deleteEntry).toBeDefined();
     expect(deleteEntry?.entityType).toBe("user");
     expect(deleteEntry?.entityId).toBe(created["id"]);
@@ -213,7 +213,7 @@ describe("full stack: CRUD", () => {
 describe("full stack: SaveContext changes + previous", () => {
   test("update returns exact changes and previous state", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "ctx@test.de",
         firstName: "Before",
@@ -223,7 +223,7 @@ describe("full stack: SaveContext changes + previous", () => {
     );
 
     const updated = await stack.http.writeOk(
-      "users.user.update",
+      "users:write:user:update",
       {
         id: created["id"],
         changes: { firstName: "After" },
@@ -246,7 +246,7 @@ describe("full stack: SaveContext changes + previous", () => {
 describe("full stack: optimistic locking", () => {
   test("stale version returns version_conflict", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "lock@test.de",
       },
@@ -254,7 +254,7 @@ describe("full stack: optimistic locking", () => {
     );
 
     await stack.http.writeOk(
-      "users.user.update",
+      "users:write:user:update",
       {
         id: created["id"],
         version: 1,
@@ -264,7 +264,7 @@ describe("full stack: optimistic locking", () => {
     );
 
     const error = await stack.http.writeErr(
-      "users.user.update",
+      "users:write:user:update",
       {
         id: created["id"],
         version: 1,
@@ -284,7 +284,7 @@ describe("full stack: optimistic locking", () => {
 describe("full stack: lifecycle pipeline — system hooks fire", () => {
   test("feature postSave hook receives SaveContext", async () => {
     await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "hook@test.de",
         firstName: "Hooked",
@@ -299,7 +299,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
 
   test("audit trail system hook captures create", async () => {
     await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "audit@test.de",
       },
@@ -307,7 +307,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     );
 
     expect(stack.events.audit).toHaveLength(1);
-    expect(stack.events.audit[0]?.action).toBe("users.user.create");
+    expect(stack.events.audit[0]?.action).toBe("users:write:user:create");
     expect(stack.events.audit[0]?.entityType).toBe("user");
     expect(stack.events.audit[0]?.isNew).toBe(true);
     expect(stack.events.audit[0]?.userId).toBe(1);
@@ -315,7 +315,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
 
   test("audit trail system hook captures update with changes + previous", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "audit-upd@test.de",
         firstName: "Old",
@@ -326,7 +326,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     stack.events.reset();
 
     await stack.http.writeOk(
-      "users.user.update",
+      "users:write:user:update",
       {
         id: created["id"],
         changes: { firstName: "New" },
@@ -334,7 +334,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       adminUser,
     );
 
-    const updateEntry = stack.events.audit.find((e) => e.action === "users.user.update");
+    const updateEntry = stack.events.audit.find((e) => e.action === "users:write:user:update");
     expect(updateEntry).toBeDefined();
     expect(updateEntry?.changes["firstName"]).toBe("New");
     expect(updateEntry?.previous["firstName"]).toBe("Old");
@@ -343,7 +343,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
 
   test("SSE broadcast fires on create", async () => {
     await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "sse@test.de",
       },
@@ -351,13 +351,13 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     );
 
     expect(stack.events.sse).toHaveLength(1);
-    expect(stack.events.sse[0]?.type).toBe("user.created");
+    expect(stack.events.sse[0]?.type).toBe("system:event:user:created");
     expect(stack.events.sse[0]?.data["id"]).toBeDefined();
   });
 
   test("SSE broadcast fires on update", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "sse-upd@test.de",
       },
@@ -367,7 +367,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     stack.events.reset();
 
     await stack.http.writeOk(
-      "users.user.update",
+      "users:write:user:update",
       {
         id: created["id"],
         changes: { firstName: "SSE" },
@@ -375,14 +375,14 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       adminUser,
     );
 
-    const updateEvent = stack.events.sse.find((e) => e.type === "user.updated");
+    const updateEvent = stack.events.sse.find((e) => e.type === "system:event:user:updated");
     expect(updateEvent).toBeDefined();
     expect(updateEvent?.data["changes"]).toEqual({ firstName: "SSE" });
   });
 
   test("search index updated via system hook after create", async () => {
     await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "indexed@test.de",
         firstName: "Indexed",
@@ -404,14 +404,14 @@ describe("full stack: auth + access + validation", () => {
     const res = await stack.app.request("/api/write", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "users.user.create", payload: { email: "x@x.de" } }),
+      body: JSON.stringify({ type: "users:write:user:create", payload: { email: "x@x.de" } }),
     });
     expect(res.status).toBe(401);
   });
 
   test("guest → access denied", async () => {
     const error = await stack.http.writeErr(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "guest@test.de",
       },
@@ -422,7 +422,7 @@ describe("full stack: auth + access + validation", () => {
 
   test("other tenant cannot see data", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "secret@test.de",
       },
@@ -430,7 +430,7 @@ describe("full stack: auth + access + validation", () => {
     );
 
     const detail = await stack.http.queryOk<null>(
-      "users.user.detail",
+      "users:query:user:detail",
       { id: created["id"] },
       otherTenantAdmin,
     );
@@ -439,7 +439,7 @@ describe("full stack: auth + access + validation", () => {
 
   test("validation hook rejects banned domain", async () => {
     const error = await stack.http.writeErr(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "banned@evil.com",
       },
@@ -456,7 +456,7 @@ describe("full stack: auth + access + validation", () => {
 describe("full stack: search + sort", () => {
   test("search finds via SearchAdapter", async () => {
     await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "findable@test.de",
         firstName: "Findable",
@@ -465,7 +465,7 @@ describe("full stack: search + sort", () => {
     );
 
     const res = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
-      "users.user.list",
+      "users:query:user:list",
       { search: "findable" },
       adminUser,
     );
@@ -474,7 +474,7 @@ describe("full stack: search + sort", () => {
 
   test("sort by lastName ASC", async () => {
     await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "sz@test.de",
         lastName: "Zebra",
@@ -482,7 +482,7 @@ describe("full stack: search + sort", () => {
       adminUser,
     );
     await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "sa@test.de",
         lastName: "Alpha",
@@ -491,7 +491,7 @@ describe("full stack: search + sort", () => {
     );
 
     const res = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
-      "users.user.list",
+      "users:query:user:list",
       { sort: "lastName", sortDirection: "asc" },
       adminUser,
     );
@@ -510,7 +510,7 @@ describe("full stack: event log", () => {
   test("events logged in Redis", async () => {
     // Create at least one event first
     await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "eventlog@test.de",
       },
@@ -520,7 +520,7 @@ describe("full stack: event log", () => {
     const eventLog = createEventLog(stack.redis.redis, "kumiko:test:stack-log");
     const recent = await eventLog.recent(100);
     expect(recent.length).toBeGreaterThan(0);
-    expect(recent.some((e) => e.type === "users.user.create")).toBe(true);
+    expect(recent.some((e) => e.type === "users:write:user:create")).toBe(true);
   });
 });
 
@@ -548,7 +548,7 @@ describe("full stack: idempotency", () => {
     const requestId = "idem-fullstack-001";
 
     const res1 = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "idem@test.de",
       },
@@ -559,7 +559,7 @@ describe("full stack: idempotency", () => {
 
     // Same requestId → should return cached result, NOT create a second user
     const res2 = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "idem@test.de",
       },
@@ -571,7 +571,7 @@ describe("full stack: idempotency", () => {
 
   test("different requestIds create separate records", async () => {
     const res1 = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "idem-a@test.de",
       },
@@ -580,7 +580,7 @@ describe("full stack: idempotency", () => {
     );
 
     const res2 = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       {
         email: "idem-b@test.de",
       },
@@ -606,7 +606,7 @@ describe("full stack: request context", () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        type: "users.user.create",
+        type: "users:write:user:create",
         payload: { email: "reqid@test.de" },
       }),
     });
@@ -625,7 +625,7 @@ describe("full stack: request context", () => {
         "X-Request-ID": "client-req-42",
       },
       body: JSON.stringify({
-        type: "users.user.create",
+        type: "users:write:user:create",
         payload: { email: "echoid@test.de" },
       }),
     });
@@ -642,7 +642,7 @@ describe("full stack: request context", () => {
         "X-Request-ID": "err-req-99",
       },
       body: JSON.stringify({
-        type: "users.user.create",
+        type: "users:write:user:create",
         payload: { email: "denied@test.de" },
       }),
     });
@@ -658,14 +658,14 @@ describe("full stack: request context", () => {
 describe("full stack: entity cache", () => {
   test("detail returns cached data after create (no second DB hit needed)", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       { email: "cached@test.de", firstName: "Cached" },
       adminUser,
     );
 
     // Detail should return the same data (from cache or DB — both valid)
     const detail = await stack.http.queryOk<Record<string, unknown>>(
-      "users.user.detail",
+      "users:query:user:detail",
       { id: created["id"] },
       adminUser,
     );
@@ -674,14 +674,14 @@ describe("full stack: entity cache", () => {
 
   test("cache serves stale data until invalidated by update", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       { email: "stale@test.de", firstName: "Before" },
       adminUser,
     );
     const id = created["id"] as number;
 
     // First detail populates cache
-    await stack.http.queryOk("users.user.detail", { id }, adminUser);
+    await stack.http.queryOk("users:query:user:detail", { id }, adminUser);
 
     // Raw DB update — bypasses cache invalidation
     const { eq } = await import("drizzle-orm");
@@ -692,7 +692,7 @@ describe("full stack: entity cache", () => {
 
     // Detail still returns cached (old) value
     const stale = await stack.http.queryOk<Record<string, unknown>>(
-      "users.user.detail",
+      "users:query:user:detail",
       { id },
       adminUser,
     );
@@ -700,14 +700,14 @@ describe("full stack: entity cache", () => {
 
     // Update via API — invalidates cache
     await stack.http.writeOk(
-      "users.user.update",
+      "users:write:user:update",
       { id, changes: { firstName: "AfterUpdate" } },
       adminUser,
     );
 
     // Now detail returns fresh data
     const fresh = await stack.http.queryOk<Record<string, unknown>>(
-      "users.user.detail",
+      "users:query:user:detail",
       { id },
       adminUser,
     );
@@ -716,20 +716,20 @@ describe("full stack: entity cache", () => {
 
   test("delete invalidates cache", async () => {
     const created = await stack.http.writeOk(
-      "users.user.create",
+      "users:write:user:create",
       { email: "delcache@test.de" },
       adminUser,
     );
     const id = created["id"] as number;
 
     // Populate cache
-    await stack.http.queryOk("users.user.detail", { id }, adminUser);
+    await stack.http.queryOk("users:query:user:detail", { id }, adminUser);
 
     // Delete via API
-    await stack.http.writeOk("users.user.delete", { id }, adminUser);
+    await stack.http.writeOk("users:write:user:delete", { id }, adminUser);
 
     // Detail returns null (soft deleted + cache invalidated)
-    const gone = await stack.http.queryOk<null>("users.user.detail", { id }, adminUser);
+    const gone = await stack.http.queryOk<null>("users:query:user:detail", { id }, adminUser);
     expect(gone).toBeNull();
   });
 });

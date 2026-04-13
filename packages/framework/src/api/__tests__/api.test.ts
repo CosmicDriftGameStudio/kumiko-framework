@@ -10,13 +10,13 @@ const testFeature = defineFeature("test", (r) => {
   r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
 
   r.writeHandler(
-    "item.create",
+    "item:create",
     z.object({ name: z.string().min(1) }),
     async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
     { access: { roles: ["Admin"] } },
   );
 
-  r.queryHandler("item.list", z.object({ search: z.string().optional() }), async () => [
+  r.queryHandler("item:list", z.object({ search: z.string().optional() }), async () => [
     { id: 1, name: "Test" },
   ]);
 });
@@ -60,7 +60,7 @@ describe("health", () => {
 describe("auth middleware", () => {
   test("rejects request without token", async () => {
     const res = await req("POST", "/api/write", {
-      type: "test.item.create",
+      type: "test:write:item:create",
       payload: { name: "x" },
     });
     expect(res.status).toBe(401);
@@ -70,7 +70,7 @@ describe("auth middleware", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "test.item.create", payload: { name: "x" } },
+      { type: "test:write:item:create", payload: { name: "x" } },
       {
         Authorization: "Bearer invalid.token.here",
       },
@@ -83,7 +83,7 @@ describe("auth middleware", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "test.item.create", payload: { name: "Test" } },
+      { type: "test:write:item:create", payload: { name: "Test" } },
       headers,
     );
     expect(res.status).toBe(200);
@@ -98,7 +98,7 @@ describe("POST /api/write", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "test.item.create", payload: { name: "Hello" } },
+      { type: "test:write:item:create", payload: { name: "Hello" } },
       headers,
     );
 
@@ -113,7 +113,7 @@ describe("POST /api/write", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "test.item.create", payload: { name: "" } },
+      { type: "test:write:item:create", payload: { name: "" } },
       headers,
     );
 
@@ -127,7 +127,7 @@ describe("POST /api/write", () => {
     const res = await req(
       "POST",
       "/api/write",
-      { type: "test.item.create", payload: { name: "Test" } },
+      { type: "test:write:item:create", payload: { name: "Test" } },
       headers,
     );
 
@@ -142,7 +142,12 @@ describe("POST /api/write", () => {
 describe("POST /api/query", () => {
   test("dispatches query and returns data", async () => {
     const headers = await authHeader(adminUser);
-    const res = await req("POST", "/api/query", { type: "test.item.list", payload: {} }, headers);
+    const res = await req(
+      "POST",
+      "/api/query",
+      { type: "test:query:item:list", payload: {} },
+      headers,
+    );
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -164,7 +169,7 @@ describe("POST /api/command", () => {
     const res = await req(
       "POST",
       "/api/command",
-      { type: "test.item.create", payload: { name: "Fire" } },
+      { type: "test:write:item:create", payload: { name: "Fire" } },
       headers,
     );
 
@@ -178,7 +183,7 @@ describe("POST /api/command", () => {
     const res = await req(
       "POST",
       "/api/command",
-      { type: "test.item.create", payload: { name: "x" } },
+      { type: "test:write:item:create", payload: { name: "x" } },
       headers,
     );
     expect(res.status).toBe(403);

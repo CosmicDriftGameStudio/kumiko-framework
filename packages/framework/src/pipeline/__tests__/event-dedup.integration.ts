@@ -28,7 +28,7 @@ const dedupFeature = defineFeature("dedup", (r) => {
   r.entity("item", itemEntity);
 
   r.writeHandler(
-    "item.create",
+    "item:create",
     z.object({ name: z.string() }),
     async (event, ctx) => {
       const crud = createCrudExecutor(itemTable, itemEntity, { entityName: "item" });
@@ -38,7 +38,7 @@ const dedupFeature = defineFeature("dedup", (r) => {
   );
 
   r.writeHandler(
-    "item.update",
+    "item:update",
     z.object({
       id: z.number(),
       version: z.number().optional(),
@@ -51,11 +51,11 @@ const dedupFeature = defineFeature("dedup", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  r.hook("postSave", "item.create", async (result) => {
+  r.hook("postSave", "item:create", async (result) => {
     postSaveLog.push(result);
   });
 
-  r.hook("postSave", "item.update", async (result) => {
+  r.hook("postSave", "item:update", async (result) => {
     postSaveLog.push(result);
   });
 });
@@ -92,30 +92,34 @@ beforeEach(() => {
 
 describe("event dedup in lifecycle pipeline", () => {
   test("postSave hooks fire normally (no dedup without eventDedup wired)", async () => {
-    await stack.http.writeOk("dedup.item.create", { name: "First" }, admin);
+    await stack.http.writeOk("dedup:write:item:create", { name: "First" }, admin);
 
     expect(postSaveLog).toHaveLength(1);
     expect(postSaveLog[0]?.data["name"]).toBe("First");
   });
 
   test("two different creates both fire hooks", async () => {
-    await stack.http.writeOk("dedup.item.create", { name: "A" }, admin);
-    await stack.http.writeOk("dedup.item.create", { name: "B" }, admin);
+    await stack.http.writeOk("dedup:write:item:create", { name: "A" }, admin);
+    await stack.http.writeOk("dedup:write:item:create", { name: "B" }, admin);
 
     expect(postSaveLog).toHaveLength(2);
   });
 
   test("two updates on same entity fire both hooks (different versions)", async () => {
-    const created = await stack.http.writeOk("dedup.item.create", { name: "Versioned" }, admin);
+    const created = await stack.http.writeOk(
+      "dedup:write:item:create",
+      { name: "Versioned" },
+      admin,
+    );
     postSaveLog.length = 0;
 
     await stack.http.writeOk(
-      "dedup.item.update",
+      "dedup:write:item:update",
       { id: created["id"], changes: { name: "V2" } },
       admin,
     );
     await stack.http.writeOk(
-      "dedup.item.update",
+      "dedup:write:item:update",
       { id: created["id"], changes: { name: "V3" } },
       admin,
     );

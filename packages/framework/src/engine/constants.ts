@@ -18,13 +18,13 @@ export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 // --- System Hook Names ---
 
 export const SystemHookNames = {
-  searchIndex: "system:search-index",
-  searchRemove: "system:search-remove",
-  sseBroadcast: "system:sse-broadcast",
-  sseDeleteBroadcast: "system:sse-delete-broadcast",
-  auditTrail: "system:audit-trail",
-  auditTrailDelete: "system:audit-trail-delete",
-  cascadeDelete: "system:cascade-delete",
+  searchIndex: "system:hook:search-index",
+  searchRemove: "system:hook:search-remove",
+  sseBroadcast: "system:hook:sse-broadcast",
+  sseDeleteBroadcast: "system:hook:sse-delete-broadcast",
+  auditTrail: "system:hook:audit-trail",
+  auditTrailDelete: "system:hook:audit-trail-delete",
+  cascadeDelete: "system:hook:cascade-delete",
 } as const;
 
 export type SystemHookName = (typeof SystemHookNames)[keyof typeof SystemHookNames];
