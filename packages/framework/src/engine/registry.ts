@@ -377,9 +377,19 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   for (const [qualifiedName, notifDef] of notificationMap) {
     const featureName = notificationFeatureMap.get(qualifiedName)!;
     // Try as-is first (cross-feature fully qualified), then qualify with own feature name
-    const triggerOn = allHandlerNames.has(notifDef.trigger.on)
-      ? notifDef.trigger.on
-      : qualify(featureName, notifDef.trigger.on);
+    let triggerOn: string;
+    if (allHandlerNames.has(notifDef.trigger.on)) {
+      triggerOn = notifDef.trigger.on;
+    } else {
+      triggerOn = qualify(featureName, notifDef.trigger.on);
+      if (!allHandlerNames.has(triggerOn)) {
+        throw new Error(
+          `Notification "${qualifiedName}" triggers on "${notifDef.trigger.on}" ` +
+            `but no handler with that name exists. ` +
+            `Tried: "${notifDef.trigger.on}" and "${triggerOn}"`,
+        );
+      }
+    }
     // Update the stored definition with resolved trigger
     notificationMap.set(qualifiedName, { ...notifDef, trigger: { on: triggerOn } });
 
