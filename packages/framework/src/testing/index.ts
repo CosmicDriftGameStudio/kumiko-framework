@@ -80,7 +80,6 @@ export { createEventCollector, type EventCollector } from "./event-collector";
 export { createTestUser, TestUsers } from "./fixtures";
 export type { RequestHelper } from "./request-helper";
 export { createRequestHelper } from "./request-helper";
-export { createTestDispatcher, type TestDispatcher } from "./test-dispatcher";
 export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack";
 export { sleep } from "./utils";
 export { waitFor } from "./wait-for";

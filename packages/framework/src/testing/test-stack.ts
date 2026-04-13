@@ -132,6 +132,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       redis: testRedis.redis,
       searchAdapter,
       entityCache,
+      registry,
       ...(typeof options.extraContext === "function"
         ? options.extraContext({ registry, db: testDb.db, sseBroker })
         : options.extraContext),
