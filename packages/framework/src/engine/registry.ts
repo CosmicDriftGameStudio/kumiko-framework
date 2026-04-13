@@ -46,6 +46,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
   const jobMap = new Map<string, JobDefinition>();
   const notificationMap = new Map<string, NotificationDefinition>();
+  const notificationFeatureMap = new Map<string, string>(); // qualifiedName → featureName
   const eventMap = new Map<string, EventDef>();
   // Handler → entity mapping (populated from entities + handler name convention)
   const handlerEntityMap = new Map<string, string>();
@@ -159,22 +160,15 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       jobMap.set(qualifiedName, { ...jobDef, name: qualifiedName });
     }
 
-    // Notifications: featureName.notificationName → stored + auto postSave hook
+    // Notifications: collect with raw trigger — resolved after all features are registered
     for (const [name, notifDef] of Object.entries(feature.notifications)) {
       const qualifiedName = qualify(feature.name, name);
-      const triggerOn = qualify(feature.name, notifDef.trigger.on);
-      const resolved = { ...notifDef, name: qualifiedName, trigger: { on: triggerOn } };
-      notificationMap.set(qualifiedName, resolved);
-
-      // Auto-register postSave hook on the trigger handler
-      if (!postSaveHooks.has(triggerOn)) postSaveHooks.set(triggerOn, []);
-      postSaveHooks.get(triggerOn)!.push(async (result, context) => {
-        if (!context.notify) return;
-        const to = resolved.recipient(result);
-        if (to === null) return;
-        const data = resolved.data(result);
-        await context.notify(qualifiedName, { to, data });
+      notificationMap.set(qualifiedName, {
+        ...notifDef,
+        name: qualifiedName,
+        trigger: { on: notifDef.trigger.on },
       });
+      notificationFeatureMap.set(qualifiedName, feature.name);
     }
 
     // Events: featureName.eventName
@@ -377,8 +371,30 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
+  // Resolve notification triggers and register postSave hooks
+  // Done after all features are registered so cross-feature triggers work
+  const allHandlerNames = new Set([...writeHandlerMap.keys(), ...queryHandlerMap.keys()]);
+  for (const [qualifiedName, notifDef] of notificationMap) {
+    const featureName = notificationFeatureMap.get(qualifiedName)!;
+    // Try as-is first (cross-feature fully qualified), then qualify with own feature name
+    const triggerOn = allHandlerNames.has(notifDef.trigger.on)
+      ? notifDef.trigger.on
+      : qualify(featureName, notifDef.trigger.on);
+    // Update the stored definition with resolved trigger
+    notificationMap.set(qualifiedName, { ...notifDef, trigger: { on: triggerOn } });
+
+    if (!postSaveHooks.has(triggerOn)) postSaveHooks.set(triggerOn, []);
+    postSaveHooks.get(triggerOn)!.push(async (result, context) => {
+      if (!context.notify) return;
+      const to = notifDef.recipient(result);
+      if (to === null) return;
+      const data = notifDef.data(result);
+      await context.notify(qualifiedName, { to, data });
+    });
+  }
+
   // Validate: lifecycle hook targets must reference existing handlers
-  const allHandlers = new Set([...writeHandlerMap.keys(), ...queryHandlerMap.keys()]);
+  const allHandlers = allHandlerNames;
   const lifecycleHookMaps = [
     { map: preSaveHooks, phase: "preSave" },
     { map: postSaveHooks, phase: "postSave" },
