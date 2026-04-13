@@ -61,7 +61,7 @@ export type NotifyPriority = "critical" | "normal" | "low";
 export type NotifyFn = (
   notificationType: string,
   options: {
-    readonly to?: number | readonly number[];
+    readonly to?: number | readonly number[] | { readonly tenant: number };
     readonly route?: Readonly<Record<string, string>>;
     readonly data?: Readonly<Record<string, unknown>>;
     readonly priority?: NotifyPriority;
