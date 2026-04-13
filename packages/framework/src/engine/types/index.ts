@@ -19,6 +19,7 @@ export type {
   NotificationDataFn,
   NotificationDefinition,
   NotificationRecipientFn,
+  NotificationTemplateFn,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionHooks,

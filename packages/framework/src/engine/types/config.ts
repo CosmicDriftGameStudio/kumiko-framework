@@ -62,11 +62,16 @@ export type NotificationRecipientFn = (
 
 export type NotificationDataFn = (result: import("./hooks").SaveContext) => Record<string, unknown>;
 
+// Per-channel template function: transforms raw notification data into channel-specific format.
+// Example: inApp gets { title, body }, email gets { subject, sections }.
+export type NotificationTemplateFn = (data: Record<string, unknown>) => Record<string, unknown>;
+
 export type NotificationDefinition = {
   readonly name: string;
   readonly trigger: { readonly on: string };
   readonly recipient: NotificationRecipientFn;
   readonly data: NotificationDataFn;
+  readonly templates: Readonly<Record<string, NotificationTemplateFn>> | undefined;
 };
 
 // --- Translations ---

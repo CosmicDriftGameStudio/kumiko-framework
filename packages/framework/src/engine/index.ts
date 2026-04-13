@@ -81,6 +81,7 @@ export type {
   NotificationDataFn,
   NotificationDefinition,
   NotificationRecipientFn,
+  NotificationTemplateFn,
   NotifyFactory,
   NotifyFn,
   NotifyPriority,

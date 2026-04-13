@@ -8,6 +8,7 @@ import type {
   NotificationDataFn,
   NotificationDefinition,
   NotificationRecipientFn,
+  NotificationTemplateFn,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
@@ -121,6 +122,7 @@ export type FeatureRegistrar = {
       readonly trigger: { readonly on: NameOrRef };
       readonly recipient: NotificationRecipientFn;
       readonly data: NotificationDataFn;
+      readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
     },
   ): void;
 

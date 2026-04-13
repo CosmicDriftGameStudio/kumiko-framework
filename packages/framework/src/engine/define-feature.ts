@@ -21,6 +21,7 @@ import type {
   NotificationDataFn,
   NotificationDefinition,
   NotificationRecipientFn,
+  NotificationTemplateFn,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -262,6 +263,7 @@ export function defineFeature(
         readonly trigger: { readonly on: NameOrRef };
         readonly recipient: NotificationRecipientFn;
         readonly data: NotificationDataFn;
+        readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
       },
     ): void {
       notifications[notificationName] = {
@@ -269,6 +271,7 @@ export function defineFeature(
         trigger: { on: resolveName(definition.trigger.on) },
         recipient: definition.recipient,
         data: definition.data,
+        templates: definition.templates,
       };
     },
 
