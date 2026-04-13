@@ -58,6 +58,7 @@ type SharedContextFields = {
   readonly jobRunner?: JobRunnerRef;
   readonly configResolver?: unknown; // Typed in core-features (cross-package boundary)
   readonly searchAdapter?: SearchAdapter;
+  readonly entityCache?: import("../../pipeline/entity-cache").EntityCache;
 };
 
 // All optional — used at pipeline/system boundaries

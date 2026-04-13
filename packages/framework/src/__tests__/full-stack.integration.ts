@@ -11,7 +11,6 @@ import {
 } from "../engine";
 import { ErrorCodes } from "../engine/constants";
 import { createEventLog } from "../pipeline";
-import type { SearchAdapter } from "../search";
 import {
   createEntityTable,
   createTestUser,
@@ -42,6 +41,18 @@ const featurePostSaveLog: SaveContext[] = [];
 
 // --- Feature definition ---
 
+function userCrud(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
+  return createCrudExecutor(userTable, userEntity, {
+    entityName: "user",
+    ...(ctx.searchAdapter
+      ? { searchAdapter: ctx.searchAdapter as import("../search").SearchAdapter }
+      : {}),
+    ...(ctx.entityCache
+      ? { entityCache: ctx.entityCache as import("../pipeline/entity-cache").EntityCache }
+      : {}),
+  });
+}
+
 const userFeature = defineFeature("users", (r) => {
   const user = r.entity("user", userEntity);
 
@@ -52,13 +63,7 @@ const userFeature = defineFeature("users", (r) => {
       firstName: z.string().optional(),
       lastName: z.string().optional(),
     }),
-    async (event, ctx) => {
-      const crud = createCrudExecutor(userTable, userEntity, {
-        searchAdapter: ctx["searchAdapter"] as SearchAdapter,
-        entityName: "user",
-      });
-      return crud.create(event.payload, event.user, ctx.db);
-    },
+    async (event, ctx) => userCrud(ctx).create(event.payload, event.user, ctx.db),
     { access: { roles: ["Admin"] } },
   );
 
@@ -69,23 +74,14 @@ const userFeature = defineFeature("users", (r) => {
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
-    async (event, ctx) => {
-      const crud = createCrudExecutor(userTable, userEntity, {
-        searchAdapter: ctx["searchAdapter"] as SearchAdapter,
-        entityName: "user",
-      });
-      return crud.update(event.payload, event.user, ctx.db);
-    },
+    async (event, ctx) => userCrud(ctx).update(event.payload, event.user, ctx.db),
     { access: { roles: ["Admin"] } },
   );
 
   r.writeHandler(
     "user.delete",
     z.object({ id: z.number() }),
-    async (event, ctx) => {
-      const crud = createCrudExecutor(userTable, userEntity, { entityName: "user" });
-      return crud.delete(event.payload, event.user, ctx.db);
-    },
+    async (event, ctx) => userCrud(ctx).delete(event.payload, event.user, ctx.db),
     { access: { roles: ["Admin"] } },
   );
 
@@ -97,19 +93,12 @@ const userFeature = defineFeature("users", (r) => {
       sort: z.string().optional(),
       sortDirection: z.enum(["asc", "desc"]).optional(),
     }),
-    async (query, ctx) => {
-      const crud = createCrudExecutor(userTable, userEntity, {
-        searchAdapter: ctx["searchAdapter"] as SearchAdapter,
-        entityName: "user",
-      });
-      return crud.list(query.payload, query.user, ctx.db);
-    },
+    async (query, ctx) => userCrud(ctx).list(query.payload, query.user, ctx.db),
   );
 
-  r.queryHandler("user.detail", z.object({ id: z.number() }), async (query, ctx) => {
-    const crud = createCrudExecutor(userTable, userEntity, {});
-    return crud.detail(query.payload, query.user, ctx.db);
-  });
+  r.queryHandler("user.detail", z.object({ id: z.number() }), async (query, ctx) =>
+    userCrud(ctx).detail(query.payload, query.user, ctx.db),
+  );
 
   r.entityHook("postSave", user, async (result) => {
     featurePostSaveLog.push(result);
@@ -623,7 +612,7 @@ describe("full stack: request context", () => {
     });
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Request-ID")).toBeDefined();
-    expect(res.headers.get("X-Request-ID")!.length).toBeGreaterThan(0);
+    expect(res.headers.get("X-Request-ID")?.length).toBeGreaterThan(0);
   });
 
   test("echoes back client-provided X-Request-ID", async () => {
@@ -659,6 +648,89 @@ describe("full stack: request context", () => {
     });
     const body = (await res.json()) as Record<string, unknown>;
     expect(body["requestId"]).toBe("err-req-99");
+  });
+});
+
+// =============================================================================
+// Entity Cache
+// =============================================================================
+
+describe("full stack: entity cache", () => {
+  test("detail returns cached data after create (no second DB hit needed)", async () => {
+    const created = await stack.http.writeOk(
+      "users.user.create",
+      { email: "cached@test.de", firstName: "Cached" },
+      adminUser,
+    );
+
+    // Detail should return the same data (from cache or DB — both valid)
+    const detail = await stack.http.queryOk<Record<string, unknown>>(
+      "users.user.detail",
+      { id: created["id"] },
+      adminUser,
+    );
+    expect(detail["email"]).toBe("cached@test.de");
+  });
+
+  test("cache serves stale data until invalidated by update", async () => {
+    const created = await stack.http.writeOk(
+      "users.user.create",
+      { email: "stale@test.de", firstName: "Before" },
+      adminUser,
+    );
+    const id = created["id"] as number;
+
+    // First detail populates cache
+    await stack.http.queryOk("users.user.detail", { id }, adminUser);
+
+    // Raw DB update — bypasses cache invalidation
+    const { eq } = await import("drizzle-orm");
+    await stack.db.db
+      .update(userTable)
+      .set({ firstName: "RawDbChange" })
+      .where(eq(userTable["id"], id));
+
+    // Detail still returns cached (old) value
+    const stale = await stack.http.queryOk<Record<string, unknown>>(
+      "users.user.detail",
+      { id },
+      adminUser,
+    );
+    expect(stale["firstName"]).toBe("Before");
+
+    // Update via API — invalidates cache
+    await stack.http.writeOk(
+      "users.user.update",
+      { id, changes: { firstName: "AfterUpdate" } },
+      adminUser,
+    );
+
+    // Now detail returns fresh data
+    const fresh = await stack.http.queryOk<Record<string, unknown>>(
+      "users.user.detail",
+      { id },
+      adminUser,
+    );
+    expect(fresh["firstName"]).toBe("AfterUpdate");
+  });
+
+  test("delete invalidates cache", async () => {
+    const created = await stack.http.writeOk(
+      "users.user.create",
+      { email: "delcache@test.de" },
+      adminUser,
+    );
+    const id = created["id"] as number;
+
+    // Populate cache
+    await stack.http.queryOk("users.user.detail", { id }, adminUser);
+
+    // Delete via API
+    await stack.http.writeOk("users.user.delete", { id }, adminUser);
+
+    // Detail returns null (soft deleted + cache invalidated)
+    const gone = await stack.http.queryOk<null>("users.user.detail", { id }, adminUser);
+    expect(gone).toBeNull();
   });
 });
 

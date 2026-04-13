@@ -4,7 +4,12 @@ import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry } from "../engine/types";
-import { createEventDedup, createEventLog, createIdempotencyGuard } from "../pipeline";
+import {
+  createEntityCache,
+  createEventDedup,
+  createEventLog,
+  createIdempotencyGuard,
+} from "../pipeline";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
 import {
   createAuditTrailDeleteHook,
@@ -113,10 +118,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const eventLog = createEventLog(testRedis.redis, "kumiko:test:stack-log");
   const idempotency = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 60 });
   const eventDedup = createEventDedup(testRedis.redis, { ttlSeconds: 60 });
+  const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
 
   const server = buildServer({
     registry,
-    context: { db: testDb.db, redis: testRedis.redis, searchAdapter },
+    context: { db: testDb.db, redis: testRedis.redis, searchAdapter, entityCache },
     jwtSecret,
     dispatcherOptions: { eventLog, idempotency },
     systemHooks,
