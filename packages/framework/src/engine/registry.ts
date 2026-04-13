@@ -394,7 +394,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     notificationMap.set(qualifiedName, { ...notifDef, trigger: { on: triggerOn } });
 
     if (!postSaveHooks.has(triggerOn)) postSaveHooks.set(triggerOn, []);
-    postSaveHooks.get(triggerOn)!.push(async (result, context) => {
+    postSaveHooks.get(triggerOn)?.push(async (result, context) => {
       if (!context.notify) return;
       const to = notifDef.recipient(result);
       if (to === null) return;

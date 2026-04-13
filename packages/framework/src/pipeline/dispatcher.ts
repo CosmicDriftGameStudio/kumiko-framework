@@ -103,9 +103,7 @@ export function createDispatcher(
       userId: user.id,
       ...(reqCtx && { requestId: reqCtx.requestId }),
     });
-    const notify = context._notifyFactory
-      ? context._notifyFactory(user, user.tenantId)
-      : undefined;
+    const notify = context._notifyFactory ? context._notifyFactory(user, user.tenantId) : undefined;
     return { ...context, db, log, notify, _userId: user.id, _handlerType: type } as HandlerContext;
   }
 

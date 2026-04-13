@@ -60,9 +60,7 @@ export type NotificationRecipientFn = (
   result: import("./hooks").SaveContext,
 ) => number | readonly number[] | null;
 
-export type NotificationDataFn = (
-  result: import("./hooks").SaveContext,
-) => Record<string, unknown>;
+export type NotificationDataFn = (result: import("./hooks").SaveContext) => Record<string, unknown>;
 
 export type NotificationDefinition = {
   readonly name: string;

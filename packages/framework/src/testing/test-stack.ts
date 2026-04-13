@@ -51,7 +51,11 @@ export type TestStackOptions = {
    *  Can be a function receiving (registry, db, sseBroker) for late binding. */
   extraContext?:
     | Record<string, unknown>
-    | ((deps: { registry: Registry; db: import("../db/connection").DbConnection; sseBroker: import("../api/sse-broker").SseBroker }) => Record<string, unknown>);
+    | ((deps: {
+        registry: Registry;
+        db: import("../db/connection").DbConnection;
+        sseBroker: import("../api/sse-broker").SseBroker;
+      }) => Record<string, unknown>);
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
