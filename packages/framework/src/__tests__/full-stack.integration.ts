@@ -604,6 +604,65 @@ describe("full stack: idempotency", () => {
 });
 
 // =============================================================================
+// Request Context (X-Request-ID)
+// =============================================================================
+
+describe("full stack: request context", () => {
+  test("response contains X-Request-ID header", async () => {
+    const token = await stack.jwt.sign(adminUser);
+    const res = await stack.app.request("/api/write", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "users.user.create",
+        payload: { email: "reqid@test.de" },
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Request-ID")).toBeDefined();
+    expect(res.headers.get("X-Request-ID")!.length).toBeGreaterThan(0);
+  });
+
+  test("echoes back client-provided X-Request-ID", async () => {
+    const token = await stack.jwt.sign(adminUser);
+    const res = await stack.app.request("/api/write", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-Request-ID": "client-req-42",
+      },
+      body: JSON.stringify({
+        type: "users.user.create",
+        payload: { email: "echoid@test.de" },
+      }),
+    });
+    expect(res.headers.get("X-Request-ID")).toBe("client-req-42");
+  });
+
+  test("error responses include requestId", async () => {
+    const token = await stack.jwt.sign(guestUser);
+    const res = await stack.app.request("/api/write", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-Request-ID": "err-req-99",
+      },
+      body: JSON.stringify({
+        type: "users.user.create",
+        payload: { email: "denied@test.de" },
+      }),
+    });
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body["requestId"]).toBe("err-req-99");
+  });
+});
+
+// =============================================================================
 // Health
 // =============================================================================
 

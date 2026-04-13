@@ -2,6 +2,8 @@ export { authMiddleware, getUser } from "./auth-middleware";
 export { createAuthRoutes } from "./auth-routes";
 export type { JwtHelper, JwtPayload } from "./jwt";
 export { createJwtHelper } from "./jwt";
+export { type RequestContextData, requestContext } from "./request-context";
+export { requestIdMiddleware } from "./request-id-middleware";
 export { createApiRoutes } from "./routes";
 export type { KumikoServer, ServerOptions } from "./server";
 export { buildServer } from "./server";

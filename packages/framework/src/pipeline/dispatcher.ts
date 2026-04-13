@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { requestContext } from "../api/request-context";
 import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
@@ -95,7 +96,13 @@ export function createDispatcher(
           isSystem ? "system" : "tenant",
         )
       : undefined;
-    const log = context.log?.child({ handler: type, tenantId: user.tenantId, userId: user.id });
+    const reqCtx = requestContext.get();
+    const log = context.log?.child({
+      handler: type,
+      tenantId: user.tenantId,
+      userId: user.id,
+      ...(reqCtx && { requestId: reqCtx.requestId }),
+    });
     return { ...context, db, log, _userId: user.id, _handlerType: type } as HandlerContext;
   }
 

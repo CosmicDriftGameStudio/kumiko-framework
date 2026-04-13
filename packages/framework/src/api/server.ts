@@ -10,6 +10,7 @@ import { Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { createJwtHelper, type JwtHelper } from "./jwt";
+import { requestIdMiddleware } from "./request-id-middleware";
 import { createApiRoutes } from "./routes";
 import { createSseBroker, type SseBroker } from "./sse-broker";
 import { createSseRoute } from "./sse-route";
@@ -51,6 +52,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const app = new Hono();
 
   app.get(Routes.health, (c) => c.json({ status: "ok" }));
+  app.use("/api/*", requestIdMiddleware());
   app.use("/api/*", authMiddleware(jwt));
   app.route("/api", createApiRoutes(dispatcher));
   if (options.auth) {
