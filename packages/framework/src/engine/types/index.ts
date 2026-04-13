@@ -57,6 +57,8 @@ export type {
   JobContext,
   JobRunnerRef,
   NameOrRef,
+  NotifyFactory,
+  NotifyFn,
   QueryEvent,
   QueryHandlerDef,
   QueryHandlerFn,

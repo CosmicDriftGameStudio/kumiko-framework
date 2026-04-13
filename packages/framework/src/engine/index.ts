@@ -76,6 +76,8 @@ export type {
   LifecycleHookType,
   ManyToManyRelation,
   NameOrRef,
+  NotifyFactory,
+  NotifyFn,
   NumberFieldDef,
   OnDeleteStrategy,
   PostDeleteHookFn,

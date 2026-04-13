@@ -54,6 +54,20 @@ export type JobRunnerRef = {
   ): Promise<void>;
 };
 
+// Minimal interface for delivery notifications (concrete type in core-features/delivery)
+export type NotifyFn = (
+  notificationType: string,
+  options: {
+    readonly to?: number | readonly number[];
+    readonly route?: Readonly<Record<string, string>>;
+    readonly data?: Readonly<Record<string, unknown>>;
+  },
+) => Promise<void>;
+
+// Factory that produces a bound NotifyFn for a specific user+tenant
+// Concrete implementation in core-features/delivery (cross-package boundary)
+export type NotifyFactory = (user: SessionUser, tenantId: number) => NotifyFn;
+
 // Shared optional fields across all execution contexts
 type SharedContextFields = {
   readonly redis?: Redis;
@@ -61,6 +75,8 @@ type SharedContextFields = {
   readonly configResolver?: unknown; // Typed in core-features (cross-package boundary)
   readonly searchAdapter?: SearchAdapter;
   readonly entityCache?: EntityCache;
+  readonly notify?: NotifyFn;
+  readonly _notifyFactory?: NotifyFactory;
 };
 
 // All optional — used at pipeline/system boundaries
