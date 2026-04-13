@@ -54,6 +54,9 @@ export type JobRunnerRef = {
   ): Promise<void>;
 };
 
+// Priority levels for notifications
+export type NotifyPriority = "critical" | "normal" | "low";
+
 // Minimal interface for delivery notifications (concrete type in core-features/delivery)
 export type NotifyFn = (
   notificationType: string,
@@ -61,6 +64,7 @@ export type NotifyFn = (
     readonly to?: number | readonly number[];
     readonly route?: Readonly<Record<string, string>>;
     readonly data?: Readonly<Record<string, unknown>>;
+    readonly priority?: NotifyPriority;
   },
 ) => Promise<void>;
 

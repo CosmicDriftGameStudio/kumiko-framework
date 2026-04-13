@@ -81,6 +81,7 @@ export type {
   NotificationRecipientFn,
   NotifyFactory,
   NotifyFn,
+  NotifyPriority,
   NumberFieldDef,
   OnDeleteStrategy,
   PostDeleteHookFn,

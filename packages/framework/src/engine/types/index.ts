@@ -62,6 +62,7 @@ export type {
   NameOrRef,
   NotifyFactory,
   NotifyFn,
+  NotifyPriority,
   QueryEvent,
   QueryHandlerDef,
   QueryHandlerFn,
