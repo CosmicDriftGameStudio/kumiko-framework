@@ -55,6 +55,7 @@ export type TestStackOptions = {
         registry: Registry;
         db: import("../db/connection").DbConnection;
         sseBroker: import("../api/sse-broker").SseBroker;
+        redis: import("ioredis").default;
       }) => Record<string, unknown>);
 };
 
@@ -138,7 +139,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       entityCache,
       registry,
       ...(typeof options.extraContext === "function"
-        ? options.extraContext({ registry, db: testDb.db, sseBroker })
+        ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
         : options.extraContext),
     },
     jwtSecret,
