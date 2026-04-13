@@ -47,6 +47,11 @@ export type TestStackOptions = {
     rankingFields: string[];
   };
   jwtSecret?: string;
+  /** Extra fields merged into the AppContext (e.g. _notifyFactory, configResolver).
+   *  Can be a function receiving (registry, db, sseBroker) for late binding. */
+  extraContext?:
+    | Record<string, unknown>
+    | ((deps: { registry: Registry; db: import("../db/connection").DbConnection; sseBroker: import("../api/sse-broker").SseBroker }) => Record<string, unknown>);
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -122,7 +127,15 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
 
   const server = buildServer({
     registry,
-    context: { db: testDb.db, redis: testRedis.redis, searchAdapter, entityCache },
+    context: {
+      db: testDb.db,
+      redis: testRedis.redis,
+      searchAdapter,
+      entityCache,
+      ...(typeof options.extraContext === "function"
+        ? options.extraContext({ registry, db: testDb.db, sseBroker })
+        : options.extraContext),
+    },
     jwtSecret,
     dispatcherOptions: { eventLog, idempotency },
     systemHooks,
