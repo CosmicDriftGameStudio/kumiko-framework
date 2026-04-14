@@ -12,6 +12,10 @@ export const access = {
   // framework auth code (SYSTEM_USER) writes during login/registration, but
   // that a SystemAdmin should also be able to fix manually.
   privileged: ["system", "SystemAdmin"] as readonly string[],
+  // Any signed-in user role. Use on authenticated-but-not-privileged handlers
+  // (change-password, logout, me-style queries). Does NOT include "system"
+  // since an unauthenticated system call shouldn't be able to hit these.
+  authenticated: ["User", "Admin", "SystemAdmin"] as readonly string[],
   roles: (...roles: string[]): readonly string[] => roles,
 } as const;
 

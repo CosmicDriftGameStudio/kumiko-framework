@@ -86,6 +86,27 @@ describe("crud create", () => {
     if (!result.isSuccess) return;
     expect(result.data.data["isEnabled"]).toBe(false);
   });
+
+  test("falsy default (false) is applied when omitted", async () => {
+    // Entity with a boolean field defaulting to `false`. A naive `if (!value)`
+    // gate would skip this — the applyDefaults implementation must use a strict
+    // `=== undefined` check.
+    const falsyDefaultEntity = createEntity({
+      table: "crud_falsy_defaults",
+      fields: {
+        email: createTextField({ required: true }),
+        isFlagged: createBooleanField({ default: false }),
+      },
+    });
+    const falsyTable = buildDrizzleTable("crudFalsy", falsyDefaultEntity);
+    await createEntityTable(testDb.db, falsyDefaultEntity);
+    const falsyCrud = createCrudExecutor(falsyTable, falsyDefaultEntity);
+
+    const result = await falsyCrud.create({ email: "falsy@test.de" }, adminUser, adminDb);
+    expect(result.isSuccess).toBe(true);
+    if (!result.isSuccess) return;
+    expect(result.data.data["isFlagged"]).toBe(false);
+  });
 });
 
 describe("crud detail", () => {

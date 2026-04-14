@@ -133,7 +133,12 @@ export function createDispatcher(
     });
   }
 
-  function buildHandlerContext(type: string, user: SessionUser, tx?: DbTx): HandlerContext {
+  function buildHandlerContext(
+    type: string,
+    user: SessionUser,
+    tx?: DbTx,
+    afterCommitHooks?: AfterCommitHook[],
+  ): HandlerContext {
     const isSystem = registry.isHandlerSystemScoped(type);
     // The outer dispatcher receives a DbConnection from the server/stack;
     // AppContext's `db` union also allows TenantDb (for downstream hook calls),
@@ -151,7 +156,86 @@ export function createDispatcher(
       ...(reqCtx && { requestId: reqCtx.requestId }),
     });
     const notify = context._notifyFactory ? context._notifyFactory(user, user.tenantId) : undefined;
-    return { ...context, db, log, notify, _userId: user.id, _handlerType: type } as HandlerContext;
+
+    // Cross-feature bridge. Queries and writes invoked through ctx.* share:
+    //   - the current transaction (tx) — nested writes roll back with the parent
+    //   - the current afterCommitHooks sink — deferred side-effects fire once
+    //     when the outermost transaction commits
+    // `queryAs` / `writeAs` let a handler explicitly switch identity
+    // (e.g. system-privileged lookups that bypass field-access read filters).
+    const bridgeSink = afterCommitHooks ?? [];
+    const bridge = {
+      query: (targetType: string, payload: unknown) => executeQuery(targetType, payload, user, tx),
+      queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
+        executeQuery(targetType, payload, asUser, tx),
+      write: async (targetType: string, payload: unknown) => {
+        const res = await executeWrite(targetType, payload, user, tx, bridgeSink);
+        return res;
+      },
+      writeAs: async (asUser: SessionUser, targetType: string, payload: unknown) => {
+        const res = await executeWrite(targetType, payload, asUser, tx, bridgeSink);
+        return res;
+      },
+    };
+
+    return {
+      ...context,
+      db,
+      log,
+      notify,
+      _userId: user.id,
+      _handlerType: type,
+      ...bridge,
+    } as HandlerContext;
+  }
+
+  // Standalone query execution — used by the public dispatcher.query() and
+  // by ctx.query/ctx.queryAs inside handlers. Runs the handler, applies
+  // field-level read filters for the given user, logs the event.
+  async function executeQuery(
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+    tx?: DbTx,
+  ): Promise<unknown> {
+    const handler = registry.getQueryHandler(type);
+    if (!handler) throw new FrameworkError(ErrorCodes.handlerNotFound, type);
+
+    if (handler.access && !hasAccess(user, handler.access)) {
+      throw new FrameworkError(ErrorCodes.accessDenied, type);
+    }
+
+    const parsed = handler.schema.safeParse(payload);
+    if (!parsed.success) {
+      throw new FrameworkError(ErrorCodes.validationFailed, parsed.error.message);
+    }
+
+    const handlerContext = buildHandlerContext(type, user, tx);
+    let result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
+
+    // Field-level read filter
+    const entityName = registry.getHandlerEntity(type);
+    if (entityName) {
+      const entity = registry.getEntity(entityName);
+      if (entity && result && typeof result === "object") {
+        if (Array.isArray(result)) {
+          result = result.map((row: Record<string, unknown>) =>
+            filterReadFields(entity, row, user),
+          );
+        } else if ("rows" in (result as Record<string, unknown>)) {
+          const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null };
+          result = {
+            ...r,
+            rows: r.rows.map((row) => filterReadFields(entity, row, user)),
+          };
+        } else {
+          result = filterReadFields(entity, result as Record<string, unknown>, user);
+        }
+      }
+    }
+
+    await logEvent(type, parsed.data, user);
+    return result;
   }
 
   // Runs lifecycle hooks for a handler result. inTransaction hooks fire NOW
@@ -231,7 +315,7 @@ export function createDispatcher(
       }
     }
 
-    const handlerContext = buildHandlerContext(type, user, tx);
+    const handlerContext = buildHandlerContext(type, user, tx, afterCommitHooks);
 
     // Auto transition guard: if entity has transitions and handler doesn't skip it
     if (entityName && !handler.skipTransitionGuard) {
@@ -408,47 +492,7 @@ export function createDispatcher(
 
     batch: runBatch,
 
-    async query(typeOrRef, payload, user) {
-      const type = resolveType(typeOrRef);
-      const handler = registry.getQueryHandler(type);
-      if (!handler) throw new FrameworkError(ErrorCodes.handlerNotFound, type);
-
-      if (handler.access && !hasAccess(user, handler.access)) {
-        throw new FrameworkError(ErrorCodes.accessDenied, type);
-      }
-
-      const parsed = handler.schema.safeParse(payload);
-      if (!parsed.success) {
-        throw new FrameworkError(ErrorCodes.validationFailed, parsed.error.message);
-      }
-
-      const handlerContext = buildHandlerContext(type, user);
-      let result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
-
-      // Field-level read filter
-      const entityName = registry.getHandlerEntity(type);
-      if (entityName) {
-        const entity = registry.getEntity(entityName);
-        if (entity && result && typeof result === "object") {
-          if (Array.isArray(result)) {
-            result = result.map((row: Record<string, unknown>) =>
-              filterReadFields(entity, row, user),
-            );
-          } else if ("rows" in (result as Record<string, unknown>)) {
-            const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null };
-            result = {
-              ...r,
-              rows: r.rows.map((row) => filterReadFields(entity, row, user)),
-            };
-          } else {
-            result = filterReadFields(entity, result as Record<string, unknown>, user);
-          }
-        }
-      }
-
-      await logEvent(type, parsed.data, user);
-      return result;
-    },
+    query: (typeOrRef, payload, user) => executeQuery(resolveType(typeOrRef), payload, user),
 
     async command(typeOrRef, payload, user) {
       const type = resolveType(typeOrRef);

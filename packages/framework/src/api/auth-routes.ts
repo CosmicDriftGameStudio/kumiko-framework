@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { SessionUser } from "../engine/types";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
@@ -10,8 +11,19 @@ type MembershipRow = {
   roles: string[];
 };
 
+// Guest identity used for unauthenticated calls (e.g. login). The "all" role
+// lets framework access checks pass for handlers declared with roles: ["all"].
+const GUEST_USER: SessionUser = { id: 0, tenantId: 0, roles: ["all"] };
+
 export type AuthRoutesConfig = {
   membershipQuery: string; // qualified query handler name, e.g. config.membershipQuery
+  // Optional: qualified write handler for login. When set, POST /auth/login
+  // dispatches to this handler with a guest identity and issues a JWT on
+  // success. Handler must return { kind: "auth-session", session: SessionUser }.
+  loginHandler?: string;
+  // Maps feature-specific login error codes to HTTP status codes. Unknown
+  // errors default to 400. Keeps the framework unaware of concrete auth codes.
+  loginErrorStatusMap?: Readonly<Record<string, number>>;
 };
 
 export function createAuthRoutes(
@@ -20,6 +32,34 @@ export function createAuthRoutes(
   config: AuthRoutesConfig,
 ): Hono {
   const api = new Hono();
+
+  // POST /auth/login — public endpoint (bypasses auth middleware via PUBLIC_API_PATHS).
+  // The configured login handler authenticates and returns a SessionUser;
+  // the route signs the JWT and hands it back to the client.
+  if (config.loginHandler) {
+    const loginQn = config.loginHandler;
+    const statusMap = config.loginErrorStatusMap ?? {};
+    api.post(Routes.authLogin, async (c) => {
+      const body = await c.req.json<{ email: string; password: string }>();
+      const result = await dispatcher.write(loginQn, body, GUEST_USER);
+
+      if (!result.isSuccess) {
+        // Error format: "error_code" or "error_code: detail" — extract code.
+        const colonIdx = result.error.indexOf(":");
+        const code = colonIdx > 0 ? result.error.slice(0, colonIdx) : result.error;
+        const status = (statusMap[code] ?? 400) as 400 | 401 | 403 | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+
+      const data = result.data as { kind: "auth-session"; session: SessionUser };
+      const token = await jwt.sign(data.session);
+      return c.json({
+        isSuccess: true,
+        token,
+        user: { id: data.session.id, tenantId: data.session.tenantId, roles: data.session.roles },
+      });
+    });
+  }
 
   // GET /auth/tenants — list tenants the current user belongs to
   api.get(Routes.authTenants, async (c) => {

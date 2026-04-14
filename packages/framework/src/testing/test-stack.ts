@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import type { AuthRoutesConfig } from "../api/auth-routes";
 import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
@@ -57,6 +58,8 @@ export type TestStackOptions = {
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => Record<string, unknown>);
+  /** Wire up auth routes (login, tenant-switch). Leave undefined to skip. */
+  authConfig?: AuthRoutesConfig;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -147,6 +150,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     systemHooks,
     eventDedup,
     sseBroker,
+    ...(options.authConfig ? { auth: options.authConfig } : {}),
   });
 
   const http = createRequestHelper(server.app, server.jwt);

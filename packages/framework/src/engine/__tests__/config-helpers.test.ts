@@ -27,6 +27,10 @@ describe("access presets", () => {
     expect(access.privileged).toEqual(["system", "SystemAdmin"]);
   });
 
+  test("access.authenticated covers any signed-in user role (no system)", () => {
+    expect(access.authenticated).toEqual(["User", "Admin", "SystemAdmin"]);
+  });
+
   test("access.roles() creates custom role list", () => {
     expect(access.roles("Billing", "Accounting")).toEqual(["Billing", "Accounting"]);
   });

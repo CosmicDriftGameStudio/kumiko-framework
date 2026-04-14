@@ -78,6 +78,7 @@ export async function createTestRedis(): Promise<TestRedis> {
 export { expectError, expectSuccess } from "./assertions";
 export { createEventCollector, type EventCollector } from "./event-collector";
 export { createTestUser, TestUsers } from "./fixtures";
+export { bridgeStub } from "./handler-context";
 export type { RequestHelper } from "./request-helper";
 export { createRequestHelper } from "./request-helper";
 export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack";

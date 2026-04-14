@@ -5,6 +5,9 @@ export type JwtPayload = {
   sub: number;
   tenantId: number;
   roles: string[];
+  // Optional — present when a feature has registered auth claims (future:
+  // `r.authClaims()` hook). Absent for the MVP login flow.
+  claims?: Record<string, unknown>;
 };
 
 export type JwtHelper = {
@@ -17,10 +20,13 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
 
   return {
     async sign(user) {
-      return new jose.SignJWT({
+      const body: Omit<JwtPayload, "sub"> = {
         tenantId: user.tenantId,
         roles: [...user.roles],
-      } satisfies Omit<JwtPayload, "sub">)
+      };
+      if (user.claims) body.claims = { ...user.claims };
+
+      return new jose.SignJWT(body)
         .setProtectedHeader({ alg: "HS256" })
         .setSubject(String(user.id))
         .setIssuer(issuer)
@@ -31,11 +37,16 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
 
     async verify(token) {
       const { payload } = await jose.jwtVerify(token, encodedSecret, { issuer });
-      return {
+      const result: JwtPayload = {
         sub: Number(payload.sub),
         tenantId: payload["tenantId"] as number,
         roles: payload["roles"] as string[],
       };
+      const claims = payload["claims"];
+      if (claims && typeof claims === "object") {
+        result.claims = claims as Record<string, unknown>;
+      }
+      return result;
     },
   };
 }

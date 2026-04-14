@@ -18,6 +18,7 @@ export function authMiddleware(jwt: JwtHelper) {
         id: payload.sub,
         tenantId: payload.tenantId,
         roles: payload.roles,
+        ...(payload.claims ? { claims: payload.claims } : {}),
       };
       c.set(USER_KEY, user);
       await next();

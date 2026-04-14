@@ -18,6 +18,11 @@ export type SessionUser = {
   readonly id: number;
   readonly tenantId: number;
   readonly roles: readonly string[];
+  // App-specific identity facts baked into the JWT at login time.
+  // Populated by `r.authClaims()` hooks (not yet implemented — see the
+  // auth-claims design note in docs/plans). Reserved here so the type shape
+  // is stable when the hook system lands.
+  readonly claims?: Readonly<Record<string, unknown>>;
 };
 
 // --- Handler Events ---
@@ -97,7 +102,18 @@ export type AppContext = SharedContextFields & {
   readonly _handlerType?: string | undefined;
 };
 
-// Handler execution: db (tenant-scoped) + registry guaranteed
+// Handler execution: db (tenant-scoped) + registry guaranteed.
+//
+// Cross-feature bridge:
+//   ctx.query / ctx.write run the target handler AS THE CURRENT USER,
+//   sharing the active tx + afterCommit queue. Field-access filters apply.
+//   ctx.queryAs / ctx.writeAs switch identity (e.g. SYSTEM for privileged
+//   lookups like "find user by email for auth" — system reads aren't filtered
+//   by field-access read rules).
+//
+// The design: handlers are the contract between features. Feature A requires
+// Feature B and talks to it through B's registered handlers — never through
+// direct imports of B's tables or internal types.
 export type HandlerContext = SharedContextFields & {
   readonly db: TenantDb;
   readonly registry: Registry;
@@ -106,6 +122,11 @@ export type HandlerContext = SharedContextFields & {
   readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
   readonly _userId?: number | undefined;
   readonly _handlerType?: string | undefined;
+
+  readonly query: (qn: string, payload: unknown) => Promise<unknown>;
+  readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
+  readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
+  readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed

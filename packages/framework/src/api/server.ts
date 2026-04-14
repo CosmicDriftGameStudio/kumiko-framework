@@ -6,7 +6,7 @@ import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
 import type { EventDedup } from "../pipeline/event-dedup";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
-import { Routes } from "./api-constants";
+import { PUBLIC_API_PATHS, Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { createJwtHelper, type JwtHelper } from "./jwt";
@@ -53,11 +53,22 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   app.get(Routes.health, (c) => c.json({ status: "ok" }));
   app.use("/api/*", requestIdMiddleware());
-  app.use("/api/*", authMiddleware(jwt));
-  app.route("/api", createApiRoutes(dispatcher));
+
+  // Auth middleware skips public paths (login, health) — those routes need
+  // to be callable without a valid JWT. Every other /api/* request requires
+  // a token.
+  const jwtGuard = authMiddleware(jwt);
+  app.use("/api/*", async (c, next) => {
+    if (PUBLIC_API_PATHS.has(c.req.path)) return next();
+    return jwtGuard(c, next);
+  });
+
+  // Public auth routes (login) need to be registered BEFORE the generic
+  // api routes so Hono matches them first.
   if (options.auth) {
     app.route("/api", createAuthRoutes(dispatcher, jwt, options.auth));
   }
+  app.route("/api", createApiRoutes(dispatcher));
   app.route("/api", createSseRoute(sseBroker));
 
   if (options.files) {
