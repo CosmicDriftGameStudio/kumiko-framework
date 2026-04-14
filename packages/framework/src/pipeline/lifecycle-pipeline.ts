@@ -102,7 +102,12 @@ export function createLifecycleHooks(
       const eventId = buildEventId(opts.handlerName, opts.payload, opts.phaseLabel);
       if (eventId) {
         const acquired = await eventDedup.tryAcquire(eventId);
-        if (!acquired) return;
+        if (!acquired) {
+          opts.context.log?.debug(
+            `${opts.phaseLabel}: skipping ${opts.handlerName} — event ${eventId} already processed (dedup)`,
+          );
+          return;
+        }
       }
     }
 

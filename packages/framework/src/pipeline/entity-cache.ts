@@ -1,4 +1,5 @@
 import type Redis from "ioredis";
+import { parseJsonSafe } from "../utils/safe-json";
 import { RedisKeys } from "./redis-keys";
 
 export type EntityCache = {
@@ -46,7 +47,8 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
   return {
     async get(tenantId, entityName, id) {
       const raw = await redis.get(cacheKey(tenantId, entityName, id));
-      return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+      if (!raw) return null;
+      return parseJsonSafe<Record<string, unknown> | null>(raw, null);
     },
 
     async mget(tenantId, entityName, ids) {
@@ -58,7 +60,8 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
       for (let i = 0; i < ids.length; i++) {
         const raw = values[i];
         if (raw) {
-          result.set(ids[i] as number, JSON.parse(raw) as Record<string, unknown>);
+          const parsed = parseJsonSafe<Record<string, unknown> | null>(raw, null);
+          if (parsed) result.set(ids[i] as number, parsed);
         }
       }
       return result;
@@ -69,6 +72,7 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
     },
 
     async mset(tenantId, entityName, entries) {
+      // skip: empty batch, nothing to cache
       if (entries.length === 0) return;
       const pipe = redis.pipeline();
       for (const entry of entries) {

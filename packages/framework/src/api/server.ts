@@ -1,11 +1,16 @@
 import { Hono } from "hono";
+import type Redis from "ioredis";
+import type { DbConnection } from "../db/connection";
 import type { AppContext, Registry } from "../engine/types";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
+import type { EventBroker } from "../pipeline/event-broker";
 import type { EventDedup } from "../pipeline/event-dedup";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
+import type { OutboxPoller } from "../pipeline/outbox-poller";
+import { createOutboxPoller } from "../pipeline/outbox-poller";
 import { PUBLIC_API_PATHS, Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
@@ -20,18 +25,34 @@ export type ServerOptions = {
   context: AppContext;
   jwtSecret: string;
   jwtIssuer?: string;
-  dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
+  dispatcherOptions?: Omit<DispatcherOptions, "lifecycle" | "outbox">;
   systemHooks?: SystemHooks;
   eventDedup?: EventDedup;
   sseBroker?: SseBroker;
   auth?: AuthRoutesConfig;
   files?: Omit<FileRoutesOptions, "db"> & { db?: FileRoutesOptions["db"] };
+  // Transactional outbox — when set, ctx.emit writes to event_outbox in the
+  // current transaction and the in-process poller publishes rows after commit.
+  // Requires a DbConnection in context.db. The subscriberRedis must be a
+  // separate ioredis instance (a subscribed client can't issue other commands).
+  outbox?: {
+    redis: Redis;
+    subscriberRedis: Redis;
+    eventBroker: EventBroker;
+    batchSize?: number;
+    pollIntervalMs?: number;
+    maxAttempts?: number;
+  };
 };
 
 export type KumikoServer = {
   app: Hono;
   jwt: JwtHelper;
   sseBroker: SseBroker;
+  // Present only when options.outbox was set. Callers that use buildServer
+  // in production must call `outboxPoller.start()` during boot and
+  // `outboxPoller.stop()` during shutdown.
+  outboxPoller?: OutboxPoller;
 };
 
 export function buildServer(options: ServerOptions): KumikoServer {
@@ -47,7 +68,30 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const dispatcher = createDispatcher(options.registry, options.context, {
     ...options.dispatcherOptions,
     lifecycle,
+    ...(options.outbox ? { outbox: { redis: options.outbox.redis } } : {}),
   });
+
+  // Outbox poller — created but NOT auto-started. The caller decides when
+  // to start/stop (typically in an app-level boot + shutdown sequence).
+  let outboxPoller: OutboxPoller | undefined;
+  if (options.outbox) {
+    const dbConn = options.context.db as DbConnection | undefined;
+    if (!dbConn) {
+      throw new Error("buildServer: options.outbox requires context.db to be a DbConnection");
+    }
+    outboxPoller = createOutboxPoller({
+      db: dbConn,
+      subscriberRedis: options.outbox.subscriberRedis,
+      eventBroker: options.outbox.eventBroker,
+      ...(options.outbox.batchSize !== undefined ? { batchSize: options.outbox.batchSize } : {}),
+      ...(options.outbox.pollIntervalMs !== undefined
+        ? { pollIntervalMs: options.outbox.pollIntervalMs }
+        : {}),
+      ...(options.outbox.maxAttempts !== undefined
+        ? { maxAttempts: options.outbox.maxAttempts }
+        : {}),
+    });
+  }
 
   const app = new Hono();
 
@@ -84,5 +128,5 @@ export function buildServer(options: ServerOptions): KumikoServer {
     );
   }
 
-  return { app, jwt, sseBroker };
+  return { app, jwt, sseBroker, ...(outboxPoller ? { outboxPoller } : {}) };
 }

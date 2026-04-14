@@ -421,9 +421,19 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     postSaveHooks.get(triggerOn)?.push({
       phase: HookPhases.afterCommit,
       fn: async (result, context) => {
-        if (!context.notify) return;
+        if (!context.notify) {
+          context.log?.debug(
+            `notification ${qualifiedName}: skipping — no notify function configured on context`,
+          );
+          return;
+        }
         const to = notifDef.recipient(result);
-        if (to === null) return;
+        if (to === null) {
+          context.log?.debug(
+            `notification ${qualifiedName}: skipping — recipient resolver returned null for result ${result.id}`,
+          );
+          return;
+        }
         const data = notifDef.data(result);
         await context.notify(qualifiedName, { to, data });
       },

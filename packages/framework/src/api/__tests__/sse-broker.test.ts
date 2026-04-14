@@ -52,7 +52,7 @@ describe("SSE broker", () => {
 
   test("removeClient from unknown channel does nothing", () => {
     const broker = createSseBroker();
-    // Should not throw
-    broker.removeClient("unknown", "fake-id");
+    expect(() => broker.removeClient("unknown", "fake-id")).not.toThrow();
+    expect(broker.getClientCount("unknown")).toBe(0);
   });
 });

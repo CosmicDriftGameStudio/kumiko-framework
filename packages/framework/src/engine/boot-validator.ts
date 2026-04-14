@@ -84,6 +84,7 @@ function validateCircularDeps(
     if (stack.has(name)) {
       throw new Error(`Circular dependency: ${[...path, name].join(" → ")}`);
     }
+    // skip: node already visited in DFS traversal
     if (visited.has(name)) return;
 
     visited.add(name);

@@ -17,7 +17,10 @@ const notAvailable = (what: string) => async (): Promise<never> => {
   );
 };
 
-export function bridgeStub(): Pick<HandlerContext, "query" | "queryAs" | "write" | "writeAs"> {
+export function bridgeStub(): Pick<
+  HandlerContext,
+  "query" | "queryAs" | "write" | "writeAs" | "emit"
+> {
   return {
     query: notAvailable("query") as HandlerContext["query"],
     queryAs: notAvailable("queryAs") as unknown as (
@@ -34,5 +37,6 @@ export function bridgeStub(): Pick<HandlerContext, "query" | "queryAs" | "write"
       qn: string,
       payload: unknown,
     ) => Promise<WriteResult>,
+    emit: notAvailable("emit") as unknown as (qn: string, payload: unknown) => Promise<void>,
   };
 }

@@ -93,6 +93,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       for (const tenantId of tenantIds) {
         await queue.add(actualName, { ...bullJob.data, _tenantId: tenantId });
       }
+      // skip: fan-out dispatcher job, per-tenant children enqueued
       return;
     }
 

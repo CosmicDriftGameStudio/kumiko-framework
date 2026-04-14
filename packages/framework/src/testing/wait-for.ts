@@ -20,6 +20,7 @@ export async function waitFor(
     await new Promise((r) => setTimeout(r, delays[i]));
     try {
       await fn();
+      // skip: retry attempt succeeded, no further polling needed
       return;
     } catch (err) {
       lastError = err;

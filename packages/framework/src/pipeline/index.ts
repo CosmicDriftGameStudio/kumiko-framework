@@ -15,6 +15,13 @@ export type { IdempotencyGuard } from "./idempotency";
 export { createIdempotencyGuard } from "./idempotency";
 export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline";
 export { createLifecycleHooks } from "./lifecycle-pipeline";
+export type { OutboxPoller, OutboxPollerOptions } from "./outbox-poller";
+export { createOutboxPoller } from "./outbox-poller";
+export {
+  EVENT_OUTBOX_PARTIAL_INDEX_SQL,
+  eventOutboxTable,
+  OUTBOX_WAKE_CHANNEL,
+} from "./outbox-table";
 export type { AuditTrailEntry, AuditTrailStorage } from "./system-hooks";
 export {
   createAuditTrailDeleteHook,

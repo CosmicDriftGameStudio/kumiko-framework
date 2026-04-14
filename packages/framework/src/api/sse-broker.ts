@@ -41,6 +41,7 @@ export function createSseBroker(): SseBroker {
 
     removeClient(channel, clientId) {
       const clients = channels.get(channel);
+      // skip: channel was never registered or already cleaned up
       if (!clients) return;
       clients.delete(clientId);
       if (clients.size === 0) channels.delete(channel);
@@ -48,6 +49,7 @@ export function createSseBroker(): SseBroker {
 
     pushToChannel(channel, event) {
       const clients = channels.get(channel);
+      // skip: no listeners on this channel, event has no audience
       if (!clients) return;
       for (const client of clients.values()) {
         client.send(event);

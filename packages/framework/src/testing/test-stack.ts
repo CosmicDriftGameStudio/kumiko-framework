@@ -5,11 +5,15 @@ import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry } from "../engine/types";
+import type { EventBroker, OutboxPoller } from "../pipeline";
 import {
   createEntityCache,
+  createEventBroker,
   createEventDedup,
   createEventLog,
   createIdempotencyGuard,
+  EVENT_OUTBOX_PARTIAL_INDEX_SQL,
+  eventOutboxTable,
 } from "../pipeline";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
 import {
@@ -22,7 +26,7 @@ import {
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
 import { createEventCollector, type EventCollector } from "./event-collector";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "./index";
+import { createTestDb, createTestRedis, pushTables, type TestDb, type TestRedis } from "./index";
 import { createRequestHelper, type RequestHelper } from "./request-helper";
 
 export type TestStack = {
@@ -34,6 +38,10 @@ export type TestStack = {
   search: SearchAdapter;
   events: EventCollector;
   http: RequestHelper;
+  // Present only when options.outbox === true. Tests call outboxPoller.runOnce()
+  // to drain the outbox deterministically instead of waiting on the timer.
+  outboxPoller?: OutboxPoller;
+  eventBroker?: EventBroker;
   cleanup: () => Promise<void>;
 };
 
@@ -60,6 +68,8 @@ export type TestStackOptions = {
       }) => Record<string, unknown>);
   /** Wire up auth routes (login, tenant-switch). Leave undefined to skip. */
   authConfig?: AuthRoutesConfig;
+  /** Wire up the transactional outbox (ctx.emit + poller). Default: false. */
+  outbox?: boolean;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -133,6 +143,24 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const eventDedup = createEventDedup(testRedis.redis, { ttlSeconds: 60 });
   const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
 
+  // Outbox wiring — off by default, tests that exercise ctx.emit flip it on.
+  // The table + index is created up-front; the actual Poller lifecycle
+  // (instantiate, start, stop) is delegated to buildServer so tests run
+  // against the production path, not a test-only side channel.
+  let eventBroker: EventBroker | undefined;
+  let subscriberRedis: import("ioredis").default | undefined;
+  if (options.outbox) {
+    await pushTables(testDb.db, { eventOutbox: eventOutboxTable });
+    await testDb.db.execute(EVENT_OUTBOX_PARTIAL_INDEX_SQL);
+
+    subscriberRedis = testRedis.redis.duplicate();
+    // Broker's start() intentionally NOT called — delivery runs through
+    // dispatchLocal (synchronous) via the outbox poller. Redis pub/sub is
+    // only needed when a *different* process should receive events, which
+    // tests don't exercise.
+    eventBroker = createEventBroker(testRedis.redis, testRedis.redis.duplicate());
+  }
+
   const server = buildServer({
     registry,
     context: {
@@ -151,7 +179,24 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     eventDedup,
     sseBroker,
     ...(options.authConfig ? { auth: options.authConfig } : {}),
+    ...(options.outbox && subscriberRedis && eventBroker
+      ? {
+          outbox: {
+            redis: testRedis.redis,
+            subscriberRedis,
+            eventBroker,
+            pollIntervalMs: 50,
+            batchSize: 200,
+            maxAttempts: 3,
+          },
+        }
+      : {}),
   });
+
+  // Poller comes from buildServer — same instance a production caller gets.
+  // Tests invoke runOnce() for determinism; the wake-up/timer paths have
+  // dedicated tests that call start()/stop().
+  const outboxPoller = server.outboxPoller;
 
   const http = createRequestHelper(server.app, server.jwt);
 
@@ -164,7 +209,12 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     search: searchAdapter,
     events,
     http,
+    ...(outboxPoller ? { outboxPoller } : {}),
+    ...(eventBroker ? { eventBroker } : {}),
     cleanup: async () => {
+      if (outboxPoller) await outboxPoller.stop();
+      if (eventBroker) await eventBroker.stop();
+      if (subscriberRedis) subscriberRedis.disconnect();
       await Promise.all([testDb.cleanup(), testRedis.cleanup()]);
     },
   };

@@ -1,0 +1,296 @@
+import { eq, isNull } from "drizzle-orm";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { z } from "zod";
+import { createEntity, createSystemUser, createTextField, defineFeature } from "../../engine";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import { eventOutboxTable } from "../outbox-table";
+
+// Feature under test: a single entity whose create-handler emits an event
+// inside the transaction. Tests observe both subscriber delivery AND the
+// outbox row state to verify transactional semantics end-to-end.
+const itemEntity = createEntity({
+  table: "outbox_items",
+  fields: { label: createTextField({ required: true }) },
+});
+
+// Per-test state. Reset in beforeEach.
+let subscriberCalls: Array<{ type: string; payload: unknown }> = [];
+let subscriberShouldFail = false;
+
+const outboxFeature = defineFeature("outbox-test", (r) => {
+  r.entity("item", itemEntity);
+  r.defineEvent("item.created", z.object({ id: z.number(), label: z.string() }));
+
+  // Default path: emit in tx, succeed.
+  r.writeHandler(
+    "item:create",
+    z.object({ label: z.string(), fail: z.boolean().optional() }),
+    async (event, ctx) => {
+      await ctx.emit("outbox-test:event:item.created", {
+        id: 1,
+        label: event.payload.label,
+      });
+      if (event.payload.fail) {
+        // Roll back after emit — proves the outbox row rolled back too.
+        return { isSuccess: false, error: "intentional_rollback" };
+      }
+      return {
+        isSuccess: true,
+        data: { kind: "save", id: 1, data: {}, changes: {}, previous: {}, isNew: true },
+      };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // System-scoped emit path: emits with a SYSTEM user (tenantId = 0), used to
+  // verify that a system event lands in the outbox with tenant_id = null.
+  r.writeHandler(
+    "item:emit-system",
+    z.object({ label: z.string() }),
+    async (event, ctx) => {
+      const system = createSystemUser(0);
+      await ctx.writeAs(system, "outbox-test:write:item:emit-inner", event.payload);
+      return {
+        isSuccess: true,
+        data: { kind: "save", id: 1, data: {}, changes: {}, previous: {}, isNew: true },
+      };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Inner system-handler — runs as SYSTEM so ctx.emit sees user.tenantId = 0,
+  // which maps to NULL in the outbox row (system-scope marker).
+  r.writeHandler(
+    "item:emit-inner",
+    z.object({ label: z.string() }),
+    async (event, ctx) => {
+      await ctx.emit("outbox-test:event:item.created", {
+        id: 2,
+        label: event.payload.label,
+      });
+      return {
+        isSuccess: true,
+        data: { kind: "save", id: 2, data: {}, changes: {}, previous: {}, isNew: true },
+      };
+    },
+    { access: { roles: ["system"] } },
+  );
+});
+
+let stack: TestStack;
+const admin = TestUsers.admin;
+
+beforeAll(async () => {
+  stack = await setupTestStack({ features: [outboxFeature], outbox: true });
+  await createEntityTable(stack.db.db, itemEntity);
+
+  // Register the in-process subscriber. dispatchLocal (used by the poller)
+  // calls it synchronously — so subscriberCalls is populated the instant
+  // runOnce() resolves.
+  stack.eventBroker?.subscribe("outbox-test:event:item.created", async (event) => {
+    if (subscriberShouldFail) throw new Error("subscriber_boom");
+    subscriberCalls.push(event);
+  });
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+beforeEach(async () => {
+  subscriberCalls = [];
+  subscriberShouldFail = false;
+  await stack.db.db.delete(eventOutboxTable);
+  await stack.redis.redis.flushdb();
+});
+
+// Wait helper for the auto-wake-up path. Polls a (possibly async) condition
+// up to `timeoutMs` so tests that exercise the background timer / Redis
+// wake-up don't race.
+async function waitUntil(
+  predicate: () => boolean | Promise<boolean>,
+  timeoutMs = 500,
+  intervalMs = 10,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transactional emit: commit vs rollback
+// ---------------------------------------------------------------------------
+
+describe("Outbox: transactional emit", () => {
+  test("successful write → outbox row inserted, poller publishes, subscriber called synchronously", async () => {
+    const res = await stack.http.write("outbox-test:write:item:create", { label: "alpha" }, admin);
+    expect((await res.json()).isSuccess).toBe(true);
+
+    const rowsBefore = await stack.db.db.select().from(eventOutboxTable);
+    expect(rowsBefore).toHaveLength(1);
+
+    // Drain deterministically. dispatchLocal is synchronous inside runOnce,
+    // so when the promise resolves the subscriber has already been called.
+    const drain = await stack.outboxPoller?.runOnce();
+    expect(drain).toEqual({ processed: 1, failed: 0 });
+
+    const rowsAfter = await stack.db.db.select().from(eventOutboxTable);
+    expect(rowsAfter[0]?.publishedAt).not.toBeNull();
+
+    expect(subscriberCalls).toHaveLength(1);
+    expect(subscriberCalls[0]).toMatchObject({
+      type: "outbox-test:event:item.created",
+      payload: { label: "alpha" },
+    });
+  });
+
+  test("rolled-back write → NO outbox row, NO subscriber call", async () => {
+    const res = await stack.http.write(
+      "outbox-test:write:item:create",
+      { label: "doomed", fail: true },
+      admin,
+    );
+    expect((await res.json()).isSuccess).toBe(false);
+
+    const rows = await stack.db.db.select().from(eventOutboxTable);
+    expect(rows).toHaveLength(0);
+
+    // Pass the poller anyway — there should be nothing to dispatch.
+    const drain = await stack.outboxPoller?.runOnce();
+    expect(drain).toEqual({ processed: 0, failed: 0 });
+    expect(subscriberCalls).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Retry + dead-letter
+// ---------------------------------------------------------------------------
+
+describe("Outbox: retry + dead-letter", () => {
+  test("subscriber keeps failing → row accumulates attempts, eventually dead-letter", async () => {
+    subscriberShouldFail = true;
+    await stack.http.write("outbox-test:write:item:create", { label: "beta" }, admin);
+
+    // maxAttempts is 3 in test-stack. Each pass bumps attempts by one; the
+    // 3rd pass flips deadLetter = true.
+    await stack.outboxPoller?.runOnce();
+    let [row] = await stack.db.db.select().from(eventOutboxTable);
+    expect(row?.attempts).toBe(1);
+    expect(row?.deadLetter).toBe(false);
+
+    await stack.outboxPoller?.runOnce();
+    [row] = await stack.db.db.select().from(eventOutboxTable);
+    expect(row?.attempts).toBe(2);
+    expect(row?.deadLetter).toBe(false);
+
+    await stack.outboxPoller?.runOnce();
+    [row] = await stack.db.db.select().from(eventOutboxTable);
+    expect(row?.attempts).toBe(3);
+    expect(row?.deadLetter).toBe(true);
+    expect(row?.lastError).toContain("subscriber_boom");
+
+    // After dead-letter, subsequent passes skip this row entirely.
+    const drain = await stack.outboxPoller?.runOnce();
+    expect(drain).toEqual({ processed: 0, failed: 0 });
+  });
+
+  test("after a failure, subscriber recovering lets the next pass publish", async () => {
+    subscriberShouldFail = true;
+    await stack.http.write("outbox-test:write:item:create", { label: "gamma" }, admin);
+
+    await stack.outboxPoller?.runOnce();
+    let [row] = await stack.db.db.select().from(eventOutboxTable);
+    expect(row?.attempts).toBe(1);
+    expect(row?.publishedAt).toBeNull();
+
+    subscriberShouldFail = false;
+    await stack.outboxPoller?.runOnce();
+
+    [row] = await stack.db.db.select().from(eventOutboxTable);
+    expect(row?.publishedAt).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ops lookup
+// ---------------------------------------------------------------------------
+
+describe("Outbox: lookup scope", () => {
+  test("dead-letter rows are findable via SELECT (manual recovery)", async () => {
+    subscriberShouldFail = true;
+    await stack.http.write("outbox-test:write:item:create", { label: "dead" }, admin);
+
+    for (let i = 0; i < 3; i++) await stack.outboxPoller?.runOnce();
+
+    const deadRows = await stack.db.db
+      .select()
+      .from(eventOutboxTable)
+      .where(eq(eventOutboxTable.deadLetter, true));
+    expect(deadRows).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// System-scope events (tenantId = null)
+// ---------------------------------------------------------------------------
+
+describe("Outbox: system-scope events", () => {
+  test("emit by a system user (tenantId = 0) stores NULL in the outbox row", async () => {
+    await stack.http.write("outbox-test:write:item:emit-system", { label: "system-event" }, admin);
+
+    const rows = await stack.db.db.select().from(eventOutboxTable);
+    expect(rows).toHaveLength(1);
+    // tenant_id column should be NULL (not 0) for system-scope events.
+    expect(rows[0]?.tenantId).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Automatic wake-up (background delivery without runOnce)
+// ---------------------------------------------------------------------------
+
+describe("Outbox: automatic delivery", () => {
+  test("Redis wake-up triggers the poller without an explicit runOnce", async () => {
+    // Start the poller's background loop. Cleanup after the test.
+    await stack.outboxPoller?.start();
+    try {
+      await stack.http.write("outbox-test:write:item:create", { label: "auto" }, admin);
+
+      // Either the wake-up callback or the 50ms timer will drive runOnce.
+      await waitUntil(() => subscriberCalls.length > 0, 1000);
+      expect(subscriberCalls).toHaveLength(1);
+      expect(subscriberCalls[0]?.payload).toMatchObject({ label: "auto" });
+    } finally {
+      await stack.outboxPoller?.stop();
+    }
+  });
+
+  test("timer fallback: even without a wake-up publish, a row left in the outbox gets picked up", async () => {
+    // Insert an outbox row directly — no redis.publish wake-up happens.
+    // The poller's 50ms timer must notice and drain it.
+    await stack.db.db.insert(eventOutboxTable).values({
+      tenantId: 1,
+      eventType: "outbox-test:event:item.created",
+      payload: { id: 42, label: "timer" },
+    });
+
+    await stack.outboxPoller?.start();
+    try {
+      await waitUntil(async () => {
+        const [row] = await stack.db.db
+          .select()
+          .from(eventOutboxTable)
+          .where(isNull(eventOutboxTable.publishedAt));
+        return row === undefined;
+      }, 1000);
+
+      const [row] = await stack.db.db.select().from(eventOutboxTable);
+      expect(row?.publishedAt).not.toBeNull();
+      expect(subscriberCalls.map((c) => c.payload)).toContainEqual({ id: 42, label: "timer" });
+    } finally {
+      await stack.outboxPoller?.stop();
+    }
+  });
+});

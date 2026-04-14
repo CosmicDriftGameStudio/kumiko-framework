@@ -85,6 +85,7 @@ export function defineFeature(
   // "task:create" → entity "task". No colon → standalone handler, no mapping.
   function tryMapEntity(handlerName: string): void {
     const colonIdx = handlerName.indexOf(":");
+    // skip: handler name is not entity-scoped (no colon), nothing to map
     if (colonIdx < 0) return;
     const candidate = handlerName.slice(0, colonIdx);
     if (entities[candidate]) {
@@ -220,6 +221,7 @@ export function defineFeature(
         for (const n of names) {
           validationHooks[n] = fn as ValidationHookFn;
         }
+        // skip: validation hooks have no phase, stored and done
         return;
       }
 
@@ -229,6 +231,7 @@ export function defineFeature(
           if (!lifecycleHooks[type][n]) lifecycleHooks[type][n] = [];
           lifecycleHooks[type][n].push(fn as LifecycleHookFn);
         }
+        // skip: pre-hooks have no phase, stored and done
         return;
       }
 

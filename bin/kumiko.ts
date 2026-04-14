@@ -98,6 +98,11 @@ const commands = {
       for (const [name, cmd] of [
         ["Biome", "yarn biome check ."],
         ["TypeScript", "yarn tsc --noEmit -p packages/framework/tsconfig.json && yarn tsc --noEmit -p packages/core-features/tsconfig.json"],
+        ["Silent-Skip Guard", "yarn tsx scripts/guard-silent-skip.ts"],
+        ["Unsafe-JSON-Parse Guard", "yarn tsx scripts/guard-unsafe-json-parse.ts"],
+        ["Fake-Test Guard", "yarn tsx scripts/guard-fake-tests.ts"],
+        ["Feature-Integration-Test Guard", "yarn tsx scripts/guard-feature-integration-tests.ts"],
+        ["i18n-Keys Guard", "yarn tsx scripts/guard-i18n-keys.ts"],
         ["Unit Tests", "yarn vitest run"],
         ["Integration Guard", "node vitest.integration.guard.js"],
         ["Integration Tests", "yarn vitest run --config vitest.integration.config.ts"],

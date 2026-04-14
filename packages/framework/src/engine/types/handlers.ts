@@ -127,6 +127,12 @@ export type HandlerContext = SharedContextFields & {
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
   readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
+
+  // Emit an event into the transactional outbox. The row is INSERTed inside
+  // the current transaction — it only becomes visible after commit. A poller
+  // then publishes it at-least-once. Feature authors call this; they don't
+  // see the outbox machinery.
+  readonly emit: (qn: string, payload: unknown) => Promise<void>;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed

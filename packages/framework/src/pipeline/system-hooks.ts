@@ -15,15 +15,24 @@ export function createSearchIndexHook(
   return {
     name: SystemHookNames.searchIndex,
     priority: SystemHookPriorities.searchIndex,
-    fn: async (result) => {
+    fn: async (result, ctx) => {
       const entityName = result.entityName;
-      if (!entityName) return;
+      if (!entityName) {
+        ctx.log?.debug(`searchIndex: skipping — no entityName on result ${result.id}`);
+        return;
+      }
 
       const entity = registry.getEntity(entityName);
-      if (!entity) return;
+      if (!entity) {
+        ctx.log?.debug(`searchIndex: skipping — entity ${entityName} not registered`);
+        return;
+      }
 
       const searchableFields = registry.getSearchableFields(entityName);
-      if (searchableFields.length === 0) return;
+      if (searchableFields.length === 0) {
+        ctx.log?.debug(`searchIndex: skipping — ${entityName} has no searchable fields`);
+        return;
+      }
 
       // Collect embedded field names for sub-field resolution
       const embeddedFields = new Set<string>();
@@ -69,9 +78,12 @@ export function createSearchRemoveHook(
   return {
     name: SystemHookNames.searchRemove,
     priority: SystemHookPriorities.searchIndex,
-    fn: async (payload) => {
+    fn: async (payload, ctx) => {
       const entityName = payload.entityName;
-      if (!entityName) return;
+      if (!entityName) {
+        ctx.log?.debug(`searchRemove: skipping — no entityName on payload ${payload.id}`);
+        return;
+      }
 
       const tenantId = payload.data["tenantId"] as number;
       await searchAdapter.remove(tenantId, entityName, payload.id);
@@ -85,9 +97,12 @@ export function createSseBroadcastHook(sseBroker: SseBroker): SystemHookDef<Post
   return {
     name: SystemHookNames.sseBroadcast,
     priority: SystemHookPriorities.sseBroadcast,
-    fn: async (result) => {
+    fn: async (result, ctx) => {
       const entityName = result.entityName;
-      if (!entityName) return;
+      if (!entityName) {
+        ctx.log?.debug(`sseBroadcast: skipping — no entityName on result ${result.id}`);
+        return;
+      }
 
       const tenantId = result.data["tenantId"] as number;
       const eventType = result.isNew
@@ -110,9 +125,12 @@ export function createSseDeleteBroadcastHook(
   return {
     name: SystemHookNames.sseDeleteBroadcast,
     priority: SystemHookPriorities.sseBroadcast,
-    fn: async (payload) => {
+    fn: async (payload, ctx) => {
       const entityName = payload.entityName;
-      if (!entityName) return;
+      if (!entityName) {
+        ctx.log?.debug(`sseDeleteBroadcast: skipping — no entityName on payload ${payload.id}`);
+        return;
+      }
 
       const tenantId = payload.data["tenantId"] as number;
       sseBroker.pushToChannel(tenantChannel(tenantId), {
@@ -150,7 +168,10 @@ export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<
     phase: HookPhases.inTransaction,
     fn: async (result, ctx) => {
       const entityName = result.entityName;
-      if (!entityName) return;
+      if (!entityName) {
+        ctx.log?.debug(`auditTrail: skipping — no entityName on result ${result.id}`);
+        return;
+      }
 
       await storage.append({
         timestamp: new Date(),
@@ -178,7 +199,10 @@ export function createAuditTrailDeleteHook(
     phase: HookPhases.inTransaction,
     fn: async (payload, ctx) => {
       const entityName = payload.entityName;
-      if (!entityName) return;
+      if (!entityName) {
+        ctx.log?.debug(`auditTrailDelete: skipping — no entityName on payload ${payload.id}`);
+        return;
+      }
 
       await storage.append({
         timestamp: new Date(),

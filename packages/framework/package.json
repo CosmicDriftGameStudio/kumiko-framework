@@ -15,7 +15,7 @@
     "./jobs": "./src/jobs/index.ts",
     "./search": "./src/search/index.ts",
     "./testing": "./src/testing/index.ts",
-    "./utils": "./src/utils/serialization.ts"
+    "./utils": "./src/utils/index.ts"
   },
   "dependencies": {
     "bullmq": "^5.73.5",

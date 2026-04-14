@@ -20,9 +20,11 @@ import type {
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
 import { runValidation } from "../engine/validation";
+import { parseJsonSafe } from "../utils/safe-json";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
+import { eventOutboxTable, OUTBOX_WAKE_CHANNEL } from "./outbox-table";
 
 // Deferred afterCommit callback — collected during transaction execution,
 // fired sequentially once the transaction commits successfully.
@@ -61,6 +63,12 @@ export type DispatcherOptions = {
   eventLog?: EventLog;
   lifecycle?: LifecycleHooks;
   jobRunner?: JobRunnerRef;
+  // When set, ctx.emit writes into the outbox table and fires a wake-up on
+  // this Redis instance after commit. Without it, ctx.emit is a no-op-throw
+  // (so features can't accidentally emit without the infra being wired).
+  outbox?: {
+    redis: import("ioredis").default;
+  };
 };
 
 type HandlerType = string | HandlerRef;
@@ -96,7 +104,7 @@ export function createDispatcher(
   context: AppContext,
   options: DispatcherOptions = {},
 ): Dispatcher {
-  const { idempotency, eventLog, lifecycle, jobRunner } = options;
+  const { idempotency, eventLog, lifecycle, jobRunner, outbox } = options;
 
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
   const tableCache = new Map<string, ReturnType<typeof buildDrizzleTable>>();
@@ -123,7 +131,63 @@ export function createDispatcher(
     return transitions;
   }
 
+  // Transactional outbox emit. Row INSERTed in the current tx; after commit
+  // we publish a wake-up on Redis so the poller picks it up quickly (if the
+  // publish fails, the poller's 50ms timer catches the row anyway).
+  async function emitEvent(
+    eventType: string,
+    payload: unknown,
+    user: SessionUser,
+    tx: DbTx | undefined,
+    afterCommitHooks: AfterCommitHook[],
+  ): Promise<void> {
+    if (!outbox) {
+      throw new Error(
+        `ctx.emit("${eventType}") called but no outbox is configured on the dispatcher — ` +
+          `pass DispatcherOptions.outbox = { redis } when building the server.`,
+      );
+    }
+    const dbSource: DbConnection | DbTx | undefined =
+      tx ?? (context.db as DbConnection | undefined);
+    if (!dbSource) {
+      throw new Error(
+        `ctx.emit("${eventType}") requires a database connection — none is configured.`,
+      );
+    }
+
+    const reqCtx = requestContext.get();
+    const metadata: Record<string, unknown> = { userId: user.id };
+    if (reqCtx?.requestId) metadata["requestId"] = reqCtx.requestId;
+
+    await dbSource.insert(eventOutboxTable).values({
+      tenantId: user.tenantId || null,
+      eventType,
+      payload: (payload ?? {}) as Record<string, unknown>,
+      metadata,
+    });
+
+    const redis = outbox.redis;
+    const log = context.log;
+    afterCommitHooks.push(async () => {
+      try {
+        await redis.publish(OUTBOX_WAKE_CHANNEL, "");
+      } catch (e) {
+        // Wake-up publish is an optimisation, not a correctness guarantee —
+        // the poller's 50ms timer fallback still picks the row up. Log as
+        // warn so ops can see Redis flakiness but tests don't treat it as
+        // an error. If no logger is configured we swallow: production
+        // setups always attach one, tests without a log are inspecting
+        // outbox rows directly.
+        if (log) {
+          const detail = e instanceof Error ? e.message : String(e);
+          log.warn(`outbox wake-up publish failed (poller timer will catch): ${detail}`);
+        }
+      }
+    });
+  }
+
   async function logEvent(type: string, payload: unknown, user: SessionUser): Promise<void> {
+    // skip: no eventLog configured, nothing to persist
     if (!eventLog) return;
     await eventLog.append({
       type,
@@ -175,6 +239,9 @@ export function createDispatcher(
       writeAs: async (asUser: SessionUser, targetType: string, payload: unknown) => {
         const res = await executeWrite(targetType, payload, asUser, tx, bridgeSink);
         return res;
+      },
+      emit: async (eventType: string, payload: unknown) => {
+        await emitEvent(eventType, payload, user, tx, bridgeSink);
       },
     };
 
@@ -248,7 +315,12 @@ export function createDispatcher(
     handlerContext: HandlerContext,
     afterCommitHooks: AfterCommitHook[],
   ): Promise<void> {
-    if (!lifecycle || !data || typeof data !== "object" || !("kind" in data)) return;
+    if (!lifecycle || !data || typeof data !== "object" || !("kind" in data)) {
+      handlerContext.log?.debug(
+        `runLifecycle: skipping ${type} — ${!lifecycle ? "no lifecycle pipeline" : "result is not a lifecycle kind"}`,
+      );
+      return;
+    }
     const result = data as LifecycleResult;
 
     if (result.kind === "save") {
@@ -375,7 +447,11 @@ export function createDispatcher(
     // cached result without re-executing. The cache holds the full BatchResult.
     if (requestId && idempotency) {
       const cached = await idempotency.check(requestId);
-      if (cached) return JSON.parse(cached) as BatchResult;
+      if (cached) {
+        const parsed = parseJsonSafe<BatchResult | null>(cached, null);
+        if (parsed) return parsed;
+        // corrupted cache entry — treat as miss, let the request re-run
+      }
     }
 
     // Wrap return paths: cache the final result under requestId so retries get
