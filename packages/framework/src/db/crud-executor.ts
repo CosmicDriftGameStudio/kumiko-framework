@@ -88,6 +88,31 @@ export function createCrudExecutor(
     }
   }
 
+  // Pre-compute fields with defaults so create() can fill them in when the
+  // client-supplied payload is missing them. Defaults are only applied at
+  // insert time — updates don't re-apply defaults for fields left untouched.
+  const fieldDefaults: Record<string, unknown> = {};
+  for (const [name, field] of Object.entries(entity.fields)) {
+    if (
+      (field.type === "text" ||
+        field.type === "number" ||
+        field.type === "boolean" ||
+        field.type === "select") &&
+      field.default !== undefined
+    ) {
+      fieldDefaults[name] = field.default;
+    }
+  }
+
+  function applyDefaults(payload: Record<string, unknown>): Record<string, unknown> {
+    if (Object.keys(fieldDefaults).length === 0) return payload;
+    const result: Record<string, unknown> = { ...payload };
+    for (const [name, def] of Object.entries(fieldDefaults)) {
+      if (result[name] === undefined) result[name] = def;
+    }
+    return result;
+  }
+
   function encryptPayload(payload: Record<string, unknown>): Record<string, unknown> {
     if (!encryptionProvider || encryptedFields.size === 0) return payload;
     const result = { ...payload };
@@ -139,7 +164,7 @@ export function createCrudExecutor(
       const [row] = await db
         .insert(table)
         .values({
-          ...encryptPayload(payload),
+          ...encryptPayload(applyDefaults(payload)),
           insertedById: user.id,
           insertedAt: new Date(),
         })

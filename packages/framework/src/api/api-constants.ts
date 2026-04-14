@@ -4,6 +4,7 @@
 export const Routes = {
   health: "/health",
   write: "/write",
+  batch: "/batch",
   query: "/query",
   command: "/command",
   sse: "/sse",

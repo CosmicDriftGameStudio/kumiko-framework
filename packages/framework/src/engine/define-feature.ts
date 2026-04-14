@@ -13,6 +13,7 @@ import type {
   FeatureRegistrar,
   HandlerRef,
   HookMap,
+  HookPhase,
   JobDefinition,
   JobHandlerFn,
   LifecycleHookFn,
@@ -22,6 +23,7 @@ import type {
   NotificationDefinition,
   NotificationRecipientFn,
   NotificationTemplateFn,
+  PhasedHook,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -37,6 +39,7 @@ import type {
   WriteHandlerDef,
   WriteHandlerFn,
 } from "./types";
+import { HookPhases } from "./types";
 import { resolveName } from "./types/handlers";
 
 const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
@@ -52,14 +55,19 @@ export function defineFeature(
   const writeHandlers: Record<string, WriteHandlerDef> = {};
   const queryHandlers: Record<string, QueryHandlerDef> = {};
   const validationHooks: Record<string, ValidationHookFn> = {};
+  // preSave/preQuery stay unphased; postSave/preDelete/postDelete are phased.
   const lifecycleHooks: Record<string, Record<string, LifecycleHookFn[]>> = {};
+  const phasedLifecycleHooks: Record<
+    "postSave" | "preDelete" | "postDelete",
+    Record<string, PhasedHook<LifecycleHookFn>[]>
+  > = { postSave: {}, preDelete: {}, postDelete: {} };
   const configKeys: Record<string, ConfigKeyDefinition> = {};
   const jobs: Record<string, JobDefinition> = {};
   const events: Record<string, { name: string; schema: ZodType }> = {};
   const configReads: string[] = [];
-  const entityPostSave: Record<string, PostSaveHookFn[]> = {};
-  const entityPreDelete: Record<string, PreDeleteHookFn[]> = {};
-  const entityPostDelete: Record<string, PostDeleteHookFn[]> = {};
+  const entityPostSave: Record<string, PhasedHook<PostSaveHookFn>[]> = {};
+  const entityPreDelete: Record<string, PhasedHook<PreDeleteHookFn>[]> = {};
+  const entityPostDelete: Record<string, PhasedHook<PostDeleteHookFn>[]> = {};
   const notifications: Record<string, NotificationDefinition> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
@@ -203,6 +211,7 @@ export function defineFeature(
       type: LifecycleHookType | "validation",
       target: NameOrRef | readonly NameOrRef[],
       fn: LifecycleHookFn | ValidationHookFn,
+      options?: { phase?: HookPhase },
     ): void {
       const targets = Array.isArray(target) ? target : [target];
       const names = targets.map(resolveName);
@@ -214,11 +223,25 @@ export function defineFeature(
         return;
       }
 
-      const hookType = type;
-      if (!lifecycleHooks[hookType]) lifecycleHooks[hookType] = {};
+      if (type === "preSave" || type === "preQuery") {
+        if (!lifecycleHooks[type]) lifecycleHooks[type] = {};
+        for (const n of names) {
+          if (!lifecycleHooks[type][n]) lifecycleHooks[type][n] = [];
+          lifecycleHooks[type][n].push(fn as LifecycleHookFn);
+        }
+        return;
+      }
+
+      // Phased storage. preDelete has no phase option (always inTransaction);
+      // postSave/postDelete default to afterCommit.
+      const phase =
+        type === "preDelete"
+          ? HookPhases.inTransaction
+          : (options?.phase ?? HookPhases.afterCommit);
+      const bucket = phasedLifecycleHooks[type];
       for (const n of names) {
-        if (!lifecycleHooks[hookType][n]) lifecycleHooks[hookType][n] = [];
-        lifecycleHooks[hookType][n].push(fn as LifecycleHookFn);
+        if (!bucket[n]) bucket[n] = [];
+        bucket[n].push({ fn: fn as LifecycleHookFn, phase });
       }
     },
 
@@ -226,17 +249,23 @@ export function defineFeature(
       type: "postSave" | "preDelete" | "postDelete",
       entityRef: NameOrRef,
       fn: LifecycleHookFn,
+      options?: { phase?: HookPhase },
     ): void {
       const entityName = resolveName(entityRef);
       if (type === "postSave") {
+        const phase = options?.phase ?? HookPhases.afterCommit;
         if (!entityPostSave[entityName]) entityPostSave[entityName] = [];
-        entityPostSave[entityName].push(fn as PostSaveHookFn);
+        entityPostSave[entityName].push({ fn: fn as PostSaveHookFn, phase });
       } else if (type === "preDelete") {
         if (!entityPreDelete[entityName]) entityPreDelete[entityName] = [];
-        entityPreDelete[entityName].push(fn as PreDeleteHookFn);
+        entityPreDelete[entityName].push({
+          fn: fn as PreDeleteHookFn,
+          phase: HookPhases.inTransaction,
+        });
       } else if (type === "postDelete") {
+        const phase = options?.phase ?? HookPhases.afterCommit;
         if (!entityPostDelete[entityName]) entityPostDelete[entityName] = [];
-        entityPostDelete[entityName].push(fn as PostDeleteHookFn);
+        entityPostDelete[entityName].push({ fn: fn as PostDeleteHookFn, phase });
       }
     },
 
@@ -329,9 +358,9 @@ export function defineFeature(
     hooks: {
       validation: validationHooks,
       preSave: lifecycleHooks["preSave"] ?? {},
-      postSave: lifecycleHooks["postSave"] ?? {},
-      preDelete: lifecycleHooks["preDelete"] ?? {},
-      postDelete: lifecycleHooks["postDelete"] ?? {},
+      postSave: phasedLifecycleHooks.postSave,
+      preDelete: phasedLifecycleHooks.preDelete,
+      postDelete: phasedLifecycleHooks.postDelete,
       preQuery: lifecycleHooks["preQuery"] ?? {},
     } as HookMap,
     entityHooks: {

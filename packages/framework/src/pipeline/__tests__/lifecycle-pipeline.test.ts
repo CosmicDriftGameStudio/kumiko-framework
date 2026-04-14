@@ -268,3 +268,124 @@ describe("runPostSave", () => {
     consoleSpy.mockRestore();
   });
 });
+
+// --- Phase routing ---
+//
+// runPostSave takes a phase parameter and fires ONLY hooks matching that phase.
+// Error semantics also differ per phase:
+//   - inTransaction hooks throw on error (to roll back the transaction)
+//   - afterCommit hooks are best-effort (errors are logged, never thrown)
+
+describe("runPostSave phase routing", () => {
+  test("runs only hooks matching the given phase", async () => {
+    const calls: string[] = [];
+    const feature = defineFeature("phases", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.hook(
+        "postSave",
+        "user",
+        async () => {
+          calls.push("inTx");
+        },
+        { phase: "inTransaction" },
+      );
+      r.hook("postSave", "user", async () => {
+        calls.push("afterCommit");
+      });
+    });
+    const registry = createRegistry([feature]);
+    const pipeline = createLifecycleHooks(registry);
+
+    await pipeline.runPostSave("phases:write:user", savectx, {}, "inTransaction");
+    expect(calls).toEqual(["inTx"]);
+
+    calls.length = 0;
+    await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
+    expect(calls).toEqual(["afterCommit"]);
+  });
+
+  test("inTransaction phase: hook errors throw (to roll back)", async () => {
+    const feature = defineFeature("phases", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.hook(
+        "postSave",
+        "user",
+        async () => {
+          throw new Error("inTx-hook-boom");
+        },
+        { phase: "inTransaction" },
+      );
+    });
+    const registry = createRegistry([feature]);
+    const pipeline = createLifecycleHooks(registry);
+
+    await expect(
+      pipeline.runPostSave("phases:write:user", savectx, {}, "inTransaction"),
+    ).rejects.toThrow("inTx-hook-boom");
+  });
+
+  test("afterCommit phase: hook errors are logged, never thrown", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const afterRan: string[] = [];
+    const feature = defineFeature("phases", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.hook("postSave", "user", async () => {
+        throw new Error("afterCommit-boom");
+      });
+      r.hook("postSave", "user", async () => {
+        afterRan.push("second");
+      });
+    });
+    const registry = createRegistry([feature]);
+    const pipeline = createLifecycleHooks(registry);
+
+    // Must not throw — errors are swallowed + logged
+    await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
+
+    // Subsequent hooks still fire (failure in one hook doesn't block the rest)
+    expect(afterRan).toEqual(["second"]);
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  test("system hooks respect their phase setting", async () => {
+    const feature = defineFeature("phases", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }));
+    });
+    const registry = createRegistry([feature]);
+
+    const calls: string[] = [];
+    const systemHooks: SystemHooks = {
+      postSave: [
+        {
+          name: "audit",
+          priority: 1002,
+          phase: "inTransaction",
+          fn: async () => {
+            calls.push("audit");
+          },
+        },
+        {
+          name: "sse",
+          priority: 1001,
+          phase: "afterCommit",
+          fn: async () => {
+            calls.push("sse");
+          },
+        },
+      ],
+    };
+    const pipeline = createLifecycleHooks(registry, systemHooks);
+
+    await pipeline.runPostSave("phases:write:user", savectx, {}, "inTransaction");
+    expect(calls).toEqual(["audit"]);
+
+    calls.length = 0;
+    await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
+    expect(calls).toEqual(["sse"]);
+  });
+});

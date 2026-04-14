@@ -5,8 +5,10 @@ import type {
   EntityRelations,
   EventDef,
   FeatureDefinition,
+  HookPhase,
   JobDefinition,
   NotificationDefinition,
+  PhasedHook,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -21,6 +23,7 @@ import type {
   TranslationKeys,
   WriteHandlerDef,
 } from "./types";
+import { HookPhases } from "./types";
 import { resolveName } from "./types/handlers";
 
 type IncomingRelation = {
@@ -36,14 +39,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const writeHandlerMap = new Map<string, WriteHandlerDef>();
   const queryHandlerMap = new Map<string, QueryHandlerDef>();
   const preSaveHooks = new Map<string, PreSaveHookFn[]>();
-  const postSaveHooks = new Map<string, PostSaveHookFn[]>();
-  const preDeleteHooks = new Map<string, PreDeleteHookFn[]>();
-  const postDeleteHooks = new Map<string, PostDeleteHookFn[]>();
+  const postSaveHooks = new Map<string, PhasedHook<PostSaveHookFn>[]>();
+  const preDeleteHooks = new Map<string, PhasedHook<PreDeleteHookFn>[]>();
+  const postDeleteHooks = new Map<string, PhasedHook<PostDeleteHookFn>[]>();
   const preQueryHooks = new Map<string, PreQueryHookFn[]>();
   // Entity hooks — keyed by entity name, NOT prefixed
-  const entityPostSaveHooks = new Map<string, PostSaveHookFn[]>();
-  const entityPreDeleteHooks = new Map<string, PreDeleteHookFn[]>();
-  const entityPostDeleteHooks = new Map<string, PostDeleteHookFn[]>();
+  const entityPostSaveHooks = new Map<string, PhasedHook<PostSaveHookFn>[]>();
+  const entityPreDeleteHooks = new Map<string, PhasedHook<PreDeleteHookFn>[]>();
+  const entityPostDeleteHooks = new Map<string, PhasedHook<PostDeleteHookFn>[]>();
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
   const jobMap = new Map<string, JobDefinition>();
   const notificationMap = new Map<string, NotificationDefinition>();
@@ -62,6 +65,21 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // Both feature name and handler name are converted to kebab-case.
   function qualify(featureName: string, type: QnType, name: string): string {
     return qn(toKebab(featureName), type, toKebab(name));
+  }
+
+  // Extract hook fns, optionally filtered by phase.
+  // When phase is undefined, returns all hooks (used by code that doesn't care about phase).
+  function filterByPhase<TFn>(
+    list: readonly PhasedHook<TFn>[] | undefined,
+    phase: HookPhase | undefined,
+  ): readonly TFn[] {
+    if (!list || list.length === 0) return [];
+    if (phase === undefined) return list.map((p) => p.fn);
+    const result: TFn[] = [];
+    for (const entry of list) {
+      if (entry.phase === phase) result.push(entry.fn);
+    }
+    return result;
   }
 
   // Merge hooks without prefix (entity hooks)
@@ -247,21 +265,22 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
     }
 
-    // Extension hooks → entity hooks (fire for all writes on the entity)
+    // Extension hooks → entity hooks (fire for all writes on the entity).
+    // Extensions default to afterCommit phase (same default as r.hook).
     if (ext.hooks) {
       if (ext.hooks.postSave) {
         const existing = entityPostSaveHooks.get(usage.entityName) ?? [];
-        existing.push(ext.hooks.postSave);
+        existing.push({ fn: ext.hooks.postSave, phase: HookPhases.afterCommit });
         entityPostSaveHooks.set(usage.entityName, existing);
       }
       if (ext.hooks.preDelete) {
         const existing = entityPreDeleteHooks.get(usage.entityName) ?? [];
-        existing.push(ext.hooks.preDelete);
+        existing.push({ fn: ext.hooks.preDelete, phase: HookPhases.afterCommit });
         entityPreDeleteHooks.set(usage.entityName, existing);
       }
       if (ext.hooks.postDelete) {
         const existing = entityPostDeleteHooks.get(usage.entityName) ?? [];
-        existing.push(ext.hooks.postDelete);
+        existing.push({ fn: ext.hooks.postDelete, phase: HookPhases.afterCommit });
         entityPostDeleteHooks.set(usage.entityName, existing);
       }
       // preSave on extensions: store as handler hook for all CRUD handlers of this entity
@@ -399,12 +418,15 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     notificationMap.set(qualifiedName, { ...notifDef, trigger: { on: triggerOn } });
 
     if (!postSaveHooks.has(triggerOn)) postSaveHooks.set(triggerOn, []);
-    postSaveHooks.get(triggerOn)?.push(async (result, context) => {
-      if (!context.notify) return;
-      const to = notifDef.recipient(result);
-      if (to === null) return;
-      const data = notifDef.data(result);
-      await context.notify(qualifiedName, { to, data });
+    postSaveHooks.get(triggerOn)?.push({
+      phase: HookPhases.afterCommit,
+      fn: async (result, context) => {
+        if (!context.notify) return;
+        const to = notifDef.recipient(result);
+        if (to === null) return;
+        const data = notifDef.data(result);
+        await context.notify(qualifiedName, { to, data });
+      },
     });
   }
 
@@ -496,16 +518,16 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       return preSaveHooks.get(name) ?? [];
     },
 
-    getPostSaveHooks(name: string): readonly PostSaveHookFn[] {
-      return postSaveHooks.get(name) ?? [];
+    getPostSaveHooks(name: string, phase?: HookPhase): readonly PostSaveHookFn[] {
+      return filterByPhase(postSaveHooks.get(name), phase);
     },
 
-    getPreDeleteHooks(name: string): readonly PreDeleteHookFn[] {
-      return preDeleteHooks.get(name) ?? [];
+    getPreDeleteHooks(name: string, phase?: HookPhase): readonly PreDeleteHookFn[] {
+      return filterByPhase(preDeleteHooks.get(name), phase);
     },
 
-    getPostDeleteHooks(name: string): readonly PostDeleteHookFn[] {
-      return postDeleteHooks.get(name) ?? [];
+    getPostDeleteHooks(name: string, phase?: HookPhase): readonly PostDeleteHookFn[] {
+      return filterByPhase(postDeleteHooks.get(name), phase);
     },
 
     getPreQueryHooks(name: string): readonly PreQueryHookFn[] {
@@ -513,16 +535,16 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     },
 
     // Entity hooks — fire for all writes on an entity
-    getEntityPostSaveHooks(entityName: string): readonly PostSaveHookFn[] {
-      return entityPostSaveHooks.get(entityName) ?? [];
+    getEntityPostSaveHooks(entityName: string, phase?: HookPhase): readonly PostSaveHookFn[] {
+      return filterByPhase(entityPostSaveHooks.get(entityName), phase);
     },
 
-    getEntityPreDeleteHooks(entityName: string): readonly PreDeleteHookFn[] {
-      return entityPreDeleteHooks.get(entityName) ?? [];
+    getEntityPreDeleteHooks(entityName: string, phase?: HookPhase): readonly PreDeleteHookFn[] {
+      return filterByPhase(entityPreDeleteHooks.get(entityName), phase);
     },
 
-    getEntityPostDeleteHooks(entityName: string): readonly PostDeleteHookFn[] {
-      return entityPostDeleteHooks.get(entityName) ?? [];
+    getEntityPostDeleteHooks(entityName: string, phase?: HookPhase): readonly PostDeleteHookFn[] {
+      return filterByPhase(entityPostDeleteHooks.get(entityName), phase);
     },
 
     getAllTranslations(): TranslationKeys {

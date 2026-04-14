@@ -2,6 +2,8 @@ import type { Hono } from "hono";
 import type { JwtHelper } from "../api/jwt";
 import type { SessionUser } from "../engine/types";
 
+export type BatchCommand = { type: string; payload: unknown };
+
 export type RequestHelper = {
   write: (
     type: string,
@@ -11,6 +13,11 @@ export type RequestHelper = {
   ) => Promise<Response>;
   query: (type: string, payload: unknown, user: SessionUser) => Promise<Response>;
   command: (type: string, payload: unknown, user: SessionUser) => Promise<Response>;
+  batch: (
+    commands: readonly BatchCommand[],
+    user: SessionUser,
+    requestId?: string,
+  ) => Promise<Response>;
   raw: (
     method: string,
     path: string,
@@ -73,6 +80,11 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
     async command(type, payload, user) {
       const headers = await authHeader(user);
       return req("POST", "/api/command", { type, payload }, headers);
+    },
+
+    async batch(commands, user, requestId) {
+      const headers = await authHeader(user);
+      return req("POST", "/api/batch", { commands, requestId }, headers);
     },
 
     raw: req,

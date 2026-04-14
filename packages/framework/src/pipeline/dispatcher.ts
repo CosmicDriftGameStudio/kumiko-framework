@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
+import type { DbConnection, DbTx } from "../db/connection";
 import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
@@ -17,10 +18,43 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
+import { HookPhases } from "../engine/types";
 import { runValidation } from "../engine/validation";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
+
+// Deferred afterCommit callback — collected during transaction execution,
+// fired sequentially once the transaction commits successfully.
+type AfterCommitHook = () => Promise<void>;
+
+// Sentinel thrown inside a Drizzle transaction to force a rollback while
+// carrying the command failure context back out. Drizzle rolls back iff the
+// transaction callback throws — this class lets us distinguish an expected
+// rollback (command returned isSuccess: false) from an unexpected error.
+class BatchRollback extends Error {
+  constructor(
+    readonly failedIndex: number,
+    readonly failureError: string,
+  ) {
+    super(`batch rollback at command ${failedIndex}: ${failureError}`);
+    this.name = "BatchRollback";
+  }
+}
+
+export type BatchCommand = {
+  readonly type: string;
+  readonly payload: unknown;
+};
+
+export type BatchResult =
+  | { readonly isSuccess: true; readonly results: readonly WriteResult[] }
+  | {
+      readonly isSuccess: false;
+      readonly error: string;
+      readonly failedIndex: number;
+      readonly results: readonly WriteResult[];
+    };
 
 export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;
@@ -44,6 +78,17 @@ export type Dispatcher = {
   ): Promise<WriteResult>;
   query(type: HandlerType, payload: unknown, user: SessionUser): Promise<unknown>;
   command(type: HandlerType, payload: unknown, user: SessionUser): Promise<void>;
+  // Atomic multi-command write: all commands run in a single DB transaction.
+  // On any failure, the transaction rolls back and afterCommit hooks do NOT fire.
+  // On success, afterCommit hooks of every command are fired sequentially after commit.
+  //
+  // requestId enables idempotent retries (for the Savable-Dispatcher): a repeated
+  // batch with the same requestId returns the cached result without re-executing.
+  batch(
+    commands: readonly BatchCommand[],
+    user: SessionUser,
+    requestId?: string,
+  ): Promise<BatchResult>;
 };
 
 export function createDispatcher(
@@ -88,14 +133,15 @@ export function createDispatcher(
     });
   }
 
-  function buildHandlerContext(type: string, user: SessionUser): HandlerContext {
+  function buildHandlerContext(type: string, user: SessionUser, tx?: DbTx): HandlerContext {
     const isSystem = registry.isHandlerSystemScoped(type);
-    const db = context.db
-      ? createTenantDb(
-          context.db as import("../db/connection").DbConnection,
-          user.tenantId,
-          isSystem ? "system" : "tenant",
-        )
+    // The outer dispatcher receives a DbConnection from the server/stack;
+    // AppContext's `db` union also allows TenantDb (for downstream hook calls),
+    // but at this point we're the root of the pipeline — cast is safe.
+    const dbSource: DbConnection | DbTx | undefined =
+      tx ?? (context.db as DbConnection | undefined);
+    const db = dbSource
+      ? createTenantDb(dbSource, user.tenantId, isSystem ? "system" : "tenant")
       : undefined;
     const reqCtx = requestContext.get();
     const log = context.log?.child({
@@ -108,27 +154,48 @@ export function createDispatcher(
     return { ...context, db, log, notify, _userId: user.id, _handlerType: type } as HandlerContext;
   }
 
+  // Runs lifecycle hooks for a handler result. inTransaction hooks fire NOW
+  // (they see the tx via ctx.db when batch/write opens a transaction).
+  // afterCommit hooks are queued into `afterCommitHooks` for the caller to
+  // flush after commit.
   async function runLifecycle(
     type: string,
     data: unknown,
     handlerContext: HandlerContext,
+    afterCommitHooks: AfterCommitHook[],
   ): Promise<void> {
     if (!lifecycle || !data || typeof data !== "object" || !("kind" in data)) return;
     const result = data as LifecycleResult;
+
     if (result.kind === "save") {
-      await lifecycle.runPostSave(type, result, handlerContext);
+      await lifecycle.runPostSave(type, result, handlerContext, HookPhases.inTransaction);
+      afterCommitHooks.push(() =>
+        lifecycle.runPostSave(type, result, handlerContext, HookPhases.afterCommit),
+      );
     } else if (result.kind === "delete") {
       await lifecycle.runPreDelete(type, result, handlerContext);
-      await lifecycle.runPostDelete(type, result, handlerContext);
+      await lifecycle.runPostDelete(type, result, handlerContext, HookPhases.inTransaction);
+      afterCommitHooks.push(() =>
+        lifecycle.runPostDelete(type, result, handlerContext, HookPhases.afterCommit),
+      );
     }
   }
 
   // Shared write pipeline: validates, executes handler, runs lifecycle + side effects.
-  // Used by both write() and command().
+  // Used by runBatch (which opens a transaction and flushes afterCommitHooks on commit).
+  //
+  // Contract:
+  //   - `tx` is the active Drizzle transaction handle (or undefined for the no-DB
+  //     fallback path used by tests without a Postgres connection).
+  //   - `afterCommitHooks` collects deferred side-effects that must only fire
+  //     after the transaction commits. The caller flushes them on commit, drops
+  //     them on rollback. executeWrite never fires them directly.
   async function executeWrite(
     type: string,
     payload: unknown,
     user: SessionUser,
+    tx: DbTx | undefined,
+    afterCommitHooks: AfterCommitHook[],
   ): Promise<WriteResult> {
     const handler = registry.getWriteHandler(type);
     if (!handler) return { isSuccess: false, error: `${ErrorCodes.handlerNotFound}: ${type}` };
@@ -164,7 +231,7 @@ export function createDispatcher(
       }
     }
 
-    const handlerContext = buildHandlerContext(type, user);
+    const handlerContext = buildHandlerContext(type, user, tx);
 
     // Auto transition guard: if entity has transitions and handler doesn't skip it
     if (entityName && !handler.skipTransitionGuard) {
@@ -193,34 +260,153 @@ export function createDispatcher(
     const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
     if (result.isSuccess) {
-      await runLifecycle(type, result.data, handlerContext);
+      await runLifecycle(type, result.data, handlerContext, afterCommitHooks);
 
+      // jobRunner and eventLog have external side-effects — they must NOT fire
+      // for rolled-back writes. Defer to afterCommit in all paths.
       if (jobRunner) {
-        await jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>, user);
+        afterCommitHooks.push(() =>
+          jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>, user),
+        );
       }
+      const parsedData = parsed.data;
+      afterCommitHooks.push(() => logEvent(type, parsedData, user));
     }
 
-    await logEvent(type, parsed.data, user);
     return result;
+  }
+
+  // Core batch logic extracted so write() and command() can reuse it
+  // (a single write = batch of one, running in its own transaction).
+  async function runBatch(
+    commands: readonly BatchCommand[],
+    user: SessionUser,
+    requestId?: string,
+  ): Promise<BatchResult> {
+    if (commands.length === 0) {
+      return { isSuccess: true, results: [] };
+    }
+
+    // Idempotency: if the same requestId has already been processed, return the
+    // cached result without re-executing. The cache holds the full BatchResult.
+    if (requestId && idempotency) {
+      const cached = await idempotency.check(requestId);
+      if (cached) return JSON.parse(cached) as BatchResult;
+    }
+
+    // Wrap return paths: cache the final result under requestId so retries get
+    // the same answer (both success and failure results are cached).
+    const finalize = async (result: BatchResult): Promise<BatchResult> => {
+      if (requestId && idempotency) {
+        await idempotency.store(requestId, result);
+      }
+      return result;
+    };
+
+    const afterCommitHooks: AfterCommitHook[] = [];
+    const results: WriteResult[] = [];
+
+    // Flush afterCommit hooks. Errors are logged, not rethrown: the writes are
+    // already committed, we can't undo them.
+    const flushAfterCommit = async () => {
+      for (const hook of afterCommitHooks) {
+        try {
+          await hook();
+        } catch (e) {
+          const detail = e instanceof Error ? e.message : String(e);
+          const msg = "afterCommit hook failed";
+          if (context.log) context.log.error(msg, { error: detail });
+          else console.error(`[dispatcher] ${msg}: ${detail}`);
+        }
+      }
+    };
+
+    const db = context.db as DbConnection | undefined;
+    if (!db) {
+      // Without a DB connection there is no transaction to open. Fall back to
+      // sequential execution — useful for unit tests that don't touch the DB.
+      // Each command runs independently; a failure stops the batch.
+      for (let i = 0; i < commands.length; i++) {
+        const cmd = commands[i];
+        if (!cmd) continue;
+        const res = await executeWrite(cmd.type, cmd.payload, user, undefined, afterCommitHooks);
+        results.push(res);
+        if (!res.isSuccess) {
+          // No tx means no rollback — but we still drop afterCommit hooks,
+          // matching the semantic "failure = side-effects don't fire".
+          return finalize({ isSuccess: false, error: res.error, failedIndex: i, results });
+        }
+      }
+      await flushAfterCommit();
+      return finalize({ isSuccess: true, results });
+    }
+
+    try {
+      await db.transaction(async (tx) => {
+        for (let i = 0; i < commands.length; i++) {
+          const cmd = commands[i];
+          if (!cmd) continue;
+          const res = await executeWrite(cmd.type, cmd.payload, user, tx, afterCommitHooks);
+          results.push(res);
+          if (!res.isSuccess) {
+            throw new BatchRollback(i, res.error);
+          }
+        }
+      });
+    } catch (e) {
+      if (e instanceof BatchRollback) {
+        return finalize({
+          isSuccess: false,
+          error: e.failureError,
+          failedIndex: e.failedIndex,
+          results,
+        });
+      }
+      // Unexpected throw (DB error, handler threw directly) — report as failure.
+      const msg = e instanceof Error ? e.message : String(e);
+      return finalize({
+        isSuccess: false,
+        error: msg,
+        failedIndex: results.length,
+        results,
+      });
+    }
+
+    // Commit succeeded — fire deferred side-effects.
+    await flushAfterCommit();
+    return finalize({ isSuccess: true, results });
+  }
+
+  // Unwrap a BatchResult into a single WriteResult for write()/command().
+  // Picks the last result if present (the failing one for failures, the only
+  // one for successful single writes). Falls back to a synthetic error if the
+  // batch didn't produce any results (unexpected).
+  function unwrapSingle(batchResult: BatchResult): WriteResult {
+    if (batchResult.isSuccess) {
+      return (
+        batchResult.results[0] ?? {
+          isSuccess: false,
+          error: `${ErrorCodes.handlerNotFound}: empty_batch_result`,
+        }
+      );
+    }
+    return (
+      batchResult.results[batchResult.failedIndex] ?? {
+        isSuccess: false,
+        error: batchResult.error,
+      }
+    );
   }
 
   return {
     async write(typeOrRef, payload, user, requestId?) {
       const type = resolveType(typeOrRef);
-
-      if (requestId && idempotency) {
-        const cached = await idempotency.check(requestId);
-        if (cached) return JSON.parse(cached) as WriteResult;
-      }
-
-      const result = await executeWrite(type, payload, user);
-
-      if (requestId && idempotency) {
-        await idempotency.store(requestId, result);
-      }
-
-      return result;
+      // Idempotency handled inside runBatch (caches BatchResult under requestId).
+      const batchResult = await runBatch([{ type, payload }], user, requestId);
+      return unwrapSingle(batchResult);
     },
+
+    batch: runBatch,
 
     async query(typeOrRef, payload, user) {
       const type = resolveType(typeOrRef);
@@ -266,7 +452,8 @@ export function createDispatcher(
 
     async command(typeOrRef, payload, user) {
       const type = resolveType(typeOrRef);
-      const result = await executeWrite(type, payload, user);
+      const batchResult = await runBatch([{ type, payload }], user);
+      const result = unwrapSingle(batchResult);
 
       if (!result.isSuccess) {
         // Error format: "error_code: detail" — extract code for proper HTTP status

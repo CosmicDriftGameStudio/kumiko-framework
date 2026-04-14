@@ -33,6 +33,41 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     }
   });
 
+  api.post(Routes.batch, async (c) => {
+    const user = getUser(c);
+    const body = await c.req.json<{
+      commands: Array<{ type: string; payload: unknown }>;
+      requestId?: string;
+    }>();
+
+    if (!Array.isArray(body.commands)) {
+      const reqId = requestContext.get()?.requestId;
+      return c.json(
+        { isSuccess: false, error: "commands must be an array", requestId: reqId },
+        400,
+      );
+    }
+
+    try {
+      const result = await dispatcher.batch(body.commands, user, body.requestId);
+      if (!result.isSuccess) {
+        const reqId = requestContext.get()?.requestId;
+        return c.json({ ...result, requestId: reqId }, 400);
+      }
+      return c.json(result);
+    } catch (e) {
+      const reqId = requestContext.get()?.requestId;
+      if (e instanceof FrameworkError) {
+        return c.json(
+          { isSuccess: false, error: e.message, requestId: reqId },
+          e.httpStatus as ContentfulStatusCode,
+        );
+      }
+      const message = e instanceof Error ? e.message : "unknown_error";
+      return c.json({ isSuccess: false, error: message, requestId: reqId }, 500);
+    }
+  });
+
   api.post(Routes.query, async (c) => {
     const user = getUser(c);
     const body = await c.req.json<{ type: string; payload: unknown }>();

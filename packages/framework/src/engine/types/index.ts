@@ -78,8 +78,10 @@ export type {
   DeleteContext,
   EntityHookMap,
   HookMap,
+  HookPhase,
   LifecycleHookFn,
   LifecycleResult,
+  PhasedHook,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -89,6 +91,7 @@ export type {
   ValidationError,
   ValidationHookFn,
 } from "./hooks";
+export { HookPhases } from "./hooks";
 export type {
   BelongsToRelation,
   EntityRelations,

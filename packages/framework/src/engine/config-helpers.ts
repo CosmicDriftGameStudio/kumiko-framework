@@ -8,6 +8,10 @@ export const access = {
   admin: ["Admin", "SystemAdmin"] as readonly string[],
   systemAdmin: ["SystemAdmin"] as readonly string[],
   system: ["system"] as readonly string[],
+  // system + SystemAdmin — use for field-access on identity columns that
+  // framework auth code (SYSTEM_USER) writes during login/registration, but
+  // that a SystemAdmin should also be able to fix manually.
+  privileged: ["system", "SystemAdmin"] as readonly string[],
   roles: (...roles: string[]): readonly string[] => roles,
 } as const;
 

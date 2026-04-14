@@ -23,6 +23,10 @@ describe("access presets", () => {
     expect(access.system).toEqual(["system"]);
   });
 
+  test("access.privileged covers framework auth + SystemAdmin", () => {
+    expect(access.privileged).toEqual(["system", "SystemAdmin"]);
+  });
+
   test("access.roles() creates custom role list", () => {
     expect(access.roles("Billing", "Accounting")).toEqual(["Billing", "Accounting"]);
   });

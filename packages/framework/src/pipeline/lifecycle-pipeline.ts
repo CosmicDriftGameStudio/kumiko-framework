@@ -1,6 +1,7 @@
 import type {
   AppContext,
   DeleteContext,
+  HookPhase,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -8,12 +9,17 @@ import type {
   Registry,
   SaveContext,
 } from "../engine/types";
+import { HookPhases } from "../engine/types";
 import type { EventDedup } from "./event-dedup";
 
 export type SystemHookDef<TFn> = {
   readonly name: string;
   readonly priority: number;
   readonly fn: TFn;
+  // Default: afterCommit (same as user-registered hooks).
+  // Set to "inTransaction" for DB-based side-effects (e.g. audit rows)
+  // that must roll back with the transaction.
+  readonly phase?: HookPhase;
 };
 
 export type SystemHooks = {
@@ -32,11 +38,24 @@ export type LifecycleHooks = {
     context: AppContext,
   ): Promise<Record<string, unknown>>;
 
-  runPostSave(handlerName: string, result: SaveContext, context: AppContext): Promise<void>;
+  // Phase-aware: pass "inTransaction" to run only in-tx hooks during a batch
+  // transaction, then "afterCommit" after the transaction commits.
+  // Omitting phase runs all hooks (used by legacy call sites — to be removed).
+  runPostSave(
+    handlerName: string,
+    result: SaveContext,
+    context: AppContext,
+    phase?: HookPhase,
+  ): Promise<void>;
 
   runPreDelete(handlerName: string, payload: DeleteContext, context: AppContext): Promise<void>;
 
-  runPostDelete(handlerName: string, payload: DeleteContext, context: AppContext): Promise<void>;
+  runPostDelete(
+    handlerName: string,
+    payload: DeleteContext,
+    context: AppContext,
+    phase?: HookPhase,
+  ): Promise<void>;
 };
 
 export type LifecycleOptions = {
@@ -55,7 +74,14 @@ export function createLifecycleHooks(
   }
 
   // Shared hook execution: runs handler hooks → entity hooks → system hooks.
-  // Collects errors instead of throwing (post-hooks are best-effort).
+  //
+  // Error handling depends on hookPhase:
+  //   - inTransaction: errors THROW (roll back transaction)
+  //   - afterCommit: errors are collected + logged (best-effort)
+  //
+  // Event dedup is only applied in afterCommit phase, because:
+  //   - the key must not be consumed if the transaction later rolls back
+  //   - in-tx hooks run once per commit, dedup there is redundant
   async function runHookSet<TPayload>(opts: {
     handlerName: string;
     payload: TPayload;
@@ -66,11 +92,14 @@ export function createLifecycleHooks(
     systemHookDefs:
       | readonly SystemHookDef<(p: TPayload, c: AppContext) => Promise<void>>[]
       | undefined;
-    phase: string;
+    phaseLabel: string;
+    hookPhase: HookPhase;
   }): Promise<void> {
-    // Event dedup: skip entire hook set if already processed
-    if (eventDedup) {
-      const eventId = buildEventId(opts.handlerName, opts.payload, opts.phase);
+    const throwOnError = opts.hookPhase === HookPhases.inTransaction;
+
+    // Event dedup: only in afterCommit (see comment above)
+    if (eventDedup && opts.hookPhase === HookPhases.afterCommit) {
+      const eventId = buildEventId(opts.handlerName, opts.payload, opts.phaseLabel);
       if (eventId) {
         const acquired = await eventDedup.tryAcquire(eventId);
         if (!acquired) return;
@@ -83,6 +112,7 @@ export function createLifecycleHooks(
       try {
         await hook(opts.payload, opts.context);
       } catch (e) {
+        if (throwOnError) throw e;
         errors.push({ name: `handler:${opts.handlerName}`, error: e });
       }
     }
@@ -92,6 +122,7 @@ export function createLifecycleHooks(
         try {
           await hook(opts.payload, opts.context);
         } catch (e) {
+          if (throwOnError) throw e;
           errors.push({ name: `entity:${opts.entityName}`, error: e });
         }
       }
@@ -99,9 +130,12 @@ export function createLifecycleHooks(
 
     if (opts.systemHookDefs) {
       for (const sysHook of sortByPriority(opts.systemHookDefs)) {
+        const sysHookPhase = sysHook.phase ?? HookPhases.afterCommit;
+        if (sysHookPhase !== opts.hookPhase) continue;
         try {
           await sysHook.fn(opts.payload, opts.context);
         } catch (e) {
+          if (throwOnError) throw e;
           errors.push({ name: sysHook.name, error: e });
         }
       }
@@ -109,7 +143,7 @@ export function createLifecycleHooks(
 
     if (errors.length > 0) {
       const log = opts.context.log;
-      const msg = `${opts.phase} errors for ${opts.handlerName}`;
+      const msg = `${opts.phaseLabel} errors for ${opts.handlerName}`;
       const details = errors.map((e) => `${e.name}: ${e.error}`);
       if (log) {
         log.error(msg, { errors: details });
@@ -137,48 +171,56 @@ export function createLifecycleHooks(
       return currentChanges;
     },
 
-    async runPostSave(handlerName, result, context) {
+    async runPostSave(handlerName, result, context, phase = HookPhases.afterCommit) {
       await runHookSet({
         handlerName,
         payload: result,
         context,
         entityName: result.entityName,
-        getHandlerHooks: (n) => registry.getPostSaveHooks(n),
-        getEntityHooks: (n) => registry.getEntityPostSaveHooks(n),
+        getHandlerHooks: (n) => registry.getPostSaveHooks(n, phase),
+        getEntityHooks: (n) => registry.getEntityPostSaveHooks(n, phase),
         systemHookDefs: systemHooks.postSave,
-        phase: "postSave",
+        phaseLabel: `postSave:${phase}`,
+        hookPhase: phase,
       });
     },
 
     async runPreDelete(handlerName, payload, context) {
-      // preDelete hooks throw on failure (not best-effort)
-      for (const hook of registry.getPreDeleteHooks(handlerName)) {
+      // preDelete hooks run in-transaction and throw on failure (not best-effort).
+      // They're used to check invariants before delete, so phase filter is "inTransaction".
+      for (const hook of registry.getPreDeleteHooks(handlerName, HookPhases.inTransaction)) {
         await hook(payload, context);
       }
 
       if (payload.entityName) {
-        for (const hook of registry.getEntityPreDeleteHooks(payload.entityName)) {
+        for (const hook of registry.getEntityPreDeleteHooks(
+          payload.entityName,
+          HookPhases.inTransaction,
+        )) {
           await hook(payload, context);
         }
       }
 
       if (systemHooks.preDelete) {
         for (const sysHook of sortByPriority(systemHooks.preDelete)) {
+          const sysHookPhase = sysHook.phase ?? HookPhases.inTransaction;
+          if (sysHookPhase !== HookPhases.inTransaction) continue;
           await sysHook.fn(payload, context);
         }
       }
     },
 
-    async runPostDelete(handlerName, payload, context) {
+    async runPostDelete(handlerName, payload, context, phase = HookPhases.afterCommit) {
       await runHookSet({
         handlerName,
         payload,
         context,
         entityName: payload.entityName,
-        getHandlerHooks: (n) => registry.getPostDeleteHooks(n),
-        getEntityHooks: (n) => registry.getEntityPostDeleteHooks(n),
+        getHandlerHooks: (n) => registry.getPostDeleteHooks(n, phase),
+        getEntityHooks: (n) => registry.getEntityPostDeleteHooks(n, phase),
         systemHookDefs: systemHooks.postDelete,
-        phase: "postDelete",
+        phaseLabel: `postDelete:${phase}`,
+        hookPhase: phase,
       });
     },
   };

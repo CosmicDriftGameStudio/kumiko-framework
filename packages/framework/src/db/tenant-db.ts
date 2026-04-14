@@ -1,5 +1,5 @@
 import { and, type Column, eq, or, type SQL } from "drizzle-orm";
-import type { DbConnection } from "./connection";
+import type { DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -69,7 +69,7 @@ type TenantDelete = {
 };
 
 export function createTenantDb(
-  db: DbConnection,
+  db: DbRunner,
   tenantId: number,
   mode: TenantDbMode = "tenant",
 ): TenantDb {

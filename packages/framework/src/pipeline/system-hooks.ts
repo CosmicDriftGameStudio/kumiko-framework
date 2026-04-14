@@ -2,6 +2,7 @@ import type { SseBroker, SseEvent } from "../api/sse-broker";
 import { SystemHookNames, SystemHookPriorities, tenantChannel } from "../engine/constants";
 import { qn } from "../engine/qualified-name";
 import type { PostDeleteHookFn, PostSaveHookFn, Registry } from "../engine/types";
+import { HookPhases } from "../engine/types";
 import type { SearchAdapter } from "../search/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
 
@@ -144,6 +145,9 @@ export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<
   return {
     name: SystemHookNames.auditTrail,
     priority: SystemHookPriorities.auditTrail,
+    // Audit rows are DB writes that must be atomic with the entity change:
+    // if the write rolls back, the audit entry must roll back too.
+    phase: HookPhases.inTransaction,
     fn: async (result, ctx) => {
       const entityName = result.entityName;
       if (!entityName) return;
@@ -171,6 +175,7 @@ export function createAuditTrailDeleteHook(
   return {
     name: SystemHookNames.auditTrailDelete,
     priority: SystemHookPriorities.auditTrail,
+    phase: HookPhases.inTransaction,
     fn: async (payload, ctx) => {
       const entityName = payload.entityName;
       if (!entityName) return;

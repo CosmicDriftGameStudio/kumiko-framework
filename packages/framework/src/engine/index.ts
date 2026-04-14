@@ -110,6 +110,6 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "./types";
-export { DEFAULT_CURRENCIES } from "./types";
+export { DEFAULT_CURRENCIES, HookPhases } from "./types";
 export { resolveName } from "./types/handlers";
 export { runValidation } from "./validation";

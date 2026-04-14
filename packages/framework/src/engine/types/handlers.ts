@@ -83,7 +83,10 @@ type SharedContextFields = {
   readonly _notifyFactory?: NotifyFactory;
 };
 
-// All optional — used at pipeline/system boundaries
+// All optional — used at pipeline/system boundaries.
+// `db` is a DbConnection at the outer boundary (server/stack) and a TenantDb
+// once a HandlerContext has been built — hooks receive the HandlerContext as
+// AppContext, so the union keeps that assignment straightforward.
 export type AppContext = SharedContextFields & {
   readonly db?: DbConnection | TenantDb;
   readonly registry?: Registry;

@@ -31,6 +31,7 @@ import type {
 import type {
   EntityHookMap,
   HookMap,
+  HookPhase,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -103,14 +104,36 @@ export type FeatureRegistrar = {
 
   hook(type: "validation", target: RefOrRefs, fn: ValidationHookFn): void;
   hook(type: "preSave", target: RefOrRefs, fn: PreSaveHookFn): void;
-  hook(type: "postSave", target: RefOrRefs, fn: PostSaveHookFn): void;
+  hook(
+    type: "postSave",
+    target: RefOrRefs,
+    fn: PostSaveHookFn,
+    options?: { phase?: HookPhase },
+  ): void;
+  // preDelete always runs in-transaction (it guards the delete — there is no
+  // meaningful "after" for a pre-hook). No phase option.
   hook(type: "preDelete", target: RefOrRefs, fn: PreDeleteHookFn): void;
-  hook(type: "postDelete", target: RefOrRefs, fn: PostDeleteHookFn): void;
+  hook(
+    type: "postDelete",
+    target: RefOrRefs,
+    fn: PostDeleteHookFn,
+    options?: { phase?: HookPhase },
+  ): void;
   hook(type: "preQuery", target: RefOrRefs, fn: PreQueryHookFn): void;
 
-  entityHook(type: "postSave", entity: NameOrRef, fn: PostSaveHookFn): void;
+  entityHook(
+    type: "postSave",
+    entity: NameOrRef,
+    fn: PostSaveHookFn,
+    options?: { phase?: HookPhase },
+  ): void;
   entityHook(type: "preDelete", entity: NameOrRef, fn: PreDeleteHookFn): void;
-  entityHook(type: "postDelete", entity: NameOrRef, fn: PostDeleteHookFn): void;
+  entityHook(
+    type: "postDelete",
+    entity: NameOrRef,
+    fn: PostDeleteHookFn,
+    options?: { phase?: HookPhase },
+  ): void;
 
   config(definition: ConfigDefinition): void;
 
@@ -162,13 +185,13 @@ export type Registry = {
     relation: RelationDefinition;
   }>;
   getPreSaveHooks(name: string): readonly PreSaveHookFn[];
-  getPostSaveHooks(name: string): readonly PostSaveHookFn[];
-  getPreDeleteHooks(name: string): readonly PreDeleteHookFn[];
-  getPostDeleteHooks(name: string): readonly PostDeleteHookFn[];
+  getPostSaveHooks(name: string, phase?: HookPhase): readonly PostSaveHookFn[];
+  getPreDeleteHooks(name: string, phase?: HookPhase): readonly PreDeleteHookFn[];
+  getPostDeleteHooks(name: string, phase?: HookPhase): readonly PostDeleteHookFn[];
   getPreQueryHooks(name: string): readonly PreQueryHookFn[];
-  getEntityPostSaveHooks(entityName: string): readonly PostSaveHookFn[];
-  getEntityPreDeleteHooks(entityName: string): readonly PreDeleteHookFn[];
-  getEntityPostDeleteHooks(entityName: string): readonly PostDeleteHookFn[];
+  getEntityPostSaveHooks(entityName: string, phase?: HookPhase): readonly PostSaveHookFn[];
+  getEntityPreDeleteHooks(entityName: string, phase?: HookPhase): readonly PreDeleteHookFn[];
+  getEntityPostDeleteHooks(entityName: string, phase?: HookPhase): readonly PostDeleteHookFn[];
   getHandlerEntity(qualifiedHandler: string): string | undefined;
   isHandlerSystemScoped(qualifiedHandler: string): boolean;
   getAllTranslations(): TranslationKeys;

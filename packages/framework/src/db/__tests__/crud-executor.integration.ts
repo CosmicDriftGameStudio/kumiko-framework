@@ -63,6 +63,29 @@ describe("crud create", () => {
       expect(result.data.id).toBeDefined();
     }
   });
+
+  test("applies field defaults when payload omits them", async () => {
+    // isEnabled has `default: true` on the entity — payload omits it,
+    // so the insert must write true (not null, not undefined).
+    const result = await crud.create({ email: "default-check@test.de" }, adminUser, adminDb);
+
+    expect(result.isSuccess).toBe(true);
+    if (!result.isSuccess) return;
+    expect(result.data.data["isEnabled"]).toBe(true);
+  });
+
+  test("explicit value wins over default", async () => {
+    // Client explicitly sets isEnabled: false — must survive, default must not overwrite.
+    const result = await crud.create(
+      { email: "explicit@test.de", isEnabled: false },
+      adminUser,
+      adminDb,
+    );
+
+    expect(result.isSuccess).toBe(true);
+    if (!result.isSuccess) return;
+    expect(result.data.data["isEnabled"]).toBe(false);
+  });
 });
 
 describe("crud detail", () => {
