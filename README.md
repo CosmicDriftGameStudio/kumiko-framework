@@ -235,3 +235,18 @@ yarn kumiko test integration
 - `createSseBroker()` — In-Memory SSE Connection Manager (Channels, Push, Heartbeat)
 - `createSseRoute(broker)` — `GET /api/sse?channel=...` mit Auto-Reconnect Heartbeat
 - `createDistributedLock(redis)` — Atomic Lock/Release mit TTL (Lua-basiert, owner-safe)
+
+---
+
+## Contributing
+
+Beiträge willkommen — siehe [CONTRIBUTING.md](./CONTRIBUTING.md) für Setup, Conventions und was gemerged wird (und was nicht).
+
+Kurzfassung:
+- Roadmap in `docs/plans/uebersicht.md` — neue Features bitte vorher diskutieren
+- Jedes Feature braucht ein Sample in `samples/`
+- Integration-Tests ohne Mocks, Full-Stack oder nicht relevant
+
+## License
+
+[MIT](./LICENSE) © 2026 Marc Frost
