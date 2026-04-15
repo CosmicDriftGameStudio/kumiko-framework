@@ -62,16 +62,21 @@ export type JobRunnerRef = {
 // Priority levels for notifications
 export type NotifyPriority = "critical" | "normal" | "low";
 
+// Options passed to a NotifyFn / DeliveryService.notify. Defined here so the
+// framework side and the concrete delivery implementation can't drift apart.
+export type NotifyOptions = {
+  readonly to?: number | readonly number[] | { readonly tenant: number };
+  readonly route?: Readonly<Record<string, string>>;
+  readonly data?: Readonly<Record<string, unknown>>;
+  readonly priority?: NotifyPriority;
+  // Opt-in dedup. Same key within 24h = single delivery. Use when a handler
+  // can be replayed (webhook retry, user double-click) and you don't want
+  // the notification to fire twice.
+  readonly idempotencyKey?: string;
+};
+
 // Minimal interface for delivery notifications (concrete type in core-features/delivery)
-export type NotifyFn = (
-  notificationType: string,
-  options: {
-    readonly to?: number | readonly number[] | { readonly tenant: number };
-    readonly route?: Readonly<Record<string, string>>;
-    readonly data?: Readonly<Record<string, unknown>>;
-    readonly priority?: NotifyPriority;
-  },
-) => Promise<void>;
+export type NotifyFn = (notificationType: string, options: NotifyOptions) => Promise<void>;
 
 // Factory that produces a bound NotifyFn for a specific user+tenant
 // Concrete implementation in core-features/delivery (cross-package boundary)

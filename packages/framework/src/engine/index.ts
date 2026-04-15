@@ -84,6 +84,7 @@ export type {
   NotificationTemplateFn,
   NotifyFactory,
   NotifyFn,
+  NotifyOptions,
   NotifyPriority,
   NumberFieldDef,
   OnDeleteStrategy,

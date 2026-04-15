@@ -103,6 +103,7 @@ const commands = {
         ["Fake-Test Guard", "yarn tsx scripts/guard-fake-tests.ts"],
         ["Feature-Integration-Test Guard", "yarn tsx scripts/guard-feature-integration-tests.ts"],
         ["i18n-Keys Guard", "yarn tsx scripts/guard-i18n-keys.ts"],
+        ["Test-Stack-Drift Guard", "yarn tsx scripts/guard-test-stack-drift.ts"],
         ["Unit Tests", "yarn vitest run"],
         ["Integration Guard", "node vitest.integration.guard.js"],
         ["Integration Tests", "yarn vitest run --config vitest.integration.config.ts"],

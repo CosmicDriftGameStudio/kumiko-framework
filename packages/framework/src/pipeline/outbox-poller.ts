@@ -1,8 +1,17 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type Redis from "ioredis";
 import type { DbConnection } from "../db/connection";
+import type { Logger } from "../logging/types";
 import type { BrokerEvent, EventBroker } from "./event-broker";
 import { eventOutboxTable, OUTBOX_WAKE_CHANNEL } from "./outbox-table";
+
+export type DeadLetterEvent = {
+  readonly id: number;
+  readonly eventType: string;
+  readonly payload: Record<string, unknown>;
+  readonly attempts: number;
+  readonly lastError: string;
+};
 
 export type OutboxPollerOptions = {
   db: DbConnection;
@@ -13,6 +22,14 @@ export type OutboxPollerOptions = {
   batchSize?: number;
   pollIntervalMs?: number;
   maxAttempts?: number;
+  // Fires when a row hits maxAttempts and is marked dead-letter. Use this to
+  // wire a metric, page on-call, or push to an ops queue. Errors thrown from
+  // the hook are swallowed (the row is already flagged; losing the alert
+  // shouldn't crash the poller).
+  onDeadLetter?: (event: DeadLetterEvent) => void | Promise<void>;
+  // Optional logger — dead-letter rows are logged at error level even without
+  // an explicit hook, so an operator always has *something* in the logs.
+  log?: Logger;
 };
 
 export type OutboxPoller = {
@@ -46,6 +63,8 @@ export function createOutboxPoller(options: OutboxPollerOptions): OutboxPoller {
     batchSize = DEFAULT_BATCH_SIZE,
     pollIntervalMs = DEFAULT_POLL_MS,
     maxAttempts = DEFAULT_MAX_ATTEMPTS,
+    onDeadLetter,
+    log,
   } = options;
 
   let running = false;
@@ -136,6 +155,34 @@ export function createOutboxPoller(options: OutboxPollerOptions): OutboxPoller {
               deadLetter: isDead,
             })
             .where(eq(eventOutboxTable.id, row.id));
+
+          if (isDead) {
+            const dlEvent: DeadLetterEvent = {
+              id: row.id,
+              eventType: row.eventType,
+              payload: row.payload as Record<string, unknown>,
+              attempts: nextAttempts,
+              lastError: errMsg,
+            };
+            // Log at error level so operators see silent discards in stdout
+            // / their log pipeline even if they forgot to wire onDeadLetter.
+            log?.error("outbox.dead_letter", {
+              id: dlEvent.id,
+              eventType: dlEvent.eventType,
+              attempts: dlEvent.attempts,
+              lastError: dlEvent.lastError,
+            });
+            if (onDeadLetter) {
+              try {
+                await onDeadLetter(dlEvent);
+              } catch (hookErr) {
+                log?.error("outbox.dead_letter_hook_failed", {
+                  id: dlEvent.id,
+                  error: hookErr instanceof Error ? hookErr.message : String(hookErr),
+                });
+              }
+            }
+          }
         }
       }
     });

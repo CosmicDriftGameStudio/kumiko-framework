@@ -3,7 +3,7 @@ import {
   boolean,
   integer,
   jsonb,
-  numericAsNumber,
+  moneyAmount,
   table as pgTable,
   serial,
   type TableColumns,
@@ -15,7 +15,7 @@ type ColumnBuilder =
   | ReturnType<typeof text>
   | ReturnType<typeof integer>
   | ReturnType<typeof boolean>
-  | ReturnType<typeof numericAsNumber>
+  | ReturnType<typeof moneyAmount>
   | ReturnType<typeof jsonb>
   | ReturnType<typeof timestamp>
   | ReturnType<typeof serial>;
@@ -44,8 +44,12 @@ function fieldToColumns(
     case "number":
       return { [name]: integer(snakeName) };
     case "money":
+      // BIGINT storing the integer minor unit (cents for EUR, yen for JPY —
+      // the currency column tells you which). INTEGER would cap at ~21 M EUR
+      // which is too tight for B2B invoices, property values or balance
+      // aggregates. BIGINT handles up to ~90 trillion EUR safely in JS.
       return {
-        [name]: numericAsNumber(snakeName),
+        [name]: moneyAmount(snakeName),
         [`${name}Currency`]: text(`${snakeName}_currency`).default(entity.defaultCurrency ?? "EUR"),
       };
     case "embedded":

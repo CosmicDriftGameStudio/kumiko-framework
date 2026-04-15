@@ -1,5 +1,6 @@
 export { authMiddleware, getUser } from "./auth-middleware";
-export { createAuthRoutes } from "./auth-routes";
+export type { AuthRoutesConfig, LoginRateLimiter } from "./auth-routes";
+export { createAuthRoutes, createInMemoryLoginRateLimiter } from "./auth-routes";
 export type { JwtHelper, JwtPayload } from "./jwt";
 export { createJwtHelper } from "./jwt";
 export { type RequestContextData, requestContext } from "./request-context";

@@ -8,6 +8,7 @@ export type {
   PgTableWithColumns as TableColumns,
 } from "drizzle-orm/pg-core";
 export {
+  bigint,
   boolean,
   integer,
   jsonb,
@@ -20,15 +21,22 @@ export {
 } from "drizzle-orm/pg-core";
 
 /**
- * NUMERIC column that auto-converts to/from JS number.
- * Drizzle's built-in numeric returns strings — this returns numbers.
- * Precision is sufficient for money (up to ~9 quadrillion with 4 decimals).
+ * Money column: BIGINT storing the integer minor unit (cents for EUR, yen
+ * for JPY). Range ±9.2e18 in the DB; JS `number` is safe to 2^53 ≈ 9e15
+ * minor units = ~90 trillion EUR. INTEGER would cap at ~21 million EUR per
+ * row which is too tight for real-world invoices, bank balances, or bills
+ * of sale — hence bigint.
  */
-export const numericAsNumber = customType<{ data: number; driverData: string }>({
+export const moneyAmount = customType<{ data: number; driverData: string | number }>({
   dataType() {
-    return "numeric(19, 4)";
+    return "bigint";
   },
-  fromDriver(value: string): number {
-    return Number(value);
+  fromDriver(value: string | number): number {
+    // node-postgres returns BIGINT as string by default; Bun's pg returns
+    // number. Cast via Number() either way — safe because we stay under 2^53.
+    return typeof value === "number" ? value : Number(value);
+  },
+  toDriver(value: number): number {
+    return value;
   },
 });

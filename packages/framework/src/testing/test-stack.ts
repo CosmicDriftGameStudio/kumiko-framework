@@ -68,8 +68,15 @@ export type TestStackOptions = {
       }) => Record<string, unknown>);
   /** Wire up auth routes (login, tenant-switch). Leave undefined to skip. */
   authConfig?: AuthRoutesConfig;
-  /** Wire up the transactional outbox (ctx.emit + poller). Default: false. */
-  outbox?: boolean;
+  /** Wire up the transactional outbox (ctx.emit + poller). Default: false.
+   *  Pass an object to hook into dead-letter events (e.g. for alerting tests). */
+  outbox?:
+    | boolean
+    | {
+        onDeadLetter?: (
+          event: import("../pipeline/outbox-poller").DeadLetterEvent,
+        ) => void | Promise<void>;
+      };
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -178,7 +185,17 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     systemHooks,
     eventDedup,
     sseBroker,
-    ...(options.authConfig ? { auth: options.authConfig } : {}),
+    // Default tests to no login rate-limiter so existing suites that loop
+    // over logins don't hit a 429 after 10 attempts. Suites specifically
+    // testing the limiter can override via authConfig.loginRateLimit.
+    ...(options.authConfig
+      ? {
+          auth: {
+            ...options.authConfig,
+            ...(options.authConfig.loginRateLimit === undefined ? { loginRateLimit: null } : {}),
+          },
+        }
+      : {}),
     ...(options.outbox && subscriberRedis && eventBroker
       ? {
           outbox: {
@@ -188,6 +205,9 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
             pollIntervalMs: 50,
             batchSize: 200,
             maxAttempts: 3,
+            ...(typeof options.outbox === "object" && options.outbox.onDeadLetter
+              ? { onDeadLetter: options.outbox.onDeadLetter }
+              : {}),
           },
         }
       : {}),

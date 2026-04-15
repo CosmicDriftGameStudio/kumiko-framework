@@ -9,7 +9,7 @@ import { createDispatcher } from "../pipeline/dispatcher";
 import type { EventBroker } from "../pipeline/event-broker";
 import type { EventDedup } from "../pipeline/event-dedup";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
-import type { OutboxPoller } from "../pipeline/outbox-poller";
+import type { DeadLetterEvent, OutboxPoller } from "../pipeline/outbox-poller";
 import { createOutboxPoller } from "../pipeline/outbox-poller";
 import { PUBLIC_API_PATHS, Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
@@ -42,6 +42,8 @@ export type ServerOptions = {
     batchSize?: number;
     pollIntervalMs?: number;
     maxAttempts?: number;
+    // Fires when an outbox row exhausts retries. Hook a metric / pager here.
+    onDeadLetter?: (event: DeadLetterEvent) => void | Promise<void>;
   };
 };
 
@@ -90,6 +92,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
       ...(options.outbox.maxAttempts !== undefined
         ? { maxAttempts: options.outbox.maxAttempts }
         : {}),
+      ...(options.outbox.onDeadLetter !== undefined
+        ? { onDeadLetter: options.outbox.onDeadLetter }
+        : {}),
+      ...(options.context.log !== undefined ? { log: options.context.log } : {}),
     });
   }
 

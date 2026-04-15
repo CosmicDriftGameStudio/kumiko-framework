@@ -233,6 +233,82 @@ describe("Outbox: lookup scope", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Dead-letter alerting (onDeadLetter hook)
+// ---------------------------------------------------------------------------
+
+describe("Outbox: onDeadLetter hook", () => {
+  let dlStack: TestStack;
+  const deadLettered: Array<{ id: number; eventType: string; attempts: number }> = [];
+  let dlSubscriberShouldFail = false;
+
+  const dlFeature = defineFeature("outbox-dl-test", (r) => {
+    r.entity("dlItem", itemEntity);
+    r.defineEvent("dl.bang", z.object({ label: z.string() }));
+    r.writeHandler(
+      "dl:emit",
+      z.object({ label: z.string() }),
+      async (event, ctx) => {
+        await ctx.emit("outbox-dl-test:event:dl.bang", { label: event.payload.label });
+        return {
+          isSuccess: true,
+          data: { kind: "save", id: 1, data: {}, changes: {}, previous: {}, isNew: true },
+        };
+      },
+      { access: { roles: ["Admin"] } },
+    );
+  });
+
+  beforeAll(async () => {
+    dlStack = await setupTestStack({
+      features: [dlFeature],
+      outbox: {
+        onDeadLetter: (event) => {
+          deadLettered.push({
+            id: event.id,
+            eventType: event.eventType,
+            attempts: event.attempts,
+          });
+        },
+      },
+    });
+    await createEntityTable(dlStack.db.db, itemEntity, "dlItem");
+
+    dlStack.eventBroker?.subscribe("outbox-dl-test:event:dl.bang", async () => {
+      if (dlSubscriberShouldFail) throw new Error("dl_subscriber_boom");
+    });
+  });
+
+  afterAll(async () => {
+    await dlStack.cleanup();
+  });
+
+  test("hook fires exactly once when a row crosses maxAttempts", async () => {
+    dlSubscriberShouldFail = true;
+    deadLettered.length = 0;
+
+    await dlStack.http.write("outbox-dl-test:write:dl:emit", { label: "doom" }, admin);
+
+    // Below threshold: no hook yet
+    await dlStack.outboxPoller?.runOnce();
+    await dlStack.outboxPoller?.runOnce();
+    expect(deadLettered).toHaveLength(0);
+
+    // Crossing threshold: hook fires
+    await dlStack.outboxPoller?.runOnce();
+    expect(deadLettered).toHaveLength(1);
+    expect(deadLettered[0]).toMatchObject({
+      eventType: "outbox-dl-test:event:dl.bang",
+      attempts: 3,
+    });
+
+    // Subsequent passes skip the row — hook must not fire again
+    await dlStack.outboxPoller?.runOnce();
+    await dlStack.outboxPoller?.runOnce();
+    expect(deadLettered).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // System-scope events (tenantId = null)
 // ---------------------------------------------------------------------------
 
