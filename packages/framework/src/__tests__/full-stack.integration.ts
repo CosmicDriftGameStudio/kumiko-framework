@@ -7,10 +7,11 @@ import {
   createEntity,
   createTextField,
   defineFeature,
+  type HandlerContext,
   type SaveContext,
 } from "../engine";
 import { ErrorCodes } from "../engine/constants";
-import { createEventLog } from "../pipeline";
+import { createEventLog, eventOutboxTable } from "../pipeline";
 import {
   createEntityTable,
   createTestUser,
@@ -53,8 +54,23 @@ function userCrud(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
   });
 }
 
+// Single source of truth for the user-created event name + payload shape.
+// Every handler that touches this event goes through emitUserCreated so the
+// event contract can't drift between handlers.
+const USER_CREATED_EVENT = "users:event:user.created";
+
+async function emitUserCreated(
+  ctx: Pick<HandlerContext, "emit">,
+  id: number,
+  email: string,
+): Promise<void> {
+  await ctx.emit(USER_CREATED_EVENT, { id, email });
+}
+
 const userFeature = defineFeature("users", (r) => {
   const user = r.entity("user", userEntity);
+
+  r.defineEvent("user.created", z.object({ id: z.number(), email: z.string() }));
 
   const createHandler = r.writeHandler(
     "user:create",
@@ -63,7 +79,48 @@ const userFeature = defineFeature("users", (r) => {
       firstName: z.string().optional(),
       lastName: z.string().optional(),
     }),
-    async (event, ctx) => userCrud(ctx).create(event.payload, event.user, ctx.db),
+    async (event, ctx) => {
+      const result = await userCrud(ctx).create(event.payload, event.user, ctx.db);
+      if (result.isSuccess) {
+        await emitUserCreated(ctx, result.data.id, event.payload.email);
+      }
+      return result;
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Rollback via controlled failure: writes to the user table AND emits into
+  // the outbox, then deliberately returns isSuccess:false. The dispatcher
+  // raises BatchRollback, the surrounding tx rolls back — so NEITHER the user
+  // row NOR the outbox row survive. Proves the controlled-failure path.
+  r.writeHandler(
+    "user:create-rollback",
+    z.object({ email: z.email() }),
+    async (event, ctx) => {
+      const created = await userCrud(ctx).create(event.payload, event.user, ctx.db);
+      if (created.isSuccess) {
+        await emitUserCreated(ctx, created.data.id, event.payload.email);
+      }
+      return { isSuccess: false, error: "intentional_rollback" };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Rollback via uncaught throw: emits TWICE, then throws. Exercises a
+  // different dispatcher branch than isSuccess:false — the generic catch block
+  // that wraps BatchRollback. Proves that:
+  //   (a) an uncaught error rolls the tx back just like a controlled failure,
+  //   (b) multiple outbox rows from the same handler roll back together.
+  r.writeHandler(
+    "user:create-throw",
+    z.object({ email: z.email() }),
+    async (event, ctx) => {
+      const created = await userCrud(ctx).create(event.payload, event.user, ctx.db);
+      if (!created.isSuccess) return created;
+      await emitUserCreated(ctx, created.data.id, event.payload.email);
+      await emitUserCreated(ctx, created.data.id, `${event.payload.email}.secondary`);
+      throw new Error("unexpected_handler_failure");
+    },
     { access: { roles: ["Admin"] } },
   );
 
@@ -118,19 +175,32 @@ const adminUser = TestUsers.admin;
 const guestUser = createTestUser({ id: 2, roles: ["Guest"] });
 const otherTenantAdmin = createTestUser({ id: 3, tenantId: 2 });
 
+// Outbox subscriber — captures events the poller delivers. Populated inside
+// beforeAll; reset per-test in beforeEach so the transactional-outbox block
+// can assert exact call counts.
+const outboxSubscriberCalls: Array<{ type: string; payload: unknown }> = [];
+
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [userFeature] });
+  stack = await setupTestStack({ features: [userFeature], outbox: true });
 
   await createEntityTable(stack.db.db, userEntity);
+
+  stack.eventBroker?.subscribe(USER_CREATED_EVENT, async (event) => {
+    outboxSubscriberCalls.push(event);
+  });
 });
 
 afterAll(async () => {
   await stack.cleanup();
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   stack.events.reset();
   featurePostSaveLog.length = 0;
+  outboxSubscriberCalls.length = 0;
+  // Every previous write emits into event_outbox too now that outbox is on.
+  // Keep the table clean so per-test row counts mean what they say.
+  await stack.db.db.delete(eventOutboxTable);
 });
 
 // =============================================================================
@@ -741,5 +811,140 @@ describe("full stack: entity cache", () => {
 describe("full stack: health", () => {
   test("GET /health", async () => {
     expect(await (await stack.app.request("/health")).json()).toEqual({ status: "ok" });
+  });
+});
+
+// =============================================================================
+// Transactional Outbox — emit coexists with the full pipeline
+// =============================================================================
+//
+// Isolated outbox tests prove the mechanism. This block proves the contract
+// inside the real pipeline: ctx.emit runs next to the CrudExecutor write, the
+// feature postSave hook, audit, SSE, search, and entity cache — and every one
+// of those observes the same commit/rollback boundary as the outbox row.
+
+describe("full stack: transactional outbox", () => {
+  test("commit path: user row, outbox row, feature postSave, audit, SSE, search, subscriber — all consistent", async () => {
+    const data = await stack.http.writeOk(
+      "users:write:user:create",
+      { email: "outbox-happy@test.de", firstName: "Happy", lastName: "Path" },
+      adminUser,
+    );
+
+    // Business row committed
+    expect(data["isNew"]).toBe(true);
+    const userId = data["id"] as number;
+
+    // Outbox row committed alongside
+    const outboxRows = await stack.db.db.select().from(eventOutboxTable);
+    expect(outboxRows).toHaveLength(1);
+    expect(outboxRows[0]).toMatchObject({
+      tenantId: adminUser.tenantId,
+      eventType: USER_CREATED_EVENT,
+      publishedAt: null,
+    });
+    expect(outboxRows[0]?.payload).toMatchObject({ id: userId, email: "outbox-happy@test.de" });
+
+    // Feature postSave ran
+    expect(featurePostSaveLog).toHaveLength(1);
+    expect(featurePostSaveLog[0]).toMatchObject({ kind: "save", id: userId, isNew: true });
+
+    // System hooks fired: audit, SSE, search
+    expect(stack.events.audit).toHaveLength(1);
+    expect(stack.events.audit[0]).toMatchObject({
+      action: "users:write:user:create",
+      entityType: "user",
+      isNew: true,
+    });
+    expect(stack.events.sse.some((e) => e.type.includes("user"))).toBe(true);
+    const searchHits = await stack.search.search(adminUser.tenantId, "outbox-happy");
+    expect(searchHits.map((h) => h.entityId)).toContain(userId);
+
+    // Subscriber has NOT been called yet — poller hasn't run
+    expect(outboxSubscriberCalls).toHaveLength(0);
+
+    // Drain deterministically
+    const drain = await stack.outboxPoller?.runOnce();
+    expect(drain).toEqual({ processed: 1, failed: 0 });
+
+    // Now the subscriber saw the event and the row is marked published
+    expect(outboxSubscriberCalls).toHaveLength(1);
+    expect(outboxSubscriberCalls[0]).toMatchObject({
+      type: USER_CREATED_EVENT,
+      payload: { id: userId, email: "outbox-happy@test.de" },
+    });
+    const [publishedRow] = await stack.db.db.select().from(eventOutboxTable);
+    expect(publishedRow?.publishedAt).not.toBeNull();
+  });
+
+  test("rollback path: handler returns isSuccess:false after emit+insert → no user, no outbox row, no side-effects", async () => {
+    const res = await stack.http.write(
+      "users:write:user:create-rollback",
+      { email: "outbox-rollback@test.de" },
+      adminUser,
+    );
+    const body = (await res.json()) as { isSuccess: boolean; error: string };
+    expect(body.isSuccess).toBe(false);
+    expect(body.error).toContain("intentional_rollback");
+
+    // User table: the insert rolled back
+    const users = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+      "users:query:user:list",
+      { search: "outbox-rollback" },
+      adminUser,
+    );
+    expect(users.rows.some((u) => u["email"] === "outbox-rollback@test.de")).toBe(false);
+
+    // Outbox: the emit rolled back too
+    const outboxRows = await stack.db.db.select().from(eventOutboxTable);
+    expect(outboxRows).toHaveLength(0);
+
+    // Side-effects inside the tx boundary must not have committed either.
+    // Feature postSave, audit, and search all run inside executeWrite — they
+    // only materialize on commit. (SSE is a network broadcast and doesn't
+    // have a DB consequence; we deliberately don't assert on it here.)
+    expect(featurePostSaveLog).toHaveLength(0);
+    expect(stack.events.audit).toHaveLength(0);
+    const searchHits = await stack.search.search(adminUser.tenantId, "outbox-rollback");
+    expect(searchHits).toHaveLength(0);
+
+    // Poller has nothing to do — proves no fire-and-forget path snuck an event out
+    const drain = await stack.outboxPoller?.runOnce();
+    expect(drain).toEqual({ processed: 0, failed: 0 });
+    expect(outboxSubscriberCalls).toHaveLength(0);
+  });
+
+  test("uncaught throw + multi-emit: both outbox rows roll back, error is reported, no side-effects", async () => {
+    const res = await stack.http.write(
+      "users:write:user:create-throw",
+      { email: "outbox-throw@test.de" },
+      adminUser,
+    );
+    const body = (await res.json()) as { isSuccess: boolean; error: string };
+    expect(body.isSuccess).toBe(false);
+    expect(body.error).toContain("unexpected_handler_failure");
+
+    // User row rolled back
+    const users = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+      "users:query:user:list",
+      { search: "outbox-throw" },
+      adminUser,
+    );
+    expect(users.rows.some((u) => u["email"] === "outbox-throw@test.de")).toBe(false);
+
+    // BOTH outbox rows rolled back — multi-emit in one tx is atomic
+    const outboxRows = await stack.db.db.select().from(eventOutboxTable);
+    expect(outboxRows).toHaveLength(0);
+
+    // System hooks did not commit — the generic catch path rolls them back too
+    expect(featurePostSaveLog).toHaveLength(0);
+    expect(stack.events.audit).toHaveLength(0);
+    const searchHits = await stack.search.search(adminUser.tenantId, "outbox-throw");
+    expect(searchHits).toHaveLength(0);
+
+    // Subscriber never saw anything, poller finds nothing
+    const drain = await stack.outboxPoller?.runOnce();
+    expect(drain).toEqual({ processed: 0, failed: 0 });
+    expect(outboxSubscriberCalls).toHaveLength(0);
   });
 });
