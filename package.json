@@ -1,5 +1,6 @@
 {
   "name": "kumiko",
+  "description": "Config-driven, command-based, realtime multi-tenant app framework.",
   "private": true,
   "workspaces": [
     "packages/framework",

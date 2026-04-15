@@ -16,7 +16,7 @@ const REQUIRED_ENVS = {
 
 function checkEnv(): void {
   if (!existsSync(".env")) {
-    console.warn("\n  WARNING: No .env file found. Run: cp .env.example .env\n");
+    console.warn("\n  No .env yet — you'll probably want one. Try: cp .env.example .env\n");
     return;
   }
 
@@ -238,6 +238,84 @@ const commands = {
       console.log(changes ? `  Changes:\n${changes.split("\n").map((l) => `    ${l}`).join("\n")}` : "  Clean");
     },
   },
+
+  doctor: {
+    description: "Health check. Vermutlich alles okay.",
+    run: async () => {
+      const green = "\x1b[32m";
+      const red = "\x1b[31m";
+      const dim = "\x1b[2m";
+      const reset = "\x1b[0m";
+
+      type Check = { readonly name: string; readonly ok: boolean; readonly hint?: string };
+      const checks: Check[] = [];
+
+      checks.push({
+        name: ".env file",
+        ok: existsSync(".env"),
+        hint: existsSync(".env") ? undefined : "cp .env.example .env",
+      });
+
+      const missingEnvs = Object.keys(REQUIRED_ENVS).filter((e) => !Bun.env[e]);
+      checks.push({
+        name: "required env vars",
+        ok: missingEnvs.length === 0,
+        hint: missingEnvs.length ? `missing: ${missingEnvs.join(", ")}` : undefined,
+      });
+
+      checks.push({
+        name: "node_modules",
+        ok: existsSync("node_modules"),
+        hint: existsSync("node_modules") ? undefined : "yarn install",
+      });
+
+      let dockerOk = false;
+      try {
+        const result = await $`docker compose ps --format json`.quiet();
+        dockerOk = result.stdout.toString().trim().split("\n").filter(Boolean).length > 0;
+      } catch {}
+      checks.push({
+        name: "docker services",
+        ok: dockerOk,
+        hint: dockerOk ? undefined : "yarn kumiko dev",
+      });
+
+      let pgOk = false;
+      try {
+        await $`docker compose exec -T postgres pg_isready -U kumiko`.quiet();
+        pgOk = true;
+      } catch {}
+      checks.push({
+        name: "postgres ready",
+        ok: pgOk,
+        hint: pgOk ? undefined : "check: docker compose logs postgres",
+      });
+
+      console.log();
+      for (const c of checks) {
+        const mark = c.ok ? `${green}✓${reset}` : `${red}✗${reset}`;
+        const note = c.hint ? `${dim} (${c.hint})${reset}` : "";
+        console.log(`  ${mark} ${c.name}${note}`);
+      }
+      console.log();
+
+      if (checks.every((c) => c.ok)) {
+        const diagnoses = [
+          "Everything seems fine. Probably. Don't quote me on this.",
+          "Patient is stable. Vital signs acceptable. Soul status unknown.",
+          "No symptoms detected. Doesn't mean there's no disease.",
+          "Looks healthy — in this light, from this angle, today.",
+          "Diagnosis: inconclusive, but encouraging.",
+          "All clear. Back to coding. Don't look too closely.",
+        ];
+        const pick = diagnoses[Math.floor(Math.random() * diagnoses.length)] as string;
+        console.log(`  ${pick}`);
+      } else {
+        console.log("  Not great. See the ✗ above — the hints tell you what to do.");
+      }
+      console.log();
+    },
+  },
 } satisfies Record<string, { description: string; run: () => Promise<void> }>;
 
 // --- Interactive menu ---
@@ -283,6 +361,35 @@ async function interactiveMenu(): Promise<void> {
   }
 }
 
+// --- Hidden commands ---
+
+// Easter egg: `yarn kumiko prost` — for when you need a moment.
+function prost(): void {
+  const yellow = "\x1b[33m";
+  const dim = "\x1b[2m";
+  const reset = "\x1b[0m";
+  const toasts = [
+    "To the framework frameworks need.",
+    "To the builds that compile.",
+    "To the tests that pass on the first try.",
+    "To the bugs we fix. And the ones we name 'features'.",
+    "To localhost — where everything works.",
+    "To semver. May your breaking changes be minor.",
+    "To the commit message we'll rewrite in 3 hours.",
+  ];
+  const toast = toasts[Math.floor(Math.random() * toasts.length)] as string;
+  console.log();
+  console.log(`${yellow}          .~~~~.${reset}`);
+  console.log(`${yellow}         i====i_${reset}`);
+  console.log(`${yellow}         |cccc|_)${reset}`);
+  console.log(`${yellow}         |cccc|${reset}`);
+  console.log(`${yellow}         \`-==-'${reset}`);
+  console.log();
+  console.log(`  🍺 Prost!`);
+  console.log(`${dim}  "${toast}"${reset}`);
+  console.log();
+}
+
 // --- Helpers ---
 
 async function waitForPostgres(retries = 30): Promise<void> {
@@ -297,7 +404,7 @@ async function waitForPostgres(retries = 30): Promise<void> {
       await Bun.sleep(500);
     }
   }
-  console.error("\nPostgreSQL did not become ready.");
+  console.error("\nPostgreSQL wouldn't wake up. Try: docker compose logs postgres");
   process.exit(1);
 }
 
@@ -317,11 +424,12 @@ if (!command) {
       console.log(`  ${name.padEnd(14)} ${cmd.description}`);
     }
     console.log();
+  } else if (command === "prost") {
+    prost();
   } else {
     const handler = commands[command as keyof typeof commands];
     if (!handler) {
-      console.error(`Unknown command: ${command}`);
-      console.error("Run 'yarn kumiko help' for available commands.");
+      console.error(`\n  I don't know "${command}". Maybe a typo? Try: yarn kumiko help\n`);
       process.exit(1);
     }
     await handler.run();
