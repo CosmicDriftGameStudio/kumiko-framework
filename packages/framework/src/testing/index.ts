@@ -80,6 +80,10 @@ export { createEventCollector, type EventCollector } from "./event-collector";
 export { expectErrorIncludes } from "./expect-error";
 export { createTestUser, TestUsers } from "./fixtures";
 export { bridgeStub } from "./handler-context";
+export {
+  createRecordingProvider,
+  type RecordingProvider,
+} from "./observability-recorder";
 export type { RequestHelper } from "./request-helper";
 export { createRequestHelper } from "./request-helper";
 export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack";

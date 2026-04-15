@@ -20,6 +20,7 @@ Jedes Sample = 1 Feature-Definition + 1 Test. Bricht ein Framework-Change was, w
 | Multi-Tenant Datentrennung | [tenant-isolation](tenant-isolation/) | Integration |
 | Mehrsprachigkeit (i18n) | [i18n](i18n/) | Unit |
 | Saubere Fehlerbehandlung (Kumiko-Error-Klassen, Reasons, Helper) | [error-contract](error-contract/) | Integration |
+| Default-deny Access Rules + FK-Indices via Relations | [access-control](access-control/) | Integration |
 
 ## Full-App Samples (geplant)
 

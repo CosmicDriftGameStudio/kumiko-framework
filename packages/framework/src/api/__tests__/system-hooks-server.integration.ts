@@ -6,6 +6,8 @@ import {
   type AuditTrailEntry,
   type AuditTrailStorage,
   createAuditTrailHook,
+  createSearchHooks,
+  createSearchIndexBatchHook,
   createSearchIndexHook,
   createSseBroadcastHook,
 } from "../../pipeline/system-hooks";
@@ -35,6 +37,10 @@ const itemEntity = createEntity({
   fields: { label: createTextField({ required: true, searchable: true }) },
 });
 
+// Monotonically increasing synthetic ID so multiple saves in a single batch
+// produce distinct SaveContexts (same id would collapse in the search index).
+let nextItemId = 100;
+
 const feature = defineFeature("system-hooks-test", (r) => {
   r.entity("item", itemEntity);
   r.writeHandler(
@@ -43,13 +49,14 @@ const feature = defineFeature("system-hooks-test", (r) => {
     async (event) => {
       // Return a SaveContext that triggers all three system hooks.
       // entityName + tenantId are the minimum for search/sse/audit to fire.
+      const id = nextItemId++;
       return {
         isSuccess: true,
         data: {
           kind: "save",
-          id: 42,
+          id,
           entityName: "item",
-          data: { id: 42, label: event.payload.label, tenantId: TENANT_ID },
+          data: { id, label: event.payload.label, tenantId: TENANT_ID },
           changes: { label: event.payload.label },
           previous: {},
           isNew: true,
@@ -128,7 +135,10 @@ describe("buildServer system-hooks integration", () => {
     });
 
     const res = await writeItem(server.app, server.jwt, "wiring-proof");
-    expect(res.status).toBe(200);
+    if (res.status !== 200) {
+      const body = await res.text();
+      throw new Error(`expected 200, got ${res.status}: ${body}`);
+    }
 
     // Search: the index was populated
     const hits = await searchAdapter.search(TENANT_ID, "wiring-proof");
@@ -143,7 +153,7 @@ describe("buildServer system-hooks integration", () => {
     // Audit: the audit hook wrote an entry
     expect(auditEntries.length).toBe(1);
     expect(auditEntries[0]?.entityType).toBe("item");
-    expect(auditEntries[0]?.entityId).toBe(42);
+    expect(auditEntries[0]?.entityId).toBeGreaterThanOrEqual(100);
     expect(auditEntries[0]?.changes).toMatchObject({ label: "wiring-proof" });
   });
 
@@ -222,5 +232,97 @@ describe("buildServer system-hooks integration", () => {
     expect(hits.length).toBeGreaterThan(0);
     expect(sseEvents.length).toBe(0);
     expect(auditEntries.length).toBe(0);
+  });
+
+  test("search batch hook fires once per batch and indexes every successful save", async () => {
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(TENANT_ID, {
+      searchableFields: ["label"],
+      rankingFields: ["label"],
+    });
+
+    // Instrument the batch adapter so we can count how many indexBatch calls
+    // the hook made — we expect ONE per dispatcher batch, not N per save.
+    let indexBatchCalls = 0;
+    let lastBatchSize = 0;
+    const instrumentedAdapter = {
+      ...searchAdapter,
+      async indexBatch(
+        tenantId: number,
+        docs: readonly import("../../search/types").SearchDocument[],
+      ) {
+        indexBatchCalls++;
+        lastBatchSize = docs.length;
+        await searchAdapter.indexBatch?.(tenantId, docs);
+      },
+    };
+
+    const sseBroker = createSseBroker();
+    const server = buildServer({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis, registry, searchAdapter },
+      jwtSecret: JWT_SECRET,
+      sseBroker,
+      systemHooks: {
+        // No per-save search hook — use the batch variant only
+        postSave: [],
+        postSaveBatch: [createSearchIndexBatchHook(instrumentedAdapter, registry)],
+        postDelete: [],
+      },
+    });
+
+    // Three writes in a single /api/batch call — expect one indexBatch call
+    // with three docs, not three separate calls.
+    const token = await server.jwt.sign(TestUsers.admin);
+    const res = await server.app.request("/api/batch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        commands: [
+          { type: "system-hooks-test:write:item:create", payload: { label: "batch-1" } },
+          { type: "system-hooks-test:write:item:create", payload: { label: "batch-2" } },
+          { type: "system-hooks-test:write:item:create", payload: { label: "batch-3" } },
+        ],
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    expect(indexBatchCalls).toBe(1);
+    expect(lastBatchSize).toBe(3);
+
+    // Each doc actually landed in the index.
+    const hits = await searchAdapter.search(TENANT_ID, "batch");
+    expect(hits.length).toBe(3);
+  });
+
+  test("createSearchHooks auto-picks batch variant when adapter supports indexBatch", () => {
+    const adapterWithBatch = createInMemorySearchAdapter(); // has indexBatch + removeBatch
+    const hooks = createSearchHooks(adapterWithBatch, registry);
+    expect(hooks.postSaveBatch).toBeDefined();
+    expect(hooks.postSaveBatch).toHaveLength(1);
+    expect(hooks.postDeleteBatch).toBeDefined();
+    expect(hooks.postSave).toBeUndefined();
+    expect(hooks.postDelete).toBeUndefined();
+  });
+
+  test("createSearchHooks falls back to per-save when adapter lacks batch APIs", () => {
+    // Adapter without indexBatch/removeBatch — pretend we have an older one.
+    const baseAdapter = createInMemorySearchAdapter();
+    const adapterWithoutBatch = {
+      configure: baseAdapter.configure.bind(baseAdapter),
+      index: baseAdapter.index.bind(baseAdapter),
+      search: baseAdapter.search.bind(baseAdapter),
+      remove: baseAdapter.remove.bind(baseAdapter),
+      // indexBatch + removeBatch intentionally omitted
+    };
+    const hooks = createSearchHooks(adapterWithoutBatch, registry);
+    expect(hooks.postSave).toBeDefined();
+    expect(hooks.postSave).toHaveLength(1);
+    expect(hooks.postDelete).toBeDefined();
+    expect(hooks.postSaveBatch).toBeUndefined();
+    expect(hooks.postDeleteBatch).toBeUndefined();
   });
 });

@@ -26,7 +26,10 @@ export type { AuditTrailEntry, AuditTrailStorage } from "./system-hooks";
 export {
   createAuditTrailDeleteHook,
   createAuditTrailHook,
+  createSearchHooks,
+  createSearchIndexBatchHook,
   createSearchIndexHook,
+  createSearchRemoveBatchHook,
   createSearchRemoveHook,
   createSseBroadcastHook,
   createSseDeleteBroadcastHook,

@@ -1,6 +1,7 @@
-import type { EntityDefinition, FieldDefinition } from "../engine/types";
+import type { EntityDefinition, EntityRelations, FieldDefinition } from "../engine/types";
 import {
   boolean,
+  index,
   integer,
   jsonb,
   moneyAmount,
@@ -113,10 +114,19 @@ export function buildBaseColumns(softDelete: boolean) {
   return base;
 }
 
+export type BuildDrizzleTableOptions = {
+  readonly featureName?: string;
+  // Relations declared for this entity. When present, every belongsTo
+  // foreignKey gets an index — otherwise joins and `WHERE fk = ?` filters
+  // sequential-scan the child table. Pass the output of
+  // `registry.getRelations(entityName)` or the raw relations block.
+  readonly relations?: EntityRelations;
+};
+
 export function buildDrizzleTable(
   entityName: string,
   entity: EntityDefinition,
-  options?: { featureName?: string },
+  options?: BuildDrizzleTableOptions,
 ): DrizzleTable {
   const baseColumns = buildBaseColumns(entity.softDelete ?? false);
   const fieldColumns: Record<string, ColumnBuilder> = {};
@@ -132,8 +142,44 @@ export function buildDrizzleTable(
     ? `${options.featureName}_${baseTableName}`
     : baseTableName;
 
-  return pgTable(tableName, {
-    ...baseColumns,
-    ...fieldColumns,
-  });
+  // Build the list of foreign-key columns to index. Sources:
+  //  (a) single-file / single-image fields store a fileRef id and are queried
+  //      by that id whenever a detail view resolves attachments.
+  //  (b) belongsTo relations declared via r.relation() — the FK column is the
+  //      parent-side lookup key; without an index every child join scans the
+  //      full table.
+  // `Set` keeps the list deduplicated when (a) and (b) name the same column.
+  const foreignKeyFields = new Set<string>();
+  for (const [name, field] of Object.entries(entity.fields)) {
+    if (field.type === "file" || field.type === "image") {
+      foreignKeyFields.add(name);
+    }
+  }
+  if (options?.relations) {
+    for (const rel of Object.values(options.relations)) {
+      if (rel.type === "belongsTo") foreignKeyFields.add(rel.foreignKey);
+    }
+  }
+
+  return pgTable(
+    tableName,
+    {
+      ...baseColumns,
+      ...fieldColumns,
+    },
+    // Every multi-tenant query filters by tenant_id. Without this index, list
+    // queries scan the whole table across all tenants. Applies to every table
+    // built via buildDrizzleTable since every entity inherits tenantId.
+    // biome-ignore lint/suspicious/noExplicitAny: Drizzle's table callback is generic; we access columns by their JS property name.
+    (table: any) => {
+      const indexes = [index(`${tableName}_tenant_id_idx`).on(table.tenantId)];
+      for (const fieldName of foreignKeyFields) {
+        const column = table[fieldName];
+        if (column) {
+          indexes.push(index(`${tableName}_${toSnakeCase(fieldName)}_idx`).on(column));
+        }
+      }
+      return indexes;
+    },
+  );
 }

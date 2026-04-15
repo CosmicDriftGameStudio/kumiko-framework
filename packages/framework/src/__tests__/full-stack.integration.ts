@@ -152,10 +152,14 @@ const userFeature = defineFeature("users", (r) => {
       sortDirection: z.enum(["asc", "desc"]).optional(),
     }),
     async (query, ctx) => userCrud(ctx).list(query.payload, query.user, ctx.db),
+    { access: { openToAll: true } },
   );
 
-  r.queryHandler("user:detail", z.object({ id: z.number() }), async (query, ctx) =>
-    userCrud(ctx).detail(query.payload, query.user, ctx.db),
+  r.queryHandler(
+    "user:detail",
+    z.object({ id: z.number() }),
+    async (query, ctx) => userCrud(ctx).detail(query.payload, query.user, ctx.db),
+    { access: { openToAll: true } },
   );
 
   r.entityHook("postSave", user, async (result) => {
@@ -298,7 +302,8 @@ describe("full stack: SaveContext changes + previous", () => {
       {
         id: created["id"],
         changes: { firstName: "After" },
-      },
+          version: 1
+    },
       adminUser,
     );
 
@@ -401,7 +406,8 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       {
         id: created["id"],
         changes: { firstName: "New" },
-      },
+          version: 1
+    },
       adminUser,
     );
 
@@ -442,7 +448,8 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       {
         id: created["id"],
         changes: { firstName: "SSE" },
-      },
+          version: 1
+    },
       adminUser,
     );
 
@@ -774,7 +781,9 @@ describe("full stack: entity cache", () => {
     // Update via API — invalidates cache
     await stack.http.writeOk(
       "users:write:user:update",
-      { id, changes: { firstName: "AfterUpdate" } },
+      { id, changes: { firstName: "AfterUpdate" },
+          version: 1
+    },
       adminUser,
     );
 

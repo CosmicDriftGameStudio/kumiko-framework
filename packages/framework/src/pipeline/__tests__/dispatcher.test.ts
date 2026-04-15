@@ -14,10 +14,15 @@ const echoFeature = defineFeature("echo", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  r.queryHandler("item:list", z.object({ search: z.string().optional() }), async (query) => ({
-    items: [],
-    search: query.payload.search,
-  }));
+  r.queryHandler(
+    "item:list",
+    z.object({ search: z.string().optional() }),
+    async (query) => ({
+      items: [],
+      search: query.payload.search,
+    }),
+    { access: { openToAll: true } },
+  );
 
   r.hook("validation", "item:create", (data) => {
     if (data["name"] === "forbidden") return [{ field: "name", error: "forbidden_name" }];

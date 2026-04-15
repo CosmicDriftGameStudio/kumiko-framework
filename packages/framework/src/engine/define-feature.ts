@@ -10,6 +10,7 @@ import type {
   EntityDefinition,
   EntityRef,
   FeatureDefinition,
+  FeatureMetricDef,
   FeatureRegistrar,
   HandlerRef,
   HookMap,
@@ -18,6 +19,7 @@ import type {
   JobHandlerFn,
   LifecycleHookFn,
   LifecycleHookType,
+  MetricOptions,
   NameOrRef,
   NotificationDataFn,
   NotificationDefinition,
@@ -73,6 +75,7 @@ export function defineFeature(
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const referenceData: ReferenceDataDef[] = [];
   const handlerEntityMappings: Record<string, string> = {};
+  const metrics: Record<string, FeatureMetricDef> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -344,6 +347,16 @@ export function defineFeature(
     ): void {
       extensionUsages.push({ extensionName, entityName: resolveName(entityRef), options });
     },
+
+    metric(shortName: string, options: MetricOptions): void {
+      if (metrics[shortName]) {
+        throw new Error(
+          `[Feature ${name}] Metric "${shortName}" already registered. ` +
+            `Metric names must be unique per feature.`,
+        );
+      }
+      metrics[shortName] = { shortName, ...options };
+    },
   };
 
   setup(registrar);
@@ -380,5 +393,6 @@ export function defineFeature(
     events,
     configReads,
     handlerEntityMappings,
+    metrics,
   };
 }

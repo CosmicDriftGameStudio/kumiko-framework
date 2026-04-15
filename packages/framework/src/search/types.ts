@@ -25,4 +25,13 @@ export type SearchAdapter = {
   index(tenantId: number, doc: SearchDocument): Promise<void>;
   search(tenantId: number, query: string, options?: SearchOptions): Promise<SearchResult[]>;
   remove(tenantId: number, entityType: string, entityId: number): Promise<void>;
+  // Bulk variants. Default implementations loop over the single-doc methods —
+  // adapters should override when the backend supports a real batch call
+  // (Meilisearch, Elasticsearch, Typesense all do). Cuts a batch-write from
+  // N sequential HTTP + waitTask round-trips to one.
+  indexBatch?(tenantId: number, docs: readonly SearchDocument[]): Promise<void>;
+  removeBatch?(
+    tenantId: number,
+    items: readonly { entityType: string; entityId: number }[],
+  ): Promise<void>;
 };

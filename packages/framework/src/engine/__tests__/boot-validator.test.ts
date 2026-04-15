@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { z } from "zod";
 import { validateBoot } from "../boot-validator";
 import { createEntity, createTextField, defineFeature } from "../index";
 
@@ -282,6 +283,53 @@ describe("boot-validator", () => {
         );
         r.extendsRegistrar("custom", {
           extendSchema: () => ({ extra: { type: "text" as const } }),
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  // --- Handler access validation (default-deny) ---
+
+  test("throws when a write handler has no access rule", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.writeHandler("createThing", z.object({ name: z.string() }), async () => ({
+          isSuccess: true as const,
+          data: {},
+        }));
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /a:write:createThing.*missing an access rule/i,
+    );
+  });
+
+  test("throws when a query handler has no access rule", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.queryHandler("list", z.object({}), async () => []);
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/a:query:list.*missing an access rule/i);
+  });
+
+  test("accepts role-based access rule", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.queryHandler("list", z.object({}), async () => [], {
+          access: { roles: ["Admin"] },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("accepts openToAll access rule", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.queryHandler("list", z.object({}), async () => [], {
+          access: { openToAll: true },
         });
       }),
     ];

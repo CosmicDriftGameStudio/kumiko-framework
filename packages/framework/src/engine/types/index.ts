@@ -29,7 +29,14 @@ export type {
   TranslationsDef,
   UiExtensionDef,
 } from "./config";
-export type { FeatureDefinition, FeatureRegistrar, Registry } from "./feature";
+export type {
+  FeatureDefinition,
+  FeatureMetricDef,
+  FeatureMetricType,
+  FeatureRegistrar,
+  MetricOptions,
+  Registry,
+} from "./feature";
 export type {
   BooleanFieldDef,
   DateFieldDef,
@@ -83,7 +90,9 @@ export type {
   LifecycleHookFn,
   LifecycleResult,
   PhasedHook,
+  PostDeleteBatchHookFn,
   PostDeleteHookFn,
+  PostSaveBatchHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
   PreQueryHookFn,

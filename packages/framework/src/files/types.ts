@@ -33,6 +33,24 @@ export function parseMaxSize(maxSize: string): number {
   }
 }
 
+// Extension → acceptable MIME-type whitelist. Guards against a client
+// uploading e.g. name="x.jpg" with mimeType="application/pdf" to slip an
+// executable past the extension-only check. Kept small & conservative — add
+// entries on demand rather than importing a heavyweight mime DB.
+const EXTENSION_MIME_WHITELIST: Record<string, readonly string[]> = {
+  jpg: ["image/jpeg", "image/jpg"],
+  jpeg: ["image/jpeg", "image/jpg"],
+  png: ["image/png"],
+  gif: ["image/gif"],
+  webp: ["image/webp"],
+  svg: ["image/svg+xml"],
+  pdf: ["application/pdf"],
+  txt: ["text/plain"],
+  csv: ["text/csv", "application/csv", "text/plain"],
+  json: ["application/json", "text/json"],
+  md: ["text/markdown", "text/plain"],
+};
+
 export function validateFile(
   metadata: FileMetadata,
   options: FileValidationOptions,
@@ -48,6 +66,17 @@ export function validateFile(
     const ext = metadata.fileName.split(".").pop()?.toLowerCase();
     if (!ext || !options.accept.includes(ext)) {
       return `invalid_file_type: ".${ext}" is not in [${options.accept.join(", ")}]`;
+    }
+    // Extension passed the whitelist — now make sure the client-reported
+    // mimeType is consistent with that extension. Guards against MIME-spoofing:
+    // an attacker can't claim extension=jpg while actually uploading PDF bytes
+    // and having the mimeType reflect that.
+    const allowedMimes = EXTENSION_MIME_WHITELIST[ext];
+    if (allowedMimes && metadata.mimeType) {
+      const normalized = metadata.mimeType.toLowerCase().split(";")[0]?.trim() ?? "";
+      if (!allowedMimes.includes(normalized)) {
+        return `mime_mismatch: extension ".${ext}" does not match mimeType "${metadata.mimeType}"`;
+      }
     }
   }
 

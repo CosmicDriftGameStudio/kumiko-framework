@@ -16,9 +16,12 @@ const testFeature = defineFeature("test", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  r.queryHandler("item:list", z.object({ search: z.string().optional() }), async () => [
-    { id: 1, name: "Test" },
-  ]);
+  r.queryHandler(
+    "item:list",
+    z.object({ search: z.string().optional() }),
+    async () => [{ id: 1, name: "Test" }],
+    { access: { openToAll: true } },
+  );
 });
 
 const registry = createRegistry([testFeature]);

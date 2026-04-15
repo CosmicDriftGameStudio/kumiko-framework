@@ -89,18 +89,22 @@ const feature = defineFeature("txguard", (r) => {
         event.payload,
         event.user,
         ctx.db,
-      ),
+      ), { access: { openToAll: true } }
   );
 
   r.writeHandler(
     "invoice:update",
-    z.object({ id: z.number(), changes: z.record(z.string(), z.unknown()) }),
+    z.object({
+      id: z.number(),
+      version: z.number().optional(),
+      changes: z.record(z.string(), z.unknown()),
+    }),
     async (event, ctx) =>
       createCrudExecutor(invoiceTable, invoiceEntity, { entityName: "invoice" }).update(
         event.payload,
         event.user,
         ctx.db,
-      ),
+      ), { access: { openToAll: true } }
   );
 
   r.writeHandler(
@@ -111,18 +115,22 @@ const feature = defineFeature("txguard", (r) => {
         event.payload,
         event.user,
         ctx.db,
-      ),
+      ), { access: { openToAll: true } }
   );
 
   r.writeHandler(
     "order:update",
-    z.object({ id: z.number(), changes: z.record(z.string(), z.unknown()) }),
+    z.object({
+      id: z.number(),
+      version: z.number().optional(),
+      changes: z.record(z.string(), z.unknown()),
+    }),
     async (event, ctx) =>
       createCrudExecutor(orderTable, orderEntity, { entityName: "order" }).update(
         event.payload,
         event.user,
         ctx.db,
-      ),
+      ), { access: { openToAll: true } }
   );
 
   r.writeHandler("ticket:create", z.object({ title: z.string() }), async (event, ctx) =>
@@ -130,7 +138,7 @@ const feature = defineFeature("txguard", (r) => {
       event.payload,
       event.user,
       ctx.db,
-    ),
+    ), { access: { openToAll: true } }
   );
 
   r.writeHandler("ticket:delete", z.object({ id: z.number() }), async (event, ctx) =>
@@ -138,18 +146,22 @@ const feature = defineFeature("txguard", (r) => {
       event.payload,
       event.user,
       ctx.db,
-    ),
+    ), { access: { openToAll: true } }
   );
 
   r.writeHandler(
     "ticket:update",
-    z.object({ id: z.number(), changes: z.record(z.string(), z.unknown()) }),
+    z.object({
+      id: z.number(),
+      version: z.number().optional(),
+      changes: z.record(z.string(), z.unknown()),
+    }),
     async (event, ctx) =>
       createCrudExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).update(
         event.payload,
         event.user,
         ctx.db,
-      ),
+      ), { access: { openToAll: true } }
   );
 });
 
@@ -186,7 +198,9 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // would reject "sent" as not a valid target from any known state.
     const invoiceResult = await stack.http.writeOk<Record<string, unknown>>(
       "txguard:write:invoice:update",
-      { id: invoice["id"], changes: { status: "sent" } },
+      { id: invoice["id"], changes: { status: "sent" },
+          version: 1
+    },
       admin,
     );
     expect((invoiceResult["data"] as Record<string, unknown>)["status"]).toBe("sent");
@@ -195,7 +209,9 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // If the cache now holds invoice's map, this would be rejected.
     const orderResult = await stack.http.writeOk<Record<string, unknown>>(
       "txguard:write:order:update",
-      { id: order["id"], changes: { status: "shipped" } },
+      { id: order["id"], changes: { status: "shipped" },
+          version: 1
+    },
       admin,
     );
     expect((orderResult["data"] as Record<string, unknown>)["status"]).toBe("shipped");
@@ -211,7 +227,9 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // draft → paid is NOT allowed (only draft → sent, sent → paid)
     const err = await stack.http.writeErr(
       "txguard:write:invoice:update",
-      { id: invoice["id"], changes: { status: "paid" } },
+      { id: invoice["id"], changes: { status: "paid" },
+          version: 1
+    },
       admin,
     );
     expectErrorIncludes(err, "Invalid transition");
@@ -229,7 +247,9 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // open → delivered is NOT allowed (only open → shipped, shipped → delivered)
     const err = await stack.http.writeErr(
       "txguard:write:order:update",
-      { id: order["id"], changes: { status: "delivered" } },
+      { id: order["id"], changes: { status: "delivered" },
+          version: 1
+    },
       admin,
     );
     expectErrorIncludes(err, "Invalid transition");
@@ -260,7 +280,9 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // transition error. That distinction proves the guard skipped.
     const err = await stack.http.writeErr(
       "txguard:write:ticket:update",
-      { id: ticket["id"], changes: { status: "open" } },
+      { id: ticket["id"], changes: { status: "open" },
+          version: 1
+    },
       admin,
     );
     // Guard was skipped → we don't see "Invalid transition", we see a different
@@ -287,12 +309,16 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     const [res1, res2] = await Promise.all([
       stack.http.write(
         "txguard:write:invoice:update",
-        { id: invoice["id"], changes: { status: "sent" } },
+        { id: invoice["id"], changes: { status: "sent" },
+            version: 1
+        },
         admin,
       ),
       stack.http.write(
         "txguard:write:invoice:update",
-        { id: invoice["id"], changes: { status: "sent" } },
+        { id: invoice["id"], changes: { status: "sent" },
+            version: 1
+        },
         admin,
       ),
     ]);

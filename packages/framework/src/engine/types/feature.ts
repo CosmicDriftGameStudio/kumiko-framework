@@ -41,6 +41,26 @@ import type {
 } from "./hooks";
 import type { EntityRelations, RelationDefinition } from "./relations";
 
+// --- Metrics (declared by features via r.metric()) ---
+
+export type FeatureMetricType = "counter" | "histogram" | "gauge";
+
+// The user-facing short form written in a feature. The Framework prefixes it
+// with `kumiko_<featureName>_` to produce the fully-qualified Prometheus name.
+export type FeatureMetricDef = {
+  readonly shortName: string;
+  readonly type: FeatureMetricType;
+  readonly description?: string;
+  readonly labels?: readonly string[];
+  readonly buckets?: readonly number[];
+  readonly unit?: string;
+  // When true, Framework auto-adds tenant_id to labels (ctx-driven). Default
+  // false — cardinality multiplies by tenant count, so opt-in.
+  readonly tenantLabel?: boolean;
+};
+
+export type MetricOptions = Omit<FeatureMetricDef, "shortName">;
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
@@ -65,6 +85,8 @@ export type FeatureDefinition = {
   readonly configReads: readonly string[];
   // Explicit handler → entity mapping set by r.crud() and r.writeHandler()/r.queryHandler()
   readonly handlerEntityMappings: Readonly<Record<string, string>>;
+  // Metrics declared via r.metric(). Short names — Framework prefixes on boot.
+  readonly metrics: Readonly<Record<string, FeatureMetricDef>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -164,6 +186,11 @@ export type FeatureRegistrar = {
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
   useExtension(extensionName: string, entity: NameOrRef, options?: Record<string, unknown>): void;
+
+  // Declare a metric. Short name (without kumiko_<feature>_ prefix) — Framework
+  // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.
+  // Usage at runtime: ctx.metrics.inc("created_total", { status: "new" }).
+  metric(shortName: string, options: MetricOptions): void;
 };
 
 // --- Registry (created from features) ---
@@ -194,6 +221,11 @@ export type Registry = {
   getEntityPostDeleteHooks(entityName: string, phase?: HookPhase): readonly PostDeleteHookFn[];
   getHandlerEntity(qualifiedHandler: string): string | undefined;
   isHandlerSystemScoped(qualifiedHandler: string): boolean;
+  getHandlerFeature(qualifiedHandler: string): string | undefined;
+  // All metrics from all features, keyed by fully-qualified name
+  // (kumiko_<feature>_<shortName>). Consumed at boot to register them on the
+  // active Meter.
+  getAllMetrics(): ReadonlyMap<string, FeatureMetricDef & { readonly featureName: string }>;
   getAllTranslations(): TranslationKeys;
   getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined;
   getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition>;

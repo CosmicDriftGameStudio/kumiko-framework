@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, integer, jsonb, table as pgTable, serial, text, timestamp } from "../db/dialect";
+import type { SerializedTraceContext } from "../observability";
 
 // Framework-internal table for the Transactional Outbox pattern.
 //
@@ -18,6 +19,11 @@ export const eventOutboxTable = pgTable("event_outbox", {
   eventType: text("event_type").notNull(),
   payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  // Observability: captured W3C-ish trace context at emit time. The poller
+  // reconstructs it to start the outbox.publish span as a child of the
+  // emitting request's trace. Nullable — emits outside an active span (e.g.
+  // direct DB seed scripts) simply don't carry parent context.
+  traceContext: jsonb("trace_context").$type<SerializedTraceContext>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   publishedAt: timestamp("published_at"),
   attempts: integer("attempts").default(0).notNull(),

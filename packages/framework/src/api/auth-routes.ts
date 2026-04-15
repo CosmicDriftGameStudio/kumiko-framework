@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { createSystemUser } from "../engine/system-user";
 import type { SessionUser } from "../engine/types";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { Routes } from "./api-constants";
@@ -173,10 +174,11 @@ export function createAuthRoutes(
     const user = getUser(c);
 
     try {
+      // System-scoped: membershipQuery is access-locked to system-role.
       const memberships = (await dispatcher.query(
         config.membershipQuery,
         { userId: user.id },
-        user,
+        createSystemUser(user.tenantId),
       )) as MembershipRow[];
 
       return c.json({
@@ -206,11 +208,13 @@ export function createAuthRoutes(
     }
 
     try {
-      // Check membership
+      // Check membership — uses the system identity because membershipQuery is
+      // locked to the system role. The auth-route is trusted server code; it
+      // asks the question on the user's behalf, not as the user.
       const memberships = (await dispatcher.query(
         config.membershipQuery,
         { userId: user.id },
-        user,
+        createSystemUser(user.tenantId),
       )) as MembershipRow[];
 
       const membership = memberships.find((m) => m.tenantId === targetTenantId);

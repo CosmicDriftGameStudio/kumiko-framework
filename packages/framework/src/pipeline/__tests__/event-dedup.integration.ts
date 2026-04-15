@@ -115,12 +115,12 @@ describe("event dedup in lifecycle pipeline", () => {
 
     await stack.http.writeOk(
       "dedup:write:item:update",
-      { id: created["id"], changes: { name: "V2" } },
+      { id: created["id"], version: 1, changes: { name: "V2" } },
       admin,
     );
     await stack.http.writeOk(
       "dedup:write:item:update",
-      { id: created["id"], changes: { name: "V3" } },
+      { id: created["id"], version: 2, changes: { name: "V3" } },
       admin,
     );
 

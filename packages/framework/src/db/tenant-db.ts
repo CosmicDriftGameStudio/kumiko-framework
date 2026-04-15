@@ -1,4 +1,10 @@
-import { and, type Column, eq, or, type SQL } from "drizzle-orm";
+import { and, type Column, eq, getTableName, or, type SQL } from "drizzle-orm";
+import {
+  emitDbQuery,
+  type Meter,
+  registerStandardMetrics,
+  type Tracer,
+} from "../observability";
 import type { DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
 
@@ -84,9 +90,70 @@ export function createTenantDb(
   db: DbRunner,
   tenantId: number,
   mode: TenantDbMode = "tenant",
+  tracer?: Tracer,
+  meter?: Meter,
 ): TenantDb {
+  // If a meter was passed, make sure standard metrics are registered on it
+  // before we try to emit. Idempotent — buildServer typically registers them
+  // up front; this guards against test call-sites that wire up a TenantDb
+  // directly with a fresh meter.
+  if (meter) registerStandardMetrics(meter);
+
   function hasTenantColumn(table: Table): boolean {
     return table["tenantId"] !== undefined;
+  }
+
+  // Wrap a DB query promise in a `db.query` span + emit the DB duration
+  // histogram. Row count is recorded when the result is an array (SELECTs
+  // + *.returning()). Metric is emitted both on success and on throw so
+  // slow failing queries show up too.
+  function withDbSpan<T>(
+    operation: "select" | "insert" | "update" | "delete",
+    table: Table,
+    exec: () => PromiseLike<T>,
+  ): PromiseLike<T> {
+    if (!tracer && !meter) return exec();
+    const tableName = getTableName(table);
+    const start = performance.now();
+    const emitMetric = () => {
+      if (meter) {
+        emitDbQuery(meter, { operation, table: tableName }, (performance.now() - start) / 1000);
+      }
+    };
+
+    if (!tracer) {
+      // Tracer absent but meter present: just time + emit, no span.
+      return (async () => {
+        try {
+          return await exec();
+        } finally {
+          emitMetric();
+        }
+      })();
+    }
+
+    return tracer.withSpan(
+      "db.query",
+      {
+        kind: "client",
+        attributes: {
+          "db.system": "postgresql",
+          "db.operation": operation,
+          "db.table": tableName,
+        },
+      },
+      async (span) => {
+        try {
+          const result = await exec();
+          if (Array.isArray(result)) {
+            span.setAttribute("db.row_count", result.length);
+          }
+          return result;
+        } finally {
+          emitMetric();
+        }
+      },
+    );
   }
 
   // --- Read filter (SELECT/UPDATE/DELETE WHERE clause) ---
@@ -153,10 +220,9 @@ export function createTenantDb(
         resolve: ((value: Record<string, unknown>[]) => void) | null,
         reject: ((reason: unknown) => void) | null,
       ) {
-        return ensureFiltered().then(
-          (rows: Record<string, unknown>[]) => resolve?.(rows),
-          reject ?? undefined,
-        );
+        return withDbSpan<Record<string, unknown>[]>("select", table, () =>
+          ensureFiltered(),
+        ).then((rows) => resolve?.(rows), reject ?? undefined);
       },
     } as TenantSelectQuery;
   }
@@ -187,25 +253,33 @@ export function createTenantDb(
           const q = db.insert(table).values(insertValues(table, data));
           return {
             returning() {
-              return q.returning() as PromiseLike<Record<string, unknown>[]>;
+              return withDbSpan<Record<string, unknown>[]>("insert", table, () =>
+                q.returning() as PromiseLike<Record<string, unknown>[]>,
+              );
             },
             onConflictDoUpdate(spec: ConflictUpdate) {
-              return (
-                q as unknown as {
-                  onConflictDoUpdate: (s: ConflictUpdate) => PromiseLike<void>;
-                }
-              ).onConflictDoUpdate(spec);
+              return withDbSpan<void>("insert", table, () =>
+                (
+                  q as unknown as {
+                    onConflictDoUpdate: (s: ConflictUpdate) => PromiseLike<void>;
+                  }
+                ).onConflictDoUpdate(spec),
+              );
             },
             onConflictDoNothing(spec?: { target: ConflictTarget }) {
-              return (
-                q as unknown as {
-                  onConflictDoNothing: (s?: { target: ConflictTarget }) => PromiseLike<void>;
-                }
-              ).onConflictDoNothing(spec);
+              return withDbSpan<void>("insert", table, () =>
+                (
+                  q as unknown as {
+                    onConflictDoNothing: (s?: { target: ConflictTarget }) => PromiseLike<void>;
+                  }
+                ).onConflictDoNothing(spec),
+              );
             },
             // biome-ignore lint/suspicious/noThenProperty: thenable for await
             then(resolve, reject) {
-              return (q as unknown as PromiseLike<void>).then(resolve, reject);
+              return withDbSpan<void>("insert", table, () =>
+                q as unknown as PromiseLike<void>,
+              ).then(resolve, reject);
             },
           } as TenantInsertValues;
         },
@@ -221,11 +295,15 @@ export function createTenantDb(
               const wq = q.where(whereClause(table, condition));
               return {
                 returning() {
-                  return wq.returning() as PromiseLike<Record<string, unknown>[]>;
+                  return withDbSpan<Record<string, unknown>[]>("update", table, () =>
+                    wq.returning() as PromiseLike<Record<string, unknown>[]>,
+                  );
                 },
                 // biome-ignore lint/suspicious/noThenProperty: thenable for await
                 then(resolve, reject) {
-                  return (wq as unknown as PromiseLike<void>).then(resolve, reject);
+                  return withDbSpan<void>("update", table, () =>
+                    wq as unknown as PromiseLike<void>,
+                  ).then(resolve, reject);
                 },
               } as TenantUpdateWhere;
             },
@@ -254,9 +332,11 @@ export function createTenantDb(
     delete(table: Table) {
       return {
         where(condition: SQL) {
-          return db
-            .delete(table)
-            .where(whereClause(table, condition)) as unknown as PromiseLike<void>;
+          return withDbSpan<void>("delete", table, () =>
+            db
+              .delete(table)
+              .where(whereClause(table, condition)) as unknown as PromiseLike<void>,
+          );
         },
       };
     },

@@ -111,6 +111,27 @@ describe("schema migration workflows", () => {
     expect(columns.has("is_deleted")).toBe(false);
   });
 
+  test("workflow 1b: tenant_id index is created on every table", async () => {
+    const feature = defineFeature("indexed-blog", (r) => {
+      r.entity(
+        "article",
+        createEntity({
+          table: "wf1b_articles",
+          fields: { title: createTextField() },
+        }),
+      );
+    });
+    await applySchema([feature]);
+
+    const indexRows = await testDb.db.execute<{ indexname: string; indexdef: string }>(
+      sql.raw(
+        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'wf1b_articles' AND indexname = 'wf1b_articles_tenant_id_idx'`,
+      ),
+    );
+    expect(indexRows.length).toBe(1);
+    expect(indexRows[0]?.indexdef).toContain("tenant_id");
+  });
+
   test("workflow 2: add field to existing entity → ADD COLUMN", async () => {
     // Initial entity with just email
     const initialEntity = createEntity({

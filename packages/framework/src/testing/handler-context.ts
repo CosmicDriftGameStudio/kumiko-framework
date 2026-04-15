@@ -1,4 +1,5 @@
 import type { HandlerContext, SessionUser, WriteResult } from "../engine/types";
+import { createNoopMetricsHandle, getFallbackTracer } from "../observability";
 
 // Test/service helper: cross-feature bridge methods that throw on use.
 //
@@ -17,9 +18,13 @@ const notAvailable = (what: string) => async (): Promise<never> => {
   );
 };
 
+// Noop observability — hand back the shared fallback tracer so ctx.tracer has
+// a valid Tracer shape. No allocations per call.
+const noopTracer = getFallbackTracer();
+
 export function bridgeStub(): Pick<
   HandlerContext,
-  "query" | "queryAs" | "write" | "writeAs" | "emit"
+  "query" | "queryAs" | "write" | "writeAs" | "emit" | "metrics" | "tracer"
 > {
   return {
     query: notAvailable("query") as HandlerContext["query"],
@@ -38,5 +43,7 @@ export function bridgeStub(): Pick<
       payload: unknown,
     ) => Promise<WriteResult>,
     emit: notAvailable("emit") as unknown as (qn: string, payload: unknown) => Promise<void>,
+    metrics: createNoopMetricsHandle(),
+    tracer: noopTracer,
   };
 }

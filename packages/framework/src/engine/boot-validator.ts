@@ -39,6 +39,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateTransitions(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
+    validateHandlerAccess(feature);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
@@ -101,6 +102,30 @@ function validateCircularDeps(
   }
 
   visit(featureName, []);
+}
+
+// --- Handler access validation ---
+
+// Every handler must declare access. Missing access is treated as default-deny
+// at runtime, but we fail at boot to turn an easy-to-miss security regression
+// into a loud configuration error.
+function validateHandlerAccess(feature: FeatureDefinition): void {
+  for (const [name, handler] of Object.entries(feature.writeHandlers)) {
+    if (!handler.access) {
+      throw new Error(
+        `Write handler "${feature.name}:write:${name}" is missing an access rule. ` +
+          `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
+      );
+    }
+  }
+  for (const [name, handler] of Object.entries(feature.queryHandlers)) {
+    if (!handler.access) {
+      throw new Error(
+        `Query handler "${feature.name}:query:${name}" is missing an access rule. ` +
+          `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
+      );
+    }
+  }
 }
 
 // --- Encrypted field validation ---

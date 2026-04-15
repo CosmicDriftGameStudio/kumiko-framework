@@ -44,9 +44,24 @@ export type PreSaveHookFn = (
 
 export type PostSaveHookFn = (result: SaveContext, context: AppContext) => Promise<void>;
 
+// Batch-variant: called once at the end of a dispatcher batch with every
+// successful SaveContext. The per-save PostSaveHookFn still fires for
+// side-effects that need per-entity semantics (SSE, audit); PostSaveBatch
+// exists for adapters that can amortise work across the whole batch
+// (e.g. search index batch-writes, bulk webhook fanout).
+export type PostSaveBatchHookFn = (
+  results: readonly SaveContext[],
+  context: AppContext,
+) => Promise<void>;
+
 export type PreDeleteHookFn = (payload: DeleteContext, context: AppContext) => Promise<void>;
 
 export type PostDeleteHookFn = (payload: DeleteContext, context: AppContext) => Promise<void>;
+
+export type PostDeleteBatchHookFn = (
+  payloads: readonly DeleteContext[],
+  context: AppContext,
+) => Promise<void>;
 
 export type PreQueryHookFn = (
   payload: Record<string, unknown>,

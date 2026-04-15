@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import { tenantChannel } from "../engine/constants";
 import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
 import type { SseBroker } from "./sse-broker";
@@ -9,7 +10,9 @@ export function createSseRoute(broker: SseBroker) {
 
   route.get(Routes.sse, async (c) => {
     const user = getUser(c);
-    const channel = c.req.query("channel") ?? `tenant:${user.tenantId}`;
+    // Channel is server-derived from authenticated user — never trust client input.
+    // Allowing ?channel=... would let any authenticated user subscribe to other tenants' feeds.
+    const channel = tenantChannel(user.tenantId);
 
     return streamSSE(c, async (stream) => {
       const clientId = broker.addClient(

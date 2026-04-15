@@ -46,6 +46,10 @@ export type CrudExecutor = {
     payload: { id: number; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: TenantDb,
+    // Server-only options. Intentionally NOT part of `payload` — otherwise a
+    // client could send `skipOptimisticLock: true` over the wire and bypass
+    // optimistic locking entirely. Only the handler decides.
+    options?: { skipOptimisticLock?: boolean },
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (
@@ -183,12 +187,28 @@ export function createCrudExecutor(
       };
     },
 
-    async update(payload, user, db) {
+    async update(payload, user, db, options) {
       const previous = await loadById(payload.id, db);
       if (!previous) return writeFailure(new NotFoundError(entityName ?? "entity", payload.id));
 
-      if (payload.version !== undefined) {
-        const currentVersion = previous["version"] as number;
+      // Every entity carries a `version` column. Skipping the optimistic-lock
+      // check when the client forgets to send one turns stale writes into a
+      // silent last-writer-wins. Default: a missing `version` is a conflict.
+      // Callers that consciously accept last-writer-wins (admin ops, migration
+      // scripts, automation) can opt out via options.skipOptimisticLock — this
+      // is intentionally a server-side flag, not a payload field, so a client
+      // cannot disable optimistic locking by sending it over the wire.
+      const currentVersion = (previous["version"] as number) ?? 1;
+      if (!options?.skipOptimisticLock) {
+        if (payload.version === undefined) {
+          return writeFailure(
+            new VersionConflictError({
+              entityId: payload.id,
+              expectedVersion: 0,
+              currentVersion,
+            }),
+          );
+        }
         if (currentVersion !== payload.version) {
           return writeFailure(
             new VersionConflictError({
@@ -199,8 +219,6 @@ export function createCrudExecutor(
           );
         }
       }
-
-      const currentVersion = (previous["version"] as number) ?? 1;
       const [row] = await db
         .update(table)
         .set({

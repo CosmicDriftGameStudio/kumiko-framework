@@ -3,14 +3,19 @@ import type { ZodType } from "zod";
 import type { DbConnection } from "../../db/connection";
 import type { TenantDb } from "../../db/tenant-db";
 import type { Logger } from "../../logging/types";
+import type { Meter, MetricsHandle, Tracer } from "../../observability/types";
 import type { EntityCache } from "../../pipeline/entity-cache";
 import type { SearchAdapter } from "../../search/types";
 
 // --- Access ---
 
-export type AccessRule = {
-  readonly roles: readonly string[];
-};
+// AccessRule is DEFAULT-DENY: a handler without an access rule is not reachable.
+// To grant access, set one of:
+//   - { roles: ["Admin", ...] }   — role-based allowlist (empty array denies everyone)
+//   - { openToAll: true }         — any authenticated user may call (still requires a valid JWT)
+export type AccessRule =
+  | { readonly roles: readonly string[] }
+  | { readonly openToAll: true };
 
 // --- Pipeline User ---
 
@@ -93,6 +98,12 @@ type SharedContextFields = {
   readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;
   readonly _notifyFactory?: NotifyFactory;
+  // Observability: optional at the outer boundary, always populated by the
+  // time a handler receives its ctx (Noop fallback when no provider is
+  // configured, so handler code can call ctx.tracer/ctx.metrics without
+  // defensive checks).
+  readonly tracer?: Tracer;
+  readonly meter?: Meter;
 };
 
 // All optional — used at pipeline/system boundaries.
@@ -140,6 +151,12 @@ export type HandlerContext = SharedContextFields & {
   // then publishes it at-least-once. Feature authors call this; they don't
   // see the outbox machinery.
   readonly emit: (qn: string, payload: unknown) => Promise<void>;
+
+  // Always populated — Noop when no observability provider is configured.
+  // Feature code can call ctx.metrics.inc(...) / ctx.tracer.startSpan(...)
+  // without null-checks.
+  readonly metrics: MetricsHandle;
+  readonly tracer: Tracer;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed

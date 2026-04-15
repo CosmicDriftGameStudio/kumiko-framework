@@ -47,7 +47,7 @@ describe("defineFeature", () => {
         // event.payload.email is inferred as string
         const _email: string = event.payload.email;
         return { isSuccess: true, data: { id: 1 } };
-      });
+      }, { access: { openToAll: true } });
     });
 
     expect(feature.writeHandlers["user:invite"]).toBeDefined();
@@ -60,7 +60,7 @@ describe("defineFeature", () => {
       ref = r.writeHandler("order:create", z.object({}), async () => ({
         isSuccess: true,
         data: null,
-      }));
+      }), { access: { openToAll: true } });
     });
     expect(ref?.name).toBe("order:create");
   });
@@ -68,7 +68,7 @@ describe("defineFeature", () => {
   test("queryHandler returns typed HandlerRef", () => {
     let ref: { name: string } | undefined;
     defineFeature("test", (r) => {
-      ref = r.queryHandler("order:list", z.object({}), async () => []);
+      ref = r.queryHandler("order:list", z.object({}), async () => [], { access: { openToAll: true } });
     });
     expect(ref?.name).toBe("order:list");
   });
@@ -119,7 +119,7 @@ describe("defineFeature", () => {
       r.queryHandler("user:detail", schema, async (query) => {
         const _id: number = query.payload.userId;
         return { id: _id, email: "test@test.de" };
-      });
+      }, { access: { openToAll: true } });
     });
 
     expect(feature.queryHandlers["user:detail"]).toBeDefined();
@@ -132,6 +132,7 @@ describe("defineFeature", () => {
       handler: async () => {
         return [{ id: 1, email: "test@test.de" }];
       },
+        access: { openToAll: true }
     });
 
     const feature = defineFeature("test", (r) => {
@@ -234,10 +235,10 @@ describe("createRegistry", () => {
 
   test("looks up handlers across features", () => {
     const f1 = defineFeature("admin", (r) => {
-      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
     });
     const f2 = defineFeature("profile", (r) => {
-      r.queryHandler("profile:me", z.object({}), async () => ({ id: 1 }));
+      r.queryHandler("profile:me", z.object({}), async () => ({ id: 1 }), { access: { openToAll: true } });
     });
 
     const registry = createRegistry([f1, f2]);
@@ -270,10 +271,10 @@ describe("createRegistry", () => {
 
   test("different features can have same handler short name (prefixed differently)", () => {
     const f1 = defineFeature("a", (r) => {
-      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
     });
     const f2 = defineFeature("b", (r) => {
-      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
     });
 
     // No error — "a:write:user:invite" and "b:write:user:invite" are distinct
@@ -340,7 +341,7 @@ describe("createRegistry", () => {
         }),
       );
       // Handler name "promote" has no entity prefix → can't be mapped
-      r.writeHandler("promote", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.writeHandler("promote", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
     });
 
     expect(() => createRegistry([feature])).toThrow(/hr:write:promote.*not mapped.*entity:action/i);
@@ -350,7 +351,7 @@ describe("createRegistry", () => {
     const feature = defineFeature("admin", (r) => {
       r.entity("setting", createEntity({ table: "settings", fields: { key: createTextField() } }));
       // No field-access rules on entity → "reset" without entity prefix is fine
-      r.writeHandler("reset", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.writeHandler("reset", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();
@@ -372,7 +373,7 @@ describe("createRegistry", () => {
       r.writeHandler("employee:promote", z.object({}), async () => ({
         isSuccess: true,
         data: null,
-      }));
+      }), { access: { openToAll: true } });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();
@@ -392,9 +393,9 @@ describe("createRegistry", () => {
       r.writeHandler("employee:create", z.object({}), async () => ({
         isSuccess: true,
         data: null,
-      }));
+      }), { access: { openToAll: true } });
       // Typo: "emp" instead of "employee"
-      r.queryHandler("emp:list", z.object({}), async () => []);
+      r.queryHandler("emp:list", z.object({}), async () => [], { access: { openToAll: true } });
     });
 
     expect(() => createRegistry([feature])).toThrow(/emp:list.*entity-bound.*no matching entity/i);
@@ -414,10 +415,10 @@ describe("createRegistry", () => {
       r.writeHandler("employee:create", z.object({}), async () => ({
         isSuccess: true,
         data: null,
-      }));
+      }), { access: { openToAll: true } });
       // Standalone queries — no dot, intentionally not entity-bound
-      r.queryHandler("dashboard", z.object({}), async () => ({ total: 42 }));
-      r.queryHandler("orgChart", z.object({}), async () => []);
+      r.queryHandler("dashboard", z.object({}), async () => ({ total: 42 }), { access: { openToAll: true } });
+      r.queryHandler("orgChart", z.object({}), async () => [], { access: { openToAll: true } });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();
@@ -454,7 +455,8 @@ describe("hasAccess", () => {
     { userRoles: ["Employee"], requiredRoles: ["Admin", "SystemAdmin"], expected: false },
     { userRoles: ["Admin", "Employee"], requiredRoles: ["Employee"], expected: true },
     { userRoles: [], requiredRoles: ["Admin"], expected: false },
-    { userRoles: ["Admin"], requiredRoles: [], expected: true },
+    // Empty required-roles list denies everyone under default-deny.
+    { userRoles: ["Admin"], requiredRoles: [], expected: false },
   ])("user $userRoles vs required $requiredRoles → $expected", ({
     userRoles,
     requiredRoles,
@@ -464,9 +466,19 @@ describe("hasAccess", () => {
     expect(hasAccess(user, { roles: requiredRoles })).toBe(expected);
   });
 
-  test("no access rule means everyone has access", () => {
+  test("missing access rule denies access (default-deny)", () => {
     const user = createTestUser({ roles: ["Employee"] });
-    expect(hasAccess(user, undefined)).toBe(true);
+    expect(hasAccess(user, undefined)).toBe(false);
+  });
+
+  test("openToAll grants access to any authenticated user", () => {
+    const user = createTestUser({ roles: ["Employee"] });
+    expect(hasAccess(user, { openToAll: true })).toBe(true);
+  });
+
+  test("openToAll grants access even to user with no roles", () => {
+    const user = createTestUser({ roles: [] });
+    expect(hasAccess(user, { openToAll: true })).toBe(true);
   });
 });
 
@@ -1254,7 +1266,7 @@ describe("registry boot validation", () => {
   test("allows valid hook targets", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("item", createEntity({ table: "Items", fields: {} }));
-      r.writeHandler("item.create", z.object({}), async () => ({ isSuccess: true, data: null }));
+      r.writeHandler("item.create", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
       r.hook("postSave", "item.create", async () => {});
     });
 

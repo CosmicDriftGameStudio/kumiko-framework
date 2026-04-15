@@ -10,6 +10,7 @@ export type {
 export {
   bigint,
   boolean,
+  index,
   integer,
   jsonb,
   numeric,

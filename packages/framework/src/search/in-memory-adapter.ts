@@ -103,5 +103,19 @@ export function createInMemorySearchAdapter(): SearchAdapter {
     async remove(tenantId, entityType, entityId) {
       tenants.get(tenantId)?.docs.delete(docKey(entityType, entityId));
     },
+
+    async indexBatch(tenantId, docs) {
+      for (const doc of docs) {
+        await this.index(tenantId, doc);
+      }
+    },
+
+    async removeBatch(tenantId, items) {
+      const tenant = tenants.get(tenantId);
+      if (!tenant) return;
+      for (const item of items) {
+        tenant.docs.delete(docKey(item.entityType, item.entityId));
+      }
+    },
   };
 }

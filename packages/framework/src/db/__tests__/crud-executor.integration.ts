@@ -137,7 +137,7 @@ describe("crud update", () => {
     if (!created.isSuccess) throw new Error("Setup failed");
 
     const result = await crud.update(
-      { id: created.data.id, changes: { firstName: "After" } },
+      { id: created.data.id, version: 1, changes: { firstName: "After" } },
       adminUser,
       adminDb,
     );
@@ -159,7 +159,7 @@ describe("crud update", () => {
     expect(created.data.data["version"]).toBe(1);
 
     const update1 = await crud.update(
-      { id: created.data.id, changes: { firstName: "V2" } },
+      { id: created.data.id, version: 1, changes: { firstName: "V2" } },
       adminUser,
       adminDb,
     );
@@ -167,7 +167,7 @@ describe("crud update", () => {
     expect(update1.data.data["version"]).toBe(2);
 
     const update2 = await crud.update(
-      { id: created.data.id, changes: { firstName: "V3" } },
+      { id: created.data.id, version: 2, changes: { firstName: "V3" } },
       adminUser,
       adminDb,
     );
@@ -209,7 +209,7 @@ describe("crud update", () => {
     expect(result.isSuccess).toBe(true);
   });
 
-  test("update without version skips locking check", async () => {
+  test("update without version is rejected with version_conflict (no silent last-writer-wins)", async () => {
     const created = await crud.create({ email: "nolock@test.de" }, adminUser, adminDb);
     if (!created.isSuccess) throw new Error("Setup failed");
 
@@ -217,6 +217,22 @@ describe("crud update", () => {
       { id: created.data.id, changes: { firstName: "NoCheck" } },
       adminUser,
       adminDb,
+    );
+    expect(result.isSuccess).toBe(false);
+    if (!result.isSuccess) {
+      expect(result.error.code).toBe("version_conflict");
+    }
+  });
+
+  test("update without version succeeds when handler opts out via skipOptimisticLock", async () => {
+    const created = await crud.create({ email: "optout@test.de" }, adminUser, adminDb);
+    if (!created.isSuccess) throw new Error("Setup failed");
+
+    const result = await crud.update(
+      { id: created.data.id, changes: { firstName: "Forced" } },
+      adminUser,
+      adminDb,
+      { skipOptimisticLock: true },
     );
     expect(result.isSuccess).toBe(true);
   });
@@ -226,7 +242,7 @@ describe("crud update", () => {
     if (!created.isSuccess) throw new Error("Setup failed");
 
     const result = await crud.update(
-      { id: created.data.id, changes: { firstName: "Hacked" } },
+      { id: created.data.id, version: 1, changes: { firstName: "Hacked" } },
       otherTenantUser,
       otherTenantDb,
     );

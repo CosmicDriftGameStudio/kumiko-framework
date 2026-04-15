@@ -2,6 +2,7 @@ import { type Job, Queue, Worker } from "bullmq";
 import { createSystemUser } from "../engine/system-user";
 import type { AppContext, Registry, SessionUser } from "../engine/types";
 import type { Logger } from "../logging/types";
+import { getFallbackTracer, type SerializedTraceContext, type Tracer } from "../observability";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
@@ -59,6 +60,27 @@ export type JobRunnerOptions = {
   onJobFailed?: (jobName: string, jobId: string, error: string, logs: JobLogEntry[]) => void;
 };
 
+// Serialized trace context lives under this key in the BullMQ job data.
+// Leading underscore matches the existing internal-meta convention
+// (_triggeredById, _tenantId, _payload).
+const TRACE_CONTEXT_KEY = "_traceContext";
+
+function readTraceContext(
+  data: Record<string, unknown>,
+): SerializedTraceContext | undefined {
+  const raw = data[TRACE_CONTEXT_KEY];
+  if (!raw || typeof raw !== "object") return undefined;
+  const ctx = raw as Partial<SerializedTraceContext>;
+  if (!ctx.traceId || !ctx.spanId) return undefined;
+  return { traceId: ctx.traceId, spanId: ctx.spanId };
+}
+
+function captureTraceContext(tracer: Tracer): SerializedTraceContext | undefined {
+  const span = tracer.getActiveSpan();
+  if (!span || !span.traceId) return undefined;
+  return { traceId: span.traceId, spanId: span.spanId };
+}
+
 function parseRedisOpts(url: string): { host: string; port: number; db?: number | undefined } {
   const parsed = new URL(url);
   const result: { host: string; port: number; db?: number | undefined } = {
@@ -75,6 +97,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   const { registry, context, redisUrl } = options;
   const queueName = options.queueName ?? "kumiko-jobs";
   const redisOpts = parseRedisOpts(redisUrl);
+  // Use the context's tracer when present (observability-provider injected at
+  // boot); otherwise noop so dispatch/handleJob stay zero-cost without config.
+  const tracer: Tracer = context.tracer ?? getFallbackTracer();
 
   const allJobs = registry.getAllJobs();
   const queue = new Queue(queueName, { connection: redisOpts });
@@ -136,17 +161,40 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
     await options.onJobStart?.(jobName, jobId, meta);
 
-    try {
-      await jobDef.handler(payload, jobContext);
+    // Cross-process trace continuation: if the enqueuing code captured a
+    // parent span, start the job.execute span as its child. Works for event
+    // and manual triggers; cron jobs start a fresh root span.
+    const parentContext = readTraceContext(rawData);
+    const runInSpan = async (): Promise<void> => {
+      try {
+        await jobDef.handler(payload, jobContext);
+        const duration = Date.now() - startTime;
+        await options.onJobComplete?.(jobName, jobId, duration, logs);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        logs.push({ level: "error", message: errorMsg, timestamp: new Date() });
+        await options.onJobFailed?.(jobName, jobId, errorMsg, logs);
+        throw err;
+      }
+    };
 
-      const duration = Date.now() - startTime;
-      await options.onJobComplete?.(jobName, jobId, duration, logs);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      logs.push({ level: "error", message: errorMsg, timestamp: new Date() });
-      await options.onJobFailed?.(jobName, jobId, errorMsg, logs);
-      throw err;
-    }
+    // Unified span creation: withSpan handles start/end + status/exception
+    // recording identically for both parent-context and no-parent paths.
+    // When parentContext is set, the new parent-aware StartSpanOptions
+    // plumbs it through to startSpan — no manual try/finally needed.
+    await tracer.withSpan(
+      "job.execute",
+      {
+        attributes: {
+          "job.name": jobName,
+          "job.id": jobId,
+          "job.attempt": bullJob.attemptsMade + 1,
+          "kumiko.tenant_id": tenantId,
+        },
+        ...(parentContext ? { parent: parentContext } : {}),
+      },
+      runInSpan,
+    );
   }
 
   return {
@@ -246,6 +294,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       const data: Record<string, unknown> = { ...payload };
       if (meta?.triggeredById !== undefined) data["_triggeredById"] = meta.triggeredById;
       if (meta?.payload !== undefined) data["_payload"] = meta.payload;
+      // Carry the enqueuing span context into the worker so job.execute shows
+      // as a child of the caller.
+      const traceCtx = captureTraceContext(tracer);
+      if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
 
       const job = await queue.add(jobName, data, bullOpts);
       return job.id ?? "unknown";
@@ -256,6 +308,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       payload: Record<string, unknown>,
       user?: SessionUser,
     ): Promise<void> {
+      const traceCtx = captureTraceContext(tracer);
       for (const [name, jobDef] of allJobs) {
         if ("on" in jobDef.trigger && jobDef.trigger.on === eventName) {
           const data: Record<string, unknown> = { ...payload };
@@ -263,6 +316,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             data["_tenantId"] = user.tenantId;
             data["_triggeredById"] = user.id;
           }
+          if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
           await queue.add(name, data);
         }
       }

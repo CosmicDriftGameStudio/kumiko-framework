@@ -46,6 +46,29 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
         .waitTask();
     },
 
+    async indexBatch(tenantId, docs) {
+      if (docs.length === 0) return;
+      const index = client.index(tenantIndex(prefix, tenantId));
+      const payload = docs.map((doc) => ({
+        _id: docId(doc.entityType, doc.entityId),
+        _type: doc.entityType,
+        _weight: doc.weight,
+        _entityId: doc.entityId,
+        ...doc.fields,
+      }));
+      // Single Meilisearch task covering all N docs. Meilisearch processes
+      // the payload server-side as one indexing job — waitTask blocks until
+      // that job is done, but it's one round-trip instead of N.
+      await index.addDocuments(payload, { primaryKey: "_id" }).waitTask();
+    },
+
+    async removeBatch(tenantId, items) {
+      if (items.length === 0) return;
+      const index = client.index(tenantIndex(prefix, tenantId));
+      const ids = items.map((i) => docId(i.entityType, i.entityId));
+      await index.deleteDocuments(ids).waitTask();
+    },
+
     async search(tenantId, query, options) {
       const index = client.index(tenantIndex(prefix, tenantId));
 

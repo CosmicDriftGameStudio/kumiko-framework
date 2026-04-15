@@ -1,6 +1,15 @@
 import { getTableName } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vitest";
-import { createBooleanField, createEntity, createSelectField, createTextField } from "../../engine";
+import {
+  createBooleanField,
+  createEntity,
+  createImageField,
+  createNumberField,
+  createSelectField,
+  createTextField,
+} from "../../engine";
+import type { EntityRelations } from "../../engine/types";
 import { decodeCursor, encodeCursor } from "../cursor";
 import { buildBaseColumns, buildDrizzleTable, toTableName } from "../table-builder";
 
@@ -140,6 +149,126 @@ describe("buildDrizzleTable", () => {
     const entity = createEntity({ fields: { name: createTextField() } });
     const table = buildDrizzleTable("order", entity, { featureName: "shop" });
     expect(getTableName(table)).toBe("shop_orders");
+  });
+});
+
+// --- Auto-Indices ---
+
+describe("buildDrizzleTable auto-indices", () => {
+  test("every table gets a tenant_id index", () => {
+    const entity = createEntity({
+      table: "users",
+      fields: { email: createTextField() },
+    });
+    const table = buildDrizzleTable("user", entity);
+    const { indexes } = getTableConfig(table);
+
+    const tenantIndex = indexes.find((idx) => idx.config.name === "users_tenant_id_idx");
+    expect(tenantIndex).toBeDefined();
+    expect(tenantIndex?.config.columns.map((c) => (c as { name: string }).name)).toEqual([
+      "tenant_id",
+    ]);
+  });
+
+  test("file field produces an index on its column", () => {
+    const entity = createEntity({
+      table: "documents",
+      fields: {
+        title: createTextField(),
+        avatar: createImageField(),
+      },
+    });
+    const table = buildDrizzleTable("document", entity);
+    const { indexes } = getTableConfig(table);
+
+    const avatarIndex = indexes.find((idx) => idx.config.name === "documents_avatar_idx");
+    expect(avatarIndex).toBeDefined();
+  });
+
+  test("index names include feature prefix when featureName is set", () => {
+    const entity = createEntity({
+      table: "items",
+      fields: { name: createTextField() },
+    });
+    const table = buildDrizzleTable("item", entity, { featureName: "shop" });
+    const { indexes } = getTableConfig(table);
+
+    expect(indexes.some((idx) => idx.config.name === "shop_items_tenant_id_idx")).toBe(true);
+  });
+
+  test("table without file fields or relations has only the tenant index", () => {
+    const entity = createEntity({
+      table: "notes",
+      fields: { body: createTextField() },
+    });
+    const table = buildDrizzleTable("note", entity);
+    const { indexes } = getTableConfig(table);
+
+    expect(indexes).toHaveLength(1);
+    expect(indexes[0]?.config.name).toBe("notes_tenant_id_idx");
+  });
+
+  test("belongsTo relations produce an index on their foreign key column", () => {
+    const entity = createEntity({
+      table: "tasks",
+      fields: {
+        title: createTextField({ required: true }),
+        assigneeId: createNumberField(),
+        projectId: createNumberField(),
+      },
+    });
+    const relations: EntityRelations = {
+      assignee: { type: "belongsTo", target: "user", foreignKey: "assigneeId" },
+      project: { type: "belongsTo", target: "project", foreignKey: "projectId" },
+    };
+    const table = buildDrizzleTable("task", entity, { relations });
+    const { indexes } = getTableConfig(table);
+
+    const names = indexes.map((i) => i.config.name);
+    expect(names).toContain("tasks_tenant_id_idx");
+    expect(names).toContain("tasks_assignee_id_idx");
+    expect(names).toContain("tasks_project_id_idx");
+  });
+
+  test("hasMany / manyToMany relations do NOT produce indexes on this table (their FK lives on the other side)", () => {
+    const entity = createEntity({
+      table: "teams",
+      fields: { name: createTextField() },
+    });
+    const relations: EntityRelations = {
+      members: { type: "hasMany", target: "user", foreignKey: "teamId" },
+      tags: {
+        type: "manyToMany",
+        target: "tag",
+        through: { table: "team_tags", sourceKey: "teamId", targetKey: "tagId" },
+      },
+    };
+    const table = buildDrizzleTable("team", entity, { relations });
+    const { indexes } = getTableConfig(table);
+
+    // Only the tenant index — hasMany FK lives on the "user" table; the join
+    // table for manyToMany isn't owned by this entity either.
+    expect(indexes).toHaveLength(1);
+    expect(indexes[0]?.config.name).toBe("teams_tenant_id_idx");
+  });
+
+  test("relation and file field on the same column deduplicate to one index", () => {
+    const entity = createEntity({
+      table: "photos",
+      fields: {
+        title: createTextField(),
+        ownerId: createImageField(), // contrived: name collides with an FK relation below
+      },
+    });
+    const relations: EntityRelations = {
+      owner: { type: "belongsTo", target: "user", foreignKey: "ownerId" },
+    };
+    const table = buildDrizzleTable("photo", entity, { relations });
+    const { indexes } = getTableConfig(table);
+
+    const names = indexes.map((i) => i.config.name);
+    // Exactly one owner_id index, not two
+    expect(names.filter((n) => n === "photos_owner_id_idx")).toHaveLength(1);
   });
 });
 

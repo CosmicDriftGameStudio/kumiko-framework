@@ -1,3 +1,4 @@
+import { buildMetricName, validateMetricName } from "../observability";
 import { type QnType, qn, toKebab } from "./qualified-name";
 import type {
   ConfigKeyDefinition,
@@ -5,6 +6,7 @@ import type {
   EntityRelations,
   EventDef,
   FeatureDefinition,
+  FeatureMetricDef,
   HookPhase,
   JobDefinition,
   NotificationDefinition,
@@ -32,6 +34,9 @@ type IncomingRelation = {
   relation: RelationDefinition;
 };
 
+// This is where the magic happens. By "magic" I mean: precomputed maps.
+// I build everything once at boot (hooks, relations, searchable fields, ...)
+// so nothing has to iterate over objects at runtime. O(1) instead of O(n*m).
 export function createRegistry(features: readonly FeatureDefinition[]): Registry {
   const featureMap = new Map<string, FeatureDefinition>();
   const entityMap = new Map<string, EntityDefinition>();
@@ -60,6 +65,12 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const allReferenceData: ReferenceDataDef[] = [];
   const mergedTranslations: Record<string, Record<string, string>> = {};
+  // Metric registry — keyed by fully qualified name (kumiko_<feature>_<short>).
+  // Boot-time validation rejects bad names; dashboards then safely rely on shape.
+  const metricMap = new Map<
+    string,
+    FeatureMetricDef & { readonly featureName: string }
+  >();
 
   // Qualified name helper: builds "scope:type:name" from feature + type + short name.
   // Both feature name and handler name are converted to kebab-case.
@@ -229,6 +240,23 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
     extensionUsages.push(...feature.extensionUsages);
     allReferenceData.push(...feature.referenceData);
+
+    // Metrics: validate + qualify per feature. Collisions across features are
+    // rejected here — two features can't both register "created_total" under
+    // different shapes (labels/type) because the resulting fully qualified
+    // names differ, but same short+feature combo would already fail in
+    // defineFeature. This loop catches cross-feature/extension edge cases.
+    for (const [shortName, def] of Object.entries(feature.metrics)) {
+      const fullName = buildMetricName(feature.name, shortName);
+      validateMetricName(fullName, def.type);
+      if (metricMap.has(fullName)) {
+        throw new Error(
+          `[Kumiko Observability] Metric "${fullName}" registered multiple times ` +
+            `(Feature: ${feature.name}). Metric names must be globally unique.`,
+        );
+      }
+      metricMap.set(fullName, { ...def, featureName: feature.name });
+    }
   }
 
   // Build handler → entity mapping from explicit feature declarations (set by r.crud() and tryMapEntity).
@@ -394,7 +422,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const allHandlerNames = new Set([...writeHandlerMap.keys(), ...queryHandlerMap.keys()]);
   for (const [qualifiedName, notifDef] of notificationMap) {
     const featureName = notificationFeatureMap.get(qualifiedName) as string;
-    // Try as-is first (cross-feature fully qualified QN), then qualify with own feature name as write handler
+    // I'll try the easy path first: if the trigger is already a fully qualified QN
+    // (cross-feature), I take it as-is. Otherwise I qualify with the own feature —
+    // as a write handler first (the common case), then as a query. If nothing
+    // matches by then, it was a typo and I'll say so.
     let triggerOn: string;
     if (allHandlerNames.has(notifDef.trigger.on)) {
       triggerOn = notifDef.trigger.on;
@@ -450,6 +481,8 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     { map: preQueryHooks, phase: "preQuery" },
   ] as const;
 
+  // I'd rather warn you now at boot than have you open a ticket three weeks from now
+  // saying "my hook isn't firing". One typo in the target and the thing goes silent.
   for (const { map, phase } of lifecycleHookMaps) {
     for (const hookTarget of map.keys()) {
       if (!allHandlers.has(hookTarget)) {
@@ -569,6 +602,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       const featureName = handlerFeatureMap.get(qualifiedHandler);
       if (!featureName) return false;
       return featureMap.get(featureName)?.systemScope ?? false;
+    },
+
+    getHandlerFeature(qualifiedHandler: string): string | undefined {
+      return handlerFeatureMap.get(qualifiedHandler);
+    },
+
+    getAllMetrics() {
+      return metricMap;
     },
 
     getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined {

@@ -188,3 +188,36 @@ describe("remove", () => {
     expect(results.some((r) => r.entityId === 999)).toBe(false);
   });
 });
+
+// --- Batch variants ---
+
+describe("indexBatch / removeBatch", () => {
+  test("indexBatch indexes multiple docs in a single task", async () => {
+    const docs = Array.from({ length: 5 }, (_, i) => ({
+      entityType: "batch" as const,
+      entityId: 1000 + i,
+      weight: 1,
+      fields: { firstName: `Bulk${i}`, notes: "batchtoken" },
+    }));
+    await adapter.indexBatch?.(TENANT, docs);
+
+    const hits = await adapter.search(TENANT, "batchtoken", { limit: 20, filterType: "batch" });
+    expect(hits.length).toBe(5);
+    const ids = hits.map((h) => h.entityId).sort();
+    expect(ids).toEqual([1000, 1001, 1002, 1003, 1004]);
+  });
+
+  test("removeBatch removes multiple docs in a single task", async () => {
+    await adapter.removeBatch?.(
+      TENANT,
+      [1000, 1001, 1002, 1003, 1004].map((id) => ({ entityType: "batch", entityId: id })),
+    );
+    const hits = await adapter.search(TENANT, "batchtoken", { limit: 20, filterType: "batch" });
+    expect(hits.length).toBe(0);
+  });
+
+  test("indexBatch no-ops on empty array", async () => {
+    // Must not throw or send a request
+    await adapter.indexBatch?.(TENANT, []);
+  });
+});

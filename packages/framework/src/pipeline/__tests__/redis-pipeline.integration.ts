@@ -105,6 +105,55 @@ describe("idempotency guard", () => {
 
     expect(await guard.check(requestId)).toBeNull();
   });
+
+  test("parallel check(): second caller waits for the first's store() instead of racing", async () => {
+    const guard = createIdempotencyGuard(testRedis.redis, {
+      pendingTtlSeconds: 5,
+      pollIntervalMs: 20,
+      waitTimeoutMs: 3_000,
+    });
+    const requestId = "req-race-1";
+
+    // Request #1 starts — claims the in-progress lock.
+    const first = await guard.check(requestId);
+    expect(first).toBeNull(); // got the lock
+
+    // Request #2 runs concurrently — must block until #1 stores a result.
+    const secondPromise = guard.check(requestId);
+
+    // After a tick the second must still be pending: no result yet.
+    await new Promise((r) => setTimeout(r, 80));
+    // Race the check — if the guard already resolved we have a race bug.
+    const quickResult = await Promise.race([
+      secondPromise.then((v) => ({ done: true, v })),
+      new Promise<{ done: false }>((r) => setTimeout(() => r({ done: false }), 0)),
+    ]);
+    expect(quickResult.done).toBe(false);
+
+    // Request #1 finishes.
+    await guard.store(requestId, { isSuccess: true, data: { id: 99 } });
+
+    // Request #2 should now see the stored result, not null — no duplicate work.
+    const second = await secondPromise;
+    expect(second).not.toBeNull();
+    expect(JSON.parse(second as string)).toEqual({ isSuccess: true, data: { id: 99 } });
+  });
+
+  test("crashed handler: pending marker expires, next caller reclaims the lock", async () => {
+    const guard = createIdempotencyGuard(testRedis.redis, {
+      pendingTtlSeconds: 1, // expire fast
+      pollIntervalMs: 50,
+      waitTimeoutMs: 3_000,
+    });
+    const requestId = "req-crashed";
+
+    const first = await guard.check(requestId);
+    expect(first).toBeNull(); // we acquired the lock, then "crash" — never call store()
+
+    // After the pending-TTL lapses, a retry should be allowed to take over.
+    const second = await guard.check(requestId);
+    expect(second).toBeNull(); // reclaimed
+  });
 });
 
 // --- Event Log ---

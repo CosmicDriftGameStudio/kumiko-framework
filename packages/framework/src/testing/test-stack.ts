@@ -5,6 +5,7 @@ import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry } from "../engine/types";
+import type { ObservabilityProvider } from "../observability";
 import type { EventBroker, OutboxPoller } from "../pipeline";
 import {
   createEntityCache,
@@ -19,7 +20,7 @@ import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
 import {
   createAuditTrailDeleteHook,
   createAuditTrailHook,
-  createSearchIndexHook,
+  createSearchHooks,
   createSseBroadcastHook,
   createSseDeleteBroadcastHook,
 } from "../pipeline/system-hooks";
@@ -38,6 +39,7 @@ export type TestStack = {
   search: SearchAdapter;
   events: EventCollector;
   http: RequestHelper;
+  observability: ObservabilityProvider;
   // Present only when options.outbox === true. Tests call outboxPoller.runOnce()
   // to drain the outbox deterministically instead of waiting on the timer.
   outboxPoller?: OutboxPoller;
@@ -77,6 +79,10 @@ export type TestStackOptions = {
           event: import("../pipeline/outbox-poller").DeadLetterEvent,
         ) => void | Promise<void>;
       };
+  /** Observability provider — omit for NoopProvider (no spans/metrics).
+   *  Pass a ConsoleProvider to see the span tree in stdout, or a custom
+   *  provider (e.g. a recording provider for assertions in tests). */
+  observability?: ObservabilityProvider;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -132,17 +138,25 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     () => {},
   );
 
-  // Build system hooks based on selection
+  // Build system hooks based on selection. The search helper auto-picks the
+  // batch variant when the adapter exposes indexBatch/removeBatch — no
+  // consumer change needed when swapping adapters.
+  const searchHooks = enabledHooks.includes("search")
+    ? createSearchHooks(searchAdapter, registry)
+    : {};
   const systemHooks: SystemHooks = {
     postSave: [
-      ...(enabledHooks.includes("search") ? [createSearchIndexHook(searchAdapter, registry)] : []),
+      ...(searchHooks.postSave ?? []),
       ...(enabledHooks.includes("sse") ? [createSseBroadcastHook(sseBroker)] : []),
       ...(enabledHooks.includes("audit") ? [createAuditTrailHook(events.auditStorage)] : []),
     ],
+    ...(searchHooks.postSaveBatch ? { postSaveBatch: searchHooks.postSaveBatch } : {}),
     postDelete: [
+      ...(searchHooks.postDelete ?? []),
       ...(enabledHooks.includes("sse") ? [createSseDeleteBroadcastHook(sseBroker)] : []),
       ...(enabledHooks.includes("audit") ? [createAuditTrailDeleteHook(events.auditStorage)] : []),
     ],
+    ...(searchHooks.postDeleteBatch ? { postDeleteBatch: searchHooks.postDeleteBatch } : {}),
   };
 
   const eventLog = createEventLog(testRedis.redis, "kumiko:test:stack-log");
@@ -211,6 +225,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
           },
         }
       : {}),
+    ...(options.observability ? { observability: options.observability } : {}),
   });
 
   // Poller comes from buildServer — same instance a production caller gets.
@@ -229,12 +244,14 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     search: searchAdapter,
     events,
     http,
+    observability: server.observability,
     ...(outboxPoller ? { outboxPoller } : {}),
     ...(eventBroker ? { eventBroker } : {}),
     cleanup: async () => {
       if (outboxPoller) await outboxPoller.stop();
       if (eventBroker) await eventBroker.stop();
       if (subscriberRedis) subscriberRedis.disconnect();
+      await server.observability.shutdown();
       await Promise.all([testDb.cleanup(), testRedis.cleanup()]);
     },
   };

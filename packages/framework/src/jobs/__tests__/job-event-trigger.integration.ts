@@ -29,7 +29,7 @@ const ordersFeature = defineFeature("orders", (r) => {
         isSuccess: true,
         data: { id: 1, product: event.payload.product, amount: event.payload.amount },
       };
-    },
+    }, { access: { openToAll: true } }
   );
 });
 
@@ -50,7 +50,7 @@ const analyticsFeature = defineFeature("analytics", (r) => {
   r.writeHandler("users:create", z.object({}), async () => ({
     isSuccess: true as const,
     data: null,
-  }));
+  }), { access: { openToAll: true } });
 
   r.job("trackOrder", { trigger: { on: "orders:write:orders:create" } }, async (payload) => {
     jobExecutions.push({ name: "analytics:job:track-order", payload });

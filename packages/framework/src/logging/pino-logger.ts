@@ -1,4 +1,5 @@
 import pino from "pino";
+import { observabilityContext } from "../observability";
 import type { Logger } from "./types";
 
 export type LoggerOptions = {
@@ -20,19 +21,37 @@ export function createLogger(options: LoggerOptions = {}): Logger {
   return wrapPino(pinoLogger);
 }
 
+// Pull traceId/spanId from the active observability context so every log
+// line carries them when tracing is active. Empty IDs (NoopProvider) skip —
+// nothing to correlate, no need to clutter output. Trace fields don't
+// overwrite caller-provided data so explicit overrides still win. Exported
+// for unit tests.
+export function mergeTraceFields(
+  data: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  const span = observabilityContext.getActiveSpan();
+  if (!span || !span.traceId) return data;
+  const traceFields = { traceId: span.traceId, spanId: span.spanId };
+  return data ? { ...traceFields, ...data } : traceFields;
+}
+
 function wrapPino(p: pino.Logger): Logger {
   return {
     info(msg, data) {
-      data ? p.info(data, msg) : p.info(msg);
+      const merged = mergeTraceFields(data);
+      merged ? p.info(merged, msg) : p.info(msg);
     },
     warn(msg, data) {
-      data ? p.warn(data, msg) : p.warn(msg);
+      const merged = mergeTraceFields(data);
+      merged ? p.warn(merged, msg) : p.warn(msg);
     },
     error(msg, data) {
-      data ? p.error(data, msg) : p.error(msg);
+      const merged = mergeTraceFields(data);
+      merged ? p.error(merged, msg) : p.error(msg);
     },
     debug(msg, data) {
-      data ? p.debug(data, msg) : p.debug(msg);
+      const merged = mergeTraceFields(data);
+      merged ? p.debug(merged, msg) : p.debug(msg);
     },
     child(context) {
       return wrapPino(p.child(context));

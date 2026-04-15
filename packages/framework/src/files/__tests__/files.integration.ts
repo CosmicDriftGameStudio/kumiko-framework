@@ -23,6 +23,7 @@ import {
   TestUsers,
 } from "../../testing";
 import { fileRefsTable } from "../file-ref-table";
+import type { FileRoutesOptions } from "../file-routes";
 import { createLocalProvider } from "../local-provider";
 import { parseMaxSize, validateFile } from "../types";
 
@@ -161,6 +162,29 @@ describe("file validation", () => {
     );
     expect(error).toBeNull();
   });
+
+  test("validateFile rejects MIME mismatch (extension says jpg, client claims PDF)", () => {
+    const error = validateFile(
+      { fileName: "sneaky.jpg", mimeType: "application/pdf", size: 500 },
+      { accept: ["jpg", "png"] },
+    );
+    expectErrorIncludes(error, "mime_mismatch");
+  });
+
+  test("validateFile accepts jpeg mimeType variants for jpg extension", () => {
+    expect(
+      validateFile(
+        { fileName: "a.jpg", mimeType: "image/jpeg", size: 100 },
+        { accept: ["jpg"] },
+      ),
+    ).toBeNull();
+    expect(
+      validateFile(
+        { fileName: "a.jpg", mimeType: "image/jpg", size: 100 },
+        { accept: ["jpg"] },
+      ),
+    ).toBeNull();
+  });
 });
 
 // --- Integration: Upload → Download → Delete via real HTTP API ---
@@ -234,6 +258,166 @@ describe("file upload flow via API", () => {
     // File is gone
     const getRes = await getFile(adminUser, uploadedFileId);
     expect(getRes.status).toBe(404);
+  });
+});
+
+// --- Cross-user access within a tenant (attached file owner-scope) ---
+
+describe("attached file owner-scope", () => {
+  const testPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array(50).fill(0)]);
+  // Same tenant as adminUser (tenantId 1), different id and no privileged role.
+  const memberUser: SessionUser = { id: 42, tenantId: 1, roles: ["User"] };
+
+  test("non-uploader, non-admin in same tenant cannot download an entity-attached file", async () => {
+    const uploadRes = await uploadFile(memberUser, "mine.png", testPng, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    // A different non-privileged user in the SAME tenant — the old code leaked
+    // here (tenant check alone passed). New code rejects with 404.
+    const otherMember: SessionUser = { id: 43, tenantId: 1, roles: ["User"] };
+    const res = await getFile(otherMember, id);
+    expect(res.status).toBe(404);
+  });
+
+  test("uploader can download their own entity-attached file", async () => {
+    const uploadRes = await uploadFile(memberUser, "mine2.png", testPng, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    const { id } = await uploadRes.json();
+
+    const res = await getFile(memberUser, id);
+    expect(res.status).toBe(200);
+  });
+
+  test("Admin in same tenant can download any attached file", async () => {
+    const uploadRes = await uploadFile(memberUser, "mine3.png", testPng, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    const { id } = await uploadRes.json();
+
+    const res = await getFile(adminUser, id); // Admin role
+    expect(res.status).toBe(200);
+  });
+});
+
+// --- Custom access guard + privilegedRoles ---
+
+describe("custom file access guard", () => {
+  const testPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array(30).fill(0)]);
+
+  // Spin up an isolated DB + storage dir for a single-test server. Runs the
+  // body inside try/finally so the DB and tmpdir are cleaned up even if
+  // assertions fail.
+  async function withIsolatedFileServer(
+    options: Omit<FileRoutesOptions, "db" | "storageProvider">,
+    body: (args: {
+      app: Hono;
+      jwt: JwtHelper;
+      upload: (user: SessionUser, name: string) => Promise<Response>;
+      request: (user: SessionUser, fileId: number, init?: RequestInit) => Promise<Response>;
+    }) => Promise<void>,
+  ): Promise<void> {
+    const isolatedDb = await createTestDb();
+    await pushTables(isolatedDb.db, { fileRefsTable });
+    await createEntityTable(isolatedDb.db, testTenantEntity);
+    const storagePath = await mkdtemp(join(tmpdir(), "kumiko-files-custom-"));
+    const provider = createLocalProvider(storagePath);
+    const isolatedRegistry = createRegistry([tenantFeature]);
+    const isolatedServer = buildServer({
+      registry: isolatedRegistry,
+      context: { db: isolatedDb.db },
+      jwtSecret: JWT_SECRET,
+      files: { db: isolatedDb.db, storageProvider: provider, ...options },
+    });
+
+    try {
+      const upload = async (user: SessionUser, name: string) => {
+        const token = await isolatedServer.jwt.sign(user);
+        const fd = new FormData();
+        fd.append("file", new File([Buffer.from(testPng)], name, { type: "image/png" }));
+        fd.append("entityType", "tenant");
+        fd.append("entityId", "1");
+        fd.append("fieldName", "logo");
+        return isolatedServer.app.request("/api/files", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        });
+      };
+      const request = async (user: SessionUser, fileId: number, init: RequestInit = {}) => {
+        const token = await isolatedServer.jwt.sign(user);
+        return isolatedServer.app.request(`/api/files/${fileId}`, {
+          ...init,
+          headers: {
+            ...((init.headers as Record<string, string> | undefined) ?? {}),
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      };
+      await body({
+        app: isolatedServer.app,
+        jwt: isolatedServer.jwt,
+        upload,
+        request,
+      });
+    } finally {
+      await isolatedDb.cleanup();
+      await rm(storagePath, { recursive: true, force: true });
+    }
+  }
+
+  test("privilegedRoles override: app-defined role (e.g. Supervisor) replaces the default Admin+SystemAdmin", async () => {
+    await withIsolatedFileServer({ privilegedRoles: ["Supervisor"] }, async ({ upload, request }) => {
+      const uploader: SessionUser = { id: 10, tenantId: 1, roles: ["User"] };
+      const supervisor: SessionUser = { id: 20, tenantId: 1, roles: ["Supervisor"] };
+      const adminCaller: SessionUser = { id: 30, tenantId: 1, roles: ["Admin"] };
+
+      const uploaded = await upload(uploader, "custom-role.png");
+      const { id } = await uploaded.json();
+
+      // Supervisor (the new privileged role) can read.
+      expect((await request(supervisor, id)).status).toBe(200);
+      // Admin is NO longer privileged under this config.
+      expect((await request(adminCaller, id)).status).toBe(404);
+    });
+  });
+
+  test("custom accessGuard receives read/delete operation and can distinguish", async () => {
+    const guardCalls: Array<{ operation: string; userId: number }> = [];
+    await withIsolatedFileServer(
+      {
+        // Everyone in the tenant can read; only the uploader can delete.
+        accessGuard: ({ fileRef, user, operation }) => {
+          guardCalls.push({ operation, userId: user.id });
+          if (operation === "read") return "allow";
+          return fileRef.insertedById === user.id ? "allow" : "deny";
+        },
+      },
+      async ({ upload, request }) => {
+        const uploader: SessionUser = { id: 40, tenantId: 1, roles: ["User"] };
+        const other: SessionUser = { id: 41, tenantId: 1, roles: ["User"] };
+
+        const { id } = await (await upload(uploader, "guard.png")).json();
+
+        // Other user can read (guard allowed).
+        expect((await request(other, id)).status).toBe(200);
+        // Other user cannot delete — guard denied.
+        expect((await request(other, id, { method: "DELETE" })).status).toBe(404);
+        // Uploader can delete.
+        expect((await request(uploader, id, { method: "DELETE" })).status).toBe(200);
+
+        expect(guardCalls.map((c) => c.operation)).toEqual(["read", "delete", "delete"]);
+      },
+    );
   });
 });
 

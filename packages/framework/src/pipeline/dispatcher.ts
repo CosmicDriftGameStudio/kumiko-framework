@@ -8,11 +8,13 @@ import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type {
   AppContext,
+  DeleteContext,
   HandlerContext,
   HandlerRef,
   JobRunnerRef,
   LifecycleResult,
   Registry,
+  SaveContext,
   SessionUser,
   WriteResult,
 } from "../engine/types";
@@ -32,11 +34,38 @@ import {
   type WriteErrorInfo,
   writeFailure,
 } from "../errors";
+import {
+  createMetricsHandle,
+  createNoopMetricsHandle,
+  emitDispatcherError,
+  emitDispatcherHandler,
+  getFallbackMeter,
+  getFallbackTracer,
+  registerStandardMetrics,
+} from "../observability";
 import { parseJsonSafe } from "../utils/safe-json";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { eventOutboxTable, OUTBOX_WAKE_CHANNEL } from "./outbox-table";
+
+// Standard span attributes for a dispatcher call. Feature may be undefined
+// for internal handlers that weren't registered via defineFeature.
+function dispatcherSpanAttributes(
+  type: string,
+  operation: "query" | "write",
+  user: SessionUser,
+  feature: string | undefined,
+) {
+  const attrs: Record<string, string | number | boolean> = {
+    "kumiko.handler": type,
+    "kumiko.operation": operation,
+    "kumiko.user_id": user.id,
+    "kumiko.tenant_id": user.tenantId,
+  };
+  if (feature) attrs["kumiko.feature"] = feature;
+  return attrs;
+}
 
 // Deferred afterCommit callback — collected during transaction execution,
 // fired sequentially once the transaction commits successfully.
@@ -126,7 +155,9 @@ export function createDispatcher(
     if (tableCache.has(entityName)) return tableCache.get(entityName);
     const entity = registry.getEntity(entityName);
     if (!entity) return undefined;
-    const table = buildDrizzleTable(entityName, entity);
+    const table = buildDrizzleTable(entityName, entity, {
+      relations: registry.getRelations(entityName),
+    });
     tableCache.set(entityName, table);
     return table;
   }
@@ -176,11 +207,21 @@ export function createDispatcher(
     const metadata: Record<string, unknown> = { userId: user.id };
     if (reqCtx?.requestId) metadata["requestId"] = reqCtx.requestId;
 
+    // Snapshot the current trace context so the outbox poller can continue
+    // the trace cross-process. Empty traceId (noop / outside any span) is
+    // stored as null — the poller will simply start a root span in that case.
+    const activeSpan = dispatcherTracer.getActiveSpan();
+    const traceContext =
+      activeSpan && activeSpan.traceId
+        ? { traceId: activeSpan.traceId, spanId: activeSpan.spanId }
+        : null;
+
     await dbSource.insert(eventOutboxTable).values({
       tenantId: user.tenantId || null,
       eventType,
       payload: (payload ?? {}) as Record<string, unknown>,
       metadata,
+      traceContext,
     });
 
     const redis = outbox.redis;
@@ -227,7 +268,13 @@ export function createDispatcher(
     const dbSource: DbConnection | DbTx | undefined =
       tx ?? (context.db as DbConnection | undefined);
     const db = dbSource
-      ? createTenantDb(dbSource, user.tenantId, isSystem ? "system" : "tenant")
+      ? createTenantDb(
+          dbSource,
+          user.tenantId,
+          isSystem ? "system" : "tenant",
+          context.tracer,
+          context.meter,
+        )
       : undefined;
     const reqCtx = requestContext.get();
     const log = context.log?.child({
@@ -237,6 +284,15 @@ export function createDispatcher(
       ...(reqCtx && { requestId: reqCtx.requestId }),
     });
     const notify = context._notifyFactory ? context._notifyFactory(user, user.tenantId) : undefined;
+
+    // Observability — feature-bound metrics handle, so ctx.metrics.inc("foo")
+    // resolves to kumiko_<feature>_foo. Unknown feature falls back to noop
+    // so legacy internal handlers don't crash.
+    const tracer = context.tracer ?? getFallbackTracer();
+    const meter = context.meter;
+    const featureName = registry.getHandlerFeature(type);
+    const metrics =
+      meter && featureName ? createMetricsHandle(meter, featureName) : createNoopMetricsHandle();
 
     // Cross-feature bridge. Queries and writes invoked through ctx.* share:
     //   - the current transaction (tx) — nested writes roll back with the parent
@@ -267,10 +323,87 @@ export function createDispatcher(
       db,
       log,
       notify,
+      tracer,
+      metrics,
       _userId: user.id,
       _handlerType: type,
       ...bridge,
     } as HandlerContext;
+  }
+
+  const dispatcherTracer = context.tracer ?? getFallbackTracer();
+  const dispatcherMeter = context.meter ?? getFallbackMeter();
+  // Ensure standard metrics exist on whatever meter we ended up with.
+  // Idempotent: buildServer may have registered them already.
+  registerStandardMetrics(dispatcherMeter);
+
+  // Wrap handler execution in a dispatcher.handler span AND emit the standard
+  // dispatcher metrics (duration + error counter). Errors are re-thrown so
+  // control flow stays identical to the uninstrumented path.
+  //
+  // Writes are special-cased: executeWriteInner converts thrown handler errors
+  // into a WriteResult with isSuccess=false (rather than letting them bubble).
+  // We inspect the result to paint the dispatcher span + error counter on
+  // those structural failures too — otherwise "handler threw" would only show
+  // up when the caller forgot to use writeFailure().
+  async function runHandlerInstrumented<T>(
+    type: string,
+    operation: "query" | "write",
+    user: SessionUser,
+    inner: () => Promise<T>,
+  ): Promise<T> {
+    const start = performance.now();
+    // Outcome recorded inside the withSpan callback, emitted in finally so
+    // success/failure/throw all hit a single metric-emit path.
+    let success = true;
+    let errorClass: string | undefined;
+
+    try {
+      return await dispatcherTracer.withSpan(
+        "kumiko.dispatcher.handler",
+        {
+          attributes: dispatcherSpanAttributes(
+            type,
+            operation,
+            user,
+            registry.getHandlerFeature(type),
+          ),
+        },
+        async (span) => {
+          try {
+            const result = await inner();
+            // Write handlers report failure via WriteResult.isSuccess=false.
+            if (
+              operation === "write" &&
+              result &&
+              typeof result === "object" &&
+              "isSuccess" in result &&
+              (result as { isSuccess: boolean }).isSuccess === false
+            ) {
+              const err = (result as { error?: { code?: string } }).error;
+              success = false;
+              errorClass = err?.code ?? "UnknownError";
+              span.setStatus("error", errorClass);
+            }
+            return result;
+          } catch (error) {
+            success = false;
+            errorClass =
+              error instanceof Error && error.name ? error.name : "UnknownError";
+            throw error;
+          }
+        },
+      );
+    } finally {
+      if (!success && errorClass) {
+        emitDispatcherError(dispatcherMeter, { handler: type, errorClass });
+      }
+      emitDispatcherHandler(
+        dispatcherMeter,
+        { handler: type, success },
+        (performance.now() - start) / 1000,
+      );
+    }
   }
 
   // Standalone query execution — used by the public dispatcher.query() and
@@ -282,10 +415,25 @@ export function createDispatcher(
     user: SessionUser,
     tx?: DbTx,
   ): Promise<unknown> {
+    return runHandlerInstrumented(type, "query", user, () =>
+      executeQueryInner(type, payload, user, tx),
+    );
+  }
+
+  async function executeQueryInner(
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+    tx?: DbTx,
+  ): Promise<unknown> {
     const handler = registry.getQueryHandler(type);
     if (!handler) throw new NotFoundError("handler", type);
 
-    if (handler.access && !hasAccess(user, handler.access)) {
+    // Default-deny: missing access rule is treated as "no one has access".
+    // The registry boot-validator refuses to register handlers without one,
+    // so in normal boots this branch shouldn't fire — the guard is belt-and-
+    // suspenders in case a handler sneaks through (e.g. runtime injection).
+    if (!hasAccess(user, handler.access)) {
       throw new AccessDeniedError({
         message: `access denied for ${type}`,
         details: { handler: type },
@@ -373,10 +521,26 @@ export function createDispatcher(
     tx: DbTx | undefined,
     afterCommitHooks: AfterCommitHook[],
   ): Promise<WriteResult> {
+    return runHandlerInstrumented(type, "write", user, () =>
+      executeWriteInner(type, payload, user, tx, afterCommitHooks),
+    );
+  }
+
+  async function executeWriteInner(
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+    tx: DbTx | undefined,
+    afterCommitHooks: AfterCommitHook[],
+  ): Promise<WriteResult> {
     const handler = registry.getWriteHandler(type);
     if (!handler) return writeFailure(new NotFoundError("handler", type));
 
-    if (handler.access && !hasAccess(user, handler.access)) {
+    // Default-deny: missing access rule is treated as "no one has access".
+    // The registry boot-validator refuses to register handlers without one,
+    // so in normal boots this branch shouldn't fire — the guard is belt-and-
+    // suspenders in case a handler sneaks through (e.g. runtime injection).
+    if (!hasAccess(user, handler.access)) {
       return writeFailure(
         new AccessDeniedError({
           message: `access denied for ${type}`,
@@ -542,18 +706,52 @@ export function createDispatcher(
     const afterCommitHooks: AfterCommitHook[] = [];
     const results: WriteResult[] = [];
 
-    // Flush afterCommit hooks. Errors are logged, not rethrown: the writes are
-    // already committed, we can't undo them.
+    // Flush afterCommit hooks in parallel. Errors are logged, not rethrown:
+    // the writes are already committed, we can't undo them.
+    //
+    // Parallelisation is safe because afterCommit hooks are deferred side-
+    // effects (search index, SSE broadcast, audit trail append, outbox emit)
+    // that don't depend on each other — the in-transaction work already ran
+    // sequentially inside the lifecycle pipeline where ordering matters. If a
+    // future hook ever needs ordering, it should do its sequencing internally
+    // (one hook pushing multiple sub-calls) rather than relying on the
+    // flush-loop order.
     const flushAfterCommit = async () => {
-      for (const hook of afterCommitHooks) {
-        try {
-          await hook();
-        } catch (e) {
-          const detail = e instanceof Error ? e.message : String(e);
+      const outcomes = await Promise.allSettled(afterCommitHooks.map((hook) => hook()));
+      for (const outcome of outcomes) {
+        if (outcome.status === "rejected") {
+          const detail =
+            outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
           const msg = "afterCommit hook failed";
           if (context.log) context.log.error(msg, { error: detail });
           else console.error(`[dispatcher] ${msg}: ${detail}`);
         }
+      }
+    };
+
+    // Fires the batch-level system hooks with every successful save/delete
+    // context from this run. Called after flushAfterCommit so per-save hooks
+    // have all completed first; errors are isolated inside lifecycleHooks.
+    const flushBatchHooks = async () => {
+      try {
+        const saves: SaveContext[] = [];
+        const deletes: DeleteContext[] = [];
+        for (const r of results) {
+          if (!r.isSuccess) continue;
+          const data = r.data as { kind?: string } | undefined;
+          if (!data || typeof data !== "object") continue;
+          if (data.kind === "save") saves.push(data as unknown as SaveContext);
+          else if (data.kind === "delete") deletes.push(data as unknown as DeleteContext);
+        }
+        if (saves.length > 0 && lifecycle) await lifecycle.runPostSaveBatch(saves, context);
+        if (deletes.length > 0 && lifecycle)
+          await lifecycle.runPostDeleteBatch(deletes, context);
+      } catch (e) {
+        // Batch hooks must never fail the batch — the commit already happened.
+        const msg = "batch hook flush failed";
+        const detail = e instanceof Error ? e.message : String(e);
+        if (context.log) context.log.error(msg, { error: detail });
+        else console.error(`[dispatcher] ${msg}: ${detail}`);
       }
     };
 
@@ -574,6 +772,7 @@ export function createDispatcher(
         }
       }
       await flushAfterCommit();
+      await flushBatchHooks();
       return finalize({ isSuccess: true, results });
     }
 
@@ -612,6 +811,7 @@ export function createDispatcher(
 
     // Commit succeeded — fire deferred side-effects.
     await flushAfterCommit();
+    await flushBatchHooks();
     return finalize({ isSuccess: true, results });
   }
 

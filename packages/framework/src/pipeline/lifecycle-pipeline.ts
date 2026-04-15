@@ -2,7 +2,9 @@ import type {
   AppContext,
   DeleteContext,
   HookPhase,
+  PostDeleteBatchHookFn,
   PostDeleteHookFn,
+  PostSaveBatchHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
   PreSaveHookFn,
@@ -10,7 +12,12 @@ import type {
   SaveContext,
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
+import { getFallbackTracer, type Tracer } from "../observability";
 import type { EventDedup } from "./event-dedup";
+
+function resolveTracer(context: AppContext): Tracer {
+  return context.tracer ?? getFallbackTracer();
+}
 
 export type SystemHookDef<TFn> = {
   readonly name: string;
@@ -25,8 +32,13 @@ export type SystemHookDef<TFn> = {
 export type SystemHooks = {
   readonly preSave?: readonly SystemHookDef<PreSaveHookFn>[];
   readonly postSave?: readonly SystemHookDef<PostSaveHookFn>[];
+  // Runs once per dispatcher batch, after every per-save postSave hook and
+  // after flushAfterCommit — for adapters that amortise work over the whole
+  // batch (search indexBatch, bulk webhook fanout).
+  readonly postSaveBatch?: readonly SystemHookDef<PostSaveBatchHookFn>[];
   readonly preDelete?: readonly SystemHookDef<PreDeleteHookFn>[];
   readonly postDelete?: readonly SystemHookDef<PostDeleteHookFn>[];
+  readonly postDeleteBatch?: readonly SystemHookDef<PostDeleteBatchHookFn>[];
 };
 
 export type LifecycleHooks = {
@@ -56,6 +68,12 @@ export type LifecycleHooks = {
     context: AppContext,
     phase?: HookPhase,
   ): Promise<void>;
+
+  // Fire the batch-level system hooks once per dispatcher batch, after all
+  // per-save hooks and the afterCommit flush. Errors are collected + logged,
+  // never rethrown — the writes are already committed.
+  runPostSaveBatch(results: readonly SaveContext[], context: AppContext): Promise<void>;
+  runPostDeleteBatch(payloads: readonly DeleteContext[], context: AppContext): Promise<void>;
 };
 
 export type LifecycleOptions = {
@@ -128,38 +146,89 @@ export function createLifecycleHooks(
     }
 
     const errors: Array<{ name: string; error: unknown }> = [];
+    const tracer = resolveTracer(opts.context);
+
+    // Common span attributes — populated per-hook below with source/name.
+    const baseAttrs = {
+      "kumiko.hook_type": opts.phaseLabel,
+      "kumiko.hook_phase": opts.hookPhase,
+      "kumiko.handler": opts.handlerName,
+    };
 
     for (const hook of opts.getHandlerHooks(opts.handlerName)) {
       try {
-        await hook(opts.payload, opts.context);
+        await tracer.withSpan(
+          "kumiko.pipeline.hook",
+          { attributes: { ...baseAttrs, "kumiko.hook_source": "handler" } },
+          () => hook(opts.payload, opts.context),
+        );
       } catch (e) {
         if (throwOnError) throw e;
         errors.push({ name: `handler:${opts.handlerName}`, error: e });
       }
     }
 
-    if (opts.entityName) {
-      for (const hook of opts.getEntityHooks(opts.entityName)) {
-        try {
-          await hook(opts.payload, opts.context);
-        } catch (e) {
-          if (throwOnError) throw e;
-          errors.push({ name: `entity:${opts.entityName}`, error: e });
+    // Shared runner for entity + system hook sets. In afterCommit phase they
+    // run in parallel (independent side-effects, errors are collected); in
+    // inTransaction phase they run sequentially (hooks share ctx.db and each
+    // writes must be observable to subsequent ones). `itemAttrs` lets the
+    // caller attach per-hook span attributes (e.g. the hook name).
+    async function runHooks<TItem>(
+      items: readonly TItem[],
+      itemAttrs: (item: TItem) => Record<string, string>,
+      errorName: (item: TItem) => string,
+      invoke: (item: TItem) => Promise<void>,
+    ): Promise<void> {
+      if (items.length === 0) return;
+      const withSpan = (item: TItem) =>
+        tracer.withSpan(
+          "kumiko.pipeline.hook",
+          { attributes: { ...baseAttrs, ...itemAttrs(item) } },
+          () => invoke(item),
+        );
+
+      if (opts.hookPhase === HookPhases.afterCommit) {
+        const outcomes = await Promise.allSettled(items.map(withSpan));
+        for (let i = 0; i < outcomes.length; i++) {
+          const outcome = outcomes[i];
+          if (outcome?.status === "rejected") {
+            if (throwOnError) throw outcome.reason;
+            const item = items[i];
+            if (item !== undefined) errors.push({ name: errorName(item), error: outcome.reason });
+          }
+        }
+      } else {
+        for (const item of items) {
+          try {
+            await withSpan(item);
+          } catch (e) {
+            if (throwOnError) throw e;
+            errors.push({ name: errorName(item), error: e });
+          }
         }
       }
     }
 
+    if (opts.entityName) {
+      const entityName = opts.entityName;
+      await runHooks(
+        opts.getEntityHooks(entityName),
+        () => ({ "kumiko.hook_source": "entity", "kumiko.entity": entityName }),
+        () => `entity:${entityName}`,
+        (hook) => hook(opts.payload, opts.context),
+      );
+    }
+
     if (opts.systemHookDefs) {
-      for (const sysHook of sortByPriority(opts.systemHookDefs)) {
-        const sysHookPhase = sysHook.phase ?? HookPhases.afterCommit;
-        if (sysHookPhase !== opts.hookPhase) continue;
-        try {
-          await sysHook.fn(opts.payload, opts.context);
-        } catch (e) {
-          if (throwOnError) throw e;
-          errors.push({ name: sysHook.name, error: e });
-        }
-      }
+      const applicable = sortByPriority(opts.systemHookDefs).filter(
+        (h) => (h.phase ?? HookPhases.afterCommit) === opts.hookPhase,
+      );
+      await runHooks(
+        applicable,
+        (h) => ({ "kumiko.hook_source": "system", "kumiko.hook_name": h.name }),
+        (h) => h.name,
+        (h) => h.fn(opts.payload, opts.context),
+      );
     }
 
     if (errors.length > 0) {
@@ -244,7 +313,69 @@ export function createLifecycleHooks(
         hookPhase: phase,
       });
     },
+
+    async runPostSaveBatch(results, context) {
+      await runBatchHooks({
+        hooks: systemHooks.postSaveBatch,
+        payload: results,
+        context,
+        phaseLabel: "postSaveBatch",
+      });
+    },
+
+    async runPostDeleteBatch(payloads, context) {
+      await runBatchHooks({
+        hooks: systemHooks.postDeleteBatch,
+        payload: payloads,
+        context,
+        phaseLabel: "postDeleteBatch",
+      });
+    },
   };
+
+  // Runs batch hooks in parallel. Errors are logged but never rethrown —
+  // batch hooks fire after commit, so there's nothing to roll back.
+  async function runBatchHooks<TPayload>(opts: {
+    hooks:
+      | readonly SystemHookDef<(p: TPayload, c: AppContext) => Promise<void>>[]
+      | undefined;
+    payload: TPayload;
+    context: AppContext;
+    phaseLabel: string;
+  }): Promise<void> {
+    if (!opts.hooks || opts.hooks.length === 0) return;
+    const tracer = resolveTracer(opts.context);
+    const baseAttrs = { "kumiko.hook_type": opts.phaseLabel };
+
+    const outcomes = await Promise.allSettled(
+      sortByPriority(opts.hooks).map((sysHook) =>
+        tracer.withSpan(
+          "kumiko.pipeline.hook",
+          {
+            attributes: {
+              ...baseAttrs,
+              "kumiko.hook_source": "system",
+              "kumiko.hook_name": sysHook.name,
+            },
+          },
+          () => sysHook.fn(opts.payload, opts.context),
+        ),
+      ),
+    );
+
+    const failures = outcomes
+      .map((o, i) => ({ outcome: o, name: opts.hooks?.[i]?.name ?? "unknown" }))
+      .filter((x): x is { outcome: PromiseRejectedResult; name: string } =>
+        x.outcome.status === "rejected",
+      );
+    if (failures.length === 0) return;
+
+    const log = opts.context.log;
+    const msg = `${opts.phaseLabel} errors`;
+    const details = failures.map((f) => `${f.name}: ${f.outcome.reason}`);
+    if (log) log.error(msg, { errors: details });
+    else console.error(`[lifecycle] ${msg}:`, details);
+  }
 }
 
 // Build a unique eventId from handler + entity identity + version + phase.

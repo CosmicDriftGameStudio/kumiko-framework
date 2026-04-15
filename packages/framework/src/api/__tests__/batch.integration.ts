@@ -114,7 +114,36 @@ const itemFeature = defineFeature("batch", (r) => {
   r.entityHook("postSave", item, async (result: SaveContext) => {
     afterCommitThirdHookRan.push((result.data["name"] as string) ?? "");
   });
+
+  // Two hooks used by the parallelism test. Each records its start+end
+  // timestamps so the assertion can compare intervals rather than elapsed
+  // wall-clock time (which is timing-flaky on loaded CI boxes).
+  r.entityHook("postSave", item, async (result: SaveContext) => {
+    const name = result.data["name"] as string;
+    if (!name?.startsWith("slowness-")) return;
+    parallelismWindows.push({ hook: "A", start: Date.now() });
+    await new Promise((r) => setTimeout(r, 80));
+    parallelismWindows.push({ hook: "A", end: Date.now() });
+  });
+  r.entityHook("postSave", item, async (result: SaveContext) => {
+    const name = result.data["name"] as string;
+    if (!name?.startsWith("slowness-")) return;
+    parallelismWindows.push({ hook: "B", start: Date.now() });
+    await new Promise((r) => setTimeout(r, 80));
+    parallelismWindows.push({ hook: "B", end: Date.now() });
+  });
 });
+
+// Start + end timestamps recorded by the parallelism hooks above. A pair of
+// hooks that ran truly in parallel will show B.start < A.end (and vice-versa),
+// regardless of how long the whole request took overall.
+//
+// Module-level mutable state — safe here because Vitest runs tests inside a
+// single file sequentially (the default). If someone flips vitest's
+// `sequence.concurrent` on for this file, the test body would need its own
+// window collector passed through ctx instead.
+type ParallelismEvent = { hook: "A" | "B"; start?: number; end?: number };
+const parallelismWindows: ParallelismEvent[] = [];
 
 let stack: TestStack;
 const admin = TestUsers.admin;
@@ -134,6 +163,7 @@ beforeEach(async () => {
   afterCommitHookLog.length = 0;
   afterCommitThirdHookRan.length = 0;
   afterCommitShouldThrow = false;
+  parallelismWindows.length = 0;
   stack.events.reset();
   await stack.db.db.delete(itemTable);
   await stack.db.db.delete(auditTable);
@@ -254,6 +284,32 @@ describe("POST /api/batch", () => {
     const auditAfterFail = await stack.db.db.select().from(auditTable);
     expect(itemsAfterFail).toHaveLength(0);
     expect(auditAfterFail).toHaveLength(0);
+  });
+
+  test("afterCommit hooks run in parallel (B starts before A finishes)", async () => {
+    const res = await stack.http.batch(
+      [{ type: "batch:write:item:create", payload: { name: "slowness-parallel" } }],
+      admin,
+    );
+    expect(res.status).toBe(200);
+
+    // Extract each hook's interval independently — checks overlap of
+    // intervals, not total elapsed time. Robust against CI noise.
+    const aStart = parallelismWindows.find((e) => e.hook === "A" && e.start !== undefined)?.start;
+    const aEnd = parallelismWindows.find((e) => e.hook === "A" && e.end !== undefined)?.end;
+    const bStart = parallelismWindows.find((e) => e.hook === "B" && e.start !== undefined)?.start;
+    const bEnd = parallelismWindows.find((e) => e.hook === "B" && e.end !== undefined)?.end;
+
+    expect(aStart).toBeDefined();
+    expect(aEnd).toBeDefined();
+    expect(bStart).toBeDefined();
+    expect(bEnd).toBeDefined();
+
+    // Parallel iff the two intervals overlap: one starts before the other
+    // ends. Sequential execution would produce disjoint intervals.
+    const overlap =
+      (aStart as number) < (bEnd as number) && (bStart as number) < (aEnd as number);
+    expect(overlap).toBe(true);
   });
 
   test("afterCommit hook error is isolated: batch succeeds, other hooks still fire", async () => {
