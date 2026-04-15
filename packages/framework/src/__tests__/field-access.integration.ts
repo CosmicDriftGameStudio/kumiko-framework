@@ -11,7 +11,6 @@ import {
   defineFeature,
   type SessionUser,
 } from "../engine";
-import { ErrorCodes } from "../engine/constants";
 import {
   createEntityTable,
   createTestDb,
@@ -218,8 +217,8 @@ describe("field-level write access", () => {
     ).json();
 
     expect(res.isSuccess).toBe(false);
-    expect(res.error).toContain(ErrorCodes.fieldAccessDenied);
-    expect(res.error).toContain("salary");
+    expect(res.error.code).toBe("access_denied");
+    expect(res.error.details).toMatchObject({ reason: "field_access_denied", field: "salary" });
   });
 
   test("Employee can update firstName", async () => {
@@ -244,7 +243,8 @@ describe("field-level write access", () => {
     ).json();
 
     expect(res.isSuccess).toBe(false);
-    expect(res.error).toContain(ErrorCodes.fieldAccessDenied);
+    expect(res.error.code).toBe("access_denied");
+    expect(res.error.details).toMatchObject({ reason: "field_access_denied", field: "salary" });
   });
 
   test("Accounting cannot update salary (only read)", async () => {
@@ -257,6 +257,7 @@ describe("field-level write access", () => {
     ).json();
 
     expect(res.isSuccess).toBe(false);
-    expect(res.error).toContain(ErrorCodes.fieldAccessDenied);
+    expect(res.error.code).toBe("access_denied");
+    expect(res.error.details).toMatchObject({ reason: "field_access_denied", field: "salary" });
   });
 });

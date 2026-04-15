@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import type { TableColumns } from "../db/dialect";
-import { ErrorCodes, SystemHookNames, SystemHookPriorities } from "../engine/constants";
-import { FrameworkError } from "../engine/errors";
+import { SystemHookNames, SystemHookPriorities } from "../engine/constants";
 import type { PreDeleteHookFn, Registry } from "../engine/types";
+import { ConflictError, FrameworkReasons } from "../errors";
 import type { SystemHookDef } from "./lifecycle-pipeline";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -46,10 +46,16 @@ export function createCascadeDeleteHook(
               .where(eq(targetTable[relation.foreignKey], payload.id))
               .limit(1);
             if (rows.length > 0) {
-              throw new FrameworkError(
-                ErrorCodes.deleteRestricted,
-                `${relation.target} has records referencing ${entityName}#${payload.id}`,
-              );
+              throw new ConflictError({
+                message: `${relation.target} has records referencing ${entityName}#${payload.id}`,
+                i18nKey: "errors.deleteRestricted",
+                details: {
+                  reason: FrameworkReasons.deleteRestricted,
+                  blockingEntity: relation.target,
+                  entity: entityName,
+                  entityId: payload.id,
+                },
+              });
             }
           }
 
@@ -77,10 +83,16 @@ export function createCascadeDeleteHook(
               .where(eq(throughTable[targetKey], payload.id))
               .limit(1);
             if (rows.length > 0) {
-              throw new FrameworkError(
-                ErrorCodes.deleteRestricted,
-                `${relation.through.table} has records referencing ${entityName}#${payload.id}`,
-              );
+              throw new ConflictError({
+                message: `${relation.through.table} has records referencing ${entityName}#${payload.id}`,
+                i18nKey: "errors.deleteRestricted",
+                details: {
+                  reason: FrameworkReasons.deleteRestricted,
+                  blockingEntity: relation.through.table,
+                  entity: entityName,
+                  entityId: payload.id,
+                },
+              });
             }
           }
 

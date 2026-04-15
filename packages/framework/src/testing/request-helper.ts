@@ -32,8 +32,13 @@ export type RequestHelper = {
     user: SessionUser,
     requestId?: string,
   ) => Promise<T>;
-  /** write + json + assert isSuccess === false — returns error string */
-  writeErr: (type: string, payload: unknown, user: SessionUser) => Promise<string>;
+  /** write + json + assert isSuccess === false — returns the structured
+   *  WriteErrorInfo with `httpStatus` filled in from the HTTP response. */
+  writeErr: (
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+  ) => Promise<import("../errors").WriteErrorInfo>;
   /** query + json — returns data directly */
   queryOk: <T = unknown>(type: string, payload: unknown, user: SessionUser) => Promise<T>;
 };
@@ -97,19 +102,38 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
     ): Promise<T> {
       const res = await writeRaw(type, payload, user, requestId);
       const body = await res.json();
-      if (!body.isSuccess) {
-        throw new Error(`Expected write "${type}" to succeed but got error: ${body.error}`);
+      // Success path still has { isSuccess: true, data }. Error responses now
+      // follow the error-contract shape { error: { code, i18nKey, ... } } with
+      // a 4xx/5xx status — no isSuccess flag. Detect either.
+      if (body.isSuccess !== true) {
+        const code =
+          (body.error as { code?: string } | undefined)?.code ??
+          (typeof body.error === "string" ? body.error : "unknown");
+        throw new Error(`Expected write "${type}" to succeed but got error: ${code}`);
       }
       return body.data as T;
     },
 
-    async writeErr(type: string, payload: unknown, user: SessionUser): Promise<string> {
+    async writeErr(
+      type: string,
+      payload: unknown,
+      user: SessionUser,
+    ): Promise<import("../errors").WriteErrorInfo> {
       const res = await writeRaw(type, payload, user);
       const body = await res.json();
-      if (body.isSuccess) {
+      if (body.isSuccess === true) {
         throw new Error(`Expected write "${type}" to fail but it succeeded`);
       }
-      return body.error as string;
+      const wire = body.error as Omit<import("../errors").WriteErrorInfo, "httpStatus"> | undefined;
+      if (!wire || typeof wire !== "object" || typeof wire.code !== "string") {
+        throw new Error(
+          `Expected error response for "${type}" but got unexpected shape: ${JSON.stringify(body)}`,
+        );
+      }
+      // The wire body doesn't carry httpStatus (it would be redundant with
+      // the HTTP response status). Fill it in from res.status so callers can
+      // assert against either code OR status without a second request round.
+      return { ...wire, httpStatus: res.status };
     },
 
     async queryOk<T = unknown>(type: string, payload: unknown, user: SessionUser): Promise<T> {

@@ -119,10 +119,10 @@ describe("POST /api/write", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.isSuccess).toBe(false);
+    expect(body.error).toMatchObject({ code: "validation_error", i18nKey: expect.any(String) });
   });
 
-  test("returns 400 for access denied", async () => {
+  test("returns 403 for access denied", async () => {
     const headers = await authHeader(guestUser);
     const res = await req(
       "POST",
@@ -131,9 +131,9 @@ describe("POST /api/write", () => {
       headers,
     );
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.error).toContain("access");
+    expect(body.error).toMatchObject({ code: "access_denied" });
   });
 });
 

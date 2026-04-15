@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
-import { ErrorCodes } from "../../engine/constants";
 import {
   createEntityTable,
   createTestDb,
@@ -194,7 +193,7 @@ describe("crud update", () => {
     );
     expect(update2.isSuccess).toBe(false);
     if (!update2.isSuccess) {
-      expect(update2.error).toContain(ErrorCodes.versionConflict);
+      expect(update2.error.code).toBe("version_conflict");
     }
   });
 
@@ -233,7 +232,7 @@ describe("crud update", () => {
     );
 
     expect(result.isSuccess).toBe(false);
-    if (!result.isSuccess) expect(result.error).toBe("not_found");
+    if (!result.isSuccess) expect(result.error.code).toBe("not_found");
   });
 });
 

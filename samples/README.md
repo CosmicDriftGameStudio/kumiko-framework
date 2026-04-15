@@ -19,6 +19,7 @@ Jedes Sample = 1 Feature-Definition + 1 Test. Bricht ein Framework-Change was, w
 | Request-Deduplizierung (Idempotency) | [idempotency](idempotency/) | Integration |
 | Multi-Tenant Datentrennung | [tenant-isolation](tenant-isolation/) | Integration |
 | Mehrsprachigkeit (i18n) | [i18n](i18n/) | Unit |
+| Saubere Fehlerbehandlung (Kumiko-Error-Klassen, Reasons, Helper) | [error-contract](error-contract/) | Integration |
 
 ## Full-App Samples (geplant)
 

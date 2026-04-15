@@ -10,11 +10,12 @@ import {
   type HandlerContext,
   type SaveContext,
 } from "../engine";
-import { ErrorCodes } from "../engine/constants";
+import { UnprocessableError, writeFailure } from "../errors";
 import { createEventLog, eventOutboxTable } from "../pipeline";
 import {
   createEntityTable,
   createTestUser,
+  expectErrorIncludes,
   setupTestStack,
   type TestStack,
   TestUsers,
@@ -101,7 +102,7 @@ const userFeature = defineFeature("users", (r) => {
       if (created.isSuccess) {
         await emitUserCreated(ctx, created.data.id, event.payload.email);
       }
-      return { isSuccess: false, error: "intentional_rollback" };
+      return writeFailure(new UnprocessableError("intentional_rollback"));
     },
     { access: { roles: ["Admin"] } },
   );
@@ -343,7 +344,7 @@ describe("full stack: optimistic locking", () => {
       adminUser,
     );
 
-    expect(error).toContain(ErrorCodes.versionConflict);
+    expect(error.code).toBe("version_conflict");
   });
 });
 
@@ -487,7 +488,7 @@ describe("full stack: auth + access + validation", () => {
       },
       guestUser,
     );
-    expect(error).toContain("access");
+    expect(error.code).toBe("access_denied");
   });
 
   test("other tenant cannot see data", async () => {
@@ -515,7 +516,7 @@ describe("full stack: auth + access + validation", () => {
       },
       adminUser,
     );
-    expect(error).toContain("banned_domain");
+    expectErrorIncludes(error, "banned_domain");
   });
 });
 
@@ -716,8 +717,10 @@ describe("full stack: request context", () => {
         payload: { email: "denied@test.de" },
       }),
     });
-    const body = (await res.json()) as Record<string, unknown>;
-    expect(body["requestId"]).toBe("err-req-99");
+    const body = (await res.json()) as { isSuccess: boolean; error: { requestId?: string } };
+    expect(body.isSuccess).toBe(false);
+    // requestId lives inside the serialized error body under the new contract
+    expect(body.error.requestId).toBe("err-req-99");
   });
 });
 
@@ -883,9 +886,13 @@ describe("full stack: transactional outbox", () => {
       { email: "outbox-rollback@test.de" },
       adminUser,
     );
-    const body = (await res.json()) as { isSuccess: boolean; error: string };
+    const body = (await res.json()) as {
+      isSuccess: boolean;
+      error: { code: string; details: { reason: string } };
+    };
     expect(body.isSuccess).toBe(false);
-    expect(body.error).toContain("intentional_rollback");
+    expect(body.error.code).toBe("unprocessable");
+    expect(body.error.details.reason).toBe("intentional_rollback");
 
     // User table: the insert rolled back
     const users = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
@@ -920,9 +927,12 @@ describe("full stack: transactional outbox", () => {
       { email: "outbox-throw@test.de" },
       adminUser,
     );
-    const body = (await res.json()) as { isSuccess: boolean; error: string };
+    const body = (await res.json()) as { isSuccess: boolean; error: unknown };
     expect(body.isSuccess).toBe(false);
-    expect(body.error).toContain("unexpected_handler_failure");
+    // Uncaught Error → auto-wrapped to InternalError; the original message is
+    // preserved in the cause chain (visible via the log, not the wire body).
+    // Here we just confirm the handler failed with an internal_error code.
+    expect((body.error as { code: string }).code).toBe("internal_error");
 
     // User row rolled back
     const users = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(

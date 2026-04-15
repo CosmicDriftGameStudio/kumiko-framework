@@ -4,8 +4,6 @@ import type { DbConnection, DbTx } from "../db/connection";
 import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
-import { type ErrorCode, ErrorCodes } from "../engine/constants";
-import { FrameworkError } from "../engine/errors";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type {
@@ -20,6 +18,20 @@ import type {
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
 import { runValidation } from "../engine/validation";
+import {
+  AccessDeniedError,
+  FrameworkReasons,
+  InternalError,
+  isKumikoError,
+  type KumikoError,
+  NotFoundError,
+  reraiseAsKumikoError,
+  toWriteErrorInfo,
+  ValidationError,
+  validationErrorFromZod,
+  type WriteErrorInfo,
+  writeFailure,
+} from "../errors";
 import { parseJsonSafe } from "../utils/safe-json";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
@@ -37,9 +49,9 @@ type AfterCommitHook = () => Promise<void>;
 class BatchRollback extends Error {
   constructor(
     readonly failedIndex: number,
-    readonly failureError: string,
+    readonly failureError: WriteErrorInfo,
   ) {
-    super(`batch rollback at command ${failedIndex}: ${failureError}`);
+    super(`batch rollback at command ${failedIndex}: ${failureError.code}`);
     this.name = "BatchRollback";
   }
 }
@@ -53,7 +65,7 @@ export type BatchResult =
   | { readonly isSuccess: true; readonly results: readonly WriteResult[] }
   | {
       readonly isSuccess: false;
-      readonly error: string;
+      readonly error: WriteErrorInfo;
       readonly failedIndex: number;
       readonly results: readonly WriteResult[];
     };
@@ -271,15 +283,18 @@ export function createDispatcher(
     tx?: DbTx,
   ): Promise<unknown> {
     const handler = registry.getQueryHandler(type);
-    if (!handler) throw new FrameworkError(ErrorCodes.handlerNotFound, type);
+    if (!handler) throw new NotFoundError("handler", type);
 
     if (handler.access && !hasAccess(user, handler.access)) {
-      throw new FrameworkError(ErrorCodes.accessDenied, type);
+      throw new AccessDeniedError({
+        message: `access denied for ${type}`,
+        details: { handler: type },
+      });
     }
 
     const parsed = handler.schema.safeParse(payload);
     if (!parsed.success) {
-      throw new FrameworkError(ErrorCodes.validationFailed, parsed.error.message);
+      throw validationErrorFromZod(parsed.error);
     }
 
     const handlerContext = buildHandlerContext(type, user, tx);
@@ -359,21 +374,33 @@ export function createDispatcher(
     afterCommitHooks: AfterCommitHook[],
   ): Promise<WriteResult> {
     const handler = registry.getWriteHandler(type);
-    if (!handler) return { isSuccess: false, error: `${ErrorCodes.handlerNotFound}: ${type}` };
+    if (!handler) return writeFailure(new NotFoundError("handler", type));
 
     if (handler.access && !hasAccess(user, handler.access)) {
-      return { isSuccess: false, error: `${ErrorCodes.accessDenied}: ${type}` };
+      return writeFailure(
+        new AccessDeniedError({
+          message: `access denied for ${type}`,
+          details: { handler: type },
+        }),
+      );
     }
 
     const parsed = handler.schema.safeParse(payload);
     if (!parsed.success) {
-      return { isSuccess: false, error: `${ErrorCodes.validationFailed}: ${parsed.error.message}` };
+      return writeFailure(validationErrorFromZod(parsed.error));
     }
 
     const hookErrors = runValidation(registry, type, parsed.data as Record<string, unknown>);
     if (hookErrors) {
-      const messages = hookErrors.map((e) => `${e.field}: ${e.error}`).join(", ");
-      return { isSuccess: false, error: `${ErrorCodes.validationHook}: ${messages}` };
+      return writeFailure(
+        new ValidationError({
+          fields: hookErrors.map((e) => ({
+            path: e.field,
+            code: e.error,
+            i18nKey: `errors.validation.${e.error}`,
+          })),
+        }),
+      );
     }
 
     // Field-level write access check
@@ -387,7 +414,17 @@ export function createDispatcher(
         const writePayload = fieldsToCheck ?? (parsed.data as Record<string, unknown>);
         const deniedField = checkWriteFields(entity, writePayload, user);
         if (deniedField) {
-          return { isSuccess: false, error: `${ErrorCodes.fieldAccessDenied}: ${deniedField}` };
+          return writeFailure(
+            new AccessDeniedError({
+              message: `field access denied: ${deniedField}`,
+              i18nKey: "errors.access.fieldDenied",
+              details: {
+                reason: FrameworkReasons.fieldAccessDenied,
+                field: deniedField,
+                handler: type,
+              },
+            }),
+          );
         }
       }
     }
@@ -437,10 +474,25 @@ export function createDispatcher(
       }
     }
 
-    const result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
+    // The handler itself plus the lifecycle pipeline run under the same
+    // try-wrapper: any KumikoError bubbles up as a typed WriteErrorInfo, any
+    // other throw gets wrapped in InternalError so the Prod contract holds
+    // ("unexpected throw → 500 with sanitized body"). We intentionally do NOT
+    // catch further out (runBatch still sees these as exceptions via
+    // writeFailure, not via a rethrow) so batches roll back naturally.
+    let result: WriteResult;
+    try {
+      result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
+    } catch (e) {
+      return writeFailure(wrapToKumiko(e));
+    }
 
     if (result.isSuccess) {
-      await runLifecycle(type, result.data, handlerContext, afterCommitHooks);
+      try {
+        await runLifecycle(type, result.data, handlerContext, afterCommitHooks);
+      } catch (e) {
+        return writeFailure(wrapToKumiko(e));
+      }
 
       // jobRunner and eventLog have external side-effects — they must NOT fire
       // for rolled-back writes. Defer to afterCommit in all paths.
@@ -546,11 +598,13 @@ export function createDispatcher(
           results,
         });
       }
-      // Unexpected throw (DB error, handler threw directly) — report as failure.
-      const msg = e instanceof Error ? e.message : String(e);
+      // Unexpected throw — typically a DB driver error from commit/rollback.
+      // executeWrite already traps handler + lifecycle throws into WriteResult,
+      // so anything reaching here is infrastructure-level. Wrap as InternalError
+      // so the contract ("non-Kumiko → InternalError") holds uniformly.
       return finalize({
         isSuccess: false,
-        error: msg,
+        error: toWriteErrorInfo(wrapToKumiko(e)),
         failedIndex: results.length,
         results,
       });
@@ -568,10 +622,7 @@ export function createDispatcher(
   function unwrapSingle(batchResult: BatchResult): WriteResult {
     if (batchResult.isSuccess) {
       return (
-        batchResult.results[0] ?? {
-          isSuccess: false,
-          error: `${ErrorCodes.handlerNotFound}: empty_batch_result`,
-        }
+        batchResult.results[0] ?? writeFailure(new InternalError({ message: "empty_batch_result" }))
       );
     }
     return (
@@ -600,12 +651,16 @@ export function createDispatcher(
       const result = unwrapSingle(batchResult);
 
       if (!result.isSuccess) {
-        // Error format: "error_code: detail" — extract code for proper HTTP status
-        const colonIdx = result.error.indexOf(": ");
-        const code = colonIdx > 0 ? result.error.slice(0, colonIdx) : result.error;
-        const detail = colonIdx > 0 ? result.error.slice(colonIdx + 2) : undefined;
-        throw new FrameworkError(code as ErrorCode, detail);
+        throw reraiseAsKumikoError(result.error);
       }
     },
   };
+}
+
+// Non-KumikoError → InternalError with cause preserved for the log. Kumiko
+// errors pass through untouched so their code/httpStatus survives.
+function wrapToKumiko(e: unknown): KumikoError {
+  if (isKumikoError(e)) return e;
+  if (e instanceof Error) return new InternalError({ cause: e });
+  return new InternalError({ message: String(e) });
 }

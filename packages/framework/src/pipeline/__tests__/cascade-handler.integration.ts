@@ -98,7 +98,7 @@ describe("cascade delete: restrict", () => {
         { kind: "delete", id: dept.data.id, data: { tenantId: 1 }, entityName: "department" },
         { db: tdb },
       ),
-    ).rejects.toThrow(/delete_restricted/);
+    ).rejects.toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
   });
 
   test("allows delete when no related records", async () => {

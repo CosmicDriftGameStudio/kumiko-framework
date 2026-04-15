@@ -1,19 +1,9 @@
 // All framework constants as `as const` objects with inferred union types.
 // No enums — only const objects + typeof inference.
 
-// --- Error Codes ---
-
-export const ErrorCodes = {
-  handlerNotFound: "handler_not_found",
-  accessDenied: "access_denied",
-  validationFailed: "validation_failed",
-  validationHook: "validation_hook",
-  fieldAccessDenied: "field_access_denied",
-  versionConflict: "version_conflict",
-  deleteRestricted: "delete_restricted",
-} as const;
-
-export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
+// Error codes — the canonical list lives on the KumikoError subclasses in
+// `errors/classes.ts`. Features that need to surface a feature-specific reason
+// attach it under `details.reason` on the relevant Kumiko error class.
 
 // --- System Hook Names ---
 

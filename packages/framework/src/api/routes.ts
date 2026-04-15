@@ -1,6 +1,13 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { FrameworkError } from "../engine/errors";
+import {
+  InternalError,
+  isKumikoError,
+  type KumikoError,
+  reraiseAsKumikoError,
+  serializeError,
+  ValidationError,
+} from "../errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
@@ -16,20 +23,11 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     try {
       const result = await dispatcher.write(body.type, body.payload, user, body.requestId);
       if (!result.isSuccess) {
-        const reqId = requestContext.get()?.requestId;
-        return c.json({ ...result, requestId: reqId }, 400);
+        return writeErrorResponse(c, reraiseAsKumikoError(result.error));
       }
       return c.json(result);
     } catch (e) {
-      const reqId = requestContext.get()?.requestId;
-      if (e instanceof FrameworkError) {
-        return c.json(
-          { isSuccess: false, error: e.message, requestId: reqId },
-          e.httpStatus as ContentfulStatusCode,
-        );
-      }
-      const message = e instanceof Error ? e.message : "unknown_error";
-      return c.json({ isSuccess: false, error: message, requestId: reqId }, 500);
+      return writeErrorResponse(c, toKumiko(e));
     }
   });
 
@@ -41,30 +39,46 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     }>();
 
     if (!Array.isArray(body.commands)) {
-      const reqId = requestContext.get()?.requestId;
-      return c.json(
-        { isSuccess: false, error: "commands must be an array", requestId: reqId },
-        400,
+      // Client-shape violation → ValidationError (400, code=validation_error)
+      // matches what a Zod-level schema failure would produce if /batch had
+      // one. Client SDKs can key off the uniform validation contract.
+      return writeErrorResponse(
+        c,
+        new ValidationError({
+          fields: [
+            {
+              path: "commands",
+              code: "invalid_type",
+              i18nKey: "errors.validation.invalid_type",
+              params: { expected: "array", received: typeof body.commands },
+            },
+          ],
+        }),
       );
     }
 
     try {
       const result = await dispatcher.batch(body.commands, user, body.requestId);
       if (!result.isSuccess) {
-        const reqId = requestContext.get()?.requestId;
-        return c.json({ ...result, requestId: reqId }, 400);
+        const err = reraiseAsKumikoError(result.error);
+        const requestId = requestContext.get()?.requestId;
+        const { error } = serializeError(err, requestId);
+        // Keep failedIndex + results alongside the error envelope so callers
+        // can tell which command in the batch failed and inspect the partial
+        // results from the successful commands before the rollback.
+        return c.json(
+          {
+            isSuccess: false,
+            error,
+            failedIndex: result.failedIndex,
+            results: result.results,
+          },
+          err.httpStatus as ContentfulStatusCode,
+        );
       }
       return c.json(result);
     } catch (e) {
-      const reqId = requestContext.get()?.requestId;
-      if (e instanceof FrameworkError) {
-        return c.json(
-          { isSuccess: false, error: e.message, requestId: reqId },
-          e.httpStatus as ContentfulStatusCode,
-        );
-      }
-      const message = e instanceof Error ? e.message : "unknown_error";
-      return c.json({ isSuccess: false, error: message, requestId: reqId }, 500);
+      return writeErrorResponse(c, toKumiko(e));
     }
   });
 
@@ -76,15 +90,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       const result = await dispatcher.query(body.type, body.payload, user);
       return c.json({ data: result });
     } catch (e) {
-      const reqId = requestContext.get()?.requestId;
-      if (e instanceof FrameworkError) {
-        return c.json(
-          { error: e.message, code: e.code, requestId: reqId },
-          e.httpStatus as ContentfulStatusCode,
-        );
-      }
-      const message = e instanceof Error ? e.message : "unknown_error";
-      return c.json({ error: message, requestId: reqId }, 500);
+      return queryErrorResponse(c, toKumiko(e));
     }
   });
 
@@ -96,17 +102,34 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       await dispatcher.command(body.type, body.payload, user);
       return c.json({ ok: true }, 202);
     } catch (e) {
-      const reqId = requestContext.get()?.requestId;
-      if (e instanceof FrameworkError) {
-        return c.json(
-          { error: e.message, code: e.code, requestId: reqId },
-          e.httpStatus as ContentfulStatusCode,
-        );
-      }
-      const message = e instanceof Error ? e.message : "unknown_error";
-      return c.json({ error: message, requestId: reqId }, 500);
+      return queryErrorResponse(c, toKumiko(e));
     }
   });
 
   return api;
+}
+
+function toKumiko(e: unknown): KumikoError {
+  if (isKumikoError(e)) return e;
+  if (e instanceof Error) return new InternalError({ cause: e });
+  return new InternalError({ message: String(e) });
+}
+
+// For /write + /batch: keep the isSuccess flag so clients can flip on a single
+// boolean (mirrors the success shape). The actual error body is the
+// error-contract payload nested under .error.
+function writeErrorResponse(c: Context, err: KumikoError, statusOverride?: number) {
+  const requestId = requestContext.get()?.requestId;
+  const { error } = serializeError(err, requestId);
+  const status = (statusOverride ?? err.httpStatus) as ContentfulStatusCode;
+  return c.json({ isSuccess: false, error }, status);
+}
+
+// For /query + /command: no isSuccess on success (just { data } / {ok}), so we
+// keep the same lean shape on failure — only the `error` key.
+function queryErrorResponse(c: Context, err: KumikoError, statusOverride?: number) {
+  const requestId = requestContext.get()?.requestId;
+  const body = serializeError(err, requestId);
+  const status = (statusOverride ?? err.httpStatus) as ContentfulStatusCode;
+  return c.json(body, status);
 }

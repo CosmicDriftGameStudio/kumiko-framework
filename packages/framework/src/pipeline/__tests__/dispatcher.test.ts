@@ -53,7 +53,7 @@ describe("dispatcher.write", () => {
 
     expect(result.isSuccess).toBe(false);
     if (!result.isSuccess) {
-      expect(result.error).toContain("validation");
+      expect(result.error.code).toBe("validation_error");
     }
   });
 
@@ -64,7 +64,7 @@ describe("dispatcher.write", () => {
 
     expect(result.isSuccess).toBe(false);
     if (!result.isSuccess) {
-      expect(result.error).toContain("access");
+      expect(result.error.code).toBe("access_denied");
     }
   });
 
@@ -78,7 +78,9 @@ describe("dispatcher.write", () => {
 
     expect(result.isSuccess).toBe(false);
     if (!result.isSuccess) {
-      expect(result.error).toContain("forbidden_name");
+      expect(result.error.code).toBe("validation_error");
+      const fields = (result.error.details as { fields: Array<{ code: string }> }).fields;
+      expect(fields.some((f) => f.code === "forbidden_name")).toBe(true);
     }
   });
 
@@ -88,7 +90,7 @@ describe("dispatcher.write", () => {
 
     expect(result.isSuccess).toBe(false);
     if (!result.isSuccess) {
-      expect(result.error).toContain("not_found");
+      expect(result.error.code).toBe("not_found");
     }
   });
 });
@@ -112,15 +114,16 @@ describe("dispatcher.query", () => {
 
     await expect(
       dispatcher.query("echo:query:item:list", { search: 123 }, createTestUser()),
-    ).rejects.toThrow(/validation/i);
+    ).rejects.toMatchObject({ code: "validation_error", httpStatus: 400 });
   });
 
   test("throws for unknown query handler", async () => {
     const dispatcher = createTestDispatcher();
 
-    await expect(dispatcher.query("nonexistent", {}, createTestUser())).rejects.toThrow(
-      /not_found/i,
-    );
+    await expect(dispatcher.query("nonexistent", {}, createTestUser())).rejects.toMatchObject({
+      code: "not_found",
+      httpStatus: 404,
+    });
   });
 });
 

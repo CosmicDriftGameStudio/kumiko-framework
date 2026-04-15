@@ -2,6 +2,7 @@ import { eq, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEntity, createSystemUser, createTextField, defineFeature } from "../../engine";
+import { UnprocessableError, writeFailure } from "../../errors";
 import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
 import { eventOutboxTable } from "../outbox-table";
 
@@ -32,7 +33,7 @@ const outboxFeature = defineFeature("outbox-test", (r) => {
       });
       if (event.payload.fail) {
         // Roll back after emit — proves the outbox row rolled back too.
-        return { isSuccess: false, error: "intentional_rollback" };
+        return writeFailure(new UnprocessableError("intentional_rollback"));
       }
       return {
         isSuccess: true,

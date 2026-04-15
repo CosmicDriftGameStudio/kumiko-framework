@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./engine": "./src/engine/index.ts",
+    "./errors": "./src/errors/index.ts",
     "./db": "./src/db/index.ts",
     "./pipeline": "./src/pipeline/index.ts",
     "./api": "./src/api/index.ts",

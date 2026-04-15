@@ -41,9 +41,11 @@ export type QueryEvent<TPayload = unknown> = {
 
 // --- Handler Results ---
 
+import type { WriteErrorInfo } from "../../errors/write-error-info";
+
 export type WriteResult<TData = unknown> =
   | { readonly isSuccess: true; readonly data: TData }
-  | { readonly isSuccess: false; readonly error: string };
+  | { readonly isSuccess: false; readonly error: WriteErrorInfo };
 
 // --- Context Types ---
 

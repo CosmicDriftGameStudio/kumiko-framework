@@ -9,7 +9,13 @@ import {
   createTextField,
   defineFeature,
 } from "../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../testing";
+import {
+  createEntityTable,
+  expectErrorIncludes,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../testing";
 
 // Two entities, both with a field named `status`, but different transitions.
 // Before the fix, the dispatcher cached the transition map by `fieldName`
@@ -208,9 +214,9 @@ describe("auto transition guard: per-entity transition map (cache key includes e
       { id: invoice["id"], changes: { status: "paid" } },
       admin,
     );
-    expect(err).toContain("Invalid transition");
-    expect(err).toContain("draft");
-    expect(err).toContain("paid");
+    expectErrorIncludes(err, "Invalid transition");
+    expectErrorIncludes(err, "draft");
+    expectErrorIncludes(err, "paid");
   });
 
   test("invalid transition uses entity B's own map, not a leaked one", async () => {
@@ -226,9 +232,9 @@ describe("auto transition guard: per-entity transition map (cache key includes e
       { id: order["id"], changes: { status: "delivered" } },
       admin,
     );
-    expect(err).toContain("Invalid transition");
-    expect(err).toContain("open");
-    expect(err).toContain("delivered");
+    expectErrorIncludes(err, "Invalid transition");
+    expectErrorIncludes(err, "open");
+    expectErrorIncludes(err, "delivered");
   });
 
   test("soft-deleted rows bypass the guard (no state-machine enforcement on zombies)", async () => {
@@ -257,8 +263,10 @@ describe("auto transition guard: per-entity transition map (cache key includes e
       { id: ticket["id"], changes: { status: "open" } },
       admin,
     );
-    expect(err).not.toContain("Invalid transition");
-    expect(err).toContain("not_found");
+    // Guard was skipped → we don't see "Invalid transition", we see a different
+    // failure (soft-deleted row is filtered out of the lookup, so "not_found").
+    expect(JSON.stringify(err)).not.toContain("Invalid transition");
+    expectErrorIncludes(err, "not_found");
   });
 
   test("concurrent writes on the same row serialize via SELECT FOR UPDATE", async () => {
@@ -289,8 +297,8 @@ describe("auto transition guard: per-entity transition map (cache key includes e
       ),
     ]);
 
-    const body1 = (await res1.json()) as { isSuccess: boolean; error?: string };
-    const body2 = (await res2.json()) as { isSuccess: boolean; error?: string };
+    const body1 = (await res1.json()) as { isSuccess: boolean; error?: unknown };
+    const body2 = (await res2.json()) as { isSuccess: boolean; error?: unknown };
 
     // Exactly one of the two must win. If both succeeded, the row lock
     // didn't serialize — both wrote draft→sent using a stale snapshot.
@@ -302,7 +310,11 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // The loser saw state `sent` on its (now serialized) guard read and
     // rejected the transition — NOT a version_conflict, which would be the
     // optimistic-lock fallback if the guard had race-passed.
-    expect(failures[0]?.error).toContain("Invalid transition");
-    expect(failures[0]?.error).toContain("sent");
+    // The loser's UnprocessableError carries reason "invalid_transition" plus
+    // the from/to states for debugging.
+    const loser = failures[0]?.error as { code: string; details: { reason: string; from: string } };
+    expect(loser.code).toBe("unprocessable");
+    expect(loser.details.reason).toBe("invalid_transition");
+    expect(loser.details.from).toBe("sent");
   });
 });

@@ -1,11 +1,15 @@
 import { and, eq, type SQL } from "drizzle-orm";
-import type { ValidationError } from "../engine/types";
+import { NotFoundError } from "../errors";
 import type { DbConnection } from "./connection";
 import type { TenantDb } from "./tenant-db";
 
 /**
  * Generic constraint helper: asserts a value exists in a table.
- * Works like a DB constraint with business logic — usable for any lookup table.
+ * Returns a ready-to-return NotFoundError when the row is missing, or null
+ * when it exists. Callers typically use it with writeFailure:
+ *
+ *   const missing = await assertExistsIn(db, orderTable, { field: "id", value: id });
+ *   if (missing) return writeFailure(missing);
  *
  * Accepts both DbConnection and TenantDb. When using TenantDb, the automatic
  * tenant filter is applied. Use tenantId option for explicit tenant filtering
@@ -20,10 +24,9 @@ export async function assertExistsIn(
     value: unknown;
     tenantId?: number;
     where?: Record<string, unknown>;
-    error?: string;
-    errorField?: string;
+    entityName?: string;
   },
-): Promise<ValidationError | null> {
+): Promise<NotFoundError | null> {
   const conditions = [eq(entity[options.field], options.value)];
 
   if (options.tenantId !== undefined) {
@@ -42,10 +45,13 @@ export async function assertExistsIn(
     .where(and(...conditions) as SQL);
 
   if (!row) {
-    return {
-      field: options.errorField ?? options.field,
-      error: options.error ?? `${options.field}_not_found`,
-    };
+    const entityName = options.entityName ?? String(options.field).replace(/Id$/, "");
+    return new NotFoundError(
+      entityName,
+      typeof options.value === "number" || typeof options.value === "string"
+        ? options.value
+        : undefined,
+    );
   }
 
   return null;

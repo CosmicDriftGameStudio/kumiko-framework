@@ -151,11 +151,11 @@ describe("buildServer outbox integration", () => {
       }),
     });
 
-    // Handler threw because ctx.emit has no outbox configured — the batch
-    // propagates the error and the route returns 400 with isSuccess: false.
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { isSuccess: boolean; error: string };
+    // Handler threw a plain Error because ctx.emit has no outbox configured.
+    // Non-Kumiko throws get auto-wrapped to InternalError → 500, isSuccess: false.
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { isSuccess: boolean; error: unknown };
     expect(body.isSuccess).toBe(false);
-    expect(body.error).toContain("outbox");
+    expect((body.error as { code: string }).code).toBe("internal_error");
   });
 });

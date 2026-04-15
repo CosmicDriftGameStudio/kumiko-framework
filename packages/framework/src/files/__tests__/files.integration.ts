@@ -17,6 +17,7 @@ import {
   createEntityTable,
   createTestDb,
   createTestUser,
+  expectErrorIncludes,
   pushTables,
   type TestDb,
   TestUsers,
@@ -142,7 +143,7 @@ describe("file validation", () => {
       { fileName: "big.pdf", mimeType: "application/pdf", size: 3 * 1024 * 1024 },
       { maxSize: "2mb" },
     );
-    expect(error).toContain("file_too_large");
+    expectErrorIncludes(error, "file_too_large");
   });
 
   test("validateFile rejects wrong extension", () => {
@@ -150,7 +151,7 @@ describe("file validation", () => {
       { fileName: "doc.exe", mimeType: "application/exe", size: 100 },
       { accept: ["pdf", "jpg"] },
     );
-    expect(error).toContain("invalid_file_type");
+    expectErrorIncludes(error, "invalid_file_type");
   });
 
   test("validateFile accepts valid file", () => {
@@ -271,6 +272,7 @@ describe("error handling", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
+    // /files route uses its own lightweight error shape (plain string).
     expect(body.error).toContain("missing_file");
   });
 

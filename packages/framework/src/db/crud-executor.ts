@@ -6,6 +6,13 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
+import {
+  InternalError,
+  NotFoundError,
+  UnprocessableError,
+  VersionConflictError,
+  writeFailure,
+} from "../errors";
 import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
 import { decodeCursor, encodeCursor } from "./cursor";
@@ -159,7 +166,7 @@ export function createCrudExecutor(
         })
         .returning();
 
-      if (!row) return { isSuccess: false, error: "insert_failed" };
+      if (!row) return writeFailure(new InternalError({ message: "insert returned no row" }));
       const data = row as Record<string, unknown>;
       const id = data["id"] as number;
 
@@ -178,15 +185,18 @@ export function createCrudExecutor(
 
     async update(payload, user, db) {
       const previous = await loadById(payload.id, db);
-      if (!previous) return { isSuccess: false, error: "not_found" };
+      if (!previous) return writeFailure(new NotFoundError(entityName ?? "entity", payload.id));
 
       if (payload.version !== undefined) {
         const currentVersion = previous["version"] as number;
         if (currentVersion !== payload.version) {
-          return {
-            isSuccess: false,
-            error: `version_conflict: expected ${payload.version}, current ${currentVersion}`,
-          };
+          return writeFailure(
+            new VersionConflictError({
+              entityId: payload.id,
+              expectedVersion: payload.version,
+              currentVersion,
+            }),
+          );
         }
       }
 
@@ -202,7 +212,7 @@ export function createCrudExecutor(
         .where(eq(table["id"], payload.id))
         .returning();
 
-      if (!row) return { isSuccess: false, error: "update_failed" };
+      if (!row) return writeFailure(new InternalError({ message: "update returned no row" }));
       const data = row as Record<string, unknown>;
 
       // Invalidate rather than write-through (see create() for rationale).
@@ -226,7 +236,7 @@ export function createCrudExecutor(
 
     async delete(payload, user, db) {
       const existing = await loadById(payload.id, db);
-      if (!existing) return { isSuccess: false, error: "not_found" };
+      if (!existing) return writeFailure(new NotFoundError(entityName ?? "entity", payload.id));
 
       if (softDelete) {
         await db
@@ -254,14 +264,24 @@ export function createCrudExecutor(
     },
 
     async restore(payload, user, db) {
-      if (!softDelete) return { isSuccess: false, error: "soft_delete_not_enabled" };
+      if (!softDelete) {
+        return writeFailure(
+          new UnprocessableError("soft_delete_not_enabled", {
+            i18nKey: "errors.softDeleteNotEnabled",
+          }),
+        );
+      }
 
       // Find the soft-deleted row (bypass isDeleted filter — use only id)
       const [row] = await db.select().from(table).where(eq(table["id"], payload.id));
 
-      if (!row) return { isSuccess: false, error: "not_found" };
+      if (!row) return writeFailure(new NotFoundError(entityName ?? "entity", payload.id));
       const data = row as Record<string, unknown>;
-      if (!data["isDeleted"]) return { isSuccess: false, error: "not_deleted" };
+      if (!data["isDeleted"]) {
+        return writeFailure(
+          new UnprocessableError("not_deleted", { i18nKey: "errors.notDeleted" }),
+        );
+      }
 
       const [restored] = await db
         .update(table)
@@ -275,7 +295,7 @@ export function createCrudExecutor(
         .where(eq(table["id"], payload.id))
         .returning();
 
-      if (!restored) return { isSuccess: false, error: "restore_failed" };
+      if (!restored) return writeFailure(new InternalError({ message: "restore returned no row" }));
       const restoredData = restored as Record<string, unknown>;
 
       if (entityCache && entityName) {

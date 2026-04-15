@@ -140,10 +140,12 @@ export function createAuthRoutes(
       const result = await dispatcher.write(loginQn, body, GUEST_USER);
 
       if (!result.isSuccess) {
-        // Error format: "error_code" or "error_code: detail" — extract code.
-        const colonIdx = result.error.indexOf(":");
-        const code = colonIdx > 0 ? result.error.slice(0, colonIdx) : result.error;
-        const status = (statusMap[code] ?? 400) as 400 | 401 | 403 | 500;
+        // Feature-specific auth reason codes arrive via UnprocessableError.details.reason
+        // (e.g. "invalid_credentials", "user_locked"). Fall back to the KumikoError code
+        // so unmapped cases still get a sensible status.
+        const reason =
+          (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
+        const status = (statusMap[reason] ?? result.error.httpStatus) as 400 | 401 | 403 | 500;
         return c.json({ isSuccess: false, error: result.error }, status);
       }
 

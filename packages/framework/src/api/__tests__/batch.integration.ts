@@ -10,6 +10,7 @@ import {
   HookPhases,
   type SaveContext,
 } from "../../engine";
+import { UnprocessableError, writeFailure } from "../../errors";
 import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
 
 // Entity: a simple "item" with name + counter
@@ -59,7 +60,7 @@ const itemFeature = defineFeature("batch", (r) => {
   r.writeHandler(
     "item:fail",
     z.object({ name: z.string().min(1) }),
-    async () => ({ isSuccess: false, error: "intentional_failure" }),
+    async () => writeFailure(new UnprocessableError("intentional_failure")),
     { access: { roles: ["Admin"] } },
   );
 
@@ -200,10 +201,15 @@ describe("POST /api/batch", () => {
     );
 
     const body = await res.json();
-    expect(res.status).toBe(400);
+    // UnprocessableError → 422 (business-rule violation), which is the
+    // "expected failure" HTTP status. The batch envelope keeps `failedIndex`
+    // + `results` alongside the error payload so callers know which command
+    // tripped the rollback.
+    expect(res.status).toBe(422);
     expect(body.isSuccess).toBe(false);
     expect(body.failedIndex).toBe(1);
-    expect(body.error).toContain("intentional_failure");
+    expect(body.error.code).toBe("unprocessable");
+    expect(body.error.details.reason).toBe("intentional_failure");
 
     // inTransaction hook fired for the first successful command (then rolled back
     // — but the hook log is in-memory, it persists)

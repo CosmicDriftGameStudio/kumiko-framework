@@ -10,6 +10,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine";
+import { UnprocessableError, writeFailure } from "../../errors";
 import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
 
 // Two entities: `bag` (outer) + `secret` (inner). The outer handler calls
@@ -106,7 +107,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       if (!secretRes.isSuccess) return secretRes;
 
       if (event.payload.fail) {
-        return { isSuccess: false, error: "intentional_failure" };
+        return writeFailure(new UnprocessableError("intentional_failure"));
       }
 
       return created;
