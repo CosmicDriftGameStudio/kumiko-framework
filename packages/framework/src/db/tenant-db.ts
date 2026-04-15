@@ -37,10 +37,14 @@ type TenantSelect = {
 
 type WhereCondition = SQL | undefined;
 
+type RowLockStrength = "update" | "no key update" | "share" | "key share";
+
 type TenantSelectQuery = PromiseLike<Record<string, unknown>[]> & {
   where(condition: WhereCondition): TenantSelectQuery;
   limit(n: number): TenantSelectQuery;
   orderBy(...columns: (SQL | Column)[]): TenantSelectQuery;
+  /** Row-level locking (FOR UPDATE / FOR SHARE). Must be called inside a tx. */
+  for(strength: RowLockStrength): TenantSelectQuery;
 };
 
 type TenantInsert = {
@@ -141,6 +145,9 @@ export function createTenantDb(
       orderBy(...columns: SQL[]) {
         return wrapSelect(ensureFiltered().orderBy(...columns), table, true);
       },
+      for(strength: RowLockStrength) {
+        return wrapSelect(ensureFiltered().for(strength), table, true);
+      },
       // biome-ignore lint/suspicious/noThenProperty: thenable for await
       then(
         resolve: ((value: Record<string, unknown>[]) => void) | null,
@@ -159,10 +166,6 @@ export function createTenantDb(
   function whereClause(table: Table, condition: SQL): SQL {
     const filter = readFilter(table, condition);
     return filter ?? condition;
-  }
-
-  function whereAll(table: Table): SQL | undefined {
-    return readFilter(table);
   }
 
   return {
@@ -227,15 +230,22 @@ export function createTenantDb(
               } as TenantUpdateWhere;
             },
             returning() {
-              const filter = whereAll(table);
-              const wq = filter ? q.where(filter) : q;
-              return wq.returning() as PromiseLike<Record<string, unknown>[]>;
+              throw new Error(
+                "TenantDb.update().set().returning() without .where() would mass-update all tenant rows. " +
+                  "Add .where(...) first, or call .set(...).where(...).returning().",
+              );
             },
             // biome-ignore lint/suspicious/noThenProperty: thenable for await
-            then(resolve, reject) {
-              const filter = whereAll(table);
-              const wq = filter ? q.where(filter) : q;
-              return (wq as unknown as PromiseLike<void>).then(resolve, reject);
+            then(_resolve, reject) {
+              const err = new Error(
+                "TenantDb.update().set() awaited without .where() would mass-update all tenant rows. " +
+                  "Add .where(...) before awaiting.",
+              );
+              if (reject) {
+                reject(err);
+                return undefined as unknown as PromiseLike<void>;
+              }
+              throw err;
             },
           } as TenantUpdateSet;
         },

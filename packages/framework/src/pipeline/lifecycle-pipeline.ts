@@ -97,7 +97,15 @@ export function createLifecycleHooks(
   }): Promise<void> {
     const throwOnError = opts.hookPhase === HookPhases.inTransaction;
 
-    // Event dedup: only in afterCommit (see comment above)
+    // Event dedup: only in afterCommit (see comment above).
+    //
+    // SEMANTICS: pre-claim dedup = "at-most-once". tryAcquire is called before
+    // the hook runs, so if the hook crashes mid-execution, the retry sees
+    // `acquired=false` and skips the rest. This is the right trade-off for
+    // best-effort side-effects like Search Index, SSE broadcast, Audit — a
+    // missed hook is preferable to a duplicate notification. Features that
+    // need at-least-once semantics must not rely on this path; use the
+    // transactional outbox (ctx.emit) instead, which retries until an ack.
     if (eventDedup && opts.hookPhase === HookPhases.afterCommit) {
       const eventId = buildEventId(opts.handlerName, opts.payload, opts.phaseLabel);
       if (eventId) {
@@ -108,6 +116,14 @@ export function createLifecycleHooks(
           );
           return;
         }
+      } else {
+        // Missing id on a save/delete payload is unexpected — CrudExecutor
+        // always returns one. Log so we can spot framework/feature bugs where
+        // a handler emits a non-standard LifecycleResult and accidentally
+        // bypasses dedup.
+        opts.context.log?.warn(
+          `${opts.phaseLabel}: ${opts.handlerName} has no dedup id (payload missing \`id\`) — hook may run multiple times on retry`,
+        );
       }
     }
 

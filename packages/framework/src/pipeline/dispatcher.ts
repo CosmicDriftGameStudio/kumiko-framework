@@ -120,10 +120,15 @@ export function createDispatcher(
   }
 
   function getTransitions(
+    entityName: string,
     fieldName: string,
     transitionMap: Record<string, readonly string[]>,
   ): ReadonlyMap<string, ReadonlySet<string>> {
-    const key = fieldName;
+    // Scope by entity — `fieldName` alone collides across entities (e.g. both
+    // `invoice.status` and `driverOrder.status` exist with different maps),
+    // which would apply the wrong transition rules to whichever entity arrives
+    // second.
+    const key = `${entityName}:${fieldName}`;
     if (transitionCache.has(key))
       return transitionCache.get(key) as ReadonlyMap<string, ReadonlySet<string>>;
     const transitions = defineTransitions(transitionMap);
@@ -404,11 +409,30 @@ export function createDispatcher(
           const table = getTable(entityName);
           if (!table) continue;
 
-          const [row] = await handlerContext.db.select().from(table).where(eq(table["id"], id));
+          // SELECT FOR UPDATE inside the surrounding transaction — locks the
+          // row so a concurrent handler can't mutate `status` between our
+          // guard check and the handler's UPDATE. Without this lock the guard
+          // can false-pass; optimistic locking would catch it later, but with
+          // a less specific error. Falls back to a plain SELECT if no tx is
+          // active (tests without a DB connection).
+          const selectQuery = handlerContext.db.select().from(table);
+          const filtered = selectQuery.where(eq(table["id"], id));
+          const rows = tx ? await filtered.for("update") : await filtered;
+          const row = rows[0];
 
           if (!row) continue;
+          // Skip guard for soft-deleted rows — they shouldn't be transitioning
+          // at all; a handler that wants to move a deleted row should use
+          // skipTransitionGuard or restore first.
+          if (entity.softDelete && (row as Record<string, unknown>)["isDeleted"] === true) {
+            continue;
+          }
           const currentValue = (row as Record<string, unknown>)[fieldName] as string;
-          guardTransition(getTransitions(fieldName, transitionMap), currentValue, newValue);
+          guardTransition(
+            getTransitions(entityName, fieldName, transitionMap),
+            currentValue,
+            newValue,
+          );
         }
       }
     }
