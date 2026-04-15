@@ -47,8 +47,16 @@ type TenantInsert = {
   values(data: Record<string, unknown>): TenantInsertValues;
 };
 
+type ConflictTarget = Column | readonly Column[];
+type ConflictUpdate = {
+  target: ConflictTarget;
+  set: Record<string, unknown>;
+};
+
 type TenantInsertValues = PromiseLike<void> & {
   returning(): PromiseLike<Record<string, unknown>[]>;
+  onConflictDoUpdate(spec: ConflictUpdate): PromiseLike<void>;
+  onConflictDoNothing(spec?: { target: ConflictTarget }): PromiseLike<void>;
 };
 
 type TenantUpdate = {
@@ -177,6 +185,20 @@ export function createTenantDb(
           return {
             returning() {
               return q.returning() as PromiseLike<Record<string, unknown>[]>;
+            },
+            onConflictDoUpdate(spec: ConflictUpdate) {
+              return (
+                q as unknown as {
+                  onConflictDoUpdate: (s: ConflictUpdate) => PromiseLike<void>;
+                }
+              ).onConflictDoUpdate(spec);
+            },
+            onConflictDoNothing(spec?: { target: ConflictTarget }) {
+              return (
+                q as unknown as {
+                  onConflictDoNothing: (s?: { target: ConflictTarget }) => PromiseLike<void>;
+                }
+              ).onConflictDoNothing(spec);
             },
             // biome-ignore lint/suspicious/noThenProperty: thenable for await
             then(resolve, reject) {

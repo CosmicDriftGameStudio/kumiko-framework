@@ -292,4 +292,25 @@ describe("entity cache", () => {
     await new Promise((r) => setTimeout(r, 1100));
     expect(await cache.get(1, "temp", 1)).toBeNull();
   });
+
+  test("Date fields survive the cache round-trip as Date objects", async () => {
+    const cache = createEntityCache(testRedis.redis);
+    const insertedAt = new Date("2026-04-13T12:34:56.789Z");
+    await cache.set(1, "event", 42, {
+      id: 42,
+      title: "hi",
+      insertedAt,
+      note: "not a date: 2026-04",
+    });
+
+    const single = await cache.get(1, "event", 42);
+    expect(single?.["insertedAt"]).toBeInstanceOf(Date);
+    expect((single?.["insertedAt"] as Date).getTime()).toBe(insertedAt.getTime());
+    // Non-ISO strings must not be coerced
+    expect(typeof single?.["title"]).toBe("string");
+    expect(single?.["note"]).toBe("not a date: 2026-04");
+
+    const batch = await cache.mget(1, "event", [42]);
+    expect(batch.get(42)?.["insertedAt"]).toBeInstanceOf(Date);
+  });
 });

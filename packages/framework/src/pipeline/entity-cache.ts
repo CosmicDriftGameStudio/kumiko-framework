@@ -1,6 +1,26 @@
 import type Redis from "ioredis";
-import { parseJsonSafe } from "../utils/safe-json";
 import { RedisKeys } from "./redis-keys";
+
+// JSON.stringify turns Date into an ISO string, but DB reads return Date
+// objects. Without a reviver the cache path would yield strings where the
+// DB path yields Dates — consumers would silently see a type mismatch.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/;
+
+function dateReviver(_key: string, value: unknown): unknown {
+  if (typeof value === "string" && ISO_DATE.test(value)) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return value;
+}
+
+function parseCached(raw: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(raw, dateReviver) as Record<string, unknown> | null;
+  } catch {
+    return null;
+  }
+}
 
 export type EntityCache = {
   /** Get a single cached entity. Returns null on miss. */
@@ -48,7 +68,7 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
     async get(tenantId, entityName, id) {
       const raw = await redis.get(cacheKey(tenantId, entityName, id));
       if (!raw) return null;
-      return parseJsonSafe<Record<string, unknown> | null>(raw, null);
+      return parseCached(raw);
     },
 
     async mget(tenantId, entityName, ids) {
@@ -60,7 +80,7 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
       for (let i = 0; i < ids.length; i++) {
         const raw = values[i];
         if (raw) {
-          const parsed = parseJsonSafe<Record<string, unknown> | null>(raw, null);
+          const parsed = parseCached(raw);
           if (parsed) result.set(ids[i] as number, parsed);
         }
       }

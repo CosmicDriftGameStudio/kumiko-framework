@@ -124,17 +124,6 @@ export function createCrudExecutor(
     return result;
   }
 
-  function _decryptRow(row: Record<string, unknown>): Record<string, unknown> {
-    if (!encryptionProvider || encryptedFields.size === 0) return row;
-    const result = { ...row };
-    for (const field of encryptedFields) {
-      if (typeof result[field] === "string") {
-        result[field] = encryptionProvider.decrypt(result[field] as string);
-      }
-    }
-    return result;
-  }
-
   function maskRow(row: Record<string, unknown>): Record<string, unknown> {
     if (encryptedFields.size === 0) return row;
     const result = { ...row };
@@ -174,8 +163,11 @@ export function createCrudExecutor(
       const data = row as Record<string, unknown>;
       const id = data["id"] as number;
 
+      // Invalidate rather than write-through: if the surrounding pipeline
+      // rolls back (postSave hook failure, outbox commit failure), a populated
+      // cache would serve values that never landed in the DB.
       if (entityCache && entityName) {
-        await entityCache.set(user.tenantId, entityName, id, data);
+        await entityCache.del(user.tenantId, entityName, id);
       }
 
       return {
@@ -213,8 +205,9 @@ export function createCrudExecutor(
       if (!row) return { isSuccess: false, error: "update_failed" };
       const data = row as Record<string, unknown>;
 
+      // Invalidate rather than write-through (see create() for rationale).
       if (entityCache && entityName) {
-        await entityCache.set(user.tenantId, entityName, payload.id, data);
+        await entityCache.del(user.tenantId, entityName, payload.id);
       }
 
       return {
@@ -284,6 +277,10 @@ export function createCrudExecutor(
 
       if (!restored) return { isSuccess: false, error: "restore_failed" };
       const restoredData = restored as Record<string, unknown>;
+
+      if (entityCache && entityName) {
+        await entityCache.del(user.tenantId, entityName, payload.id);
+      }
 
       return {
         isSuccess: true,
