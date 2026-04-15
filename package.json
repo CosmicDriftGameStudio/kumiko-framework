@@ -2,6 +2,28 @@
   "name": "kumiko",
   "description": "Config-driven, command-based, realtime multi-tenant app framework.",
   "private": true,
+  "license": "BUSL-1.1",
+  "author": "Marc Frost",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bender0oo0/kumiko.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bender0oo0/kumiko/issues"
+  },
+  "homepage": "https://github.com/bender0oo0/kumiko#readme",
+  "keywords": [
+    "framework",
+    "multi-tenant",
+    "realtime",
+    "command-based",
+    "config-driven",
+    "typescript",
+    "bun",
+    "hono",
+    "drizzle",
+    "postgres"
+  ],
   "workspaces": [
     "packages/framework",
     "packages/core-features",

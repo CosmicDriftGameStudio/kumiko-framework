@@ -2,6 +2,27 @@
   "name": "@kumiko/framework",
   "version": "0.0.1",
   "description": "Framework core — engine, pipeline, API, DB, and every other bit that makes Kumiko go.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bender0oo0/kumiko.git",
+    "directory": "packages/framework"
+  },
+  "bugs": {
+    "url": "https://github.com/bender0oo0/kumiko/issues"
+  },
+  "homepage": "https://github.com/bender0oo0/kumiko#readme",
+  "keywords": [
+    "framework",
+    "multi-tenant",
+    "realtime",
+    "command-based",
+    "typescript",
+    "hono",
+    "drizzle",
+    "zod"
+  ],
   "private": true,
   "type": "module",
   "exports": {

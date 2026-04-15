@@ -1,5 +1,9 @@
 # Kumiko
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
+[![Bun](https://img.shields.io/badge/Bun-runtime-black.svg)](https://bun.sh)
+
 > **"With Kumiko, everything is faster!"** <sup>\*faster than building it all from scratch again without Kumiko. Sample size: n=1 (the author).</sup>
 >
 > **"90% of developers say: Kumiko makes everything faster."** <sup>\*we asked 10.</sup>
