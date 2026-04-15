@@ -229,23 +229,22 @@ export function createTenantDb(
                 },
               } as TenantUpdateWhere;
             },
-            returning() {
-              throw new Error(
-                "TenantDb.update().set().returning() without .where() would mass-update all tenant rows. " +
-                  "Add .where(...) first, or call .set(...).where(...).returning().",
+            returning(): PromiseLike<Record<string, unknown>[]> {
+              return Promise.reject(
+                new Error(
+                  "TenantDb.update().set().returning() without .where() would mass-update all tenant rows. " +
+                    "Add .where(...) first, or call .set(...).where(...).returning().",
+                ),
               );
             },
             // biome-ignore lint/suspicious/noThenProperty: thenable for await
-            then(_resolve, reject) {
-              const err = new Error(
-                "TenantDb.update().set() awaited without .where() would mass-update all tenant rows. " +
-                  "Add .where(...) before awaiting.",
-              );
-              if (reject) {
-                reject(err);
-                return undefined as unknown as PromiseLike<void>;
-              }
-              throw err;
+            then(resolve, reject) {
+              return Promise.reject(
+                new Error(
+                  "TenantDb.update().set() awaited without .where() would mass-update all tenant rows. " +
+                    "Add .where(...) before awaiting.",
+                ),
+              ).then(resolve, reject);
             },
           } as TenantUpdateSet;
         },

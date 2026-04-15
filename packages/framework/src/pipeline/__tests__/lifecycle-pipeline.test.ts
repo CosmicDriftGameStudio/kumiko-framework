@@ -9,7 +9,7 @@ import {
   type PreSaveHookFn,
   type SaveContext,
 } from "../../engine";
-import { createLifecycleHooks, type SystemHooks } from "../lifecycle-pipeline";
+import { buildEventId, createLifecycleHooks, type SystemHooks } from "../lifecycle-pipeline";
 
 function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHookFn[] }) {
   const feature = defineFeature("test", (r) => {
@@ -387,5 +387,34 @@ describe("runPostSave phase routing", () => {
     calls.length = 0;
     await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
     expect(calls).toEqual(["sse"]);
+  });
+});
+
+describe("buildEventId — dedup key construction", () => {
+  test("includes handler, id, version and phase when payload is complete", () => {
+    const payload = { id: 42, data: { version: 3 } };
+    expect(buildEventId("users:write:user:create", payload, "postSave:afterCommit")).toBe(
+      "users:write:user:create:42:3:postSave:afterCommit",
+    );
+  });
+
+  test("falls back to version 0 when payload has no data.version", () => {
+    const payload = { id: 42 };
+    expect(buildEventId("handler", payload, "phase")).toBe("handler:42:0:phase");
+  });
+
+  test("returns null when payload is not an object (no dedup possible)", () => {
+    expect(buildEventId("handler", null, "phase")).toBeNull();
+    expect(buildEventId("handler", undefined, "phase")).toBeNull();
+    expect(buildEventId("handler", "string", "phase")).toBeNull();
+    expect(buildEventId("handler", 123, "phase")).toBeNull();
+  });
+
+  test("returns null when payload has no id — triggers the warn-log path in runHookSet", () => {
+    expect(buildEventId("handler", {}, "phase")).toBeNull();
+    expect(buildEventId("handler", { data: { version: 5 } }, "phase")).toBeNull();
+    // id=0 is also treated as absent: serial PKs start at 1, so 0 means
+    // "never inserted" — safer to skip dedup than to collide on a sentinel.
+    expect(buildEventId("handler", { id: 0 }, "phase")).toBeNull();
   });
 });

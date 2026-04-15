@@ -419,3 +419,55 @@ describe("tenantId property", () => {
     expect(tdb.tenantId).toBe(42);
   });
 });
+
+// =============================================================================
+// Mass-update guard — update().set() without .where() must refuse.
+// =============================================================================
+//
+// Rationale: without the guard, a handler that forgets the WHERE clause would
+// overwrite every row for the current tenant. Drizzle itself doesn't flag this
+// (plain SQL behaviour); TenantDb is the layer where we can notice and stop it.
+
+describe("mass-update guard", () => {
+  test(".set().returning() without .where() rejects with a clear error", async () => {
+    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    await tdb.insert(table).values({ name: "MassUpdateVictim1" }).returning();
+    await tdb.insert(table).values({ name: "MassUpdateVictim2" }).returning();
+
+    await expect(tdb.update(table).set({ name: "Wiped" }).returning()).rejects.toThrow(
+      /without \.where\(\) would mass-update/,
+    );
+
+    // Rows must be untouched — the rejection happened before any SQL ran.
+    const untouched = await tdb.select().from(table);
+    const touched = (untouched as Record<string, unknown>[]).filter((r) => r["name"] === "Wiped");
+    expect(touched).toHaveLength(0);
+  });
+
+  test(".set() awaited without .where() rejects too", async () => {
+    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    await tdb.insert(table).values({ name: "AwaitGuardVictim" }).returning();
+
+    const promise = tdb.update(table).set({ name: "WipedByAwait" }) as unknown as Promise<void>;
+    await expect(promise).rejects.toThrow(/awaited without \.where\(\) would mass-update/);
+
+    const untouched = await tdb.select().from(table);
+    const touched = (untouched as Record<string, unknown>[]).filter(
+      (r) => r["name"] === "WipedByAwait",
+    );
+    expect(touched).toHaveLength(0);
+  });
+
+  test(".set().where(...).returning() still works (guard only triggers on missing where)", async () => {
+    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const [row] = await tdb.insert(table).values({ name: "HappyPath" }).returning();
+    const id = (row as Record<string, unknown>)["id"] as number;
+
+    const updated = await tdb
+      .update(table)
+      .set({ name: "HappyPathUpdated" })
+      .where(eq(table["id"], id))
+      .returning();
+    expect((updated[0] as Record<string, unknown>)["name"]).toBe("HappyPathUpdated");
+  });
+});

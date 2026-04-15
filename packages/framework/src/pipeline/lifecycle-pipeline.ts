@@ -249,7 +249,9 @@ export function createLifecycleHooks(
 
 // Build a unique eventId from handler + entity identity + version + phase.
 // version makes it unique per write (incremented on every update).
-function buildEventId(handlerName: string, payload: unknown, phase: string): string | null {
+// Exported for unit tests — the warn-log path (null return) is otherwise
+// unreachable through the normal LifecycleResult flow.
+export function buildEventId(handlerName: string, payload: unknown, phase: string): string | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
   const id = p["id"] as number | undefined;

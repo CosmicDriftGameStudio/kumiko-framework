@@ -260,4 +260,49 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     expect(err).not.toContain("Invalid transition");
     expect(err).toContain("not_found");
   });
+
+  test("concurrent writes on the same row serialize via SELECT FOR UPDATE", async () => {
+    // Two parallel requests both trying to move the SAME invoice from draft.
+    // One legal: draft → sent. One deliberately stale (would also be legal
+    // draft → sent, but since we hold the row lock, the second caller sees
+    // the updated state `sent` when its turn comes and must fail — either
+    // via the transition guard (sent → sent is not defined) or version
+    // conflict. Without the FOR UPDATE both could snapshot `draft` under
+    // READ COMMITTED and race past the guard; the second UPDATE would then
+    // fail only via the optimistic lock, losing the specific error signal.
+    const invoice = await stack.http.writeOk<{ id: number }>(
+      "txguard:write:invoice:create",
+      { title: "Concurrent-1" },
+      admin,
+    );
+
+    const [res1, res2] = await Promise.all([
+      stack.http.write(
+        "txguard:write:invoice:update",
+        { id: invoice["id"], changes: { status: "sent" } },
+        admin,
+      ),
+      stack.http.write(
+        "txguard:write:invoice:update",
+        { id: invoice["id"], changes: { status: "sent" } },
+        admin,
+      ),
+    ]);
+
+    const body1 = (await res1.json()) as { isSuccess: boolean; error?: string };
+    const body2 = (await res2.json()) as { isSuccess: boolean; error?: string };
+
+    // Exactly one of the two must win. If both succeeded, the row lock
+    // didn't serialize — both wrote draft→sent using a stale snapshot.
+    const successes = [body1, body2].filter((b) => b.isSuccess);
+    const failures = [body1, body2].filter((b) => !b.isSuccess);
+    expect(successes).toHaveLength(1);
+    expect(failures).toHaveLength(1);
+
+    // The loser saw state `sent` on its (now serialized) guard read and
+    // rejected the transition — NOT a version_conflict, which would be the
+    // optimistic-lock fallback if the guard had race-passed.
+    expect(failures[0]?.error).toContain("Invalid transition");
+    expect(failures[0]?.error).toContain("sent");
+  });
 });

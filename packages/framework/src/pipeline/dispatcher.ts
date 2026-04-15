@@ -119,19 +119,19 @@ export function createDispatcher(
     return table;
   }
 
-  function getTransitions(
-    entityName: string,
-    fieldName: string,
-    transitionMap: Record<string, readonly string[]>,
-  ): ReadonlyMap<string, ReadonlySet<string>> {
+  function getTransitions(args: {
+    entityName: string;
+    fieldName: string;
+    map: Record<string, readonly string[]>;
+  }): ReadonlyMap<string, ReadonlySet<string>> {
     // Scope by entity — `fieldName` alone collides across entities (e.g. both
     // `invoice.status` and `driverOrder.status` exist with different maps),
     // which would apply the wrong transition rules to whichever entity arrives
     // second.
-    const key = `${entityName}:${fieldName}`;
+    const key = `${args.entityName}:${args.fieldName}`;
     if (transitionCache.has(key))
       return transitionCache.get(key) as ReadonlyMap<string, ReadonlySet<string>>;
-    const transitions = defineTransitions(transitionMap);
+    const transitions = defineTransitions(args.map);
     transitionCache.set(key, transitions);
     return transitions;
   }
@@ -429,7 +429,7 @@ export function createDispatcher(
           }
           const currentValue = (row as Record<string, unknown>)[fieldName] as string;
           guardTransition(
-            getTransitions(entityName, fieldName, transitionMap),
+            getTransitions({ entityName, fieldName, map: transitionMap }),
             currentValue,
             newValue,
           );
