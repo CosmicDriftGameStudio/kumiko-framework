@@ -32,6 +32,51 @@ function checkEnv(): void {
   }
 }
 
+// --- Banner ---
+
+type Slogan = { readonly claim: string; readonly fineprint: string };
+
+const SLOGANS: readonly Slogan[] = [
+  { claim: "The fastest framework in the known universe.", fineprint: "universe limited to n=1." },
+  { claim: "100% of developers agree Kumiko is the greatest framework ever built.", fineprint: "we asked the author." },
+  { claim: "The most enterprise-ready framework of all time.", fineprint: "all time begins at day one. Day one hasn't arrived yet." },
+  { claim: "The most battle-tested framework in human history.", fineprint: "history of demo samples." },
+  { claim: "The multi-tenantest multi-tenant framework ever conceived.", fineprint: "tenant count: 1. Named 'test'." },
+  { claim: "The most zero-config framework on planet Earth.", fineprint: "after the mandatory 47-step setup. On planet Earth." },
+  { claim: "The realtime-est realtime framework in existence.", fineprint: "<1ms latency, on localhost, Wi-Fi off, in a Faraday cage." },
+  { claim: "Scales to the most users imaginable.", fineprint: "imagination limited by Postgres, Redis, Meilisearch, and your wallet." },
+  { claim: "The type-safest framework ever written by human hands.", fineprint: "`any` is still also a type." },
+  { claim: "The definitive framework for framework frameworks.", fineprint: "" },
+  { claim: "Works on more machines than any framework before it.", fineprint: "machines in sample: 1. The author's." },
+  { claim: "Now with more features than any framework in recorded history.", fineprint: "than when we started counting this morning." },
+  { claim: "The most revolutionary framework since the last revolution.", fineprint: "" },
+  { claim: "Quite possibly the single greatest framework of the 21st century.", fineprint: "century still in progress. Results may vary." },
+  { claim: "The most award-winning framework never to win an award.", fineprint: "award categories still being invented." },
+];
+
+function banner(): void {
+  const slogan = SLOGANS[Math.floor(Math.random() * SLOGANS.length)] as Slogan;
+  const cyan = "\x1b[36m";
+  const dim = "\x1b[2m";
+  const reset = "\x1b[0m";
+
+  console.log();
+  console.log(`     ✨  ⭐   ✨    ⭐    ✨   ⭐   ✨`);
+  console.log(`${cyan}  ██╗  ██╗██╗   ██╗███╗   ███╗██╗██╗  ██╗ ██████╗ ${reset}`);
+  console.log(`${cyan}  ██║ ██╔╝██║   ██║████╗ ████║██║██║ ██╔╝██╔═══██╗${reset}`);
+  console.log(`${cyan}  █████╔╝ ██║   ██║██╔████╔██║██║█████╔╝ ██║   ██║${reset}`);
+  console.log(`${cyan}  ██╔═██╗ ██║   ██║██║╚██╔╝██║██║██╔═██╗ ██║   ██║${reset}`);
+  console.log(`${cyan}  ██║  ██╗╚██████╔╝██║ ╚═╝ ██║██║██║  ██╗╚██████╔╝${reset}`);
+  console.log(`${cyan}  ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝╚═╝  ╚═╝ ╚═════╝ ${reset}`);
+  console.log(`      🍺   ✨   🍺    ⭐    🍺   ✨   🍺`);
+  console.log();
+  console.log(`  ${slogan.claim}${slogan.fineprint ? "*" : ""}`);
+  if (slogan.fineprint) {
+    console.log(`${dim}  * ${slogan.fineprint}${reset}`);
+  }
+  console.log();
+}
+
 // --- Commands ---
 
 const commands = {
@@ -200,7 +245,8 @@ const commands = {
 async function interactiveMenu(): Promise<void> {
   const entries = Object.entries(commands);
 
-  console.log("\n  Kumiko — Was soll's sein?\n");
+  banner();
+  console.log("  Was soll's sein?\n");
   entries.forEach(([name, cmd], i) => {
     console.log(`  ${i + 1}) ${name.padEnd(10)} ${cmd.description}`);
   });
@@ -265,8 +311,8 @@ if (!command) {
   await interactiveMenu();
 } else {
   if (command === "help") {
+    banner();
     const entries = Object.entries(commands);
-    console.log("\n  kumiko CLI\n");
     for (const [name, cmd] of entries) {
       console.log(`  ${name.padEnd(14)} ${cmd.description}`);
     }

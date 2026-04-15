@@ -1,5 +1,27 @@
 # Kumiko
 
+> **"With Kumiko, everything is faster!"** <sup>\*faster than building it all from scratch again without Kumiko. Sample size: n=1 (the author).</sup>
+>
+> **"90% of developers say: Kumiko makes everything faster."** <sup>\*we asked 10.</sup>
+>
+> **"Enterprise-ready since day one."** <sup>\*day one hasn't arrived yet.</sup>
+>
+> **"Battle-tested in production."** <sup>\*the production of demo samples.</sup>
+>
+> **"Multi-tenant out of the box."** <sup>\*box not included.</sup>
+>
+> **"Zero-config."** <sup>\*after the initial 47-step setup.</sup>
+>
+> **"Realtime with <1ms latency."** <sup>\*on localhost, Wi-Fi off, exactly one tenant named "test".</sup>
+>
+> **"Scales to millions of users."** <sup>\*theoretically, provided Postgres, Redis, Meilisearch, and your wallet all cooperate.</sup>
+>
+> **"Type-safe down to the last line."** <sup>\*`any` is also a type.</sup>
+>
+> **"Kumiko — because framework frameworks need a framework too."**
+
+---
+
 Config-driven, command-based, realtime Multi-Tenant App Framework.
 
 ## Quickstart
