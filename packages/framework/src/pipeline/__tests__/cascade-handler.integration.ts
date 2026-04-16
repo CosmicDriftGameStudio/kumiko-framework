@@ -23,9 +23,9 @@ let registry: Registry;
 let departmentTable: Table;
 let userTable: Table;
 let sessionTable: Table;
-let departmentCrud: EventStoreExecutor;
-let userCrud: EventStoreExecutor;
-let sessionCrud: EventStoreExecutor;
+let departmentExecutor: EventStoreExecutor;
+let userExecutor: EventStoreExecutor;
+let sessionExecutor: EventStoreExecutor;
 
 const admin = TestUsers.admin;
 
@@ -76,11 +76,13 @@ beforeAll(async () => {
   });
 
   registry = createRegistry([feature]);
-  departmentCrud = createEventStoreExecutor(departmentTable, departmentEntity, {
+  departmentExecutor = createEventStoreExecutor(departmentTable, departmentEntity, {
     entityName: "department",
   });
-  userCrud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
-  sessionCrud = createEventStoreExecutor(sessionTable, sessionEntity, { entityName: "session" });
+  userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
+  sessionExecutor = createEventStoreExecutor(sessionTable, sessionEntity, {
+    entityName: "session",
+  });
 });
 
 afterAll(async () => {
@@ -89,10 +91,10 @@ afterAll(async () => {
 
 describe("cascade delete: restrict", () => {
   test("blocks delete when related records exist", async () => {
-    const dept = await departmentCrud.create({ name: "Engineering" }, admin, tdb);
+    const dept = await departmentExecutor.create({ name: "Engineering" }, admin, tdb);
     if (!dept.isSuccess) throw new Error("Setup failed");
 
-    await userCrud.create({ name: "Marc", departmentId: dept.data.id }, admin, tdb);
+    await userExecutor.create({ name: "Marc", departmentId: dept.data.id }, admin, tdb);
 
     const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
 
@@ -110,7 +112,7 @@ describe("cascade delete: restrict", () => {
   });
 
   test("allows delete when no related records", async () => {
-    const dept = await departmentCrud.create({ name: "Empty" }, admin, tdb);
+    const dept = await departmentExecutor.create({ name: "Empty" }, admin, tdb);
     if (!dept.isSuccess) throw new Error("Setup failed");
 
     const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
@@ -131,14 +133,14 @@ describe("cascade delete: restrict", () => {
 
 describe("cascade delete: cascade", () => {
   test("deletes related records when parent is deleted", async () => {
-    const user = await userCrud.create({ name: "Cascade User" }, admin, tdb);
+    const user = await userExecutor.create({ name: "Cascade User" }, admin, tdb);
     if (!user.isSuccess) throw new Error("Setup failed");
 
-    await sessionCrud.create({ userId: user.data.id, token: "abc" }, admin, tdb);
-    await sessionCrud.create({ userId: user.data.id, token: "def" }, admin, tdb);
+    await sessionExecutor.create({ userId: user.data.id, token: "abc" }, admin, tdb);
+    await sessionExecutor.create({ userId: user.data.id, token: "def" }, admin, tdb);
 
     // Verify sessions exist
-    const before = await sessionCrud.list({}, admin, tdb);
+    const before = await sessionExecutor.list({}, admin, tdb);
     const sessionsBefore = before.rows.filter((r) => r["userId"] === user.data.id);
     expect(sessionsBefore.length).toBe(2);
 
@@ -156,7 +158,7 @@ describe("cascade delete: cascade", () => {
     );
 
     // Sessions should be gone
-    const after = await sessionCrud.list({}, admin, tdb);
+    const after = await sessionExecutor.list({}, admin, tdb);
     const sessionsAfter = after.rows.filter((r) => r["userId"] === user.data.id);
     expect(sessionsAfter.length).toBe(0);
   });

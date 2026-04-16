@@ -45,7 +45,7 @@ const featurePostSaveLog: SaveContext[] = [];
 
 // --- Feature definition ---
 
-function userCrud(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
+function userExecutor(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
   return createEventStoreExecutor(userTable, userEntity, {
     entityName: "user",
     ...(ctx.searchAdapter
@@ -83,7 +83,7 @@ const userFeature = defineFeature("users", (r) => {
       lastName: z.string().optional(),
     }),
     async (event, ctx) => {
-      const result = await userCrud(ctx).create(event.payload, event.user, ctx.db);
+      const result = await userExecutor(ctx).create(event.payload, event.user, ctx.db);
       if (result.isSuccess) {
         await emitUserCreated(ctx, result.data.id, event.payload.email);
       }
@@ -100,7 +100,7 @@ const userFeature = defineFeature("users", (r) => {
     "user:create-rollback",
     z.object({ email: z.email() }),
     async (event, ctx) => {
-      const created = await userCrud(ctx).create(event.payload, event.user, ctx.db);
+      const created = await userExecutor(ctx).create(event.payload, event.user, ctx.db);
       if (created.isSuccess) {
         await emitUserCreated(ctx, created.data.id, event.payload.email);
       }
@@ -118,7 +118,7 @@ const userFeature = defineFeature("users", (r) => {
     "user:create-throw",
     z.object({ email: z.email() }),
     async (event, ctx) => {
-      const created = await userCrud(ctx).create(event.payload, event.user, ctx.db);
+      const created = await userExecutor(ctx).create(event.payload, event.user, ctx.db);
       if (!created.isSuccess) return created;
       await emitUserCreated(ctx, created.data.id, event.payload.email);
       await emitUserCreated(ctx, created.data.id, `${event.payload.email}.secondary`);
@@ -134,14 +134,14 @@ const userFeature = defineFeature("users", (r) => {
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
-    async (event, ctx) => userCrud(ctx).update(event.payload, event.user, ctx.db),
+    async (event, ctx) => userExecutor(ctx).update(event.payload, event.user, ctx.db),
     { access: { roles: ["Admin"] } },
   );
 
   r.writeHandler(
     "user:delete",
     z.object({ id: z.uuid() }),
-    async (event, ctx) => userCrud(ctx).delete(event.payload, event.user, ctx.db),
+    async (event, ctx) => userExecutor(ctx).delete(event.payload, event.user, ctx.db),
     { access: { roles: ["Admin"] } },
   );
 
@@ -153,14 +153,14 @@ const userFeature = defineFeature("users", (r) => {
       sort: z.string().optional(),
       sortDirection: z.enum(["asc", "desc"]).optional(),
     }),
-    async (query, ctx) => userCrud(ctx).list(query.payload, query.user, ctx.db),
+    async (query, ctx) => userExecutor(ctx).list(query.payload, query.user, ctx.db),
     { access: { openToAll: true } },
   );
 
   r.queryHandler(
     "user:detail",
     z.object({ id: z.uuid() }),
-    async (query, ctx) => userCrud(ctx).detail(query.payload, query.user, ctx.db),
+    async (query, ctx) => userExecutor(ctx).detail(query.payload, query.user, ctx.db),
     { access: { openToAll: true } },
   );
 
