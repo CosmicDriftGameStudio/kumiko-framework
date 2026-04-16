@@ -145,9 +145,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
     // Determine tenantId and triggeredBy from meta
     const tenantId =
-      (rawData["_tenantId"] as number | undefined) ??
-      (payload["tenantId"] as number | undefined) ??
-      0;
+      (rawData["_tenantId"] as string | undefined) ??
+      (payload["tenantId"] as string | undefined) ??
+      "00000000-0000-4000-8000-000000000000";
     const triggeredById = (rawData["_triggeredById"] as number | undefined) ?? null;
 
     const jobContext: AppContext = {

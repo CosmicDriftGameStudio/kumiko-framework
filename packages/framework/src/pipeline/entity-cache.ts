@@ -1,5 +1,6 @@
 import type Redis from "ioredis";
 import { RedisKeys } from "./redis-keys";
+import type { TenantId } from "@kumiko/framework/engine";
 
 // JSON.stringify turns Date into an ISO string, but DB reads return Date
 // objects. Without a reviver the cache path would yield strings where the
@@ -24,18 +25,18 @@ function parseCached(raw: string): Record<string, unknown> | null {
 
 export type EntityCache = {
   /** Get a single cached entity. Returns null on miss. */
-  get(tenantId: number, entityName: string, id: number): Promise<Record<string, unknown> | null>;
+  get(tenantId: TenantId, entityName: string, id: number): Promise<Record<string, unknown> | null>;
 
   /** Get multiple cached entities. Returns a Map of id → data (misses are absent). */
   mget(
-    tenantId: number,
+    tenantId: TenantId,
     entityName: string,
     ids: readonly number[],
   ): Promise<Map<number, Record<string, unknown>>>;
 
   /** Cache a single entity. */
   set(
-    tenantId: number,
+    tenantId: TenantId,
     entityName: string,
     id: number,
     data: Record<string, unknown>,
@@ -43,13 +44,13 @@ export type EntityCache = {
 
   /** Cache multiple entities at once. */
   mset(
-    tenantId: number,
+    tenantId: TenantId,
     entityName: string,
     entries: ReadonlyArray<{ id: number; data: Record<string, unknown> }>,
   ): Promise<void>;
 
   /** Invalidate a single cached entity. */
-  del(tenantId: number, entityName: string, id: number): Promise<void>;
+  del(tenantId: TenantId, entityName: string, id: number): Promise<void>;
 };
 
 export type EntityCacheOptions = {
@@ -60,7 +61,7 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
   const ttl = options.ttlSeconds ?? 300;
   const prefix = RedisKeys.entityCache;
 
-  function cacheKey(tenantId: number, entityName: string, id: number): string {
+  function cacheKey(tenantId: TenantId, entityName: string, id: number): string {
     return `${prefix}${tenantId}:${entityName}:${id}`;
   }
 

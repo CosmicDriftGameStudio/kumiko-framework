@@ -6,24 +6,24 @@ import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../system-user";
 
 describe("SYSTEM_USER", () => {
   test("createSystemUser returns user with system role", () => {
-    const user = createSystemUser(42);
+    const user = createSystemUser("00000000-0000-4000-8000-000000000042");
     expect(user.id).toBe(SYSTEM_USER_ID);
-    expect(user.tenantId).toBe(42);
+    expect(user.tenantId).toBe("00000000-0000-4000-8000-000000000042");
     expect(user.roles).toEqual([SYSTEM_ROLE]);
   });
 
   test("SYSTEM_USER has access to handlers with roles: ['system']", () => {
-    const user = createSystemUser(1);
+    const user = createSystemUser("00000000-0000-4000-8000-000000000001");
     expect(hasAccess(user, { roles: ["system"] })).toBe(true);
   });
 
   test("SYSTEM_USER does NOT have access to Admin-only handlers", () => {
-    const user = createSystemUser(1);
+    const user = createSystemUser("00000000-0000-4000-8000-000000000001");
     expect(hasAccess(user, { roles: ["Admin"] })).toBe(false);
   });
 
   test("normal user does NOT have access to system-only handlers", () => {
-    const admin = { id: 1, tenantId: 1, roles: ["Admin"] as readonly string[] };
+    const admin = { id: 1, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["Admin"] as readonly string[] };
     expect(hasAccess(admin, { roles: ["system"] })).toBe(false);
   });
 

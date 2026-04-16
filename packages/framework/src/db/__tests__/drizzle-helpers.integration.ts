@@ -49,11 +49,11 @@ beforeAll(async () => {
   await createEntityTable(db, entity);
 
   const rows = [
-    { tenantId: 1, email: "admin@test.de", firstName: "Admin" },
-    { tenantId: 1, email: "marc@test.de", firstName: "Marc" },
-    { tenantId: 1, email: "anna@test.de", firstName: "Anna" },
-    { tenantId: 1, email: "deleted@test.de", firstName: "Deleted", isDeleted: true },
-    { tenantId: 2, email: "other@test.de", firstName: "Other" },
+    { tenantId: "00000000-0000-4000-8000-000000000001", email: "admin@test.de", firstName: "Admin" },
+    { tenantId: "00000000-0000-4000-8000-000000000001", email: "marc@test.de", firstName: "Marc" },
+    { tenantId: "00000000-0000-4000-8000-000000000001", email: "anna@test.de", firstName: "Anna" },
+    { tenantId: "00000000-0000-4000-8000-000000000001", email: "deleted@test.de", firstName: "Deleted", isDeleted: true },
+    { tenantId: "00000000-0000-4000-8000-000000000002", email: "other@test.de", firstName: "Other" },
   ];
 
   for (const row of rows) {
@@ -87,12 +87,12 @@ async function query(options: Parameters<typeof applyCursorQuery>[2]): Promise<R
 
 describe("tenant isolation", () => {
   test("only returns rows for specified tenant", async () => {
-    const rows = await query({ tenantId: 1 });
+    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001" });
     expect(rows.every((r) => r["tenantId"] === 1)).toBe(true);
   });
 
   test("tenant 2 only sees own data", async () => {
-    const rows = await query({ tenantId: 2 });
+    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000002" });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["email"]).toBe("other@test.de");
   });
@@ -100,23 +100,23 @@ describe("tenant isolation", () => {
 
 describe("soft delete filtering", () => {
   test("excludes soft-deleted rows", async () => {
-    const rows = await query({ tenantId: 1 });
+    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001" });
     expect(rows.find((r) => r["email"] === "deleted@test.de")).toBeUndefined();
   });
 });
 
 describe("cursor pagination", () => {
   test("limits results", async () => {
-    const rows = await query({ tenantId: 1, limit: 2 });
+    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001", limit: 2 });
     expect(rows).toHaveLength(2);
   });
 
   test("cursor skips past previous results", async () => {
-    const page1 = await query({ tenantId: 1, limit: 2 });
+    const page1 = await query({ tenantId: "00000000-0000-4000-8000-000000000001", limit: 2 });
     expect(page1).toHaveLength(2);
 
     const lastId = page1[page1.length - 1]?.["id"] as number;
-    const page2 = await query({ tenantId: 1, limit: 2, cursor: encodeCursor(lastId) });
+    const page2 = await query({ tenantId: "00000000-0000-4000-8000-000000000001", limit: 2, cursor: encodeCursor(lastId) });
 
     const page1Ids = page1.map((r) => r["id"]);
     const page2Ids = page2.map((r) => r["id"]);
@@ -127,27 +127,27 @@ describe("cursor pagination", () => {
 describe("filterIds (search results from SearchAdapter)", () => {
   test("filters by ID list from search adapter", async () => {
     // SearchAdapter returns IDs, cursor query filters by them
-    const rows = await query({ tenantId: 1, filterIds: [1, 2] });
+    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001", filterIds: [1, 2] });
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => [1, 2].includes(r["id"] as number))).toBe(true);
   });
 
   test("empty filterIds returns nothing", async () => {
-    const rows = await query({ tenantId: 1, filterIds: [] });
+    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001", filterIds: [] });
     expect(rows).toHaveLength(0);
   });
 });
 
 describe("sorting", () => {
   test("sorts by column ASC", async () => {
-    const rows = await query({ tenantId: 1, sort: "firstName", sortDirection: "asc" });
+    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001", sort: "firstName", sortDirection: "asc" });
     const names = rows.map((r) => r["firstName"]);
     const sorted = [...names].sort();
     expect(names).toEqual(sorted);
   });
 
   test("sorts by column DESC", async () => {
-    const rows = await query({ tenantId: 1, sort: "firstName", sortDirection: "desc" });
+    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001", sort: "firstName", sortDirection: "desc" });
     const names = rows.map((r) => r["firstName"]);
     const sorted = [...names].sort().reverse();
     expect(names).toEqual(sorted);

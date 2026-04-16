@@ -2,6 +2,7 @@ import { and, type Column, eq, getTableName, or, type SQL } from "drizzle-orm";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
+import type { TenantId } from "@kumiko/framework/engine";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
@@ -23,7 +24,7 @@ type ColumnSelection = Record<string, any>;
 export type TenantDbMode = "tenant" | "system";
 
 export type TenantDb = {
-  readonly tenantId: number;
+  readonly tenantId: TenantId;
   readonly mode: TenantDbMode;
   select(): TenantSelect;
   select(columns: ColumnSelection): TenantSelect;
@@ -83,7 +84,7 @@ type TenantDelete = {
 
 export function createTenantDb(
   db: DbRunner,
-  tenantId: number,
+  tenantId: TenantId,
   mode: TenantDbMode = "tenant",
   tracer?: Tracer,
   meter?: Meter,
@@ -163,8 +164,11 @@ export function createTenantDb(
       return extra.length > 0 ? and(...extra) : undefined;
     }
 
-    // Tenant mode: own data + reference data (tenantId = 0)
-    const ownOrGlobal = or(eq(table["tenantId"], tenantId), eq(table["tenantId"], 0)) as SQL;
+    // Tenant mode: own data + reference data (zero-UUID tenantId for global rows)
+    const ownOrGlobal = or(
+      eq(table["tenantId"], tenantId),
+      eq(table["tenantId"], "00000000-0000-4000-8000-000000000000"),
+    ) as SQL;
     return extra.length > 0 ? and(ownOrGlobal, ...extra) : ownOrGlobal;
   }
 

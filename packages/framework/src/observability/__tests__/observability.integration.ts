@@ -101,7 +101,7 @@ const todoFeature = defineFeature("todo", (r) => {
   });
 });
 
-const adminUser = { id: 1, tenantId: 1, roles: ["admin"] as const };
+const adminUser = { id: 1, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["admin"] as const };
 
 describe("Observability (integration)", () => {
   let stack: TestStack;

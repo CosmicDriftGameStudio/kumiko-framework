@@ -1,3 +1,5 @@
+import type { TenantId } from "@kumiko/framework/engine";
+
 // All framework constants as `as const` objects with inferred union types.
 // No enums — only const objects + typeof inference.
 
@@ -90,6 +92,6 @@ export type ConcurrencyMode = (typeof ConcurrencyModes)[keyof typeof Concurrency
 
 // --- SSE Channels ---
 
-export function tenantChannel(tenantId: number): string {
+export function tenantChannel(tenantId: TenantId): string {
   return `tenant:${tenantId}`;
 }

@@ -59,7 +59,7 @@ describe("scoped mode (default)", () => {
     test("cannot override tenantId via values", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-      const rows = await tdb.insert(table).values({ name: "Sneaky", tenantId: 999 }).returning();
+      const rows = await tdb.insert(table).values({ name: "Sneaky", tenantId: "00000000-0000-4000-8000-000000000999" }).returning();
       expect(rows[0]?.["tenantId"]).toBe(1);
     });
   });
@@ -212,7 +212,7 @@ describe("scoped mode (default)", () => {
       await testDb.db.insert(table).values({
         name: "GlobalRef",
         status: "ref",
-        tenantId: 0,
+        tenantId: "00000000-0000-4000-8000-000000000000",
         version: 1,
         insertedAt: new Date(),
       });
@@ -232,7 +232,7 @@ describe("scoped mode (default)", () => {
       await testDb.db.insert(table).values({
         name: "RefNoUpdate",
         status: "ref",
-        tenantId: 0,
+        tenantId: "00000000-0000-4000-8000-000000000000",
         version: 1,
         insertedAt: new Date(),
       });
@@ -284,7 +284,7 @@ describe("system mode (r.systemScope())", () => {
     // With explicit tenantId — handler's value wins
     const [overrideRow] = await systemDb
       .insert(table)
-      .values({ name: "SystemOverride", tenantId: 99 })
+      .values({ name: "SystemOverride", tenantId: "00000000-0000-4000-8000-000000000099" })
       .returning();
     expect((overrideRow as Record<string, unknown>)["tenantId"]).toBe(99);
   });
@@ -299,14 +299,14 @@ describe("system mode (r.systemScope())", () => {
     const scopedDb = createTenantDb(testDb.db, tenant1.tenantId);
     const [scopedRow] = await scopedDb
       .insert(table)
-      .values({ name: "ScopedForce", tenantId: 77 })
+      .values({ name: "ScopedForce", tenantId: "00000000-0000-4000-8000-000000000077" })
       .returning();
     expect((scopedRow as Record<string, unknown>)["tenantId"]).toBe(1); // forced
 
     // In unscoped mode, explicit tenantId wins
     const [unscopedRow] = await systemDb
       .insert(table)
-      .values({ name: "SystemExplicit", tenantId: 77 })
+      .values({ name: "SystemExplicit", tenantId: "00000000-0000-4000-8000-000000000077" })
       .returning();
     expect((unscopedRow as Record<string, unknown>)["tenantId"]).toBe(77); // handler wins
   });
@@ -415,7 +415,7 @@ describe("tables without tenantId column", () => {
 
 describe("tenantId property", () => {
   test("exposes tenantId for use in cursor queries etc.", () => {
-    const tdb = createTenantDb(testDb.db, 42);
+    const tdb = createTenantDb(testDb.db, "00000000-0000-4000-8000-000000000042");
     expect(tdb.tenantId).toBe(42);
   });
 });

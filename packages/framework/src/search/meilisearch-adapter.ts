@@ -1,5 +1,6 @@
 import { Meilisearch } from "meilisearch";
 import type { SearchAdapter, SearchResult } from "./types";
+import type { TenantId } from "@kumiko/framework/engine";
 
 export type MeilisearchAdapterOptions = {
   url: string;
@@ -7,7 +8,7 @@ export type MeilisearchAdapterOptions = {
   indexPrefix?: string;
 };
 
-function tenantIndex(prefix: string, tenantId: number): string {
+function tenantIndex(prefix: string, tenantId: TenantId): string {
   return `${prefix}t${tenantId}`;
 }
 

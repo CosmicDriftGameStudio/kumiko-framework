@@ -4,7 +4,7 @@ import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
 import { createRegistry } from "../engine/registry";
-import type { FeatureDefinition, Registry } from "../engine/types";
+import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import type { ObservabilityProvider } from "../observability";
 import type { EventBroker, OutboxPoller } from "../pipeline";
 import {
@@ -53,7 +53,7 @@ export type TestStackOptions = {
   systemHooks?: ("audit" | "sse" | "search")[];
   /** Search config per tenant — defaults to tenant 1 with all text fields */
   searchConfig?: {
-    tenantId: number;
+    tenantId: TenantId;
     searchableFields: string[];
     rankingFields: string[];
   };
@@ -123,7 +123,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         rankingFields: options.searchConfig.rankingFields,
       });
     } else if (searchableFields.length > 0) {
-      await searchAdapter.configure(1, {
+      await searchAdapter.configure("00000000-0000-4000-8000-000000000001", {
         searchableFields,
         rankingFields: searchableFields,
       });
@@ -133,7 +133,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // Wire SSE broker with event collector
   const sseBroker = createSseBroker();
   sseBroker.addClient(
-    "tenant:1",
+    "tenant:00000000-0000-4000-8000-000000000001",
     (event) => events.sse.push(event),
     () => {},
   );

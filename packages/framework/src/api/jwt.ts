@@ -1,9 +1,9 @@
 import * as jose from "jose";
-import type { SessionUser } from "../engine/types";
+import type { SessionUser, TenantId } from "../engine/types";
 
 export type JwtPayload = {
   sub: number;
-  tenantId: number;
+  tenantId: TenantId;
   roles: string[];
   // Optional — present when a feature has registered auth claims (future:
   // `r.authClaims()` hook). Absent for the MVP login flow.
@@ -39,7 +39,7 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
       const { payload } = await jose.jwtVerify(token, encodedSecret, { issuer });
       const result: JwtPayload = {
         sub: Number(payload.sub),
-        tenantId: payload["tenantId"] as number,
+        tenantId: payload["tenantId"] as string,
         roles: payload["roles"] as string[],
       };
       const claims = payload["claims"];

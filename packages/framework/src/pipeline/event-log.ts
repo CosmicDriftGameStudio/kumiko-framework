@@ -1,11 +1,12 @@
 import type Redis from "ioredis";
 import { RedisKeys } from "./redis-keys";
+import type { TenantId } from "@kumiko/framework/engine";
 
 export type EventLogEntry = {
   type: string;
   payload: string;
   userId: string;
-  tenantId: string;
+  tenantId: TenantId;
   timestamp: string;
 };
 
@@ -14,7 +15,7 @@ export type EventLog = {
     type: string;
     payload: Record<string, unknown>;
     userId: number;
-    tenantId: number;
+    tenantId: TenantId;
   }): Promise<string>;
   recent(count?: number): Promise<EventLogEntry[]>;
 };

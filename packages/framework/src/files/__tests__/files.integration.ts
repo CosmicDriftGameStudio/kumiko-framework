@@ -35,7 +35,7 @@ let jwt: JwtHelper;
 let storagePath: string;
 
 const adminUser = TestUsers.admin;
-const otherTenantUser = createTestUser({ id: 2, tenantId: 2 });
+const otherTenantUser = createTestUser({ id: 2, tenantId: "00000000-0000-4000-8000-000000000002" });
 const JWT_SECRET = "files-test-secret-at-least-32-characters!!";
 
 // A tenant feature with a logo field
@@ -270,7 +270,7 @@ describe("attached file owner-scope", () => {
     ...Array(50).fill(0),
   ]);
   // Same tenant as adminUser (tenantId 1), different id and no privileged role.
-  const memberUser: SessionUser = { id: 42, tenantId: 1, roles: ["User"] };
+  const memberUser: SessionUser = { id: 42, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["User"] };
 
   test("non-uploader, non-admin in same tenant cannot download an entity-attached file", async () => {
     const uploadRes = await uploadFile(memberUser, "mine.png", testPng, "image/png", {
@@ -283,7 +283,7 @@ describe("attached file owner-scope", () => {
 
     // A different non-privileged user in the SAME tenant — the old code leaked
     // here (tenant check alone passed). New code rejects with 404.
-    const otherMember: SessionUser = { id: 43, tenantId: 1, roles: ["User"] };
+    const otherMember: SessionUser = { id: 43, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["User"] };
     const res = await getFile(otherMember, id);
     expect(res.status).toBe(404);
   });
@@ -393,9 +393,9 @@ describe("custom file access guard", () => {
     await withIsolatedFileServer(
       { privilegedRoles: ["Supervisor"] },
       async ({ upload, request }) => {
-        const uploader: SessionUser = { id: 10, tenantId: 1, roles: ["User"] };
-        const supervisor: SessionUser = { id: 20, tenantId: 1, roles: ["Supervisor"] };
-        const adminCaller: SessionUser = { id: 30, tenantId: 1, roles: ["Admin"] };
+        const uploader: SessionUser = { id: 10, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["User"] };
+        const supervisor: SessionUser = { id: 20, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["Supervisor"] };
+        const adminCaller: SessionUser = { id: 30, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["Admin"] };
 
         const uploaded = await upload(uploader, "custom-role.png");
         const { id } = await uploaded.json();
@@ -420,8 +420,8 @@ describe("custom file access guard", () => {
         },
       },
       async ({ upload, request }) => {
-        const uploader: SessionUser = { id: 40, tenantId: 1, roles: ["User"] };
-        const other: SessionUser = { id: 41, tenantId: 1, roles: ["User"] };
+        const uploader: SessionUser = { id: 40, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["User"] };
+        const other: SessionUser = { id: 41, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["User"] };
 
         const { id } = await (await upload(uploader, "guard.png")).json();
 

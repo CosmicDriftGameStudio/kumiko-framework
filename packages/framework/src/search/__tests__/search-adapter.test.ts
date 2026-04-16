@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { createInMemorySearchAdapter } from "../in-memory-adapter";
 import type { SearchAdapter } from "../types";
 
-const TENANT = 1;
+const TENANT = "00000000-0000-4000-8000-000000000001";
 let adapter: SearchAdapter;
 
 beforeEach(async () => {
@@ -86,22 +86,22 @@ describe("partial matching", () => {
 
 describe("tenant isolation", () => {
   test("tenant 1 cannot see tenant 2 data", async () => {
-    await adapter.configure(2, { searchableFields: ["firstName"] });
-    await adapter.index(1, {
+    await adapter.configure("00000000-0000-4000-8000-000000000002", { searchableFields: ["firstName"] });
+    await adapter.index("00000000-0000-4000-8000-000000000001", {
       entityType: "user",
       entityId: 1,
       weight: 1,
       fields: { firstName: "Marc" },
     });
-    await adapter.index(2, {
+    await adapter.index("00000000-0000-4000-8000-000000000002", {
       entityType: "user",
       entityId: 2,
       weight: 1,
       fields: { firstName: "Marc" },
     });
 
-    const t1 = await adapter.search(1, "marc");
-    const t2 = await adapter.search(2, "marc");
+    const t1 = await adapter.search("00000000-0000-4000-8000-000000000001", "marc");
+    const t2 = await adapter.search("00000000-0000-4000-8000-000000000002", "marc");
 
     expect(t1).toHaveLength(1);
     expect(t1[0]?.entityId).toBe(1);

@@ -31,7 +31,7 @@ function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHo
 const savectx: SaveContext = {
   kind: "save",
   id: 1,
-  data: { email: "test@test.de", tenantId: 1 },
+  data: { email: "test@test.de", tenantId: "00000000-0000-4000-8000-000000000001" },
   changes: { email: "test@test.de" },
   previous: {},
   isNew: true,

@@ -7,8 +7,7 @@ import type {
   PostSaveBatchHookFn,
   PostSaveHookFn,
   Registry,
-  SaveContext,
-} from "../engine/types";
+  SaveContext, TenantId } from "../engine/types";
 import { HookPhases } from "../engine/types";
 import type { SearchAdapter, SearchDocument } from "../search/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
@@ -29,7 +28,7 @@ export function createSearchIndexHook(
       const doc = buildSearchDocument(result, registry, ctx.log);
       // skip: entity not indexable (no searchable fields) — buildSearchDocument returns null
       if (!doc) return;
-      const tenantId = result.data["tenantId"] as number;
+      const tenantId = result.data["tenantId"] as string;
       await searchAdapter.index(tenantId, doc);
     },
   };
@@ -55,12 +54,12 @@ export function createSearchIndexBatchHook(
     name: SystemHookNames.searchIndex,
     priority: SystemHookPriorities.searchIndex,
     fn: async (results, ctx) => {
-      const byTenant = new Map<number, SearchDocument[]>();
+      const byTenant = new Map<string, SearchDocument[]>();
 
       for (const result of results) {
         const doc = buildSearchDocument(result, registry, ctx.log);
         if (!doc) continue;
-        const tenantId = result.data["tenantId"] as number;
+        const tenantId = result.data["tenantId"] as string;
         const bucket = byTenant.get(tenantId);
         if (bucket) bucket.push(doc);
         else byTenant.set(tenantId, [doc]);
@@ -87,10 +86,10 @@ export function createSearchRemoveBatchHook(
     name: SystemHookNames.searchRemove,
     priority: SystemHookPriorities.searchIndex,
     fn: async (payloads) => {
-      const byTenant = new Map<number, { entityType: string; entityId: number }[]>();
+      const byTenant = new Map<string, { entityType: string; entityId: number }[]>();
       for (const p of payloads) {
         if (!p.entityName) continue;
-        const tenantId = p.data["tenantId"] as number;
+        const tenantId = p.data["tenantId"] as string;
         const entry = { entityType: p.entityName, entityId: p.id };
         const bucket = byTenant.get(tenantId);
         if (bucket) bucket.push(entry);
@@ -209,7 +208,7 @@ export function createSearchRemoveHook(
         return;
       }
 
-      const tenantId = payload.data["tenantId"] as number;
+      const tenantId = payload.data["tenantId"] as string;
       await searchAdapter.remove(tenantId, entityName, payload.id);
     },
   };
@@ -228,7 +227,7 @@ export function createSseBroadcastHook(sseBroker: SseBroker): SystemHookDef<Post
         return;
       }
 
-      const tenantId = result.data["tenantId"] as number;
+      const tenantId = result.data["tenantId"] as string;
       const eventType = result.isNew
         ? qn("system", "event", `${entityName}:created`)
         : qn("system", "event", `${entityName}:updated`);
@@ -256,7 +255,7 @@ export function createSseDeleteBroadcastHook(
         return;
       }
 
-      const tenantId = payload.data["tenantId"] as number;
+      const tenantId = payload.data["tenantId"] as string;
       sseBroker.pushToChannel(tenantChannel(tenantId), {
         type: qn("system", "event", `${entityName}:deleted`),
         data: { id: payload.id },
@@ -269,7 +268,7 @@ export function createSseDeleteBroadcastHook(
 
 export type AuditTrailEntry = {
   timestamp: Date;
-  tenantId: number;
+  tenantId: TenantId;
   userId: number;
   action: string;
   entityType: string;
@@ -299,7 +298,7 @@ export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<
 
       await storage.append({
         timestamp: new Date(),
-        tenantId: result.data["tenantId"] as number,
+        tenantId: result.data["tenantId"] as string,
         userId: ctx._userId ?? 0,
         action:
           ctx._handlerType ??
@@ -330,7 +329,7 @@ export function createAuditTrailDeleteHook(
 
       await storage.append({
         timestamp: new Date(),
-        tenantId: payload.data["tenantId"] as number,
+        tenantId: payload.data["tenantId"] as string,
         userId: ctx._userId ?? 0,
         action: ctx._handlerType ?? qn("system", "event", `${entityName}:delete`),
         entityType: entityName,

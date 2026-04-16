@@ -162,8 +162,8 @@ describe("event log", () => {
   test("appends and retrieves events", async () => {
     const log = createEventLog(testRedis.redis);
 
-    await log.append({ type: "user:create", payload: { email: "a@b.de" }, userId: 1, tenantId: 1 });
-    await log.append({ type: "user:update", payload: { name: "Marc" }, userId: 1, tenantId: 1 });
+    await log.append({ type: "user:create", payload: { email: "a@b.de" }, userId: 1, tenantId: "00000000-0000-4000-8000-000000000001" });
+    await log.append({ type: "user:update", payload: { name: "Marc" }, userId: 1, tenantId: "00000000-0000-4000-8000-000000000001" });
 
     const recent = await log.recent(10);
     expect(recent.length).toBeGreaterThanOrEqual(2);
@@ -175,7 +175,7 @@ describe("event log", () => {
     const log = createEventLog(testRedis.redis, "kumiko:test:limit-log");
 
     for (let i = 0; i < 5; i++) {
-      await log.append({ type: `event.${i}`, payload: {}, userId: 1, tenantId: 1 });
+      await log.append({ type: `event.${i}`, payload: {}, userId: 1, tenantId: "00000000-0000-4000-8000-000000000001" });
     }
 
     const recent = await log.recent(3);
@@ -245,40 +245,40 @@ describe("event dedup", () => {
 describe("entity cache", () => {
   test("get returns null on miss", async () => {
     const cache = createEntityCache(testRedis.redis);
-    const result = await cache.get(1, "order", 999);
+    const result = await cache.get("00000000-0000-4000-8000-000000000001", "order", 999);
     expect(result).toBeNull();
   });
 
   test("set + get returns cached data", async () => {
     const cache = createEntityCache(testRedis.redis);
-    await cache.set(1, "order", 1, { id: 1, name: "Test Order" });
-    const result = await cache.get(1, "order", 1);
+    await cache.set("00000000-0000-4000-8000-000000000001", "order", 1, { id: 1, name: "Test Order" });
+    const result = await cache.get("00000000-0000-4000-8000-000000000001", "order", 1);
     expect(result).toEqual({ id: 1, name: "Test Order" });
   });
 
   test("del invalidates cached data", async () => {
     const cache = createEntityCache(testRedis.redis);
-    await cache.set(1, "order", 2, { id: 2, name: "Delete Me" });
-    await cache.del(1, "order", 2);
-    expect(await cache.get(1, "order", 2)).toBeNull();
+    await cache.set("00000000-0000-4000-8000-000000000001", "order", 2, { id: 2, name: "Delete Me" });
+    await cache.del("00000000-0000-4000-8000-000000000001", "order", 2);
+    expect(await cache.get("00000000-0000-4000-8000-000000000001", "order", 2)).toBeNull();
   });
 
   test("tenant isolation — same entity id, different tenants", async () => {
     const cache = createEntityCache(testRedis.redis);
-    await cache.set(1, "order", 10, { id: 10, name: "Tenant 1" });
-    await cache.set(2, "order", 10, { id: 10, name: "Tenant 2" });
+    await cache.set("00000000-0000-4000-8000-000000000001", "order", 10, { id: 10, name: "Tenant 1" });
+    await cache.set("00000000-0000-4000-8000-000000000002", "order", 10, { id: 10, name: "Tenant 2" });
 
-    expect((await cache.get(1, "order", 10))?.["name"]).toBe("Tenant 1");
-    expect((await cache.get(2, "order", 10))?.["name"]).toBe("Tenant 2");
+    expect((await cache.get("00000000-0000-4000-8000-000000000001", "order", 10))?.["name"]).toBe("Tenant 1");
+    expect((await cache.get("00000000-0000-4000-8000-000000000002", "order", 10))?.["name"]).toBe("Tenant 2");
   });
 
   test("mget returns hits and skips misses", async () => {
     const cache = createEntityCache(testRedis.redis);
-    await cache.set(1, "user", 1, { id: 1, name: "Alice" });
-    await cache.set(1, "user", 3, { id: 3, name: "Charlie" });
+    await cache.set("00000000-0000-4000-8000-000000000001", "user", 1, { id: 1, name: "Alice" });
+    await cache.set("00000000-0000-4000-8000-000000000001", "user", 3, { id: 3, name: "Charlie" });
     // id 2 not cached
 
-    const result = await cache.mget(1, "user", [1, 2, 3]);
+    const result = await cache.mget("00000000-0000-4000-8000-000000000001", "user", [1, 2, 3]);
     expect(result.size).toBe(2);
     expect(result.get(1)?.["name"]).toBe("Alice");
     expect(result.get(3)?.["name"]).toBe("Charlie");
@@ -287,13 +287,13 @@ describe("entity cache", () => {
 
   test("mset caches multiple entities in one call", async () => {
     const cache = createEntityCache(testRedis.redis);
-    await cache.mset(1, "product", [
+    await cache.mset("00000000-0000-4000-8000-000000000001", "product", [
       { id: 10, data: { id: 10, name: "Widget" } },
       { id: 11, data: { id: 11, name: "Gadget" } },
       { id: 12, data: { id: 12, name: "Doohickey" } },
     ]);
 
-    const result = await cache.mget(1, "product", [10, 11, 12]);
+    const result = await cache.mget("00000000-0000-4000-8000-000000000001", "product", [10, 11, 12]);
     expect(result.size).toBe(3);
     expect(result.get(11)?.["name"]).toBe("Gadget");
   });
@@ -302,12 +302,12 @@ describe("entity cache", () => {
     const cache = createEntityCache(testRedis.redis);
 
     // Pre-cache 2 of 4
-    await cache.set(1, "item", 1, { id: 1, name: "Cached A" });
-    await cache.set(1, "item", 3, { id: 3, name: "Cached C" });
+    await cache.set("00000000-0000-4000-8000-000000000001", "item", 1, { id: 1, name: "Cached A" });
+    await cache.set("00000000-0000-4000-8000-000000000001", "item", 3, { id: 3, name: "Cached C" });
 
     // Request all 4
     const requestedIds = [1, 2, 3, 4];
-    const hits = await cache.mget(1, "item", requestedIds);
+    const hits = await cache.mget("00000000-0000-4000-8000-000000000001", "item", requestedIds);
 
     // Find misses
     const missIds = requestedIds.filter((id) => !hits.has(id));
@@ -321,13 +321,13 @@ describe("entity cache", () => {
 
     // Cache the misses
     await cache.mset(
-      1,
+      "00000000-0000-4000-8000-000000000001",
       "item",
       fromDb.map((row) => ({ id: row.id, data: row })),
     );
 
     // Now all 4 are cached
-    const allCached = await cache.mget(1, "item", requestedIds);
+    const allCached = await cache.mget("00000000-0000-4000-8000-000000000001", "item", requestedIds);
     expect(allCached.size).toBe(4);
     expect(allCached.get(1)?.["name"]).toBe("Cached A");
     expect(allCached.get(2)?.["name"]).toBe("From DB B");
@@ -335,31 +335,31 @@ describe("entity cache", () => {
 
   test("expires after TTL", async () => {
     const cache = createEntityCache(testRedis.redis, { ttlSeconds: 1 });
-    await cache.set(1, "temp", 1, { id: 1 });
+    await cache.set("00000000-0000-4000-8000-000000000001", "temp", 1, { id: 1 });
 
-    expect(await cache.get(1, "temp", 1)).not.toBeNull();
+    expect(await cache.get("00000000-0000-4000-8000-000000000001", "temp", 1)).not.toBeNull();
     await new Promise((r) => setTimeout(r, 1100));
-    expect(await cache.get(1, "temp", 1)).toBeNull();
+    expect(await cache.get("00000000-0000-4000-8000-000000000001", "temp", 1)).toBeNull();
   });
 
   test("Date fields survive the cache round-trip as Date objects", async () => {
     const cache = createEntityCache(testRedis.redis);
     const insertedAt = new Date("2026-04-13T12:34:56.789Z");
-    await cache.set(1, "event", 42, {
+    await cache.set("00000000-0000-4000-8000-000000000001", "event", 42, {
       id: 42,
       title: "hi",
       insertedAt,
       note: "not a date: 2026-04",
     });
 
-    const single = await cache.get(1, "event", 42);
+    const single = await cache.get("00000000-0000-4000-8000-000000000001", "event", 42);
     expect(single?.["insertedAt"]).toBeInstanceOf(Date);
     expect((single?.["insertedAt"] as Date).getTime()).toBe(insertedAt.getTime());
     // Non-ISO strings must not be coerced
     expect(typeof single?.["title"]).toBe("string");
     expect(single?.["note"]).toBe("not a date: 2026-04");
 
-    const batch = await cache.mget(1, "event", [42]);
+    const batch = await cache.mget("00000000-0000-4000-8000-000000000001", "event", [42]);
     expect(batch.get(42)?.["insertedAt"]).toBeInstanceOf(Date);
   });
 });

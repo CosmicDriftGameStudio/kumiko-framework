@@ -62,7 +62,7 @@ describe("sse-route security", () => {
     const channel = await subscribedChannel;
     controller.abort();
 
-    expect(channel).toBe("tenant:1");
+    expect(channel).toBe("tenant:00000000-0000-4000-8000-000000000001");
     expect(channel).not.toBe("tenant:999");
   });
 
@@ -81,7 +81,7 @@ describe("sse-route security", () => {
     const channel = await subscribedChannel;
     controller.abort();
 
-    expect(channel).toBe("tenant:1");
+    expect(channel).toBe("tenant:00000000-0000-4000-8000-000000000001");
   });
 
   test("rejects request without Bearer token", async () => {
@@ -107,6 +107,6 @@ describe("sse-route security", () => {
     const channel = await subscribedChannel;
     controller.abort();
 
-    expect(channel).toBe("tenant:1");
+    expect(channel).toBe("tenant:00000000-0000-4000-8000-000000000001");
   });
 });

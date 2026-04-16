@@ -1,4 +1,5 @@
 import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types";
+import type { TenantId } from "@kumiko/framework/engine";
 
 type StoredDoc = {
   entityType: string;
@@ -17,9 +18,9 @@ function docKey(entityType: string, entityId: number): string {
 }
 
 export function createInMemorySearchAdapter(): SearchAdapter {
-  const tenants = new Map<number, TenantIndex>();
+  const tenants = new Map<string, TenantIndex>();
 
-  function getTenant(tenantId: number): TenantIndex {
+  function getTenant(tenantId: TenantId): TenantIndex {
     let tenant = tenants.get(tenantId);
     if (!tenant) {
       tenant = { config: { searchableFields: [] }, docs: new Map() };

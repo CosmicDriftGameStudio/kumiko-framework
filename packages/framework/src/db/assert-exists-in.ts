@@ -2,6 +2,7 @@ import { and, eq, type SQL } from "drizzle-orm";
 import { NotFoundError } from "../errors";
 import type { DbConnection } from "./connection";
 import type { TenantDb } from "./tenant-db";
+import type { TenantId } from "@kumiko/framework/engine";
 
 /**
  * Generic constraint helper: asserts a value exists in a table.
@@ -22,7 +23,7 @@ export async function assertExistsIn(
   options: {
     field: string;
     value: unknown;
-    tenantId?: number;
+    tenantId?: TenantId;
     where?: Record<string, unknown>;
     entityName?: string;
   },

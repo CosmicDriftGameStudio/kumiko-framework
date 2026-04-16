@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import { createEntity, createRegistry, createTextField, defineFeature, type TenantId } from "../../engine";
 import { createTestUser, TestUsers } from "../../testing/fixtures";
 import { buildServer } from "../server";
 
@@ -32,7 +32,7 @@ const guestUser = createTestUser({ id: 2, roles: ["Guest"] });
 
 async function authHeader(user: {
   id: number;
-  tenantId: number;
+  tenantId: TenantId;
   roles: readonly string[];
 }): Promise<Record<string, string>> {
   const token = await jwt.sign(user);

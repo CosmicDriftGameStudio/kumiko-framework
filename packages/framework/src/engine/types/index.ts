@@ -2,6 +2,9 @@
 // Duplicate types (OnDeleteStrategy, ConfigScope, ConcurrencyMode, LifecycleHookType)
 // are defined ONLY in constants.ts — re-exported here for backwards compatibility.
 
+// Domain-identifier type aliases — see identifiers.ts for rationale.
+export type { TenantId } from "./identifiers";
+
 // Re-export types that were duplicated in types.ts but are canonical in constants.ts
 export type {
   ConcurrencyMode,

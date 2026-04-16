@@ -1234,22 +1234,22 @@ describe("global search", () => {
   test("searches across entity types in same tenant", async () => {
     const { createInMemorySearchAdapter } = await import("../../search");
     const adapter = createInMemorySearchAdapter();
-    await adapter.configure(1, { searchableFields: ["email", "name", "title"] });
+    await adapter.configure("00000000-0000-4000-8000-000000000001", { searchableFields: ["email", "name", "title"] });
 
-    await adapter.index(1, {
+    await adapter.index("00000000-0000-4000-8000-000000000001", {
       entityType: "user",
       entityId: 1,
       weight: 10,
       fields: { email: "marc@test.de", name: "Marc" },
     });
-    await adapter.index(1, {
+    await adapter.index("00000000-0000-4000-8000-000000000001", {
       entityType: "project",
       entityId: 10,
       weight: 5,
       fields: { title: "Marc's Project" },
     });
 
-    const results = await adapter.search(1, "marc");
+    const results = await adapter.search("00000000-0000-4000-8000-000000000001", "marc");
     expect(results).toHaveLength(2);
     expect(results[0]?.entityType).toBe("user"); // higher weight
     expect(results[1]?.entityType).toBe("project");
@@ -1258,26 +1258,26 @@ describe("global search", () => {
   test("no filter = all types, filterType = one type", async () => {
     const { createInMemorySearchAdapter } = await import("../../search");
     const adapter = createInMemorySearchAdapter();
-    await adapter.configure(1, { searchableFields: ["name"] });
+    await adapter.configure("00000000-0000-4000-8000-000000000001", { searchableFields: ["name"] });
 
-    await adapter.index(1, {
+    await adapter.index("00000000-0000-4000-8000-000000000001", {
       entityType: "user",
       entityId: 1,
       weight: 1,
       fields: { name: "Marc" },
     });
-    await adapter.index(1, {
+    await adapter.index("00000000-0000-4000-8000-000000000001", {
       entityType: "project",
       entityId: 10,
       weight: 1,
       fields: { name: "Kumiko" },
     });
 
-    const all = await adapter.search(1, "marc");
+    const all = await adapter.search("00000000-0000-4000-8000-000000000001", "marc");
     expect(all).toHaveLength(1);
     expect(all[0]?.entityType).toBe("user");
 
-    const projects = await adapter.search(1, "kumiko", { filterType: "project" });
+    const projects = await adapter.search("00000000-0000-4000-8000-000000000001", "kumiko", { filterType: "project" });
     expect(projects).toHaveLength(1);
     expect(projects[0]?.entityType).toBe("project");
   });

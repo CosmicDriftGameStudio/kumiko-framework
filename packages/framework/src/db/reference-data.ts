@@ -63,7 +63,7 @@ export async function seedReferenceData(
       } else {
         await db.insert(table).values({
           ...row,
-          tenantId: 0, // Reference data is global — tenant 0 = system
+          tenantId: "00000000-0000-4000-8000-000000000000", // Reference data is global — tenant 0 = system
           version: 1,
           insertedAt: new Date(),
         });

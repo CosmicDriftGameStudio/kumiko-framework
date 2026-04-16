@@ -19,7 +19,7 @@ export type AccessRule = { readonly roles: readonly string[] } | { readonly open
 
 export type SessionUser = {
   readonly id: number;
-  readonly tenantId: number;
+  readonly tenantId: TenantId;
   readonly roles: readonly string[];
   // App-specific identity facts baked into the JWT at login time.
   // Populated by `r.authClaims()` hooks (not yet implemented — see the
@@ -54,6 +54,7 @@ export type WriteResult<TData = unknown> =
 
 // Forward import: Registry is in feature.ts (circular type import — fine in TS)
 import type { Registry } from "./feature";
+import type { TenantId } from "@kumiko/framework/engine";
 
 // Minimal interface for job event triggers (framework-owned, concrete type in jobs/)
 export type JobRunnerRef = {
@@ -70,7 +71,7 @@ export type NotifyPriority = "critical" | "normal" | "low";
 // Options passed to a NotifyFn / DeliveryService.notify. Defined here so the
 // framework side and the concrete delivery implementation can't drift apart.
 export type NotifyOptions = {
-  readonly to?: number | readonly number[] | { readonly tenant: number };
+  readonly to?: number | readonly number[] | { readonly tenant: TenantId };
   readonly route?: Readonly<Record<string, string>>;
   readonly data?: Readonly<Record<string, unknown>>;
   readonly priority?: NotifyPriority;
@@ -85,7 +86,7 @@ export type NotifyFn = (notificationType: string, options: NotifyOptions) => Pro
 
 // Factory that produces a bound NotifyFn for a specific user+tenant
 // Concrete implementation in core-features/delivery (cross-package boundary)
-export type NotifyFactory = (user: SessionUser, tenantId: number) => NotifyFn;
+export type NotifyFactory = (user: SessionUser, tenantId: TenantId) => NotifyFn;
 
 // Shared optional fields across all execution contexts
 type SharedContextFields = {
@@ -113,7 +114,7 @@ export type AppContext = SharedContextFields & {
   readonly registry?: Registry;
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
-  readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
+  readonly triggeredBy?: { readonly id: number; readonly tenantId: TenantId } | null;
   readonly _userId?: number | undefined;
   readonly _handlerType?: string | undefined;
 };
@@ -135,7 +136,7 @@ export type HandlerContext = SharedContextFields & {
   readonly registry: Registry;
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
-  readonly triggeredBy?: { readonly id: number; readonly tenantId: number } | null;
+  readonly triggeredBy?: { readonly id: number; readonly tenantId: TenantId } | null;
   readonly _userId?: number | undefined;
   readonly _handlerType?: string | undefined;
 
@@ -163,7 +164,7 @@ export type JobContext = SharedContextFields & {
   readonly registry: Registry;
   readonly systemUser: SessionUser;
   readonly log: Logger;
-  readonly triggeredBy: { readonly id: number; readonly tenantId: number } | null;
+  readonly triggeredBy: { readonly id: number; readonly tenantId: TenantId } | null;
 };
 
 // --- Handler Functions ---

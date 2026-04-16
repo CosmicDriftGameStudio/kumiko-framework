@@ -2,13 +2,14 @@ import { Meilisearch } from "meilisearch";
 import { v4 as uuid } from "uuid";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createMeilisearchAdapter } from "../meilisearch-adapter";
+import type { TenantId } from "@kumiko/framework/engine";
 import type { SearchAdapter } from "../types";
 
 const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
 const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
 
 // Use a fake tenantId to get a unique index name
-const TENANT = Math.floor(Math.random() * 100000);
+const TENANT = uuid();
 
 let adapter: SearchAdapter;
 let client: Meilisearch;
@@ -16,7 +17,7 @@ let indexPrefix: string;
 
 // Mirrors meilisearch-adapter.ts's tenantIndex() — used by tests that need
 // to talk to Meilisearch directly (e.g. stats before/after a no-op).
-const tenantIndex = (prefix: string, tenantId: number): string => `${prefix}t${tenantId}`;
+const tenantIndex = (prefix: string, tenantId: TenantId): string => `${prefix}t${tenantId}`;
 
 beforeAll(async () => {
   client = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });

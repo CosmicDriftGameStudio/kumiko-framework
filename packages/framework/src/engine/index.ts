@@ -99,6 +99,7 @@ export type {
   SaveContext,
   SelectFieldDef,
   SessionUser,
+  TenantId,
   TextFieldDef,
   TranslationKeys,
   TranslationsDef,

@@ -1,3 +1,5 @@
+import type { TenantId } from "@kumiko/framework/engine";
+
 export type FileMetadata = {
   readonly fileName: string;
   readonly mimeType: string;
@@ -84,7 +86,7 @@ export function validateFile(
 }
 
 export function buildStorageKey(
-  tenantId: number,
+  tenantId: TenantId,
   entityType: string,
   entityId: number,
   fieldName: string,

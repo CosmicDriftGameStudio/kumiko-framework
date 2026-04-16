@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, integer, jsonb, table as pgTable, serial, text, timestamp } from "../db/dialect";
+import { boolean, integer, jsonb, table as pgTable, serial, text, timestamp, uuid } from "../db/dialect";
 import type { SerializedTraceContext } from "../observability";
 
 // Framework-internal table for the Transactional Outbox pattern.
@@ -15,7 +15,7 @@ import type { SerializedTraceContext } from "../observability";
 // drizzle-orm doesn't model partial indexes cleanly across dialects yet.
 export const eventOutboxTable = pgTable("event_outbox", {
   id: serial("id").primaryKey(),
-  tenantId: integer("tenant_id"), // nullable — system-scope events have no tenant
+  tenantId: uuid("tenant_id"), // nullable — system-scope events have no tenant
   eventType: text("event_type").notNull(),
   payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),

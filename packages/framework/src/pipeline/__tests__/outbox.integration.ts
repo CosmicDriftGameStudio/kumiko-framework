@@ -49,7 +49,7 @@ const outboxFeature = defineFeature("outbox-test", (r) => {
     "item:emit-system",
     z.object({ label: z.string() }),
     async (event, ctx) => {
-      const system = createSystemUser(0);
+      const system = createSystemUser("00000000-0000-4000-8000-000000000000");
       await ctx.writeAs(system, "outbox-test:write:item:emit-inner", event.payload);
       return {
         isSuccess: true,
@@ -348,7 +348,7 @@ describe("Outbox: automatic delivery", () => {
     // Insert an outbox row directly — no redis.publish wake-up happens.
     // The poller's 50ms timer must notice and drain it.
     await stack.db.db.insert(eventOutboxTable).values({
-      tenantId: 1,
+      tenantId: "00000000-0000-4000-8000-000000000001",
       eventType: "outbox-test:event:item.created",
       payload: { id: 42, label: "timer" },
     });

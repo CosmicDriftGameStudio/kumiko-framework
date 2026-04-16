@@ -7,7 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { z } from "zod";
 import { createCrudExecutor } from "../db/crud-executor";
 import { buildDrizzleTable } from "../db/table-builder";
-import { createEntity, createNumberField, createTextField, defineFeature } from "../engine";
+import { createEntity, createNumberField, createTextField, defineFeature, type TenantId } from "../engine";
 import {
   AccessDeniedError,
   ConflictError,
@@ -202,7 +202,7 @@ type ErrorBody = {
 
 type AnyUser = {
   readonly id: number;
-  readonly tenantId: number;
+  readonly tenantId: TenantId;
   readonly roles: readonly string[];
 };
 
@@ -400,7 +400,7 @@ describe("error contract: cross-cutting guarantees", () => {
 
 async function authHeaders(user: {
   id: number;
-  tenantId: number;
+  tenantId: TenantId;
   roles: readonly string[];
 }): Promise<Record<string, string>> {
   const token = await stack.jwt.sign(user);

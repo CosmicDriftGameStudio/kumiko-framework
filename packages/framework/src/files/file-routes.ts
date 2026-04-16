@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { v4 as uuid } from "uuid";
 import { getUser } from "../api/auth-middleware";
 import type { DbConnection } from "../db/connection";
-import type { FieldDefinition, Registry, SessionUser } from "../engine/types";
+import type { FieldDefinition, Registry, SessionUser, TenantId } from "../engine/types";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileStorageProvider } from "./types";
 import { buildStorageKey, validateFile } from "./types";
@@ -14,7 +14,7 @@ export type FileAccessDecision = "allow" | "deny";
 
 export type FileRef = {
   id: number;
-  tenantId: number;
+  tenantId: TenantId;
   storageKey: string;
   fileName: string;
   mimeType: string;
@@ -228,7 +228,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     });
   });
 
-  async function loadFileForTenant(id: number, tenantId: number): Promise<FileRef | null> {
+  async function loadFileForTenant(id: number, tenantId: TenantId): Promise<FileRef | null> {
     const [row] = await db
       .select()
       .from(fileRefsTable)

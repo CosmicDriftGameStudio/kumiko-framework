@@ -324,7 +324,7 @@ describe("sorting", () => {
   test("CursorQueryOptions accepts sort and sortDirection", () => {
     // Type-level test: this should compile
     const opts: import("../cursor").CursorQueryOptions = {
-      tenantId: 1,
+      tenantId: "00000000-0000-4000-8000-000000000001",
       sort: "lastName",
       sortDirection: "asc",
     };

@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import { createEntity, createRegistry, createTextField, defineFeature, type TenantId } from "../../engine";
 import {
   type AuditTrailEntry,
   type AuditTrailStorage,
@@ -30,7 +30,7 @@ import { createSseBroker, type SseBroker } from "../sse-broker";
 // way a real consumer would. Proves that search/sse/audit hooks fire through
 // the prod buildServer path, not just when setupTestStack preconfigures them.
 
-const TENANT_ID = 1;
+const TENANT_ID = "00000000-0000-4000-8000-000000000001";
 
 const itemEntity = createEntity({
   table: "system_hooks_server_items",
@@ -107,7 +107,7 @@ describe("buildServer system-hooks integration", () => {
     const sseBroker: SseBroker = createSseBroker();
     const sseEvents: SseEvent[] = [];
     sseBroker.addClient(
-      "tenant:1",
+      "tenant:00000000-0000-4000-8000-000000000001",
       (e) => sseEvents.push(e),
       () => {},
     );
@@ -167,7 +167,7 @@ describe("buildServer system-hooks integration", () => {
     const sseBroker = createSseBroker();
     const sseEvents: SseEvent[] = [];
     sseBroker.addClient(
-      "tenant:1",
+      "tenant:00000000-0000-4000-8000-000000000001",
       (e) => sseEvents.push(e),
       () => {},
     );
@@ -207,7 +207,7 @@ describe("buildServer system-hooks integration", () => {
     const sseBroker = createSseBroker();
     const sseEvents: SseEvent[] = [];
     sseBroker.addClient(
-      "tenant:1",
+      "tenant:00000000-0000-4000-8000-000000000001",
       (e) => sseEvents.push(e),
       () => {},
     );
@@ -248,7 +248,7 @@ describe("buildServer system-hooks integration", () => {
     const instrumentedAdapter = {
       ...searchAdapter,
       async indexBatch(
-        tenantId: number,
+        tenantId: TenantId,
         docs: readonly import("../../search/types").SearchDocument[],
       ) {
         indexBatchCalls++;

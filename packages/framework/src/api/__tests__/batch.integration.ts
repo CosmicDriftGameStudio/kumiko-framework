@@ -218,7 +218,7 @@ describe("POST /api/batch", () => {
 
   test("mid-batch failure: all writes roll back, afterCommit hooks do NOT fire", async () => {
     // Seed with one existing item so we can verify the batch didn't persist anything
-    await stack.db.db.insert(itemTable).values({ name: "seed", counter: 0, tenantId: 1 });
+    await stack.db.db.insert(itemTable).values({ name: "seed", counter: 0, tenantId: "00000000-0000-4000-8000-000000000001" });
     const seedCount = (await stack.db.db.select().from(itemTable)).length;
 
     const res = await stack.http.batch(

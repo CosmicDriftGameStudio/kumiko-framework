@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createSystemUser } from "../engine/system-user";
-import type { SessionUser } from "../engine/types";
+import type { SessionUser, TenantId } from "../engine/types";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
@@ -8,13 +8,13 @@ import type { JwtHelper } from "./jwt";
 
 type MembershipRow = {
   userId: number;
-  tenantId: number;
+  tenantId: TenantId;
   roles: string[];
 };
 
 // Guest identity used for unauthenticated calls (e.g. login). The "all" role
 // lets framework access checks pass for handlers declared with roles: ["all"].
-const GUEST_USER: SessionUser = { id: 0, tenantId: 0, roles: ["all"] };
+const GUEST_USER: SessionUser = { id: 0, tenantId: "00000000-0000-4000-8000-000000000000", roles: ["all"] };
 
 // Pluggable rate-limiter for POST /auth/login. Returning `false` blocks the
 // request with 429 before the login handler runs — use this to slow down
@@ -200,7 +200,7 @@ export function createAuthRoutes(
   // POST /auth/switch-tenant — switch to a different tenant
   api.post(Routes.authSwitchTenant, async (c) => {
     const user = getUser(c);
-    const body = await c.req.json<{ tenantId: number }>();
+    const body = await c.req.json<{ tenantId: TenantId }>();
     const targetTenantId = body.tenantId;
 
     if (targetTenantId === user.tenantId) {

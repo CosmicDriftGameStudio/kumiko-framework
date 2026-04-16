@@ -6,7 +6,7 @@ export { createCrudExecutor } from "./crud-executor";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { applyCursorQuery, decodeCursor, encodeCursor } from "./cursor";
 export type { SelectQuery, TableColumns } from "./dialect";
-export { boolean, integer, serial, table, text, timestamp, uniqueIndex } from "./dialect";
+export { boolean, integer, serial, table, text, timestamp, uniqueIndex, uuid } from "./dialect";
 export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
 export type { PgAdapterOptions } from "./pg-adapter";

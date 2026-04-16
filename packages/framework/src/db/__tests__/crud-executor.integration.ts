@@ -29,7 +29,7 @@ let adminDb: TenantDb;
 let otherTenantDb: TenantDb;
 
 const adminUser = TestUsers.admin;
-const otherTenantUser = createTestUser({ id: 2, tenantId: 2 });
+const otherTenantUser = createTestUser({ id: 2, tenantId: "00000000-0000-4000-8000-000000000002" });
 
 beforeAll(async () => {
   testDb = await createTestDb();
