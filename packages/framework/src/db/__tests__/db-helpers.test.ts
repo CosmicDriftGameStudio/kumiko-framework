@@ -5,7 +5,6 @@ import {
   createBooleanField,
   createEntity,
   createImageField,
-  createNumberField,
   createSelectField,
   createTextField,
 } from "../../engine";
@@ -213,8 +212,8 @@ describe("buildDrizzleTable auto-indices", () => {
       table: "tasks",
       fields: {
         title: createTextField({ required: true }),
-        assigneeId: createNumberField(),
-        projectId: createNumberField(),
+        assigneeId: createTextField(),
+        projectId: createTextField(),
       },
     });
     const relations: EntityRelations = {

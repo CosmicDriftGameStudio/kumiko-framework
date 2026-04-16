@@ -96,7 +96,7 @@ const feature = defineFeature("txguard", (r) => {
   r.writeHandler(
     "invoice:update",
     z.object({
-      id: z.number(),
+      id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
@@ -124,7 +124,7 @@ const feature = defineFeature("txguard", (r) => {
   r.writeHandler(
     "order:update",
     z.object({
-      id: z.number(),
+      id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
@@ -151,7 +151,7 @@ const feature = defineFeature("txguard", (r) => {
 
   r.writeHandler(
     "ticket:delete",
-    z.object({ id: z.number() }),
+    z.object({ id: z.uuid() }),
     async (event, ctx) =>
       createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).delete(
         event.payload,
@@ -164,7 +164,7 @@ const feature = defineFeature("txguard", (r) => {
   r.writeHandler(
     "ticket:update",
     z.object({
-      id: z.number(),
+      id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),

@@ -1,16 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { TableColumns } from "../../db/dialect";
-import { type CrudExecutor, createEventStoreExecutor } from "../../db/event-store-executor";
+import { createEventStoreExecutor, type EventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import {
   createEntity,
-  createNumberField,
   createRegistry,
   createTextField,
   defineFeature,
   type Registry,
 } from "../../engine";
+import { createEventsTable } from "../../event-store";
 import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../testing";
 import { createCascadeDeleteHook } from "../cascade-handler";
 
@@ -23,9 +23,9 @@ let registry: Registry;
 let departmentTable: Table;
 let userTable: Table;
 let sessionTable: Table;
-let departmentCrud: CrudExecutor;
-let userCrud: CrudExecutor;
-let sessionCrud: CrudExecutor;
+let departmentCrud: EventStoreExecutor;
+let userCrud: EventStoreExecutor;
+let sessionCrud: EventStoreExecutor;
 
 const admin = TestUsers.admin;
 
@@ -35,15 +35,16 @@ const departmentEntity = createEntity({
 });
 const userEntity = createEntity({
   table: "cascade_users",
-  fields: { name: createTextField(), departmentId: createNumberField() },
+  fields: { name: createTextField(), departmentId: createTextField() },
 });
 const sessionEntity = createEntity({
   table: "cascade_sessions",
-  fields: { userId: createNumberField(), token: createTextField() },
+  fields: { userId: createTextField(), token: createTextField() },
 });
 
 beforeAll(async () => {
   testDb = await createTestDb();
+  await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 
   await createEntityTable(testDb.db, departmentEntity);
@@ -75,9 +76,11 @@ beforeAll(async () => {
   });
 
   registry = createRegistry([feature]);
-  departmentCrud = createEventStoreExecutor(departmentTable, departmentEntity);
-  userCrud = createEventStoreExecutor(userTable, userEntity);
-  sessionCrud = createEventStoreExecutor(sessionTable, sessionEntity);
+  departmentCrud = createEventStoreExecutor(departmentTable, departmentEntity, {
+    entityName: "department",
+  });
+  userCrud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
+  sessionCrud = createEventStoreExecutor(sessionTable, sessionEntity, { entityName: "session" });
 });
 
 afterAll(async () => {

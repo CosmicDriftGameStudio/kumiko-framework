@@ -234,7 +234,9 @@ describe("file upload flow via API", () => {
     const body = await res.json();
     expect(body.fileName).toBe("logo.png");
     expect(body.entityType).toBe("tenant");
-    expect(body.entityId).toBe(1);
+    // entity_id is text post-migration — the upload route passes whatever
+    // string the client sent (here "1") straight through.
+    expect(body.entityId).toBe("1");
     expect(body.fieldName).toBe("logo");
   });
 

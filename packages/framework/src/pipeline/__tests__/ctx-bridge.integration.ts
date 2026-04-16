@@ -34,7 +34,7 @@ const bagTable = buildDrizzleTable("bag", bagEntity);
 const secretEntity = createEntity({
   table: "ctx_secrets",
   fields: {
-    owner: createNumberField({ required: true }),
+    owner: createTextField({ required: true }),
     token: createTextField({
       required: true,
       access: { read: access.privileged, write: access.privileged },
@@ -64,7 +64,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
 
   r.writeHandler(
     "secret:create",
-    z.object({ owner: z.number(), token: z.string() }),
+    z.object({ owner: z.string(), token: z.string() }),
     async (event, ctx) => {
       const crud = createEventStoreExecutor(secretTable, secretEntity, { entityName: "secret" });
       return crud.create(event.payload, event.user, ctx.db);
@@ -74,7 +74,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
 
   r.queryHandler(
     "secret:by-owner",
-    z.object({ owner: z.number() }),
+    z.object({ owner: z.string() }),
     async (query, ctx) => {
       const rows = await ctx.db.select().from(secretTable);
       return (
@@ -120,7 +120,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
   // couldn't read it themselves.
   r.queryHandler(
     "bag:peek-secret",
-    z.object({ owner: z.number() }),
+    z.object({ owner: z.string() }),
     async (query, ctx) => {
       return ctx.queryAs(createSystemUser(query.user.tenantId), "ctxbridge:query:secret:by-owner", {
         owner: query.payload.owner,

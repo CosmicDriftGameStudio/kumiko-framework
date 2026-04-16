@@ -20,7 +20,7 @@ let subscriberShouldFail = false;
 
 const outboxFeature = defineFeature("outbox-test", (r) => {
   r.entity("item", itemEntity);
-  r.defineEvent("item.created", z.object({ id: z.number(), label: z.string() }));
+  r.defineEvent("item.created", z.object({ id: z.uuid(), label: z.string() }));
 
   // Default path: emit in tx, succeed.
   r.writeHandler(

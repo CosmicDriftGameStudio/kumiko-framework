@@ -40,7 +40,7 @@ const dedupFeature = defineFeature("dedup", (r) => {
   r.writeHandler(
     "item:update",
     z.object({
-      id: z.number(),
+      id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),

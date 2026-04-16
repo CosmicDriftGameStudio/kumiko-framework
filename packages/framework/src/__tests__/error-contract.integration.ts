@@ -58,7 +58,7 @@ const errorFeature = defineFeature("errctr", (r) => {
   r.writeHandler(
     "item:update",
     z.object({
-      id: z.number(),
+      id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
@@ -144,7 +144,7 @@ const errorFeature = defineFeature("errctr", (r) => {
   // the throw-based path, not the writeFailure return-based path).
   r.queryHandler(
     "item:detail-strict",
-    z.object({ id: z.number() }),
+    z.object({ id: z.uuid() }),
     async (event) => {
       throw new NotFoundError("item", event.payload.id);
     },
@@ -287,7 +287,7 @@ describe("error contract: wire format per class", () => {
       "/api/query",
       {
         type: "errctr:query:item:detail-strict",
-        payload: { id: 99999 },
+        payload: { id: "00000000-0000-4000-8000-000000000999" },
       },
       await authHeaders(admin),
     );
@@ -298,7 +298,7 @@ describe("error contract: wire format per class", () => {
     expect(body.error.details).toMatchObject({
       reason: "item_not_found",
       entity: "item",
-      id: "99999",
+      id: "00000000-0000-4000-8000-000000000999",
     });
   });
 

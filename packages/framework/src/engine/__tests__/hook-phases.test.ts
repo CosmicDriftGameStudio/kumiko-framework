@@ -45,7 +45,7 @@ describe("HookPhases defaults", () => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
       r.writeHandler(
         "thing:delete",
-        z.object({ id: z.number() }),
+        z.object({ id: z.uuid() }),
         async () => ({
           isSuccess: true,
           data: null,

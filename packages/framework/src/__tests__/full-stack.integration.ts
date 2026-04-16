@@ -73,7 +73,7 @@ async function emitUserCreated(
 const userFeature = defineFeature("users", (r) => {
   const user = r.entity("user", userEntity);
 
-  r.defineEvent("user.created", z.object({ id: z.number(), email: z.string() }));
+  r.defineEvent("user.created", z.object({ id: z.uuid(), email: z.string() }));
 
   const createHandler = r.writeHandler(
     "user:create",
@@ -130,7 +130,7 @@ const userFeature = defineFeature("users", (r) => {
   r.writeHandler(
     "user:update",
     z.object({
-      id: z.number(),
+      id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
@@ -140,7 +140,7 @@ const userFeature = defineFeature("users", (r) => {
 
   r.writeHandler(
     "user:delete",
-    z.object({ id: z.number() }),
+    z.object({ id: z.uuid() }),
     async (event, ctx) => userCrud(ctx).delete(event.payload, event.user, ctx.db),
     { access: { roles: ["Admin"] } },
   );
@@ -159,7 +159,7 @@ const userFeature = defineFeature("users", (r) => {
 
   r.queryHandler(
     "user:detail",
-    z.object({ id: z.number() }),
+    z.object({ id: z.uuid() }),
     async (query, ctx) => userCrud(ctx).detail(query.payload, query.user, ctx.db),
     { access: { openToAll: true } },
   );

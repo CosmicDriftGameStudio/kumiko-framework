@@ -31,7 +31,7 @@ const auditEntity = createEntity({
   table: "batch_audit",
   fields: {
     action: createTextField({ required: true }),
-    itemId: createNumberField({ required: true }),
+    itemId: createTextField({ required: true }),
   },
 });
 const auditTable = buildDrizzleTable("audit", auditEntity);

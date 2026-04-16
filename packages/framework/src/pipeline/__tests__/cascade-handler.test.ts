@@ -1,11 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  createEntity,
-  createNumberField,
-  createRegistry,
-  createTextField,
-  defineFeature,
-} from "../../engine";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 
 describe("getIncomingRelations", () => {
   const feature = defineFeature("core", (r) => {
@@ -13,14 +7,8 @@ describe("getIncomingRelations", () => {
       "department",
       createEntity({ table: "Departments", fields: { name: createTextField() } }),
     );
-    r.entity(
-      "user",
-      createEntity({ table: "Users", fields: { departmentId: createNumberField() } }),
-    );
-    r.entity(
-      "session",
-      createEntity({ table: "Sessions", fields: { userId: createNumberField() } }),
-    );
+    r.entity("user", createEntity({ table: "Users", fields: { departmentId: createTextField() } }));
+    r.entity("session", createEntity({ table: "Sessions", fields: { userId: createTextField() } }));
 
     r.relation("department", "users", {
       type: "hasMany",

@@ -18,6 +18,9 @@ type Row = Record<string, unknown>;
 
 const entity = createEntity({
   table: "test_users",
+  // cursor-pagination uses gt(id, cursor) which relies on ordered integer ids.
+  // This test exercises that classic serial-PK path deliberately.
+  idType: "serial",
   fields: {
     email: createTextField({ required: true, searchable: true }),
     firstName: createTextField({ searchable: true }),

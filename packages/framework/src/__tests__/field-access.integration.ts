@@ -78,7 +78,7 @@ beforeAll(async () => {
     r.writeHandler(
       "employee:update",
       z.object({
-        id: z.number(),
+        id: z.uuid(),
         version: z.number().optional(),
         changes: z.record(z.string(), z.unknown()),
       }),
@@ -94,7 +94,7 @@ beforeAll(async () => {
 
     r.queryHandler(
       "employee:detail",
-      z.object({ id: z.number() }),
+      z.object({ id: z.uuid() }),
       async (query, ctx) => {
         const db = ctx.db;
         const crud = createEventStoreExecutor(employeeTable, employeeEntity, {

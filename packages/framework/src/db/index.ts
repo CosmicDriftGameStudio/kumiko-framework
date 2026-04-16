@@ -1,8 +1,6 @@
 export { assertExistsIn } from "./assert-exists-in";
 export type { DbConnection, DbRunner, DbTx } from "./connection";
 export { createDbConnection } from "./connection";
-export type { CrudExecutor } from "./crud-executor";
-export { createCrudExecutor } from "./crud-executor";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { applyCursorQuery, decodeCursor, encodeCursor } from "./cursor";
 export type { SelectQuery, TableColumns } from "./dialect";

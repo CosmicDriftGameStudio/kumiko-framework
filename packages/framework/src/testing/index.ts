@@ -34,6 +34,11 @@ export async function createTestDb(baseUrl?: string): Promise<TestDb> {
   const client = postgres(testUrl);
   const db = drizzle(client);
 
+  // Every ES-entity writes events; auto-create the events table so tests that
+  // go straight to createTestDb (not setupTestStack) also work out of the box.
+  const { createEventsTable } = await import("../event-store");
+  await createEventsTable(db);
+
   return {
     db,
     client,

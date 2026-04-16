@@ -75,6 +75,8 @@ export async function createEventsTable(db: DbConnection): Promise<void> {
   const [row] = (await db.execute(
     sql`SELECT to_regclass('public.events') IS NOT NULL AS exists`,
   )) as unknown as Array<{ exists: boolean }>;
+  // skip: events table already exists — createEventsTable is called from both
+  // setupTestStack and explicit test-setups, the guard keeps it idempotent.
   if (row?.exists) return;
   await pushTables(db, { events: eventsTable });
   await db.execute(EVENTS_IDEMPOTENCY_INDEX_SQL);
