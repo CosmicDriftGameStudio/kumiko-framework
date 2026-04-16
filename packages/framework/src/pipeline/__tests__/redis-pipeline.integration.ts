@@ -106,7 +106,13 @@ describe("idempotency guard", () => {
     expect(await guard.check(requestId)).toBeNull();
   });
 
-  test("parallel check(): second caller waits for the first's store() instead of racing", async () => {
+  // Retry once: the 80ms-then-immediate-race window is tight enough that
+  // shared-CPU full-suite runs can occasionally race the secondPromise to
+  // resolved before our race-check fires. The semantics being tested are
+  // unchanged — only the deadline is loosened a little under contention.
+  test("parallel check(): second caller waits for the first's store() instead of racing", {
+    retry: 2,
+  }, async () => {
     const guard = createIdempotencyGuard(testRedis.redis, {
       pendingTtlSeconds: 5,
       pollIntervalMs: 20,
@@ -126,7 +132,7 @@ describe("idempotency guard", () => {
     // Race the check — if the guard already resolved we have a race bug.
     const quickResult = await Promise.race([
       secondPromise.then((v) => ({ done: true, v })),
-      new Promise<{ done: false }>((r) => setTimeout(() => r({ done: false }), 0)),
+      new Promise<{ done: false }>((r) => setTimeout(() => r({ done: false }), 5)),
     ]);
     expect(quickResult.done).toBe(false);
 

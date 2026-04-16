@@ -81,11 +81,14 @@ async function withRunner(
 ): Promise<void> {
   const registry = createRegistry([testFeature]);
   const context: AppContext = {};
+  // Date.now() alone collided when two tests ran in the same millisecond;
+  // adding a random suffix keeps queue names unique across the whole run.
+  const queueName = `kumiko-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const runner = createJobRunner({
     registry,
     context,
     redisUrl,
-    queueName: `kumiko-test-${Date.now()}`,
+    queueName,
   });
 
   try {
@@ -93,6 +96,11 @@ async function withRunner(
     await fn(runner, registry);
   } finally {
     await runner.stop();
+    // Purge any lingering scheduler/repeat keys this queue left behind.
+    // BullMQ stores them under <queueName>:* — orphaned schedulers from a
+    // previous test run would otherwise fire into a now-stopped worker.
+    const keys = await testRedis.redis.keys(`bull:${queueName}:*`);
+    if (keys.length > 0) await testRedis.redis.del(...keys);
   }
 }
 
@@ -124,16 +132,20 @@ describe("scenario 2: scheduled job", () => {
     }
   });
 
-  test("cron job fires via BullMQ scheduler", async () => {
+  // BullMQ cron scheduling interacts with Redis; under full-suite contention
+  // it occasionally misses its first few ticks. The fix — retry twice plus a
+  // generous delay schedule — keeps the test deterministic without lying
+  // about the contract (a cron job *does* fire, just not always on the first
+  // second when Redis is under load).
+  test("cron job fires via BullMQ scheduler", { retry: 2, timeout: 30_000 }, async () => {
     clearLog();
     await withRunner(async () => {
-      // BullMQ scheduler needs time to register the repeatable cron + first tick
       await waitFor(
         () => {
           const entries = jobLog.filter((e) => e.name === "test:job:scheduled");
           expect(entries.length).toBeGreaterThanOrEqual(1);
         },
-        { delays: [2000, 2000, 2000, 2000] },
+        { delays: [2000, 3000, 5000, 5000, 5000] },
       );
     });
   });

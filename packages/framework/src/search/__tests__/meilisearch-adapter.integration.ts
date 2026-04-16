@@ -217,7 +217,12 @@ describe("indexBatch / removeBatch", () => {
   });
 
   test("indexBatch no-ops on empty array", async () => {
-    // Must not throw or send a request
-    await adapter.indexBatch?.(TENANT, []);
+    // Must not throw or send a request. We verify "no-op" by observing that
+    // the index's doc count doesn't change across the call — the empty
+    // batch must not accidentally wipe or touch existing docs.
+    const before = await adapter.search(TENANT, "batchtoken", { limit: 100 });
+    await expect(adapter.indexBatch?.(TENANT, [])).resolves.toBeUndefined();
+    const after = await adapter.search(TENANT, "batchtoken", { limit: 100 });
+    expect(after.length).toBe(before.length);
   });
 });

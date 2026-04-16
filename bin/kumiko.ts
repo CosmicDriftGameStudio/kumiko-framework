@@ -3,6 +3,12 @@
 import { $ } from "bun";
 import { existsSync } from "node:fs";
 
+// Suppress Node's DEP0169 (url.parse) deprecation warning. It's emitted by
+// yarn-classic's own url handling, not by our code. Affects every shelled
+// command and clutters check output; silencing keeps the workflow quiet.
+// Inherited by child processes via the environment.
+process.env["NODE_NO_WARNINGS"] = "1";
+
 // --- ENV Check ---
 
 const REQUIRED_ENVS = {

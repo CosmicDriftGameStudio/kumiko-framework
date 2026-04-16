@@ -28,10 +28,11 @@ export function createApp(config: AppConfig): App {
   // Special roles that don't need to be in the app's role list
   const systemRoles = new Set(["all", "system"]);
 
-  // Validate all roles referenced by features exist in app-defined roles
+  // Validate all roles referenced by features exist in app-defined roles.
+  // openToAll access has no role list — nothing to validate there.
   for (const feature of config.features) {
     for (const handler of Object.values(feature.writeHandlers)) {
-      if (handler.access) {
+      if (handler.access && "roles" in handler.access) {
         for (const role of handler.access.roles) {
           if (!validRoles.has(role)) {
             throw new Error(
@@ -42,7 +43,7 @@ export function createApp(config: AppConfig): App {
       }
     }
     for (const handler of Object.values(feature.queryHandlers)) {
-      if (handler.access) {
+      if (handler.access && "roles" in handler.access) {
         for (const role of handler.access.roles) {
           if (!validRoles.has(role)) {
             throw new Error(

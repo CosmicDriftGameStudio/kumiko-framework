@@ -49,14 +49,15 @@ describe("sse-route security", () => {
 
     const controller = new AbortController();
     // Stream keeps the request open — fire without awaiting, then abort.
-    void app
-      .request("/api/sse?channel=tenant:999", {
+    // Promise.resolve() normalises Response | Promise<Response> to a thenable.
+    void Promise.resolve(
+      app.request("/api/sse?channel=tenant:999", {
         headers: { Authorization: `Bearer ${token}` },
         signal: controller.signal,
-      })
-      .catch(() => {
-        // Aborted — expected.
-      });
+      }),
+    ).catch(() => {
+      // Aborted — expected.
+    });
 
     const channel = await subscribedChannel;
     controller.abort();
@@ -70,12 +71,12 @@ describe("sse-route security", () => {
     const { app, token } = await buildSseApp(broker);
 
     const controller = new AbortController();
-    void app
-      .request("/api/sse", {
+    void Promise.resolve(
+      app.request("/api/sse", {
         headers: { Authorization: `Bearer ${token}` },
         signal: controller.signal,
-      })
-      .catch(() => {});
+      }),
+    ).catch(() => {});
 
     const channel = await subscribedChannel;
     controller.abort();
@@ -96,12 +97,12 @@ describe("sse-route security", () => {
     const { app, token } = await buildSseApp(broker); // token: tenantId 1
 
     const controller = new AbortController();
-    void app
-      .request("/api/sse?channel=tenant:2&channel=tenant:3", {
+    void Promise.resolve(
+      app.request("/api/sse?channel=tenant:2&channel=tenant:3", {
         headers: { Authorization: `Bearer ${token}` },
         signal: controller.signal,
-      })
-      .catch(() => {});
+      }),
+    ).catch(() => {});
 
     const channel = await subscribedChannel;
     controller.abort();

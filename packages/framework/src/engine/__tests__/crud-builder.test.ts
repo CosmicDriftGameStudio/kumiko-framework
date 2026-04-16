@@ -106,11 +106,17 @@ describe("r.crud()", () => {
       r.crud("post", { access: { roles: ["Admin"] } });
     });
 
-    expect(feature.writeHandlers["post:create"]?.access?.roles).toEqual(["Admin"]);
-    expect(feature.writeHandlers["post:update"]?.access?.roles).toEqual(["Admin"]);
-    expect(feature.writeHandlers["post:delete"]?.access?.roles).toEqual(["Admin"]);
-    expect(feature.queryHandlers["post:list"]?.access?.roles).toEqual(["Admin"]);
-    expect(feature.queryHandlers["post:detail"]?.access?.roles).toEqual(["Admin"]);
+    // role-based access narrows via "roles" in access — the alternative
+    // { openToAll: true } has no .roles field.
+    const expectRoles = (access: unknown) => {
+      expect(access && typeof access === "object" && "roles" in access).toBe(true);
+      return (access as { roles: readonly string[] }).roles;
+    };
+    expect(expectRoles(feature.writeHandlers["post:create"]?.access)).toEqual(["Admin"]);
+    expect(expectRoles(feature.writeHandlers["post:update"]?.access)).toEqual(["Admin"]);
+    expect(expectRoles(feature.writeHandlers["post:delete"]?.access)).toEqual(["Admin"]);
+    expect(expectRoles(feature.queryHandlers["post:list"]?.access)).toEqual(["Admin"]);
+    expect(expectRoles(feature.queryHandlers["post:detail"]?.access)).toEqual(["Admin"]);
   });
 
   test("throws if entity not registered before crud", () => {

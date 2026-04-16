@@ -121,7 +121,8 @@ describe("defineFeature", () => {
 
     expect(feature.writeHandlers["user:create"]).toBeDefined();
     expect(feature.writeHandlers["user:create"]?.name).toBe("user:create");
-    expect(feature.writeHandlers["user:create"]?.access?.roles).toEqual(["Admin"]);
+    const access = feature.writeHandlers["user:create"]?.access;
+    expect(access && "roles" in access && access.roles).toEqual(["Admin"]);
   });
 
   test("collects query handlers with inferred types", () => {
@@ -183,7 +184,11 @@ describe("defineFeature", () => {
       );
     });
 
-    expect(feature.writeHandlers["user:invite"]?.access?.roles).toEqual(["Admin", "SystemAdmin"]);
+    const inviteAccess = feature.writeHandlers["user:invite"]?.access;
+    expect(inviteAccess && "roles" in inviteAccess && inviteAccess.roles).toEqual([
+      "Admin",
+      "SystemAdmin",
+    ]);
   });
 });
 
