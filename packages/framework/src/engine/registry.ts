@@ -430,13 +430,32 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // A typo ("unti" instead of "unit") would otherwise be a silent no-op —
   // the projection is stored but never fires because no aggregateType ever
   // matches. Fail at boot so the feature author sees it immediately.
+  //
+  // Same guard extends to apply-keys: a handler for "unit.creatd" (missing
+  // 'e') would silently never fire. We enumerate the currently-known event
+  // types per source (the four auto-generated CRUD types) and reject apply
+  // handlers that don't match any of them. When r.event() lands in Phase 4,
+  // the valid-type set gets extended to include registered domain events.
+  const AUTO_EVENT_VERBS = ["created", "updated", "deleted", "restored"] as const;
   for (const [projName, projDef] of projectionMap) {
     const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
+    const validEventTypes = new Set<string>();
     for (const src of sources) {
       if (!entityMap.has(src)) {
         throw new Error(
           `Projection "${projName}" declares source entity "${src}" which is not registered. ` +
             `Did you forget r.entity("${src}", ...) or misspell the name?`,
+        );
+      }
+      for (const verb of AUTO_EVENT_VERBS) validEventTypes.add(`${src}.${verb}`);
+    }
+    for (const applyKey of Object.keys(projDef.apply)) {
+      if (!validEventTypes.has(applyKey)) {
+        throw new Error(
+          `Projection "${projName}" has an apply handler for "${applyKey}" but no such event ` +
+            `type exists for its source(s) [${sources.join(", ")}]. ` +
+            `Valid types: ${[...validEventTypes].join(", ")}. ` +
+            `Check for a typo in the event-type string.`,
         );
       }
     }

@@ -103,3 +103,131 @@ describe("event-store-executor", () => {
     expect(detail).toBeNull();
   });
 });
+
+// Sensitive-field stripping: passwords/tokens/IBANs stay in the entity row
+// but MUST NOT land in the immutable event log (GDPR right-to-be-forgotten,
+// secrets-rotation, audit discoverability). Fields marked `sensitive: true`
+// are excluded from every event payload: create data, update changes,
+// update previous, delete previous, restore previous.
+const sensitiveEntity = createEntity({
+  table: "es_exec_sensitive",
+  idType: "uuid",
+  fields: {
+    email: createTextField({ required: true }),
+    passwordHash: createTextField({ sensitive: true }),
+    apiToken: createTextField({ sensitive: true }),
+  },
+  softDelete: true,
+});
+const sensitiveTable = buildDrizzleTable("esExecSensitive", sensitiveEntity);
+
+describe("event-store-executor — sensitive fields", () => {
+  const crud = createEventStoreExecutor(sensitiveTable, sensitiveEntity, {
+    entityName: "esExecSensitive",
+  });
+
+  beforeAll(async () => {
+    await createEntityTable(testDb.db, sensitiveEntity, "esExecSensitive");
+  });
+
+  beforeEach(async () => {
+    await testDb.db.execute(sql`TRUNCATE events, es_exec_sensitive RESTART IDENTITY CASCADE`);
+  });
+
+  async function lastEvent(): Promise<{ type: string; payload: Record<string, unknown> }> {
+    const rows = (await testDb.db.execute(
+      sql`SELECT type, payload FROM events ORDER BY id DESC LIMIT 1`,
+    )) as unknown as Array<{ type: string; payload: Record<string, unknown> }>;
+    const row = rows[0];
+    if (!row) throw new Error("no events in store");
+    return row;
+  }
+
+  test("create event payload excludes sensitive fields but entity row keeps them", async () => {
+    const result = await crud.create(
+      { email: "s@test.de", passwordHash: "pw-hash-123", apiToken: "tok-abc" },
+      adminUser,
+      tdb,
+    );
+    if (!result.isSuccess) throw new Error("create failed");
+    // Entity row: full data preserved.
+    expect(result.data.data["passwordHash"]).toBe("pw-hash-123");
+    expect(result.data.data["apiToken"]).toBe("tok-abc");
+
+    // Event payload: sensitive stripped, public retained.
+    const event = await lastEvent();
+    expect(event.type).toBe("esExecSensitive.created");
+    expect(event.payload["email"]).toBe("s@test.de");
+    expect(event.payload["passwordHash"]).toBeUndefined();
+    expect(event.payload["apiToken"]).toBeUndefined();
+  });
+
+  test("update event strips sensitive from BOTH changes and previous", async () => {
+    const created = await crud.create(
+      { email: "u@test.de", passwordHash: "old-hash", apiToken: "old-tok" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const result = await crud.update(
+      {
+        id: created.data.id,
+        version: 1,
+        changes: { passwordHash: "new-hash", email: "u2@test.de" },
+      },
+      adminUser,
+      tdb,
+    );
+    if (!result.isSuccess) throw new Error("update failed");
+
+    const event = await lastEvent();
+    expect(event.type).toBe("esExecSensitive.updated");
+    const changes = event.payload["changes"] as Record<string, unknown>;
+    const previous = event.payload["previous"] as Record<string, unknown>;
+    // Changes: email retained (public), passwordHash stripped.
+    expect(changes["email"]).toBe("u2@test.de");
+    expect(changes["passwordHash"]).toBeUndefined();
+    // Previous: email retained, passwordHash + apiToken stripped.
+    expect(previous["email"]).toBe("u@test.de");
+    expect(previous["passwordHash"]).toBeUndefined();
+    expect(previous["apiToken"]).toBeUndefined();
+  });
+
+  test("delete event strips sensitive from previous", async () => {
+    const created = await crud.create(
+      { email: "d@test.de", passwordHash: "pw", apiToken: "tk" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    await crud.delete({ id: created.data.id }, adminUser, tdb);
+
+    const event = await lastEvent();
+    expect(event.type).toBe("esExecSensitive.deleted");
+    const previous = event.payload["previous"] as Record<string, unknown>;
+    expect(previous["email"]).toBe("d@test.de");
+    expect(previous["passwordHash"]).toBeUndefined();
+    expect(previous["apiToken"]).toBeUndefined();
+  });
+
+  test("restore event strips sensitive from previous", async () => {
+    const created = await crud.create(
+      { email: "r@test.de", passwordHash: "pw", apiToken: "tk" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    await crud.delete({ id: created.data.id }, adminUser, tdb);
+
+    await crud.restore({ id: created.data.id }, adminUser, tdb);
+
+    const event = await lastEvent();
+    expect(event.type).toBe("esExecSensitive.restored");
+    const previous = event.payload["previous"] as Record<string, unknown>;
+    expect(previous["email"]).toBe("r@test.de");
+    expect(previous["passwordHash"]).toBeUndefined();
+    expect(previous["apiToken"]).toBeUndefined();
+  });
+});

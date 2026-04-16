@@ -5,6 +5,14 @@ export type FieldAccess = {
   readonly write?: readonly string[];
 };
 
+// `sensitive: true` — the field's value is excluded from event payloads
+// (create data, update changes/previous, delete/restore previous). The entity
+// row still stores it; only the immutable event-log won't. Use for data that
+// must never land in permanent history: password hashes, API tokens,
+// unhashed PII, bank details, tax IDs. The trade-off: event-replay and
+// custom projections cannot read sensitive field values. See
+// docs/plans/architecture/projections.md.
+
 export type TextFieldDef = {
   readonly type: "text";
   readonly maxLength?: number;
@@ -12,6 +20,7 @@ export type TextFieldDef = {
   readonly searchable?: boolean;
   readonly sortable?: boolean;
   readonly encrypted?: boolean;
+  readonly sensitive?: boolean;
   readonly format?: "email" | "url" | "phone";
   readonly default?: string;
   readonly access?: FieldAccess;
@@ -20,6 +29,7 @@ export type TextFieldDef = {
 export type BooleanFieldDef = {
   readonly type: "boolean";
   readonly required?: boolean;
+  readonly sensitive?: boolean;
   readonly default?: boolean;
   readonly access?: FieldAccess;
 };
@@ -28,6 +38,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly type: "select";
   readonly options: TOptions;
   readonly required?: boolean;
+  readonly sensitive?: boolean;
   readonly default?: TOptions[number];
   readonly access?: FieldAccess;
 };
@@ -35,6 +46,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
 export type NumberFieldDef = {
   readonly type: "number";
   readonly required?: boolean;
+  readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
 };
@@ -42,6 +54,7 @@ export type NumberFieldDef = {
 export type MoneyFieldDef = {
   readonly type: "money";
   readonly required?: boolean;
+  readonly sensitive?: boolean;
   readonly access?: FieldAccess;
 };
 
@@ -79,6 +92,7 @@ export type EmbeddedSubFieldDef = {
 export type EmbeddedFieldDef = {
   readonly type: "embedded";
   readonly required?: boolean;
+  readonly sensitive?: boolean;
   readonly schema: Readonly<Record<string, EmbeddedSubFieldDef>>;
   readonly access?: FieldAccess;
 };
@@ -86,6 +100,7 @@ export type EmbeddedFieldDef = {
 export type DateFieldDef = {
   readonly type: "date";
   readonly required?: boolean;
+  readonly sensitive?: boolean;
   readonly access?: FieldAccess;
 };
 

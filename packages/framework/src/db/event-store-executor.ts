@@ -111,11 +111,34 @@ export function createEventStoreExecutor(
     }
   }
 
+  // Pre-compute the set of sensitive field names once. Every event payload
+  // (create data, update changes + previous, delete previous, restore
+  // previous) strips these before writing to the immutable event log. Keeps
+  // GDPR right-to-be-forgotten tractable — only entity rows hold the
+  // sensitive data, and entity rows can be deleted / re-encrypted.
+  const sensitiveFields = new Set<string>();
+  for (const [name, field] of Object.entries(entity.fields)) {
+    if ("sensitive" in field && field.sensitive === true) {
+      sensitiveFields.add(name);
+    }
+  }
+
   function applyDefaults(payload: Record<string, unknown>): Record<string, unknown> {
     if (Object.keys(fieldDefaults).length === 0) return payload;
     const result: Record<string, unknown> = { ...payload };
     for (const [name, def] of Object.entries(fieldDefaults)) {
       if (result[name] === undefined) result[name] = def;
+    }
+    return result;
+  }
+
+  function stripSensitive(payload: Record<string, unknown> | undefined): Record<string, unknown> {
+    if (!payload) return {};
+    if (sensitiveFields.size === 0) return payload;
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (sensitiveFields.has(key)) continue;
+      result[key] = value;
     }
     return result;
   }
@@ -145,13 +168,15 @@ export function createEventStoreExecutor(
 
       // 1. Append event (same TX as the projection write — both must succeed
       //    or both roll back; the dispatcher wraps both in one transaction).
+      //    Sensitive fields are stripped from the event payload; the entity
+      //    row below still receives the full data.
       const event = await append(db.raw, {
         aggregateId,
         aggregateType: entityName,
         tenantId: user.tenantId,
         expectedVersion: 0,
         type: `${entityName}.created`,
-        payload: data,
+        payload: stripSensitive(data),
         metadata: { userId: String(user.id) },
       });
 
@@ -224,14 +249,18 @@ export function createEventStoreExecutor(
         // previous value to decrement/undo when a parent-FK moves — without it
         // you'd have to snapshot-and-diff on every apply, and replays would
         // break. Storage cost is acceptable (rows are bounded), correctness is
-        // not negotiable.
+        // not negotiable. Sensitive fields are stripped from BOTH halves so
+        // they never reach the immutable event log.
         const event = await append(db.raw, {
           aggregateId: String(payload.id),
           aggregateType: entityName,
           tenantId: user.tenantId,
           expectedVersion: currentVersion,
           type: `${entityName}.updated`,
-          payload: { changes: payload.changes, previous },
+          payload: {
+            changes: stripSensitive(payload.changes),
+            previous: stripSensitive(previous),
+          },
           metadata: { userId: String(user.id) },
         });
 
@@ -294,14 +323,14 @@ export function createEventStoreExecutor(
       // Deletes carry the full pre-delete row as `previous`. That's what
       // projections and downstream consumers need to reverse any aggregates —
       // a `{}`-payload delete would make cross-aggregate projections impossible
-      // to rebuild from the event log alone.
+      // to rebuild from the event log alone. Sensitive fields are stripped.
       const event = await append(db.raw, {
         aggregateId: String(payload.id),
         aggregateType: entityName,
         tenantId: user.tenantId,
         expectedVersion: currentVersion,
         type: `${entityName}.deleted`,
-        payload: { previous: existing },
+        payload: { previous: stripSensitive(existing) },
         metadata: { userId: String(user.id) },
       });
 
@@ -353,14 +382,14 @@ export function createEventStoreExecutor(
       // Restore carries the soft-deleted snapshot as `previous` — mirror of
       // delete for symmetry. Projections that decremented on delete use
       // `previous` to re-increment on restore without re-querying the entity
-      // table.
+      // table. Sensitive fields are stripped.
       const event = await append(db.raw, {
         aggregateId: String(payload.id),
         aggregateType: entityName,
         tenantId: user.tenantId,
         expectedVersion: currentVersion,
         type: `${entityName}.restored`,
-        payload: { previous: data },
+        payload: { previous: stripSensitive(data) },
         metadata: { userId: String(user.id) },
       });
 

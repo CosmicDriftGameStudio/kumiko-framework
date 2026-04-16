@@ -1,4 +1,4 @@
-import type { HandlerContext, LifecycleResult, Registry } from "../engine/types";
+import type { HandlerContext, LifecycleResult } from "../engine/types";
 
 // Run custom projections for a save or delete result. Lives INSIDE the
 // transaction that appended the event — a throw from apply() rolls the event
@@ -21,10 +21,7 @@ import type { HandlerContext, LifecycleResult, Registry } from "../engine/types"
 //   - Apply-function throws bubble up unchanged. The dispatcher wraps the
 //     whole lifecycle in a try/catch that rolls the tx back; the event is
 //     gone from the events table just like a rolled-back state change.
-export async function runProjections(
-  result: LifecycleResult,
-  ctx: HandlerContext & { readonly registry: Registry },
-): Promise<void> {
+export async function runProjections(result: LifecycleResult, ctx: HandlerContext): Promise<void> {
   // skip: hand-crafted result with no event — nothing to project
   if (!result.event) return;
   const entityName = result.event.aggregateType;

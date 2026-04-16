@@ -118,6 +118,39 @@ describe("createRegistry — projection indexing", () => {
     expect(() => createRegistry([feature])).toThrow(/source entity "unti"/);
   });
 
+  test("boot-validates apply-keys against the source's event types", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("unit", exampleEntity());
+      r.projection(
+        exampleProjection({
+          // Typo: "creatd" instead of "created". Same motivation as source-
+          // validation — catch silent no-ops at boot.
+          apply: {
+            "unit.creatd": async () => {},
+          },
+        }),
+      );
+    });
+    expect(() => createRegistry([feature])).toThrow(/apply handler for "unit\.creatd"/);
+  });
+
+  test("accepts all four auto-generated event-type apply-keys", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("unit", exampleEntity());
+      r.projection(
+        exampleProjection({
+          apply: {
+            "unit.created": async () => {},
+            "unit.updated": async () => {},
+            "unit.deleted": async () => {},
+            "unit.restored": async () => {},
+          },
+        }),
+      );
+    });
+    expect(() => createRegistry([feature])).not.toThrow();
+  });
+
   test("exposes all projections via getAllProjections", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("unit", exampleEntity());
