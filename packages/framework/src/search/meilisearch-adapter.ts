@@ -47,6 +47,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     },
 
     async indexBatch(tenantId, docs) {
+      // skip: empty batch — avoid an unnecessary Meilisearch round-trip
       if (docs.length === 0) return;
       const index = client.index(tenantIndex(prefix, tenantId));
       const payload = docs.map((doc) => ({
@@ -63,6 +64,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     },
 
     async removeBatch(tenantId, items) {
+      // skip: empty batch — avoid an unnecessary Meilisearch round-trip
       if (items.length === 0) return;
       const index = client.index(tenantIndex(prefix, tenantId));
       const ids = items.map((i) => docId(i.entityType, i.entityId));

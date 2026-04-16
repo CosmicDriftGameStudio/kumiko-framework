@@ -5,13 +5,7 @@ export const REDACTED = "[REDACTED]";
 // Defaults are intentionally conservative — easier to add a header to the
 // list than to explain a PII leak. All matching is case-insensitive.
 export const DEFAULT_SENSITIVE_CONFIG: SensitiveFilterConfig = {
-  redactedHeaders: [
-    "authorization",
-    "cookie",
-    "set-cookie",
-    "x-api-key",
-    "proxy-authorization",
-  ],
+  redactedHeaders: ["authorization", "cookie", "set-cookie", "x-api-key", "proxy-authorization"],
   redactedQueryParams: [
     "token",
     "access_token",
@@ -41,7 +35,8 @@ export function mergeSensitiveConfig(
     redactedQueryParams:
       override.redactedQueryParams ?? DEFAULT_SENSITIVE_CONFIG.redactedQueryParams,
     redactedAttributeKeyPatterns:
-      override.redactedAttributeKeyPatterns ?? DEFAULT_SENSITIVE_CONFIG.redactedAttributeKeyPatterns,
+      override.redactedAttributeKeyPatterns ??
+      DEFAULT_SENSITIVE_CONFIG.redactedAttributeKeyPatterns,
   };
 }
 
@@ -63,10 +58,7 @@ export function redactHeaders(
 
 // Redact sensitive query params in a URL or query string. Returns a new URL
 // string with the same shape — path, fragment, and ordering preserved.
-export function redactQueryString(
-  input: string,
-  config: SensitiveFilterConfig,
-): string {
+export function redactQueryString(input: string, config: SensitiveFilterConfig): string {
   const redacted = lowercaseSet(config.redactedQueryParams);
   // URL wants absolute; handle both absolute and path-only forms.
   const hasScheme = /^[a-z][a-z0-9+\-.]*:/i.test(input);
@@ -85,10 +77,7 @@ export function redactQueryString(
 
 // Check a single attribute key against the redaction patterns.
 // Used by the Span implementation when setAttribute is called.
-export function shouldRedactAttribute(
-  key: string,
-  config: SensitiveFilterConfig,
-): boolean {
+export function shouldRedactAttribute(key: string, config: SensitiveFilterConfig): boolean {
   for (const pattern of config.redactedAttributeKeyPatterns) {
     if (pattern.test(key)) return true;
   }

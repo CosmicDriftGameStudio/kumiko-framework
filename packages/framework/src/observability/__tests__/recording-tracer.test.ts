@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { type RecordedSpan, RecordingTracer } from "../recording-tracer";
 import { DEFAULT_SENSITIVE_CONFIG } from "../sensitive-filter";
-import { RecordingTracer, type RecordedSpan } from "../recording-tracer";
 
 function makeTracer() {
   const recorded: RecordedSpan[] = [];
@@ -75,8 +75,8 @@ describe("RecordingTracer", () => {
     span.setAttribute("user.password", "hunter2");
     span.setAttribute("user.id", 42);
     span.end();
-    expect(recorded[0]!.attributes["user.password"]).toBe("[REDACTED]");
-    expect(recorded[0]!.attributes["user.id"]).toBe(42);
+    expect(recorded[0]?.attributes["user.password"]).toBe("[REDACTED]");
+    expect(recorded[0]?.attributes["user.id"]).toBe(42);
   });
 
   it("end is idempotent", () => {
@@ -94,8 +94,8 @@ describe("RecordingTracer", () => {
       spanId: "1122334455667788",
     });
     span.end();
-    expect(recorded[0]!.traceId).toBe("aabbccddeeff00112233445566778899");
-    expect(recorded[0]!.parentSpanId).toBe("1122334455667788");
+    expect(recorded[0]?.traceId).toBe("aabbccddeeff00112233445566778899");
+    expect(recorded[0]?.parentSpanId).toBe("1122334455667788");
   });
 
   it("withSpan supports callback-only form", async () => {

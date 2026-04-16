@@ -100,9 +100,7 @@ class NoopMeter implements Meter {
 
   registerMetric(def: MetricDefinition): void {
     if (this.defs.has(def.name)) {
-      throw new Error(
-        `[Kumiko Observability] Metric "${def.name}" already registered.`,
-      );
+      throw new Error(`[Kumiko Observability] Metric "${def.name}" already registered.`);
     }
     this.defs.set(def.name, def);
   }
@@ -110,9 +108,7 @@ class NoopMeter implements Meter {
   counter(name: string): Counter {
     const def = this.defs.get(name);
     if (!def || def.type !== "counter") {
-      throw new Error(
-        `[Kumiko Observability] Counter "${name}" not registered or wrong type.`,
-      );
+      throw new Error(`[Kumiko Observability] Counter "${name}" not registered or wrong type.`);
     }
     return this.counterInstance;
   }
@@ -120,9 +116,7 @@ class NoopMeter implements Meter {
   histogram(name: string): Histogram {
     const def = this.defs.get(name);
     if (!def || def.type !== "histogram") {
-      throw new Error(
-        `[Kumiko Observability] Histogram "${name}" not registered or wrong type.`,
-      );
+      throw new Error(`[Kumiko Observability] Histogram "${name}" not registered or wrong type.`);
     }
     return this.histogramInstance;
   }
@@ -130,9 +124,7 @@ class NoopMeter implements Meter {
   gauge(name: string): Gauge {
     const def = this.defs.get(name);
     if (!def || def.type !== "gauge") {
-      throw new Error(
-        `[Kumiko Observability] Gauge "${name}" not registered or wrong type.`,
-      );
+      throw new Error(`[Kumiko Observability] Gauge "${name}" not registered or wrong type.`);
     }
     return this.gaugeInstance;
   }

@@ -1,7 +1,7 @@
 import {
   DEFAULT_SENSITIVE_CONFIG,
-  mergeSensitiveConfig,
   type MetricEvent,
+  mergeSensitiveConfig,
   type ObservabilityOptions,
   type ObservabilityProvider,
   type RecordedSpan,
@@ -22,12 +22,8 @@ export type RecordingProvider = ObservabilityProvider & {
   reset(): void;
 };
 
-export function createRecordingProvider(
-  options: ObservabilityOptions = {},
-): RecordingProvider {
-  const sensitiveConfig = mergeSensitiveConfig(
-    options.sensitiveFilter ?? DEFAULT_SENSITIVE_CONFIG,
-  );
+export function createRecordingProvider(options: ObservabilityOptions = {}): RecordingProvider {
+  const sensitiveConfig = mergeSensitiveConfig(options.sensitiveFilter ?? DEFAULT_SENSITIVE_CONFIG);
   const spans: RecordedSpan[] = [];
   const metricEvents: MetricEvent[] = [];
 

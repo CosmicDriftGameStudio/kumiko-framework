@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RecordingMeter, type MetricEvent } from "../recording-meter";
+import { type MetricEvent, RecordingMeter } from "../recording-meter";
 
 function makeMeter() {
   const events: MetricEvent[] = [];
@@ -46,7 +46,9 @@ describe("RecordingMeter", () => {
       labels: ["status"],
     });
     expect(() =>
-      meter.counter("kumiko_orders_created_total").inc(1, { unknown: "x" } as unknown as Record<string, string>),
+      meter
+        .counter("kumiko_orders_created_total")
+        .inc(1, { unknown: "x" } as unknown as Record<string, string>),
     ).toThrow(/unknown label "unknown"/);
   });
 
@@ -81,9 +83,9 @@ describe("RecordingMeter", () => {
       labels: ["status"],
       tenantLabel: true,
     });
-    expect(() =>
-      meter.counter("kumiko_orders_created_total").inc(1, { status: "new" }),
-    ).toThrow(/missing label "tenant_id"/);
+    expect(() => meter.counter("kumiko_orders_created_total").inc(1, { status: "new" })).toThrow(
+      /missing label "tenant_id"/,
+    );
     expect(() =>
       meter.counter("kumiko_orders_created_total").inc(1, { status: "new", tenant_id: 1 }),
     ).not.toThrow();
@@ -92,8 +94,8 @@ describe("RecordingMeter", () => {
   it("duplicate registration throws", () => {
     const { meter } = makeMeter();
     meter.registerMetric({ name: "kumiko_x_total", type: "counter" });
-    expect(() =>
-      meter.registerMetric({ name: "kumiko_x_total", type: "counter" }),
-    ).toThrow(/already registered/);
+    expect(() => meter.registerMetric({ name: "kumiko_x_total", type: "counter" })).toThrow(
+      /already registered/,
+    );
   });
 });

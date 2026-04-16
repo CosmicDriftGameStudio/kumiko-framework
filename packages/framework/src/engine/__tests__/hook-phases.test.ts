@@ -16,7 +16,9 @@ describe("HookPhases defaults", () => {
   test("postSave hook without options defaults to afterCommit phase", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
       r.hook("postSave", "thing:create", noopSave);
     });
 
@@ -28,7 +30,9 @@ describe("HookPhases defaults", () => {
   test("postSave hook respects explicit phase option", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
       r.hook("postSave", "thing:create", noopSave, { phase: HookPhases.inTransaction });
     });
 
@@ -39,10 +43,15 @@ describe("HookPhases defaults", () => {
   test("preDelete hook is always inTransaction (no option)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.writeHandler("thing:delete", z.object({ id: z.number() }), async () => ({
-        isSuccess: true,
-        data: null,
-      }), { access: { openToAll: true } });
+      r.writeHandler(
+        "thing:delete",
+        z.object({ id: z.number() }),
+        async () => ({
+          isSuccess: true,
+          data: null,
+        }),
+        { access: { openToAll: true } },
+      );
       r.hook("preDelete", "thing:delete", async () => undefined);
     });
 
@@ -69,7 +78,9 @@ describe("Registry phase filtering", () => {
 
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
       r.hook("postSave", "thing:create", inTxFn, { phase: HookPhases.inTransaction });
       r.hook("postSave", "thing:create", afterFn); // default afterCommit
     });
@@ -91,7 +102,9 @@ describe("Registry phase filtering", () => {
   test("getPostSaveHooks returns empty array when no hooks for handler", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
     });
 
     const registry = createRegistry([feature]);

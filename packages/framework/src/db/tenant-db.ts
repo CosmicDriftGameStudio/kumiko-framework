@@ -1,10 +1,5 @@
 import { and, type Column, eq, getTableName, or, type SQL } from "drizzle-orm";
-import {
-  emitDbQuery,
-  type Meter,
-  registerStandardMetrics,
-  type Tracer,
-} from "../observability";
+import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
 
@@ -220,9 +215,10 @@ export function createTenantDb(
         resolve: ((value: Record<string, unknown>[]) => void) | null,
         reject: ((reason: unknown) => void) | null,
       ) {
-        return withDbSpan<Record<string, unknown>[]>("select", table, () =>
-          ensureFiltered(),
-        ).then((rows) => resolve?.(rows), reject ?? undefined);
+        return withDbSpan<Record<string, unknown>[]>("select", table, () => ensureFiltered()).then(
+          (rows) => resolve?.(rows),
+          reject ?? undefined,
+        );
       },
     } as TenantSelectQuery;
   }
@@ -253,8 +249,10 @@ export function createTenantDb(
           const q = db.insert(table).values(insertValues(table, data));
           return {
             returning() {
-              return withDbSpan<Record<string, unknown>[]>("insert", table, () =>
-                q.returning() as PromiseLike<Record<string, unknown>[]>,
+              return withDbSpan<Record<string, unknown>[]>(
+                "insert",
+                table,
+                () => q.returning() as PromiseLike<Record<string, unknown>[]>,
               );
             },
             onConflictDoUpdate(spec: ConflictUpdate) {
@@ -277,8 +275,10 @@ export function createTenantDb(
             },
             // biome-ignore lint/suspicious/noThenProperty: thenable for await
             then(resolve, reject) {
-              return withDbSpan<void>("insert", table, () =>
-                q as unknown as PromiseLike<void>,
+              return withDbSpan<void>(
+                "insert",
+                table,
+                () => q as unknown as PromiseLike<void>,
               ).then(resolve, reject);
             },
           } as TenantInsertValues;
@@ -295,14 +295,18 @@ export function createTenantDb(
               const wq = q.where(whereClause(table, condition));
               return {
                 returning() {
-                  return withDbSpan<Record<string, unknown>[]>("update", table, () =>
-                    wq.returning() as PromiseLike<Record<string, unknown>[]>,
+                  return withDbSpan<Record<string, unknown>[]>(
+                    "update",
+                    table,
+                    () => wq.returning() as PromiseLike<Record<string, unknown>[]>,
                   );
                 },
                 // biome-ignore lint/suspicious/noThenProperty: thenable for await
                 then(resolve, reject) {
-                  return withDbSpan<void>("update", table, () =>
-                    wq as unknown as PromiseLike<void>,
+                  return withDbSpan<void>(
+                    "update",
+                    table,
+                    () => wq as unknown as PromiseLike<void>,
                   ).then(resolve, reject);
                 },
               } as TenantUpdateWhere;
@@ -332,10 +336,11 @@ export function createTenantDb(
     delete(table: Table) {
       return {
         where(condition: SQL) {
-          return withDbSpan<void>("delete", table, () =>
-            db
-              .delete(table)
-              .where(whereClause(table, condition)) as unknown as PromiseLike<void>,
+          return withDbSpan<void>(
+            "delete",
+            table,
+            () =>
+              db.delete(table).where(whereClause(table, condition)) as unknown as PromiseLike<void>,
           );
         },
       };

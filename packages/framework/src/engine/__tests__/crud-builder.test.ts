@@ -50,19 +50,17 @@ describe("r.crud()", () => {
 
     const updateHandler = feature.writeHandlers["user:update"];
     // Partial update with id
-    expect(updateHandler?.schema.safeParse({ id: 1, changes: { firstName: "Marc" },
-        version: 1
-    }).success).toBe(
-      true,
-    );
+    expect(
+      updateHandler?.schema.safeParse({ id: 1, changes: { firstName: "Marc" }, version: 1 })
+        .success,
+    ).toBe(true);
     // Id is required
     expect(updateHandler?.schema.safeParse({ changes: { firstName: "Marc" } }).success).toBe(false);
     // Still validates types in changes
-    expect(updateHandler?.schema.safeParse({ id: 1, changes: { isEnabled: "nope" },
-        version: 1
-    }).success).toBe(
-      false,
-    );
+    expect(
+      updateHandler?.schema.safeParse({ id: 1, changes: { isEnabled: "nope" }, version: 1 })
+        .success,
+    ).toBe(false);
   });
 
   test("delete handler requires id", () => {

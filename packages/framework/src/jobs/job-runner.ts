@@ -65,9 +65,7 @@ export type JobRunnerOptions = {
 // (_triggeredById, _tenantId, _payload).
 const TRACE_CONTEXT_KEY = "_traceContext";
 
-function readTraceContext(
-  data: Record<string, unknown>,
-): SerializedTraceContext | undefined {
+function readTraceContext(data: Record<string, unknown>): SerializedTraceContext | undefined {
   const raw = data[TRACE_CONTEXT_KEY];
   if (!raw || typeof raw !== "object") return undefined;
   const ctx = raw as Partial<SerializedTraceContext>;
@@ -77,7 +75,7 @@ function readTraceContext(
 
 function captureTraceContext(tracer: Tracer): SerializedTraceContext | undefined {
   const span = tracer.getActiveSpan();
-  if (!span || !span.traceId) return undefined;
+  if (!span?.traceId) return undefined;
   return { traceId: span.traceId, spanId: span.spanId };
 }
 

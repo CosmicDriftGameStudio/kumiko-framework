@@ -74,12 +74,10 @@ export function emitDispatcherHandler(
   labels: { readonly handler: string; readonly success: boolean },
   durationSeconds: number,
 ): void {
-  meter
-    .histogram("kumiko_dispatcher_handler_duration_seconds")
-    .observe(durationSeconds, {
-      handler: labels.handler,
-      success: String(labels.success),
-    });
+  meter.histogram("kumiko_dispatcher_handler_duration_seconds").observe(durationSeconds, {
+    handler: labels.handler,
+    success: String(labels.success),
+  });
 }
 
 export function emitDispatcherError(

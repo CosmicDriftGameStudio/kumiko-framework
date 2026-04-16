@@ -27,6 +27,7 @@ export function createSearchIndexHook(
     priority: SystemHookPriorities.searchIndex,
     fn: async (result, ctx) => {
       const doc = buildSearchDocument(result, registry, ctx.log);
+      // skip: entity not indexable (no searchable fields) — buildSearchDocument returns null
       if (!doc) return;
       const tenantId = result.data["tenantId"] as number;
       await searchAdapter.index(tenantId, doc);

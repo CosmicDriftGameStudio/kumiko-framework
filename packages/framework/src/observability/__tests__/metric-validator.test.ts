@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildMetricName,
-  validateLabelKey,
-  validateMetricName,
-} from "../metric-validator";
+import { buildMetricName, validateLabelKey, validateMetricName } from "../metric-validator";
 
 describe("validateMetricName", () => {
   describe("counter", () => {
@@ -18,9 +14,7 @@ describe("validateMetricName", () => {
     });
 
     it("rejects camelCase", () => {
-      expect(() => validateMetricName("ordersCreatedTotal", "counter")).toThrow(
-        /snake_case/,
-      );
+      expect(() => validateMetricName("ordersCreatedTotal", "counter")).toThrow(/snake_case/);
     });
 
     it("rejects leading digit", () => {
@@ -30,15 +24,11 @@ describe("validateMetricName", () => {
 
   describe("histogram", () => {
     it("accepts _seconds suffix", () => {
-      expect(() =>
-        validateMetricName("http_request_duration_seconds", "histogram"),
-      ).not.toThrow();
+      expect(() => validateMetricName("http_request_duration_seconds", "histogram")).not.toThrow();
     });
 
     it("accepts _bytes suffix", () => {
-      expect(() =>
-        validateMetricName("http_request_body_bytes", "histogram"),
-      ).not.toThrow();
+      expect(() => validateMetricName("http_request_body_bytes", "histogram")).not.toThrow();
     });
 
     it("accepts custom domain unit (_eur)", () => {
@@ -46,44 +36,34 @@ describe("validateMetricName", () => {
     });
 
     it("rejects _total suffix", () => {
-      expect(() =>
-        validateMetricName("http_request_total", "histogram"),
-      ).toThrow(/must not end with "_total"/);
+      expect(() => validateMetricName("http_request_total", "histogram")).toThrow(
+        /must not end with "_total"/,
+      );
     });
 
     it("rejects single word without unit", () => {
-      expect(() => validateMetricName("duration", "histogram")).toThrow(
-        /needs a unit suffix/,
-      );
+      expect(() => validateMetricName("duration", "histogram")).toThrow(/needs a unit suffix/);
     });
   });
 
   describe("gauge", () => {
     it("accepts plain noun", () => {
-      expect(() =>
-        validateMetricName("db_pool_active_connections", "gauge"),
-      ).not.toThrow();
+      expect(() => validateMetricName("db_pool_active_connections", "gauge")).not.toThrow();
     });
 
     it("rejects _total suffix", () => {
-      expect(() =>
-        validateMetricName("active_sessions_total", "gauge"),
-      ).toThrow(/_total/);
+      expect(() => validateMetricName("active_sessions_total", "gauge")).toThrow(/_total/);
     });
 
     it("rejects _seconds suffix (suggests histogram)", () => {
-      expect(() =>
-        validateMetricName("request_duration_seconds", "gauge"),
-      ).toThrow(/histogram/i);
+      expect(() => validateMetricName("request_duration_seconds", "gauge")).toThrow(/histogram/i);
     });
   });
 });
 
 describe("buildMetricName", () => {
   it("prefixes with kumiko_<feature>_", () => {
-    expect(buildMetricName("orders", "created_total")).toBe(
-      "kumiko_orders_created_total",
-    );
+    expect(buildMetricName("orders", "created_total")).toBe("kumiko_orders_created_total");
   });
 
   it("rejects non-snake_case feature name", () => {

@@ -29,7 +29,8 @@ const ordersFeature = defineFeature("orders", (r) => {
         isSuccess: true,
         data: { id: 1, product: event.payload.product, amount: event.payload.amount },
       };
-    }, { access: { openToAll: true } }
+    },
+    { access: { openToAll: true } },
   );
 });
 
@@ -47,10 +48,15 @@ const notificationsFeature = defineFeature("notifications", (r) => {
 // Feature C: has ANOTHER job on the same event — both should fire
 const analyticsFeature = defineFeature("analytics", (r) => {
   // Dummy handler so the trackUser job trigger has a valid target
-  r.writeHandler("users:create", z.object({}), async () => ({
-    isSuccess: true as const,
-    data: null,
-  }), { access: { openToAll: true } });
+  r.writeHandler(
+    "users:create",
+    z.object({}),
+    async () => ({
+      isSuccess: true as const,
+      data: null,
+    }),
+    { access: { openToAll: true } },
+  );
 
   r.job("trackOrder", { trigger: { on: "orders:write:orders:create" } }, async (payload) => {
     jobExecutions.push({ name: "analytics:job:track-order", payload });

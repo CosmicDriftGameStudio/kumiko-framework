@@ -179,6 +179,7 @@ export function createLifecycleHooks(
       errorName: (item: TItem) => string,
       invoke: (item: TItem) => Promise<void>,
     ): Promise<void> {
+      // skip: no hooks to run for this phase/handler combo
       if (items.length === 0) return;
       const withSpan = (item: TItem) =>
         tracer.withSpan(
@@ -336,13 +337,12 @@ export function createLifecycleHooks(
   // Runs batch hooks in parallel. Errors are logged but never rethrown —
   // batch hooks fire after commit, so there's nothing to roll back.
   async function runBatchHooks<TPayload>(opts: {
-    hooks:
-      | readonly SystemHookDef<(p: TPayload, c: AppContext) => Promise<void>>[]
-      | undefined;
+    hooks: readonly SystemHookDef<(p: TPayload, c: AppContext) => Promise<void>>[] | undefined;
     payload: TPayload;
     context: AppContext;
     phaseLabel: string;
   }): Promise<void> {
+    // skip: no batch hooks registered for this phase
     if (!opts.hooks || opts.hooks.length === 0) return;
     const tracer = resolveTracer(opts.context);
     const baseAttrs = { "kumiko.hook_type": opts.phaseLabel };
@@ -365,9 +365,11 @@ export function createLifecycleHooks(
 
     const failures = outcomes
       .map((o, i) => ({ outcome: o, name: opts.hooks?.[i]?.name ?? "unknown" }))
-      .filter((x): x is { outcome: PromiseRejectedResult; name: string } =>
-        x.outcome.status === "rejected",
+      .filter(
+        (x): x is { outcome: PromiseRejectedResult; name: string } =>
+          x.outcome.status === "rejected",
       );
+    // skip: all batch hooks succeeded, nothing to log
     if (failures.length === 0) return;
 
     const log = opts.context.log;

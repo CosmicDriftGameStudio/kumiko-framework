@@ -43,11 +43,16 @@ describe("defineFeature", () => {
     const schema = z.object({ email: z.email() });
 
     const feature = defineFeature("test", (r) => {
-      r.writeHandler("user:invite", schema, async (event) => {
-        // event.payload.email is inferred as string
-        const _email: string = event.payload.email;
-        return { isSuccess: true, data: { id: 1 } };
-      }, { access: { openToAll: true } });
+      r.writeHandler(
+        "user:invite",
+        schema,
+        async (event) => {
+          // event.payload.email is inferred as string
+          const _email: string = event.payload.email;
+          return { isSuccess: true, data: { id: 1 } };
+        },
+        { access: { openToAll: true } },
+      );
     });
 
     expect(feature.writeHandlers["user:invite"]).toBeDefined();
@@ -57,10 +62,15 @@ describe("defineFeature", () => {
   test("writeHandler returns typed HandlerRef", () => {
     let ref: { name: string } | undefined;
     defineFeature("test", (r) => {
-      ref = r.writeHandler("order:create", z.object({}), async () => ({
-        isSuccess: true,
-        data: null,
-      }), { access: { openToAll: true } });
+      ref = r.writeHandler(
+        "order:create",
+        z.object({}),
+        async () => ({
+          isSuccess: true,
+          data: null,
+        }),
+        { access: { openToAll: true } },
+      );
     });
     expect(ref?.name).toBe("order:create");
   });
@@ -68,7 +78,9 @@ describe("defineFeature", () => {
   test("queryHandler returns typed HandlerRef", () => {
     let ref: { name: string } | undefined;
     defineFeature("test", (r) => {
-      ref = r.queryHandler("order:list", z.object({}), async () => [], { access: { openToAll: true } });
+      ref = r.queryHandler("order:list", z.object({}), async () => [], {
+        access: { openToAll: true },
+      });
     });
     expect(ref?.name).toBe("order:list");
   });
@@ -116,10 +128,15 @@ describe("defineFeature", () => {
     const schema = z.object({ userId: z.number() });
 
     const feature = defineFeature("test", (r) => {
-      r.queryHandler("user:detail", schema, async (query) => {
-        const _id: number = query.payload.userId;
-        return { id: _id, email: "test@test.de" };
-      }, { access: { openToAll: true } });
+      r.queryHandler(
+        "user:detail",
+        schema,
+        async (query) => {
+          const _id: number = query.payload.userId;
+          return { id: _id, email: "test@test.de" };
+        },
+        { access: { openToAll: true } },
+      );
     });
 
     expect(feature.queryHandlers["user:detail"]).toBeDefined();
@@ -132,7 +149,7 @@ describe("defineFeature", () => {
       handler: async () => {
         return [{ id: 1, email: "test@test.de" }];
       },
-        access: { openToAll: true }
+      access: { openToAll: true },
     });
 
     const feature = defineFeature("test", (r) => {
@@ -235,10 +252,14 @@ describe("createRegistry", () => {
 
   test("looks up handlers across features", () => {
     const f1 = defineFeature("admin", (r) => {
-      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
     });
     const f2 = defineFeature("profile", (r) => {
-      r.queryHandler("profile:me", z.object({}), async () => ({ id: 1 }), { access: { openToAll: true } });
+      r.queryHandler("profile:me", z.object({}), async () => ({ id: 1 }), {
+        access: { openToAll: true },
+      });
     });
 
     const registry = createRegistry([f1, f2]);
@@ -271,10 +292,14 @@ describe("createRegistry", () => {
 
   test("different features can have same handler short name (prefixed differently)", () => {
     const f1 = defineFeature("a", (r) => {
-      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
     });
     const f2 = defineFeature("b", (r) => {
-      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
     });
 
     // No error — "a:write:user:invite" and "b:write:user:invite" are distinct
@@ -341,7 +366,9 @@ describe("createRegistry", () => {
         }),
       );
       // Handler name "promote" has no entity prefix → can't be mapped
-      r.writeHandler("promote", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("promote", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/hr:write:promote.*not mapped.*entity:action/i);
@@ -351,7 +378,9 @@ describe("createRegistry", () => {
     const feature = defineFeature("admin", (r) => {
       r.entity("setting", createEntity({ table: "settings", fields: { key: createTextField() } }));
       // No field-access rules on entity → "reset" without entity prefix is fine
-      r.writeHandler("reset", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("reset", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();
@@ -370,10 +399,15 @@ describe("createRegistry", () => {
         }),
       );
       // "employee:promote" follows convention → mapped to entity "employee"
-      r.writeHandler("employee:promote", z.object({}), async () => ({
-        isSuccess: true,
-        data: null,
-      }), { access: { openToAll: true } });
+      r.writeHandler(
+        "employee:promote",
+        z.object({}),
+        async () => ({
+          isSuccess: true,
+          data: null,
+        }),
+        { access: { openToAll: true } },
+      );
     });
 
     expect(() => createRegistry([feature])).not.toThrow();
@@ -390,10 +424,15 @@ describe("createRegistry", () => {
           },
         }),
       );
-      r.writeHandler("employee:create", z.object({}), async () => ({
-        isSuccess: true,
-        data: null,
-      }), { access: { openToAll: true } });
+      r.writeHandler(
+        "employee:create",
+        z.object({}),
+        async () => ({
+          isSuccess: true,
+          data: null,
+        }),
+        { access: { openToAll: true } },
+      );
       // Typo: "emp" instead of "employee"
       r.queryHandler("emp:list", z.object({}), async () => [], { access: { openToAll: true } });
     });
@@ -412,12 +451,19 @@ describe("createRegistry", () => {
           },
         }),
       );
-      r.writeHandler("employee:create", z.object({}), async () => ({
-        isSuccess: true,
-        data: null,
-      }), { access: { openToAll: true } });
+      r.writeHandler(
+        "employee:create",
+        z.object({}),
+        async () => ({
+          isSuccess: true,
+          data: null,
+        }),
+        { access: { openToAll: true } },
+      );
       // Standalone queries — no dot, intentionally not entity-bound
-      r.queryHandler("dashboard", z.object({}), async () => ({ total: 42 }), { access: { openToAll: true } });
+      r.queryHandler("dashboard", z.object({}), async () => ({ total: 42 }), {
+        access: { openToAll: true },
+      });
       r.queryHandler("orgChart", z.object({}), async () => [], { access: { openToAll: true } });
     });
 
@@ -1266,7 +1312,9 @@ describe("registry boot validation", () => {
   test("allows valid hook targets", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("item", createEntity({ table: "Items", fields: {} }));
-      r.writeHandler("item.create", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("item.create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
       r.hook("postSave", "item.create", async () => {});
     });
 

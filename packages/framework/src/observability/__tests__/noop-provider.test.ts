@@ -60,25 +60,19 @@ describe("NoopProvider", () => {
     p.meter.registerMetric({ name: "kumiko_test_pool", type: "gauge" });
 
     expect(() => p.meter.counter("kumiko_test_total").inc()).not.toThrow();
-    expect(() =>
-      p.meter.histogram("kumiko_test_duration_seconds").observe(0.5),
-    ).not.toThrow();
+    expect(() => p.meter.histogram("kumiko_test_duration_seconds").observe(0.5)).not.toThrow();
     expect(() => p.meter.gauge("kumiko_test_pool").set(10)).not.toThrow();
   });
 
   it("meter rejects wrong type lookup", () => {
     const p = createNoopProvider();
     p.meter.registerMetric({ name: "kumiko_test_total", type: "counter" });
-    expect(() => p.meter.histogram("kumiko_test_total")).toThrow(
-      /not registered or wrong type/,
-    );
+    expect(() => p.meter.histogram("kumiko_test_total")).toThrow(/not registered or wrong type/);
   });
 
   it("meter rejects unknown metric", () => {
     const p = createNoopProvider();
-    expect(() => p.meter.counter("kumiko_nothing_total")).toThrow(
-      /not registered/,
-    );
+    expect(() => p.meter.counter("kumiko_nothing_total")).toThrow(/not registered/);
   });
 
   it("shutdown resolves", async () => {

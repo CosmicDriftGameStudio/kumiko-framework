@@ -1,16 +1,16 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { buildDrizzleTable } from "../../db/table-builder";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, SaveContext } from "../../engine/types";
 import { createJobRunner } from "../../jobs";
-import type { Logger } from "../../logging/types";
-import { mergeTraceFields } from "../../logging/pino-logger";
+import { createLogger } from "../../logging/pino-logger";
 import {
   createEntityTable,
   createRecordingProvider,
   createTestRedis,
-  setupTestStack,
   type RecordingProvider,
+  setupTestStack,
   type TestRedis,
   type TestStack,
   waitFor,
@@ -54,6 +54,9 @@ const errorFeature = defineFeature("err", (r) => {
 // verify the db.query and kumiko.pipeline.hook spans land in the right place.
 // We don't use r.crud() because its handlers are stubs — a real INSERT needs
 // a custom writeHandler using ctx.db.
+//
+// Entity + Drizzle table are co-located inside the feature closure so the
+// writeHandler can reference the table without a module-level side-effect.
 const todoEntity = {
   fields: {
     id: { type: "number" as const },
@@ -65,6 +68,7 @@ const todoEntity = {
 
 let postSaveInvocations = 0;
 const todoFeature = defineFeature("todo", (r) => {
+  const todoTable = buildDrizzleTable("todo", todoEntity);
   r.entity("todo", todoEntity);
 
   r.writeHandler(
@@ -96,12 +100,6 @@ const todoFeature = defineFeature("todo", (r) => {
     postSaveInvocations++;
   });
 });
-
-// Drizzle table built outside the feature so the handler above has a
-// reference. Same shape createEntityTable will emit — returning `DrizzleTable`
-// which is TenantDb.insert's accepted shape.
-import { buildDrizzleTable } from "../../db/table-builder";
-const todoTable = buildDrizzleTable("todo", todoEntity);
 
 const adminUser = { id: 1, tenantId: 1, roles: ["admin"] as const };
 
@@ -152,7 +150,7 @@ describe("Observability (integration)", () => {
       (e) => e.type === "counter.inc" && e.name === "kumiko_product_tracked_total",
     );
     expect(counterEvents).toHaveLength(1);
-    expect(counterEvents[0]!.labels).toEqual({ kind: "premium" });
+    expect(counterEvents[0]?.labels).toEqual({ kind: "premium" });
   });
 
   it("emits standard http + dispatcher metrics for the request", async () => {
@@ -166,8 +164,7 @@ describe("Observability (integration)", () => {
 
     const handlerDuration = provider.metricEvents.find(
       (e) =>
-        e.type === "histogram.observe" &&
-        e.name === "kumiko_dispatcher_handler_duration_seconds",
+        e.type === "histogram.observe" && e.name === "kumiko_dispatcher_handler_duration_seconds",
     );
     expect(handlerDuration).toBeDefined();
   });
@@ -212,18 +209,16 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
 
     expect(dbSpans.length).toBeGreaterThanOrEqual(1);
     // At least one db.query should be a descendant of the dispatcher span.
-    const insertSpan = dbSpans.find(
-      (s) => s.attributes["db.operation"] === "insert",
-    );
+    const insertSpan = dbSpans.find((s) => s.attributes["db.operation"] === "insert");
     expect(insertSpan).toBeDefined();
-    expect(insertSpan!.traceId).toBe(httpSpan.traceId);
-    expect(insertSpan!.attributes["db.table"]).toBe("todos");
-    expect(insertSpan!.attributes["db.system"]).toBe("postgresql");
+    expect(insertSpan?.traceId).toBe(httpSpan.traceId);
+    expect(insertSpan?.attributes["db.table"]).toBe("todos");
+    expect(insertSpan?.attributes["db.system"]).toBe("postgresql");
     // parent chain: insert → ... → dispatcher
     const dispatcherId = dispatcherSpan.spanId;
     const allInTrace = provider.spansByTraceId(httpSpan.traceId);
     const idToSpan = new Map(allInTrace.map((s) => [s.spanId, s]));
-    let cursor: string | undefined = insertSpan!.parentSpanId;
+    let cursor: string | undefined = insertSpan?.parentSpanId;
     let foundDispatcher = false;
     while (cursor) {
       if (cursor === dispatcherId) {
@@ -266,9 +261,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
     }
 
     // At least one handler-sourced hook should exist (the postSave we declared).
-    const handlerHook = hookSpans.find(
-      (s) => s.attributes["kumiko.hook_source"] === "handler",
-    );
+    const handlerHook = hookSpans.find((s) => s.attributes["kumiko.hook_source"] === "handler");
     expect(handlerHook).toBeDefined();
   });
 });
@@ -325,9 +318,7 @@ describe("Observability (integration) — outbox cross-process trace", () => {
     // Parent points into the emitting request's span tree — specifically at
     // the dispatcher span (which is where ctx.emit was called from).
     expect(publishSpan.parentSpanId).toBe(dispatcherSpan.spanId);
-    expect(publishSpan.attributes["outbox.event_type"]).toBe(
-      "emit-trace:event:happened",
-    );
+    expect(publishSpan.attributes["outbox.event_type"]).toBe("emit-trace:event:happened");
     expect(publishSpan.attributes["outbox.outcome"]).toBe("published");
   });
 });
@@ -339,7 +330,7 @@ describe("Observability (integration) — Redis wrapper", () => {
   let stack: TestStack;
   let provider: RecordingProvider;
 
-  const redisFeature = defineFeature("redis-tr", (r) => {
+  const redisFeature = defineFeature("redis-cmds", (r) => {
     r.writeHandler(
       "ping",
       z.object({}),
@@ -367,7 +358,7 @@ describe("Observability (integration) — Redis wrapper", () => {
   });
 
   it("emits redis.cmd spans for set + get, redacts raw keys to a pattern", async () => {
-    await stack.http.writeOk("redis-tr:write:ping", {}, adminUser);
+    await stack.http.writeOk("redis-cmds:write:ping", {}, adminUser);
 
     const redisSpans = provider.spansByName("redis.cmd");
     // Exactly the two commands the handler issued.
@@ -395,39 +386,17 @@ describe("Observability (integration) — Redis wrapper", () => {
   });
 });
 
-// Pino bridge: ctx.log entries automatically carry the active trace context
-// (traceId + spanId) so operators can jump from a log line to the trace in
-// their backend. End-to-end means: build a capture-logger that mirrors the
-// Logger contract, inject it via extraContext, call ctx.log inside a
-// handler running under a real HTTP request, and verify trace fields landed.
+// Pino bridge: ctx.log entries emitted through the real createLogger()
+// automatically carry the active trace context (traceId + spanId). Genuine
+// end-to-end means: give createLogger a custom destination stream, inject
+// it via extraContext, fire an HTTP request that calls ctx.log inside a
+// handler, then parse the captured NDJSON and verify trace fields landed.
 describe("Observability (integration) — Pino trace bridge", () => {
-  type LogEntry = {
-    readonly msg: string;
-    readonly data: Record<string, unknown> | undefined;
-  };
   let stack: TestStack;
   let provider: RecordingProvider;
-  let logEntries: LogEntry[];
+  let capturedLines: string[];
 
-  function createCaptureLogger(
-    entries: LogEntry[],
-    baseContext: Record<string, unknown> = {},
-  ): Logger {
-    const emit = (msg: string, data?: Record<string, unknown>) => {
-      const withContext = { ...baseContext, ...(data ?? {}) };
-      const withTrace = mergeTraceFields(withContext);
-      entries.push({ msg, data: withTrace });
-    };
-    return {
-      info: emit,
-      warn: emit,
-      error: emit,
-      debug: emit,
-      child: (ctx) => createCaptureLogger(entries, { ...baseContext, ...ctx }),
-    };
-  }
-
-  const logFeature = defineFeature("log-tr", (r) => {
+  const logFeature = defineFeature("pino-bridge", (r) => {
     r.writeHandler(
       "say",
       z.object({ msg: z.string() }),
@@ -440,14 +409,21 @@ describe("Observability (integration) — Pino trace bridge", () => {
   });
 
   beforeEach(async () => {
-    logEntries = [];
+    capturedLines = [];
     provider = createRecordingProvider();
-    const captureLogger = createCaptureLogger(logEntries);
+    // Pino writes NDJSON; one call = one line. Keep the raw chunks so we can
+    // both assert on the bytes AND parse them back to objects.
+    const destination = {
+      write: (chunk: string) => {
+        capturedLines.push(chunk);
+      },
+    };
+    const realLogger = createLogger({ level: "info", destination });
     stack = await setupTestStack({
       features: [logFeature],
       observability: provider,
       systemHooks: [],
-      extraContext: { log: captureLogger },
+      extraContext: { log: realLogger },
     });
   });
 
@@ -455,32 +431,47 @@ describe("Observability (integration) — Pino trace bridge", () => {
     await stack.cleanup();
   });
 
-  it("ctx.log.info emits trace fields matching the active http.request span", async () => {
-    await stack.http.writeOk("log-tr:write:say", { msg: "hello" }, adminUser);
+  it("real createLogger emits NDJSON with traceId/spanId matching the active span", async () => {
+    await stack.http.writeOk("pino-bridge:write:say", { msg: "hello" }, adminUser);
 
-    const entry = logEntries.find((e) => e.msg === "hello");
+    // Find the NDJSON line pino wrote for our handler log.
+    const parsed = capturedLines
+      .flatMap((c) => c.split("\n"))
+      .filter((l) => l.trim().length > 0)
+      .map((l) => JSON.parse(l) as Record<string, unknown>);
+    const entry = parsed.find((p) => p["msg"] === "hello");
     expect(entry).toBeDefined();
-    expect(entry!.data?.["custom"]).toBe("field");
-    expect(typeof entry!.data?.["traceId"]).toBe("string");
-    expect(typeof entry!.data?.["spanId"]).toBe("string");
+    expect(entry?.["custom"]).toBe("field");
+    expect(typeof entry?.["traceId"]).toBe("string");
+    expect(typeof entry?.["spanId"]).toBe("string");
 
     const httpSpan = provider.spansByName("http.request")[0]!;
-    expect(entry!.data?.["traceId"]).toBe(httpSpan.traceId);
+    expect(entry?.["traceId"]).toBe(httpSpan.traceId);
 
     // spanId should match one of the spans in the same trace (most specific
     // active span when ctx.log is called — typically the dispatcher span).
-    const idsInTrace = provider
-      .spansByTraceId(httpSpan.traceId)
-      .map((s) => s.spanId);
-    expect(idsInTrace).toContain(entry!.data?.["spanId"]);
+    const idsInTrace = provider.spansByTraceId(httpSpan.traceId).map((s) => s.spanId);
+    expect(idsInTrace).toContain(entry?.["spanId"]);
   });
 
-  it("logs outside any span have no trace fields", () => {
-    const entries: LogEntry[] = [];
-    const l = createCaptureLogger(entries);
-    l.info("standalone");
-    expect(entries[0]!.data?.["traceId"]).toBeUndefined();
-    expect(entries[0]!.data?.["spanId"]).toBeUndefined();
+  it("logs outside any active span have no trace fields", () => {
+    const lines: string[] = [];
+    const destination = {
+      write: (chunk: string) => {
+        lines.push(chunk);
+      },
+    };
+    const logger = createLogger({ level: "info", destination });
+    logger.info("standalone");
+
+    const parsed = lines
+      .flatMap((c) => c.split("\n"))
+      .filter((l) => l.trim().length > 0)
+      .map((l) => JSON.parse(l) as Record<string, unknown>);
+    const entry = parsed.find((p) => p["msg"] === "standalone");
+    expect(entry).toBeDefined();
+    expect(entry?.["traceId"]).toBeUndefined();
+    expect(entry?.["spanId"]).toBeUndefined();
   });
 });
 
@@ -495,7 +486,7 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
   // Track which job runs so we can await completion before asserting spans.
   let jobRanWith: Record<string, unknown> | undefined;
 
-  const jobFeature = defineFeature("job-tr", (r) => {
+  const jobFeature = defineFeature("jobs-trace", (r) => {
     r.job("record", { trigger: { manual: true } }, async (payload) => {
       jobRanWith = payload;
     });
@@ -531,14 +522,10 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
 
       // Dispatch the job from inside an active span — this is the caller that
       // the worker must link back to via the serialized trace context.
-      const dispatched = await provider.tracer.withSpan(
-        "caller.request",
-        {},
-        async () => {
-          await runner.dispatch("job-tr:job:record", { note: "hi" });
-          return provider.tracer.getActiveSpan()!;
-        },
-      );
+      const dispatched = await provider.tracer.withSpan("caller.request", {}, async () => {
+        await runner.dispatch("jobs-trace:job:record", { note: "hi" });
+        return provider.tracer.getActiveSpan()!;
+      });
 
       await waitFor(() => {
         if (jobRanWith === undefined) throw new Error("job didn't run yet");
@@ -551,7 +538,7 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
       expect(jobSpan).toBeDefined();
       expect(jobSpan.traceId).toBe(callerSpan.traceId);
       expect(jobSpan.parentSpanId).toBe(dispatched.spanId);
-      expect(jobSpan.attributes["job.name"]).toBe("job-tr:job:record");
+      expect(jobSpan.attributes["job.name"]).toBe("jobs-trace:job:record");
     } finally {
       await runner.stop();
     }
@@ -570,7 +557,7 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
 
     try {
       await runner.start();
-      await runner.dispatch("job-tr:job:record", { note: "root" });
+      await runner.dispatch("jobs-trace:job:record", { note: "root" });
       await waitFor(() => {
         if (jobRanWith === undefined) throw new Error("job didn't run yet");
       });
@@ -609,9 +596,7 @@ describe("Observability (integration) — error path", () => {
     expect(dispatcherSpan?.status).toBe("error");
 
     const errorCounter = provider.metricEvents.find(
-      (e) =>
-        e.type === "counter.inc" &&
-        e.name === "kumiko_dispatcher_handler_errors_total",
+      (e) => e.type === "counter.inc" && e.name === "kumiko_dispatcher_handler_errors_total",
     );
     expect(errorCounter).toBeDefined();
     expect(errorCounter?.labels?.["handler"]).toBe("err:write:boom");

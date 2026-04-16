@@ -1,12 +1,5 @@
 import { validateLabelKey } from "./metric-validator";
-import type {
-  Counter,
-  Gauge,
-  Histogram,
-  Meter,
-  MetricDefinition,
-  MetricLabels,
-} from "./types";
+import type { Counter, Gauge, Histogram, Meter, MetricDefinition, MetricLabels } from "./types";
 
 // Event type emitted when any metric changes — feeds into provider emitters.
 // labels is explicit union (not optional) to work with exactOptionalPropertyTypes.
@@ -43,6 +36,7 @@ function validateLabels(def: MetricDefinition, labels?: MetricLabels): void {
         `[Kumiko Observability] Metric "${def.name}" expects labels ${[...declared].join(", ")} but got none.`,
       );
     }
+    // skip: metric has no declared labels and none were passed — valid call
     return;
   }
   for (const key of Object.keys(labels)) {
@@ -55,9 +49,7 @@ function validateLabels(def: MetricDefinition, labels?: MetricLabels): void {
   }
   for (const key of declared) {
     if (!(key in labels)) {
-      throw new Error(
-        `[Kumiko Observability] Metric "${def.name}" missing label "${key}".`,
-      );
+      throw new Error(`[Kumiko Observability] Metric "${def.name}" missing label "${key}".`);
     }
   }
 }
@@ -113,9 +105,7 @@ export class RecordingMeter implements Meter {
 
   registerMetric(def: MetricDefinition): void {
     if (this.defs.has(def.name)) {
-      throw new Error(
-        `[Kumiko Observability] Metric "${def.name}" already registered.`,
-      );
+      throw new Error(`[Kumiko Observability] Metric "${def.name}" already registered.`);
     }
     for (const label of def.labels ?? []) {
       validateLabelKey(label);
@@ -137,9 +127,7 @@ export class RecordingMeter implements Meter {
   counter(name: string): Counter {
     const c = this.counters.get(name);
     if (!c) {
-      throw new Error(
-        `[Kumiko Observability] Counter "${name}" not registered or wrong type.`,
-      );
+      throw new Error(`[Kumiko Observability] Counter "${name}" not registered or wrong type.`);
     }
     return c;
   }
@@ -147,9 +135,7 @@ export class RecordingMeter implements Meter {
   histogram(name: string): Histogram {
     const h = this.histograms.get(name);
     if (!h) {
-      throw new Error(
-        `[Kumiko Observability] Histogram "${name}" not registered or wrong type.`,
-      );
+      throw new Error(`[Kumiko Observability] Histogram "${name}" not registered or wrong type.`);
     }
     return h;
   }
@@ -157,9 +143,7 @@ export class RecordingMeter implements Meter {
   gauge(name: string): Gauge {
     const g = this.gauges.get(name);
     if (!g) {
-      throw new Error(
-        `[Kumiko Observability] Gauge "${name}" not registered or wrong type.`,
-      );
+      throw new Error(`[Kumiko Observability] Gauge "${name}" not registered or wrong type.`);
     }
     return g;
   }

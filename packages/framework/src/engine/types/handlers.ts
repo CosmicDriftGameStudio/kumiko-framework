@@ -13,9 +13,7 @@ import type { SearchAdapter } from "../../search/types";
 // To grant access, set one of:
 //   - { roles: ["Admin", ...] }   — role-based allowlist (empty array denies everyone)
 //   - { openToAll: true }         — any authenticated user may call (still requires a valid JWT)
-export type AccessRule =
-  | { readonly roles: readonly string[] }
-  | { readonly openToAll: true };
+export type AccessRule = { readonly roles: readonly string[] } | { readonly openToAll: true };
 
 // --- Pipeline User ---
 

@@ -136,9 +136,14 @@ const errorFeature = defineFeature("errctr", (r) => {
 
   // NotFoundError thrown directly as KumikoError (in query handler — proves
   // the throw-based path, not the writeFailure return-based path).
-  r.queryHandler("item:detail-strict", z.object({ id: z.number() }), async (event) => {
-    throw new NotFoundError("item", event.payload.id);
-  }, { access: { openToAll: true } });
+  r.queryHandler(
+    "item:detail-strict",
+    z.object({ id: z.number() }),
+    async (event) => {
+      throw new NotFoundError("item", event.payload.id);
+    },
+    { access: { openToAll: true } },
+  );
 
   // InternalError auto-wrap: handler raises an unexpected TypeError; the
   // dispatcher wraps it so the wire body is the sanitized InternalError shape.

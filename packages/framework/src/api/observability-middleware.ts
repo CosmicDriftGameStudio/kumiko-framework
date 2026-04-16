@@ -7,8 +7,8 @@ import {
   type SensitiveFilterConfig,
   type Tracer,
 } from "../observability";
-import { requestContext } from "./request-context";
 import { getUser } from "./auth-middleware";
+import { requestContext } from "./request-context";
 
 // Wraps each incoming /api/* request in an `http.request` span. Must be
 // installed AFTER requestIdMiddleware so the active request-id is available
@@ -27,10 +27,7 @@ export function observabilityMiddleware(opts: ObservabilityMiddlewareOptions) {
   return async (c: Context, next: Next) => {
     const method = c.req.method;
     const path = c.req.path;
-    const target = redactQueryString(
-      c.req.url.replace(/^https?:\/\/[^/]+/, ""),
-      sensitiveConfig,
-    );
+    const target = redactQueryString(c.req.url.replace(/^https?:\/\/[^/]+/, ""), sensitiveConfig);
 
     // Start the root span for this request. kind=server marks it as an
     // incoming server-side span in OTel terms.

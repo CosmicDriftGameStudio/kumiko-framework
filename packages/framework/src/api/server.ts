@@ -8,10 +8,10 @@ import {
   createNoopProvider,
   DEFAULT_SENSITIVE_CONFIG,
   mergeSensitiveConfig,
-  registerStandardMetrics,
-  wrapRedisClient,
   type ObservabilityOptions,
   type ObservabilityProvider,
+  registerStandardMetrics,
+  wrapRedisClient,
 } from "../observability";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
@@ -106,9 +106,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const shouldWrapRedis = options.observability !== undefined;
   const redisCtx = options.context.redis;
   const wrappedRedis =
-    shouldWrapRedis && redisCtx
-      ? wrapRedisClient(redisCtx, observability.tracer)
-      : redisCtx;
+    shouldWrapRedis && redisCtx ? wrapRedisClient(redisCtx, observability.tracer) : redisCtx;
 
   // Inject tracer + meter into the AppContext so the dispatcher can propagate
   // them into every HandlerContext it builds.

@@ -1,22 +1,26 @@
-import pino from "pino";
+import pino, { type DestinationStream } from "pino";
 import { observabilityContext } from "../observability";
 import type { Logger } from "./types";
 
 export type LoggerOptions = {
   level?: "debug" | "info" | "warn" | "error";
   pretty?: boolean;
+  // Optional custom sink — pino writes NDJSON to it instead of stdout. Used
+  // in tests that need to capture and parse log output.
+  destination?: DestinationStream;
 };
 
 export function createLogger(options: LoggerOptions = {}): Logger {
   const level = options.level ?? (process.env["LOG_LEVEL"] as LoggerOptions["level"]) ?? "info";
   const pretty = options.pretty ?? process.env["LOG_FORMAT"] === "pretty";
 
-  const pinoLogger = pino({
+  const pinoConfig = {
     level,
-    ...(pretty && {
-      transport: { target: "pino-pretty", options: { colorize: true } },
-    }),
-  });
+    ...(pretty && !options.destination
+      ? { transport: { target: "pino-pretty", options: { colorize: true } } }
+      : {}),
+  };
+  const pinoLogger = options.destination ? pino(pinoConfig, options.destination) : pino(pinoConfig);
 
   return wrapPino(pinoLogger);
 }
@@ -30,7 +34,7 @@ export function mergeTraceFields(
   data: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   const span = observabilityContext.getActiveSpan();
-  if (!span || !span.traceId) return data;
+  if (!span?.traceId) return data;
   const traceFields = { traceId: span.traceId, spanId: span.spanId };
   return data ? { ...traceFields, ...data } : traceFields;
 }

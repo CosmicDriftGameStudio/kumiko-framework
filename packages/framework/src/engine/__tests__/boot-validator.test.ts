@@ -300,9 +300,7 @@ describe("boot-validator", () => {
         }));
       }),
     ];
-    expect(() => validateBoot(features)).toThrow(
-      /a:write:createThing.*missing an access rule/i,
-    );
+    expect(() => validateBoot(features)).toThrow(/a:write:createThing.*missing an access rule/i);
   });
 
   test("throws when a query handler has no access rule", () => {

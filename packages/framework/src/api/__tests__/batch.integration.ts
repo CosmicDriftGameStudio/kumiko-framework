@@ -307,8 +307,7 @@ describe("POST /api/batch", () => {
 
     // Parallel iff the two intervals overlap: one starts before the other
     // ends. Sequential execution would produce disjoint intervals.
-    const overlap =
-      (aStart as number) < (bEnd as number) && (bStart as number) < (aEnd as number);
+    const overlap = (aStart as number) < (bEnd as number) && (bStart as number) < (aEnd as number);
     expect(overlap).toBe(true);
   });
 

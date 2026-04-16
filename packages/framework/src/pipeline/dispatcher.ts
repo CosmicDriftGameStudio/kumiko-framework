@@ -211,10 +211,9 @@ export function createDispatcher(
     // the trace cross-process. Empty traceId (noop / outside any span) is
     // stored as null — the poller will simply start a root span in that case.
     const activeSpan = dispatcherTracer.getActiveSpan();
-    const traceContext =
-      activeSpan && activeSpan.traceId
-        ? { traceId: activeSpan.traceId, spanId: activeSpan.spanId }
-        : null;
+    const traceContext = activeSpan?.traceId
+      ? { traceId: activeSpan.traceId, spanId: activeSpan.spanId }
+      : null;
 
     await dbSource.insert(eventOutboxTable).values({
       tenantId: user.tenantId || null,
@@ -388,8 +387,7 @@ export function createDispatcher(
             return result;
           } catch (error) {
             success = false;
-            errorClass =
-              error instanceof Error && error.name ? error.name : "UnknownError";
+            errorClass = error instanceof Error && error.name ? error.name : "UnknownError";
             throw error;
           }
         },
@@ -744,8 +742,7 @@ export function createDispatcher(
           else if (data.kind === "delete") deletes.push(data as unknown as DeleteContext);
         }
         if (saves.length > 0 && lifecycle) await lifecycle.runPostSaveBatch(saves, context);
-        if (deletes.length > 0 && lifecycle)
-          await lifecycle.runPostDeleteBatch(deletes, context);
+        if (deletes.length > 0 && lifecycle) await lifecycle.runPostDeleteBatch(deletes, context);
       } catch (e) {
         // Batch hooks must never fail the batch — the commit already happened.
         const msg = "batch hook flush failed";

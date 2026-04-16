@@ -15,7 +15,9 @@ function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHo
   const feature = defineFeature("test", (r) => {
     r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
     // Dummy handler so hook targets resolve (boot validation requires it)
-    r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), { access: { openToAll: true } });
+    r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+      access: { openToAll: true },
+    });
     if (hooks?.preSave) {
       for (const h of hooks.preSave) r.hook("preSave", "user", h);
     }
@@ -281,7 +283,9 @@ describe("runPostSave phase routing", () => {
     const calls: string[] = [];
     const feature = defineFeature("phases", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
       r.hook(
         "postSave",
         "user",
@@ -308,7 +312,9 @@ describe("runPostSave phase routing", () => {
   test("inTransaction phase: hook errors throw (to roll back)", async () => {
     const feature = defineFeature("phases", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
       r.hook(
         "postSave",
         "user",
@@ -331,7 +337,9 @@ describe("runPostSave phase routing", () => {
     const afterRan: string[] = [];
     const feature = defineFeature("phases", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
       r.hook("postSave", "user", async () => {
         throw new Error("afterCommit-boom");
       });
@@ -354,7 +362,9 @@ describe("runPostSave phase routing", () => {
   test("system hooks respect their phase setting", async () => {
     const feature = defineFeature("phases", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), { access: { openToAll: true } });
+      r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
     });
     const registry = createRegistry([feature]);
 

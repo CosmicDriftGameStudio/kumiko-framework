@@ -1,7 +1,7 @@
-import { RecordingMeter, type MetricEvent } from "./recording-meter";
-import { RecordingTracer, type RecordedSpan } from "./recording-tracer";
+import { type MetricEvent, RecordingMeter } from "./recording-meter";
+import { type RecordedSpan, RecordingTracer } from "./recording-tracer";
 import { DEFAULT_SENSITIVE_CONFIG, mergeSensitiveConfig } from "./sensitive-filter";
-import type { ObservabilityProvider, ObservabilityOptions } from "./types";
+import type { ObservabilityOptions, ObservabilityProvider } from "./types";
 
 type ConsoleWriter = {
   readonly log: (line: string) => void;
@@ -27,8 +27,7 @@ function renderTree(
       span.endTime !== undefined
         ? `${(span.endTime - span.startTime).toFixed(1)}ms`
         : "(unfinished)";
-    const statusTag =
-      span.status === "error" ? " [ERR]" : span.status === "ok" ? "" : "";
+    const statusTag = span.status === "error" ? " [ERR]" : span.status === "ok" ? "" : "";
     lines.push(`${prefix}${connector}${span.name} (${duration})${statusTag}`);
 
     const attrKeys = Object.keys(span.attributes);
@@ -68,13 +67,9 @@ function groupByParent(
   return map;
 }
 
-export function createConsoleProvider(
-  options: ConsoleProviderOptions = {},
-): ObservabilityProvider {
-  const writer = options.writer ?? { log: (line) => console.log(line) };
-  const sensitiveConfig = mergeSensitiveConfig(
-    options.sensitiveFilter ?? DEFAULT_SENSITIVE_CONFIG,
-  );
+export function createConsoleProvider(options: ConsoleProviderOptions = {}): ObservabilityProvider {
+  const writer = options.writer ?? { log: (_line) => {} };
+  const sensitiveConfig = mergeSensitiveConfig(options.sensitiveFilter ?? DEFAULT_SENSITIVE_CONFIG);
   const bufferUntilRoot = options.bufferUntilRoot !== false;
 
   // Per-trace buffer. Once the root (parentSpanId === undefined) ends, we
@@ -87,6 +82,7 @@ export function createConsoleProvider(
   const handleSpanEnd = (span: RecordedSpan) => {
     if (!bufferUntilRoot) {
       writer.log(renderTree(span, new Map([[span.parentSpanId, []]])));
+      // skip: flat-print mode already emitted the span, no tree buffering needed
       return;
     }
     const bucket = buffer.get(span.traceId) ?? [];

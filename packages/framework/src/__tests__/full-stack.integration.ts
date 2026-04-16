@@ -302,8 +302,8 @@ describe("full stack: SaveContext changes + previous", () => {
       {
         id: created["id"],
         changes: { firstName: "After" },
-          version: 1
-    },
+        version: 1,
+      },
       adminUser,
     );
 
@@ -406,8 +406,8 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       {
         id: created["id"],
         changes: { firstName: "New" },
-          version: 1
-    },
+        version: 1,
+      },
       adminUser,
     );
 
@@ -448,8 +448,8 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       {
         id: created["id"],
         changes: { firstName: "SSE" },
-          version: 1
-    },
+        version: 1,
+      },
       adminUser,
     );
 
@@ -781,9 +781,7 @@ describe("full stack: entity cache", () => {
     // Update via API — invalidates cache
     await stack.http.writeOk(
       "users:write:user:update",
-      { id, changes: { firstName: "AfterUpdate" },
-          version: 1
-    },
+      { id, changes: { firstName: "AfterUpdate" }, version: 1 },
       adminUser,
     );
 

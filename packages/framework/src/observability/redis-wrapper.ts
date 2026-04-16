@@ -127,4 +127,3 @@ export function wrapRedisClient(client: Redis, tracer: Tracer): Redis {
     },
   });
 }
-

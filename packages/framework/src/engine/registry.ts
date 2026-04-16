@@ -67,10 +67,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const mergedTranslations: Record<string, Record<string, string>> = {};
   // Metric registry — keyed by fully qualified name (kumiko_<feature>_<short>).
   // Boot-time validation rejects bad names; dashboards then safely rely on shape.
-  const metricMap = new Map<
-    string,
-    FeatureMetricDef & { readonly featureName: string }
-  >();
+  const metricMap = new Map<string, FeatureMetricDef & { readonly featureName: string }>();
 
   // Qualified name helper: builds "scope:type:name" from feature + type + short name.
   // Both feature name and handler name are converted to kebab-case.

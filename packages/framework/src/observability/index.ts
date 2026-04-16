@@ -1,14 +1,60 @@
 // Public surface of the observability module.
 
+export { type ConsoleProviderOptions, createConsoleProvider } from "./console-provider";
+
+export { observabilityContext } from "./context";
+export { getFallbackMeter, getFallbackProvider, getFallbackTracer } from "./fallback";
+export { generateSpanId, generateTraceId } from "./ids";
+export {
+  buildMetricName,
+  validateLabelKey,
+  validateMetricName,
+} from "./metric-validator";
+export {
+  createMetricsHandle,
+  createNoopMetricsHandle,
+  createUnboundMetricsHandle,
+} from "./metrics-handle";
+export { createNoopProvider } from "./noop-provider";
+export {
+  type MetricEvent,
+  type MetricEventHandler,
+  RecordingMeter,
+} from "./recording-meter";
+export {
+  type RecordedSpan,
+  RecordingTracer,
+  type RecordingTracerOptions,
+  serializeSpanContext,
+} from "./recording-tracer";
+export { wrapRedisClient } from "./redis-wrapper";
+export {
+  DEFAULT_SENSITIVE_CONFIG,
+  mergeSensitiveConfig,
+  REDACTED,
+  redactAttributes,
+  redactHeaders,
+  redactQueryString,
+  redactValue,
+  shouldRedactAttribute,
+} from "./sensitive-filter";
+export {
+  emitDbQuery,
+  emitDispatcherError,
+  emitDispatcherHandler,
+  emitHttpRequest,
+  registerStandardMetrics,
+  STANDARD_METRIC_DEFS,
+} from "./standard-metrics";
 export type {
   Counter,
   Gauge,
   Histogram,
+  Meter,
   MetricDefinition,
   MetricLabels,
   MetricsHandle,
   MetricType,
-  Meter,
   ObservabilityOptions,
   ObservabilityProvider,
   SamplingConfig,
@@ -22,53 +68,3 @@ export type {
   StartSpanOptions,
   Tracer,
 } from "./types";
-export { isSerializedTraceContext } from "./types";
-
-export { observabilityContext } from "./context";
-
-export {
-  DEFAULT_SENSITIVE_CONFIG,
-  REDACTED,
-  mergeSensitiveConfig,
-  redactAttributes,
-  redactHeaders,
-  redactQueryString,
-  redactValue,
-  shouldRedactAttribute,
-} from "./sensitive-filter";
-
-export {
-  buildMetricName,
-  validateLabelKey,
-  validateMetricName,
-} from "./metric-validator";
-
-export { createNoopProvider } from "./noop-provider";
-export { getFallbackMeter, getFallbackProvider, getFallbackTracer } from "./fallback";
-export { createConsoleProvider, type ConsoleProviderOptions } from "./console-provider";
-export {
-  RecordingTracer,
-  serializeSpanContext,
-  type RecordedSpan,
-  type RecordingTracerOptions,
-} from "./recording-tracer";
-export {
-  RecordingMeter,
-  type MetricEvent,
-  type MetricEventHandler,
-} from "./recording-meter";
-export { generateSpanId, generateTraceId } from "./ids";
-export {
-  createMetricsHandle,
-  createNoopMetricsHandle,
-  createUnboundMetricsHandle,
-} from "./metrics-handle";
-export {
-  STANDARD_METRIC_DEFS,
-  emitDbQuery,
-  emitDispatcherError,
-  emitDispatcherHandler,
-  emitHttpRequest,
-  registerStandardMetrics,
-} from "./standard-metrics";
-export { wrapRedisClient } from "./redis-wrapper";

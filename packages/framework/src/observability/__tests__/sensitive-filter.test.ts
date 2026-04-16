@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SENSITIVE_CONFIG,
-  REDACTED,
   mergeSensitiveConfig,
+  REDACTED,
   redactAttributes,
   redactHeaders,
   redactQueryString,
@@ -29,20 +29,14 @@ describe("redactHeaders", () => {
   });
 
   it("keeps other headers unchanged", () => {
-    const result = redactHeaders(
-      { "user-agent": "Mozilla" },
-      DEFAULT_SENSITIVE_CONFIG,
-    );
+    const result = redactHeaders({ "user-agent": "Mozilla" }, DEFAULT_SENSITIVE_CONFIG);
     expect(result["user-agent"]).toBe("Mozilla");
   });
 });
 
 describe("redactQueryString", () => {
   it("redacts tokens in path+query form", () => {
-    const result = redactQueryString(
-      "/api/callback?token=abc&user=bob",
-      DEFAULT_SENSITIVE_CONFIG,
-    );
+    const result = redactQueryString("/api/callback?token=abc&user=bob", DEFAULT_SENSITIVE_CONFIG);
     expect(result).toContain(`token=${encodeURIComponent(REDACTED)}`);
     expect(result).toContain("user=bob");
   });
@@ -57,10 +51,7 @@ describe("redactQueryString", () => {
   });
 
   it("preserves path and fragment", () => {
-    const result = redactQueryString(
-      "/path/to/thing?password=x#section",
-      DEFAULT_SENSITIVE_CONFIG,
-    );
+    const result = redactQueryString("/path/to/thing?password=x#section", DEFAULT_SENSITIVE_CONFIG);
     expect(result.startsWith("/path/to/thing")).toBe(true);
     expect(result.endsWith("#section")).toBe(true);
   });

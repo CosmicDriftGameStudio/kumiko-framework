@@ -21,6 +21,7 @@ export function validateMetricName(name: string, type: MetricType): void {
             `Suggested: "${name}_total".`,
         );
       }
+      // skip: counter suffix validated, nothing more to check
       return;
 
     case "histogram":
@@ -38,6 +39,7 @@ export function validateMetricName(name: string, type: MetricType): void {
             `(e.g. "${name}_seconds", "${name}_bytes", "${name}_eur").`,
         );
       }
+      // skip: histogram naming + unit suffix validated
       return;
 
     case "gauge":
@@ -53,6 +55,7 @@ export function validateMetricName(name: string, type: MetricType): void {
             `— duration values are typically histograms.`,
         );
       }
+      // skip: gauge naming validated (no _total, no _seconds)
       return;
   }
 }
@@ -61,9 +64,7 @@ export function validateMetricName(name: string, type: MetricType): void {
 // Short name: "created_total". Feature: "orders". Result: "kumiko_orders_created_total".
 export function buildMetricName(featureName: string, shortName: string): string {
   if (!SNAKE_CASE.test(featureName)) {
-    throw new Error(
-      `[Kumiko Observability] Feature name "${featureName}" must be snake_case.`,
-    );
+    throw new Error(`[Kumiko Observability] Feature name "${featureName}" must be snake_case.`);
   }
   return `kumiko_${featureName}_${shortName}`;
 }
@@ -73,13 +74,9 @@ const RESERVED_LABELS = new Set(["__name__", "le", "quantile"]);
 
 export function validateLabelKey(key: string): void {
   if (!SNAKE_CASE.test(key)) {
-    throw new Error(
-      `[Kumiko Observability] Label key "${key}" must be snake_case.`,
-    );
+    throw new Error(`[Kumiko Observability] Label key "${key}" must be snake_case.`);
   }
   if (RESERVED_LABELS.has(key)) {
-    throw new Error(
-      `[Kumiko Observability] Label key "${key}" is reserved (Prometheus internal).`,
-    );
+    throw new Error(`[Kumiko Observability] Label key "${key}" is reserved (Prometheus internal).`);
   }
 }

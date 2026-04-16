@@ -29,13 +29,11 @@ export type FileRef = {
 // (ownerOrPrivilegedGuard) approves uploaders + any role in privilegedRoles.
 // Apps can supply a custom guard to layer entity-level access (e.g. "drivers
 // can read files attached to orders assigned to them").
-export type FileAccessGuard = (
-  args: {
-    readonly fileRef: FileRef;
-    readonly user: SessionUser;
-    readonly operation: "read" | "delete";
-  },
-) => FileAccessDecision | Promise<FileAccessDecision>;
+export type FileAccessGuard = (args: {
+  readonly fileRef: FileRef;
+  readonly user: SessionUser;
+  readonly operation: "read" | "delete";
+}) => FileAccessDecision | Promise<FileAccessDecision>;
 
 export type FileRoutesOptions = {
   readonly db: DbConnection;

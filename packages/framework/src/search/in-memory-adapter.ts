@@ -112,6 +112,7 @@ export function createInMemorySearchAdapter(): SearchAdapter {
 
     async removeBatch(tenantId, items) {
       const tenant = tenants.get(tenantId);
+      // skip: tenant has no in-memory index (never configured) — nothing to remove
       if (!tenant) return;
       for (const item of items) {
         tenant.docs.delete(docKey(item.entityType, item.entityId));

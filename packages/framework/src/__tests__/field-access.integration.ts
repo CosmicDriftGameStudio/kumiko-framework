@@ -200,9 +200,7 @@ describe("field-level write access", () => {
     const res = await (
       await req("POST", "/api/write", adminUser, {
         type: "employees:write:employee:update",
-        payload: { id, changes: { salary: 80000 },
-            version: 1
-        },
+        payload: { id, changes: { salary: 80000 }, version: 1 },
       })
     ).json();
 
@@ -214,9 +212,7 @@ describe("field-level write access", () => {
     const res = await (
       await req("POST", "/api/write", employeeUser, {
         type: "employees:write:employee:update",
-        payload: { id, changes: { salary: 999999 },
-            version: 1
-        },
+        payload: { id, changes: { salary: 999999 }, version: 1 },
       })
     ).json();
 
@@ -230,9 +226,7 @@ describe("field-level write access", () => {
     const res = await (
       await req("POST", "/api/write", employeeUser, {
         type: "employees:write:employee:update",
-        payload: { id, changes: { firstName: "Updated" },
-            version: 1
-        },
+        payload: { id, changes: { firstName: "Updated" }, version: 1 },
       })
     ).json();
 
@@ -258,9 +252,7 @@ describe("field-level write access", () => {
     const res = await (
       await req("POST", "/api/write", accountingUser, {
         type: "employees:write:employee:update",
-        payload: { id, changes: { salary: 60000 },
-            version: 1
-        },
+        payload: { id, changes: { salary: 60000 }, version: 1 },
       })
     ).json();
 

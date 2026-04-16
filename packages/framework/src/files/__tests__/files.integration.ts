@@ -173,16 +173,10 @@ describe("file validation", () => {
 
   test("validateFile accepts jpeg mimeType variants for jpg extension", () => {
     expect(
-      validateFile(
-        { fileName: "a.jpg", mimeType: "image/jpeg", size: 100 },
-        { accept: ["jpg"] },
-      ),
+      validateFile({ fileName: "a.jpg", mimeType: "image/jpeg", size: 100 }, { accept: ["jpg"] }),
     ).toBeNull();
     expect(
-      validateFile(
-        { fileName: "a.jpg", mimeType: "image/jpg", size: 100 },
-        { accept: ["jpg"] },
-      ),
+      validateFile({ fileName: "a.jpg", mimeType: "image/jpg", size: 100 }, { accept: ["jpg"] }),
     ).toBeNull();
   });
 });
@@ -264,7 +258,17 @@ describe("file upload flow via API", () => {
 // --- Cross-user access within a tenant (attached file owner-scope) ---
 
 describe("attached file owner-scope", () => {
-  const testPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array(50).fill(0)]);
+  const testPng = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(50).fill(0),
+  ]);
   // Same tenant as adminUser (tenantId 1), different id and no privileged role.
   const memberUser: SessionUser = { id: 42, tenantId: 1, roles: ["User"] };
 
@@ -312,7 +316,17 @@ describe("attached file owner-scope", () => {
 // --- Custom access guard + privilegedRoles ---
 
 describe("custom file access guard", () => {
-  const testPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array(30).fill(0)]);
+  const testPng = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(30).fill(0),
+  ]);
 
   // Spin up an isolated DB + storage dir for a single-test server. Runs the
   // body inside try/finally so the DB and tmpdir are cleaned up even if
@@ -376,19 +390,22 @@ describe("custom file access guard", () => {
   }
 
   test("privilegedRoles override: app-defined role (e.g. Supervisor) replaces the default Admin+SystemAdmin", async () => {
-    await withIsolatedFileServer({ privilegedRoles: ["Supervisor"] }, async ({ upload, request }) => {
-      const uploader: SessionUser = { id: 10, tenantId: 1, roles: ["User"] };
-      const supervisor: SessionUser = { id: 20, tenantId: 1, roles: ["Supervisor"] };
-      const adminCaller: SessionUser = { id: 30, tenantId: 1, roles: ["Admin"] };
+    await withIsolatedFileServer(
+      { privilegedRoles: ["Supervisor"] },
+      async ({ upload, request }) => {
+        const uploader: SessionUser = { id: 10, tenantId: 1, roles: ["User"] };
+        const supervisor: SessionUser = { id: 20, tenantId: 1, roles: ["Supervisor"] };
+        const adminCaller: SessionUser = { id: 30, tenantId: 1, roles: ["Admin"] };
 
-      const uploaded = await upload(uploader, "custom-role.png");
-      const { id } = await uploaded.json();
+        const uploaded = await upload(uploader, "custom-role.png");
+        const { id } = await uploaded.json();
 
-      // Supervisor (the new privileged role) can read.
-      expect((await request(supervisor, id)).status).toBe(200);
-      // Admin is NO longer privileged under this config.
-      expect((await request(adminCaller, id)).status).toBe(404);
-    });
+        // Supervisor (the new privileged role) can read.
+        expect((await request(supervisor, id)).status).toBe(200);
+        // Admin is NO longer privileged under this config.
+        expect((await request(adminCaller, id)).status).toBe(404);
+      },
+    );
   });
 
   test("custom accessGuard receives read/delete operation and can distinguish", async () => {
