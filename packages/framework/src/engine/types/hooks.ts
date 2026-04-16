@@ -1,3 +1,4 @@
+import type { StoredEvent } from "../../event-store/event-store";
 import type { AppContext } from "./handlers";
 import type { EntityId } from "./identifiers";
 
@@ -22,6 +23,11 @@ export type SaveContext = {
   readonly previous: Readonly<Record<string, unknown>>;
   readonly isNew: boolean;
   readonly entityName?: string | undefined;
+  // The event that produced this save. Populated by the event-store-executor;
+  // the pipeline uses it to drive projections inside the same transaction.
+  // Optional because hand-crafted SaveContexts (tests, custom executors) may
+  // not have an event — projections just skip in that case.
+  readonly event?: StoredEvent | undefined;
 };
 
 export type DeleteContext = {
@@ -29,6 +35,8 @@ export type DeleteContext = {
   readonly id: EntityId;
   readonly data: Readonly<Record<string, unknown>>;
   readonly entityName?: string | undefined;
+  // See SaveContext.event — same semantics.
+  readonly event?: StoredEvent | undefined;
 };
 
 export type LifecycleResult = SaveContext | DeleteContext;

@@ -1,11 +1,15 @@
 import type { DbRunner } from "../../db/connection";
+import type { TableColumns } from "../../db/dialect";
 import type { StoredEvent } from "../../event-store/event-store";
 
 // Drizzle pgTable shape — projections hand their table through to apply() so
 // user code writes upserts/updates directly instead of going through a
-// framework-managed state reducer. Same shape buildDrizzleTable returns.
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
-export type ProjectionTable = Record<string, any>;
+// framework-managed state reducer. Using Drizzle's own `PgTableWithColumns<any>`
+// (re-exported as TableColumns) keeps typing honest: drizzle's typed paths work
+// inside apply(), but the column union is erased so framework code doesn't need
+// to know the schema shape of every user table.
+// biome-ignore lint/suspicious/noExplicitAny: Drizzle's PgTable generic needs a concrete row shape; we erase it on purpose because the framework does not know user-defined column types.
+export type ProjectionTable = TableColumns<any>;
 
 // apply() receives the stored event plus the TX-scoped DbRunner (== db.raw inside
 // the event-store-executor). Stay inside this tx; anything that throws rolls

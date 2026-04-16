@@ -102,10 +102,16 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // Projection tables: the executor writes into them in the same TX as the
   // event-append, so they have to exist before the first write. Auto-push
   // everything registered via r.projection() — keeps tests from having to
-  // know which projections a feature happens to declare.
+  // know which projections a feature happens to declare. Two projections
+  // backed by the same physical table (e.g. an alternative apply-shape for
+  // the same read-model in a test feature) are deduped by Drizzle-table
+  // reference so drizzle-kit doesn't emit duplicate CREATE TABLE statements.
   const projectionTables: Record<string, unknown> = {};
+  const seenTables = new Set<unknown>();
   for (const feature of options.features) {
     for (const [projName, proj] of Object.entries(feature.projections)) {
+      if (seenTables.has(proj.table)) continue;
+      seenTables.add(proj.table);
       projectionTables[projName] = proj.table;
     }
   }

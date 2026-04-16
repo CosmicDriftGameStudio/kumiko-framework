@@ -426,6 +426,22 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
+  // Validate: every projection's source must reference a registered entity.
+  // A typo ("unti" instead of "unit") would otherwise be a silent no-op —
+  // the projection is stored but never fires because no aggregateType ever
+  // matches. Fail at boot so the feature author sees it immediately.
+  for (const [projName, projDef] of projectionMap) {
+    const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
+    for (const src of sources) {
+      if (!entityMap.has(src)) {
+        throw new Error(
+          `Projection "${projName}" declares source entity "${src}" which is not registered. ` +
+            `Did you forget r.entity("${src}", ...) or misspell the name?`,
+        );
+      }
+    }
+  }
+
   // Validate: all required features must be registered
   for (const feature of features) {
     for (const required of feature.requires) {

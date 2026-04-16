@@ -3,6 +3,7 @@ import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
 import { buildCrudHandlers } from "./crud-builder";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
+import { toKebab } from "./qualified-name";
 import type {
   AccessRule,
   ConfigDefinition,
@@ -368,6 +369,20 @@ export function defineFeature(
     },
 
     projection(definition: ProjectionDefinition): void {
+      // Reject names that would blow up at registry-boot when we qualify them
+      // ("my_projection" would fail the kebab-case QN segment regex inside
+      // createRegistry). Catch it at the registration site so the stack trace
+      // points at the feature file, not at framework internals.
+      if (
+        toKebab(definition.name) !== definition.name ||
+        !/^[a-z][a-z0-9-]*$/.test(definition.name)
+      ) {
+        throw new Error(
+          `[Feature ${name}] Projection name "${definition.name}" must be kebab-case ` +
+            `(lowercase letters, digits, dashes; start with a letter). ` +
+            `Got "${definition.name}" — try "${toKebab(definition.name).replace(/_/g, "-")}".`,
+        );
+      }
       if (projections[definition.name]) {
         throw new Error(
           `[Feature ${name}] Projection "${definition.name}" already registered. ` +

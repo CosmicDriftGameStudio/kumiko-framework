@@ -97,9 +97,7 @@ export function buildCrudHandlers(
       name: `${entityName}:create`,
       schema: insertSchema,
       handler: async (event, ctx) =>
-        executor.create(event.payload as Record<string, unknown>, event.user, ctx.db, {
-          registry: ctx.registry,
-        }),
+        executor.create(event.payload as Record<string, unknown>, event.user, ctx.db),
       ...spreadAccess("create"),
     },
     [`${entityName}:update`]: {
@@ -114,7 +112,6 @@ export function buildCrudHandlers(
           event.payload as { id: string; version: number; changes: Record<string, unknown> },
           event.user,
           ctx.db,
-          { registry: ctx.registry },
         ),
       ...spreadAccess("update"),
     },
@@ -122,9 +119,7 @@ export function buildCrudHandlers(
       name: `${entityName}:delete`,
       schema: z.object({ id: z.uuid() }),
       handler: async (event, ctx) =>
-        executor.delete(event.payload as { id: string }, event.user, ctx.db, {
-          registry: ctx.registry,
-        }),
+        executor.delete(event.payload as { id: string }, event.user, ctx.db),
       ...spreadAccess("delete"),
     },
   };
@@ -134,9 +129,7 @@ export function buildCrudHandlers(
       name: `${entityName}:restore`,
       schema: z.object({ id: z.uuid() }),
       handler: async (event, ctx) =>
-        executor.restore(event.payload as { id: string }, event.user, ctx.db, {
-          registry: ctx.registry,
-        }),
+        executor.restore(event.payload as { id: string }, event.user, ctx.db),
       ...spreadAccess("restore"),
     };
   }

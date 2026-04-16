@@ -49,6 +49,7 @@ import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { eventOutboxTable, OUTBOX_WAKE_CHANNEL } from "./outbox-table";
+import { runProjections } from "./projections-runner";
 
 // Standard span attributes for a dispatcher call. Feature may be undefined
 // for internal handlers that weren't registered via defineFeature.
@@ -321,8 +322,14 @@ export function createDispatcher(
       },
     };
 
+    // Registry is always the dispatcher's registry — injecting it here lets
+    // tests/callers pass `context` without `registry` and still get a valid
+    // HandlerContext. The spread-then-assign order matters: anything in
+    // `context` can be overridden, but we want the authoritative registry
+    // from the dispatcher's own closure to win.
     return {
       ...context,
+      registry,
       db,
       log,
       notify,
@@ -492,6 +499,12 @@ export function createDispatcher(
       return;
     }
     const result = data as LifecycleResult;
+
+    // Projections run FIRST, inside the tx, before any user postSave/postDelete
+    // hooks. If a projection apply() throws, the whole tx rolls back — the
+    // event and the auto-projection row go with it. Running before the hooks
+    // keeps projection state consistent with what the hooks observe.
+    await runProjections(result, handlerContext);
 
     if (result.kind === "save") {
       await lifecycle.runPostSave(type, result, handlerContext, HookPhases.inTransaction);
