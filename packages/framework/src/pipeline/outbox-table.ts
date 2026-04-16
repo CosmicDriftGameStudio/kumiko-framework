@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { boolean, integer, jsonb, table as pgTable, serial, text, timestamp, uuid } from "../db/dialect";
+import {
+  boolean,
+  integer,
+  jsonb,
+  table as pgTable,
+  serial,
+  text,
+  timestamp,
+  uuid,
+} from "../db/dialect";
 import type { SerializedTraceContext } from "../observability";
 
 // Framework-internal table for the Transactional Outbox pattern.

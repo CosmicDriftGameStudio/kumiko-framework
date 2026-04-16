@@ -57,12 +57,13 @@ const errorFeature = defineFeature("err", (r) => {
 //
 // Entity + Drizzle table are co-located inside the feature closure so the
 // writeHandler can reference the table without a module-level side-effect.
+// id, tenantId, version live in buildBaseColumns — don't redeclare them here.
+// Declaring `tenantId: { type: "number" }` used to overwrite the base UUID
+// column with an integer one; the insert then got a UUID-string and Postgres
+// failed the cast, surfacing as internal_error.
 const todoEntity = {
   fields: {
-    id: { type: "number" as const },
-    tenantId: { type: "number" as const },
     title: { type: "text" as const, required: true },
-    version: { type: "number" as const, default: 0 },
   },
 };
 
@@ -101,7 +102,11 @@ const todoFeature = defineFeature("todo", (r) => {
   });
 });
 
-const adminUser = { id: 1, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["admin"] as const };
+const adminUser = {
+  id: 1,
+  tenantId: "00000000-0000-4000-8000-000000000001",
+  roles: ["admin"] as const,
+};
 
 describe("Observability (integration)", () => {
   let stack: TestStack;

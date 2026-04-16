@@ -1,6 +1,6 @@
+import type { TenantId } from "@kumiko/framework/engine";
 import type Redis from "ioredis";
 import { RedisKeys } from "./redis-keys";
-import type { TenantId } from "@kumiko/framework/engine";
 
 export type EventLogEntry = {
   type: string;

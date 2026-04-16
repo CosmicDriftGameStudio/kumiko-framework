@@ -2,12 +2,15 @@ import type { SseBroker, SseEvent } from "../api/sse-broker";
 import { SystemHookNames, SystemHookPriorities, tenantChannel } from "../engine/constants";
 import { qn } from "../engine/qualified-name";
 import type {
+  EntityId,
   PostDeleteBatchHookFn,
   PostDeleteHookFn,
   PostSaveBatchHookFn,
   PostSaveHookFn,
   Registry,
-  SaveContext, TenantId } from "../engine/types";
+  SaveContext,
+  TenantId,
+} from "../engine/types";
 import { HookPhases } from "../engine/types";
 import type { SearchAdapter, SearchDocument } from "../search/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
@@ -86,7 +89,7 @@ export function createSearchRemoveBatchHook(
     name: SystemHookNames.searchRemove,
     priority: SystemHookPriorities.searchIndex,
     fn: async (payloads) => {
-      const byTenant = new Map<string, { entityType: string; entityId: number }[]>();
+      const byTenant = new Map<string, { entityType: string; entityId: EntityId }[]>();
       for (const p of payloads) {
         if (!p.entityName) continue;
         const tenantId = p.data["tenantId"] as string;
@@ -272,7 +275,7 @@ export type AuditTrailEntry = {
   userId: number;
   action: string;
   entityType: string;
-  entityId: number;
+  entityId: EntityId;
   changes: Record<string, unknown>;
   previous: Record<string, unknown>;
   isNew: boolean;

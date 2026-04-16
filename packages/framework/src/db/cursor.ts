@@ -1,6 +1,6 @@
+import type { TenantId } from "@kumiko/framework/engine";
 import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 import type { SelectQuery as PgSelect } from "./dialect";
-import type { TenantId } from "@kumiko/framework/engine";
 
 export type CursorQueryOptions = {
   tenantId: TenantId;

@@ -148,4 +148,12 @@ export type EntityDefinition = {
   readonly defaultCurrency?: string;
   /** Allowed state transitions per field. Boot validates against select options. */
   readonly transitions?: Readonly<Record<string, TransitionMap>>;
+  /**
+   * PK-Typ der Entity.
+   * - `"serial"` (default): bigserial integer — schneller, kompakter, perfekt für klassische CRUD-Entities.
+   * - `"uuid"`: uuid mit `gen_random_uuid()` default — verpflichtend für Entities deren `id` als
+   *   Foreign-Key-Wert in multi-tenant Kontexten reist (z.B. `tenant.id` IS der `tenantId`). Auch für
+   *   ES-Aggregate (Phase 2+) notwendig, da Events per UUID aggregiert werden.
+   */
+  readonly idType?: "serial" | "uuid";
 };

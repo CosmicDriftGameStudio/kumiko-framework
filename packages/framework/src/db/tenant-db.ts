@@ -1,8 +1,8 @@
+import type { TenantId } from "@kumiko/framework/engine";
 import { and, type Column, eq, getTableName, or, type SQL } from "drizzle-orm";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
-import type { TenantId } from "@kumiko/framework/engine";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;

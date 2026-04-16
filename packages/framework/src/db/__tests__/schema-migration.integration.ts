@@ -172,7 +172,9 @@ describe("schema migration workflows", () => {
     await pushTables(testDb.db, { project: initialTable });
 
     // Insert a row first (to prove ADD COLUMN with default doesn't break existing rows)
-    await testDb.db.insert(initialTable).values({ tenantId: "00000000-0000-4000-8000-000000000001", name: "Test Project" });
+    await testDb.db
+      .insert(initialTable)
+      .values({ tenantId: "00000000-0000-4000-8000-000000000001", name: "Test Project" });
 
     // Developer adds boolean field with default
     const updatedEntity = createEntity({

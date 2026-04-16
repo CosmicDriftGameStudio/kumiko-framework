@@ -1,9 +1,9 @@
+import type { EntityId, TenantId } from "@kumiko/framework/engine";
 import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types";
-import type { TenantId } from "@kumiko/framework/engine";
 
 type StoredDoc = {
   entityType: string;
-  entityId: number;
+  entityId: EntityId;
   weight: number;
   text: Record<string, string>;
 };
@@ -13,7 +13,7 @@ type TenantIndex = {
   docs: Map<string, StoredDoc>;
 };
 
-function docKey(entityType: string, entityId: number): string {
+function docKey(entityType: string, entityId: EntityId): string {
   return `${entityType}:${entityId}`;
 }
 

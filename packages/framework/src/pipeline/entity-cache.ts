@@ -1,6 +1,6 @@
+import type { EntityId, TenantId } from "@kumiko/framework/engine";
 import type Redis from "ioredis";
 import { RedisKeys } from "./redis-keys";
-import type { TenantId } from "@kumiko/framework/engine";
 
 // JSON.stringify turns Date into an ISO string, but DB reads return Date
 // objects. Without a reviver the cache path would yield strings where the
@@ -25,20 +25,24 @@ function parseCached(raw: string): Record<string, unknown> | null {
 
 export type EntityCache = {
   /** Get a single cached entity. Returns null on miss. */
-  get(tenantId: TenantId, entityName: string, id: number): Promise<Record<string, unknown> | null>;
+  get(
+    tenantId: TenantId,
+    entityName: string,
+    id: EntityId,
+  ): Promise<Record<string, unknown> | null>;
 
   /** Get multiple cached entities. Returns a Map of id → data (misses are absent). */
   mget(
     tenantId: TenantId,
     entityName: string,
-    ids: readonly number[],
-  ): Promise<Map<number, Record<string, unknown>>>;
+    ids: readonly EntityId[],
+  ): Promise<Map<EntityId, Record<string, unknown>>>;
 
   /** Cache a single entity. */
   set(
     tenantId: TenantId,
     entityName: string,
-    id: number,
+    id: EntityId,
     data: Record<string, unknown>,
   ): Promise<void>;
 
@@ -46,11 +50,11 @@ export type EntityCache = {
   mset(
     tenantId: TenantId,
     entityName: string,
-    entries: ReadonlyArray<{ id: number; data: Record<string, unknown> }>,
+    entries: ReadonlyArray<{ id: EntityId; data: Record<string, unknown> }>,
   ): Promise<void>;
 
   /** Invalidate a single cached entity. */
-  del(tenantId: TenantId, entityName: string, id: number): Promise<void>;
+  del(tenantId: TenantId, entityName: string, id: EntityId): Promise<void>;
 };
 
 export type EntityCacheOptions = {
@@ -61,7 +65,7 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
   const ttl = options.ttlSeconds ?? 300;
   const prefix = RedisKeys.entityCache;
 
-  function cacheKey(tenantId: TenantId, entityName: string, id: number): string {
+  function cacheKey(tenantId: TenantId, entityName: string, id: EntityId): string {
     return `${prefix}${tenantId}:${entityName}:${id}`;
   }
 
@@ -77,12 +81,12 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
       const keys = ids.map((id) => cacheKey(tenantId, entityName, id));
       const values = await redis.mget(...keys);
 
-      const result = new Map<number, Record<string, unknown>>();
+      const result = new Map<EntityId, Record<string, unknown>>();
       for (let i = 0; i < ids.length; i++) {
         const raw = values[i];
         if (raw) {
           const parsed = parseCached(raw);
-          if (parsed) result.set(ids[i] as number, parsed);
+          if (parsed) result.set(ids[i] as EntityId, parsed);
         }
       }
       return result;

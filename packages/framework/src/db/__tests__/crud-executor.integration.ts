@@ -6,6 +6,7 @@ import {
   createTestUser,
   type TestDb,
   TestUsers,
+  testTenantId,
 } from "../../testing";
 import { type CrudExecutor, createCrudExecutor } from "../crud-executor";
 import { buildDrizzleTable } from "../table-builder";
@@ -56,7 +57,7 @@ describe("crud create", () => {
     if (result.isSuccess) {
       expect(result.data.isNew).toBe(true);
       expect(result.data.data["email"]).toBe("test@test.de");
-      expect(result.data.data["tenantId"]).toBe(1);
+      expect(result.data.data["tenantId"]).toBe(testTenantId(1));
       expect(result.data.changes).toEqual({ email: "test@test.de", firstName: "Test" });
       expect(result.data.previous).toEqual({});
       expect(result.data.id).toBeDefined();
@@ -277,6 +278,6 @@ describe("crud list", () => {
 
     const page1 = await crud.list({ limit: 3 }, adminUser, adminDb);
     expect(page1.rows.length).toBeLessThanOrEqual(3);
-    expect(page1.rows.every((r) => r["tenantId"] === 1)).toBe(true);
+    expect(page1.rows.every((r) => r["tenantId"] === testTenantId(1))).toBe(true);
   });
 });

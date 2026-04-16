@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 import type {
   DeleteContext,
   EntityDefinition,
+  EntityId,
   SaveContext,
   SessionUser,
   WriteResult,
@@ -43,7 +44,7 @@ export type CrudExecutor = {
   ) => Promise<WriteResult<SaveContext>>;
 
   update: (
-    payload: { id: number; version?: number | undefined; changes: Record<string, unknown> },
+    payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: TenantDb,
     // Server-only options. Intentionally NOT part of `payload` — otherwise a
@@ -53,13 +54,13 @@ export type CrudExecutor = {
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (
-    payload: { id: number },
+    payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
   ) => Promise<WriteResult<DeleteContext>>;
 
   restore: (
-    payload: { id: number },
+    payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
   ) => Promise<WriteResult<SaveContext>>;
@@ -77,7 +78,7 @@ export type CrudExecutor = {
   ) => Promise<CursorResult<Record<string, unknown>>>;
 
   detail: (
-    payload: { id: number },
+    payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
   ) => Promise<Record<string, unknown> | null>;
@@ -146,7 +147,7 @@ export function createCrudExecutor(
     return result;
   }
 
-  function idFilter(id: number) {
+  function idFilter(id: EntityId) {
     const conditions = [eq(table["id"], id)];
     if (softDelete && table["isDeleted"]) {
       conditions.push(eq(table["isDeleted"], false));
@@ -154,7 +155,7 @@ export function createCrudExecutor(
     return and(...conditions) as SQL;
   }
 
-  async function loadById(id: number, db: TenantDb): Promise<Record<string, unknown> | null> {
+  async function loadById(id: EntityId, db: TenantDb): Promise<Record<string, unknown> | null> {
     const [row] = await db.select().from(table).where(idFilter(id));
     return (row as Record<string, unknown>) ?? null;
   }
@@ -172,7 +173,7 @@ export function createCrudExecutor(
 
       if (!row) return writeFailure(new InternalError({ message: "insert returned no row" }));
       const data = row as Record<string, unknown>;
-      const id = data["id"] as number;
+      const id = data["id"] as EntityId;
 
       // Invalidate rather than write-through: if the surrounding pipeline
       // rolls back (postSave hook failure, outbox commit failure), a populated
@@ -242,7 +243,7 @@ export function createCrudExecutor(
         isSuccess: true,
         data: {
           kind: "save",
-          id: data["id"] as number,
+          id: data["id"] as EntityId,
           data,
           changes: payload.changes,
           previous,
@@ -338,7 +339,7 @@ export function createCrudExecutor(
       const limit = payload.limit ?? 50;
 
       // Search through SearchAdapter — tenant-scoped, type-filtered
-      let filterIds: number[] | undefined;
+      let filterIds: EntityId[] | undefined;
       if (payload.search && searchAdapter && entityName) {
         const results = await searchAdapter.search(user.tenantId, payload.search, {
           filterType: entityName,
@@ -384,7 +385,7 @@ export function createCrudExecutor(
         await entityCache.mset(
           user.tenantId,
           entityName,
-          rows.map((r) => ({ id: r["id"] as number, data: r })),
+          rows.map((r) => ({ id: r["id"] as EntityId, data: r })),
         );
       }
 

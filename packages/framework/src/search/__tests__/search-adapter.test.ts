@@ -86,7 +86,9 @@ describe("partial matching", () => {
 
 describe("tenant isolation", () => {
   test("tenant 1 cannot see tenant 2 data", async () => {
-    await adapter.configure("00000000-0000-4000-8000-000000000002", { searchableFields: ["firstName"] });
+    await adapter.configure("00000000-0000-4000-8000-000000000002", {
+      searchableFields: ["firstName"],
+    });
     await adapter.index("00000000-0000-4000-8000-000000000001", {
       entityType: "user",
       entityId: 1,

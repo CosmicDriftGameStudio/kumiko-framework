@@ -1234,7 +1234,9 @@ describe("global search", () => {
   test("searches across entity types in same tenant", async () => {
     const { createInMemorySearchAdapter } = await import("../../search");
     const adapter = createInMemorySearchAdapter();
-    await adapter.configure("00000000-0000-4000-8000-000000000001", { searchableFields: ["email", "name", "title"] });
+    await adapter.configure("00000000-0000-4000-8000-000000000001", {
+      searchableFields: ["email", "name", "title"],
+    });
 
     await adapter.index("00000000-0000-4000-8000-000000000001", {
       entityType: "user",
@@ -1277,7 +1279,9 @@ describe("global search", () => {
     expect(all).toHaveLength(1);
     expect(all[0]?.entityType).toBe("user");
 
-    const projects = await adapter.search("00000000-0000-4000-8000-000000000001", "kumiko", { filterType: "project" });
+    const projects = await adapter.search("00000000-0000-4000-8000-000000000001", "kumiko", {
+      filterType: "project",
+    });
     expect(projects).toHaveLength(1);
     expect(projects[0]?.entityType).toBe("project");
   });

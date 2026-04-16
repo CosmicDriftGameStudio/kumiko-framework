@@ -19,6 +19,7 @@ import type {
   WriteResult,
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
+import { isSystemTenant } from "../engine/types/identifiers";
 import { runValidation } from "../engine/validation";
 import {
   AccessDeniedError,
@@ -215,8 +216,11 @@ export function createDispatcher(
       ? { traceId: activeSpan.traceId, spanId: activeSpan.spanId }
       : null;
 
+    // System-scope events carry the zero-UUID as a marker on the in-memory
+    // SessionUser — the outbox stores NULL to make "global / no tenant" a
+    // proper first-class value instead of a magic string.
     await dbSource.insert(eventOutboxTable).values({
-      tenantId: user.tenantId || null,
+      tenantId: isSystemTenant(user.tenantId) ? null : user.tenantId,
       eventType,
       payload: (payload ?? {}) as Record<string, unknown>,
       metadata,

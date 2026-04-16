@@ -1,6 +1,6 @@
+import type { EntityId, TenantId } from "@kumiko/framework/engine";
 import { Meilisearch } from "meilisearch";
 import type { SearchAdapter, SearchResult } from "./types";
-import type { TenantId } from "@kumiko/framework/engine";
 
 export type MeilisearchAdapterOptions = {
   url: string;
@@ -12,8 +12,10 @@ function tenantIndex(prefix: string, tenantId: TenantId): string {
   return `${prefix}t${tenantId}`;
 }
 
-function docId(entityType: string, entityId: number): string {
-  return `${entityType}_${entityId}`;
+// Meilisearch primary-key-ids: alphanumerics, `-`, `_`. UUIDs contain `-` —
+// legal. Replace anything else just in case callers pass unexpected shapes.
+function docId(entityType: string, entityId: EntityId): string {
+  return `${entityType}_${String(entityId).replace(/[^0-9A-Za-z_-]/g, "_")}`;
 }
 
 export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): SearchAdapter {
@@ -91,7 +93,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       return results.hits.map(
         (hit: Record<string, unknown>): SearchResult => ({
           entityType: hit["_type"] as string,
-          entityId: hit["_entityId"] as number,
+          entityId: hit["_entityId"] as EntityId,
         }),
       );
     },

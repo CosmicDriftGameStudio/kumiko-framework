@@ -52,9 +52,9 @@ export type WriteResult<TData = unknown> =
 
 // --- Context Types ---
 
+import type { TenantId } from "@kumiko/framework/engine";
 // Forward import: Registry is in feature.ts (circular type import — fine in TS)
 import type { Registry } from "./feature";
-import type { TenantId } from "@kumiko/framework/engine";
 
 // Minimal interface for job event triggers (framework-owned, concrete type in jobs/)
 export type JobRunnerRef = {

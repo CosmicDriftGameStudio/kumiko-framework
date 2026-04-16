@@ -162,8 +162,18 @@ describe("event log", () => {
   test("appends and retrieves events", async () => {
     const log = createEventLog(testRedis.redis);
 
-    await log.append({ type: "user:create", payload: { email: "a@b.de" }, userId: 1, tenantId: "00000000-0000-4000-8000-000000000001" });
-    await log.append({ type: "user:update", payload: { name: "Marc" }, userId: 1, tenantId: "00000000-0000-4000-8000-000000000001" });
+    await log.append({
+      type: "user:create",
+      payload: { email: "a@b.de" },
+      userId: 1,
+      tenantId: "00000000-0000-4000-8000-000000000001",
+    });
+    await log.append({
+      type: "user:update",
+      payload: { name: "Marc" },
+      userId: 1,
+      tenantId: "00000000-0000-4000-8000-000000000001",
+    });
 
     const recent = await log.recent(10);
     expect(recent.length).toBeGreaterThanOrEqual(2);
@@ -175,7 +185,12 @@ describe("event log", () => {
     const log = createEventLog(testRedis.redis, "kumiko:test:limit-log");
 
     for (let i = 0; i < 5; i++) {
-      await log.append({ type: `event.${i}`, payload: {}, userId: 1, tenantId: "00000000-0000-4000-8000-000000000001" });
+      await log.append({
+        type: `event.${i}`,
+        payload: {},
+        userId: 1,
+        tenantId: "00000000-0000-4000-8000-000000000001",
+      });
     }
 
     const recent = await log.recent(3);
@@ -251,25 +266,41 @@ describe("entity cache", () => {
 
   test("set + get returns cached data", async () => {
     const cache = createEntityCache(testRedis.redis);
-    await cache.set("00000000-0000-4000-8000-000000000001", "order", 1, { id: 1, name: "Test Order" });
+    await cache.set("00000000-0000-4000-8000-000000000001", "order", 1, {
+      id: 1,
+      name: "Test Order",
+    });
     const result = await cache.get("00000000-0000-4000-8000-000000000001", "order", 1);
     expect(result).toEqual({ id: 1, name: "Test Order" });
   });
 
   test("del invalidates cached data", async () => {
     const cache = createEntityCache(testRedis.redis);
-    await cache.set("00000000-0000-4000-8000-000000000001", "order", 2, { id: 2, name: "Delete Me" });
+    await cache.set("00000000-0000-4000-8000-000000000001", "order", 2, {
+      id: 2,
+      name: "Delete Me",
+    });
     await cache.del("00000000-0000-4000-8000-000000000001", "order", 2);
     expect(await cache.get("00000000-0000-4000-8000-000000000001", "order", 2)).toBeNull();
   });
 
   test("tenant isolation — same entity id, different tenants", async () => {
     const cache = createEntityCache(testRedis.redis);
-    await cache.set("00000000-0000-4000-8000-000000000001", "order", 10, { id: 10, name: "Tenant 1" });
-    await cache.set("00000000-0000-4000-8000-000000000002", "order", 10, { id: 10, name: "Tenant 2" });
+    await cache.set("00000000-0000-4000-8000-000000000001", "order", 10, {
+      id: 10,
+      name: "Tenant 1",
+    });
+    await cache.set("00000000-0000-4000-8000-000000000002", "order", 10, {
+      id: 10,
+      name: "Tenant 2",
+    });
 
-    expect((await cache.get("00000000-0000-4000-8000-000000000001", "order", 10))?.["name"]).toBe("Tenant 1");
-    expect((await cache.get("00000000-0000-4000-8000-000000000002", "order", 10))?.["name"]).toBe("Tenant 2");
+    expect((await cache.get("00000000-0000-4000-8000-000000000001", "order", 10))?.["name"]).toBe(
+      "Tenant 1",
+    );
+    expect((await cache.get("00000000-0000-4000-8000-000000000002", "order", 10))?.["name"]).toBe(
+      "Tenant 2",
+    );
   });
 
   test("mget returns hits and skips misses", async () => {
@@ -293,7 +324,11 @@ describe("entity cache", () => {
       { id: 12, data: { id: 12, name: "Doohickey" } },
     ]);
 
-    const result = await cache.mget("00000000-0000-4000-8000-000000000001", "product", [10, 11, 12]);
+    const result = await cache.mget(
+      "00000000-0000-4000-8000-000000000001",
+      "product",
+      [10, 11, 12],
+    );
     expect(result.size).toBe(3);
     expect(result.get(11)?.["name"]).toBe("Gadget");
   });
@@ -327,7 +362,11 @@ describe("entity cache", () => {
     );
 
     // Now all 4 are cached
-    const allCached = await cache.mget("00000000-0000-4000-8000-000000000001", "item", requestedIds);
+    const allCached = await cache.mget(
+      "00000000-0000-4000-8000-000000000001",
+      "item",
+      requestedIds,
+    );
     expect(allCached.size).toBe(4);
     expect(allCached.get(1)?.["name"]).toBe("Cached A");
     expect(allCached.get(2)?.["name"]).toBe("From DB B");

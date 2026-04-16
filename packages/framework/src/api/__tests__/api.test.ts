@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createEntity, createRegistry, createTextField, defineFeature, type TenantId } from "../../engine";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+  type TenantId,
+} from "../../engine";
 import { createTestUser, TestUsers } from "../../testing/fixtures";
 import { buildServer } from "../server";
 

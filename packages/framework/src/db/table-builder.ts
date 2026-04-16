@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import type { EntityDefinition, EntityRelations, FieldDefinition } from "../engine/types";
 import {
   boolean,
@@ -92,9 +93,14 @@ export function toTableName(entityName: string): string {
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables lose column types
 type DrizzleTable = TableColumns<any>;
 
-export function buildBaseColumns(softDelete: boolean) {
+export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "serial") {
+  const idColumn =
+    idType === "uuid"
+      ? uuid("id").primaryKey().default(sql`gen_random_uuid()`)
+      : serial("id").primaryKey();
+
   const base = {
-    id: serial("id").primaryKey(),
+    id: idColumn,
     tenantId: uuid("tenant_id").notNull(),
     version: integer("version").default(1).notNull(),
     insertedAt: timestamp("inserted_at").defaultNow().notNull(),
@@ -129,7 +135,7 @@ export function buildDrizzleTable(
   entity: EntityDefinition,
   options?: BuildDrizzleTableOptions,
 ): DrizzleTable {
-  const baseColumns = buildBaseColumns(entity.softDelete ?? false);
+  const baseColumns = buildBaseColumns(entity.softDelete ?? false, entity.idType ?? "serial");
   const fieldColumns: Record<string, ColumnBuilder> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {

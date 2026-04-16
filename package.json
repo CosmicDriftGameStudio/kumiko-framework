@@ -34,6 +34,7 @@
     "kumiko": "NODE_OPTIONS=--no-deprecation bun run bin/kumiko.ts",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:all": "vitest --config vitest.all.config.ts",
     "typecheck": "tsc --build"
   },
   "devDependencies": {

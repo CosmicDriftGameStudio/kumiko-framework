@@ -7,6 +7,7 @@ import {
   createEntity,
   createTextField,
   defineFeature,
+  type EntityId,
   type HandlerContext,
   type SaveContext,
 } from "../engine";
@@ -62,7 +63,7 @@ const USER_CREATED_EVENT = "users:event:user.created";
 
 async function emitUserCreated(
   ctx: Pick<HandlerContext, "emit">,
-  id: number,
+  id: EntityId,
   email: string,
 ): Promise<void> {
   await ctx.emit(USER_CREATED_EVENT, { id, email });
@@ -178,7 +179,10 @@ let stack: TestStack;
 
 const adminUser = TestUsers.admin;
 const guestUser = createTestUser({ id: 2, roles: ["Guest"] });
-const otherTenantAdmin = createTestUser({ id: 3, tenantId: "00000000-0000-4000-8000-000000000002" });
+const otherTenantAdmin = createTestUser({
+  id: 3,
+  tenantId: "00000000-0000-4000-8000-000000000002",
+});
 
 // Outbox subscriber — captures events the poller delivers. Populated inside
 // beforeAll; reset per-test in beforeEach so the transactional-outbox block
@@ -468,7 +472,9 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       adminUser,
     );
 
-    const results = await stack.search.search("00000000-0000-4000-8000-000000000001", "indexed", { filterType: "user" });
+    const results = await stack.search.search("00000000-0000-4000-8000-000000000001", "indexed", {
+      filterType: "user",
+    });
     expect(results.some((r) => r.entityType === "user")).toBe(true);
   });
 });

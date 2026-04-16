@@ -1,4 +1,5 @@
 import type { AppContext } from "./handlers";
+import type { EntityId } from "./identifiers";
 
 // --- Validation ---
 
@@ -15,7 +16,7 @@ export type ValidationHookFn = (
 
 export type SaveContext = {
   readonly kind: "save";
-  readonly id: number;
+  readonly id: EntityId;
   readonly data: Readonly<Record<string, unknown>>;
   readonly changes: Readonly<Record<string, unknown>>;
   readonly previous: Readonly<Record<string, unknown>>;
@@ -25,7 +26,7 @@ export type SaveContext = {
 
 export type DeleteContext = {
   readonly kind: "delete";
-  readonly id: number;
+  readonly id: EntityId;
   readonly data: Readonly<Record<string, unknown>>;
   readonly entityName?: string | undefined;
 };

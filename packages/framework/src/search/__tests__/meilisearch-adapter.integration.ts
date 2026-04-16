@@ -1,8 +1,8 @@
+import type { TenantId } from "@kumiko/framework/engine";
 import { Meilisearch } from "meilisearch";
 import { v4 as uuid } from "uuid";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createMeilisearchAdapter } from "../meilisearch-adapter";
-import type { TenantId } from "@kumiko/framework/engine";
 import type { SearchAdapter } from "../types";
 
 const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";

@@ -7,6 +7,7 @@ import {
   createNumberField,
   createTextField,
   defineFeature,
+  type EntityId,
   HookPhases,
   type SaveContext,
 } from "../../engine";
@@ -36,8 +37,8 @@ const auditEntity = createEntity({
 const auditTable = buildDrizzleTable("audit", auditEntity);
 
 // Hook invocation logs — reset per test. Captures which phase each hook saw.
-const inTxHookLog: Array<{ id: number; name: string }> = [];
-const afterCommitHookLog: Array<{ id: number; name: string }> = [];
+const inTxHookLog: Array<{ id: EntityId; name: string }> = [];
+const afterCommitHookLog: Array<{ id: EntityId; name: string }> = [];
 
 // Toggles for afterCommit fault-injection test
 let afterCommitShouldThrow = false;
@@ -218,7 +219,9 @@ describe("POST /api/batch", () => {
 
   test("mid-batch failure: all writes roll back, afterCommit hooks do NOT fire", async () => {
     // Seed with one existing item so we can verify the batch didn't persist anything
-    await stack.db.db.insert(itemTable).values({ name: "seed", counter: 0, tenantId: "00000000-0000-4000-8000-000000000001" });
+    await stack.db.db
+      .insert(itemTable)
+      .values({ name: "seed", counter: 0, tenantId: "00000000-0000-4000-8000-000000000001" });
     const seedCount = (await stack.db.db.select().from(itemTable)).length;
 
     const res = await stack.http.batch(

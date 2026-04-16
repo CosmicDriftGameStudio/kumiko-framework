@@ -1,5 +1,5 @@
-import type { SessionUser } from "./types";
 import type { TenantId } from "@kumiko/framework/engine";
+import type { SessionUser } from "./types";
 
 export const SYSTEM_USER_ID = 0;
 export const SYSTEM_ROLE = "system" as const;

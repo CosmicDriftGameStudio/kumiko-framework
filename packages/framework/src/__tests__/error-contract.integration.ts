@@ -7,7 +7,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { z } from "zod";
 import { createCrudExecutor } from "../db/crud-executor";
 import { buildDrizzleTable } from "../db/table-builder";
-import { createEntity, createNumberField, createTextField, defineFeature, type TenantId } from "../engine";
+import {
+  createEntity,
+  createNumberField,
+  createTextField,
+  defineFeature,
+  type TenantId,
+} from "../engine";
 import {
   AccessDeniedError,
   ConflictError,

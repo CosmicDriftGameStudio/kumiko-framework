@@ -1,4 +1,4 @@
-import type { TenantId } from "@kumiko/framework/engine";
+import type { EntityId, TenantId } from "@kumiko/framework/engine";
 
 export type SearchAdapterConfig = {
   searchableFields: readonly string[];
@@ -7,14 +7,14 @@ export type SearchAdapterConfig = {
 
 export type SearchDocument = {
   entityType: string;
-  entityId: number;
+  entityId: EntityId;
   weight: number;
   fields: Record<string, unknown>;
 };
 
 export type SearchResult = {
   entityType: string;
-  entityId: number;
+  entityId: EntityId;
 };
 
 export type SearchOptions = {
@@ -26,7 +26,7 @@ export type SearchAdapter = {
   configure(tenantId: TenantId, config: SearchAdapterConfig): Promise<void>;
   index(tenantId: TenantId, doc: SearchDocument): Promise<void>;
   search(tenantId: TenantId, query: string, options?: SearchOptions): Promise<SearchResult[]>;
-  remove(tenantId: TenantId, entityType: string, entityId: number): Promise<void>;
+  remove(tenantId: TenantId, entityType: string, entityId: EntityId): Promise<void>;
   // Bulk variants. Default implementations loop over the single-doc methods —
   // adapters should override when the backend supports a real batch call
   // (Meilisearch, Elasticsearch, Typesense all do). Cuts a batch-write from
@@ -34,6 +34,6 @@ export type SearchAdapter = {
   indexBatch?(tenantId: TenantId, docs: readonly SearchDocument[]): Promise<void>;
   removeBatch?(
     tenantId: TenantId,
-    items: readonly { entityType: string; entityId: number }[],
+    items: readonly { entityType: string; entityId: EntityId }[],
   ): Promise<void>;
 };

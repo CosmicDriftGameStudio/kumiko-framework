@@ -89,7 +89,7 @@ export { rolesOf } from "./access-assertions";
 export { expectError, expectSuccess } from "./assertions";
 export { createEventCollector, type EventCollector } from "./event-collector";
 export { expectErrorIncludes } from "./expect-error";
-export { createTestUser, TestUsers } from "./fixtures";
+export { createTestUser, TestUsers, testTenantId } from "./fixtures";
 export { bridgeStub } from "./handler-context";
 export {
   createRecordingProvider,

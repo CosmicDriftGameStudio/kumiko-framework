@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
-import { createEntityTable } from "../../testing";
+import { createEntityTable, testTenantId } from "../../testing";
 import { applyCursorQuery, encodeCursor } from "../cursor";
 import { buildDrizzleTable } from "../table-builder";
 
@@ -49,11 +49,24 @@ beforeAll(async () => {
   await createEntityTable(db, entity);
 
   const rows = [
-    { tenantId: "00000000-0000-4000-8000-000000000001", email: "admin@test.de", firstName: "Admin" },
+    {
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      email: "admin@test.de",
+      firstName: "Admin",
+    },
     { tenantId: "00000000-0000-4000-8000-000000000001", email: "marc@test.de", firstName: "Marc" },
     { tenantId: "00000000-0000-4000-8000-000000000001", email: "anna@test.de", firstName: "Anna" },
-    { tenantId: "00000000-0000-4000-8000-000000000001", email: "deleted@test.de", firstName: "Deleted", isDeleted: true },
-    { tenantId: "00000000-0000-4000-8000-000000000002", email: "other@test.de", firstName: "Other" },
+    {
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      email: "deleted@test.de",
+      firstName: "Deleted",
+      isDeleted: true,
+    },
+    {
+      tenantId: "00000000-0000-4000-8000-000000000002",
+      email: "other@test.de",
+      firstName: "Other",
+    },
   ];
 
   for (const row of rows) {
@@ -87,8 +100,8 @@ async function query(options: Parameters<typeof applyCursorQuery>[2]): Promise<R
 
 describe("tenant isolation", () => {
   test("only returns rows for specified tenant", async () => {
-    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001" });
-    expect(rows.every((r) => r["tenantId"] === 1)).toBe(true);
+    const rows = await query({ tenantId: testTenantId(1) });
+    expect(rows.every((r) => r["tenantId"] === testTenantId(1))).toBe(true);
   });
 
   test("tenant 2 only sees own data", async () => {
@@ -116,7 +129,11 @@ describe("cursor pagination", () => {
     expect(page1).toHaveLength(2);
 
     const lastId = page1[page1.length - 1]?.["id"] as number;
-    const page2 = await query({ tenantId: "00000000-0000-4000-8000-000000000001", limit: 2, cursor: encodeCursor(lastId) });
+    const page2 = await query({
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      limit: 2,
+      cursor: encodeCursor(lastId),
+    });
 
     const page1Ids = page1.map((r) => r["id"]);
     const page2Ids = page2.map((r) => r["id"]);
@@ -127,7 +144,10 @@ describe("cursor pagination", () => {
 describe("filterIds (search results from SearchAdapter)", () => {
   test("filters by ID list from search adapter", async () => {
     // SearchAdapter returns IDs, cursor query filters by them
-    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001", filterIds: [1, 2] });
+    const rows = await query({
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      filterIds: [1, 2],
+    });
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => [1, 2].includes(r["id"] as number))).toBe(true);
   });
@@ -140,14 +160,22 @@ describe("filterIds (search results from SearchAdapter)", () => {
 
 describe("sorting", () => {
   test("sorts by column ASC", async () => {
-    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001", sort: "firstName", sortDirection: "asc" });
+    const rows = await query({
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      sort: "firstName",
+      sortDirection: "asc",
+    });
     const names = rows.map((r) => r["firstName"]);
     const sorted = [...names].sort();
     expect(names).toEqual(sorted);
   });
 
   test("sorts by column DESC", async () => {
-    const rows = await query({ tenantId: "00000000-0000-4000-8000-000000000001", sort: "firstName", sortDirection: "desc" });
+    const rows = await query({
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      sort: "firstName",
+      sortDirection: "desc",
+    });
     const names = rows.map((r) => r["firstName"]);
     const sorted = [...names].sort().reverse();
     expect(names).toEqual(sorted);
