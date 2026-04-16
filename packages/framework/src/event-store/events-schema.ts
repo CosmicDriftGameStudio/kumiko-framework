@@ -45,7 +45,11 @@ export const eventsTable = pgTable(
     // μs-vs-ms comparison misses where an event with .123456 μs looks "after"
     // an asOf of .123 ms.
     createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
-    createdBy: uuid("created_by").notNull(),
+    // Text rather than uuid: the framework's SessionUser.id is a number
+    // (serial) by default. Stringified here so both integer- and UUID-shaped
+    // user ids round-trip cleanly. Aggregate-IDs stay uuid because events are
+    // aggregated by UUID end-to-end.
+    createdBy: text("created_by").notNull(),
   },
   (t) => ({
     aggregateVersionUq: uniqueIndex("events_aggregate_version_uq").on(t.aggregateId, t.version),

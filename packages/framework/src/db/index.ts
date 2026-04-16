@@ -9,6 +9,8 @@ export type { SelectQuery, TableColumns } from "./dialect";
 export { boolean, integer, serial, table, text, timestamp, uniqueIndex, uuid } from "./dialect";
 export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
+export type { EventStoreExecutor, EventStoreExecutorOptions } from "./event-store-executor";
+export { createEventStoreExecutor } from "./event-store-executor";
 export type { PgAdapterOptions } from "./pg-adapter";
 export { createPgAdapter } from "./pg-adapter";
 export { seedReferenceData } from "./reference-data";

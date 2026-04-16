@@ -125,7 +125,7 @@ async function insertSubsequentEvent(
     )
     SELECT ${event.aggregateId}::uuid, ${event.aggregateType}, ${event.tenantId}::uuid, ${newVersion},
            ${event.type}, ${eventVersion}, ${payloadJson}::jsonb,
-           ${metadataJson}::jsonb, ${event.metadata.userId}::uuid
+           ${metadataJson}::jsonb, ${event.metadata.userId}
     WHERE EXISTS (
       SELECT 1 FROM ${eventsTable}
       WHERE aggregate_id = ${event.aggregateId}::uuid

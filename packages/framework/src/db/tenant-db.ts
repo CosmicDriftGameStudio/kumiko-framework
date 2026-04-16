@@ -26,6 +26,12 @@ export type TenantDbMode = "tenant" | "system";
 export type TenantDb = {
   readonly tenantId: TenantId;
   readonly mode: TenantDbMode;
+  /**
+   * Underlying DbRunner. Framework-internal use (event-store, migrations) —
+   * bypasses tenant-filter. Feature code should stick to the typed wrappers
+   * above so the automatic scoping stays intact.
+   */
+  readonly raw: DbRunner;
   select(): TenantSelect;
   select(columns: ColumnSelection): TenantSelect;
   insert(table: Table): TenantInsert;
@@ -237,6 +243,7 @@ export function createTenantDb(
   return {
     tenantId,
     mode,
+    raw: db,
 
     select(columns?: ColumnSelection) {
       return {

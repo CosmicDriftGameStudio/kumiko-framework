@@ -29,6 +29,7 @@
     "./engine": "./src/engine/index.ts",
     "./errors": "./src/errors/index.ts",
     "./db": "./src/db/index.ts",
+    "./event-store": "./src/event-store/index.ts",
     "./pipeline": "./src/pipeline/index.ts",
     "./api": "./src/api/index.ts",
     "./ui": "./src/ui/index.ts",
