@@ -39,6 +39,23 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
     labels: ["operation", "table"],
     buckets: [0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1],
   },
+  // Projection-rebuild duration. Only emitted when a rebuild runs (ops-op),
+  // not continuously. Lag metric (continuous, live projections) is skipped
+  // for now — apply is synchronous, so lag is definitionally 0; a meaningful
+  // lag counter lands with async-apply in a future sprint.
+  {
+    name: "kumiko_projection_rebuild_duration_seconds",
+    type: "histogram",
+    description: "Duration of a full projection rebuild in seconds.",
+    labels: ["projection", "success"],
+    buckets: [0.01, 0.05, 0.1, 0.5, 1, 5, 30, 120, 600],
+  },
+  {
+    name: "kumiko_projection_rebuild_events_total",
+    type: "counter",
+    description: "Events replayed during a projection rebuild.",
+    labels: ["projection"],
+  },
 ] as const;
 
 export function registerStandardMetrics(meter: Meter): void {
@@ -99,4 +116,19 @@ export function emitDbQuery(
     operation: labels.operation,
     table: labels.table,
   });
+}
+
+export function emitProjectionRebuild(
+  meter: Meter,
+  labels: { readonly projection: string; readonly success: boolean },
+  durationSeconds: number,
+  eventsReplayed: number,
+): void {
+  meter.histogram("kumiko_projection_rebuild_duration_seconds").observe(durationSeconds, {
+    projection: labels.projection,
+    success: String(labels.success),
+  });
+  meter
+    .counter("kumiko_projection_rebuild_events_total")
+    .inc(eventsReplayed, { projection: labels.projection });
 }

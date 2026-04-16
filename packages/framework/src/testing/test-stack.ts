@@ -99,6 +99,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // is ready for writes without needing a manual createEventsTable().
   await createEventsTable(testDb.db);
 
+  // Framework state for projection rebuild/status. Idempotent — production
+  // boot flows run the same call.
+  const { createProjectionStateTable } = await import("../pipeline");
+  await createProjectionStateTable(testDb.db);
+
   // Projection tables: the executor writes into them in the same TX as the
   // event-append, so they have to exist before the first write. Auto-push
   // everything registered via r.projection() — keeps tests from having to

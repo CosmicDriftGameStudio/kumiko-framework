@@ -248,6 +248,146 @@ const commands = {
     },
   },
 
+  project: {
+    description: "Projections verwalten (list | status <name> | rebuild <name>)",
+    run: async () => {
+      const subCommand = Bun.argv[3];
+      const arg = Bun.argv[4];
+
+      // Load features via convention: ./kumiko.config.ts in cwd exports
+      // { features: FeatureDefinition[] }. Kumiko-Core doesn't know which
+      // features a given app has wired, so the app tells us. No config =
+      // helpful error with the exact file it tried.
+      const configPath = `${process.cwd()}/kumiko.config.ts`;
+      if (!existsSync(configPath)) {
+        console.error(
+          `\n  kumiko.config.ts nicht gefunden: ${configPath}\n\n` +
+            `  Erstelle eine Datei, die deine features exportiert:\n\n` +
+            `    // kumiko.config.ts\n` +
+            `    import { myFeature } from "./src/features/my-feature";\n` +
+            `    export default { features: [myFeature] };\n`,
+        );
+        process.exit(1);
+      }
+      const config = (await import(configPath)).default as {
+        features: readonly import("@kumiko/framework/engine").FeatureDefinition[];
+      };
+
+      const { createRegistry } = await import("@kumiko/framework/engine");
+      const { createDbConnection } = await import("@kumiko/framework/db");
+      const {
+        listProjectionsWithState,
+        getProjectionState,
+        rebuildProjection,
+        createProjectionStateTable,
+      } = await import("@kumiko/framework/pipeline");
+
+      const registry = createRegistry(config.features);
+      const databaseUrl = Bun.env["DATABASE_URL"];
+      if (!databaseUrl) {
+        console.error("\n  DATABASE_URL not set. Run against a configured env.\n");
+        process.exit(1);
+      }
+      const { db, close } = createDbConnection(databaseUrl);
+      await createProjectionStateTable(db);
+
+      const dim = "\x1b[2m";
+      const reset = "\x1b[0m";
+      const green = "\x1b[32m";
+      const red = "\x1b[31m";
+      const yellow = "\x1b[33m";
+
+      function colorStatus(status: string): string {
+        if (status === "idle") return `${green}${status}${reset}`;
+        if (status === "failed") return `${red}${status}${reset}`;
+        if (status === "rebuilding") return `${yellow}${status}${reset}`;
+        return `${dim}${status}${reset}`;
+      }
+
+      switch (subCommand) {
+        case "list": {
+          const entries = await listProjectionsWithState(db, registry);
+          if (entries.length === 0) {
+            console.log("\n  Keine Projections registriert.\n");
+            break;
+          }
+          console.log("\n  Registrierte Projections:\n");
+          for (const e of entries) {
+            const when = e.lastRebuildAt
+              ? e.lastRebuildAt.toISOString()
+              : `${dim}never${reset}`;
+            console.log(
+              `    ${e.name.padEnd(40)} ${colorStatus(e.status).padEnd(25)} source=${e.sources.join(
+                ",",
+              )} last=${when}`,
+            );
+          }
+          console.log();
+          break;
+        }
+
+        case "status": {
+          if (!arg) {
+            console.error("\n  Usage: yarn kumiko project status <projection-name>\n");
+            process.exit(1);
+          }
+          const state = await getProjectionState(db, arg);
+          if (!state) {
+            // Check if the projection is at least registered.
+            const registered = registry.getAllProjections().has(arg);
+            if (!registered) {
+              console.error(`\n  Projection "${arg}" ist nicht registriert.\n`);
+              process.exit(1);
+            }
+            console.log(`\n  ${arg}: ${dim}never-rebuilt${reset}\n`);
+            break;
+          }
+          console.log(`\n  ${state.name}`);
+          console.log(`    status:        ${colorStatus(state.status)}`);
+          console.log(`    last event id: ${state.lastProcessedEventId}`);
+          console.log(
+            `    last rebuild:  ${state.lastRebuildAt?.toISOString() ?? `${dim}never${reset}`}`,
+          );
+          console.log(`    updated at:    ${state.updatedAt.toISOString()}`);
+          if (state.lastError) {
+            console.log(`    last error:    ${red}${state.lastError}${reset}`);
+          }
+          console.log();
+          break;
+        }
+
+        case "rebuild": {
+          if (!arg) {
+            console.error("\n  Usage: yarn kumiko project rebuild <projection-name>\n");
+            process.exit(1);
+          }
+          console.log(`\n  Rebuilding ${arg} ...`);
+          try {
+            const result = await rebuildProjection(arg, { db, registry });
+            console.log(
+              `\n  ${green}✓${reset} ${result.projection}: ${result.eventsProcessed} events, ${result.durationMs}ms\n`,
+            );
+          } catch (e) {
+            console.error(
+              `\n  ${red}✗${reset} Rebuild failed: ${e instanceof Error ? e.message : e}\n`,
+            );
+            process.exit(1);
+          }
+          break;
+        }
+
+        default:
+          console.log("\n  Usage: yarn kumiko project <list | status <name> | rebuild <name>>\n");
+          await close();
+          process.exit(1);
+      }
+
+      // Release the postgres pool so the CLI process can exit cleanly
+      // instead of hanging on the idle connection.
+      await close();
+    },
+  },
+
   doctor: {
     description: "Health check. Vermutlich alles okay.",
     run: async () => {

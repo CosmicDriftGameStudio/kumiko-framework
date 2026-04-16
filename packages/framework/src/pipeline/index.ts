@@ -24,6 +24,18 @@ export {
   eventOutboxTable,
   OUTBOX_WAKE_CHANNEL,
 } from "./outbox-table";
+export type { RebuildResult } from "./projection-rebuild";
+export {
+  getProjectionState,
+  listProjectionsWithState,
+  rebuildProjection,
+} from "./projection-rebuild";
+export type { ProjectionStatus } from "./projection-state";
+export {
+  createProjectionStateTable,
+  PROJECTION_STATUSES,
+  projectionStateTable,
+} from "./projection-state";
 export type { AuditTrailEntry, AuditTrailStorage } from "./system-hooks";
 export {
   createAuditTrailDeleteHook,
