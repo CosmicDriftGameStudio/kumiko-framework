@@ -15,6 +15,9 @@ export type EventBroker = {
   // pub/sub — async fire-and-forget — and the poller can't observe
   // subscriber failures through that path.
   dispatchLocal(event: BrokerEvent): Promise<readonly Error[]>;
+  // Register a local subscriber. Handlers MUST be idempotent: the outbox
+  // poller guarantees at-least-once delivery, so the same event may arrive
+  // twice after retries. See outbox-poller.ts for the contract.
   subscribe(type: string, handler: (event: BrokerEvent) => Promise<void>): void;
   start(): Promise<void>;
   stop(): Promise<void>;

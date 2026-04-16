@@ -1,4 +1,4 @@
-import type { TenantId } from "@kumiko/framework/engine";
+import { type TenantId, ZERO_TENANT_ID } from "@kumiko/framework/engine";
 import { and, type Column, eq, getTableName, or, type SQL } from "drizzle-orm";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
@@ -158,7 +158,10 @@ export function createTenantDb(
     );
   }
 
-  // --- Read filter (SELECT/UPDATE/DELETE WHERE clause) ---
+  // --- Read filter (SELECT WHERE clause) ---
+  //
+  // Reads in tenant mode see their own rows AND global reference data (rows
+  // with tenantId = ZERO_TENANT_ID). Writes explicitly do NOT — see writeFilter.
 
   function readFilter(table: Table, ...extra: SQL[]): SQL | undefined {
     if (!hasTenantColumn(table)) {
@@ -173,9 +176,28 @@ export function createTenantDb(
     // Tenant mode: own data + reference data (zero-UUID tenantId for global rows)
     const ownOrGlobal = or(
       eq(table["tenantId"], tenantId),
-      eq(table["tenantId"], "00000000-0000-4000-8000-000000000000"),
+      eq(table["tenantId"], ZERO_TENANT_ID),
     ) as SQL;
     return extra.length > 0 ? and(ownOrGlobal, ...extra) : ownOrGlobal;
+  }
+
+  // --- Write filter (UPDATE/DELETE WHERE clause) ---
+  //
+  // Writes in tenant mode must NEVER match reference rows — otherwise a tenant
+  // could mutate global data by coincidence of id/condition. Only system-scope
+  // (r.systemScope()) may modify reference data.
+
+  function writeFilter(table: Table, ...extra: SQL[]): SQL | undefined {
+    if (!hasTenantColumn(table)) {
+      return extra.length > 0 ? and(...extra) : undefined;
+    }
+
+    if (mode === "system") {
+      return extra.length > 0 ? and(...extra) : undefined;
+    }
+
+    const ownOnly = eq(table["tenantId"], tenantId) as SQL;
+    return extra.length > 0 ? and(ownOnly, ...extra) : ownOnly;
   }
 
   // --- Write values (INSERT tenantId handling) ---
@@ -236,7 +258,7 @@ export function createTenantDb(
   // --- Where helper for update/delete ---
 
   function whereClause(table: Table, condition: SQL): SQL {
-    const filter = readFilter(table, condition);
+    const filter = writeFilter(table, condition);
     return filter ?? condition;
   }
 

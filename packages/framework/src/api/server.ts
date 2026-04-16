@@ -18,6 +18,8 @@ import { createDispatcher } from "../pipeline/dispatcher";
 import type { EventBroker } from "../pipeline/event-broker";
 import type { EventDedup } from "../pipeline/event-dedup";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
+import type { OutboxCleanup } from "../pipeline/outbox-cleanup";
+import { createOutboxCleanup } from "../pipeline/outbox-cleanup";
 import type { DeadLetterEvent, OutboxPoller } from "../pipeline/outbox-poller";
 import { createOutboxPoller } from "../pipeline/outbox-poller";
 import { PUBLIC_API_PATHS, Routes } from "./api-constants";
@@ -54,6 +56,13 @@ export type ServerOptions = {
     maxAttempts?: number;
     // Fires when an outbox row exhausts retries. Hook a metric / pager here.
     onDeadLetter?: (event: DeadLetterEvent) => void | Promise<void>;
+    // Retention for the event_outbox table. When omitted, the cleanup job
+    // is not created — callers can opt out (e.g. tests) or run their own.
+    cleanup?: {
+      publishedRetentionDays: number;
+      deadLetterRetentionDays: number;
+      runIntervalMs?: number;
+    };
   };
   // Observability: tracer + meter used for auto-instrumentation across
   // HTTP, dispatcher, pipeline, DB. Omitted => NoopProvider (zero overhead,
@@ -72,6 +81,9 @@ export type KumikoServer = {
   // in production must call `outboxPoller.start()` during boot and
   // `outboxPoller.stop()` during shutdown.
   outboxPoller?: OutboxPoller;
+  // Present only when options.outbox.cleanup was set. Manage alongside the
+  // poller: start() during boot, stop() during shutdown.
+  outboxCleanup?: OutboxCleanup;
 };
 
 export function buildServer(options: ServerOptions): KumikoServer {
@@ -170,6 +182,27 @@ export function buildServer(options: ServerOptions): KumikoServer {
     });
   }
 
+  // Retention cleanup — optional, kept separate from the poller so callers
+  // can opt out (tests, ops rolling a pg_cron job by hand, etc).
+  let outboxCleanup: OutboxCleanup | undefined;
+  if (outboxOptions?.cleanup) {
+    const dbConn = options.context.db as DbConnection | undefined;
+    if (!dbConn) {
+      throw new Error(
+        "buildServer: options.outbox.cleanup requires context.db to be a DbConnection",
+      );
+    }
+    outboxCleanup = createOutboxCleanup({
+      db: dbConn,
+      publishedRetentionDays: outboxOptions.cleanup.publishedRetentionDays,
+      deadLetterRetentionDays: outboxOptions.cleanup.deadLetterRetentionDays,
+      ...(outboxOptions.cleanup.runIntervalMs !== undefined
+        ? { runIntervalMs: outboxOptions.cleanup.runIntervalMs }
+        : {}),
+      ...(options.context.log !== undefined ? { log: options.context.log } : {}),
+    });
+  }
+
   const app = new Hono();
 
   const sensitiveConfig = mergeSensitiveConfig(
@@ -226,5 +259,6 @@ export function buildServer(options: ServerOptions): KumikoServer {
     sseBroker,
     observability,
     ...(outboxPoller ? { outboxPoller } : {}),
+    ...(outboxCleanup ? { outboxCleanup } : {}),
   };
 }

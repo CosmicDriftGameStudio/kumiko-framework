@@ -60,6 +60,15 @@ const DEFAULT_MAX_ATTEMPTS = 10;
 // eventBroker.dispatchLocal, marks published or increments attempts. After
 // maxAttempts the row is marked dead-letter and skipped forever (no alert,
 // no replay in v1).
+//
+// Delivery semantics: **at-least-once**. If dispatchLocal succeeds but the
+// row-update fails (commit crash, network blip), the row gets picked up again
+// and subscribers are invoked a second time. Every subscriber registered via
+// EventBroker.subscribe MUST be idempotent — replaying the same event with
+// the same payload must reach the same outcome. Typical patterns:
+//   - DB writes: ON CONFLICT DO NOTHING / versioned upsert
+//   - external calls: keyed by event id (row.id) so the remote side dedupes
+//   - side-effects with no natural key: eventDedup.tryAcquire(eventId)
 export function createOutboxPoller(options: OutboxPollerOptions): OutboxPoller {
   const {
     db,
@@ -109,6 +118,12 @@ export function createOutboxPoller(options: OutboxPollerOptions): OutboxPoller {
   async function doPass(): Promise<{ processed: number; failed: number }> {
     let processed = 0;
     let failed = 0;
+
+    // Collected for post-commit Redis publish. Cross-process fan-out must
+    // not happen inside the DB tx — a slow Redis would stall row-level locks
+    // for every concurrent poller. Local dispatch happens in-tx (we need to
+    // know whether to mark the row published); Redis is best-effort after.
+    const toPublish: BrokerEvent[] = [];
 
     await db.transaction(async (tx) => {
       // Row-level SKIP LOCKED: a second poller instance (different process /
@@ -160,16 +175,11 @@ export function createOutboxPoller(options: OutboxPollerOptions): OutboxPoller {
           const errors = await eventBroker.dispatchLocal(event);
 
           if (errors.length === 0) {
-            try {
-              await eventBroker.publish(event);
-            } catch {
-              // skip: cross-process publish is best-effort; local dispatch
-              // already succeeded, so the event is considered delivered.
-            }
             await tx
               .update(eventOutboxTable)
               .set({ publishedAt: new Date() })
               .where(eq(eventOutboxTable.id, row.id));
+            toPublish.push(event);
             processed++;
             span.setAttribute("outbox.outcome", "published");
             span.setStatus("ok");
@@ -223,6 +233,17 @@ export function createOutboxPoller(options: OutboxPollerOptions): OutboxPoller {
         }
       }
     });
+
+    // Post-commit cross-process fan-out. If Redis is down, local dispatch
+    // already succeeded + rows are marked published; missed cross-process
+    // subscribers can reconcile via their own replay path.
+    for (const event of toPublish) {
+      try {
+        await eventBroker.publish(event);
+      } catch {
+        // skip: see comment above.
+      }
+    }
 
     return { processed, failed };
   }

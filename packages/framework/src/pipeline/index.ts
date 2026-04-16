@@ -15,6 +15,8 @@ export type { IdempotencyGuard } from "./idempotency";
 export { createIdempotencyGuard } from "./idempotency";
 export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline";
 export { createLifecycleHooks } from "./lifecycle-pipeline";
+export type { OutboxCleanup, OutboxCleanupOptions, OutboxCleanupResult } from "./outbox-cleanup";
+export { createOutboxCleanup, DAY_MS } from "./outbox-cleanup";
 export type { OutboxPoller, OutboxPollerOptions } from "./outbox-poller";
 export { createOutboxPoller } from "./outbox-poller";
 export {

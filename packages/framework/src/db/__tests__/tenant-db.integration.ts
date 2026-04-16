@@ -253,17 +253,40 @@ describe("scoped mode (default)", () => {
 
       const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
 
-      // Tenant 1 tries to update the global row — should not match (tenant filter is OR, but update uses AND)
       const result = await tdb1
         .update(table)
         .set({ name: "Hacked" })
         .where(eq(table["name"], "RefNoUpdate"))
         .returning();
 
-      // The update WILL match because tenantId=0 is included in the filter.
-      // This is by design — reference data is visible AND modifiable if matched.
-      // In practice, reference data is protected by access control, not the tenant filter.
-      expect(result.length).toBeGreaterThanOrEqual(1);
+      // Writes from a tenant scope must never touch reference rows (tenantId = 0).
+      // Reading them is fine, modifying them is a cross-tenant integrity bug.
+      expect(result).toHaveLength(0);
+
+      const [untouched] = await testDb.db
+        .select()
+        .from(table)
+        .where(eq(table["name"], "RefNoUpdate"));
+      expect((untouched as Record<string, unknown>)["name"]).toBe("RefNoUpdate");
+    });
+
+    test("scoped delete does NOT affect tenantId = 0 rows", async () => {
+      await testDb.db.insert(table).values({
+        name: "RefNoDelete",
+        status: "ref",
+        tenantId: "00000000-0000-4000-8000-000000000000",
+        version: 1,
+        insertedAt: new Date(),
+      });
+
+      const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
+      await tdb1.delete(table).where(eq(table["name"], "RefNoDelete"));
+
+      const [stillThere] = await testDb.db
+        .select()
+        .from(table)
+        .where(eq(table["name"], "RefNoDelete"));
+      expect(stillThere).toBeDefined();
     });
   });
 });

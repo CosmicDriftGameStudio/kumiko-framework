@@ -147,6 +147,43 @@ describe("Outbox: transactional emit", () => {
     });
   });
 
+  test("broker.publish runs AFTER the tx commits — the row is visible as published to a separate read", async () => {
+    if (!stack.eventBroker) throw new Error("test stack missing eventBroker");
+
+    // Spy on publish. At the moment it fires, a read on a separate connection
+    // must see the row as already published — that proves the UPDATE
+    // committed before publish() was invoked. If publish() ran inside the tx,
+    // this SELECT (outside that tx, READ COMMITTED) would still see publishedAt
+    // as NULL.
+    const snapshots: Array<{ eventType: string; publishedAt: Date | null }> = [];
+    const originalPublish = stack.eventBroker.publish.bind(stack.eventBroker);
+    stack.eventBroker.publish = async (event) => {
+      const rows = await stack.db.db
+        .select()
+        .from(eventOutboxTable)
+        .where(eq(eventOutboxTable.eventType, event.type));
+      snapshots.push({
+        eventType: event.type,
+        publishedAt: rows[0]?.publishedAt ?? null,
+      });
+      return originalPublish(event);
+    };
+
+    try {
+      await stack.http.write("outbox-test:write:item:create", { label: "post-commit" }, admin);
+      await stack.outboxPoller?.runOnce();
+
+      expect(snapshots).toHaveLength(1);
+      expect(snapshots[0]?.eventType).toBe("outbox-test:event:item.created");
+      // The load-bearing assertion: publishedAt is NOT null at the moment of
+      // publish(). This breaks if someone moves publish() back inside the
+      // transactional block.
+      expect(snapshots[0]?.publishedAt).not.toBeNull();
+    } finally {
+      stack.eventBroker.publish = originalPublish;
+    }
+  });
+
   test("rolled-back write → NO outbox row, NO subscriber call", async () => {
     const res = await stack.http.write(
       "outbox-test:write:item:create",

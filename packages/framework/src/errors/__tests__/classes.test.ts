@@ -74,6 +74,93 @@ describe("ValidationError", () => {
     const fields = (err.details as { fields: Array<Record<string, unknown>> }).fields;
     expect(fields[0]?.["path"]).toBe("(root)");
   });
+
+  // Zod 4 restructured issue-specific params. This matrix pins down which
+  // param keys survive the bridge for each issue code — if Zod ships a new
+  // param name the expected block below goes stale and this test flags it.
+  test("zod 4: common issue codes forward their discriminating params", () => {
+    const cases: Array<{
+      label: string;
+      schema: z.ZodType;
+      input: unknown;
+      expectedCode: string;
+      expectedParams: Record<string, unknown>;
+    }> = [
+      {
+        label: "too_small on string min",
+        schema: z.string().min(3),
+        input: "x",
+        expectedCode: "too_small",
+        expectedParams: { minimum: 3 },
+      },
+      {
+        label: "too_big on string max",
+        schema: z.string().max(2),
+        input: "long",
+        expectedCode: "too_big",
+        expectedParams: { maximum: 2 },
+      },
+      {
+        label: "invalid_type number vs string",
+        schema: z.number(),
+        input: "nope",
+        expectedCode: "invalid_type",
+        expectedParams: { expected: "number" },
+      },
+      {
+        label: "invalid_format email",
+        schema: z.string().email(),
+        input: "not-an-email",
+        expectedCode: "invalid_format",
+        expectedParams: { format: "email" },
+      },
+      {
+        label: "not_multiple_of",
+        schema: z.number().multipleOf(5),
+        input: 7,
+        expectedCode: "not_multiple_of",
+        expectedParams: { divisor: 5 },
+      },
+      {
+        label: "unrecognized_keys on strict object",
+        schema: z.strictObject({ a: z.string() }),
+        input: { a: "ok", b: "extra" },
+        expectedCode: "unrecognized_keys",
+        expectedParams: { keys: ["b"] },
+      },
+      {
+        label: "invalid_value on enum",
+        schema: z.enum(["a", "b"]),
+        input: "c",
+        expectedCode: "invalid_value",
+        expectedParams: { values: ["a", "b"] },
+      },
+    ];
+
+    const drift: string[] = [];
+    for (const c of cases) {
+      const result = c.schema.safeParse(c.input);
+      if (result.success) {
+        drift.push(`${c.label}: zod accepted the input unexpectedly`);
+        continue;
+      }
+      const err = validationErrorFromZod(result.error);
+      const fields = (err.details as { fields: Array<Record<string, unknown>> }).fields;
+      const field = fields[0];
+
+      if (field?.["code"] !== c.expectedCode) {
+        drift.push(`${c.label}: code was "${field?.["code"]}", expected "${c.expectedCode}"`);
+      }
+      const params = field?.["params"] as Record<string, unknown> | undefined;
+      for (const [key, val] of Object.entries(c.expectedParams)) {
+        if (params?.[key] === undefined) {
+          drift.push(`${c.label}: param "${key}" missing (expected ${JSON.stringify(val)})`);
+        }
+      }
+    }
+
+    expect(drift).toEqual([]);
+  });
 });
 
 describe("AccessDeniedError", () => {

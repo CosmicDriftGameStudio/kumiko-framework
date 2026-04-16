@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { ReferenceDataDef } from "../engine/types";
+import { ZERO_TENANT_ID } from "../engine/types";
 import type { DbConnection } from "./connection";
 import type { TableColumns } from "./dialect";
 import { toSnakeCase } from "./table-builder";
@@ -63,7 +64,7 @@ export async function seedReferenceData(
       } else {
         await db.insert(table).values({
           ...row,
-          tenantId: "00000000-0000-4000-8000-000000000000", // Reference data is global — tenant 0 = system
+          tenantId: ZERO_TENANT_ID,
           version: 1,
           insertedAt: new Date(),
         });

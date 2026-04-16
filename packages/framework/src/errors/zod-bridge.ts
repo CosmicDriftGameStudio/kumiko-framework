@@ -4,6 +4,9 @@ import { ValidationError, type ValidationFieldIssue } from "./classes";
 // Zod issues carry a .code and sometimes issue-specific params (min, max, etc).
 // We surface those under `params` so the client can render "must be at least N"
 // without re-parsing the message.
+//
+// Keep this list in sync with the issue-code matrix in classes.test.ts — that
+// test is what catches Zod upgrades introducing new param names.
 const ISSUE_PARAM_KEYS = [
   "minimum",
   "maximum",
@@ -13,6 +16,11 @@ const ISSUE_PARAM_KEYS = [
   "inclusive",
   "exact",
   "keys",
+  // Zod 4 additions:
+  "format", // invalid_format (email, url, uuid, regex, ...)
+  "divisor", // not_multiple_of
+  "values", // invalid_value (enum / literal)
+  "pattern", // invalid_format with regex
 ] as const;
 
 export function validationErrorFromZod(error: ZodError): ValidationError {
