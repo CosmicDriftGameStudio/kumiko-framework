@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createCrudExecutor } from "../db/crud-executor";
+import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
   createBooleanField,
@@ -85,7 +85,7 @@ const feature = defineFeature("txguard", (r) => {
     "invoice:create",
     z.object({ title: z.string(), status: z.string().optional() }),
     async (event, ctx) =>
-      createCrudExecutor(invoiceTable, invoiceEntity, { entityName: "invoice" }).create(
+      createEventStoreExecutor(invoiceTable, invoiceEntity, { entityName: "invoice" }).create(
         event.payload,
         event.user,
         ctx.db,
@@ -101,7 +101,7 @@ const feature = defineFeature("txguard", (r) => {
       changes: z.record(z.string(), z.unknown()),
     }),
     async (event, ctx) =>
-      createCrudExecutor(invoiceTable, invoiceEntity, { entityName: "invoice" }).update(
+      createEventStoreExecutor(invoiceTable, invoiceEntity, { entityName: "invoice" }).update(
         event.payload,
         event.user,
         ctx.db,
@@ -113,7 +113,7 @@ const feature = defineFeature("txguard", (r) => {
     "order:create",
     z.object({ title: z.string(), status: z.string().optional() }),
     async (event, ctx) =>
-      createCrudExecutor(orderTable, orderEntity, { entityName: "order" }).create(
+      createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" }).create(
         event.payload,
         event.user,
         ctx.db,
@@ -129,7 +129,7 @@ const feature = defineFeature("txguard", (r) => {
       changes: z.record(z.string(), z.unknown()),
     }),
     async (event, ctx) =>
-      createCrudExecutor(orderTable, orderEntity, { entityName: "order" }).update(
+      createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" }).update(
         event.payload,
         event.user,
         ctx.db,
@@ -141,7 +141,7 @@ const feature = defineFeature("txguard", (r) => {
     "ticket:create",
     z.object({ title: z.string() }),
     async (event, ctx) =>
-      createCrudExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).create(
+      createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).create(
         event.payload,
         event.user,
         ctx.db,
@@ -153,7 +153,7 @@ const feature = defineFeature("txguard", (r) => {
     "ticket:delete",
     z.object({ id: z.number() }),
     async (event, ctx) =>
-      createCrudExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).delete(
+      createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).delete(
         event.payload,
         event.user,
         ctx.db,
@@ -169,7 +169,7 @@ const feature = defineFeature("txguard", (r) => {
       changes: z.record(z.string(), z.unknown()),
     }),
     async (event, ctx) =>
-      createCrudExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).update(
+      createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" }).update(
         event.payload,
         event.user,
         ctx.db,

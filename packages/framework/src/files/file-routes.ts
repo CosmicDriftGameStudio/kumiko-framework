@@ -20,9 +20,9 @@ export type FileRef = {
   mimeType: string;
   size: number;
   entityType: string | null;
-  entityId: number | null;
+  entityId: string | null;
   fieldName: string | null;
-  insertedById: number | null;
+  insertedById: string | null;
 };
 
 // Checks whether `user` may read/delete the given file. The default guard
@@ -81,7 +81,9 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     }
 
     const entityType = typeof body["entityType"] === "string" ? body["entityType"] : undefined;
-    const entityId = typeof body["entityId"] === "string" ? Number(body["entityId"]) : undefined;
+    // Post-ES migration entities use UUID ids; we accept the raw string and
+    // store it in the text entityId column.
+    const entityId = typeof body["entityId"] === "string" ? body["entityId"] : undefined;
     const fieldName = typeof body["fieldName"] === "string" ? body["fieldName"] : undefined;
 
     // Validate against entity field definition if available.
@@ -116,7 +118,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const storageKey = buildStorageKey(
       user.tenantId,
       entityType ?? "unattached",
-      entityId ?? 0,
+      entityId ?? "",
       fieldName ?? "file",
       file.name,
       uuid(),

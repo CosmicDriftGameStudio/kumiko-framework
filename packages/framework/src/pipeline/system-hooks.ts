@@ -272,7 +272,7 @@ export function createSseDeleteBroadcastHook(
 export type AuditTrailEntry = {
   timestamp: Date;
   tenantId: TenantId;
-  userId: number;
+  userId: string;
   action: string;
   entityType: string;
   entityId: EntityId;
@@ -302,7 +302,7 @@ export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<
       await storage.append({
         timestamp: new Date(),
         tenantId: result.data["tenantId"] as string,
-        userId: ctx._userId ?? 0,
+        userId: ctx._userId ?? "",
         action:
           ctx._handlerType ??
           qn("system", "event", `${entityName}:${result.isNew ? "create" : "update"}`),
@@ -333,7 +333,7 @@ export function createAuditTrailDeleteHook(
       await storage.append({
         timestamp: new Date(),
         tenantId: payload.data["tenantId"] as string,
-        userId: ctx._userId ?? 0,
+        userId: ctx._userId ?? "",
         action: ctx._handlerType ?? qn("system", "event", `${entityName}:delete`),
         entityType: entityName,
         entityId: payload.id,

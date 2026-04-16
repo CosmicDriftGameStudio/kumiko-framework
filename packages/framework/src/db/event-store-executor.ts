@@ -133,8 +133,13 @@ export function createEventStoreExecutor(
 
   return {
     async create(payload, user, db) {
-      const aggregateId = uuid();
-      const data = applyDefaults(payload);
+      // Respect an explicit id in the payload (seed pattern, SCIM import). Without
+      // one the framework mints a fresh v4 UUID. Strip it out of the event payload
+      // so defaults + downstream consumers don't see a redundant id field.
+      const explicitId = typeof payload["id"] === "string" ? (payload["id"] as string) : undefined;
+      const aggregateId = explicitId ?? uuid();
+      const { id: _id, ...payloadWithoutId } = payload;
+      const data = applyDefaults(payloadWithoutId);
 
       // 1. Append event (same TX as the projection write — both must succeed
       //    or both roll back; the dispatcher wraps both in one transaction).

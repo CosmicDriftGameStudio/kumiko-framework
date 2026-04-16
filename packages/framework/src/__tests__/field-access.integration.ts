@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer } from "../api/server";
-import { createCrudExecutor } from "../db/crud-executor";
+import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
   createEntity,
@@ -67,7 +67,9 @@ beforeAll(async () => {
       }),
       async (event, ctx) => {
         const db = ctx.db;
-        const crud = createCrudExecutor(employeeTable, employeeEntity, { entityName: "employee" });
+        const crud = createEventStoreExecutor(employeeTable, employeeEntity, {
+          entityName: "employee",
+        });
         return crud.create(event.payload, event.user, db);
       },
       { access: { roles: ["Admin", "Accounting", "Employee"] } },
@@ -82,7 +84,9 @@ beforeAll(async () => {
       }),
       async (event, ctx) => {
         const db = ctx.db;
-        const crud = createCrudExecutor(employeeTable, employeeEntity, { entityName: "employee" });
+        const crud = createEventStoreExecutor(employeeTable, employeeEntity, {
+          entityName: "employee",
+        });
         return crud.update(event.payload, event.user, db);
       },
       { access: { roles: ["Admin", "Accounting", "Employee"] } },
@@ -93,7 +97,9 @@ beforeAll(async () => {
       z.object({ id: z.number() }),
       async (query, ctx) => {
         const db = ctx.db;
-        const crud = createCrudExecutor(employeeTable, employeeEntity, { entityName: "employee" });
+        const crud = createEventStoreExecutor(employeeTable, employeeEntity, {
+          entityName: "employee",
+        });
         return crud.detail(query.payload, query.user, db);
       },
       { access: { roles: ["Admin", "Accounting", "Employee"] } },

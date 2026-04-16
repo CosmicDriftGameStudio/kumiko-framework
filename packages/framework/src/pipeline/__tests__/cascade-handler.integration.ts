@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { type CrudExecutor, createCrudExecutor } from "../../db/crud-executor";
 import type { TableColumns } from "../../db/dialect";
+import { type CrudExecutor, createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import {
@@ -75,9 +75,9 @@ beforeAll(async () => {
   });
 
   registry = createRegistry([feature]);
-  departmentCrud = createCrudExecutor(departmentTable, departmentEntity);
-  userCrud = createCrudExecutor(userTable, userEntity);
-  sessionCrud = createCrudExecutor(sessionTable, sessionEntity);
+  departmentCrud = createEventStoreExecutor(departmentTable, departmentEntity);
+  userCrud = createEventStoreExecutor(userTable, userEntity);
+  sessionCrud = createEventStoreExecutor(sessionTable, sessionEntity);
 });
 
 afterAll(async () => {

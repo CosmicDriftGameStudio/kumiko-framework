@@ -165,13 +165,13 @@ describe("event log", () => {
     await log.append({
       type: "user:create",
       payload: { email: "a@b.de" },
-      userId: 1,
+      userId: "11111111-0000-4000-8000-000000000001",
       tenantId: "00000000-0000-4000-8000-000000000001",
     });
     await log.append({
       type: "user:update",
       payload: { name: "Marc" },
-      userId: 1,
+      userId: "11111111-0000-4000-8000-000000000001",
       tenantId: "00000000-0000-4000-8000-000000000001",
     });
 
@@ -188,7 +188,7 @@ describe("event log", () => {
       await log.append({
         type: `event.${i}`,
         payload: {},
-        userId: 1,
+        userId: "11111111-0000-4000-8000-000000000001",
         tenantId: "00000000-0000-4000-8000-000000000001",
       });
     }

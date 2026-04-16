@@ -14,7 +14,7 @@ export type EventLog = {
   append(entry: {
     type: string;
     payload: Record<string, unknown>;
-    userId: number;
+    userId: string;
     tenantId: TenantId;
   }): Promise<string>;
   recent(count?: number): Promise<EventLogEntry[]>;

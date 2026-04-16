@@ -68,8 +68,14 @@ export const EVENTS_IDEMPOTENCY_INDEX_SQL = sql`
 `;
 
 // Convenience used by framework integration tests. Creates the table via
-// drizzle-kit diffing and adds the partial idempotency index.
+// drizzle-kit diffing and adds the partial idempotency index. Idempotent —
+// setupTestStack calls it automatically, so tests that also call it manually
+// (legacy setup, explicit layout) don't fail.
 export async function createEventsTable(db: DbConnection): Promise<void> {
+  const [row] = (await db.execute(
+    sql`SELECT to_regclass('public.events') IS NOT NULL AS exists`,
+  )) as unknown as Array<{ exists: boolean }>;
+  if (row?.exists) return;
   await pushTables(db, { events: eventsTable });
   await db.execute(EVENTS_IDEMPOTENCY_INDEX_SQL);
 }

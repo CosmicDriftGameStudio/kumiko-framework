@@ -108,7 +108,10 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity("vehicle", createEntity({ table: "Vehicles", fields: { name: createTextField() } }));
+      r.entity(
+        "vehicle",
+        createEntity({ table: "Vehicles", idType: "uuid", fields: { name: createTextField() } }),
+      );
       r.crud("vehicle");
       r.useExtension("audited", "vehicle");
     });

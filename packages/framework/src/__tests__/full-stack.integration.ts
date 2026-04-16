@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createCrudExecutor } from "../db/crud-executor";
+import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
   createBooleanField,
@@ -20,6 +20,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
+  testUserId,
 } from "../testing";
 
 // --- Entities ---
@@ -45,7 +46,7 @@ const featurePostSaveLog: SaveContext[] = [];
 // --- Feature definition ---
 
 function userCrud(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
-  return createCrudExecutor(userTable, userEntity, {
+  return createEventStoreExecutor(userTable, userEntity, {
     entityName: "user",
     ...(ctx.searchAdapter
       ? { searchAdapter: ctx.searchAdapter as import("../search").SearchAdapter }
@@ -390,7 +391,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     expect(stack.events.audit[0]?.action).toBe("users:write:user:create");
     expect(stack.events.audit[0]?.entityType).toBe("user");
     expect(stack.events.audit[0]?.isNew).toBe(true);
-    expect(stack.events.audit[0]?.userId).toBe(1);
+    expect(stack.events.audit[0]?.userId).toBe(testUserId(1));
   });
 
   test("audit trail system hook captures update with changes + previous", async () => {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createCrudExecutor } from "../../db/crud-executor";
+import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import {
   access,
@@ -56,7 +56,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     "bag:create",
     z.object({ label: z.string() }),
     async (event, ctx) => {
-      const crud = createCrudExecutor(bagTable, bagEntity, { entityName: "bag" });
+      const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
@@ -66,7 +66,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     "secret:create",
     z.object({ owner: z.number(), token: z.string() }),
     async (event, ctx) => {
-      const crud = createCrudExecutor(secretTable, secretEntity, { entityName: "secret" });
+      const crud = createEventStoreExecutor(secretTable, secretEntity, { entityName: "secret" });
       return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: access.privileged } },
@@ -92,7 +92,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     "bag:create-with-secret",
     z.object({ label: z.string(), token: z.string(), fail: z.boolean().optional() }),
     async (event, ctx) => {
-      const crud = createCrudExecutor(bagTable, bagEntity, { entityName: "bag" });
+      const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       const created = await crud.create({ label: event.payload.label }, event.user, ctx.db);
       if (!created.isSuccess) return created;
 

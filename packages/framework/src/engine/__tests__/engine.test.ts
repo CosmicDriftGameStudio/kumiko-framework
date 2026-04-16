@@ -335,7 +335,7 @@ describe("createRegistry", () => {
     const feature = defineFeature("orders", (r) => {
       const order = r.entity(
         "order",
-        createEntity({ table: "Orders", fields: { name: createTextField() } }),
+        createEntity({ table: "Orders", idType: "uuid", fields: { name: createTextField() } }),
       );
       const crud = r.crud(order);
 

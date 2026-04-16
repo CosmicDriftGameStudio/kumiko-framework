@@ -5,6 +5,7 @@ import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
+import { createEventsTable } from "../event-store";
 import type { ObservabilityProvider } from "../observability";
 import type { EventBroker, OutboxPoller } from "../pipeline";
 import {
@@ -92,6 +93,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const enabledHooks = options.systemHooks ?? ["audit", "sse", "search"];
 
   const [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
+
+  // Every ES-entity writes events, and r.crud() generates event-store-executor-
+  // backed handlers. Auto-create the events table so every setupTestStack call
+  // is ready for writes without needing a manual createEventsTable().
+  await createEventsTable(testDb.db);
 
   const searchAdapter = createInMemorySearchAdapter();
   const events = createEventCollector();

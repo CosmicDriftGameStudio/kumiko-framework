@@ -88,7 +88,7 @@ export function validateFile(
 export function buildStorageKey(
   tenantId: TenantId,
   entityType: string,
-  entityId: number,
+  entityId: number | string,
   fieldName: string,
   fileName: string,
   uniqueId: string,

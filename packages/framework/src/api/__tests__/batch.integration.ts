@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createCrudExecutor } from "../../db/crud-executor";
+import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import {
   createEntity,
@@ -51,7 +51,7 @@ const itemFeature = defineFeature("batch", (r) => {
     "item:create",
     z.object({ name: z.string().min(1), counter: z.number().optional() }),
     async (event, ctx) => {
-      const crud = createCrudExecutor(itemTable, itemEntity, { entityName: "item" });
+      const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },

@@ -7,15 +7,16 @@ import { getUser } from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
 
 type MembershipRow = {
-  userId: number;
+  userId: string;
   tenantId: TenantId;
   roles: string[];
 };
 
 // Guest identity used for unauthenticated calls (e.g. login). The "all" role
 // lets framework access checks pass for handlers declared with roles: ["all"].
+// `id` is the zero-uuid so it flows through event-store columns cleanly.
 const GUEST_USER: SessionUser = {
-  id: 0,
+  id: "00000000-0000-0000-0000-000000000000",
   tenantId: "00000000-0000-4000-8000-000000000000",
   roles: ["all"],
 };

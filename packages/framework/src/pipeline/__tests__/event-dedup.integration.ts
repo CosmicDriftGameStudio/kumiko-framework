@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createCrudExecutor } from "../../db/crud-executor";
+import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature, type SaveContext } from "../../engine";
 import {
@@ -31,7 +31,7 @@ const dedupFeature = defineFeature("dedup", (r) => {
     "item:create",
     z.object({ name: z.string() }),
     async (event, ctx) => {
-      const crud = createCrudExecutor(itemTable, itemEntity, { entityName: "item" });
+      const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
@@ -45,7 +45,7 @@ const dedupFeature = defineFeature("dedup", (r) => {
       changes: z.record(z.string(), z.unknown()),
     }),
     async (event, ctx) => {
-      const crud = createCrudExecutor(itemTable, itemEntity, { entityName: "item" });
+      const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.update(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },

@@ -37,7 +37,7 @@ const adminUser = TestUsers.admin;
 const guestUser = createTestUser({ id: 2, roles: ["Guest"] });
 
 async function authHeader(user: {
-  id: number;
+  id: string;
   tenantId: TenantId;
   roles: readonly string[];
 }): Promise<Record<string, string>> {

@@ -105,8 +105,11 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
     version: integer("version").default(1).notNull(),
     insertedAt: timestamp("inserted_at").defaultNow().notNull(),
     modifiedAt: timestamp("modified_at"),
-    insertedById: integer("inserted_by_id"),
-    modifiedById: integer("modified_by_id"),
+    // User-IDs are stringified UUIDs post-ES migration. Text (not uuid) so the
+    // columns accept system actors ("SYSTEM", "SEED", etc.) and legacy-shaped
+    // integer ids during transitional tests.
+    insertedById: text("inserted_by_id"),
+    modifiedById: text("modified_by_id"),
   };
 
   if (softDelete) {
@@ -114,7 +117,7 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
       ...base,
       isDeleted: boolean("is_deleted").default(false).notNull(),
       deletedAt: timestamp("deleted_at"),
-      deletedById: integer("deleted_by_id"),
+      deletedById: text("deleted_by_id"),
     };
   }
 

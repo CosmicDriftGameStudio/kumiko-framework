@@ -5,7 +5,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createCrudExecutor } from "../db/crud-executor";
+import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
   createEntity,
@@ -48,7 +48,7 @@ const errorFeature = defineFeature("errctr", (r) => {
     "item:create",
     z.object({ name: z.string().min(1) }),
     async (event, ctx) => {
-      const crud = createCrudExecutor(itemTable, itemEntity, { entityName: "item" });
+      const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
@@ -63,7 +63,7 @@ const errorFeature = defineFeature("errctr", (r) => {
       changes: z.record(z.string(), z.unknown()),
     }),
     async (event, ctx) => {
-      const crud = createCrudExecutor(itemTable, itemEntity, { entityName: "item" });
+      const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.update(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
@@ -84,7 +84,7 @@ const errorFeature = defineFeature("errctr", (r) => {
     "item:create-for-hook",
     z.object({ name: z.string() }),
     async (event, ctx) => {
-      const crud = createCrudExecutor(itemTable, itemEntity, { entityName: "item" });
+      const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
@@ -207,7 +207,7 @@ type ErrorBody = {
 };
 
 type AnyUser = {
-  readonly id: number;
+  readonly id: string;
   readonly tenantId: TenantId;
   readonly roles: readonly string[];
 };
@@ -405,7 +405,7 @@ describe("error contract: cross-cutting guarantees", () => {
 });
 
 async function authHeaders(user: {
-  id: number;
+  id: string;
   tenantId: TenantId;
   roles: readonly string[];
 }): Promise<Record<string, string>> {

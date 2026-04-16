@@ -34,7 +34,7 @@ function createJobLogger(logs: JobLogEntry[]): Logger {
 }
 
 export type JobMeta = {
-  triggeredById?: number | undefined;
+  triggeredById?: string | undefined;
   payload?: string | undefined;
 };
 
@@ -133,7 +133,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // Extract meta from job data
     const rawData = bullJob.data as Record<string, unknown>;
     const meta: JobMeta = {
-      triggeredById: rawData["_triggeredById"] as number | undefined,
+      triggeredById: rawData["_triggeredById"] as string | undefined,
       payload: rawData["_payload"] as string | undefined,
     };
 
@@ -148,7 +148,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       (rawData["_tenantId"] as string | undefined) ??
       (payload["tenantId"] as string | undefined) ??
       "00000000-0000-4000-8000-000000000000";
-    const triggeredById = (rawData["_triggeredById"] as number | undefined) ?? null;
+    const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null;
 
     const jobContext: AppContext = {
       ...context,

@@ -8,8 +8,10 @@ export const fileRefsTable = pgTable("file_refs", {
   mimeType: text("mime_type").notNull(),
   size: integer("size").notNull(),
   entityType: text("entity_type"),
-  entityId: integer("entity_id"),
+  // entityId references any entity (mostly UUID-keyed under ES). Text keeps
+  // the column backward-compat with older integer-keyed entities too.
+  entityId: text("entity_id"),
   fieldName: text("field_name"),
   insertedAt: timestamp("inserted_at").defaultNow().notNull(),
-  insertedById: integer("inserted_by_id"),
+  insertedById: text("inserted_by_id"),
 });

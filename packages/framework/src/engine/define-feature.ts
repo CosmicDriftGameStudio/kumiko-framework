@@ -173,7 +173,7 @@ export function defineFeature(
       return { name: nameOrDef };
     },
 
-    crud(entityRef: NameOrRef, options?: { access?: AccessRule }) {
+    crud(entityRef: NameOrRef, options?: Parameters<typeof buildCrudHandlers>[2]) {
       const entityName = resolveName(entityRef);
       const entity = entities[entityName];
       if (!entity) {
@@ -181,7 +181,14 @@ export function defineFeature(
           `Entity "${entityName}" not found. Register it with r.entity() before r.crud().`,
         );
       }
-      const crud = buildCrudHandlers(entityName, entity, options);
+      // Hand the registered relations through so the generated projection
+      // table gets the same foreign-key indexes it would with an explicit
+      // buildDrizzleTable call outside the registrar.
+      const entityRelations = relations[entityName];
+      const crud = buildCrudHandlers(entityName, entity, {
+        ...options,
+        ...(entityRelations && { relations: entityRelations }),
+      });
       Object.assign(writeHandlers, crud.writeHandlers);
       Object.assign(queryHandlers, crud.queryHandlers);
       // Explicit entity mapping for all CRUD handlers

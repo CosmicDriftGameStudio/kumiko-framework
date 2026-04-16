@@ -24,7 +24,7 @@ describe("SYSTEM_USER", () => {
 
   test("normal user does NOT have access to system-only handlers", () => {
     const admin = {
-      id: 1,
+      id: "11111111-0000-4000-8000-000000000001",
       tenantId: "00000000-0000-4000-8000-000000000001",
       roles: ["Admin"] as readonly string[],
     };

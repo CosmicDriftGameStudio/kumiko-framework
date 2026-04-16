@@ -58,7 +58,7 @@ export type JobDefinition = {
 
 export type NotificationRecipientFn = (
   result: import("./hooks").SaveContext,
-) => number | readonly number[] | null;
+) => string | readonly string[] | { readonly tenant: string } | null;
 
 export type NotificationDataFn = (result: import("./hooks").SaveContext) => Record<string, unknown>;
 

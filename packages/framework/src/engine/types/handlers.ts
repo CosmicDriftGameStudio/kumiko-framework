@@ -18,7 +18,10 @@ export type AccessRule = { readonly roles: readonly string[] } | { readonly open
 // --- Pipeline User ---
 
 export type SessionUser = {
-  readonly id: number;
+  // UUID-string so user.id threads through the event-store (aggregate-id) and
+  // the projection tables (uuid PK) without casts. Auth middleware reads the
+  // JWT `sub` claim as a string; legacy integer ids were a pre-ES artefact.
+  readonly id: string;
   readonly tenantId: TenantId;
   readonly roles: readonly string[];
   // App-specific identity facts baked into the JWT at login time.
@@ -71,7 +74,7 @@ export type NotifyPriority = "critical" | "normal" | "low";
 // Options passed to a NotifyFn / DeliveryService.notify. Defined here so the
 // framework side and the concrete delivery implementation can't drift apart.
 export type NotifyOptions = {
-  readonly to?: number | readonly number[] | { readonly tenant: TenantId };
+  readonly to?: string | readonly string[] | { readonly tenant: TenantId };
   readonly route?: Readonly<Record<string, string>>;
   readonly data?: Readonly<Record<string, unknown>>;
   readonly priority?: NotifyPriority;
@@ -114,8 +117,8 @@ export type AppContext = SharedContextFields & {
   readonly registry?: Registry;
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
-  readonly triggeredBy?: { readonly id: number; readonly tenantId: TenantId } | null;
-  readonly _userId?: number | undefined;
+  readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
+  readonly _userId?: string | undefined;
   readonly _handlerType?: string | undefined;
 };
 
@@ -136,8 +139,8 @@ export type HandlerContext = SharedContextFields & {
   readonly registry: Registry;
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
-  readonly triggeredBy?: { readonly id: number; readonly tenantId: TenantId } | null;
-  readonly _userId?: number | undefined;
+  readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
+  readonly _userId?: string | undefined;
   readonly _handlerType?: string | undefined;
 
   readonly query: (qn: string, payload: unknown) => Promise<unknown>;
@@ -164,7 +167,7 @@ export type JobContext = SharedContextFields & {
   readonly registry: Registry;
   readonly systemUser: SessionUser;
   readonly log: Logger;
-  readonly triggeredBy: { readonly id: number; readonly tenantId: TenantId } | null;
+  readonly triggeredBy: { readonly id: string; readonly tenantId: TenantId } | null;
 };
 
 // --- Handler Functions ---

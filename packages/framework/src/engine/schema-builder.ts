@@ -94,7 +94,13 @@ export function buildUpdateSchema(
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {
-    shape[name] = fieldToZod(field, currencies).optional();
+    // Update schemas never apply defaults — a user that sends only
+    // `{ title }` means "only change title"; zod defaults would silently
+    // inject default values for every omitted field and clobber existing
+    // data via the event-store-executor's `changes` payload.
+    const { default: _default, ...rest } = field as { default?: unknown };
+    const stripped = rest as unknown as FieldDefinition;
+    shape[name] = fieldToZod(stripped, currencies).optional();
   }
 
   return z.object(shape);

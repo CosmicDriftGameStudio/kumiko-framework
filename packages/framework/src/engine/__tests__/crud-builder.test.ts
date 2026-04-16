@@ -7,6 +7,7 @@ import { createBooleanField, createEntity, createTextField, defineFeature } from
 describe("r.crud()", () => {
   const userEntity = createEntity({
     table: "Users",
+    idType: "uuid",
     fields: {
       email: createTextField({ required: true, format: "email", searchable: true }),
       firstName: createTextField(),
@@ -17,7 +18,7 @@ describe("r.crud()", () => {
 
   test("registers all 5 handlers", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("post", createEntity({ table: "Posts", fields: {} }));
+      r.entity("post", createEntity({ table: "Posts", idType: "uuid", fields: {} }));
       r.crud("post");
     });
 
@@ -50,17 +51,21 @@ describe("r.crud()", () => {
     });
 
     const updateHandler = feature.writeHandlers["user:update"];
+    const validId = "00000000-0000-4000-8000-000000000001";
     // Partial update with id
     expect(
-      updateHandler?.schema.safeParse({ id: 1, changes: { firstName: "Marc" }, version: 1 })
+      updateHandler?.schema.safeParse({ id: validId, changes: { firstName: "Marc" }, version: 1 })
         .success,
     ).toBe(true);
     // Id is required
     expect(updateHandler?.schema.safeParse({ changes: { firstName: "Marc" } }).success).toBe(false);
     // Still validates types in changes
     expect(
-      updateHandler?.schema.safeParse({ id: 1, changes: { isEnabled: "nope" }, version: 1 })
-        .success,
+      updateHandler?.schema.safeParse({
+        id: validId,
+        changes: { isEnabled: "nope" },
+        version: 1,
+      }).success,
     ).toBe(false);
   });
 
@@ -71,7 +76,9 @@ describe("r.crud()", () => {
     });
 
     const deleteHandler = feature.writeHandlers["user:delete"];
-    expect(deleteHandler?.schema.safeParse({ id: 1 }).success).toBe(true);
+    expect(
+      deleteHandler?.schema.safeParse({ id: "00000000-0000-4000-8000-000000000001" }).success,
+    ).toBe(true);
     expect(deleteHandler?.schema.safeParse({}).success).toBe(false);
   });
 
@@ -97,13 +104,15 @@ describe("r.crud()", () => {
     });
 
     const detailHandler = feature.queryHandlers["user:detail"];
-    expect(detailHandler?.schema.safeParse({ id: 1 }).success).toBe(true);
+    expect(
+      detailHandler?.schema.safeParse({ id: "00000000-0000-4000-8000-000000000001" }).success,
+    ).toBe(true);
     expect(detailHandler?.schema.safeParse({}).success).toBe(false);
   });
 
   test("passes access rules to all handlers", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("post", createEntity({ table: "Posts", fields: {} }));
+      r.entity("post", createEntity({ table: "Posts", idType: "uuid", fields: {} }));
       r.crud("post", { access: { roles: ["Admin"] } });
     });
 

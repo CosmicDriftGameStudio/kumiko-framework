@@ -120,7 +120,24 @@ export type FeatureRegistrar = {
     options?: { access?: AccessRule },
   ): HandlerRef;
 
-  crud(entity: NameOrRef, options?: { access?: AccessRule }): CrudRefs;
+  crud(
+    entity: NameOrRef,
+    options?: {
+      // Single AccessRule applies to every generated handler. Pass a map
+      // with per-handler keys ({ create, update, delete, restore, list, detail })
+      // when the handlers need different access (e.g. delete=Admin, list=openToAll).
+      access?:
+        | AccessRule
+        | {
+            readonly create?: AccessRule;
+            readonly update?: AccessRule;
+            readonly delete?: AccessRule;
+            readonly restore?: AccessRule;
+            readonly list?: AccessRule;
+            readonly detail?: AccessRule;
+          };
+    },
+  ): CrudRefs;
 
   relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;
 

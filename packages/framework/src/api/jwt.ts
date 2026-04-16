@@ -2,7 +2,10 @@ import * as jose from "jose";
 import type { SessionUser, TenantId } from "../engine/types";
 
 export type JwtPayload = {
-  sub: number;
+  // JWT `sub` is a string per RFC 7519. Matches SessionUser.id — a UUID-string
+  // under the ES migration. `sign()` already stringifies via String(user.id);
+  // `verify()` just passes it through.
+  sub: string;
   tenantId: TenantId;
   roles: string[];
   // Optional — present when a feature has registered auth claims (future:
@@ -38,7 +41,7 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
     async verify(token) {
       const { payload } = await jose.jwtVerify(token, encodedSecret, { issuer });
       const result: JwtPayload = {
-        sub: Number(payload.sub),
+        sub: String(payload.sub),
         tenantId: payload["tenantId"] as string,
         roles: payload["roles"] as string[],
       };

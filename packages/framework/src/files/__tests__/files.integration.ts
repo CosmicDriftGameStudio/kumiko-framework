@@ -271,7 +271,7 @@ describe("attached file owner-scope", () => {
   ]);
   // Same tenant as adminUser (tenantId 1), different id and no privileged role.
   const memberUser: SessionUser = {
-    id: 42,
+    id: "11111111-0000-4000-8000-000000000042",
     tenantId: "00000000-0000-4000-8000-000000000001",
     roles: ["User"],
   };
@@ -288,7 +288,7 @@ describe("attached file owner-scope", () => {
     // A different non-privileged user in the SAME tenant — the old code leaked
     // here (tenant check alone passed). New code rejects with 404.
     const otherMember: SessionUser = {
-      id: 43,
+      id: "11111111-0000-4000-8000-000000000043",
       tenantId: "00000000-0000-4000-8000-000000000001",
       roles: ["User"],
     };
@@ -402,17 +402,17 @@ describe("custom file access guard", () => {
       { privilegedRoles: ["Supervisor"] },
       async ({ upload, request }) => {
         const uploader: SessionUser = {
-          id: 10,
+          id: "11111111-0000-4000-8000-000000000010",
           tenantId: "00000000-0000-4000-8000-000000000001",
           roles: ["User"],
         };
         const supervisor: SessionUser = {
-          id: 20,
+          id: "11111111-0000-4000-8000-000000000020",
           tenantId: "00000000-0000-4000-8000-000000000001",
           roles: ["Supervisor"],
         };
         const adminCaller: SessionUser = {
-          id: 30,
+          id: "11111111-0000-4000-8000-000000000030",
           tenantId: "00000000-0000-4000-8000-000000000001",
           roles: ["Admin"],
         };
@@ -429,7 +429,7 @@ describe("custom file access guard", () => {
   });
 
   test("custom accessGuard receives read/delete operation and can distinguish", async () => {
-    const guardCalls: Array<{ operation: string; userId: number }> = [];
+    const guardCalls: Array<{ operation: string; userId: string }> = [];
     await withIsolatedFileServer(
       {
         // Everyone in the tenant can read; only the uploader can delete.
@@ -441,12 +441,12 @@ describe("custom file access guard", () => {
       },
       async ({ upload, request }) => {
         const uploader: SessionUser = {
-          id: 40,
+          id: "11111111-0000-4000-8000-000000000040",
           tenantId: "00000000-0000-4000-8000-000000000001",
           roles: ["User"],
         };
         const other: SessionUser = {
-          id: 41,
+          id: "11111111-0000-4000-8000-000000000041",
           tenantId: "00000000-0000-4000-8000-000000000001",
           roles: ["User"],
         };
