@@ -39,6 +39,7 @@ import type {
   PreSaveHookFn,
   ValidationHookFn,
 } from "./hooks";
+import type { ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
 
 // --- Metrics (declared by features via r.metric()) ---
@@ -87,6 +88,9 @@ export type FeatureDefinition = {
   readonly handlerEntityMappings: Readonly<Record<string, string>>;
   // Metrics declared via r.metric(). Short names — Framework prefixes on boot.
   readonly metrics: Readonly<Record<string, FeatureMetricDef>>;
+  // Projections declared via r.projection(). Keyed by projection name; executor
+  // looks them up by source-entity at write-time.
+  readonly projections: Readonly<Record<string, ProjectionDefinition>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -208,6 +212,11 @@ export type FeatureRegistrar = {
   // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.
   // Usage at runtime: ctx.metrics.inc("created_total", { status: "new" }).
   metric(shortName: string, options: MetricOptions): void;
+
+  // Register a projection driven by events of one or more source entities.
+  // The runtime fires projection.apply[event.type] inside the event-store's
+  // transaction, so projections stay consistent with the events that feed them.
+  projection(definition: ProjectionDefinition): void;
 };
 
 // --- Registry (created from features) ---
@@ -253,4 +262,8 @@ export type Registry = {
   getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[];
   getAllNotifications(): ReadonlyMap<string, NotificationDefinition>;
   getAllReferenceData(): readonly ReferenceDataDef[];
+  // Look up projections by source-entity name. Empty list when no projection
+  // feeds off the entity — event-store-executor uses this as the hot-path.
+  getProjectionsForSource(entityName: string): readonly ProjectionDefinition[];
+  getAllProjections(): ReadonlyMap<string, ProjectionDefinition>;
 };

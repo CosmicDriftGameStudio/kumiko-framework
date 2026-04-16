@@ -99,6 +99,20 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // is ready for writes without needing a manual createEventsTable().
   await createEventsTable(testDb.db);
 
+  // Projection tables: the executor writes into them in the same TX as the
+  // event-append, so they have to exist before the first write. Auto-push
+  // everything registered via r.projection() — keeps tests from having to
+  // know which projections a feature happens to declare.
+  const projectionTables: Record<string, unknown> = {};
+  for (const feature of options.features) {
+    for (const [projName, proj] of Object.entries(feature.projections)) {
+      projectionTables[projName] = proj.table;
+    }
+  }
+  if (Object.keys(projectionTables).length > 0) {
+    await pushTables(testDb.db, projectionTables);
+  }
+
   const searchAdapter = createInMemorySearchAdapter();
   const events = createEventCollector();
   const registry = createRegistry([...options.features]);

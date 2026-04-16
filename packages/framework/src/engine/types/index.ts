@@ -106,6 +106,11 @@ export { HookPhases } from "./hooks";
 export type { EntityId, TenantId } from "./identifiers";
 export { isSystemTenant, ZERO_TENANT_ID } from "./identifiers";
 export type {
+  ProjectionApplyFn,
+  ProjectionDefinition,
+  ProjectionTable,
+} from "./projection";
+export type {
   BelongsToRelation,
   EntityRelations,
   HasManyRelation,

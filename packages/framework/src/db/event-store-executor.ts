@@ -4,6 +4,7 @@ import type {
   DeleteContext,
   EntityDefinition,
   EntityId,
+  Registry,
   SaveContext,
   SessionUser,
   WriteResult,
@@ -15,7 +16,11 @@ import {
   UnprocessableError,
   writeFailure,
 } from "../errors";
-import { append, VersionConflictError as EventStoreVersionConflict } from "../event-store";
+import {
+  append,
+  VersionConflictError as EventStoreVersionConflict,
+  type StoredEvent,
+} from "../event-store";
 import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
 import { decodeCursor, encodeCursor } from "./cursor";
@@ -32,6 +37,15 @@ export type EventStoreExecutorOptions = {
   entityCache?: EntityCache;
 };
 
+// Per-call options shared across create/update/delete/restore.
+// `registry` opts the caller into the projection runtime: after the event is
+// appended and the auto-projection (entity table) is written, the executor
+// iterates `registry.getProjectionsForSource(entityName)` and invokes
+// `apply[event.type]` inside the same TX. Without a registry, projections
+// never fire — tests and low-level integration calls that don't care about
+// custom projections can omit it.
+type RuntimeOptions = { registry?: Registry };
+
 // Same shape as CrudExecutor so callers can be migrated without changing
 // writeHandler bodies. The difference lives below the interface: create/update/
 // delete append to the event-store and update the projection in the same TX,
@@ -41,25 +55,28 @@ export type EventStoreExecutor = {
     payload: Record<string, unknown>,
     user: SessionUser,
     db: TenantDb,
+    options?: RuntimeOptions,
   ) => Promise<WriteResult<SaveContext>>;
 
   update: (
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: TenantDb,
-    options?: { skipOptimisticLock?: boolean },
+    options?: { skipOptimisticLock?: boolean } & RuntimeOptions,
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
+    options?: RuntimeOptions,
   ) => Promise<WriteResult<DeleteContext>>;
 
   restore: (
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
+    options?: RuntimeOptions,
   ) => Promise<WriteResult<SaveContext>>;
 
   list: (
@@ -131,8 +148,30 @@ export function createEventStoreExecutor(
     return (row as Record<string, unknown>) ?? null;
   }
 
+  // Fire custom projections registered on this entity. Runs inside the same TX
+  // as the event-append — projection failures throw, which rolls the event
+  // append back as well. Quiet no-op when no registry is wired (tests, direct
+  // executor usage).
+  async function runProjections(
+    event: StoredEvent,
+    db: TenantDb,
+    options: RuntimeOptions | undefined,
+  ): Promise<void> {
+    const registry = options?.registry;
+    // skip: caller didn't opt into projections — legacy direct executor use
+    if (!registry) return;
+    const projections = registry.getProjectionsForSource(entityName);
+    // skip: no projection feeds off this entity — fast path for the common case
+    if (projections.length === 0) return;
+    for (const proj of projections) {
+      const applyFn = proj.apply[event.type];
+      if (!applyFn) continue;
+      await applyFn(event, db.raw);
+    }
+  }
+
   return {
-    async create(payload, user, db) {
+    async create(payload, user, db, options) {
       // Respect an explicit id in the payload (seed pattern, SCIM import). Without
       // one the framework mints a fresh v4 UUID. Strip it out of the event payload
       // so defaults + downstream consumers don't see a redundant id field.
@@ -170,6 +209,8 @@ export function createEventStoreExecutor(
       if (!row)
         return writeFailure(new InternalError({ message: "projection insert returned no row" }));
       const projection = row as Record<string, unknown>;
+
+      await runProjections(event, db, options);
 
       if (entityCache && entityName) {
         await entityCache.del(user.tenantId, entityName, aggregateId);
@@ -241,6 +282,8 @@ export function createEventStoreExecutor(
           return writeFailure(new InternalError({ message: "projection update returned no row" }));
         const data = row as Record<string, unknown>;
 
+        await runProjections(event, db, updateOptions);
+
         if (entityCache && entityName) {
           await entityCache.del(user.tenantId, entityName, payload.id);
         }
@@ -275,7 +318,7 @@ export function createEventStoreExecutor(
       }
     },
 
-    async delete(payload, user, db) {
+    async delete(payload, user, db, options) {
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
 
@@ -307,6 +350,8 @@ export function createEventStoreExecutor(
         await db.delete(table).where(eq(table["id"], payload.id));
       }
 
+      await runProjections(event, db, options);
+
       if (entityCache && entityName) {
         await entityCache.del(user.tenantId, entityName, payload.id);
       }
@@ -317,7 +362,7 @@ export function createEventStoreExecutor(
       };
     },
 
-    async restore(payload, user, db) {
+    async restore(payload, user, db, options) {
       if (!softDelete) {
         return writeFailure(
           new UnprocessableError("soft_delete_not_enabled", {
@@ -361,6 +406,8 @@ export function createEventStoreExecutor(
 
       if (!restored)
         return writeFailure(new InternalError({ message: "projection restore returned no row" }));
+
+      await runProjections(event, db, options);
 
       if (entityCache && entityName) {
         await entityCache.del(user.tenantId, entityName, payload.id);

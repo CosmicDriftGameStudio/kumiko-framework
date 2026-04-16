@@ -16,6 +16,7 @@ import type {
   PreDeleteHookFn,
   PreQueryHookFn,
   PreSaveHookFn,
+  ProjectionDefinition,
   QueryHandlerDef,
   ReferenceDataDef,
   RegistrarExtensionDef,
@@ -68,6 +69,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // Metric registry — keyed by fully qualified name (kumiko_<feature>_<short>).
   // Boot-time validation rejects bad names; dashboards then safely rely on shape.
   const metricMap = new Map<string, FeatureMetricDef & { readonly featureName: string }>();
+  // Projections — full list keyed by qualified name AND a source-entity index
+  // the executor consults on every write. Index is precomputed so the hot path
+  // does a single Map.get, never a scan.
+  const projectionMap = new Map<string, ProjectionDefinition>();
+  const projectionsBySource = new Map<string, ProjectionDefinition[]>();
 
   // Qualified name helper: builds "scope:type:name" from feature + type + short name.
   // Both feature name and handler name are converted to kebab-case.
@@ -253,6 +259,23 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         );
       }
       metricMap.set(fullName, { ...def, featureName: feature.name });
+    }
+
+    // Projections: qualified by feature name. Build the source-entity index so
+    // the event-store-executor can fetch matching projections in O(1) per write.
+    for (const [projName, projDef] of Object.entries(feature.projections)) {
+      const qualified = qualify(feature.name, "projection", projName);
+      if (projectionMap.has(qualified)) {
+        throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
+      }
+      const stored = { ...projDef, name: qualified };
+      projectionMap.set(qualified, stored);
+      const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
+      for (const src of sources) {
+        const existing = projectionsBySource.get(src) ?? [];
+        existing.push(stored);
+        projectionsBySource.set(src, existing);
+      }
     }
   }
 
@@ -643,6 +666,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllReferenceData(): readonly ReferenceDataDef[] {
       return allReferenceData;
+    },
+
+    getProjectionsForSource(entityName: string): readonly ProjectionDefinition[] {
+      return projectionsBySource.get(entityName) ?? [];
+    },
+
+    getAllProjections(): ReadonlyMap<string, ProjectionDefinition> {
+      return projectionMap;
     },
   };
 }

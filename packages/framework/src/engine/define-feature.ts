@@ -29,6 +29,7 @@ import type {
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
+  ProjectionDefinition,
   QueryHandlerDef,
   QueryHandlerFn,
   ReferenceDataDef,
@@ -76,6 +77,7 @@ export function defineFeature(
   const referenceData: ReferenceDataDef[] = [];
   const handlerEntityMappings: Record<string, string> = {};
   const metrics: Record<string, FeatureMetricDef> = {};
+  const projections: Record<string, ProjectionDefinition> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -364,6 +366,16 @@ export function defineFeature(
       }
       metrics[shortName] = { shortName, ...options };
     },
+
+    projection(definition: ProjectionDefinition): void {
+      if (projections[definition.name]) {
+        throw new Error(
+          `[Feature ${name}] Projection "${definition.name}" already registered. ` +
+            `Projection names must be unique per feature.`,
+        );
+      }
+      projections[definition.name] = definition;
+    },
   };
 
   setup(registrar);
@@ -401,5 +413,6 @@ export function defineFeature(
     configReads,
     handlerEntityMappings,
     metrics,
+    projections,
   };
 }
