@@ -1,5 +1,5 @@
 export { assertExistsIn } from "./assert-exists-in";
-export type { DbConnection } from "./connection";
+export type { DbConnection, DbRunner, DbTx } from "./connection";
 export { createDbConnection } from "./connection";
 export type { CrudExecutor } from "./crud-executor";
 export { createCrudExecutor } from "./crud-executor";

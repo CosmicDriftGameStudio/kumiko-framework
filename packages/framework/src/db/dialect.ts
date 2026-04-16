@@ -9,6 +9,7 @@ export type {
 } from "drizzle-orm/pg-core";
 export {
   bigint,
+  bigserial,
   boolean,
   index,
   integer,
