@@ -3,11 +3,14 @@
 import { $ } from "bun";
 import { existsSync } from "node:fs";
 
-// Suppress Node's DEP0169 (url.parse) deprecation warning. It's emitted by
-// yarn-classic's own url handling, not by our code. Affects every shelled
-// command and clutters check output; silencing keeps the workflow quiet.
-// Inherited by child processes via the environment.
-process.env["NODE_NO_WARNINGS"] = "1";
+// Suppress Node's deprecation warnings (notably DEP0169 url.parse, emitted
+// by yarn-classic's own url handling — not our code). Using --no-deprecation
+// is surgical: only Deprecation-class warnings are silenced, unhandled-
+// promise and other runtime warnings still surface. Inherited by child
+// processes through the environment.
+process.env["NODE_OPTIONS"] = [process.env["NODE_OPTIONS"], "--no-deprecation"]
+  .filter(Boolean)
+  .join(" ");
 
 // --- ENV Check ---
 

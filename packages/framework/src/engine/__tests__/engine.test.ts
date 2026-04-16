@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
+import { rolesOf } from "../../testing/access-assertions";
 import { createTestUser } from "../../testing/fixtures";
 import { hasAccess } from "../access";
 import { defineQueryHandler, defineWriteHandler } from "../define-handler";
@@ -121,8 +122,7 @@ describe("defineFeature", () => {
 
     expect(feature.writeHandlers["user:create"]).toBeDefined();
     expect(feature.writeHandlers["user:create"]?.name).toBe("user:create");
-    const access = feature.writeHandlers["user:create"]?.access;
-    expect(access && "roles" in access && access.roles).toEqual(["Admin"]);
+    expect(rolesOf(feature.writeHandlers["user:create"]?.access)).toEqual(["Admin"]);
   });
 
   test("collects query handlers with inferred types", () => {
@@ -184,11 +184,7 @@ describe("defineFeature", () => {
       );
     });
 
-    const inviteAccess = feature.writeHandlers["user:invite"]?.access;
-    expect(inviteAccess && "roles" in inviteAccess && inviteAccess.roles).toEqual([
-      "Admin",
-      "SystemAdmin",
-    ]);
+    expect(rolesOf(feature.writeHandlers["user:invite"]?.access)).toEqual(["Admin", "SystemAdmin"]);
   });
 });
 

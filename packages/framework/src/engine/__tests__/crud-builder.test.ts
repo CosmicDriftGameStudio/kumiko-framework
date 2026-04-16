@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { rolesOf } from "../../testing/access-assertions";
 import { createBooleanField, createEntity, createTextField, defineFeature } from "../index";
 
 // --- r.crud() registration ---
@@ -106,17 +107,11 @@ describe("r.crud()", () => {
       r.crud("post", { access: { roles: ["Admin"] } });
     });
 
-    // role-based access narrows via "roles" in access — the alternative
-    // { openToAll: true } has no .roles field.
-    const expectRoles = (access: unknown) => {
-      expect(access && typeof access === "object" && "roles" in access).toBe(true);
-      return (access as { roles: readonly string[] }).roles;
-    };
-    expect(expectRoles(feature.writeHandlers["post:create"]?.access)).toEqual(["Admin"]);
-    expect(expectRoles(feature.writeHandlers["post:update"]?.access)).toEqual(["Admin"]);
-    expect(expectRoles(feature.writeHandlers["post:delete"]?.access)).toEqual(["Admin"]);
-    expect(expectRoles(feature.queryHandlers["post:list"]?.access)).toEqual(["Admin"]);
-    expect(expectRoles(feature.queryHandlers["post:detail"]?.access)).toEqual(["Admin"]);
+    expect(rolesOf(feature.writeHandlers["post:create"]?.access)).toEqual(["Admin"]);
+    expect(rolesOf(feature.writeHandlers["post:update"]?.access)).toEqual(["Admin"]);
+    expect(rolesOf(feature.writeHandlers["post:delete"]?.access)).toEqual(["Admin"]);
+    expect(rolesOf(feature.queryHandlers["post:list"]?.access)).toEqual(["Admin"]);
+    expect(rolesOf(feature.queryHandlers["post:detail"]?.access)).toEqual(["Admin"]);
   });
 
   test("throws if entity not registered before crud", () => {

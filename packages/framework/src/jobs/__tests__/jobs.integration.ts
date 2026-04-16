@@ -132,12 +132,9 @@ describe("scenario 2: scheduled job", () => {
     }
   });
 
-  // BullMQ cron scheduling interacts with Redis; under full-suite contention
-  // it occasionally misses its first few ticks. The fix — retry twice plus a
-  // generous delay schedule — keeps the test deterministic without lying
-  // about the contract (a cron job *does* fire, just not always on the first
-  // second when Redis is under load).
-  test("cron job fires via BullMQ scheduler", { retry: 2, timeout: 30_000 }, async () => {
+  // BullMQ's repeatable scheduler needs a second or two to register its
+  // first tick — a generous delay schedule covers the startup window.
+  test("cron job fires via BullMQ scheduler", { timeout: 15_000 }, async () => {
     clearLog();
     await withRunner(async () => {
       await waitFor(
@@ -145,7 +142,7 @@ describe("scenario 2: scheduled job", () => {
           const entries = jobLog.filter((e) => e.name === "test:job:scheduled");
           expect(entries.length).toBeGreaterThanOrEqual(1);
         },
-        { delays: [2000, 3000, 5000, 5000, 5000] },
+        { delays: [2000, 3000, 5000] },
       );
     });
   });

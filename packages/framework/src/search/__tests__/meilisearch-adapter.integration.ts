@@ -12,14 +12,19 @@ const TENANT = Math.floor(Math.random() * 100000);
 
 let adapter: SearchAdapter;
 let client: Meilisearch;
-let _indexName: string;
+let indexPrefix: string;
+
+// Mirrors meilisearch-adapter.ts's tenantIndex() — used by tests that need
+// to talk to Meilisearch directly (e.g. stats before/after a no-op).
+const tenantIndex = (prefix: string, tenantId: number): string => `${prefix}t${tenantId}`;
 
 beforeAll(async () => {
   client = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });
+  indexPrefix = `test_${uuid().slice(0, 6)}_`;
   adapter = createMeilisearchAdapter({
     url: MEILI_URL,
     apiKey: MEILI_KEY,
-    indexPrefix: `test_${uuid().slice(0, 6)}_`,
+    indexPrefix,
   });
 
   await adapter.configure(TENANT, {
@@ -80,9 +85,6 @@ beforeAll(async () => {
     weight: 5,
     fields: { firstName: "Engineering" },
   });
-
-  // Figure out the actual index name for cleanup
-  _indexName = `test_${uuid().slice(0, 6)}_t${TENANT}`;
 });
 
 afterAll(async () => {
@@ -216,13 +218,18 @@ describe("indexBatch / removeBatch", () => {
     expect(hits.length).toBe(0);
   });
 
-  test("indexBatch no-ops on empty array", async () => {
-    // Must not throw or send a request. We verify "no-op" by observing that
-    // the index's doc count doesn't change across the call — the empty
-    // batch must not accidentally wipe or touch existing docs.
-    const before = await adapter.search(TENANT, "batchtoken", { limit: 100 });
+  test("indexBatch no-ops on empty array — no Meilisearch task created", async () => {
+    // We verify the "no-op" contract by peeking at Meilisearch's own
+    // IndexStats.numberOfDocuments + isIndexing directly. If the adapter had
+    // accidentally sent an addDocuments request (even with an empty body),
+    // isIndexing would flip to true or a task would land in the queue.
+    // numberOfDocuments must also stay unchanged — the empty batch must not
+    // replace, delete, or otherwise touch existing docs.
+    const index = client.index(tenantIndex(indexPrefix, TENANT));
+    const before = await index.getStats();
     await expect(adapter.indexBatch?.(TENANT, [])).resolves.toBeUndefined();
-    const after = await adapter.search(TENANT, "batchtoken", { limit: 100 });
-    expect(after.length).toBe(before.length);
+    const after = await index.getStats();
+    expect(after.numberOfDocuments).toBe(before.numberOfDocuments);
+    expect(after.isIndexing).toBe(false);
   });
 });

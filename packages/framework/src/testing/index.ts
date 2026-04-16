@@ -60,7 +60,17 @@ export type TestRedis = {
 export async function createTestRedis(): Promise<TestRedis> {
   const Redis = (await import("ioredis")).default;
   const redisUrl = requireEnv("REDIS_URL");
-  const dbIndex = Math.floor(Math.random() * 15) + 1;
+  // Round-robin DB assignment via a Redis-side INCR counter on DB 0. Random
+  // picking over 15 DBs had a birthday-paradox collision rate of ~40% at 6
+  // parallel test files — a colliding test's flushdb() wiped the other's
+  // BullMQ scheduler keys mid-run, producing the cron-test flakiness.
+  // Round-robin keeps allocations deterministic as long as concurrent
+  // callers stay under 15; beyond that the modulo wraps and callers may
+  // still collide, but Vitest's default pool usually stays well under.
+  const counterClient = new Redis(redisUrl, { db: 0 });
+  const counter = await counterClient.incr("kumiko:test:db-counter");
+  await counterClient.quit();
+  const dbIndex = (counter % 15) + 1;
   const redis = new Redis(redisUrl, { db: dbIndex });
   await redis.flushdb();
 
@@ -75,6 +85,7 @@ export async function createTestRedis(): Promise<TestRedis> {
 
 // --- Shared Test Utilities ---
 
+export { rolesOf } from "./access-assertions";
 export { expectError, expectSuccess } from "./assertions";
 export { createEventCollector, type EventCollector } from "./event-collector";
 export { expectErrorIncludes } from "./expect-error";

@@ -31,7 +31,7 @@
     "app"
   ],
   "scripts": {
-    "kumiko": "NODE_NO_WARNINGS=1 bun run bin/kumiko.ts",
+    "kumiko": "NODE_OPTIONS=--no-deprecation bun run bin/kumiko.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "tsc --build"
