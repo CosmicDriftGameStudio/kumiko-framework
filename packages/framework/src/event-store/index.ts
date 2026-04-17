@@ -24,4 +24,15 @@ export {
   EVENTS_IDEMPOTENCY_INDEX_SQL,
   eventsTable,
 } from "./events-schema";
+export {
+  createSnapshotsTable,
+  type LoadAggregateWithSnapshotResult,
+  loadAggregateWithSnapshot,
+  loadLatestSnapshot,
+  type SaveSnapshotArgs,
+  type Snapshot,
+  type SnapshotReducer,
+  saveSnapshot,
+  snapshotsTable,
+} from "./snapshot";
 export { type EventUpcasters, upcastStoredEvent, upcastStoredEvents } from "./upcaster";

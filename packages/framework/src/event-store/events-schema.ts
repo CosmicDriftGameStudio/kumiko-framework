@@ -13,6 +13,7 @@ import {
 } from "../db/dialect";
 import { pushTables } from "../testing";
 import { createArchivedStreamsTable } from "./archive";
+import { createSnapshotsTable } from "./snapshot";
 
 // Event-store schema as a Drizzle table. The typed select/insert path handles
 // most operations; append() for subsequent versions uses raw SQL because
@@ -73,8 +74,9 @@ export const EVENTS_IDEMPOTENCY_INDEX_SQL = sql`
 // setupTestStack calls it automatically, so tests that also call it manually
 // (legacy setup, explicit layout) don't fail.
 //
-// Also materializes kumiko_archived_streams: loadAggregate + appendEvent
-// consult it on every call, so the two tables must come up together.
+// Also materializes kumiko_archived_streams and kumiko_snapshots:
+// loadAggregate / appendEvent / loadAggregateWithSnapshot consult them on
+// the hot path, so the three tables must come up together.
 export async function createEventsTable(db: DbConnection): Promise<void> {
   const [row] = (await db.execute(
     sql`SELECT to_regclass('public.events') IS NOT NULL AS exists`,
@@ -86,4 +88,5 @@ export async function createEventsTable(db: DbConnection): Promise<void> {
     await db.execute(EVENTS_IDEMPOTENCY_INDEX_SQL);
   }
   await createArchivedStreamsTable(db);
+  await createSnapshotsTable(db);
 }

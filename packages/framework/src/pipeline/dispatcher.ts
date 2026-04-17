@@ -47,6 +47,7 @@ import {
   loadAggregateAsOf,
   type StoredEvent,
 } from "../event-store/event-store";
+import { saveSnapshot } from "../event-store/snapshot";
 import { upcastStoredEvents } from "../event-store/upcaster";
 import {
   createMetricsHandle,
@@ -493,6 +494,27 @@ export function createDispatcher(
           });
         }
         return isStreamArchived(dbSource, user.tenantId, aggregateId);
+      },
+      snapshotAggregate: async (snapshotArgs: {
+        readonly aggregateId: string;
+        readonly aggregateType: string;
+        readonly version: number;
+        readonly state: Record<string, unknown>;
+      }): Promise<void> => {
+        const dbSource: DbConnection | DbTx | undefined =
+          tx ?? (context.db as DbConnection | undefined);
+        if (!dbSource) {
+          throw new InternalError({
+            message: `ctx.snapshotAggregate("${snapshotArgs.aggregateId}") requires a database connection — none is configured.`,
+          });
+        }
+        await saveSnapshot(dbSource, {
+          aggregateId: snapshotArgs.aggregateId,
+          tenantId: user.tenantId,
+          aggregateType: snapshotArgs.aggregateType,
+          version: snapshotArgs.version,
+          state: snapshotArgs.state,
+        });
       },
       queryProjection: async <T = Record<string, unknown>>(
         qualifiedName: string,

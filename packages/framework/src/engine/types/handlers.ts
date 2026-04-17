@@ -193,6 +193,20 @@ export type HandlerContext = SharedContextFields & {
   readonly restoreStream: (aggregateId: string) => Promise<void>;
   readonly isStreamArchived: (aggregateId: string) => Promise<boolean>;
 
+  // Cache the current state of an aggregate as a snapshot. Callers that
+  // hold the state (e.g. just reduced the stream in a queryHandler, or
+  // finished a write batch) pass it in alongside the version it reflects.
+  // The framework handles storage + upsert semantics; the snapshot policy
+  // (every N events, every M minutes, on-demand) stays with the feature.
+  // Snapshots are a perf optimisation — the event log remains the source
+  // of truth.
+  readonly snapshotAggregate: (args: {
+    readonly aggregateId: string;
+    readonly aggregateType: string;
+    readonly version: number;
+    readonly state: Record<string, unknown>;
+  }) => Promise<void>;
+
   // Read rows from a registered projection table, tenant-scoped to the
   // current user. Marten's equivalent of session.Query<T>() — the projection
   // table is the read model; this surface makes it reachable by qualified

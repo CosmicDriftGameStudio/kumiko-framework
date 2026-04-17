@@ -1,0 +1,174 @@
+import { and, desc, eq, sql } from "drizzle-orm";
+import type { DbConnection, DbRunner } from "../db/connection";
+import {
+  index,
+  integer,
+  jsonb,
+  table as pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "../db/dialect";
+import type { TenantId } from "../engine/types";
+import { pushTables } from "../testing";
+import { loadEventsAfterVersion, type StoredEvent } from "./event-store";
+
+// Marten-aligned snapshot store. A snapshot is a point-in-time materialised
+// state of an aggregate at a specific version, cached so rehydrating the
+// aggregate doesn't require replaying every historical event.
+//
+// Read path (loadAggregateWithSnapshot):
+//   1. loadLatestSnapshot → state + version N (or null)
+//   2. loadEventsAfterVersion(aggregate, N) → only the delta
+//   3. reducer(snapshot, delta) → current state
+//
+// Write path: feature authors opt in via ctx.snapshotAggregate(aggregateId,
+// version, state). Policy (every N events, every M minutes, ...) is a
+// feature-level decision — the framework only offers the storage primitive.
+//
+// Schema-migration policy: NO built-in snapshot versioning. A snapshot stores
+// the aggregate state in the reducer's current shape. When the reducer's
+// shape changes (added field, renamed property, moved compound), invalidate
+// the cache — DELETE from kumiko_snapshots WHERE aggregate_type = '...'.
+// The read path then falls back to full replay (which runs the upcaster
+// chain on events) until the next snapshotAggregate call. Cheaper than a
+// second migration mechanism; snapshots are a perf optimisation, not a
+// source of truth.
+
+export const snapshotsTable = pgTable(
+  "kumiko_snapshots",
+  {
+    aggregateId: uuid("aggregate_id").notNull(),
+    tenantId: uuid("tenant_id").notNull(),
+    aggregateType: text("aggregate_type").notNull(),
+    // The version covered by this snapshot. `loadEventsAfterVersion`
+    // returns events with version > this value.
+    version: integer("version").notNull(),
+    state: jsonb("state").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: uniqueIndex("kumiko_snapshots_pk").on(t.aggregateId, t.version),
+    // Index ordered DESC by version so the "latest snapshot" lookup is a
+    // single index seek instead of scan-and-sort.
+    latestIdx: index("kumiko_snapshots_latest_idx").on(t.aggregateId, t.tenantId, t.version),
+  }),
+);
+
+export async function createSnapshotsTable(db: DbConnection): Promise<void> {
+  const [row] = (await db.execute(
+    sql`SELECT to_regclass('public.kumiko_snapshots') IS NOT NULL AS exists`,
+  )) as unknown as Array<{ exists: boolean }>;
+  // skip: table already exists — idempotent boot + test-setup call
+  if (row?.exists) return;
+  await pushTables(db, { kumikoSnapshots: snapshotsTable });
+}
+
+export type Snapshot<TState extends Record<string, unknown> = Record<string, unknown>> = {
+  readonly aggregateId: string;
+  readonly tenantId: TenantId;
+  readonly aggregateType: string;
+  readonly version: number;
+  readonly state: TState;
+  readonly createdAt: Date;
+};
+
+export type SaveSnapshotArgs = {
+  readonly aggregateId: string;
+  readonly tenantId: TenantId;
+  readonly aggregateType: string;
+  readonly version: number;
+  readonly state: Record<string, unknown>;
+};
+
+// Upsert-style save so re-snapshotting the same (aggregateId, version) is
+// idempotent. Caller can retake a snapshot at the same version without
+// bespoke error handling — useful when a feature's snapshot policy runs
+// during a concurrent retake.
+export async function saveSnapshot(db: DbRunner, args: SaveSnapshotArgs): Promise<void> {
+  await db
+    .insert(snapshotsTable)
+    .values({
+      aggregateId: args.aggregateId,
+      tenantId: args.tenantId,
+      aggregateType: args.aggregateType,
+      version: args.version,
+      state: args.state,
+    })
+    .onConflictDoUpdate({
+      target: [snapshotsTable.aggregateId, snapshotsTable.version],
+      set: {
+        state: args.state,
+        aggregateType: args.aggregateType,
+        createdAt: sql`now()`,
+      },
+    });
+}
+
+// Latest snapshot lookup. Tenant filter is belt-and-suspenders — the
+// aggregate_id should already scope uniquely, but an accidentally-reused
+// UUID across tenants would otherwise silently leak.
+export async function loadLatestSnapshot<
+  TState extends Record<string, unknown> = Record<string, unknown>,
+>(db: DbRunner, aggregateId: string, tenantId: TenantId): Promise<Snapshot<TState> | null> {
+  const rows = await db
+    .select()
+    .from(snapshotsTable)
+    .where(and(eq(snapshotsTable.aggregateId, aggregateId), eq(snapshotsTable.tenantId, tenantId)))
+    .orderBy(desc(snapshotsTable.version))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    aggregateId: row.aggregateId,
+    tenantId: row.tenantId,
+    aggregateType: row.aggregateType,
+    version: row.version,
+    state: row.state as TState,
+    createdAt: row.createdAt,
+  };
+}
+
+// Reducer used to fold events onto a state. Kept narrow and pure — the
+// caller supplies the shape and update rules. Mirrors the reducer shape
+// feature authors already write for r.projection.apply.
+export type SnapshotReducer<TState extends Record<string, unknown>> = (
+  state: TState,
+  event: StoredEvent,
+) => TState;
+
+export type LoadAggregateWithSnapshotResult<TState extends Record<string, unknown>> = {
+  readonly state: TState;
+  readonly version: number;
+  readonly snapshotHit: boolean;
+};
+
+// Snapshot-aware rehydrate. Loads the latest snapshot (if any), applies
+// events strictly newer than snapshot.version, and returns the fold.
+// Callers that want strictly-event-sourced loading should stick with
+// loadAggregate + reduce — this path exists for perf-critical aggregates.
+export async function loadAggregateWithSnapshot<TState extends Record<string, unknown>>(
+  db: DbRunner,
+  aggregateId: string,
+  tenantId: TenantId,
+  reducer: SnapshotReducer<TState>,
+  initial: TState,
+): Promise<LoadAggregateWithSnapshotResult<TState>> {
+  const snapshot = await loadLatestSnapshot<TState>(db, aggregateId, tenantId);
+  const baseState = snapshot ? snapshot.state : initial;
+  const afterVersion = snapshot ? snapshot.version : 0;
+  const delta = await loadEventsAfterVersion(db, aggregateId, tenantId, afterVersion);
+
+  let state = baseState;
+  for (const event of delta) {
+    state = reducer(state, event);
+  }
+  const lastDelta = delta[delta.length - 1];
+  const latestVersion = lastDelta ? lastDelta.version : afterVersion;
+  return {
+    state,
+    version: latestVersion,
+    snapshotHit: snapshot !== null,
+  };
+}

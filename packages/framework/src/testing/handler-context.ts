@@ -34,6 +34,7 @@ export function bridgeStub(): Pick<
   | "archiveStream"
   | "restoreStream"
   | "isStreamArchived"
+  | "snapshotAggregate"
   | "queryProjection"
   | "metrics"
   | "tracer"
@@ -62,6 +63,9 @@ export function bridgeStub(): Pick<
     isStreamArchived: notAvailable(
       "isStreamArchived",
     ) as unknown as HandlerContext["isStreamArchived"],
+    snapshotAggregate: notAvailable(
+      "snapshotAggregate",
+    ) as unknown as HandlerContext["snapshotAggregate"],
     queryProjection: notAvailable(
       "queryProjection",
     ) as unknown as HandlerContext["queryProjection"],
