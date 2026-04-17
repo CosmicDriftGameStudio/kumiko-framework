@@ -1,133 +1,113 @@
 import type { SseBroker } from "../api/sse-broker";
-import { SystemHookNames, SystemHookPriorities, tenantChannel } from "../engine/constants";
-import type {
-  EntityId,
-  PostDeleteBatchHookFn,
-  PostDeleteHookFn,
-  PostSaveBatchHookFn,
-  PostSaveHookFn,
-  Registry,
-  SaveContext,
-} from "../engine/types";
+import { tenantChannel } from "../engine/constants";
+import type { EntityId, Registry } from "../engine/types";
 import type { SearchAdapter, SearchDocument } from "../search/types";
 import type { EventConsumer } from "./event-dispatcher";
-import type { SystemHookDef } from "./lifecycle-pipeline";
 
-// --- Search Index Hook ---
+// --- Search Index Consumer (async, via event-dispatcher) ---
+//
+// Search-Indexierung läuft seit D.4 als async EventConsumer über den event-
+// dispatcher, nicht mehr als synchroner postSave/postDelete-hook. Das
+// spiegelt Marten's ISubscription-Pattern: ein einziger async Pfad für alle
+// non-inline side-effects.
+//
+// Event → Search-Op Mapping:
+//
+//   <entity>.created     → index(tenantId, doc)
+//   <entity>.updated     → index(tenantId, doc)   // re-index mit neuem state
+//   <entity>.restored    → index(tenantId, doc)   // wiederbeleben
+//   <entity>.deleted     → remove(tenantId, type, id)
+//
+// Der Document-State wird aus dem Event rekonstruiert (kein SaveContext
+// mehr available). Regel:
+//
+//   created:  state = event.payload            // ganze entity ist im payload
+//   updated:  state = { ...previous, ...changes }  // rekonstruiert neuen state
+//   restored: state = event.payload.previous   // restored field-set
+//
+// Sensitive fields sind aus dem event log bereits gestrippt (event-store-
+// executor.ts), also kriegt der Search-Index sie ebenfalls nicht — das ist
+// die gleiche Garantie wie vorher beim postSave-hook.
+//
+// Batch-Variante gibt's aktuell nicht mehr — jeder Event triggert einen
+// eigenen index()-call. Wenn Performance nach Scale-Messung das erfordert,
+// kann der event-dispatcher später eine Batch-Handler-Variante bekommen.
+export const SEARCH_CONSUMER_NAME = "system:consumer:search";
 
-// Per-save variant. Kept for consumers that don't want batch semantics —
-// most apps should prefer createSearchIndexBatchHook when the adapter
-// supports indexBatch (Meilisearch, Elasticsearch, Typesense).
-export function createSearchIndexHook(
+export function createSearchEventConsumer(
   searchAdapter: SearchAdapter,
   registry: Registry,
-): SystemHookDef<PostSaveHookFn> {
+): EventConsumer {
   return {
-    name: SystemHookNames.searchIndex,
-    priority: SystemHookPriorities.searchIndex,
-    fn: async (result, ctx) => {
-      const doc = buildSearchDocument(result, registry, ctx.log);
-      // skip: entity not indexable (no searchable fields) — buildSearchDocument returns null
-      if (!doc) return;
-      const tenantId = result.data["tenantId"] as string;
+    name: SEARCH_CONSUMER_NAME,
+    handler: async (event) => {
+      const entityName = event.aggregateType;
+      const verb = event.type.split(".").pop();
+      const tenantId = event.tenantId;
+
+      // skip: delete takes an early-return after removing the index entry —
+      // the "reconstruct state" path below only makes sense for created/
+      // updated/restored, which carry field data in the payload.
+      if (verb === "deleted") {
+        await searchAdapter.remove(tenantId, entityName, event.aggregateId);
+        return;
+      }
+
+      if (verb !== "created" && verb !== "updated" && verb !== "restored") {
+        // skip: other event types (custom domain events, future verbs) don't
+        // carry a search-indexable payload shape. If a future feature needs
+        // them indexed, it registers its own postEvent subscriber.
+        return;
+      }
+
+      const state = reconstructStateForSearch(event.payload, verb);
+      const doc = buildSearchDocument(entityName, event.aggregateId, state, registry);
+      if (!doc) {
+        // skip: entity isn't searchable (no searchable fields declared)
+        return;
+      }
       await searchAdapter.index(tenantId, doc);
     },
   };
 }
 
-// Batch-variant: fire once at the end of a dispatcher batch. Collects every
-// successful SaveContext that targets an indexable entity, converts them to
-// SearchDocuments, and sends them in a single indexBatch call — one network
-// round-trip instead of N sequential index() calls. Groups by tenantId so
-// multi-tenant batches still use one call per tenant.
-export function createSearchIndexBatchHook(
-  searchAdapter: SearchAdapter,
-  registry: Registry,
-): SystemHookDef<PostSaveBatchHookFn> {
-  if (!searchAdapter.indexBatch) {
-    throw new Error(
-      "createSearchIndexBatchHook: adapter does not implement indexBatch — use createSearchIndexHook (per-save) instead",
-    );
+// Rebuild the entity-state a search index needs from the event-payload alone.
+// Three shapes to handle — see event-store-executor.ts for the emitter side.
+function reconstructStateForSearch(
+  payload: Record<string, unknown>,
+  verb: "created" | "updated" | "restored",
+): Record<string, unknown> {
+  if (verb === "created") {
+    // create: payload IS the entity (minus sensitive fields, already
+    // stripped by event-store-executor)
+    return payload;
   }
-  const indexBatch = searchAdapter.indexBatch.bind(searchAdapter);
-
-  return {
-    name: SystemHookNames.searchIndex,
-    priority: SystemHookPriorities.searchIndex,
-    fn: async (results, ctx) => {
-      const byTenant = new Map<string, SearchDocument[]>();
-
-      for (const result of results) {
-        const doc = buildSearchDocument(result, registry, ctx.log);
-        if (!doc) continue;
-        const tenantId = result.data["tenantId"] as string;
-        const bucket = byTenant.get(tenantId);
-        if (bucket) bucket.push(doc);
-        else byTenant.set(tenantId, [doc]);
-      }
-
-      for (const [tenantId, docs] of byTenant) {
-        await indexBatch(tenantId, docs);
-      }
-    },
-  };
+  if (verb === "updated") {
+    // update: payload = { changes, previous }. Merge to get the new state
+    // the index should reflect. Sensitive fields already filtered out.
+    const previous = (payload["previous"] as Record<string, unknown> | undefined) ?? {};
+    const changes = (payload["changes"] as Record<string, unknown> | undefined) ?? {};
+    return { ...previous, ...changes };
+  }
+  // restored: payload = { previous }. The restored entity is whatever the
+  // field-values were at delete time — restore copies them back verbatim.
+  return (payload["previous"] as Record<string, unknown> | undefined) ?? {};
 }
 
-export function createSearchRemoveBatchHook(
-  searchAdapter: SearchAdapter,
-): SystemHookDef<PostDeleteBatchHookFn> {
-  if (!searchAdapter.removeBatch) {
-    throw new Error(
-      "createSearchRemoveBatchHook: adapter does not implement removeBatch — use createSearchRemoveHook (per-delete) instead",
-    );
-  }
-  const removeBatch = searchAdapter.removeBatch.bind(searchAdapter);
-
-  return {
-    name: SystemHookNames.searchRemove,
-    priority: SystemHookPriorities.searchIndex,
-    fn: async (payloads) => {
-      const byTenant = new Map<string, { entityType: string; entityId: EntityId }[]>();
-      for (const p of payloads) {
-        if (!p.entityName) continue;
-        const tenantId = p.data["tenantId"] as string;
-        const entry = { entityType: p.entityName, entityId: p.id };
-        const bucket = byTenant.get(tenantId);
-        if (bucket) bucket.push(entry);
-        else byTenant.set(tenantId, [entry]);
-      }
-      for (const [tenantId, items] of byTenant) {
-        await removeBatch(tenantId, items);
-      }
-    },
-  };
-}
-
-// Shared: extract the indexable fields from a SaveContext using the registry's
-// searchable-field list. Used by both the per-save and batch hooks so they
-// produce byte-identical documents.
+// Build a SearchDocument from raw field-state. Parallel to the old
+// buildSearchDocument that took a SaveContext — same selector logic, just
+// a different input shape.
 function buildSearchDocument(
-  result: SaveContext,
+  entityName: string,
+  entityId: EntityId,
+  state: Record<string, unknown>,
   registry: Registry,
-  log?: { debug: (msg: string) => void },
 ): SearchDocument | null {
-  const entityName = result.entityName;
-  if (!entityName) {
-    log?.debug(`searchIndex: skipping — no entityName on result ${result.id}`);
-    return null;
-  }
-
   const entity = registry.getEntity(entityName);
-  if (!entity) {
-    log?.debug(`searchIndex: skipping — entity ${entityName} not registered`);
-    return null;
-  }
+  if (!entity) return null;
 
   const searchableFields = registry.getSearchableFields(entityName);
-  if (searchableFields.length === 0) {
-    log?.debug(`searchIndex: skipping — ${entityName} has no searchable fields`);
-    return null;
-  }
+  if (searchableFields.length === 0) return null;
 
   const embeddedFields = new Set<string>();
   for (const [fname, fdef] of Object.entries(entity.fields)) {
@@ -141,7 +121,7 @@ function buildSearchDocument(
       const parentKey = f.slice(0, underscoreIdx);
       if (embeddedFields.has(parentKey)) {
         const subKey = f.slice(underscoreIdx + 1);
-        const parent = result.data[parentKey];
+        const parent = state[parentKey];
         if (parent && typeof parent === "object") {
           const value = (parent as Record<string, unknown>)[subKey];
           if (value !== undefined) fields[f] = value;
@@ -149,69 +129,16 @@ function buildSearchDocument(
         continue;
       }
     }
-    if (result.data[f] !== undefined) {
-      fields[f] = result.data[f];
+    if (state[f] !== undefined) {
+      fields[f] = state[f];
     }
   }
 
   return {
     entityType: entityName,
-    entityId: result.id,
+    entityId,
     weight: entity.searchWeight ?? 1,
     fields,
-  };
-}
-
-// Convenience: returns the system-hooks shape to register for a given
-// SearchAdapter. If the adapter supports batch APIs, returns batch hooks
-// (one round-trip per dispatcher batch); otherwise falls back to per-save.
-// Consumers spread the result directly into their systemHooks config:
-//
-//   systemHooks: {
-//     ...createSearchHooks(adapter, registry),
-//     postSave: [createSseBroadcastHook(broker)],
-//   }
-//
-// Framework picks the right hook variant — consumer code stays identical
-// regardless of adapter capability. Existing manual registrations keep
-// working unchanged.
-export function createSearchHooks(
-  searchAdapter: SearchAdapter,
-  registry: Registry,
-): {
-  readonly postSave?: readonly SystemHookDef<PostSaveHookFn>[];
-  readonly postSaveBatch?: readonly SystemHookDef<PostSaveBatchHookFn>[];
-  readonly postDelete?: readonly SystemHookDef<PostDeleteHookFn>[];
-  readonly postDeleteBatch?: readonly SystemHookDef<PostDeleteBatchHookFn>[];
-} {
-  if (searchAdapter.indexBatch && searchAdapter.removeBatch) {
-    return {
-      postSaveBatch: [createSearchIndexBatchHook(searchAdapter, registry)],
-      postDeleteBatch: [createSearchRemoveBatchHook(searchAdapter)],
-    };
-  }
-  return {
-    postSave: [createSearchIndexHook(searchAdapter, registry)],
-    postDelete: [createSearchRemoveHook(searchAdapter)],
-  };
-}
-
-export function createSearchRemoveHook(
-  searchAdapter: SearchAdapter,
-): SystemHookDef<PostDeleteHookFn> {
-  return {
-    name: SystemHookNames.searchRemove,
-    priority: SystemHookPriorities.searchIndex,
-    fn: async (payload, ctx) => {
-      const entityName = payload.entityName;
-      if (!entityName) {
-        ctx.log?.debug(`searchRemove: skipping — no entityName on payload ${payload.id}`);
-        return;
-      }
-
-      const tenantId = payload.data["tenantId"] as string;
-      await searchAdapter.remove(tenantId, entityName, payload.id);
-    },
   };
 }
 

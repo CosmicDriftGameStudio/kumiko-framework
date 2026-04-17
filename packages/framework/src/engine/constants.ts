@@ -10,8 +10,6 @@ import type { TenantId } from "@kumiko/framework/engine";
 // --- System Hook Names ---
 
 export const SystemHookNames = {
-  searchIndex: "system:hook:search-index",
-  searchRemove: "system:hook:search-remove",
   cascadeDelete: "system:hook:cascade-delete",
 } as const;
 
@@ -21,8 +19,6 @@ export type SystemHookName = (typeof SystemHookNames)[keyof typeof SystemHookNam
 
 export const SystemHookPriorities = {
   cascadeDelete: 500,
-  searchIndex: 1000,
-  searchRemove: 1000,
 } as const;
 
 // --- Message Kinds ---

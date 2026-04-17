@@ -17,8 +17,10 @@ import {
   EVENT_OUTBOX_PARTIAL_INDEX_SQL,
   eventOutboxTable,
 } from "../pipeline";
-import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
-import { createSearchHooks, createSseBroadcastEventConsumer } from "../pipeline/system-hooks";
+import {
+  createSearchEventConsumer,
+  createSseBroadcastEventConsumer,
+} from "../pipeline/system-hooks";
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
 import { createEventCollector, type EventCollector } from "./event-collector";
@@ -167,21 +169,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     () => {},
   );
 
-  // Build system hooks based on selection. The search helper auto-picks the
-  // batch variant when the adapter exposes indexBatch/removeBatch — no
-  // consumer change needed when swapping adapters.
-  //
-  // SSE lives in the async event-dispatcher since D.3, not as a postSave/
-  // postDelete hook — see the `systemConsumers` wiring further down.
-  const searchHooks = enabledHooks.includes("search")
-    ? createSearchHooks(searchAdapter, registry)
-    : {};
-  const systemHooks: SystemHooks = {
-    ...(searchHooks.postSave ? { postSave: searchHooks.postSave } : {}),
-    ...(searchHooks.postSaveBatch ? { postSaveBatch: searchHooks.postSaveBatch } : {}),
-    ...(searchHooks.postDelete ? { postDelete: searchHooks.postDelete } : {}),
-    ...(searchHooks.postDeleteBatch ? { postDeleteBatch: searchHooks.postDeleteBatch } : {}),
-  };
+  // System hooks config is empty since D.4 — both SSE (D.3) and Search
+  // (D.4) live as async EventConsumers on the event-dispatcher. The
+  // `systemConsumers` wiring further down registers them. The
+  // `systemHooks` option only exists so dispatcher.ts still has the same
+  // shape; leaving it empty keeps type-compat without runtime work.
 
   const eventLog = createEventLog(testRedis.redis, "kumiko:test:stack-log");
   const idempotency = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 60 });
@@ -220,7 +212,6 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     },
     jwtSecret,
     dispatcherOptions: { eventLog, idempotency },
-    systemHooks,
     eventDedup,
     sseBroker,
     // Default tests to no login rate-limiter so existing suites that loop
@@ -259,7 +250,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
 
   // Build the async event-dispatcher. Consumers come from two sources:
   //   1. Features via r.postEvent() — user-space subscribers
-  //   2. System-level via `enabledHooks` — SSE broadcast since D.3
+  //   2. System-level via `enabledHooks` — SSE (D.3) + Search (D.4)
   //
   // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for
   // deterministic drains — no timer-induced flakiness. When no consumer is
@@ -268,9 +259,12 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     name: s.name,
     handler: s.handler,
   }));
-  const systemConsumers = enabledHooks.includes("sse")
-    ? [createSseBroadcastEventConsumer(sseBroker)]
-    : [];
+  const systemConsumers = [
+    ...(enabledHooks.includes("sse") ? [createSseBroadcastEventConsumer(sseBroker)] : []),
+    ...(enabledHooks.includes("search")
+      ? [createSearchEventConsumer(searchAdapter, registry)]
+      : []),
+  ];
   const allConsumers = [...featureSubscribers, ...systemConsumers];
   const { createEventDispatcher } = await import("../pipeline");
   const eventDispatcher =

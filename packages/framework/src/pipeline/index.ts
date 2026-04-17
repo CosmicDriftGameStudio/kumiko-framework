@@ -54,11 +54,8 @@ export {
   projectionStateTable,
 } from "./projection-state";
 export {
-  createSearchHooks,
-  createSearchIndexBatchHook,
-  createSearchIndexHook,
-  createSearchRemoveBatchHook,
-  createSearchRemoveHook,
+  createSearchEventConsumer,
   createSseBroadcastEventConsumer,
+  SEARCH_CONSUMER_NAME,
   SSE_BROADCAST_CONSUMER_NAME,
 } from "./system-hooks";

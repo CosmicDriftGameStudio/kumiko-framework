@@ -412,7 +412,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     expect(payload?.["changes"]).toEqual({ firstName: "SSE" });
   });
 
-  test("search index updated via system hook after create", async () => {
+  test("search index updated via async event-dispatcher after create", async () => {
     await stack.http.writeOk(
       "users:write:user:create",
       {
@@ -421,6 +421,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       },
       adminUser,
     );
+    await stack.eventDispatcher?.runOnce();
 
     const results = await stack.search.search("00000000-0000-4000-8000-000000000001", "indexed", {
       filterType: "user",
@@ -497,6 +498,8 @@ describe("full stack: search + sort", () => {
       },
       adminUser,
     );
+    // Search indexing is async (D.4) — drain before querying.
+    await stack.eventDispatcher?.runOnce();
 
     const res = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
       "users:query:user:list",
@@ -815,7 +818,7 @@ describe("full stack: transactional outbox", () => {
     expect(featurePostSaveLog).toHaveLength(1);
     expect(featurePostSaveLog[0]).toMatchObject({ kind: "save", id: userId, isNew: true });
 
-    // System hooks fired: SSE (via async dispatcher), search (postSave)
+    // System consumers fired: SSE (D.3) + Search (D.4), both via dispatcher
     await stack.eventDispatcher?.runOnce();
     expect(stack.events.sse.some((e) => e.type === "user.created")).toBe(true);
     const searchHits = await stack.search.search(adminUser.tenantId, "outbox-happy");
@@ -864,11 +867,13 @@ describe("full stack: transactional outbox", () => {
     const outboxRows = await stack.db.db.select().from(eventOutboxTable);
     expect(outboxRows).toHaveLength(0);
 
-    // Side-effects inside the tx boundary must not have committed either.
-    // Feature postSave and search all run inside executeWrite — they
-    // only materialize on commit. (SSE is a network broadcast and doesn't
-    // have a DB consequence; we deliberately don't assert on it here.)
+    // Side-effects inside the tx boundary must not have committed. Feature
+    // postSave runs inline in the tx; search + sse run async on the event-
+    // dispatcher — neither should see an event because the write rolled back
+    // before anything was appended to the events table. Drain dispatch
+    // explicitly so the assertion is deterministic (nothing to pick up).
     expect(featurePostSaveLog).toHaveLength(0);
+    await stack.eventDispatcher?.runOnce();
     const searchHits = await stack.search.search(adminUser.tenantId, "outbox-rollback");
     expect(searchHits).toHaveLength(0);
 
@@ -903,8 +908,11 @@ describe("full stack: transactional outbox", () => {
     const outboxRows = await stack.db.db.select().from(eventOutboxTable);
     expect(outboxRows).toHaveLength(0);
 
-    // System hooks did not commit — the generic catch path rolls them back too
+    // System consumers did not fire — the rolled-back tx never appended an
+    // event for them to pick up. Drain the dispatcher to confirm the
+    // negative.
     expect(featurePostSaveLog).toHaveLength(0);
+    await stack.eventDispatcher?.runOnce();
     const searchHits = await stack.search.search(adminUser.tenantId, "outbox-throw");
     expect(searchHits).toHaveLength(0);
 
