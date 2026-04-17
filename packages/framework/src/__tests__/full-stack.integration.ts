@@ -12,7 +12,8 @@ import {
   type SaveContext,
 } from "../engine";
 import { UnprocessableError, writeFailure } from "../errors";
-import { createEventLog, eventOutboxTable } from "../pipeline";
+import { eventsTable } from "../event-store";
+import { createEventLog } from "../pipeline";
 import {
   createEntityTable,
   createTestUser,
@@ -56,10 +57,14 @@ function userExecutor(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
   });
 }
 
-// Single source of truth for the user-created event name + payload shape.
-// Every handler that touches this event goes through emitUserCreated so the
-// event contract can't drift between handlers.
+// Single source of truth for the user-created pub/sub event name + payload.
+// Since D.5 ctx.emit appends into the events table as a "pubsub" aggregate,
+// and subscribers read it via the event-dispatcher (r.postEvent).
 const USER_CREATED_EVENT = "users:event:user.created";
+
+// Test-level subscriber capture — populated by the r.postEvent handler below.
+// Declared here so tests can reset + assert against it across describe blocks.
+const pubsubSubscriberCalls: Array<{ type: string; payload: unknown }> = [];
 
 async function emitUserCreated(
   ctx: Pick<HandlerContext, "emit">,
@@ -72,7 +77,12 @@ async function emitUserCreated(
 const userFeature = defineFeature("users", (r) => {
   const user = r.entity("user", userEntity);
 
-  r.defineEvent("user.created", z.object({ id: z.uuid(), email: z.string() }));
+  // r.postEvent: filter the full event stream down to USER_CREATED_EVENT and
+  // push into the capture array. Replaces the old eventBroker.subscribe path.
+  r.postEvent("user-created-capture", async (event) => {
+    if (event.type !== USER_CREATED_EVENT) return;
+    pubsubSubscriberCalls.push({ type: event.type, payload: event.payload });
+  });
 
   const createHandler = r.writeHandler(
     "user:create",
@@ -91,10 +101,10 @@ const userFeature = defineFeature("users", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  // Rollback via controlled failure: writes to the user table AND emits into
-  // the outbox, then deliberately returns isSuccess:false. The dispatcher
+  // Rollback via controlled failure: writes to the user table AND emits a
+  // pub/sub event, then deliberately returns isSuccess:false. The dispatcher
   // raises BatchRollback, the surrounding tx rolls back — so NEITHER the user
-  // row NOR the outbox row survive. Proves the controlled-failure path.
+  // row NOR the pub/sub event survive. Proves the controlled-failure path.
   r.writeHandler(
     "user:create-rollback",
     z.object({ email: z.email() }),
@@ -112,7 +122,7 @@ const userFeature = defineFeature("users", (r) => {
   // different dispatcher branch than isSuccess:false — the generic catch block
   // that wraps BatchRollback. Proves that:
   //   (a) an uncaught error rolls the tx back just like a controlled failure,
-  //   (b) multiple outbox rows from the same handler roll back together.
+  //   (b) multiple pub/sub event rows from the same handler roll back together.
   r.writeHandler(
     "user:create-throw",
     z.object({ email: z.email() }),
@@ -184,19 +194,9 @@ const otherTenantAdmin = createTestUser({
   tenantId: "00000000-0000-4000-8000-000000000002",
 });
 
-// Outbox subscriber — captures events the poller delivers. Populated inside
-// beforeAll; reset per-test in beforeEach so the transactional-outbox block
-// can assert exact call counts.
-const outboxSubscriberCalls: Array<{ type: string; payload: unknown }> = [];
-
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [userFeature], outbox: true });
-
+  stack = await setupTestStack({ features: [userFeature] });
   await createEntityTable(stack.db.db, userEntity);
-
-  stack.eventBroker?.subscribe(USER_CREATED_EVENT, async (event) => {
-    outboxSubscriberCalls.push(event);
-  });
 });
 
 afterAll(async () => {
@@ -205,16 +205,13 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Advance the event-dispatcher cursor past all events from earlier tests
-  // FIRST, then reset the in-memory collector. This keeps per-test SSE
-  // assertions honest — otherwise the dispatcher would replay every prior
-  // test's events as soon as the new test drains, producing noisy counts.
+  // FIRST, then reset the in-memory collector. This keeps per-test SSE +
+  // pubsub assertions honest — otherwise the dispatcher would replay every
+  // prior test's events and inflate counts.
   await stack.eventDispatcher?.runOnce();
   stack.events.reset();
   featurePostSaveLog.length = 0;
-  outboxSubscriberCalls.length = 0;
-  // Every previous write emits into event_outbox too now that outbox is on.
-  // Keep the table clean so per-test row counts mean what they say.
-  await stack.db.db.delete(eventOutboxTable);
+  pubsubSubscriberCalls.length = 0;
 });
 
 // =============================================================================
@@ -784,67 +781,81 @@ describe("full stack: health", () => {
 });
 
 // =============================================================================
-// Transactional Outbox — emit coexists with the full pipeline
+// ctx.emit (pub/sub) — emit coexists with the full pipeline
 // =============================================================================
 //
-// Isolated outbox tests prove the mechanism. This block proves the contract
-// inside the real pipeline: ctx.emit runs next to the CrudExecutor write, the
-// feature postSave hook, SSE, search, and entity cache — and every one of
-// those observes the same commit/rollback boundary as the outbox row.
+// Since D.5 ctx.emit appends a pub/sub event into the events-table (synthetic
+// "pubsub" aggregate). The event-dispatcher picks it up and delivers to
+// r.postEvent subscribers. This block proves the same TX-atomicity the
+// former Outbox had: pubsub event, user row, feature postSave, SSE, search —
+// all commit-or-rollback together.
+//
+// The local subscriber above (r.postEvent "user-created-capture") pushes to
+// pubsubSubscriberCalls when it sees USER_CREATED_EVENT.
 
-describe("full stack: transactional outbox", () => {
-  test("commit path: user row, outbox row, feature postSave, SSE, search, subscriber — all consistent", async () => {
+describe("full stack: ctx.emit pub/sub via event-dispatcher", () => {
+  // Filter pub/sub rows by type AND payload.email — the events table is
+  // shared across tests so we pick out just the ones this test emitted.
+  async function pubsubEventsForEmail(email: string) {
+    const rows = await stack.db.db
+      .select()
+      .from(eventsTable)
+      .where(
+        // eq + and via a lazy dynamic import keeps the top-level imports lean.
+        (await import("drizzle-orm")).and(
+          (await import("drizzle-orm")).eq(eventsTable.aggregateType, "pubsub"),
+          (await import("drizzle-orm")).eq(eventsTable.type, USER_CREATED_EVENT),
+        ),
+      );
+    return rows.filter((r) => (r.payload as Record<string, unknown>)?.["email"] === email);
+  }
+
+  test("commit path: user row, pubsub event, feature postSave, SSE, search, subscriber — all consistent", async () => {
     const data = await stack.http.writeOk(
       "users:write:user:create",
-      { email: "outbox-happy@test.de", firstName: "Happy", lastName: "Path" },
+      { email: "emit-happy@test.de", firstName: "Happy", lastName: "Path" },
       adminUser,
     );
 
     // Business row committed
     expect(data["isNew"]).toBe(true);
-    const userId = data["id"] as number;
+    const userId = data["id"] as string;
 
-    // Outbox row committed alongside
-    const outboxRows = await stack.db.db.select().from(eventOutboxTable);
-    expect(outboxRows).toHaveLength(1);
-    expect(outboxRows[0]).toMatchObject({
+    // Pub/sub event row committed alongside
+    const pubsubRows = await pubsubEventsForEmail("emit-happy@test.de");
+    expect(pubsubRows).toHaveLength(1);
+    expect(pubsubRows[0]).toMatchObject({
       tenantId: adminUser.tenantId,
-      eventType: USER_CREATED_EVENT,
-      publishedAt: null,
+      type: USER_CREATED_EVENT,
+      aggregateType: "pubsub",
     });
-    expect(outboxRows[0]?.payload).toMatchObject({ id: userId, email: "outbox-happy@test.de" });
+    expect(pubsubRows[0]?.payload).toMatchObject({ id: userId, email: "emit-happy@test.de" });
 
-    // Feature postSave ran
+    // Feature postSave ran inline
     expect(featurePostSaveLog).toHaveLength(1);
     expect(featurePostSaveLog[0]).toMatchObject({ kind: "save", id: userId, isNew: true });
 
-    // System consumers fired: SSE (D.3) + Search (D.4), both via dispatcher
+    // System consumers + postEvent subscriber fire on the next dispatcher pass
+    expect(pubsubSubscriberCalls).toHaveLength(0);
     await stack.eventDispatcher?.runOnce();
+
+    // Search + SSE saw the user.created aggregate event
     expect(stack.events.sse.some((e) => e.type === "user.created")).toBe(true);
-    const searchHits = await stack.search.search(adminUser.tenantId, "outbox-happy");
+    const searchHits = await stack.search.search(adminUser.tenantId, "emit-happy");
     expect(searchHits.map((h) => h.entityId)).toContain(userId);
 
-    // Subscriber has NOT been called yet — poller hasn't run
-    expect(outboxSubscriberCalls).toHaveLength(0);
-
-    // Drain deterministically
-    const drain = await stack.outboxPoller?.runOnce();
-    expect(drain).toEqual({ processed: 1, failed: 0 });
-
-    // Now the subscriber saw the event and the row is marked published
-    expect(outboxSubscriberCalls).toHaveLength(1);
-    expect(outboxSubscriberCalls[0]).toMatchObject({
+    // Subscriber saw the pub/sub event
+    expect(pubsubSubscriberCalls).toHaveLength(1);
+    expect(pubsubSubscriberCalls[0]).toMatchObject({
       type: USER_CREATED_EVENT,
-      payload: { id: userId, email: "outbox-happy@test.de" },
+      payload: { id: userId, email: "emit-happy@test.de" },
     });
-    const [publishedRow] = await stack.db.db.select().from(eventOutboxTable);
-    expect(publishedRow?.publishedAt).not.toBeNull();
   });
 
-  test("rollback path: handler returns isSuccess:false after emit+insert → no user, no outbox row, no side-effects", async () => {
+  test("rollback path: handler returns isSuccess:false after emit+insert → no user, no event, no side-effects", async () => {
     const res = await stack.http.write(
       "users:write:user:create-rollback",
-      { email: "outbox-rollback@test.de" },
+      { email: "emit-rollback@test.de" },
       adminUser,
     );
     const body = (await res.json()) as {
@@ -858,67 +869,53 @@ describe("full stack: transactional outbox", () => {
     // User table: the insert rolled back
     const users = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
       "users:query:user:list",
-      { search: "outbox-rollback" },
+      { search: "emit-rollback" },
       adminUser,
     );
-    expect(users.rows.some((u) => u["email"] === "outbox-rollback@test.de")).toBe(false);
+    expect(users.rows.some((u) => u["email"] === "emit-rollback@test.de")).toBe(false);
 
-    // Outbox: the emit rolled back too
-    const outboxRows = await stack.db.db.select().from(eventOutboxTable);
-    expect(outboxRows).toHaveLength(0);
+    // Pub/sub event rolled back too — nothing in events table for this email
+    expect(await pubsubEventsForEmail("emit-rollback@test.de")).toHaveLength(0);
 
-    // Side-effects inside the tx boundary must not have committed. Feature
-    // postSave runs inline in the tx; search + sse run async on the event-
-    // dispatcher — neither should see an event because the write rolled back
-    // before anything was appended to the events table. Drain dispatch
-    // explicitly so the assertion is deterministic (nothing to pick up).
+    // Side-effects: feature postSave ran inline in the tx that rolled back →
+    // no entry. Dispatcher drains nothing (no committed event). Subscriber
+    // never saw the rolled-back emit.
     expect(featurePostSaveLog).toHaveLength(0);
     await stack.eventDispatcher?.runOnce();
-    const searchHits = await stack.search.search(adminUser.tenantId, "outbox-rollback");
+    const searchHits = await stack.search.search(adminUser.tenantId, "emit-rollback");
     expect(searchHits).toHaveLength(0);
-
-    // Poller has nothing to do — proves no fire-and-forget path snuck an event out
-    const drain = await stack.outboxPoller?.runOnce();
-    expect(drain).toEqual({ processed: 0, failed: 0 });
-    expect(outboxSubscriberCalls).toHaveLength(0);
+    expect(pubsubSubscriberCalls).toHaveLength(0);
   });
 
-  test("uncaught throw + multi-emit: both outbox rows roll back, error is reported, no side-effects", async () => {
+  test("uncaught throw + multi-emit: both pub/sub events roll back, error reported, no side-effects", async () => {
     const res = await stack.http.write(
       "users:write:user:create-throw",
-      { email: "outbox-throw@test.de" },
+      { email: "emit-throw@test.de" },
       adminUser,
     );
     const body = (await res.json()) as { isSuccess: boolean; error: unknown };
     expect(body.isSuccess).toBe(false);
-    // Uncaught Error → auto-wrapped to InternalError; the original message is
-    // preserved in the cause chain (visible via the log, not the wire body).
-    // Here we just confirm the handler failed with an internal_error code.
+    // Uncaught Error → auto-wrapped to InternalError.
     expect((body.error as { code: string }).code).toBe("internal_error");
 
     // User row rolled back
     const users = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
       "users:query:user:list",
-      { search: "outbox-throw" },
+      { search: "emit-throw" },
       adminUser,
     );
-    expect(users.rows.some((u) => u["email"] === "outbox-throw@test.de")).toBe(false);
+    expect(users.rows.some((u) => u["email"] === "emit-throw@test.de")).toBe(false);
 
-    // BOTH outbox rows rolled back — multi-emit in one tx is atomic
-    const outboxRows = await stack.db.db.select().from(eventOutboxTable);
-    expect(outboxRows).toHaveLength(0);
+    // BOTH pub/sub event rows rolled back — multi-emit in one tx is atomic.
+    // Primary + secondary email variants should both be absent.
+    expect(await pubsubEventsForEmail("emit-throw@test.de")).toHaveLength(0);
+    expect(await pubsubEventsForEmail("emit-throw@test.de.secondary")).toHaveLength(0);
 
-    // System consumers did not fire — the rolled-back tx never appended an
-    // event for them to pick up. Drain the dispatcher to confirm the
-    // negative.
+    // Subscribers + system consumers stayed idle
     expect(featurePostSaveLog).toHaveLength(0);
     await stack.eventDispatcher?.runOnce();
-    const searchHits = await stack.search.search(adminUser.tenantId, "outbox-throw");
+    const searchHits = await stack.search.search(adminUser.tenantId, "emit-throw");
     expect(searchHits).toHaveLength(0);
-
-    // Subscriber never saw anything, poller finds nothing
-    const drain = await stack.outboxPoller?.runOnce();
-    expect(drain).toEqual({ processed: 0, failed: 0 });
-    expect(outboxSubscriberCalls).toHaveLength(0);
+    expect(pubsubSubscriberCalls).toHaveLength(0);
   });
 });

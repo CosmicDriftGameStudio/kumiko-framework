@@ -271,62 +271,9 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
   });
 });
 
-// Cross-process trace propagation: a handler calls ctx.emit, the outbox
-// poller picks up the row and publishes the event. The outbox.publish span
-// should be in the SAME trace as the request that emitted, and its parent
-// should point at the emitting dispatcher span.
-describe("Observability (integration) — outbox cross-process trace", () => {
-  let stack: TestStack;
-  let provider: RecordingProvider;
-
-  const emitFeature = defineFeature("emit-trace", (r) => {
-    r.defineEvent("happened", z.object({ msg: z.string() }));
-    r.writeHandler(
-      "fire",
-      z.object({ msg: z.string() }),
-      async (event, ctx) => {
-        await ctx.emit("emit-trace:event:happened", { msg: event.payload.msg });
-        return { isSuccess: true, data: { ok: true } };
-      },
-      { access: { openToAll: true } },
-    );
-  });
-
-  beforeEach(async () => {
-    provider = createRecordingProvider();
-    stack = await setupTestStack({
-      features: [emitFeature],
-      observability: provider,
-      outbox: true,
-      systemHooks: [],
-    });
-  });
-
-  afterEach(async () => {
-    await stack.cleanup();
-  });
-
-  it("outbox.publish span runs in the same trace as the emitting request", async () => {
-    await stack.http.writeOk("emit-trace:write:fire", { msg: "hello" }, adminUser);
-
-    // Drain the outbox synchronously so the publish span definitely lands
-    // in provider.spans before we assert.
-    const result = await stack.outboxPoller?.runOnce();
-    expect(result?.processed).toBe(1);
-
-    const httpSpan = provider.spansByName("http.request")[0]!;
-    const dispatcherSpan = provider.spansByName("kumiko.dispatcher.handler")[0]!;
-    const publishSpan = provider.spansByName("outbox.publish")[0]!;
-
-    expect(publishSpan).toBeDefined();
-    expect(publishSpan.traceId).toBe(httpSpan.traceId);
-    // Parent points into the emitting request's span tree — specifically at
-    // the dispatcher span (which is where ctx.emit was called from).
-    expect(publishSpan.parentSpanId).toBe(dispatcherSpan.spanId);
-    expect(publishSpan.attributes["outbox.event_type"]).toBe("emit-trace:event:happened");
-    expect(publishSpan.attributes["outbox.outcome"]).toBe("published");
-  });
-});
+// outbox cross-process trace propagation lived here once — removed in D.5 when
+// the outbox was replaced by the async event-dispatcher. Cross-consumer trace
+// continuation for the new pipeline is tested in event-dispatcher.integration.
 
 // Redis-wrapper instrumentation: any command issued through the Redis client
 // that arrives in the AppContext emits a `redis.cmd` span with command name

@@ -1,73 +1,18 @@
-import Redis from "ioredis";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createTestRedis, type TestRedis } from "../../testing";
 import { createEntityCache } from "../entity-cache";
-import { createEventBroker } from "../event-broker";
 import { createEventDedup } from "../event-dedup";
 import { createEventLog } from "../event-log";
 import { createIdempotencyGuard } from "../idempotency";
 
 let testRedis: TestRedis;
-let subscriberRedis: Redis;
 
 beforeAll(async () => {
   testRedis = await createTestRedis();
-  const redisUrl = process.env["REDIS_URL"] ?? "redis://localhost:6379";
-  subscriberRedis = new Redis(redisUrl, { db: testRedis.redis.options.db });
 });
 
 afterAll(async () => {
-  subscriberRedis.disconnect();
   await testRedis.cleanup();
-});
-
-// --- Event Broker ---
-
-describe("event broker", () => {
-  test("publish and subscribe", async () => {
-    const broker = createEventBroker(testRedis.redis, subscriberRedis);
-    const received: unknown[] = [];
-
-    broker.subscribe("system:event:test:created", async (event) => {
-      received.push(event.payload);
-    });
-
-    await broker.start();
-
-    // Small delay for subscription to be ready
-    await new Promise((r) => setTimeout(r, 50));
-
-    await broker.publish({ type: "system:event:test:created", payload: { id: 1, name: "hello" } });
-
-    // Wait for message delivery
-    await new Promise((r) => setTimeout(r, 100));
-
-    expect(received).toHaveLength(1);
-    expect(received[0]).toEqual({ id: 1, name: "hello" });
-
-    await broker.stop();
-  });
-
-  test("only receives subscribed event types", async () => {
-    const broker = createEventBroker(testRedis.redis, subscriberRedis);
-    const received: unknown[] = [];
-
-    broker.subscribe("type.a", async (event) => {
-      received.push(event);
-    });
-
-    await broker.start();
-    await new Promise((r) => setTimeout(r, 50));
-
-    await broker.publish({ type: "type.b", payload: { ignored: true } });
-    await broker.publish({ type: "type.a", payload: { captured: true } });
-
-    await new Promise((r) => setTimeout(r, 100));
-
-    expect(received).toHaveLength(1);
-
-    await broker.stop();
-  });
 });
 
 // --- Idempotency ---

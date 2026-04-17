@@ -1,6 +1,4 @@
 import { Hono } from "hono";
-import type Redis from "ioredis";
-import type { DbConnection } from "../db/connection";
 import type { AppContext, Registry } from "../engine/types";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
@@ -15,13 +13,8 @@ import {
 } from "../observability";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
-import type { EventBroker } from "../pipeline/event-broker";
 import type { EventDedup } from "../pipeline/event-dedup";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
-import type { OutboxCleanup } from "../pipeline/outbox-cleanup";
-import { createOutboxCleanup } from "../pipeline/outbox-cleanup";
-import type { DeadLetterEvent, OutboxPoller } from "../pipeline/outbox-poller";
-import { createOutboxPoller } from "../pipeline/outbox-poller";
 import { PUBLIC_API_PATHS, Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
@@ -37,33 +30,12 @@ export type ServerOptions = {
   context: AppContext;
   jwtSecret: string;
   jwtIssuer?: string;
-  dispatcherOptions?: Omit<DispatcherOptions, "lifecycle" | "outbox">;
+  dispatcherOptions?: Omit<DispatcherOptions, "lifecycle">;
   systemHooks?: SystemHooks;
   eventDedup?: EventDedup;
   sseBroker?: SseBroker;
   auth?: AuthRoutesConfig;
   files?: Omit<FileRoutesOptions, "db"> & { db?: FileRoutesOptions["db"] };
-  // Transactional outbox — when set, ctx.emit writes to event_outbox in the
-  // current transaction and the in-process poller publishes rows after commit.
-  // Requires a DbConnection in context.db. The subscriberRedis must be a
-  // separate ioredis instance (a subscribed client can't issue other commands).
-  outbox?: {
-    redis: Redis;
-    subscriberRedis: Redis;
-    eventBroker: EventBroker;
-    batchSize?: number;
-    pollIntervalMs?: number;
-    maxAttempts?: number;
-    // Fires when an outbox row exhausts retries. Hook a metric / pager here.
-    onDeadLetter?: (event: DeadLetterEvent) => void | Promise<void>;
-    // Retention for the event_outbox table. When omitted, the cleanup job
-    // is not created — callers can opt out (e.g. tests) or run their own.
-    cleanup?: {
-      publishedRetentionDays: number;
-      deadLetterRetentionDays: number;
-      runIntervalMs?: number;
-    };
-  };
   // Observability: tracer + meter used for auto-instrumentation across
   // HTTP, dispatcher, pipeline, DB. Omitted => NoopProvider (zero overhead,
   // no spans or metrics emitted). Typically set to a ConsoleProvider in dev,
@@ -77,13 +49,6 @@ export type KumikoServer = {
   jwt: JwtHelper;
   sseBroker: SseBroker;
   observability: ObservabilityProvider;
-  // Present only when options.outbox was set. Callers that use buildServer
-  // in production must call `outboxPoller.start()` during boot and
-  // `outboxPoller.stop()` during shutdown.
-  outboxPoller?: OutboxPoller;
-  // Present only when options.outbox.cleanup was set. Manage alongside the
-  // poller: start() during boot, stop() during shutdown.
-  outboxCleanup?: OutboxCleanup;
 };
 
 export function buildServer(options: ServerOptions): KumikoServer {
@@ -129,20 +94,6 @@ export function buildServer(options: ServerOptions): KumikoServer {
     meter: observability.meter,
   };
 
-  // Wrap outbox redis connections too — the poller publishes/wakes through
-  // them and we want those commands to show up in the trace.
-  const outboxOptions = options.outbox
-    ? {
-        ...options.outbox,
-        redis: shouldWrapRedis
-          ? wrapRedisClient(options.outbox.redis, observability.tracer)
-          : options.outbox.redis,
-        subscriberRedis: shouldWrapRedis
-          ? wrapRedisClient(options.outbox.subscriberRedis, observability.tracer)
-          : options.outbox.subscriberRedis,
-      }
-    : undefined;
-
   const lifecycle = createLifecycleHooks(
     options.registry,
     options.systemHooks,
@@ -152,56 +103,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const dispatcher = createDispatcher(options.registry, contextWithObservability, {
     ...options.dispatcherOptions,
     lifecycle,
-    ...(outboxOptions ? { outbox: { redis: outboxOptions.redis } } : {}),
   });
-
-  // Outbox poller — created but NOT auto-started. The caller decides when
-  // to start/stop (typically in an app-level boot + shutdown sequence).
-  let outboxPoller: OutboxPoller | undefined;
-  if (outboxOptions) {
-    const dbConn = options.context.db as DbConnection | undefined;
-    if (!dbConn) {
-      throw new Error("buildServer: options.outbox requires context.db to be a DbConnection");
-    }
-    outboxPoller = createOutboxPoller({
-      db: dbConn,
-      subscriberRedis: outboxOptions.subscriberRedis,
-      eventBroker: outboxOptions.eventBroker,
-      tracer: observability.tracer,
-      ...(outboxOptions.batchSize !== undefined ? { batchSize: outboxOptions.batchSize } : {}),
-      ...(outboxOptions.pollIntervalMs !== undefined
-        ? { pollIntervalMs: outboxOptions.pollIntervalMs }
-        : {}),
-      ...(outboxOptions.maxAttempts !== undefined
-        ? { maxAttempts: outboxOptions.maxAttempts }
-        : {}),
-      ...(outboxOptions.onDeadLetter !== undefined
-        ? { onDeadLetter: outboxOptions.onDeadLetter }
-        : {}),
-      ...(options.context.log !== undefined ? { log: options.context.log } : {}),
-    });
-  }
-
-  // Retention cleanup — optional, kept separate from the poller so callers
-  // can opt out (tests, ops rolling a pg_cron job by hand, etc).
-  let outboxCleanup: OutboxCleanup | undefined;
-  if (outboxOptions?.cleanup) {
-    const dbConn = options.context.db as DbConnection | undefined;
-    if (!dbConn) {
-      throw new Error(
-        "buildServer: options.outbox.cleanup requires context.db to be a DbConnection",
-      );
-    }
-    outboxCleanup = createOutboxCleanup({
-      db: dbConn,
-      publishedRetentionDays: outboxOptions.cleanup.publishedRetentionDays,
-      deadLetterRetentionDays: outboxOptions.cleanup.deadLetterRetentionDays,
-      ...(outboxOptions.cleanup.runIntervalMs !== undefined
-        ? { runIntervalMs: outboxOptions.cleanup.runIntervalMs }
-        : {}),
-      ...(options.context.log !== undefined ? { log: options.context.log } : {}),
-    });
-  }
 
   const app = new Hono();
 
@@ -258,7 +160,5 @@ export function buildServer(options: ServerOptions): KumikoServer {
     jwt,
     sseBroker,
     observability,
-    ...(outboxPoller ? { outboxPoller } : {}),
-    ...(outboxCleanup ? { outboxCleanup } : {}),
   };
 }

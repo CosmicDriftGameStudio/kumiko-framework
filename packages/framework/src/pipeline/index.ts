@@ -5,8 +5,6 @@ export type { DistributedLock } from "./distributed-lock";
 export { createDistributedLock } from "./distributed-lock";
 export type { EntityCache, EntityCacheOptions } from "./entity-cache";
 export { createEntityCache } from "./entity-cache";
-export type { BrokerEvent, EventBroker } from "./event-broker";
-export { createEventBroker } from "./event-broker";
 export type { ConsumerStatus } from "./event-consumer-state";
 export {
   CONSUMER_STATUSES,
@@ -32,15 +30,6 @@ export type { IdempotencyGuard } from "./idempotency";
 export { createIdempotencyGuard } from "./idempotency";
 export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline";
 export { createLifecycleHooks } from "./lifecycle-pipeline";
-export type { OutboxCleanup, OutboxCleanupOptions, OutboxCleanupResult } from "./outbox-cleanup";
-export { createOutboxCleanup, DAY_MS } from "./outbox-cleanup";
-export type { OutboxPoller, OutboxPollerOptions } from "./outbox-poller";
-export { createOutboxPoller } from "./outbox-poller";
-export {
-  EVENT_OUTBOX_PARTIAL_INDEX_SQL,
-  eventOutboxTable,
-  OUTBOX_WAKE_CHANNEL,
-} from "./outbox-table";
 export type { RebuildResult } from "./projection-rebuild";
 export {
   getProjectionState,

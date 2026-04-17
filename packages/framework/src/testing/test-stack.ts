@@ -7,15 +7,12 @@ import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import { createEventsTable } from "../event-store";
 import type { ObservabilityProvider } from "../observability";
-import type { EventBroker, EventDispatcher, OutboxPoller } from "../pipeline";
+import type { EventDispatcher } from "../pipeline";
 import {
   createEntityCache,
-  createEventBroker,
   createEventDedup,
   createEventLog,
   createIdempotencyGuard,
-  EVENT_OUTBOX_PARTIAL_INDEX_SQL,
-  eventOutboxTable,
 } from "../pipeline";
 import {
   createSearchEventConsumer,
@@ -37,12 +34,9 @@ export type TestStack = {
   events: EventCollector;
   http: RequestHelper;
   observability: ObservabilityProvider;
-  // Present only when options.outbox === true. Tests call outboxPoller.runOnce()
-  // to drain the outbox deterministically instead of waiting on the timer.
-  outboxPoller?: OutboxPoller;
-  eventBroker?: EventBroker;
-  // Present only when any feature registered an r.postEvent() subscriber.
-  // Tests drain it via eventDispatcher.runOnce() for deterministic assertion.
+  // Present whenever a system consumer (SSE, Search) or r.postEvent
+  // subscriber is wired. Tests drain it via runOnce() for deterministic
+  // assertion — no timer-induced flakiness.
   eventDispatcher?: EventDispatcher;
   cleanup: () => Promise<void>;
 };
@@ -70,15 +64,6 @@ export type TestStackOptions = {
       }) => Record<string, unknown>);
   /** Wire up auth routes (login, tenant-switch). Leave undefined to skip. */
   authConfig?: AuthRoutesConfig;
-  /** Wire up the transactional outbox (ctx.emit + poller). Default: false.
-   *  Pass an object to hook into dead-letter events (e.g. for alerting tests). */
-  outbox?:
-    | boolean
-    | {
-        onDeadLetter?: (
-          event: import("../pipeline/outbox-poller").DeadLetterEvent,
-        ) => void | Promise<void>;
-      };
   /** Observability provider — omit for NoopProvider (no spans/metrics).
    *  Pass a ConsoleProvider to see the span tree in stdout, or a custom
    *  provider (e.g. a recording provider for assertions in tests). */
@@ -169,34 +154,10 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     () => {},
   );
 
-  // System hooks config is empty since D.4 — both SSE (D.3) and Search
-  // (D.4) live as async EventConsumers on the event-dispatcher. The
-  // `systemConsumers` wiring further down registers them. The
-  // `systemHooks` option only exists so dispatcher.ts still has the same
-  // shape; leaving it empty keeps type-compat without runtime work.
-
   const eventLog = createEventLog(testRedis.redis, "kumiko:test:stack-log");
   const idempotency = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 60 });
   const eventDedup = createEventDedup(testRedis.redis, { ttlSeconds: 60 });
   const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
-
-  // Outbox wiring — off by default, tests that exercise ctx.emit flip it on.
-  // The table + index is created up-front; the actual Poller lifecycle
-  // (instantiate, start, stop) is delegated to buildServer so tests run
-  // against the production path, not a test-only side channel.
-  let eventBroker: EventBroker | undefined;
-  let subscriberRedis: import("ioredis").default | undefined;
-  if (options.outbox) {
-    await pushTables(testDb.db, { eventOutbox: eventOutboxTable });
-    await testDb.db.execute(EVENT_OUTBOX_PARTIAL_INDEX_SQL);
-
-    subscriberRedis = testRedis.redis.duplicate();
-    // Broker's start() intentionally NOT called — delivery runs through
-    // dispatchLocal (synchronous) via the outbox poller. Redis pub/sub is
-    // only needed when a *different* process should receive events, which
-    // tests don't exercise.
-    eventBroker = createEventBroker(testRedis.redis, testRedis.redis.duplicate());
-  }
 
   const server = buildServer({
     registry,
@@ -225,28 +186,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
           },
         }
       : {}),
-    ...(options.outbox && subscriberRedis && eventBroker
-      ? {
-          outbox: {
-            redis: testRedis.redis,
-            subscriberRedis,
-            eventBroker,
-            pollIntervalMs: 50,
-            batchSize: 200,
-            maxAttempts: 3,
-            ...(typeof options.outbox === "object" && options.outbox.onDeadLetter
-              ? { onDeadLetter: options.outbox.onDeadLetter }
-              : {}),
-          },
-        }
-      : {}),
     ...(options.observability ? { observability: options.observability } : {}),
   });
-
-  // Poller comes from buildServer — same instance a production caller gets.
-  // Tests invoke runOnce() for determinism; the wake-up/timer paths have
-  // dedicated tests that call start()/stop().
-  const outboxPoller = server.outboxPoller;
 
   // Build the async event-dispatcher. Consumers come from two sources:
   //   1. Features via r.postEvent() — user-space subscribers
@@ -292,14 +233,9 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     events,
     http,
     observability: server.observability,
-    ...(outboxPoller ? { outboxPoller } : {}),
-    ...(eventBroker ? { eventBroker } : {}),
     ...(eventDispatcher ? { eventDispatcher } : {}),
     cleanup: async () => {
-      if (outboxPoller) await outboxPoller.stop();
       if (eventDispatcher) await eventDispatcher.stop();
-      if (eventBroker) await eventBroker.stop();
-      if (subscriberRedis) subscriberRedis.disconnect();
       await server.observability.shutdown();
       await Promise.all([testDb.cleanup(), testRedis.cleanup()]);
     },

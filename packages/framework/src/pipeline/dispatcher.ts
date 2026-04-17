@@ -19,7 +19,6 @@ import type {
   WriteResult,
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
-import { isSystemTenant } from "../engine/types/identifiers";
 import { runValidation } from "../engine/validation";
 import {
   AccessDeniedError,
@@ -35,6 +34,7 @@ import {
   type WriteErrorInfo,
   writeFailure,
 } from "../errors";
+import { append as appendEvent } from "../event-store/event-store";
 import {
   createMetricsHandle,
   createNoopMetricsHandle,
@@ -48,7 +48,6 @@ import { parseJsonSafe } from "../utils/safe-json";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
-import { eventOutboxTable, OUTBOX_WAKE_CHANNEL } from "./outbox-table";
 import { runProjections } from "./projections-runner";
 
 // Standard span attributes for a dispatcher call. Feature may be undefined
@@ -106,12 +105,6 @@ export type DispatcherOptions = {
   eventLog?: EventLog;
   lifecycle?: LifecycleHooks;
   jobRunner?: JobRunnerRef;
-  // When set, ctx.emit writes into the outbox table and fires a wake-up on
-  // this Redis instance after commit. Without it, ctx.emit is a no-op-throw
-  // (so features can't accidentally emit without the infra being wired).
-  outbox?: {
-    redis: import("ioredis").default;
-  };
 };
 
 type HandlerType = string | HandlerRef;
@@ -147,7 +140,7 @@ export function createDispatcher(
   context: AppContext,
   options: DispatcherOptions = {},
 ): Dispatcher {
-  const { idempotency, eventLog, lifecycle, jobRunner, outbox } = options;
+  const { idempotency, eventLog, lifecycle, jobRunner } = options;
 
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
   const tableCache = new Map<string, ReturnType<typeof buildDrizzleTable>>();
@@ -181,22 +174,24 @@ export function createDispatcher(
     return transitions;
   }
 
-  // Transactional outbox emit. Row INSERTed in the current tx; after commit
-  // we publish a wake-up on Redis so the poller picks it up quickly (if the
-  // publish fails, the poller's 50ms timer catches the row anyway).
+  // ctx.emit — append a pub/sub event onto the events-table in the current tx.
+  //
+  // Seit D.5 läuft pub/sub über denselben Event-Store wie die Aggregate-Events:
+  // ein separater synthetic stream (aggregateType = "pubsub", neue aggregateId
+  // pro Emit, version = 1). Vorteile:
+  //   - Ein einziger ordered log — async subscribers (r.postEvent) können
+  //     von der gleichen Cursor-Infrastruktur angebunden werden.
+  //   - Keine separate Outbox-Tabelle / Poller / Broker mehr (raus in D.5).
+  //   - Events sind einheitlich tenantId-isoliert + idempotency-indexiert.
+  //
+  // Delivery: at-least-once durch den event-dispatcher. Handler müssen
+  // idempotent sein (gleiche Regel wie vorher beim Outbox).
   async function emitEvent(
     eventType: string,
     payload: unknown,
     user: SessionUser,
     tx: DbTx | undefined,
-    afterCommitHooks: AfterCommitHook[],
   ): Promise<void> {
-    if (!outbox) {
-      throw new Error(
-        `ctx.emit("${eventType}") called but no outbox is configured on the dispatcher — ` +
-          `pass DispatcherOptions.outbox = { redis } when building the server.`,
-      );
-    }
     const dbSource: DbConnection | DbTx | undefined =
       tx ?? (context.db as DbConnection | undefined);
     if (!dbSource) {
@@ -206,45 +201,29 @@ export function createDispatcher(
     }
 
     const reqCtx = requestContext.get();
-    const metadata: Record<string, unknown> = { userId: user.id };
-    if (reqCtx?.requestId) metadata["requestId"] = reqCtx.requestId;
-
-    // Snapshot the current trace context so the outbox poller can continue
-    // the trace cross-process. Empty traceId (noop / outside any span) is
-    // stored as null — the poller will simply start a root span in that case.
-    const activeSpan = dispatcherTracer.getActiveSpan();
-    const traceContext = activeSpan?.traceId
-      ? { traceId: activeSpan.traceId, spanId: activeSpan.spanId }
-      : null;
-
     // System-scope events carry the zero-UUID as a marker on the in-memory
-    // SessionUser — the outbox stores NULL to make "global / no tenant" a
-    // proper first-class value instead of a magic string.
-    await dbSource.insert(eventOutboxTable).values({
-      tenantId: isSystemTenant(user.tenantId) ? null : user.tenantId,
-      eventType,
-      payload: (payload ?? {}) as Record<string, unknown>,
-      metadata,
-      traceContext,
-    });
+    // SessionUser — we still persist it here so every event has a concrete
+    // tenantId (events-table requires notNull). The zero-UUID is a first-
+    // class value meaning "system/global". Consumers interpret it.
+    const tenantId = user.tenantId;
 
-    const redis = outbox.redis;
-    const log = context.log;
-    afterCommitHooks.push(async () => {
-      try {
-        await redis.publish(OUTBOX_WAKE_CHANNEL, "");
-      } catch (e) {
-        // Wake-up publish is an optimisation, not a correctness guarantee —
-        // the poller's 50ms timer fallback still picks the row up. Log as
-        // warn so ops can see Redis flakiness but tests don't treat it as
-        // an error. If no logger is configured we swallow: production
-        // setups always attach one, tests without a log are inspecting
-        // outbox rows directly.
-        if (log) {
-          const detail = e instanceof Error ? e.message : String(e);
-          log.warn(`outbox wake-up publish failed (poller timer will catch): ${detail}`);
-        }
-      }
+    // Synthetic aggregate for pub/sub: a fresh UUID per emit, version = 1.
+    // Keeps the unique(aggregate_id, version) constraint satisfied without
+    // tracking an aggregate stream — pub/sub events are one-shot by design.
+    // Using globalThis.crypto keeps the code node/bun/browser-safe.
+    const aggregateId = globalThis.crypto.randomUUID();
+
+    await appendEvent(dbSource, {
+      aggregateId,
+      aggregateType: "pubsub",
+      tenantId,
+      expectedVersion: 0,
+      type: eventType,
+      payload: (payload ?? {}) as Record<string, unknown>,
+      metadata: {
+        userId: user.id,
+        ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
+      },
     });
   }
 
@@ -318,7 +297,7 @@ export function createDispatcher(
         return res;
       },
       emit: async (eventType: string, payload: unknown) => {
-        await emitEvent(eventType, payload, user, tx, bridgeSink);
+        await emitEvent(eventType, payload, user, tx);
       },
     };
 
@@ -725,7 +704,7 @@ export function createDispatcher(
     // the writes are already committed, we can't undo them.
     //
     // Parallelisation is safe because afterCommit hooks are deferred side-
-    // effects (search index, SSE broadcast, outbox emit)
+    // effects (e.g. feature-level postSave hooks in afterCommit phase)
     // that don't depend on each other — the in-transaction work already ran
     // sequentially inside the lifecycle pipeline where ordering matters. If a
     // future hook ever needs ordering, it should do its sequencing internally
