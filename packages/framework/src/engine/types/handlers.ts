@@ -154,6 +154,18 @@ export type HandlerContext = SharedContextFields & {
   // see the outbox machinery.
   readonly emit: (qn: string, payload: unknown) => Promise<void>;
 
+  // Append a domain event to a specific aggregate stream in the current tx.
+  // Marten-aligned: every event belongs to exactly one aggregate. The runtime
+  // reads the current stream version, bumps it, and fires projections that
+  // match the event type in the same transaction.
+  //
+  // Unlike `emit` — which writes to a synthetic pub/sub stream — `appendEvent`
+  // targets a real aggregate and carries forward the stream's version lineage.
+  // Use it when a write-handler wants to record a domain event alongside the
+  // auto-generated CRUD events (e.g. "invoice.approved" on the same invoice
+  // stream that already carries "invoice.created" + "invoice.updated").
+  readonly appendEvent: (args: AppendEventArgs) => Promise<void>;
+
   // Always populated — Noop when no observability provider is configured.
   // Feature code can call ctx.metrics.inc(...) / ctx.tracer.startSpan(...)
   // without null-checks.
@@ -187,6 +199,17 @@ export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
 export type EventDef<TPayload = unknown> = {
   readonly name: string;
   readonly schema: ZodType<TPayload>;
+};
+
+// Args for ctx.appendEvent — explicit aggregate target, Marten-style.
+// `type` must match a name returned by r.defineEvent in any registered
+// feature; payload is validated against that event's Zod schema before
+// being written to the events-table.
+export type AppendEventArgs = {
+  readonly aggregateId: string;
+  readonly aggregateType: string;
+  readonly type: string;
+  readonly payload: unknown;
 };
 
 // --- References ---

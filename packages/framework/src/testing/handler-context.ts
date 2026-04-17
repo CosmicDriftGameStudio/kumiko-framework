@@ -1,4 +1,4 @@
-import type { HandlerContext, SessionUser, WriteResult } from "../engine/types";
+import type { AppendEventArgs, HandlerContext, SessionUser, WriteResult } from "../engine/types";
 import { createNoopMetricsHandle, getFallbackTracer } from "../observability";
 
 // Test/service helper: cross-feature bridge methods that throw on use.
@@ -24,7 +24,7 @@ const noopTracer = getFallbackTracer();
 
 export function bridgeStub(): Pick<
   HandlerContext,
-  "query" | "queryAs" | "write" | "writeAs" | "emit" | "metrics" | "tracer"
+  "query" | "queryAs" | "write" | "writeAs" | "emit" | "appendEvent" | "metrics" | "tracer"
 > {
   return {
     query: notAvailable("query") as HandlerContext["query"],
@@ -43,6 +43,7 @@ export function bridgeStub(): Pick<
       payload: unknown,
     ) => Promise<WriteResult>,
     emit: notAvailable("emit") as unknown as (qn: string, payload: unknown) => Promise<void>,
+    appendEvent: notAvailable("appendEvent") as unknown as (args: AppendEventArgs) => Promise<void>,
     metrics: createNoopMetricsHandle(),
     tracer: noopTracer,
   };

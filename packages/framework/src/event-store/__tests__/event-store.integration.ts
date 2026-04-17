@@ -9,6 +9,7 @@ import {
   IdempotencyReplayError,
   loadAggregate,
   loadAggregateAsOf,
+  loadAllEventsByType,
   loadEventsAfterVersion,
   VersionConflictError,
 } from "../index";
@@ -267,5 +268,152 @@ describe("event-store: asOf + after-version reads", () => {
 
     const after1 = await loadEventsAfterVersion(testDb.db, aggregateId, tenantA, 1);
     expect(after1.map((e) => e.version)).toEqual([2, 3]);
+  });
+});
+
+describe("event-store: loadAllEventsByType", () => {
+  // Rückgrat der Projection-Rebuild-Replay: alle Events eines aggregateType,
+  // cross-tenant, in chronologischer Reihenfolge. Wurde im second-audit als
+  // nicht-getestet gemeldet — dieser Test schließt die Lücke.
+
+  test("returns only events of the requested aggregateType", async () => {
+    const taskId = uuid();
+    const invoiceId = uuid();
+
+    await append(testDb.db, {
+      aggregateId: taskId,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { title: "T" },
+      metadata: { userId: userA },
+    });
+    await append(testDb.db, {
+      aggregateId: invoiceId,
+      aggregateType: "invoice",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "invoice.created",
+      payload: { amount: 42 },
+      metadata: { userId: userA },
+    });
+
+    const taskEvents = await loadAllEventsByType(testDb.db, "task");
+    const invoiceEvents = await loadAllEventsByType(testDb.db, "invoice");
+
+    expect(taskEvents).toHaveLength(1);
+    expect(taskEvents[0]?.aggregateId).toBe(taskId);
+    expect(taskEvents[0]?.type).toBe("task.created");
+    expect(invoiceEvents).toHaveLength(1);
+    expect(invoiceEvents[0]?.aggregateId).toBe(invoiceId);
+  });
+
+  test("spans all tenants — projection rebuild must see every row", async () => {
+    // Rebuilds run system-scoped (cross-tenant) because a projection table
+    // can hold data from many tenants. Missing this would leak tenant B's
+    // absence into tenant A's projection snapshot after a rebuild.
+    const aggA = uuid();
+    const aggB = uuid();
+
+    await append(testDb.db, {
+      aggregateId: aggA,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { owner: "A" },
+      metadata: { userId: userA },
+    });
+    await append(testDb.db, {
+      aggregateId: aggB,
+      aggregateType: "task",
+      tenantId: tenantB,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { owner: "B" },
+      metadata: { userId: userA },
+    });
+
+    const all = await loadAllEventsByType(testDb.db, "task");
+    expect(all).toHaveLength(2);
+    const tenants = new Set(all.map((e) => e.tenantId));
+    expect(tenants).toEqual(new Set([tenantA, tenantB]));
+  });
+
+  test("ordered by (createdAt, id) for deterministic replay", async () => {
+    // Projection-Rebuild wendet Events in der Reihenfolge an, in der sie
+    // geschrieben wurden. Die Sortierung ist Teil des Contracts — ohne sie
+    // entstehen je nach Replay unterschiedliche Projection-States.
+    const a1 = uuid();
+    const a2 = uuid();
+    const a3 = uuid();
+
+    const e1 = await append(testDb.db, {
+      aggregateId: a1,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { n: 1 },
+      metadata: { userId: userA },
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const e2 = await append(testDb.db, {
+      aggregateId: a2,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { n: 2 },
+      metadata: { userId: userA },
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const e3 = await append(testDb.db, {
+      aggregateId: a3,
+      aggregateType: "task",
+      tenantId: tenantB,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { n: 3 },
+      metadata: { userId: userA },
+    });
+
+    const all = await loadAllEventsByType(testDb.db, "task");
+    expect(all.map((e) => e.id)).toEqual([e1.id, e2.id, e3.id]);
+    // createdAt strictly non-decreasing
+    for (let i = 1; i < all.length; i++) {
+      const prev = all[i - 1];
+      const cur = all[i];
+      if (!prev || !cur) throw new Error("unreachable");
+      expect(prev.createdAt.getTime()).toBeLessThanOrEqual(cur.createdAt.getTime());
+    }
+  });
+
+  test("returns empty array when no events of that type exist", async () => {
+    const events = await loadAllEventsByType(testDb.db, "nonexistent-type");
+    expect(events).toEqual([]);
+  });
+
+  test("includes every event of an aggregate — multiple versions in order", async () => {
+    // A single aggregate with multiple versions must appear in order in the
+    // replay stream, otherwise projection-apply sees events out-of-sequence.
+    const aggregateId = uuid();
+    for (let v = 0; v < 4; v++) {
+      await append(testDb.db, {
+        aggregateId,
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: v,
+        type: v === 0 ? "task.created" : "task.updated",
+        payload: { v },
+        metadata: { userId: userA },
+      });
+    }
+
+    const all = await loadAllEventsByType(testDb.db, "task");
+    expect(all).toHaveLength(4);
+    expect(all.map((e) => e.version)).toEqual([1, 2, 3, 4]);
+    expect(all.map((e) => (e.payload as { v: number }).v)).toEqual([0, 1, 2, 3]);
   });
 });

@@ -8,6 +8,7 @@ import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type {
   AppContext,
+  AppendEventArgs,
   DeleteContext,
   HandlerContext,
   HandlerRef,
@@ -34,7 +35,7 @@ import {
   type WriteErrorInfo,
   writeFailure,
 } from "../errors";
-import { append as appendEvent } from "../event-store/event-store";
+import { append as appendEvent, loadAggregate } from "../event-store/event-store";
 import {
   createMetricsHandle,
   createNoopMetricsHandle,
@@ -49,7 +50,7 @@ import type { EventLog } from "./event-log";
 import { PUBSUB_AGGREGATE_TYPE } from "./event-retention";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
-import { runProjections } from "./projections-runner";
+import { runProjections, runProjectionsForEvent } from "./projections-runner";
 
 type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
 
@@ -271,6 +272,69 @@ export function createDispatcher(
     });
   }
 
+  // ctx.appendEvent — append a domain event onto a specific aggregate stream
+  // in the current tx, then fire matching inline projections.
+  //
+  // Marten-aligned: every event belongs to exactly one aggregate. Unlike
+  // ctx.emit (synthetic "pubsub" stream, version=1), appendEvent writes to
+  // the real aggregate — version is derived from the live stream length, so
+  // domain events carry forward the same lineage as the auto CRUD events.
+  //
+  // The schema registered via r.defineEvent is authoritative for the payload.
+  // After the write, runProjectionsForEvent fires any projection whose source
+  // matches this aggregate type and that declares an apply-handler for the
+  // event's type — same transaction, same rollback semantics as CRUD events.
+  async function appendDomainEvent(
+    args: AppendEventArgs,
+    user: SessionUser,
+    tx: DbTx | undefined,
+  ): Promise<void> {
+    const dbSource: DbConnection | DbTx | undefined =
+      tx ?? (context.db as DbConnection | undefined);
+    if (!dbSource) {
+      throw new InternalError({
+        message: `ctx.appendEvent("${args.type}") requires a database connection — none is configured.`,
+      });
+    }
+
+    // Schema validation first — identical contract to ctx.emit.
+    const eventDef = registry.getEvent(args.type);
+    if (!eventDef) {
+      throw new InternalError({
+        message: `ctx.appendEvent("${args.type}") — event not registered. Call r.defineEvent(shortName, schema) in a feature; appendEvent expects the qualified name returned by defineEvent (e.g. "<feature>:event:<short>").`,
+      });
+    }
+    const parsed = eventDef.schema.safeParse(args.payload ?? {});
+    if (!parsed.success) {
+      throw validationErrorFromZod(parsed.error);
+    }
+    const validatedPayload = parsed.data as DbRow;
+
+    // Read-modify-write inside the same tx: loadAggregate sees prior events
+    // from this transaction too (same tx scope), so multiple appendEvent
+    // calls in one handler stack correctly.
+    const existing = await loadAggregate(dbSource, args.aggregateId, user.tenantId);
+    const expectedVersion = existing.length;
+
+    const reqCtx = requestContext.get();
+    const stored = await appendEvent(dbSource, {
+      aggregateId: args.aggregateId,
+      aggregateType: args.aggregateType,
+      tenantId: user.tenantId,
+      expectedVersion,
+      type: args.type,
+      payload: validatedPayload,
+      metadata: {
+        userId: user.id,
+        ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
+      },
+    });
+
+    // Inline projections — same tx as the append, so a throw rolls the event
+    // back with whatever projection writes preceded it.
+    await runProjectionsForEvent(stored, registry, dbSource);
+  }
+
   async function logEvent(type: string, payload: unknown, user: SessionUser): Promise<void> {
     // skip: no eventLog configured, nothing to persist
     if (!eventLog) return;
@@ -342,6 +406,9 @@ export function createDispatcher(
       },
       emit: async (eventType: string, payload: unknown) => {
         await emitEvent(eventType, payload, user, tx);
+      },
+      appendEvent: async (args: AppendEventArgs) => {
+        await appendDomainEvent(args, user, tx);
       },
     };
 

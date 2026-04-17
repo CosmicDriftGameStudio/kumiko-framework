@@ -62,6 +62,7 @@ export { DEFAULT_CURRENCIES, isFileField } from "./fields";
 export type {
   AccessRule,
   AppContext,
+  AppendEventArgs,
   CrudRefs,
   EntityRef,
   EventDef,

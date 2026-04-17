@@ -453,11 +453,12 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // matches. Fail at boot so the feature author sees it immediately.
   //
   // Same guard extends to apply-keys: a handler for "unit.creatd" (missing
-  // 'e') would silently never fire. We enumerate the currently-known event
-  // types per source (the four auto-generated CRUD types) and reject apply
-  // handlers that don't match any of them. When r.event() lands in Phase 4,
-  // the valid-type set gets extended to include registered domain events.
+  // 'e') would silently never fire. Valid apply-keys are the auto-generated
+  // CRUD types per source entity PLUS every domain event registered via
+  // r.defineEvent — an apply-handler for a domain event is how a projection
+  // reacts to ctx.appendEvent writes on the same aggregate stream.
   const AUTO_EVENT_VERBS = ["created", "updated", "deleted", "restored"] as const;
+  const allDomainEventNames = new Set(eventMap.keys());
   for (const [projName, projDef] of projectionMap) {
     const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
     const validEventTypes = new Set<string>();
@@ -470,13 +471,19 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
       for (const verb of AUTO_EVENT_VERBS) validEventTypes.add(`${src}.${verb}`);
     }
+    // Domain events are valid apply-keys for any projection. They arrive via
+    // ctx.appendEvent on a specific aggregate — the runtime matches by event
+    // type, so a projection can observe domain events whose aggregate matches
+    // one of its declared sources.
+    for (const domainEvt of allDomainEventNames) validEventTypes.add(domainEvt);
     for (const applyKey of Object.keys(projDef.apply)) {
       if (!validEventTypes.has(applyKey)) {
         throw new Error(
           `Projection "${projName}" has an apply handler for "${applyKey}" but no such event ` +
             `type exists for its source(s) [${sources.join(", ")}]. ` +
             `Valid types: ${[...validEventTypes].join(", ")}. ` +
-            `Check for a typo in the event-type string.`,
+            `Check for a typo — auto-verbs follow "<entity>.<verb>"; ` +
+            `domain events follow "<feature>:event:<short-name>" (see r.defineEvent).`,
         );
       }
     }
