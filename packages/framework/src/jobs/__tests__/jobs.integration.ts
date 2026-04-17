@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { requestContext } from "../../api/request-context";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, Registry } from "../../engine/types";
 import { createTestRedis, sleep, type TestRedis, waitFor } from "../../testing";
@@ -63,6 +64,22 @@ const testFeature = defineFeature("test", (r) => {
   // Job that fails
   r.job("failingJob", { trigger: { manual: true }, retries: 1 }, async () => {
     throw new Error("intentional failure");
+  });
+
+  // Correlation propagation probe — records the requestContext it sees at
+  // handler-time so tests can assert the scheduling request's correlationId
+  // made it through BullMQ into the worker process.
+  r.job("correlationProbe", { trigger: { manual: true } }, async (payload) => {
+    const seen = requestContext.get();
+    jobLog.push({
+      name: "test:job:correlation-probe",
+      payload: {
+        ...payload,
+        observedCorrelationId: seen?.correlationId ?? null,
+        observedRequestId: seen?.requestId ?? null,
+      },
+      timestamp: Date.now(),
+    });
   });
 });
 
@@ -244,6 +261,50 @@ describe("concurrency: debounce", () => {
       // Debounce should result in fewer executions than dispatches
       expect(entries.length).toBeLessThan(5);
       expect(entries.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+});
+
+// --- Correlation propagation ---
+
+describe("correlation propagation", () => {
+  test("dispatch inside requestContext.run passes correlationId into the job", async () => {
+    clearLog();
+    await withRunner(async (runner) => {
+      // Enter a synthetic request-context, dispatch → the scheduler should
+      // pack the correlationId into the job data; the worker reads it back
+      // and re-enters requestContext.run.
+      await requestContext.run(
+        { requestId: "req-outer", correlationId: "carry-me-across-bullmq" },
+        async () => {
+          await runner.dispatch("test:job:correlation-probe", { n: 1 });
+        },
+      );
+      await waitFor(() => {
+        const entries = jobLog.filter((e) => e.name === "test:job:correlation-probe");
+        expect(entries.length).toBe(1);
+      });
+      const entry = jobLog.find((e) => e.name === "test:job:correlation-probe");
+      expect(entry?.payload.observedCorrelationId).toBe("carry-me-across-bullmq");
+      // requestId is fresh per job run, NOT the scheduler's requestId.
+      expect(entry?.payload.observedRequestId).not.toBe("req-outer");
+      expect(typeof entry?.payload.observedRequestId).toBe("string");
+    });
+  });
+
+  test("dispatch outside any request-context: job gets a fresh correlationId (not null)", async () => {
+    clearLog();
+    await withRunner(async (runner) => {
+      await runner.dispatch("test:job:correlation-probe", { n: 2 });
+      await waitFor(() => {
+        const entries = jobLog.filter((e) => e.name === "test:job:correlation-probe");
+        expect(entries.length).toBe(1);
+      });
+      const entry = jobLog.find((e) => e.name === "test:job:correlation-probe");
+      // Fresh correlationId — new requestId mirrored onto correlationId
+      // when no parent-context provided one.
+      expect(typeof entry?.payload.observedCorrelationId).toBe("string");
+      expect(entry?.payload.observedCorrelationId).toBe(entry?.payload.observedRequestId);
     });
   });
 });

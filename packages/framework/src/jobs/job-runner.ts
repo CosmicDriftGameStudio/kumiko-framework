@@ -1,4 +1,5 @@
 import { type Job, Queue, Worker } from "bullmq";
+import { requestContext } from "../api/request-context";
 import type { DbRow } from "../db/connection";
 import { createSystemUser } from "../engine/system-user";
 import {
@@ -169,9 +170,22 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // parent span, start the job.execute span as its child. Works for event
     // and manual triggers; cron jobs start a fresh root span.
     const parentContext = readTraceContext(rawData);
+
+    // Correlation propagation: the scheduling request's correlationId was
+    // packed into _correlationId at dispatch time. Re-enter requestContext.run
+    // so event writes during this job stamp the same correlation as the
+    // request that scheduled it. Cron/boot jobs (no scheduler) start fresh
+    // — correlationId = new requestId, no parent causation.
+    const inheritedCorrelationId = (rawData["_correlationId"] as string | undefined) ?? undefined;
+    const jobRequestId = requestContext.generateId();
+    const jobCorrelationId = inheritedCorrelationId ?? jobRequestId;
+
     const runInSpan = async (): Promise<void> => {
       try {
-        await jobDef.handler(payload, jobContext);
+        await requestContext.run(
+          { requestId: jobRequestId, correlationId: jobCorrelationId },
+          () => jobDef.handler(payload, jobContext),
+        );
         const duration = Date.now() - startTime;
         await options.onJobComplete?.(jobName, jobId, duration, logs);
       } catch (err) {
@@ -302,6 +316,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // as a child of the caller.
       const traceCtx = captureTraceContext(tracer);
       if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
+      // Propagate correlation from the scheduling request into the job
+      // execution context. The worker re-enters requestContext.run with
+      // this value so ctx.appendEvent / executor writes during the job
+      // stamp the same correlation as the HTTP request that scheduled it.
+      const reqCtx = requestContext.get();
+      if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
 
       const job = await queue.add(jobName, data, bullOpts);
       return job.id ?? "unknown";
@@ -313,6 +333,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       user?: SessionUser,
     ): Promise<void> {
       const traceCtx = captureTraceContext(tracer);
+      // Same correlation propagation as dispatch(): events triggered from
+      // within a request (or an MSP-apply running under requestContext.run)
+      // get their correlationId into job data so the job execution keeps
+      // the same causal chain.
+      const reqCtx = requestContext.get();
       for (const [name, jobDef] of allJobs) {
         if ("on" in jobDef.trigger && jobDef.trigger.on === eventName) {
           const data: Record<string, unknown> = { ...payload };
@@ -321,6 +346,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             data["_triggeredById"] = user.id;
           }
           if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
+          if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
           await queue.add(name, data);
         }
       }
