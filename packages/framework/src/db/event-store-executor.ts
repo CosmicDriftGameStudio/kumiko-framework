@@ -56,19 +56,18 @@ export type EventStoreExecutorOptions = {
   entityCache?: EntityCache;
 };
 
-// Build the metadata envelope for an append. `userId` always set; correlation
-// + causation come from the AsyncLocalStorage request-context when present.
-//
-// Deliberately WITHOUT `requestId`: the events_idempotency_idx is a partial
-// UNIQUE on (tenant_id, metadata->>'requestId'). A single HTTP request can
-// produce multiple events (executor.create + ctx.appendEvent), and only ONE
-// of them carries the requestId marker for client-side idempotency —
-// ctx.appendEvent writes it, CRUD does not. Stamping requestId here too
-// would trip the unique-violation the moment a handler mixes both paths.
-function buildMetadata(user: SessionUser): EventMetadata {
+// Build the metadata envelope for an append. userId always set; requestId +
+// correlation + causation come from the AsyncLocalStorage request-context
+// when present (e.g. HTTP request, MSP-apply, job run). requestId is a pure
+// trace marker — HTTP-level retry idempotency runs separately via
+// pipeline/idempotency.ts (Redis-cached response replay), so a single
+// request can write N events freely without the events-table needing a
+// uniqueness constraint.
+function buildEventMetadata(user: SessionUser): EventMetadata {
   const reqCtx = requestContext.get();
   return {
     userId: String(user.id),
+    ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
     ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
     ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
   };
@@ -220,7 +219,7 @@ export function createEventStoreExecutor(
         expectedVersion: 0,
         type: `${entityName}.created`,
         payload: stripSensitive(data),
-        metadata: buildMetadata(user),
+        metadata: buildEventMetadata(user),
       });
 
       // 2. Update projection. `version` echoes the event-store version so
@@ -308,7 +307,7 @@ export function createEventStoreExecutor(
             changes: stripSensitive(payload.changes),
             previous: stripSensitive(previous),
           },
-          metadata: buildMetadata(user),
+          metadata: buildEventMetadata(user),
         });
 
         const [row] = await db
@@ -379,7 +378,7 @@ export function createEventStoreExecutor(
         expectedVersion: currentVersion,
         type: `${entityName}.deleted`,
         payload: { previous: stripSensitive(existing) },
-        metadata: buildMetadata(user),
+        metadata: buildEventMetadata(user),
       });
 
       if (softDelete) {
@@ -439,7 +438,7 @@ export function createEventStoreExecutor(
         expectedVersion: currentVersion,
         type: `${entityName}.restored`,
         payload: { previous: stripSensitive(data) },
-        metadata: buildMetadata(user),
+        metadata: buildEventMetadata(user),
       });
 
       const [restored] = await db

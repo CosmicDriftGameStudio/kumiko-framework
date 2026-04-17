@@ -1,6 +1,6 @@
-// Two failure modes of the event-store's append() path. Both are surfaced
-// as typed errors so the executor layer can map them to the framework's
-// WriteResult error contract (version_conflict / idempotency replay).
+// Failure modes of the event-store's append() path. Surfaced as typed
+// errors so the executor layer can map them to the framework's
+// WriteResult error contract (version_conflict).
 
 export class VersionConflictError extends Error {
   public readonly aggregateId: string;
@@ -31,20 +31,5 @@ export class ArchivedStreamError extends Error {
     this.name = "ArchivedStreamError";
     this.tenantId = tenantId;
     this.aggregateId = aggregateId;
-  }
-}
-
-// Thrown when an event with the same (tenant, requestId) already exists.
-// The command layer catches this, looks up the prior event via
-// findEventByRequestId(), and replays the original outcome — callers never
-// see this error in a normal idempotent flow.
-export class IdempotencyReplayError extends Error {
-  public readonly tenantId: string;
-  public readonly requestId: string;
-  constructor(tenantId: string, requestId: string) {
-    super(`Idempotent replay: request ${requestId} already processed for tenant ${tenantId}`);
-    this.name = "IdempotencyReplayError";
-    this.tenantId = tenantId;
-    this.requestId = requestId;
   }
 }

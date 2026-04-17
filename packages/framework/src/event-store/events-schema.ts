@@ -19,10 +19,11 @@ import { createSnapshotsTable } from "./snapshot";
 // most operations; append() for subsequent versions uses raw SQL because
 // INSERT ... SELECT ... WHERE EXISTS isn't ergonomic in the typed builder.
 //
-// Columns map 1:1 to the spike schema (samples/spike-event-sourced). The
-// partial unique index over `(tenant_id, (metadata->>'requestId'))` has to
-// be applied as raw DDL because drizzle-kit's JSON schema generator doesn't
-// express JSONB path expressions — see EVENTS_IDEMPOTENCY_INDEX_SQL below.
+// Columns map 1:1 to the spike schema (samples/spike-event-sourced). HTTP-
+// level retry idempotency is handled by pipeline/idempotency.ts (Redis-backed
+// check + cached-response replay). The event-store itself imposes no
+// idempotency index — a single HTTP request may write N events freely,
+// metadata.requestId is purely a trace marker.
 export type EventMetadata = {
   readonly userId: string;
   readonly requestId?: string;
@@ -62,23 +63,10 @@ export const eventsTable = pgTable(
   }),
 );
 
-// Partial unique index enforcing per-tenant request-id idempotency. Filtered
-// on NOT NULL so events without a requestId don't all collide on the null
-// value. Raw DDL — same pattern as EVENT_OUTBOX_PARTIAL_INDEX_SQL.
-export const EVENTS_IDEMPOTENCY_INDEX_SQL = sql`
-  CREATE UNIQUE INDEX IF NOT EXISTS events_idempotency_idx
-    ON events (tenant_id, ((metadata->>'requestId')))
-    WHERE metadata->>'requestId' IS NOT NULL;
-`;
-
 // Convenience used by framework integration tests. Creates the table via
-// drizzle-kit diffing and adds the partial idempotency index. Idempotent —
-// setupTestStack calls it automatically, so tests that also call it manually
-// (legacy setup, explicit layout) don't fail.
-//
-// Also materializes kumiko_archived_streams and kumiko_snapshots:
-// loadAggregate / appendEvent / loadAggregateWithSnapshot consult them on
-// the hot path, so the three tables must come up together.
+// drizzle-kit diffing. Also materializes kumiko_archived_streams and
+// kumiko_snapshots — loadAggregate / appendEvent / loadAggregateWithSnapshot
+// consult them on the hot path, so the three tables must come up together.
 export async function createEventsTable(db: DbConnection): Promise<void> {
   const [row] = (await db.execute(
     sql`SELECT to_regclass('public.events') IS NOT NULL AS exists`,
@@ -87,7 +75,6 @@ export async function createEventsTable(db: DbConnection): Promise<void> {
   // setupTestStack and explicit test-setups, the guard keeps it idempotent.
   if (!row?.exists) {
     await pushTables(db, { events: eventsTable });
-    await db.execute(EVENTS_IDEMPOTENCY_INDEX_SQL);
   }
   await createArchivedStreamsTable(db);
   await createSnapshotsTable(db);

@@ -1,9 +1,9 @@
 import { and, asc, eq, gt, lte, max, sql } from "drizzle-orm";
 import type { DbRunner } from "../db";
-import { constraintOf, isUniqueViolation } from "../db/pg-error";
+import { isUniqueViolation } from "../db/pg-error";
 import type { TenantId } from "../engine/types";
 import { isStreamArchived } from "./archive";
-import { IdempotencyReplayError, VersionConflictError } from "./errors";
+import { VersionConflictError } from "./errors";
 import { eventsTable } from "./events-schema";
 
 export type EventMetadata = {
@@ -87,14 +87,9 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     return buildStoredEvent(event, newVersion, eventVersion, row);
   } catch (e) {
     if (isUniqueViolation(e)) {
-      // Distinguish the two unique constraints:
-      //   - events_aggregate_version_uq → concurrent writer beat us
-      //   - events_idempotency_idx → same requestId already processed
-      // Callers need different semantics: the former is a retry-able conflict,
-      // the latter is a signal to look up and replay the prior outcome.
-      if (constraintOf(e) === "events_idempotency_idx" && event.metadata.requestId) {
-        throw new IdempotencyReplayError(event.tenantId, event.metadata.requestId);
-      }
+      // Only constraint left on the events table: events_aggregate_version_uq.
+      // A unique violation here always means a concurrent writer won the
+      // race to the next version — retry-able conflict.
       throw new VersionConflictError(event.aggregateId, event.expectedVersion);
     }
     throw e;
@@ -295,28 +290,6 @@ export async function loadAllEventsByType(
   return rows.map(toStoredEvent);
 }
 
-// Look up an event by (tenant, requestId). Used by the command layer when
-// IdempotencyReplayError fires — we need to return the prior event's outcome
-// so callers can't tell whether they got replayed or freshly processed.
-// JSONB path operator requires an inline sql fragment; the typed builder
-// doesn't expose `->>` as a first-class operator.
-export async function findEventByRequestId(
-  db: DbRunner,
-  tenantId: TenantId,
-  requestId: string,
-): Promise<StoredEvent | null> {
-  const rows = await db
-    .select()
-    .from(eventsTable)
-    .where(
-      and(
-        eq(eventsTable.tenantId, tenantId),
-        sql`${eventsTable.metadata}->>'requestId' = ${requestId}`,
-      ),
-    )
-    .limit(1);
-  return rows[0] ? toStoredEvent(rows[0]) : null;
-}
 
 function toStoredEvent(row: SelectedEvent): StoredEvent {
   return {

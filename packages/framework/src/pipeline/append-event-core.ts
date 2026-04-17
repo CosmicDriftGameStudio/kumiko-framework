@@ -51,12 +51,11 @@ export async function appendDomainEventCore(
   const expectedVersion = await getStreamVersion(deps.db, args.aggregateId, deps.tenantId);
 
   const reqCtx = requestContext.get();
-  // Stamp-once-only idempotency marker: events_idempotency_idx is a partial
-  // UNIQUE on (tenantId, metadata->>'requestId'). Only the FIRST event in a
-  // request wears the marker; subsequent events in the same tx would
-  // collide. See RequestContextData.requestIdUsed docs.
-  const stampRequestId = reqCtx?.requestId && !reqCtx.requestIdUsed;
-
+  // metadata.requestId is a plain trace marker — no uniqueness constraint,
+  // every event of the request carries it. HTTP-level idempotency runs in
+  // pipeline/idempotency.ts (Redis-backed cached-response replay) BEFORE
+  // the command executes, so retries never reach this code path twice for
+  // the same request.
   const stored = await append(deps.db, {
     aggregateId: args.aggregateId,
     aggregateType: args.aggregateType,
@@ -67,12 +66,11 @@ export async function appendDomainEventCore(
     payload: validatedPayload,
     metadata: {
       userId: deps.userId,
-      ...(stampRequestId && reqCtx ? { requestId: reqCtx.requestId } : {}),
+      ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
       ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
       ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
     },
   });
-  if (stampRequestId && reqCtx) reqCtx.requestIdUsed = true;
 
   // Inline projections fire in the same tx — a throw rolls everything back
   // together. Same semantics regardless of which call-site triggered the

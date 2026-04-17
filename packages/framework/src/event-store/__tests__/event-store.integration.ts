@@ -5,8 +5,6 @@ import { createTestDb, type TestDb } from "../../testing";
 import {
   append,
   createEventsTable,
-  findEventByRequestId,
-  IdempotencyReplayError,
   loadAggregate,
   loadAggregateAsOf,
   loadAllEventsByType,
@@ -189,13 +187,18 @@ describe("event-store: tenant isolation", () => {
   });
 });
 
-describe("event-store: idempotency via requestId", () => {
-  test("same (tenant, requestId) twice → IdempotencyReplayError on the second", async () => {
+describe("event-store: requestId is a trace marker (no DB-level uniqueness)", () => {
+  test("same (tenant, requestId) twice → both events persist, no collision", async () => {
+    // Idempotency is an HTTP-level concern, handled via Redis in
+    // pipeline/idempotency.ts before the command executes. The events-table
+    // imposes no uniqueness on metadata.requestId — a single request may
+    // write N events (CRUD + ctx.appendEvent + saga follow-ups), all
+    // carrying the same requestId as a trace marker.
     const aggregateId1 = uuid();
     const aggregateId2 = uuid();
     const requestId = uuid();
 
-    await append(testDb.db, {
+    const first = await append(testDb.db, {
       aggregateId: aggregateId1,
       aggregateType: "task",
       tenantId: tenantA,
@@ -204,22 +207,19 @@ describe("event-store: idempotency via requestId", () => {
       payload: { title: "First" },
       metadata: { userId: userA, requestId },
     });
+    const second = await append(testDb.db, {
+      aggregateId: aggregateId2,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { title: "Second" },
+      metadata: { userId: userA, requestId },
+    });
 
-    await expect(
-      append(testDb.db, {
-        aggregateId: aggregateId2,
-        aggregateType: "task",
-        tenantId: tenantA,
-        expectedVersion: 0,
-        type: "task.created",
-        payload: { title: "Replay" },
-        metadata: { userId: userA, requestId },
-      }),
-    ).rejects.toThrow(IdempotencyReplayError);
-
-    const replayed = await findEventByRequestId(testDb.db, tenantA, requestId);
-    expect(replayed?.aggregateId).toBe(aggregateId1);
-    expect(replayed?.payload).toEqual({ title: "First" });
+    expect(first.metadata.requestId).toBe(requestId);
+    expect(second.metadata.requestId).toBe(requestId);
+    expect(first.aggregateId).not.toBe(second.aggregateId);
   });
 });
 
