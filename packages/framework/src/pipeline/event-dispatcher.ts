@@ -1,5 +1,5 @@
 import { asc, eq, gt, sql } from "drizzle-orm";
-import type { DbConnection } from "../db/connection";
+import type { DbConnection, DbTx } from "../db/connection";
 import type { AppContext } from "../engine/types";
 import { eventsTable, type StoredEvent } from "../event-store";
 import {
@@ -75,6 +75,167 @@ const DEFAULT_BATCH_SIZE = 200;
 const DEFAULT_POLL_MS = 100;
 const DEFAULT_MAX_ATTEMPTS = 10;
 
+// --- processConsumer helpers ---
+// Free functions (not closures) so they're independently readable and the
+// dispatcher's main pass logic stays under ~50 LOC. Every helper takes an
+// explicit `tx` — none of them use the outer dispatcher's closure state.
+
+type ConsumerStateRow = typeof eventConsumerStateTable.$inferSelect;
+
+type AcquireOutcome =
+  | { readonly state: ConsumerStateRow; readonly skip: null }
+  | { readonly state: null; readonly skip: "locked_by_other_instance" | "disabled" | "dead" };
+
+// Lock the consumer's state row with SKIP LOCKED. Two-step bootstrap: first
+// try select; if missing, INSERT ON CONFLICT DO NOTHING then re-select. This
+// handles the rare race where two pollers both see "no row" and each tries
+// to insert — ON CONFLICT keeps it exclusive, and the second FOR UPDATE
+// SKIP LOCKED returns nothing to the loser so it bails out of this pass.
+async function acquireConsumerState(tx: DbTx, name: string): Promise<AcquireOutcome> {
+  let [state] = (await tx
+    .select()
+    .from(eventConsumerStateTable)
+    .where(eq(eventConsumerStateTable.name, name))
+    .for("update", { skipLocked: true })) as [ConsumerStateRow | undefined];
+
+  if (!state) {
+    await tx
+      .insert(eventConsumerStateTable)
+      .values({ name, status: "processing" })
+      .onConflictDoNothing({ target: eventConsumerStateTable.name });
+    [state] = (await tx
+      .select()
+      .from(eventConsumerStateTable)
+      .where(eq(eventConsumerStateTable.name, name))
+      .for("update", { skipLocked: true })) as [ConsumerStateRow | undefined];
+    if (!state) return { state: null, skip: "locked_by_other_instance" };
+  }
+
+  if (state.status === "disabled") return { state: null, skip: "disabled" };
+  if (state.status === "dead") return { state: null, skip: "dead" };
+  return { state, skip: null };
+}
+
+// Mark the consumer row as "processing" for ops visibility. The SKIP LOCKED
+// lock already guarantees single-writer semantics; this is purely
+// informational (and resets on commit to idle/dead via persistConsumerOutcome).
+async function markProcessing(tx: DbTx, name: string): Promise<void> {
+  await tx
+    .update(eventConsumerStateTable)
+    .set({ status: "processing", updatedAt: sql`now()` })
+    .where(eq(eventConsumerStateTable.name, name));
+}
+
+async function fetchPendingEvents(
+  tx: DbTx,
+  cursor: bigint,
+  batchSize: number,
+): Promise<ReadonlyArray<typeof eventsTable.$inferSelect>> {
+  return (await tx
+    .select()
+    .from(eventsTable)
+    .where(gt(eventsTable.id, cursor))
+    .orderBy(asc(eventsTable.id))
+    .limit(batchSize)) as ReadonlyArray<typeof eventsTable.$inferSelect>;
+}
+
+type DeliveryOutcome = {
+  readonly cursor: bigint;
+  readonly attempts: number;
+  readonly lastError: string | null;
+  readonly deadLettered: boolean;
+  readonly processed: number;
+  readonly failed: number;
+};
+
+function rowToStoredEvent(row: typeof eventsTable.$inferSelect): StoredEvent {
+  return {
+    id: String(row.id),
+    aggregateId: row.aggregateId,
+    aggregateType: row.aggregateType,
+    tenantId: row.tenantId,
+    version: row.version,
+    type: row.type,
+    eventVersion: row.eventVersion,
+    payload: row.payload,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    createdBy: row.createdBy,
+  };
+}
+
+// Deliver events to the consumer's handler in events.id order. Halt-on-
+// poison: a throw breaks the loop, the cursor stays at the last successful
+// event, and attempts climb. At maxAttempts the caller persists status=
+// "dead" and the consumer is parked until ops intervenes (see
+// restartConsumer / skipPoisonEvent).
+async function deliverEvents(
+  consumer: EventConsumer,
+  events: ReadonlyArray<typeof eventsTable.$inferSelect>,
+  context: AppContext,
+  maxAttempts: number,
+  state: ConsumerStateRow,
+): Promise<DeliveryOutcome> {
+  let cursor = state.lastProcessedEventId;
+  let attempts = state.attempts;
+  let lastError: string | null = state.lastError ?? null;
+  let deadLettered = false;
+  let processed = 0;
+  let failed = 0;
+
+  for (const row of events) {
+    try {
+      await consumer.handler(rowToStoredEvent(row), context);
+      cursor = row.id;
+      attempts = 0;
+      lastError = null;
+      processed += 1;
+    } catch (e) {
+      attempts += 1;
+      lastError = e instanceof Error ? e.message : String(e);
+      failed += 1;
+      if (attempts >= maxAttempts) deadLettered = true;
+      break;
+    }
+  }
+
+  return { cursor, attempts, lastError, deadLettered, processed, failed };
+}
+
+async function persistConsumerOutcome(
+  tx: DbTx,
+  name: string,
+  outcome: DeliveryOutcome,
+): Promise<void> {
+  await tx
+    .update(eventConsumerStateTable)
+    .set({
+      lastProcessedEventId: outcome.cursor,
+      attempts: outcome.attempts,
+      status: outcome.deadLettered ? "dead" : "idle",
+      lastError: outcome.lastError,
+      updatedAt: sql`now()`,
+    })
+    .where(eq(eventConsumerStateTable.name, name));
+}
+
+// Emit the lag gauge inside the consumer pass's tx so ops sees a snapshot
+// consistent with the cursor we just advanced to. `MAX(id)` on the events
+// table is an O(1) reverse-index scan — cheap even under load.
+async function emitLagFromTx(
+  tx: DbTx,
+  consumerName: string,
+  cursor: bigint,
+  meter: Meter,
+): Promise<void> {
+  const result = await tx.execute(sql`SELECT COALESCE(MAX(id), 0)::bigint AS head FROM events`);
+  const rows = Array.isArray(result) ? (result as Array<{ head?: bigint | string | null }>) : [];
+  const raw = rows[0]?.head;
+  const head = typeof raw === "bigint" ? raw : BigInt(raw ?? 0);
+  const lag = head > cursor ? Number(head - cursor) : 0;
+  emitEventConsumerLag(meter, { consumer: consumerName }, lag);
+}
+
 export function createEventDispatcher(options: EventDispatcherOptions): EventDispatcher {
   const {
     db,
@@ -148,127 +309,22 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
 
     try {
       await db.transaction(async (tx) => {
-        // Lock the consumer's state row with SKIP LOCKED: a second dispatcher
-        // instance (different process) won't see a row we hold. If none is
-        // returned, either the row doesn't exist yet (first run) or another
-        // instance has it — either way we (a) try to create-or-lock and
-        // (b) bail out of THIS consumer's pass if someone else owns it.
-        //
-        // Two-step: try SELECT FOR UPDATE SKIP LOCKED first. Missing row
-        // means "we need to bootstrap" → INSERT ON CONFLICT DO NOTHING,
-        // then SELECT FOR UPDATE (blocking, short-lived). That avoids the
-        // rare-but-real race where two pollers both see "no row" and each
-        // tries to INSERT. The ON CONFLICT DO NOTHING keeps it exclusive.
-        let [state] = await tx
-          .select()
-          .from(eventConsumerStateTable)
-          .where(eq(eventConsumerStateTable.name, consumer.name))
-          .for("update", { skipLocked: true });
-
-        if (!state) {
-          // Bootstrap: create-if-missing (idempotent under concurrent pollers)
-          // then take a regular FOR UPDATE. If another poller already owns
-          // the row at this point, this FOR UPDATE will block briefly — that
-          // is correct, we want exactly one pass per consumer.
-          await tx
-            .insert(eventConsumerStateTable)
-            .values({ name: consumer.name, status: "processing" })
-            .onConflictDoNothing({ target: eventConsumerStateTable.name });
-          [state] = await tx
-            .select()
-            .from(eventConsumerStateTable)
-            .where(eq(eventConsumerStateTable.name, consumer.name))
-            .for("update", { skipLocked: true });
-          // skip: another poller beat us to the lock after the INSERT; next
-          // pass picks this consumer up. Multi-instance-safe no-op.
-          if (!state) {
-            span.setAttribute("consumer.skip_reason", "locked_by_other_instance");
-            return;
-          }
-        }
-
-        // skip: consumer is paused (disabled by ops) or dead (hit maxAttempts).
-        // Its events wait until ops intervenes; other consumers keep running.
-        if (state.status === "disabled" || state.status === "dead") {
-          span.setAttribute("consumer.skip_reason", state.status);
+        const acquired = await acquireConsumerState(tx, consumer.name);
+        // skip: another instance holds the lock, or the consumer is
+        // disabled/dead. Nothing to deliver this pass.
+        if (acquired.skip !== null) {
+          span.setAttribute("consumer.skip_reason", acquired.skip);
           return;
         }
+        await markProcessing(tx, consumer.name);
 
-        // Mark processing for ops visibility. The lock already prevents
-        // concurrent access; status is purely informational.
-        await tx
-          .update(eventConsumerStateTable)
-          .set({ status: "processing", updatedAt: sql`now()` })
-          .where(eq(eventConsumerStateTable.name, consumer.name));
+        const events = await fetchPendingEvents(tx, acquired.state.lastProcessedEventId, batchSize);
+        const outcome = await deliverEvents(consumer, events, context, maxAttempts, acquired.state);
+        processed = outcome.processed;
+        failed = outcome.failed;
 
-        const events = (await tx
-          .select()
-          .from(eventsTable)
-          .where(gt(eventsTable.id, state.lastProcessedEventId))
-          .orderBy(asc(eventsTable.id))
-          .limit(batchSize)) as ReadonlyArray<typeof eventsTable.$inferSelect>;
-
-        let cursor = state.lastProcessedEventId;
-        let attempts = state.attempts;
-        let deadLettered = false;
-        let lastError: string | null = state.lastError ?? null;
-
-        for (const row of events) {
-          const storedEvent: StoredEvent = {
-            id: String(row.id),
-            aggregateId: row.aggregateId,
-            aggregateType: row.aggregateType,
-            tenantId: row.tenantId,
-            version: row.version,
-            type: row.type,
-            eventVersion: row.eventVersion,
-            payload: row.payload,
-            metadata: row.metadata,
-            createdAt: row.createdAt,
-            createdBy: row.createdBy,
-          };
-
-          try {
-            await consumer.handler(storedEvent, context);
-            cursor = row.id;
-            attempts = 0;
-            lastError = null;
-            processed++;
-          } catch (e) {
-            const message = e instanceof Error ? e.message : String(e);
-            attempts += 1;
-            lastError = message;
-            failed += 1;
-            // Halt-on-poison: don't advance past a failing event. Next pass
-            // retries the SAME event; after maxAttempts it's marked dead
-            // and the consumer pauses for ops.
-            if (attempts >= maxAttempts) {
-              deadLettered = true;
-            }
-            break;
-          }
-        }
-
-        await tx
-          .update(eventConsumerStateTable)
-          .set({
-            lastProcessedEventId: cursor,
-            attempts,
-            status: deadLettered ? "dead" : "idle",
-            lastError,
-            updatedAt: sql`now()`,
-          })
-          .where(eq(eventConsumerStateTable.name, consumer.name));
-
-        // Lag-gauge update in the SAME tx so ops sees a snapshot consistent
-        // with the cursor we just advanced to. `MAX(id)` on the events table
-        // is an O(1) reverse-index scan — cheap even under load.
-        const [headRow] = (await tx.execute(
-          sql`SELECT COALESCE(MAX(id), 0)::bigint AS head FROM events`,
-        )) as unknown as Array<{ head: bigint | string }>;
-        const head = typeof headRow?.head === "bigint" ? headRow.head : BigInt(headRow?.head ?? 0);
-        const lag = head > cursor ? Number(head - cursor) : 0;
-        emitEventConsumerLag(meter, { consumer: consumer.name }, lag);
+        await persistConsumerOutcome(tx, consumer.name, outcome);
+        await emitLagFromTx(tx, consumer.name, outcome.cursor, meter);
       });
 
       emitEventConsumerPassOutcome(meter, { consumer: consumer.name }, processed, failed);
@@ -276,13 +332,13 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       span.setAttribute("consumer.failed", failed);
       span.setStatus(failed === 0 ? "ok" : "error");
     } catch (e) {
-      // Unexpected: a handler error is caught inside the loop, so anything
-      // landing here is infrastructure (db connection lost, serialization,
-      // standard-metrics not registered on this meter). Don't let one
-      // consumer's outage stall the others, but do log — a silent rollback
-      // here looks like "at-most-once" to callers and at-least-once-with-
-      // duplicate-delivery on the next pass; neither is actually what we
-      // want, so the operator needs to see it.
+      // Unexpected: a handler error is caught inside deliverEvents and
+      // surfaces via `failed`, so anything landing here is infrastructure
+      // (db connection lost, serialization, standard-metrics not registered
+      // on this meter). Don't let one consumer's outage stall the others,
+      // but do log — a silent rollback here looks like "at-most-once" to
+      // callers and at-least-once-with-duplicate-delivery on the next pass;
+      // neither is what we want, so ops needs to see it.
       const msg = e instanceof Error ? e.message : String(e);
       context.log?.error(`[event-dispatcher] ${consumer.name} pass failed: ${msg}`);
       span.setStatus("error", msg);

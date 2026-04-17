@@ -46,6 +46,7 @@ import {
 } from "../observability";
 import { parseJsonSafe } from "../utils/safe-json";
 import type { EventLog } from "./event-log";
+import { PUBSUB_AGGREGATE_TYPE } from "./event-retention";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { runProjections } from "./projections-runner";
@@ -195,9 +196,9 @@ export function createDispatcher(
     const dbSource: DbConnection | DbTx | undefined =
       tx ?? (context.db as DbConnection | undefined);
     if (!dbSource) {
-      throw new Error(
-        `ctx.emit("${eventType}") requires a database connection — none is configured.`,
-      );
+      throw new InternalError({
+        message: `ctx.emit("${eventType}") requires a database connection — none is configured.`,
+      });
     }
 
     // Strict schema validation (E.3). r.defineEvent is the single source of
@@ -239,7 +240,7 @@ export function createDispatcher(
 
     await appendEvent(dbSource, {
       aggregateId,
-      aggregateType: "pubsub",
+      aggregateType: PUBSUB_AGGREGATE_TYPE,
       tenantId,
       expectedVersion: 0,
       type: eventType,

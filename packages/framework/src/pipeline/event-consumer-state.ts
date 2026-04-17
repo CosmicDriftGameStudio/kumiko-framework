@@ -62,11 +62,17 @@ export type ConsumerStatus = (typeof CONSUMER_STATUSES)[number];
 // same pattern as createProjectionStateTable / createEventsTable. If the
 // table is already present (second stack in the same test DB, prod boot
 // after migration), skip cleanly.
+//
+// The `.execute` result from postgres-js is typed as `unknown`; we validate
+// the shape inline so callers don't get a mysterious "exists of undefined"
+// if the query surface ever changes.
 export async function createEventConsumerStateTable(db: DbConnection): Promise<void> {
-  const [row] = (await db.execute(
+  const result = await db.execute(
     sql`SELECT to_regclass('public.kumiko_event_consumers') IS NOT NULL AS exists`,
-  )) as unknown as Array<{ exists: boolean }>;
+  );
+  const rows = Array.isArray(result) ? (result as Array<{ exists?: unknown }>) : [];
+  const exists = rows[0]?.exists === true;
   // skip: table already exists — bootstrap is called from multiple paths
-  if (row?.exists) return;
+  if (exists) return;
   await pushTables(db, { kumikoEventConsumers: eventConsumerStateTable });
 }

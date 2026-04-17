@@ -3,6 +3,7 @@ import { tenantChannel } from "../engine/constants";
 import type { EntityId, Registry } from "../engine/types";
 import type { SearchAdapter, SearchDocument } from "../search/types";
 import type { EventConsumer } from "./event-dispatcher";
+import { PUBSUB_AGGREGATE_TYPE } from "./event-retention";
 
 // --- Search Index Consumer (async, via event-dispatcher) ---
 //
@@ -159,9 +160,6 @@ function buildSearchDocument(
 //    Clients müssten poll-after-write.
 //
 // Tests drain deterministisch via `await stack.eventDispatcher.runOnce()`.
-//
-// Audit-Trail lief hier früher als inTransaction-hook — wurde in D.1
-// entfernt (Events sind Audit).
 export const SSE_BROADCAST_CONSUMER_NAME = "system:consumer:sse-broadcast";
 
 export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventConsumer {
@@ -172,7 +170,7 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
       // intended for automatic SSE fan-out. Features that *do* want a
       // specific pub/sub event broadcast can register their own postEvent
       // consumer that calls sseBroker directly.
-      if (event.aggregateType === "pubsub") return;
+      if (event.aggregateType === PUBSUB_AGGREGATE_TYPE) return;
 
       sseBroker.pushToChannel(tenantChannel(event.tenantId), {
         type: event.type,
