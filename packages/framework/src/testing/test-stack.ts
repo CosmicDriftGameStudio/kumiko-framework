@@ -173,9 +173,12 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     sseBroker,
     // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for
     // deterministic drains — no timer-induced flakiness. pollIntervalMs
-    // stays short anyway in case a test opts into `.start()`.
+    // stays short anyway in case a test opts into `.start()`. pgClient
+    // plumbs through the LISTEN wake-up for tests that want to measure
+    // post-commit latency (Sprint E.4).
     eventDispatcher: {
       pollIntervalMs: 50,
+      pgClient: testDb.client,
       systemConsumers: {
         sse: enabledHooks.includes("sse"),
         search: enabledHooks.includes("search"),

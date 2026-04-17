@@ -12,8 +12,15 @@ export type DbTx = Parameters<Parameters<DbConnection["transaction"]>[0]>[0];
 // (e.g. TenantDb, dispatcher pipeline) accept both.
 export type DbRunner = DbConnection | DbTx;
 
+// The raw postgres.js client. Exposed alongside the Drizzle wrapper so the
+// event-dispatcher (or other components that need LISTEN / pg-specific
+// features Drizzle doesn't surface) can subscribe without re-opening a
+// connection from the URL.
+export type PgClient = ReturnType<typeof postgres>;
+
 export function createDbConnection(url: string): {
   db: DbConnection;
+  client: PgClient;
   close: () => Promise<void>;
 } {
   const client = postgres(url);
@@ -21,6 +28,7 @@ export function createDbConnection(url: string): {
 
   return {
     db,
+    client,
     close: async () => {
       await client.end();
     },

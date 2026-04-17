@@ -53,6 +53,12 @@ type SelectedEvent = typeof eventsTable.$inferSelect;
 //
 // Creates (expectedVersion === 0) skip the predecessor check — no predecessor
 // exists yet. Colliding creates fall out via UNIQUE (aggregate_id, version=1).
+// Channel name used by append() → NOTIFY and the event-dispatcher → LISTEN
+// (Sprint E.4). The event-dispatcher subscribes to this channel on start and
+// fires a runOnce immediately on each commit, so delivery latency is bounded
+// by TCP round-trip instead of pollIntervalMs.
+export const EVENTS_PUBSUB_CHANNEL = "kumiko_events_new";
+
 export async function append(db: DbRunner, event: EventToAppend): Promise<StoredEvent> {
   const newVersion = event.expectedVersion + 1;
   const eventVersion = event.eventVersion ?? 1;
@@ -62,6 +68,11 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
       event.expectedVersion === 0
         ? await insertFirstEvent(db, event, newVersion, eventVersion)
         : await insertSubsequentEvent(db, event, newVersion, eventVersion);
+
+    // NOTIFY fires on commit (PG buffers NOTIFY per TX), so subscribers never
+    // see a wake-up for an event that later rolled back. Harmless no-op when
+    // no LISTENer is attached.
+    await db.execute(sql`SELECT pg_notify(${EVENTS_PUBSUB_CHANNEL}, '')`);
 
     return buildStoredEvent(event, newVersion, eventVersion, row);
   } catch (e) {

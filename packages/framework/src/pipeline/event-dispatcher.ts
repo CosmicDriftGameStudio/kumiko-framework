@@ -1,7 +1,7 @@
 import { asc, eq, gt, sql } from "drizzle-orm";
-import type { DbConnection, DbTx } from "../db/connection";
+import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
-import { eventsTable, type StoredEvent } from "../event-store";
+import { EVENTS_PUBSUB_CHANNEL, eventsTable, type StoredEvent } from "../event-store";
 import {
   emitEventConsumerLag,
   emitEventConsumerPassOutcome,
@@ -69,6 +69,12 @@ export type EventDispatcherOptions = {
   readonly maxAttempts?: number;
   readonly tracer?: Tracer;
   readonly meter?: Meter;
+  // Optional raw postgres.js client for LISTEN/NOTIFY-based wake-up
+  // (Sprint E.4). When present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL
+  // and fires runOnce on each NOTIFY — delivery latency becomes TCP-round-
+  // trip instead of pollIntervalMs. The polling timer remains active as a
+  // safety net (missed NOTIFYs from crashes, subscription drops).
+  readonly pgClient?: PgClient;
 };
 
 const DEFAULT_BATCH_SIZE = 200;
@@ -250,6 +256,11 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
 
   let running = false;
   let timer: ReturnType<typeof setInterval> | null = null;
+  // LISTEN subscription handle. Set when .start() successfully subscribed
+  // to EVENTS_PUBSUB_CHANNEL; cleared by .stop(). The timer remains active
+  // even with LISTEN attached — it's a cheap safety net against missed
+  // NOTIFYs (subscription drop, crash mid-commit).
+  let pgUnlisten: (() => Promise<void>) | null = null;
 
   // Serialises concurrent runOnce() calls from both wake-up sources (timer
   // + any future explicit nudge). Mirrors outbox-poller's passInFlight
@@ -360,6 +371,24 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
           // skip: per-consumer errors already recorded in the state row
         });
       }, pollIntervalMs);
+
+      // NOTIFY-based wake-up: subscribe on the same channel that
+      // event-store.append fires on commit. Fires runOnce directly, no
+      // polling round-trip. The timer stays on as a belt-and-braces
+      // fallback (dropped subscriptions, missed commits under load).
+      if (options.pgClient) {
+        try {
+          const sub = await options.pgClient.listen(EVENTS_PUBSUB_CHANNEL, () => {
+            void runOnce().catch(() => {
+              // skip: per-consumer errors already recorded in the state row
+            });
+          });
+          pgUnlisten = sub.unlisten;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          context.log?.error(`[event-dispatcher] pg LISTEN failed: ${msg}`);
+        }
+      }
     },
 
     async stop() {
@@ -370,6 +399,14 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       if (timer) {
         clearInterval(timer);
         timer = null;
+      }
+
+      if (pgUnlisten) {
+        await pgUnlisten().catch(() => {
+          // skip: unlisten failure only matters during shutdown — the
+          // subscription is being torn down anyway.
+        });
+        pgUnlisten = null;
       }
 
       // Drain any in-flight pass so shutdown observes consistent state.

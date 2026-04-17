@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { DbConnection } from "../db/connection";
+import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
 import type { AppContext, Registry } from "../engine/types";
 import type { FileRoutesOptions } from "../files/file-routes";
@@ -68,6 +68,13 @@ export type ServerOptions = {
     // a different transport. Default: both enabled when the respective
     // dependency (sseBroker / context.searchAdapter) is available.
     systemConsumers?: { sse?: boolean; search?: boolean };
+    // Raw postgres.js client for LISTEN/NOTIFY wake-up (Sprint E.4). When
+    // present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL — delivery
+    // latency drops from pollIntervalMs to TCP-round-trip. The poll timer
+    // stays on as a safety net. Typically wired from
+    // `createDbConnection(url).client` so both Drizzle-queries and the
+    // dispatcher share the same underlying postgres.js pool.
+    pgClient?: PgClient;
   };
   // Observability: tracer + meter used for auto-instrumentation across
   // HTTP, dispatcher, pipeline, DB. Omitted => NoopProvider (zero overhead,

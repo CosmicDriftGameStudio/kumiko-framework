@@ -1,6 +1,7 @@
 export { IdempotencyReplayError, VersionConflictError } from "./errors";
 export {
   append,
+  EVENTS_PUBSUB_CHANNEL,
   type EventMetadata,
   type EventToAppend,
   findEventByRequestId,
