@@ -14,8 +14,6 @@ export const SystemHookNames = {
   searchRemove: "system:hook:search-remove",
   sseBroadcast: "system:hook:sse-broadcast",
   sseDeleteBroadcast: "system:hook:sse-delete-broadcast",
-  auditTrail: "system:hook:audit-trail",
-  auditTrailDelete: "system:hook:audit-trail-delete",
   cascadeDelete: "system:hook:cascade-delete",
 } as const;
 
@@ -29,8 +27,6 @@ export const SystemHookPriorities = {
   searchRemove: 1000,
   sseBroadcast: 1001,
   sseDeleteBroadcast: 1001,
-  auditTrail: 1002,
-  auditTrailDelete: 1002,
 } as const;
 
 // --- Message Kinds ---

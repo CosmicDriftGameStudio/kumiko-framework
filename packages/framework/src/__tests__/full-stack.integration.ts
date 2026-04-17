@@ -20,7 +20,6 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-  testUserId,
 } from "../testing";
 
 // --- Entities ---
@@ -264,26 +263,6 @@ describe("full stack: CRUD", () => {
     );
     expect(detail).toBeNull();
   });
-
-  test("delete triggers audit trail via postDelete hook", async () => {
-    const created = await stack.http.writeOk(
-      "users:write:user:create",
-      {
-        email: "audit-del@test.de",
-      },
-      adminUser,
-    );
-
-    stack.events.reset();
-
-    await stack.http.writeOk("users:write:user:delete", { id: created["id"] }, adminUser);
-
-    const deleteEntry = stack.events.audit.find((e) => e.action === "users:write:user:delete");
-    expect(deleteEntry).toBeDefined();
-    expect(deleteEntry?.entityType).toBe("user");
-    expect(deleteEntry?.entityId).toBe(created["id"]);
-    expect(deleteEntry?.isNew).toBe(false);
-  });
 });
 
 // =============================================================================
@@ -376,51 +355,6 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     expect(featurePostSaveLog).toHaveLength(1);
     expect(featurePostSaveLog[0]?.data["email"]).toBe("hook@test.de");
     expect(featurePostSaveLog[0]?.isNew).toBe(true);
-  });
-
-  test("audit trail system hook captures create", async () => {
-    await stack.http.writeOk(
-      "users:write:user:create",
-      {
-        email: "audit@test.de",
-      },
-      adminUser,
-    );
-
-    expect(stack.events.audit).toHaveLength(1);
-    expect(stack.events.audit[0]?.action).toBe("users:write:user:create");
-    expect(stack.events.audit[0]?.entityType).toBe("user");
-    expect(stack.events.audit[0]?.isNew).toBe(true);
-    expect(stack.events.audit[0]?.userId).toBe(testUserId(1));
-  });
-
-  test("audit trail system hook captures update with changes + previous", async () => {
-    const created = await stack.http.writeOk(
-      "users:write:user:create",
-      {
-        email: "audit-upd@test.de",
-        firstName: "Old",
-      },
-      adminUser,
-    );
-
-    stack.events.reset();
-
-    await stack.http.writeOk(
-      "users:write:user:update",
-      {
-        id: created["id"],
-        changes: { firstName: "New" },
-        version: 1,
-      },
-      adminUser,
-    );
-
-    const updateEntry = stack.events.audit.find((e) => e.action === "users:write:user:update");
-    expect(updateEntry).toBeDefined();
-    expect(updateEntry?.changes["firstName"]).toBe("New");
-    expect(updateEntry?.previous["firstName"]).toBe("Old");
-    expect(updateEntry?.isNew).toBe(false);
   });
 
   test("SSE broadcast fires on create", async () => {
@@ -837,11 +771,11 @@ describe("full stack: health", () => {
 //
 // Isolated outbox tests prove the mechanism. This block proves the contract
 // inside the real pipeline: ctx.emit runs next to the CrudExecutor write, the
-// feature postSave hook, audit, SSE, search, and entity cache — and every one
-// of those observes the same commit/rollback boundary as the outbox row.
+// feature postSave hook, SSE, search, and entity cache — and every one of
+// those observes the same commit/rollback boundary as the outbox row.
 
 describe("full stack: transactional outbox", () => {
-  test("commit path: user row, outbox row, feature postSave, audit, SSE, search, subscriber — all consistent", async () => {
+  test("commit path: user row, outbox row, feature postSave, SSE, search, subscriber — all consistent", async () => {
     const data = await stack.http.writeOk(
       "users:write:user:create",
       { email: "outbox-happy@test.de", firstName: "Happy", lastName: "Path" },
@@ -866,13 +800,7 @@ describe("full stack: transactional outbox", () => {
     expect(featurePostSaveLog).toHaveLength(1);
     expect(featurePostSaveLog[0]).toMatchObject({ kind: "save", id: userId, isNew: true });
 
-    // System hooks fired: audit, SSE, search
-    expect(stack.events.audit).toHaveLength(1);
-    expect(stack.events.audit[0]).toMatchObject({
-      action: "users:write:user:create",
-      entityType: "user",
-      isNew: true,
-    });
+    // System hooks fired: SSE, search
     expect(stack.events.sse.some((e) => e.type.includes("user"))).toBe(true);
     const searchHits = await stack.search.search(adminUser.tenantId, "outbox-happy");
     expect(searchHits.map((h) => h.entityId)).toContain(userId);
@@ -921,11 +849,10 @@ describe("full stack: transactional outbox", () => {
     expect(outboxRows).toHaveLength(0);
 
     // Side-effects inside the tx boundary must not have committed either.
-    // Feature postSave, audit, and search all run inside executeWrite — they
+    // Feature postSave and search all run inside executeWrite — they
     // only materialize on commit. (SSE is a network broadcast and doesn't
     // have a DB consequence; we deliberately don't assert on it here.)
     expect(featurePostSaveLog).toHaveLength(0);
-    expect(stack.events.audit).toHaveLength(0);
     const searchHits = await stack.search.search(adminUser.tenantId, "outbox-rollback");
     expect(searchHits).toHaveLength(0);
 
@@ -962,7 +889,6 @@ describe("full stack: transactional outbox", () => {
 
     // System hooks did not commit — the generic catch path rolls them back too
     expect(featurePostSaveLog).toHaveLength(0);
-    expect(stack.events.audit).toHaveLength(0);
     const searchHits = await stack.search.search(adminUser.tenantId, "outbox-throw");
     expect(searchHits).toHaveLength(0);
 

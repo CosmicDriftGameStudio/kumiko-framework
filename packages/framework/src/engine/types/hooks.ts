@@ -55,9 +55,9 @@ export type PostSaveHookFn = (result: SaveContext, context: AppContext) => Promi
 
 // Batch-variant: called once at the end of a dispatcher batch with every
 // successful SaveContext. The per-save PostSaveHookFn still fires for
-// side-effects that need per-entity semantics (SSE, audit); PostSaveBatch
-// exists for adapters that can amortise work across the whole batch
-// (e.g. search index batch-writes, bulk webhook fanout).
+// side-effects that need per-entity semantics (SSE); PostSaveBatch exists
+// for adapters that can amortise work across the whole batch (e.g. search
+// index batch-writes, bulk webhook fanout).
 export type PostSaveBatchHookFn = (
   results: readonly SaveContext[],
   context: AppContext,
@@ -87,8 +87,8 @@ export type LifecycleHookFn =
 // --- Hook Phases ---
 //
 // inTransaction: Hook runs inside the DB transaction. Failures roll back
-//   the entire write. Use for: DB-based side-effects (audit rows, counter
-//   updates, dependent entity writes).
+//   the entire write. Use for: DB-based side-effects (counter updates,
+//   dependent entity writes).
 //
 // afterCommit (default): Hook runs after the transaction commits. Failures
 //   are logged but don't affect the write. Use for: external systems

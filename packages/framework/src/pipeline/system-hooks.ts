@@ -9,9 +9,7 @@ import type {
   PostSaveHookFn,
   Registry,
   SaveContext,
-  TenantId,
 } from "../engine/types";
-import { HookPhases } from "../engine/types";
 import type { SearchAdapter, SearchDocument } from "../search/types";
 import type { SystemHookDef } from "./lifecycle-pipeline";
 
@@ -171,7 +169,7 @@ function buildSearchDocument(
 //
 //   systemHooks: {
 //     ...createSearchHooks(adapter, registry),
-//     postSave: [createSseBroadcastHook(broker), createAuditTrailHook(log)],
+//     postSave: [createSseBroadcastHook(broker)],
 //   }
 //
 // Framework picks the right hook variant — consumer code stays identical
@@ -267,80 +265,7 @@ export function createSseDeleteBroadcastHook(
   };
 }
 
-// --- Audit Trail Hook ---
-
-export type AuditTrailEntry = {
-  timestamp: Date;
-  tenantId: TenantId;
-  userId: string;
-  action: string;
-  entityType: string;
-  entityId: EntityId;
-  changes: Record<string, unknown>;
-  previous: Record<string, unknown>;
-  isNew: boolean;
-};
-
-export type AuditTrailStorage = {
-  append(entry: AuditTrailEntry): Promise<void>;
-};
-
-export function createAuditTrailHook(storage: AuditTrailStorage): SystemHookDef<PostSaveHookFn> {
-  return {
-    name: SystemHookNames.auditTrail,
-    priority: SystemHookPriorities.auditTrail,
-    // Audit rows are DB writes that must be atomic with the entity change:
-    // if the write rolls back, the audit entry must roll back too.
-    phase: HookPhases.inTransaction,
-    fn: async (result, ctx) => {
-      const entityName = result.entityName;
-      if (!entityName) {
-        ctx.log?.debug(`auditTrail: skipping — no entityName on result ${result.id}`);
-        return;
-      }
-
-      await storage.append({
-        timestamp: new Date(),
-        tenantId: result.data["tenantId"] as string,
-        userId: ctx._userId ?? "",
-        action:
-          ctx._handlerType ??
-          qn("system", "event", `${entityName}:${result.isNew ? "create" : "update"}`),
-        entityType: entityName,
-        entityId: result.id,
-        changes: result.changes as Record<string, unknown>,
-        previous: result.previous as Record<string, unknown>,
-        isNew: result.isNew,
-      });
-    },
-  };
-}
-
-export function createAuditTrailDeleteHook(
-  storage: AuditTrailStorage,
-): SystemHookDef<PostDeleteHookFn> {
-  return {
-    name: SystemHookNames.auditTrailDelete,
-    priority: SystemHookPriorities.auditTrail,
-    phase: HookPhases.inTransaction,
-    fn: async (payload, ctx) => {
-      const entityName = payload.entityName;
-      if (!entityName) {
-        ctx.log?.debug(`auditTrailDelete: skipping — no entityName on payload ${payload.id}`);
-        return;
-      }
-
-      await storage.append({
-        timestamp: new Date(),
-        tenantId: payload.data["tenantId"] as string,
-        userId: ctx._userId ?? "",
-        action: ctx._handlerType ?? qn("system", "event", `${entityName}:delete`),
-        entityType: entityName,
-        entityId: payload.id,
-        changes: {},
-        previous: payload.data as Record<string, unknown>,
-        isNew: false,
-      });
-    },
-  };
-}
+// Audit-Trail hooks lived here once; they were redundant with the event-store
+// (every entity mutation already emits an immutable event with createdBy /
+// createdAt / previous / changes). Removed 2026-04-17 — projections + event
+// replay give consumers the same data without the parallel audit table.

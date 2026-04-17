@@ -15,7 +15,6 @@ Jedes Sample = 1 Feature-Definition + 1 Test. Bricht ein Framework-Change was, w
 | Stammdaten seeden (r.referenceData) | [reference-data](reference-data/) | Integration |
 | Volltextsuche (searchable, searchWeight) | [search](search/) | Integration |
 | Echtzeit-Updates via SSE | [realtime-sse](realtime-sse/) | Integration |
-| Audit Trail (wer hat was geaendert) | [audit-trail](audit-trail/) | Integration |
 | Request-Deduplizierung (Idempotency) | [idempotency](idempotency/) | Integration |
 | Multi-Tenant Datentrennung | [tenant-isolation](tenant-isolation/) | Integration |
 | Mehrsprachigkeit (i18n) | [i18n](i18n/) | Unit |

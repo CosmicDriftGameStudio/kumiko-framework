@@ -36,10 +36,7 @@ export {
   PROJECTION_STATUSES,
   projectionStateTable,
 } from "./projection-state";
-export type { AuditTrailEntry, AuditTrailStorage } from "./system-hooks";
 export {
-  createAuditTrailDeleteHook,
-  createAuditTrailHook,
   createSearchHooks,
   createSearchIndexBatchHook,
   createSearchIndexHook,

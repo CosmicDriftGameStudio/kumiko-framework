@@ -19,8 +19,6 @@ import {
 } from "../pipeline";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
 import {
-  createAuditTrailDeleteHook,
-  createAuditTrailHook,
   createSearchHooks,
   createSseBroadcastHook,
   createSseDeleteBroadcastHook,
@@ -50,8 +48,8 @@ export type TestStack = {
 
 export type TestStackOptions = {
   features: readonly FeatureDefinition[];
-  /** System hooks to wire up. Default: all (audit, sse, search) */
-  systemHooks?: ("audit" | "sse" | "search")[];
+  /** System hooks to wire up. Default: all (sse, search) */
+  systemHooks?: ("sse" | "search")[];
   /** Search config per tenant — defaults to tenant 1 with all text fields */
   searchConfig?: {
     tenantId: TenantId;
@@ -90,7 +88,7 @@ const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
 
 export async function setupTestStack(options: TestStackOptions): Promise<TestStack> {
   const jwtSecret = options.jwtSecret ?? DEFAULT_JWT_SECRET;
-  const enabledHooks = options.systemHooks ?? ["audit", "sse", "search"];
+  const enabledHooks = options.systemHooks ?? ["sse", "search"];
 
   const [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
 
@@ -179,13 +177,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     postSave: [
       ...(searchHooks.postSave ?? []),
       ...(enabledHooks.includes("sse") ? [createSseBroadcastHook(sseBroker)] : []),
-      ...(enabledHooks.includes("audit") ? [createAuditTrailHook(events.auditStorage)] : []),
     ],
     ...(searchHooks.postSaveBatch ? { postSaveBatch: searchHooks.postSaveBatch } : {}),
     postDelete: [
       ...(searchHooks.postDelete ?? []),
       ...(enabledHooks.includes("sse") ? [createSseDeleteBroadcastHook(sseBroker)] : []),
-      ...(enabledHooks.includes("audit") ? [createAuditTrailDeleteHook(events.auditStorage)] : []),
     ],
     ...(searchHooks.postDeleteBatch ? { postDeleteBatch: searchHooks.postDeleteBatch } : {}),
   };

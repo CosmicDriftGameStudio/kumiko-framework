@@ -9,9 +9,6 @@ import {
   type TenantId,
 } from "../../engine";
 import {
-  type AuditTrailEntry,
-  type AuditTrailStorage,
-  createAuditTrailHook,
   createSearchHooks,
   createSearchIndexBatchHook,
   createSearchIndexHook,
@@ -33,8 +30,8 @@ import { createSseBroker, type SseBroker } from "../sse-broker";
 
 // Integration test for the production wiring of the system-hook pipeline.
 // Calls buildServer directly (NOT setupTestStack) and passes systemHooks the
-// way a real consumer would. Proves that search/sse/audit hooks fire through
-// the prod buildServer path, not just when setupTestStack preconfigures them.
+// way a real consumer would. Proves that search + sse hooks fire through the
+// prod buildServer path, not just when setupTestStack preconfigures them.
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -53,8 +50,8 @@ const feature = defineFeature("system-hooks-test", (r) => {
     "item:create",
     z.object({ label: z.string() }),
     async (event) => {
-      // Return a SaveContext that triggers all three system hooks.
-      // entityName + tenantId are the minimum for search/sse/audit to fire.
+      // Return a SaveContext that triggers every wired system hook.
+      // entityName + tenantId are the minimum for search/sse to fire.
       const id = nextItemId++;
       return {
         isSuccess: true,
@@ -103,7 +100,7 @@ afterEach(async () => {
 });
 
 describe("buildServer system-hooks integration", () => {
-  test("all three hooks wired: save fires search + sse + audit", async () => {
+  test("search + sse wired: save fires both", async () => {
     const searchAdapter: SearchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(TENANT_ID, {
       searchableFields: ["label"],
@@ -118,13 +115,6 @@ describe("buildServer system-hooks integration", () => {
       () => {},
     );
 
-    const auditEntries: AuditTrailEntry[] = [];
-    const auditStorage: AuditTrailStorage = {
-      append: async (entry) => {
-        auditEntries.push(entry);
-      },
-    };
-
     const server = buildServer({
       registry,
       context: { db: testDb.db, redis: testRedis.redis, registry, searchAdapter },
@@ -134,7 +124,6 @@ describe("buildServer system-hooks integration", () => {
         postSave: [
           createSearchIndexHook(searchAdapter, registry),
           createSseBroadcastHook(sseBroker),
-          createAuditTrailHook(auditStorage),
         ],
         postDelete: [],
       },
@@ -155,12 +144,6 @@ describe("buildServer system-hooks integration", () => {
     expect(sseEvents.length).toBeGreaterThan(0);
     const created = sseEvents.find((e) => e.type.endsWith("item:created"));
     expect(created).toBeDefined();
-
-    // Audit: the audit hook wrote an entry
-    expect(auditEntries.length).toBe(1);
-    expect(auditEntries[0]?.entityType).toBe("item");
-    expect(auditEntries[0]?.entityId).toBeGreaterThanOrEqual(100);
-    expect(auditEntries[0]?.changes).toMatchObject({ label: "wiring-proof" });
   });
 
   test("no system hooks wired: save succeeds but no side effects", async () => {
@@ -178,13 +161,6 @@ describe("buildServer system-hooks integration", () => {
       () => {},
     );
 
-    const auditEntries: AuditTrailEntry[] = [];
-    const _auditStorage: AuditTrailStorage = {
-      append: async (entry) => {
-        auditEntries.push(entry);
-      },
-    };
-
     const server = buildServer({
       registry,
       context: { db: testDb.db, redis: testRedis.redis, registry, searchAdapter },
@@ -200,10 +176,9 @@ describe("buildServer system-hooks integration", () => {
     const hits = await searchAdapter.search(TENANT_ID, "no-hooks");
     expect(hits.length).toBe(0);
     expect(sseEvents.length).toBe(0);
-    expect(auditEntries.length).toBe(0);
   });
 
-  test("only search hook wired: sse + audit stay silent", async () => {
+  test("only search hook wired: sse stays silent", async () => {
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(TENANT_ID, {
       searchableFields: ["label"],
@@ -217,8 +192,6 @@ describe("buildServer system-hooks integration", () => {
       (e) => sseEvents.push(e),
       () => {},
     );
-
-    const auditEntries: AuditTrailEntry[] = [];
 
     const server = buildServer({
       registry,
@@ -237,7 +210,6 @@ describe("buildServer system-hooks integration", () => {
     const hits = await searchAdapter.search(TENANT_ID, "search-only");
     expect(hits.length).toBeGreaterThan(0);
     expect(sseEvents.length).toBe(0);
-    expect(auditEntries.length).toBe(0);
   });
 
   test("search batch hook fires once per batch and indexes every successful save", async () => {

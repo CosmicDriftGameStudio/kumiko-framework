@@ -6,7 +6,7 @@
 //
 // Examples:
 //   "tasks:write:task:create"      → scope=tasks, type=write, name=task:create
-//   "system:hook:audit-trail"      → scope=system, type=hook, name=audit-trail
+//   "system:hook:search-index"     → scope=system, type=hook, name=search-index
 //   "billing:notify:invoice-sent"  → scope=billing, type=notify, name=invoice-sent
 
 // Built-in QN types used by the framework.

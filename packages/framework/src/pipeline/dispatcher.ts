@@ -725,7 +725,7 @@ export function createDispatcher(
     // the writes are already committed, we can't undo them.
     //
     // Parallelisation is safe because afterCommit hooks are deferred side-
-    // effects (search index, SSE broadcast, audit trail append, outbox emit)
+    // effects (search index, SSE broadcast, outbox emit)
     // that don't depend on each other — the in-transaction work already ran
     // sequentially inside the lifecycle pipeline where ordering matters. If a
     // future hook ever needs ordering, it should do its sequencing internally
