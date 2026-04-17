@@ -59,6 +59,6 @@ export {
   createSearchIndexHook,
   createSearchRemoveBatchHook,
   createSearchRemoveHook,
-  createSseBroadcastHook,
-  createSseDeleteBroadcastHook,
+  createSseBroadcastEventConsumer,
+  SSE_BROADCAST_CONSUMER_NAME,
 } from "./system-hooks";

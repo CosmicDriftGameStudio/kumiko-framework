@@ -12,7 +12,6 @@ import {
   createSearchHooks,
   createSearchIndexBatchHook,
   createSearchIndexHook,
-  createSseBroadcastHook,
 } from "../../pipeline/system-hooks";
 import { createInMemorySearchAdapter } from "../../search";
 import type { SearchAdapter } from "../../search/types";
@@ -25,13 +24,17 @@ import {
 } from "../../testing";
 import type { JwtHelper } from "../jwt";
 import { buildServer } from "../server";
-import type { SseEvent } from "../sse-broker";
-import { createSseBroker, type SseBroker } from "../sse-broker";
+import { createSseBroker } from "../sse-broker";
 
 // Integration test for the production wiring of the system-hook pipeline.
 // Calls buildServer directly (NOT setupTestStack) and passes systemHooks the
-// way a real consumer would. Proves that search + sse hooks fire through the
-// prod buildServer path, not just when setupTestStack preconfigures them.
+// way a real consumer would. Proves that the search postSave/postSaveBatch
+// hooks fire through the prod buildServer path, not just when setupTestStack
+// preconfigures them.
+//
+// SSE doesn't live in systemHooks anymore (moved to the async event-
+// dispatcher in D.3). The SSE-via-eventDispatcher wiring is covered in
+// event-dispatcher.integration.ts + realtime-sse sample.
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -100,20 +103,14 @@ afterEach(async () => {
 });
 
 describe("buildServer system-hooks integration", () => {
-  test("search + sse wired: save fires both", async () => {
+  test("search hook wired: save fires index", async () => {
     const searchAdapter: SearchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(TENANT_ID, {
       searchableFields: ["label"],
       rankingFields: ["label"],
     });
 
-    const sseBroker: SseBroker = createSseBroker();
-    const sseEvents: SseEvent[] = [];
-    sseBroker.addClient(
-      "tenant:00000000-0000-4000-8000-000000000001",
-      (e) => sseEvents.push(e),
-      () => {},
-    );
+    const sseBroker = createSseBroker();
 
     const server = buildServer({
       registry,
@@ -121,10 +118,7 @@ describe("buildServer system-hooks integration", () => {
       jwtSecret: JWT_SECRET,
       sseBroker,
       systemHooks: {
-        postSave: [
-          createSearchIndexHook(searchAdapter, registry),
-          createSseBroadcastHook(sseBroker),
-        ],
+        postSave: [createSearchIndexHook(searchAdapter, registry)],
         postDelete: [],
       },
     });
@@ -139,11 +133,6 @@ describe("buildServer system-hooks integration", () => {
     const hits = await searchAdapter.search(TENANT_ID, "wiring-proof");
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]?.entityType).toBe("item");
-
-    // SSE: the broadcast hook pushed an event on tenant:1
-    expect(sseEvents.length).toBeGreaterThan(0);
-    const created = sseEvents.find((e) => e.type.endsWith("item:created"));
-    expect(created).toBeDefined();
   });
 
   test("no system hooks wired: save succeeds but no side effects", async () => {
@@ -154,12 +143,6 @@ describe("buildServer system-hooks integration", () => {
     });
 
     const sseBroker = createSseBroker();
-    const sseEvents: SseEvent[] = [];
-    sseBroker.addClient(
-      "tenant:00000000-0000-4000-8000-000000000001",
-      (e) => sseEvents.push(e),
-      () => {},
-    );
 
     const server = buildServer({
       registry,
@@ -175,10 +158,9 @@ describe("buildServer system-hooks integration", () => {
 
     const hits = await searchAdapter.search(TENANT_ID, "no-hooks");
     expect(hits.length).toBe(0);
-    expect(sseEvents.length).toBe(0);
   });
 
-  test("only search hook wired: sse stays silent", async () => {
+  test("only search hook wired: search fires, no other postSave side effects", async () => {
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(TENANT_ID, {
       searchableFields: ["label"],
@@ -186,12 +168,6 @@ describe("buildServer system-hooks integration", () => {
     });
 
     const sseBroker = createSseBroker();
-    const sseEvents: SseEvent[] = [];
-    sseBroker.addClient(
-      "tenant:00000000-0000-4000-8000-000000000001",
-      (e) => sseEvents.push(e),
-      () => {},
-    );
 
     const server = buildServer({
       registry,
@@ -209,7 +185,6 @@ describe("buildServer system-hooks integration", () => {
 
     const hits = await searchAdapter.search(TENANT_ID, "search-only");
     expect(hits.length).toBeGreaterThan(0);
-    expect(sseEvents.length).toBe(0);
   });
 
   test("search batch hook fires once per batch and indexes every successful save", async () => {

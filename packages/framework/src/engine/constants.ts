@@ -12,8 +12,6 @@ import type { TenantId } from "@kumiko/framework/engine";
 export const SystemHookNames = {
   searchIndex: "system:hook:search-index",
   searchRemove: "system:hook:search-remove",
-  sseBroadcast: "system:hook:sse-broadcast",
-  sseDeleteBroadcast: "system:hook:sse-delete-broadcast",
   cascadeDelete: "system:hook:cascade-delete",
 } as const;
 
@@ -25,8 +23,6 @@ export const SystemHookPriorities = {
   cascadeDelete: 500,
   searchIndex: 1000,
   searchRemove: 1000,
-  sseBroadcast: 1001,
-  sseDeleteBroadcast: 1001,
 } as const;
 
 // --- Message Kinds ---

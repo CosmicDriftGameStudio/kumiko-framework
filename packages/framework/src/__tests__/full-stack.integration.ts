@@ -204,6 +204,11 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  // Advance the event-dispatcher cursor past all events from earlier tests
+  // FIRST, then reset the in-memory collector. This keeps per-test SSE
+  // assertions honest — otherwise the dispatcher would replay every prior
+  // test's events as soon as the new test drains, producing noisy counts.
+  await stack.eventDispatcher?.runOnce();
   stack.events.reset();
   featurePostSaveLog.length = 0;
   outboxSubscriberCalls.length = 0;
@@ -357,7 +362,7 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     expect(featurePostSaveLog[0]?.isNew).toBe(true);
   });
 
-  test("SSE broadcast fires on create", async () => {
+  test("SSE broadcast fires on create (via async event-dispatcher)", async () => {
     await stack.http.writeOk(
       "users:write:user:create",
       {
@@ -366,12 +371,17 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       adminUser,
     );
 
+    // SSE runs as an async subscriber on the event-dispatcher since D.3.
+    // Drain deterministically instead of sleeping.
+    await stack.eventDispatcher?.runOnce();
+
     expect(stack.events.sse).toHaveLength(1);
-    expect(stack.events.sse[0]?.type).toBe("system:event:user:created");
+    // New shape: event.type directly (no "system:event:" wrapper).
+    expect(stack.events.sse[0]?.type).toBe("user.created");
     expect(stack.events.sse[0]?.data["id"]).toBeDefined();
   });
 
-  test("SSE broadcast fires on update", async () => {
+  test("SSE broadcast fires on update (via async event-dispatcher)", async () => {
     const created = await stack.http.writeOk(
       "users:write:user:create",
       {
@@ -380,6 +390,8 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       adminUser,
     );
 
+    // Drain the create event first, then reset + update.
+    await stack.eventDispatcher?.runOnce();
     stack.events.reset();
 
     await stack.http.writeOk(
@@ -391,10 +403,13 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
       },
       adminUser,
     );
+    await stack.eventDispatcher?.runOnce();
 
-    const updateEvent = stack.events.sse.find((e) => e.type === "system:event:user:updated");
+    const updateEvent = stack.events.sse.find((e) => e.type === "user.updated");
     expect(updateEvent).toBeDefined();
-    expect(updateEvent?.data["changes"]).toEqual({ firstName: "SSE" });
+    // Shape carries the full event.payload (changes + previous) under data.payload.
+    const payload = updateEvent?.data["payload"] as Record<string, unknown>;
+    expect(payload?.["changes"]).toEqual({ firstName: "SSE" });
   });
 
   test("search index updated via system hook after create", async () => {
@@ -800,8 +815,9 @@ describe("full stack: transactional outbox", () => {
     expect(featurePostSaveLog).toHaveLength(1);
     expect(featurePostSaveLog[0]).toMatchObject({ kind: "save", id: userId, isNew: true });
 
-    // System hooks fired: SSE, search
-    expect(stack.events.sse.some((e) => e.type.includes("user"))).toBe(true);
+    // System hooks fired: SSE (via async dispatcher), search (postSave)
+    await stack.eventDispatcher?.runOnce();
+    expect(stack.events.sse.some((e) => e.type === "user.created")).toBe(true);
     const searchHits = await stack.search.search(adminUser.tenantId, "outbox-happy");
     expect(searchHits.map((h) => h.entityId)).toContain(userId);
 

@@ -1,6 +1,5 @@
-import type { SseBroker, SseEvent } from "../api/sse-broker";
+import type { SseBroker } from "../api/sse-broker";
 import { SystemHookNames, SystemHookPriorities, tenantChannel } from "../engine/constants";
-import { qn } from "../engine/qualified-name";
 import type {
   EntityId,
   PostDeleteBatchHookFn,
@@ -11,6 +10,7 @@ import type {
   SaveContext,
 } from "../engine/types";
 import type { SearchAdapter, SearchDocument } from "../search/types";
+import type { EventConsumer } from "./event-dispatcher";
 import type { SystemHookDef } from "./lifecycle-pipeline";
 
 // --- Search Index Hook ---
@@ -215,57 +215,42 @@ export function createSearchRemoveHook(
   };
 }
 
-// --- SSE Broadcast Hook ---
+// --- SSE Broadcast (async, via event-dispatcher) ---
+//
+// SSE-Broadcast läuft seit D.3 als async EventConsumer über den event-
+// dispatcher, nicht mehr als synchroner postSave/postDelete-hook. Das hat
+// zwei Konsequenzen:
+//
+// 1. **Event-native Payload-Shape.** Der SSE-event spiegelt den StoredEvent:
+//    `type` ist event.type ("user.created", "unit.updated"), `data` enthält
+//    id, aggregateType, version und die event-payload — keine künstliche
+//    "system:event:<entity>:<verb>" Hülle mehr. Clients haben direkten
+//    Zugriff auf `payload.changes` + `payload.previous` (wie im event-log).
+// 2. **Eventual consistency statt Read-after-Write.** Ein SSE-Event kommt
+//    ~10–100ms nach dem HTTP-200 (abhängig von pollIntervalMs). UI-Clients
+//    die auf optimistic-update setzen merken das nicht; strictly-waiting
+//    Clients müssten poll-after-write.
+//
+// Tests drain deterministisch via `await stack.eventDispatcher.runOnce()`.
+//
+// Audit-Trail lief hier früher als inTransaction-hook — wurde in D.1
+// entfernt (Events sind Audit).
+export const SSE_BROADCAST_CONSUMER_NAME = "system:consumer:sse-broadcast";
 
-export function createSseBroadcastHook(sseBroker: SseBroker): SystemHookDef<PostSaveHookFn> {
+export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventConsumer {
   return {
-    name: SystemHookNames.sseBroadcast,
-    priority: SystemHookPriorities.sseBroadcast,
-    fn: async (result, ctx) => {
-      const entityName = result.entityName;
-      if (!entityName) {
-        ctx.log?.debug(`sseBroadcast: skipping — no entityName on result ${result.id}`);
-        return;
-      }
-
-      const tenantId = result.data["tenantId"] as string;
-      const eventType = result.isNew
-        ? qn("system", "event", `${entityName}:created`)
-        : qn("system", "event", `${entityName}:updated`);
-
-      const event: SseEvent = {
-        type: eventType,
-        data: { id: result.id, changes: result.changes },
-      };
-
-      sseBroker.pushToChannel(tenantChannel(tenantId), event);
-    },
-  };
-}
-
-export function createSseDeleteBroadcastHook(
-  sseBroker: SseBroker,
-): SystemHookDef<PostDeleteHookFn> {
-  return {
-    name: SystemHookNames.sseDeleteBroadcast,
-    priority: SystemHookPriorities.sseBroadcast,
-    fn: async (payload, ctx) => {
-      const entityName = payload.entityName;
-      if (!entityName) {
-        ctx.log?.debug(`sseDeleteBroadcast: skipping — no entityName on payload ${payload.id}`);
-        return;
-      }
-
-      const tenantId = payload.data["tenantId"] as string;
-      sseBroker.pushToChannel(tenantChannel(tenantId), {
-        type: qn("system", "event", `${entityName}:deleted`),
-        data: { id: payload.id },
+    name: SSE_BROADCAST_CONSUMER_NAME,
+    handler: async (event) => {
+      sseBroker.pushToChannel(tenantChannel(event.tenantId), {
+        type: event.type,
+        data: {
+          id: event.aggregateId,
+          aggregateType: event.aggregateType,
+          version: event.version,
+          payload: event.payload,
+          createdAt: event.createdAt,
+        },
       });
     },
   };
 }
-
-// Audit-Trail hooks lived here once; they were redundant with the event-store
-// (every entity mutation already emits an immutable event with createdBy /
-// createdAt / previous / changes). Removed 2026-04-17 — projections + event
-// replay give consumers the same data without the parallel audit table.

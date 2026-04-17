@@ -18,11 +18,7 @@ import {
   eventOutboxTable,
 } from "../pipeline";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
-import {
-  createSearchHooks,
-  createSseBroadcastHook,
-  createSseDeleteBroadcastHook,
-} from "../pipeline/system-hooks";
+import { createSearchHooks, createSseBroadcastEventConsumer } from "../pipeline/system-hooks";
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
 import { createEventCollector, type EventCollector } from "./event-collector";
@@ -174,19 +170,16 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // Build system hooks based on selection. The search helper auto-picks the
   // batch variant when the adapter exposes indexBatch/removeBatch — no
   // consumer change needed when swapping adapters.
+  //
+  // SSE lives in the async event-dispatcher since D.3, not as a postSave/
+  // postDelete hook — see the `systemConsumers` wiring further down.
   const searchHooks = enabledHooks.includes("search")
     ? createSearchHooks(searchAdapter, registry)
     : {};
   const systemHooks: SystemHooks = {
-    postSave: [
-      ...(searchHooks.postSave ?? []),
-      ...(enabledHooks.includes("sse") ? [createSseBroadcastHook(sseBroker)] : []),
-    ],
+    ...(searchHooks.postSave ? { postSave: searchHooks.postSave } : {}),
     ...(searchHooks.postSaveBatch ? { postSaveBatch: searchHooks.postSaveBatch } : {}),
-    postDelete: [
-      ...(searchHooks.postDelete ?? []),
-      ...(enabledHooks.includes("sse") ? [createSseDeleteBroadcastHook(sseBroker)] : []),
-    ],
+    ...(searchHooks.postDelete ? { postDelete: searchHooks.postDelete } : {}),
     ...(searchHooks.postDeleteBatch ? { postDeleteBatch: searchHooks.postDeleteBatch } : {}),
   };
 
@@ -264,16 +257,27 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // dedicated tests that call start()/stop().
   const outboxPoller = server.outboxPoller;
 
-  // Build the async event-dispatcher for any r.postEvent() subscribers the
-  // registry discovered. Tests drive it via stack.eventDispatcher.runOnce()
-  // for deterministic drains — no timer-induced flakiness.
-  const subscribers = [...registry.getAllPostEventSubscribers().values()];
+  // Build the async event-dispatcher. Consumers come from two sources:
+  //   1. Features via r.postEvent() — user-space subscribers
+  //   2. System-level via `enabledHooks` — SSE broadcast since D.3
+  //
+  // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for
+  // deterministic drains — no timer-induced flakiness. When no consumer is
+  // wired, stay undefined so cleanup stays cheap.
+  const featureSubscribers = [...registry.getAllPostEventSubscribers().values()].map((s) => ({
+    name: s.name,
+    handler: s.handler,
+  }));
+  const systemConsumers = enabledHooks.includes("sse")
+    ? [createSseBroadcastEventConsumer(sseBroker)]
+    : [];
+  const allConsumers = [...featureSubscribers, ...systemConsumers];
   const { createEventDispatcher } = await import("../pipeline");
   const eventDispatcher =
-    subscribers.length > 0
+    allConsumers.length > 0
       ? createEventDispatcher({
           db: testDb.db,
-          consumers: subscribers.map((s) => ({ name: s.name, handler: s.handler })),
+          consumers: allConsumers,
           // AppContext minimum: registry + db. Hooks pulled in via context
           // spread reach AppContext the same way other stack-level hooks do.
           context: { db: testDb.db, redis: testRedis.redis, registry },
