@@ -200,7 +200,37 @@ export function buildServer(options: ServerOptions): KumikoServer {
     };
   });
 
-  const allConsumers = [...systemConsumers, ...wrappedFeatureConsumers];
+  // MultiStreamProjections: one EventConsumer per MSP. Handler routes by
+  // event.type into the MSP's apply map. Same tenant-wrapping semantics as
+  // postEvent subscribers — MSPs aggregate cross-aggregate but still within
+  // one tenant by default (the applier receives the tenant-scoped db).
+  const mspDefs = [...options.registry.getAllMultiStreamProjections().values()];
+  const mspConsumers: EventConsumer[] = mspDefs.map((msp) => ({
+    name: msp.name,
+    handler: async (event, ctx) => {
+      const applyFn = msp.apply[event.type];
+      // skip: this MSP doesn't care about this event type — fast path,
+      // every event type passes through every MSP consumer exactly once.
+      if (!applyFn) return;
+      if (!baseDb) {
+        // skip: no baseDb wired — allConsumers.length > 0 + baseDb check
+        // above gates dispatcher creation, so we won't reach here in
+        // production. Defensive return for the type-narrowing path.
+        return;
+      }
+      const scopedDb =
+        event.tenantId === SYSTEM_TENANT_ID ? baseDb : createTenantDb(baseDb, event.tenantId);
+      // Hand the raw DbRunner to apply(): MSPs write to their projection
+      // table directly, they don't go through the TenantDb wrapper.
+      const rawRunner =
+        event.tenantId === SYSTEM_TENANT_ID ? baseDb : (scopedDb as { raw: typeof baseDb }).raw;
+      await applyFn(event, rawRunner);
+      // Keep ctx reachable to satisfy the EventConsumerHandler signature.
+      void ctx;
+    },
+  }));
+
+  const allConsumers = [...systemConsumers, ...wrappedFeatureConsumers, ...mspConsumers];
   const {
     disabled: dispatcherDisabled,
     systemConsumers: _systemConsumersOpt,

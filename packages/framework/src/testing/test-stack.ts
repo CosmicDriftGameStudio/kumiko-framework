@@ -5,7 +5,7 @@ import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
-import { createEventsTable } from "../event-store";
+import { createArchivedStreamsTable, createEventsTable } from "../event-store";
 import type { ObservabilityProvider } from "../observability";
 import type { EventDispatcher } from "../pipeline";
 import {
@@ -78,6 +78,10 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // backed handlers. Auto-create the events table so every setupTestStack call
   // is ready for writes without needing a manual createEventsTable().
   await createEventsTable(testDb.db);
+  // Archive-stream metadata — needed by ctx.appendEvent's archive guard and
+  // loadAggregate's default-skip. Idempotent, so production boot running
+  // the same call is fine.
+  await createArchivedStreamsTable(testDb.db);
 
   // Framework state for projection rebuild/status + event-consumer cursors.
   // Idempotent — production boot flows run the same calls.
@@ -99,6 +103,14 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       if (seenTables.has(proj.table)) continue;
       seenTables.add(proj.table);
       projectionTables[projName] = proj.table;
+    }
+    // Multi-stream projection tables follow the same auto-push rule — the
+    // async dispatcher writes to them as soon as the first matching event
+    // flows through, so the DDL must exist before setupTestStack returns.
+    for (const [mspName, msp] of Object.entries(feature.multiStreamProjections)) {
+      if (seenTables.has(msp.table)) continue;
+      seenTables.add(msp.table);
+      projectionTables[`msp_${mspName}`] = msp.table;
     }
   }
   if (Object.keys(projectionTables).length > 0) {

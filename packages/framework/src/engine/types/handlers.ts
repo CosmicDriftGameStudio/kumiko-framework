@@ -181,6 +181,31 @@ export type HandlerContext = SharedContextFields & {
     options?: { readonly asOf?: Date },
   ) => Promise<readonly import("../../event-store").StoredEvent[]>;
 
+  // Marten-aligned stream lifecycle. Archived streams become read-only:
+  // ctx.appendEvent throws ArchivedStreamError, ctx.loadAggregate returns []
+  // (pass { includeArchived: true } on the low-level loaders to override).
+  // restoreStream reopens a stream; aggregate-level lifecycle states like
+  // "closed" stay in the domain events, not the archive flag.
+  readonly archiveStream: (
+    aggregateId: string,
+    args: { readonly aggregateType: string; readonly reason?: string },
+  ) => Promise<void>;
+  readonly restoreStream: (aggregateId: string) => Promise<void>;
+  readonly isStreamArchived: (aggregateId: string) => Promise<boolean>;
+
+  // Read rows from a registered projection table, tenant-scoped to the
+  // current user. Marten's equivalent of session.Query<T>() — the projection
+  // table is the read model; this surface makes it reachable by qualified
+  // name without the feature having to import the drizzle-table directly.
+  //
+  // Auto-applies tenant_id filter when the projection table has a tenant_id
+  // column (or opt out with { allTenants: true } for system-scoped reads
+  // like cross-tenant analytics). Unknown projection name throws.
+  readonly queryProjection: <T = Record<string, unknown>>(
+    qualifiedName: string,
+    options?: { readonly allTenants?: boolean },
+  ) => Promise<readonly T[]>;
+
   // Always populated — Noop when no observability provider is configured.
   // Feature code can call ctx.metrics.inc(...) / ctx.tracer.startSpan(...)
   // without null-checks.

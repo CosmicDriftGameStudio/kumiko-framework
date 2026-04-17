@@ -2,6 +2,7 @@ import { and, asc, eq, gt, lte, sql } from "drizzle-orm";
 import type { DbRunner } from "../db";
 import { constraintOf, isUniqueViolation } from "../db/pg-error";
 import type { TenantId } from "../engine/types";
+import { isStreamArchived } from "./archive";
 import { IdempotencyReplayError, VersionConflictError } from "./errors";
 import { eventsTable } from "./events-schema";
 
@@ -178,11 +179,21 @@ function buildStoredEvent(
 // Load all events for an aggregate, ordered by version. Tenant check is
 // belt + suspenders: even if a caller passes a correct aggregate_id by
 // mistake, the tenant filter prevents cross-tenant reads.
+//
+// Archived streams return an empty slice by default. Pass
+// { includeArchived: true } for ops tools / audit that must see the tail
+// of an archived aggregate. The archive check is a single indexed lookup —
+// negligible on the hot path.
 export async function loadAggregate(
   db: DbRunner,
   aggregateId: string,
   tenantId: TenantId,
+  options?: { readonly includeArchived?: boolean },
 ): Promise<readonly StoredEvent[]> {
+  if (!options?.includeArchived) {
+    const archived = await isStreamArchived(db, tenantId, aggregateId);
+    if (archived) return [];
+  }
   const rows = await db
     .select()
     .from(eventsTable)
@@ -192,13 +203,19 @@ export async function loadAggregate(
 }
 
 // Load events up to a point in time. Used for asOf queries that reconstruct
-// historical state. Includes events whose created_at is <= asOf.
+// historical state. Includes events whose created_at is <= asOf. Same
+// archive semantics as loadAggregate.
 export async function loadAggregateAsOf(
   db: DbRunner,
   aggregateId: string,
   tenantId: TenantId,
   asOf: Date,
+  options?: { readonly includeArchived?: boolean },
 ): Promise<readonly StoredEvent[]> {
+  if (!options?.includeArchived) {
+    const archived = await isStreamArchived(db, tenantId, aggregateId);
+    if (archived) return [];
+  }
   const rows = await db
     .select()
     .from(eventsTable)

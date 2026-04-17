@@ -42,7 +42,7 @@ import type {
   PreSaveHookFn,
   ValidationHookFn,
 } from "./hooks";
-import type { ProjectionDefinition } from "./projection";
+import type { MultiStreamProjectionDefinition, ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
 
 // --- Post-Event subscribers (declared by features via r.postEvent()) ---
@@ -123,6 +123,10 @@ export type FeatureDefinition = {
   // Projections declared via r.projection(). Keyed by projection name; executor
   // looks them up by source-entity at write-time.
   readonly projections: Readonly<Record<string, ProjectionDefinition>>;
+  // Multi-stream projections — cross-aggregate async read-models, Marten
+  // gold-standard replacement for pub/sub subscribers. Keyed by short name;
+  // the dispatcher wraps each into an EventConsumer with its own cursor.
+  readonly multiStreamProjections: Readonly<Record<string, MultiStreamProjectionDefinition>>;
   // Post-event subscribers declared via r.postEvent(). Keyed by qualified
   // consumer name; the event-dispatcher looks them up when scheduling a pass.
   readonly postEventSubscribers: Readonly<Record<string, PostEventSubscriberDef>>;
@@ -277,6 +281,13 @@ export type FeatureRegistrar = {
   // transaction, so projections stay consistent with the events that feed them.
   projection(definition: ProjectionDefinition): void;
 
+  // Register a cross-aggregate async projection. The event-dispatcher owns
+  // delivery via a dedicated cursor — at-least-once, strictly-ordered by
+  // events.id. Handlers must be idempotent. Marten's MultiStreamProjection
+  // equivalent: customer billing summaries, cross-feature audit views,
+  // saga state machines where a single view spans many aggregate types.
+  multiStreamProjection(definition: MultiStreamProjectionDefinition): void;
+
   // Register an async post-event subscriber. The event-dispatcher reads the
   // events-table via a per-subscriber cursor and calls the handler for each
   // event, in events.id order. Handler throws → retried until maxAttempts,
@@ -348,6 +359,11 @@ export type Registry = {
   // feeds off the entity — event-store-executor uses this as the hot-path.
   getProjectionsForSource(entityName: string): readonly ProjectionDefinition[];
   getAllProjections(): ReadonlyMap<string, ProjectionDefinition>;
+
+  // Multi-stream projections registered via r.multiStreamProjection().
+  // Keyed by qualified name. The server wires each into the event-dispatcher
+  // as its own EventConsumer with a dedicated cursor.
+  getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition>;
 
   // All registered postEvent subscribers, keyed by qualified consumer name.
   // Event-dispatcher iterates this to schedule a per-consumer pass.

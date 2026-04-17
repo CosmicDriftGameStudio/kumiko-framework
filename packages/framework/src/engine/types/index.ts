@@ -111,6 +111,7 @@ export { HookPhases } from "./hooks";
 export type { EntityId, TenantId } from "./identifiers";
 export { isSystemTenant, SYSTEM_TENANT_ID } from "./identifiers";
 export type {
+  MultiStreamProjectionDefinition,
   ProjectionApplyFn,
   ProjectionDefinition,
   ProjectionTable,

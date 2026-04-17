@@ -31,3 +31,21 @@ export type ProjectionDefinition = {
   // cares about.
   readonly apply: Readonly<Record<string, ProjectionApplyFn>>;
 };
+
+// Marten-style MultiStreamProjection: aggregates events from many streams
+// into one cross-cutting read-model. Unlike ProjectionDefinition (single-
+// source, inline in the write-TX), an MSP is ASYNC — the event-dispatcher
+// picks events off the log via its own cursor. Handlers MUST be idempotent
+// because the dispatcher guarantees at-least-once delivery.
+//
+// Use for Sagas / process managers, customer-centric views that span
+// multiple aggregate types, cross-feature aggregations, audit logs.
+export type MultiStreamProjectionDefinition = {
+  readonly name: string;
+  readonly table: ProjectionTable;
+  // Keyed by fully-qualified event type. Unlike a single-stream projection,
+  // there is no source-entity hint — the MSP declares the event types it
+  // cares about directly. Extract the identity/grouping key inside the
+  // apply handler from the event payload.
+  readonly apply: Readonly<Record<string, ProjectionApplyFn>>;
+};

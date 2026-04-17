@@ -10,6 +10,7 @@ import type {
   FeatureMetricDef,
   HookPhase,
   JobDefinition,
+  MultiStreamProjectionDefinition,
   NotificationDefinition,
   PhasedHook,
   PostDeleteHookFn,
@@ -84,6 +85,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // does a single Map.get, never a scan.
   const projectionMap = new Map<string, ProjectionDefinition>();
   const projectionsBySource = new Map<string, ProjectionDefinition[]>();
+  // Multi-stream projections — cross-aggregate, async via event-dispatcher.
+  // One qualified name per MSP; each becomes its own EventConsumer with a
+  // dedicated cursor in kumiko_event_consumers.
+  const multiStreamProjectionMap = new Map<string, MultiStreamProjectionDefinition>();
 
   // Post-event subscribers — qualified name → subscriber. One row in
   // kumiko_event_consumers per qualified name; the event-dispatcher iterates
@@ -294,6 +299,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         existing.push(stored);
         projectionsBySource.set(src, existing);
       }
+    }
+
+    // Multi-stream projections: qualified + stored for later wiring into
+    // event-dispatcher. Namespace is shared with single-stream projections —
+    // defineFeature already catches name collisions inside one feature, but
+    // we also guard the cross-feature case here.
+    for (const [mspName, mspDef] of Object.entries(feature.multiStreamProjections)) {
+      const qualified = qualify(feature.name, "projection", mspName);
+      if (projectionMap.has(qualified) || multiStreamProjectionMap.has(qualified)) {
+        throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
+      }
+      multiStreamProjectionMap.set(qualified, { ...mspDef, name: qualified });
     }
 
     // Post-event subscribers: qualified by feature name. Each becomes its own
@@ -812,6 +829,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllProjections(): ReadonlyMap<string, ProjectionDefinition> {
       return projectionMap;
+    },
+
+    getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition> {
+      return multiStreamProjectionMap;
     },
 
     getAllPostEventSubscribers(): ReadonlyMap<string, PostEventSubscriberDef> {

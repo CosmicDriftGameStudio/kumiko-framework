@@ -23,6 +23,7 @@ import type {
   LifecycleHookFn,
   LifecycleHookType,
   MetricOptions,
+  MultiStreamProjectionDefinition,
   NameOrRef,
   NotificationDataFn,
   NotificationDefinition,
@@ -83,6 +84,7 @@ export function defineFeature(
   const handlerEntityMappings: Record<string, string> = {};
   const metrics: Record<string, FeatureMetricDef> = {};
   const projections: Record<string, ProjectionDefinition> = {};
+  const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
   const postEventSubscribers: Record<string, PostEventSubscriberDef> = {};
   let translations: TranslationKeys = {};
 
@@ -439,6 +441,29 @@ export function defineFeature(
       projections[definition.name] = definition;
     },
 
+    multiStreamProjection(definition: MultiStreamProjectionDefinition): void {
+      if (!isKebabSegment(definition.name)) {
+        throw new Error(
+          `[Feature ${name}] MultiStreamProjection name "${definition.name}" must be kebab-case ` +
+            `(lowercase letters, digits, dashes; start with a letter). ` +
+            `Got "${definition.name}" — try "${toKebab(definition.name).replace(/_/g, "-")}".`,
+        );
+      }
+      if (multiStreamProjections[definition.name] || projections[definition.name]) {
+        throw new Error(
+          `[Feature ${name}] Projection name "${definition.name}" already registered. ` +
+            `r.projection and r.multiStreamProjection share a namespace — pick a unique short name.`,
+        );
+      }
+      if (Object.keys(definition.apply).length === 0) {
+        throw new Error(
+          `[Feature ${name}] MultiStreamProjection "${definition.name}" has no apply handlers. ` +
+            `Declare at least one event type it reacts to, otherwise the dispatcher has nothing to route.`,
+        );
+      }
+      multiStreamProjections[definition.name] = definition;
+    },
+
     postEvent(subscriberName, handler, options): void {
       // Same kebab-case rule as projections — consumer name becomes a QN
       // segment ("<feature>:consumer:<name>") at registry-boot.
@@ -499,6 +524,7 @@ export function defineFeature(
     handlerEntityMappings,
     metrics,
     projections,
+    multiStreamProjections,
     postEventSubscribers,
   };
 }

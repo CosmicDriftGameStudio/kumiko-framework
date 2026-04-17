@@ -12,6 +12,7 @@ import {
   uuid,
 } from "../db/dialect";
 import { pushTables } from "../testing";
+import { createArchivedStreamsTable } from "./archive";
 
 // Event-store schema as a Drizzle table. The typed select/insert path handles
 // most operations; append() for subsequent versions uses raw SQL because
@@ -71,13 +72,18 @@ export const EVENTS_IDEMPOTENCY_INDEX_SQL = sql`
 // drizzle-kit diffing and adds the partial idempotency index. Idempotent —
 // setupTestStack calls it automatically, so tests that also call it manually
 // (legacy setup, explicit layout) don't fail.
+//
+// Also materializes kumiko_archived_streams: loadAggregate + appendEvent
+// consult it on every call, so the two tables must come up together.
 export async function createEventsTable(db: DbConnection): Promise<void> {
   const [row] = (await db.execute(
     sql`SELECT to_regclass('public.events') IS NOT NULL AS exists`,
   )) as unknown as Array<{ exists: boolean }>;
   // skip: events table already exists — createEventsTable is called from both
   // setupTestStack and explicit test-setups, the guard keeps it idempotent.
-  if (row?.exists) return;
-  await pushTables(db, { events: eventsTable });
-  await db.execute(EVENTS_IDEMPOTENCY_INDEX_SQL);
+  if (!row?.exists) {
+    await pushTables(db, { events: eventsTable });
+    await db.execute(EVENTS_IDEMPOTENCY_INDEX_SQL);
+  }
+  await createArchivedStreamsTable(db);
 }

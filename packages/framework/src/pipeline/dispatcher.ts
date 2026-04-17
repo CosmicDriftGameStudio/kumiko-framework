@@ -36,6 +36,12 @@ import {
   writeFailure,
 } from "../errors";
 import {
+  archiveStream as archiveStreamHelper,
+  isStreamArchived,
+  restoreStream as restoreStreamHelper,
+} from "../event-store/archive";
+import { ArchivedStreamError } from "../event-store/errors";
+import {
   append as appendEvent,
   loadAggregate,
   loadAggregateAsOf,
@@ -316,10 +322,21 @@ export function createDispatcher(
     }
     const validatedPayload = parsed.data as DbRow;
 
+    // Archive guard: block writes on archived streams. Without this an
+    // appendEvent would produce an "invisible" row that loadAggregate
+    // filters out by default — silent data loss from the caller's POV.
+    if (await isStreamArchived(dbSource, user.tenantId, args.aggregateId)) {
+      throw new ArchivedStreamError(user.tenantId, args.aggregateId);
+    }
+
     // Read-modify-write inside the same tx: loadAggregate sees prior events
     // from this transaction too (same tx scope), so multiple appendEvent
-    // calls in one handler stack correctly.
-    const existing = await loadAggregate(dbSource, args.aggregateId, user.tenantId);
+    // calls in one handler stack correctly. Use includeArchived here to
+    // count prior events even for a stream that's about to be resurrected
+    // — the archive guard above already caught active archives.
+    const existing = await loadAggregate(dbSource, args.aggregateId, user.tenantId, {
+      includeArchived: true,
+    });
     const expectedVersion = existing.length;
 
     const reqCtx = requestContext.get();
@@ -437,6 +454,81 @@ export function createDispatcher(
           ? await loadAggregateAsOf(dbSource, aggregateId, user.tenantId, loadOptions.asOf)
           : await loadAggregate(dbSource, aggregateId, user.tenantId);
         return upcastStoredEvents(events, registry.getEventUpcasters());
+      },
+      archiveStream: async (
+        aggregateId: string,
+        archiveArgs: { readonly aggregateType: string; readonly reason?: string },
+      ): Promise<void> => {
+        const dbSource: DbConnection | DbTx | undefined =
+          tx ?? (context.db as DbConnection | undefined);
+        if (!dbSource) {
+          throw new InternalError({
+            message: `ctx.archiveStream("${aggregateId}") requires a database connection — none is configured.`,
+          });
+        }
+        await archiveStreamHelper(dbSource, {
+          tenantId: user.tenantId,
+          aggregateId,
+          aggregateType: archiveArgs.aggregateType,
+          archivedBy: user.id,
+          ...(archiveArgs.reason !== undefined ? { reason: archiveArgs.reason } : {}),
+        });
+      },
+      restoreStream: async (aggregateId: string): Promise<void> => {
+        const dbSource: DbConnection | DbTx | undefined =
+          tx ?? (context.db as DbConnection | undefined);
+        if (!dbSource) {
+          throw new InternalError({
+            message: `ctx.restoreStream("${aggregateId}") requires a database connection — none is configured.`,
+          });
+        }
+        await restoreStreamHelper(dbSource, user.tenantId, aggregateId);
+      },
+      isStreamArchived: async (aggregateId: string): Promise<boolean> => {
+        const dbSource: DbConnection | DbTx | undefined =
+          tx ?? (context.db as DbConnection | undefined);
+        if (!dbSource) {
+          throw new InternalError({
+            message: `ctx.isStreamArchived("${aggregateId}") requires a database connection — none is configured.`,
+          });
+        }
+        return isStreamArchived(dbSource, user.tenantId, aggregateId);
+      },
+      queryProjection: async <T = Record<string, unknown>>(
+        qualifiedName: string,
+        queryOptions?: { readonly allTenants?: boolean },
+      ): Promise<readonly T[]> => {
+        const proj = registry.getAllProjections().get(qualifiedName);
+        if (!proj) {
+          throw new InternalError({
+            message:
+              `ctx.queryProjection("${qualifiedName}") — projection not registered. ` +
+              `Known: ${[...registry.getAllProjections().keys()].join(", ") || "(none)"}`,
+          });
+        }
+        const dbSource: DbConnection | DbTx | undefined =
+          tx ?? (context.db as DbConnection | undefined);
+        if (!dbSource) {
+          throw new InternalError({
+            message: `ctx.queryProjection("${qualifiedName}") requires a database connection — none is configured.`,
+          });
+        }
+        // Introspect for a tenant_id column on the projection table. Auto-
+        // filter keeps cross-tenant leaks out unless the handler explicitly
+        // opts in. Works with any drizzle-table whose tenant column is named
+        // tenantId on the JS side.
+        // biome-ignore lint/suspicious/noExplicitAny: drizzle's PgTable columns are schema-dependent
+        const tenantCol = (proj.table as any).tenantId;
+        let rows: readonly Record<string, unknown>[];
+        if (tenantCol && !queryOptions?.allTenants) {
+          rows = (await dbSource
+            .select()
+            .from(proj.table)
+            .where(eq(tenantCol, user.tenantId))) as readonly Record<string, unknown>[];
+        } else {
+          rows = (await dbSource.select().from(proj.table)) as readonly Record<string, unknown>[];
+        }
+        return rows as readonly T[];
       },
     };
 

@@ -1,4 +1,12 @@
-export { IdempotencyReplayError, VersionConflictError } from "./errors";
+export {
+  type ArchiveStreamArgs,
+  archivedStreamsTable,
+  archiveStream,
+  createArchivedStreamsTable,
+  isStreamArchived,
+  restoreStream,
+} from "./archive";
+export { ArchivedStreamError, IdempotencyReplayError, VersionConflictError } from "./errors";
 export {
   append,
   EVENTS_PUBSUB_CHANNEL,

@@ -15,6 +15,25 @@ export class VersionConflictError extends Error {
   }
 }
 
+// Thrown when ctx.appendEvent targets an archived stream. Archived aggregates
+// are read-only — restoreStream() makes them writable again. The archive
+// state is not carried on the events themselves; it lives on the sparse
+// kumiko_archived_streams table. Handlers that need to branch on archive
+// state should call ctx.isStreamArchived(id) first.
+export class ArchivedStreamError extends Error {
+  public readonly tenantId: string;
+  public readonly aggregateId: string;
+  constructor(tenantId: string, aggregateId: string) {
+    super(
+      `Aggregate ${aggregateId} on tenant ${tenantId} is archived — appendEvent is blocked. ` +
+        `Call restoreStream() to re-open the stream before writing.`,
+    );
+    this.name = "ArchivedStreamError";
+    this.tenantId = tenantId;
+    this.aggregateId = aggregateId;
+  }
+}
+
 // Thrown when an event with the same (tenant, requestId) already exists.
 // The command layer catches this, looks up the prior event via
 // findEventByRequestId(), and replays the original outcome — callers never

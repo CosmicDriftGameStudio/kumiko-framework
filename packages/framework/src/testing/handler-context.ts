@@ -31,6 +31,10 @@ export function bridgeStub(): Pick<
   | "emit"
   | "appendEvent"
   | "loadAggregate"
+  | "archiveStream"
+  | "restoreStream"
+  | "isStreamArchived"
+  | "queryProjection"
   | "metrics"
   | "tracer"
 > {
@@ -53,6 +57,14 @@ export function bridgeStub(): Pick<
     emit: notAvailable("emit") as unknown as (qn: string, payload: unknown) => Promise<void>,
     appendEvent: notAvailable("appendEvent") as unknown as (args: AppendEventArgs) => Promise<void>,
     loadAggregate: notAvailable("loadAggregate") as unknown as HandlerContext["loadAggregate"],
+    archiveStream: notAvailable("archiveStream") as unknown as HandlerContext["archiveStream"],
+    restoreStream: notAvailable("restoreStream") as unknown as HandlerContext["restoreStream"],
+    isStreamArchived: notAvailable(
+      "isStreamArchived",
+    ) as unknown as HandlerContext["isStreamArchived"],
+    queryProjection: notAvailable(
+      "queryProjection",
+    ) as unknown as HandlerContext["queryProjection"],
     metrics: createNoopMetricsHandle(),
     tracer: noopTracer,
   };
