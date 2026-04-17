@@ -213,12 +213,18 @@ yarn kumiko test integration
 - Automatisch: Zod-Validation, Access-Check, Validation Hooks
 - Kein Handler kann diese Checks umgehen
 
-### Step 10: Redis Pipeline (Event Broker + Idempotency + Event Log)
+### Step 10: Async Pipeline (Event Dispatcher + Idempotency)
 
-- `createEventBroker(pub, sub)` — Redis Pub/Sub fuer SharedEvents
+> Historischer Stand: Redis Pub/Sub + Streams. Seit Sprint D.2–D.5 laeuft die
+> gesamte asynchrone Zustellung (SSE, Search, `ctx.emit`, `r.postEvent`) ueber
+> die `events`-Tabelle + den cursor-basierten Event-Dispatcher
+> (AsyncDaemon-Pattern). Aktueller Stand: siehe [CHANGELOG.md](./CHANGELOG.md)
+> und [packages/framework/README.md](./packages/framework/README.md).
+
+- Cursor-basierter Event-Dispatcher, per-Consumer Checkpoint in `kumiko_event_consumers`
+- Halt-on-poison + Dead-Letter nach N Retries pro Consumer
 - `createIdempotencyGuard(redis)` — Dedupliziert Writes per Request-ID (TTL-basiert)
-- `createEventLog(redis)` — Append-only Event Log via Redis Streams
-- `createTestRedis()` — Isolierte Redis-DB pro Test-Suite
+- `createTestRedis()` — Isolierte Redis-DB pro Test-Suite (BullMQ + SSE-Broker)
 
 ### Step 11: Hono Server + Auth + Routes
 
