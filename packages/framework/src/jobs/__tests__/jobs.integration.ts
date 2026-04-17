@@ -202,7 +202,13 @@ describe("concurrency: skip", () => {
         if (id === "skipped") skippedCount++;
       }
 
-      await sleep(1000);
+      // Wait until the first (running) job finishes so its log entry lands.
+      // Skip-mode guarantees max one job at a time, so we only ever need to
+      // see a single entry to know the run settled.
+      await waitFor(() => {
+        const entries = jobLog.filter((e) => e.name === "test:job:skip-job");
+        expect(entries.length).toBeGreaterThanOrEqual(1);
+      });
 
       // At least some should have been skipped
       expect(skippedCount).toBeGreaterThan(0);
@@ -224,8 +230,15 @@ describe("concurrency: debounce", () => {
       await runner.dispatch("test:job:debounce-job", { n: 4 });
       await runner.dispatch("test:job:debounce-job", { n: 5 });
 
-      // Wait for debounce to settle + processing
-      await sleep(1500);
+      // Debounce (300ms) fires after the last rapid dispatch, then BullMQ
+      // picks the job up — first successful poll usually lands around 500ms.
+      await waitFor(
+        () => {
+          const entries = jobLog.filter((e) => e.name === "test:job:debounce-job");
+          expect(entries.length).toBeGreaterThanOrEqual(1);
+        },
+        { delays: [500, 1000, 2000] },
+      );
 
       const entries = jobLog.filter((e) => e.name === "test:job:debounce-job");
       // Debounce should result in fewer executions than dispatches
@@ -243,9 +256,10 @@ describe("error handling", () => {
     await withRunner(async (runner) => {
       const id = await runner.dispatch("test:job:failing-job");
       expect(id).toBeDefined();
-      await sleep(500);
 
-      // Worker should still be alive — dispatch another job
+      // No fixed sleep needed — the follow-up dispatch + waitFor below prove
+      // the worker is still alive. If the failing job had crashed the worker,
+      // the manual-report would never land and waitFor would time out.
       await runner.dispatch("test:job:manual-report", { after: "failure" });
       await waitFor(() => {
         const entries = jobLog.filter((e) => e.name === "test:job:manual-report");
