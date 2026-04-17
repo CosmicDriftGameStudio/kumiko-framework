@@ -31,7 +31,6 @@ import type {
   NotificationTemplateFn,
   PhasedHook,
   PostDeleteHookFn,
-  PostEventSubscriberDef,
   PostSaveHookFn,
   PreDeleteHookFn,
   ProjectionDefinition,
@@ -85,7 +84,6 @@ export function defineFeature(
   const metrics: Record<string, FeatureMetricDef> = {};
   const projections: Record<string, ProjectionDefinition> = {};
   const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
-  const postEventSubscribers: Record<string, PostEventSubscriberDef> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -463,28 +461,6 @@ export function defineFeature(
       }
       multiStreamProjections[definition.name] = definition;
     },
-
-    postEvent(subscriberName, handler, options): void {
-      // Same kebab-case rule as projections — consumer name becomes a QN
-      // segment ("<feature>:consumer:<name>") at registry-boot.
-      if (!isKebabSegment(subscriberName)) {
-        throw new Error(
-          `[Feature ${name}] postEvent subscriber name "${subscriberName}" must be kebab-case ` +
-            `(lowercase letters, digits, dashes; start with a letter).`,
-        );
-      }
-      if (postEventSubscribers[subscriberName]) {
-        throw new Error(
-          `[Feature ${name}] postEvent subscriber "${subscriberName}" already registered. ` +
-            `Consumer names must be unique per feature.`,
-        );
-      }
-      postEventSubscribers[subscriberName] = {
-        name: subscriberName,
-        handler,
-        ...(options?.systemScoped === true ? { systemScoped: true } : {}),
-      };
-    },
   };
 
   setup(registrar);
@@ -525,6 +501,5 @@ export function defineFeature(
     metrics,
     projections,
     multiStreamProjections,
-    postEventSubscribers,
   };
 }

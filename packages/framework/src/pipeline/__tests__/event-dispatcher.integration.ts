@@ -1,8 +1,8 @@
 // Async event-dispatcher — the AsyncDaemon-pendant for post-commit consumers.
 //
 // What this proves:
-//   - A registered r.postEvent() subscriber gets called, in events.id order,
-//     for every event after the consumer's cursor.
+//   - A registered r.multiStreamProjection consumer gets called, in events.id
+//     order, for every event after the consumer's cursor.
 //   - The cursor advances: a second runOnce() with no new events is a no-op.
 //   - A handler that throws pauses ONLY that consumer; other consumers keep
 //     running independently.
@@ -55,18 +55,28 @@ let throwOnEventId: string | null = null;
 const testFeature: FeatureDefinition = defineFeature("dispatchertest", (r) => {
   r.entity("widget", sharedWidgetEntity);
 
-  // Subscriber A: happy-path observer.
-  r.postEvent("observer-a", async (event) => {
-    captureA.push({ event });
+  // MSP A: happy-path observer.
+  r.multiStreamProjection({
+    name: "observer-a",
+    apply: {
+      "widget.created": async (event) => {
+        captureA.push({ event });
+      },
+    },
   });
 
-  // Subscriber B: independent cursor + fault-injection hook. When
-  // `throwOnEventId` matches, throws → pauses B while A continues.
-  r.postEvent("observer-b", async (event) => {
-    if (throwOnEventId && event.id === throwOnEventId) {
-      throw new Error(`injected-failure-on-event-${event.id}`);
-    }
-    captureB.push({ event });
+  // MSP B: independent cursor + fault-injection hook. When `throwOnEventId`
+  // matches, throws → pauses B while A continues.
+  r.multiStreamProjection({
+    name: "observer-b",
+    apply: {
+      "widget.created": async (event) => {
+        if (throwOnEventId && event.id === throwOnEventId) {
+          throw new Error(`injected-failure-on-event-${event.id}`);
+        }
+        captureB.push({ event });
+      },
+    },
   });
 });
 
@@ -74,8 +84,8 @@ const admin = TestUsers.admin;
 let stack: TestStack;
 let tdb: TenantDb;
 
-const qnA = "dispatchertest:consumer:observer-a";
-const qnB = "dispatchertest:consumer:observer-b";
+const qnA = "dispatchertest:projection:observer-a";
+const qnB = "dispatchertest:projection:observer-b";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

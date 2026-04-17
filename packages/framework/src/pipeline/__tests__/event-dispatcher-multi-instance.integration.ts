@@ -47,9 +47,9 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 
 // A trivial feature — the dispatchers built by the tests use the same
 // consumer name ("multi:consumer:echo") via direct createEventDispatcher
-// calls (no r.postEvent registration on this stack, since the test-stack
-// would then auto-wire a subscriber we don't want in the multi-instance
-// setup).
+// calls (no r.multiStreamProjection registration on this stack, since the
+// test-stack would then auto-wire a subscriber we don't want in the
+// multi-instance setup).
 const multiFeature = defineFeature("multi", (r) => {
   r.entity("widget", sharedWidgetEntity);
 });

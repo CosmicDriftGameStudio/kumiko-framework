@@ -35,8 +35,13 @@ const deliveryTimes: number[] = [];
 const listenFeature = defineFeature("listen", (r) => {
   r.entity("widget", sharedWidgetEntity);
 
-  r.postEvent("latency-probe", async () => {
-    deliveryTimes.push(Date.now());
+  r.multiStreamProjection({
+    name: "latency-probe",
+    apply: {
+      "widget.created": async () => {
+        deliveryTimes.push(Date.now());
+      },
+    },
   });
 });
 

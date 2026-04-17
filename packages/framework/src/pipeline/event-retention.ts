@@ -10,8 +10,8 @@ import { eventConsumerStateTable } from "./event-consumer-state";
 //      queries, audit. Deleting them breaks those guarantees irreversibly.
 //
 //   2. **Pub/sub events (aggregateType = "pubsub") are transient by design
-//      — r.postEvent-subscribers react and move on. They can be pruned
-//      safely once every interested consumer has advanced past them.
+//      — MSP consumers react and move on. They can be pruned safely once
+//      every interested consumer has advanced past them.
 //
 // The default caller-facing call (`pruneEvents(db, { olderThanDays: N })`)
 // prunes ONLY pubsub events. To prune something else, the caller passes

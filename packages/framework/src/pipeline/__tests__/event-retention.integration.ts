@@ -42,14 +42,19 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 
 const retentionFeature = defineFeature("retention", (r) => {
   r.entity("widget", sharedWidgetEntity);
-  // A single subscriber so the events-table writes but no consumer has
-  // advanced cursor by default (we drive cursor via runOnce in tests that
-  // care about the lag guard).
-  r.postEvent("observer", async () => {});
+  // A single MSP so the events-table writes but no consumer has advanced
+  // cursor by default (we drive cursor via runOnce in tests that care about
+  // the lag guard).
+  r.multiStreamProjection({
+    name: "observer",
+    apply: {
+      "widget.created": async () => {},
+    },
+  });
 });
 
 const admin = TestUsers.admin;
-const observerQn = "retention:consumer:observer";
+const observerQn = "retention:projection:observer";
 let stack: TestStack;
 let tdb: TenantDb;
 

@@ -216,8 +216,8 @@ yarn kumiko test integration
 ### Step 10: Async Pipeline (Event Dispatcher + Idempotency)
 
 > Historischer Stand: Redis Pub/Sub + Streams. Seit Sprint D.2–D.5 laeuft die
-> gesamte asynchrone Zustellung (SSE, Search, `ctx.emit`, `r.postEvent`) ueber
-> die `events`-Tabelle + den cursor-basierten Event-Dispatcher
+> gesamte asynchrone Zustellung (SSE, Search, `ctx.emit`, `r.multiStreamProjection`)
+> ueber die `events`-Tabelle + den cursor-basierten Event-Dispatcher
 > (AsyncDaemon-Pattern). Aktueller Stand: siehe [CHANGELOG.md](./CHANGELOG.md)
 > und [packages/framework/README.md](./packages/framework/README.md).
 

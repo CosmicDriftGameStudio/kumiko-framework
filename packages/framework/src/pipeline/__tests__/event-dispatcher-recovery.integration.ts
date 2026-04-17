@@ -48,17 +48,22 @@ let observed: Array<{ name: string }> = [];
 const recoveryFeature = defineFeature("recoverytest", (r) => {
   r.entity("widget", sharedWidgetEntity);
 
-  r.postEvent("observer", async (event) => {
-    const name = event.payload["name"] as string;
-    if (poisonNames.has(name)) {
-      throw new Error(`poisoned: ${name}`);
-    }
-    observed.push({ name });
+  r.multiStreamProjection({
+    name: "observer",
+    apply: {
+      "widget.created": async (event) => {
+        const name = event.payload["name"] as string;
+        if (poisonNames.has(name)) {
+          throw new Error(`poisoned: ${name}`);
+        }
+        observed.push({ name });
+      },
+    },
   });
 });
 
 const admin = TestUsers.admin;
-const qn = "recoverytest:consumer:observer";
+const qn = "recoverytest:projection:observer";
 let stack: TestStack;
 let tdb: TenantDb;
 

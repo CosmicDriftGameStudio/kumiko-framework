@@ -48,7 +48,7 @@ export type ServerOptions = {
   // Async event-dispatcher config. The dispatcher is created automatically
   // when (a) context.db is a DbConnection AND (b) at least one consumer is
   // wired — SSE (iff sseBroker), Search (iff context.searchAdapter), or
-  // feature-level r.postEvent subscribers.
+  // feature-level r.multiStreamProjection consumers.
   //
   // Mirrors the old outboxPoller contract: `KumikoServer.eventDispatcher` is
   // created but NOT auto-started. Production boot must call `.start()`;
@@ -63,10 +63,10 @@ export type ServerOptions = {
     // consumer lifecycle manually.
     disabled?: boolean;
     // Opt out of the auto-built system consumers (SSE, Search) while still
-    // running feature r.postEvent subscribers. Useful for tests that assert
-    // only on subscriber behaviour, or for a deployment that routes SSE via
-    // a different transport. Default: both enabled when the respective
-    // dependency (sseBroker / context.searchAdapter) is available.
+    // running feature r.multiStreamProjection consumers. Useful for tests
+    // that assert only on subscriber behaviour, or for a deployment that
+    // routes SSE via a different transport. Default: both enabled when the
+    // respective dependency (sseBroker / context.searchAdapter) is available.
     systemConsumers?: { sse?: boolean; search?: boolean };
     // Raw postgres.js client for LISTEN/NOTIFY wake-up (Sprint E.4). When
     // present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL — delivery
@@ -153,13 +153,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // outbox. Consumer sources:
   //   1. System: SSE broadcast (iff sseBroker), Search index (iff
   //      context.searchAdapter).
-  //   2. Features: every r.postEvent(name, handler) registered in the
-  //      registry becomes its own consumer row with an independent cursor.
-  //
-  // Feature subscribers are wrapped by default so their `ctx.db` is a
-  // TenantDb bound to event.tenantId — forgetting to filter by tenant
-  // is not a leak risk. Opt out via r.postEvent(name, handler,
-  // { systemScoped: true }) for cross-tenant audit / analytics sinks.
+  //   2. Features: every r.multiStreamProjection registered in the registry
+  //      becomes its own consumer row with an independent cursor. The MSP
+  //      apply map is routed by event.type; apply receives the raw DbRunner
+  //      of a TX-scoped, tenant-bound DB handle so per-tenant writes stay
+  //      isolated.
   //
   // The dispatcher is built but NOT started here. Production boot code
   // must call `.start()`; test code typically calls `.runOnce()`.
@@ -178,32 +176,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
     systemConsumers.push(createSearchEventConsumer(searchAdapter, options.registry));
   }
 
-  const featureSubscribers = [...options.registry.getAllPostEventSubscribers().values()];
-  const wrappedFeatureConsumers: EventConsumer[] = featureSubscribers.map((sub) => {
-    if (sub.systemScoped || !baseDb) {
-      return { name: sub.name, handler: sub.handler };
-    }
-    return {
-      name: sub.name,
-      handler: async (event, ctx) => {
-        // System-scope events (job-runner, cross-tenant flows) carry
-        // SYSTEM_TENANT_ID as a first-class marker meaning "no tenant".
-        // Wrapping with createTenantDb(..., SYSTEM_TENANT_ID) would silently
-        // restrict the handler to reference-data-only reads and reject every
-        // write — the zero-uuid is never a real tenant. Treat it like
-        // systemScoped: pass the raw baseDb so the subscriber sees the global
-        // view it expects.
-        const scopedDb =
-          event.tenantId === SYSTEM_TENANT_ID ? baseDb : createTenantDb(baseDb, event.tenantId);
-        await sub.handler(event, { ...ctx, db: scopedDb });
-      },
-    };
-  });
-
   // MultiStreamProjections: one EventConsumer per MSP. Handler routes by
-  // event.type into the MSP's apply map. Same tenant-wrapping semantics as
-  // postEvent subscribers — MSPs aggregate cross-aggregate but still within
-  // one tenant by default (the applier receives the tenant-scoped db).
+  // event.type into the MSP's apply map. MSPs aggregate cross-aggregate but
+  // still within one tenant by default — the applier receives the
+  // tenant-scoped DbRunner; SYSTEM_TENANT_ID events pass through the raw
+  // baseDb so system-level sinks can read across tenants.
   const mspDefs = [...options.registry.getAllMultiStreamProjections().values()];
   const mspConsumers: EventConsumer[] = mspDefs.map((msp) => ({
     name: msp.name,
@@ -230,7 +207,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     },
   }));
 
-  const allConsumers = [...systemConsumers, ...wrappedFeatureConsumers, ...mspConsumers];
+  const allConsumers = [...systemConsumers, ...mspConsumers];
   const {
     disabled: dispatcherDisabled,
     systemConsumers: _systemConsumersOpt,

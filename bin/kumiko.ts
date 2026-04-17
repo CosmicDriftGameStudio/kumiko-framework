@@ -519,13 +519,13 @@ const commands = {
         return `${dim}${status}${reset}`;
       }
 
-      // The registry knows about feature-declared subscribers; system
+      // The registry knows about feature-declared MSP consumers; system
       // consumers (SSE, Search) are framework-level, so we prepend them
       // explicitly. Matches what buildServer wires up at boot.
       const registeredConsumerNames = [
         SSE_BROADCAST_CONSUMER_NAME,
         SEARCH_CONSUMER_NAME,
-        ...registry.getAllPostEventSubscribers().keys(),
+        ...registry.getAllMultiStreamProjections().keys(),
       ];
 
       function printOutcome(prefix: string, state: { name: string; status: string }): void {

@@ -41,12 +41,12 @@ function userExecutor(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
 
 // Single source of truth for the user-created pub/sub event name + payload.
 // Since D.5 ctx.emit appends into the events table as a "pubsub" aggregate,
-// and subscribers read it via the event-dispatcher (r.postEvent).
+// and subscribers read it via the event-dispatcher (r.multiStreamProjection).
 // Since E.3 ctx.emit requires a registered r.defineEvent — the `.name` on
 // the returned def is the fully-qualified name the event gets in the log.
 let USER_CREATED_EVENT: string;
 
-// Test-level subscriber capture — populated by the r.postEvent handler below.
+// Test-level MSP capture — populated by the multiStreamProjection apply below.
 // Declared here so tests can reset + assert against it across describe blocks.
 const pubsubSubscriberCalls: Array<{ type: string; payload: unknown }> = [];
 
@@ -64,11 +64,15 @@ const userFeature = defineFeature("users", (r) => {
   const userCreated = r.defineEvent("user.created", z.object({ id: z.any(), email: z.string() }));
   USER_CREATED_EVENT = userCreated.name;
 
-  // r.postEvent: filter the full event stream down to USER_CREATED_EVENT and
-  // push into the capture array. Replaces the old eventBroker.subscribe path.
-  r.postEvent("user-created-capture", async (event) => {
-    if (event.type !== USER_CREATED_EVENT) return;
-    pubsubSubscriberCalls.push({ type: event.type, payload: event.payload });
+  // r.multiStreamProjection: capture USER_CREATED_EVENT asynchronously via
+  // the event-dispatcher. Replaces the old r.postEvent path (removed in E2).
+  r.multiStreamProjection({
+    name: "user-created-capture",
+    apply: {
+      [userCreated.name]: async (event) => {
+        pubsubSubscriberCalls.push({ type: event.type, payload: event.payload });
+      },
+    },
   });
 
   const createHandler = r.writeHandler(
@@ -773,12 +777,12 @@ describe("full stack: health", () => {
 //
 // Since D.5 ctx.emit appends a pub/sub event into the events-table (synthetic
 // "pubsub" aggregate). The event-dispatcher picks it up and delivers to
-// r.postEvent subscribers. This block proves the same TX-atomicity the
-// former Outbox had: pubsub event, user row, feature postSave, SSE, search —
-// all commit-or-rollback together.
+// r.multiStreamProjection consumers. This block proves the same TX-atomicity
+// the former Outbox had: pubsub event, user row, feature postSave, SSE, search
+// — all commit-or-rollback together.
 //
-// The local subscriber above (r.postEvent "user-created-capture") pushes to
-// pubsubSubscriberCalls when it sees USER_CREATED_EVENT.
+// The local MSP above ("user-created-capture") pushes to pubsubSubscriberCalls
+// when it sees USER_CREATED_EVENT.
 
 describe("full stack: ctx.emit pub/sub via event-dispatcher", () => {
   // Filter pub/sub rows by type AND payload.email — the events table is
@@ -822,7 +826,7 @@ describe("full stack: ctx.emit pub/sub via event-dispatcher", () => {
     expect(featurePostSaveLog).toHaveLength(1);
     expect(featurePostSaveLog[0]).toMatchObject({ kind: "save", id: userId, isNew: true });
 
-    // System consumers + postEvent subscriber fire on the next dispatcher pass
+    // System consumers + MSP subscriber fire on the next dispatcher pass
     expect(pubsubSubscriberCalls).toHaveLength(0);
     await stack.eventDispatcher?.runOnce();
 

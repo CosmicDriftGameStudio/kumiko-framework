@@ -58,7 +58,7 @@ export function createSearchEventConsumer(
       if (verb !== "created" && verb !== "updated" && verb !== "restored") {
         // skip: other event types (custom domain events, future verbs) don't
         // carry a search-indexable payload shape. If a future feature needs
-        // them indexed, it registers its own postEvent subscriber.
+        // them indexed, it registers its own multiStreamProjection.
         return;
       }
 
@@ -169,8 +169,8 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
     handler: async (event) => {
       // skip: pub/sub events (ctx.emit) are feature-internal routing, not
       // intended for automatic SSE fan-out. Features that *do* want a
-      // specific pub/sub event broadcast can register their own postEvent
-      // consumer that calls sseBroker directly.
+      // specific pub/sub event broadcast can register their own
+      // multiStreamProjection that calls sseBroker directly.
       if (event.aggregateType === PUBSUB_AGGREGATE_TYPE) return;
 
       sseBroker.pushToChannel(tenantChannel(event.tenantId), {

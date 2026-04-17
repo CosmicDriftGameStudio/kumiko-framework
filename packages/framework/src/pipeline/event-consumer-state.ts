@@ -4,8 +4,8 @@ import { bigint, index, integer, table as pgTable, text, timestamp } from "../db
 import { pushTables } from "../testing";
 
 // Framework-level state per event-consumer. A "consumer" is anything that
-// walks the events-table via a persistent cursor: postEvent subscribers
-// (SSE, Search, feature listeners) and — once it lands — async projections.
+// walks the events-table via a persistent cursor: system consumers (SSE,
+// Search) and feature multiStreamProjections (async, cross-aggregate).
 //
 // One row per consumer name. Read by the event-dispatcher (cursor + locking),
 // surfaced by the CLI for ops inspection. Sits next to kumiko_projections —

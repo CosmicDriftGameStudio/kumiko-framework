@@ -212,7 +212,7 @@ export function createDispatcher(
   // Seit D.5 läuft pub/sub über denselben Event-Store wie die Aggregate-Events:
   // ein separater synthetic stream (aggregateType = "pubsub", neue aggregateId
   // pro Emit, version = 1). Vorteile:
-  //   - Ein einziger ordered log — async subscribers (r.postEvent) können
+  //   - Ein einziger ordered log — async subscribers (MSP-Consumer) können
   //     von der gleichen Cursor-Infrastruktur angebunden werden.
   //   - Keine separate Outbox-Tabelle / Poller / Broker mehr (raus in D.5).
   //   - Events sind einheitlich tenantId-isoliert + idempotency-indexiert.

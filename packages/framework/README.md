@@ -64,11 +64,16 @@ export const taskFeature = defineFeature("tasks", (r) => {
     },
   });
 
-  // Async subscriber — runs after commit via the event-dispatcher,
-  // cursor-based, at-least-once, per-subscriber dead-letter semantics
-  r.postEvent("notify-new-task", async (event) => {
-    if (event.type !== "task.created") return;
-    // e.g. push to an external notification service
+  // Async consumer — runs after commit via the event-dispatcher,
+  // cursor-based, at-least-once, per-consumer dead-letter semantics.
+  // Omit `table` for pure side-effect handlers (mail, webhooks, ...).
+  r.multiStreamProjection({
+    name: "notify-new-task",
+    apply: {
+      "task.created": async (event) => {
+        // e.g. push to an external notification service
+      },
+    },
   });
 });
 ```
@@ -104,7 +109,7 @@ export const taskFeature = defineFeature("tasks", (r) => {
   — every write appends a `<entity>.created/updated/deleted/restored` event.
   Projections feed off the stream for same-TX read-after-write consistency.
 - **Async side-effects via cursor.** SSE broadcast, search indexing, and
-  feature-registered `r.postEvent` subscribers run on a single
+  feature-registered `r.multiStreamProjection` consumers run on a single
   cursor-based dispatcher (AsyncDaemon pattern). Per-consumer checkpoints,
   halt-on-poison, dead-letter after N retries.
 - **Multi-tenant scoping.** Every event, entity, projection, and search

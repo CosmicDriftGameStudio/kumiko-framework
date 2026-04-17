@@ -30,9 +30,9 @@ export type TestStack = {
   events: EventCollector;
   http: RequestHelper;
   observability: ObservabilityProvider;
-  // Present whenever a system consumer (SSE, Search) or r.postEvent
-  // subscriber is wired. Tests drain it via runOnce() for deterministic
-  // assertion — no timer-induced flakiness.
+  // Present whenever a system consumer (SSE, Search) or
+  // r.multiStreamProjection is wired. Tests drain it via runOnce() for
+  // deterministic assertion — no timer-induced flakiness.
   eventDispatcher?: EventDispatcher;
   cleanup: () => Promise<void>;
 };

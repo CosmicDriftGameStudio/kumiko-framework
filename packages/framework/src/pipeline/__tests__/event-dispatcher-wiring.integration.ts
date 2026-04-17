@@ -1,15 +1,13 @@
 // E.1 — buildServer wires the event-dispatcher, drives delivery via .start(),
-// wraps feature subscribers into tenant-scoped ctx.db, emits the lag gauge.
+// emits the lag gauge.
 //
 // Before E.1 the dispatcher lived only in test-stack.ts, not in buildServer.
-// These tests pin the four claims that make the feature actually prod-ready:
+// These tests pin the claims that make the feature actually prod-ready:
 //
 //   1. buildServer returns a live eventDispatcher when consumers are wired.
-//   2. r.postEvent subscribers get a TenantDb scoped to event.tenantId
-//      (A1 default). systemScoped: true opts out to the raw DbConnection.
-//   3. dispatcher.start() delivers without explicit runOnce; a handler
+//   2. dispatcher.start() delivers without explicit runOnce; a handler
 //      slower than pollIntervalMs doesn't queue overlapping passes.
-//   4. kumiko_event_consumer_lag_events is emitted per pass.
+//   3. kumiko_event_consumer_lag_events is emitted per pass.
 
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
@@ -39,14 +37,12 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
   entityName: "widget",
 });
 
-// Capture what the handler sees so we can assert on the context shape that
-// the dispatcher passes in. Reset in afterEach.
+// Capture what the handler sees so we can assert on delivery. Reset in
+// afterEach.
 type Observation = {
   event: StoredEvent;
-  db: unknown;
 };
-let tenantObservations: Observation[] = [];
-let systemObservations: Observation[] = [];
+let observations: Observation[] = [];
 // A handler that sleeps a controllable amount of time. Drives the
 // slow-handler / passInFlight test.
 let slowHandlerDelayMs = 0;
@@ -55,24 +51,26 @@ let slowHandlerInvocations: Array<{ start: number; end: number }> = [];
 const wiringFeature = defineFeature("wiring", (r) => {
   r.entity("widget", sharedWidgetEntity);
 
-  r.postEvent("tenant-scoped", async (event, ctx) => {
-    tenantObservations.push({ event, db: ctx.db });
+  r.multiStreamProjection({
+    name: "observer",
+    apply: {
+      "widget.created": async (event) => {
+        observations.push({ event });
+      },
+    },
   });
 
-  r.postEvent(
-    "system-scoped",
-    async (event, ctx) => {
-      systemObservations.push({ event, db: ctx.db });
+  r.multiStreamProjection({
+    name: "slow-observer",
+    apply: {
+      "widget.created": async () => {
+        const start = Date.now();
+        if (slowHandlerDelayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, slowHandlerDelayMs));
+        }
+        slowHandlerInvocations.push({ start, end: Date.now() });
+      },
     },
-    { systemScoped: true },
-  );
-
-  r.postEvent("slow-observer", async () => {
-    const start = Date.now();
-    if (slowHandlerDelayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, slowHandlerDelayMs));
-    }
-    slowHandlerInvocations.push({ start, end: Date.now() });
   });
 });
 
@@ -90,8 +88,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  tenantObservations = [];
-  systemObservations = [];
+  observations = [];
   slowHandlerDelayMs = 0;
   slowHandlerInvocations = [];
   await stack.db.db.execute(
@@ -111,35 +108,6 @@ describe("E.1 — buildServer event-dispatcher wiring", () => {
     // removed and the dispatcher wiring wasn't added back.
     expect(stack.eventDispatcher).toBeDefined();
   });
-
-  test("feature subscriber gets a TenantDb scoped to event.tenantId (A1 default)", async () => {
-    await appendWidget("for-tenant-check");
-    await stack.eventDispatcher?.runOnce();
-
-    const obs = tenantObservations.find(
-      (o) => o.event.type === "widget.created" && o.event.payload["name"] === "for-tenant-check",
-    );
-    expect(obs).toBeDefined();
-    // TenantDb has .tenantId + .mode; DbConnection does not.
-    expect((obs?.db as { tenantId?: string }).tenantId).toBe(admin.tenantId);
-    expect((obs?.db as { mode?: string }).mode).toBe("tenant");
-  });
-
-  test("systemScoped subscriber gets the raw DbConnection (no tenant wrap)", async () => {
-    await appendWidget("for-system-check");
-    await stack.eventDispatcher?.runOnce();
-
-    const obs = systemObservations.find(
-      (o) => o.event.type === "widget.created" && o.event.payload["name"] === "for-system-check",
-    );
-    expect(obs).toBeDefined();
-    // Raw DbConnection has neither `.tenantId` nor `.mode` — the handler is
-    // trusted to scope itself when accessing other tenants is intentional.
-    const db = obs?.db as Record<string, unknown> | null;
-    expect(db).toBeDefined();
-    expect(db?.["tenantId"]).toBeUndefined();
-    expect(db?.["mode"]).toBeUndefined();
-  });
 });
 
 describe("E.1 — .start() lifecycle + slow handler", () => {
@@ -150,9 +118,9 @@ describe("E.1 — .start() lifecycle + slow handler", () => {
 
       // pollIntervalMs in the test-stack is 50ms. Give the timer a few
       // ticks to observe the event.
-      await waitFor(() => tenantObservations.length >= 1, 2000);
-      expect(tenantObservations).toHaveLength(1);
-      expect(tenantObservations[0]?.event.payload["name"]).toBe("started-delivery");
+      await waitFor(() => observations.length >= 1, 2000);
+      expect(observations).toHaveLength(1);
+      expect(observations[0]?.event.payload["name"]).toBe("started-delivery");
     } finally {
       await stack.eventDispatcher?.stop();
     }

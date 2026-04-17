@@ -1,5 +1,4 @@
 import type { ZodType, z } from "zod";
-import type { EventConsumerHandler } from "../../pipeline/event-dispatcher";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
 import type {
   ConfigDefinition,
@@ -44,30 +43,6 @@ import type {
 } from "./hooks";
 import type { MultiStreamProjectionDefinition, ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
-
-// --- Post-Event subscribers (declared by features via r.postEvent()) ---
-//
-// A subscriber runs async after the event is durably appended (the event-
-// dispatcher reads from the events-table via a persistent per-subscriber
-// cursor). Use this for: SSE broadcast, search-index updates, cross-feature
-// reactions, external HTTP calls, message-bus dispatch.
-//
-// Naming: "<feature>:consumer:<short>". Framework qualifies automatically so
-// two features can't collide on the same consumer name.
-//
-// Ordering: per-subscriber, strictly by events.id. Handler throws → retry
-// the SAME event up to maxAttempts, then the subscriber pauses (status
-// "dead"). Other subscribers keep running independently.
-export type PostEventSubscriberDef = {
-  readonly name: string;
-  readonly handler: EventConsumerHandler;
-  // When true, the handler receives the raw ctx.db (DbConnection) — untrimmed
-  // cross-tenant access. Use only for system-level sinks (audit, analytics
-  // across tenants). Default false: the dispatcher wraps ctx.db in a
-  // TenantDb scoped to event.tenantId before calling the handler, so the
-  // handler can't accidentally query another tenant's data.
-  readonly systemScoped?: boolean;
-};
 
 // --- Metrics (declared by features via r.metric()) ---
 
@@ -127,9 +102,6 @@ export type FeatureDefinition = {
   // gold-standard replacement for pub/sub subscribers. Keyed by short name;
   // the dispatcher wraps each into an EventConsumer with its own cursor.
   readonly multiStreamProjections: Readonly<Record<string, MultiStreamProjectionDefinition>>;
-  // Post-event subscribers declared via r.postEvent(). Keyed by qualified
-  // consumer name; the event-dispatcher looks them up when scheduling a pass.
-  readonly postEventSubscribers: Readonly<Record<string, PostEventSubscriberDef>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -286,20 +258,10 @@ export type FeatureRegistrar = {
   // events.id. Handlers must be idempotent. Marten's MultiStreamProjection
   // equivalent: customer billing summaries, cross-feature audit views,
   // saga state machines where a single view spans many aggregate types.
+  // Omit `table` for pure side-effect handlers (notifications, webhooks,
+  // external-system sync) — the dispatcher still delivers at-least-once with
+  // per-consumer ordering and dead-letter behaviour.
   multiStreamProjection(definition: MultiStreamProjectionDefinition): void;
-
-  /**
-   * @deprecated Prefer `r.multiStreamProjection` (Marten gold-standard since
-   * Sprint E). The MSP API covers both state-bearing read-models and pure
-   * side-effect handlers (via `table`-less MSPs). `r.postEvent` is kept for
-   * backwards compatibility with pre-Sprint-E features and framework-internal
-   * uses; it will be removed in a future release.
-   */
-  postEvent(
-    name: string,
-    handler: EventConsumerHandler,
-    options?: { systemScoped?: boolean },
-  ): void;
 };
 
 // --- Registry (created from features) ---
@@ -362,8 +324,4 @@ export type Registry = {
   // Keyed by qualified name. The server wires each into the event-dispatcher
   // as its own EventConsumer with a dedicated cursor.
   getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition>;
-
-  // All registered postEvent subscribers, keyed by qualified consumer name.
-  // Event-dispatcher iterates this to schedule a per-consumer pass.
-  getAllPostEventSubscribers(): ReadonlyMap<string, PostEventSubscriberDef>;
 };

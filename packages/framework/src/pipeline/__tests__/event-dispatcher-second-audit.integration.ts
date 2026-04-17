@@ -1,30 +1,22 @@
-// Second-audit fixes — three latent silent-broken behaviours in the async
+// Second-audit fixes — two latent silent-broken behaviours in the async
 // event-dispatcher that only surface when specific call-sites materialise.
 // Pinned here so regressions fail loudly:
 //
-//   1. SYSTEM_TENANT_ID event delivered to a non-systemScoped subscriber used
-//      to be wrapped in `createTenantDb(baseDb, SYSTEM_TENANT_ID)`, which
-//      silently restricts reads to reference data (tenantId=ZERO) and
-//      rejects every write. The fix: treat SYSTEM_TENANT_ID like
-//      systemScoped — raw baseDb.
+//   1. Prune-vs-new-consumer race. Before the fix, a fresh deploy that
+//      adds a new MSP + simultaneously runs prune could silently delete
+//      events before the new consumer ever saw them. Two pieces close
+//      this: (a) pre-registering every consumer row on dispatcher.start()
+//      so the retention guard sees it, (b) a SHARE-mode table lock in
+//      pruneEvents as defence-in-depth.
 //
-//   2. Prune-vs-new-consumer race. Before the fix, a fresh deploy that
-//      adds a r.postEvent subscriber + simultaneously runs prune could
-//      silently delete events before the new consumer ever saw them. Two
-//      pieces close this: (a) pre-registering every consumer row on
-//      dispatcher.start() so the retention guard sees it, (b) a
-//      SHARE-mode table lock in pruneEvents as defence-in-depth.
-//
-//   3. LISTEN-subscription health is now emitted as a gauge
+//   2. LISTEN-subscription health is now emitted as a gauge
 //      (kumiko_event_dispatcher_listen_connected). Ops can see the
 //      moment delivery latency regresses from TCP-round-trip to
 //      pollIntervalMs.
 
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature, SYSTEM_TENANT_ID } from "../../engine";
+import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
   DEFAULT_SENSITIVE_CONFIG,
@@ -43,45 +35,30 @@ import {
   createEntityTable,
   setupTestStack,
   sharedWidgetEntity,
-  sharedWidgetTable,
   type TestStack,
   TestUsers,
 } from "../../testing";
 
 // --- Fixture ---
 
-const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
-  entityName: "widget",
-});
-
-// Capture ctx.db for each post-event call so tests can assert on the shape
-// of the db handle the subscriber received.
-type DbSnapshot = { readonly tenantId?: unknown; readonly mode?: unknown; readonly raw?: unknown };
-let tenantScopedDb: DbSnapshot | null = null;
-let systemScopedDb: DbSnapshot | null = null;
-
 const auditFeature = defineFeature("audit", (r) => {
   r.entity("widget", sharedWidgetEntity);
 
-  // Default (tenant-wrapped) subscriber. The SYSTEM_TENANT_ID fix matters
-  // exactly for this flavour — without it, a SYSTEM_TENANT_ID event would
-  // silently bind this handler's db to reference-data-only.
-  r.postEvent("default-scope", async (_event, ctx) => {
-    tenantScopedDb = ctx.db as DbSnapshot;
+  // Two MSPs so the dispatcher has two consumer rows to register in the
+  // pre-registration tests below. Both no-op — the tests observe the
+  // kumiko_event_consumers rows, not the apply handlers.
+  r.multiStreamProjection({
+    name: "default-scope",
+    apply: { "widget.created": async () => {} },
   });
-
-  r.postEvent(
-    "system-opt-out",
-    async (_event, ctx) => {
-      systemScopedDb = ctx.db as DbSnapshot;
-    },
-    { systemScoped: true },
-  );
+  r.multiStreamProjection({
+    name: "system-opt-out",
+    apply: { "widget.created": async () => {} },
+  });
 });
 
 const admin = TestUsers.admin;
 let stack: TestStack;
-let tdb: TenantDb;
 
 beforeAll(async () => {
   stack = await setupTestStack({
@@ -89,32 +66,13 @@ beforeAll(async () => {
     systemHooks: [],
   });
   await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db.db, admin.tenantId);
 });
 
 afterEach(async () => {
-  tenantScopedDb = null;
-  systemScopedDb = null;
   await stack.db.db.execute(
     sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
 });
-
-// Insert a pub/sub event directly so we can stamp tenantId=SYSTEM_TENANT_ID
-// without routing through ctx.emit (which takes the SessionUser's
-// tenantId). Mirrors seedOldPubsubEvent in event-retention.integration.
-async function seedZeroTenantPubsubEvent(type: string, name: string): Promise<void> {
-  await stack.db.db.insert(eventsTable).values({
-    aggregateId: globalThis.crypto.randomUUID(),
-    aggregateType: PUBSUB_AGGREGATE_TYPE,
-    tenantId: SYSTEM_TENANT_ID,
-    version: 1,
-    type,
-    payload: { name },
-    metadata: { userId: admin.id },
-    createdBy: admin.id,
-  });
-}
 
 async function seedOldPubsubEvent(createdAt: Date): Promise<void> {
   await stack.db.db.insert(eventsTable).values({
@@ -130,52 +88,7 @@ async function seedOldPubsubEvent(createdAt: Date): Promise<void> {
   });
 }
 
-// --- Fix #1 — SYSTEM_TENANT_ID ---
-
-describe("Second audit — SYSTEM_TENANT_ID + non-systemScoped subscriber", () => {
-  test("event with tenantId=SYSTEM_TENANT_ID delivers raw baseDb to the default subscriber", async () => {
-    // Before the fix: the default subscriber's ctx.db would be
-    // createTenantDb(baseDb, SYSTEM_TENANT_ID) — a TenantDb whose readFilter
-    // narrows to `tenantId = ZERO OR tenantId = ZERO` (reference-data-only)
-    // and whose writeFilter rejects everything. Silent because the handler
-    // would run without throwing, just with a crippled view.
-    await seedZeroTenantPubsubEvent("audit:event:zero", "zero-tenant");
-    await stack.eventDispatcher?.runOnce();
-
-    // Raw DbConnection has no `.tenantId` / `.mode` / `.raw` fields; the
-    // TenantDb wrapper adds all three. The presence of those fields would
-    // be the bug.
-    expect(tenantScopedDb).not.toBeNull();
-    expect(tenantScopedDb?.tenantId).toBeUndefined();
-    expect(tenantScopedDb?.mode).toBeUndefined();
-    expect(tenantScopedDb?.raw).toBeUndefined();
-  });
-
-  test("event with a real tenantId still delivers a TenantDb (wrap intact for the normal path)", async () => {
-    // Regression guard: the SYSTEM_TENANT_ID fix must not short-circuit the
-    // tenant-wrap for real tenants. Those still need the filter — tenant
-    // isolation is the reason this wrap exists.
-    await executor.create({ name: "real-tenant" }, admin, tdb);
-    await stack.eventDispatcher?.runOnce();
-
-    expect(tenantScopedDb).not.toBeNull();
-    expect(tenantScopedDb?.tenantId).toBe(admin.tenantId);
-    expect(tenantScopedDb?.mode).toBe("tenant");
-  });
-
-  test("systemScoped subscriber always receives raw baseDb, regardless of event tenantId", async () => {
-    // Baseline: systemScoped opt-out bypasses the wrap entirely. Unchanged
-    // by this fix, but guarded to make sure the shortcut for
-    // SYSTEM_TENANT_ID doesn't collide with systemScoped somehow.
-    await seedZeroTenantPubsubEvent("audit:event:zero-system", "sys");
-    await stack.eventDispatcher?.runOnce();
-
-    expect(systemScopedDb?.tenantId).toBeUndefined();
-    expect(systemScopedDb?.mode).toBeUndefined();
-  });
-});
-
-// --- Fix #2 — Prune-vs-new-consumer race (pre-registration) ---
+// --- Fix #1 — Prune-vs-new-consumer race (pre-registration) ---
 
 describe("Second audit — consumer pre-registration on start()", () => {
   test("start() inserts a state row for every registered consumer", async () => {
@@ -189,10 +102,10 @@ describe("Second audit — consumer pre-registration on start()", () => {
       const rows = await stack.db.db.select().from(eventConsumerStateTable);
       const names = new Set(rows.map((r) => r.name));
 
-      // The test-stack wires only feature subscribers (systemHooks: []),
-      // so we expect the two r.postEvent entries.
-      expect(names.has("audit:consumer:default-scope")).toBe(true);
-      expect(names.has("audit:consumer:system-opt-out")).toBe(true);
+      // The test-stack wires only feature MSP consumers (systemHooks: []),
+      // so we expect the two r.multiStreamProjection entries.
+      expect(names.has("audit:projection:default-scope")).toBe(true);
+      expect(names.has("audit:projection:system-opt-out")).toBe(true);
 
       // Every pre-registered row starts at cursor 0 with status=idle.
       for (const row of rows) {
@@ -233,14 +146,14 @@ describe("Second audit — consumer pre-registration on start()", () => {
     await stack.db.db
       .update(eventConsumerStateTable)
       .set({ lastProcessedEventId: 42n })
-      .where(eq(eventConsumerStateTable.name, "audit:consumer:default-scope"));
+      .where(eq(eventConsumerStateTable.name, "audit:projection:default-scope"));
 
     await stack.eventDispatcher?.start();
     try {
       const [row] = await stack.db.db
         .select()
         .from(eventConsumerStateTable)
-        .where(eq(eventConsumerStateTable.name, "audit:consumer:default-scope"));
+        .where(eq(eventConsumerStateTable.name, "audit:projection:default-scope"));
       expect(row?.lastProcessedEventId).toBe(42n);
     } finally {
       await stack.eventDispatcher?.stop();
@@ -248,7 +161,7 @@ describe("Second audit — consumer pre-registration on start()", () => {
   });
 });
 
-// --- Fix #3 — LISTEN observability ---
+// --- Fix #2 — LISTEN observability ---
 
 describe("Second audit — LISTEN gauge", () => {
   test("kumiko_event_dispatcher_listen_connected is 1 after start() with pgClient", async () => {

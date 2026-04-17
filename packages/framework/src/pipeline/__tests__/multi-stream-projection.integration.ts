@@ -4,8 +4,7 @@
 // streams, groups by an identity the apply handler extracts from the
 // payload, and materializes into one projection table. Runs async via the
 // event-dispatcher — at-least-once delivery, strictly ordered by events.id
-// per MSP consumer, dead-letters on repeated handler failures (same
-// contract as r.postEvent, now unified under the projection API).
+// per MSP consumer, dead-letters on repeated handler failures.
 
 import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";

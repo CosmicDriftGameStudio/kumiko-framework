@@ -14,7 +14,6 @@ import type {
   NotificationDefinition,
   PhasedHook,
   PostDeleteHookFn,
-  PostEventSubscriberDef,
   PostSaveHookFn,
   PreDeleteHookFn,
   PreQueryHookFn,
@@ -89,11 +88,6 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // One qualified name per MSP; each becomes its own EventConsumer with a
   // dedicated cursor in kumiko_event_consumers.
   const multiStreamProjectionMap = new Map<string, MultiStreamProjectionDefinition>();
-
-  // Post-event subscribers — qualified name → subscriber. One row in
-  // kumiko_event_consumers per qualified name; the event-dispatcher iterates
-  // this map to fan events out.
-  const postEventSubscriberMap = new Map<string, PostEventSubscriberDef>();
 
   // Qualified name helper: builds "scope:type:name" from feature + type + short name.
   // Both feature name and handler name are converted to kebab-case.
@@ -311,21 +305,6 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
       }
       multiStreamProjectionMap.set(qualified, { ...mspDef, name: qualified });
-    }
-
-    // Post-event subscribers: qualified by feature name. Each becomes its own
-    // row in kumiko_event_consumers with an independent cursor, so one broken
-    // subscriber doesn't stall another. Duplicate qualified names mean two
-    // features declared the same short name — that would silently collide
-    // cursors, so fail loudly at boot.
-    for (const [shortName, subDef] of Object.entries(feature.postEventSubscribers)) {
-      const qualified = qualify(feature.name, "consumer", shortName);
-      if (postEventSubscriberMap.has(qualified)) {
-        throw new Error(
-          `Duplicate postEvent subscriber: "${qualified}" (registered by multiple features)`,
-        );
-      }
-      postEventSubscriberMap.set(qualified, { ...subDef, name: qualified });
     }
   }
 
@@ -833,10 +812,6 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition> {
       return multiStreamProjectionMap;
-    },
-
-    getAllPostEventSubscribers(): ReadonlyMap<string, PostEventSubscriberDef> {
-      return postEventSubscriberMap;
     },
   };
 }

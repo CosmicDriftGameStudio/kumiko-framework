@@ -13,9 +13,12 @@ with migration notes in the relevant commit message.
   events to consumers, per-consumer checkpoints in `kumiko_event_consumers`,
   halt-on-poison with dead-letter after configurable retries. Replaces the
   transactional outbox for post-commit side-effects.
-- **`r.postEvent(name, handler)` registrar.** Features can subscribe to the
-  full event stream; each subscriber gets its own cursor and runs
-  independently.
+- **`r.multiStreamProjection({ name, apply, table? })` registrar (Sprint E
+  gold standard).** Features register async consumers that react to events
+  from any aggregate stream. Each consumer gets its own cursor, a persistent
+  projection table (or pure side-effect mode when `table` is omitted), and
+  runs independently. Replaces the Sprint-D-era `r.postEvent(name, handler)`
+  registrar, which was removed in Sprint E.2.
 - **`r.projection()` with custom read-models.** Inline projections fed from
   aggregate events inside the write TX. Includes `rebuildProjection()` for
   full replays and a CLI (`yarn kumiko project list|status|rebuild`).
@@ -65,8 +68,8 @@ with migration notes in the relevant commit message.
   events; the underlying storage moved from `event_outbox` to `events`. No
   API change for feature authors.
 - Consumer registration moved from `eventBroker.subscribe(type, handler)`
-  to `r.postEvent(name, handler)`. The handler sees the full event stream
-  and filters on `event.type` itself.
+  to `r.multiStreamProjection({ name, apply })`. The apply map is keyed by
+  event type; the framework routes each stored event to the matching handler.
 - Tests that assert on side-effects must drain the dispatcher with
   `await stack.eventDispatcher?.runOnce()` before asserting on SSE,
   search, or pub/sub observers. `setupTestStack`'s `beforeEach` pattern
