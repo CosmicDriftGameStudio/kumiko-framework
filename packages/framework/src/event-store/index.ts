@@ -13,6 +13,7 @@ export {
   type EventMetadata,
   type EventToAppend,
   findEventByRequestId,
+  getStreamVersion,
   loadAggregate,
   loadAggregateAsOf,
   loadAllEventsByType,

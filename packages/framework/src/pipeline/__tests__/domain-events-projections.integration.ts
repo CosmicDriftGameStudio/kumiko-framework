@@ -111,6 +111,20 @@ const shippingFeature = defineFeature("shipping", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  // CRUD update — used by the regression test to prove that a CRUD write
+  // *after* a ctx.appendEvent (which bumped the aggregate stream version)
+  // still finds the right expectedVersion.
+  r.writeHandler(
+    "shipment:update",
+    z.object({
+      id: z.uuid(),
+      version: z.number().optional(),
+      changes: z.record(z.string(), z.unknown()),
+    }),
+    async (event, ctx) => shipmentExecutor.update(event.payload, event.user, ctx.db),
+    { access: { roles: ["Admin"] } },
+  );
+
   // Misuse probes — only exist so the tests below can exercise the rejection
   // paths without spinning up a second feature (that would duplicate the
   // entity and fail at registry build time).
@@ -244,6 +258,44 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     // Nothing for the ghost type is on disk.
     const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
     expect(events.some((e) => e.type === "shipping:event:ghost")).toBe(false);
+  });
+
+  test("Block 0 regression: CRUD update after ctx.appendEvent on same stream succeeds", async () => {
+    // Before Block 0, the CRUD executor read row.version as expectedVersion.
+    // ctx.appendEvent bumps the stream past that (billed = v2), and the next
+    // CRUD update would fail with events_aggregate_version_uq → version_conflict.
+    // After Block 0, getStreamVersion drives expectedVersion — both writers
+    // share the same stream cursor.
+    const created = await stack.http.writeOk<{ id: string; data: { version: number } }>(
+      "shipping:write:shipment:create",
+      { cargo: "Container Z", status: "loaded" },
+      admin,
+    );
+    // Create auto-event: stream at v1; projection row.version = 1
+    expect(created.data.version).toBe(1);
+
+    // ctx.appendEvent: stream at v2; projection row still at v1
+    await stack.http.writeOk("shipping:write:shipment:bill", { id: created.id, cost: 2500 }, admin);
+
+    // CRUD update — client presents the version it last saw (v2 is the
+    // current stream version). Without Block 0 this would fail: row.version
+    // is still 1, the local check rejects payload.version=2 as stale.
+    // With Block 0 the executor reads stream-version (2), accepts payload.version=2,
+    // and appends v3.
+    const updated = await stack.http.writeOk<{ data: { version: number } }>(
+      "shipping:write:shipment:update",
+      { id: created.id, version: 2, changes: { status: "delivered" } },
+      admin,
+    );
+    expect(updated.data.version).toBe(3);
+
+    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    expect(events.map((e) => e.type)).toEqual([
+      "domainShipment.created",
+      "shipping:event:billed",
+      "domainShipment.updated",
+    ]);
+    expect(events.map((e) => e.version)).toEqual([1, 2, 3]);
   });
 
   test("payload validation runs before the event hits the events-table", async () => {

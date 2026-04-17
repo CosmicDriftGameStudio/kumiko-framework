@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, lte, max, sql } from "drizzle-orm";
 import type { DbRunner } from "../db";
 import { constraintOf, isUniqueViolation } from "../db/pg-error";
 import type { TenantId } from "../engine/types";
@@ -228,6 +228,24 @@ export async function loadAggregateAsOf(
     )
     .orderBy(asc(eventsTable.version));
   return rows.map(toStoredEvent);
+}
+
+// Cheapest possible read of "what's the latest version on this stream?". The
+// CRUD executor uses this as expectedVersion for its append, so a domain
+// event appended via ctx.appendEvent between two CRUD writes doesn't cause
+// the next CRUD write to fail with version_conflict. Indexed lookup on the
+// existing (aggregate_id, version) unique index. Returns 0 for empty/unknown
+// streams (matches create()'s expectedVersion=0 convention).
+export async function getStreamVersion(
+  db: DbRunner,
+  aggregateId: string,
+  tenantId: TenantId,
+): Promise<number> {
+  const [row] = await db
+    .select({ v: max(eventsTable.version) })
+    .from(eventsTable)
+    .where(and(eq(eventsTable.aggregateId, aggregateId), eq(eventsTable.tenantId, tenantId)));
+  return row?.v ?? 0;
 }
 
 // Load events strictly newer than a given version. Used by snapshot-aware

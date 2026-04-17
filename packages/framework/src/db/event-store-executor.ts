@@ -16,7 +16,11 @@ import {
   UnprocessableError,
   writeFailure,
 } from "../errors";
-import { append, VersionConflictError as EventStoreVersionConflict } from "../event-store";
+import {
+  append,
+  VersionConflictError as EventStoreVersionConflict,
+  getStreamVersion,
+} from "../event-store";
 import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
 import type { DbRow } from "./connection";
@@ -240,7 +244,11 @@ export function createEventStoreExecutor(
       const previous = await loadById(payload.id, db);
       if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
 
-      const currentVersion = (previous["version"] as number) ?? 1;
+      // Stream-version is authoritative, not row.version. `ctx.appendEvent`
+      // can bump the stream between CRUD writes (domain event on the same
+      // aggregate); a stale row.version here would make the next CRUD write
+      // trip `events_aggregate_version_uq` with version_conflict.
+      const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
       if (!updateOptions?.skipOptimisticLock) {
         if (payload.version === undefined) {
           return writeFailure(
@@ -337,7 +345,8 @@ export function createEventStoreExecutor(
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
 
-      const currentVersion = (existing["version"] as number) ?? 1;
+      // Stream-version authoritative (see update() for rationale).
+      const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
 
       // Deletes carry the full pre-delete row as `previous`. That's what
       // projections and downstream consumers need to reverse any aggregates —
@@ -397,7 +406,8 @@ export function createEventStoreExecutor(
         );
       }
 
-      const currentVersion = (data["version"] as number) ?? 1;
+      // Stream-version authoritative (see update() for rationale).
+      const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
       // Restore carries the soft-deleted snapshot as `previous` — mirror of
       // delete for symmetry. Projections that decremented on delete use
       // `previous` to re-increment on restore without re-querying the entity
