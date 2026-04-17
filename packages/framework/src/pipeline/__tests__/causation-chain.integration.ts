@@ -9,10 +9,11 @@
 //      writes from the apply inherit correlationId and set causationId to the
 //      triggering event.id.
 //
-// Note on MSP → new events: the current ProjectionApplyFn signature is
-// `(event, tx)` — applies can't call ctx.appendEvent. Claim 3 is observable
-// via `requestContext.get()` inside the apply (the wrap IS active and carries
-// the right values). Promoting MSP-apply to a full ctx is tracked as Runde 3.
+// Note on MSP → new events: this test predates Runde 3 / C.2b. Claim 3 is
+// observable via `requestContext.get()` inside the apply — the wrap carries
+// the right values even when the apply doesn't call ctx.appendEvent.
+// The active propagation into cascaded writes is covered by
+// msp-multi-hop.integration.ts.
 
 import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";

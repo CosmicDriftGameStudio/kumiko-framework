@@ -12,18 +12,22 @@ import type { MspApplyContext } from "../../pipeline/msp-apply-ctx";
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle's PgTable generic needs a concrete row shape; we erase it on purpose because the framework does not know user-defined column types.
 export type ProjectionTable = TableColumns<any>;
 
-// apply() receives the stored event, the TX-scoped DbRunner, and (only for
-// MultiStreamProjections) an MspApplyContext for emitting follow-up events.
-// Single-stream Projections run inline in the write-TX and receive ctx as
-// undefined — they write their read-model directly via `tx` and must not
-// attempt to append further events. MSPs get ctx populated; the apply can
-// call ctx.appendEvent to cascade into a saga/process-manager pattern.
-//
-// Stay inside this tx; anything that throws rolls the event-append back.
-export type ProjectionApplyFn = (
+// Single-stream projection apply: runs inline in the write-TX of the event
+// it projects. Gets the event + TX-scoped DbRunner — that's it. Inline
+// projections must not spawn further events (no ctx) because they run
+// inside the command's transaction and the framework guarantees a single
+// commit boundary per command.
+export type SingleStreamApplyFn = (event: StoredEvent, tx: DbRunner) => Promise<void>;
+
+// Multi-stream projection apply: runs asynchronously via the event-dispatcher
+// with its own cursor. Gets the event, tx, and a ctx surface for emitting
+// follow-up events (saga / process-manager pattern). ctx.appendEvent +
+// ctx.loadAggregate are the Marten-equivalent of IProjectionSession — write
+// cross-aggregate reactions here, not in single-stream projections.
+export type MultiStreamApplyFn = (
   event: StoredEvent,
   tx: DbRunner,
-  ctx?: MspApplyContext,
+  ctx: MspApplyContext,
 ) => Promise<void>;
 
 export type ProjectionDefinition = {
@@ -39,7 +43,7 @@ export type ProjectionDefinition = {
   // Keyed by fully-qualified event type ("<aggregate>.<verb>", e.g. "unit.created").
   // Missing keys are silently skipped — a projection declares only the events it
   // cares about.
-  readonly apply: Readonly<Record<string, ProjectionApplyFn>>;
+  readonly apply: Readonly<Record<string, SingleStreamApplyFn>>;
 };
 
 // Per-lifecycle error policy for a MultiStreamProjection. Mirrors Marten's
@@ -85,7 +89,7 @@ export type MultiStreamProjectionDefinition = {
   // there is no source-entity hint — the MSP declares the event types it
   // cares about directly. Extract the identity/grouping key inside the
   // apply handler from the event payload.
-  readonly apply: Readonly<Record<string, ProjectionApplyFn>>;
+  readonly apply: Readonly<Record<string, MultiStreamApplyFn>>;
   // How the dispatcher handles apply-throws. Default strict (retry + dead).
   readonly errorMode?: MspErrorMode;
 };
