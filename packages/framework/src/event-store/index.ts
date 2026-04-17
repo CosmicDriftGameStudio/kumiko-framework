@@ -16,3 +16,4 @@ export {
   EVENTS_IDEMPOTENCY_INDEX_SQL,
   eventsTable,
 } from "./events-schema";
+export { type EventUpcasters, upcastStoredEvent, upcastStoredEvents } from "./upcaster";

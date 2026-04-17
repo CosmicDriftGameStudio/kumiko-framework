@@ -5,6 +5,7 @@ import type {
   EntityDefinition,
   EntityRelations,
   EventDef,
+  EventUpcastFn,
   FeatureDefinition,
   FeatureMetricDef,
   HookPhase,
@@ -59,6 +60,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const notificationMap = new Map<string, NotificationDefinition>();
   const notificationFeatureMap = new Map<string, string>(); // qualifiedName → featureName
   const eventMap = new Map<string, EventDef>();
+  // Schema-migration chain per qualified event name. Built at boot after all
+  // features are ingested, then exposed via getEventUpcasters(). Readers of
+  // the events-table (projection rebuild, future aggregate loaders) walk the
+  // chain to upcast stored payloads to the current shape at read time.
+  const eventUpcasterMap = new Map<
+    string,
+    { readonly currentVersion: number; readonly chain: ReadonlyMap<number, EventUpcastFn> }
+  >();
   // Handler → entity mapping (populated from entities + handler name convention)
   const handlerEntityMap = new Map<string, string>();
   // Handler → feature mapping (for systemScope check)
@@ -214,7 +223,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       notificationFeatureMap.set(qualifiedName, feature.name);
     }
 
-    // Events: scope:event:name
+    // Events: scope:event:name. Migrations stay keyed by feature+short-name
+    // in the FeatureDefinition and get stitched into the eventUpcasterMap
+    // below (after ALL features are ingested) so cross-feature validation has
+    // the complete picture.
     for (const [eventName, eventDef] of Object.entries(feature.events)) {
       const qualified = qualify(feature.name, "event", eventName);
       eventMap.set(qualified, { ...eventDef, name: qualified });
@@ -445,6 +457,64 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         );
       }
     }
+  }
+
+  // Build + validate event upcaster chains. Run AFTER all features are
+  // ingested so r.eventMigration calls can reference events from any
+  // feature (same feature in practice, but the check stays lax for future
+  // cross-feature event packs).
+  for (const feature of features) {
+    for (const [shortName, migrations] of Object.entries(feature.eventMigrations)) {
+      const qualified = qualify(feature.name, "event", shortName);
+      const eventDef = eventMap.get(qualified);
+      if (!eventDef) {
+        throw new Error(
+          `Feature "${feature.name}" registered r.eventMigration for "${shortName}" ` +
+            `but no r.defineEvent exists for that name. Register the event first.`,
+        );
+      }
+      for (const m of migrations) {
+        if (m.toVersion > eventDef.version) {
+          throw new Error(
+            `Feature "${feature.name}" has r.eventMigration("${shortName}", ${m.fromVersion}, ${m.toVersion}) ` +
+              `but r.defineEvent declares only version ${eventDef.version}. ` +
+              `Bump the version in defineEvent to at least ${m.toVersion}, or remove the migration.`,
+          );
+        }
+      }
+    }
+  }
+
+  // Stitch the upcaster chain per qualified event. At this point, gaps in
+  // the chain (e.g. defineEvent version=3 but only a 1→2 migration exists)
+  // are hard errors — they would silently hand a v2-shape payload to a
+  // consumer expecting v3 at runtime, which is the class of bug upcasters
+  // are supposed to prevent.
+  for (const [qualified, eventDef] of eventMap) {
+    const chainMap = new Map<number, EventUpcastFn>();
+    // Locate the feature that owns this event (to pick up its migrations).
+    for (const feature of features) {
+      for (const [shortName, migs] of Object.entries(feature.eventMigrations)) {
+        const candidateQn = qualify(feature.name, "event", shortName);
+        if (candidateQn !== qualified) continue;
+        for (const m of migs) chainMap.set(m.fromVersion, m.transform);
+      }
+    }
+    if (eventDef.version > 1) {
+      for (let v = 1; v < eventDef.version; v++) {
+        if (!chainMap.has(v)) {
+          throw new Error(
+            `Event "${qualified}" declares version ${eventDef.version} but no migration ` +
+              `covers the step v${v} → v${v + 1}. Register r.eventMigration("${qualified.split(":").pop() ?? qualified}", ${v}, ${v + 1}, transform) ` +
+              `so stored v${v} payloads can be upcast on read.`,
+          );
+        }
+      }
+    }
+    eventUpcasterMap.set(qualified, {
+      currentVersion: eventDef.version,
+      chain: chainMap,
+    });
   }
 
   // Validate: every projection's source must reference a registered entity.
@@ -714,6 +784,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getEvent(qualifiedName: string): EventDef | undefined {
       return eventMap.get(qualifiedName);
+    },
+
+    getEventUpcasters() {
+      return eventUpcasterMap;
     },
 
     getExtension(name: string): RegistrarExtensionDef | undefined {

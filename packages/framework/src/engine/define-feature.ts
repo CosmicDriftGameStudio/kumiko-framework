@@ -10,6 +10,8 @@ import type {
   ConfigKeyDefinition,
   EntityDefinition,
   EntityRef,
+  EventMigrationDef,
+  EventUpcastFn,
   FeatureDefinition,
   FeatureMetricDef,
   FeatureRegistrar,
@@ -68,7 +70,8 @@ export function defineFeature(
   > = { postSave: {}, preDelete: {}, postDelete: {} };
   const configKeys: Record<string, ConfigKeyDefinition> = {};
   const jobs: Record<string, JobDefinition> = {};
-  const events: Record<string, { name: string; schema: ZodType }> = {};
+  const events: Record<string, { name: string; schema: ZodType; version: number }> = {};
+  const eventMigrations: Record<string, EventMigrationDef[]> = {};
   const configReads: string[] = [];
   const entityPostSave: Record<string, PhasedHook<PostSaveHookFn>[]> = {};
   const entityPreDelete: Record<string, PhasedHook<PreDeleteHookFn>[]> = {};
@@ -326,15 +329,56 @@ export function defineFeature(
       translations = { ...translations, ...def.keys };
     },
 
-    defineEvent<TPayload>(eventName: string, schema: ZodType<TPayload>) {
+    defineEvent<TPayload>(
+      eventName: string,
+      schema: ZodType<TPayload>,
+      options?: { readonly version?: number },
+    ) {
       // Return the fully-qualified event name so callers can pass it
-      // straight to ctx.emit without hand-building the "<feature>:event:<name>"
-      // shape. Registry keeps events keyed by short name — qualification is
-      // the framework's job, not the feature author's.
+      // straight to ctx.appendEvent / ctx.emit without hand-building the
+      // "<feature>:event:<name>" shape. Registry keeps events keyed by
+      // short name — qualification is the framework's job, not the feature
+      // author's.
       const qualified = qn(toKebab(name), "event", toKebab(eventName));
-      const def = { name: qualified, schema };
+      const version = options?.version ?? 1;
+      if (!Number.isInteger(version) || version < 1) {
+        throw new Error(
+          `[Feature ${name}] defineEvent("${eventName}"): version must be a positive integer, got ${String(version)}`,
+        );
+      }
+      const def = { name: qualified, schema, version };
       events[eventName] = def;
       return def;
+    },
+
+    eventMigration(
+      eventName: string,
+      fromVersion: number,
+      toVersion: number,
+      transform: EventUpcastFn,
+    ): void {
+      if (toVersion !== fromVersion + 1) {
+        throw new Error(
+          `[Feature ${name}] eventMigration("${eventName}", ${fromVersion}, ${toVersion}): ` +
+            `only single-step migrations are allowed — toVersion must be fromVersion + 1. ` +
+            `Chain larger jumps by registering each step separately.`,
+        );
+      }
+      if (!Number.isInteger(fromVersion) || fromVersion < 1) {
+        throw new Error(
+          `[Feature ${name}] eventMigration("${eventName}", ...): fromVersion must be >= 1, got ${String(fromVersion)}`,
+        );
+      }
+      const qualified = qn(toKebab(name), "event", toKebab(eventName));
+      const list = eventMigrations[eventName] ?? [];
+      if (list.some((m) => m.fromVersion === fromVersion)) {
+        throw new Error(
+          `[Feature ${name}] eventMigration("${eventName}", ${fromVersion}, ${toVersion}): ` +
+            `a migration from v${fromVersion} is already registered. Each step may only be declared once.`,
+        );
+      }
+      list.push({ eventName: qualified, fromVersion, toVersion, transform });
+      eventMigrations[eventName] = list;
     },
 
     readsConfig(...qualifiedKeys: string[]): void {
@@ -450,6 +494,7 @@ export function defineFeature(
     extensionUsages,
     referenceData,
     events,
+    eventMigrations,
     configReads,
     handlerEntityMappings,
     metrics,

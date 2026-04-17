@@ -199,6 +199,11 @@ export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
 export type EventDef<TPayload = unknown> = {
   readonly name: string;
   readonly schema: ZodType<TPayload>;
+  // Schema generation number. Starts at 1; bumped whenever a breaking change
+  // to the payload shape lands together with a matching r.eventMigration that
+  // upcasts older stored events. Reads consult this to decide if upcasters
+  // need to run before the payload hits consumer code.
+  readonly version: number;
 };
 
 // Args for ctx.appendEvent — explicit aggregate target, Marten-style.
@@ -210,6 +215,24 @@ export type AppendEventArgs = {
   readonly aggregateType: string;
   readonly type: string;
   readonly payload: unknown;
+};
+
+// --- Event Upcasters (schema migration) ---
+//
+// Marten's Upcaster pattern adapted for TypeScript. An event's payload shape
+// may evolve over releases; stored events stay immutable on disk. Features
+// register step-wise transforms that upgrade v(N) payloads to v(N+1) at read
+// time. The framework chains them automatically — a v1 event gets walked
+// through every registered migration up to the current version before the
+// payload reaches a projection apply() or ctx.appendEvent consumer.
+export type EventUpcastFn = (payload: unknown) => unknown;
+
+export type EventMigrationDef = {
+  // Qualified event name, matching r.defineEvent(...).name.
+  readonly eventName: string;
+  readonly fromVersion: number;
+  readonly toVersion: number; // must be fromVersion + 1
+  readonly transform: EventUpcastFn;
 };
 
 // --- References ---

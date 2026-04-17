@@ -22,6 +22,8 @@ import type {
   CrudRefs,
   EntityRef,
   EventDef,
+  EventMigrationDef,
+  EventUpcastFn,
   HandlerRef,
   NameOrRef,
   QueryHandlerDef,
@@ -108,6 +110,11 @@ export type FeatureDefinition = {
   readonly referenceData: readonly ReferenceDataDef[];
   readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;
+  // Event schema migrations declared via r.eventMigration(). Keyed by event
+  // short-name; each entry carries the step transforms (fromVersion →
+  // toVersion). The registry stitches these with the defineEvent-declared
+  // current version and exposes a per-qualified-name upcaster chain.
+  readonly eventMigrations: Readonly<Record<string, readonly EventMigrationDef[]>>;
   readonly configReads: readonly string[];
   // Explicit handler → entity mapping set by r.crud() and r.writeHandler()/r.queryHandler()
   readonly handlerEntityMappings: Readonly<Record<string, string>>;
@@ -222,7 +229,31 @@ export type FeatureRegistrar = {
 
   translations(def: TranslationsDef): void;
 
-  defineEvent<TPayload>(name: string, schema: ZodType<TPayload>): EventDef<TPayload>;
+  // Register an event payload shape. Returns the qualified def so callers
+  // can pass `.name` to ctx.appendEvent / ctx.emit without hand-building
+  // the "<feature>:event:<short>" string.
+  //
+  // `options.version` declares the CURRENT schema generation. Defaults to 1
+  // on first registration. When you bump the payload shape, raise version
+  // AND register r.eventMigration(shortName, N, N+1, transform) — the
+  // framework refuses to boot if the chain from 1 → version has gaps.
+  defineEvent<TPayload>(
+    name: string,
+    schema: ZodType<TPayload>,
+    options?: { readonly version?: number },
+  ): EventDef<TPayload>;
+
+  // Register a step-wise payload transform for event-schema evolution.
+  // `eventName` is the SHORT name (same as defineEvent). `toVersion` must
+  // be `fromVersion + 1` — chain larger jumps by registering each step.
+  // Transforms are pure functions: old payload in, new payload out. They
+  // run once per read (not once per event persisted), so keep them cheap.
+  eventMigration(
+    eventName: string,
+    fromVersion: number,
+    toVersion: number,
+    transform: EventUpcastFn,
+  ): void;
 
   readsConfig(...qualifiedKeys: string[]): void;
 
@@ -301,6 +332,14 @@ export type Registry = {
   getJob(qualifiedName: string): JobDefinition | undefined;
   getAllJobs(): ReadonlyMap<string, JobDefinition>;
   getEvent(qualifiedName: string): EventDef | undefined;
+
+  // Upcaster chain per qualified event name. Entries describe the current
+  // schema version and the step-wise transforms that upgrade older stored
+  // payloads. Empty chain when an event has never been migrated (version=1).
+  getEventUpcasters(): ReadonlyMap<
+    string,
+    { readonly currentVersion: number; readonly chain: ReadonlyMap<number, EventUpcastFn> }
+  >;
   getExtension(name: string): RegistrarExtensionDef | undefined;
   getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[];
   getAllNotifications(): ReadonlyMap<string, NotificationDefinition>;

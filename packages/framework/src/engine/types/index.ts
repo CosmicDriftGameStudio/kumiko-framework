@@ -66,6 +66,8 @@ export type {
   CrudRefs,
   EntityRef,
   EventDef,
+  EventMigrationDef,
+  EventUpcastFn,
   HandlerContext,
   HandlerRef,
   JobContext,

@@ -1,0 +1,349 @@
+// B1 — r.eventMigration + event_version routing (Marten upcaster).
+//
+// Covers the two load-bearing claims:
+//   1. Stored v(N) payloads are transparently upgraded to v(current) when
+//      read through the upcaster. Projections and any future aggregate
+//      loader see the current shape regardless of how old the event is.
+//   2. Boot-time validation refuses incomplete chains. Declaring version=3
+//      with only a 1→2 migration fails immediately, so a missing upcaster
+//      can never silently hand half-migrated data to consumers.
+
+import { sql } from "drizzle-orm";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { z } from "zod";
+import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect";
+import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { buildDrizzleTable } from "../../db/table-builder";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import type { StoredEvent } from "../../event-store";
+import { rebuildProjection } from "../../pipeline";
+import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } from "../../testing";
+import { append, createEventsTable } from "../index";
+import { upcastStoredEvent } from "../upcaster";
+
+// --- Fixture entity + projection table ---
+
+const orderEntity = createEntity({
+  table: "upcast_orders",
+  idType: "uuid",
+  fields: {
+    customer: createTextField({ required: true }),
+  },
+});
+const orderTable = buildDrizzleTable("upcastOrder", orderEntity);
+
+// Projection stores the UPCAST view: the v3 shape expects `totalCents` (int)
+// even though the earliest writes might have stored `totalEuros` (string).
+const orderSummaryTable = pgTable("upcast_order_summary", {
+  orderId: pgText("order_id").primaryKey(),
+  tenantId: pgText("tenant_id").notNull(),
+  totalCents: pgInteger("total_cents").notNull(),
+  currency: pgText("currency").notNull(),
+});
+
+// --- Feature: version 3 event with v1→v2 and v2→v3 migrations registered ---
+
+const orderFeature = defineFeature("upcastshop", (r) => {
+  r.entity("upcastOrder", orderEntity);
+
+  // v3 shape: { totalCents: int, currency: string }
+  const orderPriced = r.defineEvent(
+    "priced",
+    z.object({ totalCents: z.number().int(), currency: z.string() }),
+    { version: 3 },
+  );
+
+  // v1 → v2: renamed totalEuros → total (kept as string for this step)
+  r.eventMigration("priced", 1, 2, (payload) => {
+    const p = payload as { totalEuros: string };
+    return { total: p.totalEuros, currency: "EUR" };
+  });
+  // v2 → v3: parse "total" string into integer cents
+  r.eventMigration("priced", 2, 3, (payload) => {
+    const p = payload as { total: string; currency: string };
+    const euros = Number.parseFloat(p.total);
+    return { totalCents: Math.round(euros * 100), currency: p.currency };
+  });
+
+  r.projection({
+    name: "order-summary",
+    source: "upcastOrder",
+    table: orderSummaryTable,
+    apply: {
+      [orderPriced.name]: async (event, tx) => {
+        const p = event.payload as { totalCents: number; currency: string };
+        await tx
+          .insert(orderSummaryTable)
+          .values({
+            orderId: event.aggregateId,
+            tenantId: event.tenantId,
+            totalCents: p.totalCents,
+            currency: p.currency,
+          })
+          .onConflictDoUpdate({
+            target: orderSummaryTable.orderId,
+            set: { totalCents: p.totalCents, currency: p.currency },
+          });
+      },
+    },
+  });
+});
+
+// --- Test scaffolding ---
+
+let testDb: TestDb;
+let tdb: TenantDb;
+const admin = TestUsers.admin;
+const registry = createRegistry([orderFeature]);
+const qualifiedProjectionName = "upcastshop:projection:order-summary";
+const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
+  entityName: "upcastOrder",
+});
+
+beforeAll(async () => {
+  testDb = await createTestDb();
+  await createEntityTable(testDb.db, orderEntity, "upcastOrder");
+  await createEventsTable(testDb.db);
+  const { createProjectionStateTable } = await import("../../pipeline");
+  await createProjectionStateTable(testDb.db);
+  await pushTables(testDb.db, { upcastOrderSummary: orderSummaryTable });
+  tdb = createTenantDb(testDb.db, admin.tenantId);
+});
+
+afterAll(async () => {
+  await testDb.cleanup();
+});
+
+beforeEach(async () => {
+  await testDb.db.execute(
+    sql`TRUNCATE events, upcast_orders, upcast_order_summary, kumiko_projections RESTART IDENTITY CASCADE`,
+  );
+});
+
+// --- Tests ---
+
+describe("upcaster: in-memory transform chain", () => {
+  test("v1 payload walks v1→v2→v3 before reaching a consumer", async () => {
+    const upcasters = registry.getEventUpcasters();
+    const raw: StoredEvent = {
+      id: "1",
+      aggregateId: "00000000-0000-4000-8000-000000000001",
+      aggregateType: "upcastOrder",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "upcastshop:event:priced",
+      eventVersion: 1,
+      payload: { totalEuros: "19.99" },
+      metadata: { userId: admin.id },
+      createdAt: new Date(),
+      createdBy: admin.id,
+    };
+
+    const upcast = upcastStoredEvent(raw, upcasters);
+
+    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.payload).toEqual({ totalCents: 1999, currency: "EUR" });
+  });
+
+  test("v2 payload only needs v2→v3 step — chain short-circuits per stored version", async () => {
+    const upcasters = registry.getEventUpcasters();
+    const raw: StoredEvent = {
+      id: "2",
+      aggregateId: "00000000-0000-4000-8000-000000000002",
+      aggregateType: "upcastOrder",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "upcastshop:event:priced",
+      eventVersion: 2,
+      payload: { total: "5.00", currency: "USD" },
+      metadata: { userId: admin.id },
+      createdAt: new Date(),
+      createdBy: admin.id,
+    };
+
+    const upcast = upcastStoredEvent(raw, upcasters);
+
+    expect(upcast.eventVersion).toBe(3);
+    expect(upcast.payload).toEqual({ totalCents: 500, currency: "USD" });
+  });
+
+  test("already-current events pass through unchanged — fast path", async () => {
+    const upcasters = registry.getEventUpcasters();
+    const raw: StoredEvent = {
+      id: "3",
+      aggregateId: "00000000-0000-4000-8000-000000000003",
+      aggregateType: "upcastOrder",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "upcastshop:event:priced",
+      eventVersion: 3,
+      payload: { totalCents: 7777, currency: "CHF" },
+      metadata: { userId: admin.id },
+      createdAt: new Date(),
+      createdBy: admin.id,
+    };
+
+    const upcast = upcastStoredEvent(raw, upcasters);
+
+    expect(upcast).toBe(raw); // identity — no rebuild allocated
+  });
+
+  test("unknown event types pass through unchanged", async () => {
+    const upcasters = registry.getEventUpcasters();
+    const raw: StoredEvent = {
+      id: "4",
+      aggregateId: "00000000-0000-4000-8000-000000000004",
+      aggregateType: "upcastOrder",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "some:event:never-declared",
+      eventVersion: 1,
+      payload: { whatever: true },
+      metadata: { userId: admin.id },
+      createdAt: new Date(),
+      createdBy: admin.id,
+    };
+
+    const upcast = upcastStoredEvent(raw, upcasters);
+
+    expect(upcast).toBe(raw);
+  });
+});
+
+describe("upcaster: projection rebuild walks the chain on replay", () => {
+  test("rebuild produces current-shape projection state from mixed v1/v2/v3 events", async () => {
+    const ord1 = "00000000-0000-4000-8000-00000000aaaa";
+    const ord2 = "00000000-0000-4000-8000-00000000bbbb";
+    const ord3 = "00000000-0000-4000-8000-00000000cccc";
+
+    // Seed the entity rows so the FK-less projection stays readable even if
+    // future tests add FKs; insert directly, the executor is overkill here.
+    await orderExecutor.create({ customer: "c1" }, admin, tdb);
+    await orderExecutor.create({ customer: "c2" }, admin, tdb);
+    await orderExecutor.create({ customer: "c3" }, admin, tdb);
+
+    // Append three "priced" events at three different schema versions. The
+    // projection apply is only written against v3 — without upcasting, the
+    // v1 + v2 events would crash or produce garbage.
+    await append(testDb.db, {
+      aggregateId: ord1,
+      aggregateType: "upcastOrder",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: "upcastshop:event:priced",
+      eventVersion: 1,
+      payload: { totalEuros: "10.00" },
+      metadata: { userId: admin.id },
+    });
+    await append(testDb.db, {
+      aggregateId: ord2,
+      aggregateType: "upcastOrder",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: "upcastshop:event:priced",
+      eventVersion: 2,
+      payload: { total: "25.50", currency: "USD" },
+      metadata: { userId: admin.id },
+    });
+    await append(testDb.db, {
+      aggregateId: ord3,
+      aggregateType: "upcastOrder",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: "upcastshop:event:priced",
+      eventVersion: 3,
+      payload: { totalCents: 9900, currency: "CHF" },
+      metadata: { userId: admin.id },
+    });
+
+    const result = await rebuildProjection(qualifiedProjectionName, {
+      db: testDb.db,
+      registry,
+    });
+    expect(result.eventsProcessed).toBe(3);
+
+    const rows = await testDb.db
+      .select()
+      .from(orderSummaryTable)
+      .orderBy(orderSummaryTable.orderId);
+
+    // Ordered by orderId → ord1 (10€ = 1000¢), ord2 ($25.50 = 2550¢), ord3 (9900¢)
+    expect(rows).toHaveLength(3);
+    const byId = new Map(rows.map((r) => [r.orderId, r]));
+    expect(byId.get(ord1)).toMatchObject({ totalCents: 1000, currency: "EUR" });
+    expect(byId.get(ord2)).toMatchObject({ totalCents: 2550, currency: "USD" });
+    expect(byId.get(ord3)).toMatchObject({ totalCents: 9900, currency: "CHF" });
+  });
+});
+
+describe("upcaster: boot-time validation", () => {
+  test("defineEvent with version=N and only partial migrations fails at registry build", () => {
+    const incomplete = defineFeature("holes", (r) => {
+      r.entity("holeOrder", orderEntity);
+      r.defineEvent("bad", z.object({ v3: z.string() }), { version: 3 });
+      // Only 1→2 registered — the 2→3 gap must be rejected.
+      r.eventMigration("bad", 1, 2, (p) => p);
+    });
+    expect(() => createRegistry([incomplete])).toThrow(/v2.*v3|covers the step v2/);
+  });
+
+  test("migration declared but no defineEvent → rejected", () => {
+    const orphan = defineFeature("orphans", (r) => {
+      r.entity("orphOrder", orderEntity);
+      r.eventMigration("ghost", 1, 2, (p) => p);
+    });
+    expect(() => createRegistry([orphan])).toThrow(/no r\.defineEvent/i);
+  });
+
+  test("migration toVersion > defineEvent version → rejected", () => {
+    const future = defineFeature("future", (r) => {
+      r.entity("futureOrder", orderEntity);
+      r.defineEvent("early", z.object({ x: z.number() }), { version: 1 });
+      r.eventMigration("early", 1, 2, (p) => p);
+    });
+    expect(() => createRegistry([future])).toThrow(/declares only version 1/);
+  });
+
+  test("non-contiguous (1→2 and 3→4 without 2→3) → rejected", () => {
+    const gaps = defineFeature("gaps", (r) => {
+      r.entity("gapOrder", orderEntity);
+      r.defineEvent("jumpy", z.object({ v: z.number() }), { version: 4 });
+      r.eventMigration("jumpy", 1, 2, (p) => p);
+      r.eventMigration("jumpy", 3, 4, (p) => p);
+    });
+    expect(() => createRegistry([gaps])).toThrow(/v2.*v3|covers the step v2/);
+  });
+});
+
+describe("upcaster: registrar input validation", () => {
+  test("r.eventMigration rejects multi-step jumps", () => {
+    expect(() =>
+      defineFeature("bigstep", (r) => {
+        r.entity("bigstepOrder", orderEntity);
+        r.defineEvent("biz", z.object({ x: z.number() }), { version: 3 });
+        r.eventMigration("biz", 1, 3, (p) => p);
+      }),
+    ).toThrow(/single-step/);
+  });
+
+  test("r.eventMigration rejects duplicate step", () => {
+    expect(() =>
+      defineFeature("dupestep", (r) => {
+        r.entity("dupOrder", orderEntity);
+        r.defineEvent("dup", z.object({ x: z.number() }), { version: 2 });
+        r.eventMigration("dup", 1, 2, (p) => p);
+        r.eventMigration("dup", 1, 2, (p) => p);
+      }),
+    ).toThrow(/already registered/);
+  });
+
+  test("r.defineEvent rejects non-positive version", () => {
+    expect(() =>
+      defineFeature("badver", (r) => {
+        r.entity("badverOrder", orderEntity);
+        r.defineEvent("neg", z.object({ x: z.number() }), { version: 0 });
+      }),
+    ).toThrow(/positive integer/);
+  });
+});

@@ -1,7 +1,7 @@
 import { asc, eq, getTableName, inArray, sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import type { Registry } from "../engine/types";
-import { eventsTable, type StoredEvent } from "../event-store";
+import { eventsTable, type StoredEvent, upcastStoredEvent } from "../event-store";
 import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
 import { projectionStateTable } from "./projection-state";
@@ -118,8 +118,13 @@ export async function rebuildProjection(
           )
           .orderBy(asc(eventsTable.id))) as ReadonlyArray<typeof eventsTable.$inferSelect>;
 
+        // Upcasters run at read time: older stored payloads get walked
+        // through the registered r.eventMigration chain until their shape
+        // matches the current event version. An apply() written against the
+        // v3 shape stays oblivious to v1 payloads still on disk.
+        const upcasters = registry.getEventUpcasters();
         for (const row of events) {
-          const storedEvent: StoredEvent = {
+          const raw: StoredEvent = {
             id: String(row.id),
             aggregateId: row.aggregateId,
             aggregateType: row.aggregateType,
@@ -132,6 +137,7 @@ export async function rebuildProjection(
             createdAt: row.createdAt,
             createdBy: row.createdBy,
           };
+          const storedEvent = upcastStoredEvent(raw, upcasters);
           const applyFn = projection.apply[row.type];
           // skip: apply-key validation ensures every subscribed type has a
           //       handler; defensive check against runtime-mutated registry
