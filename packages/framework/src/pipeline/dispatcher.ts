@@ -7,9 +7,11 @@ import { hasAccess } from "../engine/access";
 import { checkWriteFields, filterReadFields } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type {
+  AggregateStreamHandle,
   AppContext,
   AppendEventArgs,
   DeleteContext,
+  FetchForWritingArgs,
   HandlerContext,
   HandlerRef,
   JobRunnerRef,
@@ -32,6 +34,7 @@ import {
   toWriteErrorInfo,
   ValidationError,
   validationErrorFromZod,
+  VersionConflictError,
   type WriteErrorInfo,
   writeFailure,
 } from "../errors";
@@ -43,6 +46,7 @@ import {
 import { ArchivedStreamError } from "../event-store/errors";
 import {
   append as appendEvent,
+  getStreamVersion,
   loadAggregate,
   loadAggregateAsOf,
   type StoredEvent,
@@ -274,6 +278,10 @@ export function createDispatcher(
     // would re-run v1→v(N) on brand-new payloads that are already in v(N)
     // shape — at best wasted work, at worst garbage (the v1 transform would
     // try to parse v(N) fields).
+    // Stamp the request's idempotency marker only on the FIRST event write.
+    // See RequestContextData.requestIdUsed docs — subsequent writes would
+    // trip events_idempotency_idx.
+    const stampRequestId = reqCtx?.requestId && !reqCtx.requestIdUsed;
     const stored = await appendEvent(dbSource, {
       aggregateId: args.aggregateId,
       aggregateType: args.aggregateType,
@@ -284,11 +292,12 @@ export function createDispatcher(
       payload: validatedPayload,
       metadata: {
         userId: user.id,
-        ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
+        ...(stampRequestId && reqCtx ? { requestId: reqCtx.requestId } : {}),
         ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
         ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
       },
     });
+    if (stampRequestId && reqCtx) reqCtx.requestIdUsed = true;
 
     // Inline projections — same tx as the append, so a throw rolls the event
     // back with whatever projection writes preceded it.
@@ -366,6 +375,62 @@ export function createDispatcher(
       },
       appendEvent: async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx);
+      },
+      fetchForWriting: async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {
+        const dbSource: DbConnection | DbTx | undefined =
+          tx ?? (context.db as DbConnection | undefined);
+        if (!dbSource) {
+          throw new InternalError({
+            message: `ctx.fetchForWriting("${args.aggregateId}") requires a database connection — none is configured.`,
+          });
+        }
+        // Stream-version authoritative (same policy as CRUD executor + Block 0).
+        // A single SELECT MAX(version) is cheaper than loading the full stream
+        // when the caller just wants to append — but most callers also want
+        // the events (business-rule checks), so fetch both in parallel.
+        const [storedEvents, fetchedVersion] = await Promise.all([
+          loadAggregate(dbSource, args.aggregateId, user.tenantId),
+          getStreamVersion(dbSource, args.aggregateId, user.tenantId),
+        ]);
+        const events = upcastStoredEvents(storedEvents, registry.getEventUpcasters());
+
+        // Optimistic concurrency: if the caller knows the version they
+        // worked against (e.g. from a prior read-model row) and the stream
+        // has moved on, fail fast before any downstream work.
+        if (args.expectedVersion !== undefined && args.expectedVersion !== fetchedVersion) {
+          throw new VersionConflictError({
+            entityId: args.aggregateId,
+            expectedVersion: args.expectedVersion,
+            currentVersion: fetchedVersion,
+          });
+        }
+
+        // Handle's internal version bumps on every appendOne so multiple
+        // appends in a row stay in order without re-reading the DB.
+        let handleVersion = fetchedVersion;
+        const appendOne = async (
+          appendArgs: { readonly type: string; readonly payload: unknown },
+        ): Promise<void> => {
+          await appendDomainEvent(
+            {
+              aggregateId: args.aggregateId,
+              aggregateType: args.aggregateType,
+              type: appendArgs.type,
+              payload: appendArgs.payload,
+            },
+            user,
+            tx,
+          );
+          handleVersion += 1;
+        };
+
+        return {
+          events,
+          get version() {
+            return handleVersion;
+          },
+          appendOne,
+        };
       },
       loadAggregate: async (
         aggregateId: string,

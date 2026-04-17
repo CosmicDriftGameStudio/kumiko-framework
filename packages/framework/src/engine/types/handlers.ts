@@ -157,6 +157,13 @@ export type HandlerContext = SharedContextFields & {
   // "invoice.created" + "invoice.updated").
   readonly appendEvent: (args: AppendEventArgs) => Promise<void>;
 
+  // Marten FetchForWriting equivalent: load the current stream, optionally
+  // enforce expectedVersion, and get a handle that appends further events
+  // onto that stream without re-specifying aggregateId/aggregateType.
+  // Fails fast with VersionConflictError when expectedVersion doesn't
+  // match — the write-handler never touches state it didn't expect.
+  readonly fetchForWriting: (args: FetchForWritingArgs) => Promise<AggregateStreamHandle>;
+
   // Load the full stream of events for an aggregate, tenant-scoped to the
   // current user. Events pass through the registered upcaster chain, so the
   // payloads returned match the current schema shape regardless of when
@@ -275,6 +282,32 @@ export type AppendEventArgs = {
   readonly aggregateType: string;
   readonly type: string;
   readonly payload: unknown;
+};
+
+// Args for ctx.fetchForWriting — Marten FetchForWriting equivalent. Returns
+// the current stream state + a handle that appends without re-specifying
+// aggregateId/aggregateType. When expectedVersion is provided, the handle
+// rejects the write immediately if the stream is ahead — optimistic
+// concurrency enforced BEFORE any downstream work. Without expectedVersion,
+// the handle trusts whatever version the stream currently has.
+export type FetchForWritingArgs = {
+  readonly aggregateId: string;
+  readonly aggregateType: string;
+  readonly expectedVersion?: number;
+};
+
+export type AggregateStreamHandle = {
+  // Snapshot at fetch time — upcasted via the registered upcaster chain,
+  // so payloads match the current schema regardless of when they landed.
+  readonly events: readonly import("../../event-store").StoredEvent[];
+  readonly version: number;
+  // Append an event on this stream. Derives aggregateId/aggregateType/
+  // expectedVersion from the handle automatically. Multiple calls in a
+  // row bump the handle's internal version and the events-table in order.
+  readonly appendOne: (args: {
+    readonly type: string;
+    readonly payload: unknown;
+  }) => Promise<void>;
 };
 
 // --- Event Upcasters (schema migration) ---

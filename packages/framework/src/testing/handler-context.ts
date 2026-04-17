@@ -1,4 +1,10 @@
-import type { AppendEventArgs, HandlerContext, SessionUser, WriteResult } from "../engine/types";
+import type {
+  AppendEventArgs,
+  FetchForWritingArgs,
+  HandlerContext,
+  SessionUser,
+  WriteResult,
+} from "../engine/types";
 import { createNoopMetricsHandle, getFallbackTracer } from "../observability";
 
 // Test/service helper: cross-feature bridge methods that throw on use.
@@ -29,6 +35,7 @@ export function bridgeStub(): Pick<
   | "write"
   | "writeAs"
   | "appendEvent"
+  | "fetchForWriting"
   | "loadAggregate"
   | "archiveStream"
   | "restoreStream"
@@ -56,6 +63,9 @@ export function bridgeStub(): Pick<
       payload: unknown,
     ) => Promise<WriteResult>,
     appendEvent: notAvailable("appendEvent") as unknown as (args: AppendEventArgs) => Promise<void>,
+    fetchForWriting: notAvailable("fetchForWriting") as unknown as (
+      args: FetchForWritingArgs,
+    ) => ReturnType<HandlerContext["fetchForWriting"]>,
     loadAggregate: notAvailable("loadAggregate") as unknown as HandlerContext["loadAggregate"],
     archiveStream: notAvailable("archiveStream") as unknown as HandlerContext["archiveStream"],
     restoreStream: notAvailable("restoreStream") as unknown as HandlerContext["restoreStream"],

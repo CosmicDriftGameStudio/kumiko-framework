@@ -60,6 +60,7 @@ export type {
 export { DEFAULT_CURRENCIES, isFileField } from "./fields";
 export type {
   AccessRule,
+  AggregateStreamHandle,
   AppContext,
   AppendEventArgs,
   CrudRefs,
@@ -67,6 +68,7 @@ export type {
   EventDef,
   EventMigrationDef,
   EventUpcastFn,
+  FetchForWritingArgs,
   HandlerContext,
   HandlerRef,
   JobContext,

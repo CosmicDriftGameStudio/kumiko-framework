@@ -19,6 +19,15 @@ export type RequestContextData = {
   readonly requestId: string;
   readonly correlationId: string;
   readonly causationId?: string;
+  // Mutable marker — flipped to true after the first event-write stamps
+  // metadata.requestId for idempotency. Subsequent writes in the same
+  // request must NOT duplicate the marker; the events_idempotency_idx is
+  // a partial UNIQUE on (tenantId, metadata->>'requestId') — a second
+  // write with the same requestId would collide and throw mid-handler.
+  // Keeping this in the AsyncLocalStorage store gives exactly-once
+  // idempotency-stamping per request regardless of how many appendEvent
+  // calls the handler makes.
+  requestIdUsed?: boolean;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();
