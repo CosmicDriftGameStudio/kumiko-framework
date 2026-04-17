@@ -1,15 +1,15 @@
-// E.3 — r.defineEvent + ctx.emit strict-mode (B1).
+// E.3 — r.defineEvent + ctx.appendEvent strict-mode (B1).
 //
-// The contract before E.3: ctx.emit accepted any string as eventType and
-// any value as payload; the payload went into the events-table raw, typos
-// surfaced only at consumer-time. Now:
+// Pre-E.3 ctx accepted any string as eventType and any value as payload;
+// payload went into the events-table raw, typos surfaced only at consumer-
+// time. Now:
 //
 //   1. The event name MUST come from r.defineEvent. Unknown names throw
-//      InternalError with a clear hint at the emit site.
+//      InternalError with a clear hint at the append site.
 //   2. The payload is validated against the registered Zod schema BEFORE
 //      it hits the events-table. Mismatches throw ValidationError.
 //   3. r.defineEvent returns `{ name: qualifiedName, schema }` — callers
-//      pass `def.name` to ctx.emit without building the qn manually.
+//      pass `def.name` to ctx.appendEvent without building the qn manually.
 
 import { eq, sql as sqlTag } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
@@ -38,7 +38,12 @@ const emitterFeature = defineFeature("emitter", (r) => {
     "emit:valid",
     z.object({ userId: z.uuid(), email: z.email() }),
     async (cmd, ctx) => {
-      await ctx.emit(welcome.name, cmd.payload);
+      await ctx.appendEvent({
+        aggregateId: cmd.payload.userId,
+        aggregateType: "user",
+        type: welcome.name,
+        payload: cmd.payload,
+      });
       return { isSuccess: true, data: { kind: "save", id: cmd.payload.userId } };
     },
     { access: { roles: ["Admin"] } },
@@ -48,9 +53,14 @@ const emitterFeature = defineFeature("emitter", (r) => {
     "emit:unknown-event-name",
     z.object({ userId: z.uuid() }),
     async (cmd, ctx) => {
-      // Deliberately NOT passing welcome.name — "unknown:event:foobar" was
-      // never registered. ctx.emit must reject at the emit site.
-      await ctx.emit("emitter:event:not-registered", { userId: cmd.payload.userId });
+      // Deliberately NOT passing welcome.name — "emitter:event:not-registered"
+      // was never registered. ctx.appendEvent must reject at the append site.
+      await ctx.appendEvent({
+        aggregateId: cmd.payload.userId,
+        aggregateType: "user",
+        type: "emitter:event:not-registered",
+        payload: { userId: cmd.payload.userId },
+      });
       return { isSuccess: true, data: { kind: "save", id: cmd.payload.userId } };
     },
     { access: { roles: ["Admin"] } },
@@ -60,8 +70,13 @@ const emitterFeature = defineFeature("emitter", (r) => {
     "emit:bad-payload",
     z.object({ userId: z.uuid() }),
     async (cmd, ctx) => {
-      // userId is correct but email is missing + not an email string.
-      await ctx.emit(welcome.name, { userId: cmd.payload.userId, email: "not-an-email" });
+      // userId is correct but email is missing / not an email string.
+      await ctx.appendEvent({
+        aggregateId: cmd.payload.userId,
+        aggregateType: "user",
+        type: welcome.name,
+        payload: { userId: cmd.payload.userId, email: "not-an-email" },
+      });
       return { isSuccess: true, data: { kind: "save", id: cmd.payload.userId } };
     },
     { access: { roles: ["Admin"] } },
@@ -94,8 +109,8 @@ describe("E.3 — r.defineEvent return + registry wiring", () => {
   });
 });
 
-describe("E.3 — ctx.emit strict validation", () => {
-  test("valid emit lands in the events-table with the qualified type", async () => {
+describe("E.3 — ctx.appendEvent strict validation", () => {
+  test("valid append lands in the events-table with the qualified type on the aggregate stream", async () => {
     const userId = globalThis.crypto.randomUUID();
     const res = await stack.http.write(
       "emitter:write:emit:valid",
@@ -110,7 +125,10 @@ describe("E.3 — ctx.emit strict validation", () => {
       .where(eq(eventsTable.type, welcomeEventName));
     expect(stored).toHaveLength(1);
     expect(stored[0]?.payload).toEqual({ userId, email: "welcome@test.de" });
-    expect(stored[0]?.aggregateType).toBe("pubsub");
+    expect(stored[0]?.aggregateType).toBe("user");
+    expect(stored[0]?.aggregateId).toBe(userId);
+    // Fresh aggregate → version 1 (Block 0 getStreamVersion returns 0, append bumps to 1).
+    expect(stored[0]?.version).toBe(1);
   });
 
   test("unknown event name throws InternalError; nothing lands in the log", async () => {
@@ -120,7 +138,7 @@ describe("E.3 — ctx.emit strict validation", () => {
     expect(res.status).toBe(500);
 
     const stored = await stack.db.db.select().from(eventsTable);
-    // TX rolled back: neither a pubsub event NOR the intended aggregate write.
+    // TX rolled back: no event landed.
     expect(stored).toHaveLength(0);
   });
 

@@ -1,9 +1,7 @@
 // E.2 — Retention for the events-table. The claims pinned here:
 //
-//   1. Default prune targets ONLY aggregateType="pubsub". Aggregate events
-//      (source of truth for loadAggregate / projections / asOf queries)
-//      are never touched unless the caller explicitly passes
-//      aggregateTypes including them.
+//   1. aggregateTypes is REQUIRED. No default — the caller has to name
+//      what they're destroying.
 //   2. The consumer-lag guard: if any ACTIVE consumer's cursor is below
 //      the largest candidate event id, pruning refuses with
 //      ConsumerLagError. Disabled consumers are ignored (ops parks them
@@ -22,7 +20,6 @@ import {
   ConsumerLagError,
   disableConsumer,
   eventConsumerStateTable,
-  PUBSUB_AGGREGATE_TYPE,
   pruneEvents,
 } from "../../pipeline";
 import {
@@ -73,14 +70,19 @@ afterEach(async () => {
   );
 });
 
-// Insert a pub/sub event directly with a specific createdAt. Bypasses
-// ctx.emit so we can stamp events in the past for prune tests.
-async function seedOldPubsubEvent(createdAt: Date, type: string): Promise<bigint> {
+// Seed an aggregate event directly with a specific createdAt. Bypasses the
+// executor so we can stamp events in the past for prune tests. Aggregate
+// type defaults to "widget" — matches the test feature's entity type.
+async function seedOldAggregateEvent(
+  createdAt: Date,
+  type: string,
+  aggregateType = "widget",
+): Promise<bigint> {
   const [row] = await stack.db.db
     .insert(eventsTable)
     .values({
       aggregateId: globalThis.crypto.randomUUID(),
-      aggregateType: PUBSUB_AGGREGATE_TYPE,
+      aggregateType,
       tenantId: admin.tenantId,
       version: 1,
       type,
@@ -100,55 +102,61 @@ async function appendAggregateWidget(name: string): Promise<void> {
 
 // --- Tests ---
 
-describe("E.2 — default prunes only pubsub events", () => {
-  test("aggregate events remain untouched even when older than the cutoff", async () => {
-    // One fresh aggregate event (created now)
-    await appendAggregateWidget("current");
-    // Stamp an aggregate event as old — we bypass the guard by direct
-    // UPDATE so we can observe "aged" aggregate rows. Cursor at 0 means
-    // no consumer has moved yet; we disable the observer so the lag guard
-    // doesn't trip for THIS test (the guard has its own test below).
-    await stack.db.db.execute(
-      sql`UPDATE events SET created_at = now() - interval '30 days' WHERE id = 1`,
-    );
+describe("E.2 — explicit-aggregateTypes pruning", () => {
+  test("aggregate-type events NOT named in aggregateTypes are untouched", async () => {
+    // Seed an "obsolete" aggregate type + a "widget" event, both aged.
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const obsoleteId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.v1", "obsolete");
+    const widgetId = await seedOldAggregateEvent(tenDaysAgo, "widget.legacy", "widget");
 
     // Disable the single consumer so the lag guard doesn't interfere.
-    // Ensure the row exists first.
     await stack.db.db.insert(eventConsumerStateTable).values({
       name: observerQn,
       lastProcessedEventId: 0n,
       status: "disabled",
     });
 
-    const result = await pruneEvents(stack.db.db, { olderThanDays: 7 });
-    expect(result.deletedCount).toBe(0);
+    // Prune only the obsolete type — widget events survive.
+    const result = await pruneEvents(stack.db.db, {
+      olderThanDays: 7,
+      aggregateTypes: ["obsolete"],
+    });
+    expect(result.deletedCount).toBe(1);
+    expect(result.aggregateTypes).toEqual(["obsolete"]);
 
     const remaining = await stack.db.db.select().from(eventsTable);
-    expect(remaining).toHaveLength(1);
-    expect(remaining[0]?.aggregateType).toBe("widget");
+    const ids = remaining.map((r) => r.id);
+    expect(ids).toContain(widgetId);
+    expect(ids).not.toContain(obsoleteId);
   });
 
-  test("pubsub events older than the cutoff are deleted; fresh ones stay", async () => {
+  test("named aggregate-type events older than the cutoff are deleted; fresh ones stay", async () => {
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-    const freshPubsubId = await seedOldPubsubEvent(new Date(), "fresh.pubsub");
-    const oldPubsubId = await seedOldPubsubEvent(tenDaysAgo, "stale.pubsub");
+    const freshId = await seedOldAggregateEvent(new Date(), "obsolete.fresh", "obsolete");
+    const staleId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.stale", "obsolete");
 
     // No registered consumers → lag guard passes trivially.
-    const result = await pruneEvents(stack.db.db, { olderThanDays: 7 });
+    const result = await pruneEvents(stack.db.db, {
+      olderThanDays: 7,
+      aggregateTypes: ["obsolete"],
+    });
     expect(result.deletedCount).toBe(1);
-    expect(result.aggregateTypes).toEqual([PUBSUB_AGGREGATE_TYPE]);
 
     const remaining = await stack.db.db.select().from(eventsTable);
     const ids = remaining.map((r) => r.id).sort();
-    expect(ids).toEqual([freshPubsubId]);
-    expect(ids.includes(oldPubsubId)).toBe(false);
+    expect(ids).toEqual([freshId]);
+    expect(ids.includes(staleId)).toBe(false);
   });
 
   test("dry-run reports the count but deletes nothing", async () => {
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-    await seedOldPubsubEvent(tenDaysAgo, "dry.pubsub");
+    await seedOldAggregateEvent(tenDaysAgo, "obsolete.drain", "obsolete");
 
-    const result = await pruneEvents(stack.db.db, { olderThanDays: 7, dryRun: true });
+    const result = await pruneEvents(stack.db.db, {
+      olderThanDays: 7,
+      aggregateTypes: ["obsolete"],
+      dryRun: true,
+    });
     expect(result.deletedCount).toBe(1);
     expect(result.dryRun).toBe(true);
 
@@ -162,9 +170,6 @@ describe("E.2 — consumer-lag guard", () => {
     // Append 3 aggregate events. Consumer will process only the first,
     // stop advancing, and sit at cursor=1. Then we try to prune — the
     // guard should see candidates up to id=3 and throw.
-    //
-    // Use an aggregateType override so the aggregate events become prune
-    // candidates (pubsub alone wouldn't hit the lag guard here).
     await appendAggregateWidget("one");
     await appendAggregateWidget("two");
     await appendAggregateWidget("three");
@@ -206,11 +211,26 @@ describe("E.2 — consumer-lag guard", () => {
 
 describe("E.2 — empty sets and input validation", () => {
   test("returns zero when nothing matches the cutoff", async () => {
-    const result = await pruneEvents(stack.db.db, { olderThanDays: 365 });
+    const result = await pruneEvents(stack.db.db, {
+      olderThanDays: 365,
+      aggregateTypes: ["widget"],
+    });
     expect(result.deletedCount).toBe(0);
   });
 
   test("refuses call without olderThan or olderThanDays", async () => {
-    await expect(pruneEvents(stack.db.db, {})).rejects.toThrow(/olderThan/);
+    await expect(
+      pruneEvents(stack.db.db, { aggregateTypes: ["widget"] }),
+    ).rejects.toThrow(/olderThan/);
+  });
+
+  test("refuses call without aggregateTypes", async () => {
+    // Typescript would catch this at compile time, but the runtime guard
+    // exists for JS callers and JSON-config-driven cron pipes.
+    await expect(
+      pruneEvents(stack.db.db, { olderThanDays: 7 } as unknown as Parameters<
+        typeof pruneEvents
+      >[1]),
+    ).rejects.toThrow(/aggregateTypes/);
   });
 });

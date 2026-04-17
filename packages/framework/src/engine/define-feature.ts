@@ -335,7 +335,7 @@ export function defineFeature(
       options?: { readonly version?: number },
     ) {
       // Return the fully-qualified event name so callers can pass it
-      // straight to ctx.appendEvent / ctx.emit without hand-building the
+      // straight to ctx.appendEvent without hand-building the
       // "<feature>:event:<name>" shape. Registry keeps events keyed by
       // short name — qualification is the framework's job, not the feature
       // author's.

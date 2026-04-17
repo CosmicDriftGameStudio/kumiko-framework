@@ -3,55 +3,36 @@ import type { DbConnection } from "../db/connection";
 import { eventsTable } from "../event-store";
 import { eventConsumerStateTable } from "./event-consumer-state";
 
-// Retention for the events-table. Two principles:
+// Retention for the events-table. Aggregate events are source of truth —
+// they power loadAggregate, projection rebuilds, asOf queries, audit.
+// Pruning them is destructive and cannot be reversed, so the caller MUST
+// name the aggregateTypes explicitly; there is no default.
 //
-//   1. **Aggregate events are source of truth and are never pruned by
-//      default.** They power loadAggregate, projection rebuilds, asOf
-//      queries, audit. Deleting them breaks those guarantees irreversibly.
-//
-//   2. **Pub/sub events (aggregateType = "pubsub") are transient by design
-//      — MSP consumers react and move on. They can be pruned safely once
-//      every interested consumer has advanced past them.
-//
-// The default caller-facing call (`pruneEvents(db, { olderThanDays: N })`)
-// prunes ONLY pubsub events. To prune something else, the caller passes
-// an explicit aggregateTypes list — and owns the consequences.
+// Typical use: ops prunes archived aggregate streams (see archive.ts) after
+// legal/compliance retention has elapsed, or drops a specific aggregate
+// type that's been deprecated and replaced.
 //
 // Safety guard: before deleting, we check every row in
 // `kumiko_event_consumers`. If the minimum `lastProcessedEventId` across
 // non-disabled consumers is below the largest event id we'd delete, we
-// refuse. A lagging consumer must either catch up, be disabled, or be
-// explicitly skipped; pruning past its cursor would silently drop
-// deliveries.
+// refuse with ConsumerLagError. A lagging consumer must either catch up,
+// be disabled, or the retention call must opt around it; pruning past its
+// cursor would silently drop deliveries.
 //
 // No background scheduler: the framework exposes the function. Ops wires
 // it into a cron, BullMQ repeating job, or pg_cron entry — whatever the
 // deployment already runs. That keeps the framework dependency-free for
 // retention and lets ops reason about timing alongside existing jobs.
 
-// Synthetic aggregate-type for pub/sub events. Pub/sub is messaging, not
-// event-sourcing — there is no real aggregate, no replay, no ordering
-// guarantee per aggregate-id. But the pub/sub events share the same
-// events-table as aggregate events so the dispatcher has one ordered log
-// to walk (and retention has one place to prune).
-//
-// To satisfy `unique(aggregate_id, version)` on the events table, each
-// ctx.emit allocates a fresh UUID as aggregateId and uses version = 1.
-// The (aggregateType = "pubsub") discriminator is how consumers and the
-// retention guard tell pub/sub apart from aggregate streams. Renaming
-// this string is a schema migration — existing rows in prod would become
-// unreachable by aggregateType filter.
-export const PUBSUB_AGGREGATE_TYPE = "pubsub";
-
 export type PruneEventsOptions = {
   // Delete events whose createdAt is strictly older than this.
   // Pass EITHER olderThan (explicit Date) OR olderThanDays (convenience).
   readonly olderThan?: Date;
   readonly olderThanDays?: number;
-  // Which aggregateTypes to consider. Default: [PUBSUB_AGGREGATE_TYPE].
-  // Callers that want to prune aggregate event types must opt in
-  // explicitly — this is destructive and cannot be reversed.
-  readonly aggregateTypes?: readonly string[];
+  // Which aggregateTypes to prune. REQUIRED and non-empty. There is no
+  // default — pruning the event log is destructive, so the caller has to
+  // name what they're destroying.
+  readonly aggregateTypes: readonly string[];
   // Dry-run: compute what would be deleted, return count, delete nothing.
   readonly dryRun?: boolean;
 };
@@ -92,7 +73,12 @@ export async function pruneEvents(
   options: PruneEventsOptions,
 ): Promise<PruneEventsResult> {
   const cutoff = resolveCutoff(options);
-  const aggregateTypes = options.aggregateTypes ?? [PUBSUB_AGGREGATE_TYPE];
+  if (!options.aggregateTypes || options.aggregateTypes.length === 0) {
+    throw new Error(
+      "pruneEvents: aggregateTypes is required and must be non-empty. Pruning the event log is destructive — name the aggregate types to delete explicitly.",
+    );
+  }
+  const aggregateTypes = options.aggregateTypes;
   const dryRun = options.dryRun === true;
 
   return db.transaction(async (tx) => {

@@ -65,7 +65,6 @@ import {
 } from "../observability";
 import { parseJsonSafe } from "../utils/safe-json";
 import type { EventLog } from "./event-log";
-import { PUBSUB_AGGREGATE_TYPE } from "./event-retention";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { runProjections, runProjectionsForEvent } from "./projections-runner";
@@ -213,90 +212,12 @@ export function createDispatcher(
     return transitions;
   }
 
-  // ctx.emit — append a pub/sub event onto the events-table in the current tx.
-  //
-  // Seit D.5 läuft pub/sub über denselben Event-Store wie die Aggregate-Events:
-  // ein separater synthetic stream (aggregateType = "pubsub", neue aggregateId
-  // pro Emit, version = 1). Vorteile:
-  //   - Ein einziger ordered log — async subscribers (MSP-Consumer) können
-  //     von der gleichen Cursor-Infrastruktur angebunden werden.
-  //   - Keine separate Outbox-Tabelle / Poller / Broker mehr (raus in D.5).
-  //   - Events sind einheitlich tenantId-isoliert + idempotency-indexiert.
-  //
-  // Delivery: at-least-once durch den event-dispatcher. Handler müssen
-  // idempotent sein (gleiche Regel wie vorher beim Outbox).
-  async function emitEvent(
-    eventType: string,
-    payload: unknown,
-    user: SessionUser,
-    tx: DbTx | undefined,
-  ): Promise<void> {
-    const dbSource: DbConnection | DbTx | undefined =
-      tx ?? (context.db as DbConnection | undefined);
-    if (!dbSource) {
-      throw new InternalError({
-        message: `ctx.emit("${eventType}") requires a database connection — none is configured.`,
-      });
-    }
-
-    // Strict schema validation (E.3). r.defineEvent is the single source of
-    // truth for what a feature is allowed to emit: the registry holds the
-    // event's Zod schema, and ctx.emit validates the payload against it
-    // BEFORE the event hits the events-table. Two failure modes:
-    //   1. Event was never registered → typo or forgotten r.defineEvent.
-    //      Throw with a help message so the feature author sees it at the
-    //      emit site.
-    //   2. Payload doesn't match schema → standard ValidationError, same
-    //      contract as HTTP-level schema validation.
-    // Without this, a broken payload would only surface at consumer-time —
-    // by then the event is durably in the log and duplicate deliveries
-    // amplify the blast.
-    const eventDef = registry.getEvent(eventType);
-    if (!eventDef) {
-      throw new InternalError({
-        message: `ctx.emit("${eventType}") — event not registered. Call r.defineEvent(shortName, schema) in a feature; ctx.emit expects the qualified name returned by defineEvent (e.g. "<feature>:event:<short>").`,
-      });
-    }
-    const parsed = eventDef.schema.safeParse(payload ?? {});
-    if (!parsed.success) {
-      throw validationErrorFromZod(parsed.error);
-    }
-    const validatedPayload = parsed.data as DbRow;
-
-    const reqCtx = requestContext.get();
-    // System-scope events carry the zero-UUID as a marker on the in-memory
-    // SessionUser — we still persist it here so every event has a concrete
-    // tenantId (events-table requires notNull). The zero-UUID is a first-
-    // class value meaning "system/global". Consumers interpret it.
-    const tenantId = user.tenantId;
-
-    // Synthetic aggregate for pub/sub: a fresh UUID per emit, version = 1.
-    // Keeps the unique(aggregate_id, version) constraint satisfied without
-    // tracking an aggregate stream — pub/sub events are one-shot by design.
-    // Using globalThis.crypto keeps the code node/bun/browser-safe.
-    const aggregateId = globalThis.crypto.randomUUID();
-
-    await appendEvent(dbSource, {
-      aggregateId,
-      aggregateType: PUBSUB_AGGREGATE_TYPE,
-      tenantId,
-      expectedVersion: 0,
-      type: eventType,
-      payload: validatedPayload,
-      metadata: {
-        userId: user.id,
-        ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
-      },
-    });
-  }
-
   // ctx.appendEvent — append a domain event onto a specific aggregate stream
   // in the current tx, then fire matching inline projections.
   //
-  // Marten-aligned: every event belongs to exactly one aggregate. Unlike
-  // ctx.emit (synthetic "pubsub" stream, version=1), appendEvent writes to
-  // the real aggregate — version is derived from the live stream length, so
-  // domain events carry forward the same lineage as the auto CRUD events.
+  // Marten-aligned: every event belongs to exactly one aggregate. Version is
+  // derived from the live stream length, so domain events carry forward the
+  // same lineage as the auto CRUD events.
   //
   // The schema registered via r.defineEvent is authoritative for the payload.
   // After the write, runProjectionsForEvent fires any projection whose source
@@ -315,7 +236,9 @@ export function createDispatcher(
       });
     }
 
-    // Schema validation first — identical contract to ctx.emit.
+    // Schema validation first — r.defineEvent is the single source of truth
+    // for what a feature is allowed to append. The registry holds the Zod
+    // schema; invalid payloads throw BEFORE the event hits the events-table.
     const eventDef = registry.getEvent(args.type);
     if (!eventDef) {
       throw new InternalError({
@@ -438,9 +361,6 @@ export function createDispatcher(
       writeAs: async (asUser: SessionUser, targetType: string, payload: unknown) => {
         const res = await executeWrite(targetType, payload, asUser, tx, bridgeSink);
         return res;
-      },
-      emit: async (eventType: string, payload: unknown) => {
-        await emitEvent(eventType, payload, user, tx);
       },
       appendEvent: async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx);

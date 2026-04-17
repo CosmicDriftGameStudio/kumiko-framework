@@ -28,7 +28,6 @@ export function bridgeStub(): Pick<
   | "queryAs"
   | "write"
   | "writeAs"
-  | "emit"
   | "appendEvent"
   | "loadAggregate"
   | "archiveStream"
@@ -56,7 +55,6 @@ export function bridgeStub(): Pick<
       qn: string,
       payload: unknown,
     ) => Promise<WriteResult>,
-    emit: notAvailable("emit") as unknown as (qn: string, payload: unknown) => Promise<void>,
     appendEvent: notAvailable("appendEvent") as unknown as (args: AppendEventArgs) => Promise<void>,
     loadAggregate: notAvailable("loadAggregate") as unknown as HandlerContext["loadAggregate"],
     archiveStream: notAvailable("archiveStream") as unknown as HandlerContext["archiveStream"],

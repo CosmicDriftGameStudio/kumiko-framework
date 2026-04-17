@@ -98,9 +98,9 @@ export type FeatureDefinition = {
   // Projections declared via r.projection(). Keyed by projection name; executor
   // looks them up by source-entity at write-time.
   readonly projections: Readonly<Record<string, ProjectionDefinition>>;
-  // Multi-stream projections — cross-aggregate async read-models, Marten
-  // gold-standard replacement for pub/sub subscribers. Keyed by short name;
-  // the dispatcher wraps each into an EventConsumer with its own cursor.
+  // Multi-stream projections — cross-aggregate async read-models. Keyed by
+  // short name; the dispatcher wraps each into an EventConsumer with its
+  // own cursor.
   readonly multiStreamProjections: Readonly<Record<string, MultiStreamProjectionDefinition>>;
 };
 
@@ -206,8 +206,8 @@ export type FeatureRegistrar = {
   translations(def: TranslationsDef): void;
 
   // Register an event payload shape. Returns the qualified def so callers
-  // can pass `.name` to ctx.appendEvent / ctx.emit without hand-building
-  // the "<feature>:event:<short>" string.
+  // can pass `.name` to ctx.appendEvent without hand-building the
+  // "<feature>:event:<short>" string.
   //
   // `options.version` declares the CURRENT schema generation. Defaults to 1
   // on first registration. When you bump the payload shape, raise version

@@ -148,22 +148,13 @@ export type HandlerContext = SharedContextFields & {
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
   readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
 
-  // Emit an event into the transactional outbox. The row is INSERTed inside
-  // the current transaction — it only becomes visible after commit. A poller
-  // then publishes it at-least-once. Feature authors call this; they don't
-  // see the outbox machinery.
-  readonly emit: (qn: string, payload: unknown) => Promise<void>;
-
   // Append a domain event to a specific aggregate stream in the current tx.
   // Marten-aligned: every event belongs to exactly one aggregate. The runtime
   // reads the current stream version, bumps it, and fires projections that
-  // match the event type in the same transaction.
-  //
-  // Unlike `emit` — which writes to a synthetic pub/sub stream — `appendEvent`
-  // targets a real aggregate and carries forward the stream's version lineage.
-  // Use it when a write-handler wants to record a domain event alongside the
-  // auto-generated CRUD events (e.g. "invoice.approved" on the same invoice
-  // stream that already carries "invoice.created" + "invoice.updated").
+  // match the event type in the same transaction. Use it when a write-handler
+  // wants to record a domain event alongside the auto-generated CRUD events
+  // (e.g. "invoice.approved" on the same invoice stream that already carries
+  // "invoice.created" + "invoice.updated").
   readonly appendEvent: (args: AppendEventArgs) => Promise<void>;
 
   // Load the full stream of events for an aggregate, tenant-scoped to the

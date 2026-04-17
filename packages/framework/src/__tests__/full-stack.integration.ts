@@ -39,23 +39,26 @@ function userExecutor(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
   });
 }
 
-// Single source of truth for the user-created pub/sub event name + payload.
-// Since D.5 ctx.emit appends into the events table as a "pubsub" aggregate,
-// and subscribers read it via the event-dispatcher (r.multiStreamProjection).
-// Since E.3 ctx.emit requires a registered r.defineEvent — the `.name` on
-// the returned def is the fully-qualified name the event gets in the log.
+// Single source of truth for the user-created domain-event name + payload.
+// ctx.appendEvent writes this onto the user aggregate's own stream. The MSP
+// below picks it up via the event-dispatcher after commit.
 let USER_CREATED_EVENT: string;
 
 // Test-level MSP capture — populated by the multiStreamProjection apply below.
 // Declared here so tests can reset + assert against it across describe blocks.
-const pubsubSubscriberCalls: Array<{ type: string; payload: unknown }> = [];
+const domainEventSubscriberCalls: Array<{ type: string; payload: unknown }> = [];
 
 async function emitUserCreated(
-  ctx: Pick<HandlerContext, "emit">,
+  ctx: Pick<HandlerContext, "appendEvent">,
   id: EntityId,
   email: string,
 ): Promise<void> {
-  await ctx.emit(USER_CREATED_EVENT, { id, email });
+  await ctx.appendEvent({
+    aggregateId: String(id),
+    aggregateType: "user",
+    type: USER_CREATED_EVENT,
+    payload: { id, email },
+  });
 }
 
 const userFeature = defineFeature("users", (r) => {
@@ -70,13 +73,29 @@ const userFeature = defineFeature("users", (r) => {
     name: "user-created-capture",
     apply: {
       [userCreated.name]: async (event) => {
-        pubsubSubscriberCalls.push({ type: event.type, payload: event.payload });
+        domainEventSubscriberCalls.push({ type: event.type, payload: event.payload });
       },
     },
   });
 
   const createHandler = r.writeHandler(
     "user:create",
+    z.object({
+      email: z.email(),
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
+    }),
+    async (event, ctx) => userExecutor(ctx).create(event.payload, event.user, ctx.db),
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Variant used by the ctx.appendEvent test block — creates the user AND
+  // appends a domain event (`users:event:user.created`) to the user's own
+  // aggregate stream. Separate from `user:create` so the CRUD-only happy-path
+  // tests don't unnecessarily bump the stream version past what the client
+  // sees in the response.
+  r.writeHandler(
+    "user:create-and-signal",
     z.object({
       email: z.email(),
       firstName: z.string().optional(),
@@ -92,10 +111,10 @@ const userFeature = defineFeature("users", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  // Rollback via controlled failure: writes to the user table AND emits a
-  // pub/sub event, then deliberately returns isSuccess:false. The dispatcher
+  // Rollback via controlled failure: writes to the user table AND appends a
+  // domain event, then deliberately returns isSuccess:false. The dispatcher
   // raises BatchRollback, the surrounding tx rolls back — so NEITHER the user
-  // row NOR the pub/sub event survive. Proves the controlled-failure path.
+  // row NOR the domain event survive. Proves the controlled-failure path.
   r.writeHandler(
     "user:create-rollback",
     z.object({ email: z.email() }),
@@ -109,11 +128,11 @@ const userFeature = defineFeature("users", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  // Rollback via uncaught throw: emits TWICE, then throws. Exercises a
+  // Rollback via uncaught throw: appends TWICE, then throws. Exercises a
   // different dispatcher branch than isSuccess:false — the generic catch block
   // that wraps BatchRollback. Proves that:
   //   (a) an uncaught error rolls the tx back just like a controlled failure,
-  //   (b) multiple pub/sub event rows from the same handler roll back together.
+  //   (b) multiple domain event rows from the same handler roll back together.
   r.writeHandler(
     "user:create-throw",
     z.object({ email: z.email() }),
@@ -202,7 +221,7 @@ beforeEach(async () => {
   await stack.eventDispatcher?.runOnce();
   stack.events.reset();
   featurePostSaveLog.length = 0;
-  pubsubSubscriberCalls.length = 0;
+  domainEventSubscriberCalls.length = 0;
 });
 
 // =============================================================================
@@ -772,38 +791,36 @@ describe("full stack: health", () => {
 });
 
 // =============================================================================
-// ctx.emit (pub/sub) — emit coexists with the full pipeline
+// ctx.appendEvent — domain events on the user aggregate stream
 // =============================================================================
 //
-// Since D.5 ctx.emit appends a pub/sub event into the events-table (synthetic
-// "pubsub" aggregate). The event-dispatcher picks it up and delivers to
-// r.multiStreamProjection consumers. This block proves the same TX-atomicity
-// the former Outbox had: pubsub event, user row, feature postSave, SSE, search
-// — all commit-or-rollback together.
-//
-// The local MSP above ("user-created-capture") pushes to pubsubSubscriberCalls
-// when it sees USER_CREATED_EVENT.
+// ctx.appendEvent writes the event onto the user aggregate's own stream (same
+// aggregateId as the CRUD row). The event-dispatcher picks it up and delivers
+// to r.multiStreamProjection consumers after commit. Proves the full
+// TX-atomicity: user row + domain event + feature postSave + SSE + search —
+// all commit-or-rollback together.
 
-describe("full stack: ctx.emit pub/sub via event-dispatcher", () => {
-  // Filter pub/sub rows by type AND payload.email — the events table is
-  // shared across tests so we pick out just the ones this test emitted.
-  async function pubsubEventsForEmail(email: string) {
+describe("full stack: ctx.appendEvent via event-dispatcher", () => {
+  // Filter the appended domain-event rows by type AND payload.email — the
+  // events table is shared across tests so we pick out just the ones this
+  // test appended.
+  async function domainEventsForEmail(email: string) {
     const rows = await stack.db.db
       .select()
       .from(eventsTable)
       .where(
         // eq + and via a lazy dynamic import keeps the top-level imports lean.
         (await import("drizzle-orm")).and(
-          (await import("drizzle-orm")).eq(eventsTable.aggregateType, "pubsub"),
+          (await import("drizzle-orm")).eq(eventsTable.aggregateType, "user"),
           (await import("drizzle-orm")).eq(eventsTable.type, USER_CREATED_EVENT),
         ),
       );
     return rows.filter((r) => (r.payload as Record<string, unknown>)?.["email"] === email);
   }
 
-  test("commit path: user row, pubsub event, feature postSave, SSE, search, subscriber — all consistent", async () => {
+  test("commit path: user row, domain event, feature postSave, SSE, search, subscriber — all consistent", async () => {
     const data = await stack.http.writeOk(
-      "users:write:user:create",
+      "users:write:user:create-and-signal",
       { email: "emit-happy@test.de", firstName: "Happy", lastName: "Path" },
       adminUser,
     );
@@ -812,22 +829,23 @@ describe("full stack: ctx.emit pub/sub via event-dispatcher", () => {
     expect(data["isNew"]).toBe(true);
     const userId = data["id"] as string;
 
-    // Pub/sub event row committed alongside
-    const pubsubRows = await pubsubEventsForEmail("emit-happy@test.de");
-    expect(pubsubRows).toHaveLength(1);
-    expect(pubsubRows[0]).toMatchObject({
+    // Domain event row committed on the SAME aggregate stream as the CRUD event
+    const domainRows = await domainEventsForEmail("emit-happy@test.de");
+    expect(domainRows).toHaveLength(1);
+    expect(domainRows[0]).toMatchObject({
       tenantId: adminUser.tenantId,
       type: USER_CREATED_EVENT,
-      aggregateType: "pubsub",
+      aggregateType: "user",
+      aggregateId: userId,
     });
-    expect(pubsubRows[0]?.payload).toMatchObject({ id: userId, email: "emit-happy@test.de" });
+    expect(domainRows[0]?.payload).toMatchObject({ id: userId, email: "emit-happy@test.de" });
 
     // Feature postSave ran inline
     expect(featurePostSaveLog).toHaveLength(1);
     expect(featurePostSaveLog[0]).toMatchObject({ kind: "save", id: userId, isNew: true });
 
     // System consumers + MSP subscriber fire on the next dispatcher pass
-    expect(pubsubSubscriberCalls).toHaveLength(0);
+    expect(domainEventSubscriberCalls).toHaveLength(0);
     await stack.eventDispatcher?.runOnce();
 
     // Search + SSE saw the user.created aggregate event
@@ -835,15 +853,15 @@ describe("full stack: ctx.emit pub/sub via event-dispatcher", () => {
     const searchHits = await stack.search.search(adminUser.tenantId, "emit-happy");
     expect(searchHits.map((h) => h.entityId)).toContain(userId);
 
-    // Subscriber saw the pub/sub event
-    expect(pubsubSubscriberCalls).toHaveLength(1);
-    expect(pubsubSubscriberCalls[0]).toMatchObject({
+    // Subscriber saw the domain event
+    expect(domainEventSubscriberCalls).toHaveLength(1);
+    expect(domainEventSubscriberCalls[0]).toMatchObject({
       type: USER_CREATED_EVENT,
       payload: { id: userId, email: "emit-happy@test.de" },
     });
   });
 
-  test("rollback path: handler returns isSuccess:false after emit+insert → no user, no event, no side-effects", async () => {
+  test("rollback path: handler returns isSuccess:false after append+insert → no user, no event, no side-effects", async () => {
     const res = await stack.http.write(
       "users:write:user:create-rollback",
       { email: "emit-rollback@test.de" },
@@ -865,20 +883,20 @@ describe("full stack: ctx.emit pub/sub via event-dispatcher", () => {
     );
     expect(users.rows.some((u) => u["email"] === "emit-rollback@test.de")).toBe(false);
 
-    // Pub/sub event rolled back too — nothing in events table for this email
-    expect(await pubsubEventsForEmail("emit-rollback@test.de")).toHaveLength(0);
+    // Domain event rolled back too — nothing in events table for this email
+    expect(await domainEventsForEmail("emit-rollback@test.de")).toHaveLength(0);
 
     // Side-effects: feature postSave ran inline in the tx that rolled back →
     // no entry. Dispatcher drains nothing (no committed event). Subscriber
-    // never saw the rolled-back emit.
+    // never saw the rolled-back append.
     expect(featurePostSaveLog).toHaveLength(0);
     await stack.eventDispatcher?.runOnce();
     const searchHits = await stack.search.search(adminUser.tenantId, "emit-rollback");
     expect(searchHits).toHaveLength(0);
-    expect(pubsubSubscriberCalls).toHaveLength(0);
+    expect(domainEventSubscriberCalls).toHaveLength(0);
   });
 
-  test("uncaught throw + multi-emit: both pub/sub events roll back, error reported, no side-effects", async () => {
+  test("uncaught throw + multi-append: both domain events roll back, error reported, no side-effects", async () => {
     const res = await stack.http.write(
       "users:write:user:create-throw",
       { email: "emit-throw@test.de" },
@@ -897,16 +915,16 @@ describe("full stack: ctx.emit pub/sub via event-dispatcher", () => {
     );
     expect(users.rows.some((u) => u["email"] === "emit-throw@test.de")).toBe(false);
 
-    // BOTH pub/sub event rows rolled back — multi-emit in one tx is atomic.
+    // BOTH domain event rows rolled back — multi-append in one tx is atomic.
     // Primary + secondary email variants should both be absent.
-    expect(await pubsubEventsForEmail("emit-throw@test.de")).toHaveLength(0);
-    expect(await pubsubEventsForEmail("emit-throw@test.de.secondary")).toHaveLength(0);
+    expect(await domainEventsForEmail("emit-throw@test.de")).toHaveLength(0);
+    expect(await domainEventsForEmail("emit-throw@test.de.secondary")).toHaveLength(0);
 
     // Subscribers + system consumers stayed idle
     expect(featurePostSaveLog).toHaveLength(0);
     await stack.eventDispatcher?.runOnce();
     const searchHits = await stack.search.search(adminUser.tenantId, "emit-throw");
     expect(searchHits).toHaveLength(0);
-    expect(pubsubSubscriberCalls).toHaveLength(0);
+    expect(domainEventSubscriberCalls).toHaveLength(0);
   });
 });

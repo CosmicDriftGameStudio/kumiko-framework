@@ -25,12 +25,7 @@ import {
   RecordingMeter,
   RecordingTracer,
 } from "../../observability";
-import {
-  ConsumerLagError,
-  eventConsumerStateTable,
-  PUBSUB_AGGREGATE_TYPE,
-  pruneEvents,
-} from "../../pipeline";
+import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline";
 import {
   createEntityTable,
   setupTestStack,
@@ -74,13 +69,13 @@ afterEach(async () => {
   );
 });
 
-async function seedOldPubsubEvent(createdAt: Date): Promise<void> {
+async function seedOldWidgetEvent(createdAt: Date): Promise<void> {
   await stack.db.db.insert(eventsTable).values({
     aggregateId: globalThis.crypto.randomUUID(),
-    aggregateType: PUBSUB_AGGREGATE_TYPE,
+    aggregateType: "widget",
     tenantId: admin.tenantId,
     version: 1,
-    type: "audit:event:old",
+    type: "widget.created",
     payload: {},
     metadata: { userId: admin.id },
     createdAt,
@@ -122,13 +117,13 @@ describe("Second audit — consumer pre-registration on start()", () => {
     // delete events below any pre-registered consumer's cursor. This is
     // the race fix made deterministic — no Promise.all timing, just the
     // invariant the fix guarantees.
-    await seedOldPubsubEvent(new Date(Date.now() - 10 * 24 * 60 * 60 * 1000));
+    await seedOldWidgetEvent(new Date(Date.now() - 10 * 24 * 60 * 60 * 1000));
 
     await stack.eventDispatcher?.start();
     try {
-      await expect(pruneEvents(stack.db.db, { olderThanDays: 1 })).rejects.toBeInstanceOf(
-        ConsumerLagError,
-      );
+      await expect(
+        pruneEvents(stack.db.db, { olderThanDays: 1, aggregateTypes: ["widget"] }),
+      ).rejects.toBeInstanceOf(ConsumerLagError);
     } finally {
       await stack.eventDispatcher?.stop();
     }

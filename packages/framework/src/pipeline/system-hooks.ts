@@ -4,7 +4,6 @@ import { tenantChannel } from "../engine/constants";
 import type { EntityId, Registry } from "../engine/types";
 import type { SearchAdapter, SearchDocument } from "../search/types";
 import type { EventConsumer } from "./event-dispatcher";
-import { PUBSUB_AGGREGATE_TYPE } from "./event-retention";
 
 // --- Search Index Consumer (async, via event-dispatcher) ---
 //
@@ -167,12 +166,6 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
   return {
     name: SSE_BROADCAST_CONSUMER_NAME,
     handler: async (event) => {
-      // skip: pub/sub events (ctx.emit) are feature-internal routing, not
-      // intended for automatic SSE fan-out. Features that *do* want a
-      // specific pub/sub event broadcast can register their own
-      // multiStreamProjection that calls sseBroker directly.
-      if (event.aggregateType === PUBSUB_AGGREGATE_TYPE) return;
-
       sseBroker.pushToChannel(tenantChannel(event.tenantId), {
         type: event.type,
         data: {

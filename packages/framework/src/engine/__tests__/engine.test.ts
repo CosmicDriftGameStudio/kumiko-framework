@@ -93,7 +93,7 @@ describe("defineFeature", () => {
     });
 
     // E.3: defineEvent returns the fully-qualified name so callers can
-    // pass it straight to ctx.emit without building the qn manually.
+    // pass it straight to ctx.appendEvent without building the qn manually.
     expect(eventRef?.name).toBe("orders:event:order:created");
     expect(feature.events["order:created"]).toBeDefined();
     expect(feature.events["order:created"]?.schema).toBeDefined();
