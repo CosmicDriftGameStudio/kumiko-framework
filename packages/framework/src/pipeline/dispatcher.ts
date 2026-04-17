@@ -71,6 +71,7 @@ import { parseJsonSafe } from "../utils/safe-json";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
+import { appendDomainEventCore } from "./append-event-core";
 import { runProjections, runProjectionsForEvent } from "./projections-runner";
 
 type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
@@ -217,16 +218,9 @@ export function createDispatcher(
   }
 
   // ctx.appendEvent — append a domain event onto a specific aggregate stream
-  // in the current tx, then fire matching inline projections.
-  //
-  // Marten-aligned: every event belongs to exactly one aggregate. Version is
-  // derived from the live stream length, so domain events carry forward the
-  // same lineage as the auto CRUD events.
-  //
-  // The schema registered via r.defineEvent is authoritative for the payload.
-  // After the write, runProjectionsForEvent fires any projection whose source
-  // matches this aggregate type and that declares an apply-handler for the
-  // event's type — same transaction, same rollback semantics as CRUD events.
+  // in the current tx, then fire matching inline projections. Core logic
+  // lives in appendDomainEventCore; this wrapper just locates dbSource +
+  // stringifies the SessionUser id for the shared helper.
   async function appendDomainEvent(
     args: AppendEventArgs,
     user: SessionUser,
@@ -239,69 +233,16 @@ export function createDispatcher(
         message: `ctx.appendEvent("${args.type}") requires a database connection — none is configured.`,
       });
     }
-
-    // Schema validation first — r.defineEvent is the single source of truth
-    // for what a feature is allowed to append. The registry holds the Zod
-    // schema; invalid payloads throw BEFORE the event hits the events-table.
-    const eventDef = registry.getEvent(args.type);
-    if (!eventDef) {
-      throw new InternalError({
-        message: `ctx.appendEvent("${args.type}") — event not registered. Call r.defineEvent(shortName, schema) in a feature; appendEvent expects the qualified name returned by defineEvent (e.g. "<feature>:event:<short>").`,
-      });
-    }
-    const parsed = eventDef.schema.safeParse(args.payload ?? {});
-    if (!parsed.success) {
-      throw validationErrorFromZod(parsed.error);
-    }
-    const validatedPayload = parsed.data as DbRow;
-
-    // Archive guard: block writes on archived streams. Without this an
-    // appendEvent would produce an "invisible" row that loadAggregate
-    // filters out by default — silent data loss from the caller's POV.
-    if (await isStreamArchived(dbSource, user.tenantId, args.aggregateId)) {
-      throw new ArchivedStreamError(user.tenantId, args.aggregateId);
-    }
-
-    // Read-modify-write inside the same tx: loadAggregate sees prior events
-    // from this transaction too (same tx scope), so multiple appendEvent
-    // calls in one handler stack correctly. Use includeArchived here to
-    // count prior events even for a stream that's about to be resurrected
-    // — the archive guard above already caught active archives.
-    const existing = await loadAggregate(dbSource, args.aggregateId, user.tenantId, {
-      includeArchived: true,
-    });
-    const expectedVersion = existing.length;
-
-    const reqCtx = requestContext.get();
-    // Stamp the new event with the CURRENT eventVersion so reads never need
-    // to upcast fresh writes. If eventVersion defaulted to 1, the upcaster
-    // would re-run v1→v(N) on brand-new payloads that are already in v(N)
-    // shape — at best wasted work, at worst garbage (the v1 transform would
-    // try to parse v(N) fields).
-    // Stamp the request's idempotency marker only on the FIRST event write.
-    // See RequestContextData.requestIdUsed docs — subsequent writes would
-    // trip events_idempotency_idx.
-    const stampRequestId = reqCtx?.requestId && !reqCtx.requestIdUsed;
-    const stored = await appendEvent(dbSource, {
-      aggregateId: args.aggregateId,
-      aggregateType: args.aggregateType,
-      tenantId: user.tenantId,
-      expectedVersion,
-      type: args.type,
-      eventVersion: eventDef.version,
-      payload: validatedPayload,
-      metadata: {
-        userId: user.id,
-        ...(stampRequestId && reqCtx ? { requestId: reqCtx.requestId } : {}),
-        ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
-        ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+    await appendDomainEventCore(
+      {
+        registry,
+        db: dbSource,
+        tenantId: user.tenantId,
+        userId: String(user.id),
+        callSiteLabel: "ctx.appendEvent",
       },
-    });
-    if (stampRequestId && reqCtx) reqCtx.requestIdUsed = true;
-
-    // Inline projections — same tx as the append, so a throw rolls the event
-    // back with whatever projection writes preceded it.
-    await runProjectionsForEvent(stored, registry, dbSource);
+      args,
+    );
   }
 
   async function logEvent(type: string, payload: unknown, user: SessionUser): Promise<void> {

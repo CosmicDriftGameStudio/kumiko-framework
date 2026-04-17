@@ -285,10 +285,10 @@ describe("correlation propagation", () => {
         expect(entries.length).toBe(1);
       });
       const entry = jobLog.find((e) => e.name === "test:job:correlation-probe");
-      expect(entry?.payload.observedCorrelationId).toBe("carry-me-across-bullmq");
+      expect(entry?.payload["observedCorrelationId"]).toBe("carry-me-across-bullmq");
       // requestId is fresh per job run, NOT the scheduler's requestId.
-      expect(entry?.payload.observedRequestId).not.toBe("req-outer");
-      expect(typeof entry?.payload.observedRequestId).toBe("string");
+      expect(entry?.payload["observedRequestId"]).not.toBe("req-outer");
+      expect(typeof entry?.payload["observedRequestId"]).toBe("string");
     });
   });
 
@@ -303,8 +303,8 @@ describe("correlation propagation", () => {
       const entry = jobLog.find((e) => e.name === "test:job:correlation-probe");
       // Fresh correlationId — new requestId mirrored onto correlationId
       // when no parent-context provided one.
-      expect(typeof entry?.payload.observedCorrelationId).toBe("string");
-      expect(entry?.payload.observedCorrelationId).toBe(entry?.payload.observedRequestId);
+      expect(typeof entry?.payload["observedCorrelationId"]).toBe("string");
+      expect(entry?.payload["observedCorrelationId"]).toBe(entry?.payload["observedRequestId"]);
     });
   });
 });

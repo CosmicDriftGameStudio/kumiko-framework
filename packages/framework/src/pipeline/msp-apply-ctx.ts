@@ -1,18 +1,12 @@
-import { requestContext } from "../api/request-context";
 import type { DbRunner } from "../db/connection";
 import type { AppendEventArgs, Registry, TenantId } from "../engine/types";
-import { InternalError, validationErrorFromZod } from "../errors";
-import { isStreamArchived } from "../event-store/archive";
-import { ArchivedStreamError } from "../event-store/errors";
 import {
-  append,
-  getStreamVersion,
   loadAggregate,
   loadAggregateAsOf,
   type StoredEvent,
 } from "../event-store/event-store";
 import { upcastStoredEvents } from "../event-store/upcaster";
-import { runProjectionsForEvent } from "./projections-runner";
+import { appendDomainEventCore } from "./append-event-core";
 
 // Minimal, read+write surface handed to a MultiStreamProjection's apply()
 // when it needs to produce follow-up events (saga / process-manager
@@ -51,54 +45,16 @@ export type MspApplyContextDeps = {
 export function createMspApplyContext(deps: MspApplyContextDeps): MspApplyContext {
   return {
     appendEvent: async (args) => {
-      const eventDef = deps.registry.getEvent(args.type);
-      if (!eventDef) {
-        throw new InternalError({
-          message: `ctx.appendEvent("${args.type}") in MSP-apply — event not registered. Call r.defineEvent(shortName, schema) in a feature; appendEvent expects the qualified name returned by defineEvent.`,
-        });
-      }
-      const parsed = eventDef.schema.safeParse(args.payload ?? {});
-      if (!parsed.success) throw validationErrorFromZod(parsed.error);
-      const validatedPayload = parsed.data as Record<string, unknown>;
-
-      if (await isStreamArchived(deps.db, deps.tenantId, args.aggregateId)) {
-        throw new ArchivedStreamError(deps.tenantId, args.aggregateId);
-      }
-
-      const expectedVersion = await getStreamVersion(
-        deps.db,
-        args.aggregateId,
-        deps.tenantId,
-      );
-
-      const reqCtx = requestContext.get();
-      // Same stamp-once-only semantics as dispatcher.appendDomainEvent:
-      // events_idempotency_idx is UNIQUE on (tenantId, metadata->>'requestId'),
-      // so only the FIRST event in a request wears the marker.
-      const stampRequestId = reqCtx?.requestId && !reqCtx.requestIdUsed;
-
-      const stored = await append(deps.db, {
-        aggregateId: args.aggregateId,
-        aggregateType: args.aggregateType,
-        tenantId: deps.tenantId,
-        expectedVersion,
-        type: args.type,
-        eventVersion: eventDef.version,
-        payload: validatedPayload,
-        metadata: {
+      await appendDomainEventCore(
+        {
+          registry: deps.registry,
+          db: deps.db,
+          tenantId: deps.tenantId,
           userId: deps.userId,
-          ...(stampRequestId && reqCtx ? { requestId: reqCtx.requestId } : {}),
-          ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
-          ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+          callSiteLabel: "MSP-apply ctx.appendEvent",
         },
-      });
-      if (stampRequestId && reqCtx) reqCtx.requestIdUsed = true;
-
-      // Inline projections fire in the same tx — same semantics as
-      // ctx.appendEvent from a write-handler. Consistency: whether an
-      // event lands via write-handler or MSP-apply, its inline
-      // projections fire in the same transaction.
-      await runProjectionsForEvent(stored, deps.registry, deps.db);
+        args,
+      );
     },
 
     loadAggregate: async (aggregateId, options) => {
