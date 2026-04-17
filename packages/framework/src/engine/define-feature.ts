@@ -3,7 +3,7 @@ import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
 import { buildCrudHandlers } from "./crud-builder";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
-import { qn, toKebab } from "./qualified-name";
+import { isKebabSegment, qn, toKebab } from "./qualified-name";
 import type {
   AccessRule,
   ConfigDefinition,
@@ -376,14 +376,10 @@ export function defineFeature(
     },
 
     projection(definition: ProjectionDefinition): void {
-      // Reject names that would blow up at registry-boot when we qualify them
-      // ("my_projection" would fail the kebab-case QN segment regex inside
-      // createRegistry). Catch it at the registration site so the stack trace
-      // points at the feature file, not at framework internals.
-      if (
-        toKebab(definition.name) !== definition.name ||
-        !/^[a-z][a-z0-9-]*$/.test(definition.name)
-      ) {
+      // Reject names that would blow up at registry-boot when we qualify them.
+      // Catch it at the registration site so the stack trace points at the
+      // feature file, not at framework internals.
+      if (!isKebabSegment(definition.name)) {
         throw new Error(
           `[Feature ${name}] Projection name "${definition.name}" must be kebab-case ` +
             `(lowercase letters, digits, dashes; start with a letter). ` +
@@ -401,10 +397,8 @@ export function defineFeature(
 
     postEvent(subscriberName, handler, options): void {
       // Same kebab-case rule as projections — consumer name becomes a QN
-      // segment ("<feature>:consumer:<name>") at registry-boot. Registering
-      // with a non-kebab name would silently survive here but blow up when
-      // the registry qualifies it, far from the source.
-      if (toKebab(subscriberName) !== subscriberName || !/^[a-z][a-z0-9-]*$/.test(subscriberName)) {
+      // segment ("<feature>:consumer:<name>") at registry-boot.
+      if (!isKebabSegment(subscriberName)) {
         throw new Error(
           `[Feature ${name}] postEvent subscriber name "${subscriberName}" must be kebab-case ` +
             `(lowercase letters, digits, dashes; start with a letter).`,
