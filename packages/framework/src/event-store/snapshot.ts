@@ -5,13 +5,14 @@ import {
   integer,
   jsonb,
   table as pgTable,
+  primaryKey,
   text,
   timestamp,
-  uniqueIndex,
   uuid,
 } from "../db/dialect";
 import type { TenantId } from "../engine/types";
 import { pushTables } from "../testing";
+import { isStreamArchived } from "./archive";
 import { loadEventsAfterVersion, type StoredEvent } from "./event-store";
 
 // Marten-aligned snapshot store. A snapshot is a point-in-time materialised
@@ -19,13 +20,14 @@ import { loadEventsAfterVersion, type StoredEvent } from "./event-store";
 // aggregate doesn't require replaying every historical event.
 //
 // Read path (loadAggregateWithSnapshot):
-//   1. loadLatestSnapshot → state + version N (or null)
-//   2. loadEventsAfterVersion(aggregate, N) → only the delta
-//   3. reducer(snapshot, delta) → current state
+//   1. isStreamArchived? → honour same semantics as loadAggregate
+//   2. loadLatestSnapshot → state + version N (or null)
+//   3. loadEventsAfterVersion(aggregate, N) → only the delta
+//   4. reducer(snapshot, delta) → current state
 //
-// Write path: feature authors opt in via ctx.snapshotAggregate(aggregateId,
-// version, state). Policy (every N events, every M minutes, ...) is a
-// feature-level decision — the framework only offers the storage primitive.
+// Write path: feature authors opt in via ctx.snapshotAggregate. Policy
+// (every N events, every M minutes, on-demand) is a feature-level decision
+// — the framework only offers the storage primitive.
 //
 // Schema-migration policy: NO built-in snapshot versioning. A snapshot stores
 // the aggregate state in the reducer's current shape. When the reducer's
@@ -35,12 +37,22 @@ import { loadEventsAfterVersion, type StoredEvent } from "./event-store";
 // chain on events) until the next snapshotAggregate call. Cheaper than a
 // second migration mechanism; snapshots are a perf optimisation, not a
 // source of truth.
+//
+// Upcaster interaction: the raw API (loadAggregateWithSnapshot below) does
+// NOT apply the upcaster chain on delta events — same layering as raw
+// loadAggregate. The Dispatcher wraps this into ctx.loadAggregateWithSnapshot
+// and runs upcastStoredEvents on the delta before calling the reducer, so
+// feature authors always see current-version payloads.
 
 export const snapshotsTable = pgTable(
   "kumiko_snapshots",
   {
     aggregateId: uuid("aggregate_id").notNull(),
     tenantId: uuid("tenant_id").notNull(),
+    // Kept even though (aggregate_id, version) is globally unique: the
+    // schema-migration invalidation mechanism (see file header) filters by
+    // aggregate_type, so storing it avoids a join on events just to
+    // invalidate snapshots.
     aggregateType: text("aggregate_type").notNull(),
     // The version covered by this snapshot. `loadEventsAfterVersion`
     // returns events with version > this value.
@@ -49,9 +61,10 @@ export const snapshotsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   },
   (t) => ({
-    pk: uniqueIndex("kumiko_snapshots_pk").on(t.aggregateId, t.version),
-    // Index ordered DESC by version so the "latest snapshot" lookup is a
-    // single index seek instead of scan-and-sort.
+    pk: primaryKey({ columns: [t.aggregateId, t.version] }),
+    // Latest-snapshot lookup: WHERE aggregate_id = ? ORDER BY version DESC
+    // LIMIT 1. With this index the planner does one seek + backward scan
+    // instead of sort-and-limit.
     latestIdx: index("kumiko_snapshots_latest_idx").on(t.aggregateId, t.tenantId, t.version),
   }),
 );
@@ -144,17 +157,36 @@ export type LoadAggregateWithSnapshotResult<TState extends Record<string, unknow
   readonly snapshotHit: boolean;
 };
 
+export type LoadAggregateWithSnapshotOptions = {
+  // Opt-in: include archived streams in the rehydrate. Default false — same
+  // semantics as loadAggregate / loadAggregateAsOf. Archive check is a
+  // single indexed lookup, so the cost stays negligible on the hot path.
+  readonly includeArchived?: boolean;
+};
+
 // Snapshot-aware rehydrate. Loads the latest snapshot (if any), applies
 // events strictly newer than snapshot.version, and returns the fold.
 // Callers that want strictly-event-sourced loading should stick with
 // loadAggregate + reduce — this path exists for perf-critical aggregates.
+//
+// Archive behaviour mirrors loadAggregate: an archived stream returns
+// `initial` with version=0, snapshotHit=false, unless
+// { includeArchived: true } is passed. This keeps snapshot and raw
+// loadAggregate interchangeable from the caller's point of view.
 export async function loadAggregateWithSnapshot<TState extends Record<string, unknown>>(
   db: DbRunner,
   aggregateId: string,
   tenantId: TenantId,
   reducer: SnapshotReducer<TState>,
   initial: TState,
+  options?: LoadAggregateWithSnapshotOptions,
 ): Promise<LoadAggregateWithSnapshotResult<TState>> {
+  if (!options?.includeArchived) {
+    const archived = await isStreamArchived(db, tenantId, aggregateId);
+    if (archived) {
+      return { state: initial, version: 0, snapshotHit: false };
+    }
+  }
   const snapshot = await loadLatestSnapshot<TState>(db, aggregateId, tenantId);
   const baseState = snapshot ? snapshot.state : initial;
   const afterVersion = snapshot ? snapshot.version : 0;

@@ -47,7 +47,12 @@ import {
   loadAggregateAsOf,
   type StoredEvent,
 } from "../event-store/event-store";
-import { saveSnapshot } from "../event-store/snapshot";
+import {
+  type LoadAggregateWithSnapshotResult,
+  loadAggregateWithSnapshot,
+  type SnapshotReducer,
+  saveSnapshot,
+} from "../event-store/snapshot";
 import { upcastStoredEvents } from "../event-store/upcaster";
 import {
   createMetricsHandle,
@@ -515,6 +520,37 @@ export function createDispatcher(
           version: snapshotArgs.version,
           state: snapshotArgs.state,
         });
+      },
+      loadAggregateWithSnapshot: async <TState extends Record<string, unknown>>(
+        aggregateId: string,
+        reducer: SnapshotReducer<TState>,
+        initial: TState,
+      ): Promise<LoadAggregateWithSnapshotResult<TState>> => {
+        const dbSource: DbConnection | DbTx | undefined =
+          tx ?? (context.db as DbConnection | undefined);
+        if (!dbSource) {
+          throw new InternalError({
+            message: `ctx.loadAggregateWithSnapshot("${aggregateId}") requires a database connection — none is configured.`,
+          });
+        }
+        // Upcaster-aware wrapper: wrap the user's reducer so every delta
+        // event passes through the registered upcaster chain before
+        // reducing. Keeps the reducer authoring shape identical to what
+        // ctx.loadAggregate delivers — feature authors never see legacy
+        // payload shapes regardless of which load path they chose.
+        const upcasters = registry.getEventUpcasters();
+        const upcastingReducer: SnapshotReducer<TState> = (state, event) => {
+          const upcasted = upcastStoredEvents([event], upcasters);
+          const effective = upcasted[0] ?? event;
+          return reducer(state, effective);
+        };
+        return loadAggregateWithSnapshot<TState>(
+          dbSource,
+          aggregateId,
+          user.tenantId,
+          upcastingReducer,
+          initial,
+        );
       },
       queryProjection: async <T = Record<string, unknown>>(
         qualifiedName: string,

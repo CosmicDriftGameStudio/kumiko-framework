@@ -16,6 +16,7 @@ export {
   jsonb,
   numeric,
   pgTable as table,
+  primaryKey,
   serial,
   text,
   timestamp,

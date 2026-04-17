@@ -1,13 +1,16 @@
-// E.1 — buildServer wires the event-dispatcher, drives delivery via .start(),
-// emits the lag gauge.
-//
-// Before E.1 the dispatcher lived only in test-stack.ts, not in buildServer.
-// These tests pin the claims that make the feature actually prod-ready:
+// Dispatcher lifecycle + observability pins:
 //
 //   1. buildServer returns a live eventDispatcher when consumers are wired.
 //   2. dispatcher.start() delivers without explicit runOnce; a handler
-//      slower than pollIntervalMs doesn't queue overlapping passes.
+//      slower than pollIntervalMs doesn't queue overlapping passes
+//      (passInFlight serialisation).
 //   3. kumiko_event_consumer_lag_events is emitted per pass.
+//
+// History: this file originally also tested r.postEvent's tenant-scoped
+// ctx.db wrap (E.1 "wiring"). Those tests were removed with r.postEvent in
+// E.2 — MSP apply runs against a raw DbRunner and propagates event.tenantId
+// via payload, not via a wrapped DB handle. Tenant-isolation-via-MSP is
+// tested in multi-stream-projection.integration.ts.
 
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";

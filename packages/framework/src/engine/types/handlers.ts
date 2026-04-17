@@ -207,6 +207,21 @@ export type HandlerContext = SharedContextFields & {
     readonly state: Record<string, unknown>;
   }) => Promise<void>;
 
+  // Snapshot-aware rehydrate. Loads the latest snapshot (if any), runs the
+  // registered upcaster chain on every delta event, and folds them onto
+  // the snapshot state with the caller's reducer. Returns the final state,
+  // the latest event version, and whether a snapshot was used — the last
+  // lets a feature's snapshot policy make informed decisions
+  // (e.g. "snapshot every 100 events past the last snapshot").
+  //
+  // Archived streams behave like ctx.loadAggregate — empty result with
+  // version=0, not an exception.
+  readonly loadAggregateWithSnapshot: <TState extends Record<string, unknown>>(
+    aggregateId: string,
+    reducer: import("../../event-store").SnapshotReducer<TState>,
+    initial: TState,
+  ) => Promise<import("../../event-store").LoadAggregateWithSnapshotResult<TState>>;
+
   // Read rows from a registered projection table, tenant-scoped to the
   // current user. Marten's equivalent of session.Query<T>() — the projection
   // table is the read model; this surface makes it reachable by qualified

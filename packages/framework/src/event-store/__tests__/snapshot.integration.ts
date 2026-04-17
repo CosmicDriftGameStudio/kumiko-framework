@@ -14,14 +14,14 @@ import { v4 as uuid } from "uuid";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { TenantId } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../testing";
-import { eventsTable } from "../events-schema";
 import {
   append,
+  archiveStream,
   createEventsTable,
+  loadAggregate,
   loadAggregateWithSnapshot,
   loadLatestSnapshot,
   type SnapshotReducer,
-  type StoredEvent,
   saveSnapshot,
 } from "../index";
 
@@ -58,7 +58,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE events, kumiko_snapshots RESTART IDENTITY`);
+  await testDb.db.execute(
+    sql`TRUNCATE events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY`,
+  );
 });
 
 // Append N increment events to a fresh aggregate. Returns the aggregate id.
@@ -78,17 +80,15 @@ async function seedAggregate(eventCount: number): Promise<string> {
   return aggId;
 }
 
-// Reduce by loading every event — the ground truth the snapshot path must
-// match. Keeps the test honest when we compare snapshot+delta vs full-replay.
+// Reduce by loading every event through the framework's loadAggregate —
+// the ground truth the snapshot path must match. Using the real API (not
+// raw SQL) keeps the invariant honest: if loadAggregate semantics drift,
+// this helper shifts with them.
 async function loadFullState(aggregateId: string): Promise<CounterState> {
-  const rows = await testDb.db
-    .select()
-    .from(eventsTable)
-    .where(sql`aggregate_id = ${aggregateId}::uuid AND tenant_id = ${tenant}::uuid`)
-    .orderBy(sql`version ASC`);
+  const events = await loadAggregate(testDb.db, aggregateId, tenant);
   let state: CounterState = initial;
-  for (const row of rows) {
-    state = reducer(state, row as unknown as StoredEvent);
+  for (const event of events) {
+    state = reducer(state, event);
   }
   return state;
 }
@@ -190,6 +190,50 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
     expect(snapBased.snapshotHit).toBe(false);
     expect(snapBased.version).toBe(20);
     expect(snapBased.state.count).toBe(full.count);
+  });
+
+  test("archived stream returns initial + snapshotHit=false (matches loadAggregate)", async () => {
+    // Archive semantics must be symmetric with loadAggregate — an archived
+    // stream is "gone" from the default read path, regardless of snapshot
+    // presence. Otherwise a snapshot would silently survive a GDPR-style
+    // archival and leak state that the event log hid.
+    const aggId = await seedAggregate(10);
+    await saveSnapshot(testDb.db, {
+      aggregateId: aggId,
+      tenantId: tenant,
+      aggregateType: "counter",
+      version: 10,
+      state: { count: 10, label: "pre-archive" },
+    });
+    await archiveStream(testDb.db, {
+      tenantId: tenant,
+      aggregateId: aggId,
+      aggregateType: "counter",
+      archivedBy: userId,
+    });
+
+    const snapBased = await loadAggregateWithSnapshot<CounterState>(
+      testDb.db,
+      aggId,
+      tenant,
+      reducer,
+      initial,
+    );
+    expect(snapBased.state).toEqual(initial);
+    expect(snapBased.version).toBe(0);
+    expect(snapBased.snapshotHit).toBe(false);
+
+    // includeArchived opt-in surfaces the snapshot + deltas for ops tooling.
+    const archived = await loadAggregateWithSnapshot<CounterState>(
+      testDb.db,
+      aggId,
+      tenant,
+      reducer,
+      initial,
+      { includeArchived: true },
+    );
+    expect(archived.snapshotHit).toBe(true);
+    expect(archived.state.count).toBe(10);
   });
 
   test("1000-event aggregate with snapshot at v900 loads in under 50ms", async () => {

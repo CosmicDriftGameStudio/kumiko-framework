@@ -13,7 +13,13 @@ import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  createTestUser,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Two aggregate types that feed one MSP ---
 
@@ -238,6 +244,47 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
       .where(eq(customerBalanceTable.customer, cust));
     expect(row?.shipments).toBe(1);
     expect(row?.netCents).toBe(42);
+  });
+
+  test("MSP apply receives event.tenantId correctly across tenants (isolation pin)", async () => {
+    // Regression pin: MSP apply does NOT get a tenant-scoped TenantDb (the
+    // old r.postEvent wrap). Instead the apply handler reads event.tenantId
+    // and writes it into the projection row. Verify that two tenants feeding
+    // the same MSP land in distinct rows carrying their own tenantId — not
+    // cross-tenant leaks, not hardcoded wrong tenant.
+    const otherAdmin = createTestUser({
+      id: 77,
+      roles: ["Admin"],
+      tenantId: "00000000-0000-4000-8000-000000000099",
+    });
+    const customerAlpha = "00000000-0000-4000-8000-000000000aa1";
+    const customerBeta = "00000000-0000-4000-8000-000000000bb2";
+
+    await stack.http.writeOk(
+      "msptest:write:shipment:bill",
+      { customer: customerAlpha, cents: 1000 },
+      admin,
+    );
+    await stack.http.writeOk(
+      "msptest:write:shipment:bill",
+      { customer: customerBeta, cents: 2000 },
+      otherAdmin,
+    );
+    await stack.eventDispatcher?.runOnce();
+
+    const rows = await stack.db.db
+      .select()
+      .from(customerBalanceTable)
+      .orderBy(customerBalanceTable.customer);
+    const alpha = rows.find((r) => r.customer === customerAlpha);
+    const beta = rows.find((r) => r.customer === customerBeta);
+
+    expect(alpha).toBeDefined();
+    expect(beta).toBeDefined();
+    expect(alpha?.tenantId).toBe(admin.tenantId);
+    expect(beta?.tenantId).toBe(otherAdmin.tenantId);
+    expect(alpha?.netCents).toBe(1000);
+    expect(beta?.netCents).toBe(2000);
   });
 
   test("events the MSP does not subscribe to pass through untouched", async () => {
