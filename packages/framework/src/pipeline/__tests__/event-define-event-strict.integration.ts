@@ -14,24 +14,22 @@
 import { eq, sql as sqlTag } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
-
-// --- Fixture ---
-
-const emitterEntity = createEntity({
-  table: "emitter_widgets",
-  idType: "uuid",
-  fields: { name: createTextField({ required: true }) },
-});
+import {
+  createEntityTable,
+  setupTestStack,
+  sharedWidgetEntity,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // Capture of the qualified event name defineEvent returns so tests can
 // assert against a moving target (kebab/qualifier transformations).
 let welcomeEventName = "";
 
 const emitterFeature = defineFeature("emitter", (r) => {
-  r.entity("emitterWidget", emitterEntity);
+  r.entity("widget", sharedWidgetEntity);
 
   const welcome = r.defineEvent("user.welcomed", z.object({ userId: z.uuid(), email: z.email() }));
   welcomeEventName = welcome.name;
@@ -78,12 +76,12 @@ beforeAll(async () => {
     features: [emitterFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, emitterEntity, "emitterWidget");
+  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
 });
 
 afterEach(async () => {
   await stack.db.db.execute(
-    sqlTag`TRUNCATE events, emitter_widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+    sqlTag`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
 });
 

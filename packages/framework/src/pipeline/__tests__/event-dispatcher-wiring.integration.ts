@@ -14,9 +14,8 @@
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import { defineFeature } from "../../engine";
 import type { StoredEvent } from "../../event-store";
 import {
   DEFAULT_SENSITIVE_CONFIG,
@@ -25,21 +24,19 @@ import {
   RecordingMeter,
   RecordingTracer,
 } from "../../observability";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  setupTestStack,
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Test fixtures ---
 
-const wiringEntity = createEntity({
-  table: "wiring_widgets",
-  idType: "uuid",
-  fields: {
-    name: createTextField({ required: true }),
-  },
-  softDelete: true,
-});
-const wiringTable = buildDrizzleTable("wiringWidget", wiringEntity);
-const executor = createEventStoreExecutor(wiringTable, wiringEntity, {
-  entityName: "wiringWidget",
+const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
+  entityName: "widget",
 });
 
 // Capture what the handler sees so we can assert on the context shape that
@@ -56,7 +53,7 @@ let slowHandlerDelayMs = 0;
 let slowHandlerInvocations: Array<{ start: number; end: number }> = [];
 
 const wiringFeature = defineFeature("wiring", (r) => {
-  r.entity("wiringWidget", wiringEntity);
+  r.entity("widget", sharedWidgetEntity);
 
   r.postEvent("tenant-scoped", async (event, ctx) => {
     tenantObservations.push({ event, db: ctx.db });
@@ -88,7 +85,7 @@ beforeAll(async () => {
     features: [wiringFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, wiringEntity, "wiringWidget");
+  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db.db, admin.tenantId);
 });
 
@@ -98,7 +95,7 @@ afterEach(async () => {
   slowHandlerDelayMs = 0;
   slowHandlerInvocations = [];
   await stack.db.db.execute(
-    sql`TRUNCATE events, wiring_widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -120,8 +117,7 @@ describe("E.1 — buildServer event-dispatcher wiring", () => {
     await stack.eventDispatcher?.runOnce();
 
     const obs = tenantObservations.find(
-      (o) =>
-        o.event.type === "wiringWidget.created" && o.event.payload["name"] === "for-tenant-check",
+      (o) => o.event.type === "widget.created" && o.event.payload["name"] === "for-tenant-check",
     );
     expect(obs).toBeDefined();
     // TenantDb has .tenantId + .mode; DbConnection does not.
@@ -134,8 +130,7 @@ describe("E.1 — buildServer event-dispatcher wiring", () => {
     await stack.eventDispatcher?.runOnce();
 
     const obs = systemObservations.find(
-      (o) =>
-        o.event.type === "wiringWidget.created" && o.event.payload["name"] === "for-system-check",
+      (o) => o.event.type === "widget.created" && o.event.payload["name"] === "for-system-check",
     );
     expect(obs).toBeDefined();
     // Raw DbConnection has neither `.tenantId` nor `.mode` — the handler is
@@ -218,7 +213,7 @@ describe("E.1 — consumer-lag metric", () => {
       observability: recordingProvider,
     });
     try {
-      await createEntityTable(recStack.db.db, wiringEntity, "wiringWidget");
+      await createEntityTable(recStack.db.db, sharedWidgetEntity, "widget");
       const recTdb = createTenantDb(recStack.db.db, admin.tenantId);
       await executor.create({ name: "lag-check" }, admin, recTdb);
 

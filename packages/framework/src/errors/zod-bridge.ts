@@ -1,4 +1,5 @@
 import type { ZodError, ZodIssue } from "zod";
+import type { DbRow } from "../db/connection";
 import { ValidationError, type ValidationFieldIssue } from "./classes";
 
 // Zod issues carry a .code and sometimes issue-specific params (min, max, etc).
@@ -38,7 +39,7 @@ export function validationErrorFromZod(error: ZodError): ValidationError {
 
 function extractIssueParams(issue: ZodIssue): Readonly<Record<string, unknown>> | undefined {
   const out: Record<string, unknown> = {};
-  const bag = issue as unknown as Record<string, unknown>;
+  const bag = issue as unknown as DbRow;
   for (const key of ISSUE_PARAM_KEYS) {
     if (bag[key] !== undefined) out[key] = bag[key];
   }

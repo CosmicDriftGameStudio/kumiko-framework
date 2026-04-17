@@ -1,3 +1,4 @@
+import type { DbRow } from "../db/connection";
 import type {
   AppContext,
   DeleteContext,
@@ -386,7 +387,7 @@ export function createLifecycleHooks(
 // unreachable through the normal LifecycleResult flow.
 export function buildEventId(handlerName: string, payload: unknown, phase: string): string | null {
   if (!payload || typeof payload !== "object") return null;
-  const p = payload as Record<string, unknown>;
+  const p = payload as DbRow;
   const id = p["id"] as number | undefined;
   if (!id) return null;
   const data = p["data"] as Record<string, unknown> | undefined;

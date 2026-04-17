@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
-import type { DbConnection, DbTx } from "../db/connection";
+import type { DbConnection, DbRow, DbTx } from "../db/connection";
 import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
@@ -242,7 +242,7 @@ export function createDispatcher(
     if (!parsed.success) {
       throw validationErrorFromZod(parsed.error);
     }
-    const validatedPayload = parsed.data as Record<string, unknown>;
+    const validatedPayload = parsed.data as DbRow;
 
     const reqCtx = requestContext.get();
     // System-scope events carry the zero-UUID as a marker on the in-memory
@@ -276,7 +276,7 @@ export function createDispatcher(
     if (!eventLog) return;
     await eventLog.append({
       type,
-      payload: (payload ?? {}) as Record<string, unknown>,
+      payload: (payload ?? {}) as DbRow,
       userId: user.id,
       tenantId: user.tenantId,
     });
@@ -481,14 +481,14 @@ export function createDispatcher(
           result = result.map((row: Record<string, unknown>) =>
             filterReadFields(entity, row, user),
           );
-        } else if ("rows" in (result as Record<string, unknown>)) {
+        } else if ("rows" in (result as DbRow)) {
           const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null };
           result = {
             ...r,
             rows: r.rows.map((row) => filterReadFields(entity, row, user)),
           };
         } else {
-          result = filterReadFields(entity, result as Record<string, unknown>, user);
+          result = filterReadFields(entity, result as DbRow, user);
         }
       }
     }
@@ -586,7 +586,7 @@ export function createDispatcher(
       return writeFailure(validationErrorFromZod(parsed.error));
     }
 
-    const hookErrors = runValidation(registry, type, parsed.data as Record<string, unknown>);
+    const hookErrors = runValidation(registry, type, parsed.data as DbRow);
     if (hookErrors) {
       return writeFailure(
         new ValidationError({
@@ -604,10 +604,10 @@ export function createDispatcher(
     if (entityName) {
       const entity = registry.getEntity(entityName);
       if (entity) {
-        const fieldsToCheck = (parsed.data as Record<string, unknown>)["changes"] as
+        const fieldsToCheck = (parsed.data as DbRow)["changes"] as
           | Record<string, unknown>
           | undefined;
-        const writePayload = fieldsToCheck ?? (parsed.data as Record<string, unknown>);
+        const writePayload = fieldsToCheck ?? (parsed.data as DbRow);
         const deniedField = checkWriteFields(entity, writePayload, user);
         if (deniedField) {
           return writeFailure(
@@ -631,8 +631,8 @@ export function createDispatcher(
     if (entityName && !handler.skipTransitionGuard) {
       const entity = registry.getEntity(entityName);
       if (entity?.transitions && handlerContext.db) {
-        const parsedData = parsed.data as Record<string, unknown>;
-        const changes = (parsedData["changes"] as Record<string, unknown>) ?? parsedData;
+        const parsedData = parsed.data as DbRow;
+        const changes = (parsedData["changes"] as DbRow) ?? parsedData;
         const id = (parsedData["id"] as number) ?? undefined;
 
         for (const [fieldName, transitionMap] of Object.entries(entity.transitions)) {
@@ -657,10 +657,10 @@ export function createDispatcher(
           // Skip guard for soft-deleted rows — they shouldn't be transitioning
           // at all; a handler that wants to move a deleted row should use
           // skipTransitionGuard or restore first.
-          if (entity.softDelete && (row as Record<string, unknown>)["isDeleted"] === true) {
+          if (entity.softDelete && (row as DbRow)["isDeleted"] === true) {
             continue;
           }
-          const currentValue = (row as Record<string, unknown>)[fieldName] as string;
+          const currentValue = (row as DbRow)[fieldName] as string;
           guardTransition(
             getTransitions({ entityName, fieldName, map: transitionMap }),
             currentValue,
@@ -694,7 +694,7 @@ export function createDispatcher(
       // for rolled-back writes. Defer to afterCommit in all paths.
       if (jobRunner) {
         afterCommitHooks.push(() =>
-          jobRunner.handleEvent(type, (parsed.data ?? {}) as Record<string, unknown>, user),
+          jobRunner.handleEvent(type, (parsed.data ?? {}) as DbRow, user),
         );
       }
       const parsedData = parsed.data;

@@ -1,4 +1,5 @@
 import type { SseBroker } from "../api/sse-broker";
+import type { DbRow } from "../db/connection";
 import { tenantChannel } from "../engine/constants";
 import type { EntityId, Registry } from "../engine/types";
 import type { SearchAdapter, SearchDocument } from "../search/types";
@@ -124,7 +125,7 @@ function buildSearchDocument(
         const subKey = f.slice(underscoreIdx + 1);
         const parent = state[parentKey];
         if (parent && typeof parent === "object") {
-          const value = (parent as Record<string, unknown>)[subKey];
+          const value = (parent as DbRow)[subKey];
           if (value !== undefined) fields[f] = value;
         }
         continue;

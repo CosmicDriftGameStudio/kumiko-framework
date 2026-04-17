@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { ReferenceDataDef } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types";
-import type { DbConnection } from "./connection";
+import type { DbConnection, DbRow } from "./connection";
 import type { TableColumns } from "./dialect";
 import { toSnakeCase } from "./table-builder";
 
@@ -46,7 +46,7 @@ export async function seedReferenceData(
 
       if (existing) {
         // Update if any field changed
-        const existingData = existing as Record<string, unknown>;
+        const existingData = existing as DbRow;
         const changes: Record<string, unknown> = {};
         for (const [field, value] of Object.entries(row)) {
           if (field === upsertKey) continue;

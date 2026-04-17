@@ -13,27 +13,27 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import { defineFeature } from "../../engine";
+import {
+  createEntityTable,
+  setupTestStack,
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Fixture ---
 
-const listenEntity = createEntity({
-  table: "listen_widgets",
-  idType: "uuid",
-  fields: { name: createTextField({ required: true }) },
-});
-const listenTable = buildDrizzleTable("listenWidget", listenEntity);
-const executor = createEventStoreExecutor(listenTable, listenEntity, {
-  entityName: "listenWidget",
+const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
+  entityName: "widget",
 });
 
 const deliveryTimes: number[] = [];
 
 const listenFeature = defineFeature("listen", (r) => {
-  r.entity("listenWidget", listenEntity);
+  r.entity("widget", sharedWidgetEntity);
 
   r.postEvent("latency-probe", async () => {
     deliveryTimes.push(Date.now());
@@ -49,7 +49,7 @@ beforeAll(async () => {
     features: [listenFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, listenEntity, "listenWidget");
+  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db.db, admin.tenantId);
 });
 

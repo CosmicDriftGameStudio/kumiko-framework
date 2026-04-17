@@ -19,6 +19,7 @@ import {
 import { append, VersionConflictError as EventStoreVersionConflict } from "../event-store";
 import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
+import type { DbRow } from "./connection";
 import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
 import type { CursorResult } from "./index";
@@ -158,12 +159,14 @@ export function createEventStoreExecutor(
     if (softDelete && table["isDeleted"]) {
       conditions.push(eq(table["isDeleted"], false));
     }
+    // Drizzle's variadic `and()` is typed `SQL | undefined`; conditions is
+    // guaranteed non-empty above (we pushed at least one).
     return and(...conditions) as SQL;
   }
 
   async function loadById(id: EntityId, db: TenantDb): Promise<Record<string, unknown> | null> {
     const [row] = await db.select().from(table).where(idFilter(id));
-    return (row as Record<string, unknown>) ?? null;
+    return (row as DbRow) ?? null;
   }
 
   return {
@@ -206,7 +209,7 @@ export function createEventStoreExecutor(
 
       if (!row)
         return writeFailure(new InternalError({ message: "projection insert returned no row" }));
-      const projection = row as Record<string, unknown>;
+      const projection = row as DbRow;
 
       if (entityCache && entityName) {
         await entityCache.del(user.tenantId, entityName, aggregateId);
@@ -287,7 +290,7 @@ export function createEventStoreExecutor(
 
         if (!row)
           return writeFailure(new InternalError({ message: "projection update returned no row" }));
-        const data = row as Record<string, unknown>;
+        const data = row as DbRow;
 
         if (entityCache && entityName) {
           await entityCache.del(user.tenantId, entityName, payload.id);
@@ -381,7 +384,7 @@ export function createEventStoreExecutor(
 
       const [row] = await db.select().from(table).where(eq(table["id"], payload.id));
       if (!row) return writeFailure(new NotFoundError(entityName, payload.id));
-      const data = row as Record<string, unknown>;
+      const data = row as DbRow;
       if (!data["isDeleted"]) {
         return writeFailure(
           new UnprocessableError("not_deleted", { i18nKey: "errors.notDeleted" }),
@@ -428,7 +431,7 @@ export function createEventStoreExecutor(
         data: {
           kind: "save",
           id: payload.id,
-          data: restored as Record<string, unknown>,
+          data: restored as DbRow,
           changes: { isDeleted: false },
           previous: data,
           isNew: false,

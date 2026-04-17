@@ -94,7 +94,18 @@ export { rolesOf } from "./access-assertions";
 export { expectError, expectSuccess } from "./assertions";
 export { createEventCollector, type EventCollector } from "./event-collector";
 export { expectErrorIncludes } from "./expect-error";
-export { createTestUser, TestUsers, testTenantId, testUserId } from "./fixtures";
+export {
+  createTestUser,
+  sharedItemEntity,
+  sharedItemTable,
+  sharedUserEntity,
+  sharedUserTable,
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  TestUsers,
+  testTenantId,
+  testUserId,
+} from "./fixtures";
 export { bridgeStub } from "./handler-context";
 export {
   createRecordingProvider,

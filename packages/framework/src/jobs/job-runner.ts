@@ -1,4 +1,5 @@
 import { type Job, Queue, Worker } from "bullmq";
+import type { DbRow } from "../db/connection";
 import { createSystemUser } from "../engine/system-user";
 import {
   type AppContext,
@@ -136,7 +137,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const logs: JobLogEntry[] = [];
 
     // Extract meta from job data
-    const rawData = bullJob.data as Record<string, unknown>;
+    const rawData = bullJob.data as DbRow;
     const meta: JobMeta = {
       triggeredById: rawData["_triggeredById"] as string | undefined,
       payload: rawData["_payload"] as string | undefined,

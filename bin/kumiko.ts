@@ -160,6 +160,7 @@ const commands = {
         ["Test-Stack-Drift Guard", "yarn tsx scripts/guard-test-stack-drift.ts"],
         ["Error-Reasons Guard", "yarn tsx scripts/guard-error-reasons.ts"],
         ["Predicate Extraction Check", "yarn tsx scripts/check-predicates.ts"],
+        ["as-Cast Audit", "yarn tsx scripts/check-as-casts.ts"],
         ["License Check", "yarn tsx scripts/check-licenses.ts"],
         ["Unit Tests", "yarn vitest run"],
         ["Integration Guard", "node vitest.integration.guard.js"],

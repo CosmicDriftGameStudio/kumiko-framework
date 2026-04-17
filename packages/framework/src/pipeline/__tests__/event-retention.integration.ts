@@ -15,9 +15,8 @@
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
   ConsumerLagError,
@@ -26,23 +25,23 @@ import {
   PUBSUB_AGGREGATE_TYPE,
   pruneEvents,
 } from "../../pipeline";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  setupTestStack,
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Fixture ---
 
-const retentionEntity = createEntity({
-  table: "retention_widgets",
-  idType: "uuid",
-  fields: { name: createTextField({ required: true }) },
-  softDelete: true,
-});
-const retentionTable = buildDrizzleTable("retentionWidget", retentionEntity);
-const executor = createEventStoreExecutor(retentionTable, retentionEntity, {
-  entityName: "retentionWidget",
+const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
+  entityName: "widget",
 });
 
 const retentionFeature = defineFeature("retention", (r) => {
-  r.entity("retentionWidget", retentionEntity);
+  r.entity("widget", sharedWidgetEntity);
   // A single subscriber so the events-table writes but no consumer has
   // advanced cursor by default (we drive cursor via runOnce in tests that
   // care about the lag guard).
@@ -59,13 +58,13 @@ beforeAll(async () => {
     features: [retentionFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, retentionEntity, "retentionWidget");
+  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db.db, admin.tenantId);
 });
 
 afterEach(async () => {
   await stack.db.db.execute(
-    sql`TRUNCATE events, retention_widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -121,7 +120,7 @@ describe("E.2 — default prunes only pubsub events", () => {
 
     const remaining = await stack.db.db.select().from(eventsTable);
     expect(remaining).toHaveLength(1);
-    expect(remaining[0]?.aggregateType).toBe("retentionWidget");
+    expect(remaining[0]?.aggregateType).toBe("widget");
   });
 
   test("pubsub events older than the cutoff are deleted; fresh ones stay", async () => {
@@ -179,7 +178,7 @@ describe("E.2 — consumer-lag guard", () => {
     await expect(
       pruneEvents(stack.db.db, {
         olderThanDays: 7,
-        aggregateTypes: ["retentionWidget"],
+        aggregateTypes: ["widget"],
       }),
     ).rejects.toThrow(ConsumerLagError);
   });
@@ -194,7 +193,7 @@ describe("E.2 — consumer-lag guard", () => {
 
     const result = await pruneEvents(stack.db.db, {
       olderThanDays: 7,
-      aggregateTypes: ["retentionWidget"],
+      aggregateTypes: ["widget"],
     });
     expect(result.deletedCount).toBe(1);
   });

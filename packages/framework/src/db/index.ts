@@ -1,5 +1,5 @@
 export { assertExistsIn } from "./assert-exists-in";
-export type { DbConnection, DbRunner, DbTx } from "./connection";
+export type { DbConnection, DbRow, DbRunner, DbTx } from "./connection";
 export { createDbConnection } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { applyCursorQuery, decodeCursor, encodeCursor } from "./cursor";

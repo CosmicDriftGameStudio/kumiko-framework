@@ -21,30 +21,21 @@ import {
   uuid as drizzleUuid,
 } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineFeature, type FeatureDefinition } from "../../engine";
+import { defineFeature, type FeatureDefinition } from "../../engine";
 import type { StoredEvent } from "../../event-store";
 import { eventConsumerStateTable, getConsumerState } from "../../pipeline";
 import {
   createEntityTable,
   pushTables,
   setupTestStack,
+  sharedWidgetEntity,
+  sharedWidgetTable,
   type TestStack,
   TestUsers,
 } from "../../testing";
 
 // --- Test fixtures ---
-
-const widgetEntity = createEntity({
-  table: "dispatcher_widgets",
-  idType: "uuid",
-  fields: {
-    name: createTextField({ required: true }),
-  },
-  softDelete: true,
-});
-const widgetTable = buildDrizzleTable("widget", widgetEntity);
 
 // A tiny state table a subscriber mutates so we can observe "the handler was
 // called with this event" without relying on in-memory arrays — the state row
@@ -62,7 +53,7 @@ let captureB: CapturedCall[] = [];
 let throwOnEventId: string | null = null;
 
 const testFeature: FeatureDefinition = defineFeature("dispatchertest", (r) => {
-  r.entity("widget", widgetEntity);
+  r.entity("widget", sharedWidgetEntity);
 
   // Subscriber A: happy-path observer.
   r.postEvent("observer-a", async (event) => {
@@ -86,7 +77,9 @@ let tdb: TenantDb;
 const qnA = "dispatchertest:consumer:observer-a";
 const qnB = "dispatchertest:consumer:observer-b";
 
-const executor = createEventStoreExecutor(widgetTable, widgetEntity, { entityName: "widget" });
+const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
+  entityName: "widget",
+});
 
 beforeAll(async () => {
   stack = await setupTestStack({
@@ -95,7 +88,7 @@ beforeAll(async () => {
     // hook chain. SSE / search are irrelevant to cursor behaviour.
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, widgetEntity, "widget");
+  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
   await pushTables(stack.db.db, { subscriberLog: subscriberLogTable });
   tdb = createTenantDb(stack.db.db, admin.tenantId);
 });
@@ -106,7 +99,7 @@ afterEach(async () => {
   throwOnEventId = null;
   // Wipe events + cursor state so each test starts at event.id=0 cleanly.
   await stack.db.db.execute(
-    sql`TRUNCATE events, dispatcher_widgets, kumiko_event_consumers, dispatcher_subscriber_log RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE events, widgets, kumiko_event_consumers, dispatcher_subscriber_log RESTART IDENTITY CASCADE`,
   );
 });
 

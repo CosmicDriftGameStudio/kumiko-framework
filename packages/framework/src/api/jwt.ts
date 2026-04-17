@@ -1,4 +1,5 @@
 import * as jose from "jose";
+import type { DbRow } from "../db/connection";
 import type { SessionUser, TenantId } from "../engine/types";
 
 export type JwtPayload = {
@@ -47,7 +48,7 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
       };
       const claims = payload["claims"];
       if (claims && typeof claims === "object") {
-        result.claims = claims as Record<string, unknown>;
+        result.claims = claims as DbRow;
       }
       return result;
     },

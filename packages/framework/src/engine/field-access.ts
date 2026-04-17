@@ -1,3 +1,4 @@
+import type { DbRow } from "../db/connection";
 import type { EntityDefinition, SessionUser } from "./types";
 
 // True if the user may read a field whose access config requires `readRoles`.
@@ -34,7 +35,7 @@ export function filterReadFields(
     // For embedded fields: filter sub-fields with access restrictions
     if (field.type === "embedded" && value && typeof value === "object") {
       const filtered: Record<string, unknown> = {};
-      for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
+      for (const [subKey, subValue] of Object.entries(value as DbRow)) {
         const subField = field.schema[subKey];
         if (!userCanReadField(user, subField?.access?.read)) {
           continue; // sub-field stripped

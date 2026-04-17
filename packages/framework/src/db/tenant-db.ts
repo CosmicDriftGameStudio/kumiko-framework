@@ -173,7 +173,9 @@ export function createTenantDb(
       return extra.length > 0 ? and(...extra) : undefined;
     }
 
-    // Tenant mode: own data + reference data (zero-UUID tenantId for global rows)
+    // Tenant mode: own data + reference data (zero-UUID tenantId for global rows).
+    // Drizzle's `or()` is typed `SQL | undefined` (variadic-empty case); both
+    // `eq()` args always produce SQL, so the cast documents that assumption.
     const ownOrGlobal = or(
       eq(table["tenantId"], tenantId),
       eq(table["tenantId"], SYSTEM_TENANT_ID),
@@ -196,7 +198,7 @@ export function createTenantDb(
       return extra.length > 0 ? and(...extra) : undefined;
     }
 
-    const ownOnly = eq(table["tenantId"], tenantId) as SQL;
+    const ownOnly = eq(table["tenantId"], tenantId);
     return extra.length > 0 ? and(ownOnly, ...extra) : ownOnly;
   }
 

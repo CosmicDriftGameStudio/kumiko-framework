@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { DbRow } from "../db/connection";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
@@ -34,7 +35,7 @@ function isPerHandlerAccess(access: AccessRule | PerHandlerAccess): access is Pe
   // PerHandlerAccess has keys like create/update/delete etc. A single rule
   // never has those keys, so presence of any CRUD verb signals the per-
   // handler shape.
-  const obj = access as Record<string, unknown>;
+  const obj = access as DbRow;
   return (
     "create" in obj ||
     "update" in obj ||
@@ -96,8 +97,7 @@ export function buildCrudHandlers(
     [`${entityName}:create`]: {
       name: `${entityName}:create`,
       schema: insertSchema,
-      handler: async (event, ctx) =>
-        executor.create(event.payload as Record<string, unknown>, event.user, ctx.db),
+      handler: async (event, ctx) => executor.create(event.payload as DbRow, event.user, ctx.db),
       ...spreadAccess("create"),
     },
     [`${entityName}:update`]: {

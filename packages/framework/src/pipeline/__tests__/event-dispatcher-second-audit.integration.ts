@@ -23,9 +23,8 @@
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineFeature, SYSTEM_TENANT_ID } from "../../engine";
+import { defineFeature, SYSTEM_TENANT_ID } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
   DEFAULT_SENSITIVE_CONFIG,
@@ -40,18 +39,19 @@ import {
   PUBSUB_AGGREGATE_TYPE,
   pruneEvents,
 } from "../../pipeline";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  setupTestStack,
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Fixture ---
 
-const auditEntity = createEntity({
-  table: "audit_widgets",
-  idType: "uuid",
-  fields: { name: createTextField({ required: true }) },
-});
-const auditTable = buildDrizzleTable("auditWidget", auditEntity);
-const executor = createEventStoreExecutor(auditTable, auditEntity, {
-  entityName: "auditWidget",
+const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
+  entityName: "widget",
 });
 
 // Capture ctx.db for each post-event call so tests can assert on the shape
@@ -61,7 +61,7 @@ let tenantScopedDb: DbSnapshot | null = null;
 let systemScopedDb: DbSnapshot | null = null;
 
 const auditFeature = defineFeature("audit", (r) => {
-  r.entity("auditWidget", auditEntity);
+  r.entity("widget", sharedWidgetEntity);
 
   // Default (tenant-wrapped) subscriber. The SYSTEM_TENANT_ID fix matters
   // exactly for this flavour — without it, a SYSTEM_TENANT_ID event would
@@ -88,7 +88,7 @@ beforeAll(async () => {
     features: [auditFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, auditEntity, "auditWidget");
+  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db.db, admin.tenantId);
 });
 
@@ -96,7 +96,7 @@ afterEach(async () => {
   tenantScopedDb = null;
   systemScopedDb = null;
   await stack.db.db.execute(
-    sql`TRUNCATE events, audit_widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -271,7 +271,7 @@ describe("Second audit — LISTEN gauge", () => {
       observability: recordingProvider,
     });
     try {
-      await createEntityTable(recStack.db.db, auditEntity, "auditWidget");
+      await createEntityTable(recStack.db.db, sharedWidgetEntity, "widget");
 
       await recStack.eventDispatcher?.start();
       try {
@@ -325,7 +325,7 @@ describe("Second audit — LISTEN gauge", () => {
       observability: recordingProvider,
     });
     try {
-      await createEntityTable(recStack.db.db, auditEntity, "auditWidget");
+      await createEntityTable(recStack.db.db, sharedWidgetEntity, "widget");
 
       await recStack.eventDispatcher?.start();
       try {

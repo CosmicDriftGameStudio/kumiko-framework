@@ -109,7 +109,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   ): void {
     for (const [name, fns] of Object.entries(source)) {
       const existing = map.get(name) ?? [];
-      existing.push(...(fns as T[]));
+      existing.push(...fns);
       map.set(name, existing);
     }
   }
@@ -126,7 +126,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     for (const [name, fns] of Object.entries(source)) {
       const qualified = qualify(featureName, hookQnType, name);
       const existing = map.get(qualified) ?? [];
-      existing.push(...(fns as T[]));
+      existing.push(...fns);
       map.set(qualified, existing);
     }
   }
@@ -497,6 +497,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // Done after all features are registered so cross-feature triggers work
   const allHandlerNames = new Set([...writeHandlerMap.keys(), ...queryHandlerMap.keys()]);
   for (const [qualifiedName, notifDef] of notificationMap) {
+    // Both maps are populated in lockstep — same key-set by construction.
     const featureName = notificationFeatureMap.get(qualifiedName) as string;
     // I'll try the easy path first: if the trigger is already a fully qualified QN
     // (cross-feature), I take it as-is. Otherwise I qualify with the own feature —

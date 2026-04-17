@@ -1,16 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../db/event-store-executor";
-import { buildDrizzleTable } from "../db/table-builder";
-import {
-  createBooleanField,
-  createEntity,
-  createTextField,
-  defineFeature,
-  type EntityId,
-  type HandlerContext,
-  type SaveContext,
-} from "../engine";
+import { defineFeature, type EntityId, type HandlerContext, type SaveContext } from "../engine";
 import { UnprocessableError, writeFailure } from "../errors";
 import { eventsTable } from "../event-store";
 import { createEventLog } from "../pipeline";
@@ -19,25 +10,16 @@ import {
   createTestUser,
   expectErrorIncludes,
   setupTestStack,
+  sharedUserEntity,
+  sharedUserTable,
   type TestStack,
   TestUsers,
 } from "../testing";
 
 // --- Entities ---
 
-const userEntity = createEntity({
-  table: "fullstack_users",
-  fields: {
-    email: createTextField({ required: true, format: "email", searchable: true }),
-    firstName: createTextField({ searchable: true }),
-    lastName: createTextField({ searchable: true }),
-    isEnabled: createBooleanField({ default: true }),
-  },
-  softDelete: true,
-  searchWeight: 10,
-});
-
-const userTable = buildDrizzleTable("user", userEntity);
+const userEntity = sharedUserEntity;
+const userTable = sharedUserTable;
 
 // --- Feature-level hook log (not a system hook, tracked separately) ---
 
@@ -201,7 +183,7 @@ const otherTenantAdmin = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [userFeature] });
-  await createEntityTable(stack.db.db, userEntity);
+  await createEntityTable(stack.db.db, userEntity, "user");
 });
 
 afterAll(async () => {

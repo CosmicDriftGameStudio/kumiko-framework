@@ -1,37 +1,33 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature, type SaveContext } from "../../engine";
+import { defineFeature, type SaveContext } from "../../engine";
 import {
   createEntityTable,
   createTestRedis,
   setupTestStack,
+  sharedItemEntity,
+  sharedItemTable,
   type TestRedis,
   type TestStack,
   TestUsers,
 } from "../../testing";
 import { createEventDedup } from "../event-dedup";
 
-// --- Entity + Feature ---
-
-const itemEntity = createEntity({
-  table: "dedup_items",
-  fields: { name: createTextField({ required: true }) },
-});
-
-const itemTable = buildDrizzleTable("item", itemEntity);
+// --- Feature ---
 
 const postSaveLog: SaveContext[] = [];
 
 const dedupFeature = defineFeature("dedup", (r) => {
-  r.entity("item", itemEntity);
+  r.entity("item", sharedItemEntity);
 
   r.writeHandler(
     "item:create",
     z.object({ name: z.string() }),
     async (event, ctx) => {
-      const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
+      const crud = createEventStoreExecutor(sharedItemTable, sharedItemEntity, {
+        entityName: "item",
+      });
       return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
@@ -45,7 +41,9 @@ const dedupFeature = defineFeature("dedup", (r) => {
       changes: z.record(z.string(), z.unknown()),
     }),
     async (event, ctx) => {
-      const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
+      const crud = createEventStoreExecutor(sharedItemTable, sharedItemEntity, {
+        entityName: "item",
+      });
       return crud.update(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
@@ -74,7 +72,7 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await createEntityTable(stack.db.db, itemEntity);
+  await createEntityTable(stack.db.db, sharedItemEntity, "item");
 });
 
 afterAll(async () => {

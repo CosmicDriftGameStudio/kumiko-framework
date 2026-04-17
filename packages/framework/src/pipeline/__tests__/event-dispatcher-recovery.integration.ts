@@ -17,9 +17,8 @@
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import { defineFeature } from "../../engine";
 import {
   disableConsumer,
   enableConsumer,
@@ -27,19 +26,19 @@ import {
   restartConsumer,
   skipPoisonEvent,
 } from "../../pipeline";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  setupTestStack,
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Fixture ---
 
-const recoveryEntity = createEntity({
-  table: "recovery_widgets",
-  idType: "uuid",
-  fields: { name: createTextField({ required: true }) },
-  softDelete: true,
-});
-const recoveryTable = buildDrizzleTable("recoveryWidget", recoveryEntity);
-const executor = createEventStoreExecutor(recoveryTable, recoveryEntity, {
-  entityName: "recoveryWidget",
+const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
+  entityName: "widget",
 });
 
 // Names that make the observer throw. Reset in afterEach.
@@ -47,7 +46,7 @@ let poisonNames = new Set<string>();
 let observed: Array<{ name: string }> = [];
 
 const recoveryFeature = defineFeature("recoverytest", (r) => {
-  r.entity("recoveryWidget", recoveryEntity);
+  r.entity("widget", sharedWidgetEntity);
 
   r.postEvent("observer", async (event) => {
     const name = event.payload["name"] as string;
@@ -68,7 +67,7 @@ beforeAll(async () => {
     features: [recoveryFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, recoveryEntity, "recoveryWidget");
+  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db.db, admin.tenantId);
 });
 
@@ -76,7 +75,7 @@ afterEach(async () => {
   poisonNames = new Set();
   observed = [];
   await stack.db.db.execute(
-    sql`TRUNCATE events, recovery_widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
 });
 

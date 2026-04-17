@@ -21,9 +21,8 @@
 import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import { defineFeature } from "../../engine";
 import type { StoredEvent } from "../../event-store";
 import {
   createEventDispatcher,
@@ -31,19 +30,19 @@ import {
   type EventDispatcher,
   getConsumerState,
 } from "../../pipeline";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  setupTestStack,
+  sharedWidgetEntity,
+  sharedWidgetTable,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Fixture ---
 
-const multiEntity = createEntity({
-  table: "multi_widgets",
-  idType: "uuid",
-  fields: { name: createTextField({ required: true }) },
-  softDelete: true,
-});
-const multiTable = buildDrizzleTable("multiWidget", multiEntity);
-const executor = createEventStoreExecutor(multiTable, multiEntity, {
-  entityName: "multiWidget",
+const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
+  entityName: "widget",
 });
 
 // A trivial feature — the dispatchers built by the tests use the same
@@ -52,7 +51,7 @@ const executor = createEventStoreExecutor(multiTable, multiEntity, {
 // would then auto-wire a subscriber we don't want in the multi-instance
 // setup).
 const multiFeature = defineFeature("multi", (r) => {
-  r.entity("multiWidget", multiEntity);
+  r.entity("widget", sharedWidgetEntity);
 });
 
 const admin = TestUsers.admin;
@@ -64,13 +63,13 @@ beforeAll(async () => {
     features: [multiFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, multiEntity, "multiWidget");
+  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db.db, admin.tenantId);
 });
 
 afterEach(async () => {
   await stack.db.db.execute(
-    sql`TRUNCATE events, multi_widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
 });
 
