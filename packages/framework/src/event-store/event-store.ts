@@ -290,7 +290,6 @@ export async function loadAllEventsByType(
   return rows.map(toStoredEvent);
 }
 
-
 function toStoredEvent(row: SelectedEvent): StoredEvent {
   return {
     id: String(row.id),

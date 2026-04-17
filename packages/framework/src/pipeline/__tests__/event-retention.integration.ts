@@ -219,9 +219,9 @@ describe("E.2 — empty sets and input validation", () => {
   });
 
   test("refuses call without olderThan or olderThanDays", async () => {
-    await expect(
-      pruneEvents(stack.db.db, { aggregateTypes: ["widget"] }),
-    ).rejects.toThrow(/olderThan/);
+    await expect(pruneEvents(stack.db.db, { aggregateTypes: ["widget"] })).rejects.toThrow(
+      /olderThan/,
+    );
   });
 
   test("refuses call without aggregateTypes", async () => {

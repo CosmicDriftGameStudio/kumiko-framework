@@ -33,8 +33,8 @@ import {
   reraiseAsKumikoError,
   toWriteErrorInfo,
   ValidationError,
-  validationErrorFromZod,
   VersionConflictError,
+  validationErrorFromZod,
   type WriteErrorInfo,
   writeFailure,
 } from "../errors";
@@ -43,9 +43,7 @@ import {
   isStreamArchived,
   restoreStream as restoreStreamHelper,
 } from "../event-store/archive";
-import { ArchivedStreamError } from "../event-store/errors";
 import {
-  append as appendEvent,
   getStreamVersion,
   loadAggregate,
   loadAggregateAsOf,
@@ -68,11 +66,11 @@ import {
   registerStandardMetrics,
 } from "../observability";
 import { parseJsonSafe } from "../utils/safe-json";
+import { appendDomainEventCore } from "./append-event-core";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
-import { appendDomainEventCore } from "./append-event-core";
-import { runProjections, runProjectionsForEvent } from "./projections-runner";
+import { runProjections } from "./projections-runner";
 
 type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
 
@@ -349,9 +347,10 @@ export function createDispatcher(
         // Handle's internal version bumps on every appendOne so multiple
         // appends in a row stay in order without re-reading the DB.
         let handleVersion = fetchedVersion;
-        const appendOne = async (
-          appendArgs: { readonly type: string; readonly payload: unknown },
-        ): Promise<void> => {
+        const appendOne = async (appendArgs: {
+          readonly type: string;
+          readonly payload: unknown;
+        }): Promise<void> => {
           await appendDomainEvent(
             {
               aggregateId: args.aggregateId,

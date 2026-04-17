@@ -17,12 +17,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
-import {
-  createEntityTable,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-} from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
 
 // --- Feature ---
 
@@ -54,11 +49,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
     "order:place",
     z.object({ item: z.string() }),
     async (event, ctx) => {
-      const created = await orderExecutor.create(
-        { item: event.payload.item },
-        event.user,
-        ctx.db,
-      );
+      const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
       await ctx.appendEvent({
         aggregateId: String(created.data.id),
@@ -140,8 +131,7 @@ async function drainUntilShipped(aggregateId: string, maxPasses = 10): Promise<v
   for (let i = 0; i < maxPasses; i++) {
     await stack.eventDispatcher?.runOnce();
     const rows = await stack.db.db.select().from(eventsTable);
-    if (rows.some((r) => r.aggregateId === aggregateId && r.type === "mmh:event:shipped"))
-      return;
+    if (rows.some((r) => r.aggregateId === aggregateId && r.type === "mmh:event:shipped")) return;
   }
   throw new Error(`drainUntilShipped: never saw shipped event for ${aggregateId}`);
 }

@@ -182,9 +182,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
     const runInSpan = async (): Promise<void> => {
       try {
-        await requestContext.run(
-          { requestId: jobRequestId, correlationId: jobCorrelationId },
-          () => jobDef.handler(payload, jobContext),
+        await requestContext.run({ requestId: jobRequestId, correlationId: jobCorrelationId }, () =>
+          jobDef.handler(payload, jobContext),
         );
         const duration = Date.now() - startTime;
         await options.onJobComplete?.(jobName, jobId, duration, logs);

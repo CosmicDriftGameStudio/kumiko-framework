@@ -304,10 +304,7 @@ export type AggregateStreamHandle = {
   // Append an event on this stream. Derives aggregateId/aggregateType/
   // expectedVersion from the handle automatically. Multiple calls in a
   // row bump the handle's internal version and the events-table in order.
-  readonly appendOne: (args: {
-    readonly type: string;
-    readonly payload: unknown;
-  }) => Promise<void>;
+  readonly appendOne: (args: { readonly type: string; readonly payload: unknown }) => Promise<void>;
 };
 
 // --- Event Upcasters (schema migration) ---

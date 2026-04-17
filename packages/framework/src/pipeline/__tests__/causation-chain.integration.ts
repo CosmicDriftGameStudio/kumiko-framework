@@ -23,12 +23,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
-import {
-  createEntityTable,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-} from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
 
 // --- Feature ---
 
@@ -64,11 +59,7 @@ const causationFeature = defineFeature("causation", (r) => {
     "order:place",
     z.object({ item: z.string() }),
     async (event, ctx) => {
-      const created = await orderExecutor.create(
-        { item: event.payload.item },
-        event.user,
-        ctx.db,
-      );
+      const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
       await ctx.appendEvent({
         aggregateId: String(created.data.id),
@@ -132,7 +123,6 @@ async function eventsByType(type: string): Promise<EventRow[]> {
   return rows.filter((r) => r.type === type);
 }
 
-
 // --- Tests ---
 
 describe("Runde 2 — correlationId on root HTTP request", () => {
@@ -189,12 +179,9 @@ describe("Runde 2 — correlationId on root HTTP request", () => {
 describe("Runde 2 — event-dispatcher propagates correlation + causation to MSP-apply", () => {
   test("MSP-apply sees the triggering event.id as causationId and inherits correlationId", async () => {
     // Root write with a known correlation token.
-    await stack.http.writeWithHeaders(
-      "causation:write:order:place",
-      { item: "gasket" },
-      admin,
-      { "X-Correlation-ID": "msp-chain-token" },
-    );
+    await stack.http.writeWithHeaders("causation:write:order:place", { item: "gasket" }, admin, {
+      "X-Correlation-ID": "msp-chain-token",
+    });
 
     // Drain the dispatcher — MSP-apply fires, pushes its reqCtx snapshot.
     await stack.eventDispatcher?.runOnce();

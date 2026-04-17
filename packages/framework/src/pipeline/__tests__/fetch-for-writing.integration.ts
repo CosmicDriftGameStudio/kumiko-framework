@@ -15,12 +15,7 @@ import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { loadAggregate } from "../../event-store";
-import {
-  createEntityTable,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-} from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
 
 // --- Feature ---
 
@@ -37,10 +32,7 @@ const cartTable = buildDrizzleTable("f4wCart", cartEntity);
 const cartFeature = defineFeature("f4w", (r) => {
   r.entity("f4wCart", cartEntity);
 
-  const itemAdded = r.defineEvent(
-    "itemAdded",
-    z.object({ sku: z.string(), qty: z.number() }),
-  );
+  const itemAdded = r.defineEvent("itemAdded", z.object({ sku: z.string(), qty: z.number() }));
   const checkedOut = r.defineEvent("checkedOut", z.object({ totalCents: z.number() }));
 
   const cartExecutor = createEventStoreExecutor(cartTable, cartEntity, {

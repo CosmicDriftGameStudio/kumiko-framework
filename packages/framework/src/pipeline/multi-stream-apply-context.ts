@@ -1,10 +1,6 @@
 import type { DbRunner } from "../db/connection";
 import type { AppendEventArgs, Registry, TenantId } from "../engine/types";
-import {
-  loadAggregate,
-  loadAggregateAsOf,
-  type StoredEvent,
-} from "../event-store/event-store";
+import { loadAggregate, loadAggregateAsOf, type StoredEvent } from "../event-store/event-store";
 import { upcastStoredEvents } from "../event-store/upcaster";
 import { appendDomainEventCore } from "./append-event-core";
 
@@ -42,7 +38,9 @@ export type MultiStreamApplyContextDeps = {
   readonly userId: string;
 };
 
-export function createMultiStreamApplyContext(deps: MultiStreamApplyContextDeps): MultiStreamApplyContext {
+export function createMultiStreamApplyContext(
+  deps: MultiStreamApplyContextDeps,
+): MultiStreamApplyContext {
   return {
     appendEvent: async (args) => {
       await appendDomainEventCore(
