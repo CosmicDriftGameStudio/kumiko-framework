@@ -15,7 +15,8 @@ Jedes Sample = 1 Feature-Definition + 1 Test. Bricht ein Framework-Change was, w
 | Stammdaten seeden (r.referenceData) | [reference-data](reference-data/) | Integration |
 | Volltextsuche (searchable, searchWeight) | [search](search/) | Integration |
 | Echtzeit-Updates via SSE | [realtime-sse](realtime-sse/) | Integration |
-| Async Pub/Sub (ctx.emit + r.postEvent) | [pub-sub-events](pub-sub-events/) | Integration |
+| Cross-Feature-Reaktionen (ctx.appendEvent + r.multiStreamProjection) | [pub-sub-events](pub-sub-events/) | Integration |
+| Event Sourcing Vollbild (defineEvent + Upcaster + Projections + asOf + archive) | [event-sourcing-showcase](event-sourcing-showcase/) | Integration |
 | Request-Deduplizierung (Idempotency) | [idempotency](idempotency/) | Integration |
 | Multi-Tenant Datentrennung | [tenant-isolation](tenant-isolation/) | Integration |
 | Mehrsprachigkeit (i18n) | [i18n](i18n/) | Unit |

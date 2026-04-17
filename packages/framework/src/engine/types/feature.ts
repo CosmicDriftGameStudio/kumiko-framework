@@ -288,15 +288,13 @@ export type FeatureRegistrar = {
   // saga state machines where a single view spans many aggregate types.
   multiStreamProjection(definition: MultiStreamProjectionDefinition): void;
 
-  // Register an async post-event subscriber. The event-dispatcher reads the
-  // events-table via a per-subscriber cursor and calls the handler for each
-  // event, in events.id order. Handler throws → retried until maxAttempts,
-  // then the subscriber pauses (dead-letter) while the others keep running.
-  // Use for side-effects: SSE broadcast, search-index, external calls.
-  //
-  // The handler's ctx.db is tenant-scoped to event.tenantId by default —
-  // forgetting to filter by tenant is not a leak risk. Pass
-  // { systemScoped: true } to opt out (cross-tenant audit / analytics sinks).
+  /**
+   * @deprecated Prefer `r.multiStreamProjection` (Marten gold-standard since
+   * Sprint E). The MSP API covers both state-bearing read-models and pure
+   * side-effect handlers (via `table`-less MSPs). `r.postEvent` is kept for
+   * backwards compatibility with pre-Sprint-E features and framework-internal
+   * uses; it will be removed in a future release.
+   */
   postEvent(
     name: string,
     handler: EventConsumerHandler,

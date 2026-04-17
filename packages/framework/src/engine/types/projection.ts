@@ -39,10 +39,15 @@ export type ProjectionDefinition = {
 // because the dispatcher guarantees at-least-once delivery.
 //
 // Use for Sagas / process managers, customer-centric views that span
-// multiple aggregate types, cross-feature aggregations, audit logs.
+// multiple aggregate types, cross-feature aggregations, audit logs. With
+// `table` omitted, the MSP becomes a pure side-effect consumer — sending
+// notifications, posting webhooks, updating an external system. Marten's
+// equivalent of a subscription / event listener, without a separate API.
 export type MultiStreamProjectionDefinition = {
   readonly name: string;
-  readonly table: ProjectionTable;
+  // Optional: omit for side-effect-only handlers (notifications, external
+  // system sync). When present, setupTestStack auto-pushes the table.
+  readonly table?: ProjectionTable;
   // Keyed by fully-qualified event type. Unlike a single-stream projection,
   // there is no source-entity hint — the MSP declares the event types it
   // cares about directly. Extract the identity/grouping key inside the

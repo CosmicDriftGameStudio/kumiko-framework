@@ -498,12 +498,22 @@ export function createDispatcher(
         qualifiedName: string,
         queryOptions?: { readonly allTenants?: boolean },
       ): Promise<readonly T[]> => {
-        const proj = registry.getAllProjections().get(qualifiedName);
-        if (!proj) {
+        // queryProjection works against both single-stream and multi-stream
+        // projections. MSPs without a table cannot be queried — those are
+        // side-effect-only consumers (no state to read back).
+        const singleProj = registry.getAllProjections().get(qualifiedName);
+        const mspProj = registry.getAllMultiStreamProjections().get(qualifiedName);
+        const projTable = singleProj?.table ?? mspProj?.table;
+        if (!projTable) {
+          const singleNames = [...registry.getAllProjections().keys()];
+          const mspNames = [...registry.getAllMultiStreamProjections().keys()].filter(
+            (n) => registry.getAllMultiStreamProjections().get(n)?.table,
+          );
+          const all = [...singleNames, ...mspNames];
           throw new InternalError({
             message:
-              `ctx.queryProjection("${qualifiedName}") — projection not registered. ` +
-              `Known: ${[...registry.getAllProjections().keys()].join(", ") || "(none)"}`,
+              `ctx.queryProjection("${qualifiedName}") — projection not registered, or it is a ` +
+              `table-less MSP (side-effect-only). Known queryable projections: ${all.join(", ") || "(none)"}`,
           });
         }
         const dbSource: DbConnection | DbTx | undefined =
@@ -518,15 +528,15 @@ export function createDispatcher(
         // opts in. Works with any drizzle-table whose tenant column is named
         // tenantId on the JS side.
         // biome-ignore lint/suspicious/noExplicitAny: drizzle's PgTable columns are schema-dependent
-        const tenantCol = (proj.table as any).tenantId;
+        const tenantCol = (projTable as any).tenantId;
         let rows: readonly Record<string, unknown>[];
         if (tenantCol && !queryOptions?.allTenants) {
           rows = (await dbSource
             .select()
-            .from(proj.table)
+            .from(projTable)
             .where(eq(tenantCol, user.tenantId))) as readonly Record<string, unknown>[];
         } else {
-          rows = (await dbSource.select().from(proj.table)) as readonly Record<string, unknown>[];
+          rows = (await dbSource.select().from(projTable)) as readonly Record<string, unknown>[];
         }
         return rows as readonly T[];
       },

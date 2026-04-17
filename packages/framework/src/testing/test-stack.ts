@@ -107,7 +107,9 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // Multi-stream projection tables follow the same auto-push rule — the
     // async dispatcher writes to them as soon as the first matching event
     // flows through, so the DDL must exist before setupTestStack returns.
+    // skip: MSPs without a table are pure side-effect consumers.
     for (const [mspName, msp] of Object.entries(feature.multiStreamProjections)) {
+      if (!msp.table) continue;
       if (seenTables.has(msp.table)) continue;
       seenTables.add(msp.table);
       projectionTables[`msp_${mspName}`] = msp.table;
