@@ -200,6 +200,30 @@ export function createDispatcher(
       );
     }
 
+    // Strict schema validation (E.3). r.defineEvent is the single source of
+    // truth for what a feature is allowed to emit: the registry holds the
+    // event's Zod schema, and ctx.emit validates the payload against it
+    // BEFORE the event hits the events-table. Two failure modes:
+    //   1. Event was never registered → typo or forgotten r.defineEvent.
+    //      Throw with a help message so the feature author sees it at the
+    //      emit site.
+    //   2. Payload doesn't match schema → standard ValidationError, same
+    //      contract as HTTP-level schema validation.
+    // Without this, a broken payload would only surface at consumer-time —
+    // by then the event is durably in the log and duplicate deliveries
+    // amplify the blast.
+    const eventDef = registry.getEvent(eventType);
+    if (!eventDef) {
+      throw new InternalError({
+        message: `ctx.emit("${eventType}") — event not registered. Call r.defineEvent(shortName, schema) in a feature; ctx.emit expects the qualified name returned by defineEvent (e.g. "<feature>:event:<short>").`,
+      });
+    }
+    const parsed = eventDef.schema.safeParse(payload ?? {});
+    if (!parsed.success) {
+      throw validationErrorFromZod(parsed.error);
+    }
+    const validatedPayload = parsed.data as Record<string, unknown>;
+
     const reqCtx = requestContext.get();
     // System-scope events carry the zero-UUID as a marker on the in-memory
     // SessionUser — we still persist it here so every event has a concrete
@@ -219,7 +243,7 @@ export function createDispatcher(
       tenantId,
       expectedVersion: 0,
       type: eventType,
-      payload: (payload ?? {}) as Record<string, unknown>,
+      payload: validatedPayload,
       metadata: {
         userId: user.id,
         ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),

@@ -92,9 +92,13 @@ describe("defineFeature", () => {
       eventRef = r.defineEvent("order:created", z.object({ orderId: z.number() }));
     });
 
-    expect(eventRef?.name).toBe("order:created");
+    // E.3: defineEvent returns the fully-qualified name so callers can
+    // pass it straight to ctx.emit without building the qn manually.
+    expect(eventRef?.name).toBe("orders:event:order:created");
     expect(feature.events["order:created"]).toBeDefined();
     expect(feature.events["order:created"]?.schema).toBeDefined();
+    // The stored def carries the qualified name too (registry will confirm).
+    expect(feature.events["order:created"]?.name).toBe("orders:event:order:created");
   });
 
   test("registry prefixes event names with feature name", () => {

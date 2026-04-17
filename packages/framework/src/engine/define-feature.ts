@@ -3,7 +3,7 @@ import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
 import { buildCrudHandlers } from "./crud-builder";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
-import { toKebab } from "./qualified-name";
+import { qn, toKebab } from "./qualified-name";
 import type {
   AccessRule,
   ConfigDefinition,
@@ -327,7 +327,12 @@ export function defineFeature(
     },
 
     defineEvent<TPayload>(eventName: string, schema: ZodType<TPayload>) {
-      const def = { name: eventName, schema };
+      // Return the fully-qualified event name so callers can pass it
+      // straight to ctx.emit without hand-building the "<feature>:event:<name>"
+      // shape. Registry keeps events keyed by short name — qualification is
+      // the framework's job, not the feature author's.
+      const qualified = qn(toKebab(name), "event", toKebab(eventName));
+      const def = { name: qualified, schema };
       events[eventName] = def;
       return def;
     },

@@ -60,7 +60,9 @@ function userExecutor(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
 // Single source of truth for the user-created pub/sub event name + payload.
 // Since D.5 ctx.emit appends into the events table as a "pubsub" aggregate,
 // and subscribers read it via the event-dispatcher (r.postEvent).
-const USER_CREATED_EVENT = "users:event:user.created";
+// Since E.3 ctx.emit requires a registered r.defineEvent — the `.name` on
+// the returned def is the fully-qualified name the event gets in the log.
+let USER_CREATED_EVENT: string;
 
 // Test-level subscriber capture — populated by the r.postEvent handler below.
 // Declared here so tests can reset + assert against it across describe blocks.
@@ -76,6 +78,9 @@ async function emitUserCreated(
 
 const userFeature = defineFeature("users", (r) => {
   const user = r.entity("user", userEntity);
+
+  const userCreated = r.defineEvent("user.created", z.object({ id: z.any(), email: z.string() }));
+  USER_CREATED_EVENT = userCreated.name;
 
   // r.postEvent: filter the full event stream down to USER_CREATED_EVENT and
   // push into the capture array. Replaces the old eventBroker.subscribe path.
