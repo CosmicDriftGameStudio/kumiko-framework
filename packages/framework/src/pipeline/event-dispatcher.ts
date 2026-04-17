@@ -277,9 +277,15 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       span.setStatus(failed === 0 ? "ok" : "error");
     } catch (e) {
       // Unexpected: a handler error is caught inside the loop, so anything
-      // landing here is infrastructure (db connection lost, serialization).
-      // Don't let one consumer's outage stall the others.
-      span.setStatus("error", e instanceof Error ? e.message : String(e));
+      // landing here is infrastructure (db connection lost, serialization,
+      // standard-metrics not registered on this meter). Don't let one
+      // consumer's outage stall the others, but do log — a silent rollback
+      // here looks like "at-most-once" to callers and at-least-once-with-
+      // duplicate-delivery on the next pass; neither is actually what we
+      // want, so the operator needs to see it.
+      const msg = e instanceof Error ? e.message : String(e);
+      context.log?.error(`[event-dispatcher] ${consumer.name} pass failed: ${msg}`);
+      span.setStatus("error", msg);
     } finally {
       span.end();
     }
