@@ -14,10 +14,6 @@ import {
   createEventLog,
   createIdempotencyGuard,
 } from "../pipeline";
-import {
-  createSearchEventConsumer,
-  createSseBroadcastEventConsumer,
-} from "../pipeline/system-hooks";
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
 import { createEventCollector, type EventCollector } from "./event-collector";
@@ -175,6 +171,16 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     dispatcherOptions: { eventLog, idempotency },
     eventDedup,
     sseBroker,
+    // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for
+    // deterministic drains — no timer-induced flakiness. pollIntervalMs
+    // stays short anyway in case a test opts into `.start()`.
+    eventDispatcher: {
+      pollIntervalMs: 50,
+      systemConsumers: {
+        sse: enabledHooks.includes("sse"),
+        search: enabledHooks.includes("search"),
+      },
+    },
     // Default tests to no login rate-limiter so existing suites that loop
     // over logins don't hit a 429 after 10 attempts. Suites specifically
     // testing the limiter can override via authConfig.loginRateLimit.
@@ -189,37 +195,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     ...(options.observability ? { observability: options.observability } : {}),
   });
 
-  // Build the async event-dispatcher. Consumers come from two sources:
-  //   1. Features via r.postEvent() — user-space subscribers
-  //   2. System-level via `enabledHooks` — SSE (D.3) + Search (D.4)
-  //
-  // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for
-  // deterministic drains — no timer-induced flakiness. When no consumer is
-  // wired, stay undefined so cleanup stays cheap.
-  const featureSubscribers = [...registry.getAllPostEventSubscribers().values()].map((s) => ({
-    name: s.name,
-    handler: s.handler,
-  }));
-  const systemConsumers = [
-    ...(enabledHooks.includes("sse") ? [createSseBroadcastEventConsumer(sseBroker)] : []),
-    ...(enabledHooks.includes("search")
-      ? [createSearchEventConsumer(searchAdapter, registry)]
-      : []),
-  ];
-  const allConsumers = [...featureSubscribers, ...systemConsumers];
-  const { createEventDispatcher } = await import("../pipeline");
-  const eventDispatcher =
-    allConsumers.length > 0
-      ? createEventDispatcher({
-          db: testDb.db,
-          consumers: allConsumers,
-          // AppContext minimum: registry + db. Hooks pulled in via context
-          // spread reach AppContext the same way other stack-level hooks do.
-          context: { db: testDb.db, redis: testRedis.redis, registry },
-          // Fast timer for tests; production boot can override.
-          pollIntervalMs: 50,
-        })
-      : undefined;
+  const eventDispatcher: EventDispatcher | undefined = server.eventDispatcher;
 
   const http = createRequestHelper(server.app, server.jwt);
 

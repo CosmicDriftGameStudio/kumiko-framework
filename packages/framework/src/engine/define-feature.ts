@@ -394,7 +394,7 @@ export function defineFeature(
       projections[definition.name] = definition;
     },
 
-    postEvent(subscriberName, handler): void {
+    postEvent(subscriberName, handler, options): void {
       // Same kebab-case rule as projections — consumer name becomes a QN
       // segment ("<feature>:consumer:<name>") at registry-boot. Registering
       // with a non-kebab name would silently survive here but blow up when
@@ -411,7 +411,11 @@ export function defineFeature(
             `Consumer names must be unique per feature.`,
         );
       }
-      postEventSubscribers[subscriberName] = { name: subscriberName, handler };
+      postEventSubscribers[subscriberName] = {
+        name: subscriberName,
+        handler,
+        ...(options?.systemScoped === true ? { systemScoped: true } : {}),
+      };
     },
   };
 

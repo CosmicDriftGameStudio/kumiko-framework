@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import type { DbConnection } from "../db/connection";
+import { createTenantDb } from "../db/tenant-db";
 import type { AppContext, Registry } from "../engine/types";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
@@ -14,7 +16,14 @@ import {
 import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
 import type { EventDedup } from "../pipeline/event-dedup";
+import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher";
+import { createEventDispatcher } from "../pipeline/event-dispatcher";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
+import {
+  createSearchEventConsumer,
+  createSseBroadcastEventConsumer,
+} from "../pipeline/system-hooks";
+import type { SearchAdapter } from "../search/types";
 import { PUBLIC_API_PATHS, Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
@@ -36,6 +45,30 @@ export type ServerOptions = {
   sseBroker?: SseBroker;
   auth?: AuthRoutesConfig;
   files?: Omit<FileRoutesOptions, "db"> & { db?: FileRoutesOptions["db"] };
+  // Async event-dispatcher config. The dispatcher is created automatically
+  // when (a) context.db is a DbConnection AND (b) at least one consumer is
+  // wired — SSE (iff sseBroker), Search (iff context.searchAdapter), or
+  // feature-level r.postEvent subscribers.
+  //
+  // Mirrors the old outboxPoller contract: `KumikoServer.eventDispatcher` is
+  // created but NOT auto-started. Production boot must call `.start()`;
+  // shutdown must call `.stop()`. Tests prefer `.runOnce()` for determinism
+  // and skip `.start()` entirely.
+  eventDispatcher?: {
+    pollIntervalMs?: number;
+    batchSize?: number;
+    maxAttempts?: number;
+    // Opt out of building the dispatcher even if consumers exist — e.g. ops
+    // runs a dedicated dispatcher process, or a test needs to control the
+    // consumer lifecycle manually.
+    disabled?: boolean;
+    // Opt out of the auto-built system consumers (SSE, Search) while still
+    // running feature r.postEvent subscribers. Useful for tests that assert
+    // only on subscriber behaviour, or for a deployment that routes SSE via
+    // a different transport. Default: both enabled when the respective
+    // dependency (sseBroker / context.searchAdapter) is available.
+    systemConsumers?: { sse?: boolean; search?: boolean };
+  };
   // Observability: tracer + meter used for auto-instrumentation across
   // HTTP, dispatcher, pipeline, DB. Omitted => NoopProvider (zero overhead,
   // no spans or metrics emitted). Typically set to a ConsoleProvider in dev,
@@ -49,6 +82,10 @@ export type KumikoServer = {
   jwt: JwtHelper;
   sseBroker: SseBroker;
   observability: ObservabilityProvider;
+  // Present when at least one consumer is wired and context.db is a
+  // DbConnection. Caller owns the lifecycle: `.start()` in boot, `.stop()`
+  // in shutdown. Tests drain via `.runOnce()` instead.
+  eventDispatcher?: EventDispatcher;
 };
 
 export function buildServer(options: ServerOptions): KumikoServer {
@@ -105,6 +142,67 @@ export function buildServer(options: ServerOptions): KumikoServer {
     lifecycle,
   });
 
+  // Async event-dispatcher — the replacement for the old transactional
+  // outbox. Consumer sources:
+  //   1. System: SSE broadcast (iff sseBroker), Search index (iff
+  //      context.searchAdapter).
+  //   2. Features: every r.postEvent(name, handler) registered in the
+  //      registry becomes its own consumer row with an independent cursor.
+  //
+  // Feature subscribers are wrapped by default so their `ctx.db` is a
+  // TenantDb bound to event.tenantId — forgetting to filter by tenant
+  // is not a leak risk. Opt out via r.postEvent(name, handler,
+  // { systemScoped: true }) for cross-tenant audit / analytics sinks.
+  //
+  // The dispatcher is built but NOT started here. Production boot code
+  // must call `.start()`; test code typically calls `.runOnce()`.
+  const baseDb = contextWithObservability.db as DbConnection | undefined;
+  const searchAdapter = (contextWithObservability as { searchAdapter?: SearchAdapter })
+    .searchAdapter;
+
+  const sseConsumerEnabled = options.eventDispatcher?.systemConsumers?.sse ?? true;
+  const searchConsumerEnabled = options.eventDispatcher?.systemConsumers?.search ?? true;
+
+  const systemConsumers: EventConsumer[] = [];
+  if (sseConsumerEnabled) {
+    systemConsumers.push(createSseBroadcastEventConsumer(sseBroker));
+  }
+  if (searchConsumerEnabled && searchAdapter) {
+    systemConsumers.push(createSearchEventConsumer(searchAdapter, options.registry));
+  }
+
+  const featureSubscribers = [...options.registry.getAllPostEventSubscribers().values()];
+  const wrappedFeatureConsumers: EventConsumer[] = featureSubscribers.map((sub) => {
+    if (sub.systemScoped || !baseDb) {
+      return { name: sub.name, handler: sub.handler };
+    }
+    return {
+      name: sub.name,
+      handler: async (event, ctx) => {
+        const scopedDb = createTenantDb(baseDb, event.tenantId);
+        await sub.handler(event, { ...ctx, db: scopedDb });
+      },
+    };
+  });
+
+  const allConsumers = [...systemConsumers, ...wrappedFeatureConsumers];
+  const {
+    disabled: dispatcherDisabled,
+    systemConsumers: _systemConsumersOpt,
+    ...dispatcherTunables
+  } = options.eventDispatcher ?? {};
+  let eventDispatcher: EventDispatcher | undefined;
+  if (allConsumers.length > 0 && baseDb && !dispatcherDisabled) {
+    eventDispatcher = createEventDispatcher({
+      db: baseDb,
+      consumers: allConsumers,
+      context: contextWithObservability,
+      tracer: observability.tracer,
+      meter: observability.meter,
+      ...dispatcherTunables,
+    });
+  }
+
   const app = new Hono();
 
   const sensitiveConfig = mergeSensitiveConfig(
@@ -160,5 +258,6 @@ export function buildServer(options: ServerOptions): KumikoServer {
     jwt,
     sseBroker,
     observability,
+    ...(eventDispatcher ? { eventDispatcher } : {}),
   };
 }

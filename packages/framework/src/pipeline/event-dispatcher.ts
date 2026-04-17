@@ -2,7 +2,14 @@ import { asc, eq, gt, sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import type { AppContext } from "../engine/types";
 import { eventsTable, type StoredEvent } from "../event-store";
-import { getFallbackTracer, type Tracer } from "../observability";
+import {
+  emitEventConsumerLag,
+  emitEventConsumerPassOutcome,
+  getFallbackMeter,
+  getFallbackTracer,
+  type Meter,
+  type Tracer,
+} from "../observability";
 import { eventConsumerStateTable } from "./event-consumer-state";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
@@ -61,6 +68,7 @@ export type EventDispatcherOptions = {
   readonly pollIntervalMs?: number;
   readonly maxAttempts?: number;
   readonly tracer?: Tracer;
+  readonly meter?: Meter;
 };
 
 const DEFAULT_BATCH_SIZE = 200;
@@ -77,6 +85,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     maxAttempts = DEFAULT_MAX_ATTEMPTS,
   } = options;
   const tracer: Tracer = options.tracer ?? getFallbackTracer();
+  const meter: Meter = options.meter ?? getFallbackMeter();
 
   let running = false;
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -250,8 +259,19 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
             updatedAt: sql`now()`,
           })
           .where(eq(eventConsumerStateTable.name, consumer.name));
+
+        // Lag-gauge update in the SAME tx so ops sees a snapshot consistent
+        // with the cursor we just advanced to. `MAX(id)` on the events table
+        // is an O(1) reverse-index scan — cheap even under load.
+        const [headRow] = (await tx.execute(
+          sql`SELECT COALESCE(MAX(id), 0)::bigint AS head FROM events`,
+        )) as unknown as Array<{ head: bigint | string }>;
+        const head = typeof headRow?.head === "bigint" ? headRow.head : BigInt(headRow?.head ?? 0);
+        const lag = head > cursor ? Number(head - cursor) : 0;
+        emitEventConsumerLag(meter, { consumer: consumer.name }, lag);
       });
 
+      emitEventConsumerPassOutcome(meter, { consumer: consumer.name }, processed, failed);
       span.setAttribute("consumer.processed", processed);
       span.setAttribute("consumer.failed", failed);
       span.setStatus(failed === 0 ? "ok" : "error");

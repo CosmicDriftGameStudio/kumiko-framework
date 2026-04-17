@@ -56,6 +56,28 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
     description: "Events replayed during a projection rebuild.",
     labels: ["projection"],
   },
+  // Event-dispatcher per-consumer metrics. Lag is the primary ops signal:
+  // how many events sit between the consumer's cursor and events-head.
+  // A growing lag means the consumer can't keep up; zero means fully caught up.
+  {
+    name: "kumiko_event_consumer_lag_events",
+    type: "gauge",
+    description: "Number of events between the consumer's cursor and the events head.",
+    labels: ["consumer"],
+  },
+  {
+    name: "kumiko_event_consumer_events_processed_total",
+    type: "counter",
+    description: "Events successfully delivered to a consumer.",
+    labels: ["consumer"],
+  },
+  {
+    name: "kumiko_event_consumer_events_failed_total",
+    type: "counter",
+    description:
+      "Event deliveries that threw. Repeated failures on the same event lead to dead-letter.",
+    labels: ["consumer"],
+  },
 ] as const;
 
 export function registerStandardMetrics(meter: Meter): void {
@@ -131,4 +153,30 @@ export function emitProjectionRebuild(
   meter
     .counter("kumiko_projection_rebuild_events_total")
     .inc(eventsReplayed, { projection: labels.projection });
+}
+
+export function emitEventConsumerLag(
+  meter: Meter,
+  labels: { readonly consumer: string },
+  lagEvents: number,
+): void {
+  meter.gauge("kumiko_event_consumer_lag_events").set(lagEvents, { consumer: labels.consumer });
+}
+
+export function emitEventConsumerPassOutcome(
+  meter: Meter,
+  labels: { readonly consumer: string },
+  processed: number,
+  failed: number,
+): void {
+  if (processed > 0) {
+    meter
+      .counter("kumiko_event_consumer_events_processed_total")
+      .inc(processed, { consumer: labels.consumer });
+  }
+  if (failed > 0) {
+    meter
+      .counter("kumiko_event_consumer_events_failed_total")
+      .inc(failed, { consumer: labels.consumer });
+  }
 }

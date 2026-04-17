@@ -42,6 +42,8 @@ export {
   emitDbQuery,
   emitDispatcherError,
   emitDispatcherHandler,
+  emitEventConsumerLag,
+  emitEventConsumerPassOutcome,
   emitHttpRequest,
   registerStandardMetrics,
   STANDARD_METRIC_DEFS,

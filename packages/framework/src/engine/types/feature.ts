@@ -59,6 +59,12 @@ import type { EntityRelations, RelationDefinition } from "./relations";
 export type PostEventSubscriberDef = {
   readonly name: string;
   readonly handler: EventConsumerHandler;
+  // When true, the handler receives the raw ctx.db (DbConnection) — untrimmed
+  // cross-tenant access. Use only for system-level sinks (audit, analytics
+  // across tenants). Default false: the dispatcher wraps ctx.db in a
+  // TenantDb scoped to event.tenantId before calling the handler, so the
+  // handler can't accidentally query another tenant's data.
+  readonly systemScoped?: boolean;
 };
 
 // --- Metrics (declared by features via r.metric()) ---
@@ -245,7 +251,15 @@ export type FeatureRegistrar = {
   // event, in events.id order. Handler throws → retried until maxAttempts,
   // then the subscriber pauses (dead-letter) while the others keep running.
   // Use for side-effects: SSE broadcast, search-index, external calls.
-  postEvent(name: string, handler: EventConsumerHandler): void;
+  //
+  // The handler's ctx.db is tenant-scoped to event.tenantId by default —
+  // forgetting to filter by tenant is not a leak risk. Pass
+  // { systemScoped: true } to opt out (cross-tenant audit / analytics sinks).
+  postEvent(
+    name: string,
+    handler: EventConsumerHandler,
+    options?: { systemScoped?: boolean },
+  ): void;
 };
 
 // --- Registry (created from features) ---
