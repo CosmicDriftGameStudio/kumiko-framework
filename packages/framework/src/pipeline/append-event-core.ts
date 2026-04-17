@@ -1,5 +1,6 @@
 import { requestContext } from "../api/request-context";
 import type { DbRunner } from "../db/connection";
+import { toKebab } from "../engine/qualified-name";
 import type { AppendEventArgs, Registry, TenantId } from "../engine/types";
 import { InternalError, validationErrorFromZod } from "../errors";
 import { isStreamArchived } from "../event-store/archive";
@@ -23,7 +24,22 @@ export type AppendDomainEventCoreDeps = {
   // Label for the "event not registered" error message so the failure points
   // at the caller (e.g. "ctx.appendEvent" vs. "MSP-apply ctx.appendEvent").
   readonly callSiteLabel: string;
+  // Feature that issued the append — used to enforce cross-feature ownership:
+  // events are owned by the feature that r.defineEvent'd them. When provided,
+  // appendDomainEventCore rejects any args.type whose feature-prefix does not
+  // match this caller. Omit for internal framework calls that legitimately
+  // cross features.
+  readonly callerFeature?: string;
 };
+
+// Extract the owning feature from a qualified event name. Events are
+// registered as "<feature>:event:<short>" (see registry.ts qualify()) so the
+// prefix before the first ":" is the owner. Falls back to undefined if the
+// name isn't qualified — callers then skip the cross-feature check.
+function eventOwnerFeature(qualifiedName: string): string | undefined {
+  const idx = qualifiedName.indexOf(":");
+  return idx > 0 ? qualifiedName.slice(0, idx) : undefined;
+}
 
 export async function appendDomainEventCore(
   deps: AppendDomainEventCoreDeps,
@@ -34,6 +50,25 @@ export async function appendDomainEventCore(
     throw new InternalError({
       message: `${deps.callSiteLabel}("${args.type}") — event not registered. Call r.defineEvent(shortName, schema) in a feature; appendEvent expects the qualified name returned by defineEvent (e.g. "<feature>:event:<short>").`,
     });
+  }
+  // Cross-feature ownership: features don't get to emit each other's events.
+  // Silent cross-feature writes would make event-store semantics fragile —
+  // a rename or schema-evolution in feature A could break an unrelated
+  // handler in feature B. The contract is: if you want feature A's state to
+  // react to feature B, wire an r.multiStreamProjection in A against B's
+  // events and let A emit its OWN follow-up on A's stream.
+  //
+  // Feature names are registered case-preserving (pubsubOrders) but qualified
+  // into kebab-case for the event/handler names (pubsub-orders:event:…) — so
+  // we compare the kebab form on both sides.
+  if (deps.callerFeature) {
+    const owner = eventOwnerFeature(args.type);
+    const callerKebab = toKebab(deps.callerFeature);
+    if (owner && owner !== callerKebab) {
+      throw new InternalError({
+        message: `${deps.callSiteLabel}("${args.type}") — event belongs to feature "${owner}" but the caller runs in feature "${callerKebab}". Events are owned by the feature that defines them. Either move r.defineEvent into "${callerKebab}", or react via r.multiStreamProjection and emit a follow-up event you own.`,
+      });
+    }
   }
   const parsed = eventDef.schema.safeParse(args.payload ?? {});
   if (!parsed.success) throw validationErrorFromZod(parsed.error);

@@ -36,6 +36,12 @@ export type MultiStreamApplyContextDeps = {
   // the downstream audit-trail can reconstruct the acting principal.
   readonly tenantId: TenantId;
   readonly userId: string;
+  // MSP's owning feature (prefix of its qualified name). Enforced at
+  // emit-site: the MSP cannot ctx.appendEvent a type owned by another
+  // feature. Cross-feature reactions are fine inbound (this MSP is
+  // subscribed to events from any feature), but outbound appends must
+  // stay within the MSP's own feature.
+  readonly callerFeature?: string;
 };
 
 export function createMultiStreamApplyContext(
@@ -50,6 +56,7 @@ export function createMultiStreamApplyContext(
           tenantId: deps.tenantId,
           userId: deps.userId,
           callSiteLabel: "MSP-apply ctx.appendEvent",
+          ...(deps.callerFeature && { callerFeature: deps.callerFeature }),
         },
         args,
       );

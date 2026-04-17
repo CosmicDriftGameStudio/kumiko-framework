@@ -223,6 +223,7 @@ export function createDispatcher(
     args: AppendEventArgs,
     user: SessionUser,
     tx: DbTx | undefined,
+    callerFeature: string | undefined,
   ): Promise<void> {
     const dbSource: DbConnection | DbTx | undefined =
       tx ?? (context.db as DbConnection | undefined);
@@ -238,6 +239,9 @@ export function createDispatcher(
         tenantId: user.tenantId,
         userId: String(user.id),
         callSiteLabel: "ctx.appendEvent",
+        // Handler's owning feature — used to reject cross-feature appends.
+        // Conditional spread keeps exactOptionalPropertyTypes happy.
+        ...(callerFeature && { callerFeature }),
       },
       args,
     );
@@ -313,7 +317,7 @@ export function createDispatcher(
         return res;
       },
       appendEvent: async (args: AppendEventArgs) => {
-        await appendDomainEvent(args, user, tx);
+        await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
       },
       fetchForWriting: async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {
         const dbSource: DbConnection | DbTx | undefined =
@@ -360,6 +364,7 @@ export function createDispatcher(
             },
             user,
             tx,
+            registry.getHandlerFeature(type),
           );
           handleVersion += 1;
         };

@@ -209,11 +209,16 @@ export function buildServer(options: ServerOptions): KumikoServer {
       // Saga/process-manager ctx: apply can call ctx.appendEvent to cascade
       // a follow-up event onto another aggregate. Uses the triggering event's
       // tenantId + userId so the causal chain stays tenant-consistent.
+      // MSP qualified names are "<feature>:projection:<short>" — the
+      // prefix before the first ":" owns the MSP. Used to reject
+      // cross-feature ctx.appendEvent calls at emit-site.
+      const mspOwner = msp.name.split(":")[0];
       const applyCtx = createMultiStreamApplyContext({
         registry: options.registry,
         db: rawRunner,
         tenantId: event.tenantId,
         userId: event.metadata.userId,
+        ...(mspOwner && { callerFeature: mspOwner }),
       });
       await applyFn(event, rawRunner, applyCtx);
       // Keep ctx reachable to satisfy the EventConsumerHandler signature.

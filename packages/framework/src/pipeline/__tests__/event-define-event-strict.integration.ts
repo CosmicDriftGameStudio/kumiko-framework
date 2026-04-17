@@ -27,6 +27,15 @@ import {
 // Capture of the qualified event name defineEvent returns so tests can
 // assert against a moving target (kebab/qualifier transformations).
 let welcomeEventName = "";
+let foreignEventName = "";
+
+// Second feature owning its own event. The emitter feature below tries to
+// emit this from one of its handlers — Sprint-E cross-feature-ownership
+// guard must reject it at the append site.
+const neighborFeature = defineFeature("neighbor", (r) => {
+  const foreign = r.defineEvent("neighbor.signal", z.object({ userId: z.uuid() }));
+  foreignEventName = foreign.name;
+});
 
 const emitterFeature = defineFeature("emitter", (r) => {
   r.entity("widget", sharedWidgetEntity);
@@ -81,6 +90,24 @@ const emitterFeature = defineFeature("emitter", (r) => {
     },
     { access: { roles: ["Admin"] } },
   );
+
+  r.writeHandler(
+    "emit:foreign-event",
+    z.object({ userId: z.uuid() }),
+    async (cmd, ctx) => {
+      // "neighbor:event:neighbor-signal" is owned by the neighbor feature.
+      // The ownership guard in appendDomainEventCore must reject this append
+      // at emit-site — cross-feature emission silently breaks encapsulation.
+      await ctx.appendEvent({
+        aggregateId: cmd.payload.userId,
+        aggregateType: "user",
+        type: foreignEventName,
+        payload: { userId: cmd.payload.userId },
+      });
+      return { isSuccess: true, data: { kind: "save", id: cmd.payload.userId } };
+    },
+    { access: { roles: ["Admin"] } },
+  );
 });
 
 const admin = TestUsers.admin;
@@ -88,7 +115,7 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [emitterFeature],
+    features: [emitterFeature, neighborFeature],
     systemHooks: [],
   });
   await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
@@ -153,6 +180,24 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.type, welcomeEventName));
+    expect(stored).toHaveLength(0);
+  });
+});
+
+describe("E.3 — cross-feature ownership guard", () => {
+  test("emitter cannot ctx.appendEvent an event owned by another feature", async () => {
+    // neighbor:event:neighbor-signal is a registered event — but it lives
+    // in the neighbor feature, not the emitter. Without the guard the
+    // append would succeed silently, attaching a "foreign" event onto the
+    // emitter's aggregate stream and undermining feature encapsulation.
+    const userId = globalThis.crypto.randomUUID();
+    const res = await stack.http.write("emitter:write:emit:foreign-event", { userId }, admin);
+    expect(res.status).toBe(500);
+
+    const stored = await stack.db.db
+      .select()
+      .from(eventsTable)
+      .where(eq(eventsTable.type, foreignEventName));
     expect(stored).toHaveLength(0);
   });
 });
