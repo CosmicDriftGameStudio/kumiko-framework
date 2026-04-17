@@ -7,8 +7,25 @@ export type { EntityCache, EntityCacheOptions } from "./entity-cache";
 export { createEntityCache } from "./entity-cache";
 export type { BrokerEvent, EventBroker } from "./event-broker";
 export { createEventBroker } from "./event-broker";
+export type { ConsumerStatus } from "./event-consumer-state";
+export {
+  CONSUMER_STATUSES,
+  createEventConsumerStateTable,
+  eventConsumerStateTable,
+} from "./event-consumer-state";
 export type { EventDedup } from "./event-dedup";
 export { createEventDedup } from "./event-dedup";
+export type {
+  EventConsumer,
+  EventConsumerHandler,
+  EventDispatcher,
+  EventDispatcherOptions,
+} from "./event-dispatcher";
+export {
+  createEventDispatcher,
+  getConsumerState,
+  listConsumersWithState,
+} from "./event-dispatcher";
 export type { EventLog, EventLogEntry } from "./event-log";
 export { createEventLog } from "./event-log";
 export type { IdempotencyGuard } from "./idempotency";

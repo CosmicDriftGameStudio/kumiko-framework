@@ -12,6 +12,7 @@ import type {
   NotificationDefinition,
   PhasedHook,
   PostDeleteHookFn,
+  PostEventSubscriberDef,
   PostSaveHookFn,
   PreDeleteHookFn,
   PreQueryHookFn,
@@ -74,6 +75,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // does a single Map.get, never a scan.
   const projectionMap = new Map<string, ProjectionDefinition>();
   const projectionsBySource = new Map<string, ProjectionDefinition[]>();
+
+  // Post-event subscribers — qualified name → subscriber. One row in
+  // kumiko_event_consumers per qualified name; the event-dispatcher iterates
+  // this map to fan events out.
+  const postEventSubscriberMap = new Map<string, PostEventSubscriberDef>();
 
   // Qualified name helper: builds "scope:type:name" from feature + type + short name.
   // Both feature name and handler name are converted to kebab-case.
@@ -276,6 +282,21 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         existing.push(stored);
         projectionsBySource.set(src, existing);
       }
+    }
+
+    // Post-event subscribers: qualified by feature name. Each becomes its own
+    // row in kumiko_event_consumers with an independent cursor, so one broken
+    // subscriber doesn't stall another. Duplicate qualified names mean two
+    // features declared the same short name — that would silently collide
+    // cursors, so fail loudly at boot.
+    for (const [shortName, subDef] of Object.entries(feature.postEventSubscribers)) {
+      const qualified = qualify(feature.name, "consumer", shortName);
+      if (postEventSubscriberMap.has(qualified)) {
+        throw new Error(
+          `Duplicate postEvent subscriber: "${qualified}" (registered by multiple features)`,
+        );
+      }
+      postEventSubscriberMap.set(qualified, { ...subDef, name: qualified });
     }
   }
 
@@ -709,6 +730,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllProjections(): ReadonlyMap<string, ProjectionDefinition> {
       return projectionMap;
+    },
+
+    getAllPostEventSubscribers(): ReadonlyMap<string, PostEventSubscriberDef> {
+      return postEventSubscriberMap;
     },
   };
 }

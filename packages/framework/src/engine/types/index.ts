@@ -35,6 +35,7 @@ export type {
   FeatureMetricType,
   FeatureRegistrar,
   MetricOptions,
+  PostEventSubscriberDef,
   Registry,
 } from "./feature";
 export type {

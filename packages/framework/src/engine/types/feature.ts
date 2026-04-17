@@ -1,4 +1,5 @@
 import type { ZodType, z } from "zod";
+import type { EventConsumerHandler } from "../../pipeline/event-dispatcher";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
 import type {
   ConfigDefinition,
@@ -41,6 +42,24 @@ import type {
 } from "./hooks";
 import type { ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
+
+// --- Post-Event subscribers (declared by features via r.postEvent()) ---
+//
+// A subscriber runs async after the event is durably appended (the event-
+// dispatcher reads from the events-table via a persistent per-subscriber
+// cursor). Use this for: SSE broadcast, search-index updates, cross-feature
+// reactions, external HTTP calls, message-bus dispatch.
+//
+// Naming: "<feature>:consumer:<short>". Framework qualifies automatically so
+// two features can't collide on the same consumer name.
+//
+// Ordering: per-subscriber, strictly by events.id. Handler throws → retry
+// the SAME event up to maxAttempts, then the subscriber pauses (status
+// "dead"). Other subscribers keep running independently.
+export type PostEventSubscriberDef = {
+  readonly name: string;
+  readonly handler: EventConsumerHandler;
+};
 
 // --- Metrics (declared by features via r.metric()) ---
 
@@ -91,6 +110,9 @@ export type FeatureDefinition = {
   // Projections declared via r.projection(). Keyed by projection name; executor
   // looks them up by source-entity at write-time.
   readonly projections: Readonly<Record<string, ProjectionDefinition>>;
+  // Post-event subscribers declared via r.postEvent(). Keyed by qualified
+  // consumer name; the event-dispatcher looks them up when scheduling a pass.
+  readonly postEventSubscribers: Readonly<Record<string, PostEventSubscriberDef>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -217,6 +239,13 @@ export type FeatureRegistrar = {
   // The runtime fires projection.apply[event.type] inside the event-store's
   // transaction, so projections stay consistent with the events that feed them.
   projection(definition: ProjectionDefinition): void;
+
+  // Register an async post-event subscriber. The event-dispatcher reads the
+  // events-table via a per-subscriber cursor and calls the handler for each
+  // event, in events.id order. Handler throws → retried until maxAttempts,
+  // then the subscriber pauses (dead-letter) while the others keep running.
+  // Use for side-effects: SSE broadcast, search-index, external calls.
+  postEvent(name: string, handler: EventConsumerHandler): void;
 };
 
 // --- Registry (created from features) ---
@@ -266,4 +295,8 @@ export type Registry = {
   // feeds off the entity — event-store-executor uses this as the hot-path.
   getProjectionsForSource(entityName: string): readonly ProjectionDefinition[];
   getAllProjections(): ReadonlyMap<string, ProjectionDefinition>;
+
+  // All registered postEvent subscribers, keyed by qualified consumer name.
+  // Event-dispatcher iterates this to schedule a per-consumer pass.
+  getAllPostEventSubscribers(): ReadonlyMap<string, PostEventSubscriberDef>;
 };

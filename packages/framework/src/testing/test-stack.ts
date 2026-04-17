@@ -7,7 +7,7 @@ import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import { createEventsTable } from "../event-store";
 import type { ObservabilityProvider } from "../observability";
-import type { EventBroker, OutboxPoller } from "../pipeline";
+import type { EventBroker, EventDispatcher, OutboxPoller } from "../pipeline";
 import {
   createEntityCache,
   createEventBroker,
@@ -43,6 +43,9 @@ export type TestStack = {
   // to drain the outbox deterministically instead of waiting on the timer.
   outboxPoller?: OutboxPoller;
   eventBroker?: EventBroker;
+  // Present only when any feature registered an r.postEvent() subscriber.
+  // Tests drain it via eventDispatcher.runOnce() for deterministic assertion.
+  eventDispatcher?: EventDispatcher;
   cleanup: () => Promise<void>;
 };
 
@@ -97,10 +100,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // is ready for writes without needing a manual createEventsTable().
   await createEventsTable(testDb.db);
 
-  // Framework state for projection rebuild/status. Idempotent — production
-  // boot flows run the same call.
-  const { createProjectionStateTable } = await import("../pipeline");
+  // Framework state for projection rebuild/status + event-consumer cursors.
+  // Idempotent — production boot flows run the same calls.
+  const { createProjectionStateTable, createEventConsumerStateTable } = await import("../pipeline");
   await createProjectionStateTable(testDb.db);
+  await createEventConsumerStateTable(testDb.db);
 
   // Projection tables: the executor writes into them in the same TX as the
   // event-append, so they have to exist before the first write. Auto-push
@@ -260,6 +264,24 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // dedicated tests that call start()/stop().
   const outboxPoller = server.outboxPoller;
 
+  // Build the async event-dispatcher for any r.postEvent() subscribers the
+  // registry discovered. Tests drive it via stack.eventDispatcher.runOnce()
+  // for deterministic drains — no timer-induced flakiness.
+  const subscribers = [...registry.getAllPostEventSubscribers().values()];
+  const { createEventDispatcher } = await import("../pipeline");
+  const eventDispatcher =
+    subscribers.length > 0
+      ? createEventDispatcher({
+          db: testDb.db,
+          consumers: subscribers.map((s) => ({ name: s.name, handler: s.handler })),
+          // AppContext minimum: registry + db. Hooks pulled in via context
+          // spread reach AppContext the same way other stack-level hooks do.
+          context: { db: testDb.db, redis: testRedis.redis, registry },
+          // Fast timer for tests; production boot can override.
+          pollIntervalMs: 50,
+        })
+      : undefined;
+
   const http = createRequestHelper(server.app, server.jwt);
 
   return {
@@ -274,8 +296,10 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     observability: server.observability,
     ...(outboxPoller ? { outboxPoller } : {}),
     ...(eventBroker ? { eventBroker } : {}),
+    ...(eventDispatcher ? { eventDispatcher } : {}),
     cleanup: async () => {
       if (outboxPoller) await outboxPoller.stop();
+      if (eventDispatcher) await eventDispatcher.stop();
       if (eventBroker) await eventBroker.stop();
       if (subscriberRedis) subscriberRedis.disconnect();
       await server.observability.shutdown();

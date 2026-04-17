@@ -28,6 +28,7 @@ import type {
   NotificationTemplateFn,
   PhasedHook,
   PostDeleteHookFn,
+  PostEventSubscriberDef,
   PostSaveHookFn,
   PreDeleteHookFn,
   ProjectionDefinition,
@@ -79,6 +80,7 @@ export function defineFeature(
   const handlerEntityMappings: Record<string, string> = {};
   const metrics: Record<string, FeatureMetricDef> = {};
   const projections: Record<string, ProjectionDefinition> = {};
+  const postEventSubscribers: Record<string, PostEventSubscriberDef> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -391,6 +393,26 @@ export function defineFeature(
       }
       projections[definition.name] = definition;
     },
+
+    postEvent(subscriberName, handler): void {
+      // Same kebab-case rule as projections — consumer name becomes a QN
+      // segment ("<feature>:consumer:<name>") at registry-boot. Registering
+      // with a non-kebab name would silently survive here but blow up when
+      // the registry qualifies it, far from the source.
+      if (toKebab(subscriberName) !== subscriberName || !/^[a-z][a-z0-9-]*$/.test(subscriberName)) {
+        throw new Error(
+          `[Feature ${name}] postEvent subscriber name "${subscriberName}" must be kebab-case ` +
+            `(lowercase letters, digits, dashes; start with a letter).`,
+        );
+      }
+      if (postEventSubscribers[subscriberName]) {
+        throw new Error(
+          `[Feature ${name}] postEvent subscriber "${subscriberName}" already registered. ` +
+            `Consumer names must be unique per feature.`,
+        );
+      }
+      postEventSubscribers[subscriberName] = { name: subscriberName, handler };
+    },
   };
 
   setup(registrar);
@@ -429,5 +451,6 @@ export function defineFeature(
     handlerEntityMappings,
     metrics,
     projections,
+    postEventSubscribers,
   };
 }
