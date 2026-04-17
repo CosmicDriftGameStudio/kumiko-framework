@@ -388,6 +388,76 @@ const commands = {
     },
   },
 
+  events: {
+    description: "Events-Tabelle verwalten (prune [--older-than <days>] [--dry-run])",
+    run: async () => {
+      const subCommand = Bun.argv[3];
+
+      if (subCommand !== "prune") {
+        console.log("\n  Usage: yarn kumiko events prune [--older-than <days>] [--dry-run]\n");
+        process.exit(1);
+      }
+
+      // Simple flag parsing — no positional args here, so flags can appear
+      // in any order.
+      let olderThanDays = 30;
+      let dryRun = false;
+      for (let i = 4; i < Bun.argv.length; i++) {
+        const flag = Bun.argv[i];
+        if (flag === "--older-than") {
+          olderThanDays = Number(Bun.argv[++i]);
+          if (!Number.isFinite(olderThanDays) || olderThanDays <= 0) {
+            console.error("\n  --older-than requires a positive number (days)\n");
+            process.exit(1);
+          }
+        } else if (flag === "--dry-run") {
+          dryRun = true;
+        }
+      }
+
+      const { createDbConnection } = await import("@kumiko/framework/db");
+      const { ConsumerLagError, pruneEvents } = await import("@kumiko/framework/pipeline");
+
+      const databaseUrl = Bun.env["DATABASE_URL"];
+      if (!databaseUrl) {
+        console.error("\n  DATABASE_URL not set. Run against a configured env.\n");
+        process.exit(1);
+      }
+      const { db, close } = createDbConnection(databaseUrl);
+      const green = "\x1b[32m";
+      const yellow = "\x1b[33m";
+      const red = "\x1b[31m";
+      const dim = "\x1b[2m";
+      const reset = "\x1b[0m";
+
+      try {
+        const result = await pruneEvents(db, { olderThanDays, dryRun });
+        const verb = dryRun ? "would delete" : "deleted";
+        const mark = dryRun ? yellow : green;
+        console.log(
+          `\n  ${mark}✓${reset} ${verb} ${result.deletedCount} event(s) ` +
+            `older than ${result.cutoff.toISOString()} ` +
+            `(aggregateType=${result.aggregateTypes.join(",")})\n`,
+        );
+        if (result.dryRun) {
+          console.log(`    ${dim}Drop --dry-run to actually delete.${reset}\n`);
+        }
+      } catch (e) {
+        if (e instanceof ConsumerLagError) {
+          console.error(`\n  ${red}✗${reset} ${e.message}\n`);
+          console.error(
+            `    ${dim}Options: catch up the consumer, disable it, or "yarn kumiko consumer skip <name>".${reset}\n`,
+          );
+        } else {
+          console.error(`\n  ${red}✗${reset} ${e instanceof Error ? e.message : String(e)}\n`);
+        }
+        await close();
+        process.exit(1);
+      }
+      await close();
+    },
+  },
+
   consumer: {
     description:
       "Event-Consumer verwalten (list | status <name> | restart <name> | disable <name> | enable <name> | skip <name>)",

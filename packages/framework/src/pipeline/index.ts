@@ -31,6 +31,8 @@ export {
 } from "./event-dispatcher";
 export type { EventLog, EventLogEntry } from "./event-log";
 export { createEventLog } from "./event-log";
+export type { PruneEventsOptions, PruneEventsResult } from "./event-retention";
+export { ConsumerLagError, PUBSUB_AGGREGATE_TYPE, pruneEvents } from "./event-retention";
 export type { IdempotencyGuard } from "./idempotency";
 export { createIdempotencyGuard } from "./idempotency";
 export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline";
