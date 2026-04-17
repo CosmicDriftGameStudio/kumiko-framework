@@ -44,6 +44,7 @@ export {
   emitDispatcherHandler,
   emitEventConsumerLag,
   emitEventConsumerPassOutcome,
+  emitEventDispatcherListenConnected,
   emitHttpRequest,
   registerStandardMetrics,
   STANDARD_METRIC_DEFS,

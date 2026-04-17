@@ -5,6 +5,7 @@ import { EVENTS_PUBSUB_CHANNEL, eventsTable, type StoredEvent } from "../event-s
 import {
   emitEventConsumerLag,
   emitEventConsumerPassOutcome,
+  emitEventDispatcherListenConnected,
   getFallbackMeter,
   getFallbackTracer,
   type Meter,
@@ -366,6 +367,27 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       if (running) return;
       running = true;
 
+      // Pre-register consumer state rows. Without this, a consumer first
+      // bootstraps lazily on its first runOnce — and if prune runs between
+      // "process came up" and "first pass landed", prune wouldn't see the
+      // consumer in the state table, would delete events past its (absent)
+      // cursor, and the consumer's first pass would silently skip them.
+      //
+      // Pre-registering turns every consumer into a row-with-cursor-0 the
+      // moment the dispatcher starts — so the retention guard
+      // (pruneEvents → ConsumerLagError) correctly refuses to prune past
+      // any consumer that exists, including freshly-deployed ones.
+      //
+      // ON CONFLICT DO NOTHING: idempotent under restart, safe under
+      // concurrent starts (multi-instance), never clobbers an existing
+      // cursor with 0.
+      for (const consumer of consumers) {
+        await db
+          .insert(eventConsumerStateTable)
+          .values({ name: consumer.name, status: "idle" })
+          .onConflictDoNothing({ target: eventConsumerStateTable.name });
+      }
+
       timer = setInterval(() => {
         void runOnce().catch(() => {
           // skip: per-consumer errors already recorded in the state row
@@ -376,15 +398,33 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // event-store.append fires on commit. Fires runOnce directly, no
       // polling round-trip. The timer stays on as a belt-and-braces
       // fallback (dropped subscriptions, missed commits under load).
+      //
+      // Observability: the gauge kumiko_event_dispatcher_listen_connected
+      // flips to 1 on initial subscribe AND on every postgres.js silent
+      // reconnect (via the onlisten callback). A drop to 0 while running
+      // means delivery latency regressed from TCP-round-trip to
+      // pollIntervalMs — ops-visible.
+      emitEventDispatcherListenConnected(meter, false);
       if (options.pgClient) {
         try {
-          const sub = await options.pgClient.listen(EVENTS_PUBSUB_CHANNEL, () => {
-            void runOnce().catch(() => {
-              // skip: per-consumer errors already recorded in the state row
-            });
-          });
+          const sub = await options.pgClient.listen(
+            EVENTS_PUBSUB_CHANNEL,
+            () => {
+              void runOnce().catch(() => {
+                // skip: per-consumer errors already recorded in the state row
+              });
+            },
+            () => {
+              // Fires on initial connect AND on each reconnect. postgres.js
+              // reconnects transparently if the TCP connection drops, so the
+              // only way to see the recovery window is to flip the gauge
+              // every time this callback lands.
+              emitEventDispatcherListenConnected(meter, true);
+            },
+          );
           pgUnlisten = sub.unlisten;
         } catch (e) {
+          emitEventDispatcherListenConnected(meter, false);
           const msg = e instanceof Error ? e.message : String(e);
           context.log?.error(`[event-dispatcher] pg LISTEN failed: ${msg}`);
         }
@@ -407,6 +447,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
           // subscription is being torn down anyway.
         });
         pgUnlisten = null;
+        emitEventDispatcherListenConnected(meter, false);
       }
 
       // Drain any in-flight pass so shutdown observes consistent state.

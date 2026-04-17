@@ -1,4 +1,4 @@
-import { and, inArray, lt, sql } from "drizzle-orm";
+import { and, getTableName, inArray, lt, sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import { eventsTable } from "../event-store";
 import { eventConsumerStateTable } from "./event-consumer-state";
@@ -84,6 +84,23 @@ export async function pruneEvents(
   const dryRun = options.dryRun === true;
 
   return db.transaction(async (tx) => {
+    // Serialise against consumer-bootstrap INSERTs. Without this, the race
+    // is: prune reads consumers (snapshot misses a consumer bootstrapping
+    // in a parallel tx) → consumer commits its row with
+    // lastProcessedEventId=0 → prune deletes events below its new cursor
+    // → first pass of the new consumer silently skips the deleted events.
+    //
+    // SHARE is the lightest table-mode that conflicts with ROW EXCLUSIVE
+    // (the mode INSERT/UPDATE/DELETE take). Concurrent INSERTs on the
+    // consumer table queue until this TX commits; concurrent UPDATEs
+    // (cursor advances) do too, but prune is measured in milliseconds and
+    // pausing cursor advances for that window is cheap insurance against
+    // a silent data-loss bug.
+    //
+    // Drizzle can't express LOCK TABLE — drop to raw SQL with the table
+    // name identifier so a future table-rename is caught at compile time.
+    await tx.execute(sql.raw(`LOCK TABLE ${getTableName(eventConsumerStateTable)} IN SHARE MODE`));
+
     // Step 1 — collect candidate event ids.
     const candidates = await tx
       .select({ id: eventsTable.id })
@@ -107,6 +124,9 @@ export async function pruneEvents(
     // Step 2 — safety guard: check every ACTIVE consumer has moved past
     // the candidate set. Disabled consumers are intentionally excluded —
     // ops disables them precisely to park them while pruning happens.
+    // The SHARE lock above guarantees this SELECT sees a complete view:
+    // no new consumer can INSERT a fresh-cursor row between here and the
+    // DELETE below.
     const activeConsumers = await tx
       .select()
       .from(eventConsumerStateTable)

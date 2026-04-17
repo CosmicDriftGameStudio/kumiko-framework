@@ -78,6 +78,17 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
       "Event deliveries that threw. Repeated failures on the same event lead to dead-letter.",
     labels: ["consumer"],
   },
+  // LISTEN-subscription health. 1 = active, 0 = dropped. Drops to 0 while
+  // the dispatcher is running signal that delivery latency has regressed
+  // from sub-millisecond (LISTEN) to pollIntervalMs (timer fallback); ops
+  // should look at it the moment downstream latency SLOs start slipping.
+  {
+    name: "kumiko_event_dispatcher_listen_connected",
+    type: "gauge",
+    description:
+      "1 if the event-dispatcher holds an active PG LISTEN subscription on the events channel, 0 otherwise.",
+    labels: [],
+  },
 ] as const;
 
 export function registerStandardMetrics(meter: Meter): void {
@@ -161,6 +172,10 @@ export function emitEventConsumerLag(
   lagEvents: number,
 ): void {
   meter.gauge("kumiko_event_consumer_lag_events").set(lagEvents, { consumer: labels.consumer });
+}
+
+export function emitEventDispatcherListenConnected(meter: Meter, connected: boolean): void {
+  meter.gauge("kumiko_event_dispatcher_listen_connected").set(connected ? 1 : 0);
 }
 
 export function emitEventConsumerPassOutcome(

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
-import type { AppContext, Registry } from "../engine/types";
+import { type AppContext, type Registry, ZERO_TENANT_ID } from "../engine/types";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
 import {
@@ -186,7 +186,15 @@ export function buildServer(options: ServerOptions): KumikoServer {
     return {
       name: sub.name,
       handler: async (event, ctx) => {
-        const scopedDb = createTenantDb(baseDb, event.tenantId);
+        // System-scope events (job-runner, cross-tenant flows) carry
+        // ZERO_TENANT_ID as a first-class marker meaning "no tenant".
+        // Wrapping with createTenantDb(..., ZERO_TENANT_ID) would silently
+        // restrict the handler to reference-data-only reads and reject every
+        // write — the zero-uuid is never a real tenant. Treat it like
+        // systemScoped: pass the raw baseDb so the subscriber sees the global
+        // view it expects.
+        const scopedDb =
+          event.tenantId === ZERO_TENANT_ID ? baseDb : createTenantDb(baseDb, event.tenantId);
         await sub.handler(event, { ...ctx, db: scopedDb });
       },
     };
