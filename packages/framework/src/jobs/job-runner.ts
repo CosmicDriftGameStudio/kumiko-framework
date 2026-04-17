@@ -1,6 +1,11 @@
 import { type Job, Queue, Worker } from "bullmq";
 import { createSystemUser } from "../engine/system-user";
-import { type AppContext, type Registry, type SessionUser, ZERO_TENANT_ID } from "../engine/types";
+import {
+  type AppContext,
+  type Registry,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+} from "../engine/types";
 import type { Logger } from "../logging/types";
 import { getFallbackTracer, type SerializedTraceContext, type Tracer } from "../observability";
 
@@ -147,7 +152,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const tenantId =
       (rawData["_tenantId"] as string | undefined) ??
       (payload["tenantId"] as string | undefined) ??
-      ZERO_TENANT_ID;
+      SYSTEM_TENANT_ID;
     const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null;
 
     const jobContext: AppContext = {

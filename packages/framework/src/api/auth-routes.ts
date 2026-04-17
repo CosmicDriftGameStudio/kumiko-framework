@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createSystemUser } from "../engine/system-user";
-import { type SessionUser, type TenantId, ZERO_TENANT_ID } from "../engine/types";
+import { type SessionUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/types";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
@@ -17,7 +17,7 @@ type MembershipRow = {
 // `id` is the zero-uuid so it flows through event-store columns cleanly.
 const GUEST_USER: SessionUser = {
   id: "00000000-0000-0000-0000-000000000000",
-  tenantId: ZERO_TENANT_ID,
+  tenantId: SYSTEM_TENANT_ID,
   roles: ["all"],
 };
 

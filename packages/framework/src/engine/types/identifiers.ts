@@ -7,14 +7,16 @@
 // without touching call sites.
 export type TenantId = string;
 
-// Zero-UUID acts as the "system-scope" marker: system handlers carry this
-// tenantId when the event doesn't belong to any particular tenant (reference
-// data, cross-tenant jobs, global config). Central constant so callers don't
-// re-type the UUID string and the isSystemTenant() check stays in sync.
-export const ZERO_TENANT_ID: TenantId = "00000000-0000-4000-8000-000000000000";
+// "System-scope" tenant marker: handlers carry this tenantId when the event
+// doesn't belong to any particular tenant (reference data, cross-tenant
+// jobs, global config). The concrete UUID is a valid v4 (not all-zeroes —
+// Postgres' UUID type rejects invalid variants), chosen to be easy to
+// eyeball in logs. Central constant so call sites don't re-type the string
+// and the isSystemTenant() check stays in sync.
+export const SYSTEM_TENANT_ID: TenantId = "00000000-0000-4000-8000-000000000000";
 
 export function isSystemTenant(tenantId: TenantId | null | undefined): boolean {
-  return !tenantId || tenantId === ZERO_TENANT_ID;
+  return !tenantId || tenantId === SYSTEM_TENANT_ID;
 }
 
 // Primary-key identifier for any entity row. Two shapes coexist because of

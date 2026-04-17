@@ -2,10 +2,10 @@
 // event-dispatcher that only surface when specific call-sites materialise.
 // Pinned here so regressions fail loudly:
 //
-//   1. ZERO_TENANT_ID event delivered to a non-systemScoped subscriber used
-//      to be wrapped in `createTenantDb(baseDb, ZERO_TENANT_ID)`, which
+//   1. SYSTEM_TENANT_ID event delivered to a non-systemScoped subscriber used
+//      to be wrapped in `createTenantDb(baseDb, SYSTEM_TENANT_ID)`, which
 //      silently restricts reads to reference data (tenantId=ZERO) and
-//      rejects every write. The fix: treat ZERO_TENANT_ID like
+//      rejects every write. The fix: treat SYSTEM_TENANT_ID like
 //      systemScoped — raw baseDb.
 //
 //   2. Prune-vs-new-consumer race. Before the fix, a fresh deploy that
@@ -25,7 +25,7 @@ import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineFeature, ZERO_TENANT_ID } from "../../engine";
+import { createEntity, createTextField, defineFeature, SYSTEM_TENANT_ID } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
   DEFAULT_SENSITIVE_CONFIG,
@@ -63,8 +63,8 @@ let systemScopedDb: DbSnapshot | null = null;
 const auditFeature = defineFeature("audit", (r) => {
   r.entity("auditWidget", auditEntity);
 
-  // Default (tenant-wrapped) subscriber. The ZERO_TENANT_ID fix matters
-  // exactly for this flavour — without it, a ZERO_TENANT_ID event would
+  // Default (tenant-wrapped) subscriber. The SYSTEM_TENANT_ID fix matters
+  // exactly for this flavour — without it, a SYSTEM_TENANT_ID event would
   // silently bind this handler's db to reference-data-only.
   r.postEvent("default-scope", async (_event, ctx) => {
     tenantScopedDb = ctx.db as DbSnapshot;
@@ -100,14 +100,14 @@ afterEach(async () => {
   );
 });
 
-// Insert a pub/sub event directly so we can stamp tenantId=ZERO_TENANT_ID
+// Insert a pub/sub event directly so we can stamp tenantId=SYSTEM_TENANT_ID
 // without routing through ctx.emit (which takes the SessionUser's
 // tenantId). Mirrors seedOldPubsubEvent in event-retention.integration.
 async function seedZeroTenantPubsubEvent(type: string, name: string): Promise<void> {
   await stack.db.db.insert(eventsTable).values({
     aggregateId: globalThis.crypto.randomUUID(),
     aggregateType: PUBSUB_AGGREGATE_TYPE,
-    tenantId: ZERO_TENANT_ID,
+    tenantId: SYSTEM_TENANT_ID,
     version: 1,
     type,
     payload: { name },
@@ -130,12 +130,12 @@ async function seedOldPubsubEvent(createdAt: Date): Promise<void> {
   });
 }
 
-// --- Fix #1 — ZERO_TENANT_ID ---
+// --- Fix #1 — SYSTEM_TENANT_ID ---
 
-describe("Second audit — ZERO_TENANT_ID + non-systemScoped subscriber", () => {
-  test("event with tenantId=ZERO_TENANT_ID delivers raw baseDb to the default subscriber", async () => {
+describe("Second audit — SYSTEM_TENANT_ID + non-systemScoped subscriber", () => {
+  test("event with tenantId=SYSTEM_TENANT_ID delivers raw baseDb to the default subscriber", async () => {
     // Before the fix: the default subscriber's ctx.db would be
-    // createTenantDb(baseDb, ZERO_TENANT_ID) — a TenantDb whose readFilter
+    // createTenantDb(baseDb, SYSTEM_TENANT_ID) — a TenantDb whose readFilter
     // narrows to `tenantId = ZERO OR tenantId = ZERO` (reference-data-only)
     // and whose writeFilter rejects everything. Silent because the handler
     // would run without throwing, just with a crippled view.
@@ -152,7 +152,7 @@ describe("Second audit — ZERO_TENANT_ID + non-systemScoped subscriber", () => 
   });
 
   test("event with a real tenantId still delivers a TenantDb (wrap intact for the normal path)", async () => {
-    // Regression guard: the ZERO_TENANT_ID fix must not short-circuit the
+    // Regression guard: the SYSTEM_TENANT_ID fix must not short-circuit the
     // tenant-wrap for real tenants. Those still need the filter — tenant
     // isolation is the reason this wrap exists.
     await executor.create({ name: "real-tenant" }, admin, tdb);
@@ -166,7 +166,7 @@ describe("Second audit — ZERO_TENANT_ID + non-systemScoped subscriber", () => 
   test("systemScoped subscriber always receives raw baseDb, regardless of event tenantId", async () => {
     // Baseline: systemScoped opt-out bypasses the wrap entirely. Unchanged
     // by this fix, but guarded to make sure the shortcut for
-    // ZERO_TENANT_ID doesn't collide with systemScoped somehow.
+    // SYSTEM_TENANT_ID doesn't collide with systemScoped somehow.
     await seedZeroTenantPubsubEvent("audit:event:zero-system", "sys");
     await stack.eventDispatcher?.runOnce();
 
@@ -299,4 +299,84 @@ describe("Second audit — LISTEN gauge", () => {
       await recStack.cleanup();
     }
   });
+
+  test("onlisten fires again on silent reconnect — gauge flips to 1 a second time", async () => {
+    // This is the claim that justifies the onlisten-callback over a
+    // simpler .set(1) after `await listen()`: on a dropped TCP, postgres.js
+    // re-subscribes automatically and invokes onlisten again, and ops
+    // needs to see the recovery window. Proved here by killing the
+    // LISTEN backend and observing a second gauge.set(1).
+    const metricEvents: MetricEvent[] = [];
+    const meter = new RecordingMeter((e) => metricEvents.push(e));
+    const tracer = new RecordingTracer({
+      sensitiveConfig: DEFAULT_SENSITIVE_CONFIG,
+      onSpanEnd: () => {},
+    });
+    const recordingProvider: ObservabilityProvider = {
+      name: "recording",
+      meter,
+      tracer,
+      shutdown: async () => {},
+    };
+
+    const recStack = await setupTestStack({
+      features: [auditFeature],
+      systemHooks: [],
+      observability: recordingProvider,
+    });
+    try {
+      await createEntityTable(recStack.db.db, auditEntity, "auditWidget");
+
+      await recStack.eventDispatcher?.start();
+      try {
+        const connectsWithValue1 = (): number =>
+          metricEvents.filter(
+            (e) =>
+              e.type === "gauge.set" &&
+              e.name === "kumiko_event_dispatcher_listen_connected" &&
+              e.value === 1,
+          ).length;
+
+        // Wait for the initial onlisten (gauge.set 1) to land.
+        await waitFor(() => connectsWithValue1() >= 1, 2000);
+        const initialConnects = connectsWithValue1();
+        expect(initialConnects).toBeGreaterThanOrEqual(1);
+
+        // Terminate the LISTEN backend. postgres.js runs LISTEN on a
+        // dedicated max=1 sub-pool — the backend whose last query is
+        // `LISTEN "kumiko_events_new"` and is now idle. pg_terminate_backend
+        // on it closes the TCP; postgres.js's onclose handler re-subscribes
+        // and fires onlisten again.
+        await recStack.db.db.execute(
+          sql`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+              WHERE datname = current_database()
+                AND query ILIKE 'listen%'
+                AND state = 'idle'
+                AND pid <> pg_backend_pid()`,
+        );
+
+        // Wait for the SECOND gauge.set(1) — the reconnect. Generous timeout
+        // because postgres.js's reconnect loop includes backoff.
+        await waitFor(() => connectsWithValue1() > initialConnects, 10000);
+        expect(connectsWithValue1()).toBeGreaterThan(initialConnects);
+      } finally {
+        await recStack.eventDispatcher?.stop();
+      }
+    } finally {
+      await recStack.cleanup();
+    }
+  });
 });
+
+// --- Helpers ---
+
+async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  if (!predicate()) {
+    throw new Error(`waitFor: predicate never became true within ${timeoutMs}ms`);
+  }
+}

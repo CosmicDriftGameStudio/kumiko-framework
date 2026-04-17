@@ -113,5 +113,5 @@ export type {
 } from "./types";
 export { DEFAULT_CURRENCIES, HookPhases } from "./types";
 export { resolveName } from "./types/handlers";
-export { isSystemTenant, ZERO_TENANT_ID } from "./types/identifiers";
+export { isSystemTenant, SYSTEM_TENANT_ID } from "./types/identifiers";
 export { runValidation } from "./validation";

@@ -29,6 +29,18 @@ import { eventConsumerStateTable } from "./event-consumer-state";
 // deployment already runs. That keeps the framework dependency-free for
 // retention and lets ops reason about timing alongside existing jobs.
 
+// Synthetic aggregate-type for pub/sub events. Pub/sub is messaging, not
+// event-sourcing — there is no real aggregate, no replay, no ordering
+// guarantee per aggregate-id. But the pub/sub events share the same
+// events-table as aggregate events so the dispatcher has one ordered log
+// to walk (and retention has one place to prune).
+//
+// To satisfy `unique(aggregate_id, version)` on the events table, each
+// ctx.emit allocates a fresh UUID as aggregateId and uses version = 1.
+// The (aggregateType = "pubsub") discriminator is how consumers and the
+// retention guard tell pub/sub apart from aggregate streams. Renaming
+// this string is a schema migration — existing rows in prod would become
+// unreachable by aggregateType filter.
 export const PUBSUB_AGGREGATE_TYPE = "pubsub";
 
 export type PruneEventsOptions = {

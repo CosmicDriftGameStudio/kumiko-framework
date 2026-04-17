@@ -105,7 +105,7 @@ export type {
 export { HookPhases } from "./hooks";
 // Domain-identifier type aliases — see identifiers.ts for rationale.
 export type { EntityId, TenantId } from "./identifiers";
-export { isSystemTenant, ZERO_TENANT_ID } from "./identifiers";
+export { isSystemTenant, SYSTEM_TENANT_ID } from "./identifiers";
 export type {
   ProjectionApplyFn,
   ProjectionDefinition,
