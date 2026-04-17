@@ -285,6 +285,8 @@ export function createDispatcher(
       metadata: {
         userId: user.id,
         ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
+        ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
+        ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
       },
     });
 

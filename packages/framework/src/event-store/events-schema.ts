@@ -26,6 +26,8 @@ import { createSnapshotsTable } from "./snapshot";
 export type EventMetadata = {
   readonly userId: string;
   readonly requestId?: string;
+  readonly correlationId?: string;
+  readonly causationId?: string;
 };
 
 export const eventsTable = pgTable(

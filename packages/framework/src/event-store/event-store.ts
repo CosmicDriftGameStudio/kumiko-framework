@@ -9,6 +9,15 @@ import { eventsTable } from "./events-schema";
 export type EventMetadata = {
   readonly userId: string;
   readonly requestId?: string;
+  // End-to-end business-operation id. Root HTTP requests get it from the
+  // x-correlation-id header (default: requestId). MSP-applies inherit it
+  // from the triggering event. Lets you trace "which user click caused
+  // this email 3 streams later?".
+  readonly correlationId?: string;
+  // Stored event id that triggered this write. Null for root commands;
+  // set to event.id when an MSP-apply runs ctx.appendEvent. Together with
+  // correlationId forms a causation DAG across aggregate streams.
+  readonly causationId?: string;
 };
 
 export type EventToAppend = {

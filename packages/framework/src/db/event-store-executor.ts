@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
+import { requestContext } from "../api/request-context";
 import type {
   DeleteContext,
   EntityDefinition,
@@ -18,6 +19,7 @@ import {
 } from "../errors";
 import {
   append,
+  type EventMetadata,
   VersionConflictError as EventStoreVersionConflict,
   getStreamVersion,
 } from "../event-store";
@@ -53,6 +55,24 @@ export type EventStoreExecutorOptions = {
   entityName: string; // required — the aggregateType marker on every event
   entityCache?: EntityCache;
 };
+
+// Build the metadata envelope for an append. `userId` always set; correlation
+// + causation come from the AsyncLocalStorage request-context when present.
+//
+// Deliberately WITHOUT `requestId`: the events_idempotency_idx is a partial
+// UNIQUE on (tenant_id, metadata->>'requestId'). A single HTTP request can
+// produce multiple events (executor.create + ctx.appendEvent), and only ONE
+// of them carries the requestId marker for client-side idempotency —
+// ctx.appendEvent writes it, CRUD does not. Stamping requestId here too
+// would trip the unique-violation the moment a handler mixes both paths.
+function buildMetadata(user: SessionUser): EventMetadata {
+  const reqCtx = requestContext.get();
+  return {
+    userId: String(user.id),
+    ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
+    ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+  };
+}
 
 // The executor writes events + auto-projection (entity table) in one TX.
 // It no longer knows about user projections — those are driven by the
@@ -200,7 +220,7 @@ export function createEventStoreExecutor(
         expectedVersion: 0,
         type: `${entityName}.created`,
         payload: stripSensitive(data),
-        metadata: { userId: String(user.id) },
+        metadata: buildMetadata(user),
       });
 
       // 2. Update projection. `version` echoes the event-store version so
@@ -288,7 +308,7 @@ export function createEventStoreExecutor(
             changes: stripSensitive(payload.changes),
             previous: stripSensitive(previous),
           },
-          metadata: { userId: String(user.id) },
+          metadata: buildMetadata(user),
         });
 
         const [row] = await db
@@ -359,7 +379,7 @@ export function createEventStoreExecutor(
         expectedVersion: currentVersion,
         type: `${entityName}.deleted`,
         payload: { previous: stripSensitive(existing) },
-        metadata: { userId: String(user.id) },
+        metadata: buildMetadata(user),
       });
 
       if (softDelete) {
@@ -419,7 +439,7 @@ export function createEventStoreExecutor(
         expectedVersion: currentVersion,
         type: `${entityName}.restored`,
         payload: { previous: stripSensitive(data) },
-        metadata: { userId: String(user.id) },
+        metadata: buildMetadata(user),
       });
 
       const [restored] = await db

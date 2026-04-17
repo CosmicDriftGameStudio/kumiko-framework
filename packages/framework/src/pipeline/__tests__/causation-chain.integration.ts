@@ -1,0 +1,222 @@
+// Runde 2 — correlationId + causationId propagation.
+//
+// Claims pinned here:
+//   1. Root HTTP request without x-correlation-id → correlationId == requestId,
+//      causationId absent.
+//   2. Root with x-correlation-id header → correlationId == header value,
+//      stamped on every event the request writes (CRUD + ctx.appendEvent).
+//   3. The event-dispatcher wraps MSP-apply in requestContext.run so downstream
+//      writes from the apply inherit correlationId and set causationId to the
+//      triggering event.id.
+//
+// Note on MSP → new events: the current ProjectionApplyFn signature is
+// `(event, tx)` — applies can't call ctx.appendEvent. Claim 3 is observable
+// via `requestContext.get()` inside the apply (the wrap IS active and carries
+// the right values). Promoting MSP-apply to a full ctx is tracked as Runde 3.
+
+import { sql } from "drizzle-orm";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
+import { requestContext } from "../../api/request-context";
+import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { buildDrizzleTable } from "../../db/table-builder";
+import { createEntity, createTextField, defineFeature } from "../../engine";
+import { eventsTable } from "../../event-store";
+import {
+  createEntityTable,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
+
+// --- Feature ---
+
+const orderEntity = createEntity({
+  table: "causation_orders",
+  idType: "uuid",
+  fields: {
+    item: createTextField({ required: true }),
+  },
+});
+
+const orderTable = buildDrizzleTable("causationOrder", orderEntity);
+
+// MSP-apply observation sink — every apply run pushes its reqCtx snapshot
+// here so the tests can assert what the event-dispatcher wrapped it with.
+type ReqCtxSnapshot = {
+  readonly forEventId: string;
+  readonly correlationId: string | undefined;
+  readonly causationId: string | undefined;
+};
+const applyObservations: ReqCtxSnapshot[] = [];
+
+const causationFeature = defineFeature("causation", (r) => {
+  r.entity("causationOrder", orderEntity);
+
+  const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }));
+
+  const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
+    entityName: "causationOrder",
+  });
+
+  r.writeHandler(
+    "order:place",
+    z.object({ item: z.string() }),
+    async (event, ctx) => {
+      const created = await orderExecutor.create(
+        { item: event.payload.item },
+        event.user,
+        ctx.db,
+      );
+      if (!created.isSuccess) return created;
+      await ctx.appendEvent({
+        aggregateId: String(created.data.id),
+        aggregateType: "causationOrder",
+        type: placed.name,
+        payload: { orderId: String(created.data.id) },
+      });
+      return created;
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Observation-only MSP — records what the dispatcher's requestContext.run
+  // wrap set for each event. Proves that the wrap is live and carries the
+  // triggering event's id as causationId.
+  r.multiStreamProjection({
+    name: "observer",
+    apply: {
+      [placed.name]: async (event) => {
+        const ctx = requestContext.get();
+        applyObservations.push({
+          forEventId: String(event.id),
+          correlationId: ctx?.correlationId,
+          causationId: ctx?.causationId,
+        });
+      },
+    },
+  });
+});
+
+// --- Stack ---
+
+let stack: TestStack;
+const admin = TestUsers.admin;
+
+beforeAll(async () => {
+  stack = await setupTestStack({
+    features: [causationFeature],
+    systemHooks: [],
+  });
+  await createEntityTable(stack.db.db, orderEntity, "causationOrder");
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+afterEach(async () => {
+  applyObservations.length = 0;
+  await stack.db.db.execute(
+    sql`TRUNCATE events, causation_orders, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+  );
+});
+
+// --- Helpers ---
+
+type EventRow = typeof eventsTable.$inferSelect;
+
+async function eventsByType(type: string): Promise<EventRow[]> {
+  const rows = await stack.db.db.select().from(eventsTable);
+  return rows.filter((r) => r.type === type);
+}
+
+async function writeWithHeaders(headers: Record<string, string>, payload: unknown) {
+  const token = await stack.jwt.sign(admin);
+  return stack.app.request("/api/write", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...headers,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+// --- Tests ---
+
+describe("Runde 2 — correlationId on root HTTP request", () => {
+  test("no x-correlation-id: correlationId mirrors requestId, causationId absent", async () => {
+    await stack.http.writeOk("causation:write:order:place", { item: "widget" }, admin);
+
+    const [placedEvent] = await eventsByType("causation:event:placed");
+    expect(placedEvent).toBeDefined();
+    const meta = placedEvent?.metadata as {
+      requestId?: string;
+      correlationId?: string;
+      causationId?: string;
+    };
+    // Default: correlationId == requestId so single-call tracing works
+    // without any client co-operation.
+    expect(meta.correlationId).toBeDefined();
+    expect(meta.requestId).toBe(meta.correlationId);
+    expect(meta.causationId).toBeUndefined();
+  });
+
+  test("with x-correlation-id header: every event this request writes carries the header value", async () => {
+    const res = await writeWithHeaders(
+      { "X-Correlation-ID": "test-chain-abc123" },
+      { type: "causation:write:order:place", payload: { item: "sprocket" } },
+    );
+    expect(res.status).toBe(200);
+
+    // The handler writes TWO events: one CRUD (causationOrder.created) and
+    // one domain (causation:event:placed). Both share the correlationId.
+    const crudEvent = (await eventsByType("causationOrder.created"))[0];
+    const placedEvent = (await eventsByType("causation:event:placed"))[0];
+
+    expect((crudEvent?.metadata as { correlationId?: string })?.correlationId).toBe(
+      "test-chain-abc123",
+    );
+    expect((placedEvent?.metadata as { correlationId?: string })?.correlationId).toBe(
+      "test-chain-abc123",
+    );
+  });
+
+  test("response echoes x-correlation-id back in the same header", async () => {
+    const res = await writeWithHeaders(
+      { "X-Correlation-ID": "echo-me-xyz" },
+      { type: "causation:write:order:place", payload: { item: "rotor" } },
+    );
+    expect(res.headers.get("x-correlation-id")).toBe("echo-me-xyz");
+  });
+});
+
+describe("Runde 2 — event-dispatcher propagates correlation + causation to MSP-apply", () => {
+  test("MSP-apply sees the triggering event.id as causationId and inherits correlationId", async () => {
+    // Root write with a known correlation token.
+    await writeWithHeaders(
+      { "X-Correlation-ID": "msp-chain-token" },
+      { type: "causation:write:order:place", payload: { item: "gasket" } },
+    );
+
+    // Drain the dispatcher — MSP-apply fires, pushes its reqCtx snapshot.
+    await stack.eventDispatcher?.runOnce();
+
+    // Find the placed event by row id (BigInt). Its id is what the MSP
+    // should have seen as causationId.
+    const [placedEvent] = await eventsByType("causation:event:placed");
+    expect(placedEvent).toBeDefined();
+    const placedId = String(placedEvent?.id);
+
+    // Observation recorded inside the MSP apply.
+    expect(applyObservations).toHaveLength(1);
+    const obs = applyObservations[0];
+    expect(obs?.forEventId).toBe(placedId);
+    // Correlation inherited from the triggering event.
+    expect(obs?.correlationId).toBe("msp-chain-token");
+    // Causation = the id of the event that triggered this apply.
+    expect(obs?.causationId).toBe(placedId);
+  });
+});

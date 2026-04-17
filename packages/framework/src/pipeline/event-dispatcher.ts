@@ -1,4 +1,5 @@
 import { asc, eq, gt, sql } from "drizzle-orm";
+import { requestContext } from "../api/request-context";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
 import { EVENTS_PUBSUB_CHANNEL, eventsTable, type StoredEvent } from "../event-store";
@@ -192,7 +193,19 @@ async function deliverEvents(
 
   for (const row of events) {
     try {
-      await consumer.handler(rowToStoredEvent(row), context);
+      // Propagate causation: if the handler calls ctx.appendEvent, the new
+      // event should record THIS event as its cause. correlationId is
+      // inherited unchanged — it survives the hop across streams by design.
+      // requestId falls back to a fresh id because the dispatcher runs
+      // outside any HTTP request (background poll), and a stable log-
+      // correlation handle is still useful for debugging.
+      const stored = rowToStoredEvent(row);
+      const correlationId = stored.metadata.correlationId ?? requestContext.generateId();
+      const causationId = String(stored.id);
+      const requestId = requestContext.generateId();
+      await requestContext.run({ requestId, correlationId, causationId }, async () => {
+        await consumer.handler(stored, context);
+      });
       cursor = row.id;
       attempts = 0;
       lastError = null;
