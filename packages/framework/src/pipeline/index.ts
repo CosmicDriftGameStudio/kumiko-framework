@@ -14,6 +14,7 @@ export {
 export type { EventDedup } from "./event-dedup";
 export { createEventDedup } from "./event-dedup";
 export type {
+  ConsumerRecoveryState,
   EventConsumer,
   EventConsumerHandler,
   EventDispatcher,
@@ -21,8 +22,12 @@ export type {
 } from "./event-dispatcher";
 export {
   createEventDispatcher,
+  disableConsumer,
+  enableConsumer,
   getConsumerState,
   listConsumersWithState,
+  restartConsumer,
+  skipPoisonEvent,
 } from "./event-dispatcher";
 export type { EventLog, EventLogEntry } from "./event-log";
 export { createEventLog } from "./event-log";

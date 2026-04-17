@@ -322,6 +322,160 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   };
 }
 
+// --- Ops recovery surface ---
+//
+// These are intentionally verb-distinct; each maps to a CLI sub-command.
+// They all target a single consumer row by name. Every call returns the
+// state after the write so the CLI can echo what actually changed.
+//
+// Semantics:
+//   restartConsumer   status="dead" → "idle", attempts=0, lastError=null.
+//                     Cursor unchanged → next pass retries the SAME event
+//                     that poisoned the consumer. For transient failures.
+//   disableConsumer   status=* → "disabled". Dispatcher skips this consumer
+//                     until enableConsumer() flips it back.
+//   enableConsumer    status="disabled" → "idle". No-op on any other state.
+//   skipPoisonEvent   cursor advances past the first event after the
+//                     current cursor (the one that's failing). attempts=0,
+//                     lastError=null, status="idle". For events that will
+//                     never succeed (broken payload, removed feature code).
+
+function normalizeConsumerState(
+  row: typeof eventConsumerStateTable.$inferSelect,
+): ConsumerRecoveryState {
+  return {
+    name: row.name,
+    status: row.status,
+    lastProcessedEventId: row.lastProcessedEventId,
+    attempts: row.attempts,
+    lastError: row.lastError,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export type ConsumerRecoveryState = {
+  readonly name: string;
+  readonly status: string;
+  readonly lastProcessedEventId: bigint;
+  readonly attempts: number;
+  readonly lastError: string | null;
+  readonly updatedAt: Date;
+};
+
+async function requireConsumerRow(
+  db: DbConnection,
+  name: string,
+): Promise<typeof eventConsumerStateTable.$inferSelect> {
+  const [row] = await db
+    .select()
+    .from(eventConsumerStateTable)
+    .where(eq(eventConsumerStateTable.name, name));
+  if (!row) {
+    throw new Error(
+      `Consumer "${name}" has no state row — it hasn't run yet, or the name is misspelled.`,
+    );
+  }
+  return row;
+}
+
+export async function restartConsumer(
+  db: DbConnection,
+  name: string,
+): Promise<ConsumerRecoveryState> {
+  const before = await requireConsumerRow(db, name);
+  if (before.status !== "dead") {
+    throw new Error(
+      `Consumer "${name}" is not dead (status="${before.status}"). Restart only applies to dead consumers; use "enable" for a disabled one.`,
+    );
+  }
+  const [updated] = await db
+    .update(eventConsumerStateTable)
+    .set({ status: "idle", attempts: 0, lastError: null, updatedAt: sql`now()` })
+    .where(eq(eventConsumerStateTable.name, name))
+    .returning();
+  if (!updated) {
+    throw new Error(`Consumer "${name}" vanished between read and write — retry.`);
+  }
+  return normalizeConsumerState(updated);
+}
+
+export async function disableConsumer(
+  db: DbConnection,
+  name: string,
+): Promise<ConsumerRecoveryState> {
+  await requireConsumerRow(db, name);
+  const [updated] = await db
+    .update(eventConsumerStateTable)
+    .set({ status: "disabled", updatedAt: sql`now()` })
+    .where(eq(eventConsumerStateTable.name, name))
+    .returning();
+  if (!updated) {
+    throw new Error(`Consumer "${name}" vanished between read and write — retry.`);
+  }
+  return normalizeConsumerState(updated);
+}
+
+export async function enableConsumer(
+  db: DbConnection,
+  name: string,
+): Promise<ConsumerRecoveryState> {
+  const before = await requireConsumerRow(db, name);
+  if (before.status !== "disabled") {
+    throw new Error(
+      `Consumer "${name}" is not disabled (status="${before.status}"). Enable only flips disabled → idle; use "restart" for a dead consumer.`,
+    );
+  }
+  const [updated] = await db
+    .update(eventConsumerStateTable)
+    .set({ status: "idle", attempts: 0, lastError: null, updatedAt: sql`now()` })
+    .where(eq(eventConsumerStateTable.name, name))
+    .returning();
+  if (!updated) {
+    throw new Error(`Consumer "${name}" vanished between read and write — retry.`);
+  }
+  return normalizeConsumerState(updated);
+}
+
+// skipPoisonEvent advances the cursor past the first event after the
+// current cursor. Single TX so concurrent dispatcher passes can't double-
+// advance. If no event exists past the cursor, there is nothing to skip —
+// treat as idempotent no-op (cursor already at head).
+export async function skipPoisonEvent(
+  db: DbConnection,
+  name: string,
+): Promise<ConsumerRecoveryState & { readonly skippedEventId: bigint | null }> {
+  const before = await requireConsumerRow(db, name);
+  return db.transaction(async (tx) => {
+    const [poison] = (await tx
+      .select({ id: eventsTable.id })
+      .from(eventsTable)
+      .where(gt(eventsTable.id, before.lastProcessedEventId))
+      .orderBy(asc(eventsTable.id))
+      .limit(1)) as ReadonlyArray<{ id: bigint }>;
+    if (!poison) {
+      const [unchanged] = await tx
+        .select()
+        .from(eventConsumerStateTable)
+        .where(eq(eventConsumerStateTable.name, name));
+      if (!unchanged) throw new Error(`Consumer "${name}" vanished — retry.`);
+      return { ...normalizeConsumerState(unchanged), skippedEventId: null };
+    }
+    const [updated] = await tx
+      .update(eventConsumerStateTable)
+      .set({
+        lastProcessedEventId: poison.id,
+        status: "idle",
+        attempts: 0,
+        lastError: null,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(eventConsumerStateTable.name, name))
+      .returning();
+    if (!updated) throw new Error(`Consumer "${name}" vanished mid-skip — retry.`);
+    return { ...normalizeConsumerState(updated), skippedEventId: poison.id };
+  });
+}
+
 // Read-only status for one consumer — CLI surface.
 export async function getConsumerState(
   db: DbConnection,

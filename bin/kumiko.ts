@@ -388,6 +388,190 @@ const commands = {
     },
   },
 
+  consumer: {
+    description:
+      "Event-Consumer verwalten (list | status <name> | restart <name> | disable <name> | enable <name> | skip <name>)",
+    run: async () => {
+      const subCommand = Bun.argv[3];
+      const arg = Bun.argv[4];
+
+      const configPath = `${process.cwd()}/kumiko.config.ts`;
+      if (!existsSync(configPath)) {
+        console.error(
+          `\n  kumiko.config.ts nicht gefunden: ${configPath}\n\n` +
+            `  Erstelle eine Datei, die deine features exportiert:\n\n` +
+            `    // kumiko.config.ts\n` +
+            `    import { myFeature } from "./src/features/my-feature";\n` +
+            `    export default { features: [myFeature] };\n`,
+        );
+        process.exit(1);
+      }
+      const config = (await import(configPath)).default as {
+        features: readonly import("@kumiko/framework/engine").FeatureDefinition[];
+      };
+
+      const { createRegistry } = await import("@kumiko/framework/engine");
+      const { createDbConnection } = await import("@kumiko/framework/db");
+      const {
+        createEventConsumerStateTable,
+        disableConsumer,
+        enableConsumer,
+        getConsumerState,
+        listConsumersWithState,
+        restartConsumer,
+        skipPoisonEvent,
+        SEARCH_CONSUMER_NAME,
+        SSE_BROADCAST_CONSUMER_NAME,
+      } = await import("@kumiko/framework/pipeline");
+
+      const registry = createRegistry(config.features);
+      const databaseUrl = Bun.env["DATABASE_URL"];
+      if (!databaseUrl) {
+        console.error("\n  DATABASE_URL not set. Run against a configured env.\n");
+        process.exit(1);
+      }
+      const { db, close } = createDbConnection(databaseUrl);
+      await createEventConsumerStateTable(db);
+
+      const dim = "\x1b[2m";
+      const reset = "\x1b[0m";
+      const green = "\x1b[32m";
+      const red = "\x1b[31m";
+      const yellow = "\x1b[33m";
+
+      function colorStatus(status: string): string {
+        if (status === "idle") return `${green}${status}${reset}`;
+        if (status === "dead") return `${red}${status}${reset}`;
+        if (status === "disabled") return `${yellow}${status}${reset}`;
+        if (status === "processing") return `${yellow}${status}${reset}`;
+        return `${dim}${status}${reset}`;
+      }
+
+      // The registry knows about feature-declared subscribers; system
+      // consumers (SSE, Search) are framework-level, so we prepend them
+      // explicitly. Matches what buildServer wires up at boot.
+      const registeredConsumerNames = [
+        SSE_BROADCAST_CONSUMER_NAME,
+        SEARCH_CONSUMER_NAME,
+        ...registry.getAllPostEventSubscribers().keys(),
+      ];
+
+      function printOutcome(prefix: string, state: { name: string; status: string }): void {
+        console.log(`\n  ${green}✓${reset} ${prefix} ${state.name} → ${colorStatus(state.status)}\n`);
+      }
+
+      try {
+        switch (subCommand) {
+          case "list": {
+            const entries = await listConsumersWithState(db, registeredConsumerNames);
+            if (entries.length === 0) {
+              console.log("\n  Keine Event-Consumer registriert.\n");
+              break;
+            }
+            console.log("\n  Registrierte Event-Consumer:\n");
+            for (const e of entries) {
+              const errHint = e.lastError ? ` ${red}error${reset}=${e.lastError.slice(0, 60)}` : "";
+              console.log(
+                `    ${e.name.padEnd(44)} ${colorStatus(e.status).padEnd(25)} cursor=${e.lastProcessedEventId} attempts=${e.attempts}${errHint}`,
+              );
+            }
+            console.log();
+            break;
+          }
+
+          case "status": {
+            if (!arg) {
+              console.error("\n  Usage: yarn kumiko consumer status <consumer-name>\n");
+              process.exit(1);
+            }
+            const state = await getConsumerState(db, arg);
+            if (!state) {
+              if (!registeredConsumerNames.includes(arg)) {
+                console.error(
+                  `\n  Consumer "${arg}" ist nicht registriert. Liste via "yarn kumiko consumer list".\n`,
+                );
+                process.exit(1);
+              }
+              console.log(`\n  ${arg}: ${dim}never-run${reset}\n`);
+              break;
+            }
+            console.log(`\n  ${state.name}`);
+            console.log(`    status:        ${colorStatus(state.status)}`);
+            console.log(`    last event id: ${state.lastProcessedEventId}`);
+            console.log(`    attempts:      ${state.attempts}`);
+            console.log(`    updated at:    ${state.updatedAt.toISOString()}`);
+            if (state.lastError) {
+              console.log(`    last error:    ${red}${state.lastError}${reset}`);
+            }
+            console.log();
+            break;
+          }
+
+          case "restart": {
+            if (!arg) {
+              console.error("\n  Usage: yarn kumiko consumer restart <consumer-name>\n");
+              process.exit(1);
+            }
+            const state = await restartConsumer(db, arg);
+            printOutcome("restarted", state);
+            console.log(`    ${dim}cursor remains at ${state.lastProcessedEventId}; dispatcher will retry the failing event next pass.${reset}\n`);
+            break;
+          }
+
+          case "disable": {
+            if (!arg) {
+              console.error("\n  Usage: yarn kumiko consumer disable <consumer-name>\n");
+              process.exit(1);
+            }
+            const state = await disableConsumer(db, arg);
+            printOutcome("disabled", state);
+            break;
+          }
+
+          case "enable": {
+            if (!arg) {
+              console.error("\n  Usage: yarn kumiko consumer enable <consumer-name>\n");
+              process.exit(1);
+            }
+            const state = await enableConsumer(db, arg);
+            printOutcome("enabled", state);
+            break;
+          }
+
+          case "skip": {
+            if (!arg) {
+              console.error("\n  Usage: yarn kumiko consumer skip <consumer-name>\n");
+              process.exit(1);
+            }
+            const state = await skipPoisonEvent(db, arg);
+            if (state.skippedEventId === null) {
+              console.log(
+                `\n  ${yellow}~${reset} ${state.name}: cursor already at head — nothing to skip.\n`,
+              );
+            } else {
+              printOutcome(`skipped event ${state.skippedEventId},`, state);
+              console.log(`    ${dim}cursor advanced to ${state.lastProcessedEventId}; dispatcher will resume with the next event.${reset}\n`);
+            }
+            break;
+          }
+
+          default:
+            console.log(
+              "\n  Usage: yarn kumiko consumer <list | status <name> | restart <name> | disable <name> | enable <name> | skip <name>>\n",
+            );
+            await close();
+            process.exit(1);
+        }
+      } catch (e) {
+        console.error(`\n  ${red}✗${reset} ${e instanceof Error ? e.message : String(e)}\n`);
+        await close();
+        process.exit(1);
+      }
+
+      await close();
+    },
+  },
+
   doctor: {
     description: "Health check. Vermutlich alles okay.",
     run: async () => {
