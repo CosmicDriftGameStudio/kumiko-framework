@@ -23,7 +23,7 @@ import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
-import type { StoredEvent } from "../../event-store";
+import { eventsTable, type StoredEvent } from "../../event-store";
 import {
   createEventDispatcher,
   type EventConsumer,
@@ -75,6 +75,25 @@ afterEach(async () => {
 
 async function appendWidget(name: string): Promise<void> {
   await executor.create({ name }, admin, tdb);
+}
+
+// Bulk-seed N widget.created events directly into the events table.
+// Used by the backlog test where the seed phase would otherwise dominate
+// runtime (2000 sequential executor.create = 2000 DB round-trips).
+// The dispatcher only reads from events — bypassing the projections-table
+// write is safe here; we're testing cursor catch-up, not the executor.
+async function bulkSeedWidgetCreated(count: number, namePrefix: string): Promise<void> {
+  const rows = Array.from({ length: count }, (_, i) => ({
+    aggregateId: globalThis.crypto.randomUUID(),
+    aggregateType: "widget",
+    tenantId: admin.tenantId,
+    version: 1,
+    type: "widget.created",
+    payload: { name: `${namePrefix}${i}` },
+    metadata: { userId: admin.id },
+    createdBy: admin.id,
+  }));
+  await stack.db.db.insert(eventsTable).values(rows);
 }
 
 function buildDispatcherWith(consumers: readonly EventConsumer[]): EventDispatcher {
@@ -185,7 +204,7 @@ describe("E.5 — SKIP LOCKED: exactly-once delivery across dispatchers", () => 
 });
 
 describe("E.5 — cursor-lag catch-up", () => {
-  test("a consumer joining with 2000-event backlog catches up across multiple passes", async () => {
+  test("a consumer joining with a 500-event backlog catches up across multiple passes", async () => {
     const name = "multi:consumer:late-joiner";
     const seen: StoredEvent[] = [];
     const consumer: EventConsumer = {
@@ -195,26 +214,31 @@ describe("E.5 — cursor-lag catch-up", () => {
       },
     };
 
-    // Seed 2000 events BEFORE the consumer first runs. Matches a deploy
-    // scenario where a new subscriber is added to a feature and starts
-    // from cursor=0 against a populated events table.
-    const count = 2000;
-    for (let i = 0; i < count; i++) {
-      await appendWidget(`backlog-${i}`);
-    }
+    // Seed events BEFORE the consumer first runs. Matches a deploy scenario
+    // where a new subscriber is added to a feature and starts from cursor=0
+    // against a populated events table. 500 events × batchSize=100 = 5 passes
+    // — still "multiple" and exercises the cursor-advance loop.
+    const count = 500;
+    await bulkSeedWidgetCreated(count, "backlog-");
     // State row doesn't exist yet — first pass bootstraps it.
     expect(await getConsumerState(stack.db.db, name)).toBeNull();
 
-    const disp = buildDispatcherWith([consumer]);
+    const disp = createEventDispatcher({
+      db: stack.db.db,
+      consumers: [consumer],
+      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      batchSize: 100,
+      pollIntervalMs: 5000,
+    });
 
-    // batchSize = 200 → 10 passes cover 2000 events. Run 15 to leave
-    // headroom; the 11th+ passes should be no-ops.
-    for (let pass = 0; pass < 15; pass++) {
+    // batchSize = 100 → 5 passes cover 500 events. Run 8 to leave headroom;
+    // the 6th+ passes should be no-ops.
+    for (let pass = 0; pass < 8; pass++) {
       const result = await disp.runOnce();
       if (result.byConsumer[name]?.processed === 0) break;
     }
 
-    // All 2000 events delivered, in order, exactly once.
+    // All events delivered, in order, exactly once.
     expect(seen).toHaveLength(count);
     for (let i = 0; i < count; i++) {
       expect(seen[i]?.payload["name"]).toBe(`backlog-${i}`);

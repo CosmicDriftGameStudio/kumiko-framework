@@ -1,5 +1,13 @@
 import { describe, expect, test } from "vitest";
-import { isValidQn, type ParsedQn, parseQn, QnTypes, qn, toKebab } from "../qualified-name";
+import {
+  isKebabSegment,
+  isValidQn,
+  type ParsedQn,
+  parseQn,
+  QnTypes,
+  qn,
+  toKebab,
+} from "../qualified-name";
 
 describe("qn()", () => {
   test("builds scope:type:name string", () => {
@@ -126,5 +134,44 @@ describe("toKebab()", () => {
     expect(toKebab("parseJSON")).toBe("parse-json");
     expect(toKebab("SSEBroadcast")).toBe("sse-broadcast");
     expect(toKebab("getHTTPResponse")).toBe("get-http-response");
+  });
+});
+
+describe("isKebabSegment()", () => {
+  test("accepts valid kebab segments", () => {
+    expect(isKebabSegment("task")).toBe(true);
+    expect(isKebabSegment("task-create")).toBe(true);
+    expect(isKebabSegment("audit-trail-v2")).toBe(true);
+    expect(isKebabSegment("a")).toBe(true);
+    expect(isKebabSegment("x1")).toBe(true);
+  });
+
+  test("rejects camelCase", () => {
+    expect(isKebabSegment("taskCreate")).toBe(false);
+    expect(isKebabSegment("auditTrail")).toBe(false);
+  });
+
+  test("rejects dots", () => {
+    expect(isKebabSegment("task.create")).toBe(false);
+  });
+
+  test("rejects underscores (toKebab leaves them through — regex catches it)", () => {
+    expect(isKebabSegment("task_create")).toBe(false);
+    expect(isKebabSegment("my_projection")).toBe(false);
+  });
+
+  test("rejects uppercase", () => {
+    expect(isKebabSegment("Task")).toBe(false);
+    expect(isKebabSegment("TASK")).toBe(false);
+  });
+
+  test("rejects non-letter starts", () => {
+    expect(isKebabSegment("1task")).toBe(false);
+    expect(isKebabSegment("-task")).toBe(false);
+    expect(isKebabSegment("")).toBe(false);
+  });
+
+  test("rejects colons (single-segment check, not full QN)", () => {
+    expect(isKebabSegment("task:create")).toBe(false);
   });
 });
