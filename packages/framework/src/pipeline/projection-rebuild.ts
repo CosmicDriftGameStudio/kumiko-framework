@@ -1,7 +1,9 @@
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { asc, eq, getTableName, inArray, sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import type { Registry } from "../engine/types";
 import { eventsTable, type StoredEvent } from "../event-store";
+import { emitProjectionRebuild } from "../observability/standard-metrics";
+import type { Meter } from "../observability/types/metric";
 import { projectionStateTable } from "./projection-state";
 
 // Rebuild a projection from the event log.
@@ -27,9 +29,11 @@ import { projectionStateTable } from "./projection-state";
 // new row after TRUNCATE) a noisy conflict. Intended behaviour: rebuild
 // on a quiet entity, or during a deliberate write-pause.
 //
-// Scale limit: single-TX TRUNCATE + replay works fine up to ~1M events
-// per aggregate-type. Beyond that, plan for a shadow-swap variant. For v1
-// that's documented as a known boundary in docs/projections.md.
+// Scale limit: single-TX TRUNCATE + replay works as long as your
+// maintenance window absorbs the replay. Effective ceiling depends on
+// payload size, apply() cost, and DB load — measure before trusting it.
+// Beyond that window, plan for a shadow-swap variant. For v1 that's
+// documented as a known boundary in docs/projections.md.
 
 export type RebuildResult = {
   readonly projection: string;
@@ -41,6 +45,13 @@ export type RebuildResult = {
 type RebuildDeps = {
   readonly db: DbConnection;
   readonly registry: Registry;
+  // Optional framework meter. When provided, the runner emits the two
+  // projection-rebuild metrics (duration histogram + events counter) on both
+  // success and failure paths — the Prometheus-facing surface. CLI callers
+  // can leave it undefined and rely on stdout feedback.
+  readonly meter?: Meter;
+  // Lightweight observation callback for tests that want to assert the
+  // RebuildResult without spinning up a full meter. Independent of `meter`.
   readonly onMetrics?: (result: RebuildResult) => void;
 };
 
@@ -80,16 +91,11 @@ export async function rebuildProjection(
           },
         });
 
-      // Wipe the projection table. TRUNCATE is faster + resets sequences,
-      // but drizzle-orm's public API doesn't expose it — raw is fine here,
-      // the table name came from the user's own Drizzle definition.
-      // biome-ignore lint/suspicious/noExplicitAny: table has the unified Drizzle internals — unwrap once
-      const tableName = (projection.table as any)[Symbol.for("drizzle:Name")];
-      if (!tableName || typeof tableName !== "string") {
-        throw new Error(
-          `Projection "${projectionName}" table reference is missing drizzle:Name — is it a real pgTable?`,
-        );
-      }
+      // Wipe the projection table. drizzle-orm's public API doesn't expose
+      // TRUNCATE, so we issue raw SQL — but `getTableName()` is the public
+      // accessor for the table's registered name, avoiding Symbol.for()
+      // internal lookups. The identifier is still quoted defensively.
+      const tableName = getTableName(projection.table);
       await tx.execute(sql.raw(`TRUNCATE TABLE ${quoteIdent(tableName)}`));
 
       // Stream events in chronological order for every source. The event
@@ -160,6 +166,17 @@ export async function rebuildProjection(
         target: projectionStateTable.name,
         set: { status: "failed", lastError: message, updatedAt: sql`now()` },
       });
+    // Failure metric: duration until throw, 0 events "delivered" (the replayed
+    // rows were rolled back — counting them would overstate live delivery).
+    // success=false label distinguishes these in Prom dashboards.
+    if (deps.meter) {
+      emitProjectionRebuild(
+        deps.meter,
+        { projection: projectionName, success: false },
+        (Date.now() - startedAt) / 1000,
+        0,
+      );
+    }
     throw e;
   }
 
@@ -169,6 +186,14 @@ export async function rebuildProjection(
     lastProcessedEventId,
     durationMs: Date.now() - startedAt,
   };
+  if (deps.meter) {
+    emitProjectionRebuild(
+      deps.meter,
+      { projection: projectionName, success: true },
+      result.durationMs / 1000,
+      eventsProcessed,
+    );
+  }
   deps.onMetrics?.(result);
   return result;
 }

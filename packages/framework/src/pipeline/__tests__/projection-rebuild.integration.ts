@@ -374,3 +374,96 @@ describe("rebuildProjection — metrics callback", () => {
     expect(calls[0]?.durationMs).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("rebuildProjection — meter emission", () => {
+  test("emits success=true metric + events counter on happy path", async () => {
+    const { RecordingMeter } = await import("../../observability/recording-meter");
+    const { registerStandardMetrics } = await import("../../observability/standard-metrics");
+
+    const group = "00000000-0000-4000-8000-000000000060";
+    await appendCreatedEvent(group, "a");
+    await appendCreatedEvent(group, "b");
+    await appendCreatedEvent(group, "c");
+
+    const events: Array<{
+      type: string;
+      name: string;
+      value: number;
+      labels: Record<string, string | number> | undefined;
+    }> = [];
+    const meter = new RecordingMeter((e) =>
+      events.push({
+        type: e.type,
+        name: e.name,
+        value: e.value,
+        labels: e.labels as Record<string, string | number> | undefined,
+      }),
+    );
+    registerStandardMetrics(meter);
+
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry, meter });
+
+    const duration = events.find((e) => e.name === "kumiko_projection_rebuild_duration_seconds");
+    expect(duration).toBeDefined();
+    expect(duration?.type).toBe("histogram.observe");
+    expect(duration?.labels?.["projection"]).toBe(qualifiedProjectionName);
+    expect(duration?.labels?.["success"]).toBe("true");
+    expect(duration?.value).toBeGreaterThanOrEqual(0);
+
+    const counter = events.find((e) => e.name === "kumiko_projection_rebuild_events_total");
+    expect(counter).toBeDefined();
+    expect(counter?.type).toBe("counter.inc");
+    expect(counter?.value).toBe(3);
+    expect(counter?.labels?.["projection"]).toBe(qualifiedProjectionName);
+  });
+
+  test("emits success=false metric when apply throws", async () => {
+    const { RecordingMeter } = await import("../../observability/recording-meter");
+    const { registerStandardMetrics } = await import("../../observability/standard-metrics");
+
+    const group = "00000000-0000-4000-8000-000000000061";
+    await appendCreatedEvent(group, "a");
+
+    const brokenFeature = defineFeature("failmeter", (r) => {
+      r.entity("rebuildItem", itemEntity);
+      r.projection({
+        ...itemsPerGroupProjection,
+        apply: {
+          "rebuildItem.created": async () => {
+            throw new Error("metric-failure-probe");
+          },
+        },
+      });
+    });
+    const brokenRegistry = createRegistry([brokenFeature]);
+
+    const events: Array<{
+      type: string;
+      name: string;
+      value: number;
+      labels: Record<string, string | number> | undefined;
+    }> = [];
+    const meter = new RecordingMeter((e) =>
+      events.push({
+        type: e.type,
+        name: e.name,
+        value: e.value,
+        labels: e.labels as Record<string, string | number> | undefined,
+      }),
+    );
+    registerStandardMetrics(meter);
+
+    await expect(
+      rebuildProjection("failmeter:projection:items-per-group", {
+        db: testDb.db,
+        registry: brokenRegistry,
+        meter,
+      }),
+    ).rejects.toThrow("metric-failure-probe");
+
+    const duration = events.find((e) => e.name === "kumiko_projection_rebuild_duration_seconds");
+    expect(duration).toBeDefined();
+    expect(duration?.labels?.["success"]).toBe("false");
+    expect(duration?.labels?.["projection"]).toBe("failmeter:projection:items-per-group");
+  });
+});
