@@ -184,6 +184,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const mspDefs = [...options.registry.getAllMultiStreamProjections().values()];
   const mspConsumers: EventConsumer[] = mspDefs.map((msp) => ({
     name: msp.name,
+    // Copy the continuous-lifecycle error policy straight onto the consumer.
+    // Rebuild uses its own policy (rebuildProjection reads msp.errorMode.rebuild
+    // directly); steady-state delivery runs through this consumer.
+    ...(msp.errorMode?.continuous && { errorPolicy: msp.errorMode.continuous }),
     handler: async (event, ctx) => {
       const applyFn = msp.apply[event.type];
       // skip: this MSP doesn't care about this event type — fast path,

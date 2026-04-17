@@ -32,6 +32,29 @@ export type ProjectionDefinition = {
   readonly apply: Readonly<Record<string, ProjectionApplyFn>>;
 };
 
+// Per-lifecycle error policy for a MultiStreamProjection. Mirrors Marten's
+// Projections.Errors / Projections.RebuildErrors split — a projection can
+// be lenient during steady-state delivery but strict during rebuild (or
+// vice versa).
+export type MspErrorPolicy = {
+  // When the apply handler throws: log the error, advance the cursor past
+  // the offending event, and keep delivering. Default false — current
+  // strict behaviour: retry up to maxAttempts, then mark the consumer
+  // status="dead" and pause delivery. Use for best-effort sinks
+  // (notifications, webhooks) where a single bad event should not stall
+  // the whole consumer.
+  readonly skipApplyErrors?: boolean;
+};
+
+export type MspErrorMode = {
+  // Applied during steady-state dispatcher delivery.
+  readonly continuous?: MspErrorPolicy;
+  // Applied during rebuildProjection() / backfill passes. When omitted,
+  // rebuild inherits continuous — explicit override common for "strict
+  // during rebuild, lenient in production" patterns.
+  readonly rebuild?: MspErrorPolicy;
+};
+
 // Marten-style MultiStreamProjection: aggregates events from many streams
 // into one cross-cutting read-model. Unlike ProjectionDefinition (single-
 // source, inline in the write-TX), an MSP is ASYNC — the event-dispatcher
@@ -53,4 +76,6 @@ export type MultiStreamProjectionDefinition = {
   // cares about directly. Extract the identity/grouping key inside the
   // apply handler from the event payload.
   readonly apply: Readonly<Record<string, ProjectionApplyFn>>;
+  // How the dispatcher handles apply-throws. Default strict (retry + dead).
+  readonly errorMode?: MspErrorMode;
 };

@@ -4,6 +4,7 @@ import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
 import { EVENTS_PUBSUB_CHANNEL, eventsTable, type StoredEvent } from "../event-store";
 import {
+  emitDispatcherError,
   emitEventConsumerLag,
   emitEventConsumerPassOutcome,
   emitEventDispatcherListenConnected,
@@ -46,9 +47,19 @@ import { eventConsumerStateTable } from "./event-consumer-state";
 
 export type EventConsumerHandler = (event: StoredEvent, ctx: AppContext) => Promise<void>;
 
+// Per-consumer error policy. When skipApplyErrors is true and handler throws,
+// the dispatcher logs the error, advances the cursor past the offending event,
+// and keeps delivering — instead of the default retry + dead-letter flow.
+// Wire by copying MultiStreamProjectionDefinition.errorMode.continuous into
+// the EventConsumer (see api/server.ts MSP wiring).
+export type EventConsumerErrorPolicy = {
+  readonly skipApplyErrors?: boolean;
+};
+
 export type EventConsumer = {
   readonly name: string;
   readonly handler: EventConsumerHandler;
+  readonly errorPolicy?: EventConsumerErrorPolicy;
 };
 
 export type EventDispatcher = {
@@ -211,8 +222,24 @@ async function deliverEvents(
       lastError = null;
       processed += 1;
     } catch (e) {
+      const errMessage = e instanceof Error ? e.message : String(e);
+      if (consumer.errorPolicy?.skipApplyErrors) {
+        // Best-effort mode: record the error on the skip counter so ops
+        // can alert on a spike of skipped events, advance the cursor past
+        // the bad event, keep going. The consumer stays "idle", not "dead".
+        const errorClass = e instanceof Error ? e.constructor.name : "UnknownError";
+        emitDispatcherError(context.meter ?? getFallbackMeter(), {
+          handler: consumer.name,
+          errorClass,
+        });
+        cursor = row.id;
+        attempts = 0;
+        lastError = null;
+        failed += 1;
+        continue;
+      }
       attempts += 1;
-      lastError = e instanceof Error ? e.message : String(e);
+      lastError = errMessage;
       failed += 1;
       if (attempts >= maxAttempts) deadLettered = true;
       break;
