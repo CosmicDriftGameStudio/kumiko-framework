@@ -160,7 +160,7 @@ beforeEach(async () => {
   // reset, each test sees id=1). Without flushing Redis the second test hits
   // a dedup hit on the same handler:id:version:phase key and the hook is
   // silently skipped.
-  await stack.redis.redis.flushdb();
+  await stack.redis.flushNamespace();
 });
 
 describe("ctx.query / ctx.queryAs", () => {

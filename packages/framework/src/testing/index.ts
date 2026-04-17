@@ -59,30 +59,41 @@ export async function createTestDb(baseUrl?: string): Promise<TestDb> {
 
 export type TestRedis = {
   redis: import("ioredis").default;
+  /** Delete every key this test created (prefix-scoped). Replaces the old
+   *  `redis.flushdb()` — that wiped other parallel tests' BullMQ state. */
+  flushNamespace: () => Promise<void>;
   cleanup: () => Promise<void>;
 };
 
 export async function createTestRedis(): Promise<TestRedis> {
   const Redis = (await import("ioredis")).default;
   const redisUrl = requireEnv("REDIS_URL");
-  // Round-robin DB assignment via a Redis-side INCR counter on DB 0. Random
-  // picking over 15 DBs had a birthday-paradox collision rate of ~40% at 6
-  // parallel test files — a colliding test's flushdb() wiped the other's
-  // BullMQ scheduler keys mid-run, producing the cron-test flakiness.
-  // Round-robin keeps allocations deterministic as long as concurrent
-  // callers stay under 15; beyond that the modulo wraps and callers may
-  // still collide, but Vitest's default pool usually stays well under.
-  const counterClient = new Redis(redisUrl, { db: 0 });
-  const counter = await counterClient.incr("kumiko:test:db-counter");
-  await counterClient.quit();
-  const dbIndex = (counter % 15) + 1;
-  const redis = new Redis(redisUrl, { db: dbIndex });
-  await redis.flushdb();
+  // Every test gets a per-file key prefix on a shared DB (no DB-pool-of-15
+  // round-robin). Collisions at birthday-paradox rates are gone — the
+  // prefix space is unbounded. See Track B.3 in docs/plans/tests-refactor.
+  const prefix = `kt:${uuid().slice(0, 8)}:`;
+  const redis = new Redis(redisUrl, { keyPrefix: prefix });
+
+  async function flushNamespace(): Promise<void> {
+    // Open a prefix-less client for the scan — ioredis' keyPrefix is applied
+    // per-command but SCAN's returned keys are full names, so managing the
+    // del set with the prefix already on the connection is error-prone.
+    const raw = new Redis(redisUrl);
+    try {
+      const stream = raw.scanStream({ match: `${prefix}*`, count: 500 });
+      const keys: string[] = [];
+      for await (const batch of stream) keys.push(...batch);
+      if (keys.length > 0) await raw.del(...keys);
+    } finally {
+      raw.disconnect();
+    }
+  }
 
   return {
     redis,
+    flushNamespace,
     cleanup: async () => {
-      await redis.flushdb();
+      await flushNamespace();
       redis.disconnect();
     },
   };
