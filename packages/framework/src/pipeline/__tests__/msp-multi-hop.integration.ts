@@ -117,6 +117,7 @@ afterEach(async () => {
   await stack.db.db.execute(
     sql`TRUNCATE events, mmh_orders, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
+  await stack.eventDispatcher?.ensureRegistered();
 });
 
 // --- Helpers ---

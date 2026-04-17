@@ -111,6 +111,7 @@ afterEach(async () => {
   await stack.db.db.execute(
     sql`TRUNCATE events, widgets, kumiko_event_consumers, dispatcher_subscriber_log RESTART IDENTITY CASCADE`,
   );
+  await stack.eventDispatcher?.ensureRegistered();
 });
 
 async function appendWidget(name: string): Promise<void> {
@@ -125,9 +126,15 @@ describe("event-dispatcher — happy path", () => {
     await appendWidget("two");
     await appendWidget("three");
 
-    // Before runOnce: nothing delivered, cursor still at 0.
+    // Before runOnce: nothing delivered, but state row pre-registered with
+    // cursor=0 (Sprint-E strict pre-reg — see EventDispatcher.start /
+    // ensureRegistered). Lazy-bootstrap in acquireConsumerState was removed
+    // because it opened a race against prune; the row is now guaranteed to
+    // exist from dispatcher boot.
     expect(captureA).toHaveLength(0);
-    expect(await getConsumerState(stack.db.db, qnA)).toBeNull();
+    const preState = await getConsumerState(stack.db.db, qnA);
+    expect(preState?.lastProcessedEventId).toBe(0n);
+    expect(preState?.status).toBe("idle");
 
     const result = await stack.eventDispatcher?.runOnce();
     expect(result?.byConsumer[qnA]).toEqual({ processed: 3, failed: 0 });
@@ -189,11 +196,14 @@ describe("event-dispatcher — isolation between consumers", () => {
     // observer-a should see all three; observer-b should only see the first.
     // Without isolation, a cross-consumer error would break both — we prove
     // the per-consumer transaction boundary holds.
+    // Pre-registered state rows exist from boot (strict Sprint-E mode) — at
+    // this point they're at cursor=0 / status=idle for both observers.
     const state = await stack.db.db
       .select()
       .from(eventConsumerStateTable)
       .where(sql`${eventConsumerStateTable.name} = ${qnA}`);
-    expect(state).toHaveLength(0);
+    expect(state).toHaveLength(1);
+    expect(state[0]?.lastProcessedEventId).toBe(0n);
 
     // event.id is bigint, coerce to string for the check inside the handler
     throwOnEventId = "2";

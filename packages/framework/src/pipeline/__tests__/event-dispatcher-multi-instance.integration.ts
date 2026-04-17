@@ -71,6 +71,7 @@ afterEach(async () => {
   await stack.db.db.execute(
     sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
+  await stack.eventDispatcher?.ensureRegistered();
 });
 
 async function appendWidget(name: string): Promise<void> {
@@ -129,6 +130,11 @@ describe("E.5 — SKIP LOCKED: exactly-once delivery across dispatchers", () => 
 
     const dispA = buildDispatcherWith([consumerA]);
     const dispB = buildDispatcherWith([consumerB]);
+    // Strict pre-reg: both dispatchers share the same consumer name so
+    // ON-CONFLICT-DO-NOTHING collapses to a single row — which is exactly
+    // the shared state the SKIP-LOCKED race is about.
+    await dispA.ensureRegistered();
+    await dispB.ensureRegistered();
 
     // Seed a known, large-enough batch.
     const count = 30;
@@ -181,6 +187,8 @@ describe("E.5 — SKIP LOCKED: exactly-once delivery across dispatchers", () => 
 
     const dispA = buildDispatcherWith([fast]);
     const dispB = buildDispatcherWith([slow]);
+    await dispA.ensureRegistered();
+    await dispB.ensureRegistered();
 
     const count = 10;
     for (let i = 0; i < count; i++) {
@@ -220,7 +228,8 @@ describe("E.5 — cursor-lag catch-up", () => {
     // — still "multiple" and exercises the cursor-advance loop.
     const count = 500;
     await bulkSeedWidgetCreated(count, "backlog-");
-    // State row doesn't exist yet — first pass bootstraps it.
+    // State row does not exist yet — this dispatcher is constructed inside
+    // the test, not via setupTestStack's auto-ensureRegistered.
     expect(await getConsumerState(stack.db.db, name)).toBeNull();
 
     const disp = createEventDispatcher({
@@ -230,6 +239,12 @@ describe("E.5 — cursor-lag catch-up", () => {
       batchSize: 100,
       pollIntervalMs: 5000,
     });
+    // Strict pre-reg before the first pass — mirrors a production boot
+    // where start() runs before any runOnce(). Post-ensureRegistered the
+    // cursor row exists at 0 with the 500-event backlog ahead.
+    await disp.ensureRegistered();
+    const bootState = await getConsumerState(stack.db.db, name);
+    expect(bootState?.lastProcessedEventId).toBe(0n);
 
     // batchSize = 100 → 5 passes cover 500 events. Run 8 to leave headroom;
     // the 6th+ passes should be no-ops.

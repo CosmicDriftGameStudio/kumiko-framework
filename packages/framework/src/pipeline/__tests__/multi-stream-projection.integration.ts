@@ -175,6 +175,7 @@ afterEach(async () => {
   await stack.db.db.execute(
     sql`TRUNCATE events, msp_shipments, msp_refunds, msp_customer_balance, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
+  await stack.eventDispatcher?.ensureRegistered();
 });
 
 describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", () => {

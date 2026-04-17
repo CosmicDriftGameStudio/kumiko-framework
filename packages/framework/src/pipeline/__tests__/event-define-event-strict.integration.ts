@@ -98,6 +98,7 @@ afterEach(async () => {
   await stack.db.db.execute(
     sqlTag`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
+  await stack.eventDispatcher?.ensureRegistered();
 });
 
 // --- Tests ---

@@ -66,11 +66,20 @@ export type EventDispatcher = {
   start(): Promise<void>;
   stop(): Promise<void>;
   // Force one pass now (tests drain deterministically via this).
+  // Throws if start() was never called — pre-registration of consumer
+  // state rows is a precondition, not a side-effect of the pass itself.
   runOnce(): Promise<{
     readonly processed: number;
     readonly failed: number;
     readonly byConsumer: Record<string, { processed: number; failed: number }>;
   }>;
+  // Idempotent re-pre-registration of consumer state rows. Exists as a
+  // test-teardown surface: after `TRUNCATE kumiko_event_consumers` the
+  // rows are gone, and strict acquire() would skip every consumer as
+  // "not_registered". Tests call ensureRegistered() to repopulate without
+  // a full stop/start cycle. Production never needs this — start() runs
+  // it once on boot and the rows survive dispatcher lifetime.
+  ensureRegistered(): Promise<void>;
 };
 
 export type EventDispatcherOptions = {
@@ -103,36 +112,58 @@ type ConsumerStateRow = typeof eventConsumerStateTable.$inferSelect;
 
 type AcquireOutcome =
   | { readonly state: ConsumerStateRow; readonly skip: null }
-  | { readonly state: null; readonly skip: "locked_by_other_instance" | "disabled" | "dead" };
+  | {
+      readonly state: null;
+      readonly skip: "locked_by_other_instance" | "disabled" | "dead" | "not_registered";
+    };
 
-// Lock the consumer's state row with SKIP LOCKED. Two-step bootstrap: first
-// try select; if missing, INSERT ON CONFLICT DO NOTHING then re-select. This
-// handles the rare race where two pollers both see "no row" and each tries
-// to insert — ON CONFLICT keeps it exclusive, and the second FOR UPDATE
-// SKIP LOCKED returns nothing to the loser so it bails out of this pass.
+// Lock the consumer's state row with SKIP LOCKED. Strict: no in-tx bootstrap.
+// The row must exist — start() pre-registers every consumer up front so
+// prune (event-retention) sees their cursors as soon as the process is up,
+// closing the race where a lazy-bootstrapped consumer's cursor is absent
+// during prune and its events are silently deleted.
+//
+// skip="not_registered" signals a row-missing-despite-start condition.
+// Production shouldn't hit this — it means either start() wasn't called
+// (runOnce() guards against that) or the state row was deleted externally
+// (a test TRUNCATE without subsequent ensureRegistered(), or an operator
+// intervention). Skipping quietly preserves the dispatcher's other
+// consumers and surfaces the issue via the metrics pass-outcome.
 async function acquireConsumerState(tx: DbTx, name: string): Promise<AcquireOutcome> {
-  let [state] = (await tx
+  const [state] = (await tx
     .select()
     .from(eventConsumerStateTable)
     .where(eq(eventConsumerStateTable.name, name))
     .for("update", { skipLocked: true })) as [ConsumerStateRow | undefined];
 
   if (!state) {
-    await tx
-      .insert(eventConsumerStateTable)
-      .values({ name, status: "processing" })
-      .onConflictDoNothing({ target: eventConsumerStateTable.name });
-    [state] = (await tx
-      .select()
-      .from(eventConsumerStateTable)
-      .where(eq(eventConsumerStateTable.name, name))
-      .for("update", { skipLocked: true })) as [ConsumerStateRow | undefined];
-    if (!state) return { state: null, skip: "locked_by_other_instance" };
+    // Either the row never existed (no pre-reg, no ensureRegistered) or
+    // another instance currently holds the lock with SKIP LOCKED filtering
+    // us out. We can't distinguish here in a single query, so return
+    // "not_registered" — ops sees a skip-reason instead of silent delivery
+    // loss. Under normal operation (start() called, no external tampering)
+    // this path is never taken.
+    return { state: null, skip: "not_registered" };
   }
 
   if (state.status === "disabled") return { state: null, skip: "disabled" };
   if (state.status === "dead") return { state: null, skip: "dead" };
   return { state, skip: null };
+}
+
+// Shared pre-registration: one row per consumer, cursor = 0, status = idle.
+// Idempotent under restart and concurrent start-calls via ON CONFLICT
+// DO NOTHING. Never clobbers an existing cursor.
+async function preRegisterConsumers(
+  db: DbConnection,
+  consumers: readonly EventConsumer[],
+): Promise<void> {
+  for (const consumer of consumers) {
+    await db
+      .insert(eventConsumerStateTable)
+      .values({ name: consumer.name, status: "idle" })
+      .onConflictDoNothing({ target: eventConsumerStateTable.name });
+  }
 }
 
 // Mark the consumer row as "processing" for ops visibility. The SKIP LOCKED
@@ -296,6 +327,13 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   const meter: Meter = options.meter ?? getFallbackMeter();
 
   let running = false;
+  // Separate from `running` on purpose: pre-registration of consumer state
+  // rows is a one-time boot action, while running/timer/LISTEN is a
+  // lifecycle toggle. stop() flips running back to false but leaves
+  // preRegistered true — a subsequent runOnce() is still safe because the
+  // state rows are in place. Production code never stops-then-runs-once;
+  // tests do (drain on-demand without a timer loop).
+  let preRegistered = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   // LISTEN subscription handle. Set when .start() successfully subscribed
   // to EVENTS_PUBSUB_CHANNEL; cleared by .stop(). The timer remains active
@@ -317,6 +355,11 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     failed: number;
     byConsumer: Record<string, { processed: number; failed: number }>;
   }> {
+    if (!preRegistered) {
+      throw new Error(
+        "EventDispatcher.runOnce() called before start() — consumer state rows are not registered. Call start() first (production) or ensureRegistered() (tests after truncating kumiko_event_consumers).",
+      );
+    }
     if (passInFlight) return passInFlight;
     passInFlight = doPass();
     try {
@@ -417,16 +460,8 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // moment the dispatcher starts — so the retention guard
       // (pruneEvents → ConsumerLagError) correctly refuses to prune past
       // any consumer that exists, including freshly-deployed ones.
-      //
-      // ON CONFLICT DO NOTHING: idempotent under restart, safe under
-      // concurrent starts (multi-instance), never clobbers an existing
-      // cursor with 0.
-      for (const consumer of consumers) {
-        await db
-          .insert(eventConsumerStateTable)
-          .values({ name: consumer.name, status: "idle" })
-          .onConflictDoNothing({ target: eventConsumerStateTable.name });
-      }
+      await preRegisterConsumers(db, consumers);
+      preRegistered = true;
 
       timer = setInterval(() => {
         void runOnce().catch(() => {
@@ -496,6 +531,14 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
           // skip: errors already recorded per-consumer inside the pass
         });
       }
+      // preRegistered stays true — the rows survive stop(). runOnce()
+      // after a stop() still works (tests stop the timer and then drain
+      // deterministically).
+    },
+
+    async ensureRegistered() {
+      await preRegisterConsumers(db, consumers);
+      preRegistered = true;
     },
 
     runOnce,

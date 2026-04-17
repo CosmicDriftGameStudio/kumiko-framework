@@ -68,6 +68,7 @@ afterEach(async () => {
   await stack.db.db.execute(
     sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
+  await stack.eventDispatcher?.ensureRegistered();
 });
 
 // Seed an aggregate event directly with a specific createdAt. Bypasses the
@@ -109,12 +110,10 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     const obsoleteId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.v1", "obsolete");
     const widgetId = await seedOldAggregateEvent(tenDaysAgo, "widget.legacy", "widget");
 
-    // Disable the single consumer so the lag guard doesn't interfere.
-    await stack.db.db.insert(eventConsumerStateTable).values({
-      name: observerQn,
-      lastProcessedEventId: 0n,
-      status: "disabled",
-    });
+    // Disable the single consumer so the lag guard doesn't interfere. The
+    // row was auto-registered by setupTestStack (strict Sprint-E mode);
+    // flip its status to disabled instead of inserting a duplicate.
+    await disableConsumer(stack.db.db, observerQn);
 
     // Prune only the obsolete type — widget events survive.
     const result = await pruneEvents(stack.db.db, {
@@ -135,7 +134,10 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     const freshId = await seedOldAggregateEvent(new Date(), "obsolete.fresh", "obsolete");
     const staleId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.stale", "obsolete");
 
-    // No registered consumers → lag guard passes trivially.
+    // Disable the auto-registered consumer so the lag guard passes — the
+    // consumer is at cursor=0 and would otherwise block a prune that
+    // touches higher event ids.
+    await disableConsumer(stack.db.db, observerQn);
     const result = await pruneEvents(stack.db.db, {
       olderThanDays: 7,
       aggregateTypes: ["obsolete"],
@@ -152,6 +154,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     await seedOldAggregateEvent(tenDaysAgo, "obsolete.drain", "obsolete");
 
+    await disableConsumer(stack.db.db, observerQn);
     const result = await pruneEvents(stack.db.db, {
       olderThanDays: 7,
       aggregateTypes: ["obsolete"],
