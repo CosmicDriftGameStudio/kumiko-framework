@@ -166,6 +166,21 @@ export type HandlerContext = SharedContextFields & {
   // stream that already carries "invoice.created" + "invoice.updated").
   readonly appendEvent: (args: AppendEventArgs) => Promise<void>;
 
+  // Load the full stream of events for an aggregate, tenant-scoped to the
+  // current user. Events pass through the registered upcaster chain, so the
+  // payloads returned match the current schema shape regardless of when
+  // they were written. Use inside a queryHandler to expose Marten-style
+  // AggregateStreamAsync: hand the events to a reducer and return the
+  // derived state (live aggregation).
+  //
+  // `options.asOf` restricts to events whose createdAt is ≤ the given
+  // timestamp — the point-in-time / "what did this aggregate look like
+  // yesterday" query.
+  readonly loadAggregate: (
+    aggregateId: string,
+    options?: { readonly asOf?: Date },
+  ) => Promise<readonly import("../../event-store").StoredEvent[]>;
+
   // Always populated — Noop when no observability provider is configured.
   // Feature code can call ctx.metrics.inc(...) / ctx.tracer.startSpan(...)
   // without null-checks.

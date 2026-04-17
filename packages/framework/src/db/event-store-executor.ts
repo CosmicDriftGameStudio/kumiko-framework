@@ -111,7 +111,13 @@ export function createEventStoreExecutor(
 
   if (entity.idType !== "uuid") {
     throw new Error(
-      `event-store-executor requires entity "${entityName}" to declare idType: "uuid" — aggregate IDs must be UUIDs`,
+      `event-store-executor requires entity "${entityName}" to declare idType: "uuid" — ` +
+        `got idType: "${entity.idType ?? "undefined"}". ` +
+        `The events-table keys aggregates by uuid(aggregate_id); non-UUID PKs would ` +
+        `require a schema split the framework does not currently support. ` +
+        `Fix: set \`idType: "uuid"\` in createEntity({...}) for "${entityName}". ` +
+        `The framework auto-assigns UUIDs on create — you do not need to generate them yourself. ` +
+        `See docs/plans/architecture/event-sourcing-pivot.md (section "UUID-only aggregate IDs") for the full rationale.`,
     );
   }
 

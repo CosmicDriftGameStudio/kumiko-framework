@@ -35,7 +35,13 @@ import {
   type WriteErrorInfo,
   writeFailure,
 } from "../errors";
-import { append as appendEvent, loadAggregate } from "../event-store/event-store";
+import {
+  append as appendEvent,
+  loadAggregate,
+  loadAggregateAsOf,
+  type StoredEvent,
+} from "../event-store/event-store";
+import { upcastStoredEvents } from "../event-store/upcaster";
 import {
   createMetricsHandle,
   createNoopMetricsHandle,
@@ -317,12 +323,18 @@ export function createDispatcher(
     const expectedVersion = existing.length;
 
     const reqCtx = requestContext.get();
+    // Stamp the new event with the CURRENT eventVersion so reads never need
+    // to upcast fresh writes. If eventVersion defaulted to 1, the upcaster
+    // would re-run v1→v(N) on brand-new payloads that are already in v(N)
+    // shape — at best wasted work, at worst garbage (the v1 transform would
+    // try to parse v(N) fields).
     const stored = await appendEvent(dbSource, {
       aggregateId: args.aggregateId,
       aggregateType: args.aggregateType,
       tenantId: user.tenantId,
       expectedVersion,
       type: args.type,
+      eventVersion: eventDef.version,
       payload: validatedPayload,
       metadata: {
         userId: user.id,
@@ -409,6 +421,22 @@ export function createDispatcher(
       },
       appendEvent: async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx);
+      },
+      loadAggregate: async (
+        aggregateId: string,
+        loadOptions?: { readonly asOf?: Date },
+      ): Promise<readonly StoredEvent[]> => {
+        const dbSource: DbConnection | DbTx | undefined =
+          tx ?? (context.db as DbConnection | undefined);
+        if (!dbSource) {
+          throw new InternalError({
+            message: `ctx.loadAggregate("${aggregateId}") requires a database connection — none is configured.`,
+          });
+        }
+        const events = loadOptions?.asOf
+          ? await loadAggregateAsOf(dbSource, aggregateId, user.tenantId, loadOptions.asOf)
+          : await loadAggregate(dbSource, aggregateId, user.tenantId);
+        return upcastStoredEvents(events, registry.getEventUpcasters());
       },
     };
 

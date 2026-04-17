@@ -24,7 +24,15 @@ const noopTracer = getFallbackTracer();
 
 export function bridgeStub(): Pick<
   HandlerContext,
-  "query" | "queryAs" | "write" | "writeAs" | "emit" | "appendEvent" | "metrics" | "tracer"
+  | "query"
+  | "queryAs"
+  | "write"
+  | "writeAs"
+  | "emit"
+  | "appendEvent"
+  | "loadAggregate"
+  | "metrics"
+  | "tracer"
 > {
   return {
     query: notAvailable("query") as HandlerContext["query"],
@@ -44,6 +52,7 @@ export function bridgeStub(): Pick<
     ) => Promise<WriteResult>,
     emit: notAvailable("emit") as unknown as (qn: string, payload: unknown) => Promise<void>,
     appendEvent: notAvailable("appendEvent") as unknown as (args: AppendEventArgs) => Promise<void>,
+    loadAggregate: notAvailable("loadAggregate") as unknown as HandlerContext["loadAggregate"],
     metrics: createNoopMetricsHandle(),
     tracer: noopTracer,
   };
