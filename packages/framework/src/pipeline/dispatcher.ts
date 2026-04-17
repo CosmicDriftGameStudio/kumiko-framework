@@ -51,6 +51,25 @@ import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { runProjections } from "./projections-runner";
 
+type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
+
+// Write handlers report failure via `WriteResult.isSuccess === false`. Query
+// handlers return arbitrary shapes, so `result` is typed as `unknown` here.
+function isFailedWriteResult(result: unknown): result is FailedWriteResult {
+  return (
+    !!result &&
+    typeof result === "object" &&
+    "isSuccess" in result &&
+    (result as { isSuccess: unknown }).isSuccess === false
+  );
+}
+
+// Handler result is a lifecycle payload when it's an object carrying `kind`
+// (save/delete). Query handlers return arbitrary shapes that don't match.
+function isLifecycleResult(data: unknown): data is LifecycleResult {
+  return !!data && typeof data === "object" && "kind" in data;
+}
+
 // Standard span attributes for a dispatcher call. Feature may be undefined
 // for internal handlers that weren't registered via defineFeature.
 function dispatcherSpanAttributes(
@@ -386,17 +405,9 @@ export function createDispatcher(
         async (span) => {
           try {
             const result = await inner();
-            // Write handlers report failure via WriteResult.isSuccess=false.
-            if (
-              operation === "write" &&
-              result &&
-              typeof result === "object" &&
-              "isSuccess" in result &&
-              (result as { isSuccess: boolean }).isSuccess === false
-            ) {
-              const err = (result as { error?: { code?: string } }).error;
+            if (operation === "write" && isFailedWriteResult(result)) {
               success = false;
-              errorClass = err?.code ?? "UnknownError";
+              errorClass = result.error?.code ?? "UnknownError";
               span.setStatus("error", errorClass);
             }
             return result;
@@ -496,13 +507,15 @@ export function createDispatcher(
     handlerContext: HandlerContext,
     afterCommitHooks: AfterCommitHook[],
   ): Promise<void> {
-    if (!lifecycle || !data || typeof data !== "object" || !("kind" in data)) {
-      handlerContext.log?.debug(
-        `runLifecycle: skipping ${type} — ${!lifecycle ? "no lifecycle pipeline" : "result is not a lifecycle kind"}`,
-      );
+    if (!lifecycle) {
+      handlerContext.log?.debug(`runLifecycle: skipping ${type} — no lifecycle pipeline`);
       return;
     }
-    const result = data as LifecycleResult;
+    if (!isLifecycleResult(data)) {
+      handlerContext.log?.debug(`runLifecycle: skipping ${type} — result is not a lifecycle kind`);
+      return;
+    }
+    const result = data;
 
     // Projections run FIRST, inside the tx, before any user postSave/postDelete
     // hooks. If a projection apply() throws, the whole tx rolls back — the

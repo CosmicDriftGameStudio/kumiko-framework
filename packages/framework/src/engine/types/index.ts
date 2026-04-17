@@ -39,6 +39,7 @@ export type {
   Registry,
 } from "./feature";
 export type {
+  AnyFileFieldDef,
   BooleanFieldDef,
   DateFieldDef,
   DefaultCurrency,
@@ -57,7 +58,7 @@ export type {
   TextFieldDef,
   TransitionMap,
 } from "./fields";
-export { DEFAULT_CURRENCIES } from "./fields";
+export { DEFAULT_CURRENCIES, isFileField } from "./fields";
 export type {
   AccessRule,
   AppContext,

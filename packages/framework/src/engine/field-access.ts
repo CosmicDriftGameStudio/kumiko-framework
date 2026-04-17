@@ -1,5 +1,13 @@
 import type { EntityDefinition, SessionUser } from "./types";
 
+// True if the user may read a field whose access config requires `readRoles`.
+// No config or empty list → field is public. Otherwise the user must hold at
+// least one of the required roles.
+function userCanReadField(user: SessionUser, readRoles: readonly string[] | undefined): boolean {
+  if (!readRoles || readRoles.length === 0) return true;
+  return user.roles.some((role) => readRoles.includes(role));
+}
+
 /**
  * Removes fields from data that the user is not allowed to read.
  * Fields without access config are visible to everyone.
@@ -19,9 +27,7 @@ export function filterReadFields(
       continue;
     }
 
-    // Check top-level access first
-    const readRoles = field.access?.read;
-    if (readRoles && readRoles.length > 0 && !user.roles.some((role) => readRoles.includes(role))) {
+    if (!userCanReadField(user, field.access?.read)) {
       continue; // entire field stripped
     }
 
@@ -30,12 +36,7 @@ export function filterReadFields(
       const filtered: Record<string, unknown> = {};
       for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
         const subField = field.schema[subKey];
-        const subReadRoles = subField?.access?.read;
-        if (
-          subReadRoles &&
-          subReadRoles.length > 0 &&
-          !user.roles.some((role) => subReadRoles.includes(role))
-        ) {
+        if (!userCanReadField(user, subField?.access?.read)) {
           continue; // sub-field stripped
         }
         filtered[subKey] = subValue;

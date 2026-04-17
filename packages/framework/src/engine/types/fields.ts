@@ -149,6 +149,20 @@ export type FieldDefinition =
   | FilesFieldDef
   | ImagesFieldDef;
 
+// Union of all field variants that represent uploaded files. They share
+// `maxSize` and `accept`, which is what upload validation cares about.
+export type AnyFileFieldDef = FileFieldDef | ImageFieldDef | FilesFieldDef | ImagesFieldDef;
+
+export function isFileField(field: FieldDefinition | undefined): field is AnyFileFieldDef {
+  if (!field) return false;
+  return (
+    field.type === "file" ||
+    field.type === "image" ||
+    field.type === "files" ||
+    field.type === "images"
+  );
+}
+
 // --- Entity ---
 
 // --- State Transitions ---

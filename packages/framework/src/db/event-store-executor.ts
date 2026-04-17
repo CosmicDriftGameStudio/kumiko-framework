@@ -4,6 +4,7 @@ import type {
   DeleteContext,
   EntityDefinition,
   EntityId,
+  FieldDefinition,
   SaveContext,
   SessionUser,
   WriteResult,
@@ -25,6 +26,22 @@ import type { TenantDb } from "./tenant-db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
+
+// Returns the scalar default of a field, or undefined if the field's type
+// doesn't carry a default or no default was declared. Only scalar types
+// (text/number/boolean/select) support creation-time defaults — money/date/
+// file/embedded fields don't.
+function scalarDefault(field: FieldDefinition): unknown {
+  switch (field.type) {
+    case "text":
+    case "number":
+    case "boolean":
+    case "select":
+      return field.default;
+    default:
+      return undefined;
+  }
+}
 
 export type EventStoreExecutorOptions = {
   searchAdapter?: SearchAdapter;
@@ -100,15 +117,8 @@ export function createEventStoreExecutor(
   // Pre-compute defaults once so create() doesn't loop the entity every call.
   const fieldDefaults: Record<string, unknown> = {};
   for (const [name, field] of Object.entries(entity.fields)) {
-    if (
-      (field.type === "text" ||
-        field.type === "number" ||
-        field.type === "boolean" ||
-        field.type === "select") &&
-      field.default !== undefined
-    ) {
-      fieldDefaults[name] = field.default;
-    }
+    const def = scalarDefault(field);
+    if (def !== undefined) fieldDefaults[name] = def;
   }
 
   // Pre-compute the set of sensitive field names once. Every event payload

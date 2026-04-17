@@ -79,12 +79,14 @@ export function toSnakeCase(str: string): string {
  * 1. camelCase → snake_case (e.g. "memberTask" → "member_task")
  * 2. Simple English pluralization (category→categories, status→statuses, task→tasks)
  */
+const ES_PLURAL_SUFFIXES = ["s", "sh", "ch", "x"] as const;
+
 export function toTableName(entityName: string): string {
   const snake = toSnakeCase(entityName);
   if (snake.endsWith("y") && !/[aeiou]y$/.test(snake)) {
     return `${snake.slice(0, -1)}ies`;
   }
-  if (snake.endsWith("s") || snake.endsWith("sh") || snake.endsWith("ch") || snake.endsWith("x")) {
+  if (ES_PLURAL_SUFFIXES.some((suffix) => snake.endsWith(suffix))) {
     return `${snake}es`;
   }
   return `${snake}s`;

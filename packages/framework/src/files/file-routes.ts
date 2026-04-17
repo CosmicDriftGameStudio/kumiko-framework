@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { v4 as uuid } from "uuid";
 import { getUser } from "../api/auth-middleware";
 import type { DbConnection } from "../db/connection";
-import type { FieldDefinition, Registry, SessionUser, TenantId } from "../engine/types";
+import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileStorageProvider } from "./types";
 import { buildStorageKey, validateFile } from "./types";
@@ -93,14 +93,8 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     if (options.registry && entityType && fieldName) {
       const entity = options.registry.getEntity(entityType);
       if (entity) {
-        const fieldDef = entity.fields[fieldName] as FieldDefinition | undefined;
-        if (
-          fieldDef &&
-          (fieldDef.type === "file" ||
-            fieldDef.type === "image" ||
-            fieldDef.type === "files" ||
-            fieldDef.type === "images")
-        ) {
+        const fieldDef = entity.fields[fieldName];
+        if (isFileField(fieldDef)) {
           if (fieldDef.maxSize) maxSize = fieldDef.maxSize;
           if (fieldDef.accept) accept = fieldDef.accept;
         }
