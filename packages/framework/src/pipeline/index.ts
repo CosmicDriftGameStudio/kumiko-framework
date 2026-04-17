@@ -37,6 +37,8 @@ export type { IdempotencyGuard } from "./idempotency";
 export { createIdempotencyGuard } from "./idempotency";
 export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline";
 export { createLifecycleHooks } from "./lifecycle-pipeline";
+export type { MspRebuildDeps } from "./msp-rebuild";
+export { rebuildMultiStreamProjection } from "./msp-rebuild";
 export type { RebuildResult } from "./projection-rebuild";
 export {
   getProjectionState,
