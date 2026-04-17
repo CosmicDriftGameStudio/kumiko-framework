@@ -19,7 +19,7 @@ import type { EventDedup } from "../pipeline/event-dedup";
 import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher";
 import { createEventDispatcher } from "../pipeline/event-dispatcher";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
-import { createMspApplyContext } from "../pipeline/msp-apply-ctx";
+import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context";
 import {
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
@@ -209,7 +209,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
       // Saga/process-manager ctx: apply can call ctx.appendEvent to cascade
       // a follow-up event onto another aggregate. Uses the triggering event's
       // tenantId + userId so the causal chain stays tenant-consistent.
-      const applyCtx = createMspApplyContext({
+      const applyCtx = createMultiStreamApplyContext({
         registry: options.registry,
         db: rawRunner,
         tenantId: event.tenantId,

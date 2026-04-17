@@ -132,18 +132,6 @@ async function eventsByType(type: string): Promise<EventRow[]> {
   return rows.filter((r) => r.type === type);
 }
 
-async function writeWithHeaders(headers: Record<string, string>, payload: unknown) {
-  const token = await stack.jwt.sign(admin);
-  return stack.app.request("/api/write", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...headers,
-    },
-    body: JSON.stringify(payload),
-  });
-}
 
 // --- Tests ---
 
@@ -166,9 +154,11 @@ describe("Runde 2 — correlationId on root HTTP request", () => {
   });
 
   test("with x-correlation-id header: every event this request writes carries the header value", async () => {
-    const res = await writeWithHeaders(
+    const res = await stack.http.writeWithHeaders(
+      "causation:write:order:place",
+      { item: "sprocket" },
+      admin,
       { "X-Correlation-ID": "test-chain-abc123" },
-      { type: "causation:write:order:place", payload: { item: "sprocket" } },
     );
     expect(res.status).toBe(200);
 
@@ -186,9 +176,11 @@ describe("Runde 2 — correlationId on root HTTP request", () => {
   });
 
   test("response echoes x-correlation-id back in the same header", async () => {
-    const res = await writeWithHeaders(
+    const res = await stack.http.writeWithHeaders(
+      "causation:write:order:place",
+      { item: "rotor" },
+      admin,
       { "X-Correlation-ID": "echo-me-xyz" },
-      { type: "causation:write:order:place", payload: { item: "rotor" } },
     );
     expect(res.headers.get("x-correlation-id")).toBe("echo-me-xyz");
   });
@@ -197,9 +189,11 @@ describe("Runde 2 — correlationId on root HTTP request", () => {
 describe("Runde 2 — event-dispatcher propagates correlation + causation to MSP-apply", () => {
   test("MSP-apply sees the triggering event.id as causationId and inherits correlationId", async () => {
     // Root write with a known correlation token.
-    await writeWithHeaders(
+    await stack.http.writeWithHeaders(
+      "causation:write:order:place",
+      { item: "gasket" },
+      admin,
       { "X-Correlation-ID": "msp-chain-token" },
-      { type: "causation:write:order:place", payload: { item: "gasket" } },
     );
 
     // Drain the dispatcher — MSP-apply fires, pushes its reqCtx snapshot.

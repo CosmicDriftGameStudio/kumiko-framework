@@ -95,6 +95,25 @@ const cartFeature = defineFeature("f4w", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  // Drives the cart to checked-out state — lets the add-item handler's
+  // business-rule branch be exercised in a test.
+  r.writeHandler(
+    "cart:checkout",
+    z.object({ id: z.uuid(), totalCents: z.number() }),
+    async (event, ctx) => {
+      const stream = await ctx.fetchForWriting({
+        aggregateId: event.payload.id,
+        aggregateType: "f4wCart",
+      });
+      await stream.appendOne({
+        type: checkedOut.name,
+        payload: { totalCents: event.payload.totalCents },
+      });
+      return { isSuccess: true as const, data: {} };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
   // Fetch with expectedVersion — OCC gate for external callers.
   r.writeHandler(
     "cart:add-with-occ",
@@ -220,25 +239,51 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
     expect(events).toHaveLength(2);
   });
 
-  test("handle.events reflects business state for rule checks", async () => {
-    // Seed a stream with a CRUD event; the add-item handler's "already
-    // checked out" branch is only reachable if we can observe past events.
+  test("handle.events reflects business state — happy path keeps working", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "f4w:write:cart:create",
       { customer: "eve" },
       admin,
     );
-    // First add — no checked-out yet.
+    // First add — no checked-out yet, rule-probe passes.
     const first = await stack.http.write(
       "f4w:write:cart:add-item",
       { id: created.id, sku: "plum", qty: 1 },
       admin,
     );
     expect(first.status).toBe(200);
+  });
 
-    // (We can't easily seed a checked-out event without another handler;
-    // the rule-probe on stream.events is already covered by the happy path
-    // succeeding — negative case would need a second handler that emits
-    // checkedOut, which is out of scope for this C.2a smoke test.)
+  test("business-rule probe on handle.events: after checkout, add-item refuses", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "frank" },
+      admin,
+    );
+
+    // Checkout lands a `checkedOut` event on the stream.
+    const checkoutRes = await stack.http.write(
+      "f4w:write:cart:checkout",
+      { id: created.id, totalCents: 4200 },
+      admin,
+    );
+    expect(checkoutRes.status).toBe(200);
+
+    // Now add-item should observe checkedOut via stream.events and refuse.
+    const res = await stack.http.write(
+      "f4w:write:cart:add-item",
+      { id: created.id, sku: "late-banana", qty: 1 },
+      admin,
+    );
+    const body = (await res.json()) as { isSuccess: boolean; error?: { code?: string } };
+    expect(body.isSuccess).toBe(false);
+    expect(body.error?.code).toBe("unprocessable");
+
+    // Stream untouched by the refused add — only create + checkedOut remain.
+    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const types = events.map((e) => e.type);
+    expect(types).toContain("f4wCart.created");
+    expect(types).toContain("f4w:event:checked-out");
+    expect(types).not.toContain("f4w:event:item-added");
   });
 });

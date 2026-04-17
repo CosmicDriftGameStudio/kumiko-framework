@@ -1,7 +1,7 @@
 import type { DbRunner } from "../../db/connection";
 import type { TableColumns } from "../../db/dialect";
 import type { StoredEvent } from "../../event-store/event-store";
-import type { MspApplyContext } from "../../pipeline/msp-apply-ctx";
+import type { MultiStreamApplyContext } from "../../pipeline/multi-stream-apply-context";
 
 // Drizzle pgTable shape — projections hand their table through to apply() so
 // user code writes upserts/updates directly instead of going through a
@@ -27,7 +27,7 @@ export type SingleStreamApplyFn = (event: StoredEvent, tx: DbRunner) => Promise<
 export type MultiStreamApplyFn = (
   event: StoredEvent,
   tx: DbRunner,
-  ctx: MspApplyContext,
+  ctx: MultiStreamApplyContext,
 ) => Promise<void>;
 
 export type ProjectionDefinition = {

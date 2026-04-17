@@ -13,7 +13,7 @@ import { appendDomainEventCore } from "./append-event-core";
 // pattern). Keeps the MSP feature-decoupled: applies don't reach into
 // handler-bridge (no query/write/writeAs), they just read the aggregate
 // stream and append new events — Marten's session scope for projections.
-export type MspApplyContext = {
+export type MultiStreamApplyContext = {
   // Append a domain event onto an aggregate stream in the CURRENT tx.
   // Schema-validated, archive-guarded, stream-version derived. Metadata
   // inherits from the triggering event (correlationId) + requestContext
@@ -28,7 +28,7 @@ export type MspApplyContext = {
   ) => Promise<readonly StoredEvent[]>;
 };
 
-export type MspApplyContextDeps = {
+export type MultiStreamApplyContextDeps = {
   readonly registry: Registry;
   // TX-scoped DbRunner — the same `tx` the applyFn receives as the 2nd
   // arg. ctx.appendEvent + inline-projections run inside this tx so a
@@ -42,7 +42,7 @@ export type MspApplyContextDeps = {
   readonly userId: string;
 };
 
-export function createMspApplyContext(deps: MspApplyContextDeps): MspApplyContext {
+export function createMultiStreamApplyContext(deps: MultiStreamApplyContextDeps): MultiStreamApplyContext {
   return {
     appendEvent: async (args) => {
       await appendDomainEventCore(

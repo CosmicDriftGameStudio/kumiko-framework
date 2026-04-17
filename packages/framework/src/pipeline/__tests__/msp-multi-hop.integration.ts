@@ -131,15 +131,8 @@ afterEach(async () => {
 // --- Helpers ---
 
 async function postWrite(correlationId: string, item: string) {
-  const token = await stack.jwt.sign(admin);
-  return stack.app.request("/api/write", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Correlation-ID": correlationId,
-    },
-    body: JSON.stringify({ type: "mmh:write:order:place", payload: { item } }),
+  return stack.http.writeWithHeaders("mmh:write:order:place", { item }, admin, {
+    "X-Correlation-ID": correlationId,
   });
 }
 

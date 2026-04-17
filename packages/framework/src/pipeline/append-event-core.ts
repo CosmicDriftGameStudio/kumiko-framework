@@ -8,11 +8,11 @@ import { append, getStreamVersion, type StoredEvent } from "../event-store/event
 import { runProjectionsForEvent } from "./projections-runner";
 
 // Shared append-pipeline: Schema-validate → archive-guard → stream-version →
-// append → inline-projections, plus the stamp-once-only idempotency marker.
-// One implementation for both `dispatcher.appendDomainEvent` (write-handler
-// `ctx.appendEvent`) and `msp-apply-ctx.appendEvent` (MSP-apply-side). Both
-// call-sites differ only in where `userId` comes from (SessionUser vs.
-// triggering event metadata) — everything after that is identical.
+// append → inline-projections. One implementation for both
+// `dispatcher.appendDomainEvent` (write-handler `ctx.appendEvent`) and
+// `multi-stream-apply-context.appendEvent` (MSP-apply-side). Both call-sites
+// differ only in where `userId` comes from (SessionUser vs. triggering event
+// metadata) — everything after that is identical.
 export type AppendDomainEventCoreDeps = {
   readonly registry: Registry;
   readonly db: DbRunner;

@@ -41,6 +41,15 @@ export type RequestHelper = {
   ) => Promise<import("../errors").WriteErrorInfo>;
   /** query + json — returns data directly */
   queryOk: <T = unknown>(type: string, payload: unknown, user: SessionUser) => Promise<T>;
+
+  /** write + additional HTTP headers (e.g. X-Correlation-ID). Returns the
+   *  raw Response so callers can assert on status + headers + body as needed. */
+  writeWithHeaders: (
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+    extraHeaders: Record<string, string>,
+  ) => Promise<Response>;
 };
 
 export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
@@ -140,6 +149,11 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
       const res = await queryRaw(type, payload, user);
       const body = await res.json();
       return body.data as T;
+    },
+
+    async writeWithHeaders(type, payload, user, extraHeaders) {
+      const authHeaders = await authHeader(user);
+      return req("POST", "/api/write", { type, payload }, { ...authHeaders, ...extraHeaders });
     },
   };
 }
