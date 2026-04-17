@@ -13,6 +13,7 @@ import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
+import { UnprocessableError, writeFailure } from "../../errors";
 import { loadAggregate } from "../../event-store";
 import {
   createEntityTable,
@@ -66,10 +67,7 @@ const cartFeature = defineFeature("f4w", (r) => {
       // Business rule probe: if already checked out, refuse.
       const alreadyDone = stream.events.some((e) => e.type === checkedOut.name);
       if (alreadyDone) {
-        return {
-          isSuccess: false as const,
-          error: { code: "already_checked_out", message: "cart is closed" },
-        };
+        return writeFailure(new UnprocessableError("already_checked_out"));
       }
       await stream.appendOne({
         type: itemAdded.name,

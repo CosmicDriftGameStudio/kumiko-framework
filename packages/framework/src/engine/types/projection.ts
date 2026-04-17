@@ -1,6 +1,7 @@
 import type { DbRunner } from "../../db/connection";
 import type { TableColumns } from "../../db/dialect";
 import type { StoredEvent } from "../../event-store/event-store";
+import type { MspApplyContext } from "../../pipeline/msp-apply-ctx";
 
 // Drizzle pgTable shape — projections hand their table through to apply() so
 // user code writes upserts/updates directly instead of going through a
@@ -11,10 +12,19 @@ import type { StoredEvent } from "../../event-store/event-store";
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle's PgTable generic needs a concrete row shape; we erase it on purpose because the framework does not know user-defined column types.
 export type ProjectionTable = TableColumns<any>;
 
-// apply() receives the stored event plus the TX-scoped DbRunner (== db.raw inside
-// the event-store-executor). Stay inside this tx; anything that throws rolls
-// the event-append back as well.
-export type ProjectionApplyFn = (event: StoredEvent, tx: DbRunner) => Promise<void>;
+// apply() receives the stored event, the TX-scoped DbRunner, and (only for
+// MultiStreamProjections) an MspApplyContext for emitting follow-up events.
+// Single-stream Projections run inline in the write-TX and receive ctx as
+// undefined — they write their read-model directly via `tx` and must not
+// attempt to append further events. MSPs get ctx populated; the apply can
+// call ctx.appendEvent to cascade into a saga/process-manager pattern.
+//
+// Stay inside this tx; anything that throws rolls the event-append back.
+export type ProjectionApplyFn = (
+  event: StoredEvent,
+  tx: DbRunner,
+  ctx?: MspApplyContext,
+) => Promise<void>;
 
 export type ProjectionDefinition = {
   readonly name: string;

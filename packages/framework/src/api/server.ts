@@ -19,6 +19,7 @@ import type { EventDedup } from "../pipeline/event-dedup";
 import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher";
 import { createEventDispatcher } from "../pipeline/event-dispatcher";
 import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
+import { createMspApplyContext } from "../pipeline/msp-apply-ctx";
 import {
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
@@ -205,7 +206,16 @@ export function buildServer(options: ServerOptions): KumikoServer {
       // table directly, they don't go through the TenantDb wrapper.
       const rawRunner =
         event.tenantId === SYSTEM_TENANT_ID ? baseDb : (scopedDb as { raw: typeof baseDb }).raw;
-      await applyFn(event, rawRunner);
+      // Saga/process-manager ctx: apply can call ctx.appendEvent to cascade
+      // a follow-up event onto another aggregate. Uses the triggering event's
+      // tenantId + userId so the causal chain stays tenant-consistent.
+      const applyCtx = createMspApplyContext({
+        registry: options.registry,
+        db: rawRunner,
+        tenantId: event.tenantId,
+        userId: event.metadata.userId,
+      });
+      await applyFn(event, rawRunner, applyCtx);
       // Keep ctx reachable to satisfy the EventConsumerHandler signature.
       void ctx;
     },
