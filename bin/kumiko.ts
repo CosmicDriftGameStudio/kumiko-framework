@@ -154,7 +154,7 @@ const commands = {
         ["TypeScript", "yarn tsc --noEmit -p packages/framework/tsconfig.json && yarn tsc --noEmit -p packages/core-features/tsconfig.json"],
         ["Silent-Skip Guard", "yarn tsx scripts/guard-silent-skip.ts"],
         ["Unsafe-JSON-Parse Guard", "yarn tsx scripts/guard-unsafe-json-parse.ts"],
-        ["No-new-Date Guard", "yarn tsx scripts/guard-no-new-date.ts"],
+        ["No-Date-API Guard", "yarn tsx scripts/guard-no-date-api.ts"],
         ["Fake-Test Guard", "yarn tsx scripts/guard-fake-tests.ts"],
         ["Feature-Integration-Test Guard", "yarn tsx scripts/guard-feature-integration-tests.ts"],
         ["i18n-Keys Guard", "yarn tsx scripts/guard-i18n-keys.ts"],
