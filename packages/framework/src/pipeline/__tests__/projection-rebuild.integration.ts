@@ -499,18 +499,24 @@ describe("rebuildProjection — meter emission", () => {
 });
 
 describe("rebuildProjection — cancellation", () => {
-  test("aborted signal mid-replay rolls the TX back, projection stays as it was", async () => {
-    // Seed several events so the apply loop has multiple chances to
-    // observe an abort. We then abort right before the rebuild call —
-    // the first throwIfAborted() inside the loop bails, the TX rolls
-    // back, and the projection rows from the previous good rebuild are
-    // still there.
+  test("pre-aborted signal: rebuild throws, TRUNCATE rolls back, projection state preserved", async () => {
+    // Setup: events on the log + a clean rebuild → projection has known
+    // counter state. Then call rebuildProjection with a pre-aborted
+    // controller. The first throwIfAborted() inside the apply loop
+    // throws, the TX rolls back, and the projection row from the prior
+    // good rebuild is still there.
+    //
+    // Why pre-aborted instead of mid-replay: the apply hook is wired in
+    // the projection definition at registry-build-time, so injecting
+    // "abort after event N" requires a separate registered projection.
+    // This test pins the rollback semantics — a separate test would be
+    // needed to exercise mid-loop abort, but the rollback path is the
+    // same code so the value-add is small.
     const group = "00000000-0000-4000-8000-0000000000c1";
     for (let i = 0; i < 10; i++) {
       await appendCreatedEvent(group, `cancel-${i}`);
     }
 
-    // First clean rebuild — projection is now in a known good state.
     await rebuildProjection(qualifiedProjectionName, {
       db: testDb.db,
       registry,
@@ -533,8 +539,6 @@ describe("rebuildProjection — cancellation", () => {
     }
     expect((thrown as Error).name).toBe("AbortError");
 
-    // Projection row survived — TRUNCATE happened inside the TX that
-    // rolled back when throwIfAborted() fired before the first apply.
     const after = await getCount(group);
     expect(after).toBe(before);
   });

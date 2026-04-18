@@ -522,10 +522,11 @@ describe("event-store: streamAllEventsByType (memory-bounded iteration)", () => 
     expect(yielded).toEqual(["stream-included"]);
   });
 
-  test("aborts between batches when signal is fired mid-iteration", async () => {
-    // Seed 25 events; with batchSize=5 the generator does 5 batches.
-    // Aborting after the first batch yields 5 events and then throws on
-    // the next batch boundary.
+  test("per-yield abort: stops at exactly the event after abort, regardless of batch size", async () => {
+    // Seed 25 events. Use batchSize=10 so an abort at length=5 lands
+    // mid-batch — verifies the per-yield check, not just batch-boundary
+    // semantics. The generator throws on its next yield after abort, so
+    // collected.length stays at 5.
     for (let i = 0; i < 25; i++) {
       await append(testDb.db, {
         aggregateId: uuid(),
@@ -546,7 +547,7 @@ describe("event-store: streamAllEventsByType (memory-bounded iteration)", () => 
       for await (const event of streamAllEventsByType(
         testDb.db,
         "stream-abort",
-        5,
+        10,
         controller.signal,
       )) {
         collected.push(event);

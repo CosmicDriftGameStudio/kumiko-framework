@@ -336,11 +336,12 @@ export async function loadAllEventsByType(
 // only fetched when consumed.
 //
 // Cancellation: pass `signal` (typically `ctx.signal` from a handler) to
-// abort between batches. Checked at batch boundaries — mid-batch yields
-// would still hold the fetched rows in memory, so a finer check buys
-// nothing. Throws AbortError if aborted before the next fetch; in-flight
-// queries are not actively cancelled (postgres-js connection-cancel is
-// a separate, riskier concern).
+// abort iteration. Checked both at batch boundaries (before the next
+// fetch) AND between yields (so abort lands within one event regardless
+// of batch size). Throws AbortError on the first check after abort;
+// in-flight queries are not actively cancelled (postgres-js connection-
+// cancel is a separate, riskier concern handled per-query at the TenantDb
+// boundary).
 export async function* streamAllEventsByType(
   db: DbRunner,
   aggregateType: string,
@@ -367,6 +368,11 @@ export async function* streamAllEventsByType(
     // of the same loop that produces the events.
     let nextCursor = cursorId;
     for (const row of rows) {
+      // Per-yield abort check. Cheap (one boolean read), keeps cancel
+      // semantics independent of the batchSize knob — at batchSize=1000
+      // a batch-boundary-only check would still yield 1000 events after
+      // an abort which isn't what callers expect.
+      signal?.throwIfAborted();
       yield toStoredEvent(row);
       nextCursor = row.id;
     }

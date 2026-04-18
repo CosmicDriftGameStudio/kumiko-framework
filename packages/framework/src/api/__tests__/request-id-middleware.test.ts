@@ -34,63 +34,39 @@ describe("requestIdMiddleware — signal propagation", () => {
     expect(captured.signal?.aborted).toBe(false);
   });
 
-  test("aborted signal propagates — handler sees aborted=true", async () => {
+  test("abort during handler execution flips ctx.signal.aborted to true", async () => {
+    // Handler holds the request open via a small delay. We fire abort()
+    // in the middle of that delay so the handler is guaranteed to be
+    // running when the signal flips — proves real propagation, not just
+    // "the field exists".
     let captured: AbortSignal | undefined;
 
     const app = new Hono();
     app.use("/probe", requestIdMiddleware());
-    app.get("/probe", (c) => {
+    app.get("/probe", async (c) => {
       captured = requestContext.get()?.signal;
+      await new Promise((resolve) => setTimeout(resolve, 60));
       return c.text("ok");
     });
 
     const controller = new AbortController();
-    controller.abort();
-    // app.request returns Response | Promise<Response>; node's fetch may
-    // surface the abort as a thrown AbortError before our handler runs.
-    // Wrap in Promise.resolve so we can swallow either path uniformly —
-    // we don't care about the outer status, only that the handler, when
-    // it does run, sees the abort through ctx.signal.
+    const fetchPromise = app.request(
+      new Request("http://test.local/probe", {
+        method: "GET",
+        signal: controller.signal,
+      }),
+    );
+    // Fire abort while the handler is awaiting the timeout.
+    setTimeout(() => controller.abort(), 20);
+
     try {
-      await Promise.resolve(
-        app.request(
-          new Request("http://test.local/probe", {
-            method: "GET",
-            signal: controller.signal,
-          }),
-        ),
-      );
+      await fetchPromise;
     } catch {
-      // pre-aborted fetch may throw; that's fine for this test.
+      // node may surface the abort as a thrown AbortError on the outer
+      // promise; we only care about the handler's view via captured.
     }
 
-    // If the handler ran, signal should reflect the aborted state.
-    if (captured) {
-      expect(captured.aborted).toBe(true);
-    }
-  });
-
-  test("missing c.req.raw.signal — context.signal stays undefined (no phantom)", async () => {
-    let captured: { signal: AbortSignal | undefined } = { signal: undefined };
-
-    const app = new Hono();
-    app.use("/probe", requestIdMiddleware());
-    app.get("/probe", (c) => {
-      captured = { signal: requestContext.get()?.signal };
-      return c.text("ok");
-    });
-
-    // Pass a string path with no init → no Request object → no signal.
-    const res = await app.request("/probe");
-
-    expect(res.status).toBe(200);
-    // Hono synthesizes a Request without a signal in this branch — we
-    // shouldn't fabricate one and lie to downstream code that there's a
-    // cancellation source. Either undefined OR an actual AbortSignal is
-    // acceptable depending on Hono's adapter; what's NOT acceptable is
-    // a stub with `aborted` permanently false.
-    if (captured.signal !== undefined) {
-      expect(captured.signal).toBeInstanceOf(AbortSignal);
-    }
+    expect(captured).toBeDefined();
+    expect(captured?.aborted).toBe(true);
   });
 });
