@@ -1,4 +1,5 @@
-import type { EventUpcastFn } from "../engine/types";
+import type { DbRunner } from "../db";
+import type { EventUpcastCtx, EventUpcastFn, TenantId } from "../engine/types";
 import type { StoredEvent } from "./event-store";
 
 // Event schema evolution (Marten-style upcaster). An event's stored payload
@@ -6,10 +7,11 @@ import type { StoredEvent } from "./event-store";
 // registers step-wise r.eventMigration transforms, reads walk older events
 // through the chain until the payload matches the current shape.
 //
-// Cheap on the hot path: O(version_gap) transforms per event, plain JSON
-// rewrites. Expensive transforms (DB lookups, async enrichment) are not
-// supported here by design — Marten has AsyncOnlyEventUpcaster for that,
-// we can follow when the use case lands.
+// Sync transforms cost O(version_gap) plain JSON rewrites — hot path on
+// projection rebuild stays cheap. Async transforms (Marten's
+// AsyncOnlyEventUpcaster) for DB-enrichment are supported via the same
+// signature: return Promise<unknown>, the framework awaits unconditionally.
+// Sync transforms still pay only the await-microtask overhead.
 
 export type EventUpcasters = ReadonlyMap<
   string,
@@ -26,7 +28,14 @@ export type EventUpcasters = ReadonlyMap<
 //   - Gaps in the chain are a hard error. The registry validates chain
 //     completeness at boot, so this throw is a belt-and-suspenders signal
 //     that something wrote a version number the registry doesn't expect.
-export function upcastStoredEvent(event: StoredEvent, upcasters: EventUpcasters): StoredEvent {
+//
+// `ctx` carries db + tenantId for async upcasters that need DB enrichment.
+// Sync transforms ignore ctx entirely.
+export async function upcastStoredEvent(
+  event: StoredEvent,
+  upcasters: EventUpcasters,
+  ctx: EventUpcastCtx,
+): Promise<StoredEvent> {
   const info = upcasters.get(event.type);
   if (!info) return event;
   if (event.eventVersion >= info.currentVersion) return event;
@@ -41,7 +50,7 @@ export function upcastStoredEvent(event: StoredEvent, upcasters: EventUpcasters)
           `The registry should have caught this at boot — check the eventUpcasterMap wiring.`,
       );
     }
-    payload = transform(payload);
+    payload = await transform(payload, ctx);
     v++;
   }
   return {
@@ -51,12 +60,19 @@ export function upcastStoredEvent(event: StoredEvent, upcasters: EventUpcasters)
   };
 }
 
-export function upcastStoredEvents(
+export async function upcastStoredEvents(
   events: readonly StoredEvent[],
   upcasters: EventUpcasters,
-): readonly StoredEvent[] {
+  ctx: EventUpcastCtx,
+): Promise<readonly StoredEvent[]> {
   // skip: no upcasters registered anywhere — common case when a project
   // hasn't bumped any event version yet. Short-circuit keeps replay fast.
   if (upcasters.size === 0) return events;
-  return events.map((e) => upcastStoredEvent(e, upcasters));
+  return Promise.all(events.map((e) => upcastStoredEvent(e, upcasters, ctx)));
+}
+
+// Convenience builder for callers that have db + tenantId at hand and want
+// to construct the ctx-arg without restating the field names everywhere.
+export function makeUpcastCtx(db: DbRunner, tenantId: TenantId): EventUpcastCtx {
+  return { db, tenantId };
 }

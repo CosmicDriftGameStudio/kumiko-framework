@@ -31,4 +31,9 @@ export {
   saveSnapshot,
   snapshotsTable,
 } from "./snapshot";
-export { type EventUpcasters, upcastStoredEvent, upcastStoredEvents } from "./upcaster";
+export {
+  type EventUpcasters,
+  makeUpcastCtx,
+  upcastStoredEvent,
+  upcastStoredEvents,
+} from "./upcaster";

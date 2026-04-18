@@ -160,6 +160,12 @@ export type LoadAggregateWithSnapshotOptions = {
   // semantics as loadAggregate / loadAggregateAsOf. Archive check is a
   // single indexed lookup, so the cost stays negligible on the hot path.
   readonly includeArchived?: boolean;
+  // Optional upcaster step: jeder delta-event durchläuft diese Transform
+  // BEVOR der reducer ihn sieht. Die Dispatcher-Variante wickelt das mit
+  // r.eventMigration auf — Feature-Code sieht immer current-version
+  // payloads. Async, damit Marten-AsyncOnlyEventUpcaster (DB-Lookups)
+  // unterstützt sind.
+  readonly upcastEvent?: (event: StoredEvent) => Promise<StoredEvent>;
 };
 
 // Snapshot-aware rehydrate. Loads the latest snapshot (if any), applies
@@ -192,7 +198,8 @@ export async function loadAggregateWithSnapshot<TState extends Record<string, un
 
   let state = baseState;
   for (const event of delta) {
-    state = reducer(state, event);
+    const effective = options?.upcastEvent ? await options.upcastEvent(event) : event;
+    state = reducer(state, effective);
   }
   const lastDelta = delta[delta.length - 1];
   const latestVersion = lastDelta ? lastDelta.version : afterVersion;

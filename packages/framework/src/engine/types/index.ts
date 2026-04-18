@@ -76,6 +76,7 @@ export type {
   EntityRef,
   EventDef,
   EventMigrationDef,
+  EventUpcastCtx,
   EventUpcastFn,
   FetchForWritingArgs,
   HandlerContext,

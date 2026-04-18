@@ -69,7 +69,7 @@ function createRebuildCtx(
       const events = options?.asOf
         ? await loadAggregateAsOf(db, aggregateId, tenantId, options.asOf)
         : await loadAggregate(db, aggregateId, tenantId);
-      return upcastStoredEvents(events, registry.getEventUpcasters());
+      return upcastStoredEvents(events, registry.getEventUpcasters(), { db, tenantId });
     },
   };
 }
@@ -152,7 +152,10 @@ export async function rebuildMultiStreamProjection(
             createdAt: row.createdAt,
             createdBy: row.createdBy,
           };
-          const storedEvent = upcastStoredEvent(raw, upcasters);
+          const storedEvent = await upcastStoredEvent(raw, upcasters, {
+            db: tx,
+            tenantId: row.tenantId as TenantId,
+          });
           const applyFn = msp.apply[row.type];
           if (!applyFn) continue;
           const rebuildCtx = createRebuildCtx(registry, tx, row.tenantId as TenantId);

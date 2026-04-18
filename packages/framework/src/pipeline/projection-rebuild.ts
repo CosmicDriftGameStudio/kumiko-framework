@@ -1,6 +1,6 @@
 import { asc, eq, getTableName, inArray, max, sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
-import type { Registry } from "../engine/types";
+import type { Registry, TenantId } from "../engine/types";
 import { eventsTable, type StoredEvent, upcastStoredEvent } from "../event-store";
 import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
@@ -137,7 +137,10 @@ export async function rebuildProjection(
             createdAt: row.createdAt,
             createdBy: row.createdBy,
           };
-          const storedEvent = upcastStoredEvent(raw, upcasters);
+          const storedEvent = await upcastStoredEvent(raw, upcasters, {
+            db: tx,
+            tenantId: row.tenantId as TenantId,
+          });
           const applyFn = projection.apply[row.type];
           // skip: apply-key validation ensures every subscribed type has a
           //       handler; defensive check against runtime-mutated registry

@@ -140,7 +140,10 @@ describe("upcaster: in-memory transform chain", () => {
       createdBy: admin.id,
     };
 
-    const upcast = upcastStoredEvent(raw, upcasters);
+    const upcast = await upcastStoredEvent(raw, upcasters, {
+      db: testDb.db,
+      tenantId: admin.tenantId,
+    });
 
     expect(upcast.eventVersion).toBe(3);
     expect(upcast.payload).toEqual({ totalCents: 1999, currency: "EUR" });
@@ -162,7 +165,10 @@ describe("upcaster: in-memory transform chain", () => {
       createdBy: admin.id,
     };
 
-    const upcast = upcastStoredEvent(raw, upcasters);
+    const upcast = await upcastStoredEvent(raw, upcasters, {
+      db: testDb.db,
+      tenantId: admin.tenantId,
+    });
 
     expect(upcast.eventVersion).toBe(3);
     expect(upcast.payload).toEqual({ totalCents: 500, currency: "USD" });
@@ -184,7 +190,10 @@ describe("upcaster: in-memory transform chain", () => {
       createdBy: admin.id,
     };
 
-    const upcast = upcastStoredEvent(raw, upcasters);
+    const upcast = await upcastStoredEvent(raw, upcasters, {
+      db: testDb.db,
+      tenantId: admin.tenantId,
+    });
 
     expect(upcast).toBe(raw); // identity — no rebuild allocated
   });
@@ -205,7 +214,10 @@ describe("upcaster: in-memory transform chain", () => {
       createdBy: admin.id,
     };
 
-    const upcast = upcastStoredEvent(raw, upcasters);
+    const upcast = await upcastStoredEvent(raw, upcasters, {
+      db: testDb.db,
+      tenantId: admin.tenantId,
+    });
 
     expect(upcast).toBe(raw);
   });
@@ -274,6 +286,106 @@ describe("upcaster: projection rebuild walks the chain on replay", () => {
     expect(byId.get(ord1)).toMatchObject({ totalCents: 1000, currency: "EUR" });
     expect(byId.get(ord2)).toMatchObject({ totalCents: 2550, currency: "USD" });
     expect(byId.get(ord3)).toMatchObject({ totalCents: 9900, currency: "CHF" });
+  });
+});
+
+describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () => {
+  test("async transform with ctx.db lookup walks chain via projection rebuild", async () => {
+    // Reference data table that the async upcaster looks up — simulates the
+    // typical case "v2 needs to enrich payload with current snapshot of a
+    // reference dataset". We seed a known row and assert the rebuilt
+    // projection has the enriched value.
+    const customerSegments = pgTable("upcast_async_customer_segments", {
+      customerId: pgText("customer_id").primaryKey(),
+      segment: pgText("segment").notNull(),
+    });
+    await pushTables(testDb.db, { upcastAsyncCustomerSegments: customerSegments });
+    await testDb.db
+      .insert(customerSegments)
+      .values({ customerId: "c-async-1", segment: "PREMIUM" });
+
+    const asyncSummary = pgTable("upcast_async_summary", {
+      orderId: pgText("order_id").primaryKey(),
+      customerId: pgText("customer_id").notNull(),
+      segment: pgText("segment").notNull(),
+    });
+    await pushTables(testDb.db, { upcastAsyncSummary: asyncSummary });
+
+    // Feature mit async upcaster v1 → v2: enrich payload mit segment aus DB.
+    const asyncFeature = defineFeature("upcastasync", (r) => {
+      r.entity("upcastAsyncOrder", orderEntity);
+      const placed = r.defineEvent(
+        "placed",
+        z.object({ customerId: z.string(), segment: z.string() }),
+        { version: 2 },
+      );
+
+      r.eventMigration("placed", 1, 2, async (payload, ctx) => {
+        const p = payload as { customerId: string };
+        const [row] = await ctx.db
+          .select()
+          .from(customerSegments)
+          .where(sql`${customerSegments.customerId} = ${p.customerId}`);
+        return { customerId: p.customerId, segment: row?.segment ?? "UNKNOWN" };
+      });
+
+      r.projection({
+        name: "async-summary",
+        source: "upcastAsyncOrder",
+        table: asyncSummary,
+        apply: {
+          [placed.name]: async (event, tx) => {
+            const p = event.payload as { customerId: string; segment: string };
+            await tx.insert(asyncSummary).values({
+              orderId: event.aggregateId,
+              customerId: p.customerId,
+              segment: p.segment,
+            });
+          },
+        },
+      });
+    });
+
+    const asyncRegistry = createRegistry([asyncFeature]);
+
+    // Stream: ein v1 event ohne segment-feld + ein v2 event mit segment.
+    // Upcaster muss v1 zu v2 enrichen via DB-lookup auf customer_segments.
+    const orderId1 = "00000000-0000-4000-8000-00000000ddd1";
+    const orderId2 = "00000000-0000-4000-8000-00000000ddd2";
+    await append(testDb.db, {
+      aggregateId: orderId1,
+      aggregateType: "upcastAsyncOrder",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: "upcastasync:event:placed",
+      eventVersion: 1,
+      payload: { customerId: "c-async-1" },
+      metadata: { userId: admin.id },
+    });
+    await append(testDb.db, {
+      aggregateId: orderId2,
+      aggregateType: "upcastAsyncOrder",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: "upcastasync:event:placed",
+      eventVersion: 2,
+      payload: { customerId: "c-async-2", segment: "STANDARD" },
+      metadata: { userId: admin.id },
+    });
+
+    const result = await rebuildProjection("upcastasync:projection:async-summary", {
+      db: testDb.db,
+      registry: asyncRegistry,
+    });
+    expect(result.eventsProcessed).toBe(2);
+
+    const rows = await testDb.db.select().from(asyncSummary).orderBy(asyncSummary.orderId);
+    expect(rows).toHaveLength(2);
+    const byId = new Map(rows.map((r) => [r.orderId, r]));
+    // v1 → v2 via async DB-lookup → segment aus customer_segments table.
+    expect(byId.get(orderId1)?.segment).toBe("PREMIUM");
+    // v2 already current → unverändert durchgereicht.
+    expect(byId.get(orderId2)?.segment).toBe("STANDARD");
   });
 });
 

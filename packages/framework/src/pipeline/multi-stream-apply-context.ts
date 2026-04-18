@@ -77,7 +77,10 @@ export function createMultiStreamApplyContext(
       const events = options?.asOf
         ? await loadAggregateAsOf(deps.db, aggregateId, deps.tenantId, options.asOf)
         : await loadAggregate(deps.db, aggregateId, deps.tenantId);
-      return upcastStoredEvents(events, deps.registry.getEventUpcasters());
+      return upcastStoredEvents(events, deps.registry.getEventUpcasters(), {
+        db: deps.db,
+        tenantId: deps.tenantId,
+      });
     },
   };
 }

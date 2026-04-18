@@ -55,7 +55,7 @@ import {
   type SnapshotReducer,
   saveSnapshot,
 } from "../event-store/snapshot";
-import { upcastStoredEvents } from "../event-store/upcaster";
+import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster";
 import {
   createMetricsHandle,
   createNoopMetricsHandle,
@@ -341,7 +341,10 @@ export function createDispatcher(
           loadAggregate(dbSource, args.aggregateId, user.tenantId),
           getStreamVersion(dbSource, args.aggregateId, user.tenantId),
         ]);
-        const events = upcastStoredEvents(storedEvents, registry.getEventUpcasters());
+        const events = await upcastStoredEvents(storedEvents, registry.getEventUpcasters(), {
+          db: dbSource,
+          tenantId: user.tenantId,
+        });
 
         // Optimistic concurrency: if the caller knows the version they
         // worked against (e.g. from a prior read-model row) and the stream
@@ -397,7 +400,10 @@ export function createDispatcher(
         const events = loadOptions?.asOf
           ? await loadAggregateAsOf(dbSource, aggregateId, user.tenantId, loadOptions.asOf)
           : await loadAggregate(dbSource, aggregateId, user.tenantId);
-        return upcastStoredEvents(events, registry.getEventUpcasters());
+        return upcastStoredEvents(events, registry.getEventUpcasters(), {
+          db: dbSource,
+          tenantId: user.tenantId,
+        });
       },
       archiveStream: async (
         aggregateId: string,
@@ -471,23 +477,20 @@ export function createDispatcher(
             message: `ctx.loadAggregateWithSnapshot("${aggregateId}") requires a database connection — none is configured.`,
           });
         }
-        // Upcaster-aware wrapper: wrap the user's reducer so every delta
-        // event passes through the registered upcaster chain before
-        // reducing. Keeps the reducer authoring shape identical to what
-        // ctx.loadAggregate delivers — feature authors never see legacy
+        // Upcaster-aware: pass an upcastEvent callback so loadAggregateWithSnapshot
+        // walks every delta through the registered chain before invoking the
+        // user's (sync) reducer. Async upcasters (DB-enrichment) are awaited
+        // inside loadAggregateWithSnapshot — feature authors never see legacy
         // payload shapes regardless of which load path they chose.
         const upcasters = registry.getEventUpcasters();
-        const upcastingReducer: SnapshotReducer<TState> = (state, event) => {
-          const upcasted = upcastStoredEvents([event], upcasters);
-          const effective = upcasted[0] ?? event;
-          return reducer(state, effective);
-        };
+        const upcastCtx = { db: dbSource, tenantId: user.tenantId };
         return loadAggregateWithSnapshot<TState>(
           dbSource,
           aggregateId,
           user.tenantId,
-          upcastingReducer,
+          reducer,
           initial,
+          { upcastEvent: (event) => upcastStoredEvent(event, upcasters, upcastCtx) },
         );
       },
       queryProjection: async <T = Record<string, unknown>>(

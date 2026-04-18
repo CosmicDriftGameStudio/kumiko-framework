@@ -333,7 +333,27 @@ export type AggregateStreamHandle = {
 // time. The framework chains them automatically — a v1 event gets walked
 // through every registered migration up to the current version before the
 // payload reaches a projection apply() or ctx.appendEvent consumer.
-export type EventUpcastFn = (payload: unknown) => unknown;
+//
+// Sync transforms: just return the upgraded payload. Most schema-evolution
+// (renames, additions, format-fixes) needs no IO and stays sync — fast on
+// the hot path of projection-rebuild.
+//
+// Async transforms (Marten's "AsyncOnlyEventUpcaster"): when the upgrade
+// needs DB enrichment (e.g. v1 stored only a customerId, v2 also needs the
+// customer's segment which lives in a reference table), accept the optional
+// ctx-arg, run the lookup via ctx.db, return a Promise. The framework
+// awaits unconditionally — sync transforms return a plain value and pay
+// only the await-microtask overhead. Pattern-match Marten:
+//   r.eventMigration("invoiceCreated", 1, 2, async (payload, ctx) => {
+//     const customer = await ctx.db.select().from(customersTable)...;
+//     return { ...payload, customerSegment: customer.segment };
+//   });
+export type EventUpcastCtx = {
+  readonly db: import("../../db").DbRunner;
+  readonly tenantId: import("./identifiers").TenantId;
+};
+
+export type EventUpcastFn = (payload: unknown, ctx: EventUpcastCtx) => unknown | Promise<unknown>;
 
 export type EventMigrationDef = {
   // Qualified event name, matching r.defineEvent(...).name.
