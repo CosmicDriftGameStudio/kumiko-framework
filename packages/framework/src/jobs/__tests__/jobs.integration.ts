@@ -61,6 +61,20 @@ const testFeature = defineFeature("test", (r) => {
     },
   );
 
+  // Concurrency: sequential — same-name dispatches must serialise via the
+  // per-name Redis SETNX-lock. Sleep duration sets the gap the assertions
+  // measure: parallel mode lands all entries within ~50ms; sequential
+  // spaces them by ≥sleep-duration each. If you tweak the sleep here,
+  // bump the timestamp deltas in the assertion to match.
+  r.job(
+    "sequentialJob",
+    { trigger: { manual: true }, concurrency: "sequential" },
+    async (payload) => {
+      jobLog.push({ name: "test:job:sequential-job", payload, timestamp: Date.now() });
+      await sleep(300);
+    },
+  );
+
   // maxPerTenant: cap concurrent + waiting jobs per tenant. Long sleep so
   // the dispatcher checks ALL queued counts (including waiting ones).
   r.job(
@@ -248,26 +262,44 @@ describe("concurrency: skip", () => {
 });
 
 describe("concurrency: sequential", () => {
-  // Pinned at boot: BullMQ OSS ignores `group`, so sequential would silently
-  // run parallel. Throw early instead. See core-jobs.md for the SETNX-lock
-  // implementation that would let us turn this off.
-  test("createJobRunner rejects features that register concurrency: sequential", () => {
-    const featureWithSequential = defineFeature("seqGuard", (r) => {
-      r.job(
-        "needsSerial",
-        { trigger: { manual: true }, concurrency: "sequential" },
-        async () => {},
+  test("same-name dispatches run strictly one after the other", { timeout: 15_000 }, async () => {
+    clearLog();
+    await withRunner(async (runner) => {
+      // Three rapid dispatches. Parallel mode would land all entries
+      // within a single poll cycle (~50ms apart). The SETNX lock in the
+      // job-runner forces them to wait — each picks up only after the
+      // previous releases its lock at the end of its 300ms sleep.
+      await runner.dispatch("test:job:sequential-job", { n: 1 });
+      await runner.dispatch("test:job:sequential-job", { n: 2 });
+      await runner.dispatch("test:job:sequential-job", { n: 3 });
+
+      // Generous polling — re-enqueue with delay 200ms means the third
+      // job needs at least ~600ms total to land. Worst case allows for
+      // some BullMQ poll overhead.
+      await waitFor(
+        () => {
+          const entries = jobLog.filter((e) => e.name === "test:job:sequential-job");
+          expect(entries.length).toBe(3);
+        },
+        { delays: [400, 800, 1500, 3000] },
       );
+
+      const entries = jobLog
+        .filter((e) => e.name === "test:job:sequential-job")
+        .sort((a, b) => a.timestamp - b.timestamp);
+      // Each entry must start at least ~250ms after the previous —
+      // sleep is 300ms, with slack for poll overhead. If sequential
+      // breaks (lock never acquired, group ignored), the deltas
+      // collapse to single-digit milliseconds.
+      const delta12 = (entries[1]?.timestamp ?? 0) - (entries[0]?.timestamp ?? 0);
+      const delta23 = (entries[2]?.timestamp ?? 0) - (entries[1]?.timestamp ?? 0);
+      expect(delta12).toBeGreaterThanOrEqual(250);
+      expect(delta23).toBeGreaterThanOrEqual(250);
+
+      // FIFO inside the same lock-name: the dispatch order is preserved
+      // even though re-enqueues happen.
+      expect(entries[0]?.payload).toEqual({ n: 1 });
     });
-    const registry = createRegistry([featureWithSequential]);
-    expect(() =>
-      createJobRunner({
-        registry,
-        context: {},
-        redisUrl,
-        queueName: `kumiko-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      }),
-    ).toThrow(/concurrency: "sequential".*not implemented in the OSS BullMQ/i);
   });
 });
 

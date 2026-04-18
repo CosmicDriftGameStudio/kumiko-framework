@@ -1,4 +1,5 @@
 import { type Job, Queue, Worker } from "bullmq";
+import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context";
 import type { DbRow } from "../db/connection";
 import { createSystemUser } from "../engine/system-user";
@@ -10,6 +11,7 @@ import {
 } from "../engine/types";
 import type { Logger } from "../logging/types";
 import { getFallbackTracer, type SerializedTraceContext, type Tracer } from "../observability";
+import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
@@ -108,19 +110,25 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
   const allJobs = registry.getAllJobs();
 
-  // BullMQ OSS ignores `group` (Pro-only), so sequential would silently run
-  // parallel. Reject at boot instead. SETNX-lock implementation needed
-  // before this throw can come off — see core-jobs.md.
-  const sequentialJob = [...allJobs.entries()].find(([, def]) => def.concurrency === "sequential");
-  if (sequentialJob) {
-    const [name] = sequentialJob;
-    throw new Error(
-      `[jobs] Job "${name}" requested concurrency: "sequential", but that mode is ` +
-        `not implemented in the OSS BullMQ runtime (group queues are a BullMQ Pro ` +
-        `feature). Pick "skip", "replace", "debounce", or use maxPerTenant: 1 ` +
-        `instead — those all map to OSS-supported queue semantics.`,
-    );
+  // Sequential coordination: BullMQ OSS has no `group`, so we serialise
+  // same-name jobs ourselves with a per-name Redis lock. Only built when at
+  // least one job actually requested it — keeps the no-sequential boot path
+  // free of the extra Redis client.
+  const hasSequential = [...allJobs.values()].some((def) => def.concurrency === "sequential");
+  let lockRedis: Redis | null = null;
+  let sequentialLock: DistributedLock | null = null;
+  if (hasSequential) {
+    lockRedis = new Redis(redisOpts);
+    sequentialLock = createDistributedLock(lockRedis, `${queueName}:seq:`);
   }
+  // Default lock-TTL for sequential jobs that didn't declare a timeout.
+  // 5 minutes matches BullMQ's default stalledInterval — long enough for
+  // any reasonable handler, short enough that a crashed worker recovers
+  // without manual intervention.
+  const SEQUENTIAL_DEFAULT_TTL_SEC = 305;
+  // How long to wait before re-trying a busy sequential lock. Short enough
+  // to feel responsive, long enough that we don't hammer Redis.
+  const SEQUENTIAL_RETRY_DELAY_MS = 200;
 
   const queue = new Queue(queueName, { connection: redisOpts });
   let worker: Worker | null = null;
@@ -168,6 +176,24 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const jobDef = allJobs.get(jobName);
     if (!jobDef) {
       throw new Error(`Unknown job: ${jobName}`);
+    }
+
+    // Sequential gate: try to claim the per-name lock. If another worker
+    // (or this worker on a different bullJob) holds it, re-enqueue with a
+    // small delay and exit *successfully* — using throw would burn the
+    // job's retry budget and pollute failure metrics, but a re-enqueue
+    // looks like an ordinary handoff to BullMQ.
+    let sequentialToken: string | null = null;
+    if (jobDef.concurrency === "sequential" && sequentialLock) {
+      const ttlSec = jobDef.timeout
+        ? Math.ceil(jobDef.timeout / 1000) + 5
+        : SEQUENTIAL_DEFAULT_TTL_SEC;
+      sequentialToken = await sequentialLock.acquire(jobName, { ttlSeconds: ttlSec });
+      if (!sequentialToken) {
+        await queue.add(jobName, bullJob.data, { delay: SEQUENTIAL_RETRY_DELAY_MS });
+        // skip: lock taken, work re-enqueued with delay, current invocation done
+        return;
+      }
     }
 
     const jobId = bullJob.id ?? "unknown";
@@ -236,19 +262,29 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // recording identically for both parent-context and no-parent paths.
     // When parentContext is set, the new parent-aware StartSpanOptions
     // plumbs it through to startSpan — no manual try/finally needed.
-    await tracer.withSpan(
-      "job.execute",
-      {
-        attributes: {
-          "job.name": jobName,
-          "job.id": jobId,
-          "job.attempt": bullJob.attemptsMade + 1,
-          "kumiko.tenant_id": tenantId,
+    try {
+      await tracer.withSpan(
+        "job.execute",
+        {
+          attributes: {
+            "job.name": jobName,
+            "job.id": jobId,
+            "job.attempt": bullJob.attemptsMade + 1,
+            "kumiko.tenant_id": tenantId,
+          },
+          ...(parentContext ? { parent: parentContext } : {}),
         },
-        ...(parentContext ? { parent: parentContext } : {}),
-      },
-      runInSpan,
-    );
+        runInSpan,
+      );
+    } finally {
+      // Release the sequential lock value-matched (Lua compare-and-delete
+      // inside DistributedLock). A TTL-expired lock that's been claimed by
+      // a different owner stays put — releasing it would break sequencing
+      // for the new owner.
+      if (sequentialToken && sequentialLock) {
+        await sequentialLock.release(jobName, sequentialToken);
+      }
+    }
   }
 
   return {
@@ -287,6 +323,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         worker = null;
       }
       await queue.close();
+      if (lockRedis) {
+        lockRedis.disconnect();
+        lockRedis = null;
+      }
     },
 
     async dispatch(

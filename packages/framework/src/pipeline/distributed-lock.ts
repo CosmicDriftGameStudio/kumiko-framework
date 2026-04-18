@@ -7,7 +7,10 @@ export type DistributedLock = {
   release(key: string, token: string): Promise<boolean>;
 };
 
-export function createDistributedLock(redis: Redis, prefix = RedisKeys.lock): DistributedLock {
+export function createDistributedLock(
+  redis: Redis,
+  prefix: string = RedisKeys.lock,
+): DistributedLock {
   // Lua script for atomic check-and-delete (safe Redis server-side eval, not JS eval)
   const releaseScript = `
     if redis.call("get", KEYS[1]) == ARGV[1] then
