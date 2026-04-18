@@ -160,9 +160,9 @@ describe("config helpers — bounds (number only)", () => {
     const textKey = createTenantConfig("text", { bounds: { min: 1 } });
     // @ts-expect-error — bounds only valid for "number"
     const boolKey = createUserConfig("boolean", { bounds: { max: 1 } });
-    // @ts-expect-error — bounds only valid for "number"
     const selectKey = createSystemConfig("select", {
       options: ["a", "b"],
+      // @ts-expect-error — bounds only valid for "number"
       bounds: { min: 1 },
     });
     expect(textKey.type).toBe("text");
@@ -222,12 +222,12 @@ describe("config helpers — computed (plan-based / derived values)", () => {
   });
 
   test("@ts-expect-error: computed return must match the type-tag", () => {
-    // @ts-expect-error — number tag, string return
     const wrongNumber = createTenantConfig("number", {
+      // @ts-expect-error — number tag, string return
       computed: async () => "not-a-number",
     });
-    // @ts-expect-error — boolean tag, number return
     const wrongBool = createUserConfig("boolean", {
+      // @ts-expect-error — boolean tag, number return
       computed: async () => 1,
     });
     expect(wrongNumber.type).toBe("number");

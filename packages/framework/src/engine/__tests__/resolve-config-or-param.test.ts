@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { createTenantConfig, createUserConfig } from "../config-helpers";
 import { resolveConfigOrParam } from "../resolve-config-or-param";
 import type {
+  ConfigAccessor,
   ConfigKeyDefinition,
   ConfigKeyHandle,
   ConfigKeyType,
@@ -28,8 +29,14 @@ function makeCtx(entries: Record<string, { def: KeyEntry; fallback: unknown }>) 
     return entries[handle.name]?.fallback as ConfigValue<T> | undefined;
   });
 
+  // Cast to the overloaded ConfigAccessor — the test only ever calls the
+  // handle-overload, so the missing string-overload on the mock is moot.
+  // The double-cast keeps the runtime mock untouched while satisfying the
+  // structural check.
+  const config = configFn as unknown as ConfigAccessor;
+
   return {
-    ctx: { config: configFn, registry },
+    ctx: { config, registry },
     configFn,
   };
 }
@@ -83,9 +90,10 @@ describe("resolveConfigOrParam — number with bounds", () => {
   });
 
   test("number without bounds is passed through unchanged", async () => {
-    // Spread on a factory-produced def is the idiomatic way to mutate a
-    // single field without re-stating the whole declaration.
-    const noBoundsDef: KeyEntry = { ...numberDef, bounds: undefined };
+    // Strip `bounds` via destructure rather than setting it to undefined —
+    // `exactOptionalPropertyTypes` rejects the `undefined` assignment and
+    // the destructure is the cheapest way to express "without this field".
+    const { bounds: _bounds, ...noBoundsDef } = numberDef;
     const { ctx } = makeCtx({ k: { def: noBoundsDef, fallback: 10 } });
     expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 999_999)).toBe(999_999);
     expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), -999)).toBe(-999);
