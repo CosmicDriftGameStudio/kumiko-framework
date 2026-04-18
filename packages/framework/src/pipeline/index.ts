@@ -7,6 +7,7 @@ export type { EntityCache, EntityCacheOptions } from "./entity-cache";
 export { createEntityCache } from "./entity-cache";
 export type { ConsumerStatus } from "./event-consumer-state";
 export {
+  CONSUMER_STATUSES,
   ConsumerStatuses,
   createEventConsumerStateTable,
   eventConsumerStateTable,
@@ -48,6 +49,7 @@ export {
 export type { ProjectionStatus } from "./projection-state";
 export {
   createProjectionStateTable,
+  PROJECTION_STATUSES,
   ProjectionStatuses,
   projectionStateTable,
 } from "./projection-state";

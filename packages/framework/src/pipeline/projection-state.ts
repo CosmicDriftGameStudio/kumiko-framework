@@ -49,6 +49,18 @@ export const ProjectionStatuses = {
 } as const;
 export type ProjectionStatus = (typeof ProjectionStatuses)[keyof typeof ProjectionStatuses];
 
+/**
+ * @deprecated Use `ProjectionStatuses` (object form) or the `ProjectionStatus`
+ * union type. Tuple alias kept for back-compat with callers that relied on
+ * the array form (`z.enum(...)`, runtime iteration) — scheduled for removal
+ * after downstream migration.
+ */
+export const PROJECTION_STATUSES = [
+  "idle",
+  "rebuilding",
+  "failed",
+] as const satisfies readonly ProjectionStatus[];
+
 // Idempotent table bootstrap. Called by setupTestStack (and createApp once
 // that wires it up) — same pattern as createEventsTable. If the table is
 // already there (second stack in same test DB, production boot after
