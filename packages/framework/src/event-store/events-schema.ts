@@ -19,11 +19,10 @@ import { createSnapshotsTable } from "./snapshot";
 // most operations; append() for subsequent versions uses raw SQL because
 // INSERT ... SELECT ... WHERE EXISTS isn't ergonomic in the typed builder.
 //
-// Columns map 1:1 to the spike schema (samples/spike-event-sourced). HTTP-
-// level retry idempotency is handled by pipeline/idempotency.ts (Redis-backed
-// check + cached-response replay). The event-store itself imposes no
-// idempotency index — a single HTTP request may write N events freely,
-// metadata.requestId is purely a trace marker.
+// HTTP-level retry idempotency is handled by pipeline/idempotency.ts
+// (Redis-backed check + cached-response replay). The event-store itself
+// imposes no idempotency index — a single HTTP request may write N events
+// freely, metadata.requestId is purely a trace marker.
 export type EventMetadata = {
   readonly userId: string;
   readonly requestId?: string;
