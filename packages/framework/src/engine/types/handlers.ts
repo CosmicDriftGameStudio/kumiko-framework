@@ -6,7 +6,7 @@ import type { Logger } from "../../logging/types";
 import type { Meter, MetricsHandle, Tracer } from "../../observability/types";
 import type { EntityCache } from "../../pipeline/entity-cache";
 import type { SearchAdapter } from "../../search/types";
-import type { ConfigAccessor, ConfigAccessorFactory } from "./config";
+import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config";
 
 // --- Access ---
 
@@ -96,7 +96,7 @@ export type NotifyFactory = (user: SessionUser, tenantId: TenantId) => NotifyFn;
 type SharedContextFields = {
   readonly redis?: Redis;
   readonly jobRunner?: JobRunnerRef;
-  readonly configResolver?: unknown; // Typed in core-features (cross-package boundary)
+  readonly configResolver?: ConfigResolver;
   readonly config?: ConfigAccessor;
   readonly _configAccessorFactory?: ConfigAccessorFactory;
   readonly searchAdapter?: SearchAdapter;

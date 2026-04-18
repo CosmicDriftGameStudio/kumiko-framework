@@ -17,6 +17,8 @@ export type {
   ConfigKeyDefinition,
   ConfigKeyHandle,
   ConfigKeyType,
+  ConfigResolver,
+  ConfigStoredRow,
   ConfigValue,
   JobDefinition,
   JobHandlerFn,

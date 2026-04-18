@@ -58,6 +58,54 @@ export type ConfigAccessorFactory = (deps: {
   readonly db: DbConnection | TenantDb;
 }) => ConfigAccessor;
 
+// Row shape returned by ConfigResolver.getAll — just enough for the
+// values.query handler to project. Stored as `unknown` value because the
+// resolver hands raw JSON strings; deserialization is the resolver's job.
+export type ConfigStoredRow = {
+  readonly id: number;
+  readonly key: string;
+  readonly value: string | null;
+  readonly tenantId: string | null;
+  readonly userId: string | null;
+};
+
+// Minimal contract handlers (set/reset/values.query) call against the
+// resolver. Lives in the framework so SharedContextFields.configResolver
+// can drop the `unknown` cast — the concrete implementation in
+// core-features/config/resolver.ts implements this shape.
+export type ConfigResolver = {
+  get(
+    qualifiedKey: string,
+    keyDef: ConfigKeyDefinition,
+    tenantId: TenantId,
+    userId: string,
+    db: DbConnection | TenantDb,
+  ): Promise<string | number | boolean | undefined>;
+
+  set(
+    qualifiedKey: string,
+    keyDef: ConfigKeyDefinition,
+    value: string | number | boolean,
+    tenantId: string | null,
+    userId: string | null,
+    modifiedById: string,
+    db: DbConnection | TenantDb,
+  ): Promise<void>;
+
+  reset(
+    qualifiedKey: string,
+    tenantId: string | null,
+    userId: string | null,
+    db: DbConnection | TenantDb,
+  ): Promise<void>;
+
+  getAll(
+    tenantId: TenantId,
+    userId: string,
+    db: DbConnection | TenantDb,
+  ): Promise<ReadonlyMap<string, ConfigStoredRow>>;
+};
+
 // --- Jobs ---
 
 export type JobHandlerFn = (payload: Record<string, unknown>, context: AppContext) => Promise<void>;
