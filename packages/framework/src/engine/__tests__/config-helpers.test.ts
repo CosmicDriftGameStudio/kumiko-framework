@@ -99,35 +99,27 @@ describe("createUserConfig", () => {
   });
 });
 
-// Static-only — these checks confirm the helpers preserve the type-tag (so
-// `r.config({keys})` can propagate it into `ConfigKeyHandle<T>`). If any
-// `expectTypeOf` line below stops compiling, the helper signature
-// regressed to a non-generic shape and `ctx.config(handle)` will lose its
-// narrow return type for affected callers.
+// expectTypeOf + @ts-expect-error are the real assertions — they fail the
+// build if the helper generic widens. The expect() lines exist so the
+// fake-test guard sees runtime asserts and lint stays quiet on unused vars.
 describe("config helpers — type narrowing", () => {
-  test("type tag is preserved per helper (static + runtime)", () => {
+  test("type tag is preserved per helper", () => {
     const numberKey = createTenantConfig("number", { default: 19 });
     const boolKey = createUserConfig("boolean", { default: true });
     const textKey = createSystemConfig("text", { default: "x" });
-    // Static checks: if any of these stop compiling, the helper lost its
-    // generic shape and `ctx.config(handle)` returns the broad union again.
     expectTypeOf(numberKey).toEqualTypeOf<ConfigKeyDefinition<"number">>();
     expectTypeOf(boolKey).toEqualTypeOf<ConfigKeyDefinition<"boolean">>();
     expectTypeOf(textKey).toEqualTypeOf<ConfigKeyDefinition<"text">>();
-    // Runtime sanity (also satisfies the fake-test guard).
     expect(numberKey.type).toBe("number");
     expect(boolKey.type).toBe("boolean");
     expect(textKey.type).toBe("text");
   });
 
-  test("default value is narrowed to the matching primitive", () => {
-    // @ts-expect-error — default must match the type tag (number, not string)
+  test("default value must match the type-tag primitive", () => {
+    // @ts-expect-error — number tag, string default
     const wrongNumber = createTenantConfig("number", { default: "nope" });
-    // @ts-expect-error — default must match the type tag (boolean, not number)
+    // @ts-expect-error — boolean tag, number default
     const wrongBool = createUserConfig("boolean", { default: 1 });
-    // The @ts-expect-error directives above are the real assertions —
-    // they fail the build if the generic widens. Touch the values so
-    // unused-var lint stays quiet and the fake-test guard sees expects.
     expect(wrongNumber.type).toBe("number");
     expect(wrongBool.type).toBe("boolean");
   });

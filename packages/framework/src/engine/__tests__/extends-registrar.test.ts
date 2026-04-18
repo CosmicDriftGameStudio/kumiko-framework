@@ -116,16 +116,14 @@ describe("extendsRegistrar", () => {
       // Explicit handlers — the entity mapping is inferred from the
       // "vehicle:" prefix via tryMapEntity, so the extension's preSave
       // wires onto every entity-scoped handler automatically.
-      r.writeHandler(
-        "vehicle:create",
-        z.object({ name: z.string() }),
-        async () => ({ isSuccess: true as const, data: { id: "v1" } }),
-      );
-      r.writeHandler(
-        "vehicle:update",
-        z.object({ id: z.string() }),
-        async () => ({ isSuccess: true as const, data: { id: "v1" } }),
-      );
+      r.writeHandler("vehicle:create", z.object({ name: z.string() }), async () => ({
+        isSuccess: true as const,
+        data: { id: "v1" },
+      }));
+      r.writeHandler("vehicle:update", z.object({ id: z.string() }), async () => ({
+        isSuccess: true as const,
+        data: { id: "v1" },
+      }));
       r.useExtension("audited", "vehicle");
     });
 

@@ -6,7 +6,7 @@ import type { Logger } from "../../logging/types";
 import type { Meter, MetricsHandle, Tracer } from "../../observability/types";
 import type { EntityCache } from "../../pipeline/entity-cache";
 import type { SearchAdapter } from "../../search/types";
-import type { ConfigAccessorFactory, ConfigAccessor } from "./config";
+import type { ConfigAccessor, ConfigAccessorFactory } from "./config";
 
 // --- Access ---
 

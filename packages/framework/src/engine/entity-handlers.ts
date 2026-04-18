@@ -3,12 +3,7 @@ import type { DbRow } from "../db/connection";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
-import type {
-  AccessRule,
-  EntityDefinition,
-  QueryHandlerDef,
-  WriteHandlerDef,
-} from "./types";
+import type { AccessRule, EntityDefinition, QueryHandlerDef, WriteHandlerDef } from "./types";
 
 // Convention-based handler factories for event-sourced aggregates.
 //
@@ -31,9 +26,6 @@ import type {
 
 const WRITE_VERBS = ["create", "update", "delete", "restore"] as const;
 const QUERY_VERBS = ["list", "detail"] as const;
-
-type WriteVerb = (typeof WRITE_VERBS)[number];
-type QueryVerb = (typeof QUERY_VERBS)[number];
 
 type UpdatePayload = { id: string; version: number; changes: Record<string, unknown> };
 type IdPayload = { id: string };
@@ -98,8 +90,7 @@ export function defineEntityWriteHandler(
   switch (verb) {
     case "create":
       schema = buildInsertSchema(entity);
-      handler = async (event, ctx) =>
-        executor.create(event.payload as DbRow, event.user, ctx.db);
+      handler = async (event, ctx) => executor.create(event.payload as DbRow, event.user, ctx.db);
       break;
     case "update":
       schema = z.object({

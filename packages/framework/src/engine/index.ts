@@ -19,11 +19,11 @@ export { createApp } from "./create-app";
 export { defineFeature } from "./define-feature";
 export type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 export { defineQueryHandler, defineWriteHandler } from "./define-handler";
+export { defineRoles } from "./define-roles";
 export {
   defineEntityQueryHandler,
   defineEntityWriteHandler,
 } from "./entity-handlers";
-export { defineRoles } from "./define-roles";
 export {
   createBooleanField,
   createDateField,
@@ -52,8 +52,8 @@ export type {
   BelongsToRelation,
   BooleanFieldDef,
   ConcurrencyMode,
-  ConfigAccessorFactory,
   ConfigAccessor,
+  ConfigAccessorFactory,
   ConfigDefinition,
   ConfigKeyAccess,
   ConfigKeyDefinition,

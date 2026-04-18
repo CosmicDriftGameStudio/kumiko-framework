@@ -248,11 +248,9 @@ describe("concurrency: skip", () => {
 });
 
 describe("concurrency: sequential", () => {
-  // Sequential is documented in core-jobs.md but BullMQ OSS doesn't support
-  // groups — so the runtime rejects the mode at boot rather than silently
-  // running jobs in parallel. This test pins that contract: any feature
-  // that registers `concurrency: "sequential"` must fail loud, with a
-  // message that points the author at OSS-compatible alternatives.
+  // Pinned at boot: BullMQ OSS ignores `group`, so sequential would silently
+  // run parallel. Throw early instead. See core-jobs.md for the SETNX-lock
+  // implementation that would let us turn this off.
   test("createJobRunner rejects features that register concurrency: sequential", () => {
     const featureWithSequential = defineFeature("seqGuard", (r) => {
       r.job(

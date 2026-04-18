@@ -108,14 +108,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
   const allJobs = registry.getAllJobs();
 
-  // Fail loud if a feature requested `concurrency: "sequential"`. The dispatch
-  // path forwards `group` to BullMQ, but `group` is a BullMQ Pro feature —
-  // OSS BullMQ silently ignores it, so the jobs would in fact run in parallel.
-  // Better to reject at boot than to ship a "sequential" mode that lies. To
-  // get strict serialisation in OSS we'd need a per-name Redis lock (SETNX +
-  // a delayed re-enqueue when busy); that's a real implementation, not a
-  // single config switch — track it as a separate task before turning this
-  // throw off.
+  // BullMQ OSS ignores `group` (Pro-only), so sequential would silently run
+  // parallel. Reject at boot instead. SETNX-lock implementation needed
+  // before this throw can come off — see core-jobs.md.
   const sequentialJob = [...allJobs.entries()].find(([, def]) => def.concurrency === "sequential");
   if (sequentialJob) {
     const [name] = sequentialJob;

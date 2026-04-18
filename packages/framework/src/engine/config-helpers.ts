@@ -1,5 +1,5 @@
 import type { ConfigScope } from "./constants";
-import type { ConfigKeyDefinition, ConfigKeyType, ConfigValueFor } from "./types";
+import type { ConfigKeyDefinition, ConfigKeyType, ConfigValue } from "./types";
 
 // --- Access Presets ---
 
@@ -21,13 +21,12 @@ export const access = {
 
 // --- Config Key Options ---
 
-// Generic on `T` so `default` narrows to the matching value type
-// (`number` for "number", `boolean` for "boolean", etc). Without this,
+// Generic so `default` narrows per type-tag — without it,
 // `createUserConfig("boolean", { default: 19 })` would compile.
 type ConfigKeyOptions<T extends ConfigKeyType> = {
   write?: readonly string[];
   read?: readonly string[];
-  default?: ConfigValueFor<T>;
+  default?: ConfigValue<T>;
   encrypted?: boolean;
   options?: readonly string[]; // for select type
 };
@@ -62,12 +61,8 @@ function createConfigKey<T extends ConfigKeyType>(
 }
 
 // --- Public API ---
-// All three helpers are generic on the type-tag so call-sites that pass a
-// literal ("boolean", "number", ...) get back a `ConfigKeyDefinition<T>` with
-// the tag preserved. `r.config({keys})` then propagates the tag into the
-// returned `ConfigKeyHandle<T>`, which is what makes `ctx.config(handle)`
-// type-check the value side. Keep these in sync — adding a new helper means
-// the same generic signature.
+// Generic on the type-tag so `r.config({keys})` can propagate it into the
+// returned `ConfigKeyHandle<T>` — that's what narrows `ctx.config(handle)`.
 
 export function createTenantConfig<T extends ConfigKeyType>(
   type: T,

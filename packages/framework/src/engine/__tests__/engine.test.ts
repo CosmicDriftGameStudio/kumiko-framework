@@ -1035,10 +1035,8 @@ describe("r.config()", () => {
   });
 
   test("returns typed handles with qualified names", () => {
-    // Capture inside the setup closure — that's where the generic resolves
-    // to the literal key shape (the outer `ReturnType` form widens to an
-    // index-signature record because the helpers' input types aren't visible
-    // outside the closure).
+    // Capture in the setup closure — that's where the generic resolves
+    // to the literal key shape.
     let handles!: {
       readonly defaultVat: { readonly name: string; readonly type: "number" };
       readonly showNetPrices: { readonly name: string; readonly type: "boolean" };
@@ -1058,7 +1056,7 @@ describe("r.config()", () => {
     expect(handles.showNetPrices.type).toBe("boolean");
   });
 
-  test("camelCase keys are kebab-cased in the qualified handle name", () => {
+  test("camelCase feature + key are kebab-cased in the handle name", () => {
     let handles!: { readonly monthlyTotalCents: { readonly name: string } };
     defineFeature("billingCore", (r) => {
       handles = r.config({
@@ -1067,7 +1065,6 @@ describe("r.config()", () => {
         },
       });
     });
-    // Both feature name AND key are kebab-cased — same rule defineEvent uses.
     expect(handles.monthlyTotalCents.name).toBe("billing-core:config:monthly-total-cents");
   });
 

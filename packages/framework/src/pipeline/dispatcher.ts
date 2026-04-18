@@ -287,10 +287,7 @@ export function createDispatcher(
       ...(reqCtx && { requestId: reqCtx.requestId }),
     });
     const notify = context._notifyFactory ? context._notifyFactory(user, user.tenantId) : undefined;
-    // Per-handler config accessor: only built when the config feature has
-    // wired its factory (otherwise `ctx.config` stays `undefined`, same as
-    // `ctx.notify` does without delivery). Using the actual `db` we just
-    // built keeps tenant-scoping consistent with everything else on the ctx.
+    // Mirror notify: only built when the config feature wired its factory.
     const config =
       context._configAccessorFactory && db
         ? context._configAccessorFactory({ user: { id: user.id, tenantId: user.tenantId }, db })

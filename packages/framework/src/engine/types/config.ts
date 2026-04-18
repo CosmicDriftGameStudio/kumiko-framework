@@ -1,4 +1,6 @@
 import type { ZodType } from "zod";
+import type { DbConnection } from "../../db/connection";
+import type { TenantDb } from "../../db/tenant-db";
 import type { ConcurrencyMode, ConfigScope } from "../constants";
 import type { FieldDefinition } from "./fields";
 import type { AppContext } from "./handlers";
@@ -9,6 +11,7 @@ import type {
   PreQueryHookFn,
   PreSaveHookFn,
 } from "./hooks";
+import type { TenantId } from "./identifiers";
 
 // --- Config ---
 
@@ -17,15 +20,9 @@ export type ConfigKeyAccess = {
   readonly write: readonly string[];
 };
 
-// All allowed type-tags. New tags MUST be added here AND in `ConfigValueFor`
-// below — otherwise the generic narrowing for `ctx.config(handle)` breaks
-// silently (the value type becomes `never` for the new tag).
 export type ConfigKeyType = "text" | "number" | "boolean" | "select";
 
-// Maps a config-key type-tag to the runtime value type ctx.config() resolves
-// to. Used by `ConfigKeyHandle<T>` so `await ctx.config(handle)` returns
-// `number | undefined` instead of `string | number | boolean | undefined`.
-export type ConfigValueFor<T extends ConfigKeyType> = T extends "number"
+export type ConfigValue<T extends ConfigKeyType> = T extends "number"
   ? number
   : T extends "boolean"
     ? boolean
@@ -33,13 +30,9 @@ export type ConfigValueFor<T extends ConfigKeyType> = T extends "number"
       ? string
       : never;
 
-// Generic so call-sites that know the type-tag (helpers, r.config()) can
-// preserve it through to the handle; default `ConfigKeyType` keeps every
-// existing `ConfigKeyDefinition` consumer (registry, handler context, etc.)
-// working without type-parameter changes.
 export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly type: T;
-  readonly default?: ConfigValueFor<T>;
+  readonly default?: ConfigValue<T>;
   readonly scope: ConfigScope;
   readonly access: ConfigKeyAccess;
   readonly encrypted?: boolean;
@@ -50,35 +43,20 @@ export type ConfigDefinition = {
   readonly keys: Readonly<Record<string, ConfigKeyDefinition>>;
 };
 
-// Returned by `r.config({keys})` — opaque handle that pairs the qualified
-// config-key name with its type-tag. Pass it to `ctx.config(handle)` and the
-// value type narrows automatically (number for "number", boolean for
-// "boolean", etc).
 export type ConfigKeyHandle<T extends ConfigKeyType = ConfigKeyType> = {
   readonly name: string;
   readonly type: T;
 };
 
-// Pipeline-facing accessor signature. Lives in the framework (instead of
-// next to the config feature in core-features) so `HandlerContext.config`
-// can carry the typed shape without a cross-package import. The concrete
-// accessor is built by `createConfigAccessor` in core-features/config —
-// this is just the contract.
-export type ConfigAccessorFn = {
+export type ConfigAccessor = {
   (qualifiedKey: string): Promise<string | number | boolean | undefined>;
-  <T extends ConfigKeyType>(handle: ConfigKeyHandle<T>): Promise<ConfigValueFor<T> | undefined>;
+  <T extends ConfigKeyType>(handle: ConfigKeyHandle<T>): Promise<ConfigValue<T> | undefined>;
 };
 
-// Per-request factory that mints a `ConfigAccessorFn` bound to the current
-// user + db handle. The dispatcher invokes it inside `buildHandlerContext`
-// so each handler gets its own accessor (the resolver can scope by
-// tenant + user without the handler having to thread those args through).
-// Set on AppContext at boot — the framework calls it, the config feature
-// supplies it.
 export type ConfigAccessorFactory = (deps: {
-  readonly user: { readonly id: string; readonly tenantId: string };
-  readonly db: unknown;
-}) => ConfigAccessorFn;
+  readonly user: { readonly id: string; readonly tenantId: TenantId };
+  readonly db: DbConnection | TenantDb;
+}) => ConfigAccessor;
 
 // --- Jobs ---
 
