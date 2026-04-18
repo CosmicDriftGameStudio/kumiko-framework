@@ -473,12 +473,15 @@ export function createEventStoreExecutor(
         await entityCache.del(user.tenantId, entityName, payload.id);
       }
 
+      // Read-Side Auto-Convert für Compound-Types (parallel zu update/list).
+      const restoredHydrated = rehydrateCompoundTypes(restored as DbRow, entity) as DbRow;
+
       return {
         isSuccess: true,
         data: {
           kind: "save",
           id: payload.id,
-          data: restored as DbRow,
+          data: restoredHydrated,
           changes: { isDeleted: false },
           previous: data,
           isNew: false,

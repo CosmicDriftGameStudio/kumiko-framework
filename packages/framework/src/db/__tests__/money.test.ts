@@ -149,4 +149,51 @@ describe("rehydrateMoney — Read Convert", () => {
     rehydrateMoney(input, orderEntity);
     expect(JSON.stringify(input)).toBe(before);
   });
+
+  test("korrupte string-amount (kein number) → loud throw, kein silent drop", () => {
+    expect(() =>
+      rehydrateMoney({ buyingPrice: "not-a-number", buyingPriceCurrency: "EUR" }, orderEntity),
+    ).toThrow(/not a number — DB corruption/);
+  });
+
+  test("unerwarteter amount-Typ (boolean) → loud throw", () => {
+    expect(() =>
+      rehydrateMoney({ buyingPrice: true, buyingPriceCurrency: "EUR" }, orderEntity),
+    ).toThrow(/unexpected type/);
+  });
+});
+
+describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => {
+  test("Update-Changes-Payload mit money geht durch flatten + zurück durch rehydrate", () => {
+    // Simuliert was der Executor macht: changes → flatten → DB → rehydrate
+    const changes = { buyingPrice: { amount: 99_000, currency: "USD" } };
+    const flat = flattenMoney(changes, orderEntity);
+    expect(flat).toEqual({ buyingPrice: 99_000, buyingPriceCurrency: "USD" });
+
+    // DB liefert dieselben Spalten zurück
+    const out = rehydrateMoney(flat, orderEntity);
+    expect(out).toEqual({ buyingPrice: { amount: 99_000, currency: "USD" } });
+  });
+
+  test("List-Pfad: mehrere Rows hintereinander rehydraten", () => {
+    const dbRows = [
+      { buyingPrice: 100, buyingPriceCurrency: "EUR" },
+      { buyingPrice: 200, buyingPriceCurrency: "USD" },
+      { buyingPrice: 300, buyingPriceCurrency: "GBP" },
+    ];
+    const apiRows = dbRows.map((r) => rehydrateMoney(r, orderEntity));
+    expect(apiRows).toEqual([
+      { buyingPrice: { amount: 100, currency: "EUR" } },
+      { buyingPrice: { amount: 200, currency: "USD" } },
+      { buyingPrice: { amount: 300, currency: "GBP" } },
+    ]);
+  });
+});
+
+describe("flattenMoney — Strict-Mode Throw", () => {
+  test("string als Wert (statt number/object) → loud throw", () => {
+    expect(() => flattenMoney({ buyingPrice: "100" }, orderEntity)).toThrow(
+      /expects \{ amount, currency \} object or number/,
+    );
+  });
 });

@@ -1,75 +1,77 @@
 // Auto-Convert für money-Felder im DB-Layer.
 //
-// Parallel zu located-timestamp.ts: ein API-Object combined ↔ zwei flache
-// DB-Spalten. Feature-Code schreibt `{ buyingPrice: { amount, currency } }`,
-// liest dasselbe combined-Form, Framework macht alles dazwischen transparent.
+// Vertrag (siehe auch db/located-timestamp.ts — gleicher Compound-Type-Pattern):
+//   API-Form:    { amount, currency } | number (permissiv für Legacy)
+//   DB-Form:     <name> BIGINT + <name>Currency TEXT
+//   Read-Form:   { amount, currency }
 //
-// Vertrag:
-//   Schema-Form (Zod): { amount, currency } | number (permissiv)
-//   DB-Form: <name> BIGINT + <name>Currency TEXT
-//   API-Read-Form: { amount, currency }
-//
-// Permissiv-Insert: primitive number wird akzeptiert (Legacy-Pattern aus
+// Permissiv-Insert: primitive number wird als amount akzeptiert (Legacy aus
 // pre-Stufe-3-Samples). Currency fällt dann auf entity.defaultCurrency
-// zurück (oder "EUR" als Framework-Default). Beim Read kommt immer
-// combined { amount, currency } zurück — egal wie eingegeben.
+// zurück (oder DEFAULT_CURRENCIES[0] = "EUR" als Framework-Fallback).
+//
+// Anders als locatedTimestamp behalten wir den Field-Namen `<name>` als
+// amount-Spalte (Legacy DB-Convention für Money — `SUM(buying_price)` bleibt
+// idiomatisch). `<name>Currency` ist die zusätzliche Spalte.
 
 import type { EntityDefinition } from "../engine/types";
+import { DEFAULT_CURRENCIES } from "../engine/types";
 
-const FRAMEWORK_DEFAULT_CURRENCY = "EUR";
+const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
 
 /**
- * Wandelt money-Felder im Insert/Update-Payload in zwei flache Spalten.
+ * API → DB: money-Felder zu zwei flachen Spalten flatten.
+ *
  * - `{ amount, currency }` → `{ <name>: amount, <name>Currency: currency }`
  * - `number` (legacy) → `{ <name>: number, <name>Currency: defaultCurrency }`
- *   (entity.defaultCurrency oder "EUR" als Fallback)
  *
- * Mutiert nicht — gibt eine flache Kopie zurück. Idempotent für Felder
- * die bereits flat sind (Pass-Through).
+ * Pure — mutiert nicht.
  */
 export function flattenMoney(
   payload: Record<string, unknown>,
   entity: EntityDefinition,
 ): Record<string, unknown> {
-  const flat: Record<string, unknown> = { ...payload };
+  const result: Record<string, unknown> = { ...payload };
   const fallbackCurrency = entity.defaultCurrency ?? FRAMEWORK_DEFAULT_CURRENCY;
 
   for (const [name, field] of Object.entries(entity.fields)) {
     if (field.type !== "money") continue;
 
-    const raw = flat[name];
+    const raw = result[name];
     if (raw === undefined || raw === null) continue;
 
-    // Combined { amount, currency } → flat
+    let amount: number;
+    let currency: string;
+
     if (typeof raw === "object" && "amount" in raw) {
       const pair = raw as { amount: number; currency?: string };
-      flat[name] = pair.amount;
-      flat[`${name}Currency`] = pair.currency ?? fallbackCurrency;
-      continue;
+      amount = pair.amount;
+      currency = pair.currency ?? fallbackCurrency;
+    } else if (typeof raw === "number") {
+      amount = raw;
+      // Expliziter currency-key im Payload überschreibt den Default-Fallback.
+      const explicitCurrency = result[`${name}Currency`];
+      currency = typeof explicitCurrency === "string" ? explicitCurrency : fallbackCurrency;
+    } else {
+      throw new Error(
+        `flattenMoney: field "${name}" expects { amount, currency } object or number, got ${typeof raw}`,
+      );
     }
-    // Primitive number (legacy) → keep amount, default-currency setzen
-    if (typeof raw === "number") {
-      // amount bleibt wie es ist; Currency nur setzen wenn nicht vorhanden,
-      // damit ein expliziter `<name>Currency` im Payload nicht überschrieben wird
-      if (flat[`${name}Currency`] === undefined) {
-        flat[`${name}Currency`] = fallbackCurrency;
-      }
-    }
-    // Andere Formen (z.B. null, undefined) lassen wir wie sie sind — der
-    // Insert/Update-Layer entscheidet selbst was er damit tut.
+
+    delete result[name];
+    result[name] = amount;
+    result[`${name}Currency`] = currency;
   }
 
-  return flat;
+  return result;
 }
 
 /**
- * Rekonstruiert money-Felder aus den zwei flachen DB-Spalten.
+ * DB → API: zwei flache Spalten zu combined { amount, currency } rehydraten.
  *
- * Liest `<name>` (BIGINT) + `<name>Currency` (TEXT) und baut combined
- * `{ amount, currency }`. Die zwei flachen Spalten verschwinden aus der
- * Output-Row.
+ * Wirft loud bei korrupter DB-Form (string das nicht zur Zahl wird) — silent
+ * data-loss wäre Bug-Vektor. NULL/undefined amount → field aus Output entfernt.
  *
- * Idempotent für Felder die fehlen oder null sind.
+ * Pure — mutiert nicht.
  */
 export function rehydrateMoney(
   row: Record<string, unknown>,
@@ -86,21 +88,26 @@ export function rehydrateMoney(
 
     delete result[`${name}Currency`];
 
-    // PG liefert BIGINT als string in einigen Drivers — coerce.
-    let amount: number | null = null;
-    if (typeof amountRaw === "number") amount = amountRaw;
-    else if (typeof amountRaw === "string" && amountRaw !== "") amount = Number(amountRaw);
-    else if (amountRaw === null || amountRaw === undefined) {
-      // Money-Feld leer in DB — entferne aus Output (kein combined Object
-      // mit null amount), damit Field-Access + Optionalitäts-Semantik klar
-      // bleibt.
+    if (amountRaw === null || amountRaw === undefined) {
       delete result[name];
       continue;
     }
 
-    if (amount === null || Number.isNaN(amount)) {
-      delete result[name];
-      continue;
+    let amount: number;
+    if (typeof amountRaw === "number") {
+      amount = amountRaw;
+    } else if (typeof amountRaw === "string" && amountRaw !== "") {
+      // PG-driver liefert BIGINT manchmal als String (>2^53 sicher).
+      amount = Number(amountRaw);
+      if (Number.isNaN(amount)) {
+        throw new Error(
+          `rehydrateMoney: field "${name}" amount string "${amountRaw}" is not a number — DB corruption?`,
+        );
+      }
+    } else {
+      throw new Error(
+        `rehydrateMoney: field "${name}" amount has unexpected type ${typeof amountRaw}`,
+      );
     }
 
     const currency =

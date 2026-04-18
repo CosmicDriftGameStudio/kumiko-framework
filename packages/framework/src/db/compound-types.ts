@@ -12,7 +12,7 @@
 // erweitern (das Array hier), nicht alle Executor-Aufrufe.
 
 import type { EntityDefinition } from "../engine/types";
-import { flattenLocatedTimestamps, rehydrateLocatedTimestamps } from "./located-timestamp";
+import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp";
 import { flattenMoney, rehydrateMoney } from "./money";
 
 type Converter = (
@@ -23,8 +23,8 @@ type Converter = (
 // Reihenfolge ist egal solange die Konverter sich nicht gegenseitig
 // überlappen (z.B. money darf nicht ein Feld berühren das locatedTimestamp
 // schon erzeugt hat). Aktuell überlappen sie nicht — types sind disjunkt.
-const FLATTENERS: readonly Converter[] = [flattenLocatedTimestamps, flattenMoney];
-const REHYDRATORS: readonly Converter[] = [rehydrateLocatedTimestamps, rehydrateMoney];
+const FLATTENERS: readonly Converter[] = [flattenLocatedTimestamp, flattenMoney];
+const REHYDRATORS: readonly Converter[] = [rehydrateLocatedTimestamp, rehydrateMoney];
 
 /**
  * API-Form (combined) → DB-Form (flat). Wird vor jedem Insert/Update aufgerufen.

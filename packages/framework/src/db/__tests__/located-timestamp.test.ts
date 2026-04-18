@@ -4,7 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { createEntity, createLocatedTimestampField, createTextField } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
-import { flattenLocatedTimestamps, rehydrateLocatedTimestamps } from "../located-timestamp";
+import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "../located-timestamp";
 
 const orderEntity: EntityDefinition = createEntity({
   fields: {
@@ -14,9 +14,9 @@ const orderEntity: EntityDefinition = createEntity({
   },
 });
 
-describe("flattenLocatedTimestamps — Insert/Update Convert", () => {
+describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
   test("{ at, tz } → { <name>Utc, <name>Tz } (utc berechnet via Temporal)", () => {
-    const flat = flattenLocatedTimestamps(
+    const flat = flattenLocatedTimestamp(
       { pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" } },
       orderEntity,
     );
@@ -28,7 +28,7 @@ describe("flattenLocatedTimestamps — Insert/Update Convert", () => {
   });
 
   test("{ utc, tz } → wird direkt gespeichert (utc gewinnt)", () => {
-    const flat = flattenLocatedTimestamps(
+    const flat = flattenLocatedTimestamp(
       { pickup: { utc: "2026-04-15T09:00:00Z", tz: "Europe/Lisbon" } },
       orderEntity,
     );
@@ -39,7 +39,7 @@ describe("flattenLocatedTimestamps — Insert/Update Convert", () => {
   });
 
   test("{ at, tz, utc } — utc gewinnt deterministisch", () => {
-    const flat = flattenLocatedTimestamps(
+    const flat = flattenLocatedTimestamp(
       {
         pickup: {
           at: "2026-04-15T10:00:00",
@@ -54,7 +54,7 @@ describe("flattenLocatedTimestamps — Insert/Update Convert", () => {
   });
 
   test("Mehrere locatedTimestamp-Felder am gleichen Object", () => {
-    const flat = flattenLocatedTimestamps(
+    const flat = flattenLocatedTimestamp(
       {
         pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" },
         delivery: { at: "2026-04-16T18:00:00", tz: "Asia/Tokyo" },
@@ -70,7 +70,7 @@ describe("flattenLocatedTimestamps — Insert/Update Convert", () => {
   });
 
   test("andere Felder bleiben unverändert (clientName)", () => {
-    const flat = flattenLocatedTimestamps(
+    const flat = flattenLocatedTimestamp(
       {
         clientName: "Acme",
         pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Berlin" },
@@ -81,13 +81,13 @@ describe("flattenLocatedTimestamps — Insert/Update Convert", () => {
   });
 
   test("fehlende Felder werden ignoriert (kein crash)", () => {
-    const flat = flattenLocatedTimestamps({ clientName: "X" }, orderEntity);
+    const flat = flattenLocatedTimestamp({ clientName: "X" }, orderEntity);
     expect(flat).toEqual({ clientName: "X" });
   });
 
   test("DST-Übergang Berlin Spring-Forward 2026-03-29 — Konvertierung korrekt", () => {
     // 04:30 Berlin am 29.03.2026 (nach DST-Sprung) = 02:30 UTC (CEST UTC+2)
-    const flat = flattenLocatedTimestamps(
+    const flat = flattenLocatedTimestamp(
       { pickup: { at: "2026-03-29T04:30:00", tz: "Europe/Berlin" } },
       orderEntity,
     );
@@ -97,14 +97,14 @@ describe("flattenLocatedTimestamps — Insert/Update Convert", () => {
   test("ist pure — input wird nicht mutiert", () => {
     const input = { pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" } };
     const before = JSON.stringify(input);
-    flattenLocatedTimestamps(input, orderEntity);
+    flattenLocatedTimestamp(input, orderEntity);
     expect(JSON.stringify(input)).toBe(before);
   });
 });
 
-describe("rehydrateLocatedTimestamps — Read Convert", () => {
+describe("rehydrateLocatedTimestamp — Read Convert", () => {
   test("{ <name>Utc, <name>Tz } DB-Form → { at, tz, utc } API-Form (Pickup-Ort-lokal)", () => {
-    const out = rehydrateLocatedTimestamps(
+    const out = rehydrateLocatedTimestamp(
       { pickupUtc: "2026-04-15T09:00:00Z", pickupTz: "Europe/Lisbon" },
       orderEntity,
     );
@@ -120,7 +120,7 @@ describe("rehydrateLocatedTimestamps — Read Convert", () => {
 
   test("PG-Wire-Format mit Space wird normalisiert (PG-mode:'string')", () => {
     // Drizzle's mode:"string" liefert TIMESTAMPTZ als "2026-04-15 09:00:00+00".
-    const out = rehydrateLocatedTimestamps(
+    const out = rehydrateLocatedTimestamp(
       { pickupUtc: "2026-04-15 09:00:00+00", pickupTz: "Europe/Lisbon" },
       orderEntity,
     );
@@ -130,8 +130,8 @@ describe("rehydrateLocatedTimestamps — Read Convert", () => {
 
   test("Round-Trip: flatten dann rehydrate ergibt original-equivalent", () => {
     const original = { pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" } };
-    const flat = flattenLocatedTimestamps(original, orderEntity);
-    const rehydrated = rehydrateLocatedTimestamps(flat, orderEntity);
+    const flat = flattenLocatedTimestamp(original, orderEntity);
+    const rehydrated = rehydrateLocatedTimestamp(flat, orderEntity);
 
     const pickup = rehydrated["pickup"] as { at: string; tz: string; utc: string };
     expect(pickup.at).toBe("2026-04-15T10:00:00");
@@ -141,7 +141,7 @@ describe("rehydrateLocatedTimestamps — Read Convert", () => {
   });
 
   test("Mehrere Felder: Pickup Lissabon + Delivery Tokyo gleichzeitig", () => {
-    const out = rehydrateLocatedTimestamps(
+    const out = rehydrateLocatedTimestamp(
       {
         pickupUtc: "2026-04-15T09:00:00Z",
         pickupTz: "Europe/Lisbon",
@@ -160,7 +160,7 @@ describe("rehydrateLocatedTimestamps — Read Convert", () => {
     // Beweis dass der Default `at` = Pickup-Ort-lokal IST. Hier speichern
     // wir einen UTC-Instant mit Lissabon als gespeicherte tz, und prüfen
     // dass der Read den Lissabon-Wall-Clock-Tag liefert (nicht z.B. Tokyo).
-    const out = rehydrateLocatedTimestamps(
+    const out = rehydrateLocatedTimestamp(
       { pickupUtc: "2026-04-15T22:30:00Z", pickupTz: "Europe/Lisbon" },
       orderEntity,
     );
@@ -172,12 +172,12 @@ describe("rehydrateLocatedTimestamps — Read Convert", () => {
   });
 
   test("fehlende Felder werden übersprungen (kein crash)", () => {
-    const out = rehydrateLocatedTimestamps({ clientName: "X" }, orderEntity);
+    const out = rehydrateLocatedTimestamp({ clientName: "X" }, orderEntity);
     expect(out).toEqual({ clientName: "X" });
   });
 
   test("partial: nur Tz ohne Utc → Pair wird nicht erzeugt (Daten korrupt, kein silent fix)", () => {
-    const out = rehydrateLocatedTimestamps({ pickupTz: "Europe/Lisbon" }, orderEntity);
+    const out = rehydrateLocatedTimestamp({ pickupTz: "Europe/Lisbon" }, orderEntity);
     expect(out["pickup"]).toBeUndefined();
   });
 });

@@ -1,14 +1,9 @@
 // Auto-Convert für locatedTimestamp-Felder im DB-Layer.
 //
-// Die zwei Funktionen hier ersetzen den manuellen flattenLocatedPairs/
-// rehydrateLocatedTimestamps-Hack den jeder Handler bisher selbst schrieb.
-// Sie laufen im createEventStoreExecutor's create/update/list/detail
-// (verkabelt im executor.ts) — Feature-Code merkt davon nichts.
-//
-// Vertrag:
-//   Schema-Form (Zod): { at, tz } | { utc, tz }
-//   DB-Form: <name>Utc TIMESTAMPTZ + <name>Tz TEXT
-//   API-Read-Form: { at, tz, utc }
+// Vertrag (siehe auch db/money.ts — gleicher Compound-Type-Pattern):
+//   API-Form:    { at, tz } | { utc, tz }
+//   DB-Form:     <name>Utc TIMESTAMPTZ + <name>Tz TEXT
+//   Read-Form:   { at, tz, utc }
 //
 // `at`-Default-Sicht beim Read: Pickup-Ort-lokal (utc projiziert in
 // gespeicherter tz). Server kennt User-TZ nicht — User-spezifische
@@ -20,67 +15,67 @@ import type { EntityDefinition } from "../engine/types";
 // "2026-04-15 09:00:00+00". Temporal erwartet ISO-8601 mit "T" und
 // entweder "Z" oder "+HH:MM". Mini-Adapter normalisiert.
 function pgTimestamptzToInstantIso(pgValue: string): string {
-  // Wenn bereits ISO (mit T), pass-through.
   if (pgValue.includes("T")) return pgValue;
-  // PG-Format: replace space → T, "+00" am Ende → "Z" für eindeutige UTC.
   return pgValue.replace(" ", "T").replace(/\+00$/, "Z");
 }
 
 /**
- * Wandelt locatedTimestamp-Felder (`{ at?, tz, utc? }`) in der Insert/Update-
- * Payload in zwei flache Spalten (`<name>Utc`, `<name>Tz`) um.
+ * API → DB: locatedTimestamp-Felder zu zwei flachen Spalten flatten.
  *
- * - Wenn `utc` gegeben ist: utc gewinnt, wird direkt gespeichert.
- * - Wenn nur `at + tz` gegeben: utc wird via Temporal berechnet.
- * - Wenn beide gegeben: utc gewinnt (deterministischer Wert), at wird
- *   ignoriert für die DB. Konsistenz-Check ist Caller-Verantwortung.
+ * - `{ at, tz }` (UI-Form) → `{ <name>Utc, <name>Tz }` (utc via Temporal berechnet)
+ * - `{ utc, tz }` (Server-Form) → utc gewinnt direkt
+ * - `{ at, tz, utc }` → utc gewinnt; at wird ignoriert (Konsistenz-Check ist
+ *   Caller-Verantwortung)
  *
- * Idempotent für Felder die bereits flat sind (Server-zu-Server-Imports,
- * Replays). Mutiert nicht — gibt eine flache Kopie zurück.
+ * Pure — mutiert nicht.
  */
-export function flattenLocatedTimestamps(
+export function flattenLocatedTimestamp(
   payload: Record<string, unknown>,
   entity: EntityDefinition,
 ): Record<string, unknown> {
   const T = (globalThis as unknown as { Temporal: typeof Temporal }).Temporal;
-  const flat: Record<string, unknown> = { ...payload };
+  const result: Record<string, unknown> = { ...payload };
 
   for (const [name, field] of Object.entries(entity.fields)) {
     if (field.type !== "locatedTimestamp") continue;
 
-    const pair = flat[name] as { at?: string; tz?: string; utc?: string } | undefined;
-    if (!pair || typeof pair !== "object") continue;
+    const raw = result[name];
+    if (raw === undefined || raw === null) continue;
+    if (typeof raw !== "object") {
+      throw new Error(
+        `flattenLocatedTimestamp: field "${name}" expects { at, tz } or { utc, tz } object, got ${typeof raw}`,
+      );
+    }
+    const pair = raw as { at?: string; tz?: string; utc?: string };
 
-    delete flat[name];
+    delete result[name];
+
     if (pair.tz === undefined) continue;
-
     const tz = pair.tz;
-    let utc: string | undefined = pair.utc;
-    if (utc === undefined && pair.at !== undefined) {
-      utc = T.PlainDateTime.from(pair.at).toZonedDateTime(tz).toInstant().toString();
-    }
-    if (utc !== undefined) {
-      flat[`${name}Utc`] = utc;
-      flat[`${name}Tz`] = tz;
-    }
+    const utc =
+      pair.utc ??
+      (pair.at !== undefined
+        ? T.PlainDateTime.from(pair.at).toZonedDateTime(tz).toInstant().toString()
+        : undefined);
+    if (utc === undefined) continue;
+
+    result[`${name}Utc`] = utc;
+    result[`${name}Tz`] = tz;
   }
 
-  return flat;
+  return result;
 }
 
 /**
- * Rekonstruiert locatedTimestamp-Felder aus den zwei flachen DB-Spalten.
+ * DB → API: zwei flache Spalten zu combined { at, tz, utc } rehydraten.
  *
- * Liest `<name>Utc` + `<name>Tz` aus der Row, baut `{ at, tz, utc }` als
- * combined Object, und ersetzt die zwei Spalten in der Output-Row.
- *
- * `at` ist immer Pickup-Ort-lokal (utc projiziert in gespeicherter tz).
+ * `at` ist immer Wall-Clock in der gespeicherten `tz` (Pickup-Ort-lokal).
  * Wer User-Sicht braucht, leitet aus `utc` selbst ab — der Server kennt
  * keine User-TZ.
  *
- * Idempotent für Felder die fehlen oder null sind.
+ * Pure — mutiert nicht.
  */
-export function rehydrateLocatedTimestamps(
+export function rehydrateLocatedTimestamp(
   row: Record<string, unknown>,
   entity: EntityDefinition,
 ): Record<string, unknown> {
@@ -91,18 +86,18 @@ export function rehydrateLocatedTimestamps(
     if (field.type !== "locatedTimestamp") continue;
 
     const utcRaw = result[`${name}Utc`];
-    const tz = result[`${name}Tz`];
+    const tzRaw = result[`${name}Tz`];
 
     delete result[`${name}Utc`];
     delete result[`${name}Tz`];
 
-    if (typeof utcRaw !== "string" || typeof tz !== "string") continue;
+    if (typeof utcRaw !== "string" || typeof tzRaw !== "string") continue;
 
     const utcIso = pgTimestamptzToInstantIso(utcRaw);
-    const localZdt = T.Instant.from(utcIso).toZonedDateTimeISO(tz);
+    const localZdt = T.Instant.from(utcIso).toZonedDateTimeISO(tzRaw);
     const at = localZdt.toPlainDateTime().toString();
 
-    result[name] = { at, tz, utc: utcIso };
+    result[name] = { at, tz: tzRaw, utc: utcIso };
   }
 
   return result;
