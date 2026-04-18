@@ -62,17 +62,23 @@ export type EventConsumer = {
   readonly errorPolicy?: EventConsumerErrorPolicy;
 };
 
+// Result of a dispatcher pass (runOnce / doPass). Shared across the public
+// interface and the internal helpers so all three sites agree on the shape
+// — adding a counter in one place wouldn't have compiled on the others
+// when the type was inlined in each signature.
+export type DispatcherPassResult = {
+  readonly processed: number;
+  readonly failed: number;
+  readonly byConsumer: Record<string, { processed: number; failed: number }>;
+};
+
 export type EventDispatcher = {
   start(): Promise<void>;
   stop(): Promise<void>;
   // Force one pass now (tests drain deterministically via this).
   // Throws if start() was never called — pre-registration of consumer
   // state rows is a precondition, not a side-effect of the pass itself.
-  runOnce(): Promise<{
-    readonly processed: number;
-    readonly failed: number;
-    readonly byConsumer: Record<string, { processed: number; failed: number }>;
-  }>;
+  runOnce(): Promise<DispatcherPassResult>;
   // Idempotent re-pre-registration of consumer state rows. Exists as a
   // test-teardown surface: after `TRUNCATE kumiko_event_consumers` the
   // rows are gone, and strict acquire() would skip every consumer as
@@ -344,17 +350,9 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // Serialises concurrent runOnce() calls from both wake-up sources (timer
   // + any future explicit nudge). Mirrors outbox-poller's passInFlight
   // pattern so behaviour under races stays predictable.
-  let passInFlight: Promise<{
-    processed: number;
-    failed: number;
-    byConsumer: Record<string, { processed: number; failed: number }>;
-  }> | null = null;
+  let passInFlight: Promise<DispatcherPassResult> | null = null;
 
-  async function runOnce(): Promise<{
-    processed: number;
-    failed: number;
-    byConsumer: Record<string, { processed: number; failed: number }>;
-  }> {
+  async function runOnce(): Promise<DispatcherPassResult> {
     if (!preRegistered) {
       throw new Error(
         "EventDispatcher.runOnce() called before start() — consumer state rows are not registered. Call start() first (production) or ensureRegistered() (tests after truncating kumiko_event_consumers).",
@@ -369,11 +367,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     }
   }
 
-  async function doPass(): Promise<{
-    processed: number;
-    failed: number;
-    byConsumer: Record<string, { processed: number; failed: number }>;
-  }> {
+  async function doPass(): Promise<DispatcherPassResult> {
     let totalProcessed = 0;
     let totalFailed = 0;
     const byConsumer: Record<string, { processed: number; failed: number }> = {};

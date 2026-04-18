@@ -21,7 +21,7 @@ export { FrameworkReasons } from "./reasons";
 export type { ErrorLogEntry, ErrorResponseBody } from "./serialize";
 
 export { buildErrorLog, serializeError } from "./serialize";
-export type { WriteErrorInfo } from "./write-error-info";
+export type { WriteErrorInfo, WriteFailure } from "./write-error-info";
 
 export {
   failNotFound,

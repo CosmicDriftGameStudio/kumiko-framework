@@ -15,13 +15,19 @@ export type WriteErrorInfo = {
   readonly details?: unknown;
 };
 
+// The failure half of WriteResult — `{ isSuccess: false } + error`. Named
+// so the three write-failure factories below and WriteResult share one
+// shape instead of restating it. Not generic: the error carries zero data,
+// so there's nothing for the caller to narrow.
+export type WriteFailure = {
+  readonly isSuccess: false;
+  readonly error: WriteErrorInfo;
+};
+
 // Convenience for call sites that return a failed WriteResult. Keeps the
 // pattern `return writeFailure(new NotFoundError(...))` compact so handlers
 // and the CrudExecutor don't need to spell out the shape each time.
-export function writeFailure(err: KumikoError): {
-  readonly isSuccess: false;
-  readonly error: WriteErrorInfo;
-} {
+export function writeFailure(err: KumikoError): WriteFailure {
   return { isSuccess: false, error: toWriteErrorInfo(err) };
 }
 
@@ -29,17 +35,14 @@ export function writeFailure(err: KumikoError): {
 // (typed 404) and "business rule violated: REASON" (typed 422 with the reason
 // string surfaced in details.reason). Reach for the concrete classes when you
 // need richer payload — these two cover the bulk of handler code.
-export function failNotFound(
-  entity: string,
-  id?: number | string,
-): { readonly isSuccess: false; readonly error: WriteErrorInfo } {
+export function failNotFound(entity: string, id?: number | string): WriteFailure {
   return writeFailure(new NotFoundError(entity, id));
 }
 
 export function failUnprocessable(
   reason: string,
   details?: Readonly<Record<string, unknown>>,
-): { readonly isSuccess: false; readonly error: WriteErrorInfo } {
+): WriteFailure {
   return writeFailure(new UnprocessableError(reason, details ? { details } : undefined));
 }
 

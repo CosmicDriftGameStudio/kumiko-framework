@@ -16,6 +16,7 @@ export type { EventDedup } from "./event-dedup";
 export { createEventDedup } from "./event-dedup";
 export type {
   ConsumerRecoveryState,
+  DispatcherPassResult,
   EventConsumer,
   EventConsumerHandler,
   EventDispatcher,
