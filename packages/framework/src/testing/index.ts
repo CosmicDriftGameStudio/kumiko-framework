@@ -119,6 +119,10 @@ export {
 } from "./fixtures";
 export { bridgeStub } from "./handler-context";
 export {
+  createMutableMasterKeyProvider,
+  type MutableMasterKeyProvider,
+} from "./mutable-master-key-provider";
+export {
   createRecordingProvider,
   type RecordingProvider,
 } from "./observability-recorder";
