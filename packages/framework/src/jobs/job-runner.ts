@@ -110,6 +110,28 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   const queue = new Queue(queueName, { connection: redisOpts });
   let worker: Worker | null = null;
 
+  // Counts active + waiting jobs with this name for this tenant. Returns
+  // true once the count reaches `max`. Pulls both queues, filters by
+  // jobName + payload._tenantId — BullMQ has no built-in label-based
+  // counter so we walk the small (active+waiting) set ourselves.
+  async function isOverPerTenantLimit(
+    jobName: string,
+    tenantId: string,
+    max: number,
+  ): Promise<boolean> {
+    const [active, waiting] = await Promise.all([queue.getActive(), queue.getWaiting()]);
+    let count = 0;
+    for (const j of [...active, ...waiting]) {
+      if (j.name !== jobName) continue;
+      const t = (j.data as { _tenantId?: string } | undefined)?._tenantId;
+      if (t === tenantId) {
+        count += 1;
+        if (count >= max) return true;
+      }
+    }
+    return false;
+  }
+
   async function handleJob(bullJob: Job): Promise<void> {
     const rawName = bullJob.name;
 
@@ -268,6 +290,23 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         return job.id ?? "unknown";
       }
 
+      // maxPerTenant guard: cap concurrent + waiting jobs of the same name
+      // for the same tenant. Orthogonal to the concurrency mode below — runs
+      // first because if we're over the limit nothing else matters.
+      // Requires a `_tenantId` in the payload to know which bucket to count
+      // against; without it the guard is inactive (system jobs, ambient
+      // dispatch). Fan-out children of perTenant jobs land here on their
+      // recursive queue.add and DO carry _tenantId.
+      if (jobDef.maxPerTenant !== undefined) {
+        const tenantId = (payload as { _tenantId?: string } | undefined)?._tenantId;
+        if (
+          tenantId !== undefined &&
+          (await isOverPerTenantLimit(jobName, tenantId, jobDef.maxPerTenant))
+        ) {
+          return "skipped:max-per-tenant";
+        }
+      }
+
       const concurrency = jobDef.concurrency ?? "parallel";
       const bullOpts: Record<string, unknown> = {};
 
@@ -346,6 +385,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           }
           if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
           if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
+          // Same maxPerTenant guard as dispatch — events that fan into many
+          // jobs must respect the per-tenant cap or the limit is one-sided.
+          if (jobDef.maxPerTenant !== undefined && user?.tenantId !== undefined) {
+            if (await isOverPerTenantLimit(name, String(user.tenantId), jobDef.maxPerTenant)) {
+              continue;
+            }
+          }
           await queue.add(name, data);
         }
       }

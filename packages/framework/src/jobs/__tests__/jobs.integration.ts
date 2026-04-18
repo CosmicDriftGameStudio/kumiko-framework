@@ -61,6 +61,17 @@ const testFeature = defineFeature("test", (r) => {
     },
   );
 
+  // maxPerTenant: cap concurrent + waiting jobs per tenant. Long sleep so
+  // the dispatcher checks ALL queued counts (including waiting ones).
+  r.job(
+    "perTenantLimited",
+    { trigger: { manual: true }, concurrency: "parallel", maxPerTenant: 2 },
+    async (payload) => {
+      jobLog.push({ name: "test:job:per-tenant-limited", payload, timestamp: Date.now() });
+      await sleep(500);
+    },
+  );
+
   // Job that fails
   r.job("failingJob", { trigger: { manual: true }, retries: 1 }, async () => {
     throw new Error("intentional failure");
@@ -261,6 +272,67 @@ describe("concurrency: debounce", () => {
       // Debounce should result in fewer executions than dispatches
       expect(entries.length).toBeLessThan(5);
       expect(entries.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+});
+
+describe("concurrency: maxPerTenant", () => {
+  test("max=2: third dispatch for same tenant returns skipped, other tenant unaffected", async () => {
+    clearLog();
+    await withRunner(async (runner) => {
+      const tenantA = "tenant-a";
+      const tenantB = "tenant-b";
+
+      // First two for tenantA fill the bucket — both should accept.
+      const idA1 = await runner.dispatch("test:job:per-tenant-limited", {
+        n: 1,
+        _tenantId: tenantA,
+      });
+      const idA2 = await runner.dispatch("test:job:per-tenant-limited", {
+        n: 2,
+        _tenantId: tenantA,
+      });
+      expect(idA1).not.toBe("skipped:max-per-tenant");
+      expect(idA2).not.toBe("skipped:max-per-tenant");
+
+      // Third for tenantA hits the cap before BullMQ drains the first.
+      // Small sleep so we don't race the queue.add of the first two.
+      await sleep(50);
+      const idA3 = await runner.dispatch("test:job:per-tenant-limited", {
+        n: 3,
+        _tenantId: tenantA,
+      });
+      expect(idA3).toBe("skipped:max-per-tenant");
+
+      // tenantB has its own bucket — accepted.
+      const idB1 = await runner.dispatch("test:job:per-tenant-limited", {
+        n: 4,
+        _tenantId: tenantB,
+      });
+      expect(idB1).not.toBe("skipped:max-per-tenant");
+
+      // After the 500ms-handlers settle the bucket empties. jobLog.push runs
+      // at handler START, so a log entry doesn't mean the job is "done" —
+      // it's still in `active` for the rest of the sleep. Wait long enough
+      // that the slowest 500ms handler has returned, then a fresh tenantA
+      // dispatch lands again.
+      await sleep(900);
+      const idA4 = await runner.dispatch("test:job:per-tenant-limited", {
+        n: 5,
+        _tenantId: tenantA,
+      });
+      expect(idA4).not.toBe("skipped:max-per-tenant");
+    });
+  });
+
+  test("missing _tenantId disables the guard (backwards-compatible)", async () => {
+    clearLog();
+    await withRunner(async (runner) => {
+      // No _tenantId in payload — guard inactive, all 4 accepted regardless of cap.
+      for (let i = 0; i < 4; i++) {
+        const id = await runner.dispatch("test:job:per-tenant-limited", { n: i });
+        expect(id).not.toBe("skipped:max-per-tenant");
+      }
     });
   });
 });
