@@ -23,9 +23,15 @@ let registry: Registry;
 let departmentTable: Table;
 let userTable: Table;
 let sessionTable: Table;
+let groupTable: Table;
+let userGroupRestrictTable: Table;
+let userGroupCascadeTable: Table;
 let departmentExecutor: EventStoreExecutor;
 let userExecutor: EventStoreExecutor;
 let sessionExecutor: EventStoreExecutor;
+let groupExecutor: EventStoreExecutor;
+let userGroupRestrictExecutor: EventStoreExecutor;
+let userGroupCascadeExecutor: EventStoreExecutor;
 
 const admin = TestUsers.admin;
 
@@ -41,6 +47,20 @@ const sessionEntity = createEntity({
   table: "cascade_sessions",
   fields: { userId: createTextField(), token: createTextField() },
 });
+const groupEntity = createEntity({
+  table: "cascade_groups",
+  fields: { name: createTextField() },
+});
+// Two separate junction tables so one Registry can host both onDelete
+// strategies (restrict + cascade) on the same user→group pair.
+const userGroupRestrictEntity = createEntity({
+  table: "cascade_user_group_restrict",
+  fields: { userId: createTextField(), groupId: createTextField() },
+});
+const userGroupCascadeEntity = createEntity({
+  table: "cascade_user_group_cascade",
+  fields: { userId: createTextField(), groupId: createTextField() },
+});
 
 beforeAll(async () => {
   testDb = await createTestDb();
@@ -50,15 +70,24 @@ beforeAll(async () => {
   await createEntityTable(testDb.db, departmentEntity);
   await createEntityTable(testDb.db, userEntity);
   await createEntityTable(testDb.db, sessionEntity);
+  await createEntityTable(testDb.db, groupEntity);
+  await createEntityTable(testDb.db, userGroupRestrictEntity);
+  await createEntityTable(testDb.db, userGroupCascadeEntity);
 
   departmentTable = buildDrizzleTable("department", departmentEntity);
   userTable = buildDrizzleTable("user", userEntity);
   sessionTable = buildDrizzleTable("session", sessionEntity);
+  groupTable = buildDrizzleTable("group", groupEntity);
+  userGroupRestrictTable = buildDrizzleTable("userGroupRestrict", userGroupRestrictEntity);
+  userGroupCascadeTable = buildDrizzleTable("userGroupCascade", userGroupCascadeEntity);
 
   const feature = defineFeature("cascade", (r) => {
     r.entity("department", departmentEntity);
     r.entity("user", userEntity);
     r.entity("session", sessionEntity);
+    r.entity("group", groupEntity);
+    r.entity("userGroupRestrict", userGroupRestrictEntity);
+    r.entity("userGroupCascade", userGroupCascadeEntity);
 
     r.relation("department", "users", {
       type: "hasMany",
@@ -73,6 +102,20 @@ beforeAll(async () => {
       foreignKey: "userId",
       onDelete: "cascade",
     });
+
+    r.relation("user", "groupsRestrict", {
+      type: "manyToMany",
+      target: "group",
+      through: { table: "userGroupRestrict", sourceKey: "userId", targetKey: "groupId" },
+      onDelete: "restrict",
+    });
+
+    r.relation("user", "groupsCascade", {
+      type: "manyToMany",
+      target: "group",
+      through: { table: "userGroupCascade", sourceKey: "userId", targetKey: "groupId" },
+      onDelete: "cascade",
+    });
   });
 
   registry = createRegistry([feature]);
@@ -83,6 +126,17 @@ beforeAll(async () => {
   sessionExecutor = createEventStoreExecutor(sessionTable, sessionEntity, {
     entityName: "session",
   });
+  groupExecutor = createEventStoreExecutor(groupTable, groupEntity, { entityName: "group" });
+  userGroupRestrictExecutor = createEventStoreExecutor(
+    userGroupRestrictTable,
+    userGroupRestrictEntity,
+    { entityName: "userGroupRestrict" },
+  );
+  userGroupCascadeExecutor = createEventStoreExecutor(
+    userGroupCascadeTable,
+    userGroupCascadeEntity,
+    { entityName: "userGroupCascade" },
+  );
 });
 
 afterAll(async () => {
@@ -161,5 +215,113 @@ describe("cascade delete: cascade", () => {
     const after = await sessionExecutor.list({}, admin, tdb);
     const sessionsAfter = after.rows.filter((r) => r["userId"] === user.data.id);
     expect(sessionsAfter.length).toBe(0);
+  });
+});
+
+describe("cascade delete: manyToMany restrict", () => {
+  test("blocks delete when through-records exist", async () => {
+    const user = await userExecutor.create({ name: "M2M Restrict User" }, admin, tdb);
+    const group = await groupExecutor.create({ name: "Admins" }, admin, tdb);
+    if (!user.isSuccess || !group.isSuccess) throw new Error("Setup failed");
+
+    await userGroupRestrictExecutor.create(
+      { userId: user.data.id, groupId: group.data.id },
+      admin,
+      tdb,
+    );
+
+    const cascadeHook = createCascadeDeleteHook(
+      registry,
+      new Map([["userGroupRestrict", userGroupRestrictTable]]),
+    );
+
+    await expect(
+      cascadeHook.fn(
+        {
+          kind: "delete",
+          id: user.data.id,
+          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
+          entityName: "user",
+        },
+        { db: tdb },
+      ),
+    ).rejects.toMatchObject({
+      code: "conflict",
+      details: {
+        reason: "delete_restricted",
+        blockingEntity: "userGroupRestrict",
+      },
+    });
+  });
+
+  test("allows delete when no through-records reference this entity", async () => {
+    const user = await userExecutor.create({ name: "M2M Free User" }, admin, tdb);
+    if (!user.isSuccess) throw new Error("Setup failed");
+
+    const cascadeHook = createCascadeDeleteHook(
+      registry,
+      new Map([["userGroupRestrict", userGroupRestrictTable]]),
+    );
+
+    await expect(
+      cascadeHook.fn(
+        {
+          kind: "delete",
+          id: user.data.id,
+          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
+          entityName: "user",
+        },
+        { db: tdb },
+      ),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe("cascade delete: manyToMany cascade", () => {
+  test("deletes through-records but keeps target entities", async () => {
+    const user = await userExecutor.create({ name: "M2M Cascade User" }, admin, tdb);
+    const groupA = await groupExecutor.create({ name: "Group A" }, admin, tdb);
+    const groupB = await groupExecutor.create({ name: "Group B" }, admin, tdb);
+    if (!user.isSuccess || !groupA.isSuccess || !groupB.isSuccess) throw new Error("Setup failed");
+
+    await userGroupCascadeExecutor.create(
+      { userId: user.data.id, groupId: groupA.data.id },
+      admin,
+      tdb,
+    );
+    await userGroupCascadeExecutor.create(
+      { userId: user.data.id, groupId: groupB.data.id },
+      admin,
+      tdb,
+    );
+
+    const before = await userGroupCascadeExecutor.list({}, admin, tdb);
+    expect(before.rows.filter((r) => r["userId"] === user.data.id).length).toBe(2);
+
+    const cascadeHook = createCascadeDeleteHook(
+      registry,
+      new Map([["userGroupCascade", userGroupCascadeTable]]),
+    );
+
+    await cascadeHook.fn(
+      {
+        kind: "delete",
+        id: user.data.id,
+        data: { tenantId: "00000000-0000-4000-8000-000000000001" },
+        entityName: "user",
+      },
+      { db: tdb },
+    );
+
+    // Through-records for this user must be gone
+    const after = await userGroupCascadeExecutor.list({}, admin, tdb);
+    expect(after.rows.filter((r) => r["userId"] === user.data.id).length).toBe(0);
+
+    // Target groups themselves must remain — cascade drops the M:N link,
+    // not the referenced entities.
+    const groups = await groupExecutor.list({}, admin, tdb);
+    const groupIds = groups.rows.map((r) => r["id"]);
+    expect(groupIds).toContain(groupA.data.id);
+    expect(groupIds).toContain(groupB.data.id);
   });
 });

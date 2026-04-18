@@ -74,13 +74,16 @@ export function createCascadeDeleteHook(
         if (relation.type === "manyToMany" && relation.through) {
           const throughTable = tables.get(relation.through.table);
           if (!throughTable) continue;
-          const targetKey = relation.through.targetKey;
+          // sourceKey points at the owner side (the entity being deleted).
+          // targetKey would point at the other side — filtering by it here
+          // would miss every through-row for this entity.
+          const sourceKey = relation.through.sourceKey;
 
           if (strategy === OnDeleteStrategies.restrict) {
             const rows = await db
               .select({ id: throughTable["id"] })
               .from(throughTable)
-              .where(eq(throughTable[targetKey], payload.id))
+              .where(eq(throughTable[sourceKey], payload.id))
               .limit(1);
             if (rows.length > 0) {
               throw new ConflictError({
@@ -97,7 +100,7 @@ export function createCascadeDeleteHook(
           }
 
           if (strategy === OnDeleteStrategies.cascade) {
-            await db.delete(throughTable).where(eq(throughTable[targetKey], payload.id));
+            await db.delete(throughTable).where(eq(throughTable[sourceKey], payload.id));
           }
         }
       }
