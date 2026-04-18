@@ -292,7 +292,12 @@ export async function loadEventsAfterVersion(
 
 // Load every event for an aggregate_type across all tenants. Ordered by
 // (created_at, id) — chronological replay order for projection rebuilds.
-// Buffers in memory; Phase 3+ will stream for very large stores.
+//
+// CAUTION — buffers ALL matching events in memory. Safe für kleinere
+// aggregate-types (≤ 100k events), ein Memory-Cliff für große stores.
+// Für >100k events nutze `streamAllEventsByType` (yields batchweise).
+// Wird aktuell vor allem in Tests gerufen — Production rebuild geht über
+// projection-rebuild's eigenen Streaming-Pfad.
 export async function loadAllEventsByType(
   db: DbRunner,
   aggregateType: string,
@@ -303,6 +308,52 @@ export async function loadAllEventsByType(
     .where(eq(eventsTable.aggregateType, aggregateType))
     .orderBy(asc(eventsTable.createdAt), asc(eventsTable.id));
   return rows.map(toStoredEvent);
+}
+
+// Stream every event for an aggregate_type across all tenants, batchweise
+// statt buffered. Memory-bounded: nie mehr als `batchSize` rows in memory.
+// Cursor läuft über `events.id` (bigserial monotonic, deckt sich mit
+// chronologischer Reihenfolge — gleichzeitige Inserts kriegen verschiedene
+// ids in der Reihenfolge ihrer Commits).
+//
+// Use case: projection-rebuild auf großem Event-Log (>100k events pro
+// aggregate-type). loadAllEventsByType würde OOM, dieses iterator yields
+// in batches und der Caller akkumuliert nur was er braucht.
+//
+// Default batchSize 1000 — kompromiss zwischen DB-Roundtrips (kleinere
+// batches → mehr queries) und Memory (größere batches → mehr resident).
+//
+// Bei jedem yield darf der Caller pausieren / async-work machen — der
+// nächste batch wird erst geladen wenn nötig.
+export async function* streamAllEventsByType(
+  db: DbRunner,
+  aggregateType: string,
+  batchSize = 1000,
+): AsyncIterable<StoredEvent> {
+  let cursorId = 0n;
+  while (true) {
+    const rows = await db
+      .select()
+      .from(eventsTable)
+      .where(and(eq(eventsTable.aggregateType, aggregateType), gt(eventsTable.id, cursorId)))
+      .orderBy(asc(eventsTable.id))
+      .limit(batchSize);
+
+    // skip: keine weiteren rows — generator exit ist die natürliche Termination.
+    if (rows.length === 0) return;
+
+    for (const row of rows) {
+      yield toStoredEvent(row);
+    }
+    // Letzte ID des batches ist das Cursor für den nächsten Round-Trip.
+    // bigserial monotonic → keine Duplikate, keine Skipping bei concurrent
+    // writes (neue events haben höhere ids als der letzte batch-row).
+    const last = rows[rows.length - 1];
+    // skip: defensive — rows.length > 0 check oben garantiert last !== undefined,
+    // aber TypeScript kann das nicht beweisen. Generator-exit OK falls es passiert.
+    if (!last) return;
+    cursorId = last.id;
+  }
 }
 
 function toStoredEvent(row: SelectedEvent): StoredEvent {

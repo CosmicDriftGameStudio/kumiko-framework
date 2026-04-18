@@ -9,6 +9,8 @@ import {
   loadAggregateAsOf,
   loadAllEventsByType,
   loadEventsAfterVersion,
+  type StoredEvent,
+  streamAllEventsByType,
   VersionConflictError,
 } from "../index";
 
@@ -451,5 +453,72 @@ describe("event-store: loadAllEventsByType", () => {
     expect(all).toHaveLength(4);
     expect(all.map((e) => e.version)).toEqual([1, 2, 3, 4]);
     expect(all.map((e) => (e.payload as { v: number }).v)).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe("event-store: streamAllEventsByType (memory-bounded iteration)", () => {
+  test("yields every event in id order across multiple batches", async () => {
+    // Seed 25 events; mit batchSize=10 ergibt das 3 batches (10+10+5).
+    // Verifies cursor advance (kein Skipping zwischen batches) + final
+    // empty-batch termination.
+    for (let i = 0; i < 25; i++) {
+      await append(testDb.db, {
+        aggregateId: uuid(),
+        aggregateType: "stream-task",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "stream-task.created",
+        payload: { i },
+        metadata: { userId: userA },
+      });
+    }
+
+    const collected: Array<{ id: string; i: number }> = [];
+    for await (const event of streamAllEventsByType(testDb.db, "stream-task", 10)) {
+      collected.push({ id: event.id, i: (event.payload as { i: number }).i });
+    }
+
+    expect(collected).toHaveLength(25);
+    // Reihenfolge nach events.id (= chronological commit order).
+    expect(collected.map((c) => c.i)).toEqual(Array.from({ length: 25 }, (_, n) => n));
+    // ids strict aufsteigend (bigserial monotonic).
+    for (let i = 1; i < collected.length; i++) {
+      expect(BigInt(collected[i]!.id)).toBeGreaterThan(BigInt(collected[i - 1]!.id));
+    }
+  });
+
+  test("empty store yields nothing", async () => {
+    const collected: StoredEvent[] = [];
+    for await (const event of streamAllEventsByType(testDb.db, "nonexistent", 10)) {
+      collected.push(event);
+    }
+    expect(collected).toEqual([]);
+  });
+
+  test("filters by aggregateType — other types stay unstreamed", async () => {
+    await append(testDb.db, {
+      aggregateId: uuid(),
+      aggregateType: "stream-included",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "stream-included.x",
+      payload: {},
+      metadata: { userId: userA },
+    });
+    await append(testDb.db, {
+      aggregateId: uuid(),
+      aggregateType: "stream-excluded",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "stream-excluded.x",
+      payload: {},
+      metadata: { userId: userA },
+    });
+
+    const yielded: string[] = [];
+    for await (const event of streamAllEventsByType(testDb.db, "stream-included")) {
+      yielded.push(event.aggregateType);
+    }
+    expect(yielded).toEqual(["stream-included"]);
   });
 });

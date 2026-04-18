@@ -18,6 +18,7 @@ export {
   loadAllEventsByType,
   loadEventsAfterVersion,
   type StoredEvent,
+  streamAllEventsByType,
 } from "./event-store";
 export { createEventsTable, eventsTable } from "./events-schema";
 export {
