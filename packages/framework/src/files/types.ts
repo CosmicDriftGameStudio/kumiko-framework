@@ -6,15 +6,31 @@ export type FileMetadata = {
   readonly size: number;
 };
 
+// Options for `getSignedUrl`. `contentDisposition` lets the caller hint the
+// browser to download-with-name vs inline-display (maps to ResponseContent-
+// Disposition on S3). Keep the option-bag small and additive; provider impls
+// that don't support a given hint should ignore it rather than error.
+export type SignedUrlOptions = {
+  readonly contentDisposition?: string;
+};
+
 // Primitive storage contract: key+bytes in, bytes out. Metadata (fileName,
 // mimeType, size) lives on the FileRef row — the provider only needs to
 // shuttle bytes. `mimeType` on write() is a hint for providers that need a
 // Content-Type header (S3/R2/…); local filesystems can ignore it.
+//
+// `getSignedUrl` is optional: object-store backends (S3/R2/GCS) implement it
+// so clients can download directly from the provider after the server has
+// checked access — offloads bandwidth and enables browser-native caching.
+// Filesystem providers leave it undefined; the route then returns 501 and
+// the client falls back to streaming via GET /files/:id. Callers must
+// feature-detect via `typeof provider.getSignedUrl === "function"`.
 export type FileStorageProvider = {
   write(key: string, data: Uint8Array, mimeType?: string): Promise<void>;
   read(key: string): Promise<Uint8Array>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
+  getSignedUrl?(key: string, expiresInSeconds: number, options?: SignedUrlOptions): Promise<string>;
 };
 
 export type FileValidationOptions = {

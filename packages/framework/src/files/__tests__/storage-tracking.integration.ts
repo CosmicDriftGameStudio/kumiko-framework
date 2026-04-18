@@ -150,4 +150,3 @@ describe("tenant-storage-usage MSP", () => {
     expect((second?.at as Date).getTime()).toBeGreaterThanOrEqual((first?.at as Date).getTime());
   });
 });
-

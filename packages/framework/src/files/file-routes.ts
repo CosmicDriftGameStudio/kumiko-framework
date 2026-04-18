@@ -86,6 +86,11 @@ export type FileRoutesOptions = {
 
 const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
 
+// 15 minutes — long enough for a download to start, short enough that a
+// leaked URL (e.g. from a browser history screenshot) isn't a long-lived
+// credential. Matches the security-checklist in core-files.md.
+const SIGNED_URL_DEFAULT_EXPIRY_SECONDS = 15 * 60;
+
 // Default guard: on attached files, allow the uploader or a privileged role.
 // Unattached files are tenant-wide (the tenant boundary is already enforced
 // by the query).
@@ -261,6 +266,47 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     await storageProvider.delete(fileRef.storageKey);
     await db.delete(fileRefsTable).where(eq(fileRefsTable.id, id));
     return c.json({ ok: true });
+  });
+
+  // GET /files/:id/download-url — returns a short-lived provider URL so the
+  // client can download directly (offloads bandwidth from the API, enables
+  // browser caching). Same auth + tenant + guard as GET /files/:id; the
+  // signed URL is only handed out after access is approved.
+  //
+  // Shape: JSON { url, expiresAt } rather than a 302 redirect. Redirects
+  // break browser `fetch()` on cross-origin URLs (CORS preflight semantics)
+  // and hide the expiry from the caller — JSON lets SPAs cache the URL
+  // until `expiresAt` without re-hitting the API.
+  //
+  // 501 when the wired provider doesn't support signed URLs (filesystem
+  // dev providers). Clients should fall back to the streaming endpoint.
+  api.get("/files/:id/download-url", async (c) => {
+    if (!storageProvider.getSignedUrl) {
+      return c.json(
+        {
+          error:
+            "signed_urls_not_supported: this provider does not support signed URLs — use GET /files/:id to stream",
+        },
+        501,
+      );
+    }
+
+    const user = getUser(c);
+    const id = c.req.param("id");
+    const fileRef = await loadFileForTenant(id, user.tenantId);
+    if (!fileRef) return c.json({ error: "not_found" }, 404);
+
+    const decision = await guard({ fileRef, user, operation: "read" });
+    if (decision === "deny") return c.json({ error: "not_found" }, 404);
+
+    const expiresInSeconds = SIGNED_URL_DEFAULT_EXPIRY_SECONDS;
+    const url = await storageProvider.getSignedUrl(fileRef.storageKey, expiresInSeconds, {
+      // Hint the provider to set Content-Disposition so the browser prompts
+      // with the original filename instead of the UUID-based storage key.
+      contentDisposition: `attachment; filename="${fileRef.fileName}"`,
+    });
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+    return c.json({ url, expiresAt });
   });
 
   // GET /files/:id/meta — metadata without the bytes. Guarded exactly like

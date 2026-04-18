@@ -25,7 +25,9 @@ import {
 } from "../../testing";
 import { fileRefsTable } from "../file-ref-table";
 import { FILE_UPLOADED_EVENT_TYPE, type FileRoutesOptions } from "../file-routes";
+import { createInMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
+import type { FileStorageProvider } from "../types";
 import { parseMaxSize, validateFile } from "../types";
 
 // UUID for "this row doesn't exist" assertions. Valid v4 format so PG accepts
@@ -374,7 +376,12 @@ describe("custom file access guard", () => {
   // body inside try/finally so the DB and tmpdir are cleaned up even if
   // assertions fail.
   async function withIsolatedFileServer(
-    options: Omit<FileRoutesOptions, "db" | "storageProvider">,
+    options: Omit<FileRoutesOptions, "db" | "storageProvider"> & {
+      // Overrides the default local-filesystem provider. Needed for tests
+      // that exercise optional provider methods (e.g. getSignedUrl) which
+      // the local provider deliberately doesn't implement.
+      readonly storageProvider?: FileStorageProvider;
+    },
     body: (args: {
       app: Hono;
       jwt: JwtHelper;
@@ -382,17 +389,18 @@ describe("custom file access guard", () => {
       request: (user: SessionUser, fileId: string, init?: RequestInit) => Promise<Response>;
     }) => Promise<void>,
   ): Promise<void> {
+    const { storageProvider: providerOverride, ...routeOptions } = options;
     const isolatedDb = await createTestDb();
     await pushTables(isolatedDb.db, { fileRefsTable });
     await createEntityTable(isolatedDb.db, testTenantEntity);
     const storagePath = await mkdtemp(join(tmpdir(), "kumiko-files-custom-"));
-    const provider = createLocalProvider(storagePath);
+    const provider = providerOverride ?? createLocalProvider(storagePath);
     const isolatedRegistry = createRegistry([tenantFeature]);
     const isolatedServer = buildServer({
       registry: isolatedRegistry,
       context: { db: isolatedDb.db },
       jwtSecret: JWT_SECRET,
-      files: { db: isolatedDb.db, storageProvider: provider, ...options },
+      files: { db: isolatedDb.db, storageProvider: provider, ...routeOptions },
     });
 
     try {
@@ -570,5 +578,145 @@ describe("error handling", () => {
       body: formData,
     });
     expect(res.status).toBe(401);
+  });
+});
+
+// --- Download-URL endpoint (Phase 2.3) ---
+
+describe("download-url endpoint", () => {
+  const testPng = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(40).fill(0),
+  ]);
+
+  // Mirrors the helper from the custom-guard block — same DB/storage
+  // lifecycle, but accepts a provider override so we can inject an in-memory
+  // provider that implements getSignedUrl.
+  async function withIsolatedServer(
+    storageProvider: FileStorageProvider,
+    body: (args: {
+      jwt: JwtHelper;
+      upload: (user: SessionUser) => Promise<Response>;
+      getDownloadUrl: (user: SessionUser, fileId: string) => Promise<Response>;
+    }) => Promise<void>,
+  ): Promise<void> {
+    const isolatedDb = await createTestDb();
+    await pushTables(isolatedDb.db, { fileRefsTable });
+    await createEntityTable(isolatedDb.db, testTenantEntity);
+    const isolatedRegistry = createRegistry([tenantFeature]);
+    const isolatedServer = buildServer({
+      registry: isolatedRegistry,
+      context: { db: isolatedDb.db },
+      jwtSecret: JWT_SECRET,
+      files: { db: isolatedDb.db, storageProvider },
+    });
+
+    try {
+      const upload = async (user: SessionUser) => {
+        const token = await isolatedServer.jwt.sign(user);
+        const fd = new FormData();
+        fd.append("file", new File([Buffer.from(testPng)], "photo.png", { type: "image/png" }));
+        fd.append("entityType", "tenant");
+        fd.append("entityId", "1");
+        fd.append("fieldName", "logo");
+        return isolatedServer.app.request("/api/files", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        });
+      };
+      const getDownloadUrl = async (user: SessionUser, fileId: string) => {
+        const token = await isolatedServer.jwt.sign(user);
+        return isolatedServer.app.request(`/api/files/${fileId}/download-url`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      };
+      await body({ jwt: isolatedServer.jwt, upload, getDownloadUrl });
+    } finally {
+      await isolatedDb.cleanup();
+    }
+  }
+
+  test("returns signed URL + expiresAt for authorized caller", async () => {
+    await withIsolatedServer(createInMemoryFileProvider(), async ({ upload, getDownloadUrl }) => {
+      const before = Date.now();
+      const { id } = await (await upload(adminUser)).json();
+
+      const res = await getDownloadUrl(adminUser, id);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      // The in-memory provider returns a memory:// URL with key + expiry —
+      // that's enough to prove the route wired the provider through.
+      expect(body.url).toMatch(/^memory:\/\//);
+      expect(body.url).toContain(`${adminUser.tenantId}/tenant/1/logo/`);
+      expect(body.url).toContain("expires=900");
+      // expiresAt is ~15 min in the future (ISO-8601).
+      const expiresAtMs = Date.parse(body.expiresAt);
+      expect(expiresAtMs).toBeGreaterThan(before + 14 * 60 * 1000);
+      expect(expiresAtMs).toBeLessThan(before + 16 * 60 * 1000);
+    });
+  });
+
+  test("returns 404 for nonexistent file", async () => {
+    await withIsolatedServer(createInMemoryFileProvider(), async ({ getDownloadUrl }) => {
+      const res = await getDownloadUrl(adminUser, NONEXISTENT_UUID);
+      expect(res.status).toBe(404);
+    });
+  });
+
+  test("returns 404 for other tenant (tenant isolation)", async () => {
+    await withIsolatedServer(createInMemoryFileProvider(), async ({ upload, getDownloadUrl }) => {
+      const { id } = await (await upload(adminUser)).json();
+      const res = await getDownloadUrl(otherTenantUser, id);
+      expect(res.status).toBe(404);
+    });
+  });
+
+  test("returns 404 when access guard denies (non-uploader, non-privileged)", async () => {
+    const memberUploader: SessionUser = {
+      id: "11111111-0000-4000-8000-000000000050",
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      roles: ["User"],
+    };
+    const memberOther: SessionUser = {
+      id: "11111111-0000-4000-8000-000000000051",
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      roles: ["User"],
+    };
+    await withIsolatedServer(createInMemoryFileProvider(), async ({ upload, getDownloadUrl }) => {
+      const { id } = await (await upload(memberUploader)).json();
+      // Different non-privileged user in the SAME tenant — guard denies.
+      const res = await getDownloadUrl(memberOther, id);
+      expect(res.status).toBe(404);
+    });
+  });
+
+  test("returns 501 when provider has no getSignedUrl (local filesystem)", async () => {
+    // The main test server uses createLocalProvider which deliberately does
+    // not implement getSignedUrl. Upload a fresh file, then request its
+    // download URL — the route must detect the missing method and 501.
+    const uploadRes = await uploadFile(adminUser, "no-signed.png", testPng, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    const { id } = await uploadRes.json();
+
+    const token = await jwt.sign(adminUser);
+    const res = await app.request(`/api/files/${id}/download-url`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(501);
+    const body = await res.json();
+    expect(body.error).toContain("signed_urls_not_supported");
   });
 });
