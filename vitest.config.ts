@@ -7,6 +7,7 @@ export default defineConfig({
     environment: "node",
     include: ["packages/**/*.test.ts", "samples/**/*.test.ts"],
     exclude: ["**/*.integration.ts"],
+    setupFiles: ["./vitest.setup.ts"],
     reporters: ["dot"],
     passWithNoTests: true,
     coverage: {

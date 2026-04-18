@@ -6,6 +6,7 @@ import type {
   WriteResult,
 } from "../engine/types";
 import { createNoopMetricsHandle, getFallbackTracer } from "../observability";
+import { createTzContext } from "../time";
 
 // Test/service helper: cross-feature bridge methods that throw on use.
 //
@@ -45,6 +46,7 @@ export function bridgeStub(): Pick<
   | "queryProjection"
   | "metrics"
   | "tracer"
+  | "tz"
 > {
   return {
     query: notAvailable("query") as HandlerContext["query"],
@@ -83,5 +85,8 @@ export function bridgeStub(): Pick<
     ) as unknown as HandlerContext["queryProjection"],
     metrics: createNoopMetricsHandle(),
     tracer: noopTracer,
+    // Echter TzContext, kein notAvailable — Test-Code nutzt ctx.tz häufig
+    // ohne dass es ein "Bridge"-Konzept ist. Default UTC.
+    tz: createTzContext(),
   };
 }

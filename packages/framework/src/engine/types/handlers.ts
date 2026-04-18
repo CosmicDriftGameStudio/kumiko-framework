@@ -6,6 +6,7 @@ import type { Logger } from "../../logging/types";
 import type { Meter, MetricsHandle, Tracer } from "../../observability/types";
 import type { EntityCache } from "../../pipeline/entity-cache";
 import type { SearchAdapter } from "../../search/types";
+import type { TzContext } from "../../time";
 import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config";
 
 // --- Access ---
@@ -241,6 +242,14 @@ export type HandlerContext = SharedContextFields & {
   // without null-checks.
   readonly metrics: MetricsHandle;
   readonly tracer: Tracer;
+
+  // Time + TZ helper. Feature-Code MUSS hier durch statt `new Date()` —
+  // ctx.tz.now() liefert Temporal.Instant, ctx.tz.parse(wallClock, tz)
+  // produziert ZonedDateTime, ctx.tz.toLocatedJson serialisiert für die
+  // API-Boundary. Lint-Regel gegen `new Date()` kommt sobald alle internen
+  // usages migriert sind. Tenant + User-TZ defaults aktuell "UTC", werden
+  // aus tenant.timezone / user.timezone gelesen sobald die Felder existieren.
+  readonly tz: TzContext;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed

@@ -1,14 +1,21 @@
-// Time-Modul: Temporal-Polyfill + (kommt) ctx.tz Helper, Field-Typen,
-// DB-Wrapper, Zod-Validatoren.
+// Time-Modul: Temporal-Polyfill + ctx.tz Helper.
 //
-// Aktueller Stand (Phase 1 von Gap-03 in samples/beammycar/MIGRATION.md):
+// Aktueller Stand (Iteration 1-4 von Gap-03 in samples/beammycar/MIGRATION.md):
 //   - ensureTemporalPolyfill: installiert Temporal global wenn nötig
 //   - getTemporal: type-safer Zugriff auf globalThis.Temporal
+//   - createTzContext: ctx.tz Factory mit now/today/parse/toLocatedJson/...
+//   - LocatedTimestampJson: API-Boundary-Form { at, tz }
+//
 // Kommt:
-//   - locatedTimestamp(name) Helper für Entity-Field-Definitionen
-//   - "timestamp" / "date" / "tz" Field-Typen + Zod-Validatoren
-//   - DB-Wrapper (Wall-Clock+tz ↔ UTC transparent)
-//   - ctx.tz Helper-API
-//   - UI-Komponenten
+//   - DB-Wrapper (Wall-Clock+tz ↔ UTC transparent in Drizzle-Layer)
+//   - Lint-Regel "kein new Date() im Feature-Code"
+//   - UI-Komponenten <DateTimeInput>, <LocatedDateTimePicker>, <DateInput>
 
 export { ensureTemporalPolyfill, getTemporal } from "./polyfill";
+export {
+  createTzContext,
+  createTzContextAsync,
+  type LocatedTimestampJson,
+  type TzContext,
+  type TzContextOptions,
+} from "./tz-context";

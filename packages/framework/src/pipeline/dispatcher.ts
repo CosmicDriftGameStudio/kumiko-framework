@@ -65,6 +65,7 @@ import {
   getFallbackTracer,
   registerStandardMetrics,
 } from "../observability";
+import { createTzContext } from "../time";
 import { parseJsonSafe } from "../utils/safe-json";
 import { appendDomainEventCore } from "./append-event-core";
 import type { EventLog } from "./event-log";
@@ -542,6 +543,11 @@ export function createDispatcher(
     // HandlerContext. The spread-then-assign order matters: anything in
     // `context` can be overridden, but we want the authoritative registry
     // from the dispatcher's own closure to win.
+    // ctx.tz ist immer da. Tenant + User-Defaults kommen aus dem
+    // SessionUser sobald die Felder existieren — bis dahin "UTC".
+    // TODO(Iteration 6): tenant.timezone + user.timezone aus session/db lesen.
+    const tz = createTzContext();
+
     return {
       ...context,
       registry,
@@ -551,6 +557,7 @@ export function createDispatcher(
       ...(config && { config }),
       tracer,
       metrics,
+      tz,
       _userId: user.id,
       _handlerType: type,
       ...bridge,

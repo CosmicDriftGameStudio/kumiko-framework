@@ -6,6 +6,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["packages/**/*.integration.ts", "samples/**/*.integration.ts"],
+    setupFiles: ["./vitest.setup.ts"],
     reporters: ["dot"],
     passWithNoTests: true,
     testTimeout: 15000,
