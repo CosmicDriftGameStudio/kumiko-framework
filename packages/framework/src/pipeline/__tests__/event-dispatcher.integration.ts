@@ -24,7 +24,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature, type FeatureDefinition } from "../../engine";
 import type { StoredEvent } from "../../event-store";
-import { eventConsumerStateTable, getConsumerState } from "../../pipeline";
+import { eventConsumerStateTable, getAllConsumerProgress, getConsumerState } from "../../pipeline";
 import {
   createEntityTable,
   pushTables,
@@ -259,5 +259,32 @@ describe("event-dispatcher — isolation between consumers", () => {
     const stateBAfter = await getConsumerState(stack.db.db, qnB);
     expect(stateBAfter?.status).toBe("dead");
     expect(stateBAfter?.attempts).toBe(10);
+  });
+});
+
+describe("getAllConsumerProgress — Ops-View für consumer lag", () => {
+  test("lag = highWaterMark - cursor pro consumer, caught-up = 0n", async () => {
+    // Caught-up state nach normal flow.
+    await appendWidget("one");
+    await appendWidget("two");
+    await stack.eventDispatcher?.runOnce();
+
+    const caughtUp = await getAllConsumerProgress(stack.db.db, [qnA, qnB]);
+    const a = caughtUp.find((c) => c.name === qnA);
+    const b = caughtUp.find((c) => c.name === qnB);
+    expect(a?.highWaterMark).toBe(2n);
+    expect(a?.lag).toBe(0n);
+    expect(b?.lag).toBe(0n);
+
+    // Drei neue Events ohne runOnce → consumers lagged.
+    await appendWidget("three");
+    await appendWidget("four");
+    await appendWidget("five");
+
+    const lagged = await getAllConsumerProgress(stack.db.db, [qnA, qnB]);
+    const aLag = lagged.find((c) => c.name === qnA);
+    expect(aLag?.highWaterMark).toBe(5n);
+    expect(aLag?.lastProcessedEventId).toBe(2n);
+    expect(aLag?.lag).toBe(3n);
   });
 });

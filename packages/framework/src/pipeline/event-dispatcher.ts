@@ -1,4 +1,4 @@
-import { asc, eq, gt, sql } from "drizzle-orm";
+import { asc, eq, gt, max, sql } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
@@ -748,4 +748,44 @@ export async function listConsumersWithState(
       lastError: s?.lastError ?? null,
     };
   });
+}
+
+export type ConsumerProgress = {
+  readonly name: string;
+  readonly status: string;
+  readonly lastProcessedEventId: bigint;
+  readonly attempts: number;
+  readonly lastError: string | null;
+  // Globaler MAX(events.id) zum Abfrage-Zeitpunkt.
+  readonly highWaterMark: bigint;
+  // HWM - cursor. 0n wenn caught-up. Disabled-consumers haben oft hohe
+  // Lag — das ist beabsichtigt (Ops parkt sie vor Pruning).
+  readonly lag: bigint;
+};
+
+// Wie listConsumersWithState, aber zusätzlich High-Water-Mark + Lag pro
+// Consumer. Async-Consumers (MSPs) lagged hinter inline-Projections weil
+// sie post-commit verarbeitet werden — Lag-View ist die primäre Metrik
+// um Backpressure / Dead-Consumer / dispatcher-Stillstand zu erkennen.
+//
+// CLI-Hook: `kumiko consumers lag`. Prometheus-Gauge-Pattern:
+// pro Consumer eine Gauge `kumiko_consumer_lag{name}`.
+export async function getAllConsumerProgress(
+  db: DbConnection,
+  registeredNames: readonly string[],
+): Promise<readonly ConsumerProgress[]> {
+  // getEventLogHighWaterMark sitzt drüben in projection-rebuild.ts —
+  // hier inline-Query um Import-Cycle zu vermeiden (event-dispatcher ist
+  // tief im pipeline-Tree).
+  const consumers = await listConsumersWithState(db, registeredNames);
+  // drizzle's max(bigserial) gibt bigint zurück (vs raw sql template das
+  // string liefert) — match projection-rebuild.getEventLogHighWaterMark.
+  const [hwmRow] = await db.select({ max: max(eventsTable.id) }).from(eventsTable);
+  const highWaterMark = hwmRow?.max ?? 0n;
+
+  return consumers.map((c) => ({
+    ...c,
+    highWaterMark,
+    lag: highWaterMark - c.lastProcessedEventId,
+  }));
 }

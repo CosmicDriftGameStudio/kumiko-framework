@@ -15,6 +15,7 @@ export {
 export type { EventDedup } from "./event-dedup";
 export { createEventDedup } from "./event-dedup";
 export type {
+  ConsumerProgress,
   ConsumerRecoveryState,
   DispatcherPassResult,
   EventConsumer,
@@ -26,6 +27,7 @@ export {
   createEventDispatcher,
   disableConsumer,
   enableConsumer,
+  getAllConsumerProgress,
   getConsumerState,
   listConsumersWithState,
   restartConsumer,
@@ -41,8 +43,10 @@ export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pip
 export { createLifecycleHooks } from "./lifecycle-pipeline";
 export type { MspRebuildDeps } from "./msp-rebuild";
 export { rebuildMultiStreamProjection } from "./msp-rebuild";
-export type { RebuildResult } from "./projection-rebuild";
+export type { ProjectionProgress, RebuildResult } from "./projection-rebuild";
 export {
+  getAllProjectionProgress,
+  getEventLogHighWaterMark,
   getProjectionState,
   listProjectionsWithState,
   rebuildProjection,

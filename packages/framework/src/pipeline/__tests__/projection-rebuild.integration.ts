@@ -25,6 +25,7 @@ import type { ProjectionDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
 import {
   createProjectionStateTable,
+  getAllProjectionProgress,
   getProjectionState,
   listProjectionsWithState,
   rebuildProjection,
@@ -344,6 +345,34 @@ describe("listProjectionsWithState", () => {
     const after = await listProjectionsWithState(testDb.db, registry);
     expect(after[0]?.status).toBe("idle");
     expect(after[0]?.lastRebuildAt).not.toBeNull();
+  });
+});
+
+describe("getAllProjectionProgress", () => {
+  test("computes lag = highWaterMark - cursor for caught-up projection", async () => {
+    // Empty event-log → HWM=0n, lag=0n, projection never-rebuilt → cursor=0n.
+    const empty = await getAllProjectionProgress(testDb.db, registry);
+    expect(empty[0]?.highWaterMark).toBe(0n);
+    expect(empty[0]?.lag).toBe(0n);
+
+    // Seed some events but skip rebuild → HWM advances, cursor stays 0n,
+    // lag = HWM. Das ist der "behind" Zustand den ein Ops-Dashboard sieht
+    // bevor jemand rebuild auslöst.
+    await appendCreatedEvent("00000000-0000-4000-8000-000000000060", "a");
+    await appendCreatedEvent("00000000-0000-4000-8000-000000000061", "b");
+    await appendCreatedEvent("00000000-0000-4000-8000-000000000062", "c");
+
+    const behind = await getAllProjectionProgress(testDb.db, registry);
+    expect(behind[0]?.highWaterMark).toBe(3n);
+    expect(behind[0]?.lastProcessedEventId).toBe(0n);
+    expect(behind[0]?.lag).toBe(3n);
+
+    // Nach rebuild: cursor = HWM, lag wieder 0.
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    const caughtUp = await getAllProjectionProgress(testDb.db, registry);
+    expect(caughtUp[0]?.highWaterMark).toBe(3n);
+    expect(caughtUp[0]?.lastProcessedEventId).toBe(3n);
+    expect(caughtUp[0]?.lag).toBe(0n);
   });
 });
 

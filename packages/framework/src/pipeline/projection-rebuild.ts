@@ -1,4 +1,4 @@
-import { asc, eq, getTableName, inArray, sql } from "drizzle-orm";
+import { asc, eq, getTableName, inArray, max, sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import type { Registry } from "../engine/types";
 import { eventsTable, type StoredEvent, upcastStoredEvent } from "../event-store";
@@ -271,4 +271,52 @@ export async function listProjectionsWithState(
       lastError: state?.lastError ?? null,
     };
   });
+}
+
+// Globaler High-Water-Mark = MAX(events.id). Marten/Wolverine-Standard für
+// Projection-Lag-Berechnung: lag = HWM - cursor. Single-row Aggregate, läuft
+// auf dem bigserial PK-Index — sub-millisekunden cost.
+//
+// 0n wenn der Event-Log leer ist (Boot, frischer Tenant, post-archive).
+export async function getEventLogHighWaterMark(db: DbConnection): Promise<bigint> {
+  const [row] = await db.select({ max: max(eventsTable.id) }).from(eventsTable);
+  return row?.max ?? 0n;
+}
+
+export type ProjectionProgress = {
+  readonly name: string;
+  readonly sources: readonly string[];
+  readonly status: string;
+  readonly lastProcessedEventId: bigint;
+  readonly lastRebuildAt: Temporal.Instant | null;
+  readonly lastError: string | null;
+  // Globaler MAX(events.id) zum Abfrage-Zeitpunkt.
+  readonly highWaterMark: bigint;
+  // HWM - cursor. 0n wenn caught-up. Negative kann nicht passieren (würde
+  // bedeuten Projection ist VOR der HWM = Bug). Wird vom Ops-Dashboard
+  // verwendet um Projection-Lag zu visualisieren.
+  readonly lag: bigint;
+};
+
+// Erweiterte Variante von listProjectionsWithState: zusätzlich High-Water-
+// Mark + Lag pro Projection. Eine zusätzliche Query (cheap MAX-aggregate),
+// kein extra DB-Roundtrip pro Projection.
+//
+// CLI-Hook: `kumiko projections lag` (siehe bin/kumiko.ts) ruft diese
+// Funktion auf und druckt einen Tabellen-Report. Programmatic-Caller kann
+// die Struktur direkt für Prometheus-Gauge oder Dashboard-API nutzen.
+export async function getAllProjectionProgress(
+  db: DbConnection,
+  registry: Registry,
+): Promise<readonly ProjectionProgress[]> {
+  const [projections, highWaterMark] = await Promise.all([
+    listProjectionsWithState(db, registry),
+    getEventLogHighWaterMark(db),
+  ]);
+
+  return projections.map((p) => ({
+    ...p,
+    highWaterMark,
+    lag: highWaterMark - p.lastProcessedEventId,
+  }));
 }
