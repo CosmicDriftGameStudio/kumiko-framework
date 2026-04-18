@@ -93,7 +93,10 @@ describe("resolveConfigOrParam — number with bounds", () => {
 });
 
 describe("resolveConfigOrParam — boolean", () => {
-  const boolDef = createUserConfig("boolean", { default: false, allowPerRequest: true });
+  const boolDef = createUserConfig("boolean", {
+    default: false,
+    allowPerRequest: true,
+  });
 
   test("boolean passed through", async () => {
     const { ctx } = makeCtx({ k: { def: boolDef, fallback: false } });
