@@ -1,6 +1,8 @@
 import { buildMetricName, validateMetricName } from "../observability";
 import { type QnType, qn, toKebab } from "./qualified-name";
 import type {
+  AuthClaimsHookDef,
+  ClaimKeyDefinition,
   ConfigKeyDefinition,
   EntityDefinition,
   EntityRelations,
@@ -93,6 +95,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // One qualified name per MSP; each becomes its own EventConsumer with a
   // dedicated cursor in kumiko_event_consumers.
   const multiStreamProjectionMap = new Map<string, MultiStreamProjectionDefinition>();
+  // Auth-claims hooks — tagged with featureName so the login resolver can
+  // auto-prefix each hook's returned keys with "<feature>:".
+  const authClaimsHooks: AuthClaimsHookDef[] = [];
+  // Feature-declared claim keys. Keyed by qualified name ("<feature>:<short>").
+  // Used by readClaim callers to introspect; the resolver reads it via the
+  // declaredKeys set on each AuthClaimsHookDef (pre-built per feature below).
+  const claimKeyMap = new Map<string, ClaimKeyDefinition>();
 
   // Qualified name helper: builds "scope:type:name" from feature + type + short name.
   // Both feature name and handler name are converted to kebab-case.
@@ -323,6 +332,39 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
       }
       multiStreamProjectionMap.set(qualified, { ...mspDef, name: qualified });
+    }
+
+    // Claim keys: aggregated by qualified name. Two features cannot collide
+    // here (qualified by feature name), but we still guard for explicit
+    // correctness — the only way to hit this is a hand-built FeatureDefinition
+    // bypassing defineFeature's per-feature duplicate check.
+    const declaredShortNames = new Set<string>();
+    for (const def of Object.values(feature.claimKeys)) {
+      if (claimKeyMap.has(def.qualifiedName)) {
+        throw new Error(
+          `[Kumiko ClaimKeys] Claim key "${def.qualifiedName}" registered multiple times. ` +
+            "Claim short-names must be globally unique across features.",
+        );
+      }
+      claimKeyMap.set(def.qualifiedName, def);
+      declaredShortNames.add(def.shortName);
+    }
+
+    // Auth-claims hooks: order of registration is preserved. Feature name is
+    // captured alongside so the resolver can apply the auto-prefix at merge
+    // time — the feature author never ships pre-prefixed keys.
+    //
+    // If the feature declared ANY claim keys, every hook from that feature
+    // gets the declaredShortNames set attached. The resolver uses it to warn
+    // on undeclared inner-keys (typo / rename drift). Features that don't
+    // declare claimKeys skip the check entirely — it's opt-in.
+    const declaredKeys = declaredShortNames.size > 0 ? declaredShortNames : undefined;
+    for (const fn of feature.authClaimsHooks) {
+      authClaimsHooks.push({
+        featureName: feature.name,
+        fn,
+        ...(declaredKeys && { declaredKeys }),
+      });
     }
   }
 
@@ -852,6 +894,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition> {
       return multiStreamProjectionMap;
+    },
+
+    getAuthClaimsHooks(): readonly AuthClaimsHookDef[] {
+      return authClaimsHooks;
+    },
+
+    getAllClaimKeys(): ReadonlyMap<string, ClaimKeyDefinition> {
+      return claimKeyMap;
+    },
+
+    getClaimKey(qualifiedName: string): ClaimKeyDefinition | undefined {
+      return claimKeyMap.get(qualifiedName);
     },
   };
 }

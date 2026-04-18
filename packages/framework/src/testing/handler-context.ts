@@ -44,6 +44,7 @@ export function bridgeStub(): Pick<
   | "snapshotAggregate"
   | "loadAggregateWithSnapshot"
   | "queryProjection"
+  | "resolveAuthClaims"
   | "metrics"
   | "tracer"
   | "tz"
@@ -83,6 +84,9 @@ export function bridgeStub(): Pick<
     queryProjection: notAvailable(
       "queryProjection",
     ) as unknown as HandlerContext["queryProjection"],
+    resolveAuthClaims: notAvailable(
+      "resolveAuthClaims",
+    ) as unknown as HandlerContext["resolveAuthClaims"],
     metrics: createNoopMetricsHandle(),
     tracer: noopTracer,
     // Echter TzContext, kein notAvailable — Test-Code nutzt ctx.tz häufig

@@ -19,6 +19,11 @@ import type {
 import type { EntityDefinition } from "./fields";
 import type {
   AccessRule,
+  AuthClaimsFn,
+  AuthClaimsHookDef,
+  ClaimKeyDefinition,
+  ClaimKeyHandle,
+  ClaimKeyType,
   EntityRef,
   EventDef,
   EventMigrationDef,
@@ -142,6 +147,13 @@ export type FeatureDefinition = {
   // short name; the dispatcher wraps each into an EventConsumer with its
   // own cursor.
   readonly multiStreamProjections: Readonly<Record<string, MultiStreamProjectionDefinition>>;
+  // Auth-claims hooks declared via r.authClaims(). Executed at login (and
+  // switch-tenant) time; their returned records are merged into
+  // SessionUser.claims under the auto-prefix "<featureName>:<key>".
+  readonly authClaimsHooks: readonly AuthClaimsFn[];
+  // Declared claim keys via r.claimKey(). Shorts keyed by their JS-side
+  // short name, qualified name qualified at registration time.
+  readonly claimKeys: Readonly<Record<string, ClaimKeyDefinition>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -293,6 +305,34 @@ export type FeatureRegistrar = {
   // external-system sync) — the dispatcher still delivers at-least-once with
   // per-consumer ordering and dead-letter behaviour.
   multiStreamProjection(definition: MultiStreamProjectionDefinition): void;
+
+  // Register a function that contributes claims into SessionUser.claims at
+  // login time. Multiple features (and multiple calls within one feature)
+  // are allowed; returns are merged. Keys are auto-prefixed with the feature
+  // name ("<feature>:<key>") — cross-feature collisions are impossible by
+  // construction. Same-feature duplicate keys follow last-wins.
+  //
+  // Hooks run in parallel. If one throws, the error is logged and that
+  // feature's claims are simply missing from the merged record — login
+  // still succeeds. This is a deliberate best-effort policy: identity-facts
+  // are convenience, not access-gates (that's what `roles` + field-access
+  // rules are for).
+  authClaims(fn: AuthClaimsFn): void;
+
+  // Declare a claim key. Qualified name follows "<feature>:<kebab-short>"
+  // via the QN helper — same convention as r.secret / r.config. Returns a
+  // typed handle so feature code can pass it to `readClaim(user, handle)`
+  // without retyping the qualified string and with the right narrowed
+  // return type.
+  //
+  // Declaring claim keys also turns on a runtime check: when the feature's
+  // r.authClaims hooks return an inner-key not in the declared list, the
+  // resolver logs a warning (the claim still lands in the JWT — declared
+  // or not — so strict-mode isn't on; this is typo-drift protection).
+  claimKey<T extends ClaimKeyType>(
+    shortName: string,
+    options: { readonly type: T },
+  ): ClaimKeyHandle<T>;
 };
 
 // --- Registry (created from features) ---
@@ -366,4 +406,15 @@ export type Registry = {
   // Keyed by qualified name. The server wires each into the event-dispatcher
   // as its own EventConsumer with a dedicated cursor.
   getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition>;
+
+  // All r.authClaims() hooks across all features, tagged with the declaring
+  // feature name so the resolver can apply the auto-prefix. Pre-aggregated
+  // at registry-build so the login hot path is a single Map read.
+  getAuthClaimsHooks(): readonly AuthClaimsHookDef[];
+
+  // Feature-declared claim keys, aggregated across all features. Keyed by
+  // qualified name ("<feature>:<short>"). Ops-UI + Boot-Validator use this
+  // to introspect what claims the app can produce.
+  getAllClaimKeys(): ReadonlyMap<string, ClaimKeyDefinition>;
+  getClaimKey(qualifiedName: string): ClaimKeyDefinition | undefined;
 };

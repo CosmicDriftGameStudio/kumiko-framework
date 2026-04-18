@@ -10,6 +10,7 @@ import type {
   AggregateStreamHandle,
   AppContext,
   AppendEventArgs,
+  AuthClaimsContext,
   DeleteContext,
   FetchForWritingArgs,
   HandlerContext,
@@ -70,6 +71,7 @@ import { assertNoSecretLeak } from "../secrets";
 import { createTzContext } from "../time";
 import { parseJsonSafe } from "../utils/safe-json";
 import { appendDomainEventCore } from "./append-event-core";
+import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver";
 import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
@@ -177,6 +179,12 @@ export type Dispatcher = {
     user: SessionUser,
     requestId?: string,
   ): Promise<BatchResult>;
+  // Run every registered r.authClaims() hook against `user` and merge their
+  // returns under the "<featureName>:<key>" auto-prefix. Used at login and
+  // switch-tenant to populate SessionUser.claims before signing the JWT.
+  // This is the single resolve implementation — ctx.resolveAuthClaims is a
+  // thin pass-through so both entry points can't drift.
+  resolveAuthClaims(user: SessionUser): Promise<Record<string, unknown>>;
 };
 
 export function createDispatcher(
@@ -546,6 +554,11 @@ export function createDispatcher(
         }
         return rows as readonly T[];
       },
+      // Thin pass-through: one resolve impl lives on the dispatcher, the
+      // handler surface just forwards the call so both entry points (login
+      // handler via ctx.resolveAuthClaims, switch-tenant route via
+      // dispatcher.resolveAuthClaims) cannot drift.
+      resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(claimsUser),
     };
 
     // Registry is always the dispatcher's registry — injecting it here lets
@@ -1151,6 +1164,42 @@ export function createDispatcher(
     );
   }
 
+  // Build the per-hook context every auth-claims invocation gets. Claims
+  // hooks run OUTSIDE any request transaction (login is itself the root
+  // operation, not a nested call) and read-only — so the TenantDb is
+  // scoped as "tenant" and no tx is threaded through. Hooks that need
+  // cross-tenant lookups opt in explicitly via queryAs(systemUser, ...).
+  function buildAuthClaimsContext(user: SessionUser): AuthClaimsContext {
+    const dbSource: DbConnection | undefined = context.db as DbConnection | undefined;
+    if (!dbSource) {
+      throw new InternalError({
+        message:
+          "dispatcher.resolveAuthClaims requires a database connection — none is configured.",
+      });
+    }
+    const db = createTenantDb(dbSource, user.tenantId, "tenant", context.tracer, context.meter);
+    const configAccessor = context._configAccessorFactory
+      ? context._configAccessorFactory({ user: { id: user.id, tenantId: user.tenantId }, db })
+      : undefined;
+    return {
+      db,
+      queryAs: (asUser: SessionUser, qn: string, payload: unknown) =>
+        executeQuery(qn, payload, asUser),
+      ...(configAccessor && { config: configAccessor }),
+    };
+  }
+
+  async function resolveAuthClaimsFn(user: SessionUser): Promise<Record<string, unknown>> {
+    const hooks = registry.getAuthClaimsHooks();
+    if (hooks.length === 0) return {};
+    return runAuthClaimsResolver({
+      user,
+      hooks,
+      contextFactory: buildAuthClaimsContext,
+      ...(context.log && { log: context.log }),
+    });
+  }
+
   return {
     async write(typeOrRef, payload, user, requestId?) {
       const type = resolveType(typeOrRef);
@@ -1172,6 +1221,8 @@ export function createDispatcher(
         throw reraiseAsKumikoError(result.error);
       }
     },
+
+    resolveAuthClaims: resolveAuthClaimsFn,
   };
 }
 

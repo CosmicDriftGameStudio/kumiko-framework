@@ -227,12 +227,21 @@ export function createAuthRoutes(
         return c.json({ error: "not_a_member" }, 403);
       }
 
-      // Issue new JWT with the target tenant and its roles
-      const newToken = await jwt.sign({
+      // Issue new JWT with the target tenant and its roles. Claims MUST be
+      // recomputed for the new tenant — stale claims from the previous
+      // tenant would leak identity facts across tenancies (e.g. teamId from
+      // tenant A accidentally surviving into tenant B's session). The
+      // resolver runs each feature's r.authClaims() hook under the new
+      // TenantDb scope.
+      const targetSession: SessionUser = {
         id: user.id,
         tenantId: targetTenantId,
         roles: membership.roles,
-      });
+      };
+      const claims = await dispatcher.resolveAuthClaims(targetSession);
+      const sessionForJwt: SessionUser =
+        Object.keys(claims).length > 0 ? { ...targetSession, claims } : targetSession;
+      const newToken = await jwt.sign(sessionForJwt);
 
       return c.json({ token: newToken, tenantId: targetTenantId, roles: membership.roles });
     } catch {

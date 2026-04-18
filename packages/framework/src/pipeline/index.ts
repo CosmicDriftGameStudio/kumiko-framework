@@ -1,3 +1,5 @@
+export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver";
+export { resolveAuthClaims } from "./auth-claims-resolver";
 export { createCascadeDeleteHook } from "./cascade-handler";
 export type { Dispatcher } from "./dispatcher";
 export { createDispatcher } from "./dispatcher";

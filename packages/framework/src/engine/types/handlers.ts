@@ -34,6 +34,95 @@ export type SessionUser = {
   readonly claims?: Readonly<Record<string, unknown>>;
 };
 
+// --- Claim Keys (r.claimKey declarations) ---
+
+// Declared claim shape. Features call r.claimKey("teamId", { type: "string" })
+// and get back a typed handle. Feature code then uses the handle both when
+// reading via readClaim(user, handle) and (optionally) when returning from
+// r.authClaims hooks. Two-fold payoff:
+//
+//   1. Read-site is typesafe: `const teamId = readClaim(user, DriverClaims.teamId)`
+//      narrows to `string | undefined` automatically — no hand-written cast,
+//      no magic "drivers:teamId" string.
+//   2. Runtime check: the resolver warns when a hook returns an inner-key
+//      that the feature didn't declare — catches rename/typo drift. Opt-in
+//      per feature: only checked when r.claimKey was used at least once.
+//
+// Keep the type union small and explicit. JS-side inference via ClaimKeyJsType
+// maps each literal to a primitive or array — broader shapes (nested
+// records) can land in "object" but lose narrowness; that's the trade-off
+// for keeping the type-system simple.
+export type ClaimKeyType = "string" | "number" | "boolean" | "string[]" | "object";
+
+export type ClaimKeyJsType<T extends ClaimKeyType> = T extends "string"
+  ? string
+  : T extends "number"
+    ? number
+    : T extends "boolean"
+      ? boolean
+      : T extends "string[]"
+        ? readonly string[]
+        : T extends "object"
+          ? Readonly<Record<string, unknown>>
+          : never;
+
+// Stored on the FeatureDefinition. `qualifiedName` is auto-set at
+// registration time ("<feature>:<inner-kebab>") — same naming convention
+// as auth-claim keys.
+export type ClaimKeyDefinition = {
+  readonly shortName: string;
+  readonly qualifiedName: string;
+  readonly type: ClaimKeyType;
+};
+
+// Typed handle returned by r.claimKey(). `name` is the qualified key the
+// JWT stores; `type` threads through to readClaim's generic so consumers
+// get the right narrowed type without casting.
+export type ClaimKeyHandle<T extends ClaimKeyType = ClaimKeyType> = {
+  readonly name: string;
+  readonly type: T;
+};
+
+// --- Auth Claims (r.authClaims hook) ---
+
+// Features contribute "identity facts" into the JWT at login time. Claim keys
+// are auto-prefixed with the feature name at merge time (`"<feature>:<key>"`)
+// so two features can't collide — Reading code in a handler picks the claim
+// by its prefixed key: `user.claims["drivers:teamId"]`.
+//
+// The context is deliberately trimmed compared to HandlerContext: login is a
+// READ, not a write-path. Exposing appendEvent/loadAggregate/tz here would
+// let claims hooks reach into write-time concerns — not their job, bigger
+// mocking surface in tests. `db` is guaranteed tenant-scoped to the chosen
+// tenant (the one the user is logging INTO, not the one making the request).
+// `queryAs` lets a hook call another feature's query handler without direct
+// imports — same cross-feature contract hooks otherwise follow.
+export type AuthClaimsContext = {
+  readonly db: import("../../db/tenant-db").TenantDb;
+  readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
+  readonly config?: ConfigAccessor;
+};
+
+export type AuthClaimsFn = (
+  user: SessionUser,
+  ctx: AuthClaimsContext,
+) => Promise<Record<string, unknown>>;
+
+// What the registry stores per registered hook. `featureName` drives the
+// auto-prefix at merge time, so the registry is the source of truth for the
+// naming — features never ship pre-prefixed keys.
+//
+// `declaredKeys` is the set of inner-keys this hook's feature declared via
+// r.claimKey() — the resolver uses it to warn when a hook returns a key
+// that was never declared (typo / rename drift). `undefined` when the
+// feature never called r.claimKey(), in which case the resolver skips the
+// check entirely (backwards-compat for features that only use r.authClaims).
+export type AuthClaimsHookDef = {
+  readonly featureName: string;
+  readonly fn: AuthClaimsFn;
+  readonly declaredKeys?: ReadonlySet<string>;
+};
+
 // --- Handler Events ---
 
 export type WriteEvent<TPayload = unknown> = {
@@ -278,6 +367,13 @@ export type HandlerContext = SharedContextFields & {
   // usages migriert sind. Tenant + User-TZ defaults aktuell "UTC", werden
   // aus tenant.timezone / user.timezone gelesen sobald die Felder existieren.
   readonly tz: TzContext;
+
+  // Resolve every registered r.authClaims() hook against `user` and return
+  // the merged claim record (keys auto-prefixed with the feature name). Used
+  // by login + switch-tenant write-handlers to populate SessionUser.claims
+  // before the JWT is signed. Thin pass-through to dispatcher.resolveAuthClaims
+  // so there's a single resolve impl — both entry-points can't drift.
+  readonly resolveAuthClaims: (user: SessionUser) => Promise<Record<string, unknown>>;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed

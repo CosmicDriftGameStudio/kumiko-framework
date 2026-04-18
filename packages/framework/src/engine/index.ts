@@ -50,6 +50,7 @@ export { checkWriteFields, filterReadFields } from "./field-access";
 export { setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";
+export { readClaim } from "./read-claim";
 export { createRegistry } from "./registry";
 export type { ClampInfo, ResolveOptions } from "./resolve-config-or-param";
 export { resolveConfigOrParam } from "./resolve-config-or-param";
@@ -61,8 +62,15 @@ export type {
   AccessRule,
   AppContext,
   AppendEventArgs,
+  AuthClaimsContext,
+  AuthClaimsFn,
+  AuthClaimsHookDef,
   BelongsToRelation,
   BooleanFieldDef,
+  ClaimKeyDefinition,
+  ClaimKeyHandle,
+  ClaimKeyJsType,
+  ClaimKeyType,
   ConcurrencyMode,
   ConfigAccessor,
   ConfigAccessorFactory,

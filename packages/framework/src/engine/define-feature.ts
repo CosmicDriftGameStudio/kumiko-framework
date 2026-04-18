@@ -5,6 +5,10 @@ import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-ha
 import { isKebabSegment, QnTypes, qn, toKebab } from "./qualified-name";
 import type {
   AccessRule,
+  AuthClaimsFn,
+  ClaimKeyDefinition,
+  ClaimKeyHandle,
+  ClaimKeyType,
   ConfigKeyDefinition,
   ConfigKeyHandle,
   ConfigKeyType,
@@ -93,6 +97,8 @@ export function defineFeature<TExports = undefined>(
   const secretKeys: Record<string, SecretKeyDefinition> = {};
   const projections: Record<string, ProjectionDefinition> = {};
   const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
+  const authClaimsHooks: AuthClaimsFn[] = [];
+  const claimKeys: Record<string, ClaimKeyDefinition> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -467,6 +473,35 @@ export function defineFeature<TExports = undefined>(
       }
       multiStreamProjections[definition.name] = definition;
     },
+
+    authClaims(fn: AuthClaimsFn): void {
+      authClaimsHooks.push(fn);
+    },
+
+    claimKey<T extends ClaimKeyType>(
+      shortName: string,
+      options: { readonly type: T },
+    ): ClaimKeyHandle<T> {
+      if (claimKeys[shortName]) {
+        throw new Error(
+          `[Feature ${name}] Claim key "${shortName}" already declared. ` +
+            "Claim short-names must be unique per feature.",
+        );
+      }
+      // Claim keys are NOT full QNs — the JWT shape is 2-segment
+      // "<featureName>:<shortName>" (same as Translation keys), not
+      // kebab-cased. The authClaims resolver prefixes with the raw
+      // feature.name + the raw inner key the hook returns, so the handle's
+      // `name` must match that literal string exactly for `readClaim` to
+      // find the value. kebab-conversion here would break the round-trip.
+      const qualifiedName = `${name}:${shortName}`;
+      claimKeys[shortName] = {
+        shortName,
+        qualifiedName,
+        type: options.type,
+      };
+      return { name: qualifiedName, type: options.type };
+    },
   };
 
   const exports = setup(registrar) as TExports;
@@ -509,5 +544,7 @@ export function defineFeature<TExports = undefined>(
     secretKeys,
     projections,
     multiStreamProjections,
+    authClaimsHooks,
+    claimKeys,
   };
 }
