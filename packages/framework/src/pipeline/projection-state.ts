@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import { bigint, index, table as pgTable, text, timestamp } from "../db/dialect";
+import { tableExists } from "../db/schema-inspection";
 import { pushTables } from "../testing";
 
 // Framework-level state for every registered projection. One row per qualified
@@ -53,10 +54,7 @@ export type ProjectionStatus = (typeof ProjectionStatuses)[keyof typeof Projecti
 // already there (second stack in same test DB, production boot after
 // migration), skip cleanly.
 export async function createProjectionStateTable(db: DbConnection): Promise<void> {
-  const [row] = (await db.execute(
-    sql`SELECT to_regclass('public.kumiko_projections') IS NOT NULL AS exists`,
-  )) as unknown as Array<{ exists: boolean }>;
   // skip: table already exists — bootstrap is called from multiple paths
-  if (row?.exists) return;
+  if (await tableExists(db, "public.kumiko_projections")) return;
   await pushTables(db, { kumikoProjections: projectionStateTable });
 }

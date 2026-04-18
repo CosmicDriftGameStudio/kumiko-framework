@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import { bigint, index, integer, table as pgTable, text, timestamp } from "../db/dialect";
+import { tableExists } from "../db/schema-inspection";
 import { pushTables } from "../testing";
 
 // Framework-level state per event-consumer. A "consumer" is anything that
@@ -71,16 +72,8 @@ export type ConsumerStatus = (typeof ConsumerStatuses)[keyof typeof ConsumerStat
 // table is already present (second stack in the same test DB, prod boot
 // after migration), skip cleanly.
 //
-// The `.execute` result from postgres-js is typed as `unknown`; we validate
-// the shape inline so callers don't get a mysterious "exists of undefined"
-// if the query surface ever changes.
 export async function createEventConsumerStateTable(db: DbConnection): Promise<void> {
-  const result = await db.execute(
-    sql`SELECT to_regclass('public.kumiko_event_consumers') IS NOT NULL AS exists`,
-  );
-  const rows = Array.isArray(result) ? (result as Array<{ exists?: unknown }>) : [];
-  const exists = rows[0]?.exists === true;
   // skip: table already exists — bootstrap is called from multiple paths
-  if (exists) return;
+  if (await tableExists(db, "public.kumiko_event_consumers")) return;
   await pushTables(db, { kumikoEventConsumers: eventConsumerStateTable });
 }

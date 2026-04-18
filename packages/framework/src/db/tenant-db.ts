@@ -105,6 +105,14 @@ export function createTenantDb(
     return table["tenantId"] !== undefined;
   }
 
+  // Drizzle's terminal builders (insert, update().where, delete().where) are
+  // thenable — `.then` is there so `await` works — but the declared return
+  // types don't include PromiseLike. Cast via this helper so the double-
+  // cast is named and lives in exactly one place per scope.
+  function asDrizzleThenable<T>(builder: unknown): PromiseLike<T> {
+    return builder as PromiseLike<T>;
+  }
+
   // Wrap a DB query promise in a `db.query` span + emit the DB duration
   // histogram. Row count is recorded when the result is an array (SELECTs
   // + *.returning()). Metric is emitted both on success and on throw so
@@ -310,11 +318,10 @@ export function createTenantDb(
             },
             // biome-ignore lint/suspicious/noThenProperty: thenable for await
             then(resolve, reject) {
-              return withDbSpan<void>(
-                "insert",
-                table,
-                () => q as unknown as PromiseLike<void>,
-              ).then(resolve, reject);
+              return withDbSpan<void>("insert", table, () => asDrizzleThenable<void>(q)).then(
+                resolve,
+                reject,
+              );
             },
           } as TenantInsertValues;
         },
@@ -338,11 +345,10 @@ export function createTenantDb(
                 },
                 // biome-ignore lint/suspicious/noThenProperty: thenable for await
                 then(resolve, reject) {
-                  return withDbSpan<void>(
-                    "update",
-                    table,
-                    () => wq as unknown as PromiseLike<void>,
-                  ).then(resolve, reject);
+                  return withDbSpan<void>("update", table, () => asDrizzleThenable<void>(wq)).then(
+                    resolve,
+                    reject,
+                  );
                 },
               } as TenantUpdateWhere;
             },
@@ -371,11 +377,8 @@ export function createTenantDb(
     delete(table: Table) {
       return {
         where(condition: SQL) {
-          return withDbSpan<void>(
-            "delete",
-            table,
-            () =>
-              db.delete(table).where(whereClause(table, condition)) as unknown as PromiseLike<void>,
+          return withDbSpan<void>("delete", table, () =>
+            asDrizzleThenable<void>(db.delete(table).where(whereClause(table, condition))),
           );
         },
       };

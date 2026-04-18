@@ -1,5 +1,4 @@
-import { sql } from "drizzle-orm";
-import type { DbConnection } from "../db";
+import { type DbConnection, tableExists } from "../db";
 import {
   bigserial,
   index,
@@ -68,12 +67,9 @@ export const eventsTable = pgTable(
 // kumiko_snapshots — loadAggregate / appendEvent / loadAggregateWithSnapshot
 // consult them on the hot path, so the three tables must come up together.
 export async function createEventsTable(db: DbConnection): Promise<void> {
-  const [row] = (await db.execute(
-    sql`SELECT to_regclass('public.events') IS NOT NULL AS exists`,
-  )) as unknown as Array<{ exists: boolean }>;
   // skip: events table already exists — createEventsTable is called from both
   // setupTestStack and explicit test-setups, the guard keeps it idempotent.
-  if (!row?.exists) {
+  if (!(await tableExists(db, "public.events"))) {
     await pushTables(db, { events: eventsTable });
   }
   await createArchivedStreamsTable(db);

@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { DbConnection, DbRunner } from "../db/connection";
 import { table as pgTable, text, timestamp, uniqueIndex, uuid } from "../db/dialect";
+import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { pushTables } from "../testing";
 
@@ -30,11 +31,8 @@ export const archivedStreamsTable = pgTable(
 );
 
 export async function createArchivedStreamsTable(db: DbConnection): Promise<void> {
-  const [row] = (await db.execute(
-    sql`SELECT to_regclass('public.kumiko_archived_streams') IS NOT NULL AS exists`,
-  )) as unknown as Array<{ exists: boolean }>;
   // skip: table already exists — idempotent boot + test-setup call
-  if (row?.exists) return;
+  if (await tableExists(db, "public.kumiko_archived_streams")) return;
   await pushTables(db, { kumikoArchivedStreams: archivedStreamsTable });
 }
 

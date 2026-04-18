@@ -10,6 +10,7 @@ import {
   timestamp,
   uuid,
 } from "../db/dialect";
+import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { pushTables } from "../testing";
 import { isStreamArchived } from "./archive";
@@ -70,11 +71,8 @@ export const snapshotsTable = pgTable(
 );
 
 export async function createSnapshotsTable(db: DbConnection): Promise<void> {
-  const [row] = (await db.execute(
-    sql`SELECT to_regclass('public.kumiko_snapshots') IS NOT NULL AS exists`,
-  )) as unknown as Array<{ exists: boolean }>;
   // skip: table already exists — idempotent boot + test-setup call
-  if (row?.exists) return;
+  if (await tableExists(db, "public.kumiko_snapshots")) return;
   await pushTables(db, { kumikoSnapshots: snapshotsTable });
 }
 
