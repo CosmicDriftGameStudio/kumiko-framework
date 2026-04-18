@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { ConfigScopes } from "../constants";
+import { createTenantConfig, createUserConfig } from "../config-helpers";
 import { resolveConfigOrParam } from "../resolve-config-or-param";
 import type {
   ConfigKeyDefinition,
@@ -9,6 +9,10 @@ import type {
   Registry,
 } from "../types";
 
+// Tests build keydefs through the public factories (createTenantConfig etc.)
+// — identical to what a feature-dev writes in r.config. Hand-rolled
+// ConfigKeyDefinition literals are only used where we deliberately bypass
+// the factory's compile-time guards (defence-in-depth tests).
 type KeyEntry = ConfigKeyDefinition<ConfigKeyType>;
 
 // Minimal ctx stub: just enough for resolveConfigOrParam. The real ctx has
@@ -35,14 +39,11 @@ function handleFor<T extends ConfigKeyType>(name: string, type: T): ConfigKeyHan
 }
 
 describe("resolveConfigOrParam — number with bounds", () => {
-  const numberDef: KeyEntry = {
-    type: "number",
-    scope: ConfigScopes.tenant,
-    access: { read: ["all"], write: ["Admin"] },
+  const numberDef = createTenantConfig("number", {
     default: 10,
     bounds: { min: 1, max: 100 },
     allowPerRequest: true,
-  };
+  });
 
   test("paramValue inside bounds returns param as-is", async () => {
     const { ctx } = makeCtx({ k: { def: numberDef, fallback: 10 } });
@@ -82,6 +83,8 @@ describe("resolveConfigOrParam — number with bounds", () => {
   });
 
   test("number without bounds is passed through unchanged", async () => {
+    // Spread on a factory-produced def is the idiomatic way to mutate a
+    // single field without re-stating the whole declaration.
     const noBoundsDef: KeyEntry = { ...numberDef, bounds: undefined };
     const { ctx } = makeCtx({ k: { def: noBoundsDef, fallback: 10 } });
     expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 999_999)).toBe(999_999);
@@ -90,13 +93,7 @@ describe("resolveConfigOrParam — number with bounds", () => {
 });
 
 describe("resolveConfigOrParam — boolean", () => {
-  const boolDef: KeyEntry = {
-    type: "boolean",
-    scope: ConfigScopes.user,
-    access: { read: ["all"], write: ["all"] },
-    default: false,
-    allowPerRequest: true,
-  };
+  const boolDef = createUserConfig("boolean", { default: false, allowPerRequest: true });
 
   test("boolean passed through", async () => {
     const { ctx } = makeCtx({ k: { def: boolDef, fallback: false } });
@@ -120,14 +117,11 @@ describe("resolveConfigOrParam — boolean", () => {
 });
 
 describe("resolveConfigOrParam — select (option whitelist)", () => {
-  const selectDef: KeyEntry = {
-    type: "select",
-    scope: ConfigScopes.tenant,
-    access: { read: ["all"], write: ["Admin"] },
+  const selectDef = createTenantConfig("select", {
     default: "light",
     options: ["light", "dark", "auto"],
     allowPerRequest: true,
-  };
+  });
 
   test("valid option returns the option", async () => {
     const { ctx } = makeCtx({ k: { def: selectDef, fallback: "light" } });
@@ -147,12 +141,7 @@ describe("resolveConfigOrParam — text (defence-in-depth lock)", () => {
   //   2. Even if someone smuggles in allowPerRequest=true via hand-rolled
   //      config, the resolver's text-case throws as a second barrier.
 
-  const textDefNoOptIn: KeyEntry = {
-    type: "text",
-    scope: ConfigScopes.tenant,
-    access: { read: ["all"], write: ["Admin"] },
-    default: "default",
-  };
+  const textDefNoOptIn = createTenantConfig("text", { default: "default" });
 
   test("undefined paramValue returns config value (normal read still works)", async () => {
     const { ctx } = makeCtx({ k: { def: textDefNoOptIn, fallback: "default" } });
@@ -171,10 +160,9 @@ describe("resolveConfigOrParam — text (defence-in-depth lock)", () => {
   test("hand-rolled text key with allowPerRequest=true still throws (layer 2: text-specific lock)", async () => {
     // Type-level guard rejects this declaration; boot-validator would too.
     // But if someone force-casts past both, the resolver must still refuse.
-    const forcedTextDef: KeyEntry = {
-      ...textDefNoOptIn,
-      allowPerRequest: true,
-    };
+    // Hand-rolled spread is the only way to get this shape past the
+    // factory's compile-time never-type for allowPerRequest on text.
+    const forcedTextDef: KeyEntry = { ...textDefNoOptIn, allowPerRequest: true };
     const { ctx } = makeCtx({ k: { def: forcedTextDef, fallback: "default" } });
     await expect(resolveConfigOrParam(ctx, handleFor("k", "text"), "custom")).rejects.toThrow(
       /not allowed for type="text"/i,
@@ -193,14 +181,11 @@ describe("resolveConfigOrParam — text (defence-in-depth lock)", () => {
 });
 
 describe("resolveConfigOrParam — allowPerRequest opt-in (deny-by-default)", () => {
-  const numberDefNoOptIn: KeyEntry = {
-    type: "number",
-    scope: ConfigScopes.tenant,
-    access: { read: ["all"], write: ["Admin"] },
+  // No allowPerRequest → any paramValue should be rejected.
+  const numberDefNoOptIn = createTenantConfig("number", {
     default: 10,
     bounds: { min: 1, max: 100 },
-    // no allowPerRequest → should reject any paramValue
-  };
+  });
 
   test("paramValue on a key WITHOUT allowPerRequest throws", async () => {
     const { ctx } = makeCtx({ k: { def: numberDefNoOptIn, fallback: 10 } });
@@ -217,6 +202,9 @@ describe("resolveConfigOrParam — allowPerRequest opt-in (deny-by-default)", ()
   });
 
   test("allowPerRequest=false throws (explicit denial, same as omitted)", async () => {
+    // Spread on the factory-produced def to flip the flag explicitly — the
+    // factory's own guard (omits allowPerRequest when not true) means we
+    // can't express "false" through the factory alone.
     const explicitDeny: KeyEntry = { ...numberDefNoOptIn, allowPerRequest: false };
     const { ctx } = makeCtx({ k: { def: explicitDeny, fallback: 10 } });
     await expect(resolveConfigOrParam(ctx, handleFor("k", "number"), 42)).rejects.toThrow(
