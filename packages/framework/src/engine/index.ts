@@ -37,6 +37,9 @@ export {
   createNumberField,
   createSelectField,
   createTextField,
+  createTimestampField,
+  createTzField,
+  locatedTimestamp,
 } from "./factories";
 export { checkWriteFields, filterReadFields } from "./field-access";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";

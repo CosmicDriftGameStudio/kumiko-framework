@@ -62,7 +62,9 @@ export type {
   NumberFieldDef,
   SelectFieldDef,
   TextFieldDef,
+  TimestampFieldDef,
   TransitionMap,
+  TzFieldDef,
 } from "./fields";
 export { DEFAULT_CURRENCIES, isFileField } from "./fields";
 export type {

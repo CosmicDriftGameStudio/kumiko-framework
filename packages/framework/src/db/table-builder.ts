@@ -59,6 +59,16 @@ function fieldToColumns(
       return { [name]: jsonb(snakeName).default({}) };
     case "date":
       return { [name]: timestamp(snakeName) };
+    case "timestamp":
+      // UTC-Instant — gespeichert als TIMESTAMPTZ in PG. Wenn locatedBy
+      // gesetzt ist, ist der gespeicherte Wert der UTC-Moment des
+      // Wall-Clock+TZ-Pairs (Konvertierung kommt im DB-Wrapper-Schritt;
+      // hier nur die Spalten-Definition).
+      return { [name]: timestamp(snakeName, { withTimezone: true }) };
+    case "tz":
+      // IANA-Zonenname als TEXT — Validierung über Zod-Schema (kommt im
+      // Validator-Schritt). Snake-Convention: `pickup_tz`.
+      return { [name]: text(snakeName) };
     case "file":
     case "image":
       // Single file: stores fileRefId as integer

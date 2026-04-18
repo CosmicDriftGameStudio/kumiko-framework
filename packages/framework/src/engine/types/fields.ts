@@ -97,8 +97,52 @@ export type EmbeddedFieldDef = {
   readonly access?: FieldAccess;
 };
 
+// Legacy "date" — JS-Date-Object, semantisch unklar (Wall-Clock vs Instant).
+// Für neue Felder bevorzuge:
+//   - `timestamp` für UTC-Instant ("wann ist das passiert")
+//   - `locatedTimestamp(name)` Helper für Termine die an einem Ort
+//     stattfinden ("Pickup um 10:00 in Lissabon")
+//   - (kommt) `plainDate` für Kalender-Daten ohne Uhrzeit (z.B. Geburtstag)
+// Siehe docs/plans/architecture/timezones.md
 export type DateFieldDef = {
   readonly type: "date";
+  readonly required?: boolean;
+  readonly sensitive?: boolean;
+  readonly access?: FieldAccess;
+};
+
+// UTC-Instant (Temporal.Instant). Für Ereignisse die zu einem bestimmten
+// Augenblick passieren, ohne Location-Bezug: createdAt, loginAt, actualPickupAt.
+// JSON-Form: ISO-UTC-String "2026-04-18T10:00:00Z" via .toJSON().
+//
+// Mit `locatedBy: "<name>Tz"` markiert: bildet ein Wall-Clock+TZ-Pair mit dem
+// referenzierten tz-Feld. JSON-Form wird dann zwei Felder ({ at, tz }), DB
+// speichert Wall-Clock+tz und konvertiert transparent (siehe DB-Wrapper,
+// kommt in einer späteren Iteration).
+//
+// Verwendung über den `locatedTimestamp(name)` Helper, der das Pair atomar
+// erzeugt und die Marker korrekt verdrahtet.
+export type TimestampFieldDef = {
+  readonly type: "timestamp";
+  readonly required?: boolean;
+  readonly sensitive?: boolean;
+  readonly access?: FieldAccess;
+  /**
+   * Marker: dieses Timestamp-Feld ist Wall-Clock-Zeit an einem Ort.
+   * Wert ist der Name des begleitenden tz-Felds (IANA-Zone).
+   *
+   * Beispiel: `locatedTimestamp("pickup")` erzeugt
+   *   { pickupAt: { type: "timestamp", locatedBy: "pickupTz" }, pickupTz: { type: "tz" } }
+   */
+  readonly locatedBy?: string;
+};
+
+// IANA-Zonenname (z.B. "Europe/Berlin", "America/Los_Angeles").
+// Wird via `Intl.supportedValuesOf("timeZone")` validiert (kommt im
+// Zod-Validator-Schritt). Eigener Field-Typ damit Type-Safety + Storage
+// (TEXT-Spalte) korrekt sind und der `locatedBy`-Marker eindeutig auflöst.
+export type TzFieldDef = {
+  readonly type: "tz";
   readonly required?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
@@ -144,6 +188,8 @@ export type FieldDefinition =
   | MoneyFieldDef
   | EmbeddedFieldDef
   | DateFieldDef
+  | TimestampFieldDef
+  | TzFieldDef
   | FileFieldDef
   | ImageFieldDef
   | FilesFieldDef

@@ -58,6 +58,20 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
     case "date": {
       return z.string().date();
     }
+    case "timestamp": {
+      // Wenn locatedBy gesetzt: Wall-Clock OHNE Offset (ISO-Datetime ohne `Z`).
+      // Sonst: ISO-UTC-Datetime (mit `Z`). Beide werden über z.iso.datetime
+      // gegen das ISO-8601-Schema validiert; die Präzision (mit/ohne Offset)
+      // hängt von locatedBy ab.
+      return field.locatedBy !== undefined ? z.iso.datetime({ local: true }) : z.iso.datetime();
+    }
+    case "tz": {
+      // IANA-Zonenname. Validierung gegen Intl.supportedValuesOf("timeZone")
+      // ist genau aber teuer (~600 Strings) — wir akzeptieren den freien
+      // String und prüfen via try/catch im Boot-Validator (kommt in
+      // späterer Iteration).
+      return z.string().min(1);
+    }
     case "file":
     case "image": {
       // Single file: stores fileRefId as number

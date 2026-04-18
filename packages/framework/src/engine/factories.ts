@@ -11,6 +11,8 @@ import type {
   NumberFieldDef,
   SelectFieldDef,
   TextFieldDef,
+  TimestampFieldDef,
+  TzFieldDef,
 } from "./types";
 
 export function createTextField(overrides?: Partial<Omit<TextFieldDef, "type">>): TextFieldDef {
@@ -78,6 +80,79 @@ export function createDateField(overrides?: Partial<Omit<DateFieldDef, "type">>)
     type: "date",
     required: false,
     ...overrides,
+  };
+}
+
+/**
+ * UTC-Instant — für Ereignisse die zu einem bestimmten Zeitpunkt passieren
+ * (createdAt, loginAt, actualPickupAt). Temporal.Instant intern.
+ *
+ * Mit `locatedBy: "<name>Tz"` wird das Feld zum Wall-Clock-Pair eines
+ * Termins an einem Ort — bevorzuge dafür den `locatedTimestamp(name)`
+ * Helper, der Pair + Marker atomar erzeugt.
+ */
+export function createTimestampField(
+  overrides?: Partial<Omit<TimestampFieldDef, "type">>,
+): TimestampFieldDef {
+  return {
+    type: "timestamp",
+    required: false,
+    ...overrides,
+  };
+}
+
+/**
+ * IANA-Zonenname (z.B. "Europe/Berlin"). Wird im Boot/Schema-Validator
+ * via `Intl.supportedValuesOf("timeZone")` geprüft (kommt im Zod-Schritt).
+ */
+export function createTzField(overrides?: Partial<Omit<TzFieldDef, "type">>): TzFieldDef {
+  return {
+    type: "tz",
+    required: false,
+    ...overrides,
+  };
+}
+
+/**
+ * Wall-Clock-Termin an einem Ort — Helper der ZWEI verbundene Felder
+ * erzeugt. Bevorzugte Form für jeden Date-Wert mit Location-Bezug
+ * (Pickup, Delivery, Meeting, Schedule).
+ *
+ * ```ts
+ * r.entity("order", {
+ *   fields: {
+ *     ...locatedTimestamp("pickup"),    // → pickupAt + pickupTz
+ *     ...locatedTimestamp("delivery"),  // → deliveryAt + deliveryTz
+ *   },
+ * });
+ * ```
+ *
+ * Zur Laufzeit wird:
+ * - DB: `<name>_at TIMESTAMPTZ` (UTC) + `<name>_tz TEXT` (IANA-Name)
+ * - JSON: `{ <name>At: "2026-04-03T10:00:00", <name>Tz: "Europe/Lisbon" }`
+ *   (Wall-Clock OHNE Offset, plus IANA-Name — zwei getrennte Felder)
+ * - Reducer/Apply: kann mit Temporal.ZonedDateTime arbeiten
+ *
+ * Optionen pro Feld (z.B. `required` auf den At-Teil) per zweitem Argument.
+ */
+export function locatedTimestamp(
+  name: string,
+  overrides?: { readonly required?: boolean; readonly access?: TimestampFieldDef["access"] },
+): Readonly<Record<string, TimestampFieldDef | TzFieldDef>> {
+  const atName = `${name}At`;
+  const tzName = `${name}Tz`;
+  return {
+    [atName]: {
+      type: "timestamp",
+      locatedBy: tzName,
+      ...(overrides?.required !== undefined ? { required: overrides.required } : {}),
+      ...(overrides?.access !== undefined ? { access: overrides.access } : {}),
+    },
+    [tzName]: {
+      type: "tz",
+      ...(overrides?.required !== undefined ? { required: overrides.required } : {}),
+      ...(overrides?.access !== undefined ? { access: overrides.access } : {}),
+    },
   };
 }
 
