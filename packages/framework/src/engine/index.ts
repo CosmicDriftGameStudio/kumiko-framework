@@ -27,7 +27,7 @@ export {
   defineProjectionQueryHandler,
 } from "./entity-handlers";
 export type { EmitCtx } from "./event-helpers";
-export { emitEvent } from "./event-helpers";
+export { emitEvent, typedPayload } from "./event-helpers";
 export {
   createBooleanField,
   createDateField,

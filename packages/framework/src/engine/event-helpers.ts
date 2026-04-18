@@ -39,3 +39,30 @@ export async function emitEvent<TPayload>(
   };
   await ctx.appendEvent(appendArgs);
 }
+
+// Read-side counterpart: narrow a StoredEvent's `payload` (declared as
+// `Record<string, unknown>` because a stream carries many event types) to
+// the EventDef's inferred TPayload. Replaces the scattered
+// `event.payload as { ... }` casts inside projection-apply handlers and
+// reducers — the cast is named, the shape comes from a single source
+// (the defineEvent() schema), and a mismatched event-type throws loudly.
+//
+//   const p = typedPayload(event, approved);
+//   // p is typed as { amountCents: number; approvedBy: string }
+//
+// The runtime type-check guards against projection-apply maps that hand-
+// build their key → handler mapping and accidentally route events to the
+// wrong typedPayload call. No Zod-parse — validation happened at
+// appendEvent time; this is a read-path helper.
+export function typedPayload<TPayload>(
+  event: { readonly type: string; readonly payload: Record<string, unknown> },
+  eventDef: EventDef<TPayload>,
+): TPayload {
+  if (event.type !== eventDef.name) {
+    throw new Error(
+      `[Kumiko] typedPayload: event type "${event.type}" does not match EventDef "${eventDef.name}". ` +
+        `Check the projection-apply / reducer mapping — the event was routed to the wrong handler.`,
+    );
+  }
+  return event.payload as TPayload;
+}

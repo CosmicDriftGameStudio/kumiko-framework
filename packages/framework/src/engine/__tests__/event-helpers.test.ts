@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { z } from "zod";
-import { emitEvent } from "../event-helpers";
+import { emitEvent, typedPayload } from "../event-helpers";
 import type { EventDef } from "../types/handlers";
 
 describe("emitEvent", () => {
@@ -36,5 +36,33 @@ describe("emitEvent", () => {
     });
     const call = ctx.appendEvent.mock.calls[0]?.[0] as { payload: unknown };
     expect(call.payload).toEqual({ id: "a", customer: "bob" });
+  });
+});
+
+describe("typedPayload", () => {
+  const approved: EventDef<{ amountCents: number; approvedBy: string }> = {
+    name: "invoices:event:approved",
+    schema: z.object({ amountCents: z.number(), approvedBy: z.string() }),
+    version: 1,
+  };
+
+  test("returns the payload narrowed to the EventDef's TPayload when the event type matches", () => {
+    const event = {
+      type: "invoices:event:approved",
+      payload: { amountCents: 1000, approvedBy: "cfo" },
+    };
+    const p = typedPayload(event, approved);
+    expect(p.amountCents).toBe(1000);
+    expect(p.approvedBy).toBe("cfo");
+  });
+
+  test("throws when the event type mismatches the EventDef name", () => {
+    const event = {
+      type: "invoices:event:paid",
+      payload: { amountCents: 1000 },
+    };
+    expect(() => typedPayload(event, approved)).toThrow(
+      /event type "invoices:event:paid" does not match EventDef "invoices:event:approved"/,
+    );
   });
 });
