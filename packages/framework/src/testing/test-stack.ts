@@ -72,6 +72,12 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const jwtSecret = options.jwtSecret ?? DEFAULT_JWT_SECRET;
   const enabledHooks = options.systemHooks ?? ["sse", "search"];
 
+  // Temporal-Polyfill installieren bevor Feature-Code läuft. Idempotent —
+  // Production-Server-Boot ruft das gleich. Auf Runtimes mit nativem
+  // Temporal ein No-Op.
+  const { ensureTemporalPolyfill } = await import("../time/polyfill");
+  await ensureTemporalPolyfill();
+
   const [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
 
   // Every ES-entity writes events via createEventStoreExecutor in the
