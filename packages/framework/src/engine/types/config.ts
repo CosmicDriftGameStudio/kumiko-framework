@@ -75,6 +75,17 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly options?: readonly string[];
   readonly bounds?: ConfigBounds;
   readonly computed?: ConfigComputedFn<T>;
+  // Per-Request opt-in. Default false — resolveConfigOrParam wirft für
+  // Keys ohne diese Marke, auch wenn der Caller paramValue übergibt. Das
+  // zwingt Feature-Devs zur expliziten Entscheidung "dieser Key darf pro
+  // Request überschrieben werden" — statt versehentlich zu erlauben dass
+  // ein Query-Param jede beliebige Tenant-Config umgeht.
+  //
+  // Nicht kombinierbar mit type="text" (Boot-Reject) — Text-Werte sind
+  // immer gesperrt wegen XSS/SQL/Shell-Risiko, selbst mit Opt-in.
+  // Nicht kombinierbar mit encrypted (Boot-Reject) — encrypted Keys
+  // werden nicht transient aus Query-Strings heraus gelesen.
+  readonly allowPerRequest?: boolean;
 };
 
 export type ConfigDefinition = {

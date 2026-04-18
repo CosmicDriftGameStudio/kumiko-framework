@@ -171,6 +171,35 @@ describe("config helpers — bounds (number only)", () => {
   });
 });
 
+describe("config helpers — allowPerRequest opt-in", () => {
+  test("allowPerRequest=true attaches to the definition", () => {
+    const key = createTenantConfig("number", {
+      default: 10,
+      allowPerRequest: true,
+    });
+    expect(key.allowPerRequest).toBe(true);
+  });
+
+  test("allowPerRequest=false is omitted (same shape as absent)", () => {
+    const key = createTenantConfig("number", {
+      default: 10,
+      allowPerRequest: false,
+    });
+    expect(key.allowPerRequest).toBeUndefined();
+  });
+
+  test("no allowPerRequest → field absent (deny-by-default)", () => {
+    const key = createTenantConfig("number", { default: 10 });
+    expect(key.allowPerRequest).toBeUndefined();
+  });
+
+  test("@ts-expect-error: allowPerRequest on text is rejected at compile time", () => {
+    // @ts-expect-error — text keys can't opt in to per-request overrides
+    const textKey = createTenantConfig("text", { allowPerRequest: true });
+    expect(textKey.type).toBe("text");
+  });
+});
+
 describe("config helpers — computed (plan-based / derived values)", () => {
   test("computed function attaches to the definition and returns the typed value", async () => {
     const key = createTenantConfig("number", {

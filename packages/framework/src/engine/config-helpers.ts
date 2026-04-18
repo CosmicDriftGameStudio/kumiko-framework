@@ -37,6 +37,10 @@ export const access = {
 // `computed` is a fallback-resolver the registry calls when no row + no
 // app-override exists — used for plan-based limits (see
 // configuration-layers.md, "Frage 3: Hängt Geld dran?").
+//
+// `allowPerRequest` is conditional against `text`: text keys can never
+// opt in to per-request overrides (XSS/SQL/Shell risk). For other types
+// it's a plain boolean opt-in consumed by resolveConfigOrParam.
 type ConfigKeyOptions<T extends ConfigKeyType> = {
   write?: readonly string[];
   read?: readonly string[];
@@ -45,6 +49,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   options?: readonly string[]; // for select type
   bounds?: T extends "number" ? ConfigBounds : never;
   computed?: ConfigComputedFn<T>;
+  allowPerRequest?: T extends "text" ? never : boolean;
 };
 
 // --- Scope Defaults ---
@@ -75,6 +80,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.options ? { options: opts.options } : {}),
     ...(opts.bounds !== undefined ? { bounds: opts.bounds as ConfigBounds } : {}),
     ...(opts.computed !== undefined ? { computed: opts.computed } : {}),
+    ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
   };
 }
 

@@ -43,6 +43,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateLocatedTimestamps(feature);
     validateConfigKeyBounds(feature);
     validateConfigKeyComputed(feature);
+    validateConfigKeyAllowPerRequest(feature);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
@@ -112,6 +113,32 @@ function validateConfigKeyComputed(feature: FeatureDefinition): void {
     if (keyDef.encrypted) {
       throw new Error(
         `[Feature ${feature.name}] Config key "${keyName}" has both encrypted=true and a computed resolver — these are mutually exclusive paradigms`,
+      );
+    }
+  }
+}
+
+// --- Config key allowPerRequest compatibility ---
+
+function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): void {
+  for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
+    if (!keyDef.allowPerRequest) continue;
+
+    // text is hard-locked against per-request — the helper refuses
+    // anyway, but declaring allowPerRequest on a text key is a
+    // misconfiguration that should fail loudly at boot.
+    if (keyDef.type === "text") {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but type="text" — text keys are permanently ineligible for per-request overrides (XSS/injection risk)`,
+      );
+    }
+
+    // encrypted + per-request would expose a cipher-text interpretation
+    // to query-strings. The secret-value shouldn't be transported this
+    // way — reject as a paradigm-mismatch.
+    if (keyDef.encrypted) {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but encrypted=true — secret values may not be set via query-params`,
       );
     }
   }

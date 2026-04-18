@@ -25,8 +25,24 @@ import type {
 //   2. paramValue fehlt / nicht parseable → ctx.config(handle)
 //
 // Bei select: nur valide Options werden akzeptiert, sonst Fallback.
-// Bei text: param wird durchgereicht (kein Sanitising).
 // Bei boolean: "true"/"1" → true, sonst false.
+//
+// ### text-Keys sind gesperrt
+//
+// Per-Request-Overrides für `type="text"` werden HART ABGELEHNT. Grund:
+// Query-Param-Strings können XSS/SQL/Command-Fragmente enthalten, und
+// dieser Helper ist ein *Parser*, kein *Sanitizer*. Ein silent-pass-through
+// wäre ein Footgun — App-Dev würde denken "param ist aktiv" und der
+// unsanitized Wert landet in HTML/SQL/Shell-Kontext.
+//
+// Die Sperre gilt nur beim tatsächlichen Override-Versuch (paramValue
+// gesetzt). Wenn paramValue undefined/null/"" ist, gibt der Helper den
+// Config-Wert zurück — dann liefert die Funktion für text-Keys einfach
+// denselben Wert wie `ctx.config(handle)`.
+//
+// Wer für text pro Request tatsächlich einen Wert akzeptieren will, baut
+// das explizit in der Route mit eigener Escape-Strategie für den Consumer
+// (HTML-Encoder, SQL-Parameter-Binding, Shell-Quoter).
 
 type ResolveCtx = {
   readonly config: ConfigAccessor;
@@ -47,6 +63,17 @@ export async function resolveConfigOrParam<T extends ConfigKeyType>(
   // typed handle, but defence-in-depth for hand-built handles.
   if (!keyDef) return ctx.config(handle);
 
+  // Explicit opt-in required. A config key without `allowPerRequest: true`
+  // on its declaration cannot be overridden via a query-param, even if the
+  // route-handler forwards one. This is a deny-by-default policy: without
+  // it, a future feature-dev could accidentally route a sensitive key
+  // (rate-limits, quotas) through a public query-param without noticing.
+  if (!keyDef.allowPerRequest) {
+    throw new Error(
+      `resolveConfigOrParam: per-request override not enabled for config key "${handle.name}". Set allowPerRequest: true on the declaration to opt in — or drop the paramValue if the route-handler forwards it by mistake.`,
+    );
+  }
+
   switch (keyDef.type) {
     case "number": {
       const parsed = typeof paramValue === "number" ? paramValue : Number(paramValue);
@@ -62,8 +89,16 @@ export async function resolveConfigOrParam<T extends ConfigKeyType>(
       return (str === "true" || str === "1") as ConfigValue<T>;
     }
 
-    case "text":
-      return String(paramValue) as ConfigValue<T>;
+    case "text": {
+      // Hard-reject any attempt to override a text key via query-param.
+      // See the module-level comment for why this is strict. App-devs
+      // that see this error should either (a) remove the paramValue from
+      // their route — the config value still flows through ctx.config —
+      // or (b) build their own sanitised parser outside this helper.
+      throw new Error(
+        `resolveConfigOrParam: per-request override is not allowed for type="text" config key "${handle.name}" — query-params would bypass sanitisation. Remove the paramValue or build a feature-specific sanitiser.`,
+      );
+    }
 
     case "select": {
       const str = String(paramValue);

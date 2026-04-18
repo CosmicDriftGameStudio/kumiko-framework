@@ -41,6 +41,7 @@ describe("resolveConfigOrParam — number with bounds", () => {
     access: { read: ["all"], write: ["Admin"] },
     default: 10,
     bounds: { min: 1, max: 100 },
+    allowPerRequest: true,
   };
 
   test("paramValue inside bounds returns param as-is", async () => {
@@ -94,6 +95,7 @@ describe("resolveConfigOrParam — boolean", () => {
     scope: ConfigScopes.user,
     access: { read: ["all"], write: ["all"] },
     default: false,
+    allowPerRequest: true,
   };
 
   test("boolean passed through", async () => {
@@ -124,6 +126,7 @@ describe("resolveConfigOrParam — select (option whitelist)", () => {
     access: { read: ["all"], write: ["Admin"] },
     default: "light",
     options: ["light", "dark", "auto"],
+    allowPerRequest: true,
   };
 
   test("valid option returns the option", async () => {
@@ -138,22 +141,94 @@ describe("resolveConfigOrParam — select (option whitelist)", () => {
   });
 });
 
-describe("resolveConfigOrParam — text", () => {
-  const textDef: KeyEntry = {
+describe("resolveConfigOrParam — text (defence-in-depth lock)", () => {
+  // Two layers protect text keys:
+  //   1. allowPerRequest can never be true for text (type-level + boot-check).
+  //   2. Even if someone smuggles in allowPerRequest=true via hand-rolled
+  //      config, the resolver's text-case throws as a second barrier.
+
+  const textDefNoOptIn: KeyEntry = {
     type: "text",
     scope: ConfigScopes.tenant,
     access: { read: ["all"], write: ["Admin"] },
     default: "default",
   };
 
-  test("param string passed through", async () => {
-    const { ctx } = makeCtx({ k: { def: textDef, fallback: "default" } });
-    expect(await resolveConfigOrParam(ctx, handleFor("k", "text"), "custom")).toBe("custom");
+  test("undefined paramValue returns config value (normal read still works)", async () => {
+    const { ctx } = makeCtx({ k: { def: textDefNoOptIn, fallback: "default" } });
+    expect(await resolveConfigOrParam(ctx, handleFor("k", "text"), undefined)).toBe("default");
+    expect(await resolveConfigOrParam(ctx, handleFor("k", "text"), null)).toBe("default");
+    expect(await resolveConfigOrParam(ctx, handleFor("k", "text"), "")).toBe("default");
   });
 
-  test("undefined → config fallback", async () => {
-    const { ctx } = makeCtx({ k: { def: textDef, fallback: "default" } });
-    expect(await resolveConfigOrParam(ctx, handleFor("k", "text"), undefined)).toBe("default");
+  test("paramValue on text key without opt-in throws (layer 1: allowPerRequest gate)", async () => {
+    const { ctx } = makeCtx({ k: { def: textDefNoOptIn, fallback: "default" } });
+    await expect(resolveConfigOrParam(ctx, handleFor("k", "text"), "custom")).rejects.toThrow(
+      /per-request override not enabled/i,
+    );
+  });
+
+  test("hand-rolled text key with allowPerRequest=true still throws (layer 2: text-specific lock)", async () => {
+    // Type-level guard rejects this declaration; boot-validator would too.
+    // But if someone force-casts past both, the resolver must still refuse.
+    const forcedTextDef: KeyEntry = {
+      ...textDefNoOptIn,
+      allowPerRequest: true,
+    };
+    const { ctx } = makeCtx({ k: { def: forcedTextDef, fallback: "default" } });
+    await expect(resolveConfigOrParam(ctx, handleFor("k", "text"), "custom")).rejects.toThrow(
+      /not allowed for type="text"/i,
+    );
+  });
+
+  test("attack-like strings are always rejected (documents threat model)", async () => {
+    const { ctx } = makeCtx({ k: { def: textDefNoOptIn, fallback: "default" } });
+    await expect(
+      resolveConfigOrParam(ctx, handleFor("k", "text"), "<script>alert(1)</script>"),
+    ).rejects.toThrow();
+    await expect(
+      resolveConfigOrParam(ctx, handleFor("k", "text"), "'; DROP TABLE users; --"),
+    ).rejects.toThrow();
+  });
+});
+
+describe("resolveConfigOrParam — allowPerRequest opt-in (deny-by-default)", () => {
+  const numberDefNoOptIn: KeyEntry = {
+    type: "number",
+    scope: ConfigScopes.tenant,
+    access: { read: ["all"], write: ["Admin"] },
+    default: 10,
+    bounds: { min: 1, max: 100 },
+    // no allowPerRequest → should reject any paramValue
+  };
+
+  test("paramValue on a key WITHOUT allowPerRequest throws", async () => {
+    const { ctx } = makeCtx({ k: { def: numberDefNoOptIn, fallback: 10 } });
+    await expect(resolveConfigOrParam(ctx, handleFor("k", "number"), 42)).rejects.toThrow(
+      /per-request override not enabled.*allowPerRequest/i,
+    );
+  });
+
+  test("undefined paramValue is OK even without opt-in (normal config read still works)", async () => {
+    const { ctx } = makeCtx({ k: { def: numberDefNoOptIn, fallback: 10 } });
+    expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), undefined)).toBe(10);
+    expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), null)).toBe(10);
+    expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), "")).toBe(10);
+  });
+
+  test("allowPerRequest=false throws (explicit denial, same as omitted)", async () => {
+    const explicitDeny: KeyEntry = { ...numberDefNoOptIn, allowPerRequest: false };
+    const { ctx } = makeCtx({ k: { def: explicitDeny, fallback: 10 } });
+    await expect(resolveConfigOrParam(ctx, handleFor("k", "number"), 42)).rejects.toThrow(
+      /per-request override not enabled/i,
+    );
+  });
+
+  test("error message includes the key name so debugging is quick", async () => {
+    const { ctx } = makeCtx({ "orders:config:some-key": { def: numberDefNoOptIn, fallback: 10 } });
+    await expect(
+      resolveConfigOrParam(ctx, handleFor("orders:config:some-key", "number"), 42),
+    ).rejects.toThrow(/orders:config:some-key/);
   });
 });
 
