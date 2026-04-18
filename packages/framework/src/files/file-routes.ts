@@ -119,11 +119,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     );
 
     const data = new Uint8Array(await file.arrayBuffer());
-    await storageProvider.upload(storageKey, data, {
-      fileName: file.name,
-      mimeType: file.type,
-      size: file.size,
-    });
+    await storageProvider.write(storageKey, data, file.type);
 
     const [row] = await db
       .insert(fileRefsTable)
@@ -176,7 +172,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json({ error: "not_found" }, 404);
     }
 
-    const data = await storageProvider.download(fileRef.storageKey);
+    const data = await storageProvider.read(fileRef.storageKey);
     return new Response(Buffer.from(data), {
       headers: {
         "Content-Type": fileRef.mimeType,

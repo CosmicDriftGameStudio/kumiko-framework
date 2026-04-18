@@ -6,9 +6,13 @@ export type FileMetadata = {
   readonly size: number;
 };
 
+// Primitive storage contract: key+bytes in, bytes out. Metadata (fileName,
+// mimeType, size) lives on the FileRef row — the provider only needs to
+// shuttle bytes. `mimeType` on write() is a hint for providers that need a
+// Content-Type header (S3/R2/…); local filesystems can ignore it.
 export type FileStorageProvider = {
-  upload(key: string, data: Uint8Array, metadata: FileMetadata): Promise<void>;
-  download(key: string): Promise<Uint8Array>;
+  write(key: string, data: Uint8Array, mimeType?: string): Promise<void>;
+  read(key: string): Promise<Uint8Array>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
 };

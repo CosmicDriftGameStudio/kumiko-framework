@@ -1,3 +1,5 @@
+export type { FileContext, FileHandle } from "./file-handle";
+export { createFileContext, createFileHandle, deriveKey } from "./file-handle";
 export { fileRefsTable } from "./file-ref-table";
 export type {
   FileAccessDecision,
@@ -6,6 +8,8 @@ export type {
   FileRoutesOptions,
 } from "./file-routes";
 export { createFileRoutes } from "./file-routes";
+export type { InMemoryFileProvider } from "./in-memory-provider";
+export { createInMemoryFileProvider } from "./in-memory-provider";
 export { createLocalProvider } from "./local-provider";
 export type { FileMetadata, FileStorageProvider, FileValidationOptions } from "./types";
 export { buildStorageKey, parseMaxSize, validateFile } from "./types";

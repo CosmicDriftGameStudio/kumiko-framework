@@ -2,6 +2,7 @@ import type { Redis } from "ioredis";
 import type { ZodType } from "zod";
 import type { DbConnection } from "../../db/connection";
 import type { TenantDb } from "../../db/tenant-db";
+import type { FileContext } from "../../files/file-handle";
 import type { Logger } from "../../logging/types";
 import type { Meter, MetricsHandle, Tracer } from "../../observability/types";
 import type { EntityCache } from "../../pipeline/entity-cache";
@@ -101,6 +102,11 @@ type SharedContextFields = {
   readonly config?: ConfigAccessor;
   readonly _configAccessorFactory?: ConfigAccessorFactory;
   readonly searchAdapter?: SearchAdapter;
+  // Binary storage, wrapped around the registered FileStorageProvider.
+  // Optional at the AppContext level — present when the app booted with
+  // `files.storageProvider`. Hooks/handlers use ctx.files.ref(key) instead
+  // of receiving binaries in payloads.
+  readonly files?: FileContext;
   readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;
   readonly _notifyFactory?: NotifyFactory;

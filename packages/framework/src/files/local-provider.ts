@@ -1,16 +1,19 @@
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { FileMetadata, FileStorageProvider } from "./types";
+import type { FileStorageProvider } from "./types";
 
+// Local-filesystem backend — intended for dev + tests. Production deploys
+// pick an object-store provider (S3/R2/…). mimeType is ignored here; the
+// filesystem tracks no metadata beyond what the caller stores on FileRef.
 export function createLocalProvider(basePath: string): FileStorageProvider {
   return {
-    async upload(key: string, data: Uint8Array, _metadata: FileMetadata): Promise<void> {
+    async write(key: string, data: Uint8Array, _mimeType?: string): Promise<void> {
       const filePath = join(basePath, key);
       await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, data);
     },
 
-    async download(key: string): Promise<Uint8Array> {
+    async read(key: string): Promise<Uint8Array> {
       const filePath = join(basePath, key);
       return readFile(filePath);
     },

@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
-import { type AppContext, type Registry, SYSTEM_TENANT_ID } from "../engine/types";
+import { type AppContext, isFileField, type Registry, SYSTEM_TENANT_ID } from "../engine/types";
+import { createFileContext } from "../files/file-handle";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
 import {
@@ -97,6 +98,17 @@ export type KumikoServer = {
 };
 
 export function buildServer(options: ServerOptions): KumikoServer {
+  // Hard-fail when the registry declares file/image fields but no storage
+  // provider is wired. Boot-validator checks the env shape; here we prove the
+  // runtime actually has somewhere to put the bytes. Without this, uploads
+  // would fail at the first request instead of at boot.
+  if (!options.files?.storageProvider && registryDeclaresFileFields(options.registry)) {
+    throw new Error(
+      "Features declare file/image fields but no storageProvider was registered — " +
+        "pass `files: { storageProvider, db }` to buildServer().",
+    );
+  }
+
   const jwt = createJwtHelper(options.jwtSecret, options.jwtIssuer);
   const sseBroker = options.sseBroker ?? createSseBroker();
 
@@ -131,10 +143,16 @@ export function buildServer(options: ServerOptions): KumikoServer {
     shouldWrapRedis && redisCtx ? wrapRedisClient(redisCtx, observability.tracer) : redisCtx;
 
   // Inject tracer + meter into the AppContext so the dispatcher can propagate
-  // them into every HandlerContext it builds.
+  // them into every HandlerContext it builds. If a file storage provider was
+  // registered, wrap it in a FileContext so handlers/hooks can resolve
+  // `ctx.files.ref(key)` without reaching for the raw provider.
+  const fileCtx = options.files?.storageProvider
+    ? createFileContext(options.files.storageProvider)
+    : undefined;
   const contextWithObservability: AppContext = {
     ...options.context,
     ...(wrappedRedis ? { redis: wrappedRedis } : {}),
+    ...(fileCtx ? { files: fileCtx } : {}),
     tracer: observability.tracer,
     meter: observability.meter,
   };
@@ -301,4 +319,18 @@ export function buildServer(options: ServerOptions): KumikoServer {
     observability,
     ...(eventDispatcher ? { eventDispatcher } : {}),
   };
+}
+
+// Scans every feature's entities for a file/image/files/images field. Short-
+// circuits on the first hit — no need to build a full inventory, we only want
+// the yes/no answer for the boot check.
+function registryDeclaresFileFields(registry: Registry): boolean {
+  for (const feature of registry.features.values()) {
+    for (const entity of Object.values(feature.entities)) {
+      for (const field of Object.values(entity.fields)) {
+        if (isFileField(field)) return true;
+      }
+    }
+  }
+  return false;
 }
