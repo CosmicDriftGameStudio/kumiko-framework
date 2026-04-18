@@ -19,5 +19,6 @@ export {
 export type { InMemoryFileProvider } from "./in-memory-provider";
 export { createInMemoryFileProvider } from "./in-memory-provider";
 export { createLocalProvider } from "./local-provider";
+export { filesStorageTrackingFeature, tenantStorageUsageTable } from "./storage-tracking";
 export type { FileMetadata, FileStorageProvider, FileValidationOptions } from "./types";
 export { buildStorageKey, parseMaxSize, validateFile } from "./types";
