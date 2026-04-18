@@ -79,6 +79,10 @@ export type TestStackOptions = {
    *  The resolver is auto-built from the test Redis. Mirrors
    *  buildServer's `rateLimit` option 1:1 — see there for shape. */
   rateLimit?: import("../api/server").ServerOptions["rateLimit"];
+  /** Inject a MasterKeyProvider for secrets-backed tests. Lands typed in
+   *  AppContext — set/delete/get + rotation job pick it up. Omit for
+   *  suites that don't touch secrets. */
+  masterKeyProvider?: import("../secrets").MasterKeyProvider;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -208,6 +212,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       searchAdapter,
       entityCache,
       registry,
+      ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
       ...(typeof options.extraContext === "function"
         ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
         : options.extraContext),

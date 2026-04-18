@@ -14,5 +14,6 @@ export {
   type MasterKeyProvider,
   type Secret,
   type SecretAuditContext,
+  type SecretKeyRef,
   type SecretsContext,
 } from "./types";

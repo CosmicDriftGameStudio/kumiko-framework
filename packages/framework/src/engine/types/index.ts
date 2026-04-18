@@ -49,6 +49,7 @@ export type {
   MetricOptions,
   Registry,
   SecretKeyDefinition,
+  SecretKeyHandle,
   SecretOptions,
 } from "./feature";
 export type {

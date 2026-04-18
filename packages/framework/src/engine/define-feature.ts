@@ -42,6 +42,7 @@ import type {
   RegistrarExtensionRegistration,
   RelationDefinition,
   SecretKeyDefinition,
+  SecretKeyHandle,
   SecretOptions,
   TranslationKeys,
   TranslationsDef,
@@ -403,7 +404,7 @@ export function defineFeature<TExports = undefined>(
       metrics[shortName] = { shortName, ...options };
     },
 
-    secret(shortName: string, options: SecretOptions): void {
+    secret(shortName: string, options: SecretOptions): SecretKeyHandle {
       if (secretKeys[shortName]) {
         throw new Error(
           `[Feature ${name}] Secret "${shortName}" already registered. ` +
@@ -415,11 +416,13 @@ export function defineFeature<TExports = undefined>(
       // handles the common input shapes ("stripe.apiKey" → "stripe-api-key")
       // so features can declare keys in their natural style without
       // thinking about kebab-case on every call.
+      const qualifiedName = qn(toKebab(name), QnTypes.secret, toKebab(shortName));
       secretKeys[shortName] = {
         shortName,
-        qualifiedName: qn(toKebab(name), QnTypes.secret, toKebab(shortName)),
+        qualifiedName,
         ...options,
       };
+      return { name: qualifiedName };
     },
 
     projection(definition: ProjectionDefinition): void {

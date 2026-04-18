@@ -43,6 +43,11 @@ export type SecretAuditContext = {
   readonly handlerName: string;
 };
 
+// Feature code can pass either the raw qualified-name string or a typed
+// handle returned by r.secret. The handle form is safer — renaming the
+// r.secret call updates all references through the import graph.
+export type SecretKeyRef = string | { readonly name: string };
+
 // The ctx.secrets contract. Concrete implementation lives in core-features
 // (createSecretsContext) where the DB and MasterKeyProvider are known. This
 // lean interface is what the framework's HandlerContext carries so engine
@@ -50,16 +55,16 @@ export type SecretAuditContext = {
 export interface SecretsContext {
   get(
     tenantId: TenantId,
-    key: string,
+    key: SecretKeyRef,
     auditCtx?: SecretAuditContext,
   ): Promise<Secret<string> | undefined>;
   set(
     tenantId: TenantId,
-    key: string,
+    key: SecretKeyRef,
     value: string,
     opts?: { redact?: (plaintext: string) => string; hint?: string; updatedBy?: string },
   ): Promise<void>;
-  delete(tenantId: TenantId, key: string): Promise<boolean>;
+  delete(tenantId: TenantId, key: SecretKeyRef): Promise<boolean>;
 }
 
 export type Envelope = {

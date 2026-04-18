@@ -90,6 +90,13 @@ export type SecretKeyDefinition = {
 
 export type SecretOptions = Omit<SecretKeyDefinition, "shortName" | "qualifiedName">;
 
+// Typed reference returned by r.secret(). Lets feature code pass a
+// strongly-named handle to ctx.secrets.get instead of retyping the
+// qualified string. Parallels ConfigKeyHandle from the config system.
+export type SecretKeyHandle = {
+  readonly name: string;
+};
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
@@ -266,11 +273,11 @@ export type FeatureRegistrar = {
   // Usage at runtime: ctx.metrics.inc("created_total", { status: "new" }).
   metric(shortName: string, options: MetricOptions): void;
 
-  // Declare a secret key. Fully-qualified name is `<feature>:<shortName>`
-  // — the Framework prefixes on boot. Feature code reads via
-  // ctx.secrets.get(tenantId, "<feature>:<short>"). Admin UI sees the label
-  // + redacted preview, never the plaintext.
-  secret(shortName: string, options: SecretOptions): void;
+  // Declare a secret key. Qualified name follows "<feature>:secret:<kebab>"
+  // via the QN helper. Returns a typed handle so feature code can pass it
+  // to ctx.secrets.get without retyping the qualified string — same
+  // ergonomics as r.config's handle.
+  secret(shortName: string, options: SecretOptions): SecretKeyHandle;
 
   // Register a projection driven by events of one or more source entities.
   // The runtime fires projection.apply[event.type] inside the event-store's
