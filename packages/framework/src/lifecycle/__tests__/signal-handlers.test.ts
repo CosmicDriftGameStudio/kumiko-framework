@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
-import type { Lifecycle } from "../lifecycle";
 import { createLifecycle } from "../lifecycle";
 import { attachSignalHandlers } from "../signal-handlers";
+import { createTestLifecycle } from "./create-test-lifecycle";
 
 describe("attachSignalHandlers", () => {
   test("SIGTERM triggers drain and calls exit(0)", async () => {
@@ -69,17 +69,11 @@ describe("attachSignalHandlers", () => {
     // Our real lifecycle swallows hook errors internally so drain() always
     // resolves. Mock a drain that rejects to cover the .catch branch —
     // defensive code still needs a test or it rots.
-    const brokenLifecycle: Lifecycle = {
-      state: () => "ready",
-      uptimeSec: () => 0,
-      markReady: () => {},
-      onStateChange: () => () => {},
-      registerShutdownHook: () => {},
-      hookNames: () => [],
+    const brokenLifecycle = createTestLifecycle({
       drain: async () => {
         throw new Error("drain itself exploded");
       },
-    };
+    });
     const exit = vi.fn();
     const handle = attachSignalHandlers(brokenLifecycle, { exit, signals: ["SIGTERM"] });
     try {

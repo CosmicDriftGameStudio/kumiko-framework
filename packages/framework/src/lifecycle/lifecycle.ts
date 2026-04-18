@@ -1,6 +1,8 @@
 // Process lifecycle: 4-state machine + LIFO shutdown hooks.
 // Signal wiring lives in signal-handlers.ts; v1 scope in architecture/lifecycle.md.
 
+import type { Logger } from "../logging/types";
+
 export type LifecycleState = "starting" | "ready" | "draining" | "stopped";
 
 export type StateChangeListener = (from: LifecycleState, to: LifecycleState) => void;
@@ -26,6 +28,10 @@ export type LifecycleOptions = {
   readonly startReady?: boolean;
   /** @internal Test-only clock injection for deterministic uptimeSec assertions. */
   readonly now?: () => number;
+  // Structured logger for hook / listener failures. Falls back to
+  // console.error when absent — matches the pattern in pipeline/lifecycle-pipeline.ts
+  // so one-file scripts and test setups don't need to wire a logger.
+  readonly logger?: Pick<Logger, "error">;
 };
 
 const DEFAULT_DRAIN_TIMEOUT_MS = 40_000;
@@ -33,6 +39,7 @@ const DEFAULT_DRAIN_TIMEOUT_MS = 40_000;
 export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
   const now = opts.now ?? (() => Date.now());
   const startedAt = now();
+  const logError = makeErrorLogger(opts.logger);
 
   let current: LifecycleState = opts.startReady ? "ready" : "starting";
   const listeners = new Set<StateChangeListener>();
@@ -51,7 +58,7 @@ export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
       } catch (err) {
         // A broken listener must not tear the state machine down, but swallowing
         // silently hides bugs from ops. Log and move on.
-        console.error(`[lifecycle] onStateChange listener threw during ${from}→${to}:`, err);
+        logError(`onStateChange listener threw during ${from}→${to}`, err);
       }
     }
   }
@@ -72,7 +79,7 @@ export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
           // Isolated failure: one broken hook must not block the others. Log
           // so ops can see which hook failed during shutdown — silent swallow
           // made prod incidents invisible.
-          console.error(`[lifecycle] shutdown hook "${hook.name}" threw:`, err);
+          logError(`shutdown hook "${hook.name}" threw`, err);
         }
       }
     };
@@ -137,4 +144,16 @@ export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
       return drainPromise;
     },
   };
+}
+
+// Builds a single error-log closure once per lifecycle instance. Structured
+// logger wins when present; otherwise plain stderr via console.error so we
+// never eat a failure silently.
+function makeErrorLogger(
+  logger: Pick<Logger, "error"> | undefined,
+): (msg: string, err: unknown) => void {
+  if (logger) {
+    return (msg, err) => logger.error(`[lifecycle] ${msg}`, { err });
+  }
+  return (msg, err) => console.error(`[lifecycle] ${msg}:`, err);
 }

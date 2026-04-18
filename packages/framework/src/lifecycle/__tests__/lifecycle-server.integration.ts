@@ -69,11 +69,12 @@ describe("lifecycle — /health/ready live state", () => {
 });
 
 describe("lifecycle — drain wiring", () => {
-  test("buildServer registers eventDispatcher as a named shutdown hook", () => {
-    // Direct proof that the auto-wiring landed. Without this, a future refactor
-    // could drop the registerShutdownHook call and the LIFO test alone would
-    // still pass (it only compares our two probes).
-    expect(lifecycle.hookNames()).toContain("eventDispatcher");
+  test("buildServer registers eventDispatcher between caller hooks", () => {
+    // Order matters, not just existence: probe-before-boot was registered
+    // before setupTestStack, so buildServer's eventDispatcher hook must land
+    // AFTER it in registration order. probe-after-boot is registered in the
+    // next test, so it isn't in the list yet.
+    expect(lifecycle.hookNames()).toEqual(["probe-before-boot", "eventDispatcher"]);
   });
 
   test("drain() flips /health/ready to 503 and runs hooks LIFO", async () => {

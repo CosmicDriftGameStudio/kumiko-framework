@@ -1,16 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { createLifecycle } from "../lifecycle";
-
-// Silence the intentional console.error calls from hook/listener failure
-// tests. A spy on each run lets us keep output clean AND assert on logging
-// where relevant.
-let errorSpy: ReturnType<typeof vi.spyOn>;
-beforeEach(() => {
-  errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-});
-afterEach(() => {
-  errorSpy.mockRestore();
-});
 
 describe("lifecycle — state machine", () => {
   test("starts in 'starting' by default", () => {
@@ -81,7 +70,8 @@ describe("lifecycle — shutdown hooks", () => {
   });
 
   test("one failing hook does not block the others, and the error is logged", async () => {
-    const lc = createLifecycle({ startReady: true });
+    const logger = { error: vi.fn() };
+    const lc = createLifecycle({ startReady: true, logger });
     const calls: string[] = [];
     lc.registerShutdownHook("healthy-a", async () => {
       calls.push("healthy-a");
@@ -97,9 +87,10 @@ describe("lifecycle — shutdown hooks", () => {
     expect(lc.state()).toBe("stopped");
 
     // Logging makes the failure visible to prod-ops. Silent swallow hid bugs.
-    const loggedMsg = errorSpy.mock.calls.map((args: unknown[]) => args.join(" ")).join("\n");
-    expect(loggedMsg).toMatch(/shutdown hook "broken" threw/);
-    expect(loggedMsg).toMatch(/boom/);
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    const [msg, ctx] = logger.error.mock.calls[0] as [string, { err: unknown }];
+    expect(msg).toMatch(/shutdown hook "broken" threw/);
+    expect((ctx.err as Error).message).toBe("boom");
   });
 
   test("registering after draining throws", async () => {
@@ -123,6 +114,17 @@ describe("lifecycle — shutdown hooks", () => {
     expect(lc.hookNames()).toEqual([]);
     lc.registerShutdownHook("a", async () => {});
     lc.registerShutdownHook("b", async () => {});
+    expect(lc.hookNames()).toEqual(["a", "b"]);
+  });
+
+  test("hookNames() stays populated after drain (post-mortem ops use-case)", async () => {
+    // Contract: the name list is not cleared on drain. An operator inspecting
+    // a stopped process should still be able to see which hooks were wired.
+    const lc = createLifecycle({ startReady: true });
+    lc.registerShutdownHook("a", async () => {});
+    lc.registerShutdownHook("b", async () => {});
+    await lc.drain({ timeoutMs: 50 });
+    expect(lc.state()).toBe("stopped");
     expect(lc.hookNames()).toEqual(["a", "b"]);
   });
 });
@@ -182,7 +184,8 @@ describe("lifecycle — onStateChange", () => {
   });
 
   test("broken listener does not break others, and the error is logged", () => {
-    const lc = createLifecycle();
+    const logger = { error: vi.fn() };
+    const lc = createLifecycle({ logger });
     const healthy = vi.fn();
     lc.onStateChange(() => {
       throw new Error("subscriber exploded");
@@ -192,8 +195,9 @@ describe("lifecycle — onStateChange", () => {
     expect(lc.state()).toBe("ready");
     expect(healthy).toHaveBeenCalledTimes(1);
 
-    const loggedMsg = errorSpy.mock.calls.map((args: unknown[]) => args.join(" ")).join("\n");
-    expect(loggedMsg).toMatch(/onStateChange listener threw during starting→ready/);
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    const [msg] = logger.error.mock.calls[0] as [string, unknown];
+    expect(msg).toMatch(/onStateChange listener threw during starting→ready/);
   });
 });
 
