@@ -26,12 +26,16 @@ let sessionTable: Table;
 let groupTable: Table;
 let userGroupRestrictTable: Table;
 let userGroupCascadeTable: Table;
+let teamTable: Table;
+let memberTable: Table;
 let departmentExecutor: EventStoreExecutor;
 let userExecutor: EventStoreExecutor;
 let sessionExecutor: EventStoreExecutor;
 let groupExecutor: EventStoreExecutor;
 let userGroupRestrictExecutor: EventStoreExecutor;
 let userGroupCascadeExecutor: EventStoreExecutor;
+let teamExecutor: EventStoreExecutor;
+let memberExecutor: EventStoreExecutor;
 
 const admin = TestUsers.admin;
 
@@ -61,6 +65,16 @@ const userGroupCascadeEntity = createEntity({
   table: "cascade_user_group_cascade",
   fields: { userId: createTextField(), groupId: createTextField() },
 });
+// setNull pair: team→member with onDelete "setNull" — members survive
+// the team deletion with teamId nulled out.
+const teamEntity = createEntity({
+  table: "cascade_teams",
+  fields: { name: createTextField() },
+});
+const memberEntity = createEntity({
+  table: "cascade_members",
+  fields: { name: createTextField(), teamId: createTextField() },
+});
 
 beforeAll(async () => {
   testDb = await createTestDb();
@@ -73,6 +87,8 @@ beforeAll(async () => {
   await createEntityTable(testDb.db, groupEntity);
   await createEntityTable(testDb.db, userGroupRestrictEntity);
   await createEntityTable(testDb.db, userGroupCascadeEntity);
+  await createEntityTable(testDb.db, teamEntity);
+  await createEntityTable(testDb.db, memberEntity);
 
   departmentTable = buildDrizzleTable("department", departmentEntity);
   userTable = buildDrizzleTable("user", userEntity);
@@ -80,6 +96,8 @@ beforeAll(async () => {
   groupTable = buildDrizzleTable("group", groupEntity);
   userGroupRestrictTable = buildDrizzleTable("userGroupRestrict", userGroupRestrictEntity);
   userGroupCascadeTable = buildDrizzleTable("userGroupCascade", userGroupCascadeEntity);
+  teamTable = buildDrizzleTable("team", teamEntity);
+  memberTable = buildDrizzleTable("member", memberEntity);
 
   const feature = defineFeature("cascade", (r) => {
     r.entity("department", departmentEntity);
@@ -88,6 +106,8 @@ beforeAll(async () => {
     r.entity("group", groupEntity);
     r.entity("userGroupRestrict", userGroupRestrictEntity);
     r.entity("userGroupCascade", userGroupCascadeEntity);
+    r.entity("team", teamEntity);
+    r.entity("member", memberEntity);
 
     r.relation("department", "users", {
       type: "hasMany",
@@ -116,6 +136,13 @@ beforeAll(async () => {
       through: { table: "userGroupCascade", sourceKey: "userId", targetKey: "groupId" },
       onDelete: "cascade",
     });
+
+    r.relation("team", "members", {
+      type: "hasMany",
+      target: "member",
+      foreignKey: "teamId",
+      onDelete: "setNull",
+    });
   });
 
   registry = createRegistry([feature]);
@@ -137,6 +164,8 @@ beforeAll(async () => {
     userGroupCascadeEntity,
     { entityName: "userGroupCascade" },
   );
+  teamExecutor = createEventStoreExecutor(teamTable, teamEntity, { entityName: "team" });
+  memberExecutor = createEventStoreExecutor(memberTable, memberEntity, { entityName: "member" });
 });
 
 afterAll(async () => {
@@ -323,5 +352,68 @@ describe("cascade delete: manyToMany cascade", () => {
     const groupIds = groups.rows.map((r) => r["id"]);
     expect(groupIds).toContain(groupA.data.id);
     expect(groupIds).toContain(groupB.data.id);
+  });
+});
+
+describe("cascade delete: hasMany setNull", () => {
+  test("nulls out FK on related records when parent is deleted", async () => {
+    const team = await teamExecutor.create({ name: "SetNull Team" }, admin, tdb);
+    if (!team.isSuccess) throw new Error("Setup failed");
+
+    const m1 = await memberExecutor.create({ name: "Alice", teamId: team.data.id }, admin, tdb);
+    const m2 = await memberExecutor.create({ name: "Bob", teamId: team.data.id }, admin, tdb);
+    if (!m1.isSuccess || !m2.isSuccess) throw new Error("Setup failed");
+
+    // Verify FK is set before cascade
+    const before = await memberExecutor.list({}, admin, tdb);
+    const teamMembers = before.rows.filter((r) => r["id"] === m1.data.id || r["id"] === m2.data.id);
+    expect(teamMembers.every((r) => r["teamId"] === team.data.id)).toBe(true);
+
+    const cascadeHook = createCascadeDeleteHook(registry, new Map([["member", memberTable]]));
+
+    await cascadeHook.fn(
+      {
+        kind: "delete",
+        id: team.data.id,
+        data: { tenantId: "00000000-0000-4000-8000-000000000001" },
+        entityName: "team",
+      },
+      { db: tdb },
+    );
+
+    // Members still exist, but teamId is now null
+    const after = await memberExecutor.list({}, admin, tdb);
+    const afterMembers = after.rows.filter((r) => r["id"] === m1.data.id || r["id"] === m2.data.id);
+    expect(afterMembers.length).toBe(2);
+    expect(afterMembers.every((r) => r["teamId"] === null)).toBe(true);
+  });
+
+  test("leaves unrelated records untouched", async () => {
+    const teamA = await teamExecutor.create({ name: "Team A" }, admin, tdb);
+    const teamB = await teamExecutor.create({ name: "Team B" }, admin, tdb);
+    if (!teamA.isSuccess || !teamB.isSuccess) throw new Error("Setup failed");
+
+    const mA = await memberExecutor.create({ name: "A-member", teamId: teamA.data.id }, admin, tdb);
+    const mB = await memberExecutor.create({ name: "B-member", teamId: teamB.data.id }, admin, tdb);
+    if (!mA.isSuccess || !mB.isSuccess) throw new Error("Setup failed");
+
+    const cascadeHook = createCascadeDeleteHook(registry, new Map([["member", memberTable]]));
+
+    // Delete team A — only mA should lose its teamId, mB must stay intact
+    await cascadeHook.fn(
+      {
+        kind: "delete",
+        id: teamA.data.id,
+        data: { tenantId: "00000000-0000-4000-8000-000000000001" },
+        entityName: "team",
+      },
+      { db: tdb },
+    );
+
+    const after = await memberExecutor.list({}, admin, tdb);
+    const aAfter = after.rows.find((r) => r["id"] === mA.data.id);
+    const bAfter = after.rows.find((r) => r["id"] === mB.data.id);
+    expect(aAfter?.["teamId"]).toBeNull();
+    expect(bAfter?.["teamId"]).toBe(teamB.data.id);
   });
 });
