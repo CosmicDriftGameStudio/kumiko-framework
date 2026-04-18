@@ -221,6 +221,42 @@ describe("event-store: requestId is a trace marker (no DB-level uniqueness)", ()
     expect(second.metadata.requestId).toBe(requestId);
     expect(first.aggregateId).not.toBe(second.aggregateId);
   });
+
+  test("metadata.headers (Marten free key/value) round-trips via append + load", async () => {
+    const aggregateId = uuid();
+    const headers = {
+      abTestBucket: "control",
+      sdkVersion: 42,
+      betaFeatures: true,
+    };
+
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { title: "with headers" },
+      metadata: { userId: userA, headers },
+    });
+
+    // Subsequent event uses the WHERE-EXISTS raw-SQL path — make sure
+    // headers survive that route too, not just the typed insertFirstEvent.
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion: 1,
+      type: "task.updated",
+      payload: { title: "v2" },
+      metadata: { userId: userA, headers: { ...headers, sdkVersion: 43 } },
+    });
+
+    const events = await loadAggregate(testDb.db, aggregateId, tenantA);
+    expect(events).toHaveLength(2);
+    expect(events[0]?.metadata.headers).toEqual(headers);
+    expect(events[1]?.metadata.headers).toEqual({ ...headers, sdkVersion: 43 });
+  });
 });
 
 describe("event-store: asOf + after-version reads", () => {

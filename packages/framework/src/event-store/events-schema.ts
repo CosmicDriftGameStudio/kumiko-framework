@@ -28,6 +28,10 @@ export type EventMetadata = {
   readonly requestId?: string;
   readonly correlationId?: string;
   readonly causationId?: string;
+  // App-specific free key/value (Marten "headers"). Mirror of the canonical
+  // type in event-store.ts — kept duplicate because events-schema must stay
+  // import-cycle-free vs the event-store module.
+  readonly headers?: Readonly<Record<string, string | number | boolean>>;
 };
 
 export const eventsTable = pgTable(
