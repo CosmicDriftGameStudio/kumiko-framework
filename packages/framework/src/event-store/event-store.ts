@@ -353,13 +353,15 @@ export async function* streamAllEventsByType(
       return;
     }
 
+    // Track the highest id seen in this batch as we yield. Avoids both the
+    // non-null assertion and a redundant array index — the cursor falls out
+    // of the same loop that produces the events.
+    let nextCursor = cursorId;
     for (const row of rows) {
       yield toStoredEvent(row);
+      nextCursor = row.id;
     }
-    // Last id of the batch advances the cursor. rows.length > 0 above
-    // makes the non-null cast safe — keeping the assertion close so the
-    // invariant is local rather than spread across an extra guard.
-    cursorId = rows[rows.length - 1]!.id;
+    cursorId = nextCursor;
   }
 }
 

@@ -43,7 +43,6 @@ const taskCountProjection: ProjectionDefinition = {
   apply: {
     "task.created": async (event, tx) => {
       await tx
-        // biome-ignore lint/suspicious/noExplicitAny: tx is DbRunner
         .insert(taskCountTable)
         .values({ tenantId: event.tenantId, count: 1 })
         .onConflictDoUpdate({
