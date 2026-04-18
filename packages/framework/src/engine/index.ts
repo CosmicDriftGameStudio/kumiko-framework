@@ -21,9 +21,13 @@ export type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-ha
 export { defineQueryHandler, defineWriteHandler } from "./define-handler";
 export { defineRoles } from "./define-roles";
 export {
+  createEntityExecutor,
   defineEntityQueryHandler,
   defineEntityWriteHandler,
+  defineProjectionQueryHandler,
 } from "./entity-handlers";
+export type { EmitCtx } from "./event-helpers";
+export { emitEvent } from "./event-helpers";
 export {
   createBooleanField,
   createDateField,
@@ -42,6 +46,7 @@ export {
   locatedTimestamp,
 } from "./factories";
 export { checkWriteFields, filterReadFields } from "./field-access";
+export { setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";
 export { createRegistry } from "./registry";
@@ -52,6 +57,7 @@ export { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "./system-user";
 export type {
   AccessRule,
   AppContext,
+  AppendEventArgs,
   BelongsToRelation,
   BooleanFieldDef,
   ConcurrencyMode,
@@ -72,6 +78,7 @@ export type {
   EntityId,
   EntityRef,
   EntityRelations,
+  EventDef,
   FeatureDefinition,
   FeatureRegistrar,
   FieldAccess,

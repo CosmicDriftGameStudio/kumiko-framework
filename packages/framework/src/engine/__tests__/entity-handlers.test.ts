@@ -1,5 +1,10 @@
-import { describe, expect, test } from "vitest";
-import { defineEntityQueryHandler, defineEntityWriteHandler } from "../entity-handlers";
+import { describe, expect, test, vi } from "vitest";
+import {
+  createEntityExecutor,
+  defineEntityQueryHandler,
+  defineEntityWriteHandler,
+  defineProjectionQueryHandler,
+} from "../entity-handlers";
 import { createEntity, createTextField } from "../factories";
 
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";
@@ -120,5 +125,87 @@ describe("defineEntityQueryHandler", () => {
       access: { openToAll: true },
     });
     expect(def.access).toEqual({ openToAll: true });
+  });
+});
+
+describe("createEntityExecutor", () => {
+  test("returns a drizzle table plus an executor bound to it", () => {
+    const { table, executor } = createEntityExecutor("note", noteEntity);
+    // Table: drizzle-built — has the id column the event-store executor keys on.
+    expect(table).toBeDefined();
+    expect((table as Record<string, unknown>)["id"]).toBeDefined();
+    // Executor: the standard CRUD/verb surface is present.
+    expect(typeof executor.create).toBe("function");
+    expect(typeof executor.update).toBe("function");
+    expect(typeof executor.delete).toBe("function");
+    expect(typeof executor.detail).toBe("function");
+    expect(typeof executor.list).toBe("function");
+  });
+
+  test("accepts softDelete entities (executor.restore exists)", () => {
+    const { executor } = createEntityExecutor("note", noteEntitySoftDelete);
+    expect(typeof executor.restore).toBe("function");
+  });
+});
+
+describe("defineProjectionQueryHandler", () => {
+  test("name + empty schema + access are forwarded", () => {
+    const def = defineProjectionQueryHandler(
+      "revenue:list",
+      "showcase:projection:customer-revenue",
+      { access: { openToAll: true } },
+    );
+    expect(def.name).toBe("revenue:list");
+    expect(def.access).toEqual({ openToAll: true });
+    // Empty-object schema — handler takes no payload fields.
+    expect(def.schema.safeParse({}).success).toBe(true);
+  });
+
+  test("handler passes the qualified name to ctx.queryProjection and returns its rows", async () => {
+    const def = defineProjectionQueryHandler(
+      "revenue:list",
+      "showcase:projection:customer-revenue",
+    );
+    const fakeRows = [{ customer: "a", totalCents: 100 }];
+    const ctx = {
+      queryProjection: vi.fn().mockResolvedValue(fakeRows),
+    };
+    const result = await def.handler(
+      // biome-ignore lint/suspicious/noExplicitAny: test shim — handler only touches ctx.queryProjection here.
+      { type: "revenue:list", user: {} as any, payload: {} },
+      // biome-ignore lint/suspicious/noExplicitAny: test shim — see above.
+      ctx as any,
+    );
+    expect(ctx.queryProjection).toHaveBeenCalledWith(
+      "showcase:projection:customer-revenue",
+      undefined,
+    );
+    expect(result).toBe(fakeRows);
+  });
+
+  test("allTenants: true forwards the option to ctx.queryProjection", async () => {
+    const def = defineProjectionQueryHandler(
+      "revenue:list",
+      "showcase:projection:customer-revenue",
+      { allTenants: true },
+    );
+    const ctx = { queryProjection: vi.fn().mockResolvedValue([]) };
+    await def.handler(
+      // biome-ignore lint/suspicious/noExplicitAny: test shim.
+      { type: "revenue:list", user: {} as any, payload: {} },
+      // biome-ignore lint/suspicious/noExplicitAny: test shim.
+      ctx as any,
+    );
+    expect(ctx.queryProjection).toHaveBeenCalledWith("showcase:projection:customer-revenue", {
+      allTenants: true,
+    });
+  });
+
+  test("omitting access leaves the handler def's access unset", () => {
+    const def = defineProjectionQueryHandler(
+      "revenue:list",
+      "showcase:projection:customer-revenue",
+    );
+    expect(def.access).toBeUndefined();
   });
 });

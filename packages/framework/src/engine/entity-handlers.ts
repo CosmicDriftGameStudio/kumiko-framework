@@ -1,6 +1,7 @@
 import { type ZodType, z } from "zod";
 import type { DbRow } from "../db/connection";
-import { createEventStoreExecutor } from "../db/event-store-executor";
+import type { TableColumns } from "../db/dialect";
+import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 import type { AccessRule, EntityDefinition, QueryHandlerDef, WriteHandlerDef } from "./types";
@@ -151,6 +152,61 @@ export function defineEntityQueryHandler(
     name,
     schema,
     handler,
+    ...(options?.access && { access: options.access }),
+  };
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic table — erased on purpose, same as db/event-store-executor.ts does.
+type AnyTable = TableColumns<any>;
+
+// Bundle the two calls every custom write-handler opens with: build the
+// Drizzle table from the entity, then wire an event-store executor onto it.
+// The pair is identical in every sample that hand-writes handlers, so the
+// helper collapses 3-4 lines + the { entityName } bookkeeping into one.
+//
+//   const { table, executor } = createEntityExecutor("counter", counterEntity);
+//
+// Keep using the explicit buildDrizzleTable / createEventStoreExecutor duo
+// when you need search-adapter / entity-cache options on the executor — this
+// helper covers the zero-config case.
+export function createEntityExecutor(
+  entityName: string,
+  entity: EntityDefinition,
+): { readonly table: AnyTable; readonly executor: EventStoreExecutor } {
+  const table = buildDrizzleTable(entityName, entity);
+  const executor = createEventStoreExecutor(table, entity, { entityName });
+  return { table, executor };
+}
+
+// Wrap a projection read into a zero-argument query handler. Use when the
+// read is "give me all rows from projection X, tenant-scoped" — the common
+// shape for list-views backed by an MSP/projection table.
+//
+//   r.queryHandler(
+//     defineProjectionQueryHandler("revenue:list", "showcase:projection:customer-revenue", {
+//       access: { openToAll: true },
+//     }),
+//   );
+//
+// For anything more involved (filters, joins, custom shaping), write the
+// query-handler explicitly with ctx.queryProjection or a raw select.
+export function defineProjectionQueryHandler(
+  name: string,
+  projectionQualifiedName: string,
+  options?: { access?: AccessRule; allTenants?: boolean },
+): QueryHandlerDef {
+  return {
+    name,
+    schema: z.object({}),
+    // Returns the raw row array — matches ctx.queryProjection's shape so the
+    // helper is a drop-in for the inline `async (_q, ctx) => ctx.queryProjection(...)`
+    // handler. Wrap the result in the caller's handler when you need
+    // pagination envelopes or added metadata.
+    handler: async (_query, ctx) =>
+      ctx.queryProjection(
+        projectionQualifiedName,
+        options?.allTenants ? { allTenants: true } : undefined,
+      ),
     ...(options?.access && { access: options.access }),
   };
 }
