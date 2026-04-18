@@ -1,4 +1,4 @@
-import type { SQL } from "drizzle-orm";
+import { and, type SQL } from "drizzle-orm";
 import type { DbRow } from "./connection";
 import type { TableColumns } from "./dialect";
 
@@ -20,27 +20,34 @@ type SelectChainDb = {
   };
 };
 
-// SELECT * FROM <table> WHERE <where> LIMIT 1 → first row or undefined.
+// SELECT * FROM <table> WHERE <...conditions> LIMIT 1 → first row or undefined.
 // Collapses the "const [row] = await db.select()...limit(1)" destructure
-// that repeats in every detail-query-style handler and in existence-checks
-// before write. The raw row type is `DbRow` (the framework's erased
-// Record<string, unknown>); pass an explicit TRow generic when the caller
-// knows the shape.
+// that repeats in every detail-query-style handler and existence-check.
+//
+// Conditions are variadic and non-empty — the tuple `[SQL, ...SQL[]]` rejects
+// `fetchOne(db, table)` (would silently pick any row) and `fetchOne(db, table,
+// undefined)` (would do the same) at compile time. Multiple conditions are
+// combined with AND.
 //
 //   const existing = await fetchOne<{ id: number }>(db, userTable,
 //     eq(userTable.email, payload.email));
 //   if (existing) return writeFailure(new ConflictError({ ... }));
 //
-// For existence-only checks, call `(await fetchOne(...)) !== undefined`
-// — no separate helper, one less name to remember.
+//   const row = await fetchOne(db, membershipTable,
+//     eq(membershipTable.userId, userId),
+//     eq(membershipTable.tenantId, tenantId),
+//   );
+//
+// For dynamic condition arrays (length known only at runtime), spread
+// explicitly: `fetchOne(db, table, first, ...rest)`. Raw `...arr` with
+// `arr: SQL[]` won't type-check because TS can't prove the array is non-
+// empty — a feature, not a bug.
 export async function fetchOne<TRow = DbRow>(
   db: SelectChainDb,
   table: AnyTable,
-  // `where` accepts the same `SQL | undefined` shape drizzle's own .where()
-  // exposes, so `and(cond1, cond2)` (which can widen to undefined when all
-  // conditions are undefined) drops in without a non-null assertion.
-  where: SQL | undefined,
+  ...conditions: readonly [SQL, ...SQL[]]
 ): Promise<TRow | undefined> {
+  const where = conditions.length === 1 ? conditions[0] : and(...conditions);
   const rows = await db.select().from(table).where(where).limit(1);
   return rows[0] as TRow | undefined;
 }

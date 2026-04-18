@@ -14,24 +14,46 @@ function makeFakeDb(rows: unknown[]) {
 }
 
 const fakeTable = {} as never;
-const fakeWhere = {} as SQL;
+const fakeCond1 = { __c: 1 } as unknown as SQL;
+const fakeCond2 = { __c: 2 } as unknown as SQL;
 
 describe("fetchOne", () => {
   test("returns the first row when the query yields at least one match", async () => {
-    const { db } = makeFakeDb([{ id: 1, name: "alice" }, { id: 2, name: "bob" }]);
-    const row = await fetchOne<{ id: number; name: string }>(db, fakeTable, fakeWhere);
+    const { db } = makeFakeDb([
+      { id: 1, name: "alice" },
+      { id: 2, name: "bob" },
+    ]);
+    const row = await fetchOne<{ id: number; name: string }>(db, fakeTable, fakeCond1);
     expect(row).toEqual({ id: 1, name: "alice" });
   });
 
   test("returns undefined on an empty result", async () => {
     const { db } = makeFakeDb([]);
-    const row = await fetchOne(db, fakeTable, fakeWhere);
+    const row = await fetchOne(db, fakeTable, fakeCond1);
     expect(row).toBeUndefined();
   });
 
   test("applies limit(1) — no need to pull the whole table", async () => {
     const { db, limit } = makeFakeDb([]);
-    await fetchOne(db, fakeTable, fakeWhere);
+    await fetchOne(db, fakeTable, fakeCond1);
     expect(limit).toHaveBeenCalledWith(1);
+  });
+
+  test("passes the single condition directly to .where (no AND wrapping)", async () => {
+    const { db, where } = makeFakeDb([]);
+    await fetchOne(db, fakeTable, fakeCond1);
+    expect(where).toHaveBeenCalledWith(fakeCond1);
+  });
+
+  test("combines multiple conditions with AND", async () => {
+    const { db, where } = makeFakeDb([]);
+    await fetchOne(db, fakeTable, fakeCond1, fakeCond2);
+    const calls = where.mock.calls as unknown as readonly (readonly unknown[])[];
+    const arg = calls[0]?.[0];
+    // drizzle's and() returns an SQL expression — we can't cheaply inspect
+    // its innards, but it must not be the raw first condition and must be
+    // defined (i.e. the helper actually composed something).
+    expect(arg).toBeDefined();
+    expect(arg).not.toBe(fakeCond1);
   });
 });
