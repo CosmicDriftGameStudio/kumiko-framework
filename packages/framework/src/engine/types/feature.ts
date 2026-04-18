@@ -27,6 +27,7 @@ import type {
   NameOrRef,
   QueryHandlerDef,
   QueryHandlerFn,
+  RateLimitOption,
   WriteHandlerDef,
   WriteHandlerFn,
 } from "./handlers";
@@ -126,7 +127,7 @@ export type FeatureRegistrar = {
     name: string,
     schema: TSchema,
     handler: WriteHandlerFn<z.infer<TSchema>>,
-    options?: { access?: AccessRule },
+    options?: { access?: AccessRule; rateLimit?: RateLimitOption },
   ): HandlerRef;
 
   queryHandler<TName extends string, TSchema extends ZodType>(
@@ -136,7 +137,7 @@ export type FeatureRegistrar = {
     name: string,
     schema: TSchema,
     handler: QueryHandlerFn<z.infer<TSchema>>,
-    options?: { access?: AccessRule },
+    options?: { access?: AccessRule; rateLimit?: RateLimitOption },
   ): HandlerRef;
 
   relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;

@@ -1,5 +1,12 @@
 import type { ZodType, z } from "zod";
-import type { AccessRule, HandlerContext, QueryEvent, WriteEvent, WriteResult } from "./types";
+import type {
+  AccessRule,
+  HandlerContext,
+  QueryEvent,
+  RateLimitOption,
+  WriteEvent,
+  WriteResult,
+} from "./types";
 
 // --- Write Handler Definition ---
 
@@ -12,6 +19,7 @@ export type WriteHandlerDefinition<
   readonly schema: TSchema;
   readonly access?: AccessRule;
   readonly skipTransitionGuard?: boolean;
+  readonly rateLimit?: RateLimitOption;
   readonly handler: (
     event: WriteEvent<z.infer<TSchema>>,
     context: HandlerContext,
@@ -38,6 +46,7 @@ export type QueryHandlerDefinition<
   readonly name: TName;
   readonly schema: TSchema;
   readonly access?: AccessRule;
+  readonly rateLimit?: RateLimitOption;
   readonly handler: (
     query: QueryEvent<z.infer<TSchema>>,
     context: HandlerContext,
