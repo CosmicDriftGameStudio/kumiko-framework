@@ -23,4 +23,12 @@ export default defineConfig({
       include: ["packages/framework/src/**", "samples/*/src/**"],
     },
   },
+  // Integration tests are DB-I/O-bound (Postgres + Redis + Meilisearch).
+  // More workers means more connection-pool contention + Docker container
+  // pressure, not faster wall-time. 3 threads is enough to overlap waits
+  // without pushing Load Avg into double-digit territory on 12-core boxes.
+  // (Top-level in Vitest 4; `test.poolOptions` is deprecated.)
+  poolOptions: {
+    threads: { maxThreads: 3, minThreads: 1 },
+  },
 });
