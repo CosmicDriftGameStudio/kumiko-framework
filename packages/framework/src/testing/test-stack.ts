@@ -6,6 +6,7 @@ import { createSseBroker } from "../api/sse-broker";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
+import type { Lifecycle } from "../lifecycle";
 import type { ObservabilityProvider } from "../observability";
 import type { EventDispatcher } from "../pipeline";
 import {
@@ -34,6 +35,9 @@ export type TestStack = {
   // r.multiStreamProjection is wired. Tests drain it via runOnce() for
   // deterministic assertion — no timer-induced flakiness.
   eventDispatcher?: EventDispatcher;
+  // Only set when the caller passed `lifecycle` via options. Tests that
+  // exercise drain() / /health/ready wire one in; ordinary suites ignore it.
+  lifecycle?: Lifecycle;
   cleanup: () => Promise<void>;
 };
 
@@ -68,6 +72,9 @@ export type TestStackOptions = {
    *  Pass a ConsoleProvider to see the span tree in stdout, or a custom
    *  provider (e.g. a recording provider for assertions in tests). */
   observability?: ObservabilityProvider;
+  /** Inject a process lifecycle so tests can drain() and observe
+   *  /health/ready flipping to 503. Omit if the suite doesn't care. */
+  lifecycle?: Lifecycle;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -230,6 +237,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         }
       : {}),
     ...(options.observability ? { observability: options.observability } : {}),
+    ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
     // Wire the upload routes + ctx.files only when the caller registered a
     // provider. Tests that don't touch files skip both without extra setup.
     ...(options.files
@@ -259,6 +267,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     http,
     observability: server.observability,
     ...(eventDispatcher ? { eventDispatcher } : {}),
+    ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),
     cleanup: async () => {
       if (eventDispatcher) await eventDispatcher.stop();
       await server.observability.shutdown();

@@ -5,6 +5,7 @@ import { type AppContext, isFileField, type Registry, SYSTEM_TENANT_ID } from ".
 import { createFileContext } from "../files/file-handle";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
+import type { Lifecycle } from "../lifecycle";
 import {
   createNoopProvider,
   DEFAULT_SENSITIVE_CONFIG,
@@ -84,6 +85,13 @@ export type ServerOptions = {
   // OTLPProvider in prod.
   observability?: ObservabilityProvider;
   observabilityOptions?: ObservabilityOptions;
+  // Process lifecycle. When present:
+  //   - GET /health/ready reflects lifecycle.state() (200 ready / 503 else)
+  //   - eventDispatcher.stop() is auto-registered as a shutdown hook, so
+  //     lifecycle.drain() tears the poller down without the caller wiring it
+  // Production main.ts passes `createLifecycle()`; tests that don't care
+  // about drain() orchestration omit this and /health/ready stays absent.
+  lifecycle?: Lifecycle;
 };
 
 export type KumikoServer = {
@@ -95,6 +103,9 @@ export type KumikoServer = {
   // DbConnection. Caller owns the lifecycle: `.start()` in boot, `.stop()`
   // in shutdown. Tests drain via `.runOnce()` instead.
   eventDispatcher?: EventDispatcher;
+  // Echoed back so the caller has a single handle for both the app and the
+  // lifecycle. Only set when the caller passed one in.
+  lifecycle?: Lifecycle;
 };
 
 export function buildServer(options: ServerOptions): KumikoServer {
@@ -263,6 +274,16 @@ export function buildServer(options: ServerOptions): KumikoServer {
     });
   }
 
+  // Wire the event-dispatcher shutdown into the lifecycle so the caller
+  // doesn't have to know the dispatcher exists. Hooks drain LIFO, so this
+  // runs before anything registered later by the caller (e.g. DB pool close).
+  if (options.lifecycle && eventDispatcher) {
+    const dispatcher = eventDispatcher;
+    options.lifecycle.registerShutdownHook("eventDispatcher", async () => {
+      await dispatcher.stop();
+    });
+  }
+
   const app = new Hono();
 
   const sensitiveConfig = mergeSensitiveConfig(
@@ -270,6 +291,22 @@ export function buildServer(options: ServerOptions): KumikoServer {
   );
 
   app.get(Routes.health, (c) => c.json({ status: "ok" }));
+  // Readiness probe. Absent when no lifecycle is passed — /health stays the
+  // one-liner for liveness. When lifecycle is wired, this flips to 503 as
+  // soon as drain() starts, so a load balancer can stop routing new traffic
+  // before in-flight requests even notice.
+  if (options.lifecycle) {
+    const lifecycle = options.lifecycle;
+    app.get(Routes.healthReady, (c) => {
+      const state = lifecycle.state();
+      const body = {
+        status: state === "ready" ? "ready" : "not_ready",
+        state,
+        uptimeSec: lifecycle.uptimeSec(),
+      };
+      return c.json(body, state === "ready" ? 200 : 503);
+    });
+  }
   app.use("/api/*", requestIdMiddleware());
   // Observability span wraps everything that follows (auth, routes).
   // Must come AFTER request-id (so span can carry the id) and BEFORE auth
@@ -319,6 +356,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     sseBroker,
     observability,
     ...(eventDispatcher ? { eventDispatcher } : {}),
+    ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
   };
 }
 

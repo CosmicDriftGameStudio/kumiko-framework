@@ -3,6 +3,7 @@
 
 export const Routes = {
   health: "/health",
+  healthReady: "/health/ready",
   write: "/write",
   batch: "/batch",
   query: "/query",
@@ -20,6 +21,7 @@ export const Routes = {
 export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authLogin}`,
   `/api${Routes.health}`,
+  `/api${Routes.healthReady}`,
 ]);
 
 export type Route = (typeof Routes)[keyof typeof Routes];
