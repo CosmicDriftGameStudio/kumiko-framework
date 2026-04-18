@@ -7,6 +7,7 @@ import type {
   FilesFieldDef,
   ImageFieldDef,
   ImagesFieldDef,
+  LocatedTimestampFieldDef,
   MoneyFieldDef,
   NumberFieldDef,
   SelectFieldDef,
@@ -114,6 +115,50 @@ export function createTzField(overrides?: Partial<Omit<TzFieldDef, "type">>): Tz
 }
 
 /**
+ * Wall-Clock-Termin an einem Ort als ATOMARES Field. Empfohlene Form für
+ * jeden Date-Wert mit Location-Bezug (Pickup, Delivery, Meeting, Schedule).
+ *
+ * EIN Schema-Feld → ZWEI DB-Spalten (`<name>_utc TIMESTAMPTZ` + `<name>_tz TEXT`)
+ * → DREI API-Felder beim Read (`{ at, tz, utc }`).
+ *
+ * ```ts
+ * r.entity("order", {
+ *   fields: {
+ *     pickup: createLocatedTimestampField(),
+ *     delivery: createLocatedTimestampField(),
+ *   },
+ * });
+ *
+ * // Write — Caller schickt at+tz, Framework rechnet utc aus
+ * await create({ pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" } });
+ *
+ * // Read — Framework liefert alle drei Felder zurück
+ * // → { pickup: { at: "10:00", tz: "Europe/Lisbon", utc: "09:00Z" } }
+ *
+ * // Sort/Filter über die UTC-Spalte
+ * orderBy(asc(orderTable.pickupUtc))
+ * where(between(orderTable.pickupUtc, start, end))
+ * ```
+ *
+ * Default-Sicht für `at` ist Pickup-Ort-lokal (was eingegeben wurde, kommt
+ * mit demselben Tag zurück). User-lokale Sicht kommt aus `utc` per
+ * separater Berechnung.
+ */
+export function createLocatedTimestampField(
+  overrides?: Partial<Omit<LocatedTimestampFieldDef, "type">>,
+): LocatedTimestampFieldDef {
+  return {
+    type: "locatedTimestamp",
+    required: false,
+    ...overrides,
+  };
+}
+
+/**
+ * @deprecated Verwende stattdessen `createLocatedTimestampField()` —
+ * EIN Field-Type statt zwei lose Pair-Felder. Migration: ersetze
+ * `...locatedTimestamp("pickup")` durch `pickup: createLocatedTimestampField()`.
+ *
  * Wall-Clock-Termin an einem Ort — Helper der ZWEI verbundene Felder
  * erzeugt. Bevorzugte Form für jeden Date-Wert mit Location-Bezug
  * (Pickup, Delivery, Meeting, Schedule).

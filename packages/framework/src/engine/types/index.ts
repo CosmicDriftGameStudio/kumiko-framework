@@ -58,6 +58,7 @@ export type {
   FilesFieldDef,
   ImageFieldDef,
   ImagesFieldDef,
+  LocatedTimestampFieldDef,
   MoneyFieldDef,
   NumberFieldDef,
   SelectFieldDef,

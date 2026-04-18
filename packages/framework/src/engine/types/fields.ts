@@ -148,6 +148,31 @@ export type TzFieldDef = {
   readonly access?: FieldAccess;
 };
 
+// Wall-Clock-Termin an einem Ort als ATOMARES Konzept.
+// EIN Feld in der Schema-Definition, ZWEI Spalten in der DB
+// (`<name>_utc TIMESTAMPTZ` + `<name>_tz TEXT`), DREI Felder im API-Object
+// ({ at, tz, utc }). Drizzle-Wrapper macht die Konvertierung transparent —
+// Feature-Code sieht das 3-Felder-Object beim Read und schreibt
+// { at, tz } beim Insert (utc wird berechnet).
+//
+// API-Form:
+//   Write: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" }
+//   Read:  { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon", utc: "2026-04-15T09:00:00Z" }
+//
+// Default-Sicht für `at`: Wall-Clock am Ort (`tz`). Wer User-lokale Sicht
+// will, projeziert `utc` separat per ctx.tz.fromInstantInZone(utc, userTz).
+//
+// Ersetzt das alte `locatedTimestamp(name)` Helper-Pattern (zwei separate
+// Pair-Felder). Sauberer Single-Field-Typ + Auto-Convert-Logik.
+//
+// Siehe docs/plans/architecture/timezones.md.
+export type LocatedTimestampFieldDef = {
+  readonly type: "locatedTimestamp";
+  readonly required?: boolean;
+  readonly sensitive?: boolean;
+  readonly access?: FieldAccess;
+};
+
 export type FileFieldDef = {
   readonly type: "file";
   readonly maxSize?: string;
@@ -190,6 +215,7 @@ export type FieldDefinition =
   | DateFieldDef
   | TimestampFieldDef
   | TzFieldDef
+  | LocatedTimestampFieldDef
   | FileFieldDef
   | ImageFieldDef
   | FilesFieldDef
