@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import type { Lifecycle } from "../lifecycle";
 import { createLifecycle } from "../lifecycle";
 import { attachSignalHandlers } from "../signal-handlers";
 
@@ -14,10 +15,77 @@ describe("attachSignalHandlers", () => {
     const handle = attachSignalHandlers(lc, { exit, timeoutMs: 50 });
     try {
       process.emit("SIGTERM");
-      // Drain is async; wait for the state to settle.
       await waitFor(() => lc.state() === "stopped");
       expect(hookCalls).toEqual(["SIGTERM"]);
       expect(exit).toHaveBeenCalledWith(0);
+    } finally {
+      handle.detach();
+    }
+  });
+
+  test("SIGINT path drains with the right signal label", async () => {
+    const lc = createLifecycle({ startReady: true });
+    const exit = vi.fn();
+    const seen: string[] = [];
+    lc.registerShutdownHook("spy", async (signal) => {
+      seen.push(signal);
+    });
+
+    const handle = attachSignalHandlers(lc, { exit, timeoutMs: 50, signals: ["SIGINT"] });
+    try {
+      process.emit("SIGINT");
+      await waitFor(() => lc.state() === "stopped");
+      expect(seen).toEqual(["SIGINT"]);
+      expect(exit).toHaveBeenCalledWith(0);
+    } finally {
+      handle.detach();
+    }
+  });
+
+  test("multiple SIGTERMs still call exit exactly once", async () => {
+    const lc = createLifecycle({ startReady: true });
+    const exit = vi.fn();
+    // Slow hook so we can fire additional signals while drain is in-flight.
+    lc.registerShutdownHook("slow", async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+
+    const handle = attachSignalHandlers(lc, { exit, timeoutMs: 500 });
+    try {
+      process.emit("SIGTERM");
+      process.emit("SIGTERM");
+      process.emit("SIGTERM");
+      await waitFor(() => lc.state() === "stopped");
+      // Without the exitScheduled guard this would be 3 — the `.then` chains
+      // would each fire exit(0) independently.
+      expect(exit).toHaveBeenCalledTimes(1);
+      expect(exit).toHaveBeenCalledWith(0);
+    } finally {
+      handle.detach();
+    }
+  });
+
+  test("exit(1) is called when drain rejects", async () => {
+    // Our real lifecycle swallows hook errors internally so drain() always
+    // resolves. Mock a drain that rejects to cover the .catch branch —
+    // defensive code still needs a test or it rots.
+    const brokenLifecycle: Lifecycle = {
+      state: () => "ready",
+      uptimeSec: () => 0,
+      markReady: () => {},
+      onStateChange: () => () => {},
+      registerShutdownHook: () => {},
+      hookNames: () => [],
+      drain: async () => {
+        throw new Error("drain itself exploded");
+      },
+    };
+    const exit = vi.fn();
+    const handle = attachSignalHandlers(brokenLifecycle, { exit, signals: ["SIGTERM"] });
+    try {
+      process.emit("SIGTERM");
+      await waitFor(() => exit.mock.calls.length > 0);
+      expect(exit).toHaveBeenCalledWith(1);
     } finally {
       handle.detach();
     }

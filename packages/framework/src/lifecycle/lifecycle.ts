@@ -1,18 +1,5 @@
-// Process lifecycle manager: 4-state machine + LIFO shutdown hooks + drain
-// with force-timeout. Designed to be injected into buildServer; tests can
-// drain() directly without signal plumbing.
-//
-// Scope v1 — what this file owns:
-//   - State machine (starting → ready → draining → stopped), strictly forward
-//   - Shutdown-hook registry, drained in LIFO order
-//   - drain() with a gesamt-timeout that force-transitions to `stopped`
-//   - onStateChange subscribers with unsubscribe
-//
-// Out of scope v1 (see architecture/lifecycle.md for the full picture):
-//   - Startup-phase system with per-phase timeouts/retries
-//   - Heartbeat + leader-election
-//   - Readiness-check registry beyond raw state
-//   - Signal-handler wiring (separate `attachSignalHandlers` helper)
+// Process lifecycle: 4-state machine + LIFO shutdown hooks.
+// Signal wiring lives in signal-handlers.ts; v1 scope in architecture/lifecycle.md.
 
 export type LifecycleState = "starting" | "ready" | "draining" | "stopped";
 
@@ -26,6 +13,10 @@ export interface Lifecycle {
   markReady(): void;
   onStateChange(cb: StateChangeListener): () => void;
   registerShutdownHook(name: string, fn: ShutdownHookFn): void;
+  // Introspection: which hooks are registered, in registration order (drain
+  // runs them reversed). Used by ops + integration tests to verify that
+  // auto-wired hooks (e.g. eventDispatcher.stop) actually landed.
+  hookNames(): readonly string[];
   drain(opts?: { signal?: string; timeoutMs?: number }): Promise<void>;
 }
 
@@ -33,7 +24,7 @@ export type LifecycleOptions = {
   // Start directly in "ready" state. Useful for tests that don't want to
   // orchestrate a full startup sequence.
   readonly startReady?: boolean;
-  // Injectable clock for deterministic uptimeSec assertions.
+  /** @internal Test-only clock injection for deterministic uptimeSec assertions. */
   readonly now?: () => number;
 };
 
@@ -57,9 +48,10 @@ export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
     for (const cb of listeners) {
       try {
         cb(from, to);
-      } catch {
-        // A broken listener must not tear the state machine down. We swallow
-        // here; the listener is responsible for its own error reporting.
+      } catch (err) {
+        // A broken listener must not tear the state machine down, but swallowing
+        // silently hides bugs from ops. Log and move on.
+        console.error(`[lifecycle] onStateChange listener threw during ${from}→${to}:`, err);
       }
     }
   }
@@ -76,10 +68,11 @@ export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
         if (!hook) continue;
         try {
           await hook.fn(signal);
-        } catch {
-          // Hook failure is isolated: one broken hook must not block the
-          // others. Consumers that need error surfacing should observe via
-          // their own logger inside the hook.
+        } catch (err) {
+          // Isolated failure: one broken hook must not block the others. Log
+          // so ops can see which hook failed during shutdown — silent swallow
+          // made prod incidents invisible.
+          console.error(`[lifecycle] shutdown hook "${hook.name}" threw:`, err);
         }
       }
     };
@@ -126,6 +119,8 @@ export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
       }
       hooks.push({ name, fn });
     },
+
+    hookNames: () => hooks.map((h) => h.name),
 
     drain: async (drainOpts = {}) => {
       const signal = drainOpts.signal ?? "manual";

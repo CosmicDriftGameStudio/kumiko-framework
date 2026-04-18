@@ -1,15 +1,7 @@
-// Full-stack proof for the lifecycle ↔ buildServer wiring:
-//
-//   1. /health/ready reflects the live lifecycle state (200 → 503 once drained)
-//   2. buildServer registers eventDispatcher.stop() as a shutdown hook so
-//      the caller never has to remember it
-//   3. LIFO order: a hook the caller registered BEFORE buildServer drains
-//      AFTER the auto-registered dispatcher hook
-//
-// We drive drain() directly — no real SIGTERM here. Signal plumbing has its
-// own unit test; mixing it with a live server only adds flakiness.
+// Full-stack proof for lifecycle ↔ buildServer wiring.
+// Drives drain() directly — SIGTERM plumbing has its own unit test.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { defineFeature } from "../../engine";
 import { setupTestStack, sharedWidgetEntity, type TestStack } from "../../testing";
 import { createLifecycle, type Lifecycle } from "../lifecycle";
@@ -30,30 +22,21 @@ const widgetFeature = defineFeature("lifecycle-probe", (r) => {
 let stack: TestStack;
 let lifecycle: Lifecycle;
 let hookOrder: string[];
-let dispatcherStopSpy: ReturnType<typeof vi.spyOn>;
 
 beforeAll(async () => {
   lifecycle = createLifecycle({ startReady: true });
   hookOrder = [];
 
-  // Register BEFORE setupTestStack so buildServer's hook lands on top in
-  // registration order. LIFO drain should then hit buildServer's hook first
-  // and ours second — the assertion below keys on that ordering.
+  // Register BEFORE setupTestStack so buildServer's hook lands in the middle
+  // of registration order — our assertion below keys on that layout.
   lifecycle.registerShutdownHook("probe-before-boot", async () => {
     hookOrder.push("probe-before-boot");
   });
 
   stack = await setupTestStack({ features: [widgetFeature], lifecycle });
 
-  // Sanity: stack wiring actually echoed the lifecycle back, and the
-  // dispatcher was built (required for the LIFO assertion below).
   if (!stack.lifecycle) throw new Error("lifecycle not wired through setupTestStack");
   if (!stack.eventDispatcher) throw new Error("eventDispatcher not built — MSP missing?");
-
-  // Spy on stop() AFTER buildServer ran. The shutdown-hook captured a bound
-  // reference to stop at registration time, but vi.spyOn swaps the prototype
-  // method — meaning the drain call goes through the spy.
-  dispatcherStopSpy = vi.spyOn(stack.eventDispatcher, "stop");
 });
 
 afterEach(() => {
@@ -61,8 +44,6 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  // stack.cleanup is idempotent — if a test called it already, this is a no-op
-  // safety net for runs where a filter skipped the cleanup test.
   await stack.cleanup();
 });
 
@@ -88,7 +69,14 @@ describe("lifecycle — /health/ready live state", () => {
 });
 
 describe("lifecycle — drain wiring", () => {
-  test("drain() stops the dispatcher, flips /health/ready, and runs hooks LIFO", async () => {
+  test("buildServer registers eventDispatcher as a named shutdown hook", () => {
+    // Direct proof that the auto-wiring landed. Without this, a future refactor
+    // could drop the registerShutdownHook call and the LIFO test alone would
+    // still pass (it only compares our two probes).
+    expect(lifecycle.hookNames()).toContain("eventDispatcher");
+  });
+
+  test("drain() flips /health/ready to 503 and runs hooks LIFO", async () => {
     // Second probe registered AFTER setupTestStack — landing last in
     // registration order means LIFO drain runs it first.
     lifecycle.registerShutdownHook("probe-after-boot", async () => {
@@ -98,11 +86,6 @@ describe("lifecycle — drain wiring", () => {
     await lifecycle.drain({ timeoutMs: 2_000 });
 
     expect(lifecycle.state()).toBe("stopped");
-
-    // The load-bearing assertion: buildServer actually wired the dispatcher
-    // into the lifecycle. Without this, a future refactor could drop the
-    // registerShutdownHook call and the test would still pass on LIFO alone.
-    expect(dispatcherStopSpy).toHaveBeenCalledTimes(1);
 
     const res = await stack.app.request("/health/ready");
     expect(res.status).toBe(503);

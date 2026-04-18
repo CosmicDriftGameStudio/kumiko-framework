@@ -1,5 +1,16 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createLifecycle } from "../lifecycle";
+
+// Silence the intentional console.error calls from hook/listener failure
+// tests. A spy on each run lets us keep output clean AND assert on logging
+// where relevant.
+let errorSpy: ReturnType<typeof vi.spyOn>;
+beforeEach(() => {
+  errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+});
+afterEach(() => {
+  errorSpy.mockRestore();
+});
 
 describe("lifecycle — state machine", () => {
   test("starts in 'starting' by default", () => {
@@ -27,7 +38,7 @@ describe("lifecycle — state machine", () => {
     expect(lc.state()).toBe("ready");
   });
 
-  test("drain cannot move backwards — ready → draining → stopped, then stopped sticks", async () => {
+  test("drain runs ready → draining → stopped once, second drain is a no-op", async () => {
     const lc = createLifecycle({ startReady: true });
     const transitions: string[] = [];
     lc.onStateChange((_, to) => transitions.push(to));
@@ -38,6 +49,17 @@ describe("lifecycle — state machine", () => {
     // Second drain is a no-op — hooks must not run twice on double-SIGTERM.
     await lc.drain({ timeoutMs: 100 });
     expect(transitions).toEqual(["draining", "stopped"]);
+  });
+
+  test("markReady after drain is a no-op (state=stopped sticks)", async () => {
+    const lc = createLifecycle();
+    lc.markReady();
+    await lc.drain({ timeoutMs: 50 });
+    expect(lc.state()).toBe("stopped");
+
+    // Late markReady must not resurrect the lifecycle.
+    lc.markReady();
+    expect(lc.state()).toBe("stopped");
   });
 });
 
@@ -58,7 +80,7 @@ describe("lifecycle — shutdown hooks", () => {
     expect(calls).toEqual(["third", "second", "first"]);
   });
 
-  test("one failing hook does not block the others", async () => {
+  test("one failing hook does not block the others, and the error is logged", async () => {
     const lc = createLifecycle({ startReady: true });
     const calls: string[] = [];
     lc.registerShutdownHook("healthy-a", async () => {
@@ -73,6 +95,11 @@ describe("lifecycle — shutdown hooks", () => {
     await expect(lc.drain({ timeoutMs: 100 })).resolves.toBeUndefined();
     expect(calls).toEqual(["healthy-b", "healthy-a"]);
     expect(lc.state()).toBe("stopped");
+
+    // Logging makes the failure visible to prod-ops. Silent swallow hid bugs.
+    const loggedMsg = errorSpy.mock.calls.map((args: unknown[]) => args.join(" ")).join("\n");
+    expect(loggedMsg).toMatch(/shutdown hook "broken" threw/);
+    expect(loggedMsg).toMatch(/boom/);
   });
 
   test("registering after draining throws", async () => {
@@ -89,6 +116,14 @@ describe("lifecycle — shutdown hooks", () => {
     });
     await lc.drain({ signal: "SIGTERM", timeoutMs: 50 });
     expect(seen).toEqual(["SIGTERM"]);
+  });
+
+  test("hookNames() reflects registration order", () => {
+    const lc = createLifecycle({ startReady: true });
+    expect(lc.hookNames()).toEqual([]);
+    lc.registerShutdownHook("a", async () => {});
+    lc.registerShutdownHook("b", async () => {});
+    expect(lc.hookNames()).toEqual(["a", "b"]);
   });
 });
 
@@ -146,7 +181,7 @@ describe("lifecycle — onStateChange", () => {
     expect(cb).not.toHaveBeenCalled();
   });
 
-  test("broken listener does not break others or the state machine", () => {
+  test("broken listener does not break others, and the error is logged", () => {
     const lc = createLifecycle();
     const healthy = vi.fn();
     lc.onStateChange(() => {
@@ -156,6 +191,9 @@ describe("lifecycle — onStateChange", () => {
     lc.markReady();
     expect(lc.state()).toBe("ready");
     expect(healthy).toHaveBeenCalledTimes(1);
+
+    const loggedMsg = errorSpy.mock.calls.map((args: unknown[]) => args.join(" ")).join("\n");
+    expect(loggedMsg).toMatch(/onStateChange listener threw during starting→ready/);
   });
 });
 

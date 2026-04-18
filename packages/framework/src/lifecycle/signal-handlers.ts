@@ -28,9 +28,17 @@ export function attachSignalHandlers(
   const exitFn = opts.exit ?? ((code) => process.exit(code));
 
   const listeners = new Map<NodeJS.Signals, () => void>();
+  // Guard so double-SIGTERM doesn't call exitFn twice. drain() is already
+  // idempotent via its shared promise, but its .then/.catch chain would fire
+  // per signal otherwise.
+  let exitScheduled = false;
 
   for (const sig of signals) {
     const handler = () => {
+      // skip: exit already scheduled by a prior signal — drain() is in flight
+      // and will fire exitFn itself when it settles. Second signal is a no-op.
+      if (exitScheduled) return;
+      exitScheduled = true;
       void lifecycle
         .drain({
           signal: sig,
