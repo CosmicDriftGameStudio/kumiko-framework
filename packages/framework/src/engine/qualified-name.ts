@@ -20,6 +20,7 @@ export const QnTypes = {
   event: "event",
   channel: "channel",
   config: "config",
+  secret: "secret",
 } as const;
 
 export type BuiltinQnType = (typeof QnTypes)[keyof typeof QnTypes];

@@ -2,7 +2,7 @@ import type { ZodType, z } from "zod";
 import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
-import { isKebabSegment, qn, toKebab } from "./qualified-name";
+import { isKebabSegment, QnTypes, qn, toKebab } from "./qualified-name";
 import type {
   AccessRule,
   ConfigKeyDefinition,
@@ -410,12 +410,14 @@ export function defineFeature<TExports = undefined>(
             `Secret key names must be unique per feature.`,
         );
       }
-      // Qualified name follows the "<feature>:<shortName>" convention used
-      // everywhere else — so ops sees "billing:stripe.apiKey" in the
-      // audit/log, which is unambiguous across features.
+      // Qualified name follows the framework's "<feature>:<type>:<name>"
+      // QN convention — same pattern config / jobs / events use. toKebab
+      // handles the common input shapes ("stripe.apiKey" → "stripe-api-key")
+      // so features can declare keys in their natural style without
+      // thinking about kebab-case on every call.
       secretKeys[shortName] = {
         shortName,
-        qualifiedName: `${name}:${shortName}`,
+        qualifiedName: qn(toKebab(name), QnTypes.secret, toKebab(shortName)),
         ...options,
       };
     },
