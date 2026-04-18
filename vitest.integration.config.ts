@@ -17,6 +17,14 @@ export default defineConfig({
       MEILI_URL: "http://localhost:17700",
       MEILI_MASTER_KEY: "kumiko-dev-key",
       JWT_SECRET: "test-jwt-secret-at-least-32-characters-long",
+      // Minio (S3-kompatibel) aus docker-compose. Mitstartet durch
+      // `kumiko dev` — gleiches Muster wie Postgres/Redis/Meili, kein
+      // Env-Gating. Fehlt der Container, schlaegt der Test deutlich fehl.
+      MINIO_ENDPOINT: "http://localhost:19000",
+      MINIO_ACCESS_KEY: "kumiko",
+      MINIO_SECRET_KEY: "kumiko-dev-secret",
+      MINIO_BUCKET: "kumiko-dev",
+      MINIO_REGION: "us-east-1",
     },
     coverage: {
       provider: "v8",
