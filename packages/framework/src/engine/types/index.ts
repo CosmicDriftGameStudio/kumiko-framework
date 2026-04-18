@@ -23,6 +23,8 @@ export type {
   ConfigResolver,
   ConfigStoredRow,
   ConfigValue,
+  ConfigValueSource,
+  ConfigValueWithSource,
   JobDefinition,
   JobHandlerFn,
   JobTrigger,

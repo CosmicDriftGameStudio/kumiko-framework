@@ -49,10 +49,31 @@ type ResolveCtx = {
   readonly registry: Registry;
 };
 
+// Fires for every number-case clamp with the before/after values. Consumers
+// typically wire this into a structured logger or a metric counter:
+//   resolveConfigOrParam(ctx, handle, raw, {
+//     onClamp: ({ key, original, clamped, max }) =>
+//       ctx.logger?.warn("config.clamp", { key, original, clamped, max }),
+//   });
+// Without this hook a clamp is invisible — the caller just sees 1000 instead
+// of the 9999 they sent, and debugging becomes guesswork.
+export type ClampInfo = {
+  readonly key: string;
+  readonly original: number;
+  readonly clamped: number;
+  readonly min?: number;
+  readonly max?: number;
+};
+
+export type ResolveOptions = {
+  readonly onClamp?: (info: ClampInfo) => void;
+};
+
 export async function resolveConfigOrParam<T extends ConfigKeyType>(
   ctx: ResolveCtx,
   handle: ConfigKeyHandle<T>,
   paramValue: unknown,
+  options?: ResolveOptions,
 ): Promise<ConfigValue<T> | undefined> {
   if (paramValue === undefined || paramValue === null || paramValue === "") {
     return ctx.config(handle);
@@ -80,7 +101,20 @@ export async function resolveConfigOrParam<T extends ConfigKeyType>(
       if (Number.isNaN(parsed) || !Number.isFinite(parsed)) {
         return ctx.config(handle);
       }
-      return clampToBounds(parsed, keyDef.bounds) as ConfigValue<T>;
+      const clamped = clampToBounds(parsed, keyDef.bounds);
+      // Fire onClamp only when the value actually moved. No bounds + within
+      // bounds = silent; crossing a bound = audit event.
+      if (clamped !== parsed && options?.onClamp) {
+        const info: ClampInfo = {
+          key: handle.name,
+          original: parsed,
+          clamped,
+          ...(keyDef.bounds?.min !== undefined && { min: keyDef.bounds.min }),
+          ...(keyDef.bounds?.max !== undefined && { max: keyDef.bounds.max }),
+        };
+        options.onClamp(info);
+      }
+      return clamped as ConfigValue<T>;
     }
 
     case "boolean": {

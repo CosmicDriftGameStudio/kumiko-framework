@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { createTenantConfig, createUserConfig } from "../config-helpers";
-import { resolveConfigOrParam } from "../resolve-config-or-param";
+import { type ClampInfo, resolveConfigOrParam } from "../resolve-config-or-param";
 import type {
   ConfigAccessor,
   ConfigKeyDefinition,
@@ -238,5 +238,83 @@ describe("resolveConfigOrParam — edge cases", () => {
     configFn.mockResolvedValue(42 as never);
     expect(await resolveConfigOrParam(ctx, handleFor("missing", "number"), 999)).toBe(42);
     expect(configFn).toHaveBeenCalled();
+  });
+});
+
+describe("resolveConfigOrParam — onClamp audit hook", () => {
+  const boundedDef = createTenantConfig("number", {
+    default: 10,
+    bounds: { min: 1, max: 100 },
+    allowPerRequest: true,
+  });
+
+  test("onClamp fires when value is clamped down to max", async () => {
+    const { ctx } = makeCtx({ k: { def: boundedDef, fallback: 10 } });
+    const clamps: ClampInfo[] = [];
+    const result = await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999, {
+      onClamp: (info) => clamps.push(info),
+    });
+    expect(result).toBe(100);
+    expect(clamps).toHaveLength(1);
+    expect(clamps[0]).toMatchObject({
+      key: "k",
+      original: 9999,
+      clamped: 100,
+      min: 1,
+      max: 100,
+    });
+  });
+
+  test("onClamp fires when value is clamped up to min", async () => {
+    const { ctx } = makeCtx({ k: { def: boundedDef, fallback: 10 } });
+    const clamps: ClampInfo[] = [];
+    await resolveConfigOrParam(ctx, handleFor("k", "number"), -5, {
+      onClamp: (info) => clamps.push(info),
+    });
+    expect(clamps[0]).toMatchObject({ original: -5, clamped: 1 });
+  });
+
+  test("onClamp does NOT fire when value is within bounds", async () => {
+    const { ctx } = makeCtx({ k: { def: boundedDef, fallback: 10 } });
+    const onClamp = vi.fn();
+    await resolveConfigOrParam(ctx, handleFor("k", "number"), 50, { onClamp });
+    expect(onClamp).not.toHaveBeenCalled();
+  });
+
+  test("onClamp does NOT fire on exact boundary values", async () => {
+    const { ctx } = makeCtx({ k: { def: boundedDef, fallback: 10 } });
+    const onClamp = vi.fn();
+    await resolveConfigOrParam(ctx, handleFor("k", "number"), 1, { onClamp });
+    await resolveConfigOrParam(ctx, handleFor("k", "number"), 100, { onClamp });
+    expect(onClamp).not.toHaveBeenCalled();
+  });
+
+  test("onClamp does NOT fire when value is coerced to NaN (no clamp happens, config fallback used)", async () => {
+    const { ctx } = makeCtx({ k: { def: boundedDef, fallback: 10 } });
+    const onClamp = vi.fn();
+    await resolveConfigOrParam(ctx, handleFor("k", "number"), "abc", { onClamp });
+    expect(onClamp).not.toHaveBeenCalled();
+  });
+
+  test("absent options → no callback infrastructure, still works (backward-compat with callers pre-audit)", async () => {
+    const { ctx } = makeCtx({ k: { def: boundedDef, fallback: 10 } });
+    // Three variants: no 4th arg, empty options, options without onClamp.
+    expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999)).toBe(100);
+    expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999, {})).toBe(100);
+    expect(
+      await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999, { onClamp: undefined }),
+    ).toBe(100);
+  });
+
+  test("clamp info omits min when bounds has only max (and vice versa)", async () => {
+    // Spread on factory def to get a max-only bounds.
+    const maxOnly: KeyEntry = { ...boundedDef, bounds: { max: 100 } };
+    const { ctx } = makeCtx({ k: { def: maxOnly, fallback: 10 } });
+    const clamps: ClampInfo[] = [];
+    await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999, {
+      onClamp: (info) => clamps.push(info),
+    });
+    expect(clamps[0]).toMatchObject({ clamped: 100, max: 100 });
+    expect(clamps[0]).not.toHaveProperty("min");
   });
 });

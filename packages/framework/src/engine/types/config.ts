@@ -118,6 +118,24 @@ export type ConfigStoredRow = {
   readonly userId: string | null;
 };
 
+// Which layer of the cascade actually produced a value. Emitted only by
+// `getWithSource` — regular `get` hides this to keep the hot-path simple.
+// Use-case: Ops-debugging ("warum ist mein Wert 50 und nicht 100?") without
+// poking through six scope-row-lookups by hand.
+export type ConfigValueSource =
+  | "user-row" // user-scoped row (only for scope:user keys)
+  | "tenant-row" // tenant-scoped row
+  | "system-row" // system-scoped row (null tenantId + null userId)
+  | "app-override" // from createConfigResolver({ appOverrides })
+  | "computed" // computed resolver in the key declaration
+  | "default" // keyDef.default
+  | "missing"; // no row, no override, no computed, no default
+
+export type ConfigValueWithSource = {
+  readonly value: string | number | boolean | undefined;
+  readonly source: ConfigValueSource;
+};
+
 // Minimal contract handlers (set/reset/values.query) call against the
 // resolver. Lives in the framework so SharedContextFields.configResolver
 // can drop the `unknown` cast — the concrete implementation in
@@ -130,6 +148,19 @@ export type ConfigResolver = {
     userId: string,
     db: DbConnection | TenantDb,
   ): Promise<string | number | boolean | undefined>;
+
+  // Same cascade as get() but also reports which layer produced the value.
+  // Intended for Ops/Support tooling — never call this from hot-path
+  // handlers (it builds the source tag even when the caller doesn't look
+  // at it). Row-lookup count is identical to get(); the extra work is a
+  // small branch tag.
+  getWithSource(
+    qualifiedKey: string,
+    keyDef: ConfigKeyDefinition,
+    tenantId: TenantId,
+    userId: string,
+    db: DbConnection | TenantDb,
+  ): Promise<ConfigValueWithSource>;
 
   set(
     qualifiedKey: string,
