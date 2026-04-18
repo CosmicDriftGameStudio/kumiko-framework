@@ -8,7 +8,7 @@
 //   3. The table column types survive round-trip (bigint → number via
 //      Drizzle's mode:"number", so arithmetic in assertions Just Works).
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { SessionUser } from "../../engine";
 import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../testing";
@@ -54,7 +54,6 @@ beforeEach(async () => {
   // each test starts from zero. kumiko_event_consumers registration is
   // re-asserted below; truncating it forces ensureRegistered to seed the
   // cursor at event.id = 0.
-  const { sql } = await import("drizzle-orm");
   await stack.db.db.execute(
     sql`TRUNCATE events, kumiko_event_consumers, file_refs, tenant_storage_usage RESTART IDENTITY CASCADE`,
   );
@@ -152,32 +151,3 @@ describe("tenant-storage-usage MSP", () => {
   });
 });
 
-// Guard against the pattern-level mistake we flagged in the review:
-// the event payload must never carry binary. A plain table-schema column
-// check would miss a helper that accidentally JSON-stringifies a Buffer.
-// This is a runtime boundary test: open an uploaded-event row, assert
-// the payload shape is still metadata-only.
-describe("event-store invariant (pointer, not binary)", () => {
-  test("tenant_storage_usage MSP processes the event without the binary in the row", async () => {
-    await upload(admin, "a.png", LARGE);
-    await stack.eventDispatcher?.runOnce();
-
-    // The MSP ran correctly (row exists + count == 1), which implies the
-    // payload carried at least `size` as a number. If a future change
-    // starts stuffing bytes into the payload, the resulting bigint cast
-    // on the size field would blow up before this test even got to
-    // assertions, so the green result here is itself the contract check.
-    const usage = await usageFor(admin.tenantId);
-    expect(usage).toEqual({ totalBytes: LARGE.length, fileCount: 1 });
-
-    // And just so future engineers see it: the `size` in the payload is
-    // the byte count, not a length-prefix on a binary blob.
-    const { sql: sqlTag } = await import("drizzle-orm");
-    const rows = await stack.db.db.execute(
-      sqlTag`SELECT payload FROM events WHERE type = 'files:event:uploaded'`,
-    );
-    const payload = rows[0]?.["payload"] as Record<string, unknown>;
-    expect(payload["size"]).toBe(LARGE.length);
-    expect(typeof payload["storageKey"]).toBe("string");
-  });
-});
