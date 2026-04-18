@@ -6,8 +6,9 @@ export type {
   FileAccessGuard,
   FileRef,
   FileRoutesOptions,
+  FileUploadedPayload,
 } from "./file-routes";
-export { createFileRoutes } from "./file-routes";
+export { createFileRoutes, FILE_UPLOADED_EVENT_TYPE } from "./file-routes";
 export type { InMemoryFileProvider } from "./in-memory-provider";
 export { createInMemoryFileProvider } from "./in-memory-provider";
 export { createLocalProvider } from "./local-provider";

@@ -13,6 +13,7 @@ import {
   defineFeature,
   type SessionUser,
 } from "../../engine";
+import { createEventsTable, loadAggregate } from "../../event-store";
 import {
   createEntityTable,
   createTestDb,
@@ -23,9 +24,14 @@ import {
   TestUsers,
 } from "../../testing";
 import { fileRefsTable } from "../file-ref-table";
-import type { FileRoutesOptions } from "../file-routes";
+import { FILE_UPLOADED_EVENT_TYPE, type FileRoutesOptions } from "../file-routes";
 import { createLocalProvider } from "../local-provider";
 import { parseMaxSize, validateFile } from "../types";
+
+// UUID for "this row doesn't exist" assertions. Valid v4 format so PG accepts
+// the query — the row just isn't there. Pre-v1 files-feature tests used
+// `99999` which Postgres now rejects with an invalid-uuid error.
+const NONEXISTENT_UUID = "00000000-0000-4000-8000-999999999999";
 
 // --- Setup ---
 
@@ -58,6 +64,9 @@ beforeAll(async () => {
   // Create tables
   await pushTables(testDb.db, { fileRefsTable });
   await createEntityTable(testDb.db, testTenantEntity);
+  // Event-store table: the upload route appends files:event:uploaded in the
+  // same tx as the FileRef insert. Without events, upload would 500.
+  await createEventsTable(testDb.db);
 
   const registry = createRegistry([tenantFeature]);
   const storageProvider = createLocalProvider(storagePath);
@@ -101,7 +110,7 @@ async function uploadFile(
   });
 }
 
-async function getFile(user: SessionUser, fileId: number): Promise<Response> {
+async function getFile(user: SessionUser, fileId: string): Promise<Response> {
   const token = await jwt.sign(user);
   return app.request(`/api/files/${fileId}`, {
     method: "GET",
@@ -109,7 +118,7 @@ async function getFile(user: SessionUser, fileId: number): Promise<Response> {
   });
 }
 
-async function getFileMeta(user: SessionUser, fileId: number): Promise<Response> {
+async function getFileMeta(user: SessionUser, fileId: string): Promise<Response> {
   const token = await jwt.sign(user);
   return app.request(`/api/files/${fileId}/meta`, {
     method: "GET",
@@ -117,7 +126,7 @@ async function getFileMeta(user: SessionUser, fileId: number): Promise<Response>
   });
 }
 
-async function deleteFile(user: SessionUser, fileId: number): Promise<Response> {
+async function deleteFile(user: SessionUser, fileId: string): Promise<Response> {
   const token = await jwt.sign(user);
   return app.request(`/api/files/${fileId}`, {
     method: "DELETE",
@@ -184,7 +193,7 @@ describe("file validation", () => {
 // --- Integration: Upload → Download → Delete via real HTTP API ---
 
 describe("file upload flow via API", () => {
-  let uploadedFileId: number;
+  let uploadedFileId: string;
 
   // Create a small PNG-like test file
   const testPngContent = new Uint8Array([
@@ -226,6 +235,29 @@ describe("file upload flow via API", () => {
     const downloaded = new Uint8Array(await res.arrayBuffer());
     expect(downloaded.length).toBe(testPngContent.length);
     expect(downloaded[0]).toBe(0x89); // PNG magic byte
+  });
+
+  test("upload appends files:event:uploaded to the fileRef stream", async () => {
+    // Load the full event stream for the just-uploaded FileRef. Phase 1
+    // guarantees exactly one event per upload — "uploaded" at version 1.
+    const events = await loadAggregate(testDb.db, uploadedFileId, adminUser.tenantId);
+
+    expect(events).toHaveLength(1);
+    const event = events[0];
+    expect(event?.type).toBe(FILE_UPLOADED_EVENT_TYPE);
+    expect(event?.version).toBe(1);
+
+    const payload = event?.payload as Record<string, unknown>;
+    expect(payload["fileRefId"]).toBe(uploadedFileId);
+    expect(payload["fileName"]).toBe("logo.png");
+    expect(payload["mimeType"]).toBe("image/png");
+    expect(payload["size"]).toBe(testPngContent.length);
+    expect(payload["entityType"]).toBe("tenant");
+    expect(payload["fieldName"]).toBe("logo");
+    // The binary never hits the event — payload carries a pointer only.
+    expect(payload["data"]).toBeUndefined();
+    expect(payload["binary"]).toBeUndefined();
+    expect(typeof payload["storageKey"]).toBe("string");
   });
 
   test("get file metadata", async () => {
@@ -347,7 +379,7 @@ describe("custom file access guard", () => {
       app: Hono;
       jwt: JwtHelper;
       upload: (user: SessionUser, name: string) => Promise<Response>;
-      request: (user: SessionUser, fileId: number, init?: RequestInit) => Promise<Response>;
+      request: (user: SessionUser, fileId: string, init?: RequestInit) => Promise<Response>;
     }) => Promise<void>,
   ): Promise<void> {
     const isolatedDb = await createTestDb();
@@ -377,7 +409,7 @@ describe("custom file access guard", () => {
           body: fd,
         });
       };
-      const request = async (user: SessionUser, fileId: number, init: RequestInit = {}) => {
+      const request = async (user: SessionUser, fileId: string, init: RequestInit = {}) => {
         const token = await isolatedServer.jwt.sign(user);
         return isolatedServer.app.request(`/api/files/${fileId}`, {
           ...init,
@@ -508,12 +540,12 @@ describe("error handling", () => {
   });
 
   test("download non-existent file returns 404", async () => {
-    const res = await getFile(adminUser, 99999);
+    const res = await getFile(adminUser, NONEXISTENT_UUID);
     expect(res.status).toBe(404);
   });
 
   test("delete non-existent file returns 404", async () => {
-    const res = await deleteFile(adminUser, 99999);
+    const res = await deleteFile(adminUser, NONEXISTENT_UUID);
     expect(res.status).toBe(404);
   });
 

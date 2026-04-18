@@ -4,6 +4,7 @@ import { v4 as uuid } from "uuid";
 import { getUser } from "../api/auth-middleware";
 import type { DbConnection } from "../db/connection";
 import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
+import { append as appendEvent } from "../event-store/event-store";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileStorageProvider } from "./types";
 import { buildStorageKey, validateFile } from "./types";
@@ -13,7 +14,7 @@ import { buildStorageKey, validateFile } from "./types";
 export type FileAccessDecision = "allow" | "deny";
 
 export type FileRef = {
-  id: number;
+  id: string;
   tenantId: TenantId;
   storageKey: string;
   fileName: string;
@@ -23,6 +24,25 @@ export type FileRef = {
   entityId: string | null;
   fieldName: string | null;
   insertedById: string | null;
+};
+
+// Event type emitted after a successful upload. Downstream hooks/handlers
+// subscribe via r.hook("postSave", "fileRef", …) or an r.multiStreamProjection
+// listening on this type. The payload carries metadata + the storage key —
+// never the binary itself. Handlers that need the bytes call
+// `ctx.files.ref(payload.storageKey).read()`.
+export const FILE_UPLOADED_EVENT_TYPE = "files:event:uploaded";
+
+export type FileUploadedPayload = {
+  readonly fileRefId: string;
+  readonly storageKey: string;
+  readonly fileName: string;
+  readonly mimeType: string;
+  readonly size: number;
+  readonly entityType: string | null;
+  readonly entityId: string | null;
+  readonly fieldName: string | null;
+  readonly insertedById: string;
 };
 
 // Checks whether `user` may read/delete the given file. The default guard
@@ -109,6 +129,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json({ error: validationError }, 400);
     }
 
+    const fileRefId = uuid();
     const storageKey = buildStorageKey(
       user.tenantId,
       entityType ?? "unattached",
@@ -118,12 +139,20 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       uuid(),
     );
 
+    // Write binary FIRST (outside the tx — network/disk I/O doesn't belong
+    // inside a PG connection's tx window). On DB-tx rollback below the bytes
+    // are orphaned in the provider; cleanup-jobs sweep those later. Losing a
+    // row on append-failure is acceptable; corrupting a committed row with a
+    // missing binary is not.
     const data = new Uint8Array(await file.arrayBuffer());
     await storageProvider.write(storageKey, data, file.type);
 
-    const [row] = await db
-      .insert(fileRefsTable)
-      .values({
+    // Atomic: insert FileRef + append files:event:uploaded in one tx. Either
+    // both land or neither — no dangling FileRef without event, no event
+    // referencing a row that doesn't exist.
+    await db.transaction(async (tx) => {
+      await tx.insert(fileRefsTable).values({
+        id: fileRefId,
         tenantId: user.tenantId,
         storageKey,
         fileName: file.name,
@@ -133,16 +162,33 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         entityId: entityId ?? null,
         fieldName: fieldName ?? null,
         insertedById: user.id,
-      })
-      .returning();
+      });
 
-    if (!row) {
-      return c.json({ error: "insert_failed" }, 500);
-    }
+      const payload: FileUploadedPayload = {
+        fileRefId,
+        storageKey,
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        entityType: entityType ?? null,
+        entityId: entityId ?? null,
+        fieldName: fieldName ?? null,
+        insertedById: user.id,
+      };
+      await appendEvent(tx, {
+        aggregateId: fileRefId,
+        aggregateType: "fileRef",
+        tenantId: user.tenantId,
+        expectedVersion: 0,
+        type: FILE_UPLOADED_EVENT_TYPE,
+        payload: payload as unknown as Record<string, unknown>,
+        metadata: { userId: user.id },
+      });
+    });
 
     return c.json(
       {
-        id: (row as FileRef).id,
+        id: fileRefId,
         fileName: file.name,
         mimeType: file.type,
         size: file.size,
@@ -161,7 +207,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   //      Apps override via options.accessGuard to layer entity-level rules.
   api.get("/files/:id", async (c) => {
     const user = getUser(c);
-    const id = Number(c.req.param("id"));
+    const id = c.req.param("id");
     const fileRef = await loadFileForTenant(id, user.tenantId);
     if (!fileRef) return c.json({ error: "not_found" }, 404);
 
@@ -186,7 +232,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // read vs delete in their custom guard (e.g. only uploaders delete).
   api.delete("/files/:id", async (c) => {
     const user = getUser(c);
-    const id = Number(c.req.param("id"));
+    const id = c.req.param("id");
     const fileRef = await loadFileForTenant(id, user.tenantId);
     if (!fileRef) return c.json({ error: "not_found" }, 404);
 
@@ -202,7 +248,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // download (meta leaks fileName/mimeType/size).
   api.get("/files/:id/meta", async (c) => {
     const user = getUser(c);
-    const id = Number(c.req.param("id"));
+    const id = c.req.param("id");
     const fileRef = await loadFileForTenant(id, user.tenantId);
     if (!fileRef) return c.json({ error: "not_found" }, 404);
 
@@ -220,7 +266,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     });
   });
 
-  async function loadFileForTenant(id: number, tenantId: TenantId): Promise<FileRef | null> {
+  async function loadFileForTenant(id: string, tenantId: TenantId): Promise<FileRef | null> {
     const [row] = await db
       .select()
       .from(fileRefsTable)

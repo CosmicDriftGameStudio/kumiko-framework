@@ -1,7 +1,11 @@
-import { integer, table as pgTable, serial, text, timestamp, uuid } from "../db/dialect";
+import { integer, table as pgTable, text, timestamp, uuid } from "../db/dialect";
 
+// `id` is a UUID (not serial): it doubles as the aggregate-id for the
+// `fileRef` event stream — every upload appends exactly one
+// `files:event:uploaded` event keyed by this id. UUIDs also close the
+// enumeration-attack vector on /files/:id URLs.
 export const fileRefsTable = pgTable("file_refs", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
   storageKey: text("storage_key").notNull(),
   fileName: text("file_name").notNull(),
