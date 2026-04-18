@@ -64,7 +64,22 @@ function fieldToColumns(
       // gesetzt ist, ist der gespeicherte Wert der UTC-Moment des
       // Wall-Clock+TZ-Pairs (Konvertierung kommt im DB-Wrapper-Schritt;
       // hier nur die Spalten-Definition).
-      return { [name]: timestamp(snakeName, { withTimezone: true }) };
+      //
+      // mode: "string" — wir nehmen ISO-Strings rein/raus, kein JS-Date.
+      // Das passt zur Temporal-Welt (Temporal.Instant.toString() = ISO,
+      // ZonedDateTime → toLocatedJson({ at: ISO, tz })) und vermeidet
+      // Drizzles JS-Date-Default der `value.toISOString()` aufruft.
+      //
+      // Cast: PgTimestampStringBuilder hat ein anderes Default-Generic
+      // (data: string statt data: Date) als der Framework-übergreifende
+      // `ColumnBuilder`-Alias. Wire-Format kompatibel — die Build-Time-
+      // Generic-Differenz hat keine Runtime-Auswirkung.
+      return {
+        [name]: timestamp(snakeName, {
+          withTimezone: true,
+          mode: "string",
+        }) as unknown as ColumnBuilder,
+      };
     case "tz":
       // IANA-Zonenname als TEXT — Validierung über Zod-Schema (kommt im
       // Validator-Schritt). Snake-Convention: `pickup_tz`.
