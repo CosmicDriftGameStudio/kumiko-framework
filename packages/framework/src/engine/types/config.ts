@@ -30,6 +30,17 @@ export type ConfigValue<T extends ConfigKeyType> = T extends "number"
       ? string
       : never;
 
+// Bounds for numeric config keys. Enforced as hard-reject (not silent-clamp)
+// in set.write.ts: a tenant-admin setting a value outside [min, max] gets a
+// 400 "out_of_bounds" — silent clamping would be a UX trap ("I entered 9999,
+// it saved as 1000, why?"). Per-Request helpers MAY clamp — that's a
+// different call site where the caller often can't control the exact value.
+// Only meaningful for type="number"; boot-validator rejects on other types.
+export type ConfigBounds = {
+  readonly min?: number;
+  readonly max?: number;
+};
+
 export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly type: T;
   readonly default?: ConfigValue<T>;
@@ -37,6 +48,7 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly access: ConfigKeyAccess;
   readonly encrypted?: boolean;
   readonly options?: readonly string[];
+  readonly bounds?: ConfigBounds;
 };
 
 export type ConfigDefinition = {

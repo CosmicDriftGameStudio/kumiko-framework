@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { validateBoot } from "../boot-validator";
+import { createSystemConfig, createTenantConfig } from "../config-helpers";
 import { createEntity, createTextField, defineFeature } from "../index";
 
 describe("boot-validator", () => {
@@ -332,5 +333,119 @@ describe("boot-validator", () => {
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  describe("config key bounds consistency", () => {
+    test("accepts number key with consistent bounds + default", () => {
+      const features = [
+        defineFeature("files", (r) => {
+          r.config({
+            keys: {
+              maxUploadMB: createTenantConfig("number", {
+                default: 10,
+                bounds: { min: 1, max: 100 },
+              }),
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("rejects min > max", () => {
+      const features = [
+        defineFeature("files", (r) => {
+          r.config({
+            keys: {
+              weird: createTenantConfig("number", { bounds: { min: 100, max: 10 } }),
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/bounds\.min.*>.*bounds\.max/i);
+    });
+
+    test("rejects default below min", () => {
+      const features = [
+        defineFeature("files", (r) => {
+          r.config({
+            keys: {
+              tooLow: createTenantConfig("number", {
+                default: 0,
+                bounds: { min: 1, max: 100 },
+              }),
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/default.*below bounds\.min/i);
+    });
+
+    test("rejects default above max", () => {
+      const features = [
+        defineFeature("files", (r) => {
+          r.config({
+            keys: {
+              tooHigh: createSystemConfig("number", {
+                default: 200,
+                bounds: { max: 100 },
+              }),
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/default.*above bounds\.max/i);
+    });
+
+    test("accepts partial bounds (only min)", () => {
+      const features = [
+        defineFeature("files", (r) => {
+          r.config({
+            keys: {
+              lowerOnly: createTenantConfig("number", {
+                default: 5,
+                bounds: { min: 1 },
+              }),
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("accepts bounds without default (bound-only key)", () => {
+      const features = [
+        defineFeature("files", (r) => {
+          r.config({
+            keys: {
+              bounded: createTenantConfig("number", { bounds: { min: 1, max: 100 } }),
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("rejects bounds on non-number key (defence in depth against hand-rolled definitions)", () => {
+      const features = [
+        defineFeature("files", (r) => {
+          // Cast needed because type-level guard rejects this at the call site.
+          // Boot validator catches the same class of bug when someone bypasses
+          // the helper (e.g. importing a plain ConfigKeyDefinition object).
+          r.config({
+            keys: {
+              textKey: {
+                type: "text",
+                scope: "tenant",
+                access: { read: ["all"], write: ["all"] },
+                bounds: { min: 1 },
+                // biome-ignore lint/suspicious/noExplicitAny: intentional type bypass for defence-in-depth test
+              } as any,
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/bounds.*only valid for type="number"/i);
+    });
   });
 });

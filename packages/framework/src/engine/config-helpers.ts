@@ -1,5 +1,5 @@
 import type { ConfigScope } from "./constants";
-import type { ConfigKeyDefinition, ConfigKeyType, ConfigValue } from "./types";
+import type { ConfigBounds, ConfigKeyDefinition, ConfigKeyType, ConfigValue } from "./types";
 
 // --- Access Presets ---
 
@@ -23,12 +23,17 @@ export const access = {
 
 // Generic so `default` narrows per type-tag — without it,
 // `createUserConfig("boolean", { default: 19 })` would compile.
+//
+// `bounds` is conditional: only `type="number"` admits it. For any other
+// type-tag the field is `never`, so `createTenantConfig("text", { bounds })`
+// fails at the call site. Matches the same pattern as `default`.
 type ConfigKeyOptions<T extends ConfigKeyType> = {
   write?: readonly string[];
   read?: readonly string[];
   default?: ConfigValue<T>;
   encrypted?: boolean;
   options?: readonly string[]; // for select type
+  bounds?: T extends "number" ? ConfigBounds : never;
 };
 
 // --- Scope Defaults ---
@@ -57,6 +62,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.default !== undefined ? { default: opts.default } : {}),
     ...(opts.encrypted ? { encrypted: true } : {}),
     ...(opts.options ? { options: opts.options } : {}),
+    ...(opts.bounds !== undefined ? { bounds: opts.bounds as ConfigBounds } : {}),
   };
 }
 

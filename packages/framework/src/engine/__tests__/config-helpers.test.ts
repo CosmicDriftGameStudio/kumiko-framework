@@ -124,3 +124,49 @@ describe("config helpers — type narrowing", () => {
     expect(wrongBool.type).toBe("boolean");
   });
 });
+
+describe("config helpers — bounds (number only)", () => {
+  test("bounds attach to the definition when provided", () => {
+    const key = createTenantConfig("number", {
+      default: 10,
+      bounds: { min: 1, max: 100 },
+    });
+    expect(key.bounds).toEqual({ min: 1, max: 100 });
+  });
+
+  test("bounds can be partial (min only)", () => {
+    const key = createTenantConfig("number", {
+      default: 10,
+      bounds: { min: 0 },
+    });
+    expect(key.bounds).toEqual({ min: 0 });
+  });
+
+  test("bounds can be partial (max only)", () => {
+    const key = createSystemConfig("number", {
+      default: 50,
+      bounds: { max: 1000 },
+    });
+    expect(key.bounds).toEqual({ max: 1000 });
+  });
+
+  test("no bounds → bounds field absent", () => {
+    const key = createTenantConfig("number", { default: 10 });
+    expect(key.bounds).toBeUndefined();
+  });
+
+  test("@ts-expect-error: bounds on non-number types is rejected", () => {
+    // @ts-expect-error — bounds only valid for "number"
+    const textKey = createTenantConfig("text", { bounds: { min: 1 } });
+    // @ts-expect-error — bounds only valid for "number"
+    const boolKey = createUserConfig("boolean", { bounds: { max: 1 } });
+    // @ts-expect-error — bounds only valid for "number"
+    const selectKey = createSystemConfig("select", {
+      options: ["a", "b"],
+      bounds: { min: 1 },
+    });
+    expect(textKey.type).toBe("text");
+    expect(boolKey.type).toBe("boolean");
+    expect(selectKey.type).toBe("select");
+  });
+});

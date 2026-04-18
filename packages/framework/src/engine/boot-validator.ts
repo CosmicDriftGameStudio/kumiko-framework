@@ -41,6 +41,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateExtendSchemaCollisions(feature);
     validateHandlerAccess(feature);
     validateLocatedTimestamps(feature);
+    validateConfigKeyBounds(feature);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
@@ -54,6 +55,47 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   }
 
   validateConfigReads(features, allConfigKeys);
+}
+
+// --- Config key bounds consistency ---
+
+function validateConfigKeyBounds(feature: FeatureDefinition): void {
+  for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
+    const bounds = keyDef.bounds;
+    // skip: no bounds declared, nothing to validate
+    if (!bounds) continue;
+
+    // Bounds on non-number keys are nonsensical — the call-site type-guard
+    // already rejects this, but catch it at boot as defence in depth (e.g.
+    // a hand-rolled key definition that bypasses createTenantConfig).
+    if (keyDef.type !== "number") {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has bounds but type is "${keyDef.type}" — bounds are only valid for type="number"`,
+      );
+    }
+
+    const { min, max } = bounds;
+
+    if (min !== undefined && max !== undefined && min > max) {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has bounds.min (${min}) > bounds.max (${max})`,
+      );
+    }
+
+    if (keyDef.default !== undefined) {
+      const defaultNum = keyDef.default as number;
+      if (min !== undefined && defaultNum < min) {
+        throw new Error(
+          `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is below bounds.min (${min})`,
+        );
+      }
+      if (max !== undefined && defaultNum > max) {
+        throw new Error(
+          `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is above bounds.max (${max})`,
+        );
+      }
+    }
+  }
 }
 
 // --- Config key cross-feature reference validation ---
