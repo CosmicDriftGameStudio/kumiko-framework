@@ -1,4 +1,5 @@
 export { assertExistsIn } from "./assert-exists-in";
+export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 export type { DbConnection, DbRow, DbRunner, DbTx } from "./connection";
 export { createDbConnection } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
@@ -9,6 +10,8 @@ export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
 export type { EventStoreExecutor, EventStoreExecutorOptions } from "./event-store-executor";
 export { createEventStoreExecutor } from "./event-store-executor";
+export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp";
+export { flattenMoney, rehydrateMoney } from "./money";
 export { seedReferenceData } from "./reference-data";
 export { fetchOne } from "./row-helpers";
 export { tableExists } from "./schema-inspection";
