@@ -107,6 +107,26 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   const tracer: Tracer = context.tracer ?? getFallbackTracer();
 
   const allJobs = registry.getAllJobs();
+
+  // Fail loud if a feature requested `concurrency: "sequential"`. The dispatch
+  // path forwards `group` to BullMQ, but `group` is a BullMQ Pro feature —
+  // OSS BullMQ silently ignores it, so the jobs would in fact run in parallel.
+  // Better to reject at boot than to ship a "sequential" mode that lies. To
+  // get strict serialisation in OSS we'd need a per-name Redis lock (SETNX +
+  // a delayed re-enqueue when busy); that's a real implementation, not a
+  // single config switch — track it as a separate task before turning this
+  // throw off.
+  const sequentialJob = [...allJobs.entries()].find(([, def]) => def.concurrency === "sequential");
+  if (sequentialJob) {
+    const [name] = sequentialJob;
+    throw new Error(
+      `[jobs] Job "${name}" requested concurrency: "sequential", but that mode is ` +
+        `not implemented in the OSS BullMQ runtime (group queues are a BullMQ Pro ` +
+        `feature). Pick "skip", "replace", "debounce", or use maxPerTenant: 1 ` +
+        `instead — those all map to OSS-supported queue semantics.`,
+    );
+  }
+
   const queue = new Queue(queueName, { connection: redisOpts });
   let worker: Worker | null = null;
 
@@ -329,10 +349,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           }
           break;
         }
-        case "sequential": {
-          bullOpts["group"] = { id: jobName };
-          break;
-        }
+        // case "sequential" is rejected at boot — see createJobRunner. Once
+        // the OSS-compatible implementation lands (per-name Redis lock),
+        // re-add the dispatch branch here.
         case "debounce": {
           const debounceMs = jobDef.debounceMs ?? 5000;
           bullOpts["debounce"] = { id: jobName, ttl: debounceMs };
