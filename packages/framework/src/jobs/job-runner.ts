@@ -12,6 +12,7 @@ import {
 import type { Logger } from "../logging/types";
 import { getFallbackTracer, type SerializedTraceContext, type Tracer } from "../observability";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
+import { RedisKeys } from "../pipeline/redis-keys";
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
@@ -119,7 +120,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   let sequentialLock: DistributedLock | null = null;
   if (hasSequential) {
     lockRedis = new Redis(redisOpts);
-    sequentialLock = createDistributedLock(lockRedis, `${queueName}:seq:`);
+    // Composite under RedisKeys.lock so all framework locks share one prefix
+    // tree — discoverable, audit-friendly, namespace-collision-free.
+    sequentialLock = createDistributedLock(lockRedis, `${RedisKeys.lock}seq:${queueName}:`);
   }
   // Default lock-TTL for sequential jobs that didn't declare a timeout.
   // 5 minutes matches BullMQ's default stalledInterval — long enough for
@@ -324,7 +327,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       }
       await queue.close();
       if (lockRedis) {
-        lockRedis.disconnect();
+        // quit() drains in-flight commands; disconnect() would cancel them
+        // and risk a half-released lock.
+        await lockRedis.quit();
         lockRedis = null;
       }
     },

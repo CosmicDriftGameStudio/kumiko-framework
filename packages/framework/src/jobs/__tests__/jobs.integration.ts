@@ -75,6 +75,18 @@ const testFeature = defineFeature("test", (r) => {
     },
   );
 
+  // Sequential variant that throws. Used to assert the lock is released in
+  // the finally-path (next dispatch must still acquire it). retries=0 so
+  // the failure doesn't replay and pollute the log.
+  r.job(
+    "sequentialFailJob",
+    { trigger: { manual: true }, concurrency: "sequential", retries: 0 },
+    async (payload) => {
+      jobLog.push({ name: "test:job:sequential-fail-job", payload, timestamp: Date.now() });
+      throw new Error("sequential boom");
+    },
+  );
+
   // maxPerTenant: cap concurrent + waiting jobs per tenant. Long sleep so
   // the dispatcher checks ALL queued counts (including waiting ones).
   r.job(
@@ -300,6 +312,70 @@ describe("concurrency: sequential", () => {
       // even though re-enqueues happen.
       expect(entries[0]?.payload).toEqual({ n: 1 });
     });
+  });
+
+  test("lock is released even when the handler throws", { timeout: 10_000 }, async () => {
+    clearLog();
+    await withRunner(async (runner) => {
+      // First dispatch fails. If the finally-path didn't release the lock,
+      // the second dispatch couldn't acquire it and would loop forever in
+      // the re-enqueue path until BullMQ gave up.
+      await runner.dispatch("test:job:sequential-fail-job", { n: 1 });
+      await waitFor(
+        () => {
+          const entries = jobLog.filter((e) => e.name === "test:job:sequential-fail-job");
+          expect(entries.length).toBeGreaterThanOrEqual(1);
+        },
+        { delays: [200, 400, 800] },
+      );
+      // Tiny grace so BullMQ marks the failed job done and our finally
+      // ran — otherwise the lock-release race could outlast the next
+      // dispatch's acquire attempt.
+      await sleep(150);
+
+      // No surviving lock for this job-name in Redis — the value-matched
+      // DEL ran in finally.
+      const surviving = await testRedis.redis.keys("kumiko:lock:seq:*sequential-fail-job");
+      expect(surviving.length).toBe(0);
+
+      // Fresh dispatch must run — proves the lock isn't blocking new
+      // arrivals after the throw.
+      await runner.dispatch("test:job:sequential-fail-job", { n: 2 });
+      await waitFor(
+        () => {
+          const entries = jobLog.filter((e) => e.name === "test:job:sequential-fail-job");
+          expect(entries.length).toBeGreaterThanOrEqual(2);
+        },
+        { delays: [200, 400, 800] },
+      );
+    });
+  });
+
+  test("lock release is value-matched: foreign tokens survive expiration races", {
+    timeout: 5_000,
+  }, async () => {
+    // Pin the contract that distributed-lock's release script enforces:
+    // a release call from a worker whose token has already expired and
+    // been claimed by someone else must NOT delete the new owner's lock.
+    // Tested at the lock layer because we can't reliably race a TTL
+    // expiration inside the job-runner inside a 5s test budget.
+    const { createDistributedLock } = await import("../../pipeline/distributed-lock");
+    const prefix = "kumiko:lock:seq:test-vmd:";
+    const lock = createDistributedLock(testRedis.redis, prefix);
+
+    const tokenA = await lock.acquire("contract-key", { ttlSeconds: 10 });
+    expect(tokenA).not.toBeNull();
+    // Forcibly take it away — simulates the TTL-expired-and-reclaimed
+    // sequence without waiting 10s.
+    await testRedis.redis.set(`${prefix}contract-key`, "different-token");
+
+    // Worker A (now stale) tries to release: must be a no-op.
+    const releasedByStale = await lock.release("contract-key", tokenA as string);
+    expect(releasedByStale).toBe(false);
+    const stillHeld = await testRedis.redis.get(`${prefix}contract-key`);
+    expect(stillHeld).toBe("different-token");
+
+    await testRedis.redis.del(`${prefix}contract-key`);
   });
 });
 
