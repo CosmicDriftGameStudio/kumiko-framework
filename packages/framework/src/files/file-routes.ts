@@ -7,6 +7,7 @@ import type { DbConnection } from "../db/connection";
 import type { EventDef } from "../engine/types";
 import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
 import { append as appendEvent } from "../event-store/event-store";
+import { buildContentDispositionHeader } from "./content-disposition";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileStorageProvider } from "./types";
 import { buildStorageKey, validateFile } from "./types";
@@ -90,42 +91,6 @@ const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
 // leaked URL (e.g. from a browser history screenshot) isn't a long-lived
 // credential. Matches the security-checklist in core-files.md.
 const SIGNED_URL_DEFAULT_EXPIRY_SECONDS = 15 * 60;
-
-// RFC-6266 + RFC-5987 compliant Content-Disposition builder.
-//
-// fileName comes from the client's multipart upload and is effectively
-// attacker-controlled. A name like `foo.pdf"; filename*=utf-8''evil.exe`
-// would break the `filename="..."` header quoting and inject a second
-// parameter if we interpolated the raw string. Two-step fix:
-//
-//   1. ASCII fallback for `filename="..."` — strip anything outside a safe
-//      token set, keeping the name readable for legacy clients that don't
-//      understand RFC 5987.
-//   2. Percent-encoded UTF-8 for `filename*=UTF-8''...` — the modern
-//      parameter that every current browser honours. RFC 5987 requires a
-//      handful of reserved chars that encodeURIComponent leaves alone
-//      ('()*) to also be escaped.
-function buildContentDispositionHeader(fileName: string): string {
-  const asciiFallback = toAsciiFallback(fileName);
-  const encoded = encodeRFC5987(fileName);
-  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
-}
-
-function toAsciiFallback(name: string): string {
-  // Keep ASCII letters, digits, dot, dash, underscore, parens. Collapse
-  // everything else (including quotes, backslashes, path separators,
-  // control chars, and any non-ASCII) to underscore. Bounded length so a
-  // giant client-supplied name can't balloon the header.
-  const stripped = name.replace(/[^A-Za-z0-9.\-_()]/g, "_").slice(0, 100);
-  return stripped.length > 0 ? stripped : "download";
-}
-
-function encodeRFC5987(value: string): string {
-  return encodeURIComponent(value).replace(
-    /['()*]/g,
-    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
-}
 
 // Default guard: on attached files, allow the uploader or a privileged role.
 // Unattached files are tenant-wide (the tenant boundary is already enforced
