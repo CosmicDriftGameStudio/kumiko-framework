@@ -2,6 +2,7 @@ import type { DbRunner } from "../db/connection";
 import type { AppendEventArgs, Registry, TenantId } from "../engine/types";
 import { loadAggregate, loadAggregateAsOf, type StoredEvent } from "../event-store/event-store";
 import { upcastStoredEvents } from "../event-store/upcaster";
+import type { FileContext } from "../files/file-handle";
 import { appendDomainEventCore } from "./append-event-core";
 
 // Minimal, read+write surface handed to a MultiStreamProjection's apply()
@@ -22,6 +23,12 @@ export type MultiStreamApplyContext = {
     aggregateId: string,
     options?: { readonly asOf?: Date },
   ) => Promise<readonly StoredEvent[]>;
+  // Binary storage handle factory, mirrors AppContext.files. Present when
+  // the app booted with `files.storageProvider`; undefined otherwise.
+  // Post-processing MSPs (resize, EXIF-strip, virus-scan) read bytes via
+  // `ctx.files.ref(payload.storageKey).read()` and write derivates via
+  // `.derive("thumb").write(...)` — binaries never ride through events.
+  readonly files?: FileContext;
 };
 
 export type MultiStreamApplyContextDeps = {
@@ -42,12 +49,16 @@ export type MultiStreamApplyContextDeps = {
   // subscribed to events from any feature), but outbound appends must
   // stay within the MSP's own feature.
   readonly callerFeature?: string;
+  // Same FileContext the outer AppContext carries, passed through so
+  // MSP applies can reach binaries without another wiring indirection.
+  readonly files?: FileContext;
 };
 
 export function createMultiStreamApplyContext(
   deps: MultiStreamApplyContextDeps,
 ): MultiStreamApplyContext {
   return {
+    ...(deps.files ? { files: deps.files } : {}),
     appendEvent: async (args) => {
       await appendDomainEventCore(
         {

@@ -60,6 +60,10 @@ export type TestStackOptions = {
       }) => Record<string, unknown>);
   /** Wire up auth routes (login, tenant-switch). Leave undefined to skip. */
   authConfig?: AuthRoutesConfig;
+  /** Register a file storage provider so uploads via POST /api/files work and
+   *  `ctx.files.ref(key)` is available to hooks/MSPs. Omit to skip — tests
+   *  without file handling don't need it. */
+  files?: { storageProvider: import("../files").FileStorageProvider };
   /** Observability provider — omit for NoopProvider (no spans/metrics).
    *  Pass a ConsoleProvider to see the span tree in stdout, or a custom
    *  provider (e.g. a recording provider for assertions in tests). */
@@ -95,6 +99,15 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const { createProjectionStateTable, createEventConsumerStateTable } = await import("../pipeline");
   await createProjectionStateTable(testDb.db);
   await createEventConsumerStateTable(testDb.db);
+
+  // Files support: when a provider is registered, the fileRefs table must
+  // exist before the first upload. Skipped when no provider — the table
+  // stays off tenant test DBs that never touch files.
+  if (options.files) {
+    const { fileRefsTable } = await import("../files");
+    const { pushTables } = await import("./index");
+    await pushTables(testDb.db, { fileRefsTable });
+  }
 
   // Projection tables: the executor writes into them in the same TX as the
   // event-append, so they have to exist before the first write. Auto-push
@@ -217,6 +230,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         }
       : {}),
     ...(options.observability ? { observability: options.observability } : {}),
+    // Wire the upload routes + ctx.files only when the caller registered a
+    // provider. Tests that don't touch files skip both without extra setup.
+    ...(options.files
+      ? { files: { db: testDb.db, storageProvider: options.files.storageProvider } }
+      : {}),
   });
 
   const eventDispatcher: EventDispatcher | undefined = server.eventDispatcher;

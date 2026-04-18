@@ -237,6 +237,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         tenantId: event.tenantId,
         userId: event.metadata.userId,
         ...(mspOwner && { callerFeature: mspOwner }),
+        ...(fileCtx && { files: fileCtx }),
       });
       await applyFn(event, rawRunner, applyCtx);
       // Keep ctx reachable to satisfy the EventConsumerHandler signature.
