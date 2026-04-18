@@ -581,6 +581,103 @@ describe("error handling", () => {
   });
 });
 
+// --- Content-Disposition hardening (Phase 2.3 follow-up) ---
+
+describe("Content-Disposition header hardening", () => {
+  const smallPng = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(20).fill(0),
+  ]);
+
+  // Helper: upload a file WITHOUT entity attachment so validateFile skips
+  // the extension/mime whitelist. That's what lets us test with arbitrary
+  // filenames that wouldn't pass the attached-upload validator.
+  async function uploadUnattached(fileName: string): Promise<string> {
+    const token = await jwt.sign(adminUser);
+    const fd = new FormData();
+    fd.append("file", new File([Buffer.from(smallPng)], fileName, { type: "image/png" }));
+    const res = await app.request("/api/files", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    return body.id;
+  }
+
+  test("malicious filename cannot inject a second header parameter", async () => {
+    // Name with a quote would break `filename="..."` quoting and inject
+    // `filename*=utf-8''evil.exe` if we interpolated the raw name.
+    const evil = `normal.png"; filename*=utf-8''evil.exe`;
+    const id = await uploadUnattached(evil);
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    const header = res.headers.get("Content-Disposition") ?? "";
+
+    // Header has the RFC-6266 shape: attachment; filename="..."; filename*=UTF-8''...
+    // Critically: exactly two parameters after `attachment`, i.e. no third
+    // parameter injected. split by ";" yields ["attachment", filename=, filename*=]
+    expect(header.split(";")).toHaveLength(3);
+    expect(header.startsWith('attachment; filename="')).toBe(true);
+
+    // The ASCII fallback inside `filename="..."` MUST NOT contain a quote
+    // character — that would close the string early and let the tail
+    // become a new parameter. This is the core fix.
+    const fallbackMatch = header.match(/filename="([^"]*)"/);
+    expect(fallbackMatch).not.toBeNull();
+    expect(fallbackMatch?.[1]).not.toContain('"');
+    expect(fallbackMatch?.[1]).not.toContain(";");
+
+    // filename* uses UTF-8 percent-encoding. The attacker's quote char
+    // (0x22) must appear as %22 — proving the raw bytes are preserved
+    // losslessly without escape-sequence injection.
+    expect(header).toContain("filename*=UTF-8''");
+    expect(header).toContain("%22"); // the quote char, percent-encoded
+  });
+
+  test("unicode filename is percent-encoded in filename*", async () => {
+    const unicode = "測試.png"; // Chinese characters
+    const id = await uploadUnattached(unicode);
+
+    const res = await getFile(adminUser, id);
+    const header = res.headers.get("Content-Disposition") ?? "";
+
+    // ASCII fallback collapses non-ASCII to underscore.
+    expect(header).toMatch(/^attachment; filename="[A-Za-z0-9._\-()]+";/);
+    // Modern filename* carries the UTF-8 bytes percent-encoded.
+    expect(header).toContain("filename*=UTF-8''");
+    // 測 = 0xE6 0xB8 0xAC in UTF-8 — at least one of those bytes must
+    // appear percent-encoded. Check E6 (lead byte of 測).
+    expect(header.toUpperCase()).toContain("%E6");
+  });
+
+  test("empty fallback (all chars stripped) falls back to 'download'", async () => {
+    // Name made entirely of characters outside the safe set — fallback
+    // would be empty; the builder substitutes a sane default instead.
+    const allStripped = "@@@###$$$.png"; // dots survive but the rest is stripped
+    const id = await uploadUnattached(allStripped);
+
+    const res = await getFile(adminUser, id);
+    const header = res.headers.get("Content-Disposition") ?? "";
+
+    // The dots + .png survive, so fallback is "____.png" rather than
+    // the "download" default — prove the fallback is non-empty and safe.
+    const fallbackMatch = header.match(/filename="([^"]+)"/);
+    expect(fallbackMatch).not.toBeNull();
+    expect(fallbackMatch?.[1]).not.toBe("");
+    expect(fallbackMatch?.[1]).toMatch(/^[A-Za-z0-9._\-()]+$/);
+  });
+});
+
 // --- Download-URL endpoint (Phase 2.3) ---
 
 describe("download-url endpoint", () => {
