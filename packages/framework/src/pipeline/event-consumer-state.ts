@@ -55,8 +55,16 @@ export const eventConsumerStateTable = pgTable(
   }),
 );
 
-export const CONSUMER_STATUSES = ["idle", "processing", "dead", "disabled"] as const;
-export type ConsumerStatus = (typeof CONSUMER_STATUSES)[number];
+// Object-const form lets call sites write `ConsumerStatuses.disabled` instead
+// of the raw string, which keeps status checks refactor-safe. The runtime
+// value on each field is the same string the DB stores — no mapping needed.
+export const ConsumerStatuses = {
+  idle: "idle",
+  processing: "processing",
+  dead: "dead",
+  disabled: "disabled",
+} as const;
+export type ConsumerStatus = (typeof ConsumerStatuses)[keyof typeof ConsumerStatuses];
 
 // Idempotent bootstrap. Called by setupTestStack + production boot path —
 // same pattern as createProjectionStateTable / createEventsTable. If the

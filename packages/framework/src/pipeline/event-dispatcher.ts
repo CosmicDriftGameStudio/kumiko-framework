@@ -13,7 +13,7 @@ import {
   type Meter,
   type Tracer,
 } from "../observability";
-import { eventConsumerStateTable } from "./event-consumer-state";
+import { ConsumerStatuses, eventConsumerStateTable } from "./event-consumer-state";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -146,8 +146,8 @@ async function acquireConsumerState(tx: DbTx, name: string): Promise<AcquireOutc
     return { state: null, skip: "not_registered" };
   }
 
-  if (state.status === "disabled") return { state: null, skip: "disabled" };
-  if (state.status === "dead") return { state: null, skip: "dead" };
+  if (state.status === ConsumerStatuses.disabled) return { state: null, skip: "disabled" };
+  if (state.status === ConsumerStatuses.dead) return { state: null, skip: "dead" };
   return { state, skip: null };
 }
 

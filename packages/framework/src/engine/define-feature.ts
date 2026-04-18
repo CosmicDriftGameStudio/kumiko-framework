@@ -208,7 +208,7 @@ export function defineFeature<TExports = undefined>(
         return;
       }
 
-      if (type === "preSave" || type === "preQuery") {
+      if (type === LifecycleHookTypes.preSave || type === LifecycleHookTypes.preQuery) {
         if (!lifecycleHooks[type]) lifecycleHooks[type] = {};
         for (const n of names) {
           if (!lifecycleHooks[type][n]) lifecycleHooks[type][n] = [];
@@ -221,7 +221,7 @@ export function defineFeature<TExports = undefined>(
       // Phased storage. preDelete has no phase option (always inTransaction);
       // postSave/postDelete default to afterCommit.
       const phase =
-        type === "preDelete"
+        type === LifecycleHookTypes.preDelete
           ? HookPhases.inTransaction
           : (options?.phase ?? HookPhases.afterCommit);
       const bucket = phasedLifecycleHooks[type];
@@ -238,17 +238,17 @@ export function defineFeature<TExports = undefined>(
       options?: { phase?: HookPhase },
     ): void {
       const entityName = resolveName(entityRef);
-      if (type === "postSave") {
+      if (type === LifecycleHookTypes.postSave) {
         const phase = options?.phase ?? HookPhases.afterCommit;
         if (!entityPostSave[entityName]) entityPostSave[entityName] = [];
         entityPostSave[entityName].push({ fn: fn as PostSaveHookFn, phase });
-      } else if (type === "preDelete") {
+      } else if (type === LifecycleHookTypes.preDelete) {
         if (!entityPreDelete[entityName]) entityPreDelete[entityName] = [];
         entityPreDelete[entityName].push({
           fn: fn as PreDeleteHookFn,
           phase: HookPhases.inTransaction,
         });
-      } else if (type === "postDelete") {
+      } else if (type === LifecycleHookTypes.postDelete) {
         const phase = options?.phase ?? HookPhases.afterCommit;
         if (!entityPostDelete[entityName]) entityPostDelete[entityName] = [];
         entityPostDelete[entityName].push({ fn: fn as PostDeleteHookFn, phase });

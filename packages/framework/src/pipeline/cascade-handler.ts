@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { TableColumns } from "../db/dialect";
-import { SystemHookNames, SystemHookPriorities } from "../engine/constants";
+import { OnDeleteStrategies, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 import type { PreDeleteHookFn, Registry } from "../engine/types";
 import { ConflictError, FrameworkReasons } from "../errors";
 import type { SystemHookDef } from "./lifecycle-pipeline";
@@ -32,14 +32,14 @@ export function createCascadeDeleteHook(
 
       // Outgoing: e.g. department.users (hasMany target: user) — users have FK to department
       for (const [, relation] of Object.entries(outgoing)) {
-        const strategy = relation.onDelete ?? "nothing";
-        if (strategy === "nothing") continue;
+        const strategy = relation.onDelete ?? OnDeleteStrategies.nothing;
+        if (strategy === OnDeleteStrategies.nothing) continue;
 
         if (relation.type === "hasMany" && relation.foreignKey) {
           const targetTable = tables.get(relation.target);
           if (!targetTable) continue;
 
-          if (strategy === "restrict") {
+          if (strategy === OnDeleteStrategies.restrict) {
             const rows = await db
               .select({ id: targetTable["id"] })
               .from(targetTable)
@@ -59,11 +59,11 @@ export function createCascadeDeleteHook(
             }
           }
 
-          if (strategy === "cascade") {
+          if (strategy === OnDeleteStrategies.cascade) {
             await db.delete(targetTable).where(eq(targetTable[relation.foreignKey], payload.id));
           }
 
-          if (strategy === "setNull") {
+          if (strategy === OnDeleteStrategies.setNull) {
             await db
               .update(targetTable)
               .set({ [relation.foreignKey]: null })
@@ -76,7 +76,7 @@ export function createCascadeDeleteHook(
           if (!throughTable) continue;
           const targetKey = relation.through.targetKey;
 
-          if (strategy === "restrict") {
+          if (strategy === OnDeleteStrategies.restrict) {
             const rows = await db
               .select({ id: throughTable["id"] })
               .from(throughTable)
@@ -96,7 +96,7 @@ export function createCascadeDeleteHook(
             }
           }
 
-          if (strategy === "cascade") {
+          if (strategy === OnDeleteStrategies.cascade) {
             await db.delete(throughTable).where(eq(throughTable[targetKey], payload.id));
           }
         }

@@ -41,8 +41,12 @@ export const projectionStateTable = pgTable(
   }),
 );
 
-export const PROJECTION_STATUSES = ["idle", "rebuilding", "failed"] as const;
-export type ProjectionStatus = (typeof PROJECTION_STATUSES)[number];
+export const ProjectionStatuses = {
+  idle: "idle",
+  rebuilding: "rebuilding",
+  failed: "failed",
+} as const;
+export type ProjectionStatus = (typeof ProjectionStatuses)[keyof typeof ProjectionStatuses];
 
 // Idempotent table bootstrap. Called by setupTestStack (and createApp once
 // that wires it up) — same pattern as createEventsTable. If the table is
