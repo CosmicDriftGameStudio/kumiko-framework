@@ -101,6 +101,12 @@ type SharedContextFields = {
   readonly configResolver?: ConfigResolver;
   readonly config?: ConfigAccessor;
   readonly _configAccessorFactory?: ConfigAccessorFactory;
+  // Rate-limit resolver. Wired by the framework when the `rateLimiting`
+  // feature is loaded — pipeline reads handler.rateLimit and calls
+  // .enforce() on this resolver before access-check. Absent when the
+  // app didn't load the feature: handlers with rateLimit set are
+  // rejected at boot to surface the misconfig early.
+  readonly rateLimit?: import("../../rate-limit").RateLimitResolver;
   readonly searchAdapter?: SearchAdapter;
   // Binary storage, wrapped around the registered FileStorageProvider.
   // Optional at the AppContext level — present when the app booted with
@@ -396,12 +402,37 @@ export type HandlerRef = {
 
 // --- Handler Definitions (stored in feature/registry) ---
 
+// Per-handler rate limit. Bucket key derived from `per`:
+//   "user"            → userId
+//   "tenant"          → tenantId
+//   "ip"              → request IP
+//   "user+handler"    → userId + handlerName
+//   "tenant+handler"  → tenantId + handlerName
+//   "ip+handler"      → IP + handlerName (anonymous endpoints)
+// `cost` is the tokens this handler-call deducts. Default 1 — bump for
+// expensive operations (bulk export, bulk import).
+export type RateLimitPer =
+  | "user"
+  | "tenant"
+  | "ip"
+  | "user+handler"
+  | "tenant+handler"
+  | "ip+handler";
+
+export type RateLimitOption = {
+  readonly per: RateLimitPer;
+  readonly limit: number;
+  readonly windowSeconds: number;
+  readonly cost?: number;
+};
+
 export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: WriteHandlerFn;
   readonly access?: AccessRule;
   readonly skipTransitionGuard?: boolean;
+  readonly rateLimit?: RateLimitOption;
 };
 
 export type QueryHandlerDef = {
@@ -409,4 +440,5 @@ export type QueryHandlerDef = {
   readonly schema: ZodType;
   readonly handler: QueryHandlerFn;
   readonly access?: AccessRule;
+  readonly rateLimit?: RateLimitOption;
 };

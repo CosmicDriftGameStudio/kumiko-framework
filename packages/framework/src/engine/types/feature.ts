@@ -282,6 +282,12 @@ export type Registry = {
   getHandlerEntity(qualifiedHandler: string): string | undefined;
   isHandlerSystemScoped(qualifiedHandler: string): boolean;
   getHandlerFeature(qualifiedHandler: string): string | undefined;
+  // True iff at least one registered handler declares a `rateLimit`
+  // option. Pre-computed at registry-build so the boot path can skip
+  // wiring the RateLimitResolver (and its Lua-script registration on
+  // Redis) entirely when nobody opted in. Per-request cost stays zero
+  // for apps that don't use the feature.
+  hasRateLimitedHandler(): boolean;
   // All metrics from all features, keyed by fully-qualified name
   // (kumiko_<feature>_<shortName>). Consumed at boot to register them on the
   // active Meter.

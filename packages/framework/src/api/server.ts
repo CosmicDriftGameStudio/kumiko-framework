@@ -26,6 +26,7 @@ import {
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
 } from "../pipeline/system-hooks";
+import { createRateLimitResolver } from "../rate-limit";
 import type { SearchAdapter } from "../search/types";
 import { PUBLIC_API_PATHS, Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
@@ -160,10 +161,21 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const fileCtx = options.files?.storageProvider
     ? createFileContext(options.files.storageProvider)
     : undefined;
+  // Auto-wire the rate-limit resolver, but ONLY when at least one
+  // handler actually declared a rateLimit option. Apps that don't use
+  // L3 pay zero cost: no resolver instance, no Lua-script registration
+  // on Redis, no AppContext field. Apps that wire L1/L2 middleware can
+  // pass `context.rateLimit` explicitly — that takes precedence over
+  // the auto-wire (e.g. middleware-only setup without any L3 handler).
+  const wantsResolver = options.registry.hasRateLimitedHandler();
+  const rateLimitResolver =
+    options.context.rateLimit ??
+    (wrappedRedis && wantsResolver ? createRateLimitResolver({ redis: wrappedRedis }) : undefined);
   const contextWithObservability: AppContext = {
     ...options.context,
     ...(wrappedRedis ? { redis: wrappedRedis } : {}),
     ...(fileCtx ? { files: fileCtx } : {}),
+    ...(rateLimitResolver ? { rateLimit: rateLimitResolver } : {}),
     tracer: observability.tracer,
     meter: observability.meter,
   };

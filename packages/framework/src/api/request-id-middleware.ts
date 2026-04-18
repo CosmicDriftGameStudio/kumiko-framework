@@ -29,8 +29,22 @@ export function requestIdMiddleware() {
     // spread keeps `signal: undefined` out of the stored record so
     // downstream `signal?` checks behave as if no signal exists.
     const signal = c.req.raw?.signal;
-    await requestContext.run({ requestId, correlationId, ...(signal ? { signal } : {}) }, () =>
-      next(),
+    // Client IP for per-IP rate limiting. Trust `x-forwarded-for` when
+    // present (proxy/CDN) — first hop is the originating client. Adapter-
+    // specific socket-address fallback (bun, node) is not standardized
+    // in Hono; deployments behind a proxy should always set xff. Without
+    // either we leave `ip` undefined and skip ip-bucketed checks rather
+    // than fabricate one.
+    const xff = c.req.header("x-forwarded-for");
+    const ip = xff?.split(",")[0]?.trim();
+    await requestContext.run(
+      {
+        requestId,
+        correlationId,
+        ...(signal ? { signal } : {}),
+        ...(ip && ip.length > 0 ? { ip } : {}),
+      },
+      () => next(),
     );
   };
 }

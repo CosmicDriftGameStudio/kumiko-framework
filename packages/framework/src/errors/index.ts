@@ -1,5 +1,6 @@
 export type {
   NotFoundDetails,
+  RateLimitDetails,
   UnprocessableOpts,
   ValidationDetails,
   ValidationFieldIssue,
@@ -10,6 +11,7 @@ export {
   ConflictError,
   InternalError,
   NotFoundError,
+  RateLimitError,
   UnprocessableError,
   ValidationError,
   VersionConflictError,

@@ -65,6 +65,7 @@ import {
   getFallbackTracer,
   registerStandardMetrics,
 } from "../observability";
+import { buildBucketKey } from "../rate-limit";
 import { createTzContext } from "../time";
 import { parseJsonSafe } from "../utils/safe-json";
 import { appendDomainEventCore } from "./append-event-core";
@@ -643,6 +644,46 @@ export function createDispatcher(
     }
   }
 
+  // L3 rate limit gate. Called by both query and write paths before
+  // access-check. Reasoning:
+  //   - handler without rateLimit → no-op
+  //   - app booted without rateLimit resolver → InternalError so the
+  //     misconfig surfaces immediately, not on first 429
+  //   - bucket builder returns "skip" (e.g. ip-based but no client IP):
+  //     pass through. ip-modes are commonly used at L1/L2 middleware
+  //     where the IP comes from Hono directly; falling back to "skip"
+  //     here keeps non-HTTP entry-points (jobs, MSPs) functional.
+  async function enforceRateLimit(
+    rateLimit: import("../engine/types").RateLimitOption | undefined,
+    handlerName: string,
+    user: SessionUser,
+  ): Promise<void> {
+    // skip: defence-in-depth — both call-sites already gate on
+    //       handler.rateLimit !== undefined, so this branch only fires
+    //       if a future caller forgets the inline check.
+    if (!rateLimit) return;
+    if (!context.rateLimit) {
+      throw new InternalError({
+        message: `Handler "${handlerName}" declares rateLimit but no RateLimitResolver is configured. Load the rateLimiting feature or remove the option.`,
+      });
+    }
+    const reqCtx = requestContext.get();
+    const bucket = buildBucketKey(rateLimit, {
+      handlerName,
+      user,
+      ip: reqCtx?.ip,
+    });
+    // skip: ip-bucketed handler called from a non-HTTP entry point
+    //       (job, MSP-apply) — no client IP to bucket on. Pass through;
+    //       L1/L2 middleware handle the HTTP-side ip caps.
+    if (bucket.kind === "skip") return;
+    await context.rateLimit.enforce(bucket.key, {
+      limit: rateLimit.limit,
+      windowSeconds: rateLimit.windowSeconds,
+      ...(rateLimit.cost !== undefined ? { cost: rateLimit.cost } : {}),
+    });
+  }
+
   // Standalone query execution — used by the public dispatcher.query() and
   // by ctx.query/ctx.queryAs inside handlers. Runs the handler, applies
   // field-level read filters for the given user, logs the event.
@@ -665,6 +706,17 @@ export function createDispatcher(
   ): Promise<unknown> {
     const handler = registry.getQueryHandler(type);
     if (!handler) throw new NotFoundError("handler", type);
+
+    // Rate-limit gate runs BEFORE access-check on purpose: anonymous /
+    // unauthorized callers must hit the cap too (otherwise the limit
+    // would be a free probe-detector for valid credentials). The
+    // resolver throws RateLimitError which the dispatcher's outer
+    // wrapper turns into a 429 response. Inline-skip when the handler
+    // didn't opt in — keeps the hot path zero-cost (no await on a
+    // no-op promise).
+    if (handler.rateLimit !== undefined) {
+      await enforceRateLimit(handler.rateLimit, type, user);
+    }
 
     // Default-deny: missing access rule is treated as "no one has access".
     // The registry boot-validator refuses to register handlers without one,
@@ -780,6 +832,19 @@ export function createDispatcher(
   ): Promise<WriteResult> {
     const handler = registry.getWriteHandler(type);
     if (!handler) return writeFailure(new NotFoundError("handler", type));
+
+    // Rate-limit gate before access (same reasoning as in executeQueryInner).
+    // Throws RateLimitError; the outer wrapper turns it into a 429
+    // WriteFailure via toWriteErrorInfo. Inline-skip when no opt-in —
+    // hot path stays zero-cost.
+    if (handler.rateLimit !== undefined) {
+      try {
+        await enforceRateLimit(handler.rateLimit, type, user);
+      } catch (e) {
+        if (isKumikoError(e)) return writeFailure(e);
+        throw e;
+      }
+    }
 
     // Default-deny: missing access rule is treated as "no one has access".
     // The registry boot-validator refuses to register handlers without one,

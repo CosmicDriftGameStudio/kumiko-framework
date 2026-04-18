@@ -26,6 +26,10 @@ export type RequestContextData = {
   readonly correlationId: string;
   readonly causationId?: string;
   readonly signal?: AbortSignal;
+  // Client IP for per-IP rate limiting (L1, L2, L3 with per: "ip*").
+  // Populated by requestIdMiddleware from x-forwarded-for or the
+  // socket address. Undefined for non-HTTP entry points (jobs, MSP).
+  readonly ip?: string;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();

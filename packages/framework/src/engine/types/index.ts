@@ -96,6 +96,8 @@ export type {
   QueryEvent,
   QueryHandlerDef,
   QueryHandlerFn,
+  RateLimitOption,
+  RateLimitPer,
   SessionUser,
   WriteEvent,
   WriteHandlerDef,

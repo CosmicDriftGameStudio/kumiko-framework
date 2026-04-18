@@ -669,11 +669,24 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
+  // Pre-compute: any handler with a rateLimit option? Keeps the boot
+  // path able to short-circuit the RateLimitResolver wiring (and its
+  // Lua-script registration on Redis) when nobody opted in.
+  const hasRateLimitedHandlerCached = (() => {
+    for (const h of writeHandlerMap.values()) if (h.rateLimit !== undefined) return true;
+    for (const h of queryHandlerMap.values()) if (h.rateLimit !== undefined) return true;
+    return false;
+  })();
+
   return {
     features: featureMap,
 
     getFeature(name: string): FeatureDefinition | undefined {
       return featureMap.get(name);
+    },
+
+    hasRateLimitedHandler(): boolean {
+      return hasRateLimitedHandlerCached;
     },
 
     getEntity(name: string): EntityDefinition | undefined {

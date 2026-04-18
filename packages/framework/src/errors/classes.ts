@@ -156,3 +156,32 @@ export class InternalError extends KumikoError {
     });
   }
 }
+
+// Rate-limit hit. The bucket details (limit, window, current state) live
+// in `details` so a client can show "try again in N seconds" without a
+// second request. Headers `Retry-After`, `X-RateLimit-*` are filled in
+// by the HTTP layer from these same fields.
+export type RateLimitDetails = {
+  readonly bucket: string;
+  readonly limit: number;
+  readonly windowSeconds: number;
+  readonly remaining: number;
+  readonly retryAfterSeconds: number;
+  readonly resetAt: string;
+};
+
+export class RateLimitError extends KumikoError {
+  readonly code = "rate_limited";
+  readonly httpStatus = 429;
+  readonly details: RateLimitDetails;
+
+  constructor(details: RateLimitDetails, opts?: Pick<ErrorOpts, "i18nKey" | "cause">) {
+    super({
+      message: `rate limited: ${details.bucket} (limit ${details.limit} per ${details.windowSeconds}s)`,
+      i18nKey: opts?.i18nKey ?? "errors.rate_limited",
+      details,
+      ...(opts?.cause && { cause: opts.cause }),
+    });
+    this.details = details;
+  }
+}

@@ -8,4 +8,5 @@ export const RedisKeys = {
   lock: "kumiko:lock:",
   events: "kumiko:events",
   eventLog: "kumiko:events:log",
+  rateLimit: "kumiko:rl:",
 } as const;
