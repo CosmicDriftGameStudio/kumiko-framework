@@ -1,12 +1,14 @@
 import type { Context, MiddlewareHandler } from "hono";
-import { RateLimitError } from "../errors";
-import type { RateLimitConfig, RateLimitDecision, RateLimitResolver } from "./resolver";
+import { requestContext } from "../api/request-context";
+import { RateLimitError, serializeError } from "../errors";
+import type { RateLimitDecision, RateLimitResolver } from "./resolver";
 
 // Hono middleware factories for L1 (Global-IP) and L2 (Auth-Endpoints).
 //
 // Both share the same response shape on 429 — RFC 6585 status, the
 // X-RateLimit-* headers IETF draft uses, and a structured JSON body
-// matching the L3 dispatcher path (RateLimitError details).
+// produced by the central serializeError() so L1/L2/L3 share the
+// `error.code`, `i18nKey`, `details`, `requestId`, `timestamp` envelope.
 //
 // Fail-mode policy (from docs/plans/features/core-rate-limiting.md):
 //   L1/L2 — **fail-closed** when Redis is down. The caller is most
@@ -44,14 +46,13 @@ export function globalIpRateLimit(opts: GlobalIpRateLimitOptions): MiddlewareHan
     try {
       const decision = await opts.resolver.check(`l1:${ip}`, { limit, windowSeconds });
       if (!decision.allowed) {
-        return rateLimit429(c, decision, `l1:${ip}`);
+        return respondRateLimited(c, decision, `l1:${ip}`);
       }
       setRateLimitHeaders(c, decision);
     } catch (e) {
-      if (e instanceof RateLimitError) {
-        return rateLimit429(c, decisionFromError(e), e.details.bucket);
-      }
       // Fail-closed: refuse rather than let a flood through with no cap.
+      // resolver.check never throws RateLimitError (only enforce does),
+      // so any throw here is an infrastructure failure (Redis down).
       onFailClosed(e);
       return c.json(
         { error: { code: "rate_limit_unavailable", message: "Rate limiter unavailable" } },
@@ -92,13 +93,10 @@ export function authEndpointRateLimit(opts: AuthEndpointRateLimitOptions): Middl
     try {
       const decision = await opts.resolver.check(bucket, { limit, windowSeconds });
       if (!decision.allowed) {
-        return rateLimit429(c, decision, bucket);
+        return respondRateLimited(c, decision, bucket);
       }
       setRateLimitHeaders(c, decision);
     } catch (e) {
-      if (e instanceof RateLimitError) {
-        return rateLimit429(c, decisionFromError(e), e.details.bucket);
-      }
       onFailClosed(e);
       return c.json(
         { error: { code: "rate_limit_unavailable", message: "Rate limiter unavailable" } },
@@ -131,40 +129,20 @@ function setRateLimitHeaders(c: Context, decision: RateLimitDecision): void {
   c.header("X-RateLimit-Reset", decision.resetAt.toString());
 }
 
-function rateLimit429(c: Context, decision: RateLimitDecision, bucket: string): Response {
+function respondRateLimited(c: Context, decision: RateLimitDecision, bucket: string): Response {
+  // Build a RateLimitError so the wire shape is identical to the L3
+  // dispatcher path. serializeError adds i18nKey, requestId, timestamp —
+  // fields a hand-rolled body would silently miss.
+  const err = new RateLimitError({
+    bucket,
+    limit: decision.limit,
+    windowSeconds: decision.windowSeconds,
+    remaining: decision.remaining,
+    retryAfterSeconds: decision.retryAfterSeconds,
+    resetAt: decision.resetAt.toString(),
+  });
   c.header("Retry-After", String(Math.max(1, decision.retryAfterSeconds)));
   setRateLimitHeaders(c, decision);
-  return c.json(
-    {
-      error: {
-        code: "rate_limited",
-        message: `rate limited: ${bucket}`,
-        details: {
-          bucket,
-          limit: decision.limit,
-          windowSeconds: decision.windowSeconds,
-          remaining: decision.remaining,
-          retryAfterSeconds: decision.retryAfterSeconds,
-          resetAt: decision.resetAt.toString(),
-        },
-      },
-    },
-    429,
-  );
+  const reqId = requestContext.get()?.requestId;
+  return c.json(serializeError(err, reqId), 429);
 }
-
-function decisionFromError(err: RateLimitError): RateLimitDecision {
-  return {
-    allowed: false,
-    limit: err.details.limit,
-    remaining: err.details.remaining,
-    retryAfterSeconds: err.details.retryAfterSeconds,
-    windowSeconds: err.details.windowSeconds,
-    resetAt: Temporal.Instant.from(err.details.resetAt),
-  };
-}
-
-// Test/ops helper: fixed config used internally by middleware. Exposed
-// via RateLimitConfig type re-export so callers can build their own
-// middleware on top of the same primitive.
-export type _MiddlewareInternals = { config: RateLimitConfig };

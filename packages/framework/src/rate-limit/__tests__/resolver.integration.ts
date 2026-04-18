@@ -129,6 +129,42 @@ describe("createRateLimitResolver — concurrency", () => {
   });
 });
 
+describe("createRateLimitResolver — peek", () => {
+  test("peek returns the same state across consecutive calls — no token deduction", async () => {
+    const config = { limit: 5, windowSeconds: 60 };
+    // Drain 2 tokens via real check() so the bucket is at remaining=3.
+    await resolver.check("peek:user", config);
+    await resolver.check("peek:user", config);
+
+    // Three back-to-back peeks at the SAME wallclock — remaining must
+    // not move. If peek mutated state, each call would deduct/refill
+    // and the numbers would drift.
+    const a = await resolver.peek("peek:user", config);
+    const b = await resolver.peek("peek:user", config);
+    const c = await resolver.peek("peek:user", config);
+    expect(a.remaining).toBe(3);
+    expect(b.remaining).toBe(3);
+    expect(c.remaining).toBe(3);
+
+    // After 100 peeks, the next real check still sees remaining=3-1=2.
+    // Proves peek doesn't shift the refill timestamp either — if it did,
+    // the next refill maths would over-credit and remaining would jump.
+    for (let i = 0; i < 100; i++) await resolver.peek("peek:user", config);
+    const next = await resolver.check("peek:user", config);
+    expect(next.remaining).toBe(2);
+  });
+
+  test("peek on a fresh bucket reports the full limit available", async () => {
+    const config = { limit: 7, windowSeconds: 60 };
+    const decision = await resolver.peek("peek:fresh", config);
+    expect(decision.allowed).toBe(true);
+    expect(decision.remaining).toBe(7);
+    expect(decision.limit).toBe(7);
+    // Fresh bucket → no need to wait for a refill.
+    expect(decision.retryAfterSeconds).toBe(0);
+  });
+});
+
 describe("createRateLimitResolver — enforce", () => {
   test("enforce throws RateLimitError with the bucket details when blocked", async () => {
     const config = { limit: 1, windowSeconds: 60 };

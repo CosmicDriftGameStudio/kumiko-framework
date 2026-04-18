@@ -19,18 +19,18 @@ export type BucketResult =
 export function buildBucketKey(option: RateLimitOption, ctx: BucketContext): BucketResult {
   switch (option.per) {
     case "user":
-      return { kind: "key", key: `u:${ctx.user.id}` };
+      return { kind: "key", key: `user:${ctx.user.id}` };
     case "tenant":
-      return { kind: "key", key: `t:${ctx.user.tenantId}` };
+      return { kind: "key", key: `tenant:${ctx.user.tenantId}` };
     case "ip":
       if (!ctx.ip) return { kind: "skip", reason: "no_ip" };
-      return { kind: "key", key: `i:${ctx.ip}` };
+      return { kind: "key", key: `ip:${ctx.ip}` };
     case "user+handler":
-      return { kind: "key", key: `uh:${ctx.user.id}:${ctx.handlerName}` };
+      return { kind: "key", key: `user+handler:${ctx.user.id}:${ctx.handlerName}` };
     case "tenant+handler":
-      return { kind: "key", key: `th:${ctx.user.tenantId}:${ctx.handlerName}` };
+      return { kind: "key", key: `tenant+handler:${ctx.user.tenantId}:${ctx.handlerName}` };
     case "ip+handler":
       if (!ctx.ip) return { kind: "skip", reason: "no_ip" };
-      return { kind: "key", key: `ih:${ctx.ip}:${ctx.handlerName}` };
+      return { kind: "key", key: `ip+handler:${ctx.ip}:${ctx.handlerName}` };
   }
 }

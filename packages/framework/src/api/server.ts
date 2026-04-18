@@ -26,7 +26,13 @@ import {
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
 } from "../pipeline/system-hooks";
-import { createRateLimitResolver } from "../rate-limit";
+import {
+  type AuthEndpointRateLimitOptions,
+  authEndpointRateLimit,
+  createRateLimitResolver,
+  type GlobalIpRateLimitOptions,
+  globalIpRateLimit,
+} from "../rate-limit";
 import type { SearchAdapter } from "../search/types";
 import { PUBLIC_API_PATHS, Routes } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
@@ -86,6 +92,25 @@ export type ServerOptions = {
   // OTLPProvider in prod.
   observability?: ObservabilityProvider;
   observabilityOptions?: ObservabilityOptions;
+  // L1/L2 rate-limit middleware. Both layers share the auto-wired
+  // resolver (or `context.rateLimit` if you provided one). Layers are
+  // independent — wire only what you need:
+  //   - `global`: gates every /api/* request by client IP. Use behind
+  //     Cloudflare-less deployments to absorb naive floods at the edge
+  //     of the app process.
+  //   - `auth`: gates a single path-pattern (default `/api/auth/*`)
+  //     with tighter limits. Typically `limit: 5, windowSeconds: 60`
+  //     to slow brute-force without breaking real users.
+  // Both omitted → no L1/L2 wired and no resolver auto-built unless an
+  // L3 handler declared `rateLimit:`. This keeps zero-cost when unused.
+  rateLimit?: {
+    readonly global?: Omit<GlobalIpRateLimitOptions, "resolver">;
+    readonly auth?: Omit<AuthEndpointRateLimitOptions, "resolver"> & {
+      // Path-pattern the L2 middleware applies to. Default `/api/auth/*`.
+      // Override for apps with a different auth route layout.
+      readonly path?: string;
+    };
+  };
   // Process lifecycle. When present:
   //   - GET /health/ready reflects lifecycle.state() (200 ready / 503 else)
   //   - eventDispatcher.stop() is auto-registered as a shutdown hook, so
@@ -167,7 +192,13 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // on Redis, no AppContext field. Apps that wire L1/L2 middleware can
   // pass `context.rateLimit` explicitly — that takes precedence over
   // the auto-wire (e.g. middleware-only setup without any L3 handler).
-  const wantsResolver = options.registry.hasRateLimitedHandler();
+  // Auto-build the resolver when L3 handlers declared rateLimit OR when
+  // the caller asked for L1/L2 middleware. Either path needs a resolver;
+  // both share the same instance to avoid duplicate Lua-script registration.
+  const wantsL3 = options.registry.hasRateLimitedHandler();
+  const wantsL1L2 =
+    options.rateLimit?.global !== undefined || options.rateLimit?.auth !== undefined;
+  const wantsResolver = wantsL3 || wantsL1L2;
   const rateLimitResolver =
     options.context.rateLimit ??
     (wrappedRedis && wantsResolver ? createRateLimitResolver({ redis: wrappedRedis }) : undefined);
@@ -320,6 +351,31 @@ export function buildServer(options: ServerOptions): KumikoServer {
     });
   }
   app.use("/api/*", requestIdMiddleware());
+
+  // L1/L2 rate-limit middleware run BEFORE auth so an unauthenticated
+  // flood can't even reach the JWT-verify code path. Wired only when
+  // the caller passed `rateLimit.global` or `rateLimit.auth`. The
+  // resolver is the auto-wired one (or `context.rateLimit` if set);
+  // boot-fails loudly when the caller asked for middleware without a
+  // working Redis to back it.
+  if (wantsL1L2) {
+    if (!rateLimitResolver) {
+      throw new Error(
+        "rateLimit middleware requested but no resolver available — pass `context.redis` " +
+          "or `context.rateLimit` so the resolver can be built.",
+      );
+    }
+    if (options.rateLimit?.global) {
+      app.use(
+        "/api/*",
+        globalIpRateLimit({ ...options.rateLimit.global, resolver: rateLimitResolver }),
+      );
+    }
+    if (options.rateLimit?.auth) {
+      const { path: l2Path = "/api/auth/*", ...l2Opts } = options.rateLimit.auth;
+      app.use(l2Path, authEndpointRateLimit({ ...l2Opts, resolver: rateLimitResolver }));
+    }
+  }
   // Observability span wraps everything that follows (auth, routes).
   // Must come AFTER request-id (so span can carry the id) and BEFORE auth
   // (so auth-verify can be a child span once we instrument it in v2).

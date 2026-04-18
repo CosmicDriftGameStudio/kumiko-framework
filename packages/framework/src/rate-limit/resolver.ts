@@ -29,6 +29,11 @@ import { RedisKeys } from "../pipeline/redis-keys";
 // ARGV[5] — ttlSeconds (key TTL)
 //
 // Returns: { allowed (1|0), remainingTokens (int floor), retryAfterMs (int) }
+//
+// The peek script (TOKEN_BUCKET_PEEK_LUA) below is the same logic minus
+// the HMSET — used by ops queries to inspect a bucket without nudging
+// the refill timestamp. Two scripts so neither has to grow a "writeback"
+// flag and a state-machine.
 const TOKEN_BUCKET_LUA = `
 local key = KEYS[1]
 local limit = tonumber(ARGV[1])
@@ -67,6 +72,42 @@ redis.call('EXPIRE', key, ttl)
 return { allowed, math.floor(tokens), retryAfterMs }
 `;
 
+// Read-only peek. Same refill maths, but writes nothing back — the
+// bucket state at peek time stays identical to the state the next real
+// check() would see. Used by ops/status queries that must not deduct
+// tokens or shift the refill timestamp.
+//
+// KEYS[1] — bucket key
+// ARGV[1] — limit
+// ARGV[2] — refillRatePerMs
+// ARGV[3] — nowMs
+//
+// Returns: { remainingTokens (int floor), retryAfterMs (int — until 1 token available) }
+const TOKEN_BUCKET_PEEK_LUA = `
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local refillRatePerMs = tonumber(ARGV[2])
+local nowMs = tonumber(ARGV[3])
+
+local data = redis.call('HMGET', key, 'tokens', 'ts')
+local tokens = tonumber(data[1])
+local ts = tonumber(data[2])
+
+if tokens == nil then
+  tokens = limit
+else
+  local elapsed = math.max(0, nowMs - ts)
+  tokens = math.min(limit, tokens + elapsed * refillRatePerMs)
+end
+
+local retryAfterMs = 0
+if tokens < 1 then
+  retryAfterMs = math.ceil((1 - tokens) / refillRatePerMs)
+end
+
+return { math.floor(tokens), retryAfterMs }
+`;
+
 export type RateLimitDecision = {
   readonly allowed: boolean;
   readonly limit: number;
@@ -90,6 +131,12 @@ export type RateLimitResolver = {
   // Convenience: throws RateLimitError when blocked. Useful inside the
   // dispatcher / middleware code-paths where the failure shape is fixed.
   enforce(bucket: string, config: RateLimitConfig): Promise<RateLimitDecision>;
+
+  // Read-only inspection: returns the same shape as check() but never
+  // mutates the bucket — no token deduction, no refill-timestamp update.
+  // Use for ops/status queries (e.g. "kumiko rl status user:42") that
+  // must observe the bucket without disturbing it.
+  peek(bucket: string, config: Omit<RateLimitConfig, "cost">): Promise<RateLimitDecision>;
 };
 
 export type RateLimitResolverOptions = {
@@ -116,6 +163,12 @@ type CommandClient = Redis & {
     nowMs: string,
     ttlSeconds: string,
   ): Promise<LuaResult>;
+  kumikoRateLimitPeek(
+    key: string,
+    limit: string,
+    refillRatePerMs: string,
+    nowMs: string,
+  ): Promise<readonly [number, number]>;
 };
 
 const REGISTERED = new WeakSet<Redis>();
@@ -125,6 +178,10 @@ function ensureCommand(redis: Redis): CommandClient {
     redis.defineCommand("kumikoRateLimit", {
       numberOfKeys: 1,
       lua: TOKEN_BUCKET_LUA,
+    });
+    redis.defineCommand("kumikoRateLimitPeek", {
+      numberOfKeys: 1,
+      lua: TOKEN_BUCKET_PEEK_LUA,
     });
     REGISTERED.add(redis);
   }
@@ -177,5 +234,34 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     });
   }
 
-  return { check, enforce };
+  async function peek(
+    bucket: string,
+    config: Omit<RateLimitConfig, "cost">,
+  ): Promise<RateLimitDecision> {
+    const refillRatePerMs = config.limit / (config.windowSeconds * 1000);
+    const nowMs = now();
+
+    const [remaining, retryAfterMs] = await client.kumikoRateLimitPeek(
+      `${prefix}${bucket}`,
+      String(config.limit),
+      String(refillRatePerMs),
+      String(nowMs),
+    );
+
+    const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+    const resetAt = Temporal.Instant.fromEpochMilliseconds(nowMs + retryAfterMs);
+
+    return {
+      // peek doesn't deduct, so a "would-be" allowed flag is meaningful:
+      // true iff at least one token is available right now.
+      allowed: remaining >= 1,
+      limit: config.limit,
+      remaining,
+      retryAfterSeconds,
+      windowSeconds: config.windowSeconds,
+      resetAt,
+    };
+  }
+
+  return { check, enforce, peek };
 }

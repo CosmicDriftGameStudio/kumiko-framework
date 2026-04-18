@@ -75,6 +75,10 @@ export type TestStackOptions = {
   /** Inject a process lifecycle so tests can drain() and observe
    *  /health/ready flipping to 503. Omit if the suite doesn't care. */
   lifecycle?: Lifecycle;
+  /** Wire L1 (global-IP) and/or L2 (auth-endpoint) rate-limit middleware.
+   *  The resolver is auto-built from the test Redis. Mirrors
+   *  buildServer's `rateLimit` option 1:1 — see there for shape. */
+  rateLimit?: import("../api/server").ServerOptions["rateLimit"];
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -238,6 +242,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       : {}),
     ...(options.observability ? { observability: options.observability } : {}),
     ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
+    ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}),
     // Wire the upload routes + ctx.files only when the caller registered a
     // provider. Tests that don't touch files skip both without extra setup.
     ...(options.files

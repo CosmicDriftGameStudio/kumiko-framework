@@ -98,6 +98,9 @@ describe("globalIpRateLimit (L1)", () => {
       enforce: async () => {
         throw new Error("ECONNREFUSED");
       },
+      peek: async () => {
+        throw new Error("ECONNREFUSED");
+      },
     };
 
     const app = new Hono();
