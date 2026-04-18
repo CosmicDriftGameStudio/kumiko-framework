@@ -267,6 +267,15 @@ export async function getStreamVersion(
   return row?.v ?? 0;
 }
 
+// Global high-water-mark = MAX(events.id). Marten/Wolverine standard for
+// projection/consumer lag math: lag = HWM - cursor. Single-row aggregate over
+// the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
+// (boot, fresh tenant, post-archive).
+export async function getEventLogHighWaterMark(db: DbRunner): Promise<bigint> {
+  const [row] = await db.select({ max: max(eventsTable.id) }).from(eventsTable);
+  return row?.max ?? 0n;
+}
+
 // Load events strictly newer than a given version. Used by snapshot-aware
 // reads: snapshot provides state up to version N, apply events v > N to
 // catch up to current.
@@ -293,11 +302,11 @@ export async function loadEventsAfterVersion(
 // Load every event for an aggregate_type across all tenants. Ordered by
 // (created_at, id) — chronological replay order for projection rebuilds.
 //
-// CAUTION — buffers ALL matching events in memory. Safe für kleinere
-// aggregate-types (≤ 100k events), ein Memory-Cliff für große stores.
-// Für >100k events nutze `streamAllEventsByType` (yields batchweise).
-// Wird aktuell vor allem in Tests gerufen — Production rebuild geht über
-// projection-rebuild's eigenen Streaming-Pfad.
+// CAUTION — buffers ALL matching events in memory. Safe for smaller
+// aggregate-types (≤ 100k events), a memory cliff for large stores.
+// For >100k events use `streamAllEventsByType` (yields batchwise).
+// Mostly called from tests today — production rebuild goes through
+// projection-rebuild's own streaming path.
 export async function loadAllEventsByType(
   db: DbRunner,
   aggregateType: string,
@@ -310,21 +319,21 @@ export async function loadAllEventsByType(
   return rows.map(toStoredEvent);
 }
 
-// Stream every event for an aggregate_type across all tenants, batchweise
-// statt buffered. Memory-bounded: nie mehr als `batchSize` rows in memory.
-// Cursor läuft über `events.id` (bigserial monotonic, deckt sich mit
-// chronologischer Reihenfolge — gleichzeitige Inserts kriegen verschiedene
-// ids in der Reihenfolge ihrer Commits).
+// Stream every event for an aggregate_type across all tenants, batchwise
+// instead of buffered. Memory-bounded: never more than `batchSize` rows
+// resident. Cursor walks `events.id` (bigserial monotonic — concurrent
+// inserts get distinct ids in commit order, so no duplicates and no skips
+// past the cursor).
 //
-// Use case: projection-rebuild auf großem Event-Log (>100k events pro
-// aggregate-type). loadAllEventsByType würde OOM, dieses iterator yields
-// in batches und der Caller akkumuliert nur was er braucht.
+// Use case: projection-rebuild on a large event log (>100k events per
+// aggregate-type). loadAllEventsByType would OOM; this iterator yields
+// in batches and the caller accumulates only what it needs.
 //
-// Default batchSize 1000 — kompromiss zwischen DB-Roundtrips (kleinere
-// batches → mehr queries) und Memory (größere batches → mehr resident).
+// Default batchSize 1000 — trade-off between DB round-trips (smaller =
+// more queries) and memory (larger = more resident).
 //
-// Bei jedem yield darf der Caller pausieren / async-work machen — der
-// nächste batch wird erst geladen wenn nötig.
+// The caller may pause / do async work between yields; the next batch is
+// only fetched when consumed.
 export async function* streamAllEventsByType(
   db: DbRunner,
   aggregateType: string,
@@ -339,20 +348,18 @@ export async function* streamAllEventsByType(
       .orderBy(asc(eventsTable.id))
       .limit(batchSize);
 
-    // skip: keine weiteren rows — generator exit ist die natürliche Termination.
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      // skip: end of stream — generator exit is the natural termination.
+      return;
+    }
 
     for (const row of rows) {
       yield toStoredEvent(row);
     }
-    // Letzte ID des batches ist das Cursor für den nächsten Round-Trip.
-    // bigserial monotonic → keine Duplikate, keine Skipping bei concurrent
-    // writes (neue events haben höhere ids als der letzte batch-row).
-    const last = rows[rows.length - 1];
-    // skip: defensive — rows.length > 0 check oben garantiert last !== undefined,
-    // aber TypeScript kann das nicht beweisen. Generator-exit OK falls es passiert.
-    if (!last) return;
-    cursorId = last.id;
+    // Last id of the batch advances the cursor. rows.length > 0 above
+    // makes the non-null cast safe — keeping the assertion close so the
+    // invariant is local rather than spread across an extra guard.
+    cursorId = rows[rows.length - 1]!.id;
   }
 }
 

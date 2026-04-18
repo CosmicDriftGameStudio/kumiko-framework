@@ -1,17 +1,16 @@
-// Event-Store Performance — Gate A targets aus dem Sprint-B-Spike.
-// Hier validieren wir dass die heutige Framework-API die gleichen
-// Performance-Niveaus hält wie der raw-SQL-Spike, der vor dem ES-Pivot
-// als Beweis benutzt wurde.
+// Event-Store Performance — Gate A targets from the Sprint-B spike.
+// Asserts that today's framework API holds the same latency envelope as
+// the raw-SQL spike used as proof before the ES pivot.
 //
-// Targets (aus docs/plans/architecture/event-sourcing-spike-1.md):
-//   - Write-Latency  p99 < 30ms  (append einer einzelnen event)
-//   - Read-Latency   p99 < 10ms  (loadAggregate für Single-Aggregate)
-//   - Update-Latency p99 < 30ms  (append mit predecessor-check WHERE EXISTS)
+// Targets (from docs/plans/architecture/event-sourcing-spike-1.md):
+//   - Write-Latency  p99 < 30ms  (append a single event)
+//   - Read-Latency   p99 < 10ms  (loadAggregate for a single aggregate)
+//   - Update-Latency p99 < 30ms  (append with predecessor-check WHERE EXISTS)
 //   - Snapshot-Load < 50ms       (1000-event aggregate, snapshot @ 900)
 //
-// Workload ist sequenziell gegen lokales Docker-Postgres — keine Netzwerk-
-// Latenz, single-node PG. Production-deploys sind langsamer; diese Zahlen
-// sind die Decke. Bei rotem Test: Framework-Regression, KEIN OK-Toleranz.
+// Workload is sequential against local Docker Postgres — no network
+// latency, single-node PG. Production deploys are slower; these numbers
+// are the ceiling. Red test = framework regression, no slack tolerated.
 
 import { sql } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
@@ -136,8 +135,8 @@ describe("event-store performance — Gate A", () => {
   });
 
   test("update-latency p99 < 30ms — exercises predecessor-check WHERE EXISTS path", async () => {
-    // Single aggregate, repeated updates — der INSERT … SELECT … WHERE EXISTS
-    // Pfad ist komplexer als ein simple create und braucht extra Index-Lookup.
+    // Single aggregate, repeated updates — the INSERT … SELECT … WHERE EXISTS
+    // path is heavier than a simple create and adds an index lookup.
     const aggregateId = uuid();
     await append(testDb.db, {
       aggregateId,
@@ -192,10 +191,10 @@ describe("event-store performance — Gate A", () => {
   });
 
   test("snapshot-load < 50ms for 1000-event aggregate (Gate A)", async () => {
-    // Bulk-seed 1000 events — direkter SQL-Insert weil 1000 sequentielle
-    // append()-Calls würden den Test minutenlang machen. Was wir messen
-    // ist die loadAggregateWithSnapshot-Performance auf dem fertigen Stream,
-    // nicht den Build-Vorgang.
+    // Bulk-seed 1000 events via direct SQL insert — 1000 sequential
+    // append() calls would take minutes. We measure the
+    // loadAggregateWithSnapshot performance on a finished stream, not
+    // the seed phase.
     const aggregateId = uuid();
     await testDb.db.execute(sql`
       INSERT INTO events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)

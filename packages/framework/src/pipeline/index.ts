@@ -46,7 +46,6 @@ export { rebuildMultiStreamProjection } from "./msp-rebuild";
 export type { ProjectionProgress, RebuildResult } from "./projection-rebuild";
 export {
   getAllProjectionProgress,
-  getEventLogHighWaterMark,
   getProjectionState,
   listProjectionsWithState,
   rebuildProjection,

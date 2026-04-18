@@ -356,8 +356,8 @@ describe("getAllProjectionProgress", () => {
     expect(empty[0]?.lag).toBe(0n);
 
     // Seed some events but skip rebuild → HWM advances, cursor stays 0n,
-    // lag = HWM. Das ist der "behind" Zustand den ein Ops-Dashboard sieht
-    // bevor jemand rebuild auslöst.
+    // lag = HWM. This is the "behind" state an ops dashboard sees before
+    // someone triggers a rebuild.
     await appendCreatedEvent("00000000-0000-4000-8000-000000000060", "a");
     await appendCreatedEvent("00000000-0000-4000-8000-000000000061", "b");
     await appendCreatedEvent("00000000-0000-4000-8000-000000000062", "c");

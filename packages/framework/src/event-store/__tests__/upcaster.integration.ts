@@ -311,7 +311,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
     });
     await pushTables(testDb.db, { upcastAsyncSummary: asyncSummary });
 
-    // Feature mit async upcaster v1 → v2: enrich payload mit segment aus DB.
+    // Feature with async upcaster v1 → v2: enrich payload with segment from DB.
     const asyncFeature = defineFeature("upcastasync", (r) => {
       r.entity("upcastAsyncOrder", orderEntity);
       const placed = r.defineEvent(
@@ -348,8 +348,8 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
 
     const asyncRegistry = createRegistry([asyncFeature]);
 
-    // Stream: ein v1 event ohne segment-feld + ein v2 event mit segment.
-    // Upcaster muss v1 zu v2 enrichen via DB-lookup auf customer_segments.
+    // Stream: one v1 event without segment + one v2 event with segment.
+    // The upcaster must lift v1 to v2 via DB lookup on customer_segments.
     const orderId1 = "00000000-0000-4000-8000-00000000ddd1";
     const orderId2 = "00000000-0000-4000-8000-00000000ddd2";
     await append(testDb.db, {
@@ -382,9 +382,9 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
     const rows = await testDb.db.select().from(asyncSummary).orderBy(asyncSummary.orderId);
     expect(rows).toHaveLength(2);
     const byId = new Map(rows.map((r) => [r.orderId, r]));
-    // v1 → v2 via async DB-lookup → segment aus customer_segments table.
+    // v1 → v2 via async DB lookup → segment from customer_segments.
     expect(byId.get(orderId1)?.segment).toBe("PREMIUM");
-    // v2 already current → unverändert durchgereicht.
+    // v2 already current → passes through unchanged.
     expect(byId.get(orderId2)?.segment).toBe("STANDARD");
   });
 });

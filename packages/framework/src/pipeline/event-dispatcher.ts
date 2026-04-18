@@ -1,8 +1,13 @@
-import { asc, eq, gt, max, sql } from "drizzle-orm";
+import { asc, eq, gt, sql } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
-import { EVENTS_PUBSUB_CHANNEL, eventsTable, type StoredEvent } from "../event-store";
+import {
+  EVENTS_PUBSUB_CHANNEL,
+  eventsTable,
+  getEventLogHighWaterMark,
+  type StoredEvent,
+} from "../event-store";
 import {
   emitDispatcherError,
   emitEventConsumerLag,
@@ -756,32 +761,26 @@ export type ConsumerProgress = {
   readonly lastProcessedEventId: bigint;
   readonly attempts: number;
   readonly lastError: string | null;
-  // Globaler MAX(events.id) zum Abfrage-Zeitpunkt.
+  // Global MAX(events.id) at query time.
   readonly highWaterMark: bigint;
-  // HWM - cursor. 0n wenn caught-up. Disabled-consumers haben oft hohe
-  // Lag — das ist beabsichtigt (Ops parkt sie vor Pruning).
+  // HWM - cursor. 0n when caught-up. Disabled consumers often show high
+  // lag intentionally (ops parks them before pruning).
   readonly lag: bigint;
 };
 
-// Wie listConsumersWithState, aber zusätzlich High-Water-Mark + Lag pro
-// Consumer. Async-Consumers (MSPs) lagged hinter inline-Projections weil
-// sie post-commit verarbeitet werden — Lag-View ist die primäre Metrik
-// um Backpressure / Dead-Consumer / dispatcher-Stillstand zu erkennen.
-//
-// CLI-Hook: `kumiko consumers lag`. Prometheus-Gauge-Pattern:
-// pro Consumer eine Gauge `kumiko_consumer_lag{name}`.
+// Like listConsumersWithState, but also returns HWM + lag per consumer.
+// Async consumers (MSPs) lag behind inline projections because they run
+// post-commit — lag is the primary signal for backpressure, dead consumers,
+// or dispatcher stalls. Programmatic callers can map the result to a
+// `kumiko_consumer_lag{name}` Prometheus gauge.
 export async function getAllConsumerProgress(
   db: DbConnection,
   registeredNames: readonly string[],
 ): Promise<readonly ConsumerProgress[]> {
-  // getEventLogHighWaterMark sitzt drüben in projection-rebuild.ts —
-  // hier inline-Query um Import-Cycle zu vermeiden (event-dispatcher ist
-  // tief im pipeline-Tree).
-  const consumers = await listConsumersWithState(db, registeredNames);
-  // drizzle's max(bigserial) gibt bigint zurück (vs raw sql template das
-  // string liefert) — match projection-rebuild.getEventLogHighWaterMark.
-  const [hwmRow] = await db.select({ max: max(eventsTable.id) }).from(eventsTable);
-  const highWaterMark = hwmRow?.max ?? 0n;
+  const [consumers, highWaterMark] = await Promise.all([
+    listConsumersWithState(db, registeredNames),
+    getEventLogHighWaterMark(db),
+  ]);
 
   return consumers.map((c) => ({
     ...c,

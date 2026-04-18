@@ -310,9 +310,9 @@ describe("event-store: asOf + after-version reads", () => {
 });
 
 describe("event-store: loadAllEventsByType", () => {
-  // Rückgrat der Projection-Rebuild-Replay: alle Events eines aggregateType,
-  // cross-tenant, in chronologischer Reihenfolge. Wurde im second-audit als
-  // nicht-getestet gemeldet — dieser Test schließt die Lücke.
+  // Backbone of projection-rebuild replay: all events of one aggregateType,
+  // cross-tenant, in chronological order. Flagged as untested in a prior
+  // audit — these tests close the gap.
 
   test("returns only events of the requested aggregateType", async () => {
     const taskId = uuid();
@@ -380,9 +380,9 @@ describe("event-store: loadAllEventsByType", () => {
   });
 
   test("ordered by (createdAt, id) for deterministic replay", async () => {
-    // Projection-Rebuild wendet Events in der Reihenfolge an, in der sie
-    // geschrieben wurden. Die Sortierung ist Teil des Contracts — ohne sie
-    // entstehen je nach Replay unterschiedliche Projection-States.
+    // Projection rebuild applies events in the order they were written.
+    // The ordering is part of the contract — without it, different
+    // replays would produce different projection states.
     const a1 = uuid();
     const a2 = uuid();
     const a3 = uuid();
@@ -458,8 +458,8 @@ describe("event-store: loadAllEventsByType", () => {
 
 describe("event-store: streamAllEventsByType (memory-bounded iteration)", () => {
   test("yields every event in id order across multiple batches", async () => {
-    // Seed 25 events; mit batchSize=10 ergibt das 3 batches (10+10+5).
-    // Verifies cursor advance (kein Skipping zwischen batches) + final
+    // Seed 25 events; with batchSize=10 that's 3 batches (10+10+5).
+    // Verifies cursor advance (no skipping between batches) and final
     // empty-batch termination.
     for (let i = 0; i < 25; i++) {
       await append(testDb.db, {

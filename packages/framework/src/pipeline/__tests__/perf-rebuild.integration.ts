@@ -1,14 +1,17 @@
-// Projection-Rebuild Performance — Gate A target aus Sprint-B-Spike.
-// Validiert dass das heutige rebuildProjection() (mit r.projection +
-// registry + rebuild-state-table + status-lifecycle) trotz framework-
-// overhead den Throughput hält.
+// Projection-Rebuild Performance — NOT a perf gate, a "not-broken" gate.
 //
-// Threshold: 5000 events/s im voll-Suite-Run. Isoliert (yarn vitest run
-// dieses-file allein) sehen wir 14k-15k events/s. Vitest läuft Tests
-// parallel — andere Files hämmern parallel die gleiche DB, I/O-bound
-// rebuild teilt sich Bandwidth. 5k events/s ist die parallel-safe Grenze;
-// unter dieser Zahl ist es eine echte Regression. Production-Last (eine
-// Node, mehrere Tenants gleichzeitig) sieht ähnliches Profil.
+// Asserts the current rebuildProjection() pipeline (registry + state-table
+// + status-lifecycle wrapper) still moves bulk events at a sane rate. The
+// real performance number is what we observe in isolation: 14–15k events/s
+// on this hardware. The threshold below is intentionally loose because
+// vitest runs integration suites in parallel — other files hammer the same
+// Postgres at the same time, and an I/O-bound rebuild shares bandwidth.
+//
+// Threshold: 5000 events/s. Picked so a 2× regression on a real bottleneck
+// (e.g. accidental N+1 in the apply-loop, missing index on events.id, a
+// stray await in the hot path) trips the test, while normal suite-load
+// jitter does not. If this ever flakes in CI, drop to 3000 — the goal is
+// "catastrophic regression detector", not "perf SLO".
 
 import { sql } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
@@ -24,10 +27,10 @@ import { createEventsTable } from "../../event-store";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
 import { createTestDb, pushTables, type TestDb, TestUsers } from "../../testing";
 
-// Counter-Projection: jedes task.created bumpt einen counter, jedes
-// task.updated touched lastUpdatedAt. Reicht um den apply-Pfad zu
-// exercisen — der Rebuild-Cost-Anteil ist event-iteration + apply,
-// nicht projection-state-shape.
+// Counter projection: every task.created bumps a counter, every
+// task.updated is a no-op. Enough to exercise the apply path —
+// rebuild cost is dominated by event iteration + apply dispatch,
+// not the projection state shape.
 const taskCountTable = drizzlePgTable("perf_rebuild_task_count", {
   tenantId: drizzleUuid("tenant_id").primaryKey(),
   count: drizzleInteger("count").notNull().default(0),
@@ -49,9 +52,9 @@ const taskCountProjection: ProjectionDefinition = {
         });
     },
     "task.updated": async (_event, _tx) => {
-      // No-op apply — wir wollen den event-iteration-overhead messen, nicht
-      // die per-event DB-Roundtrips. 10k events/s @ 1 row-update pro event
-      // wäre ein I/O-bound test, nicht ein rebuild-throughput-test.
+      // No-op apply — measuring event-iteration overhead, not per-event
+      // DB roundtrips. 10k events/s with one row-update per event would
+      // be an I/O-bound test, not a rebuild-throughput test.
     },
   },
 };
@@ -89,9 +92,9 @@ beforeEach(async () => {
   );
 });
 
-// Bulk-Seed via SQL — sequenzielle append()-calls würden den Test minutenlang
-// machen. Was wir messen ist die Rebuild-Throughput auf einem fertigen Stream,
-// nicht den Seed-Vorgang. count Aggregate × depth Events pro Aggregate.
+// Bulk-seed via SQL — sequential append() calls would take minutes.
+// Measures rebuild throughput on a finished stream, not the seed phase.
+// Produces count aggregates × depth events per aggregate.
 async function seedEvents(count: number, depth: number): Promise<void> {
   const userId = uuid();
   // v1 creates

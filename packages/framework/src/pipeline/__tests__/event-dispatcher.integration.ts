@@ -276,7 +276,7 @@ describe("getAllConsumerProgress — Ops-View für consumer lag", () => {
     expect(a?.lag).toBe(0n);
     expect(b?.lag).toBe(0n);
 
-    // Drei neue Events ohne runOnce → consumers lagged.
+    // Three more events without runOnce → consumers fall behind.
     await appendWidget("three");
     await appendWidget("four");
     await appendWidget("five");
