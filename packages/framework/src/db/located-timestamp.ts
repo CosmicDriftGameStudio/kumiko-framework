@@ -11,12 +11,17 @@
 
 import type { EntityDefinition } from "../engine/types";
 
-// PG liefert für TIMESTAMPTZ im mode:"string" das Wire-Format
-// "2026-04-15 09:00:00+00". Temporal erwartet ISO-8601 mit "T" und
-// entweder "Z" oder "+HH:MM". Mini-Adapter normalisiert.
-function pgTimestamptzToInstantIso(pgValue: string): string {
-  if (pgValue.includes("T")) return pgValue;
-  return pgValue.replace(" ", "T").replace(/\+00$/, "Z");
+// Sprint F: <name>Utc-Spalte ist jetzt instant() (siehe dialect.ts) —
+// Drizzle gibt direkt Temporal.Instant zurück. Vor Sprint F kam ein PG-
+// Wire-Format-String "2026-04-15 09:00:00+00" rein der via String-Massage
+// zu ISO-8601 gemacht werden musste. Heute übernimmt der customType die
+// Konversion DB↔Instant — diese Funktion ist nur noch defensive Glue für
+// Legacy-Code-Pfade die noch Strings durchreichen (z.B. raw SQL).
+function toInstant(value: unknown): Temporal.Instant | undefined {
+  if (value instanceof Temporal.Instant) return value;
+  if (typeof value !== "string") return undefined;
+  const iso = value.includes("T") ? value : value.replace(" ", "T").replace(/\+00$/, "Z");
+  return Temporal.Instant.from(iso);
 }
 
 /**
@@ -52,14 +57,19 @@ export function flattenLocatedTimestamp(
 
     if (pair.tz === undefined) continue;
     const tz = pair.tz;
-    const utc =
-      pair.utc ??
-      (pair.at !== undefined
-        ? T.PlainDateTime.from(pair.at).toZonedDateTime(tz).toInstant().toString()
-        : undefined);
-    if (utc === undefined) continue;
+    // Sprint F: <name>Utc-Spalte ist instant() — Drizzle erwartet
+    // Temporal.Instant. Konvertierung pair.utc-string → Instant geht via
+    // toInstant() (kennt String + Instant); pair.at + tz → Instant via
+    // Temporal-Math.
+    const instant: Temporal.Instant | undefined =
+      pair.utc !== undefined
+        ? toInstant(pair.utc)
+        : pair.at !== undefined
+          ? T.PlainDateTime.from(pair.at).toZonedDateTime(tz).toInstant()
+          : undefined;
+    if (instant === undefined) continue;
 
-    result[`${name}Utc`] = utc;
+    result[`${name}Utc`] = instant;
     result[`${name}Tz`] = tz;
   }
 
@@ -79,7 +89,6 @@ export function rehydrateLocatedTimestamp(
   row: Record<string, unknown>,
   entity: EntityDefinition,
 ): Record<string, unknown> {
-  const T = (globalThis as unknown as { Temporal: typeof Temporal }).Temporal;
   const result: Record<string, unknown> = { ...row };
 
   for (const [name, field] of Object.entries(entity.fields)) {
@@ -91,13 +100,14 @@ export function rehydrateLocatedTimestamp(
     delete result[`${name}Utc`];
     delete result[`${name}Tz`];
 
-    if (typeof utcRaw !== "string" || typeof tzRaw !== "string") continue;
+    if (typeof tzRaw !== "string") continue;
+    const utcInstant = toInstant(utcRaw);
+    if (utcInstant === undefined) continue;
 
-    const utcIso = pgTimestamptzToInstantIso(utcRaw);
-    const localZdt = T.Instant.from(utcIso).toZonedDateTimeISO(tzRaw);
+    const localZdt = utcInstant.toZonedDateTimeISO(tzRaw);
     const at = localZdt.toPlainDateTime().toString();
 
-    result[name] = { at, tz: tzRaw, utc: utcIso };
+    result[name] = { at, tz: tzRaw, utc: utcInstant.toString() };
   }
 
   return result;

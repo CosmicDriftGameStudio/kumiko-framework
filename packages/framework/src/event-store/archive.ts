@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { DbConnection, DbRunner } from "../db/connection";
-import { table as pgTable, text, timestamp, uniqueIndex, uuid } from "../db/dialect";
+import { instant, table as pgTable, text, uniqueIndex, uuid } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { pushTables } from "../testing";
@@ -19,9 +19,7 @@ export const archivedStreamsTable = pgTable(
     tenantId: uuid("tenant_id").notNull(),
     aggregateId: uuid("aggregate_id").notNull(),
     aggregateType: text("aggregate_type").notNull(),
-    archivedAt: timestamp("archived_at", { withTimezone: true, precision: 3 })
-      .notNull()
-      .defaultNow(),
+    archivedAt: instant("archived_at", { precision: 3 }).notNull().default(sql`now()`),
     archivedBy: text("archived_by").notNull(),
     reason: text("reason"),
   },

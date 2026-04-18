@@ -83,7 +83,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     }),
     async (query, ctx) => {
       const events = await ctx.loadAggregate(query.payload.id, {
-        ...(query.payload.asOf ? { asOf: new Date(query.payload.asOf) } : {}),
+        ...(query.payload.asOf ? { asOf: Temporal.Instant.from(query.payload.asOf) } : {}),
       });
       // Simple reducer: collect created + approved facts, ignore the rest.
       const state: {

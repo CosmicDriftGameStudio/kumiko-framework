@@ -5,7 +5,17 @@ export { createDbConnection } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { applyCursorQuery, decodeCursor, encodeCursor } from "./cursor";
 export type { SelectQuery, TableColumns } from "./dialect";
-export { boolean, integer, serial, table, text, timestamp, uniqueIndex, uuid } from "./dialect";
+export {
+  boolean,
+  instant,
+  integer,
+  serial,
+  table,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "./dialect";
 export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
 export type { EventStoreExecutor, EventStoreExecutorOptions } from "./event-store-executor";

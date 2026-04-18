@@ -75,7 +75,7 @@ afterEach(async () => {
 // executor so we can stamp events in the past for prune tests. Aggregate
 // type defaults to "widget" — matches the test feature's entity type.
 async function seedOldAggregateEvent(
-  createdAt: Date,
+  createdAt: Temporal.Instant,
   type: string,
   aggregateType = "widget",
 ): Promise<bigint> {
@@ -106,7 +106,7 @@ async function appendAggregateWidget(name: string): Promise<void> {
 describe("E.2 — explicit-aggregateTypes pruning", () => {
   test("aggregate-type events NOT named in aggregateTypes are untouched", async () => {
     // Seed an "obsolete" aggregate type + a "widget" event, both aged.
-    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
     const obsoleteId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.v1", "obsolete");
     const widgetId = await seedOldAggregateEvent(tenDaysAgo, "widget.legacy", "widget");
 
@@ -130,8 +130,12 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
   });
 
   test("named aggregate-type events older than the cutoff are deleted; fresh ones stay", async () => {
-    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-    const freshId = await seedOldAggregateEvent(new Date(), "obsolete.fresh", "obsolete");
+    const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
+    const freshId = await seedOldAggregateEvent(
+      Temporal.Now.instant(),
+      "obsolete.fresh",
+      "obsolete",
+    );
     const staleId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.stale", "obsolete");
 
     // Disable the auto-registered consumer so the lag guard passes — the
@@ -151,7 +155,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
   });
 
   test("dry-run reports the count but deletes nothing", async () => {
-    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
     await seedOldAggregateEvent(tenDaysAgo, "obsolete.drain", "obsolete");
 
     await disableConsumer(stack.db.db, observerQn);

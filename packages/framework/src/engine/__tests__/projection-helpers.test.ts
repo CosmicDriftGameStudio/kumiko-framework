@@ -23,7 +23,7 @@ function makeFakeEvent(overrides: Partial<StoredEvent> = {}): StoredEvent {
     eventVersion: 1,
     payload: {},
     metadata: { userId: "u-1", requestId: "r-1" },
-    createdAt: new Date("2026-04-17T00:00:00Z"),
+    createdAt: Temporal.Instant.from("2026-04-17T00:00:00Z"),
     createdBy: "u-1",
     ...overrides,
   };

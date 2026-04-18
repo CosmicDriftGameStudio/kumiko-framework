@@ -385,7 +385,7 @@ export function createDispatcher(
       },
       loadAggregate: async (
         aggregateId: string,
-        loadOptions?: { readonly asOf?: Date },
+        loadOptions?: { readonly asOf?: Temporal.Instant },
       ): Promise<readonly StoredEvent[]> => {
         const dbSource: DbConnection | DbTx | undefined =
           tx ?? (context.db as DbConnection | undefined);

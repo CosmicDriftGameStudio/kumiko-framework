@@ -234,7 +234,8 @@ describe("rebuildProjection — state table lifecycle", () => {
     await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
 
     const second = await getProjectionState(testDb.db, qualifiedProjectionName);
-    expect(second?.lastRebuildAt?.getTime()).toBeGreaterThan(first?.lastRebuildAt?.getTime() ?? 0);
+    if (!first?.lastRebuildAt || !second?.lastRebuildAt) throw new Error("missing lastRebuildAt");
+    expect(Temporal.Instant.compare(second.lastRebuildAt, first.lastRebuildAt)).toBeGreaterThan(0);
     expect(second?.lastProcessedEventId).toBeGreaterThan(first?.lastProcessedEventId ?? 0n);
   });
 });

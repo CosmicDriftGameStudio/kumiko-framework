@@ -44,3 +44,43 @@ export const moneyAmount = customType<{ data: number; driverData: string | numbe
     return value;
   },
 });
+
+/**
+ * Instant column: TIMESTAMPTZ storing a UTC instant, surfaced to JS as
+ * `Temporal.Instant`. Replaces the old dual-mode situation (`mode:"date"`
+ * for base fields vs `mode:"string"` for user-defined timestamp fields)
+ * with a single round-trip type. See sprint-f-temporal.md for the migration.
+ *
+ * Driver-data is the ISO-8601 string the postgres driver actually exchanges.
+ * `fromDriver` reads what the driver returns (postgres-js gives strings for
+ * timestamptz) and parses through Temporal. `toDriver` writes the canonical
+ * Temporal.Instant.toString() — the spike confirmed `eq/lte/gt/orderBy/
+ * returning` accept Temporal.Instant directly without manual `.toString()`
+ * at the call site.
+ *
+ * Boot-order note: `Temporal` must exist on globalThis before any
+ * fromDriver/toDriver call. `ensureTemporalPolyfill()` runs at framework
+ * boot. The closures here are lazy — they fire on read/write, not on
+ * module load — so importing this file before the polyfill is safe.
+ *
+ * Optional `precision` (0..6) — fractional-second digits. Default 6 matches
+ * PG's default `timestamptz`. Pass 3 for the events-table (ms precision —
+ * matches what asOf-queries can compare reliably). Affects only CREATE TABLE
+ * DDL via drizzle-kit; runtime parse handles any precision via Temporal.
+ */
+const instantBuilder = (config?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }) =>
+  customType<{ data: Temporal.Instant; driverData: string }>({
+    dataType() {
+      const p = config?.precision;
+      return p !== undefined ? `timestamp(${p}) with time zone` : "timestamptz";
+    },
+    fromDriver(value: string): Temporal.Instant {
+      return Temporal.Instant.from(value);
+    },
+    toDriver(value: Temporal.Instant): string {
+      return value.toString();
+    },
+  });
+export function instant(name: string, config?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }) {
+  return instantBuilder(config)(name);
+}

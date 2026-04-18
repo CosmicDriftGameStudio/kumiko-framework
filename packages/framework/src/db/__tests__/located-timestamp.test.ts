@@ -14,6 +14,12 @@ const orderEntity: EntityDefinition = createEntity({
   },
 });
 
+// Sprint F: flattenLocatedTimestamp returnt jetzt Temporal.Instant für die
+// <name>Utc-Spalte (statt ISO-String). Tests vergleichen via .toString()
+// damit der Wert deterministisch lesbar bleibt — der canonical ISO-Output
+// von Temporal.Instant ist stabil.
+const utcStr = (v: unknown): string => (v as Temporal.Instant).toString();
+
 describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
   test("{ at, tz } → { <name>Utc, <name>Tz } (utc berechnet via Temporal)", () => {
     const flat = flattenLocatedTimestamp(
@@ -21,10 +27,8 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
       orderEntity,
     );
     // Lisbon WEST im April = UTC+1, also 10:00 Lisbon = 09:00 UTC.
-    expect(flat).toEqual({
-      pickupUtc: "2026-04-15T09:00:00Z",
-      pickupTz: "Europe/Lisbon",
-    });
+    expect(utcStr(flat["pickupUtc"])).toBe("2026-04-15T09:00:00Z");
+    expect(flat["pickupTz"]).toBe("Europe/Lisbon");
   });
 
   test("{ utc, tz } → wird direkt gespeichert (utc gewinnt)", () => {
@@ -32,10 +36,8 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
       { pickup: { utc: "2026-04-15T09:00:00Z", tz: "Europe/Lisbon" } },
       orderEntity,
     );
-    expect(flat).toEqual({
-      pickupUtc: "2026-04-15T09:00:00Z",
-      pickupTz: "Europe/Lisbon",
-    });
+    expect(utcStr(flat["pickupUtc"])).toBe("2026-04-15T09:00:00Z");
+    expect(flat["pickupTz"]).toBe("Europe/Lisbon");
   });
 
   test("{ at, tz, utc } — utc gewinnt deterministisch", () => {
@@ -50,7 +52,7 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
       orderEntity,
     );
     // utc gewinnt — wir speichern was der Caller explizit angegeben hat.
-    expect(flat["pickupUtc"]).toBe("2026-04-15T07:00:00Z");
+    expect(utcStr(flat["pickupUtc"])).toBe("2026-04-15T07:00:00Z");
   });
 
   test("Mehrere locatedTimestamp-Felder am gleichen Object", () => {
@@ -61,12 +63,11 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
       },
       orderEntity,
     );
-    expect(flat).toEqual({
-      pickupUtc: "2026-04-15T09:00:00Z",
-      pickupTz: "Europe/Lisbon",
-      deliveryUtc: "2026-04-16T09:00:00Z", // 18:00 Tokyo = 09:00 UTC
-      deliveryTz: "Asia/Tokyo",
-    });
+    expect(utcStr(flat["pickupUtc"])).toBe("2026-04-15T09:00:00Z");
+    expect(flat["pickupTz"]).toBe("Europe/Lisbon");
+    // 18:00 Tokyo = 09:00 UTC
+    expect(utcStr(flat["deliveryUtc"])).toBe("2026-04-16T09:00:00Z");
+    expect(flat["deliveryTz"]).toBe("Asia/Tokyo");
   });
 
   test("andere Felder bleiben unverändert (clientName)", () => {
@@ -91,7 +92,7 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
       { pickup: { at: "2026-03-29T04:30:00", tz: "Europe/Berlin" } },
       orderEntity,
     );
-    expect(flat["pickupUtc"]).toBe("2026-03-29T02:30:00Z");
+    expect(utcStr(flat["pickupUtc"])).toBe("2026-03-29T02:30:00Z");
   });
 
   test("ist pure — input wird nicht mutiert", () => {

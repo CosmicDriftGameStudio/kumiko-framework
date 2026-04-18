@@ -386,7 +386,7 @@ describe("event-store: loadAllEventsByType", () => {
       const prev = all[i - 1];
       const cur = all[i];
       if (!prev || !cur) throw new Error("unreachable");
-      expect(prev.createdAt.getTime()).toBeLessThanOrEqual(cur.createdAt.getTime());
+      expect(Temporal.Instant.compare(prev.createdAt, cur.createdAt)).toBeLessThanOrEqual(0);
     }
   });
 

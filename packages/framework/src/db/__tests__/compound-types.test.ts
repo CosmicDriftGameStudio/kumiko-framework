@@ -44,14 +44,13 @@ describe("flattenCompoundTypes — Pipeline", () => {
       },
       mixedEntity,
     );
-    // Beide Compound-Konverter müssen gefeuert haben
-    expect(flat).toEqual({
-      label: "ACME",
-      pickupUtc: "2026-04-15T09:00:00Z",
-      pickupTz: "Europe/Lisbon",
-      buyingPrice: 45_000,
-      buyingPriceCurrency: "EUR",
-    });
+    // Beide Compound-Konverter müssen gefeuert haben.
+    // Sprint F: pickupUtc ist jetzt Temporal.Instant — vergleichen via .toString().
+    expect(flat["label"]).toBe("ACME");
+    expect((flat["pickupUtc"] as Temporal.Instant).toString()).toBe("2026-04-15T09:00:00Z");
+    expect(flat["pickupTz"]).toBe("Europe/Lisbon");
+    expect(flat["buyingPrice"]).toBe(45_000);
+    expect(flat["buyingPriceCurrency"]).toBe("EUR");
   });
 
   test("ist pure — input wird nicht mutiert", () => {

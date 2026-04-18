@@ -220,9 +220,9 @@ export async function getProjectionState(
   readonly name: string;
   readonly status: string;
   readonly lastProcessedEventId: bigint;
-  readonly lastRebuildAt: Date | null;
+  readonly lastRebuildAt: Temporal.Instant | null;
   readonly lastError: string | null;
-  readonly updatedAt: Date;
+  readonly updatedAt: Temporal.Instant;
 } | null> {
   const [row] = await db
     .select()
@@ -251,7 +251,7 @@ export async function listProjectionsWithState(
     readonly sources: readonly string[];
     readonly status: string;
     readonly lastProcessedEventId: bigint;
-    readonly lastRebuildAt: Date | null;
+    readonly lastRebuildAt: Temporal.Instant | null;
     readonly lastError: string | null;
   }>
 > {

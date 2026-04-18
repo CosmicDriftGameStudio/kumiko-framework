@@ -132,7 +132,7 @@ describe("tenant-storage-usage MSP", () => {
       .select({ at: tenantStorageUsageTable.lastUpdatedAt })
       .from(tenantStorageUsageTable)
       .where(eq(tenantStorageUsageTable.tenantId, admin.tenantId));
-    expect(first?.at).toBeInstanceOf(Date);
+    expect(first?.at).toBeInstanceOf(Temporal.Instant);
 
     // Postgres NOW() resolution is microseconds; a second upload a beat
     // later must produce a strictly later timestamp (or at least not an
@@ -146,7 +146,8 @@ describe("tenant-storage-usage MSP", () => {
       .select({ at: tenantStorageUsageTable.lastUpdatedAt })
       .from(tenantStorageUsageTable)
       .where(eq(tenantStorageUsageTable.tenantId, admin.tenantId));
-    expect(second?.at).toBeInstanceOf(Date);
-    expect((second?.at as Date).getTime()).toBeGreaterThanOrEqual((first?.at as Date).getTime());
+    expect(second?.at).toBeInstanceOf(Temporal.Instant);
+    if (!first?.at || !second?.at) throw new Error("missing rows");
+    expect(Temporal.Instant.compare(second.at, first.at)).toBeGreaterThanOrEqual(0);
   });
 });

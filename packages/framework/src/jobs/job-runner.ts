@@ -17,13 +17,13 @@ import { RedisKeys } from "../pipeline/redis-keys";
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
   message: string;
-  timestamp: Date;
+  timestamp: Temporal.Instant;
 };
 
 function createJobLogger(logs: JobLogEntry[]): Logger {
   function push(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
     const message = data ? `${msg} ${JSON.stringify(data)}` : msg;
-    logs.push({ level, message, timestamp: new Date() });
+    logs.push({ level, message, timestamp: Temporal.Now.instant() });
   }
   const logger: Logger = {
     info(msg, data) {
@@ -255,7 +255,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         await options.onJobComplete?.(jobName, jobId, duration, logs);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
-        logs.push({ level: "error", message: errorMsg, timestamp: new Date() });
+        logs.push({ level: "error", message: errorMsg, timestamp: Temporal.Now.instant() });
         await options.onJobFailed?.(jobName, jobId, errorMsg, logs);
         throw err;
       }

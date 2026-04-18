@@ -228,7 +228,7 @@ describe("scoped mode (default)", () => {
         status: "ref",
         tenantId: "00000000-0000-4000-8000-000000000000",
         version: 1,
-        insertedAt: new Date(),
+        insertedAt: Temporal.Now.instant(),
       });
 
       const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
@@ -248,7 +248,7 @@ describe("scoped mode (default)", () => {
         status: "ref",
         tenantId: "00000000-0000-4000-8000-000000000000",
         version: 1,
-        insertedAt: new Date(),
+        insertedAt: Temporal.Now.instant(),
       });
 
       const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
@@ -276,7 +276,7 @@ describe("scoped mode (default)", () => {
         status: "ref",
         tenantId: "00000000-0000-4000-8000-000000000000",
         version: 1,
-        insertedAt: new Date(),
+        insertedAt: Temporal.Now.instant(),
       });
 
       const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);

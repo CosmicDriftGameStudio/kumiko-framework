@@ -1,4 +1,5 @@
-import { integer, table as pgTable, text, timestamp, uuid } from "../db/dialect";
+import { sql } from "drizzle-orm";
+import { instant, integer, table as pgTable, text, uuid } from "../db/dialect";
 
 // `id` is a UUID (not serial): it doubles as the aggregate-id for the
 // `fileRef` event stream — every upload appends exactly one
@@ -16,6 +17,6 @@ export const fileRefsTable = pgTable("file_refs", {
   // the column backward-compat with older integer-keyed entities too.
   entityId: text("entity_id"),
   fieldName: text("field_name"),
-  insertedAt: timestamp("inserted_at").defaultNow().notNull(),
+  insertedAt: instant("inserted_at").default(sql`now()`).notNull(),
   insertedById: text("inserted_by_id"),
 });

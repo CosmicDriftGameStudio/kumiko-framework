@@ -42,7 +42,7 @@ export type StoredEvent = {
   readonly eventVersion: number;
   readonly payload: Record<string, unknown>;
   readonly metadata: EventMetadata;
-  readonly createdAt: Date;
+  readonly createdAt: Temporal.Instant;
   readonly createdBy: string;
 };
 
@@ -96,7 +96,7 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
   }
 }
 
-type InsertReturn = { id: bigint; createdAt: Date };
+type InsertReturn = { id: bigint; createdAt: Temporal.Instant };
 
 async function insertFirstEvent(
   db: DbRunner,
@@ -155,7 +155,13 @@ async function insertSubsequentEvent(
   if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   return {
     id: BigInt(row.id),
-    createdAt: row.created_at instanceof Date ? row.created_at : new Date(row.created_at),
+    // Raw SQL bypasses Drizzle's customType — postgres-js returns Date or
+    // string depending on driver-config. Normalize through Temporal.Instant
+    // so the InsertReturn shape matches the typed-builder path.
+    createdAt:
+      row.created_at instanceof Date
+        ? Temporal.Instant.fromEpochMilliseconds(row.created_at.getTime())
+        : Temporal.Instant.from(row.created_at),
   };
 }
 
@@ -213,7 +219,7 @@ export async function loadAggregateAsOf(
   db: DbRunner,
   aggregateId: string,
   tenantId: TenantId,
-  asOf: Date,
+  asOf: Temporal.Instant,
   options?: { readonly includeArchived?: boolean },
 ): Promise<readonly StoredEvent[]> {
   if (!options?.includeArchived) {

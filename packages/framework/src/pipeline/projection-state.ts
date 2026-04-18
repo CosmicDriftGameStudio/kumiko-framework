@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
-import { bigint, index, table as pgTable, text, timestamp } from "../db/dialect";
+import { bigint, index, instant, table as pgTable, text } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import { pushTables } from "../testing";
 
@@ -33,9 +33,9 @@ export const projectionStateTable = pgTable(
       .notNull()
       .default(sql`0`),
     status: text("status").notNull().default("idle"),
-    lastRebuildAt: timestamp("last_rebuild_at", { withTimezone: true, precision: 3 }),
+    lastRebuildAt: instant("last_rebuild_at", { precision: 3 }),
     lastError: text("last_error"),
-    updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+    updatedAt: instant("updated_at", { precision: 3 }).notNull().default(sql`now()`),
   },
   (t) => ({
     statusIdx: index("kumiko_projections_status_idx").on(t.status),

@@ -1,12 +1,13 @@
+import { sql } from "drizzle-orm";
 import { type DbConnection, tableExists } from "../db";
 import {
   bigserial,
   index,
+  instant,
   integer,
   jsonb,
   table as pgTable,
   text,
-  timestamp,
   uniqueIndex,
   uuid,
 } from "../db/dialect";
@@ -44,11 +45,9 @@ export const eventsTable = pgTable(
     eventVersion: integer("event_version").notNull().default(1),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     metadata: jsonb("metadata").$type<EventMetadata>().notNull(),
-    // Millisecond precision: JS Dates only carry ms, and asOf-queries
-    // round-trip event.createdAt back through JS. Matching precisions avoids
-    // μs-vs-ms comparison misses where an event with .123456 μs looks "after"
-    // an asOf of .123 ms.
-    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+    // Millisecond precision: matches what asOf-queries can compare reliably.
+    // Sprint F: instant() = Temporal.Instant round-trip via dialect.ts customType.
+    createdAt: instant("created_at", { precision: 3 }).notNull().default(sql`now()`),
     // Text rather than uuid: the framework's SessionUser.id is a number
     // (serial) by default. Stringified here so both integer- and UUID-shaped
     // user ids round-trip cleanly. Aggregate-IDs stay uuid because events are

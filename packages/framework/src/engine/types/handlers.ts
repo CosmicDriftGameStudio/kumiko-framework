@@ -186,7 +186,7 @@ export type HandlerContext = SharedContextFields & {
   // yesterday" query.
   readonly loadAggregate: (
     aggregateId: string,
-    options?: { readonly asOf?: Date },
+    options?: { readonly asOf?: Temporal.Instant },
   ) => Promise<readonly import("../../event-store").StoredEvent[]>;
 
   // Marten-aligned stream lifecycle. Archived streams become read-only:

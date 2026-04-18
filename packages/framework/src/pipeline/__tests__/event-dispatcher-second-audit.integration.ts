@@ -70,7 +70,7 @@ afterEach(async () => {
   await stack.eventDispatcher?.ensureRegistered();
 });
 
-async function seedOldWidgetEvent(createdAt: Date): Promise<void> {
+async function seedOldWidgetEvent(createdAt: Temporal.Instant): Promise<void> {
   await stack.db.db.insert(eventsTable).values({
     aggregateId: globalThis.crypto.randomUUID(),
     aggregateType: "widget",
@@ -118,7 +118,7 @@ describe("Second audit — consumer pre-registration on start()", () => {
     // delete events below any pre-registered consumer's cursor. This is
     // the race fix made deterministic — no Promise.all timing, just the
     // invariant the fix guarantees.
-    await seedOldWidgetEvent(new Date(Date.now() - 10 * 24 * 60 * 60 * 1000));
+    await seedOldWidgetEvent(Temporal.Now.instant().subtract({ hours: 240 }));
 
     await stack.eventDispatcher?.start();
     try {

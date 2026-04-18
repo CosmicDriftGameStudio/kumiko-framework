@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
-import { bigint, index, integer, table as pgTable, text, timestamp } from "../db/dialect";
+import { bigint, index, instant, integer, table as pgTable, text } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import { pushTables } from "../testing";
 
@@ -49,7 +49,7 @@ export const eventConsumerStateTable = pgTable(
     status: text("status").notNull().default("idle"),
     attempts: integer("attempts").notNull().default(0),
     lastError: text("last_error"),
-    updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+    updatedAt: instant("updated_at", { precision: 3 }).notNull().default(sql`now()`),
   },
   (t) => ({
     statusIdx: index("kumiko_event_consumers_status_idx").on(t.status),

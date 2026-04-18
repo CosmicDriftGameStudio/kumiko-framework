@@ -21,7 +21,7 @@ export type MultiStreamApplyContext = {
   // current state of a different aggregate before deciding what to emit.
   readonly loadAggregate: (
     aggregateId: string,
-    options?: { readonly asOf?: Date },
+    options?: { readonly asOf?: Temporal.Instant },
   ) => Promise<readonly StoredEvent[]>;
   // Binary storage handle factory, mirrors AppContext.files. Present when
   // the app booted with `files.storageProvider`; undefined otherwise.

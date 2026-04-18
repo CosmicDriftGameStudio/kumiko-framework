@@ -136,7 +136,7 @@ describe("upcaster: in-memory transform chain", () => {
       eventVersion: 1,
       payload: { totalEuros: "19.99" },
       metadata: { userId: admin.id },
-      createdAt: new Date(),
+      createdAt: Temporal.Now.instant(),
       createdBy: admin.id,
     };
 
@@ -158,7 +158,7 @@ describe("upcaster: in-memory transform chain", () => {
       eventVersion: 2,
       payload: { total: "5.00", currency: "USD" },
       metadata: { userId: admin.id },
-      createdAt: new Date(),
+      createdAt: Temporal.Now.instant(),
       createdBy: admin.id,
     };
 
@@ -180,7 +180,7 @@ describe("upcaster: in-memory transform chain", () => {
       eventVersion: 3,
       payload: { totalCents: 7777, currency: "CHF" },
       metadata: { userId: admin.id },
-      createdAt: new Date(),
+      createdAt: Temporal.Now.instant(),
       createdBy: admin.id,
     };
 
@@ -201,7 +201,7 @@ describe("upcaster: in-memory transform chain", () => {
       eventVersion: 1,
       payload: { whatever: true },
       metadata: { userId: admin.id },
-      createdAt: new Date(),
+      createdAt: Temporal.Now.instant(),
       createdBy: admin.id,
     };
 

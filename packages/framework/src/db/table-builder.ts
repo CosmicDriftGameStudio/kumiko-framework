@@ -4,6 +4,7 @@ import { assertUnreachable } from "../utils";
 import {
   boolean,
   index,
+  instant,
   integer,
   jsonb,
   moneyAmount,
@@ -11,7 +12,6 @@ import {
   serial,
   type TableColumns,
   text,
-  timestamp,
   uuid,
 } from "./dialect";
 
@@ -21,7 +21,7 @@ type ColumnBuilder =
   | ReturnType<typeof boolean>
   | ReturnType<typeof moneyAmount>
   | ReturnType<typeof jsonb>
-  | ReturnType<typeof timestamp>
+  | ReturnType<typeof instant>
   | ReturnType<typeof serial>;
 
 // Returns column(s) for a field. Most fields return a single entry,
@@ -59,42 +59,29 @@ function fieldToColumns(
     case "embedded":
       return { [name]: jsonb(snakeName).default({}) };
     case "date":
-      return { [name]: timestamp(snakeName) };
+      // TODO(Sprint G): semantisch falsch — `type:"date"` sollte
+      // Temporal.PlainDate sein (PG `date` Spalte, kein TZ). Heute aliased auf
+      // instant() = TIMESTAMPTZ damit Caller die gleiche API nutzen wie für
+      // type:"timestamp". Echte PlainDate-Migration kommt nach Sprint F.
+      return { [name]: instant(snakeName) };
     case "timestamp":
-      // UTC-Instant — gespeichert als TIMESTAMPTZ in PG. Wenn locatedBy
-      // gesetzt ist, ist der gespeicherte Wert der UTC-Moment des
-      // Wall-Clock+TZ-Pairs (Konvertierung kommt im DB-Wrapper-Schritt;
-      // hier nur die Spalten-Definition).
-      //
-      // mode: "string" — wir nehmen ISO-Strings rein/raus, kein JS-Date.
-      // Das passt zur Temporal-Welt (Temporal.Instant.toString() = ISO,
-      // ZonedDateTime → toLocatedJson({ at: ISO, tz })) und vermeidet
-      // Drizzles JS-Date-Default der `value.toISOString()` aufruft.
-      //
-      // Cast: PgTimestampStringBuilder hat ein anderes Default-Generic
-      // (data: string statt data: Date) als der Framework-übergreifende
-      // `ColumnBuilder`-Alias. Wire-Format kompatibel — die Build-Time-
-      // Generic-Differenz hat keine Runtime-Auswirkung.
-      return {
-        [name]: timestamp(snakeName, {
-          withTimezone: true,
-          mode: "string",
-        }) as unknown as ColumnBuilder,
-      };
+      // UTC-Instant — gespeichert als TIMESTAMPTZ in PG, gelesen/geschrieben
+      // als Temporal.Instant via instant() customType (siehe dialect.ts).
+      // Sprint F: Single-Mode-Welt — Caller-Code kennt nur Temporal.Instant,
+      // nie JS-Date. Auch Vergleiche (lte/gt/orderBy) akzeptieren Instants
+      // direkt, kein .toString()-Cast nötig.
+      return { [name]: instant(snakeName) };
     case "tz":
       // IANA-Zonenname als TEXT — Validierung über Zod-Schema (kommt im
       // Validator-Schritt). Snake-Convention: `pickup_tz`.
       return { [name]: text(snakeName) };
     case "locatedTimestamp":
       // ZWEI Spalten als atomares Pair: <name>_utc TIMESTAMPTZ + <name>_tz TEXT.
-      // mode: "string" wie bei timestamp — kompatibel mit Temporal.Instant.
+      // _utc ist instant() (Temporal.Instant), _tz ist text (IANA-Name).
       // Auto-Convert (at+tz → utc beim Insert; utc+tz → at beim Read) wird
       // im Executor verdrahtet (Phase C). Phase B liefert die Spalten.
       return {
-        [`${name}Utc`]: timestamp(`${snakeName}_utc`, {
-          withTimezone: true,
-          mode: "string",
-        }) as unknown as ColumnBuilder,
+        [`${name}Utc`]: instant(`${snakeName}_utc`),
         [`${name}Tz`]: text(`${snakeName}_tz`),
       };
     case "file":
@@ -145,8 +132,14 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
     id: idColumn,
     tenantId: uuid("tenant_id").notNull(),
     version: integer("version").default(1).notNull(),
-    insertedAt: timestamp("inserted_at").defaultNow().notNull(),
-    modifiedAt: timestamp("modified_at"),
+    // Sprint F: Temporal.Instant durchgängig (siehe instant() in dialect.ts).
+    // Vorher mode default "date" → Inkonsistenz mit user-defined timestamp
+    // Felder (mode "string"). Jetzt: ein Mode für alle Timestamps.
+    // customType doesn't expose Drizzle's `defaultNow()` shortcut — use raw
+    // SQL so PG sets the value on insert and we don't need to pass an
+    // Instant from JS for every row create.
+    insertedAt: instant("inserted_at").default(sql`now()`).notNull(),
+    modifiedAt: instant("modified_at"),
     // User-IDs are stringified UUIDs post-ES migration. Text (not uuid) so the
     // columns accept system actors ("SYSTEM", "SEED", etc.) and legacy-shaped
     // integer ids during transitional tests.
@@ -158,7 +151,7 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
     return {
       ...base,
       isDeleted: boolean("is_deleted").default(false).notNull(),
-      deletedAt: timestamp("deleted_at"),
+      deletedAt: instant("deleted_at"),
       deletedById: text("deleted_by_id"),
     };
   }

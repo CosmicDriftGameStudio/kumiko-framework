@@ -66,7 +66,7 @@ export async function seedReferenceData(
           ...row,
           tenantId: SYSTEM_TENANT_ID,
           version: 1,
-          insertedAt: new Date(),
+          insertedAt: Temporal.Now.instant(),
         });
         inserted++;
       }

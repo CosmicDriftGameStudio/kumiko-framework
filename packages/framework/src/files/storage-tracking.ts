@@ -11,7 +11,7 @@
 // into createApp / setupTestStack alongside their domain features.
 
 import { sql } from "drizzle-orm";
-import { bigint, integer, table as pgTable, timestamp, uuid } from "../db/dialect";
+import { bigint, instant, integer, table as pgTable, uuid } from "../db/dialect";
 import { defineFeature, typedPayload } from "../engine";
 import { fileUploadedEvent } from "./file-routes";
 
@@ -24,7 +24,7 @@ export const tenantStorageUsageTable = pgTable("tenant_storage_usage", {
   tenantId: uuid("tenant_id").primaryKey(),
   totalBytes: bigint("total_bytes", { mode: "number" }).notNull().default(0),
   fileCount: integer("file_count").notNull().default(0),
-  lastUpdatedAt: timestamp("last_updated_at").defaultNow().notNull(),
+  lastUpdatedAt: instant("last_updated_at").default(sql`now()`).notNull(),
 });
 
 export const filesStorageTrackingFeature = defineFeature("files-storage-tracking", (r) => {

@@ -576,7 +576,7 @@ export type ConsumerRecoveryState = {
   readonly lastProcessedEventId: bigint;
   readonly attempts: number;
   readonly lastError: string | null;
-  readonly updatedAt: Date;
+  readonly updatedAt: Temporal.Instant;
 };
 
 async function requireConsumerRow(
@@ -703,7 +703,7 @@ export async function getConsumerState(
   readonly lastProcessedEventId: bigint;
   readonly attempts: number;
   readonly lastError: string | null;
-  readonly updatedAt: Date;
+  readonly updatedAt: Temporal.Instant;
 } | null> {
   const [row] = await db
     .select()

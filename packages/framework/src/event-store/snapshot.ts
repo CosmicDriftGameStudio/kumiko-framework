@@ -2,12 +2,12 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import type { DbConnection, DbRunner } from "../db/connection";
 import {
   index,
+  instant,
   integer,
   jsonb,
   table as pgTable,
   primaryKey,
   text,
-  timestamp,
   uuid,
 } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
@@ -59,7 +59,7 @@ export const snapshotsTable = pgTable(
     // returns events with version > this value.
     version: integer("version").notNull(),
     state: jsonb("state").$type<Record<string, unknown>>().notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+    createdAt: instant("created_at", { precision: 3 }).notNull().default(sql`now()`),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.aggregateId, t.version] }),
@@ -82,7 +82,7 @@ export type Snapshot<TState extends Record<string, unknown> = Record<string, unk
   readonly aggregateType: string;
   readonly version: number;
   readonly state: TState;
-  readonly createdAt: Date;
+  readonly createdAt: Temporal.Instant;
 };
 
 export type SaveSnapshotArgs = {

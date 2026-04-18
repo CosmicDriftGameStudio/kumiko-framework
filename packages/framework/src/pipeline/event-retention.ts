@@ -26,8 +26,8 @@ import { eventConsumerStateTable } from "./event-consumer-state";
 
 export type PruneEventsOptions = {
   // Delete events whose createdAt is strictly older than this.
-  // Pass EITHER olderThan (explicit Date) OR olderThanDays (convenience).
-  readonly olderThan?: Date;
+  // Pass EITHER olderThan (explicit Temporal.Instant) OR olderThanDays.
+  readonly olderThan?: Temporal.Instant;
   readonly olderThanDays?: number;
   // Which aggregateTypes to prune. REQUIRED and non-empty. There is no
   // default — pruning the event log is destructive, so the caller has to
@@ -39,7 +39,7 @@ export type PruneEventsOptions = {
 
 export type PruneEventsResult = {
   readonly deletedCount: number;
-  readonly cutoff: Date;
+  readonly cutoff: Temporal.Instant;
   readonly aggregateTypes: readonly string[];
   readonly dryRun: boolean;
 };
@@ -59,13 +59,15 @@ export class ConsumerLagError extends Error {
   }
 }
 
-function resolveCutoff(opts: PruneEventsOptions): Date {
+function resolveCutoff(opts: PruneEventsOptions): Temporal.Instant {
   if (opts.olderThan) return opts.olderThan;
   const days = opts.olderThanDays;
   if (days === undefined || days <= 0) {
-    throw new Error("pruneEvents: pass olderThan (Date) or olderThanDays (positive number).");
+    throw new Error(
+      "pruneEvents: pass olderThan (Temporal.Instant) or olderThanDays (positive number).",
+    );
   }
-  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  return Temporal.Now.instant().subtract({ hours: days * 24 });
 }
 
 export async function pruneEvents(
