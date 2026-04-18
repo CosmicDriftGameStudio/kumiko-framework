@@ -29,6 +29,7 @@ import type { DbRow } from "./connection";
 import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
 import type { CursorResult } from "./index";
+import { flattenLocatedTimestamps, rehydrateLocatedTimestamps } from "./located-timestamp";
 import type { TenantDb } from "./tenant-db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -195,7 +196,9 @@ export function createEventStoreExecutor(
 
   async function loadById(id: EntityId, db: TenantDb): Promise<Record<string, unknown> | null> {
     const [row] = await db.select().from(table).where(idFilter(id));
-    return (row as DbRow) ?? null;
+    if (!row) return null;
+    // Two-column { fooUtc, fooTz } → combined { foo: { at, tz, utc } } API-Form.
+    return rehydrateLocatedTimestamps(row as DbRow, entity);
   }
 
   return {
@@ -208,6 +211,11 @@ export function createEventStoreExecutor(
       const { id: _id, ...payloadWithoutId } = payload;
       const data = applyDefaults(payloadWithoutId);
 
+      // locatedTimestamp combined-Form ({ at, tz }) → zwei flache DB-Spalten
+      // (<name>Utc, <name>Tz). Auto-Convert via Temporal — Caller schickt
+      // was UI-natürlich ist, Framework speichert was DB-effizient ist.
+      const flatData = flattenLocatedTimestamps(data, entity);
+
       // 1. Append event (same TX as the projection write — both must succeed
       //    or both roll back; the dispatcher wraps both in one transaction).
       //    Sensitive fields are stripped from the event payload; the entity
@@ -218,7 +226,7 @@ export function createEventStoreExecutor(
         tenantId: user.tenantId,
         expectedVersion: 0,
         type: `${entityName}.created`,
-        payload: stripSensitive(data),
+        payload: stripSensitive(flatData),
         metadata: buildEventMetadata(user),
       });
 
@@ -228,7 +236,7 @@ export function createEventStoreExecutor(
       const [row] = await db
         .insert(table)
         .values({
-          ...data,
+          ...flatData,
           id: aggregateId,
           version: event.version,
           insertedAt: event.createdAt,
@@ -238,7 +246,8 @@ export function createEventStoreExecutor(
 
       if (!row)
         return writeFailure(new InternalError({ message: "projection insert returned no row" }));
-      const projection = row as DbRow;
+      // Read-Side: zwei flache DB-Spalten → combined { at, tz, utc } im API-Object.
+      const projection = rehydrateLocatedTimestamps(row as DbRow, entity) as DbRow;
 
       if (entityCache && entityName) {
         await entityCache.del(user.tenantId, entityName, aggregateId);
@@ -290,6 +299,11 @@ export function createEventStoreExecutor(
       }
 
       try {
+        // locatedTimestamp combined → flat. Same semantics as in create —
+        // changes-payload kommt als { pickup: { at, tz } } rein, soll als
+        // { pickupUtc, pickupTz } in DB landen.
+        const flatChanges = flattenLocatedTimestamps(payload.changes, entity);
+
         // The event payload carries BOTH `changes` (what the user asked for) AND
         // `previous` (the pre-update row). Cross-aggregate projections need the
         // previous value to decrement/undo when a parent-FK moves — without it
@@ -304,7 +318,7 @@ export function createEventStoreExecutor(
           expectedVersion: currentVersion,
           type: `${entityName}.updated`,
           payload: {
-            changes: stripSensitive(payload.changes),
+            changes: stripSensitive(flatChanges),
             previous: stripSensitive(previous),
           },
           metadata: buildEventMetadata(user),
@@ -313,7 +327,7 @@ export function createEventStoreExecutor(
         const [row] = await db
           .update(table)
           .set({
-            ...payload.changes,
+            ...flatChanges,
             version: event.version,
             modifiedAt: event.createdAt,
             modifiedById: user.id,
@@ -323,7 +337,8 @@ export function createEventStoreExecutor(
 
         if (!row)
           return writeFailure(new InternalError({ message: "projection update returned no row" }));
-        const data = row as DbRow;
+        // Read-Side rehydrate vor return (consumer kriegt combined { pickup }).
+        const data = rehydrateLocatedTimestamps(row as DbRow, entity) as DbRow;
 
         if (entityCache && entityName) {
           await entityCache.del(user.tenantId, entityName, payload.id);
@@ -519,7 +534,10 @@ export function createEventStoreExecutor(
             : query.orderBy(asc(column));
       }
 
-      const rows = (await query) as Record<string, unknown>[];
+      const rawRows = (await query) as Record<string, unknown>[];
+      // Read-Side rehydrate pro Row: { fooUtc, fooTz } → { foo: { at, tz, utc } }.
+      // Cache speichert die hydrated Form, damit Cache-Hits dieselbe API-Form liefern.
+      const rows = rawRows.map((r) => rehydrateLocatedTimestamps(r, entity));
 
       if (entityCache && entityName && rows.length > 0) {
         await entityCache.mset(
