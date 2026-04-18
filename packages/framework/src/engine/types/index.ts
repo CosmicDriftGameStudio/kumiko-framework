@@ -10,9 +10,14 @@ export type {
   OnDeleteStrategy,
 } from "../constants";
 export type {
+  ConfigAccessorFactory,
+  ConfigAccessorFn,
   ConfigDefinition,
   ConfigKeyAccess,
   ConfigKeyDefinition,
+  ConfigKeyHandle,
+  ConfigKeyType,
+  ConfigValueFor,
   JobDefinition,
   JobHandlerFn,
   JobTrigger,

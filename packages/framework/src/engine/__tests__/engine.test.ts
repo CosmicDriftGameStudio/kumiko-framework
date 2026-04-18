@@ -3,6 +3,7 @@ import { z } from "zod";
 import { rolesOf } from "../../testing/access-assertions";
 import { createTestUser } from "../../testing/fixtures";
 import { hasAccess } from "../access";
+import { createSystemConfig, createTenantConfig, createUserConfig } from "../config-helpers";
 import { defineQueryHandler, defineWriteHandler } from "../define-handler";
 import {
   createBooleanField,
@@ -1054,6 +1055,43 @@ describe("r.config()", () => {
 
     const registry = createRegistry([feature]);
     expect(registry.getConfigKey("integration:config:api-secret")?.encrypted).toBe(true);
+  });
+
+  test("returns typed handles with qualified names", () => {
+    // Capture inside the setup closure — that's where the generic resolves
+    // to the literal key shape (the outer `ReturnType` form widens to an
+    // index-signature record because the helpers' input types aren't visible
+    // outside the closure).
+    let handles!: {
+      readonly defaultVat: { readonly name: string; readonly type: "number" };
+      readonly showNetPrices: { readonly name: string; readonly type: "boolean" };
+    };
+    defineFeature("invoicing", (r) => {
+      handles = r.config({
+        keys: {
+          defaultVat: createTenantConfig("number", { default: 19 }),
+          showNetPrices: createUserConfig("boolean", { default: true }),
+        },
+      });
+    });
+
+    expect(handles.defaultVat.name).toBe("invoicing:config:default-vat");
+    expect(handles.defaultVat.type).toBe("number");
+    expect(handles.showNetPrices.name).toBe("invoicing:config:show-net-prices");
+    expect(handles.showNetPrices.type).toBe("boolean");
+  });
+
+  test("camelCase keys are kebab-cased in the qualified handle name", () => {
+    let handles!: { readonly monthlyTotalCents: { readonly name: string } };
+    defineFeature("billingCore", (r) => {
+      handles = r.config({
+        keys: {
+          monthlyTotalCents: createSystemConfig("number", { default: 0 }),
+        },
+      });
+    });
+    // Both feature name AND key are kebab-cased — same rule defineEvent uses.
+    expect(handles.monthlyTotalCents.name).toBe("billing-core:config:monthly-total-cents");
   });
 
   test("createApp validates config key roles", () => {

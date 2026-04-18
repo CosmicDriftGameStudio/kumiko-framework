@@ -1,8 +1,9 @@
 import type { ZodType, z } from "zod";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
 import type {
-  ConfigDefinition,
   ConfigKeyDefinition,
+  ConfigKeyHandle,
+  ConfigKeyType,
   JobDefinition,
   JobHandlerFn,
   NotificationDataFn,
@@ -189,7 +190,16 @@ export type FeatureRegistrar = {
     options?: { phase?: HookPhase },
   ): void;
 
-  config(definition: ConfigDefinition): void;
+  // Returns a handle map keyed exactly like the input — pass any handle to
+  // `ctx.config(handle)` and the resolved value type narrows to match the
+  // key's `type` tag (number → number, boolean → boolean, …). The constraint
+  // `Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>` is the
+  // only shape that lets TS *both* infer the literal `type` per key *and*
+  // accept the existing helper output (`createTenantConfig("number", …)`)
+  // without re-typing call sites.
+  config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
+    readonly keys: TKeys;
+  }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
 
   job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
 

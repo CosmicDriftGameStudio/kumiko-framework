@@ -6,6 +6,7 @@ import type { Logger } from "../../logging/types";
 import type { Meter, MetricsHandle, Tracer } from "../../observability/types";
 import type { EntityCache } from "../../pipeline/entity-cache";
 import type { SearchAdapter } from "../../search/types";
+import type { ConfigAccessorFactory, ConfigAccessorFn } from "./config";
 
 // --- Access ---
 
@@ -96,6 +97,14 @@ type SharedContextFields = {
   readonly redis?: Redis;
   readonly jobRunner?: JobRunnerRef;
   readonly configResolver?: unknown; // Typed in core-features (cross-package boundary)
+  // Per-user config accessor. Optional because the framework boots without
+  // the config feature; once the feature is wired in (test-stack/server-boot
+  // build via `createConfigAccessor`), every handler gets `ctx.config(handle)`
+  // with the typed-handle overload that narrows `Promise<ConfigValueFor<T>>`.
+  readonly config?: ConfigAccessorFn;
+  // Factory used by buildHandlerContext to mint a per-user `config` accessor
+  // — set by the config feature's boot wiring, not by handler authors.
+  readonly _configAccessorFactory?: ConfigAccessorFactory;
   readonly searchAdapter?: SearchAdapter;
   readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;

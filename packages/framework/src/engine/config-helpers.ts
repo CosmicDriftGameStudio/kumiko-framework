@@ -1,5 +1,5 @@
 import type { ConfigScope } from "./constants";
-import type { ConfigKeyDefinition } from "./types";
+import type { ConfigKeyDefinition, ConfigKeyType, ConfigValueFor } from "./types";
 
 // --- Access Presets ---
 
@@ -21,10 +21,13 @@ export const access = {
 
 // --- Config Key Options ---
 
-type ConfigKeyOptions = {
+// Generic on `T` so `default` narrows to the matching value type
+// (`number` for "number", `boolean` for "boolean", etc). Without this,
+// `createUserConfig("boolean", { default: 19 })` would compile.
+type ConfigKeyOptions<T extends ConfigKeyType> = {
   write?: readonly string[];
   read?: readonly string[];
-  default?: string | number | boolean;
+  default?: ConfigValueFor<T>;
   encrypted?: boolean;
   options?: readonly string[]; // for select type
 };
@@ -39,11 +42,11 @@ const SCOPE_DEFAULTS: Record<ConfigScope, { write: readonly string[]; read: read
 
 // --- Factory ---
 
-function createConfigKey(
+function createConfigKey<T extends ConfigKeyType>(
   scope: ConfigScope,
-  type: ConfigKeyDefinition["type"],
-  opts: ConfigKeyOptions = {},
-): ConfigKeyDefinition {
+  type: T,
+  opts: ConfigKeyOptions<T> = {},
+): ConfigKeyDefinition<T> {
   const defaults = SCOPE_DEFAULTS[scope];
   return {
     type,
@@ -58,25 +61,31 @@ function createConfigKey(
   };
 }
 
-// --- Public API (preserves existing signatures) ---
+// --- Public API ---
+// All three helpers are generic on the type-tag so call-sites that pass a
+// literal ("boolean", "number", ...) get back a `ConfigKeyDefinition<T>` with
+// the tag preserved. `r.config({keys})` then propagates the tag into the
+// returned `ConfigKeyHandle<T>`, which is what makes `ctx.config(handle)`
+// type-check the value side. Keep these in sync — adding a new helper means
+// the same generic signature.
 
-export function createTenantConfig(
-  type: ConfigKeyDefinition["type"],
-  opts?: ConfigKeyOptions,
-): ConfigKeyDefinition {
+export function createTenantConfig<T extends ConfigKeyType>(
+  type: T,
+  opts?: ConfigKeyOptions<T>,
+): ConfigKeyDefinition<T> {
   return createConfigKey("tenant", type, opts);
 }
 
-export function createSystemConfig(
-  type: ConfigKeyDefinition["type"],
-  opts?: ConfigKeyOptions,
-): ConfigKeyDefinition {
+export function createSystemConfig<T extends ConfigKeyType>(
+  type: T,
+  opts?: ConfigKeyOptions<T>,
+): ConfigKeyDefinition<T> {
   return createConfigKey("system", type, opts);
 }
 
-export function createUserConfig(
-  type: ConfigKeyDefinition["type"],
-  opts?: ConfigKeyOptions,
-): ConfigKeyDefinition {
+export function createUserConfig<T extends ConfigKeyType>(
+  type: T,
+  opts?: ConfigKeyOptions<T>,
+): ConfigKeyDefinition<T> {
   return createConfigKey("user", type, opts);
 }

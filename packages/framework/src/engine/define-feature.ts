@@ -6,8 +6,9 @@ import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-ha
 import { isKebabSegment, qn, toKebab } from "./qualified-name";
 import type {
   AccessRule,
-  ConfigDefinition,
   ConfigKeyDefinition,
+  ConfigKeyHandle,
+  ConfigKeyType,
   EntityDefinition,
   EntityRef,
   EventMigrationDef,
@@ -290,10 +291,23 @@ export function defineFeature(
       }
     },
 
-    config(definition: ConfigDefinition): void {
+    config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
+      readonly keys: TKeys;
+    }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> } {
+      // Qualify keys at registration time — same shape as defineEvent — so
+      // the handle carries the runtime name `ctx.config()` resolves against.
+      // Doing it lazily would mean the handle has no name until boot, which
+      // breaks compile-time autocomplete and any tests that build registries
+      // by hand.
+      const handles: Record<string, ConfigKeyHandle<ConfigKeyType>> = {};
       for (const [key, keyDef] of Object.entries(definition.keys)) {
         configKeys[key] = keyDef;
+        handles[key] = {
+          name: qn(toKebab(name), "config", toKebab(key)),
+          type: keyDef.type,
+        };
       }
+      return handles as { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
     },
 
     job(
