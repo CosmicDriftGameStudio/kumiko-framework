@@ -25,6 +25,9 @@ export default defineConfig({
       MINIO_SECRET_KEY: "kumiko-dev-secret",
       MINIO_BUCKET: "kumiko-dev",
       MINIO_REGION: "us-east-1",
+      // Legacy BeamMyCar DB (caryo_copy). Tests die diese Quelle brauchen,
+      // skippen automatisch wenn die Var nicht gesetzt ist.
+      LEGACY_DATABASE_URL: process.env.LEGACY_DATABASE_URL ?? "",
     },
     coverage: {
       provider: "v8",
