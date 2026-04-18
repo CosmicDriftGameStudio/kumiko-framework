@@ -1,8 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { v4 as uuid } from "uuid";
+import { z } from "zod";
 import { getUser } from "../api/auth-middleware";
 import type { DbConnection } from "../db/connection";
+import type { EventDef } from "../engine/types";
 import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
 import { append as appendEvent } from "../event-store/event-store";
 import { fileRefsTable } from "./file-ref-table";
@@ -26,24 +28,38 @@ export type FileRef = {
   insertedById: string | null;
 };
 
-// Event type emitted after a successful upload. Downstream hooks/handlers
-// subscribe via r.hook("postSave", "fileRef", …) or an r.multiStreamProjection
-// listening on this type. The payload carries metadata + the storage key —
-// never the binary itself. Handlers that need the bytes call
-// `ctx.files.ref(payload.storageKey).read()`.
-export const FILE_UPLOADED_EVENT_TYPE = "files:event:uploaded";
+// Event emitted after a successful upload. Downstream hooks / MSPs subscribe
+// on `fileUploadedEvent.name` via an r.multiStreamProjection apply map. The
+// payload carries metadata + the storage key — never the binary itself.
+// Consumers that need the bytes call `ctx.files.ref(payload.storageKey).read()`.
+//
+// Packaged as a framework-owned EventDef so consumers can narrow the raw
+// StoredEvent.payload via `typedPayload(event, fileUploadedEvent)` instead
+// of hand-casting. Schema version starts at 1; bump in lockstep with an
+// r.eventMigration when the shape breaks.
+export const fileUploadedPayloadSchema = z.object({
+  fileRefId: z.uuid(),
+  storageKey: z.string().min(1),
+  fileName: z.string().min(1),
+  mimeType: z.string().min(1),
+  size: z.number().int().nonnegative(),
+  entityType: z.string().nullable(),
+  entityId: z.string().nullable(),
+  fieldName: z.string().nullable(),
+  insertedById: z.string().min(1),
+});
 
-export type FileUploadedPayload = {
-  readonly fileRefId: string;
-  readonly storageKey: string;
-  readonly fileName: string;
-  readonly mimeType: string;
-  readonly size: number;
-  readonly entityType: string | null;
-  readonly entityId: string | null;
-  readonly fieldName: string | null;
-  readonly insertedById: string;
+export type FileUploadedPayload = z.infer<typeof fileUploadedPayloadSchema>;
+
+export const fileUploadedEvent: EventDef<FileUploadedPayload> = {
+  name: "files:event:uploaded",
+  schema: fileUploadedPayloadSchema,
+  version: 1,
 };
+
+// Convenience re-export so apps that only reach for the event name (e.g. as
+// an apply-map key) don't have to dereference `.name` everywhere.
+export const FILE_UPLOADED_EVENT_TYPE = fileUploadedEvent.name;
 
 // Checks whether `user` may read/delete the given file. The default guard
 // (ownerOrPrivilegedGuard) approves uploaders + any role in privilegedRoles.
@@ -180,8 +196,11 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         aggregateType: "fileRef",
         tenantId: user.tenantId,
         expectedVersion: 0,
-        type: FILE_UPLOADED_EVENT_TYPE,
-        payload: payload as unknown as Record<string, unknown>,
+        type: fileUploadedEvent.name,
+        // EventToAppend wants a Record — payload is typed through the
+        // EventDef so the cast collapses to a single boundary, not a
+        // double-`as unknown as` at the call site.
+        payload: payload as Record<string, unknown>,
         metadata: { userId: user.id },
       });
     });
