@@ -1,5 +1,11 @@
 import type { ConfigScope } from "./constants";
-import type { ConfigBounds, ConfigKeyDefinition, ConfigKeyType, ConfigValue } from "./types";
+import type {
+  ConfigBounds,
+  ConfigComputedFn,
+  ConfigKeyDefinition,
+  ConfigKeyType,
+  ConfigValue,
+} from "./types";
 
 // --- Access Presets ---
 
@@ -27,6 +33,10 @@ export const access = {
 // `bounds` is conditional: only `type="number"` admits it. For any other
 // type-tag the field is `never`, so `createTenantConfig("text", { bounds })`
 // fails at the call site. Matches the same pattern as `default`.
+//
+// `computed` is a fallback-resolver the registry calls when no row + no
+// app-override exists — used for plan-based limits (see
+// configuration-layers.md, "Frage 3: Hängt Geld dran?").
 type ConfigKeyOptions<T extends ConfigKeyType> = {
   write?: readonly string[];
   read?: readonly string[];
@@ -34,6 +44,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   encrypted?: boolean;
   options?: readonly string[]; // for select type
   bounds?: T extends "number" ? ConfigBounds : never;
+  computed?: ConfigComputedFn<T>;
 };
 
 // --- Scope Defaults ---
@@ -63,6 +74,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.encrypted ? { encrypted: true } : {}),
     ...(opts.options ? { options: opts.options } : {}),
     ...(opts.bounds !== undefined ? { bounds: opts.bounds as ConfigBounds } : {}),
+    ...(opts.computed !== undefined ? { computed: opts.computed } : {}),
   };
 }
 

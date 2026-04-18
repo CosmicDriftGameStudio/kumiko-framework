@@ -448,4 +448,42 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).toThrow(/bounds.*only valid for type="number"/i);
     });
   });
+
+  describe("config key computed + encrypted exclusivity", () => {
+    test("rejects encrypted + computed combination", () => {
+      const features = [
+        defineFeature("files", (r) => {
+          r.config({
+            keys: {
+              mixed: {
+                type: "text",
+                scope: "tenant",
+                access: { read: ["all"], write: ["all"] },
+                encrypted: true,
+                computed: async () => "x",
+                // biome-ignore lint/suspicious/noExplicitAny: hand-rolled definition bypasses helper-level type narrowing
+              } as any,
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/encrypted.*computed.*mutually exclusive/i);
+    });
+
+    test("accepts computed without encrypted (normal plan-based use-case)", () => {
+      const features = [
+        defineFeature("files", (r) => {
+          r.config({
+            keys: {
+              planBased: createTenantConfig("number", {
+                default: 10,
+                computed: async () => 100,
+              }),
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+  });
 });

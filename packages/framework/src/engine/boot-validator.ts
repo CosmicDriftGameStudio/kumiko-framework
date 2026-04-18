@@ -42,6 +42,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateHandlerAccess(feature);
     validateLocatedTimestamps(feature);
     validateConfigKeyBounds(feature);
+    validateConfigKeyComputed(feature);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
@@ -94,6 +95,24 @@ function validateConfigKeyBounds(feature: FeatureDefinition): void {
           `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is above bounds.max (${max})`,
         );
       }
+    }
+  }
+}
+
+// --- Config key computed + encrypted exclusivity ---
+
+function validateConfigKeyComputed(feature: FeatureDefinition): void {
+  for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
+    if (!keyDef.computed) continue;
+
+    // computed + encrypted mix two paradigms that shouldn't meet: computed
+    // returns a plain value, encrypted expects cipher-text in the row. The
+    // cascade doesn't know which one to prefer on write. Rejecting at boot
+    // is cheaper than surprising behaviour at runtime.
+    if (keyDef.encrypted) {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has both encrypted=true and a computed resolver — these are mutually exclusive paradigms`,
+      );
     }
   }
 }

@@ -41,6 +41,31 @@ export type ConfigBounds = {
   readonly max?: number;
 };
 
+// Ctx a `computed` key-resolver gets. Mirrors what the resolver itself has:
+// tenantId + userId for scope-aware lookups, db for ad-hoc queries (e.g.
+// "read the current subscription plan for this tenant"). Intentionally
+// narrow — giving it the full AppContext would leak deps like `redis`
+// into declaration-level code that shouldn't need them.
+export type ConfigComputedContext = {
+  readonly tenantId: TenantId;
+  readonly userId: string;
+  readonly db: DbConnection | TenantDb;
+};
+
+// Computed-value resolver. Called when no scope-row AND no app-boot-override
+// exist for this key — sits one step above keyDef.default.
+//
+// Use-case: plan-based limits ("Pro tenants get maxUploadSizeMB=100"). The
+// feature declares *how* to compute the value, the handler stays neutral:
+//   const max = await ctx.config(handle);  // resolver calls computed
+//
+// Row wins over computed: a tenant-admin that sets a specific value
+// overrides the plan-default. If you want "plan is a hard policy", reject
+// set on the handler-side — don't try to invert the cascade.
+export type ConfigComputedFn<T extends ConfigKeyType = ConfigKeyType> = (
+  ctx: ConfigComputedContext,
+) => Promise<ConfigValue<T>>;
+
 export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly type: T;
   readonly default?: ConfigValue<T>;
@@ -49,6 +74,7 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly encrypted?: boolean;
   readonly options?: readonly string[];
   readonly bounds?: ConfigBounds;
+  readonly computed?: ConfigComputedFn<T>;
 };
 
 export type ConfigDefinition = {

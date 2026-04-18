@@ -170,3 +170,38 @@ describe("config helpers — bounds (number only)", () => {
     expect(selectKey.type).toBe("select");
   });
 });
+
+describe("config helpers — computed (plan-based / derived values)", () => {
+  test("computed function attaches to the definition and returns the typed value", async () => {
+    const key = createTenantConfig("number", {
+      default: 10,
+      computed: async () => 200,
+    });
+    expect(typeof key.computed).toBe("function");
+    if (!key.computed) throw new Error("unreachable");
+    const value = await key.computed({
+      tenantId: "00000000-0000-4000-8000-000000000001" as never,
+      userId: "u-1",
+      db: {} as never,
+    });
+    expect(value).toBe(200);
+  });
+
+  test("no computed → field absent on the definition", () => {
+    const key = createTenantConfig("number", { default: 10 });
+    expect(key.computed).toBeUndefined();
+  });
+
+  test("@ts-expect-error: computed return must match the type-tag", () => {
+    // @ts-expect-error — number tag, string return
+    const wrongNumber = createTenantConfig("number", {
+      computed: async () => "not-a-number",
+    });
+    // @ts-expect-error — boolean tag, number return
+    const wrongBool = createUserConfig("boolean", {
+      computed: async () => 1,
+    });
+    expect(wrongNumber.type).toBe("number");
+    expect(wrongBool.type).toBe("boolean");
+  });
+});
