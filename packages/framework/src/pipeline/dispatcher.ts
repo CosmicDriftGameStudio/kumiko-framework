@@ -271,6 +271,7 @@ export function createDispatcher(
     // but at this point we're the root of the pipeline — cast is safe.
     const dbSource: DbConnection | DbTx | undefined =
       tx ?? (context.db as DbConnection | undefined);
+    const reqCtx = requestContext.get();
     const db = dbSource
       ? createTenantDb(
           dbSource,
@@ -278,9 +279,13 @@ export function createDispatcher(
           isSystem ? "system" : "tenant",
           context.tracer,
           context.meter,
+          // Propagate the request's AbortSignal so every TenantDb query
+          // throws when the client has disconnected — handlers with many
+          // sequential queries skip the rest of the chain instead of
+          // burning DB-CPU for results no one reads.
+          reqCtx?.signal,
         )
       : undefined;
-    const reqCtx = requestContext.get();
     const log = context.log?.child({
       handler: type,
       tenantId: user.tenantId,

@@ -94,6 +94,14 @@ export function createTenantDb(
   mode: TenantDbMode = "tenant",
   tracer?: Tracer,
   meter?: Meter,
+  // Pre-flight cancellation: when set, every query check
+  // `signal.throwIfAborted()` BEFORE issuing the SQL. The currently
+  // running query is not actively cancelled (postgres-js connection
+  // cancel is a separate, riskier feature). This still saves the bulk
+  // of the wasted work in handlers that fire many sequential queries
+  // — once the client disconnects, the next query throws and the rest
+  // of the chain falls away.
+  signal?: AbortSignal,
 ): TenantDb {
   // If a meter was passed, make sure standard metrics are registered on it
   // before we try to emit. Idempotent — buildServer typically registers them
@@ -122,6 +130,10 @@ export function createTenantDb(
     table: Table,
     exec: () => PromiseLike<T>,
   ): PromiseLike<T> {
+    // Pre-flight cancellation. Sits above the early-return so the check
+    // fires regardless of observability config — cancellation is a
+    // correctness feature, not an observability one.
+    signal?.throwIfAborted();
     if (!tracer && !meter) return exec();
     const tableName = getTableName(table);
     const start = performance.now();

@@ -508,3 +508,106 @@ describe("mass-update guard", () => {
     expect((updated[0] as Record<string, unknown>)["name"]).toBe("HappyPathUpdated");
   });
 });
+
+describe("pre-flight signal cancellation", () => {
+  test("aborted signal: select throws AbortError before SQL is issued", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const tdb = createTenantDb(
+      testDb.db,
+      tenant1.tenantId,
+      "tenant",
+      undefined,
+      undefined,
+      controller.signal,
+    );
+
+    let thrown: unknown;
+    try {
+      await tdb.select().from(table);
+    } catch (e) {
+      thrown = e;
+    }
+    expect((thrown as Error).name).toBe("AbortError");
+  });
+
+  test("aborted signal: insert/update/delete all throw AbortError", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const tdb = createTenantDb(
+      testDb.db,
+      tenant1.tenantId,
+      "tenant",
+      undefined,
+      undefined,
+      controller.signal,
+    );
+
+    let insertThrown: unknown;
+    try {
+      await tdb.insert(table).values({ name: "x" }).returning();
+    } catch (e) {
+      insertThrown = e;
+    }
+    expect((insertThrown as Error).name).toBe("AbortError");
+
+    let updateThrown: unknown;
+    try {
+      await tdb.update(table).set({ name: "y" }).where(eq(table["id"], 1));
+    } catch (e) {
+      updateThrown = e;
+    }
+    expect((updateThrown as Error).name).toBe("AbortError");
+
+    let deleteThrown: unknown;
+    try {
+      await tdb.delete(table).where(eq(table["id"], 1));
+    } catch (e) {
+      deleteThrown = e;
+    }
+    expect((deleteThrown as Error).name).toBe("AbortError");
+  });
+
+  test("mid-chain abort: first query succeeds, abort, next query throws", async () => {
+    // Simulates a handler doing N sequential queries where the client
+    // disconnects after query 1. Without the pre-flight check, queries
+    // 2..N would all execute and waste DB-CPU. With it, the chain stops
+    // immediately.
+    const controller = new AbortController();
+    const tdb = createTenantDb(
+      testDb.db,
+      tenant1.tenantId,
+      "tenant",
+      undefined,
+      undefined,
+      controller.signal,
+    );
+
+    const [first] = await tdb.insert(table).values({ name: "preflight-first" }).returning();
+    expect(first).toBeDefined();
+
+    controller.abort();
+
+    let secondThrown: unknown;
+    try {
+      await tdb.insert(table).values({ name: "preflight-second" }).returning();
+    } catch (e) {
+      secondThrown = e;
+    }
+    expect((secondThrown as Error).name).toBe("AbortError");
+
+    // Proves the first row was actually committed and the second never
+    // made it — the abort prevented future work, didn't roll back done
+    // work.
+    const rows = await testDb.db.select().from(table);
+    const names = (rows as Record<string, unknown>[]).map((r) => r["name"] as string);
+    expect(names).toContain("preflight-first");
+    expect(names).not.toContain("preflight-second");
+  });
+
+  test("no signal passed: queries run normally (signal is opt-in)", async () => {
+    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const result = await tdb.insert(table).values({ name: "no-signal" }).returning();
+    expect(result).toHaveLength(1);
+  });
+});
