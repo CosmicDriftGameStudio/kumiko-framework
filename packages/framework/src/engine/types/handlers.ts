@@ -295,11 +295,17 @@ export type EventDef<TPayload = unknown> = {
 // `type` must match a name returned by r.defineEvent in any registered
 // feature; payload is validated against that event's Zod schema before
 // being written to the events-table.
+//
+// `headers` lands in StoredEvent.metadata.headers — Marten-conform free
+// key/value space for app-specific metadata (A/B-bucket, geo-region,
+// client SDK version). Framework does not interpret values; keep them
+// JSON-primitive (string|number|boolean) for safe serialization.
 export type AppendEventArgs = {
   readonly aggregateId: string;
   readonly aggregateType: string;
   readonly type: string;
   readonly payload: unknown;
+  readonly headers?: Readonly<Record<string, string | number | boolean>>;
 };
 
 // Args for ctx.fetchForWriting — Marten FetchForWriting equivalent. Returns

@@ -104,6 +104,7 @@ export async function appendDomainEventCore(
       ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
       ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
       ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+      ...(args.headers ? { headers: args.headers } : {}),
     },
   });
 
