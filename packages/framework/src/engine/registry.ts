@@ -308,7 +308,8 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
-  // Build handler → entity mapping from explicit feature declarations (set by r.crud() and tryMapEntity).
+  // Build handler → entity mapping from feature declarations (filled by tryMapEntity
+  // in defineFeature via the "entityName:verb" colon convention).
   // Must happen before extension processing since extension preSave hooks need entity mappings.
   for (const feature of features) {
     for (const [handlerName, entityName] of Object.entries(feature.handlerEntityMappings)) {

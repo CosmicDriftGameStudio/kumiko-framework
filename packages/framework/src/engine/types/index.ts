@@ -11,13 +11,13 @@ export type {
 } from "../constants";
 export type {
   ConfigAccessorFactory,
-  ConfigAccessorFn,
+  ConfigAccessor,
   ConfigDefinition,
   ConfigKeyAccess,
   ConfigKeyDefinition,
   ConfigKeyHandle,
   ConfigKeyType,
-  ConfigValueFor,
+  ConfigValue,
   JobDefinition,
   JobHandlerFn,
   JobTrigger,
@@ -68,7 +68,6 @@ export type {
   AggregateStreamHandle,
   AppContext,
   AppendEventArgs,
-  CrudRefs,
   EntityRef,
   EventDef,
   EventMigrationDef,

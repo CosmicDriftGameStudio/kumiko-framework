@@ -52,8 +52,6 @@ const errorFeature = defineFeature("err", (r) => {
 // Feature with a real DB-backed entity + custom handler + postSave hook.
 // Exercises the full Dispatcher → DB write → Lifecycle hook chain so we can
 // verify the db.query and kumiko.pipeline.hook spans land in the right place.
-// We don't use r.crud() because its handlers are stubs — a real INSERT needs
-// a custom writeHandler using ctx.db.
 //
 // Entity + Drizzle table are co-located inside the feature closure so the
 // writeHandler can reference the table without a module-level side-effect.

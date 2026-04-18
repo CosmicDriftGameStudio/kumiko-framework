@@ -38,19 +38,44 @@ export const taskEntity = createEntity({
   softDelete: true,
 });
 
+const taskTable = buildDrizzleTable("task", taskEntity);
+const taskExecutor = createEventStoreExecutor(taskTable, taskEntity, { entityName: "task" });
+
 export const taskFeature = defineFeature("tasks", (r) => {
   r.entity("task", taskEntity);
 
-  // CRUD + optimistic locking + access control + event-sourced writes
-  r.crud("task", {
-    access: {
-      create: { roles: ["User"] },
-      update: { roles: ["User"] },
-      delete: { roles: ["Admin"] },
-      list: { openToAll: true },
-      detail: { openToAll: true },
-    },
-  });
+  // Write handlers go through createEventStoreExecutor — events + projection in one TX,
+  // optimistic locking, access control, all explicit.
+  r.writeHandler(
+    "task:create",
+    z.object({ title: z.string() }),
+    async (event, ctx) => taskExecutor.create(event.payload, event.user, ctx.db),
+    { access: { roles: ["User"] } },
+  );
+  r.writeHandler(
+    "task:update",
+    z.object({ id: z.uuid(), version: z.number(), changes: z.object({ title: z.string().optional() }) }),
+    async (event, ctx) => taskExecutor.update(event.payload, event.user, ctx.db),
+    { access: { roles: ["User"] } },
+  );
+  r.writeHandler(
+    "task:delete",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) => taskExecutor.delete(event.payload, event.user, ctx.db),
+    { access: { roles: ["Admin"] } },
+  );
+  r.queryHandler(
+    "task:list",
+    z.object({}),
+    async (query, ctx) => taskExecutor.list(query.payload, query.user, ctx.db),
+    { access: { openToAll: true } },
+  );
+  r.queryHandler(
+    "task:detail",
+    z.object({ id: z.uuid() }),
+    async (query, ctx) => taskExecutor.detail(query.payload, query.user, ctx.db),
+    { access: { openToAll: true } },
+  );
 
   // Read-model fed from task events, rebuildable via the CLI
   r.projection({
@@ -99,15 +124,17 @@ export const taskFeature = defineFeature("tasks", (r) => {
 
 ## Core concepts
 
-- **Feature as unit of deployment.** `defineFeature` registers entities, CRUD,
-  projections, post-event subscribers, lifecycle hooks, access rules, and
-  translations.
+- **Feature as unit of deployment.** `defineFeature` registers entities,
+  write/query handlers, projections, post-event subscribers, lifecycle hooks,
+  access rules, and translations.
 - **Commands in, state out.** Writes are commands dispatched through HTTP;
   the dispatcher validates, enforces access, runs lifecycle hooks, persists
   events, and triggers projections in a single TX.
-- **Event-sourced by default.** `r.crud()` generates event-backed handlers
-  — every write appends a `<entity>.created/updated/deleted/restored` event.
-  Projections feed off the stream for same-TX read-after-write consistency.
+- **Event-sourced by default.** Every write goes through `createEventStoreExecutor`
+  and appends a domain event to the aggregate stream. Auto-generated CRUD
+  events (`<entity>.created/updated/deleted/restored`) for record writes,
+  explicit `ctx.appendEvent` for domain events with intent. Projections feed
+  off the stream for same-TX read-after-write consistency.
 - **Async side-effects via cursor.** SSE broadcast, search indexing, and
   feature-registered `r.multiStreamProjection` consumers run on a single
   cursor-based dispatcher (AsyncDaemon pattern). Per-consumer checkpoints,

@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import { z } from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index";
 
 describe("extendsRegistrar", () => {
@@ -97,7 +98,7 @@ describe("extendsRegistrar", () => {
     expect(entity?.fields["customData"]?.type).toBe("text");
   });
 
-  test("extension preSave hooks fire for CRUD handlers of the entity", () => {
+  test("extension preSave hooks fire for entity-scoped handlers", () => {
     const preSaveFn = vi.fn(async (changes: Record<string, unknown>) => changes);
 
     const ext = defineFeature("audit", (r) => {
@@ -112,12 +113,23 @@ describe("extendsRegistrar", () => {
         "vehicle",
         createEntity({ table: "Vehicles", idType: "uuid", fields: { name: createTextField() } }),
       );
-      r.crud("vehicle");
+      // Explicit handlers — the entity mapping is inferred from the
+      // "vehicle:" prefix via tryMapEntity, so the extension's preSave
+      // wires onto every entity-scoped handler automatically.
+      r.writeHandler(
+        "vehicle:create",
+        z.object({ name: z.string() }),
+        async () => ({ isSuccess: true as const, data: { id: "v1" } }),
+      );
+      r.writeHandler(
+        "vehicle:update",
+        z.object({ id: z.string() }),
+        async () => ({ isSuccess: true as const, data: { id: "v1" } }),
+      );
       r.useExtension("audited", "vehicle");
     });
 
     const registry = createRegistry([ext, consumer]);
-    // preSave hooks are registered per handler — check CRUD handler names
     const createHooks = registry.getPreSaveHooks("fleet:write:vehicle:create");
     expect(createHooks).toHaveLength(1);
     expect(createHooks[0]).toBe(preSaveFn);

@@ -74,9 +74,10 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
 
   const [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
 
-  // Every ES-entity writes events, and r.crud() generates event-store-executor-
-  // backed handlers. Auto-create the events table so every setupTestStack call
-  // is ready for writes without needing a manual createEventsTable().
+  // Every ES-entity writes events via createEventStoreExecutor in the
+  // feature's write handlers. Auto-create the events table so every
+  // setupTestStack call is ready for writes without needing a manual
+  // createEventsTable().
   await createEventsTable(testDb.db);
   // Archive-stream metadata — needed by ctx.appendEvent's archive guard and
   // loadAggregate's default-skip. Idempotent, so production boot running

@@ -7,7 +7,7 @@ Jedes Sample = 1 Feature-Definition + 1 Test. Bricht ein Framework-Change was, w
 
 | Ich will... | Sample | Test-Typ |
 |-------------|--------|----------|
-| Entity + CRUD + Soft Delete + Optimistic Locking | [basic-crud](basic-crud/) | Integration |
+| Entity + Standard-Handler + Soft Delete + Optimistic Locking | [basic-entity](basic-entity/) | Integration |
 | Eigene Handler mit Business-Logik | [custom-handlers](custom-handlers/) | Integration |
 | Parent-Child Relations + Cascade/Restrict | [relations](relations/) | Integration |
 | Felder per Rolle verstecken/schuetzen | [field-access](field-access/) | Integration |

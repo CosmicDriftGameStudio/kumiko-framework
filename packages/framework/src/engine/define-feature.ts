@@ -1,7 +1,6 @@
 import type { ZodType, z } from "zod";
 import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
-import { buildCrudHandlers } from "./crud-builder";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 import { isKebabSegment, qn, toKebab } from "./qualified-name";
 import type {
@@ -182,45 +181,6 @@ export function defineFeature(
       return { name: nameOrDef };
     },
 
-    crud(entityRef: NameOrRef, options?: Parameters<typeof buildCrudHandlers>[2]) {
-      const entityName = resolveName(entityRef);
-      const entity = entities[entityName];
-      if (!entity) {
-        throw new Error(
-          `Entity "${entityName}" not found. Register it with r.entity() before r.crud().`,
-        );
-      }
-      // Hand the registered relations through so the generated projection
-      // table gets the same foreign-key indexes it would with an explicit
-      // buildDrizzleTable call outside the registrar.
-      const entityRelations = relations[entityName];
-      const crud = buildCrudHandlers(entityName, entity, {
-        ...options,
-        ...(entityRelations && { relations: entityRelations }),
-      });
-      Object.assign(writeHandlers, crud.writeHandlers);
-      Object.assign(queryHandlers, crud.queryHandlers);
-      // Explicit entity mapping for all CRUD handlers
-      for (const handlerName of Object.keys(crud.writeHandlers)) {
-        handlerEntityMappings[handlerName] = entityName;
-      }
-      for (const queryName of Object.keys(crud.queryHandlers)) {
-        handlerEntityMappings[queryName] = entityName;
-      }
-      return {
-        entity: { name: entityName, table: entity.table ?? toTableName(entityName) },
-        handlers: {
-          create: { name: `${entityName}:create` },
-          update: { name: `${entityName}:update` },
-          delete: { name: `${entityName}:delete` },
-        },
-        queries: {
-          list: { name: `${entityName}:list` },
-          detail: { name: `${entityName}:detail` },
-        },
-      };
-    },
-
     relation(entityRef: NameOrRef, relationName: string, definition: RelationDefinition): void {
       const entityName = resolveName(entityRef);
       if (!relations[entityName]) relations[entityName] = {};
@@ -294,11 +254,9 @@ export function defineFeature(
     config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
       readonly keys: TKeys;
     }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> } {
-      // Qualify keys at registration time — same shape as defineEvent — so
-      // the handle carries the runtime name `ctx.config()` resolves against.
-      // Doing it lazily would mean the handle has no name until boot, which
-      // breaks compile-time autocomplete and any tests that build registries
-      // by hand.
+      // Qualify eagerly (same as defineEvent) so the handle name matches what
+      // the registry stores — lazy qualification would break compile-time
+      // autocomplete and hand-built test registries.
       const handles: Record<string, ConfigKeyHandle<ConfigKeyType>> = {};
       for (const [key, keyDef] of Object.entries(definition.keys)) {
         configKeys[key] = keyDef;

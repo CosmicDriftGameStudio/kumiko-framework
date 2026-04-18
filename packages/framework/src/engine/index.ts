@@ -16,10 +16,13 @@ export {
 } from "./constants";
 export type { App, AppConfig } from "./create-app";
 export { createApp } from "./create-app";
-export { buildCrudHandlers } from "./crud-builder";
 export { defineFeature } from "./define-feature";
 export type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 export { defineQueryHandler, defineWriteHandler } from "./define-handler";
+export {
+  defineEntityQueryHandler,
+  defineEntityWriteHandler,
+} from "./entity-handlers";
 export { defineRoles } from "./define-roles";
 export {
   createBooleanField,
@@ -50,14 +53,14 @@ export type {
   BooleanFieldDef,
   ConcurrencyMode,
   ConfigAccessorFactory,
-  ConfigAccessorFn,
+  ConfigAccessor,
   ConfigDefinition,
   ConfigKeyAccess,
   ConfigKeyDefinition,
   ConfigKeyHandle,
   ConfigKeyType,
   ConfigScope,
-  ConfigValueFor,
+  ConfigValue,
   DateFieldDef,
   DeleteContext,
   EntityDefinition,

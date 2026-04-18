@@ -336,29 +336,6 @@ describe("createRegistry", () => {
     expect(all["profile:nav.title"]).toEqual({ de: "Profil", en: "Profile" });
   });
 
-  test("r.crud() returns typed handler and query refs + entity ref", () => {
-    const feature = defineFeature("orders", (r) => {
-      const order = r.entity(
-        "order",
-        createEntity({ table: "Orders", idType: "uuid", fields: { name: createTextField() } }),
-      );
-      const crud = r.crud(order);
-
-      expect(crud.entity.name).toBe("order");
-      expect(crud.entity.table).toBe("Orders");
-      expect(crud.handlers.create.name).toBe("order:create");
-      expect(crud.handlers.update.name).toBe("order:update");
-      expect(crud.handlers.delete.name).toBe("order:delete");
-      expect(crud.queries.list.name).toBe("order:list");
-      expect(crud.queries.detail.name).toBe("order:detail");
-    });
-
-    // Verify handlers actually registered
-    const registry = createRegistry([feature]);
-    expect(registry.getWriteHandler("orders:write:order:create")).toBeDefined();
-    expect(registry.getQueryHandler("orders:query:order:list")).toBeDefined();
-  });
-
   test("throws when write handler is not entity-mapped in feature with field-access", () => {
     const feature = defineFeature("hr", (r) => {
       r.entity(

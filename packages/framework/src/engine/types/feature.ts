@@ -19,7 +19,6 @@ import type {
 import type { EntityDefinition } from "./fields";
 import type {
   AccessRule,
-  CrudRefs,
   EntityRef,
   EventDef,
   EventMigrationDef,
@@ -92,7 +91,8 @@ export type FeatureDefinition = {
   // current version and exposes a per-qualified-name upcaster chain.
   readonly eventMigrations: Readonly<Record<string, readonly EventMigrationDef[]>>;
   readonly configReads: readonly string[];
-  // Explicit handler → entity mapping set by r.crud() and r.writeHandler()/r.queryHandler()
+  // Handler → entity mapping inferred from the colon convention
+  // ("entityName:verb") via tryMapEntity in defineFeature.
   readonly handlerEntityMappings: Readonly<Record<string, string>>;
   // Metrics declared via r.metric(). Short names — Framework prefixes on boot.
   readonly metrics: Readonly<Record<string, FeatureMetricDef>>;
@@ -136,25 +136,6 @@ export type FeatureRegistrar = {
     options?: { access?: AccessRule },
   ): HandlerRef;
 
-  crud(
-    entity: NameOrRef,
-    options?: {
-      // Single AccessRule applies to every generated handler. Pass a map
-      // with per-handler keys ({ create, update, delete, restore, list, detail })
-      // when the handlers need different access (e.g. delete=Admin, list=openToAll).
-      access?:
-        | AccessRule
-        | {
-            readonly create?: AccessRule;
-            readonly update?: AccessRule;
-            readonly delete?: AccessRule;
-            readonly restore?: AccessRule;
-            readonly list?: AccessRule;
-            readonly detail?: AccessRule;
-          };
-    },
-  ): CrudRefs;
-
   relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;
 
   hook(type: "validation", target: RefOrRefs, fn: ValidationHookFn): void;
@@ -190,13 +171,8 @@ export type FeatureRegistrar = {
     options?: { phase?: HookPhase },
   ): void;
 
-  // Returns a handle map keyed exactly like the input — pass any handle to
-  // `ctx.config(handle)` and the resolved value type narrows to match the
-  // key's `type` tag (number → number, boolean → boolean, …). The constraint
-  // `Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>` is the
-  // only shape that lets TS *both* infer the literal `type` per key *and*
-  // accept the existing helper output (`createTenantConfig("number", …)`)
-  // without re-typing call sites.
+  // Returns a handle map keyed exactly like the input. Pass any handle to
+  // `ctx.config(handle)` to get the value type narrowed by the key's `type`.
   config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
     readonly keys: TKeys;
   }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
