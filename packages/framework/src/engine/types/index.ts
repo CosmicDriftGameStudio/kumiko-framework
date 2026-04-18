@@ -48,6 +48,8 @@ export type {
   FeatureRegistrar,
   MetricOptions,
   Registry,
+  SecretKeyDefinition,
+  SecretOptions,
 } from "./feature";
 export type {
   AnyFileFieldDef,

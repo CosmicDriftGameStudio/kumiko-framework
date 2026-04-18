@@ -66,6 +66,7 @@ import {
   registerStandardMetrics,
 } from "../observability";
 import { buildBucketKey } from "../rate-limit";
+import { assertNoSecretLeak } from "../secrets";
 import { createTzContext } from "../time";
 import { parseJsonSafe } from "../utils/safe-json";
 import { appendDomainEventCore } from "./append-event-core";
@@ -759,6 +760,10 @@ export function createDispatcher(
     }
 
     await logEvent(type, parsed.data, user);
+    // Response-guard: fail the request if a handler accidentally included
+    // a Secret<> branded value in its return. Must run AFTER field-access
+    // filtering so a legitimately stripped secret doesn't false-positive.
+    assertNoSecretLeak(result);
     return result;
   }
 
@@ -979,6 +984,10 @@ export function createDispatcher(
       afterCommitHooks.push(() => logEvent(type, parsedData, user));
     }
 
+    // Response-guard: block Secret<> leaks in write responses (SaveContext
+    // data / previous / changes). Feature code that fed a plaintext through
+    // to the return payload fails here instead of hitting the client.
+    if (result.isSuccess) assertNoSecretLeak(result.data);
     return result;
   }
 

@@ -9,6 +9,8 @@ export {
   boolean,
   instant,
   integer,
+  jsonb,
+  primaryKey,
   serial,
   table,
   text,

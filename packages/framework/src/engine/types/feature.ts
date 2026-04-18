@@ -65,6 +65,31 @@ export type FeatureMetricDef = {
 
 export type MetricOptions = Omit<FeatureMetricDef, "shortName">;
 
+// --- Secret Keys (declared by features via r.secret()) ---
+
+// A feature-declared secret. The fully-qualified name is
+// `<featureName>:<shortName>` — the Framework prefixes. Ops see the
+// qualified name in list / audit; feature code reads it via
+// ctx.secrets.get(tenantId, SecretKeys.stripeKey) with the typed handle.
+export type SecretKeyDefinition = {
+  // Short name inside the feature (e.g. "stripe.apiKey"). Qualified to
+  // `<feature>:<shortName>` at registry-build time.
+  readonly shortName: string;
+  // Qualified name — `<feature>:<shortName>`. Set during registry build.
+  readonly qualifiedName: string;
+  // i18n label for TenantAdmin UI.
+  readonly label: { readonly [locale: string]: string };
+  // Optional redaction function. Takes the plaintext, returns the preview
+  // shown in list handlers. Default is first-3-chars + bullets.
+  readonly redact?: (plaintext: string) => string;
+  // Short human hint shown in UI ("Find this in your Stripe dashboard ...").
+  readonly hint?: { readonly [locale: string]: string };
+  // Per-secret scope. v1 only "tenant" — user / system scopes ship in v2.
+  readonly scope: "tenant";
+};
+
+export type SecretOptions = Omit<SecretKeyDefinition, "shortName" | "qualifiedName">;
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
@@ -100,6 +125,9 @@ export type FeatureDefinition = {
   readonly handlerEntityMappings: Readonly<Record<string, string>>;
   // Metrics declared via r.metric(). Short names — Framework prefixes on boot.
   readonly metrics: Readonly<Record<string, FeatureMetricDef>>;
+  // Secret keys declared via r.secret(). Short names — Framework prefixes to
+  // "<feature>:<short>" during registry build.
+  readonly secretKeys: Readonly<Record<string, SecretKeyDefinition>>;
   // Projections declared via r.projection(). Keyed by projection name; executor
   // looks them up by source-entity at write-time.
   readonly projections: Readonly<Record<string, ProjectionDefinition>>;
@@ -238,6 +266,12 @@ export type FeatureRegistrar = {
   // Usage at runtime: ctx.metrics.inc("created_total", { status: "new" }).
   metric(shortName: string, options: MetricOptions): void;
 
+  // Declare a secret key. Fully-qualified name is `<feature>:<shortName>`
+  // — the Framework prefixes on boot. Feature code reads via
+  // ctx.secrets.get(tenantId, "<feature>:<short>"). Admin UI sees the label
+  // + redacted preview, never the plaintext.
+  secret(shortName: string, options: SecretOptions): void;
+
   // Register a projection driven by events of one or more source entities.
   // The runtime fires projection.apply[event.type] inside the event-store's
   // transaction, so projections stay consistent with the events that feed them.
@@ -296,6 +330,11 @@ export type Registry = {
   getAllTranslations(): TranslationKeys;
   getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined;
   getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition>;
+  // Feature-declared secrets, aggregated across all registered features.
+  // Keyed by qualified name ("<feature>:<shortName>"). Used by the rotation
+  // job (to iterate "known" secrets) and admin-UIs to list available keys.
+  getAllSecretKeys(): ReadonlyMap<string, SecretKeyDefinition>;
+  getSecretKey(qualifiedName: string): SecretKeyDefinition | undefined;
   getJob(qualifiedName: string): JobDefinition | undefined;
   getAllJobs(): ReadonlyMap<string, JobDefinition>;
   getEvent(qualifiedName: string): EventDef | undefined;

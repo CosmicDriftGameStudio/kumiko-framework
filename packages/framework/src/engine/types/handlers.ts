@@ -116,6 +116,15 @@ type SharedContextFields = {
   readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;
   readonly _notifyFactory?: NotifyFactory;
+  // Tenant-scoped secrets accessor. Present when the app wired a
+  // MasterKeyProvider at boot. Feature code reads ctx.secrets.get(...)
+  // to pull a plaintext secret; Secret<string> carries the brand that
+  // the response guard rejects on serialization.
+  readonly secrets?: import("../../secrets").SecretsContext;
+  // Raw KEK provider. Present alongside ctx.secrets — needed by the rotation
+  // job which deliberately operates outside the per-call audit trail (it
+  // processes rows system-wide, not a per-user read).
+  readonly masterKeyProvider?: import("../../secrets").MasterKeyProvider;
   // Observability: optional at the outer boundary, always populated by the
   // time a handler receives its ctx (Noop fallback when no provider is
   // configured, so handler code can call ctx.tracer/ctx.metrics without

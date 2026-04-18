@@ -41,6 +41,8 @@ import type {
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
   RelationDefinition,
+  SecretKeyDefinition,
+  SecretOptions,
   TranslationKeys,
   TranslationsDef,
   ValidationHookFn,
@@ -87,6 +89,7 @@ export function defineFeature<TExports = undefined>(
   const referenceData: ReferenceDataDef[] = [];
   const handlerEntityMappings: Record<string, string> = {};
   const metrics: Record<string, FeatureMetricDef> = {};
+  const secretKeys: Record<string, SecretKeyDefinition> = {};
   const projections: Record<string, ProjectionDefinition> = {};
   const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
   let translations: TranslationKeys = {};
@@ -400,6 +403,23 @@ export function defineFeature<TExports = undefined>(
       metrics[shortName] = { shortName, ...options };
     },
 
+    secret(shortName: string, options: SecretOptions): void {
+      if (secretKeys[shortName]) {
+        throw new Error(
+          `[Feature ${name}] Secret "${shortName}" already registered. ` +
+            `Secret key names must be unique per feature.`,
+        );
+      }
+      // Qualified name follows the "<feature>:<shortName>" convention used
+      // everywhere else — so ops sees "billing:stripe.apiKey" in the
+      // audit/log, which is unambiguous across features.
+      secretKeys[shortName] = {
+        shortName,
+        qualifiedName: `${name}:${shortName}`,
+        ...options,
+      };
+    },
+
     projection(definition: ProjectionDefinition): void {
       // Reject names that would blow up at registry-boot when we qualify them.
       // Catch it at the registration site so the stack trace points at the
@@ -481,6 +501,7 @@ export function defineFeature<TExports = undefined>(
     configReads,
     handlerEntityMappings,
     metrics,
+    secretKeys,
     projections,
     multiStreamProjections,
   };

@@ -25,6 +25,7 @@ import type {
   RegistrarExtensionRegistration,
   Registry,
   RelationDefinition,
+  SecretKeyDefinition,
   TranslationKeys,
   WriteHandlerDef,
 } from "./types";
@@ -79,6 +80,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // Metric registry — keyed by fully qualified name (kumiko_<feature>_<short>).
   // Boot-time validation rejects bad names; dashboards then safely rely on shape.
   const metricMap = new Map<string, FeatureMetricDef & { readonly featureName: string }>();
+  // Feature-declared secrets. Keyed by qualified name ("<feature>:<short>").
+  // The map is the source of truth for ops-UIs, the rotation job, and any
+  // boot validation that wants to reject a secrets.get for an unknown key.
+  const secretKeyMap = new Map<string, SecretKeyDefinition>();
   // Projections — full list keyed by qualified name AND a source-entity index
   // the executor consults on every write. Index is precomputed so the hot path
   // does a single Map.get, never a scan.
@@ -276,6 +281,19 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         );
       }
       metricMap.set(fullName, { ...def, featureName: feature.name });
+    }
+
+    // Secret keys: already qualified during defineFeature (same "<feature>:<short>"
+    // convention used elsewhere). Reject cross-feature duplicates — extensions
+    // could theoretically register on another feature's namespace.
+    for (const def of Object.values(feature.secretKeys)) {
+      if (secretKeyMap.has(def.qualifiedName)) {
+        throw new Error(
+          `[Kumiko Secrets] Secret key "${def.qualifiedName}" registered multiple times. ` +
+            "Secret names must be globally unique across features.",
+        );
+      }
+      secretKeyMap.set(def.qualifiedName, def);
     }
 
     // Projections: qualified by feature name. Build the source-entity index so
@@ -774,6 +792,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllMetrics() {
       return metricMap;
+    },
+
+    getAllSecretKeys(): ReadonlyMap<string, SecretKeyDefinition> {
+      return secretKeyMap;
+    },
+
+    getSecretKey(qualifiedName: string): SecretKeyDefinition | undefined {
+      return secretKeyMap.get(qualifiedName);
     },
 
     getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined {
