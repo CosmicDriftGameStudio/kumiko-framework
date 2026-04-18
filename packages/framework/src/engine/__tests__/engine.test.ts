@@ -102,6 +102,27 @@ describe("defineFeature", () => {
     expect(feature.events["order:created"]?.name).toBe("orders:event:order:created");
   });
 
+  test("setup-callback return is exposed as feature.exports (cross-feature pull-down)", () => {
+    const feature = defineFeature("invoicing", (r) => {
+      const config = r.config({
+        keys: {
+          defaultVat: createTenantConfig("number", { default: 19 }),
+        },
+      });
+      return { config };
+    });
+    // Type-narrow access — `feature.exports.config.defaultVat` is typed
+    // through the defineFeature<TExports> generic; if the generic regressed
+    // to void, .exports would be `unknown` and these reads wouldn't compile.
+    expect(feature.exports.config.defaultVat.name).toBe("invoicing:config:default-vat");
+    expect(feature.exports.config.defaultVat.type).toBe("number");
+  });
+
+  test("setup with no return leaves exports undefined", () => {
+    const feature = defineFeature("noop", () => {});
+    expect(feature.exports).toBeUndefined();
+  });
+
   test("registry prefixes event names with feature name", () => {
     const feature = defineFeature("orders", (r) => {
       r.defineEvent("order:created", z.object({ orderId: z.number() }));

@@ -69,6 +69,9 @@ export type MetricOptions = Omit<FeatureMetricDef, "shortName">;
 export type FeatureDefinition = {
   readonly name: string;
   readonly systemScope: boolean;
+  // Set from the setup-callback return — typed via `defineFeature<TExports>`.
+  // `undefined` for setups that return nothing.
+  readonly exports?: unknown;
   readonly requires: readonly string[];
   readonly optionalRequires: readonly string[];
   readonly entities: Readonly<Record<string, EntityDefinition>>;

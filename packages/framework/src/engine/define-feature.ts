@@ -51,10 +51,14 @@ import { resolveName } from "./types/handlers";
 
 const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
 
-export function defineFeature(
+// `TExports` lets the setup callback hand back a typed object that
+// downstream features can import (e.g. `tenantFeature.exports.config`). The
+// runtime always packs whatever setup returns into `featureDef.exports` —
+// `void` returns become `undefined` and stay invisible at the call site.
+export function defineFeature<TExports = undefined>(
   name: string,
-  setup: (r: FeatureRegistrar) => void,
-): FeatureDefinition {
+  setup: (r: FeatureRegistrar) => TExports,
+): FeatureDefinition & { readonly exports: TExports } {
   const requires: string[] = [];
   const optionalRequires: string[] = [];
   const entities: Record<string, EntityDefinition> = {};
@@ -435,11 +439,12 @@ export function defineFeature(
     },
   };
 
-  setup(registrar);
+  const exports = setup(registrar) as TExports;
 
   return {
     name,
     systemScope: isSystemScoped,
+    exports,
     requires,
     optionalRequires,
     entities,
