@@ -12,6 +12,7 @@ export { createEventStoreExecutor } from "./event-store-executor";
 export type { PgAdapterOptions } from "./pg-adapter";
 export { createPgAdapter } from "./pg-adapter";
 export { seedReferenceData } from "./reference-data";
+export { fetchOne } from "./row-helpers";
 export { buildBaseColumns, buildDrizzleTable, toSnakeCase, toTableName } from "./table-builder";
 export type { TenantDb, TenantDbMode } from "./tenant-db";
 export { createTenantDb } from "./tenant-db";
