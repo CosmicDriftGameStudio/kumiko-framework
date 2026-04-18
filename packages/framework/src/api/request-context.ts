@@ -15,10 +15,17 @@ import { v4 as uuid } from "uuid";
 //                   root HTTP commands; set when an MSP-apply is running
 //                   (event-dispatcher wraps the handler call). Together
 //                   with correlationId, forms a causal DAG across streams.
+//   signal        — AbortSignal from the underlying HTTP request. Aborts
+//                   when the client disconnects (mobile back-press, tab
+//                   close). Long-running framework code (event streaming,
+//                   projection rebuild) checks signal.aborted at chunk
+//                   boundaries; short queries don't pay the overhead.
+//                   Undefined for non-HTTP entry-points (jobs, MSP-applies).
 export type RequestContextData = {
   readonly requestId: string;
   readonly correlationId: string;
   readonly causationId?: string;
+  readonly signal?: AbortSignal;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();

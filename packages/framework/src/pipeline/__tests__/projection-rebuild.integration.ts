@@ -497,3 +497,45 @@ describe("rebuildProjection — meter emission", () => {
     expect(duration?.labels?.["projection"]).toBe("failmeter:projection:items-per-group");
   });
 });
+
+describe("rebuildProjection — cancellation", () => {
+  test("aborted signal mid-replay rolls the TX back, projection stays as it was", async () => {
+    // Seed several events so the apply loop has multiple chances to
+    // observe an abort. We then abort right before the rebuild call —
+    // the first throwIfAborted() inside the loop bails, the TX rolls
+    // back, and the projection rows from the previous good rebuild are
+    // still there.
+    const group = "00000000-0000-4000-8000-0000000000c1";
+    for (let i = 0; i < 10; i++) {
+      await appendCreatedEvent(group, `cancel-${i}`);
+    }
+
+    // First clean rebuild — projection is now in a known good state.
+    await rebuildProjection(qualifiedProjectionName, {
+      db: testDb.db,
+      registry,
+    });
+    const before = await getCount(group);
+    expect(before).toBe(10);
+
+    const controller = new AbortController();
+    controller.abort();
+
+    let thrown: unknown;
+    try {
+      await rebuildProjection(qualifiedProjectionName, {
+        db: testDb.db,
+        registry,
+        signal: controller.signal,
+      });
+    } catch (e) {
+      thrown = e;
+    }
+    expect((thrown as Error).name).toBe("AbortError");
+
+    // Projection row survived — TRUNCATE happened inside the TX that
+    // rolled back when throwIfAborted() fired before the first apply.
+    const after = await getCount(group);
+    expect(after).toBe(before);
+  });
+});

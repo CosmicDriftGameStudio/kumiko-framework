@@ -21,6 +21,16 @@ export function requestIdMiddleware() {
     c.header(CORRELATION_ID_HEADER, correlationId);
     c.set("requestId", requestId);
 
-    await requestContext.run({ requestId, correlationId }, () => next());
+    // Hono exposes the underlying Fetch Request — its `signal` aborts
+    // when the client disconnects (mobile back-press, tab close). We
+    // propagate it through requestContext so framework internals can
+    // honour cancellation at long-running checkpoints. Older Hono /
+    // adapter combos may not populate `c.req.raw.signal`; conditional
+    // spread keeps `signal: undefined` out of the stored record so
+    // downstream `signal?` checks behave as if no signal exists.
+    const signal = c.req.raw?.signal;
+    await requestContext.run({ requestId, correlationId, ...(signal ? { signal } : {}) }, () =>
+      next(),
+    );
   };
 }

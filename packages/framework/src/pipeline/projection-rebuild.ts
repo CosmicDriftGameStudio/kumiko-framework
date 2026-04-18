@@ -58,6 +58,12 @@ type RebuildDeps = {
   // Lightweight observation callback for tests that want to assert the
   // RebuildResult without spinning up a full meter. Independent of `meter`.
   readonly onMetrics?: (result: RebuildResult) => void;
+  // Cancellation. Checked before each event-apply. The transaction is
+  // rolled back on abort — a partial rebuild is never observable. Useful
+  // when an HTTP-triggered rebuild needs to honour client disconnect, or
+  // when a CLI/Job wraps the rebuild in its own AbortController for ops
+  // timeout enforcement.
+  readonly signal?: AbortSignal;
 };
 
 export async function rebuildProjection(
@@ -129,6 +135,7 @@ export async function rebuildProjection(
         // v3 shape stays oblivious to v1 payloads still on disk.
         const upcasters = registry.getEventUpcasters();
         for (const row of events) {
+          deps.signal?.throwIfAborted();
           const raw: StoredEvent = {
             id: String(row.id),
             aggregateId: row.aggregateId,

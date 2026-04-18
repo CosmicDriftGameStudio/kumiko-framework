@@ -561,6 +561,11 @@ export function createDispatcher(
       tracer,
       metrics,
       tz,
+      // Cancellation signal flows from the HTTP middleware via
+      // requestContext. Conditional spread so non-HTTP entry-points
+      // (jobs, dispatcher MSP-applies) don't get a phantom signal that
+      // would always read aborted=false but feel meaningful.
+      ...(reqCtx?.signal ? { signal: reqCtx.signal } : {}),
       _userId: user.id,
       _handlerType: type,
       ...bridge,

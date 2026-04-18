@@ -334,13 +334,22 @@ export async function loadAllEventsByType(
 //
 // The caller may pause / do async work between yields; the next batch is
 // only fetched when consumed.
+//
+// Cancellation: pass `signal` (typically `ctx.signal` from a handler) to
+// abort between batches. Checked at batch boundaries — mid-batch yields
+// would still hold the fetched rows in memory, so a finer check buys
+// nothing. Throws AbortError if aborted before the next fetch; in-flight
+// queries are not actively cancelled (postgres-js connection-cancel is
+// a separate, riskier concern).
 export async function* streamAllEventsByType(
   db: DbRunner,
   aggregateType: string,
   batchSize = 1000,
+  signal?: AbortSignal,
 ): AsyncIterable<StoredEvent> {
   let cursorId = 0n;
   while (true) {
+    signal?.throwIfAborted();
     const rows = await db
       .select()
       .from(eventsTable)

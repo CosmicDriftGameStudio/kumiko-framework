@@ -75,6 +75,8 @@ export type {
   ConfigScope,
   ConfigStoredRow,
   ConfigValue,
+  ConfigValueSource,
+  ConfigValueWithSource,
   DateFieldDef,
   DeleteContext,
   EntityDefinition,

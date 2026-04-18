@@ -521,4 +521,63 @@ describe("event-store: streamAllEventsByType (memory-bounded iteration)", () => 
     }
     expect(yielded).toEqual(["stream-included"]);
   });
+
+  test("aborts between batches when signal is fired mid-iteration", async () => {
+    // Seed 25 events; with batchSize=5 the generator does 5 batches.
+    // Aborting after the first batch yields 5 events and then throws on
+    // the next batch boundary.
+    for (let i = 0; i < 25; i++) {
+      await append(testDb.db, {
+        aggregateId: uuid(),
+        aggregateType: "stream-abort",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "stream-abort.x",
+        payload: { i },
+        metadata: { userId: userA },
+      });
+    }
+
+    const controller = new AbortController();
+    const collected: StoredEvent[] = [];
+
+    let thrown: unknown;
+    try {
+      for await (const event of streamAllEventsByType(
+        testDb.db,
+        "stream-abort",
+        5,
+        controller.signal,
+      )) {
+        collected.push(event);
+        if (collected.length === 5) controller.abort();
+      }
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(collected.length).toBe(5);
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).name).toBe("AbortError");
+  });
+
+  test("pre-aborted signal throws before any rows are fetched", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    let thrown: unknown;
+    try {
+      for await (const _event of streamAllEventsByType(
+        testDb.db,
+        "stream-included",
+        10,
+        controller.signal,
+      )) {
+        // unreachable
+      }
+    } catch (e) {
+      thrown = e;
+    }
+    expect((thrown as Error).name).toBe("AbortError");
+  });
 });

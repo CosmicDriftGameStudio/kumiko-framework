@@ -116,6 +116,13 @@ type SharedContextFields = {
   // defensive checks).
   readonly tracer?: Tracer;
   readonly meter?: Meter;
+  // Cancellation. Aborts when the HTTP client disconnects (mobile back,
+  // tab close). Undefined for non-HTTP entry-points (jobs, MSP-applies).
+  // Long-running handlers (export jobs, multi-step workflows) should
+  // throw `signal.throwIfAborted()` at chunk boundaries; short handlers
+  // can ignore it. Framework primitives (streamAllEventsByType,
+  // rebuildProjection) honour it automatically.
+  readonly signal?: AbortSignal;
 };
 
 // All optional — used at pipeline/system boundaries.
