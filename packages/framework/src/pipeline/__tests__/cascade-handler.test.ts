@@ -28,15 +28,17 @@ describe("getIncomingRelations", () => {
 
   test("finds hasMany relation pointing to user from department", () => {
     const incoming = registry.getIncomingRelations("user");
-    expect(
-      incoming.some((r) => r.sourceEntity === "department" && r.relation.onDelete === "restrict"),
-    ).toBe(true);
+    const match = incoming.find(
+      (r) => r.sourceEntity === "department" && r.relation.type === "hasMany",
+    );
+    expect(match?.relation.type === "hasMany" && match.relation.onDelete).toBe("restrict");
   });
 
   test("finds hasMany relation pointing to session from user", () => {
     const incoming = registry.getIncomingRelations("session");
     expect(incoming).toHaveLength(1);
-    expect(incoming[0]?.relation.onDelete).toBe("cascade");
+    const rel = incoming[0]?.relation;
+    expect(rel?.type === "hasMany" && rel.onDelete).toBe("cascade");
   });
 
   test("no incoming relations for department", () => {
@@ -44,7 +46,7 @@ describe("getIncomingRelations", () => {
   });
 
   test("onDelete strategy preserved", () => {
-    const rels = registry.getRelations("department");
-    expect(rels["users"]?.onDelete).toBe("restrict");
+    const rel = registry.getRelations("department")["users"];
+    expect(rel?.type === "hasMany" && rel.onDelete).toBe("restrict");
   });
 });

@@ -25,13 +25,17 @@ export function createCascadeDeleteHook(
       }
       const db = ctx.db;
 
-      // Check outgoing relations (this entity's hasMany/manyToMany)
-      // AND incoming relations (other entities' belongsTo pointing here)
+      // Cascade applies to outgoing hasMany / manyToMany relations only —
+      // the parent side of the link is where `onDelete` lives (see
+      // relations.ts). Incoming belongsTo edges are covered because their
+      // counterpart hasMany declares the strategy.
       const outgoing = registry.getRelations(entityName);
-      const _incoming = registry.getIncomingRelations(entityName);
 
       // Outgoing: e.g. department.users (hasMany target: user) — users have FK to department
       for (const [, relation] of Object.entries(outgoing)) {
+        // Only hasMany / manyToMany carry cascade semantics. belongsTo points
+        // at a parent; the parent's onDelete decides what happens to this node.
+        if (relation.type !== "hasMany" && relation.type !== "manyToMany") continue;
         const strategy = relation.onDelete ?? OnDeleteStrategies.nothing;
         if (strategy === OnDeleteStrategies.nothing) continue;
 
