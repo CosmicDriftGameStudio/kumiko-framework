@@ -40,6 +40,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
     validateHandlerAccess(feature);
+    validateLocatedTimestamps(feature);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
@@ -124,6 +125,42 @@ function validateHandlerAccess(feature: FeatureDefinition): void {
         `Query handler "${feature.name}:query:${name}" is missing an access rule. ` +
           `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
       );
+    }
+  }
+}
+
+// --- Located-Timestamp validation ---
+//
+// Wenn ein Feld `type: "timestamp"` einen `locatedBy`-Marker trägt, muss das
+// referenzierte Feld in derselben Entity existieren UND vom Typ `tz` sein.
+// Sonst weiß weder DB-Wrapper noch JSON-Serializer welche TZ zur Wall-Clock
+// gehört → silent data loss bei Reads in anderer Server-TZ.
+//
+// Die häufigste Quelle von Konflikten ist Hand-Konstruktion:
+//   { foo: { type: "timestamp", locatedBy: "fooTz" } }
+// ohne das `fooTz`-Feld zu deklarieren. Der `locatedTimestamp(name)` Helper
+// macht das Pair atomar — wer ihn nutzt, fliegt nicht durch diesen Validator.
+function validateLocatedTimestamps(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities)) {
+    const fields = entity.fields;
+    for (const [fieldName, field] of Object.entries(fields)) {
+      if (field.type !== "timestamp" || field.locatedBy === undefined) continue;
+      const referenced = fields[field.locatedBy];
+      if (!referenced) {
+        throw new Error(
+          `Feature "${feature.name}", entity "${entityName}": field "${fieldName}" has ` +
+            `locatedBy: "${field.locatedBy}" but no field with that name exists in the entity. ` +
+            `Either declare the tz-field, or use the locatedTimestamp("${fieldName.replace(/At$/, "")}") helper ` +
+            `to create the pair atomically.`,
+        );
+      }
+      if (referenced.type !== "tz") {
+        throw new Error(
+          `Feature "${feature.name}", entity "${entityName}": field "${fieldName}" has ` +
+            `locatedBy: "${field.locatedBy}" but that field is type "${referenced.type}", ` +
+            `expected "tz". The locatedBy marker must point to a tz-field (IANA-zone slot).`,
+        );
+      }
     }
   }
 }
