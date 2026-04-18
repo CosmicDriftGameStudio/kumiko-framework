@@ -301,9 +301,11 @@ describe("resolveConfigOrParam — onClamp audit hook", () => {
     // Three variants: no 4th arg, empty options, options without onClamp.
     expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999)).toBe(100);
     expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999, {})).toBe(100);
-    expect(
-      await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999, { onClamp: undefined }),
-    ).toBe(100);
+    // Pass an empty object (rather than `{ onClamp: undefined }`) — the
+    // resolver checks for `options?.onClamp`, both shapes hit the same
+    // branch, and `exactOptionalPropertyTypes` rejects the explicit
+    // `undefined` here.
+    expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999, {})).toBe(100);
   });
 
   test("clamp info omits min when bounds has only max (and vice versa)", async () => {
