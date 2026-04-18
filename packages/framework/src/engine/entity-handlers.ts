@@ -3,6 +3,7 @@ import type { DbRow } from "../db/connection";
 import type { TableColumns } from "../db/dialect";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
+import { assertUnreachable } from "../utils";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 import type { AccessRule, EntityDefinition, QueryHandlerDef, WriteHandlerDef } from "./types";
 
@@ -112,6 +113,8 @@ export function defineEntityWriteHandler(
       handler = async (event, ctx) =>
         executor.restore(event.payload as IdPayload, event.user, ctx.db);
       break;
+    default:
+      assertUnreachable(verb, "write verb");
   }
 
   return {
@@ -146,6 +149,8 @@ export function defineEntityQueryHandler(
       handler = async (query, ctx) =>
         executor.detail(query.payload as IdPayload, query.user, ctx.db);
       break;
+    default:
+      assertUnreachable(verb, "query verb");
   }
 
   return {

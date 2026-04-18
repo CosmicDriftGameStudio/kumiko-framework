@@ -1,3 +1,4 @@
+import { assertUnreachable } from "../utils";
 import { validateLabelKey } from "./metric-validator";
 import type { Counter, Gauge, Histogram, Meter, MetricDefinition, MetricLabels } from "./types";
 
@@ -121,6 +122,8 @@ export class RecordingMeter implements Meter {
       case "gauge":
         this.gauges.set(def.name, new RecordingGauge(def, this.emit));
         break;
+      default:
+        assertUnreachable(def.type, "metric type");
     }
   }
 

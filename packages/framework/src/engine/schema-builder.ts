@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assertUnreachable } from "../utils";
 import type { EmbeddedSubFieldDef, EntityDefinition, FieldDefinition } from "./types";
 import { DEFAULT_CURRENCIES } from "./types";
 
@@ -12,6 +13,8 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
       return z.boolean();
     case "date":
       return z.string().date();
+    default:
+      assertUnreachable(subField.type, "embedded sub-field type");
   }
 }
 
@@ -72,6 +75,21 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
       // späterer Iteration).
       return z.string().min(1);
     }
+    case "locatedTimestamp": {
+      // Combined Wall-Clock+TZ Object. Beim Write akzeptieren wir entweder
+      // { at, tz } (typisch UI-Form, utc wird berechnet) oder { utc, tz }
+      // (typisch Server-zu-Server, at wird berechnet). Beim Read liefert
+      // der Read-Wrapper alle drei Felder (siehe Phase D in MIGRATION.md).
+      //
+      // Hier nur die Schema-Garantie: mindestens tz + (at ODER utc).
+      const at = z.iso.datetime({ local: true });
+      const tz = z.string().min(1);
+      const utc = z.iso.datetime();
+      return z.union([
+        z.object({ at, tz, utc: utc.optional() }),
+        z.object({ utc, tz, at: at.optional() }),
+      ]);
+    }
     case "file":
     case "image": {
       // Single file: stores fileRefId as number
@@ -82,6 +100,8 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
       // Multi file: array of fileRefIds
       return z.array(z.number());
     }
+    default:
+      assertUnreachable(field, "field type");
   }
 }
 

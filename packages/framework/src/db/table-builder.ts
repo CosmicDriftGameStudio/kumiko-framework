@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { EntityDefinition, EntityRelations, FieldDefinition } from "../engine/types";
+import { assertUnreachable } from "../utils";
 import {
   boolean,
   index,
@@ -84,6 +85,18 @@ function fieldToColumns(
       // IANA-Zonenname als TEXT — Validierung über Zod-Schema (kommt im
       // Validator-Schritt). Snake-Convention: `pickup_tz`.
       return { [name]: text(snakeName) };
+    case "locatedTimestamp":
+      // ZWEI Spalten als atomares Pair: <name>_utc TIMESTAMPTZ + <name>_tz TEXT.
+      // mode: "string" wie bei timestamp — kompatibel mit Temporal.Instant.
+      // Auto-Convert (at+tz → utc beim Insert; utc+tz → at beim Read) wird
+      // im Executor verdrahtet (Phase C). Phase B liefert die Spalten.
+      return {
+        [`${name}Utc`]: timestamp(`${snakeName}_utc`, {
+          withTimezone: true,
+          mode: "string",
+        }) as unknown as ColumnBuilder,
+        [`${name}Tz`]: text(`${snakeName}_tz`),
+      };
     case "file":
     case "image":
       // Single file: stores fileRefId as integer
@@ -92,6 +105,8 @@ function fieldToColumns(
     case "images":
       // Multi file: no column in entity table, resolved via FileRef table
       return {};
+    default:
+      assertUnreachable(field, "field type");
   }
 }
 

@@ -1,3 +1,4 @@
+import { assertUnreachable } from "../utils";
 import type { MetricType } from "./types";
 
 // Boot-time validation of metric names — catches typos and convention
@@ -57,6 +58,9 @@ export function validateMetricName(name: string, type: MetricType): void {
       }
       // skip: gauge naming validated (no _total, no _seconds)
       return;
+
+    default:
+      assertUnreachable(type, "metric type");
   }
 }
 
