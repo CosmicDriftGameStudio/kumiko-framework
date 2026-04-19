@@ -87,8 +87,8 @@ export function checkWriteFieldRoles(
 // row. For creates, pass oldRow = undefined; the check degenerates to a
 // newRow-only evaluation.
 //
-// Returns the denied field name for the caller to wrap into a
-// `field_ownership_denied` error, or null if all fields pass.
+// Returns the denied field name for the caller to wrap into an
+// `ownership_denied` error with scope: "field", or null if all fields pass.
 export function checkWriteFieldOwnership(
   entity: EntityDefinition,
   changes: Readonly<Record<string, unknown>>,
@@ -117,19 +117,4 @@ export function checkWriteFieldOwnership(
     }
   }
   return null;
-}
-
-// Backwards-compat shim: the name `checkWriteFields` is re-exported so any
-// external caller keeps compiling. New code should pick the specific
-// variant it needs (role vs ownership). Behaves as role-only when no
-// oldRow is passed; otherwise runs full ownership-aware check.
-export function checkWriteFields(
-  entity: EntityDefinition,
-  changes: Readonly<Record<string, unknown>>,
-  user: SessionUser,
-  oldRow?: Readonly<Record<string, unknown>>,
-): string | null {
-  const roleFailure = checkWriteFieldRoles(entity, changes, user);
-  if (roleFailure) return roleFailure;
-  return checkWriteFieldOwnership(entity, changes, user, oldRow);
 }

@@ -46,7 +46,11 @@ export {
   createTzField,
   locatedTimestamp,
 } from "./factories";
-export { checkWriteFields, filterReadFields } from "./field-access";
+export {
+  checkWriteFieldOwnership,
+  checkWriteFieldRoles,
+  filterReadFields,
+} from "./field-access";
 export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
 export { from } from "./ownership";
 export { setFields } from "./projection-helpers";

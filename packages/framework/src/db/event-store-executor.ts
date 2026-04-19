@@ -220,9 +220,9 @@ export function createEventStoreExecutor(
       // only the new row is checked. No Straddle concern for creates.
       if (!userCanCreateFieldRow(user, entity.access?.write, data)) {
         return writeFailure(
-          new UnprocessableError("entity_ownership_denied", {
-            i18nKey: "errors.entityOwnershipDenied",
-            details: { entityName, action: "create", userId: user.id },
+          new UnprocessableError("ownership_denied", {
+            i18nKey: "errors.ownershipDenied",
+            details: { scope: "entity", entityName, action: "create", userId: user.id },
           }),
         );
       }
@@ -233,9 +233,10 @@ export function createEventStoreExecutor(
       const fieldDeniedCreate = checkWriteFieldOwnership(entity, data, user);
       if (fieldDeniedCreate) {
         return writeFailure(
-          new UnprocessableError("field_ownership_denied", {
-            i18nKey: "errors.fieldOwnershipDenied",
+          new UnprocessableError("ownership_denied", {
+            i18nKey: "errors.ownershipDenied",
             details: {
+              scope: "field",
               entityName,
               action: "create",
               field: fieldDeniedCreate,
@@ -315,9 +316,15 @@ export function createEventStoreExecutor(
       const mergedNew: Record<string, unknown> = { ...previous, ...payload.changes };
       if (!userCanWriteFieldRow(user, entity.access?.write, previous, mergedNew)) {
         return writeFailure(
-          new UnprocessableError("entity_ownership_denied", {
-            i18nKey: "errors.entityOwnershipDenied",
-            details: { entityName, action: "update", userId: user.id, entityId: payload.id },
+          new UnprocessableError("ownership_denied", {
+            i18nKey: "errors.ownershipDenied",
+            details: {
+              scope: "entity",
+              entityName,
+              action: "update",
+              userId: user.id,
+              entityId: payload.id,
+            },
           }),
         );
       }
@@ -330,9 +337,10 @@ export function createEventStoreExecutor(
       const fieldDeniedUpdate = checkWriteFieldOwnership(entity, payload.changes, user, previous);
       if (fieldDeniedUpdate) {
         return writeFailure(
-          new UnprocessableError("field_ownership_denied", {
-            i18nKey: "errors.fieldOwnershipDenied",
+          new UnprocessableError("ownership_denied", {
+            i18nKey: "errors.ownershipDenied",
             details: {
+              scope: "field",
               entityName,
               action: "update",
               field: fieldDeniedUpdate,
@@ -453,9 +461,15 @@ export function createEventStoreExecutor(
       // (same row on both sides) while keeping the multi-role-atomic shape.
       if (!userCanWriteFieldRow(user, entity.access?.write, existing, existing)) {
         return writeFailure(
-          new UnprocessableError("entity_ownership_denied", {
-            i18nKey: "errors.entityOwnershipDenied",
-            details: { entityName, action: "delete", userId: user.id, entityId: payload.id },
+          new UnprocessableError("ownership_denied", {
+            i18nKey: "errors.ownershipDenied",
+            details: {
+              scope: "entity",
+              entityName,
+              action: "delete",
+              userId: user.id,
+              entityId: payload.id,
+            },
           }),
         );
       }
@@ -526,9 +540,15 @@ export function createEventStoreExecutor(
       // teamId/... fields, so the ownership predicate still applies cleanly.
       if (!userCanWriteFieldRow(user, entity.access?.write, data, data)) {
         return writeFailure(
-          new UnprocessableError("entity_ownership_denied", {
-            i18nKey: "errors.entityOwnershipDenied",
-            details: { entityName, action: "restore", userId: user.id, entityId: payload.id },
+          new UnprocessableError("ownership_denied", {
+            i18nKey: "errors.ownershipDenied",
+            details: {
+              scope: "entity",
+              entityName,
+              action: "restore",
+              userId: user.id,
+              entityId: payload.id,
+            },
           }),
         );
       }
