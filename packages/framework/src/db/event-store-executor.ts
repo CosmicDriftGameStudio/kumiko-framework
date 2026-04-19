@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
 import { requestContext } from "../api/request-context";
+import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
   buildOwnershipClause,
   userCanCreateFieldRow,
@@ -226,6 +227,24 @@ export function createEventStoreExecutor(
         );
       }
 
+      // Field-level write-ownership on create — mirror of entity-level but
+      // per declared field. Role-level was already checked by the
+      // dispatcher; here we enforce ownership-rules against the new row.
+      const fieldDeniedCreate = checkWriteFieldOwnership(entity, data, user);
+      if (fieldDeniedCreate) {
+        return writeFailure(
+          new UnprocessableError("field_ownership_denied", {
+            i18nKey: "errors.fieldOwnershipDenied",
+            details: {
+              entityName,
+              action: "create",
+              field: fieldDeniedCreate,
+              userId: user.id,
+            },
+          }),
+        );
+      }
+
       // Alle Compound-Types (locatedTimestamp, money, ...) gehen durch
       // dieselbe Pipeline. Caller schickt combined API-Form, Framework
       // speichert flat DB-Form. Siehe db/compound-types.ts.
@@ -299,6 +318,27 @@ export function createEventStoreExecutor(
           new UnprocessableError("entity_ownership_denied", {
             i18nKey: "errors.entityOwnershipDenied",
             details: { entityName, action: "update", userId: user.id, entityId: payload.id },
+          }),
+        );
+      }
+
+      // Field-level write-ownership on update — this is the path the
+      // dispatcher could not evaluate (no oldRow). Now that we have
+      // `previous`, we can run the ownership rules per field against both
+      // sides and reject individual fields the user isn't entitled to
+      // touch on this specific row.
+      const fieldDeniedUpdate = checkWriteFieldOwnership(entity, payload.changes, user, previous);
+      if (fieldDeniedUpdate) {
+        return writeFailure(
+          new UnprocessableError("field_ownership_denied", {
+            i18nKey: "errors.fieldOwnershipDenied",
+            details: {
+              entityName,
+              action: "update",
+              field: fieldDeniedUpdate,
+              userId: user.id,
+              entityId: payload.id,
+            },
           }),
         );
       }

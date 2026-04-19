@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { validateBoot } from "../boot-validator";
 import { createSystemConfig, createTenantConfig } from "../config-helpers";
-import { createEntity, createTextField, defineFeature } from "../index";
+import { createEntity, createTextField, defineFeature, from } from "../index";
 
 describe("boot-validator", () => {
   test("passes for valid features with no issues", () => {
@@ -544,6 +544,195 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).toThrow(
         /allowPerRequest.*encrypted.*secret values may not be set via query-params/i,
       );
+    });
+  });
+
+  // --- H.2 Ownership-Rule validation ---
+
+  describe("ownership rules (H.2)", () => {
+    test("passes for entity.access.read with claim-rule whose QN exists", () => {
+      const features = [
+        defineFeature("teams", (r) => {
+          r.claimKey("teamId", { type: "string" });
+        }),
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { teamId: createTextField({ required: true }) },
+              access: {
+                read: { Admin: "all", TeamMember: from("claim:teams:teamId") },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("detects claim-QN that no feature declared", () => {
+      const features = [
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { teamId: createTextField({ required: true }) },
+              access: {
+                // No "teams" feature registered — claim doesn't exist.
+                read: { TeamMember: from("claim:teams:teamId") },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /entity "order"\.access\.read.*references unknown claim "teams:teamId"/,
+      );
+    });
+
+    test("detects column name that doesn't exist on the entity", () => {
+      const features = [
+        defineFeature("teams", (r) => {
+          r.claimKey("teamId", { type: "string" });
+        }),
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { teamId: createTextField({ required: true }) },
+              access: {
+                read: {
+                  // column "nonExistentColumn" not on entity
+                  TeamMember: from("claim:teams:teamId", "nonExistentColumn"),
+                },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /references column "nonExistentColumn" which does not exist/,
+      );
+    });
+
+    test("passes for field-level ownership rule with existing claim + column", () => {
+      const features = [
+        defineFeature("teams", (r) => {
+          r.claimKey("teamId", { type: "string" });
+        }),
+        defineFeature("contracts", (r) => {
+          r.entity(
+            "contract",
+            createEntity({
+              table: "contracts",
+              fields: {
+                teamId: createTextField({ required: true }),
+                propC: createTextField({
+                  access: {
+                    read: { Admin: "all", TeamMember: from("claim:teams:teamId") },
+                    write: { Admin: "all", TeamMember: from("claim:teams:teamId") },
+                  },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("detects unknown claim on field-level rule", () => {
+      const features = [
+        defineFeature("contracts", (r) => {
+          r.entity(
+            "contract",
+            createEntity({
+              table: "contracts",
+              fields: {
+                teamId: createTextField({ required: true }),
+                propC: createTextField({
+                  access: {
+                    // claim not declared anywhere
+                    read: { TeamMember: from("claim:nowhere:teamId") },
+                  },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /contract\.propC\.access\.read.*references unknown claim "nowhere:teamId"/,
+      );
+    });
+
+    test("user-ref rule with valid column passes", () => {
+      const features = [
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { assigneeId: createTextField() },
+              access: {
+                read: { Driver: from("user:id", "assigneeId") },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("'all' rule and { where } rule bypass validation (no ref to check)", () => {
+      const features = [
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { assigneeId: createTextField() },
+              access: {
+                read: {
+                  Admin: "all",
+                  Auditor: {
+                    kind: "where",
+                    where: () => ({ queryChunks: [] }) as never,
+                  },
+                },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("framework columns (id, tenantId, version, ...) are acceptable targets", () => {
+      const features = [
+        defineFeature("teams", (r) => {
+          r.claimKey("teamId", { type: "string" });
+        }),
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: {},
+              access: {
+                read: {
+                  // tenantId is framework-managed — boot-validator should not reject
+                  TeamMember: from("claim:teams:teamId", "tenantId"),
+                },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
     });
   });
 });

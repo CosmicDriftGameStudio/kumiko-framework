@@ -4,7 +4,7 @@ import type { DbConnection, DbRow, DbTx } from "../db/connection";
 import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
-import { checkWriteFields, filterReadFields } from "../engine/field-access";
+import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type {
   AggregateStreamHandle,
@@ -904,7 +904,11 @@ export function createDispatcher(
           | Record<string, unknown>
           | undefined;
         const writePayload = fieldsToCheck ?? (parsed.data as DbRow);
-        const deniedField = checkWriteFields(entity, writePayload, user);
+        // Pre-handler check: role-only gate. Ownership-level row-match runs
+        // later in the executor where oldRow is loaded — that split lets
+        // updates with partial changes still pass the pre-handler check and
+        // get their full evaluation at save time.
+        const deniedField = checkWriteFieldRoles(entity, writePayload, user);
         if (deniedField) {
           return writeFailure(
             new AccessDeniedError({

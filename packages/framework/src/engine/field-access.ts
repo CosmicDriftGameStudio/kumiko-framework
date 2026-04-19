@@ -52,52 +52,84 @@ export function filterReadFields(
   return result;
 }
 
-// Check if the user is allowed to write all fields in the changes object.
-// For updates: pass oldRow (the existing projection) so the Straddle-safe
-// multi-role check can run. For creates: pass an empty object as oldRow
-// (or the same as newRow — Straddle only applies to updates).
+// Role-only field-write check. Evaluates ONLY whether the user has at
+// least one role mapped to the field's write-access — does NOT evaluate
+// ownership rules against a row. The dispatcher calls this before the
+// handler runs to catch clear-cut role denials (the common case), without
+// needing to load old-row state.
 //
-// Returns the first field-name that's denied, or null if all allowed.
-// Callers translate the returned name into a `field_ownership_denied`
-// (ownership mismatch) or `field_access_denied` (role denial) error —
-// both fail-loud, never silent.
-export function checkWriteFields(
+// Ownership-level row-match for updates happens in the executor, where
+// the pre-update row is already loaded. See checkWriteFieldOwnership.
+//
+// Returns the denied field name, or null if all fields pass the role gate.
+export function checkWriteFieldRoles(
   entity: EntityDefinition,
   changes: Readonly<Record<string, unknown>>,
   user: SessionUser,
-  // Old row for Straddle-check. Undefined for creates (no old row exists).
-  oldRow?: Readonly<Record<string, unknown>>,
 ): string | null {
   for (const key of Object.keys(changes)) {
     const field = entity.fields[key];
-    if (!field) continue; // Base columns can't be written directly anyway
+    if (!field) continue;
 
     const accessMap = normalizeAccessEntry(field.access?.write);
     if (!accessMap) continue; // public write
 
-    // Construct the "new row" view for this field's check: merge the
-    // changes over the oldRow. For a standalone field check at change-
-    // level, the ownership rule may depend on OTHER columns in the row
-    // (e.g. "write propC if row.teamId matches claim") — so the checker
-    // needs the full post-change row shape.
+    // Pure role-in-map check — ownership-rule evaluation is deferred.
+    const hasRole = user.roles.some((role) => accessMap[role] !== undefined);
+    if (!hasRole) return key;
+  }
+  return null;
+}
+
+// Full ownership-aware field-write check. Called from the executor after
+// oldRow is loaded. Enforces Straddle-safe per-role atomicity: at least one
+// of the user's roles must accept BOTH the old row AND the new (post-change)
+// row. For creates, pass oldRow = undefined; the check degenerates to a
+// newRow-only evaluation.
+//
+// Returns the denied field name for the caller to wrap into a
+// `field_ownership_denied` error, or null if all fields pass.
+export function checkWriteFieldOwnership(
+  entity: EntityDefinition,
+  changes: Readonly<Record<string, unknown>>,
+  user: SessionUser,
+  oldRow?: Readonly<Record<string, unknown>>,
+): string | null {
+  for (const key of Object.keys(changes)) {
+    const field = entity.fields[key];
+    if (!field) continue;
+
+    const accessMap = normalizeAccessEntry(field.access?.write);
+    if (!accessMap) continue;
+
+    // Only run the ownership eval when the map actually has at least one
+    // ownership-typed rule (i.e. at least one entry is NOT "all"). Pure
+    // "all" maps are just role-in-map checks — already verified by the
+    // dispatcher, no row-eval needed.
+    const hasOwnershipRule = Object.values(accessMap).some((r) => r !== "all");
+    if (!hasOwnershipRule) continue;
+
     const newRow: Record<string, unknown> = { ...(oldRow ?? {}), ...changes };
+    const effectiveOld = oldRow ?? newRow; // create: compare against newRow
 
-    // Create: no oldRow → only the new row matters. No Straddle risk since
-    // there's nothing old to grab from.
-    if (!oldRow) {
-      // Reuse userCanWriteFieldRow with an empty old-row: the "all" and
-      // write-rules evaluate only against newRow for creates when the
-      // caller passes the same row twice.
-      if (!userCanWriteFieldRow(user, accessMap, newRow, newRow)) {
-        return key;
-      }
-      continue;
-    }
-
-    if (!userCanWriteFieldRow(user, accessMap, oldRow, newRow)) {
+    if (!userCanWriteFieldRow(user, accessMap, effectiveOld, newRow)) {
       return key;
     }
   }
-
   return null;
+}
+
+// Backwards-compat shim: the name `checkWriteFields` is re-exported so any
+// external caller keeps compiling. New code should pick the specific
+// variant it needs (role vs ownership). Behaves as role-only when no
+// oldRow is passed; otherwise runs full ownership-aware check.
+export function checkWriteFields(
+  entity: EntityDefinition,
+  changes: Readonly<Record<string, unknown>>,
+  user: SessionUser,
+  oldRow?: Readonly<Record<string, unknown>>,
+): string | null {
+  const roleFailure = checkWriteFieldRoles(entity, changes, user);
+  if (roleFailure) return roleFailure;
+  return checkWriteFieldOwnership(entity, changes, user, oldRow);
 }

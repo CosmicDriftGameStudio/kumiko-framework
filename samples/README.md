@@ -23,6 +23,7 @@ Jedes Sample = 1 Feature-Definition + 1 Test. Bricht ein Framework-Change was, w
 | Saubere Fehlerbehandlung (Kumiko-Error-Klassen, Reasons, Helper) | [error-contract](error-contract/) | Integration |
 | Default-deny Access Rules + FK-Indices via Relations | [access-control](access-control/) | Integration |
 | Features tragen Identity-Facts in den JWT ein (r.authClaims) | [auth-claims](auth-claims/) | Integration |
+| Row-level Ownership (Entity + Field, Read + Write, Straddle-safe) | [ownership](ownership/) | Integration |
 
 ## Full-App Samples (geplant)
 

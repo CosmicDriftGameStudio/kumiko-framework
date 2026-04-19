@@ -1,4 +1,5 @@
-import type { FeatureDefinition } from "./types";
+import type { OwnershipMap, OwnershipRule } from "./ownership";
+import type { ClaimKeyDefinition, FeatureDefinition } from "./types";
 
 const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 
@@ -28,6 +29,17 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     }
   }
 
+  // Collect all claim keys — the ownership-rule validator below resolves
+  // `from("claim:<feature>:<key>")` strings against this map. Qualified name
+  // is how the resolver / readClaim / ownership system all reference claims,
+  // so we key on the qualifiedName here too.
+  const allClaimKeys = new Map<string, ClaimKeyDefinition>();
+  for (const f of features) {
+    for (const def of Object.values(f.claimKeys)) {
+      allClaimKeys.set(def.qualifiedName, def);
+    }
+  }
+
   let hasEncryptedFields = false;
   let hasFileFields = false;
 
@@ -44,6 +56,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyBounds(feature);
     validateConfigKeyComputed(feature);
     validateConfigKeyAllowPerRequest(feature);
+    validateOwnershipRules(feature, allClaimKeys);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
@@ -397,6 +410,124 @@ function validateExtendSchemaCollisions(feature: FeatureDefinition): void {
           );
         }
       }
+    }
+  }
+}
+
+// --- Ownership rule validation (H.2) ---
+//
+// Walks every entity.access and every field.access map, resolves each
+// FromRule against the cross-feature claim registry, and confirms the
+// referenced column exists on the entity. Catches typos, renames, and
+// cross-feature-claim-removal scenarios at boot instead of at request time.
+
+function validateOwnershipRules(
+  feature: FeatureDefinition,
+  allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition>,
+): void {
+  for (const [entityName, entity] of Object.entries(feature.entities)) {
+    const columnNames = new Set<string>(Object.keys(entity.fields));
+    // Framework-managed columns that rules are allowed to reference too.
+    // These are the base columns buildDrizzleTable adds unconditionally.
+    const frameworkColumns = ["id", "tenantId", "version", "insertedAt", "modifiedAt"];
+    for (const col of frameworkColumns) columnNames.add(col);
+
+    // Entity-level access
+    if (entity.access?.read) {
+      checkOwnershipMap({
+        map: entity.access.read,
+        columnNames,
+        allClaimKeys,
+        scope: `entity "${entityName}".access.read`,
+        featureName: feature.name,
+      });
+    }
+    if (entity.access?.write) {
+      checkOwnershipMap({
+        map: entity.access.write,
+        columnNames,
+        allClaimKeys,
+        scope: `entity "${entityName}".access.write`,
+        featureName: feature.name,
+      });
+    }
+
+    // Field-level access — skip legacy string[] shape; normalizer handles it,
+    // no claim-QN refs possible in that form.
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      const readMap = toOwnershipMap(field.access?.read);
+      if (readMap) {
+        checkOwnershipMap({
+          map: readMap,
+          columnNames,
+          allClaimKeys,
+          scope: `${entityName}.${fieldName}.access.read`,
+          featureName: feature.name,
+        });
+      }
+      const writeMap = toOwnershipMap(field.access?.write);
+      if (writeMap) {
+        checkOwnershipMap({
+          map: writeMap,
+          columnNames,
+          allClaimKeys,
+          scope: `${entityName}.${fieldName}.access.write`,
+          featureName: feature.name,
+        });
+      }
+    }
+  }
+}
+
+// Narrow a declared access value to an OwnershipMap. Legacy string[] is
+// returned as `undefined` (no claim-refs to validate; role-names aren't
+// resolved at boot today).
+function toOwnershipMap(
+  access: OwnershipMap | readonly string[] | undefined,
+): OwnershipMap | undefined {
+  if (!access) return undefined;
+  if (Array.isArray(access)) return undefined;
+  return access as OwnershipMap;
+}
+
+function checkOwnershipMap(args: {
+  readonly map: OwnershipMap;
+  readonly columnNames: ReadonlySet<string>;
+  readonly allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition>;
+  readonly scope: string;
+  readonly featureName: string;
+}): void {
+  for (const [roleName, rawRule] of Object.entries(args.map)) {
+    const rule = rawRule as OwnershipRule;
+    if (rule === "all") continue;
+    if (rule.kind === "where") continue; // escape hatch — feature author owns the SQL
+
+    // FromRule — validate ref + column.
+    if (rule.refKind === "claim") {
+      // refPath is the qualified claim name ("feature:shortName").
+      const claim = args.allClaimKeys.get(rule.refPath);
+      if (!claim) {
+        const known = [...args.allClaimKeys.keys()].sort().join(", ") || "(none)";
+        throw new Error(
+          `[Kumiko Ownership] ${args.scope} references unknown claim "${rule.refPath}" ` +
+            `(role: "${roleName}", feature: "${args.featureName}"). ` +
+            `Declare it via r.claimKey("...", { type: "..." }) in the owning feature. ` +
+            `Known claims: ${known}`,
+        );
+      }
+      // String-compatible columns accept string and string[] claims equally
+      // (array → inArray). For other claim types we rely on the author
+      // knowing the row-column shape; we can't introspect PG types without
+      // the schema built. This is a best-effort ref-existence check.
+    }
+
+    if (!args.columnNames.has(rule.column)) {
+      const known = [...args.columnNames].sort().join(", ");
+      throw new Error(
+        `[Kumiko Ownership] ${args.scope} references column "${rule.column}" ` +
+          `which does not exist on the entity (role: "${roleName}", feature: ` +
+          `"${args.featureName}"). Available columns: ${known}`,
+      );
     }
   }
 }
