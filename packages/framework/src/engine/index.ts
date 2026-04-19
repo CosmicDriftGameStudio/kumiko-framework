@@ -47,6 +47,8 @@ export {
   locatedTimestamp,
 } from "./factories";
 export { checkWriteFields, filterReadFields } from "./field-access";
+export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
+export { from } from "./ownership";
 export { setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";

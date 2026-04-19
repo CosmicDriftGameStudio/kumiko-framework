@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
 import { requestContext } from "../api/request-context";
+import { buildOwnershipClause } from "../engine/ownership";
 import type {
   DeleteContext,
   EntityDefinition,
@@ -496,6 +497,12 @@ export function createEventStoreExecutor(
     async list(payload, user, db) {
       const limit = payload.limit ?? 50;
 
+      // H.2 — entity-level read ownership. Decide before touching search or
+      // the DB: `empty` means there's no row the user could ever see, so
+      // skip both paths and return an empty page.
+      const ownership = buildOwnershipClause(user, entity.access?.read, table);
+      if (ownership.kind === "empty") return { rows: [], nextCursor: null };
+
       let filterIds: EntityId[] | undefined;
       if (payload.search && searchAdapter && entityName) {
         const results = await searchAdapter.search(user.tenantId, payload.search, {
@@ -514,6 +521,9 @@ export function createEventStoreExecutor(
       }
       if (filterIds) {
         conditions.push(inArray(table["id"], filterIds));
+      }
+      if (ownership.kind === "sql") {
+        conditions.push(ownership.sql);
       }
 
       let query =
@@ -555,13 +565,50 @@ export function createEventStoreExecutor(
     },
 
     async detail(payload, user, db) {
+      // H.2 — ownership check. `empty` → the user can never see this row
+      // regardless of its id. Return null (same shape as "not found", so a
+      // probing attacker can't distinguish "no access" from "doesn't exist").
+      const ownership = buildOwnershipClause(user, entity.access?.read, table);
+      if (ownership.kind === "empty") return null;
+
       if (entityCache && entityName) {
         const cached = await entityCache.get(user.tenantId, entityName, payload.id);
-        if (cached) return cached;
+        if (cached) {
+          // Even with a cache hit the ownership predicate must hold. The
+          // cache is keyed only by tenant + id, not by role, so a cached
+          // row may be visible to caller A but not caller B — re-check
+          // per request.
+          if (ownership.kind === "sql") {
+            // Reuse the clause by querying the row with it. Cheaper than
+            // SQL-parsing the predicate: just re-issue detail-by-id with
+            // the ownership-AND and see if the DB returns it. idFilter()
+            // handles the soft-delete guard.
+            const checked = await db
+              .select()
+              .from(table)
+              .where(and(idFilter(payload.id), ownership.sql) as SQL)
+              .limit(1);
+            if (checked.length === 0) return null;
+          }
+          return cached;
+        }
       }
 
-      const row = await loadById(payload.id, db);
-      if (!row) return null;
+      // Cold path: load the row with the ownership predicate applied so the
+      // DB does the filtering (cheaper than load-then-filter-in-JS). Reuse
+      // idFilter() — it handles the soft-delete guard consistently with
+      // loadById(), which we can't just call directly because it doesn't
+      // thread the ownership clause.
+      const baseFilter = idFilter(payload.id);
+      const whereClause =
+        ownership.kind === "sql" ? (and(baseFilter, ownership.sql) as SQL) : baseFilter;
+      const rows = (await db.select().from(table).where(whereClause).limit(1)) as Record<
+        string,
+        unknown
+      >[];
+      const raw = rows[0];
+      if (!raw) return null;
+      const row = rehydrateCompoundTypes(raw, entity);
 
       if (entityCache && entityName) {
         await entityCache.set(user.tenantId, entityName, payload.id, row);

@@ -1,8 +1,15 @@
 // --- Field Types ---
 
+// OwnershipMap is declared in engine/ownership.ts — field-access maps to
+// per-role ownership rules. A legacy `readonly string[]` form is still
+// accepted at the type layer during migration: features that pass an
+// array are auto-normalized to { [role]: "all" } at registry build.
+// Long-term: string[] disappears.
+import type { OwnershipMap } from "../ownership";
+
 export type FieldAccess = {
-  readonly read?: readonly string[];
-  readonly write?: readonly string[];
+  readonly read?: OwnershipMap | readonly string[];
+  readonly write?: OwnershipMap | readonly string[];
 };
 
 // `sensitive: true` — the field's value is excluded from event payloads
@@ -257,4 +264,18 @@ export type EntityDefinition = {
    *   ES-Aggregate (Phase 2+) notwendig, da Events per UUID aggregiert werden.
    */
   readonly idType?: "serial" | "uuid";
+  /**
+   * Row-level ownership rules (H.2). read runs as WHERE-predicate on list/
+   * detail/queryProjection, scoping which rows the caller sees. write runs
+   * pre-save on create/update/delete, scoping which rows the caller may
+   * modify (Straddle-safe, multi-role atomic — see engine/ownership.ts).
+   *
+   * Keys are role names; rules use the `from()` helper or `{ where }`
+   * escape hatch. Entity-level ownership is AND-ed with tenant isolation —
+   * a user's tenant filter still applies first.
+   */
+  readonly access?: {
+    readonly read?: OwnershipMap;
+    readonly write?: OwnershipMap;
+  };
 };
