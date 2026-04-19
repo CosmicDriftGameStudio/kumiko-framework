@@ -40,6 +40,15 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     }
   }
 
+  // Cross-feature role set — derived from handler-access rules + framework
+  // built-ins ("all", "system"). We don't have a dedicated role-registry
+  // (r.defineRoles is a type-level helper, not a runtime export), so we
+  // use "referenced in any handler access rule" as the corpus of known
+  // roles. The ownership-validator checks OwnershipMap keys + legacy
+  // string[] field-access entries against this set — typos like "Admi"
+  // instead of "Admin" fail at boot if nothing else ever mentions "Admi".
+  const knownRoles = collectKnownRoles(features);
+
   let hasEncryptedFields = false;
   let hasFileFields = false;
 
@@ -56,7 +65,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyBounds(feature);
     validateConfigKeyComputed(feature);
     validateConfigKeyAllowPerRequest(feature);
-    validateOwnershipRules(feature, allClaimKeys);
+    validateOwnershipRules(feature, allClaimKeys, knownRoles);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
@@ -424,6 +433,7 @@ function validateExtendSchemaCollisions(feature: FeatureDefinition): void {
 function validateOwnershipRules(
   feature: FeatureDefinition,
   allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition>,
+  knownRoles: ReadonlySet<string>,
 ): void {
   for (const [entityName, entity] of Object.entries(feature.entities)) {
     const columnNames = new Set<string>(Object.keys(entity.fields));
@@ -438,6 +448,7 @@ function validateOwnershipRules(
         map: entity.access.read,
         columnNames,
         allClaimKeys,
+        knownRoles,
         scope: `entity "${entityName}".access.read`,
         featureName: feature.name,
       });
@@ -447,57 +458,116 @@ function validateOwnershipRules(
         map: entity.access.write,
         columnNames,
         allClaimKeys,
+        knownRoles,
         scope: `entity "${entityName}".access.write`,
         featureName: feature.name,
       });
     }
 
-    // Field-level access — skip legacy string[] shape; normalizer handles it,
-    // no claim-QN refs possible in that form.
+    // Field-level access — OwnershipMap form goes through checkOwnershipMap,
+    // legacy string[] through checkLegacyRoleList. Both enforce role-name
+    // existence against knownRoles so typos fail loud.
     for (const [fieldName, field] of Object.entries(entity.fields)) {
-      const readMap = toOwnershipMap(field.access?.read);
-      if (readMap) {
-        checkOwnershipMap({
-          map: readMap,
-          columnNames,
-          allClaimKeys,
-          scope: `${entityName}.${fieldName}.access.read`,
-          featureName: feature.name,
-        });
-      }
-      const writeMap = toOwnershipMap(field.access?.write);
-      if (writeMap) {
-        checkOwnershipMap({
-          map: writeMap,
-          columnNames,
-          allClaimKeys,
-          scope: `${entityName}.${fieldName}.access.write`,
-          featureName: feature.name,
-        });
-      }
+      checkFieldAccess({
+        access: field.access?.read,
+        columnNames,
+        allClaimKeys,
+        knownRoles,
+        scope: `${entityName}.${fieldName}.access.read`,
+        featureName: feature.name,
+      });
+      checkFieldAccess({
+        access: field.access?.write,
+        columnNames,
+        allClaimKeys,
+        knownRoles,
+        scope: `${entityName}.${fieldName}.access.write`,
+        featureName: feature.name,
+      });
     }
   }
 }
 
-// Narrow a declared access value to an OwnershipMap. Legacy string[] is
-// returned as `undefined` (no claim-refs to validate; role-names aren't
-// resolved at boot today).
-function toOwnershipMap(
-  access: OwnershipMap | readonly string[] | undefined,
-): OwnershipMap | undefined {
-  if (!access) return undefined;
-  if (Array.isArray(access)) return undefined;
-  return access as OwnershipMap;
+function checkFieldAccess(args: {
+  readonly access: OwnershipMap | readonly string[] | undefined;
+  readonly columnNames: ReadonlySet<string>;
+  readonly allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition>;
+  readonly knownRoles: ReadonlySet<string>;
+  readonly scope: string;
+  readonly featureName: string;
+}): void {
+  // skip: no access rules on this field, nothing to validate
+  if (!args.access) return;
+  if (Array.isArray(args.access)) {
+    // Legacy string[] form — every entry is a role name. Ref/column
+    // validation is n/a here (no claim refs in this shape), but the
+    // role-existence check applies.
+    checkLegacyRoleList(
+      args.access as readonly string[],
+      args.knownRoles,
+      args.scope,
+      args.featureName,
+    );
+    // skip: legacy form validated, OwnershipMap check below doesn't apply
+    return;
+  }
+  checkOwnershipMap({
+    map: args.access as OwnershipMap,
+    columnNames: args.columnNames,
+    allClaimKeys: args.allClaimKeys,
+    knownRoles: args.knownRoles,
+    scope: args.scope,
+    featureName: args.featureName,
+  });
+}
+
+function checkLegacyRoleList(
+  roles: readonly string[],
+  knownRoles: ReadonlySet<string>,
+  scope: string,
+  featureName: string,
+): void {
+  // skip: no handler-declared roles in this app, role-validation disabled
+  if (!shouldValidateRoles(knownRoles)) return;
+  for (const roleName of roles) {
+    if (!knownRoles.has(roleName)) {
+      throw new Error(buildUnknownRoleMessage(roleName, knownRoles, scope, featureName));
+    }
+  }
+}
+
+// Only validate role-existence when at least one handler in the system has
+// declared a non-builtin role. Apps that run entirely on openToAll +
+// system-role handlers don't benefit from role-typo detection and would
+// otherwise get false-positive errors on every OwnershipMap — their
+// knownRoles corpus is empty beyond "all"/"system", so any app-defined
+// role would flag as unknown.
+function shouldValidateRoles(knownRoles: ReadonlySet<string>): boolean {
+  for (const r of knownRoles) {
+    if (r !== "all" && r !== "system") return true;
+  }
+  return false;
 }
 
 function checkOwnershipMap(args: {
   readonly map: OwnershipMap;
   readonly columnNames: ReadonlySet<string>;
   readonly allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition>;
+  readonly knownRoles: ReadonlySet<string>;
   readonly scope: string;
   readonly featureName: string;
 }): void {
   for (const [roleName, rawRule] of Object.entries(args.map)) {
+    // Role-existence check — typos like `{"Admi": "all"}` where no handler
+    // or other map mentions "Admi" would otherwise silently grant nothing.
+    // Skip when no app-defined roles exist anywhere (handler-less or
+    // system-only apps — shouldValidateRoles returns false there).
+    if (shouldValidateRoles(args.knownRoles) && !args.knownRoles.has(roleName)) {
+      throw new Error(
+        buildUnknownRoleMessage(roleName, args.knownRoles, args.scope, args.featureName),
+      );
+    }
+
     const rule = rawRule as OwnershipRule;
     if (rule === "all") continue;
     if (rule.kind === "where") continue; // escape hatch — feature author owns the SQL
@@ -530,4 +600,40 @@ function checkOwnershipMap(args: {
       );
     }
   }
+}
+
+function buildUnknownRoleMessage(
+  roleName: string,
+  knownRoles: ReadonlySet<string>,
+  scope: string,
+  featureName: string,
+): string {
+  const known = [...knownRoles].sort().join(", ");
+  return (
+    `[Kumiko Ownership] ${scope} references unknown role "${roleName}" ` +
+    `(feature: "${featureName}"). Roles are collected from handler access ` +
+    `rules across all features plus the "all" and "system" built-ins; if ` +
+    `"${roleName}" is real, make sure at least one handler declares ` +
+    `access.roles: ["${roleName}"]. Known roles: ${known}`
+  );
+}
+
+// Roles we recognise at boot time. The framework has no explicit
+// role-registry (r.defineRoles is a type helper only), so we synthesise
+// one from every handler-access rule plus the "all"/"system" built-ins.
+function collectKnownRoles(features: readonly FeatureDefinition[]): Set<string> {
+  const roles = new Set<string>(["all", "system"]);
+  for (const f of features) {
+    for (const def of Object.values(f.writeHandlers)) {
+      if (def.access && "roles" in def.access) {
+        for (const r of def.access.roles) roles.add(r);
+      }
+    }
+    for (const def of Object.values(f.queryHandlers)) {
+      if (def.access && "roles" in def.access) {
+        for (const r of def.access.roles) roles.add(r);
+      }
+    }
+  }
+  return roles;
 }

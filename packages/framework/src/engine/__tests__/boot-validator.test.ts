@@ -734,5 +734,114 @@ describe("boot-validator", () => {
       ];
       expect(() => validateBoot(features)).not.toThrow();
     });
+
+    // --- Role-name validation ---
+
+    test("detects role-name typo in OwnershipMap when other handlers declare the real role", () => {
+      // One feature runs a handler that declares the real role "Admin"; a
+      // second feature has a typo "Admi" in its OwnershipMap. Validator
+      // sees "Admin" in the known-role corpus (from handler.access.roles)
+      // and flags "Admi" as unknown.
+      const features = [
+        defineFeature("accounts", (r) => {
+          r.writeHandler({
+            name: "accounts:create",
+            schema: z.object({}),
+            handler: async () => ({ isSuccess: true as const, data: null }),
+            access: { roles: ["Admin"] },
+          });
+        }),
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { teamId: createTextField({ required: true }) },
+              access: {
+                read: { Admi: "all" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /unknown role "Admi".*Known roles: Admin, all, system/,
+      );
+    });
+
+    test("detects role-name typo in legacy string[] field-access", () => {
+      const features = [
+        defineFeature("accounts", (r) => {
+          r.writeHandler({
+            name: "accounts:create",
+            schema: z.object({}),
+            handler: async () => ({ isSuccess: true as const, data: null }),
+            access: { roles: ["Admin"] },
+          });
+        }),
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: {
+                secret: createTextField({ access: { read: ["Admni"] } }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /order\.secret\.access\.read.*unknown role "Admni"/,
+      );
+    });
+
+    test("passes when all OwnershipMap roles are referenced by handler access rules too", () => {
+      const features = [
+        defineFeature("accounts", (r) => {
+          r.writeHandler({
+            name: "accounts:create",
+            schema: z.object({}),
+            handler: async () => ({ isSuccess: true as const, data: null }),
+            access: { roles: ["Admin", "TeamMember"] },
+          });
+        }),
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { teamId: createTextField({ required: true }) },
+              access: {
+                read: { Admin: "all", TeamMember: "all" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("skips role validation entirely when no handlers declare non-builtin roles", () => {
+      // Apps running only on openToAll / system handlers have no corpus
+      // of known roles beyond "all"/"system" — validator must not flag
+      // their OwnershipMap roles as unknown. This is the regression test
+      // for the shouldValidateRoles gate.
+      const features = [
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { teamId: createTextField({ required: true }) },
+              access: {
+                read: { AnyRole: "all" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
   });
 });

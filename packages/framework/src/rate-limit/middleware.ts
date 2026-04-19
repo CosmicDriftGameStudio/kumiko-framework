@@ -126,7 +126,11 @@ function defaultOnFailClosed(label: string): (err: unknown) => void {
 function setRateLimitHeaders(c: Context, decision: RateLimitDecision): void {
   c.header("X-RateLimit-Limit", String(decision.limit));
   c.header("X-RateLimit-Remaining", String(decision.remaining));
-  c.header("X-RateLimit-Reset", decision.resetAt.toString());
+  // Unix-epoch seconds — matches the de-facto industry standard (GitHub,
+  // Twitter, AWS) and stays consistent with Retry-After, which is also
+  // seconds. Previously this emitted an ISO-Instant string; proxies and
+  // client libs that parse as integer would silently see NaN.
+  c.header("X-RateLimit-Reset", String(Math.floor(decision.resetAt.epochMilliseconds / 1000)));
 }
 
 function respondRateLimited(c: Context, decision: RateLimitDecision, bucket: string): Response {
