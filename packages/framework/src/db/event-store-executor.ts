@@ -1,7 +1,11 @@
 import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
 import { requestContext } from "../api/request-context";
-import { buildOwnershipClause } from "../engine/ownership";
+import {
+  buildOwnershipClause,
+  userCanCreateFieldRow,
+  userCanWriteFieldRow,
+} from "../engine/ownership";
 import type {
   DeleteContext,
   EntityDefinition,
@@ -211,6 +215,17 @@ export function createEventStoreExecutor(
       const { id: _id, ...payloadWithoutId } = payload;
       const data = applyDefaults(payloadWithoutId);
 
+      // H.2 — entity-level write-ownership on create. No oldRow exists, so
+      // only the new row is checked. No Straddle concern for creates.
+      if (!userCanCreateFieldRow(user, entity.access?.write, data)) {
+        return writeFailure(
+          new UnprocessableError("entity_ownership_denied", {
+            i18nKey: "errors.entityOwnershipDenied",
+            details: { entityName, action: "create", userId: user.id },
+          }),
+        );
+      }
+
       // Alle Compound-Types (locatedTimestamp, money, ...) gehen durch
       // dieselbe Pipeline. Caller schickt combined API-Form, Framework
       // speichert flat DB-Form. Siehe db/compound-types.ts.
@@ -272,6 +287,21 @@ export function createEventStoreExecutor(
     async update(payload, user, db, updateOptions) {
       const previous = await loadById(payload.id, db);
       if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
+
+      // H.2 — entity-level write-ownership on update. Load old row (already
+      // done above), build post-change row via shallow merge. Straddle-safe
+      // multi-role check: at least one role must accept BOTH old and new —
+      // prevents the attack where role A passes old, role B passes new and
+      // aggregation would wrongly allow a row-grab.
+      const mergedNew: Record<string, unknown> = { ...previous, ...payload.changes };
+      if (!userCanWriteFieldRow(user, entity.access?.write, previous, mergedNew)) {
+        return writeFailure(
+          new UnprocessableError("entity_ownership_denied", {
+            i18nKey: "errors.entityOwnershipDenied",
+            details: { entityName, action: "update", userId: user.id, entityId: payload.id },
+          }),
+        );
+      }
 
       // Stream-version is authoritative, not row.version. `ctx.appendEvent`
       // can bump the stream between CRUD writes (domain event on the same
@@ -377,6 +407,19 @@ export function createEventStoreExecutor(
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
 
+      // H.2 — entity-level write-ownership on delete. Only the pre-delete
+      // row matters (there's no "new" row for a delete); passing existing
+      // twice to userCanWriteFieldRow makes the Straddle check trivial
+      // (same row on both sides) while keeping the multi-role-atomic shape.
+      if (!userCanWriteFieldRow(user, entity.access?.write, existing, existing)) {
+        return writeFailure(
+          new UnprocessableError("entity_ownership_denied", {
+            i18nKey: "errors.entityOwnershipDenied",
+            details: { entityName, action: "delete", userId: user.id, entityId: payload.id },
+          }),
+        );
+      }
+
       // Stream-version authoritative (see update() for rationale).
       const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
 
@@ -435,6 +478,18 @@ export function createEventStoreExecutor(
       if (!data["isDeleted"]) {
         return writeFailure(
           new UnprocessableError("not_deleted", { i18nKey: "errors.notDeleted" }),
+        );
+      }
+
+      // H.2 — entity-level write-ownership on restore. Same shape as delete:
+      // only the stored row matters. Stored row carries pre-soft-delete
+      // teamId/... fields, so the ownership predicate still applies cleanly.
+      if (!userCanWriteFieldRow(user, entity.access?.write, data, data)) {
+        return writeFailure(
+          new UnprocessableError("entity_ownership_denied", {
+            i18nKey: "errors.entityOwnershipDenied",
+            details: { entityName, action: "restore", userId: user.id, entityId: payload.id },
+          }),
         );
       }
 
