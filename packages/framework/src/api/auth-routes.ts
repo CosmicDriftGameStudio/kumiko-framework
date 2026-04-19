@@ -31,6 +31,28 @@ export type LoginRateLimiter = {
   reset(key: string): Promise<void>;
 };
 
+// Per-session metadata forwarded to the sessionCreator. Captured at login
+// time so the sessions feature can store IP/UA alongside each record for
+// session-list UIs ("your devices") and security-audit flows.
+export type SessionMetadata = {
+  readonly ip: string;
+  readonly userAgent: string;
+};
+
+// Invoked on a successful login (and on switch-tenant) so an app can persist
+// a session record and return its ID. The returned string is embedded in the
+// JWT's `jti` claim and echoed back as `SessionUser.sid` on every request.
+// When the callback is not wired, JWTs are stateless — they remain valid
+// until expiration, with no server-side revocation. The framework stays
+// agnostic about WHERE sessions live (DB, Redis, memory); that's the
+// sessions feature's job.
+export type SessionCreator = (user: SessionUser, meta: SessionMetadata) => Promise<string>;
+
+// Invoked on logout and on switch-tenant. No-op if the app hasn't wired a
+// sessionCreator; in that case the framework never populates a `sid` and
+// there's nothing to revoke.
+export type SessionRevoker = (sid: string) => Promise<void>;
+
 export type AuthRoutesConfig = {
   membershipQuery: string; // qualified query handler name, e.g. config.membershipQuery
   // Optional: qualified write handler for login. When set, POST /auth/login
@@ -43,7 +65,27 @@ export type AuthRoutesConfig = {
   // Rate-limit for POST /auth/login. Defaults to in-memory 10/5min per
   // (ip + email) bucket. Pass `null` to disable (tests, trusted networks).
   loginRateLimit?: LoginRateLimiter | null;
+  // Session-lifecycle callbacks. When both are wired the JWT carries a `jti`
+  // (sid) and the server can revoke individual sessions (logout, compromise,
+  // password-change). When unwired the framework issues plain stateless JWTs.
+  // Mirrors the loginRateLimit pattern: feature-owned storage, framework-
+  // owned routing.
+  sessionCreator?: SessionCreator;
+  sessionRevoker?: SessionRevoker;
 };
+
+// Extract `ip` and `user-agent` for the sessionCreator.
+// Hono's `c.req.header(...)` returns undefined for missing headers; we coerce
+// them to "unknown" rather than throwing because auth-routes are a public
+// surface and we don't want header-sniffing bugs to break login.
+function requestMeta(c: { req: { header(name: string): string | undefined } }): SessionMetadata {
+  const ip =
+    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+    c.req.header("x-real-ip") ??
+    "unknown";
+  const userAgent = c.req.header("user-agent") ?? "unknown";
+  return { ip, userAgent };
+}
 
 // Default: in-memory fixed window. Fine for a single Node process; for
 // multi-process deployments, inject a Redis-backed LoginRateLimiter instead
@@ -156,7 +198,18 @@ export function createAuthRoutes(
       }
 
       const data = result.data as { kind: "auth-session"; session: SessionUser };
-      const token = await jwt.sign(data.session);
+
+      // Session creation (optional). Creating the session BEFORE signing the
+      // JWT is load-bearing: the sid must exist on the server before the
+      // token that references it can be handed out, otherwise a fast client
+      // could arrive at an auth-middleware check before the insert commits.
+      let sessionForJwt: SessionUser = data.session;
+      if (config.sessionCreator) {
+        const sid = await config.sessionCreator(data.session, requestMeta(c));
+        sessionForJwt = { ...data.session, sid };
+      }
+
+      const token = await jwt.sign(sessionForJwt);
 
       if (rateLimiter) {
         const ip =
@@ -173,6 +226,18 @@ export function createAuthRoutes(
       });
     });
   }
+
+  // POST /auth/logout — revokes the current session. Requires a valid JWT so
+  // the middleware has already populated `user.sid` from the `jti` claim. If
+  // the app hasn't wired a sessionRevoker, logout is effectively a no-op on
+  // the server — the client can just drop the token.
+  api.post(Routes.authLogout, async (c) => {
+    const user = getUser(c);
+    if (config.sessionRevoker && user.sid) {
+      await config.sessionRevoker(user.sid);
+    }
+    return c.json({ isSuccess: true });
+  });
 
   // GET /auth/tenants — list tenants the current user belongs to
   api.get(Routes.authTenants, async (c) => {
@@ -239,8 +304,21 @@ export function createAuthRoutes(
         roles: membership.roles,
       };
       const claims = await dispatcher.resolveAuthClaims(targetSession);
-      const sessionForJwt: SessionUser =
+      let sessionForJwt: SessionUser =
         Object.keys(claims).length > 0 ? { ...targetSession, claims } : targetSession;
+
+      // Session rotation: each tenant-scope gets its own sid. We revoke the
+      // outgoing sid BEFORE creating the new one so a failure in the creator
+      // doesn't leave the user with two live sessions. Order matters: old
+      // out, new in, never both.
+      if (config.sessionRevoker && user.sid) {
+        await config.sessionRevoker(user.sid);
+      }
+      if (config.sessionCreator) {
+        const sid = await config.sessionCreator(sessionForJwt, requestMeta(c));
+        sessionForJwt = { ...sessionForJwt, sid };
+      }
+
       const newToken = await jwt.sign(sessionForJwt);
 
       return c.json({ token: newToken, tenantId: targetTenantId, roles: membership.roles });

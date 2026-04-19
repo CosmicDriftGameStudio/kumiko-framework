@@ -9,9 +9,14 @@ export type JwtPayload = {
   sub: string;
   tenantId: TenantId;
   roles: string[];
-  // Optional — present when a feature has registered auth claims (future:
-  // `r.authClaims()` hook). Absent for the MVP login flow.
+  // Optional — present when a feature has registered auth claims via the
+  // `r.authClaims()` hook system. Absent for stateless-JWT deployments
+  // without auth-claims wiring.
   claims?: Record<string, unknown>;
+  // Optional session-ID, carried in the standard `jti` JWT claim.
+  // Present when the app wires a `sessionCreator` callback (see sessions
+  // feature). Absent → stateless-JWT mode, no revocation possible.
+  jti?: string;
 };
 
 export type JwtHelper = {
@@ -24,19 +29,21 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
 
   return {
     async sign(user) {
-      const body: Omit<JwtPayload, "sub"> = {
+      const body: Omit<JwtPayload, "sub" | "jti"> = {
         tenantId: user.tenantId,
         roles: [...user.roles],
       };
       if (user.claims) body.claims = { ...user.claims };
 
-      return new jose.SignJWT(body)
+      const builder = new jose.SignJWT(body)
         .setProtectedHeader({ alg: "HS256" })
         .setSubject(String(user.id))
         .setIssuer(issuer)
         .setIssuedAt()
-        .setExpirationTime("24h")
-        .sign(encodedSecret);
+        .setExpirationTime("24h");
+      if (user.sid) builder.setJti(user.sid);
+
+      return builder.sign(encodedSecret);
     },
 
     async verify(token) {
@@ -49,6 +56,9 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
       const claims = payload["claims"];
       if (claims && typeof claims === "object") {
         result.claims = claims as DbRow;
+      }
+      if (typeof payload.jti === "string") {
+        result.jti = payload.jti;
       }
       return result;
     },

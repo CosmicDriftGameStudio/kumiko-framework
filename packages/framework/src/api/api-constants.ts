@@ -11,6 +11,7 @@ export const Routes = {
   sse: "/sse",
   auth: "/auth",
   authLogin: "/auth/login",
+  authLogout: "/auth/logout",
   authTenants: "/auth/tenants",
   authSwitchTenant: "/auth/switch-tenant",
   files: "/files",

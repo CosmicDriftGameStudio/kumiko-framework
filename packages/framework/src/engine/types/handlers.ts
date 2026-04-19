@@ -32,6 +32,12 @@ export type SessionUser = {
   // auth-claims design note in docs/plans). Reserved here so the type shape
   // is stable when the hook system lands.
   readonly claims?: Readonly<Record<string, unknown>>;
+  // Session-ID — transported via the JWT `jti` standard claim. Present when
+  // an app has wired a `sessionCreator` callback on the auth-routes config
+  // (e.g. via the `sessions` feature). Absent for stateless-JWT deployments.
+  // When present, middleware can validate that the sid is still alive before
+  // accepting the request (session revocation).
+  readonly sid?: string;
 };
 
 // --- Claim Keys (r.claimKey declarations) ---
