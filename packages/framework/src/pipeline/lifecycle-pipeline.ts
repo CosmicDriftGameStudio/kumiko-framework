@@ -389,9 +389,16 @@ export function createLifecycleHooks(
 export function buildEventId(handlerName: string, payload: unknown, phase: string): string | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as DbRow;
-  const id = p["id"] as number | undefined;
-  if (!id) return null;
+  // Aggregate IDs are UUIDs (string) in this framework; legacy int-ids round-
+  // trip cleanly through String(). Anything else (undefined, null, object)
+  // means the payload doesn't carry a dedup-able identity. Also treat id=0
+  // and id="" as absent: serial PKs start at 1 and an empty string is never
+  // a valid aggregate id — safer to skip dedup than to collide on a sentinel.
+  const rawId = p["id"];
+  if (rawId === undefined || rawId === null) return null;
+  if (typeof rawId !== "string" && typeof rawId !== "number") return null;
+  if (rawId === 0 || rawId === "") return null;
   const data = p["data"] as Record<string, unknown> | undefined;
   const version = data?.["version"] as number | undefined;
-  return `${handlerName}:${id}:${version ?? 0}:${phase}`;
+  return `${handlerName}:${rawId}:${version ?? 0}:${phase}`;
 }

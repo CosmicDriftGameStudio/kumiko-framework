@@ -354,7 +354,8 @@ export function createEventStoreExecutor(
       // Stream-version is authoritative, not row.version. `ctx.appendEvent`
       // can bump the stream between CRUD writes (domain event on the same
       // aggregate); a stale row.version here would make the next CRUD write
-      // trip `events_aggregate_version_uq` with version_conflict.
+      // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
+      // with version_conflict.
       const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
       if (!updateOptions?.skipOptimisticLock) {
         if (payload.version === undefined) {

@@ -59,19 +59,22 @@ type SelectedEvent = typeof eventsTable.$inferSelect;
 
 // Append one event atomically. Two guarantees combined:
 //
-//   1. UNIQUE (aggregate_id, version) serializes concurrent writers —
-//      a second writer racing the same expectedVersion receives a PG unique
-//      violation (SQLSTATE 23505) → VersionConflictError.
+//   1. UNIQUE (tenant_id, aggregate_id, version) serializes concurrent writers
+//      within a tenant — a second writer racing the same expectedVersion
+//      receives a PG unique violation (SQLSTATE 23505) → VersionConflictError.
+//      Cross-tenant aggregate_id collisions are not conflicts by definition:
+//      two tenants owning a row with the same UUID is just isolation, not a
+//      race.
 //
 //   2. For updates (expectedVersion > 0), INSERT … SELECT … WHERE EXISTS
-//      requires the predecessor event to exist AND belong to the same tenant.
-//      Without this, tenant B could "hijack" tenant A's aggregate_id simply
-//      by passing a guessed expectedVersion — the unique constraint alone
-//      wouldn't catch cross-tenant writes because the version numbers would
-//      be non-colliding (A has v1, B writes v2). Single round-trip.
+//      requires the predecessor event to exist within the same tenant — i.e.
+//      "you can't append v6 to a stream whose v5 was never written." The
+//      tenant filter inside the EXISTS is belt-and-suspenders now that the
+//      unique index carries tenant_id; we keep it so the predecessor check
+//      stays semantically obvious when read in isolation.
 //
 // Creates (expectedVersion === 0) skip the predecessor check — no predecessor
-// exists yet. Colliding creates fall out via UNIQUE (aggregate_id, version=1).
+// exists yet. Colliding creates fall out via UNIQUE (tenant_id, aggregate_id, version=1).
 // Channel name used by append() → NOTIFY and the event-dispatcher → LISTEN
 // (Sprint E.4). The event-dispatcher subscribes to this channel on start and
 // fires a runOnce immediately on each commit, so delivery latency is bounded
@@ -96,9 +99,10 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     return buildStoredEvent(event, newVersion, eventVersion, row);
   } catch (e) {
     if (isUniqueViolation(e)) {
-      // Only constraint left on the events table: events_aggregate_version_uq.
-      // A unique violation here always means a concurrent writer won the
-      // race to the next version — retry-able conflict.
+      // Only constraint left on the events table: events_aggregate_version_uq
+      // on (tenant_id, aggregate_id, version). A unique violation here always
+      // means a concurrent writer in the same tenant won the race to the
+      // next version — retry-able conflict.
       throw new VersionConflictError(event.aggregateId, event.expectedVersion);
     }
     throw e;

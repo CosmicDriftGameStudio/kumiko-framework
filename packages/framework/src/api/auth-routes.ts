@@ -1,11 +1,33 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { createSystemUser } from "../engine/system-user";
 import { type SessionUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/types";
+import { NotFoundError } from "../errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { Routes } from "./api-constants";
 import type { AuthSessionChecker, AuthSessionStatus } from "./auth-middleware";
 import { getUser } from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
+
+// Body schema for POST /auth/login. Enforced BEFORE rate-limit so that a
+// malformed body (`email: 42`, missing password, …) returns 400 instead of
+// crashing on `.toLowerCase()` and leaking a 500 that never increments the
+// login counter — previous wiring let attackers spam the endpoint without
+// tripping the bucket.
+const LoginBody = z.object({
+  email: z.string().min(1),
+  password: z.string(),
+});
+
+// Shape guard for "handler not registered" — the only legitimate reason to
+// fall back to a single-tenant reply on /auth/tenants or /auth/switch-tenant.
+// Every other error (DB down, revoker throws, access denied, …) has to
+// propagate — otherwise we'd silently paper over outages.
+function isUnknownHandlerError(e: unknown): boolean {
+  if (!(e instanceof NotFoundError)) return false;
+  const details = e.details as { entity?: string } | undefined;
+  return details?.entity === "handler";
+}
 
 type MembershipRow = {
   userId: string;
@@ -187,18 +209,27 @@ export function createAuthRoutes(
         : (config.loginRateLimit ?? createInMemoryLoginRateLimiter());
 
     api.post(Routes.authLogin, async (c) => {
-      const body = await c.req.json<{ email: string; password: string }>();
+      const raw = await c.req.json().catch(() => null);
+      const parsed = LoginBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const body = parsed.data;
+
+      // Client IP derivation is shared between rate-limit check and reset,
+      // so compute once. Falls back to "unknown" when no proxy header is
+      // present — consistent bucket for direct-to-server test setups.
+      const clientIp =
+        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+        c.req.header("x-real-ip") ??
+        "unknown";
+      const rateLimitKey = `${clientIp}|${body.email.toLowerCase()}`;
 
       if (rateLimiter) {
         // Bucket by both IP and email so a single guessed password can't
         // block a real user from logging in, but also so one abuser can't
         // just cycle emails.
-        const ip =
-          c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-          c.req.header("x-real-ip") ??
-          "unknown";
-        const key = `${ip}|${(body.email ?? "").toLowerCase()}`;
-        const allowed = await rateLimiter.check(key);
+        const allowed = await rateLimiter.check(rateLimitKey);
         if (!allowed) {
           return c.json({ isSuccess: false, error: "rate_limited" }, 429);
         }
@@ -231,11 +262,7 @@ export function createAuthRoutes(
       const token = await jwt.sign(sessionForJwt);
 
       if (rateLimiter) {
-        const ip =
-          c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-          c.req.header("x-real-ip") ??
-          "unknown";
-        await rateLimiter.reset(`${ip}|${body.email.toLowerCase()}`);
+        await rateLimiter.reset(rateLimitKey);
       }
 
       return c.json({
@@ -277,8 +304,12 @@ export function createAuthRoutes(
         })),
         activeTenantId: user.tenantId,
       });
-    } catch {
-      // tenant.memberships handler not registered — return current tenant only
+    } catch (e) {
+      // Only legitimate fallback: the app hasn't wired membershipQuery at
+      // all. A DB fault or a permission failure has to bubble up so ops
+      // sees it — collapsing them into "just your current tenant" hides
+      // outages behind a UI that looks fine.
+      if (!isUnknownHandlerError(e)) throw e;
       return c.json({
         tenants: [{ tenantId: user.tenantId, roles: [...user.roles] }],
         activeTenantId: user.tenantId,
@@ -296,53 +327,61 @@ export function createAuthRoutes(
       return c.json({ error: "already_in_tenant" }, 400);
     }
 
+    // Check membership — uses the system identity because membershipQuery is
+    // locked to the system role. The auth-route is trusted server code; it
+    // asks the question on the user's behalf, not as the user.
+    let memberships: MembershipRow[];
     try {
-      // Check membership — uses the system identity because membershipQuery is
-      // locked to the system role. The auth-route is trusted server code; it
-      // asks the question on the user's behalf, not as the user.
-      const memberships = (await dispatcher.query(
+      memberships = (await dispatcher.query(
         config.membershipQuery,
         { userId: user.id },
         createSystemUser(user.tenantId),
       )) as MembershipRow[];
-
-      const membership = memberships.find((m) => m.tenantId === targetTenantId);
-      if (!membership) {
-        return c.json({ error: "not_a_member" }, 403);
-      }
-
-      // Issue new JWT with the target tenant and its roles. Claims MUST be
-      // recomputed for the new tenant — stale claims from the previous
-      // tenant would leak identity facts across tenancies (e.g. teamId from
-      // tenant A accidentally surviving into tenant B's session). The
-      // resolver runs each feature's r.authClaims() hook under the new
-      // TenantDb scope.
-      const targetSession: SessionUser = {
-        id: user.id,
-        tenantId: targetTenantId,
-        roles: membership.roles,
-      };
-      const claims = await dispatcher.resolveAuthClaims(targetSession);
-      let sessionForJwt: SessionUser =
-        Object.keys(claims).length > 0 ? { ...targetSession, claims } : targetSession;
-
-      // Session rotation: revoke old sid BEFORE creating the new one so a
-      // creator failure leaves the user logged-out cleanly rather than with
-      // two live sessions. Client must log in again on creator-throw.
-      if (config.sessionRevoker && user.sid) {
-        await config.sessionRevoker(user.sid);
-      }
-      if (config.sessionCreator) {
-        const sid = await config.sessionCreator(sessionForJwt, requestMeta(c));
-        sessionForJwt = { ...sessionForJwt, sid };
-      }
-
-      const newToken = await jwt.sign(sessionForJwt);
-
-      return c.json({ token: newToken, tenantId: targetTenantId, roles: membership.roles });
-    } catch {
+    } catch (e) {
+      // No membershipQuery wired → switching tenants is just not offered in
+      // this deployment. Any other error propagates so a broken query handler
+      // surfaces as a real 5xx instead of a misleading 400.
+      if (!isUnknownHandlerError(e)) throw e;
       return c.json({ error: "tenant_switch_not_available" }, 400);
     }
+
+    const membership = memberships.find((m) => m.tenantId === targetTenantId);
+    if (!membership) {
+      return c.json({ error: "not_a_member" }, 403);
+    }
+
+    // Issue new JWT with the target tenant and its roles. Claims MUST be
+    // recomputed for the new tenant — stale claims from the previous
+    // tenant would leak identity facts across tenancies (e.g. teamId from
+    // tenant A accidentally surviving into tenant B's session). The
+    // resolver runs each feature's r.authClaims() hook under the new
+    // TenantDb scope.
+    const targetSession: SessionUser = {
+      id: user.id,
+      tenantId: targetTenantId,
+      roles: membership.roles,
+    };
+    const claims = await dispatcher.resolveAuthClaims(targetSession);
+    let sessionForJwt: SessionUser =
+      Object.keys(claims).length > 0 ? { ...targetSession, claims } : targetSession;
+
+    // Session rotation: revoke old sid BEFORE creating the new one so a
+    // creator failure leaves the user logged-out cleanly rather than with
+    // two live sessions. Client must log in again on creator-throw. A
+    // revoker/creator that actually throws (Redis down, DB deadlock) surfaces
+    // as a 5xx — swallowing it into tenant_switch_not_available was hiding
+    // real outages.
+    if (config.sessionRevoker && user.sid) {
+      await config.sessionRevoker(user.sid);
+    }
+    if (config.sessionCreator) {
+      const sid = await config.sessionCreator(sessionForJwt, requestMeta(c));
+      sessionForJwt = { ...sessionForJwt, sid };
+    }
+
+    const newToken = await jwt.sign(sessionForJwt);
+
+    return c.json({ token: newToken, tenantId: targetTenantId, roles: membership.roles });
   });
 
   return api;

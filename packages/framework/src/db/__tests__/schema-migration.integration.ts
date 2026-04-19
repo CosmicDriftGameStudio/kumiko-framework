@@ -53,9 +53,7 @@ async function getTableColumns(
     data_type: string;
     is_nullable: string;
   }>(
-    sql.raw(
-      `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '${tableName}' ORDER BY ordinal_position`,
-    ),
+    sql`SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = ${tableName} ORDER BY ordinal_position`,
   );
 
   const result = new Map<string, { dataType: string; isNullable: boolean }>();

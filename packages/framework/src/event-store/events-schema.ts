@@ -58,7 +58,18 @@ export const eventsTable = pgTable(
     createdBy: text("created_by").notNull(),
   },
   (t) => ({
-    aggregateVersionUq: uniqueIndex("events_aggregate_version_uq").on(t.aggregateId, t.version),
+    // Tenant-scoped unique: two tenants that happen to pick the same
+    // aggregate_id (deterministic IDs, replay, restores) don't collide, and
+    // insertFirstEvent needs no extra tenant check for cross-tenant safety —
+    // the constraint itself guarantees it. For expectedVersion > 0 the raw
+    // INSERT … SELECT … WHERE EXISTS still pairs the predecessor with the
+    // same tenant, which is now just predecessor-existence and no longer
+    // doing double duty as an anti-hijack check.
+    aggregateVersionUq: uniqueIndex("events_aggregate_version_uq").on(
+      t.tenantId,
+      t.aggregateId,
+      t.version,
+    ),
     loadIdx: index("events_load_idx").on(t.aggregateId, t.version),
     tenantTypeIdx: index("events_tenant_type_idx").on(t.tenantId, t.aggregateType, t.createdAt),
   }),
