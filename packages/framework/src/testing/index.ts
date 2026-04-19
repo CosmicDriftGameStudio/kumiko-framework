@@ -118,6 +118,7 @@ export {
   testUserId,
 } from "./fixtures";
 export { bridgeStub } from "./handler-context";
+export { createLateBoundHolder, type LateBoundHolder } from "./late-bound";
 export {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,

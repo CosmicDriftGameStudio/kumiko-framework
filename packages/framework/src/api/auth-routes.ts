@@ -326,18 +326,9 @@ export function createAuthRoutes(
       let sessionForJwt: SessionUser =
         Object.keys(claims).length > 0 ? { ...targetSession, claims } : targetSession;
 
-      // Session rotation: each tenant-scope gets its own sid. We revoke the
-      // outgoing sid BEFORE creating the new one so a failure in the creator
-      // doesn't leave the user with two live sessions. Order matters: old
-      // out, new in, never both.
-      //
-      // Failure mode: if the revoker succeeds and the creator throws, the
-      // user ends up logged-out cleanly — the catch block below turns the
-      // thrown error into 400 tenant_switch_not_available, and the client
-      // must log in again. That's worse UX than keeping the old session
-      // alive, but it's the only branch where we can be sure no leaked sid
-      // survives. The alternative (create-new-first, revoke-old-after)
-      // would leak both sids if the revoker throws.
+      // Session rotation: revoke old sid BEFORE creating the new one so a
+      // creator failure leaves the user logged-out cleanly rather than with
+      // two live sessions. Client must log in again on creator-throw.
       if (config.sessionRevoker && user.sid) {
         await config.sessionRevoker(user.sid);
       }
