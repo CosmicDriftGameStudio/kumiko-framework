@@ -390,8 +390,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   // Auth middleware skips public paths (login, health) — those routes need
   // to be callable without a valid JWT. Every other /api/* request requires
-  // a token.
-  const jwtGuard = authMiddleware(jwt);
+  // a token. A session-checker is forwarded when the auth-config wires one,
+  // so the middleware can reject revoked sids on every request.
+  const jwtGuard = authMiddleware(jwt, {
+    ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
+    ...(options.auth?.sessionStrictMode ? { strictMode: options.auth.sessionStrictMode } : {}),
+  });
   app.use("/api/*", async (c, next) => {
     if (PUBLIC_API_PATHS.has(c.req.path)) return next();
     return jwtGuard(c, next);

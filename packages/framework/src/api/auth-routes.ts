@@ -3,6 +3,7 @@ import { createSystemUser } from "../engine/system-user";
 import { type SessionUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/types";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { Routes } from "./api-constants";
+import type { AuthSessionChecker, AuthSessionStatus } from "./auth-middleware";
 import { getUser } from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
 
@@ -53,6 +54,15 @@ export type SessionCreator = (user: SessionUser, meta: SessionMetadata) => Promi
 // there's nothing to revoke.
 export type SessionRevoker = (sid: string) => Promise<void>;
 
+// Status reported by the session-store to the auth-middleware. The concrete
+// type lives on auth-middleware to keep the tight coupling visible there;
+// auth-routes just re-uses the alias for the AuthRoutesConfig surface.
+// "live" → let the request through; anything else → 401 with the status as
+// the response reason, so logs/metrics can distinguish "revoked" from
+// "expired" from "someone forged a sid that never existed".
+export type SessionChecker = AuthSessionChecker;
+export type { AuthSessionStatus };
+
 export type AuthRoutesConfig = {
   membershipQuery: string; // qualified query handler name, e.g. config.membershipQuery
   // Optional: qualified write handler for login. When set, POST /auth/login
@@ -72,6 +82,15 @@ export type AuthRoutesConfig = {
   // owned routing.
   sessionCreator?: SessionCreator;
   sessionRevoker?: SessionRevoker;
+  // Consulted by the auth-middleware on every authenticated request when the
+  // incoming JWT carries a `jti`. Paired with sessionCreator: create a sid
+  // at login, check it here on every request. Leaving this empty disables
+  // the revocation path — old JWTs stay valid until they expire naturally.
+  sessionChecker?: SessionChecker;
+  // When true, a JWT WITHOUT a sid is rejected. Use during deploy-rollouts
+  // once all fresh JWTs emit a sid and the legacy stateless tokens are
+  // expected to have expired. Default false keeps old tokens working.
+  sessionStrictMode?: boolean;
 };
 
 // Extract `ip` and `user-agent` for the sessionCreator.
@@ -311,6 +330,14 @@ export function createAuthRoutes(
       // outgoing sid BEFORE creating the new one so a failure in the creator
       // doesn't leave the user with two live sessions. Order matters: old
       // out, new in, never both.
+      //
+      // Failure mode: if the revoker succeeds and the creator throws, the
+      // user ends up logged-out cleanly — the catch block below turns the
+      // thrown error into 400 tenant_switch_not_available, and the client
+      // must log in again. That's worse UX than keeping the old session
+      // alive, but it's the only branch where we can be sure no leaked sid
+      // survives. The alternative (create-new-first, revoke-old-after)
+      // would leak both sids if the revoker throws.
       if (config.sessionRevoker && user.sid) {
         await config.sessionRevoker(user.sid);
       }

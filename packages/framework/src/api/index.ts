@@ -1,7 +1,13 @@
+export type {
+  AuthMiddlewareOptions,
+  AuthSessionChecker,
+  AuthSessionStatus,
+} from "./auth-middleware";
 export { authMiddleware, getUser } from "./auth-middleware";
 export type {
   AuthRoutesConfig,
   LoginRateLimiter,
+  SessionChecker,
   SessionCreator,
   SessionMetadata,
   SessionRevoker,
