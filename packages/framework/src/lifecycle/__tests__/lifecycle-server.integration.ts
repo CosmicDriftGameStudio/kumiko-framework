@@ -55,10 +55,14 @@ describe("lifecycle — /health/ready live state", () => {
       status: string;
       state: string;
       uptimeSec: number;
+      checks: { name: string; ok: boolean }[];
     };
     expect(body.status).toBe("ready");
     expect(body.state).toBe("ready");
     expect(body.uptimeSec).toBeGreaterThanOrEqual(0);
+    // Depth-check proof: db + redis were both probed, both green.
+    expect(body.checks.map((c) => c.name).sort()).toEqual(["db", "redis"]);
+    expect(body.checks.every((c) => c.ok)).toBe(true);
   });
 
   test("/health stays trivial regardless of lifecycle state", async () => {

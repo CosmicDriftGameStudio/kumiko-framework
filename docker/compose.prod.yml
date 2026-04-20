@@ -1,0 +1,67 @@
+# Referenz-Setup fuer Prod-Deploy (Variante A: Minimalist).
+#
+# Einziger App-Container. Postgres, Redis, Meilisearch, S3 werden NICHT
+# mitgestartet — die laufen in Prod bei Managed-Providern (Neon/Supabase,
+# Upstash/Redis-Cloud, Meilisearch-Cloud, AWS S3 / Cloudflare R2).
+#
+# Fuer Self-Hosting dieser Services siehe ../docker-compose.yml (Dev-Setup),
+# das laesst sich mit kleinen Anpassungen (Volumes, Restart-Policies,
+# Backups) auch fuer einen eigenen VPS adaptieren — ist aber explizit NICHT
+# Teil dieses Minimalist-Templates.
+#
+# Usage:
+#   cp .env.prod.example .env.prod   # dann Werte ausfuellen
+#   docker compose -f docker/compose.prod.yml --env-file .env.prod up -d
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        APP_ENTRY: ${APP_ENTRY:-src/main.ts}
+    image: ${APP_IMAGE:-my-kumiko-app:latest}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      # --- Basics ---
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: json
+
+      # --- Datenbanken / externe Services (Managed) ---
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      MEILI_URL: ${MEILI_URL}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+
+      # --- Secrets / Encryption ---
+      # JWT wird vom Caller an buildServer() uebergeben — also App-spezifisch
+      # aus einer der folgenden Env-Vars geladen:
+      JWT_SECRET: ${JWT_SECRET}
+      # Symmetric-Key fuer `encrypted: true` Felder.
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Secrets-Feature: KEK-Keyring (Rotation-faehig). Mindestens V1.
+      KUMIKO_SECRETS_MASTER_KEY_V1: ${KUMIKO_SECRETS_MASTER_KEY_V1}
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: ${KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION:-1}
+      # Fuer Rotation (staging window) optional:
+      # KUMIKO_SECRETS_MASTER_KEY_V2: ${KUMIKO_SECRETS_MASTER_KEY_V2}
+
+      # --- File Storage (optional, nur wenn file/image-Felder deklariert) ---
+      # FILE_STORAGE_PROVIDER: s3
+      # S3_ENDPOINT: ${S3_ENDPOINT}
+      # S3_REGION: ${S3_REGION}
+      # S3_BUCKET: ${S3_BUCKET}
+      # S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      # S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    # Graceful-Shutdown: Docker sendet SIGTERM, Bun reicht durch zum
+    # lifecycle.drain(). 45s Grace-Period deckt die 40s Default-Drain-Timeout
+    # plus Puffer ab (siehe lifecycle.ts).
+    stop_grace_period: 45s

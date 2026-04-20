@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
 import { type AppContext, isFileField, type Registry, SYSTEM_TENANT_ID } from "../engine/types";
@@ -39,6 +40,13 @@ import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { createJwtHelper, type JwtHelper } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
+import {
+  createReadinessProbe,
+  dbPingCheck,
+  dispatcherLagCheck,
+  type ReadinessCheck,
+  redisPingCheck,
+} from "./readiness";
 import { requestIdMiddleware } from "./request-id-middleware";
 import { createApiRoutes } from "./routes";
 import { createSseBroker, type SseBroker } from "./sse-broker";
@@ -111,6 +119,12 @@ export type ServerOptions = {
       readonly path?: string;
     };
   };
+  // Hard cap on JSON request bodies in bytes. Applied to /api/write,
+  // /api/batch, /api/query, /api/command and /api/auth/*. File uploads
+  // (/api/files) are excluded — those have their own per-field maxSize.
+  // `undefined` → 1 MB default. `0` disables the limit entirely (tests
+  // or bespoke deployments with a reverse-proxy that caps upstream).
+  maxRequestBytes?: number;
   // Process lifecycle. When present:
   //   - GET /health/ready reflects lifecycle.state() (200 ready / 503 else)
   //   - eventDispatcher.stop() is auto-registered as a shutdown hook, so
@@ -118,6 +132,19 @@ export type ServerOptions = {
   // Production main.ts passes `createLifecycle()`; tests that don't care
   // about drain() orchestration omit this and /health/ready stays absent.
   lifecycle?: Lifecycle;
+  // /health/ready depth. When lifecycle is wired, the readiness handler
+  // ALSO runs dependency checks before returning 200:
+  //   - DB ping (auto-wired when context.db is a DbConnection)
+  //   - Redis PING (auto-wired when context.redis is set)
+  //   - Dispatcher consumer-lag (opt-in via maxDispatcherLag — off by default
+  //     because a default threshold would false-503 small deployments that
+  //     legitimately lag during bursts)
+  // Checks run in parallel with a per-check timeout; any failed check drops
+  // the probe to 503 with a JSON body listing which check failed.
+  readiness?: {
+    readonly timeoutMs?: number;
+    readonly maxDispatcherLag?: bigint;
+  };
 };
 
 export type KumikoServer = {
@@ -133,6 +160,16 @@ export type KumikoServer = {
   // lifecycle. Only set when the caller passed one in.
   lifecycle?: Lifecycle;
 };
+
+const DEFAULT_MAX_REQUEST_BYTES = 1_048_576;
+
+const BODY_LIMIT_PATHS = [
+  `/api${Routes.write}`,
+  `/api${Routes.batch}`,
+  `/api${Routes.query}`,
+  `/api${Routes.command}`,
+  `/api${Routes.auth}/*`,
+] as const;
 
 export function buildServer(options: ServerOptions): KumikoServer {
   // Hard-fail when the registry declares file/image fields but no storage
@@ -337,20 +374,54 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // Readiness probe. Absent when no lifecycle is passed — /health stays the
   // one-liner for liveness. When lifecycle is wired, this flips to 503 as
   // soon as drain() starts, so a load balancer can stop routing new traffic
-  // before in-flight requests even notice.
+  // before in-flight requests even notice. In addition to lifecycle state,
+  // the probe runs dependency checks (DB/Redis/Dispatcher-Lag) before
+  // returning 200 — any failed check is also a 503.
   if (options.lifecycle) {
     const lifecycle = options.lifecycle;
-    app.get(Routes.healthReady, (c) => {
+    const readinessChecks: ReadinessCheck[] = [];
+    if (baseDb) readinessChecks.push(dbPingCheck(baseDb));
+    if (options.context.redis) readinessChecks.push(redisPingCheck(options.context.redis));
+    if (options.readiness?.maxDispatcherLag !== undefined && baseDb && allConsumers.length > 0) {
+      readinessChecks.push(
+        dispatcherLagCheck(
+          baseDb,
+          allConsumers.map((c) => c.name),
+          options.readiness.maxDispatcherLag,
+        ),
+      );
+    }
+    const probeOpts =
+      options.readiness?.timeoutMs !== undefined ? { timeoutMs: options.readiness.timeoutMs } : {};
+    const probe = createReadinessProbe(readinessChecks, probeOpts);
+
+    app.get(Routes.healthReady, async (c) => {
       const state = lifecycle.state();
-      const body = {
-        status: state === "ready" ? "ready" : "not_ready",
-        state,
-        uptimeSec: lifecycle.uptimeSec(),
-      };
-      return c.json(body, state === "ready" ? 200 : 503);
+      if (state !== "ready") {
+        return c.json({ status: "not_ready", state, uptimeSec: lifecycle.uptimeSec() }, 503);
+      }
+      const result = await probe();
+      return c.json(
+        {
+          status: result.ok ? "ready" : "not_ready",
+          state,
+          uptimeSec: lifecycle.uptimeSec(),
+          checks: result.checks,
+        },
+        result.ok ? 200 : 503,
+      );
     });
   }
   app.use("/api/*", requestIdMiddleware());
+
+  // Cap JSON bodies before rate-limit/auth/observability even run. Content-
+  // Length header-check is O(1); oversized requests never allocate memory
+  // for a full body parse. Upload route keeps its own per-field maxSize.
+  const bodyCap = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
+  if (bodyCap > 0) {
+    const limit = bodyLimit({ maxSize: bodyCap });
+    for (const path of BODY_LIMIT_PATHS) app.use(path, limit);
+  }
 
   // L1/L2 rate-limit middleware run BEFORE auth so an unauthenticated
   // flood can't even reach the JWT-verify code path. Wired only when
