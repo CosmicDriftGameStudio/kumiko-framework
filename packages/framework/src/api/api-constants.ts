@@ -14,6 +14,10 @@ export const Routes = {
   authLogout: "/auth/logout",
   authTenants: "/auth/tenants",
   authSwitchTenant: "/auth/switch-tenant",
+  authRequestPasswordReset: "/auth/request-password-reset",
+  authResetPassword: "/auth/reset-password",
+  authRequestEmailVerification: "/auth/request-email-verification",
+  authVerifyEmail: "/auth/verify-email",
   files: "/files",
 } as const;
 
@@ -21,6 +25,10 @@ export const Routes = {
 // The auth middleware skips these paths.
 export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authLogin}`,
+  `/api${Routes.authRequestPasswordReset}`,
+  `/api${Routes.authResetPassword}`,
+  `/api${Routes.authRequestEmailVerification}`,
+  `/api${Routes.authVerifyEmail}`,
   `/api${Routes.health}`,
   `/api${Routes.healthReady}`,
 ]);

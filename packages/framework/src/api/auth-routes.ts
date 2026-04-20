@@ -19,6 +19,23 @@ const LoginBody = z.object({
   password: z.string(),
 });
 
+const RequestResetBody = z.object({
+  email: z.email(),
+});
+
+const ResetPasswordBody = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(8).max(200),
+});
+
+const RequestVerificationBody = z.object({
+  email: z.email(),
+});
+
+const VerifyEmailBody = z.object({
+  token: z.string().min(1),
+});
+
 // Shape guard for "handler not registered" — the only legitimate reason to
 // fall back to a single-tenant reply on /auth/tenants or /auth/switch-tenant.
 // Every other error (DB down, revoker throws, access denied, …) has to
@@ -113,6 +130,47 @@ export type AuthRoutesConfig = {
   // once all fresh JWTs emit a sid and the legacy stateless tokens are
   // expected to have expired. Default false keeps old tokens working.
   sessionStrictMode?: boolean;
+  // Password-reset flow. When wired, POST /auth/request-password-reset and
+  // POST /auth/reset-password are mounted as public routes. The framework
+  // dispatches to the feature-level handlers (authoring QNs typically come
+  // from `AuthHandlers.requestPasswordReset` / `.resetPassword`) and
+  // invokes sendResetEmail with the freshly-signed token when a user was
+  // actually found. Silent-success: every response to request-reset is
+  // { isSuccess: true } regardless of whether the email existed.
+  passwordReset?: PasswordResetConfig;
+  // Email-verification flow. Symmetric to passwordReset.
+  emailVerification?: EmailVerificationConfig;
+};
+
+export type PasswordResetConfig = {
+  // Qualified name of the request handler (the one that emits either
+  // { kind: "reset-requested", ... } or { kind: "no-op" }).
+  requestHandler: string;
+  // Qualified name of the confirm handler (token + newPassword → set).
+  confirmHandler: string;
+  // Invoked only when the request handler returns kind=reset-requested.
+  // Given the signed token + target email, the callback builds the URL
+  // into the caller's app and hands it to whatever delivery channel the
+  // app wires up. Errors bubble as 5xx so silent drop-on-send can't hide
+  // an outgoing-mail outage behind a green response.
+  sendResetEmail: (args: { email: string; resetUrl: string; expiresAt: string }) => Promise<void>;
+  // Base URL of the app that hosts the reset form. The route appends
+  // `?token=…` so you should NOT include a trailing `?` or `#`. Example:
+  //   "https://app.example.com/reset-password"
+  appResetUrl: string;
+};
+
+export type EmailVerificationConfig = {
+  requestHandler: string;
+  confirmHandler: string;
+  sendVerificationEmail: (args: {
+    email: string;
+    verificationUrl: string;
+    expiresAt: string;
+  }) => Promise<void>;
+  // URL of the app page that receives the `?token=…` parameter and POSTs
+  // it to /auth/verify-email on submit.
+  appVerifyUrl: string;
 };
 
 // Extract `ip` and `user-agent` for the sessionCreator.
@@ -270,6 +328,118 @@ export function createAuthRoutes(
         token,
         user: { id: data.session.id, tenantId: data.session.tenantId, roles: data.session.roles },
       });
+    });
+  }
+
+  // POST /auth/request-password-reset — public. Silent success on every
+  // outcome (unknown user, invalid body, successful send) so the response
+  // can't be used to enumerate which emails are registered. Rate-limit is
+  // expected via `config.rateLimit.auth` (Sprint G.5 L2) which already
+  // covers /auth/*.
+  if (config.passwordReset) {
+    const { requestHandler, confirmHandler, sendResetEmail, appResetUrl } = config.passwordReset;
+
+    api.post(Routes.authRequestPasswordReset, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = RequestResetBody.safeParse(raw);
+      // Malformed body → silent success. A probing client mustn't learn
+      // anything from the shape of their input.
+      if (!parsed.success) return c.json({ isSuccess: true });
+
+      const result = await dispatcher.write(
+        requestHandler,
+        { email: parsed.data.email },
+        GUEST_USER,
+      );
+
+      // Handler-level failures (only legitimate reason: misconfiguration)
+      // are silently swallowed here — the client still sees 200 because
+      // the flow is silent-success-only. The error is logged by the
+      // dispatcher's observability layer so ops can see it.
+      if (result.isSuccess) {
+        const data = result.data as
+          | { kind: "reset-requested"; email: string; token: string; expiresAt: string }
+          | { kind: "no-op" };
+        if (data.kind === "reset-requested") {
+          const sep = appResetUrl.includes("?") ? "&" : "?";
+          const resetUrl = `${appResetUrl}${sep}token=${encodeURIComponent(data.token)}`;
+          await sendResetEmail({
+            email: data.email,
+            resetUrl,
+            expiresAt: data.expiresAt,
+          });
+        }
+      }
+
+      return c.json({ isSuccess: true });
+    });
+
+    // POST /auth/reset-password — public. Returns the confirm handler's
+    // failure shape directly (invalid_reset_token / version_conflict).
+    // The caller learns "this token didn't work" but NOT which part failed
+    // (expired vs. tampered vs. wrong secret).
+    api.post(Routes.authResetPassword, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = ResetPasswordBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const result = await dispatcher.write(confirmHandler, parsed.data, GUEST_USER);
+      if (!result.isSuccess) {
+        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+      return c.json({ isSuccess: true });
+    });
+  }
+
+  // Email-verification mirrors password-reset: request (silent-success)
+  // emits a token → route forwards to sendVerificationEmail; confirm
+  // flips emailVerified=true on the user row.
+  if (config.emailVerification) {
+    const ev = config.emailVerification;
+
+    api.post(Routes.authRequestEmailVerification, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = RequestVerificationBody.safeParse(raw);
+      if (!parsed.success) return c.json({ isSuccess: true });
+
+      const result = await dispatcher.write(
+        ev.requestHandler,
+        { email: parsed.data.email },
+        GUEST_USER,
+      );
+
+      if (result.isSuccess) {
+        const data = result.data as
+          | { kind: "verification-requested"; email: string; token: string; expiresAt: string }
+          | { kind: "no-op" };
+        if (data.kind === "verification-requested") {
+          const sep = ev.appVerifyUrl.includes("?") ? "&" : "?";
+          const verificationUrl = `${ev.appVerifyUrl}${sep}token=${encodeURIComponent(data.token)}`;
+          await ev.sendVerificationEmail({
+            email: data.email,
+            verificationUrl,
+            expiresAt: data.expiresAt,
+          });
+        }
+      }
+
+      return c.json({ isSuccess: true });
+    });
+
+    api.post(Routes.authVerifyEmail, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = VerifyEmailBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const result = await dispatcher.write(ev.confirmHandler, parsed.data, GUEST_USER);
+      if (!result.isSuccess) {
+        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+      return c.json({ isSuccess: true });
     });
   }
 
