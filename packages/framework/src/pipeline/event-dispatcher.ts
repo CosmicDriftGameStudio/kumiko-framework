@@ -269,11 +269,17 @@ async function deliverEvents(
         // Best-effort mode: record the error on the skip counter so ops
         // can alert on a spike of skipped events, advance the cursor past
         // the bad event, keep going. The consumer stays "idle", not "dead".
+        // Also emit a warn-level log line — the metric tells ops THAT events
+        // are being dropped, the log tells them WHICH events. Without this
+        // a poisoned-then-skipped event is invisible to forensic search.
         const errorClass = e instanceof Error ? e.constructor.name : "UnknownError";
         emitDispatcherError(context.meter ?? getFallbackMeter(), {
           handler: consumer.name,
           errorClass,
         });
+        context.log?.warn(
+          `event-dispatcher: ${consumer.name} skipped event ${row.id} (${errorClass}): ${errMessage}`,
+        );
         cursor = row.id;
         attempts = 0;
         lastError = null;

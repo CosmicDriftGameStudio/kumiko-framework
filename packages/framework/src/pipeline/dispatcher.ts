@@ -1074,19 +1074,19 @@ export function createDispatcher(
         const deletes: DeleteContext[] = [];
         for (const r of results) {
           if (!r.isSuccess) continue;
-          const data = r.data as { kind?: string } | undefined;
-          if (!data || typeof data !== "object") continue;
-          if (data.kind === "save") saves.push(data as unknown as SaveContext);
-          else if (data.kind === "delete") deletes.push(data as unknown as DeleteContext);
+          if (!isLifecycleResult(r.data)) continue;
+          if (r.data.kind === "save") saves.push(r.data);
+          else if (r.data.kind === "delete") deletes.push(r.data);
         }
         if (saves.length > 0 && lifecycle) await lifecycle.runPostSaveBatch(saves, context);
         if (deletes.length > 0 && lifecycle) await lifecycle.runPostDeleteBatch(deletes, context);
       } catch (e) {
         // Batch hooks must never fail the batch — the commit already happened.
+        // Pass the raw error so the logger preserves stack + cause chain;
+        // collapsing to .message hides exactly what ops needs to debug.
         const msg = "batch hook flush failed";
-        const detail = e instanceof Error ? e.message : String(e);
-        if (context.log) context.log.error(msg, { error: detail });
-        else console.error(`[dispatcher] ${msg}: ${detail}`);
+        if (context.log) context.log.error(msg, { error: e });
+        else console.error(`[dispatcher] ${msg}:`, e);
       }
     };
 
