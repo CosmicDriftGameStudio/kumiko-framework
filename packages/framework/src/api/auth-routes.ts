@@ -19,17 +19,9 @@ const LoginBody = z.object({
   password: z.string(),
 });
 
-const RequestResetBody = z.object({
-  email: z.email(),
-});
-
 const ResetPasswordBody = z.object({
   token: z.string().min(1),
   newPassword: z.string().min(8).max(200),
-});
-
-const RequestVerificationBody = z.object({
-  email: z.email(),
 });
 
 const VerifyEmailBody = z.object({
@@ -331,115 +323,49 @@ export function createAuthRoutes(
     });
   }
 
-  // POST /auth/request-password-reset — public. Silent success on every
-  // outcome (unknown user, invalid body, successful send) so the response
-  // can't be used to enumerate which emails are registered. Rate-limit is
-  // expected via `config.rateLimit.auth` (Sprint G.5 L2) which already
-  // covers /auth/*.
+  // POST /auth/request-password-reset + /auth/reset-password — public.
+  // Silent-success on request (no enumeration), typed failure on confirm.
+  // Rate-limit covered via config.rateLimit.auth (Sprint G.5 L2, /auth/*).
   if (config.passwordReset) {
-    const { requestHandler, confirmHandler, sendResetEmail, appResetUrl } = config.passwordReset;
-
-    api.post(Routes.authRequestPasswordReset, async (c) => {
-      const raw = await c.req.json().catch(() => null);
-      const parsed = RequestResetBody.safeParse(raw);
-      // Malformed body → silent success. A probing client mustn't learn
-      // anything from the shape of their input.
-      if (!parsed.success) return c.json({ isSuccess: true });
-
-      const result = await dispatcher.write(
-        requestHandler,
-        { email: parsed.data.email },
-        GUEST_USER,
-      );
-
-      // Handler-level failures (only legitimate reason: misconfiguration)
-      // are silently swallowed here — the client still sees 200 because
-      // the flow is silent-success-only. The error is logged by the
-      // dispatcher's observability layer so ops can see it.
-      if (result.isSuccess) {
-        const data = result.data as
-          | { kind: "reset-requested"; email: string; token: string; expiresAt: string }
-          | { kind: "no-op" };
-        if (data.kind === "reset-requested") {
-          const sep = appResetUrl.includes("?") ? "&" : "?";
-          const resetUrl = `${appResetUrl}${sep}token=${encodeURIComponent(data.token)}`;
-          await sendResetEmail({
-            email: data.email,
-            resetUrl,
-            expiresAt: data.expiresAt,
-          });
-        }
-      }
-
-      return c.json({ isSuccess: true });
+    const pr = config.passwordReset;
+    registerTokenRequestRoute({
+      api,
+      dispatcher,
+      path: Routes.authRequestPasswordReset,
+      requestHandler: pr.requestHandler,
+      successKind: "reset-requested",
+      appBaseUrl: pr.appResetUrl,
+      sendEmail: ({ email, url, expiresAt }) =>
+        pr.sendResetEmail({ email, resetUrl: url, expiresAt }),
     });
-
-    // POST /auth/reset-password — public. Returns the confirm handler's
-    // failure shape directly (invalid_reset_token / version_conflict).
-    // The caller learns "this token didn't work" but NOT which part failed
-    // (expired vs. tampered vs. wrong secret).
-    api.post(Routes.authResetPassword, async (c) => {
-      const raw = await c.req.json().catch(() => null);
-      const parsed = ResetPasswordBody.safeParse(raw);
-      if (!parsed.success) {
-        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
-      }
-      const result = await dispatcher.write(confirmHandler, parsed.data, GUEST_USER);
-      if (!result.isSuccess) {
-        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
-        return c.json({ isSuccess: false, error: result.error }, status);
-      }
-      return c.json({ isSuccess: true });
+    registerTokenConfirmRoute({
+      api,
+      dispatcher,
+      path: Routes.authResetPassword,
+      confirmHandler: pr.confirmHandler,
+      schema: ResetPasswordBody,
     });
   }
 
-  // Email-verification mirrors password-reset: request (silent-success)
-  // emits a token → route forwards to sendVerificationEmail; confirm
-  // flips emailVerified=true on the user row.
+  // Email-verification mirrors password-reset.
   if (config.emailVerification) {
     const ev = config.emailVerification;
-
-    api.post(Routes.authRequestEmailVerification, async (c) => {
-      const raw = await c.req.json().catch(() => null);
-      const parsed = RequestVerificationBody.safeParse(raw);
-      if (!parsed.success) return c.json({ isSuccess: true });
-
-      const result = await dispatcher.write(
-        ev.requestHandler,
-        { email: parsed.data.email },
-        GUEST_USER,
-      );
-
-      if (result.isSuccess) {
-        const data = result.data as
-          | { kind: "verification-requested"; email: string; token: string; expiresAt: string }
-          | { kind: "no-op" };
-        if (data.kind === "verification-requested") {
-          const sep = ev.appVerifyUrl.includes("?") ? "&" : "?";
-          const verificationUrl = `${ev.appVerifyUrl}${sep}token=${encodeURIComponent(data.token)}`;
-          await ev.sendVerificationEmail({
-            email: data.email,
-            verificationUrl,
-            expiresAt: data.expiresAt,
-          });
-        }
-      }
-
-      return c.json({ isSuccess: true });
+    registerTokenRequestRoute({
+      api,
+      dispatcher,
+      path: Routes.authRequestEmailVerification,
+      requestHandler: ev.requestHandler,
+      successKind: "verification-requested",
+      appBaseUrl: ev.appVerifyUrl,
+      sendEmail: ({ email, url, expiresAt }) =>
+        ev.sendVerificationEmail({ email, verificationUrl: url, expiresAt }),
     });
-
-    api.post(Routes.authVerifyEmail, async (c) => {
-      const raw = await c.req.json().catch(() => null);
-      const parsed = VerifyEmailBody.safeParse(raw);
-      if (!parsed.success) {
-        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
-      }
-      const result = await dispatcher.write(ev.confirmHandler, parsed.data, GUEST_USER);
-      if (!result.isSuccess) {
-        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
-        return c.json({ isSuccess: false, error: result.error }, status);
-      }
-      return c.json({ isSuccess: true });
+    registerTokenConfirmRoute({
+      api,
+      dispatcher,
+      path: Routes.authVerifyEmail,
+      confirmHandler: ev.confirmHandler,
+      schema: VerifyEmailBody,
     });
   }
 
@@ -556,3 +482,100 @@ export function createAuthRoutes(
 
   return api;
 }
+
+// --- shared route builders for token flows ---------------------------------
+// Password-reset and email-verification share the exact same HTTP-shape:
+// request-route emits a token → optional sendEmail callback → silent-success,
+// confirm-route validates token + does the state change → typed failure or
+// 200. Before this extraction both flows carried ~45 LOC of nearly-identical
+// body-parse / dispatch / url-build / response plumbing. The helpers keep
+// the public-facing silent-success invariant in one place — changing how
+// the framework handles "invalid_body" on a public token endpoint is now
+// one edit, not two.
+
+type TokenRequestData = {
+  kind: string;
+  email: string;
+  token: string;
+  expiresAt: string;
+};
+
+type TokenNoOp = { kind: "no-op" };
+
+function registerTokenRequestRoute(opts: {
+  api: Hono;
+  dispatcher: Dispatcher;
+  path: string;
+  requestHandler: string;
+  // Discriminator the feature handler emits when it actually minted a token
+  // (vs. the silent no-op for unknown/already-handled users).
+  successKind: string;
+  // Base URL of the receiving app page. `?token=…` is appended with proper
+  // separator handling so the caller's URL may or may not carry existing
+  // query params.
+  appBaseUrl: string;
+  sendEmail: (args: { email: string; url: string; expiresAt: string }) => Promise<void>;
+}): void {
+  const body = RequestTokenBody;
+  opts.api.post(opts.path, async (c) => {
+    const raw = await c.req.json().catch(() => null);
+    const parsed = body.safeParse(raw);
+    // Malformed body → silent success. A probing client mustn't learn
+    // anything from the shape of their input.
+    if (!parsed.success) return c.json({ isSuccess: true });
+
+    const result = await opts.dispatcher.write(
+      opts.requestHandler,
+      { email: parsed.data.email },
+      GUEST_USER,
+    );
+
+    // Handler-level failures (only legitimate reason: misconfiguration) are
+    // silently swallowed — observability logs capture them for ops.
+    if (result.isSuccess) {
+      const data = result.data as TokenRequestData | TokenNoOp;
+      if (data.kind === opts.successKind) {
+        const requested = data as TokenRequestData;
+        const sep = opts.appBaseUrl.includes("?") ? "&" : "?";
+        const url = `${opts.appBaseUrl}${sep}token=${encodeURIComponent(requested.token)}`;
+        await opts.sendEmail({
+          email: requested.email,
+          url,
+          expiresAt: requested.expiresAt,
+        });
+      }
+    }
+
+    return c.json({ isSuccess: true });
+  });
+}
+
+function registerTokenConfirmRoute(opts: {
+  api: Hono;
+  dispatcher: Dispatcher;
+  path: string;
+  confirmHandler: string;
+  // Endpoint-specific body shape (reset has `newPassword`, verify doesn't).
+  schema: typeof ResetPasswordBody | typeof VerifyEmailBody;
+}): void {
+  opts.api.post(opts.path, async (c) => {
+    const raw = await c.req.json().catch(() => null);
+    const parsed = opts.schema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+    }
+    const result = await opts.dispatcher.write(opts.confirmHandler, parsed.data, GUEST_USER);
+    if (!result.isSuccess) {
+      const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+      return c.json({ isSuccess: false, error: result.error }, status);
+    }
+    return c.json({ isSuccess: true });
+  });
+}
+
+// Shared request-body shape for request-password-reset + request-email-
+// verification. Extracted so the two flows stay in sync when the schema
+// gains optional fields (locale, deviceId, …).
+const RequestTokenBody = z.object({
+  email: z.email(),
+});

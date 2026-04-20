@@ -54,6 +54,9 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget --quiet --spider "http://127.0.0.1:${PORT}/health" || exit 1
 
-# exec-form ohne Shell, damit SIGTERM direkt an Bun durchgereicht wird
-# (Graceful-Shutdown via lifecycle.drain()).
-CMD ["sh", "-c", "bun run ${APP_ENTRY}"]
+# `exec` hebelt den shell-Prozess ab: bun ersetzt sh als PID 1, SIGTERM
+# vom Docker-Daemon kommt also direkt bei bun an → Graceful-Shutdown via
+# lifecycle.drain() funktioniert. Ohne `exec` waere sh der PID-1-Empfaenger
+# und bun nur ein Child, das SIGTERM nie sieht — 10s spaeter holt Docker
+# SIGKILL, in-flight Requests sterben mittendrin.
+CMD ["sh", "-c", "exec bun run ${APP_ENTRY}"]
