@@ -264,8 +264,15 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const decision = await guard({ fileRef, user, operation: "delete" });
     if (decision === "deny") return c.json({ error: "not_found" }, 404);
 
-    await storageProvider.delete(fileRef.storageKey);
+    // Tombstone-Reihenfolge: DB-Row löschen FIRST, Bytes danach. Wenn der
+    // Storage-Call hängt oder fehlschlägt, sieht der User trotzdem den
+    // konsistenten "weg"-Zustand (kein Read findet die Row mehr) und der
+    // Cleanup-Job sweept die orphan'd bytes wie beim fehlgeschlagenen
+    // Upload. Umgekehrt liesse ein storage-success + db-fail eine Row mit
+    // permanent-broken Reference zurück — aus Sicht der API "Datei
+    // existiert" aber jeder Read 404t aus dem Provider.
     await db.delete(fileRefsTable).where(eq(fileRefsTable.id, id));
+    await storageProvider.delete(fileRef.storageKey);
     return c.json({ ok: true });
   });
 

@@ -43,14 +43,37 @@ describe("assertNoSecretLeak — walks the response tree for branded values", ()
     expect(() => assertNoSecretLeak(payload)).toThrow(/leaked.*at \$\.outer\.middle\[1\]\.deeper/);
   });
 
-  test("skips class instances (Date, Buffer, etc.) so they don't false-positive", () => {
-    // These are non-plain objects. Their internal slots could look structurally
-    // similar to a Secret brand check in a naive walker; our walker stops at
-    // non-plain prototypes.
+  test("skips opaque class instances (Date, Buffer) so they don't false-positive", () => {
+    // Date and Buffer have internal slots the walker can't introspect — non-
+    // plain prototype, no entry-iterator we trust. Stopping here is the
+    // conservative call. Map and Set are NOT in this list (see next two tests):
+    // they have well-defined iteration and a toJSON-via-custom-serializer can
+    // expand them onto the wire, so we walk them.
     const payload = {
       createdAt: new Date("2024-01-01"),
       binary: Buffer.from("hello"),
+    };
+    expect(() => assertNoSecretLeak(payload)).not.toThrow();
+  });
+
+  test("walks Set entries and throws when Secret<> sits inside", () => {
+    const payload = {
+      keys: new Set([createSecret("hidden")]),
+    };
+    expect(() => assertNoSecretLeak(payload)).toThrow(/leaked.*at \$\.keys\.<set\[0\]>/);
+  });
+
+  test("walks Map values and throws when Secret<> sits inside", () => {
+    const payload = {
+      registry: new Map([["api", createSecret("hidden")]]),
+    };
+    expect(() => assertNoSecretLeak(payload)).toThrow(/leaked.*at \$\.registry\.<map\[0\]\.val>/);
+  });
+
+  test("Set of plain values stays silent — walking doesn't false-positive", () => {
+    const payload = {
       ids: new Set(["a", "b"]),
+      tags: new Map([["env", "prod"]]),
     };
     expect(() => assertNoSecretLeak(payload)).not.toThrow();
   });

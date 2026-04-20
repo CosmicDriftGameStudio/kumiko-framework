@@ -36,9 +36,35 @@ export function assertNoSecretLeak(value: unknown, path = "$", depth = 0): void 
   // numbers, booleans can't hold a brand.
   if (t !== "object") return;
 
-  // Skip class instances we can't introspect safely (Date, Map, Set, Buffer,
-  // Temporal.Instant, etc.). Plain objects have Object.prototype or null
-  // prototype — that's what handler responses serialize to JSON from.
+  // Map and Set get walked through their entries — a feature could legitimately
+  // build either, and a custom toJSON could expand them onto the wire.
+  // JSON.stringify-by-default produces "{}" for both, which would mask the
+  // leak silently; we'd rather throw at the boundary than rely on that
+  // accident.
+  if (value instanceof Map) {
+    let i = 0;
+    for (const [k, v] of value) {
+      assertNoSecretLeak(k, `${path}.<map[${i}].key>`, depth + 1);
+      assertNoSecretLeak(v, `${path}.<map[${i}].val>`, depth + 1);
+      i++;
+    }
+    // skip: map fully walked, nothing else at this level.
+    return;
+  }
+  if (value instanceof Set) {
+    let i = 0;
+    for (const v of value) {
+      assertNoSecretLeak(v, `${path}.<set[${i}]>`, depth + 1);
+      i++;
+    }
+    // skip: set fully walked, nothing else at this level.
+    return;
+  }
+
+  // Skip remaining class instances we can't introspect safely (Date, Buffer,
+  // Temporal.Instant, custom domain classes, etc.). Plain objects have
+  // Object.prototype or null prototype — that's what handler responses
+  // serialize to JSON from.
   const proto = Object.getPrototypeOf(value);
   // skip: non-plain object (class instance). Brand check at entry already
   // verified it's not a Secret<>; anything else is opaque to us.
