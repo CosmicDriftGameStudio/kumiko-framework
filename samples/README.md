@@ -24,6 +24,7 @@ Jedes Sample = 1 Feature-Definition + 1 Test. Bricht ein Framework-Change was, w
 | Default-deny Access Rules + FK-Indices via Relations | [access-control](access-control/) | Integration |
 | Features tragen Identity-Facts in den JWT ein (r.authClaims) | [auth-claims](auth-claims/) | Integration |
 | Row-level Ownership (Entity + Field, Read + Write, Straddle-safe) | [ownership](ownership/) | Integration |
+| Jobs auf Deploy-Lane pinnen (runIn: "api" \| "worker"), event-triggered Fan-out | [lane-routing](lane-routing/) | Integration |
 
 ## Full-App Samples (geplant)
 

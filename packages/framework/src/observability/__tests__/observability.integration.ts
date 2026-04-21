@@ -490,6 +490,11 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
       expect(jobSpan.traceId).toBe(callerSpan.traceId);
       expect(jobSpan.parentSpanId).toBe(dispatched.spanId);
       expect(jobSpan.attributes["job.name"]).toBe("jobs-trace:job:record");
+      // Welle 2.6: lane-routing attributes. run_in is the job's declared
+      // lane (default "worker" here, no explicit runIn on the feature);
+      // consumer_lane is the runner that actually picked it.
+      expect(jobSpan.attributes["kumiko.job.run_in"]).toBe("worker");
+      expect(jobSpan.attributes["kumiko.job.consumer_lane"]).toBe("worker");
     } finally {
       await runner.stop();
     }

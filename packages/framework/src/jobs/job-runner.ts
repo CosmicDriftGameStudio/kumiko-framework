@@ -334,6 +334,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             "job.id": jobId,
             "job.attempt": bullJob.attemptsMade + 1,
             "kumiko.tenant_id": tenantId,
+            // Lane-routing attributes (Welle 2.6). `run_in` is the job's
+            // declared lane (explicit or default-"worker"); `consumer_lane`
+            // is which runner actually executed it. They diverge in
+            // all-in-one (both lanes live in one process) but must match
+            // in split deploys — a mismatch in prod logs signals a
+            // misrouted job that slipped past the boot-validator.
+            "kumiko.job.run_in": laneForJob(jobDef),
+            ...(consumerLane !== undefined ? { "kumiko.job.consumer_lane": consumerLane } : {}),
           },
           ...(parentContext ? { parent: parentContext } : {}),
         },
