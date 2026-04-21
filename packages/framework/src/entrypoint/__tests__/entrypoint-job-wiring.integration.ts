@@ -48,6 +48,33 @@ const wiringFeature = defineFeature("wiring", (r) => {
   );
 });
 
+// Mixed-lane feature: one worker-lane + one api-lane job triggered on the
+// same event. The all-in-one process spins up both BullMQ workers (one per
+// queue) and both must execute. Proves the two-runner construction in
+// createAllInOneEntrypoint actually consumes both lanes — not just that
+// enqueue routing works.
+const mixedLaneFeature = defineFeature("mixed", (r) => {
+  r.writeHandler(
+    "ping",
+    z.object({ msg: z.string() }),
+    async (event) => ({
+      isSuccess: true as const,
+      data: { id: 1, msg: event.payload.msg },
+    }),
+    { access: { openToAll: true } },
+  );
+  r.job(
+    "handle-on-worker",
+    { trigger: { on: "mixed:write:ping" }, runIn: "worker" },
+    async (payload) => {
+      jobRuns.push({ name: "mixed:job:handle-on-worker", payload });
+    },
+  );
+  r.job("handle-on-api", { trigger: { on: "mixed:write:ping" }, runIn: "api" }, async (payload) => {
+    jobRuns.push({ name: "mixed:job:handle-on-api", payload });
+  });
+});
+
 const JWT = "entrypoint-wiring-test-secret-must-be-32-chars!";
 const adminUser = TestUsers.admin;
 
@@ -102,6 +129,48 @@ describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher"
         const run = jobRuns.find((e) => e.name === "wiring:job:record-order");
         expect(run).toBeDefined();
         expect(run?.payload["sku"]).toBe("W-1");
+      });
+    } finally {
+      await entry.stop();
+    }
+  });
+
+  test("all-in-one runs BOTH lane workers — api-lane + worker-lane jobs fire on the same event", async () => {
+    jobRuns.length = 0;
+    const registry = createRegistry([mixedLaneFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const entry = createAllInOneEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: `wiring-mixed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    await entry.start();
+    try {
+      const token = await entry.jwt.sign(adminUser);
+      const res = await entry.app.request("/api/write", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ type: "mixed:write:ping", payload: { msg: "hi" } }),
+      });
+      const result = (await res.json()) as { isSuccess: boolean };
+      expect(result.isSuccess).toBe(true);
+
+      // Both jobs must fire: worker-lane runner picks kumiko-jobs-<prefix>-worker,
+      // api-lane runner picks kumiko-jobs-<prefix>-api. If either BullMQ
+      // worker failed to start (bug in the two-runner build in createAllInOne
+      // Entrypoint), waitFor times out on the missing entry.
+      await waitFor(() => {
+        const workerRun = jobRuns.find((e) => e.name === "mixed:job:handle-on-worker");
+        const apiRun = jobRuns.find((e) => e.name === "mixed:job:handle-on-api");
+        expect(workerRun).toBeDefined();
+        expect(apiRun).toBeDefined();
+        expect(workerRun?.payload["msg"]).toBe("hi");
+        expect(apiRun?.payload["msg"]).toBe("hi");
       });
     } finally {
       await entry.stop();
