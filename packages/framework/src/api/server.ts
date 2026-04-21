@@ -13,7 +13,9 @@ import {
   mergeSensitiveConfig,
   type ObservabilityOptions,
   type ObservabilityProvider,
+  type PrometheusMeter,
   registerStandardMetrics,
+  serializeOpenMetrics,
   wrapRedisClient,
 } from "../observability";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
@@ -132,6 +134,18 @@ export type ServerOptions = {
   // Production main.ts passes `createLifecycle()`; tests that don't care
   // about drain() orchestration omit this and /health/ready stays absent.
   lifecycle?: Lifecycle;
+  // Prometheus-scrape endpoint. When set, `/metrics` returns the current
+  // accumulated metric state in OpenMetrics text format. Requires the
+  // configured `observability` to use a PrometheusMeter (duck-typed via
+  // the `snapshot` method) — otherwise the route returns 503 with a
+  // note about misconfiguration. The optional `token` enforces
+  // `Authorization: Bearer <token>`; without a token set the endpoint
+  // is open (fine inside a private cluster, dangerous on the public
+  // internet). Omit this option entirely to skip the route.
+  metrics?: {
+    readonly token?: string;
+    readonly path?: string; // default "/metrics"
+  };
   // /health/ready depth. When lifecycle is wired, the readiness handler
   // ALSO runs dependency checks before returning 200:
   //   - DB ping (auto-wired when context.db is a DbConnection)
@@ -162,6 +176,19 @@ export type KumikoServer = {
 };
 
 const DEFAULT_MAX_REQUEST_BYTES = 1_048_576;
+
+// Timing-safe string compare — two strings of different length return
+// false without touching the comparison, equal-length strings compare
+// every byte regardless of where they diverge. Prevents side-channel
+// leaks from the metrics auth token check.
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
 
 const BODY_LIMIT_PATHS = [
   `/api${Routes.write}`,
@@ -371,6 +398,41 @@ export function buildServer(options: ServerOptions): KumikoServer {
   );
 
   app.get(Routes.health, (c) => c.json({ status: "ok" }));
+
+  // Prometheus-scrape endpoint. Off unless `options.metrics` is wired
+  // AND the configured meter supports snapshot() (i.e. is a
+  // PrometheusMeter). Duck-typed check keeps this layer agnostic of the
+  // concrete provider — a future OTLP-bridge meter could implement
+  // snapshot() too. Bearer token required if configured; timing-safe
+  // compare against the expected value.
+  if (options.metrics) {
+    const metricsPath = options.metrics.path ?? "/metrics";
+    const expectedToken = options.metrics.token;
+    app.get(metricsPath, async (c) => {
+      if (expectedToken !== undefined) {
+        const header = c.req.header("authorization") ?? "";
+        const prefix = "Bearer ";
+        if (!header.startsWith(prefix)) {
+          return c.text("unauthorized", 401);
+        }
+        const provided = header.slice(prefix.length);
+        if (!constantTimeEqual(provided, expectedToken)) {
+          return c.text("unauthorized", 401);
+        }
+      }
+      const meter = observability.meter as { snapshot?: unknown };
+      if (typeof meter.snapshot !== "function") {
+        return c.text(
+          "metrics endpoint requires a PrometheusMeter — wrap the observability provider around createPrometheusMeter()",
+          503,
+        );
+      }
+      const body = serializeOpenMetrics(observability.meter as PrometheusMeter);
+      c.header("Content-Type", "application/openmetrics-text; version=1.0.0; charset=utf-8");
+      return c.body(body);
+    });
+  }
+
   // Readiness probe. Absent when no lifecycle is passed — /health stays the
   // one-liner for liveness. When lifecycle is wired, this flips to 503 as
   // soon as drain() starts, so a load balancer can stop routing new traffic

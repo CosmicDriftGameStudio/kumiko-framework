@@ -17,6 +17,12 @@ export {
 } from "./metrics-handle";
 export { createNoopProvider } from "./noop-provider";
 export {
+  createPrometheusMeter,
+  type PrometheusMeter,
+  type PrometheusMeterSnapshot,
+  serializeOpenMetrics,
+} from "./prometheus-meter";
+export {
   type MetricEvent,
   type MetricEventHandler,
   RecordingMeter,

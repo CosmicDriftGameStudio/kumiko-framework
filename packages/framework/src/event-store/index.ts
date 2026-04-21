@@ -36,6 +36,15 @@ export {
 export {
   type EventUpcasters,
   makeUpcastCtx,
+  type UpcasterErrorPolicy,
+  type UpcastOptions,
   upcastStoredEvent,
   upcastStoredEvents,
 } from "./upcaster";
+export {
+  createUpcasterDeadLetterTable,
+  type DeadLetterRow,
+  listDeadLetters,
+  recordUpcasterDeadLetter,
+  upcasterDeadLetterTable,
+} from "./upcaster-dead-letter";

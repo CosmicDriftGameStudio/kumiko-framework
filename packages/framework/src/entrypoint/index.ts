@@ -73,6 +73,7 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly rateLimit?: ServerOptions["rateLimit"];
   readonly maxRequestBytes?: ServerOptions["maxRequestBytes"];
   readonly readiness?: ServerOptions["readiness"];
+  readonly metrics?: ServerOptions["metrics"];
 };
 
 export type WorkerEntrypointOptions = BaseEntrypointOptions & {
@@ -143,6 +144,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
     ...(options.rateLimit !== undefined ? { rateLimit: options.rateLimit } : {}),
     ...(options.maxRequestBytes !== undefined ? { maxRequestBytes: options.maxRequestBytes } : {}),
     ...(options.readiness !== undefined ? { readiness: options.readiness } : {}),
+    ...(options.metrics !== undefined ? { metrics: options.metrics } : {}),
     ...(options.observability !== undefined ? { observability: options.observability } : {}),
     ...(options.observabilityOptions !== undefined
       ? { observabilityOptions: options.observabilityOptions }
@@ -266,6 +268,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
     ...(options.rateLimit !== undefined ? { rateLimit: options.rateLimit } : {}),
     ...(options.maxRequestBytes !== undefined ? { maxRequestBytes: options.maxRequestBytes } : {}),
     ...(options.readiness !== undefined ? { readiness: options.readiness } : {}),
+    ...(options.metrics !== undefined ? { metrics: options.metrics } : {}),
     ...(options.observability !== undefined ? { observability: options.observability } : {}),
     ...(options.observabilityOptions !== undefined
       ? { observabilityOptions: options.observabilityOptions }
