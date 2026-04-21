@@ -301,6 +301,31 @@ function requireDispatcher(server: KumikoServer, mode: string): EventDispatcher 
 export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
 
+  // Boot-validation (Welle 2.6.c) — fail loud before traffic arrives:
+  //   (a) Any jobs declared + no jobs-block → command-dispatcher would
+  //       silently drop every event-triggered enqueue. Fix: add jobs:
+  //       { redisUrl } so the API holds lane-queue-clients.
+  //   (b) A job with runIn="api" + runLocalJobs !== true → the API
+  //       process is the ONLY container that can consume "api"-lane
+  //       queues (workers only consume "worker"). Without runLocalJobs,
+  //       the job would enqueue and stay pending forever.
+  const allJobs = [...options.registry.getAllJobs().values()];
+  if (allJobs.length > 0 && !options.jobs) {
+    throw new Error(
+      `[entrypoint] createApiEntrypoint: registry declares ${allJobs.length} job(s) but no \`jobs\` block was passed. ` +
+        `Event-triggered writes would silently drop their enqueue. Add \`jobs: { redisUrl: ... }\` to createApiEntrypoint options.`,
+    );
+  }
+  if (options.jobs && !options.jobs.runLocalJobs) {
+    const apiOnlyJobs = allJobs.filter((j) => j.runIn === "api").map((j) => j.name);
+    if (apiOnlyJobs.length > 0) {
+      throw new Error(
+        `[entrypoint] createApiEntrypoint: ${apiOnlyJobs.length} job(s) declared runIn="api" but runLocalJobs is not set — these jobs would have no consumer. ` +
+          `Set \`jobs: { runLocalJobs: true, ... }\` or change the jobs' runIn to "worker". Affected: ${apiOnlyJobs.join(", ")}`,
+      );
+    }
+  }
+
   // When the app declares any jobs, the API process needs a job-enqueuer
   // so event-triggered jobs fired as afterCommit-hooks of a write reach
   // the queue at all. `runLocalJobs: true` upgrades the enqueuer to a full

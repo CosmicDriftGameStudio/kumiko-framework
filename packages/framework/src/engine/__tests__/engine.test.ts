@@ -1387,4 +1387,35 @@ describe("registry boot validation", () => {
     // resolves the default to "worker" at dispatch time, not at registration.
     expect(jobs.get("test:job:cleanup-default")?.runIn).toBeUndefined();
   });
+
+  test("registry rejects job runIn='both' (Lane-Queue would over-dispatch)", () => {
+    // TS-level JobRunIn = Exclude<RunIn, "both"> already rejects this; the
+    // runtime guard exists for config-driven or cast-through paths.
+    const feature = defineFeature("test", (r) => {
+      r.job(
+        "bad",
+        { trigger: { manual: true }, runIn: "both" as unknown as "api" | "worker" },
+        async () => {},
+      );
+    });
+
+    expect(() => createRegistry([feature])).toThrow(
+      /runIn "both".*must be pinned to a single lane/i,
+    );
+  });
+
+  test("registry rejects MSP runIn with an unknown literal", () => {
+    const feature = defineFeature("test", (r) => {
+      r.multiStreamProjection({
+        name: "msp",
+        runIn: "everywhere" as unknown as "api",
+        // defineFeature refuses an empty apply-map, so declare a dummy event
+        // handler — the test is about the runIn-literal guard in registry.ts,
+        // not about MSP-empty-apply.
+        apply: { "some:event": async () => {} },
+      });
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/invalid runIn "everywhere"/i);
+  });
 });

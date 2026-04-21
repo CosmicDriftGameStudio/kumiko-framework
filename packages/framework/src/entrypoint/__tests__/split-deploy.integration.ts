@@ -229,3 +229,62 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
     await entry.stop();
   });
 });
+
+// --- Welle 2.6.c: boot-validation ---
+//
+// Jobs with runIn="api" can only be consumed by an API process that has
+// runLocalJobs=true — workers never look at the "api" queue. The entrypoint
+// factory must refuse to start with a config that would orphan those jobs,
+// because otherwise an operator finds out at traffic time via "jobs
+// enqueue fine, nothing runs".
+
+const apiJobFeature = defineFeature("api-jobs", (r) => {
+  r.job("local-cleanup", { trigger: { manual: true }, runIn: "api" }, async () => {});
+});
+
+const workerJobFeature = defineFeature("worker-jobs", (r) => {
+  r.job("heavy", { trigger: { manual: true }, runIn: "worker" }, async () => {});
+});
+
+describe("createApiEntrypoint boot-validation (Welle 2.6.c)", () => {
+  test("declared jobs + no jobs-block → fails fast (enqueue would drop)", () => {
+    const registry = createRegistry([workerJobFeature]);
+    expect(() =>
+      createApiEntrypoint({
+        registry,
+        context: { db: testDb.db, redis: testRedis.redis },
+        jwtSecret: JWT,
+      }),
+    ).toThrow(/no `jobs` block was passed.*event-triggered writes would silently drop/i);
+  });
+
+  test("runIn='api' jobs require runLocalJobs=true on the api entrypoint", () => {
+    const registry = createRegistry([apiJobFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    expect(() =>
+      createApiEntrypoint({
+        registry,
+        context: { db: testDb.db, redis: testRedis.redis },
+        jwtSecret: JWT,
+        jobs: { redisUrl, queueNamePrefix: `val-${Date.now()}` },
+      }),
+    ).toThrow(/runIn="api".*runLocalJobs.*no consumer.*local-cleanup/is);
+  });
+
+  test("runIn='worker' jobs do NOT require runLocalJobs — api is enqueuer-only", async () => {
+    const registry = createRegistry([workerJobFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const api = createApiEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      jobs: { redisUrl, queueNamePrefix: `val-ok-${Date.now()}` },
+    });
+    try {
+      expect(api.mode).toBe("api");
+      await api.start();
+    } finally {
+      await api.stop();
+    }
+  });
+});

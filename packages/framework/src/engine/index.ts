@@ -60,6 +60,7 @@ export { readClaim } from "./read-claim";
 export { createRegistry } from "./registry";
 export type { ClampInfo, ResolveOptions } from "./resolve-config-or-param";
 export { resolveConfigOrParam } from "./resolve-config-or-param";
+export { runsInLane } from "./run-in";
 export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 export { defineTransitions, guardTransition } from "./state-machine";
 export { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "./system-user";

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
+import { runsInLane } from "../engine/run-in";
 import {
   type AppContext,
   isFileField,
@@ -183,24 +184,6 @@ export type KumikoServer = {
   // lifecycle. Only set when the caller passed one in.
   lifecycle?: Lifecycle;
 };
-
-// Does a consumer with `runIn` want to run on a process of the given lane?
-// Used to filter MSP consumers per entrypoint-mode. Kept local to server.ts
-// — Welle 2.6.c will promote this to engine/types alongside the boot
-// validator once the rules stabilise.
-//
-//   undefined      — legacy/default MSP, resolves to "worker"
-//   "both"         — eligible on any lane
-//   "api"/"worker" — exact lane match
-//
-// processLane: the current process's role. "both" (all-in-one) accepts
-// everything; "api"/"worker" filter strictly.
-function runsInLane(runIn: RunIn | undefined, processLane: RunIn): boolean {
-  if (processLane === "both") return true;
-  const resolved = runIn ?? "worker";
-  if (resolved === "both") return true;
-  return resolved === processLane;
-}
 
 export function buildServer(options: ServerOptions): KumikoServer {
   // Hard-fail when the registry declares file/image fields but no storage
