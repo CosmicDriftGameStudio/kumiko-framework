@@ -1,22 +1,11 @@
 // Event-Store Admin-API — Marten-Bypass für Legacy-Daten-Importe.
-//
-// Prod-Readiness Welle 3, Step 3.1 — siehe
-//   docs/plans/features/event-store-admin-api.md
-//
-// Schreibt Events direkt in die events-Tabelle, ohne Pipeline-Seiteneffekte:
-// kein pg_notify, keine postSave-Hooks, keine Projections, kein SSE,
-// kein Meilisearch, kein Audit-Log. Historische `createdAt` / `createdBy`
-// werden vom Aufrufer übergeben — kein `now()`, kein userResolver.
-//
-// Versions-Check bleibt scharf:
-//   - UNIQUE (tenant_id, aggregate_id, version) serialisiert
-//   - Predecessor-EXISTS für expectedVersion > 0 (Gap-Schutz)
+// Spec + Verhalten: docs/plans/features/event-store-admin-api.md
 //
 // Guard-Rail: dieses Modul ist NICHT aus event-store/index.ts re-exportiert.
 // Import nur via deep-path `@kumiko/framework/event-store/admin-api`. Das
-// Guard-Script `scripts/guard-admin-api.ts` blockt Calls aus App-Code; die
-// Allowlist erlaubt Migration-Runner (samples/*/migration/, scripts/migrations/)
-// und die Test-Datei dieses Moduls.
+// Guard-Script `scripts/guard-admin-api.ts` blockt Aufrufe aus App-Code —
+// Allowlist: samples/*/migration/, scripts/migrations/, die Definition
+// selbst, das Guard-Script selbst.
 
 import { sql } from "drizzle-orm";
 import type { DbRunner } from "../db";
@@ -30,8 +19,8 @@ export type RawEventToAppend = {
   readonly aggregateId: string;
   readonly aggregateType: string;
   readonly tenantId: TenantId;
-  // Predecessor version. 0 writes a new stream at version 1; > 0 requires the
-  // predecessor to exist (same UUID, same tenant). Mirrors EventToAppend.
+  // Predecessor version. 0 writes a new stream at version 1; > 0 requires
+  // the predecessor to exist (same UUID, same tenant). Mirrors EventToAppend.
   readonly expectedVersion: number;
   readonly type: string;
   readonly eventVersion?: number;
@@ -45,64 +34,18 @@ export type RawEventToAppend = {
   readonly createdBy: string;
 };
 
-// Single raw append. Mirrors the append()-twopath-structure (typed builder
-// for v=0, raw SQL with WHERE-EXISTS gate for v>0) so the version-check
-// semantics stay identical to the normal path.
+// Mirrors append()'s two-path structure: typed builder equivalent for v=0,
+// INSERT … SELECT … WHERE EXISTS gate for v>0. Caller-supplied createdAt +
+// createdBy skip the usual userResolver/now() paths.
 export async function appendRaw(runner: DbRunner, event: RawEventToAppend): Promise<void> {
   const newVersion = event.expectedVersion + 1;
   const eventVersion = event.eventVersion ?? 1;
-  const createdAtIso = event.createdAt.toString();
 
   try {
     if (event.expectedVersion === 0) {
-      await runner.execute(sql`
-        INSERT INTO ${eventsTable} (
-          aggregate_id, aggregate_type, tenant_id, version,
-          type, event_version, payload, metadata, created_at, created_by
-        )
-        VALUES (
-          ${event.aggregateId}::uuid,
-          ${event.aggregateType},
-          ${event.tenantId}::uuid,
-          ${newVersion},
-          ${event.type},
-          ${eventVersion},
-          ${JSON.stringify(event.payload)}::jsonb,
-          ${JSON.stringify(event.metadata)}::jsonb,
-          ${createdAtIso}::timestamptz,
-          ${event.createdBy}
-        )
-      `);
+      await insertRawFirst(runner, event, newVersion, eventVersion);
     } else {
-      // INSERT … SELECT … WHERE EXISTS — wenn der Predecessor fehlt,
-      // liefert RETURNING keine Zeile und wir werfen manuell.
-      const rows = await runner.execute<{ id: string }>(sql`
-        INSERT INTO ${eventsTable} (
-          aggregate_id, aggregate_type, tenant_id, version,
-          type, event_version, payload, metadata, created_at, created_by
-        )
-        SELECT ${event.aggregateId}::uuid,
-               ${event.aggregateType},
-               ${event.tenantId}::uuid,
-               ${newVersion},
-               ${event.type},
-               ${eventVersion},
-               ${JSON.stringify(event.payload)}::jsonb,
-               ${JSON.stringify(event.metadata)}::jsonb,
-               ${createdAtIso}::timestamptz,
-               ${event.createdBy}
-        WHERE EXISTS (
-          SELECT 1 FROM ${eventsTable}
-          WHERE aggregate_id = ${event.aggregateId}::uuid
-            AND version = ${event.expectedVersion}
-            AND tenant_id = ${event.tenantId}::uuid
-        )
-        RETURNING id
-      `);
-      const arr = rows as unknown as Array<{ id: string }>;
-      if (arr.length === 0) {
-        throw new VersionConflictError(event.aggregateId, event.expectedVersion);
-      }
+      await insertRawSubsequent(runner, event, newVersion, eventVersion);
     }
   } catch (e) {
     if (isUniqueViolation(e)) {
@@ -112,18 +55,72 @@ export async function appendRaw(runner: DbRunner, event: RawEventToAppend): Prom
   }
 }
 
-// Batch raw append. One multi-VALUES INSERT for the whole batch — atomic by
-// virtue of PG statement-atomicity (any UNIQUE violation fails the whole
-// statement, zero rows persisted).
-//
-// Per-row WHERE-EXISTS inside a multi-VALUES INSERT isn't expressible in SQL
-// for in-flight versions (a v=2 event can't reference a v=1 sibling being
-// inserted in the same statement — MVCC visibility rules). Instead we do a
-// pre-flight predecessor check per aggregate-group: for each unique
-// aggregate in the batch whose MIN(expectedVersion) > 0, the DB must
-// already contain version=MIN. Sibling events within the batch are
-// trusted to be version-contiguous by the caller — UNIQUE catches any
-// accidental collision.
+async function insertRawFirst(
+  runner: DbRunner,
+  event: RawEventToAppend,
+  newVersion: number,
+  eventVersion: number,
+): Promise<void> {
+  await runner.execute(sql`
+    INSERT INTO ${eventsTable} (
+      aggregate_id, aggregate_type, tenant_id, version,
+      type, event_version, payload, metadata, created_at, created_by
+    )
+    VALUES (
+      ${event.aggregateId}::uuid,
+      ${event.aggregateType},
+      ${event.tenantId}::uuid,
+      ${newVersion},
+      ${event.type},
+      ${eventVersion},
+      ${JSON.stringify(event.payload)}::jsonb,
+      ${JSON.stringify(event.metadata)}::jsonb,
+      ${event.createdAt.toString()}::timestamptz,
+      ${event.createdBy}
+    )
+  `);
+}
+
+async function insertRawSubsequent(
+  runner: DbRunner,
+  event: RawEventToAppend,
+  newVersion: number,
+  eventVersion: number,
+): Promise<void> {
+  const rows = await runner.execute<{ id: string }>(sql`
+    INSERT INTO ${eventsTable} (
+      aggregate_id, aggregate_type, tenant_id, version,
+      type, event_version, payload, metadata, created_at, created_by
+    )
+    SELECT ${event.aggregateId}::uuid,
+           ${event.aggregateType},
+           ${event.tenantId}::uuid,
+           ${newVersion},
+           ${event.type},
+           ${eventVersion},
+           ${JSON.stringify(event.payload)}::jsonb,
+           ${JSON.stringify(event.metadata)}::jsonb,
+           ${event.createdAt.toString()}::timestamptz,
+           ${event.createdBy}
+    WHERE EXISTS (
+      SELECT 1 FROM ${eventsTable}
+      WHERE aggregate_id = ${event.aggregateId}::uuid
+        AND version = ${event.expectedVersion}
+        AND tenant_id = ${event.tenantId}::uuid
+    )
+    RETURNING id
+  `);
+  const arr = rows as unknown as Array<{ id: string }>;
+  if (arr.length === 0) {
+    throw new VersionConflictError(event.aggregateId, event.expectedVersion);
+  }
+}
+
+// Batch append. One multi-VALUES INSERT — atomic by PG statement semantics.
+// Two pre-flight checks identify the specific conflicting aggregate, so the
+// thrown VersionConflictError points at a real event (not at a batch-first
+// placeholder). The INSERT's UNIQUE constraint is still the authoritative
+// gate — pre-flight is for diagnostic precision, not correctness.
 export async function appendRawBatch(
   runner: DbRunner,
   events: readonly RawEventToAppend[],
@@ -133,11 +130,11 @@ export async function appendRawBatch(
   if (events.length === 0) return;
 
   await verifyPredecessors(runner, events);
+  await verifyNoDuplicates(runner, events);
 
   const rows = events.map((e) => {
     const newVersion = e.expectedVersion + 1;
     const eventVersion = e.eventVersion ?? 1;
-    const createdAtIso = e.createdAt.toString();
     return sql`(
       ${e.aggregateId}::uuid,
       ${e.aggregateType},
@@ -147,7 +144,7 @@ export async function appendRawBatch(
       ${eventVersion},
       ${JSON.stringify(e.payload)}::jsonb,
       ${JSON.stringify(e.metadata)}::jsonb,
-      ${createdAtIso}::timestamptz,
+      ${e.createdAt.toString()}::timestamptz,
       ${e.createdBy}
     )`;
   });
@@ -162,9 +159,8 @@ export async function appendRawBatch(
     `);
   } catch (e) {
     if (isUniqueViolation(e)) {
-      // Multi-row UNIQUE violation doesn't tell us WHICH tuple collided.
-      // Report against the first event in the batch — callers with mixed
-      // batches can inspect the DB for the actual conflict.
+      // Pre-flight ran but lost a race against a concurrent writer. Rare for
+      // migration (single-runner) but possible; we can't name the exact row.
       const first = events[0]!;
       throw new VersionConflictError(first.aggregateId, first.expectedVersion);
     }
@@ -172,10 +168,9 @@ export async function appendRawBatch(
   }
 }
 
-// Group by (tenantId, aggregateId), find min(expectedVersion) per group.
-// For groups where min > 0, the predecessor must already exist in the DB.
-// One SELECT per group with min>0 — for migration batches that are usually
-// single-aggregate or fresh-stream, this loops zero or one times.
+// Per aggregate-group, check the predecessor (min(expectedVersion) > 0)
+// exists in the DB. For migration batches that are usually single-aggregate
+// or fresh-stream, this loops zero or one times.
 async function verifyPredecessors(
   runner: DbRunner,
   events: readonly RawEventToAppend[],
@@ -208,5 +203,27 @@ async function verifyPredecessors(
     if (!arr[0]?.present) {
       throw new VersionConflictError(g.aggregateId, g.minExpected);
     }
+  }
+}
+
+// Single IN-query checks whether any (tenant, aggregate, newVersion) tuple
+// already exists. Returns the first collision, so the thrown error names
+// the real conflicting aggregate instead of the batch's first event.
+async function verifyNoDuplicates(
+  runner: DbRunner,
+  events: readonly RawEventToAppend[],
+): Promise<void> {
+  const triples = events.map(
+    (e) => sql`(${e.tenantId}::uuid, ${e.aggregateId}::uuid, ${e.expectedVersion + 1})`,
+  );
+  const rows = await runner.execute<{ aggregate_id: string; version: number }>(sql`
+    SELECT aggregate_id, version FROM ${eventsTable}
+    WHERE (tenant_id, aggregate_id, version) IN (${sql.join(triples, sql`, `)})
+    LIMIT 1
+  `);
+  const arr = rows as unknown as Array<{ aggregate_id: string; version: number }>;
+  const conflict = arr[0];
+  if (conflict) {
+    throw new VersionConflictError(conflict.aggregate_id, conflict.version - 1);
   }
 }

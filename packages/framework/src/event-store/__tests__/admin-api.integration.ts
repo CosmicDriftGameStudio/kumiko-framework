@@ -16,7 +16,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { createTestDb, type TestDb } from "../../testing";
 import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api";
 import { VersionConflictError } from "../errors";
-import { append } from "../event-store";
+import { append, loadAggregate } from "../event-store";
 import { createEventsTable } from "../events-schema";
 
 let testDb: TestDb;
@@ -55,22 +55,21 @@ function makeEvent(partial: Partial<RawEventToAppend> = {}): RawEventToAppend {
 
 describe("appendRaw — single event", () => {
   test("preserves historical createdAt (NOT now())", async () => {
-    const historicTs = Temporal.Instant.from("2021-06-03T14:22:10Z");
+    // Sub-second precision matters for migration: Legacy events with
+    // distinct millisecond timestamps must keep their exact ordering.
+    // Comparing via Temporal.Instant (not Date → isoString) preserves
+    // the full precision the `instant()` column round-trips.
+    const historicTs = Temporal.Instant.from("2021-06-03T14:22:10.123Z");
     const aggregateId = uuid();
 
     await appendRaw(testDb.db, makeEvent({ aggregateId, createdAt: historicTs }));
 
-    const rows = await testDb.db.execute<{ created_at: Date | string }>(sql`
-      SELECT created_at FROM events WHERE aggregate_id = ${aggregateId}::uuid
-    `);
-    const arr = rows as unknown as Array<{ created_at: Date | string }>;
-    expect(arr).toHaveLength(1);
-    const dbTs =
-      arr[0]!.created_at instanceof Date
-        ? arr[0]!.created_at.toISOString()
-        : String(arr[0]!.created_at);
-    // Both representations normalize to the same ISO moment.
-    expect(new Date(dbTs).toISOString()).toBe("2021-06-03T14:22:10.000Z");
+    // loadAggregate uses the typed-builder path → createdAt already comes
+    // back as Temporal.Instant. Compare via epochMilliseconds for an exact
+    // moment-level match (no Date-roundtrip precision loss).
+    const [stored] = await loadAggregate(testDb.db, aggregateId, tenantA);
+    expect(stored).toBeDefined();
+    expect(stored!.createdAt.epochMilliseconds).toBe(historicTs.epochMilliseconds);
   });
 
   test("preserves historical createdBy (NOT metadata.userId)", async () => {
@@ -236,10 +235,12 @@ describe("appendRawBatch — multi-event", () => {
   });
 
   test("preserves per-event historical createdAt across the batch", async () => {
+    // Three distinct sub-second timestamps: verifies the batch INSERT path
+    // doesn't collapse them to now() or to a single batch-timestamp.
     const aggregateId = uuid();
-    const t1 = Temporal.Instant.from("2020-03-01T08:00:00Z");
-    const t2 = Temporal.Instant.from("2020-03-02T09:30:00Z");
-    const t3 = Temporal.Instant.from("2020-03-05T12:15:45Z");
+    const t1 = Temporal.Instant.from("2020-03-01T08:00:00.111Z");
+    const t2 = Temporal.Instant.from("2020-03-02T09:30:00.222Z");
+    const t3 = Temporal.Instant.from("2020-03-05T12:15:45.333Z");
 
     await appendRawBatch(testDb.db, [
       makeEvent({ aggregateId, expectedVersion: 0, createdAt: t1 }),
@@ -247,16 +248,11 @@ describe("appendRawBatch — multi-event", () => {
       makeEvent({ aggregateId, expectedVersion: 2, createdAt: t3 }),
     ]);
 
-    const rows = await testDb.db.execute<{ version: number; created_at: Date | string }>(sql`
-      SELECT version, created_at FROM events WHERE aggregate_id = ${aggregateId}::uuid ORDER BY version
-    `);
-    const arr = rows as unknown as Array<{ version: number; created_at: Date | string }>;
-    const iso = (v: Date | string) =>
-      v instanceof Date ? v.toISOString() : new Date(v).toISOString();
-    expect(arr.map((r) => iso(r.created_at))).toEqual([
-      "2020-03-01T08:00:00.000Z",
-      "2020-03-02T09:30:00.000Z",
-      "2020-03-05T12:15:45.000Z",
+    const stored = await loadAggregate(testDb.db, aggregateId, tenantA);
+    expect(stored.map((s) => s.createdAt.epochMilliseconds)).toEqual([
+      t1.epochMilliseconds,
+      t2.epochMilliseconds,
+      t3.epochMilliseconds,
     ]);
   });
 
@@ -309,20 +305,25 @@ describe("appendRawBatch — multi-event", () => {
     expect(queries).toHaveLength(0);
   });
 
-  test("multi-aggregate batch: different aggregates in one INSERT with correct per-aggregate versions", async () => {
+  test("multi-aggregate batch: each aggregate lands on its own stream with the right type", async () => {
+    // Mixed batch: two DIFFERENT aggregates, v=0 each. Single INSERT, both
+    // land, each on its own stream with the event type that was paired with
+    // it at call-time (no cross-talk between rows in the multi-VALUES list).
     const agg1 = uuid();
     const agg2 = uuid();
-    // Mixed batch: two aggregates, v=0 each. Single INSERT, both land.
     await appendRawBatch(testDb.db, [
       makeEvent({ aggregateId: agg1, expectedVersion: 0, type: "legacy.order.created" }),
       makeEvent({ aggregateId: agg2, expectedVersion: 0, type: "legacy.driver.created" }),
     ]);
 
-    const rows = await testDb.db.execute<{ aggregate_id: string; version: number }>(sql`
-      SELECT aggregate_id, version FROM events ORDER BY aggregate_id, version
-    `);
-    const arr = rows as unknown as Array<{ aggregate_id: string; version: number }>;
-    expect(arr).toHaveLength(2);
-    expect(arr.every((r) => r.version === 1)).toBe(true);
+    const stream1 = await loadAggregate(testDb.db, agg1, tenantA);
+    const stream2 = await loadAggregate(testDb.db, agg2, tenantA);
+
+    expect(stream1.map((s) => ({ v: s.version, t: s.type }))).toEqual([
+      { v: 1, t: "legacy.order.created" },
+    ]);
+    expect(stream2.map((s) => ({ v: s.version, t: s.type }))).toEqual([
+      { v: 1, t: "legacy.driver.created" },
+    ]);
   });
 });
