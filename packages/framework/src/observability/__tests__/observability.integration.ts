@@ -464,7 +464,8 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
       registry,
       context,
       redisUrl,
-      queueName: `kumiko-obs-${Date.now()}`,
+      consumerLane: "worker",
+      queueNamePrefix: `kumiko-obs-${Date.now()}`,
     });
 
     try {
@@ -502,7 +503,8 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
       registry,
       context,
       redisUrl,
-      queueName: `kumiko-obs-${Date.now()}`,
+      consumerLane: "worker",
+      queueNamePrefix: `kumiko-obs-${Date.now()}`,
     });
 
     try {

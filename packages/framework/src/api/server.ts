@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { bodyLimit } from "hono/body-limit";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
 import { type AppContext, isFileField, type Registry, SYSTEM_TENANT_ID } from "../engine/types";
@@ -13,9 +12,7 @@ import {
   mergeSensitiveConfig,
   type ObservabilityOptions,
   type ObservabilityProvider,
-  type PrometheusMeter,
   registerStandardMetrics,
-  serializeOpenMetrics,
   wrapRedisClient,
 } from "../observability";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
@@ -37,19 +34,18 @@ import {
   globalIpRateLimit,
 } from "../rate-limit";
 import type { SearchAdapter } from "../search/types";
-import { PUBLIC_API_PATHS, Routes } from "./api-constants";
+import { PUBLIC_API_PATHS } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { createJwtHelper, type JwtHelper } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
-import {
-  createReadinessProbe,
-  dbPingCheck,
-  dispatcherLagCheck,
-  type ReadinessCheck,
-  redisPingCheck,
-} from "./readiness";
 import { requestIdMiddleware } from "./request-id-middleware";
+import {
+  DEFAULT_MAX_REQUEST_BYTES,
+  registerBodyLimit,
+  registerHealthRoutes,
+  registerMetricsRoute,
+} from "./route-registrars";
 import { createApiRoutes } from "./routes";
 import { createSseBroker, type SseBroker } from "./sse-broker";
 import { createSseRoute } from "./sse-route";
@@ -174,29 +170,6 @@ export type KumikoServer = {
   // lifecycle. Only set when the caller passed one in.
   lifecycle?: Lifecycle;
 };
-
-const DEFAULT_MAX_REQUEST_BYTES = 1_048_576;
-
-// Timing-safe string compare — two strings of different length return
-// false without touching the comparison, equal-length strings compare
-// every byte regardless of where they diverge. Prevents side-channel
-// leaks from the metrics auth token check.
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return diff === 0;
-}
-
-const BODY_LIMIT_PATHS = [
-  `/api${Routes.write}`,
-  `/api${Routes.batch}`,
-  `/api${Routes.query}`,
-  `/api${Routes.command}`,
-  `/api${Routes.auth}/*`,
-] as const;
 
 export function buildServer(options: ServerOptions): KumikoServer {
   // Hard-fail when the registry declares file/image fields but no storage
@@ -397,93 +370,24 @@ export function buildServer(options: ServerOptions): KumikoServer {
     options.observabilityOptions?.sensitiveFilter ?? DEFAULT_SENSITIVE_CONFIG,
   );
 
-  app.get(Routes.health, (c) => c.json({ status: "ok" }));
+  registerHealthRoutes(app, {
+    ...(options.lifecycle !== undefined ? { lifecycle: options.lifecycle } : {}),
+    readinessDb: baseDb,
+    readinessRedis: options.context.redis,
+    readinessConsumers: allConsumers,
+    ...(options.readiness !== undefined ? { readiness: options.readiness } : {}),
+  });
 
-  // Prometheus-scrape endpoint. Off unless `options.metrics` is wired
-  // AND the configured meter supports snapshot() (i.e. is a
-  // PrometheusMeter). Duck-typed check keeps this layer agnostic of the
-  // concrete provider — a future OTLP-bridge meter could implement
-  // snapshot() too. Bearer token required if configured; timing-safe
-  // compare against the expected value.
   if (options.metrics) {
-    const metricsPath = options.metrics.path ?? "/metrics";
-    const expectedToken = options.metrics.token;
-    app.get(metricsPath, async (c) => {
-      if (expectedToken !== undefined) {
-        const header = c.req.header("authorization") ?? "";
-        const prefix = "Bearer ";
-        if (!header.startsWith(prefix)) {
-          return c.text("unauthorized", 401);
-        }
-        const provided = header.slice(prefix.length);
-        if (!constantTimeEqual(provided, expectedToken)) {
-          return c.text("unauthorized", 401);
-        }
-      }
-      const meter = observability.meter as { snapshot?: unknown };
-      if (typeof meter.snapshot !== "function") {
-        return c.text(
-          "metrics endpoint requires a PrometheusMeter — wrap the observability provider around createPrometheusMeter()",
-          503,
-        );
-      }
-      const body = serializeOpenMetrics(observability.meter as PrometheusMeter);
-      c.header("Content-Type", "application/openmetrics-text; version=1.0.0; charset=utf-8");
-      return c.body(body);
-    });
+    registerMetricsRoute(app, observability, options.metrics);
   }
 
-  // Readiness probe. Absent when no lifecycle is passed — /health stays the
-  // one-liner for liveness. When lifecycle is wired, this flips to 503 as
-  // soon as drain() starts, so a load balancer can stop routing new traffic
-  // before in-flight requests even notice. In addition to lifecycle state,
-  // the probe runs dependency checks (DB/Redis/Dispatcher-Lag) before
-  // returning 200 — any failed check is also a 503.
-  if (options.lifecycle) {
-    const lifecycle = options.lifecycle;
-    const readinessChecks: ReadinessCheck[] = [];
-    if (baseDb) readinessChecks.push(dbPingCheck(baseDb));
-    if (options.context.redis) readinessChecks.push(redisPingCheck(options.context.redis));
-    if (options.readiness?.maxDispatcherLag !== undefined && baseDb && allConsumers.length > 0) {
-      readinessChecks.push(
-        dispatcherLagCheck(
-          baseDb,
-          allConsumers.map((c) => c.name),
-          options.readiness.maxDispatcherLag,
-        ),
-      );
-    }
-    const probeOpts =
-      options.readiness?.timeoutMs !== undefined ? { timeoutMs: options.readiness.timeoutMs } : {};
-    const probe = createReadinessProbe(readinessChecks, probeOpts);
-
-    app.get(Routes.healthReady, async (c) => {
-      const state = lifecycle.state();
-      if (state !== "ready") {
-        return c.json({ status: "not_ready", state, uptimeSec: lifecycle.uptimeSec() }, 503);
-      }
-      const result = await probe();
-      return c.json(
-        {
-          status: result.ok ? "ready" : "not_ready",
-          state,
-          uptimeSec: lifecycle.uptimeSec(),
-          checks: result.checks,
-        },
-        result.ok ? 200 : 503,
-      );
-    });
-  }
   app.use("/api/*", requestIdMiddleware());
 
-  // Cap JSON bodies before rate-limit/auth/observability even run. Content-
-  // Length header-check is O(1); oversized requests never allocate memory
-  // for a full body parse. Upload route keeps its own per-field maxSize.
-  const bodyCap = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
-  if (bodyCap > 0) {
-    const limit = bodyLimit({ maxSize: bodyCap });
-    for (const path of BODY_LIMIT_PATHS) app.use(path, limit);
-  }
+  // Cap JSON bodies before rate-limit/auth/observability even run. Header-
+  // check is O(1); oversized requests never allocate memory for a full body
+  // parse. Upload route keeps its own per-field maxSize.
+  registerBodyLimit(app, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES);
 
   // L1/L2 rate-limit middleware run BEFORE auth so an unauthenticated
   // flood can't even reach the JWT-verify code path. Wired only when

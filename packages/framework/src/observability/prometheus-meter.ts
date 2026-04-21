@@ -74,44 +74,43 @@ type HistogramState = {
   boundaries: readonly number[]; // pinned at first observe so late-changes don't skew
 };
 
+// Shared slot-accumulator. counter.inc, gauge.inc, gauge.dec all boil
+// down to "add `delta` to the existing slot or create a new slot with
+// `delta`". The only variance is the sign — extracted once so counter
+// and gauge don't each reimplement the same get-or-create-and-add.
+function addToSlot(
+  slots: Map<string, { labels: MetricLabels | undefined; value: number }>,
+  labels: MetricLabels | undefined,
+  delta: number,
+): void {
+  const key = labelsKey(labels);
+  const existing = slots.get(key);
+  if (existing) {
+    existing.value += delta;
+  } else {
+    slots.set(key, { labels, value: delta });
+  }
+}
+
 class PrometheusCounter implements Counter {
   constructor(private readonly slots: Map<string, CounterState>) {}
   inc(value?: number, labels?: MetricLabels): void {
-    const key = labelsKey(labels);
-    const amount = value ?? 1;
-    const existing = this.slots.get(key);
-    if (existing) {
-      existing.value += amount;
-    } else {
-      this.slots.set(key, { labels, value: amount });
-    }
+    addToSlot(this.slots, labels, value ?? 1);
   }
 }
 
 class PrometheusGauge implements Gauge {
   constructor(private readonly slots: Map<string, GaugeState>) {}
   set(value: number, labels?: MetricLabels): void {
+    // set() overwrites wholesale — can't go through addToSlot which only
+    // knows about delta accumulation.
     this.slots.set(labelsKey(labels), { labels, value });
   }
   inc(value?: number, labels?: MetricLabels): void {
-    const key = labelsKey(labels);
-    const amount = value ?? 1;
-    const existing = this.slots.get(key);
-    if (existing) {
-      existing.value += amount;
-    } else {
-      this.slots.set(key, { labels, value: amount });
-    }
+    addToSlot(this.slots, labels, value ?? 1);
   }
   dec(value?: number, labels?: MetricLabels): void {
-    const key = labelsKey(labels);
-    const amount = value ?? 1;
-    const existing = this.slots.get(key);
-    if (existing) {
-      existing.value -= amount;
-    } else {
-      this.slots.set(key, { labels, value: -amount });
-    }
+    addToSlot(this.slots, labels, -(value ?? 1));
   }
 }
 

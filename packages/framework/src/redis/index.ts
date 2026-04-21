@@ -9,6 +9,7 @@
 // place. Tests / one-off scripts can still `new Redis()` directly.
 
 import IoRedis, { type Redis, type RedisOptions } from "ioredis";
+import { readPositiveIntEnv } from "../utils/env-parse";
 
 // Connection-tuning options. The fields mirror the most consequential
 // ioredis settings; anything else can be passed through via `extra` to
@@ -58,23 +59,14 @@ export function createRedisClient(url: string, options: RedisClientOptions = {})
 export function redisClientOptionsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): RedisClientOptions {
-  const opts: {
+  const opts: RedisClientOptions & {
     connectTimeoutMs?: number;
     commandTimeoutMs?: number;
     maxRetriesPerRequest?: number;
   } = {};
-  const read = (name: string): number | undefined => {
-    const raw = env[name];
-    if (raw === undefined || raw === "") return undefined;
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
-      throw new Error(`[redis] ${name}="${raw}" must be a non-negative integer`);
-    }
-    return n;
-  };
-  const connect = read("REDIS_CONNECT_TIMEOUT_MS");
-  const command = read("REDIS_COMMAND_TIMEOUT_MS");
-  const retries = read("REDIS_MAX_RETRIES_PER_REQUEST");
+  const connect = readPositiveIntEnv(env, "REDIS_CONNECT_TIMEOUT_MS");
+  const command = readPositiveIntEnv(env, "REDIS_COMMAND_TIMEOUT_MS");
+  const retries = readPositiveIntEnv(env, "REDIS_MAX_RETRIES_PER_REQUEST");
   if (connect !== undefined) opts.connectTimeoutMs = connect;
   if (command !== undefined) opts.commandTimeoutMs = command;
   if (retries !== undefined) opts.maxRetriesPerRequest = retries;

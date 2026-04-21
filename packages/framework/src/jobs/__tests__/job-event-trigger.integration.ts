@@ -90,7 +90,8 @@ beforeAll(async () => {
     registry,
     context: {},
     redisUrl,
-    queueName: `kumiko-event-trigger-test-${Date.now()}`,
+    consumerLane: "worker",
+    queueNamePrefix: `kumiko-event-trigger-test-${Date.now()}`,
   });
 
   const server = buildServer({

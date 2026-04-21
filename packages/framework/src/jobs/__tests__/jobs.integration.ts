@@ -137,12 +137,13 @@ async function withRunner(
   const context: AppContext = {};
   // Date.now() alone collided when two tests ran in the same millisecond;
   // adding a random suffix keeps queue names unique across the whole run.
-  const queueName = `kumiko-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const queueNamePrefix = `kumiko-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const runner = createJobRunner({
     registry,
     context,
     redisUrl,
-    queueName,
+    consumerLane: "worker",
+    queueNamePrefix,
   });
 
   try {
@@ -150,10 +151,12 @@ async function withRunner(
     await fn(runner, registry);
   } finally {
     await runner.stop();
-    // Purge any lingering scheduler/repeat keys this queue left behind.
-    // BullMQ stores them under <queueName>:* — orphaned schedulers from a
-    // previous test run would otherwise fire into a now-stopped worker.
-    const keys = await testRedis.redis.keys(`bull:${queueName}:*`);
+    // Purge any lingering scheduler/repeat keys the worker-lane queue left
+    // behind. BullMQ stores them under <queueName>:* — orphaned schedulers
+    // from a previous test run would otherwise fire into a now-stopped
+    // worker. Only the worker lane is queried because these tests run jobs
+    // with the default runIn, which resolves to "worker".
+    const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
     if (keys.length > 0) await testRedis.redis.del(...keys);
   }
 }

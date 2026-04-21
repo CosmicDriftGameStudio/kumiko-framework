@@ -186,6 +186,31 @@ export type ConfigResolver = {
   ): Promise<ReadonlyMap<string, ConfigStoredRow>>;
 };
 
+// --- Process-Placement (runIn) ---
+
+// Which deploy-shape a consumer / job is allowed to run in. Filtered at
+// entrypoint boot: createApiEntrypoint picks up "api"|"both", createWorker
+// Entrypoint picks up "worker"|"both", createAllInOneEntrypoint takes
+// everything. Default is "worker" for every async consumer/job — that's the
+// sensible prod default (API instances stay request-focused, heavy async
+// work lives on the worker fleet). Opt into "api" only for latency-
+// sensitive or in-memory-stateful consumers (e.g. later: SSE per-instance
+// push in Welle 2.7).
+//
+// Feature-hooks (r.hook preSave/postSave/…) intentionally have no runIn —
+// they run in-TX in whatever process handles the command. Splitting them
+// would break atomicity. If you want async work, use r.job or
+// r.multiStreamProjection.
+export type RunIn = "api" | "worker" | "both";
+
+// Jobs are queue-delivered via BullMQ with one dedicated queue per lane
+// ("kumiko-jobs-api" vs "kumiko-jobs-worker") and one dedicated event-
+// enqueuer consumer per lane. "both" would mean "dispatch to both queues",
+// which over-delivers the job; the Marten-style cursor/queue fan-out is not
+// free. Restrict at the type level so the boot-validator never has to
+// report it.
+export type JobRunIn = Exclude<RunIn, "both">;
+
 // --- Jobs ---
 
 export type JobHandlerFn = (payload: Record<string, unknown>, context: AppContext) => Promise<void>;
@@ -208,6 +233,11 @@ export type JobDefinition = {
   readonly schema?: ZodType | undefined;
   readonly runOnBoot?: boolean | undefined;
   readonly perTenant?: boolean | undefined;
+  // Which deploy-lane runs this job. Default "worker". Set "api" only for
+  // short CPU-light handlers (token cleanup, in-process cache warmup) that
+  // don't justify a separate worker container — long/CPU-heavy jobs on the
+  // API lane will starve request handlers.
+  readonly runIn?: JobRunIn | undefined;
 };
 
 // --- Notifications ---

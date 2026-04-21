@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { readPositiveIntEnv } from "../utils/env-parse";
 
 export type DbConnection = ReturnType<typeof drizzle>;
 
@@ -88,23 +89,14 @@ export function createDbConnection(
 export function dbConnectionOptionsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): DbConnectionOptions {
-  const opts: {
+  const opts: DbConnectionOptions & {
     maxConnections?: number;
     idleTimeoutSeconds?: number;
     connectTimeoutSeconds?: number;
   } = {};
-  const read = (name: string): number | undefined => {
-    const raw = env[name];
-    if (raw === undefined || raw === "") return undefined;
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
-      throw new Error(`[db] ${name}="${raw}" must be a non-negative integer`);
-    }
-    return n;
-  };
-  const max = read("DATABASE_POOL_MAX");
-  const idle = read("DATABASE_POOL_IDLE_TIMEOUT");
-  const connect = read("DATABASE_POOL_CONNECT_TIMEOUT");
+  const max = readPositiveIntEnv(env, "DATABASE_POOL_MAX");
+  const idle = readPositiveIntEnv(env, "DATABASE_POOL_IDLE_TIMEOUT");
+  const connect = readPositiveIntEnv(env, "DATABASE_POOL_CONNECT_TIMEOUT");
   if (max !== undefined) opts.maxConnections = max;
   if (idle !== undefined) opts.idleTimeoutSeconds = idle;
   if (connect !== undefined) opts.connectTimeoutSeconds = connect;

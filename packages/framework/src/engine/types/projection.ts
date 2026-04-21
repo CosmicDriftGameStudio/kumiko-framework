@@ -2,6 +2,7 @@ import type { DbRunner } from "../../db/connection";
 import type { TableColumns } from "../../db/dialect";
 import type { StoredEvent } from "../../event-store/event-store";
 import type { MultiStreamApplyContext } from "../../pipeline/multi-stream-apply-context";
+import type { RunIn } from "./config";
 
 // Drizzle pgTable shape — projections hand their table through to apply() so
 // user code writes upserts/updates directly instead of going through a
@@ -92,4 +93,10 @@ export type MultiStreamProjectionDefinition = {
   readonly apply: Readonly<Record<string, MultiStreamApplyFn>>;
   // How the dispatcher handles apply-throws. Default strict (retry + dead).
   readonly errorMode?: MspErrorMode;
+  // Which deploy-lane runs this MSP's dispatcher. Default "worker". MSPs
+  // share a single consumer-row per MSP name with SKIP LOCKED, so "both"
+  // is safe semantically (API + Worker race for each event; exactly one
+  // wins). Use "api" for MSPs that need in-process state on the API
+  // (rare); use "both" only when genuinely load-balancing is helpful.
+  readonly runIn?: RunIn;
 };

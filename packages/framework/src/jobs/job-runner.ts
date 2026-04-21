@@ -5,6 +5,7 @@ import type { DbRow } from "../db/connection";
 import { createSystemUser } from "../engine/system-user";
 import {
   type AppContext,
+  type JobRunIn,
   type Registry,
   type SessionUser,
   SYSTEM_TENANT_ID,
@@ -13,6 +14,16 @@ import type { Logger } from "../logging/types";
 import { getFallbackTracer, type SerializedTraceContext, type Tracer } from "../observability";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
 import { RedisKeys } from "../pipeline/redis-keys";
+
+// Queue-name convention: <prefix>-<lane>. The prefix is fixed in prod
+// ("kumiko-jobs") — it must match between enqueuers and consumers, and an
+// accidental drift would silently drop jobs. Tests override via
+// `queueNamePrefix` for per-run isolation (stale jobs from a prior run
+// don't leak into a new test because the queue name includes a timestamp).
+const DEFAULT_QUEUE_NAME_PREFIX = "kumiko-jobs";
+function queueNameFor(prefix: string, lane: JobRunIn): string {
+  return `${prefix}-${lane}`;
+}
 
 export type JobLogEntry = {
   level: "info" | "warn" | "error";
@@ -63,7 +74,18 @@ export type JobRunnerOptions = {
   registry: Registry;
   context: AppContext;
   redisUrl: string;
-  queueName?: string;
+  // Which lane this runner CONSUMES — i.e. starts a BullMQ worker for and
+  // schedules cron/boot jobs on. Undefined = enqueuer-only: the runner
+  // still holds queue-clients for BOTH lanes so dispatch()/handleEvent()
+  // can enqueue jobs destined for either lane, but no BullMQ worker is
+  // started and no cron schedules fire. API processes that don't
+  // runLocalJobs leave this unset; worker processes set "worker"; api-
+  // processes with runLocalJobs set "api".
+  consumerLane?: JobRunIn | undefined;
+  // Override the queue-name prefix. Prod uses the default ("kumiko-jobs").
+  // Tests set a unique prefix (e.g. `"test-${Date.now()}"`) for isolation —
+  // two parallel test-runners never see each other's jobs.
+  queueNamePrefix?: string | undefined;
   getActiveTenantIds?: () => Promise<number[]>;
   onJobStart?: (jobName: string, jobId: string, meta: JobMeta) => void;
   onJobComplete?: (jobName: string, jobId: string, duration: number, logs: JobLogEntry[]) => void;
@@ -102,8 +124,8 @@ function parseRedisOpts(url: string): { host: string; port: number; db?: number 
 }
 
 export function createJobRunner(options: JobRunnerOptions): JobRunner {
-  const { registry, context, redisUrl } = options;
-  const queueName = options.queueName ?? "kumiko-jobs";
+  const { registry, context, redisUrl, consumerLane } = options;
+  const queueNamePrefix = options.queueNamePrefix ?? DEFAULT_QUEUE_NAME_PREFIX;
   const redisOpts = parseRedisOpts(redisUrl);
   // Use the context's tracer when present (observability-provider injected at
   // boot); otherwise noop so dispatch/handleJob stay zero-cost without config.
@@ -111,18 +133,26 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
   const allJobs = registry.getAllJobs();
 
+  // Resolve the lane for a job — "worker" is the default because that's the
+  // sensible prod lane (heavy async off the request path). Jobs that opted
+  // into "api" must have been validated at registry boot already.
+  function laneForJob(def: { readonly runIn?: JobRunIn | undefined }): JobRunIn {
+    return def.runIn ?? "worker";
+  }
+
   // Sequential coordination: BullMQ OSS has no `group`, so we serialise
   // same-name jobs ourselves with a per-name Redis lock. Only built when at
   // least one job actually requested it — keeps the no-sequential boot path
-  // free of the extra Redis client.
+  // free of the extra Redis client. Scoped under the consumer lane so two
+  // runners on different lanes cannot collide on the same lock-key for
+  // unrelated jobs.
   const hasSequential = [...allJobs.values()].some((def) => def.concurrency === "sequential");
   let lockRedis: Redis | null = null;
   let sequentialLock: DistributedLock | null = null;
   if (hasSequential) {
     lockRedis = new Redis(redisOpts);
-    // Composite under RedisKeys.lock so all framework locks share one prefix
-    // tree — discoverable, audit-friendly, namespace-collision-free.
-    sequentialLock = createDistributedLock(lockRedis, `${RedisKeys.lock}seq:${queueName}:`);
+    const lockScope = consumerLane ?? "enqueue";
+    sequentialLock = createDistributedLock(lockRedis, `${RedisKeys.lock}seq:${lockScope}:`);
   }
   // Default lock-TTL for sequential jobs that didn't declare a timeout.
   // 5 minutes matches BullMQ's default stalledInterval — long enough for
@@ -133,26 +163,42 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // to feel responsive, long enough that we don't hammer Redis.
   const SEQUENTIAL_RETRY_DELAY_MS = 200;
 
-  const queue = new Queue(queueName, { connection: redisOpts });
+  // Two queue-clients — one per lane. Every runner holds both, regardless of
+  // its own consumerLane, so dispatch()/handleEvent() always write to the
+  // queue matching the target job's runIn. Client-creation is cheap (shared
+  // ioredis connection via bullmq), so this doesn't scale with number of
+  // processes.
+  const queues: Readonly<Record<JobRunIn, Queue>> = {
+    api: new Queue(queueNameFor(queueNamePrefix, "api"), { connection: redisOpts }),
+    worker: new Queue(queueNameFor(queueNamePrefix, "worker"), { connection: redisOpts }),
+  };
   let worker: Worker | null = null;
 
-  // Counts active + waiting jobs with this name for this tenant. Returns
-  // true once the count reaches `max`. Pulls both queues, filters by
-  // jobName + payload._tenantId — BullMQ has no built-in label-based
-  // counter so we walk the small (active+waiting) set ourselves.
+  // Counts active + waiting jobs with this name for this tenant across
+  // BOTH lane queues. Jobs with the same name should only live in one
+  // lane (jobDef.runIn is static), but walking both is cheap and avoids
+  // a subtle bug if someone ever reassigns a job to a different lane
+  // between deploys while old queue contents are still draining.
   async function isOverPerTenantLimit(
     jobName: string,
     tenantId: string,
     max: number,
   ): Promise<boolean> {
-    const [active, waiting] = await Promise.all([queue.getActive(), queue.getWaiting()]);
+    const results = await Promise.all([
+      queues.api.getActive(),
+      queues.api.getWaiting(),
+      queues.worker.getActive(),
+      queues.worker.getWaiting(),
+    ]);
     let count = 0;
-    for (const j of [...active, ...waiting]) {
-      if (j.name !== jobName) continue;
-      const t = (j.data as { _tenantId?: string } | undefined)?._tenantId;
-      if (t === tenantId) {
-        count += 1;
-        if (count >= max) return true;
+    for (const list of results) {
+      for (const j of list) {
+        if (j.name !== jobName) continue;
+        const t = (j.data as { _tenantId?: string } | undefined)?._tenantId;
+        if (t === tenantId) {
+          count += 1;
+          if (count >= max) return true;
+        }
       }
     }
     return false;
@@ -161,15 +207,23 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   async function handleJob(bullJob: Job): Promise<void> {
     const rawName = bullJob.name;
 
-    // Handle perTenant dispatch jobs — fan out to one job per tenant
+    // Handle perTenant dispatch jobs — fan out to one job per tenant. The
+    // fan-out re-enqueues into the lane the actual job is assigned to;
+    // the _perTenant wrapper itself always lives in the consumer-lane
+    // (it's picked up by this runner's own worker).
     if (rawName.startsWith("_perTenant:")) {
       const actualName = rawName.slice("_perTenant:".length);
       if (!options.getActiveTenantIds) {
         throw new Error(`perTenant job "${actualName}" requires getActiveTenantIds option`);
       }
+      const actualDef = allJobs.get(actualName);
+      if (!actualDef) {
+        throw new Error(`Unknown job: ${actualName}`);
+      }
       const tenantIds = await options.getActiveTenantIds();
+      const targetQueue = queues[laneForJob(actualDef)];
       for (const tenantId of tenantIds) {
-        await queue.add(actualName, { ...bullJob.data, _tenantId: tenantId });
+        await targetQueue.add(actualName, { ...bullJob.data, _tenantId: tenantId });
       }
       // skip: fan-out dispatcher job, per-tenant children enqueued
       return;
@@ -193,7 +247,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         : SEQUENTIAL_DEFAULT_TTL_SEC;
       sequentialToken = await sequentialLock.acquire(jobName, { ttlSeconds: ttlSec });
       if (!sequentialToken) {
-        await queue.add(jobName, bullJob.data, { delay: SEQUENTIAL_RETRY_DELAY_MS });
+        // Re-enqueue onto the job's own lane-queue. In practice that's the
+        // same queue the worker just picked from (since only the consuming
+        // lane runs handleJob at all), but route explicitly — no implicit
+        // coupling to "whichever queue the caller happened to be on".
+        await queues[laneForJob(jobDef)].add(jobName, bullJob.data, {
+          delay: SEQUENTIAL_RETRY_DELAY_MS,
+        });
         // skip: lock taken, work re-enqueued with delay, current invocation done
         return;
       }
@@ -292,15 +352,27 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
   return {
     async start(): Promise<void> {
-      worker = new Worker(queueName, handleJob, {
+      // skip: enqueuer-only runner — no BullMQ worker, no cron schedules,
+      // no boot jobs. The API-process (runLocalJobs=false) lands here; it
+      // still holds the queue-clients so dispatch()/handleEvent() can
+      // target the worker-lane queue, but nothing local consumes.
+      if (!consumerLane) {
+        return;
+      }
+
+      const consumerQueue = queues[consumerLane];
+      worker = new Worker(queueNameFor(queueNamePrefix, consumerLane), handleJob, {
         connection: redisOpts,
         concurrency: 5,
       });
 
-      // Register scheduled (cron) jobs
+      // Only schedule cron + boot for jobs that belong to this lane. Jobs
+      // assigned to the other lane get their cron/boot wiring from the
+      // runner running on that lane. Running both here would double-fire.
       for (const [name, jobDef] of allJobs) {
+        if (laneForJob(jobDef) !== consumerLane) continue;
         if ("cron" in jobDef.trigger) {
-          await queue.upsertJobScheduler(
+          await consumerQueue.upsertJobScheduler(
             `scheduler-${name.replace(/\./g, "-")}`,
             { pattern: jobDef.trigger.cron },
             {
@@ -311,11 +383,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         }
       }
 
-      // Run boot jobs
       for (const [name, jobDef] of allJobs) {
+        if (laneForJob(jobDef) !== consumerLane) continue;
         if (jobDef.runOnBoot) {
           const bootName = jobDef.perTenant ? `_perTenant:${name}` : name;
-          await queue.add(bootName, {}, { jobId: `boot-${name.replace(/\./g, "-")}` });
+          await consumerQueue.add(bootName, {}, { jobId: `boot-${name.replace(/\./g, "-")}` });
         }
       }
     },
@@ -325,7 +397,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         await worker.close();
         worker = null;
       }
-      await queue.close();
+      await Promise.all([queues.api.close(), queues.worker.close()]);
       if (lockRedis) {
         // quit() drains in-flight commands; disconnect() would cancel them
         // and risk a half-released lock.
@@ -344,9 +416,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         throw new Error(`Unknown job: ${jobName}`);
       }
 
+      // Route to the job's declared lane, not the runner's consumer lane —
+      // an api-runner is allowed to enqueue a worker-lane job and vice
+      // versa (that's the whole point of both queues being held).
+      const targetQueue = queues[laneForJob(jobDef)];
+
       // perTenant: dispatch the fan-out wrapper instead
       if (jobDef.perTenant) {
-        const job = await queue.add(`_perTenant:${jobName}`, payload ?? {});
+        const job = await targetQueue.add(`_perTenant:${jobName}`, payload ?? {});
         return job.id ?? "unknown";
       }
 
@@ -372,8 +449,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
       switch (concurrency) {
         case "skip": {
-          const active = await queue.getActive();
-          const waiting = await queue.getWaiting();
+          const active = await targetQueue.getActive();
+          const waiting = await targetQueue.getWaiting();
           const isRunning = [...active, ...waiting].some((j) => j.name === jobName);
           if (isRunning) {
             return "skipped";
@@ -381,7 +458,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           break;
         }
         case "replace": {
-          const waiting = await queue.getWaiting();
+          const waiting = await targetQueue.getWaiting();
           for (const j of waiting) {
             if (j.name === jobName && j.id) {
               await j.remove();
@@ -420,7 +497,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       const reqCtx = requestContext.get();
       if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
 
-      const job = await queue.add(jobName, data, bullOpts);
+      const job = await targetQueue.add(jobName, data, bullOpts);
       return job.id ?? "unknown";
     },
 
@@ -451,7 +528,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
               continue;
             }
           }
-          await queue.add(name, data);
+          // Route to the job's declared lane, not a fixed queue — that's
+          // the whole reason both queues are held.
+          await queues[laneForJob(jobDef)].add(name, data);
         }
       }
     },

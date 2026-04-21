@@ -33,7 +33,7 @@
 import type { Hono } from "hono";
 import type { AuthRoutesConfig } from "../api/auth-routes";
 import type { JwtHelper } from "../api/jwt";
-import type { ServerOptions } from "../api/server";
+import type { KumikoServer, ServerOptions } from "../api/server";
 import { buildServer } from "../api/server";
 import type { SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
@@ -124,39 +124,125 @@ export type AllInOneEntrypoint = Omit<ApiEntrypoint, "mode"> &
     readonly mode: "all-in-one";
   };
 
+// --- Shared builders ------------------------------------------------------
+//
+// Three factories, three near-identical buildServer() + createJobRunner()
+// blocks. Extract once so adding a new ServerOptions field doesn't need
+// three parallel edits — one helper, one place to maintain.
+
+// Spread only the keys the caller actually set. `exactOptionalPropertyTypes:
+// true` refuses `{ key: undefined }` even when we intend "not set", so the
+// return type strips `| undefined` off every value.
+type DefinedOnly<T> = Partial<{ [K in keyof T]: Exclude<T[K], undefined> }>;
+
+function definedOnly<T extends object>(obj: T): DefinedOnly<T> {
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(obj)) {
+    const v = (obj as Record<string, unknown>)[k];
+    if (v !== undefined) out[k] = v;
+  }
+  return out as DefinedOnly<T>;
+}
+
+// buildApiServer shapes ServerOptions from API-mode (and All-in-one-mode,
+// since it's a superset) caller-options. `dispatcherOverride` lets API-
+// mode slam `{disabled:true}` while All-in-one passes the caller's real
+// config through.
+function buildApiServer(
+  opts: ApiEntrypointOptions | AllInOneEntrypointOptions,
+  lifecycle: Lifecycle,
+  dispatcherOverride: ServerOptions["eventDispatcher"] | undefined,
+): KumikoServer {
+  return buildServer({
+    registry: opts.registry,
+    context: opts.context,
+    jwtSecret: opts.jwtSecret,
+    lifecycle,
+    ...definedOnly({
+      jwtIssuer: opts.jwtIssuer,
+      auth: opts.auth,
+      files: opts.files,
+      sseBroker: opts.sseBroker,
+      rateLimit: opts.rateLimit,
+      maxRequestBytes: opts.maxRequestBytes,
+      readiness: opts.readiness,
+      metrics: opts.metrics,
+      observability: opts.observability,
+      observabilityOptions: opts.observabilityOptions,
+      dispatcherOptions: opts.dispatcherOptions,
+      systemHooks: opts.systemHooks,
+      eventDedup: opts.eventDedup,
+      eventDispatcher: dispatcherOverride,
+    }),
+  });
+}
+
+// Worker path is narrower — no HTTP-specific options. `eventDispatcher`
+// comes straight from the caller (LISTEN/NOTIFY wiring, pollIntervalMs).
+function buildWorkerServer(opts: WorkerEntrypointOptions, lifecycle: Lifecycle): KumikoServer {
+  return buildServer({
+    registry: opts.registry,
+    context: opts.context,
+    jwtSecret: opts.jwtSecret,
+    lifecycle,
+    ...definedOnly({
+      observability: opts.observability,
+      observabilityOptions: opts.observabilityOptions,
+      dispatcherOptions: opts.dispatcherOptions,
+      systemHooks: opts.systemHooks,
+      eventDedup: opts.eventDedup,
+      eventDispatcher: opts.eventDispatcher,
+    }),
+  });
+}
+
+// Build the JobRunner AND register its stop-hook on the lifecycle. Hook
+// order (LIFO): jobRunner runs BEFORE eventDispatcher so no in-flight
+// job tries to enqueue an event to an already-torn-down dispatcher.
+// buildServer registers the dispatcher hook earlier in the factory, so
+// this one lands later in registration order → runs first on drain.
+function buildJobRunnerWithHook(
+  opts: WorkerEntrypointOptions | AllInOneEntrypointOptions,
+  lifecycle: Lifecycle,
+): JobRunner {
+  const jobRunner = createJobRunner({
+    registry: opts.registry,
+    context: opts.context,
+    redisUrl: opts.redisUrl,
+    ...definedOnly({
+      queueName: opts.queueName,
+      getActiveTenantIds: opts.getActiveTenantIds,
+      onJobStart: opts.onJobStart,
+      onJobComplete: opts.onJobComplete,
+      onJobFailed: opts.onJobFailed,
+    }),
+  });
+  lifecycle.registerShutdownHook("jobRunner", async () => {
+    await jobRunner.stop();
+  });
+  return jobRunner;
+}
+
+// A worker-shaped process with no consumers (no SSE, no search adapter,
+// no MSPs) has nothing to drain — that's a caller-config bug, not a
+// usable process shape. Fail loud so ops sees it before prod takes
+// traffic from an API that enqueues events nobody consumes.
+function requireDispatcher(server: KumikoServer, mode: string): EventDispatcher {
+  if (!server.eventDispatcher) {
+    throw new Error(
+      `[entrypoint] ${mode} mode requires at least one event consumer (SSE broker, search adapter, or r.multiStreamProjection)`,
+    );
+  }
+  return server.eventDispatcher;
+}
+
 // --- API entrypoint -------------------------------------------------------
 
 export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
-
-  // buildServer may still BUILD an event-dispatcher (context has db,
-  // consumers exist), but API-mode explicitly opts out of starting it.
-  // The `disabled: true` flag skips dispatcher creation entirely so the
-  // API process doesn't hold an idle poller.
-  const server = buildServer({
-    registry: options.registry,
-    context: options.context,
-    jwtSecret: options.jwtSecret,
-    ...(options.jwtIssuer !== undefined ? { jwtIssuer: options.jwtIssuer } : {}),
-    ...(options.auth !== undefined ? { auth: options.auth } : {}),
-    ...(options.files !== undefined ? { files: options.files } : {}),
-    ...(options.sseBroker !== undefined ? { sseBroker: options.sseBroker } : {}),
-    ...(options.rateLimit !== undefined ? { rateLimit: options.rateLimit } : {}),
-    ...(options.maxRequestBytes !== undefined ? { maxRequestBytes: options.maxRequestBytes } : {}),
-    ...(options.readiness !== undefined ? { readiness: options.readiness } : {}),
-    ...(options.metrics !== undefined ? { metrics: options.metrics } : {}),
-    ...(options.observability !== undefined ? { observability: options.observability } : {}),
-    ...(options.observabilityOptions !== undefined
-      ? { observabilityOptions: options.observabilityOptions }
-      : {}),
-    ...(options.dispatcherOptions !== undefined
-      ? { dispatcherOptions: options.dispatcherOptions }
-      : {}),
-    ...(options.systemHooks !== undefined ? { systemHooks: options.systemHooks } : {}),
-    ...(options.eventDedup !== undefined ? { eventDedup: options.eventDedup } : {}),
-    eventDispatcher: { disabled: true },
-    lifecycle,
-  });
+  // `{disabled:true}` skips dispatcher creation entirely — an API process
+  // doesn't hold an idle poller.
+  const server = buildApiServer(options, lifecycle, { disabled: true });
 
   return {
     app: server.app,
@@ -179,60 +265,9 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
 
 export function createWorkerEntrypoint(options: WorkerEntrypointOptions): WorkerEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
-
-  // Workers DO need buildServer to wire the event-dispatcher — the builder
-  // aggregates consumers (SSE, Search, MSPs) and registers its own shutdown
-  // hook. A worker-only process discards the returned `app` and never
-  // binds it to a port.
-  const server = buildServer({
-    registry: options.registry,
-    context: options.context,
-    jwtSecret: options.jwtSecret,
-    ...(options.observability !== undefined ? { observability: options.observability } : {}),
-    ...(options.observabilityOptions !== undefined
-      ? { observabilityOptions: options.observabilityOptions }
-      : {}),
-    ...(options.dispatcherOptions !== undefined
-      ? { dispatcherOptions: options.dispatcherOptions }
-      : {}),
-    ...(options.systemHooks !== undefined ? { systemHooks: options.systemHooks } : {}),
-    ...(options.eventDedup !== undefined ? { eventDedup: options.eventDedup } : {}),
-    ...(options.eventDispatcher !== undefined ? { eventDispatcher: options.eventDispatcher } : {}),
-    lifecycle,
-  });
-
-  if (!server.eventDispatcher) {
-    // A worker with no registered consumers (no SSE, no search, no MSPs)
-    // has nothing to dispatch. This is a misconfig — a "worker" that does
-    // nothing is likely the caller forgetting to wire searchAdapter or
-    // ship an MSP. Fail loud.
-    throw new Error(
-      "[entrypoint] worker mode requires at least one event consumer (SSE broker, search adapter, or r.multiStreamProjection)",
-    );
-  }
-  const eventDispatcher = server.eventDispatcher;
-
-  const jobRunner = createJobRunner({
-    registry: options.registry,
-    context: options.context,
-    redisUrl: options.redisUrl,
-    ...(options.queueName !== undefined ? { queueName: options.queueName } : {}),
-    ...(options.getActiveTenantIds !== undefined
-      ? { getActiveTenantIds: options.getActiveTenantIds }
-      : {}),
-    ...(options.onJobStart !== undefined ? { onJobStart: options.onJobStart } : {}),
-    ...(options.onJobComplete !== undefined ? { onJobComplete: options.onJobComplete } : {}),
-    ...(options.onJobFailed !== undefined ? { onJobFailed: options.onJobFailed } : {}),
-  });
-
-  // JobRunner isn't lifecycle-aware by default; register its stop-hook
-  // explicitly so `lifecycle.drain()` shuts both the dispatcher and the
-  // BullMQ worker cleanly. Hook order (LIFO): jobRunner → eventDispatcher
-  // → caller hooks. Jobs stop first so no job tries to enqueue an event
-  // to a dispatcher that's already torn down.
-  lifecycle.registerShutdownHook("jobRunner", async () => {
-    await jobRunner.stop();
-  });
+  const server = buildWorkerServer(options, lifecycle);
+  const eventDispatcher = requireDispatcher(server, "worker");
+  const jobRunner = buildJobRunnerWithHook(options, lifecycle);
 
   return {
     lifecycle,
@@ -254,57 +289,12 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
 
 export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): AllInOneEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
-
-  // Build the full server with dispatcher enabled — same path as a worker
-  // plus the HTTP surface the API side needs.
-  const server = buildServer({
-    registry: options.registry,
-    context: options.context,
-    jwtSecret: options.jwtSecret,
-    ...(options.jwtIssuer !== undefined ? { jwtIssuer: options.jwtIssuer } : {}),
-    ...(options.auth !== undefined ? { auth: options.auth } : {}),
-    ...(options.files !== undefined ? { files: options.files } : {}),
-    ...(options.sseBroker !== undefined ? { sseBroker: options.sseBroker } : {}),
-    ...(options.rateLimit !== undefined ? { rateLimit: options.rateLimit } : {}),
-    ...(options.maxRequestBytes !== undefined ? { maxRequestBytes: options.maxRequestBytes } : {}),
-    ...(options.readiness !== undefined ? { readiness: options.readiness } : {}),
-    ...(options.metrics !== undefined ? { metrics: options.metrics } : {}),
-    ...(options.observability !== undefined ? { observability: options.observability } : {}),
-    ...(options.observabilityOptions !== undefined
-      ? { observabilityOptions: options.observabilityOptions }
-      : {}),
-    ...(options.dispatcherOptions !== undefined
-      ? { dispatcherOptions: options.dispatcherOptions }
-      : {}),
-    ...(options.systemHooks !== undefined ? { systemHooks: options.systemHooks } : {}),
-    ...(options.eventDedup !== undefined ? { eventDedup: options.eventDedup } : {}),
-    ...(options.eventDispatcher !== undefined ? { eventDispatcher: options.eventDispatcher } : {}),
-    lifecycle,
-  });
-
-  if (!server.eventDispatcher) {
-    throw new Error(
-      "[entrypoint] all-in-one mode requires at least one event consumer (SSE broker, search adapter, or r.multiStreamProjection)",
-    );
-  }
-  const eventDispatcher = server.eventDispatcher;
-
-  const jobRunner = createJobRunner({
-    registry: options.registry,
-    context: options.context,
-    redisUrl: options.redisUrl,
-    ...(options.queueName !== undefined ? { queueName: options.queueName } : {}),
-    ...(options.getActiveTenantIds !== undefined
-      ? { getActiveTenantIds: options.getActiveTenantIds }
-      : {}),
-    ...(options.onJobStart !== undefined ? { onJobStart: options.onJobStart } : {}),
-    ...(options.onJobComplete !== undefined ? { onJobComplete: options.onJobComplete } : {}),
-    ...(options.onJobFailed !== undefined ? { onJobFailed: options.onJobFailed } : {}),
-  });
-
-  lifecycle.registerShutdownHook("jobRunner", async () => {
-    await jobRunner.stop();
-  });
+  // Same builder as the API path — but WITH the caller's eventDispatcher
+  // config instead of `{disabled:true}`, so buildServer wires the poller
+  // alongside the HTTP app.
+  const server = buildApiServer(options, lifecycle, options.eventDispatcher);
+  const eventDispatcher = requireDispatcher(server, "all-in-one");
+  const jobRunner = buildJobRunnerWithHook(options, lifecycle);
 
   return {
     app: server.app,
