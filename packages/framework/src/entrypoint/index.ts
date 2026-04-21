@@ -141,15 +141,20 @@ function definedOnly<T extends object>(obj: T): DefinedOnly<T> {
     const v = (obj as Record<string, unknown>)[k];
     if (v !== undefined) out[k] = v;
   }
+  // Boundary cast: we just filtered every `undefined` value, so the runtime
+  // shape matches DefinedOnly<T> (all remaining keys are `Exclude<T[K], undefined>`).
+  // TS can't track per-key narrowing across a dynamic loop, so the cast
+  // bridges a correctness guarantee the compiler can't prove.
   return out as DefinedOnly<T>;
 }
 
-// buildApiServer shapes ServerOptions from API-mode (and All-in-one-mode,
-// since it's a superset) caller-options. `dispatcherOverride` lets API-
-// mode slam `{disabled:true}` while All-in-one passes the caller's real
-// config through.
+// buildApiServer shapes ServerOptions from API-mode caller-options.
+// AllInOneEntrypointOptions extends ApiEntrypointOptions, so structural
+// subtyping makes the all-in-one path a valid caller without an explicit
+// union. `dispatcherOverride` lets API-mode slam `{disabled:true}` while
+// All-in-one passes the caller's real config through.
 function buildApiServer(
-  opts: ApiEntrypointOptions | AllInOneEntrypointOptions,
+  opts: ApiEntrypointOptions,
   lifecycle: Lifecycle,
   dispatcherOverride: ServerOptions["eventDispatcher"] | undefined,
 ): KumikoServer {
@@ -201,10 +206,7 @@ function buildWorkerServer(opts: WorkerEntrypointOptions, lifecycle: Lifecycle):
 // job tries to enqueue an event to an already-torn-down dispatcher.
 // buildServer registers the dispatcher hook earlier in the factory, so
 // this one lands later in registration order → runs first on drain.
-function buildJobRunnerWithHook(
-  opts: WorkerEntrypointOptions | AllInOneEntrypointOptions,
-  lifecycle: Lifecycle,
-): JobRunner {
+function buildJobRunnerWithHook(opts: WorkerEntrypointOptions, lifecycle: Lifecycle): JobRunner {
   const jobRunner = createJobRunner({
     registry: opts.registry,
     context: opts.context,

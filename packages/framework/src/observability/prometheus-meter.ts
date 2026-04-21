@@ -78,24 +78,38 @@ type HistogramState = {
 // down to "add `delta` to the existing slot or create a new slot with
 // `delta`". The only variance is the sign — extracted once so counter
 // and gauge don't each reimplement the same get-or-create-and-add.
-function addToSlot(
-  slots: Map<string, { labels: MetricLabels | undefined; value: number }>,
+// Generic over the slot type: CounterState and GaugeState both have
+// { labels, value } today, but a future slot with extra fields (e.g.
+// last-set-timestamp) must supply a factory for slot-creation so we
+// never silently construct a partial slot via a cast.
+function addToSlot<TSlot extends { labels: MetricLabels | undefined; value: number }>(
+  slots: Map<string, TSlot>,
   labels: MetricLabels | undefined,
   delta: number,
+  createSlot: (labels: MetricLabels | undefined, value: number) => TSlot,
 ): void {
   const key = labelsKey(labels);
   const existing = slots.get(key);
   if (existing) {
     existing.value += delta;
   } else {
-    slots.set(key, { labels, value: delta });
+    slots.set(key, createSlot(labels, delta));
   }
 }
+
+const createCounterSlot = (labels: MetricLabels | undefined, value: number): CounterState => ({
+  labels,
+  value,
+});
+const createGaugeSlot = (labels: MetricLabels | undefined, value: number): GaugeState => ({
+  labels,
+  value,
+});
 
 class PrometheusCounter implements Counter {
   constructor(private readonly slots: Map<string, CounterState>) {}
   inc(value?: number, labels?: MetricLabels): void {
-    addToSlot(this.slots, labels, value ?? 1);
+    addToSlot(this.slots, labels, value ?? 1, createCounterSlot);
   }
 }
 
@@ -107,10 +121,10 @@ class PrometheusGauge implements Gauge {
     this.slots.set(labelsKey(labels), { labels, value });
   }
   inc(value?: number, labels?: MetricLabels): void {
-    addToSlot(this.slots, labels, value ?? 1);
+    addToSlot(this.slots, labels, value ?? 1, createGaugeSlot);
   }
   dec(value?: number, labels?: MetricLabels): void {
-    addToSlot(this.slots, labels, -(value ?? 1));
+    addToSlot(this.slots, labels, -(value ?? 1), createGaugeSlot);
   }
 }
 

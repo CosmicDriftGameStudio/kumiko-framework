@@ -379,7 +379,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   });
 
   if (options.metrics) {
-    registerMetricsRoute(app, observability, options.metrics);
+    registerMetricsRoute(app, observability.meter, options.metrics);
   }
 
   app.use("/api/*", requestIdMiddleware());

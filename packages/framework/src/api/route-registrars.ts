@@ -8,7 +8,7 @@ import type { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { DbConnection } from "../db/connection";
 import type { Lifecycle } from "../lifecycle";
-import type { ObservabilityProvider, PrometheusMeter } from "../observability";
+import type { Meter, PrometheusMeter } from "../observability";
 import { serializeOpenMetrics } from "../observability";
 import type { EventConsumer } from "../pipeline/event-dispatcher";
 import { Routes } from "./api-constants";
@@ -37,8 +37,9 @@ export const DEFAULT_MAX_REQUEST_BYTES = 1_048_576;
 // disables the limit entirely — only useful when a reverse-proxy caps
 // upstream or tests want raw passthrough.
 export function registerBodyLimit(app: Hono, maxBytes: number): void {
-  // skip: caller explicitly opted out via `maxBytes: 0` — no middleware
-  // attached, upstream cap (reverse-proxy) expected.
+  // skip: opt-out path — caller passed `maxBytes: 0`, so no middleware
+  // is attached (upstream cap via reverse-proxy is expected). Not a bug
+  // suppression, an intentional disable.
   if (maxBytes <= 0) return;
   const limit = bodyLimit({ maxSize: maxBytes });
   for (const path of BODY_LIMIT_PATHS) app.use(path, limit);
@@ -63,15 +64,13 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-// Mount `/metrics` (or the caller-supplied path). Duck-types the meter on
-// `snapshot()` so an alternative Prometheus-compatible provider (future
-// OTLP bridge) works without an explicit union. Bearer-token optional —
-// without one, scraping is open, fine for a private cluster.
-export function registerMetricsRoute(
-  app: Hono,
-  observability: ObservabilityProvider,
-  options: MetricsRouteOptions,
-): void {
+// Mount `/metrics` (or the caller-supplied path). Takes just the Meter —
+// not the whole ObservabilityProvider — because that's the only field
+// this route reads. Duck-types on `snapshot()` so an alternative
+// Prometheus-compatible meter (future OTLP bridge) works without an
+// explicit union. Bearer-token optional — without one, scraping is open,
+// fine for a private cluster.
+export function registerMetricsRoute(app: Hono, meter: Meter, options: MetricsRouteOptions): void {
   const metricsPath = options.path ?? "/metrics";
   const expectedToken = options.token;
   app.get(metricsPath, async (c) => {
@@ -82,14 +81,14 @@ export function registerMetricsRoute(
       const provided = header.slice(prefix.length);
       if (!constantTimeEqual(provided, expectedToken)) return c.text("unauthorized", 401);
     }
-    const meter = observability.meter as { snapshot?: unknown };
-    if (typeof meter.snapshot !== "function") {
+    const probed = meter as { snapshot?: unknown };
+    if (typeof probed.snapshot !== "function") {
       return c.text(
         "metrics endpoint requires a PrometheusMeter — wrap the observability provider around createPrometheusMeter()",
         503,
       );
     }
-    const body = serializeOpenMetrics(observability.meter as PrometheusMeter);
+    const body = serializeOpenMetrics(meter as PrometheusMeter);
     c.header("Content-Type", "application/openmetrics-text; version=1.0.0; charset=utf-8");
     return c.body(body);
   });
