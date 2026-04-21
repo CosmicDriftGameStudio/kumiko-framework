@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
-import { type AppContext, isFileField, type Registry, SYSTEM_TENANT_ID } from "../engine/types";
+import {
+  type AppContext,
+  isFileField,
+  type Registry,
+  type RunIn,
+  SYSTEM_TENANT_ID,
+} from "../engine/types";
 import { createFileContext } from "../files/file-handle";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
@@ -155,6 +161,13 @@ export type ServerOptions = {
     readonly timeoutMs?: number;
     readonly maxDispatcherLag?: bigint;
   };
+  // Which deploy-lane this process runs — drives MSP-consumer filtering.
+  //   "api":    picks up MSPs with runIn in {api, both}.
+  //   "worker": picks up MSPs with runIn in {worker, both, undefined (default)}.
+  //   "both":   all-in-one, no filtering — every MSP runs here.
+  // When omitted, defaults to "worker" — preserves pre-Welle-2.6 behaviour
+  // (every MSP runs on the single dispatcher, wherever it lives).
+  processLane?: RunIn;
 };
 
 export type KumikoServer = {
@@ -170,6 +183,24 @@ export type KumikoServer = {
   // lifecycle. Only set when the caller passed one in.
   lifecycle?: Lifecycle;
 };
+
+// Does a consumer with `runIn` want to run on a process of the given lane?
+// Used to filter MSP consumers per entrypoint-mode. Kept local to server.ts
+// — Welle 2.6.c will promote this to engine/types alongside the boot
+// validator once the rules stabilise.
+//
+//   undefined      — legacy/default MSP, resolves to "worker"
+//   "both"         — eligible on any lane
+//   "api"/"worker" — exact lane match
+//
+// processLane: the current process's role. "both" (all-in-one) accepts
+// everything; "api"/"worker" filter strictly.
+function runsInLane(runIn: RunIn | undefined, processLane: RunIn): boolean {
+  if (processLane === "both") return true;
+  const resolved = runIn ?? "worker";
+  if (resolved === "both") return true;
+  return resolved === processLane;
+}
 
 export function buildServer(options: ServerOptions): KumikoServer {
   // Hard-fail when the registry declares file/image fields but no storage
@@ -291,7 +322,17 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // still within one tenant by default — the applier receives the
   // tenant-scoped DbRunner; SYSTEM_TENANT_ID events pass through the raw
   // baseDb so system-level sinks can read across tenants.
-  const mspDefs = [...options.registry.getAllMultiStreamProjections().values()];
+  //
+  // Lane-filter (Welle 2.6.b): MSPs declare `runIn` to pin them to a
+  // deploy-lane. An MSP with `runIn: "api"` won't be wired into the
+  // worker-process dispatcher (and vice versa). `runIn: "both"` (or the
+  // legacy undefined default of "worker") runs wherever a dispatcher is
+  // started — SKIP LOCKED on the consumer-cursor handles the race between
+  // processes that both want the same event.
+  const processLane: RunIn = options.processLane ?? "worker";
+  const mspDefs = [...options.registry.getAllMultiStreamProjections().values()].filter((msp) =>
+    runsInLane(msp.runIn, processLane),
+  );
   const mspConsumers: EventConsumer[] = mspDefs.map((msp) => ({
     name: msp.name,
     // Copy the continuous-lifecycle error policy straight onto the consumer.

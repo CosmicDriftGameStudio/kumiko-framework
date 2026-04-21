@@ -37,7 +37,7 @@ import type { KumikoServer, ServerOptions } from "../api/server";
 import { buildServer } from "../api/server";
 import type { SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
-import type { AppContext, Registry } from "../engine/types";
+import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types";
 import type { FileRoutesOptions } from "../files/file-routes";
 import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner";
 import { createJobRunner } from "../jobs/job-runner";
@@ -66,6 +66,17 @@ export type BaseEntrypointOptions = {
   readonly lifecycle?: Lifecycle;
 };
 
+// Shape the JobRunner block takes in every entrypoint mode. Extracted so
+// adding a new JobRunnerOption doesn't need three parallel changes.
+type JobsBlock = {
+  readonly redisUrl: string;
+  readonly queueNamePrefix?: string;
+  readonly getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
+  readonly onJobStart?: JobRunnerOptions["onJobStart"];
+  readonly onJobComplete?: JobRunnerOptions["onJobComplete"];
+  readonly onJobFailed?: JobRunnerOptions["onJobFailed"];
+};
+
 export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly auth?: AuthRoutesConfig;
   readonly sseBroker?: SseBroker;
@@ -74,23 +85,25 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly maxRequestBytes?: ServerOptions["maxRequestBytes"];
   readonly readiness?: ServerOptions["readiness"];
   readonly metrics?: ServerOptions["metrics"];
+  // Job-enqueue surface for the API process. Required whenever the registry
+  // defines event-triggered jobs: command-dispatcher fires handleEvent as
+  // an afterCommit-hook — without a jobRunner the enqueue silently drops.
+  //
+  // `runLocalJobs: true` additionally starts a BullMQ worker for the "api"
+  // lane inside this API process. Only useful for short, CPU-light jobs —
+  // a long-running handler on the API lane will starve request handlers.
+  readonly jobs?: JobsBlock & {
+    readonly runLocalJobs?: boolean;
+  };
 };
 
-export type WorkerEntrypointOptions = BaseEntrypointOptions & {
-  // Redis URL for the BullMQ JobRunner. Separate from context.redis (which
-  // is the shared ioredis client for idempotency / cache / event-dedup)
-  // because BullMQ prefers to own its connection.
-  readonly redisUrl: string;
-  readonly queueName?: string;
-  readonly getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
-  readonly onJobStart?: JobRunnerOptions["onJobStart"];
-  readonly onJobComplete?: JobRunnerOptions["onJobComplete"];
-  readonly onJobFailed?: JobRunnerOptions["onJobFailed"];
-  // Tuning knobs for the event-dispatcher loop. Workers typically set a
-  // pgClient so LISTEN/NOTIFY drops the poll latency from seconds to TCP
-  // round-trip.
-  readonly eventDispatcher?: ServerOptions["eventDispatcher"];
-};
+export type WorkerEntrypointOptions = BaseEntrypointOptions &
+  JobsBlock & {
+    // Tuning knobs for the event-dispatcher loop. Workers typically set a
+    // pgClient so LISTEN/NOTIFY drops the poll latency from seconds to TCP
+    // round-trip.
+    readonly eventDispatcher?: ServerOptions["eventDispatcher"];
+  };
 
 export type AllInOneEntrypointOptions = ApiEntrypointOptions & WorkerEntrypointOptions;
 
@@ -148,21 +161,44 @@ function definedOnly<T extends object>(obj: T): DefinedOnly<T> {
   return out as DefinedOnly<T>;
 }
 
+// Merge an internally-built jobRunner into the caller's dispatcherOptions
+// so the command-dispatcher fires handleEvent as an afterCommit-hook for
+// event-triggered jobs (dispatcher.ts:997). Without this plumbing,
+// `r.job({ trigger: { on: … } })` silently drops on every write — that
+// was the hidden Welle-2.5 gap.
+//
+// Caller-supplied `dispatcherOptions.jobRunner` wins (tests sometimes
+// inject a mock runner directly).
+function mergeDispatcherOptions(
+  caller: Omit<DispatcherOptions, "lifecycle"> | undefined,
+  jobRunner: JobRunner | undefined,
+): Omit<DispatcherOptions, "lifecycle"> | undefined {
+  if (!jobRunner) return caller;
+  if (caller?.jobRunner) return caller;
+  return { ...(caller ?? {}), jobRunner };
+}
+
 // buildApiServer shapes ServerOptions from API-mode caller-options.
 // AllInOneEntrypointOptions extends ApiEntrypointOptions, so structural
 // subtyping makes the all-in-one path a valid caller without an explicit
 // union. `dispatcherOverride` lets API-mode slam `{disabled:true}` while
-// All-in-one passes the caller's real config through.
+// All-in-one passes the caller's real config through. `jobRunner`, when
+// present, is merged into dispatcherOptions so the command-dispatcher can
+// fire event-triggered jobs.
 function buildApiServer(
   opts: ApiEntrypointOptions,
   lifecycle: Lifecycle,
   dispatcherOverride: ServerOptions["eventDispatcher"] | undefined,
+  jobRunner: JobRunner | undefined,
+  processLane: RunIn,
 ): KumikoServer {
+  const dispatcherOptions = mergeDispatcherOptions(opts.dispatcherOptions, jobRunner);
   return buildServer({
     registry: opts.registry,
     context: opts.context,
     jwtSecret: opts.jwtSecret,
     lifecycle,
+    processLane,
     ...definedOnly({
       jwtIssuer: opts.jwtIssuer,
       auth: opts.auth,
@@ -174,7 +210,7 @@ function buildApiServer(
       metrics: opts.metrics,
       observability: opts.observability,
       observabilityOptions: opts.observabilityOptions,
-      dispatcherOptions: opts.dispatcherOptions,
+      dispatcherOptions,
       systemHooks: opts.systemHooks,
       eventDedup: opts.eventDedup,
       eventDispatcher: dispatcherOverride,
@@ -184,16 +220,24 @@ function buildApiServer(
 
 // Worker path is narrower — no HTTP-specific options. `eventDispatcher`
 // comes straight from the caller (LISTEN/NOTIFY wiring, pollIntervalMs).
-function buildWorkerServer(opts: WorkerEntrypointOptions, lifecycle: Lifecycle): KumikoServer {
+// `processLane` is "worker" — any MSP with runIn="api" gets filtered out
+// of this process's dispatcher.
+function buildWorkerServer(
+  opts: WorkerEntrypointOptions,
+  lifecycle: Lifecycle,
+  jobRunner: JobRunner,
+): KumikoServer {
+  const dispatcherOptions = mergeDispatcherOptions(opts.dispatcherOptions, jobRunner);
   return buildServer({
     registry: opts.registry,
     context: opts.context,
     jwtSecret: opts.jwtSecret,
     lifecycle,
+    processLane: "worker",
     ...definedOnly({
       observability: opts.observability,
       observabilityOptions: opts.observabilityOptions,
-      dispatcherOptions: opts.dispatcherOptions,
+      dispatcherOptions,
       systemHooks: opts.systemHooks,
       eventDedup: opts.eventDedup,
       eventDispatcher: opts.eventDispatcher,
@@ -201,25 +245,39 @@ function buildWorkerServer(opts: WorkerEntrypointOptions, lifecycle: Lifecycle):
   });
 }
 
-// Build the JobRunner AND register its stop-hook on the lifecycle. Hook
-// order (LIFO): jobRunner runs BEFORE eventDispatcher so no in-flight
+// Build a lane-scoped JobRunner AND register its stop-hook on the lifecycle.
+// Hook order (LIFO): jobRunner runs BEFORE eventDispatcher so no in-flight
 // job tries to enqueue an event to an already-torn-down dispatcher.
 // buildServer registers the dispatcher hook earlier in the factory, so
 // this one lands later in registration order → runs first on drain.
-function buildJobRunnerWithHook(opts: WorkerEntrypointOptions, lifecycle: Lifecycle): JobRunner {
+//
+// `consumerLane` = "api" | "worker" starts a BullMQ worker for that lane's
+// queue plus cron/boot scheduling for lane-matching jobs. `undefined`
+// builds an enqueuer-only runner: holds queue-clients for both lanes so
+// dispatch()/handleEvent() route per jobDef.runIn, but starts no local
+// consumer. Used by the API process when `runLocalJobs` is false.
+function buildJobRunnerWithHook(
+  registry: Registry,
+  context: AppContext,
+  jobs: JobsBlock,
+  consumerLane: JobRunIn | undefined,
+  lifecycle: Lifecycle,
+  hookName: string,
+): JobRunner {
   const jobRunner = createJobRunner({
-    registry: opts.registry,
-    context: opts.context,
-    redisUrl: opts.redisUrl,
+    registry,
+    context,
+    redisUrl: jobs.redisUrl,
+    ...(consumerLane !== undefined ? { consumerLane } : {}),
     ...definedOnly({
-      queueName: opts.queueName,
-      getActiveTenantIds: opts.getActiveTenantIds,
-      onJobStart: opts.onJobStart,
-      onJobComplete: opts.onJobComplete,
-      onJobFailed: opts.onJobFailed,
+      queueNamePrefix: jobs.queueNamePrefix,
+      getActiveTenantIds: jobs.getActiveTenantIds,
+      onJobStart: jobs.onJobStart,
+      onJobComplete: jobs.onJobComplete,
+      onJobFailed: jobs.onJobFailed,
     }),
   });
-  lifecycle.registerShutdownHook("jobRunner", async () => {
+  lifecycle.registerShutdownHook(hookName, async () => {
     await jobRunner.stop();
   });
   return jobRunner;
@@ -242,9 +300,25 @@ function requireDispatcher(server: KumikoServer, mode: string): EventDispatcher 
 
 export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
+
+  // When the app declares any jobs, the API process needs a job-enqueuer
+  // so event-triggered jobs fired as afterCommit-hooks of a write reach
+  // the queue at all. `runLocalJobs: true` upgrades the enqueuer to a full
+  // runner that also consumes the "api" lane's queue in-process.
+  const apiJobRunner = options.jobs
+    ? buildJobRunnerWithHook(
+        options.registry,
+        options.context,
+        options.jobs,
+        options.jobs.runLocalJobs ? "api" : undefined,
+        lifecycle,
+        "jobRunner",
+      )
+    : undefined;
+
   // `{disabled:true}` skips dispatcher creation entirely — an API process
   // doesn't hold an idle poller.
-  const server = buildApiServer(options, lifecycle, { disabled: true });
+  const server = buildApiServer(options, lifecycle, { disabled: true }, apiJobRunner, "api");
 
   return {
     app: server.app,
@@ -254,8 +328,10 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
     observability: server.observability,
     mode: "api",
     async start() {
-      // API process: nothing async to kick off. The caller still calls
-      // start() for uniform wiring.
+      // Start the local BullMQ worker when runLocalJobs=true; enqueuer-only
+      // runners have a no-op .start() by design (JobRunner skips worker
+      // creation when consumerLane is undefined).
+      if (apiJobRunner) await apiJobRunner.start();
     },
     async stop() {
       await lifecycle.drain();
@@ -267,9 +343,16 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
 
 export function createWorkerEntrypoint(options: WorkerEntrypointOptions): WorkerEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
-  const server = buildWorkerServer(options, lifecycle);
+  const jobRunner = buildJobRunnerWithHook(
+    options.registry,
+    options.context,
+    options,
+    "worker",
+    lifecycle,
+    "jobRunner",
+  );
+  const server = buildWorkerServer(options, lifecycle, jobRunner);
   const eventDispatcher = requireDispatcher(server, "worker");
-  const jobRunner = buildJobRunnerWithHook(options, lifecycle);
 
   return {
     lifecycle,
@@ -291,12 +374,44 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
 
 export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): AllInOneEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
+
+  // All-in-one consumes BOTH lanes: two runners, each with a BullMQ worker
+  // for its own lane's queue. Both runners hold queue-clients for both
+  // lanes, so dispatch()/handleEvent() always route per jobDef.runIn —
+  // picking either runner as the dispatcher's enqueuer surface would work.
+  // The worker runner wins the dispatcherOptions slot by convention (that's
+  // where the majority of jobs live). Each runner handles cron/boot for
+  // its own lane in its own .start().
+  const workerJobRunner = buildJobRunnerWithHook(
+    options.registry,
+    options.context,
+    options,
+    "worker",
+    lifecycle,
+    "jobRunner",
+  );
+  const apiJobRunner = buildJobRunnerWithHook(
+    options.registry,
+    options.context,
+    options,
+    "api",
+    lifecycle,
+    "jobRunnerApi",
+  );
+
   // Same builder as the API path — but WITH the caller's eventDispatcher
   // config instead of `{disabled:true}`, so buildServer wires the poller
-  // alongside the HTTP app.
-  const server = buildApiServer(options, lifecycle, options.eventDispatcher);
+  // alongside the HTTP app. processLane "both" disables MSP lane-filter
+  // entirely: all-in-one is a single process that fills every role, so
+  // every MSP (api-only, worker-only, both) must run here.
+  const server = buildApiServer(
+    options,
+    lifecycle,
+    options.eventDispatcher,
+    workerJobRunner,
+    "both",
+  );
   const eventDispatcher = requireDispatcher(server, "all-in-one");
-  const jobRunner = buildJobRunnerWithHook(options, lifecycle);
 
   return {
     app: server.app,
@@ -304,12 +419,13 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
     sseBroker: server.sseBroker,
     lifecycle,
     eventDispatcher,
-    jobRunner,
+    jobRunner: workerJobRunner,
     observability: server.observability,
     mode: "all-in-one",
     async start() {
       await eventDispatcher.start();
-      await jobRunner.start();
+      await workerJobRunner.start();
+      await apiJobRunner.start();
     },
     async stop() {
       await lifecycle.drain();

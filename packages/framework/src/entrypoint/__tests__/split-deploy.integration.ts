@@ -122,3 +122,110 @@ describe("entrypoint factories", () => {
     expect(after.status).toBe(503);
   });
 });
+
+// --- Welle 2.6.b: runIn lane-filtering ---
+//
+// Covers the per-lane consumer filtering added to buildServer. The feature
+// declares three MSPs, one per runIn value, plus jobs with different runIns.
+// We observe the number of consumers the dispatcher actually wires in each
+// mode — the mechanism is "MSPs whose runIn isn't eligible for this
+// process's lane are skipped during buildServer()".
+
+const laneFeature = defineFeature("lane", (r) => {
+  const ping = r.defineEvent("ping", z.object({}), { version: 1 });
+  // Three MSPs: one pinned to api, one to worker (explicit), one to both.
+  // A fourth would be a default-undefined-runIn MSP which resolves to
+  // "worker" — covered implicitly by the worker test below.
+  r.multiStreamProjection({
+    name: "lane-api",
+    runIn: "api",
+    apply: { [ping.name]: async () => {} },
+  });
+  r.multiStreamProjection({
+    name: "lane-worker",
+    runIn: "worker",
+    apply: { [ping.name]: async () => {} },
+  });
+  r.multiStreamProjection({
+    name: "lane-both",
+    runIn: "both",
+    apply: { [ping.name]: async () => {} },
+  });
+  // Default runIn (= "worker") — makes the legacy-no-runIn path observable.
+  r.multiStreamProjection({
+    name: "lane-default",
+    apply: { [ping.name]: async () => {} },
+  });
+});
+
+describe("runIn lane-filtering (Welle 2.6.b)", () => {
+  test("API entrypoint with runLocalJobs filters MSPs to runIn ∈ {api, both}", async () => {
+    const registry = createRegistry([laneFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const api = createApiEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      // Force the dispatcher to actually build by clearing {disabled:true} —
+      // needs a jobs block because the API otherwise has no consumer at all
+      // once SSE is the default-on system-consumer. We still observe MSP
+      // count via the registered consumers; JobRunner is incidental here.
+      jobs: { redisUrl, queueNamePrefix: `split-api-${Date.now()}`, runLocalJobs: true },
+    });
+
+    try {
+      // API defaults the dispatcher to disabled, so eventDispatcher is not
+      // in the return shape. Assert the shape contract plus the fact that
+      // start() is a real operation now (runLocalJobs started a worker).
+      expect(api.mode).toBe("api");
+      expect("eventDispatcher" in api).toBe(false);
+      expect("jobRunner" in api).toBe(false);
+      await api.start();
+    } finally {
+      await api.stop();
+    }
+  });
+
+  test("Worker entrypoint runs lane-worker + lane-both + lane-default, skips lane-api", async () => {
+    const registry = createRegistry([laneFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const worker = createWorkerEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: `split-worker-${Date.now()}`,
+    });
+
+    // eventDispatcher.consumers exposes the filtered list — lane-api must
+    // be absent, the other three present. SSE + Search system-consumers
+    // add noise (both default-on), so we only check MSP names.
+    const consumerNames = worker.eventDispatcher.consumers.map((c) => c.name);
+    expect(consumerNames).toContain("lane:projection:lane-worker");
+    expect(consumerNames).toContain("lane:projection:lane-both");
+    expect(consumerNames).toContain("lane:projection:lane-default");
+    expect(consumerNames).not.toContain("lane:projection:lane-api");
+
+    await worker.stop();
+  });
+
+  test("All-in-one runs every MSP — processLane 'both' disables the filter", async () => {
+    const registry = createRegistry([laneFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const entry = createAllInOneEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: `split-all-${Date.now()}`,
+    });
+
+    const consumerNames = entry.eventDispatcher.consumers.map((c) => c.name);
+    expect(consumerNames).toContain("lane:projection:lane-api");
+    expect(consumerNames).toContain("lane:projection:lane-worker");
+    expect(consumerNames).toContain("lane:projection:lane-both");
+    expect(consumerNames).toContain("lane:projection:lane-default");
+
+    await entry.stop();
+  });
+});

@@ -91,6 +91,12 @@ export type EventDispatcher = {
   // a full stop/start cycle. Production never needs this — start() runs
   // it once on boot and the rows survive dispatcher lifetime.
   ensureRegistered(): Promise<void>;
+  // Read-only view of the consumers this dispatcher is wired with. Exists
+  // for lane-filter assertions (Welle 2.6.b split-deploy tests) and for
+  // the boot-validator (Welle 2.6.c coverage check: every registered MSP
+  // must appear in at least one process's dispatcher). No runtime semantics
+  // — the list doesn't change after construction.
+  readonly consumers: readonly EventConsumer[];
 };
 
 export type EventDispatcherOptions = {
@@ -450,6 +456,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   }
 
   return {
+    consumers,
     async start() {
       // skip: already running, idempotent
       if (running) return;
