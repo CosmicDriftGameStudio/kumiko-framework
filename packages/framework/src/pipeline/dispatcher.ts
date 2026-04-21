@@ -250,9 +250,7 @@ export function createDispatcher(
         tenantId: user.tenantId,
         userId: String(user.id),
         callSiteLabel: "ctx.appendEvent",
-        // Handler's owning feature — used to reject cross-feature appends.
-        // Conditional spread keeps exactOptionalPropertyTypes happy.
-        ...(callerFeature && { callerFeature }),
+        callerFeature,
       },
       args,
     );
@@ -436,7 +434,7 @@ export function createDispatcher(
           aggregateId,
           aggregateType: archiveArgs.aggregateType,
           archivedBy: user.id,
-          ...(archiveArgs.reason !== undefined ? { reason: archiveArgs.reason } : {}),
+          reason: archiveArgs.reason,
         });
       },
       restoreStream: async (aggregateId: string): Promise<void> => {
@@ -694,7 +692,7 @@ export function createDispatcher(
     await context.rateLimit.enforce(bucket.key, {
       limit: rateLimit.limit,
       windowSeconds: rateLimit.windowSeconds,
-      ...(rateLimit.cost !== undefined ? { cost: rateLimit.cost } : {}),
+      cost: rateLimit.cost,
     });
   }
 

@@ -69,7 +69,7 @@ yarn kumiko stop       # Services stoppen
 
 - Yarn 1 Workspaces mit `@kumiko/framework`, 2 Feature-Packages, App-Shell
 - Biome Linting/Formatting (React-Regeln fuer UI, relaxed fuer Server)
-- Strict TypeScript (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`)
+- Strict TypeScript (`noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`)
 - Docker Compose (PostgreSQL 17 + Redis 7) auf hohen Ports (keine Konflikte)
 - Vitest konfiguriert
 - `yarn kumiko` CLI fuer alle Operationen

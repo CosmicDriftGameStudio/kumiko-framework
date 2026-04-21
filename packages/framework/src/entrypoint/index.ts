@@ -143,24 +143,6 @@ export type AllInOneEntrypoint = Omit<ApiEntrypoint, "mode"> &
 // blocks. Extract once so adding a new ServerOptions field doesn't need
 // three parallel edits — one helper, one place to maintain.
 
-// Spread only the keys the caller actually set. `exactOptionalPropertyTypes:
-// true` refuses `{ key: undefined }` even when we intend "not set", so the
-// return type strips `| undefined` off every value.
-type DefinedOnly<T> = Partial<{ [K in keyof T]: Exclude<T[K], undefined> }>;
-
-function definedOnly<T extends object>(obj: T): DefinedOnly<T> {
-  const out: Record<string, unknown> = {};
-  for (const k of Object.keys(obj)) {
-    const v = (obj as Record<string, unknown>)[k];
-    if (v !== undefined) out[k] = v;
-  }
-  // Boundary cast: we just filtered every `undefined` value, so the runtime
-  // shape matches DefinedOnly<T> (all remaining keys are `Exclude<T[K], undefined>`).
-  // TS can't track per-key narrowing across a dynamic loop, so the cast
-  // bridges a correctness guarantee the compiler can't prove.
-  return out as DefinedOnly<T>;
-}
-
 // Merge an internally-built jobRunner into the caller's dispatcherOptions
 // so the command-dispatcher fires handleEvent as an afterCommit-hook for
 // event-triggered jobs (dispatcher.ts:997). Without this plumbing,
@@ -199,22 +181,20 @@ function buildApiServer(
     jwtSecret: opts.jwtSecret,
     lifecycle,
     processLane,
-    ...definedOnly({
-      jwtIssuer: opts.jwtIssuer,
-      auth: opts.auth,
-      files: opts.files,
-      sseBroker: opts.sseBroker,
-      rateLimit: opts.rateLimit,
-      maxRequestBytes: opts.maxRequestBytes,
-      readiness: opts.readiness,
-      metrics: opts.metrics,
-      observability: opts.observability,
-      observabilityOptions: opts.observabilityOptions,
-      dispatcherOptions,
-      systemHooks: opts.systemHooks,
-      eventDedup: opts.eventDedup,
-      eventDispatcher: dispatcherOverride,
-    }),
+    jwtIssuer: opts.jwtIssuer,
+    auth: opts.auth,
+    files: opts.files,
+    sseBroker: opts.sseBroker,
+    rateLimit: opts.rateLimit,
+    maxRequestBytes: opts.maxRequestBytes,
+    readiness: opts.readiness,
+    metrics: opts.metrics,
+    observability: opts.observability,
+    observabilityOptions: opts.observabilityOptions,
+    dispatcherOptions,
+    systemHooks: opts.systemHooks,
+    eventDedup: opts.eventDedup,
+    eventDispatcher: dispatcherOverride,
   });
 }
 
@@ -234,14 +214,12 @@ function buildWorkerServer(
     jwtSecret: opts.jwtSecret,
     lifecycle,
     processLane: "worker",
-    ...definedOnly({
-      observability: opts.observability,
-      observabilityOptions: opts.observabilityOptions,
-      dispatcherOptions,
-      systemHooks: opts.systemHooks,
-      eventDedup: opts.eventDedup,
-      eventDispatcher: opts.eventDispatcher,
-    }),
+    observability: opts.observability,
+    observabilityOptions: opts.observabilityOptions,
+    dispatcherOptions,
+    systemHooks: opts.systemHooks,
+    eventDedup: opts.eventDedup,
+    eventDispatcher: opts.eventDispatcher,
   });
 }
 
@@ -268,14 +246,12 @@ function buildJobRunnerWithHook(
     registry,
     context,
     redisUrl: jobs.redisUrl,
-    ...(consumerLane !== undefined ? { consumerLane } : {}),
-    ...definedOnly({
-      queueNamePrefix: jobs.queueNamePrefix,
-      getActiveTenantIds: jobs.getActiveTenantIds,
-      onJobStart: jobs.onJobStart,
-      onJobComplete: jobs.onJobComplete,
-      onJobFailed: jobs.onJobFailed,
-    }),
+    consumerLane,
+    queueNamePrefix: jobs.queueNamePrefix,
+    getActiveTenantIds: jobs.getActiveTenantIds,
+    onJobStart: jobs.onJobStart,
+    onJobComplete: jobs.onJobComplete,
+    onJobFailed: jobs.onJobFailed,
   });
   lifecycle.registerShutdownHook(hookName, async () => {
     await jobRunner.stop();

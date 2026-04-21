@@ -190,13 +190,13 @@ export function locatedTimestamp(
     [atName]: {
       type: "timestamp",
       locatedBy: tzName,
-      ...(overrides?.required !== undefined ? { required: overrides.required } : {}),
-      ...(overrides?.access !== undefined ? { access: overrides.access } : {}),
+      required: overrides?.required,
+      access: overrides?.access,
     },
     [tzName]: {
       type: "tz",
-      ...(overrides?.required !== undefined ? { required: overrides.required } : {}),
-      ...(overrides?.access !== undefined ? { access: overrides.access } : {}),
+      required: overrides?.required,
+      access: overrides?.access,
     },
   };
 }

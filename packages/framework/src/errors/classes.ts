@@ -65,14 +65,13 @@ export class NotFoundError extends KumikoError {
     // client-friendly tag that survives wire serialization even if the entity
     // name is later renamed for display purposes.
     const reason = `${toSnake(entity)}_not_found`;
-    const details: NotFoundDetails & { reason: string } =
-      idStr !== undefined ? { reason, entity, id: idStr } : { reason, entity };
+    const details: NotFoundDetails & { reason: string } = { reason, entity, id: idStr };
     super({
       message: idStr !== undefined ? `${entity} ${idStr} not found` : `${entity} not found`,
       i18nKey: opts?.i18nKey ?? "errors.notFound",
-      i18nParams: { entity, ...(idStr !== undefined && { id: idStr }), ...opts?.i18nParams },
+      i18nParams: { entity, id: idStr, ...opts?.i18nParams },
       details,
-      ...(opts?.cause && { cause: opts.cause }),
+      cause: opts?.cause,
     });
   }
 }

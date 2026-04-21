@@ -14,11 +14,19 @@ import {
   createTextField,
 } from "../factories";
 import { buildInsertSchema, buildUpdateSchema } from "../schema-builder";
+import type { FieldDefinition } from "../types/fields";
+
+type SchemaCase = {
+  readonly name: string;
+  readonly fields: Record<string, FieldDefinition>;
+  readonly valid: Record<string, unknown> | null;
+  readonly invalid: Record<string, unknown> | null;
+};
 
 // --- Field type → Zod mapping ---
 
 describe("buildInsertSchema", () => {
-  test.each([
+  test.each<SchemaCase>([
     {
       name: "required text field",
       fields: { email: createTextField({ required: true }) },

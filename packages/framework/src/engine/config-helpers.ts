@@ -75,11 +75,11 @@ function createConfigKey<T extends ConfigKeyType>(
       write: opts.write ?? defaults.write,
       read: opts.read ?? defaults.read,
     },
-    ...(opts.default !== undefined ? { default: opts.default } : {}),
+    default: opts.default,
     ...(opts.encrypted ? { encrypted: true } : {}),
     ...(opts.options ? { options: opts.options } : {}),
-    ...(opts.bounds !== undefined ? { bounds: opts.bounds as ConfigBounds } : {}),
-    ...(opts.computed !== undefined ? { computed: opts.computed } : {}),
+    bounds: opts.bounds as ConfigBounds | undefined,
+    computed: opts.computed,
     ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
   };
 }

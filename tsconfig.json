@@ -3,7 +3,6 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noPropertyAccessFromIndexSignature": true,
-    "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,

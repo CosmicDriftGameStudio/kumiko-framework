@@ -3,7 +3,6 @@ import { validateLabelKey } from "./metric-validator";
 import type { Counter, Gauge, Histogram, Meter, MetricDefinition, MetricLabels } from "./types";
 
 // Event type emitted when any metric changes — feeds into provider emitters.
-// labels is explicit union (not optional) to work with exactOptionalPropertyTypes.
 export type MetricEvent =
   | {
       readonly type: "counter.inc";

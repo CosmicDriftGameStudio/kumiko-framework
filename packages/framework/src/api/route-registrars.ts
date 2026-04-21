@@ -104,11 +104,6 @@ export function registerMetricsRoute(app: Hono, meter: Meter, options: MetricsRo
 // to run the probe (timeout, lag-threshold). Keep the pair grouped so
 // callers see "this is my readiness setup" as a single struct, not as
 // four half-related top-level fields.
-//
-// Every field is `key?: T` (not `key?: T | undefined`) under
-// exactOptionalPropertyTypes. Callers that want to pass a
-// "maybe-undefined" must gate: `...(maybeDb !== undefined ? { db: maybeDb } : {})`.
-// buildServer does this already.
 export type HealthRoutesOptions = {
   readonly lifecycle?: Lifecycle;
   readonly readiness?: {
@@ -157,8 +152,7 @@ export function registerHealthRoutes(app: Hono, options: HealthRoutesOptions): v
       ),
     );
   }
-  const probeOpts = readiness?.timeoutMs !== undefined ? { timeoutMs: readiness.timeoutMs } : {};
-  const probe = createReadinessProbe(readinessChecks, probeOpts);
+  const probe = createReadinessProbe(readinessChecks, { timeoutMs: readiness?.timeoutMs });
 
   app.get(Routes.healthReady, async (c) => {
     const state = lifecycle.state();

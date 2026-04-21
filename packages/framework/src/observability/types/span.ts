@@ -32,7 +32,6 @@ export type StartSpanOptions = {
 export interface Span {
   readonly traceId: string;
   readonly spanId: string;
-  // Explicit union (not optional) — works with exactOptionalPropertyTypes.
   readonly parentSpanId: string | undefined;
   readonly name: string;
   setAttribute(key: string, value: SpanAttributeValue): void;

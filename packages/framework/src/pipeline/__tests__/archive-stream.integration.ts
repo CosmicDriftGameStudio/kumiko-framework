@@ -62,7 +62,7 @@ const archFeature = defineFeature("archtest", (r) => {
     async (event, ctx) => {
       await ctx.archiveStream(event.payload.id, {
         aggregateType: "archItem",
-        ...(event.payload.reason !== undefined ? { reason: event.payload.reason } : {}),
+        reason: event.payload.reason,
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },

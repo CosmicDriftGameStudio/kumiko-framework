@@ -341,6 +341,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             // in split deploys — a mismatch in prod logs signals a
             // misrouted job that slipped past the boot-validator.
             "kumiko.job.run_in": laneForJob(jobDef),
+            // Omit attribute entirely when no consumer (enqueuer-only runner) —
+            // SpanAttributeValue doesn't accept undefined.
             ...(consumerLane !== undefined ? { "kumiko.job.consumer_lane": consumerLane } : {}),
           },
           ...(parentContext ? { parent: parentContext } : {}),

@@ -49,7 +49,7 @@ function makeEvent(partial: Partial<RawEventToAppend> = {}): RawEventToAppend {
     metadata: partial.metadata ?? { userId: userMigration, requestId: "import-batch-1" },
     createdAt: partial.createdAt ?? Temporal.Instant.from("2023-01-15T10:00:00Z"),
     createdBy: partial.createdBy ?? legacyUser,
-    ...(partial.eventVersion !== undefined ? { eventVersion: partial.eventVersion } : {}),
+    eventVersion: partial.eventVersion,
   };
 }
 

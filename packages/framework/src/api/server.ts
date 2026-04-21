@@ -214,11 +214,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
     observability.meter.registerMetric({
       name,
       type: def.type,
-      ...(def.description !== undefined ? { description: def.description } : {}),
-      ...(def.labels !== undefined ? { labels: def.labels } : {}),
-      ...(def.buckets !== undefined ? { buckets: def.buckets } : {}),
-      ...(def.unit !== undefined ? { unit: def.unit } : {}),
-      ...(def.tenantLabel !== undefined ? { tenantLabel: def.tenantLabel } : {}),
+      description: def.description,
+      labels: def.labels,
+      buckets: def.buckets,
+      unit: def.unit,
+      tenantLabel: def.tenantLabel,
     });
   }
 
@@ -395,10 +395,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
   );
 
   registerHealthRoutes(app, {
-    ...(options.lifecycle !== undefined ? { lifecycle: options.lifecycle } : {}),
+    lifecycle: options.lifecycle,
     readiness: {
-      ...(baseDb !== undefined ? { db: baseDb } : {}),
-      ...(options.context.redis !== undefined ? { redis: options.context.redis } : {}),
+      db: baseDb,
+      redis: options.context.redis,
       consumers: allConsumers,
       ...(options.readiness ?? {}),
     },

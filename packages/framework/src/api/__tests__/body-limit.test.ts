@@ -21,7 +21,7 @@ function buildApp(maxRequestBytes?: number) {
     registry,
     context: {},
     jwtSecret: JWT_SECRET,
-    ...(maxRequestBytes !== undefined ? { maxRequestBytes } : {}),
+    maxRequestBytes,
   }).app;
 }
 

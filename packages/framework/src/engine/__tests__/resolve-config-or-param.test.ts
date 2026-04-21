@@ -90,9 +90,6 @@ describe("resolveConfigOrParam — number with bounds", () => {
   });
 
   test("number without bounds is passed through unchanged", async () => {
-    // Strip `bounds` via destructure rather than setting it to undefined —
-    // `exactOptionalPropertyTypes` rejects the `undefined` assignment and
-    // the destructure is the cheapest way to express "without this field".
     const { bounds: _bounds, ...noBoundsDef } = numberDef;
     const { ctx } = makeCtx({ k: { def: noBoundsDef, fallback: 10 } });
     expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 999_999)).toBe(999_999);
@@ -301,10 +298,6 @@ describe("resolveConfigOrParam — onClamp audit hook", () => {
     // Three variants: no 4th arg, empty options, options without onClamp.
     expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999)).toBe(100);
     expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999, {})).toBe(100);
-    // Pass an empty object (rather than `{ onClamp: undefined }`) — the
-    // resolver checks for `options?.onClamp`, both shapes hit the same
-    // branch, and `exactOptionalPropertyTypes` rejects the explicit
-    // `undefined` here.
     expect(await resolveConfigOrParam(ctx, handleFor("k", "number"), 9999, {})).toBe(100);
   });
 
