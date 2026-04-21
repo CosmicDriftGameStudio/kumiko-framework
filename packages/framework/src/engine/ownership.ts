@@ -146,7 +146,7 @@ export function matchesRule(
 
   // Array claim → membership check; scalar claim → equality.
   if (Array.isArray(userValue)) {
-    return userValue.includes(rowValue as never);
+    return userValue.includes(rowValue);
   }
   return userValue === rowValue;
 }

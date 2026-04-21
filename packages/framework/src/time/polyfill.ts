@@ -36,8 +36,10 @@ export async function ensureTemporalPolyfill(): Promise<void> {
   }
 
   polyfillPromise = (async () => {
-    // biome-ignore lint/suspicious/noExplicitAny: globalThis.Temporal ist (noch) nicht typed
-    if (typeof (globalThis as any).Temporal !== "undefined") {
+    // Runtime-Check entgegen Type-System-Annahme: temporal-spec deklariert
+    // Temporal ambient, aber ohne Polyfill fehlt es zur Laufzeit. `in`-Check
+    // ist die sauberste Prüfung, ohne Cast + ohne TS-Truthy-Warnings.
+    if ("Temporal" in globalThis) {
       polyfillInstalled = true;
       // skip: Native Temporal vorhanden — Polyfill nicht nötig.
       return;
@@ -58,12 +60,11 @@ export async function ensureTemporalPolyfill(): Promise<void> {
  * nutzen, oder über diesen Helper die Sicherheit haben.
  */
 export function getTemporal(): typeof Temporal {
-  // biome-ignore lint/suspicious/noExplicitAny: globalThis.Temporal ist (noch) nicht typed
-  const T = (globalThis as any).Temporal as typeof Temporal | undefined;
-  if (!T) {
+  // Runtime-Check entgegen Type-System-Annahme — siehe ensureTemporalPolyfill.
+  if (!("Temporal" in globalThis)) {
     throw new Error(
       "Temporal not available. Call ensureTemporalPolyfill() during framework boot before any time-related code runs.",
     );
   }
-  return T;
+  return Temporal;
 }
