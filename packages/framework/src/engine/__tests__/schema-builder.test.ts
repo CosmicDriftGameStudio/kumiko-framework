@@ -120,14 +120,18 @@ describe("buildInsertSchema", () => {
     expect(schema.safeParse({ email: "a@b.de", isEnabled: "nope" }).success).toBe(false);
   });
 
+  // The four file-field variants. Pre-fix the schema was z.number() /
+  // z.array(z.number()) — legacy of an era where fileRefs were serial-keyed.
+  // After the UUID table-builder fix those schemas would have rejected every
+  // valid UUID string, so the fix HAD to move in lockstep. Each test here
+  // asserts the new UUID contract AND explicitly rejects the old number
+  // shape, so a regression to z.number() would flip every test red.
   test("file field accepts UUID (fileRefId)", () => {
     const entity = createEntity({ table: "Test", fields: { contract: createFileField() } });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ contract: "00000000-0000-4000-8000-000000000001" }).success).toBe(
       true,
     );
-    // Pre-fix the schema was z.number() — 42 used to pass. The fix aligns
-    // validation with the uuid entity-column; numbers are rejected now.
     expect(schema.safeParse({ contract: 42 }).success).toBe(false);
     expect(schema.safeParse({ contract: "not-a-uuid" }).success).toBe(false);
   });
