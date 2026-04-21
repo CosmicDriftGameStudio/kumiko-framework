@@ -1371,4 +1371,20 @@ describe("registry boot validation", () => {
 
     expect(() => createRegistry([feature])).not.toThrow();
   });
+
+  test("runIn flows through r.job into the registry", () => {
+    const feature = defineFeature("test", (r) => {
+      r.job("cleanup-api", { trigger: { manual: true }, runIn: "api" }, async () => {});
+      r.job("cleanup-worker", { trigger: { manual: true }, runIn: "worker" }, async () => {});
+      r.job("cleanup-default", { trigger: { manual: true } }, async () => {});
+    });
+
+    const registry = createRegistry([feature]);
+    const jobs = registry.getAllJobs();
+    expect(jobs.get("test:job:cleanup-api")?.runIn).toBe("api");
+    expect(jobs.get("test:job:cleanup-worker")?.runIn).toBe("worker");
+    // Omitted runIn stays undefined in the registry — the consumer (JobRunner)
+    // resolves the default to "worker" at dispatch time, not at registration.
+    expect(jobs.get("test:job:cleanup-default")?.runIn).toBeUndefined();
+  });
 });
