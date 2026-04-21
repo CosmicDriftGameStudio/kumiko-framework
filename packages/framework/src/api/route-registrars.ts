@@ -64,12 +64,17 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+// Type-guard: duck-types the meter on `snapshot()`. An alternative
+// Prometheus-compatible meter (future OTLP bridge) works without an
+// explicit union — if it exposes `snapshot()` it's serialisable.
+function isPrometheusMeter(m: Meter): m is PrometheusMeter {
+  return typeof (m as { snapshot?: unknown }).snapshot === "function";
+}
+
 // Mount `/metrics` (or the caller-supplied path). Takes just the Meter —
 // not the whole ObservabilityProvider — because that's the only field
-// this route reads. Duck-types on `snapshot()` so an alternative
-// Prometheus-compatible meter (future OTLP bridge) works without an
-// explicit union. Bearer-token optional — without one, scraping is open,
-// fine for a private cluster.
+// this route reads. Bearer-token optional — without one, scraping is
+// open, fine for a private cluster.
 export function registerMetricsRoute(app: Hono, meter: Meter, options: MetricsRouteOptions): void {
   const metricsPath = options.path ?? "/metrics";
   const expectedToken = options.token;
@@ -81,14 +86,13 @@ export function registerMetricsRoute(app: Hono, meter: Meter, options: MetricsRo
       const provided = header.slice(prefix.length);
       if (!constantTimeEqual(provided, expectedToken)) return c.text("unauthorized", 401);
     }
-    const probed = meter as { snapshot?: unknown };
-    if (typeof probed.snapshot !== "function") {
+    if (!isPrometheusMeter(meter)) {
       return c.text(
         "metrics endpoint requires a PrometheusMeter — wrap the observability provider around createPrometheusMeter()",
         503,
       );
     }
-    const body = serializeOpenMetrics(meter as PrometheusMeter);
+    const body = serializeOpenMetrics(meter);
     c.header("Content-Type", "application/openmetrics-text; version=1.0.0; charset=utf-8");
     return c.body(body);
   });
@@ -96,13 +100,21 @@ export function registerMetricsRoute(app: Hono, meter: Meter, options: MetricsRo
 
 // --- /health + /health/ready ----------------------------------------------
 
+// Readiness is one concept — what to check (db/redis/consumers) AND how
+// to run the probe (timeout, lag-threshold). Keep the pair grouped so
+// callers see "this is my readiness setup" as a single struct, not as
+// four half-related top-level fields.
 export type HealthRoutesOptions = {
   readonly lifecycle?: Lifecycle;
-  readonly readinessDb?: DbConnection | undefined;
-  readonly readinessRedis?: import("ioredis").default | undefined;
-  readonly readinessConsumers?: readonly EventConsumer[];
   readonly readiness?: {
+    readonly db?: DbConnection;
+    readonly redis?: import("ioredis").default;
+    readonly consumers?: readonly EventConsumer[];
     readonly timeoutMs?: number;
+    // Opt-in dispatcher-lag gate. Off by default — a default threshold
+    // would false-503 small deployments that legitimately lag during
+    // bursts. Requires `db` + `consumers` to be set too; otherwise silently
+    // skipped (nothing to diff against).
     readonly maxDispatcherLag?: bigint;
   };
 };
@@ -121,26 +133,26 @@ export function registerHealthRoutes(app: Hono, options: HealthRoutesOptions): v
   // drain — `/health` alone is enough for a test/dev process.
   if (!options.lifecycle) return;
   const lifecycle = options.lifecycle;
+  const readiness = options.readiness;
 
   const readinessChecks: ReadinessCheck[] = [];
-  if (options.readinessDb) readinessChecks.push(dbPingCheck(options.readinessDb));
-  if (options.readinessRedis) readinessChecks.push(redisPingCheck(options.readinessRedis));
+  if (readiness?.db) readinessChecks.push(dbPingCheck(readiness.db));
+  if (readiness?.redis) readinessChecks.push(redisPingCheck(readiness.redis));
   if (
-    options.readiness?.maxDispatcherLag !== undefined &&
-    options.readinessDb &&
-    options.readinessConsumers &&
-    options.readinessConsumers.length > 0
+    readiness?.maxDispatcherLag !== undefined &&
+    readiness.db &&
+    readiness.consumers &&
+    readiness.consumers.length > 0
   ) {
     readinessChecks.push(
       dispatcherLagCheck(
-        options.readinessDb,
-        options.readinessConsumers.map((c) => c.name),
-        options.readiness.maxDispatcherLag,
+        readiness.db,
+        readiness.consumers.map((c) => c.name),
+        readiness.maxDispatcherLag,
       ),
     );
   }
-  const probeOpts =
-    options.readiness?.timeoutMs !== undefined ? { timeoutMs: options.readiness.timeoutMs } : {};
+  const probeOpts = readiness?.timeoutMs !== undefined ? { timeoutMs: readiness.timeoutMs } : {};
   const probe = createReadinessProbe(readinessChecks, probeOpts);
 
   app.get(Routes.healthReady, async (c) => {

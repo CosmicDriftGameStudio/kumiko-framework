@@ -372,10 +372,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   registerHealthRoutes(app, {
     ...(options.lifecycle !== undefined ? { lifecycle: options.lifecycle } : {}),
-    readinessDb: baseDb,
-    readinessRedis: options.context.redis,
-    readinessConsumers: allConsumers,
-    ...(options.readiness !== undefined ? { readiness: options.readiness } : {}),
+    readiness: {
+      ...(baseDb !== undefined ? { db: baseDb } : {}),
+      ...(options.context.redis !== undefined ? { redis: options.context.redis } : {}),
+      consumers: allConsumers,
+      ...(options.readiness ?? {}),
+    },
   });
 
   if (options.metrics) {
