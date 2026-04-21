@@ -293,6 +293,45 @@ describe("appendRawBatch — multi-event", () => {
     expect((rows as unknown as Array<{ c: number }>)[0]?.c).toBe(0);
   });
 
+  test("version_conflict on gap within a single-aggregate batch (defense-in-depth against buggy mapper)", async () => {
+    // Mapper bug scenario: produces events [v=1, v=3] for the same aggregate
+    // (expectedVersions [0, 2] — v=2 missing). Without the contiguity check,
+    // UNIQUE wouldn't catch the gap (no collision), predecessor-EXISTS
+    // wouldn't catch it (min expectedVersion is 0, check skipped), and v=2
+    // would silently be orphaned. Must fail loud at batch-entry.
+    const aggregateId = uuid();
+    await expect(
+      appendRawBatch(testDb.db, [
+        makeEvent({ aggregateId, expectedVersion: 0 }),
+        makeEvent({ aggregateId, expectedVersion: 2 }),
+      ]),
+    ).rejects.toBeInstanceOf(VersionConflictError);
+
+    // Zero events persisted — the whole batch is rejected before the INSERT.
+    const rows = await testDb.db.execute<{ c: number }>(sql`
+      SELECT count(*)::int as c FROM events WHERE aggregate_id = ${aggregateId}::uuid
+    `);
+    expect((rows as unknown as Array<{ c: number }>)[0]?.c).toBe(0);
+  });
+
+  test("contiguity check is per-aggregate — independent aggregates with non-overlapping versions pass", async () => {
+    // Two different aggregates. agg1 at [v=1,2], agg2 at [v=1]. The contiguity
+    // check groups by aggregate_id, so agg1's [0→1, 1→2] and agg2's [0→1] are
+    // checked independently — no spurious cross-aggregate gap false-positive.
+    const agg1 = uuid();
+    const agg2 = uuid();
+    await appendRawBatch(testDb.db, [
+      makeEvent({ aggregateId: agg1, expectedVersion: 0 }),
+      makeEvent({ aggregateId: agg2, expectedVersion: 0 }),
+      makeEvent({ aggregateId: agg1, expectedVersion: 1 }),
+    ]);
+
+    const s1 = await loadAggregate(testDb.db, agg1, tenantA);
+    const s2 = await loadAggregate(testDb.db, agg2, tenantA);
+    expect(s1.map((e) => e.version)).toEqual([1, 2]);
+    expect(s2.map((e) => e.version)).toEqual([1]);
+  });
+
   test("empty array is a no-op — no query, no throw", async () => {
     const queries: string[] = [];
     const loggedDb = drizzle(testDb.client, {

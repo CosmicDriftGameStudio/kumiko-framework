@@ -117,7 +117,7 @@ async function insertRawSubsequent(
 }
 
 // Batch append. One multi-VALUES INSERT — atomic by PG statement semantics.
-// Two pre-flight checks identify the specific conflicting aggregate, so the
+// Three pre-flight checks identify the specific conflicting aggregate, so the
 // thrown VersionConflictError points at a real event (not at a batch-first
 // placeholder). The INSERT's UNIQUE constraint is still the authoritative
 // gate — pre-flight is for diagnostic precision, not correctness.
@@ -129,6 +129,7 @@ export async function appendRawBatch(
   // into size-N batches shouldn't need to guard the tail-case themselves.
   if (events.length === 0) return;
 
+  verifyContiguousWithinBatch(events);
   await verifyPredecessors(runner, events);
   await verifyNoDuplicates(runner, events);
 
@@ -165,6 +166,34 @@ export async function appendRawBatch(
       throw new VersionConflictError(first.aggregateId, first.expectedVersion);
     }
     throw e;
+  }
+}
+
+// Defense-in-depth against a buggy event-mapper: within one batch, for each
+// aggregate the expectedVersion sequence must be contiguous (no gaps). Without
+// this, [expectedVersion=0, expectedVersion=2] for the same aggregate would
+// write v=1 and v=3 with v=2 missing — UNIQUE won't catch it (no collision),
+// predecessor-EXISTS won't catch it (min is 0, check skipped), and the
+// orphan only surfaces at projection-rebuild time. Fail-loud here instead.
+function verifyContiguousWithinBatch(events: readonly RawEventToAppend[]): void {
+  const byAggregate = new Map<string, RawEventToAppend[]>();
+  for (const e of events) {
+    const key = `${e.tenantId}:${e.aggregateId}`;
+    const list = byAggregate.get(key) ?? [];
+    list.push(e);
+    byAggregate.set(key, list);
+  }
+
+  for (const list of byAggregate.values()) {
+    if (list.length < 2) continue;
+    const sorted = [...list].sort((a, b) => a.expectedVersion - b.expectedVersion);
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1]!;
+      const curr = sorted[i]!;
+      if (curr.expectedVersion !== prev.expectedVersion + 1) {
+        throw new VersionConflictError(curr.aggregateId, curr.expectedVersion);
+      }
+    }
   }
 }
 
