@@ -26,12 +26,49 @@ export type DbRow = Record<string, unknown>;
 // connection from the URL.
 export type PgClient = ReturnType<typeof postgres>;
 
-export function createDbConnection(url: string): {
+// Connection-pool options — thin wrapper around the postgres.js fields the
+// framework explicitly supports. Omitted keys fall back to postgres.js
+// defaults (max=10, idle_timeout=PGIDLE_TIMEOUT env, connect_timeout=
+// PGCONNECT_TIMEOUT env). See `docs/plans/architecture/scaling.md` for
+// sizing guidance per deployment shape.
+export type DbConnectionOptions = {
+  // Max concurrent connections in the pool. postgres.js defaults to 10 —
+  // fine for a single app process against a small DB. Multi-worker or
+  // high-concurrency API deploys should scale this with `num_workers *
+  // per-request-concurrency` and stay below the DB's own max_connections
+  // (typical managed postgres: 100–400).
+  readonly maxConnections?: number;
+  // Seconds before an idle connection is closed. Null/undefined → keep
+  // connections warm forever (postgres.js default when the env var is
+  // unset). Managed pgBouncer tiers usually want this explicitly set to
+  // something like 30–60 so a single burst doesn't hold connections
+  // indefinitely.
+  readonly idleTimeoutSeconds?: number;
+  // Seconds to wait while establishing a new connection. Fails the query
+  // with a timeout error rather than hanging indefinitely when the DB is
+  // unreachable — critical for `/health/ready` to actually flip to 503
+  // within its 2s probe budget.
+  readonly connectTimeoutSeconds?: number;
+};
+
+export function createDbConnection(
+  url: string,
+  options: DbConnectionOptions = {},
+): {
   db: DbConnection;
   client: PgClient;
   close: () => Promise<void>;
 } {
-  const client = postgres(url);
+  // Only forward fields the caller set — empty object otherwise preserves
+  // postgres.js's env-var-driven defaults (PGIDLE_TIMEOUT / PGCONNECT_TIMEOUT).
+  const pgOptions: Parameters<typeof postgres>[1] = {};
+  if (options.maxConnections !== undefined) pgOptions.max = options.maxConnections;
+  if (options.idleTimeoutSeconds !== undefined) pgOptions.idle_timeout = options.idleTimeoutSeconds;
+  if (options.connectTimeoutSeconds !== undefined) {
+    pgOptions.connect_timeout = options.connectTimeoutSeconds;
+  }
+
+  const client = postgres(url, pgOptions);
   const db = drizzle(client);
 
   return {
@@ -41,4 +78,35 @@ export function createDbConnection(url: string): {
       await client.end();
     },
   };
+}
+
+// Parse the supported env vars into a DbConnectionOptions object. Useful
+// for a main.ts that wants to read DATABASE_POOL_MAX / DATABASE_POOL_
+// IDLE_TIMEOUT / DATABASE_POOL_CONNECT_TIMEOUT without re-implementing
+// the number-coercion + validation. Unrecognised / non-numeric values
+// throw — misconfig surfaces at boot, not mid-request.
+export function dbConnectionOptionsFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): DbConnectionOptions {
+  const opts: {
+    maxConnections?: number;
+    idleTimeoutSeconds?: number;
+    connectTimeoutSeconds?: number;
+  } = {};
+  const read = (name: string): number | undefined => {
+    const raw = env[name];
+    if (raw === undefined || raw === "") return undefined;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+      throw new Error(`[db] ${name}="${raw}" must be a non-negative integer`);
+    }
+    return n;
+  };
+  const max = read("DATABASE_POOL_MAX");
+  const idle = read("DATABASE_POOL_IDLE_TIMEOUT");
+  const connect = read("DATABASE_POOL_CONNECT_TIMEOUT");
+  if (max !== undefined) opts.maxConnections = max;
+  if (idle !== undefined) opts.idleTimeoutSeconds = idle;
+  if (connect !== undefined) opts.connectTimeoutSeconds = connect;
+  return opts;
 }

@@ -1,7 +1,7 @@
 export { assertExistsIn } from "./assert-exists-in";
 export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
-export type { DbConnection, DbRow, DbRunner, DbTx } from "./connection";
-export { createDbConnection } from "./connection";
+export type { DbConnection, DbConnectionOptions, DbRow, DbRunner, DbTx } from "./connection";
+export { createDbConnection, dbConnectionOptionsFromEnv } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { applyCursorQuery, decodeCursor, encodeCursor } from "./cursor";
 export type { SelectQuery, TableColumns } from "./dialect";

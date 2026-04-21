@@ -14,6 +14,11 @@
 
 ARG BUN_VERSION=1.1.38
 ARG APP_ENTRY=src/main.ts
+# APP_MODE wird nicht in den Build eingebrannt — Runtime-Env. Sinnvolle
+# Werte: "api" (HTTP-only, kein Dispatcher/Jobs), "worker" (kein HTTP,
+# EventDispatcher + Jobs), "all-in-one" (beides, fuer Dev/Single-Instance).
+# Die App's main.ts wertet process.env.APP_MODE aus und waehlt die
+# passende Entrypoint-Factory. Siehe `docs/plans/architecture/scaling.md`.
 
 # ------------------------------------------------------------------------------
 # deps — install production dependencies only. Cached separately from source so
@@ -46,6 +51,10 @@ USER app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV APP_ENTRY=${APP_ENTRY}
+# Default-Mode = all-in-one. Fuer prod-Splits ueberschreibt das der
+# Orchestrator pro Deployment: `APP_MODE=api` fuer die API-Replica-Gruppe,
+# `APP_MODE=worker` fuer den Event-Dispatcher + Job-Worker.
+ENV APP_MODE=all-in-one
 
 EXPOSE 3000
 

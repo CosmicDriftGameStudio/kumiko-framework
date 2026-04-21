@@ -29,6 +29,11 @@ services:
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: json
+      # Mode: "api" | "worker" | "all-in-one". Default ist all-in-one —
+      # fuer einen gesplitteten Prod-Deploy duplizierst du diesen Service-
+      # Block, ein Eintrag mit APP_MODE=api (ports exposed), ein zweiter
+      # mit APP_MODE=worker (keine ports). Details: scaling.md.
+      APP_MODE: ${APP_MODE:-all-in-one}
 
       # --- Datenbanken / externe Services (Managed) ---
       DATABASE_URL: ${DATABASE_URL}

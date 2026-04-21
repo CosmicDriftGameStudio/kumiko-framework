@@ -37,6 +37,8 @@
     "./auth": "./src/auth/index.ts",
     "./files": "./src/files/index.ts",
     "./jobs": "./src/jobs/index.ts",
+    "./entrypoint": "./src/entrypoint/index.ts",
+    "./redis": "./src/redis/index.ts",
     "./search": "./src/search/index.ts",
     "./secrets": "./src/secrets/index.ts",
     "./testing": "./src/testing/index.ts",
