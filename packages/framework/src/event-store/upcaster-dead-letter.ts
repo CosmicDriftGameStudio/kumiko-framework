@@ -12,7 +12,7 @@
 // ops tooling. Replay (re-apply the migration after a code fix) is a
 // separate CLI step — not implemented here, tracked as follow-up.
 
-import { bigint, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { DbConnection, DbRunner } from "../db/connection";
 import { tableExists } from "../db/schema-inspection";
 import { pushTables } from "../testing";
@@ -29,7 +29,7 @@ export const upcasterDeadLetterTable = pgTable(
     // safety). Storing as text keeps the round-trip identity without a
     // coerce step at every write site.
     eventId: text("event_id").notNull(),
-    tenantId: text("tenant_id").notNull(),
+    tenantId: uuid("tenant_id").notNull(),
     aggregateId: text("aggregate_id").notNull(),
     aggregateType: text("aggregate_type").notNull(),
     eventType: text("event_type").notNull(),
@@ -68,7 +68,7 @@ export async function recordUpcasterDeadLetter(
   const message = args.error instanceof Error ? args.error.message : String(args.error);
   await db.insert(upcasterDeadLetterTable).values({
     eventId: args.event.id,
-    tenantId: String(args.event.tenantId),
+    tenantId: args.event.tenantId,
     aggregateId: args.event.aggregateId,
     aggregateType: args.event.aggregateType,
     eventType: args.event.type,
