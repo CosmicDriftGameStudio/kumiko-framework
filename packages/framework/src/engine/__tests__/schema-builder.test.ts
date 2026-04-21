@@ -120,32 +120,45 @@ describe("buildInsertSchema", () => {
     expect(schema.safeParse({ email: "a@b.de", isEnabled: "nope" }).success).toBe(false);
   });
 
-  test("file field accepts number (fileRefId)", () => {
+  test("file field accepts UUID (fileRefId)", () => {
     const entity = createEntity({ table: "Test", fields: { contract: createFileField() } });
     const schema = buildInsertSchema(entity);
-    expect(schema.safeParse({ contract: 42 }).success).toBe(true);
-    expect(schema.safeParse({ contract: "not-a-number" }).success).toBe(false);
+    expect(schema.safeParse({ contract: "00000000-0000-4000-8000-000000000001" }).success).toBe(
+      true,
+    );
+    // Pre-fix the schema was z.number() — 42 used to pass. The fix aligns
+    // validation with the uuid entity-column; numbers are rejected now.
+    expect(schema.safeParse({ contract: 42 }).success).toBe(false);
+    expect(schema.safeParse({ contract: "not-a-uuid" }).success).toBe(false);
   });
 
-  test("image field accepts number (fileRefId)", () => {
+  test("image field accepts UUID (fileRefId)", () => {
     const entity = createEntity({ table: "Test", fields: { avatar: createImageField() } });
     const schema = buildInsertSchema(entity);
-    expect(schema.safeParse({ avatar: 1 }).success).toBe(true);
+    expect(schema.safeParse({ avatar: "00000000-0000-4000-8000-000000000002" }).success).toBe(true);
+    expect(schema.safeParse({ avatar: 1 }).success).toBe(false);
     expect(schema.safeParse({ avatar: "photo.jpg" }).success).toBe(false);
   });
 
-  test("files field accepts array of numbers", () => {
+  test("files field accepts array of UUIDs", () => {
     const entity = createEntity({ table: "Test", fields: { docs: createFilesField() } });
     const schema = buildInsertSchema(entity);
-    expect(schema.safeParse({ docs: [1, 2, 3] }).success).toBe(true);
-    expect(schema.safeParse({ docs: [1, "two"] }).success).toBe(false);
-    expect(schema.safeParse({ docs: 1 }).success).toBe(false);
+    expect(
+      schema.safeParse({
+        docs: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"],
+      }).success,
+    ).toBe(true);
+    expect(schema.safeParse({ docs: [1, 2, 3] }).success).toBe(false);
+    expect(schema.safeParse({ docs: "00000000-0000-4000-8000-000000000001" }).success).toBe(false);
   });
 
-  test("images field accepts array of numbers", () => {
+  test("images field accepts array of UUIDs", () => {
     const entity = createEntity({ table: "Test", fields: { photos: createImagesField() } });
     const schema = buildInsertSchema(entity);
-    expect(schema.safeParse({ photos: [10, 20] }).success).toBe(true);
+    expect(schema.safeParse({ photos: ["00000000-0000-4000-8000-000000000003"] }).success).toBe(
+      true,
+    );
+    expect(schema.safeParse({ photos: [10, 20] }).success).toBe(false);
     expect(schema.safeParse({ photos: "nope" }).success).toBe(false);
   });
 

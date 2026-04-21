@@ -92,13 +92,19 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
     }
     case "file":
     case "image": {
-      // Single file: stores fileRefId as number
-      return z.number();
+      // Single file: stores a fileRef UUID — must match fileRefsTable.id
+      // (uuid column). Pre-fix this was z.number() from an era when the
+      // column was (wrongly) integer; the table-builder fix to uuid needs
+      // a matching validation-layer fix here or the CRUD pipeline rejects
+      // every valid UUID with "expected number".
+      return z.uuid();
     }
     case "files":
     case "images": {
-      // Multi file: array of fileRefIds
-      return z.array(z.number());
+      // Multi file: array of fileRef UUIDs. Same story as the singular
+      // variant — the element type has to match the UUID column on
+      // fileRefsTable.id.
+      return z.array(z.uuid());
     }
     default:
       assertUnreachable(field, "field type");
