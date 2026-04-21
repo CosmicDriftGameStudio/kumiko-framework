@@ -125,9 +125,10 @@ export async function appendRawBatch(
   runner: DbRunner,
   events: readonly RawEventToAppend[],
 ): Promise<void> {
+  const firstEvent = events[0];
   // skip: empty batch is a no-op by contract — callers that chunk a stream
   // into size-N batches shouldn't need to guard the tail-case themselves.
-  if (events.length === 0) return;
+  if (!firstEvent) return;
 
   verifyContiguousWithinBatch(events);
   await verifyPredecessors(runner, events);
@@ -162,8 +163,7 @@ export async function appendRawBatch(
     if (isUniqueViolation(e)) {
       // Pre-flight ran but lost a race against a concurrent writer. Rare for
       // migration (single-runner) but possible; we can't name the exact row.
-      const first = events[0]!;
-      throw new VersionConflictError(first.aggregateId, first.expectedVersion);
+      throw new VersionConflictError(firstEvent.aggregateId, firstEvent.expectedVersion);
     }
     throw e;
   }
@@ -187,12 +187,14 @@ function verifyContiguousWithinBatch(events: readonly RawEventToAppend[]): void 
   for (const list of byAggregate.values()) {
     if (list.length < 2) continue;
     const sorted = [...list].sort((a, b) => a.expectedVersion - b.expectedVersion);
-    for (let i = 1; i < sorted.length; i++) {
-      const prev = sorted[i - 1]!;
-      const curr = sorted[i]!;
+    const [first, ...rest] = sorted;
+    if (!first) continue;
+    let prev = first;
+    for (const curr of rest) {
       if (curr.expectedVersion !== prev.expectedVersion + 1) {
         throw new VersionConflictError(curr.aggregateId, curr.expectedVersion);
       }
+      prev = curr;
     }
   }
 }
