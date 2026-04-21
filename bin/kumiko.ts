@@ -153,6 +153,7 @@ const commands = {
         ["Biome", "yarn biome check ."],
         ["TypeScript", "yarn tsc --noEmit -p packages/framework/tsconfig.json && yarn tsc --noEmit -p packages/core-features/tsconfig.json"],
         ["Silent-Skip Guard", "yarn tsx scripts/guard-silent-skip.ts"],
+        ["Admin-API Guard", "yarn tsx scripts/guard-admin-api.ts"],
         ["Unsafe-JSON-Parse Guard", "yarn tsx scripts/guard-unsafe-json-parse.ts"],
         ["No-Date-API Guard", "yarn tsx scripts/guard-no-date-api.ts"],
         ["Cross-Feature-Import Guard", "yarn tsx scripts/guard-cross-feature-imports.ts"],
