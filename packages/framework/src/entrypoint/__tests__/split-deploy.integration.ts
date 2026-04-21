@@ -31,6 +31,13 @@ const splitFeature = defineFeature("split", (r) => {
 
 const JWT = "split-deploy-test-secret-must-be-32-chars!!";
 
+// Per-test queue-name with a random suffix. Date.now() alone collided
+// in jobs.integration.ts when two tests landed in the same millisecond —
+// the random suffix pins each test's BullMQ queues even then.
+function uniquePrefix(label: string): string {
+  return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 let testDb: TestDb;
 let testRedis: TestRedis;
 
@@ -170,7 +177,7 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
       // needs a jobs block because the API otherwise has no consumer at all
       // once SSE is the default-on system-consumer. We still observe MSP
       // count via the registered consumers; JobRunner is incidental here.
-      jobs: { redisUrl, queueNamePrefix: `split-api-${Date.now()}`, runLocalJobs: true },
+      jobs: { redisUrl, queueNamePrefix: uniquePrefix("split-api"), runLocalJobs: true },
     });
 
     try {
@@ -194,7 +201,7 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
       redisUrl,
-      queueNamePrefix: `split-worker-${Date.now()}`,
+      queueNamePrefix: uniquePrefix("split-worker"),
     });
 
     // eventDispatcher.consumers exposes the filtered list — lane-api must
@@ -217,7 +224,7 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
       redisUrl,
-      queueNamePrefix: `split-all-${Date.now()}`,
+      queueNamePrefix: uniquePrefix("split-all"),
     });
 
     const consumerNames = entry.eventDispatcher.consumers.map((c) => c.name);
@@ -266,7 +273,7 @@ describe("createApiEntrypoint boot-validation (Welle 2.6.c)", () => {
         registry,
         context: { db: testDb.db, redis: testRedis.redis },
         jwtSecret: JWT,
-        jobs: { redisUrl, queueNamePrefix: `val-${Date.now()}` },
+        jobs: { redisUrl, queueNamePrefix: uniquePrefix("val") },
       }),
     ).toThrow(/runIn="api".*runLocalJobs.*no consumer.*local-cleanup/is);
   });
@@ -278,7 +285,7 @@ describe("createApiEntrypoint boot-validation (Welle 2.6.c)", () => {
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
-      jobs: { redisUrl, queueNamePrefix: `val-ok-${Date.now()}` },
+      jobs: { redisUrl, queueNamePrefix: uniquePrefix("val-ok") },
     });
     try {
       expect(api.mode).toBe("api");
