@@ -38,7 +38,7 @@ export function flattenLocatedTimestamp(
   payload: Record<string, unknown>,
   entity: EntityDefinition,
 ): Record<string, unknown> {
-  const T = (globalThis as unknown as { Temporal: typeof Temporal }).Temporal;
+  const T = Temporal;
   const result: Record<string, unknown> = { ...payload };
 
   for (const [name, field] of Object.entries(entity.fields)) {

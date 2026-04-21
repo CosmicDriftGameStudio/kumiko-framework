@@ -163,8 +163,7 @@ async function insertSubsequentEvent(
     )
     RETURNING id, created_at;
   `);
-  const arr = rows as unknown as Array<{ id: string; created_at: Date | string }>;
-  const row = arr[0];
+  const row = rows[0];
   if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   return {
     id: BigInt(row.id),

@@ -132,9 +132,12 @@ export function buildUpdateSchema(
     // `{ title }` means "only change title"; zod defaults would silently
     // inject default values for every omitted field and clobber existing
     // data via the event-store-executor's `changes` payload.
-    const { default: _default, ...rest } = field as { default?: unknown };
-    const stripped = rest as unknown as FieldDefinition;
-    shape[name] = fieldToZod(stripped, currencies).optional();
+    // Cast widens the discriminated union so destructure works for variants
+    // without a `default` field; remainder is structurally a FieldDefinition.
+    const { default: _default, ...stripped } = field as FieldDefinition & {
+      default?: unknown;
+    };
+    shape[name] = fieldToZod(stripped as FieldDefinition, currencies).optional();
   }
 
   return z.object(shape);

@@ -135,9 +135,9 @@ describe("event-store-executor — sensitive fields", () => {
   });
 
   async function lastEvent(): Promise<{ type: string; payload: Record<string, unknown> }> {
-    const rows = (await testDb.db.execute(
+    const rows = await testDb.db.execute<{ type: string; payload: Record<string, unknown> }>(
       sql`SELECT type, payload FROM events ORDER BY id DESC LIMIT 1`,
-    )) as unknown as Array<{ type: string; payload: Record<string, unknown> }>;
+    );
     const row = rows[0];
     if (!row) throw new Error("no events in store");
     return row;

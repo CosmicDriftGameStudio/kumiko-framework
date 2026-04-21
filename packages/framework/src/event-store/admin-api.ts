@@ -110,8 +110,7 @@ async function insertRawSubsequent(
     )
     RETURNING id
   `);
-  const arr = rows as unknown as Array<{ id: string }>;
-  if (arr.length === 0) {
+  if (rows.length === 0) {
     throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   }
 }
@@ -230,8 +229,7 @@ async function verifyPredecessors(
           AND version = ${g.minExpected}
       ) AS present
     `);
-    const arr = rows as unknown as Array<{ present: boolean }>;
-    if (!arr[0]?.present) {
+    if (!rows[0]?.present) {
       throw new VersionConflictError(g.aggregateId, g.minExpected);
     }
   }
@@ -252,8 +250,7 @@ async function verifyNoDuplicates(
     WHERE (tenant_id, aggregate_id, version) IN (${sql.join(triples, sql`, `)})
     LIMIT 1
   `);
-  const arr = rows as unknown as Array<{ aggregate_id: string; version: number }>;
-  const conflict = arr[0];
+  const conflict = rows[0];
   if (conflict) {
     throw new VersionConflictError(conflict.aggregate_id, conflict.version - 1);
   }

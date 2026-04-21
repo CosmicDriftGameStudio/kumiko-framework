@@ -89,9 +89,8 @@ describe("appendRaw — single event", () => {
     const rows = await testDb.db.execute<{ created_by: string }>(sql`
       SELECT created_by FROM events WHERE aggregate_id = ${aggregateId}::uuid
     `);
-    const arr = rows as unknown as Array<{ created_by: string }>;
-    expect(arr[0]?.created_by).toBe(legacyUser);
-    expect(arr[0]?.created_by).not.toBe(userMigration);
+    expect(rows[0]?.created_by).toBe(legacyUser);
+    expect(rows[0]?.created_by).not.toBe(userMigration);
   });
 
   test("events written via appendRaw are structurally identical to append — full payload/metadata round-trip", async () => {
@@ -120,12 +119,8 @@ describe("appendRaw — single event", () => {
     }>(sql`
       SELECT payload, metadata FROM events WHERE aggregate_id = ${aggregateId}::uuid
     `);
-    const arr = rows as unknown as Array<{
-      payload: Record<string, unknown>;
-      metadata: Record<string, unknown>;
-    }>;
-    expect(arr[0]?.payload).toEqual(payload);
-    expect(arr[0]?.metadata).toEqual(metadata);
+    expect(rows[0]?.payload).toEqual(payload);
+    expect(rows[0]?.metadata).toEqual(metadata);
   });
 
   test("does NOT fire pg_notify on EVENTS_PUBSUB_CHANNEL — contrast with append", async () => {
@@ -184,7 +179,7 @@ describe("appendRaw — single event", () => {
     const rows = await testDb.db.execute<{ c: number }>(sql`
       SELECT count(*)::int as c FROM events WHERE aggregate_id = ${aggregateId}::uuid
     `);
-    expect((rows as unknown as Array<{ c: number }>)[0]?.c).toBe(0);
+    expect(rows[0]?.c).toBe(0);
   });
 
   test("appendRaw writes version = expectedVersion + 1 — matches append semantics", async () => {
@@ -196,8 +191,7 @@ describe("appendRaw — single event", () => {
     const rows = await testDb.db.execute<{ version: number }>(sql`
       SELECT version FROM events WHERE aggregate_id = ${aggregateId}::uuid ORDER BY version
     `);
-    const arr = rows as unknown as Array<{ version: number }>;
-    expect(arr.map((r) => r.version)).toEqual([1, 2, 3]);
+    expect(rows.map((r) => r.version)).toEqual([1, 2, 3]);
   });
 });
 
@@ -226,8 +220,7 @@ describe("appendRawBatch — multi-event", () => {
     const rows = await testDb.db.execute<{ version: number; type: string }>(sql`
       SELECT version, type FROM events WHERE aggregate_id = ${aggregateId}::uuid ORDER BY version
     `);
-    const arr = rows as unknown as Array<{ version: number; type: string }>;
-    expect(arr.map((r) => ({ v: r.version, t: r.type }))).toEqual([
+    expect(rows.map((r) => ({ v: r.version, t: r.type }))).toEqual([
       { v: 1, t: "legacy.order.created" },
       { v: 2, t: "legacy.order.accepted" },
       { v: 3, t: "legacy.order.canceled" },
@@ -273,7 +266,7 @@ describe("appendRawBatch — multi-event", () => {
     const rows = await testDb.db.execute<{ c: number }>(sql`
       SELECT count(*)::int as c FROM events
     `);
-    expect((rows as unknown as Array<{ c: number }>)[0]?.c).toBe(1);
+    expect(rows[0]?.c).toBe(1);
   });
 
   test("version_conflict when first-in-aggregate event has missing predecessor", async () => {
@@ -290,7 +283,7 @@ describe("appendRawBatch — multi-event", () => {
     const rows = await testDb.db.execute<{ c: number }>(sql`
       SELECT count(*)::int as c FROM events WHERE aggregate_id = ${aggregateId}::uuid
     `);
-    expect((rows as unknown as Array<{ c: number }>)[0]?.c).toBe(0);
+    expect(rows[0]?.c).toBe(0);
   });
 
   test("version_conflict on gap within a single-aggregate batch (defense-in-depth against buggy mapper)", async () => {
@@ -311,7 +304,7 @@ describe("appendRawBatch — multi-event", () => {
     const rows = await testDb.db.execute<{ c: number }>(sql`
       SELECT count(*)::int as c FROM events WHERE aggregate_id = ${aggregateId}::uuid
     `);
-    expect((rows as unknown as Array<{ c: number }>)[0]?.c).toBe(0);
+    expect(rows[0]?.c).toBe(0);
   });
 
   test("contiguity check is per-aggregate — independent aggregates with non-overlapping versions pass", async () => {

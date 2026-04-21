@@ -18,8 +18,8 @@ export async function tableExists(
   db: DbConnection | DbTx,
   fullyQualifiedName: string,
 ): Promise<boolean> {
-  const rows = (await db.execute(
+  const rows = await db.execute<{ exists: boolean }>(
     sql`SELECT to_regclass(${fullyQualifiedName}) IS NOT NULL AS exists`,
-  )) as unknown as Array<{ exists: boolean }>;
+  );
   return rows[0]?.exists ?? false;
 }
