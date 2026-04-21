@@ -22,7 +22,8 @@ type ColumnBuilder =
   | ReturnType<typeof moneyAmount>
   | ReturnType<typeof jsonb>
   | ReturnType<typeof instant>
-  | ReturnType<typeof serial>;
+  | ReturnType<typeof serial>
+  | ReturnType<typeof uuid>;
 
 // Returns column(s) for a field. Most fields return a single entry,
 // money returns two (amount + currency), files/images return none.
@@ -86,11 +87,17 @@ function fieldToColumns(
       };
     case "file":
     case "image":
-      // Single file: stores fileRefId as integer
-      return { [name]: integer(snakeName) };
+      // Single file: stores fileRefId as UUID — must match fileRefsTable.id
+      // (uuid column). Anything narrower (integer, text length-limited) would
+      // silently truncate or type-coerce at INSERT time and the FK reference
+      // would be unusable.
+      return { [name]: uuid(snakeName) };
     case "files":
     case "images":
       // Multi file: no column in entity table, resolved via FileRef table
+      // over (entityType, entityId, fieldName). A bridge-table with
+      // CASCADE + sort-order is a later improvement; today plural files
+      // live entirely in fileRefsTable.
       return {};
     default:
       assertUnreachable(field, "field type");
