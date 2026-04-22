@@ -1,3 +1,4 @@
+import { pgTable, text } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { validateBoot } from "../boot-validator";
@@ -839,6 +840,55 @@ describe("boot-validator", () => {
               },
             }),
           );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+  });
+
+  // --- MultiStreamProjection delivery invariant (Welle 2.7) ---
+
+  describe("MultiStreamProjection delivery", () => {
+    const sinkTable = pgTable("sink", { id: text("id").primaryKey() });
+
+    test("rejects delivery='per-instance' combined with a backing table", () => {
+      const features = [
+        defineFeature("sse", (r) => {
+          r.multiStreamProjection({
+            name: "broadcast",
+            table: sinkTable,
+            delivery: "per-instance",
+            apply: { "some:event": async () => {} },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /per-instance.+table.+duplicate INSERTs|cursor divergence/i,
+      );
+    });
+
+    test("accepts delivery='per-instance' without a table (side-effect-only)", () => {
+      const features = [
+        defineFeature("sse", (r) => {
+          r.multiStreamProjection({
+            name: "broadcast",
+            delivery: "per-instance",
+            apply: { "some:event": async () => {} },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("accepts delivery='shared' with a table (default, materialized read-model)", () => {
+      const features = [
+        defineFeature("reports", (r) => {
+          r.multiStreamProjection({
+            name: "rollup",
+            table: sinkTable,
+            delivery: "shared",
+            apply: { "some:event": async () => {} },
+          });
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();

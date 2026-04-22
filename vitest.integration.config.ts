@@ -11,6 +11,12 @@ export default defineConfig({
     passWithNoTests: true,
     testTimeout: 15000,
     env: {
+      // Stable instanceId so the boot-warn about unpinned per-instance
+      // cursors doesn't spam the test suite. Tests that care about
+      // multi-instance behaviour (pipeline/__tests__/event-dispatcher-
+      // multi-instance.integration.ts) pass their own instanceId explicitly
+      // and ignore this default.
+      KUMIKO_INSTANCE_ID: "test-instance",
       DATABASE_URL: "postgresql://kumiko:kumiko@localhost:15432/kumiko_dev",
       TEST_DATABASE_URL: "postgresql://kumiko:kumiko@localhost:15432/kumiko_test",
       REDIS_URL: "redis://localhost:16379",

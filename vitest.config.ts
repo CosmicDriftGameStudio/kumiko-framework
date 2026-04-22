@@ -10,6 +10,12 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     reporters: ["dot"],
     passWithNoTests: true,
+    env: {
+      // Stable instanceId so the boot-warn about unpinned per-instance
+      // cursors doesn't spam the unit-test suite (some unit tests import
+      // createApp indirectly).
+      KUMIKO_INSTANCE_ID: "test-instance",
+    },
     coverage: {
       provider: "v8",
       include: ["packages/framework/src/**", "samples/*/src/**"],

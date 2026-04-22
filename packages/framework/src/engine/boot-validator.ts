@@ -66,6 +66,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyComputed(feature);
     validateConfigKeyAllowPerRequest(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
+    validateMultiStreamProjections(feature);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
@@ -262,6 +263,30 @@ function validateHandlerAccess(feature: FeatureDefinition): void {
       throw new Error(
         `Query handler "${feature.name}:query:${name}" is missing an access rule. ` +
           `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
+      );
+    }
+  }
+}
+
+// --- MultiStreamProjection delivery-invariant ---
+//
+// `delivery: "per-instance"` mit einer `table` ist eine semantische Falle:
+// N Dispatcher-Instanzen würden parallel die gleichen INSERT/UPDATE-Zeilen
+// schreiben (Race / Duplicates), und ein Rebuild würde nur eine Zeile in
+// kumiko_event_consumers anfassen (die SHARED_INSTANCE_SENTINEL-Zeile),
+// während Live-Cursor in per-instance-Zeilen liegen → Cursor-Divergenz.
+//
+// Die Invariante ist: per-instance-Consumer sind rein side-effect (SSE,
+// in-memory cache invalidation). Wer eine Tabelle materialisiert, braucht
+// shared delivery — das ist exactly-once globally und gibt dem Rebuild
+// einen einzigen Cursor zum zurücksetzen.
+function validateMultiStreamProjections(feature: FeatureDefinition): void {
+  for (const [name, msp] of Object.entries(feature.multiStreamProjections)) {
+    if (msp.delivery === "per-instance" && msp.table !== undefined) {
+      throw new Error(
+        `[Feature ${feature.name}] MultiStreamProjection "${name}" has delivery="per-instance" AND a backing table — ` +
+          `that combination would make every dispatcher-instance write the same rows (duplicate INSERTs), and rebuild would reset only the shared cursor while live cursors live per-instance (cursor divergence). ` +
+          `Use delivery="shared" (default) for table-materializing projections, or drop the table for side-effect-only consumers (SSE, in-memory caches).`,
       );
     }
   }
