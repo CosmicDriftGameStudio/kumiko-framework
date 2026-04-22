@@ -23,6 +23,12 @@ import type {
   WriteResult,
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
+
+// Re-export for callers that reach for dispatcher-adjacent types (tests,
+// HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
+// here keeps imports single-source.
+export type { WriteResult } from "../engine/types";
+
 import { runValidation } from "../engine/validation";
 import {
   AccessDeniedError,

@@ -20,8 +20,12 @@ export {
 } from "./dialect";
 export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
-export type { EventStoreExecutor, EventStoreExecutorOptions } from "./event-store-executor";
-export { createEventStoreExecutor } from "./event-store-executor";
+export type {
+  EntityLifecycleVerb,
+  EventStoreExecutor,
+  EventStoreExecutorOptions,
+} from "./event-store-executor";
+export { createEventStoreExecutor, entityEventName } from "./event-store-executor";
 export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp";
 export { flattenMoney, rehydrateMoney } from "./money";
 export { seedReferenceData } from "./reference-data";

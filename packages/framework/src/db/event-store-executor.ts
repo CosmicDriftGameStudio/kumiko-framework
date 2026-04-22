@@ -57,6 +57,16 @@ function scalarDefault(field: FieldDefinition): unknown {
   }
 }
 
+// Lifecycle verbs the event-store-executor auto-emits. MSPs that react
+// to entity creates/updates/etc should reference this helper instead of
+// hardcoding the string — a future rename in the executor then surfaces
+// as a type error at every call site rather than a silent miss.
+export type EntityLifecycleVerb = "created" | "updated" | "deleted" | "restored";
+
+export function entityEventName(entityName: string, verb: EntityLifecycleVerb): string {
+  return `${entityName}.${verb}`;
+}
+
 export type EventStoreExecutorOptions = {
   searchAdapter?: SearchAdapter;
   entityName: string; // required — the aggregateType marker on every event
@@ -260,7 +270,7 @@ export function createEventStoreExecutor(
         aggregateType: entityName,
         tenantId: user.tenantId,
         expectedVersion: 0,
-        type: `${entityName}.created`,
+        type: entityEventName(entityName, "created"),
         payload: stripSensitive(flatData),
         metadata: buildEventMetadata(user),
       });
@@ -394,7 +404,7 @@ export function createEventStoreExecutor(
           aggregateType: entityName,
           tenantId: user.tenantId,
           expectedVersion: currentVersion,
-          type: `${entityName}.updated`,
+          type: entityEventName(entityName, "updated"),
           payload: {
             changes: stripSensitive(flatChanges),
             previous: stripSensitive(previous),
@@ -487,7 +497,7 @@ export function createEventStoreExecutor(
         aggregateType: entityName,
         tenantId: user.tenantId,
         expectedVersion: currentVersion,
-        type: `${entityName}.deleted`,
+        type: entityEventName(entityName, "deleted"),
         payload: { previous: stripSensitive(existing) },
         metadata: buildEventMetadata(user),
       });
@@ -565,7 +575,7 @@ export function createEventStoreExecutor(
         aggregateType: entityName,
         tenantId: user.tenantId,
         expectedVersion: currentVersion,
-        type: `${entityName}.restored`,
+        type: entityEventName(entityName, "restored"),
         payload: { previous: stripSensitive(data) },
         metadata: buildEventMetadata(user),
       });

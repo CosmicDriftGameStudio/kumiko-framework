@@ -59,15 +59,14 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
       }
 
       // Read current state for event payload + optimistic-lock version.
-      const rows = (await ctx.db
-        .select({
-          enabled: globalFeatureStateTable.enabled,
-          version: globalFeatureStateTable.version,
-        })
+      // `$inferSelect` narrows the result shape to the real table schema —
+      // no hand-rolled cast, no drift if a column is added later.
+      type StateRow = typeof globalFeatureStateTable.$inferSelect;
+      const [existing] = (await ctx.db
+        .select()
         .from(globalFeatureStateTable)
         .where(eq(globalFeatureStateTable.featureName, featureName))
-        .limit(1)) as unknown as readonly { enabled: boolean; version: number }[];
-      const existing = rows[0];
+        .limit(1)) as StateRow[];
 
       const previousEnabled = existing?.enabled ?? null;
 
@@ -84,7 +83,7 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
         // Upsert with optimistic lock. Two operators flipping the same
         // toggle simultaneously is rare but possible — the version-WHERE
         // ensures only one wins; the loser sees VersionConflictError.
-        const updated = (await ctx.db
+        const updated = await ctx.db
           .update(globalFeatureStateTable)
           .set({
             enabled,
@@ -98,7 +97,7 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
               eq(globalFeatureStateTable.version, existing.version),
             ),
           )
-          .returning()) as readonly unknown[];
+          .returning();
 
         if (updated.length === 0) {
           return writeFailure(

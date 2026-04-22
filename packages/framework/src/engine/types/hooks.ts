@@ -101,20 +101,38 @@ export const HookPhases = {
 
 export type HookPhase = (typeof HookPhases)[keyof typeof HookPhases];
 
+// Owner-tag shared across every hook structure. The lifecycle pipeline uses
+// it to skip hooks whose owning feature is globally disabled:
+//   - A concrete feature name like "orders" → subject to the feature-toggle
+//     filter (skipped when "orders" is disabled).
+//   - "*" (star) → invariant plumbing, never filtered. Reserved for
+//     extension-provided hooks and framework-internal hooks that belong to
+//     the pipeline itself, not a feature.
+//   - Omitted (undefined) → treated as "*". Supports tests that hand-build
+//     HookMap objects without caring about ownership.
+export type HookOwner = { readonly featureName?: string };
+
 export type PhasedHook<TFn> = {
   readonly fn: TFn;
   readonly phase: HookPhase;
-};
+} & HookOwner;
+
+// Flat (non-phased) hook — preSave, preQuery. Same owner contract, no
+// phase semantics because these hooks run exactly once per handler pass
+// before/around the DB transaction.
+export type OwnedFn<TFn> = {
+  readonly fn: TFn;
+} & HookOwner;
 
 // --- Hook Maps ---
 
 export type HookMap = {
   readonly validation: Readonly<Record<string, ValidationHookFn>>;
-  readonly preSave: Readonly<Record<string, readonly PreSaveHookFn[]>>;
+  readonly preSave: Readonly<Record<string, readonly OwnedFn<PreSaveHookFn>[]>>;
   readonly postSave: Readonly<Record<string, readonly PhasedHook<PostSaveHookFn>[]>>;
   readonly preDelete: Readonly<Record<string, readonly PhasedHook<PreDeleteHookFn>[]>>;
   readonly postDelete: Readonly<Record<string, readonly PhasedHook<PostDeleteHookFn>[]>>;
-  readonly preQuery: Readonly<Record<string, readonly PreQueryHookFn[]>>;
+  readonly preQuery: Readonly<Record<string, readonly OwnedFn<PreQueryHookFn>[]>>;
 };
 
 export type EntityHookMap = {

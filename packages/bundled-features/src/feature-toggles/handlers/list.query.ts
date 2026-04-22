@@ -11,13 +11,8 @@ export const listQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: ["SystemAdmin", "Admin"] },
   handler: async (_event, ctx) => {
-    const rows = (await ctx.db.select().from(globalFeatureStateTable)) as unknown as readonly {
-      featureName: string;
-      enabled: boolean;
-      version: number;
-      updatedAt: { toString(): string };
-      updatedBy: string | null;
-    }[];
+    type Row = typeof globalFeatureStateTable.$inferSelect;
+    const rows = (await ctx.db.select().from(globalFeatureStateTable)) as Row[];
     return {
       items: rows.map((r) => ({
         featureName: r.featureName,

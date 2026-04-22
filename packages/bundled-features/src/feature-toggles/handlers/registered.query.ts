@@ -15,15 +15,13 @@ export const registeredQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: ["SystemAdmin", "Admin"] },
   handler: async (_event, ctx) => {
+    type OverrideRow = Pick<typeof globalFeatureStateTable.$inferSelect, "featureName" | "enabled">;
     const overrideRows = (await ctx.db
       .select({
         featureName: globalFeatureStateTable.featureName,
         enabled: globalFeatureStateTable.enabled,
       })
-      .from(globalFeatureStateTable)) as unknown as readonly {
-      featureName: string;
-      enabled: boolean;
-    }[];
+      .from(globalFeatureStateTable)) as OverrideRow[];
     const overrides = new Map(overrideRows.map((r) => [r.featureName, r.enabled]));
 
     const effective = ctx.effectiveFeatures?.();

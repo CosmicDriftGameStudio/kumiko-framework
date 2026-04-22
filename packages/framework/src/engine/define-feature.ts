@@ -33,6 +33,7 @@ import type {
   NotificationDefinition,
   NotificationRecipientFn,
   NotificationTemplateFn,
+  OwnedFn,
   PhasedHook,
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -74,8 +75,11 @@ export function defineFeature<TExports = undefined>(
   const writeHandlers: Record<string, WriteHandlerDef> = {};
   const queryHandlers: Record<string, QueryHandlerDef> = {};
   const validationHooks: Record<string, ValidationHookFn> = {};
-  // preSave/preQuery stay unphased; postSave/preDelete/postDelete are phased.
-  const lifecycleHooks: Record<string, Record<string, LifecycleHookFn[]>> = {};
+  // preSave/preQuery stay unphased (owned-fn); postSave/preDelete/postDelete
+  // are phased (owned-fn + phase). Each hook carries its owning feature so
+  // the lifecycle pipeline can filter by effectiveFeatures without a parallel
+  // bookkeeping structure.
+  const lifecycleHooks: Record<string, Record<string, OwnedFn<LifecycleHookFn>[]>> = {};
   const phasedLifecycleHooks: Record<
     "postSave" | "preDelete" | "postDelete",
     Record<string, PhasedHook<LifecycleHookFn>[]>
@@ -237,7 +241,7 @@ export function defineFeature<TExports = undefined>(
         if (!lifecycleHooks[type]) lifecycleHooks[type] = {};
         for (const n of names) {
           if (!lifecycleHooks[type][n]) lifecycleHooks[type][n] = [];
-          lifecycleHooks[type][n].push(fn as LifecycleHookFn);
+          lifecycleHooks[type][n].push({ fn: fn as LifecycleHookFn, featureName: name });
         }
         // skip: pre-hooks have no phase, stored and done
         return;
@@ -252,7 +256,7 @@ export function defineFeature<TExports = undefined>(
       const bucket = phasedLifecycleHooks[type];
       for (const n of names) {
         if (!bucket[n]) bucket[n] = [];
-        bucket[n].push({ fn: fn as LifecycleHookFn, phase });
+        bucket[n].push({ fn: fn as LifecycleHookFn, phase, featureName: name });
       }
     },
 
@@ -266,17 +270,18 @@ export function defineFeature<TExports = undefined>(
       if (type === LifecycleHookTypes.postSave) {
         const phase = options?.phase ?? HookPhases.afterCommit;
         if (!entityPostSave[entityName]) entityPostSave[entityName] = [];
-        entityPostSave[entityName].push({ fn: fn as PostSaveHookFn, phase });
+        entityPostSave[entityName].push({ fn: fn as PostSaveHookFn, phase, featureName: name });
       } else if (type === LifecycleHookTypes.preDelete) {
         if (!entityPreDelete[entityName]) entityPreDelete[entityName] = [];
         entityPreDelete[entityName].push({
           fn: fn as PreDeleteHookFn,
           phase: HookPhases.inTransaction,
+          featureName: name,
         });
       } else if (type === LifecycleHookTypes.postDelete) {
         const phase = options?.phase ?? HookPhases.afterCommit;
         if (!entityPostDelete[entityName]) entityPostDelete[entityName] = [];
-        entityPostDelete[entityName].push({ fn: fn as PostDeleteHookFn, phase });
+        entityPostDelete[entityName].push({ fn: fn as PostDeleteHookFn, phase, featureName: name });
       }
     },
 

@@ -2,12 +2,10 @@
 // so write-handler + tests reference one source.
 export const FEATURE_TOGGLE_SET_EVENT_NAME = "feature-toggles:event:toggle-set";
 
-// Aggregate type used when appending toggle events. One stream per feature,
-// aggregateId = featureName (stable, human-readable — no UUID indirection
-// needed since there's only ever one row per feature). Archive-aware code
-// that requires UUID aggregate-ids doesn't apply here: toggle streams are
-// never archived.
-export const FEATURE_TOGGLE_AGGREGATE_TYPE = "feature-toggle";
+// Aggregate type for toggle-set events. Shares the feature name to keep the
+// events-table grep-friendly: every row belonging to this feature carries
+// "feature-toggles" in its aggregate_type column.
+export const FEATURE_TOGGLE_AGGREGATE_TYPE = "feature-toggles";
 
 // Error reasons surfaced from feature-toggle handlers. Scoped to the
 // feature's namespace per the framework's reason-convention.

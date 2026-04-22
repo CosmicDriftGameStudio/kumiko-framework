@@ -14,6 +14,7 @@ import type {
   JobDefinition,
   MultiStreamProjectionDefinition,
   NotificationDefinition,
+  OwnedFn,
   PhasedHook,
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -49,28 +50,19 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const relationMap = new Map<string, Record<string, RelationDefinition>>();
   const writeHandlerMap = new Map<string, WriteHandlerDef>();
   const queryHandlerMap = new Map<string, QueryHandlerDef>();
-  const preSaveHooks = new Map<string, PreSaveHookFn[]>();
+  // Hook storage. Every entry carries its owning feature (on the OwnedFn /
+  // PhasedHook shape), so the lifecycle pipeline can skip hooks whose
+  // feature is globally disabled without a parallel bookkeeping map.
+  // featureName === "*" = always fire (extension-provided invariants).
+  const preSaveHooks = new Map<string, OwnedFn<PreSaveHookFn>[]>();
   const postSaveHooks = new Map<string, PhasedHook<PostSaveHookFn>[]>();
   const preDeleteHooks = new Map<string, PhasedHook<PreDeleteHookFn>[]>();
   const postDeleteHooks = new Map<string, PhasedHook<PostDeleteHookFn>[]>();
-  const preQueryHooks = new Map<string, PreQueryHookFn[]>();
+  const preQueryHooks = new Map<string, OwnedFn<PreQueryHookFn>[]>();
   // Entity hooks — keyed by entity name, NOT prefixed
   const entityPostSaveHooks = new Map<string, PhasedHook<PostSaveHookFn>[]>();
   const entityPreDeleteHooks = new Map<string, PhasedHook<PreDeleteHookFn>[]>();
   const entityPostDeleteHooks = new Map<string, PhasedHook<PostDeleteHookFn>[]>();
-
-  // Owner-feature per hook, parallel to each hook list above. Index i in the
-  // owner array corresponds to index i in the hook array. Used by the
-  // lifecycle pipeline to skip hooks whose owning feature is disabled, and
-  // for nothing else. Merged in lockstep with the hook lists below.
-  const preSaveHookOwners = new Map<string, string[]>();
-  const postSaveHookOwners = new Map<string, string[]>();
-  const preDeleteHookOwners = new Map<string, string[]>();
-  const postDeleteHookOwners = new Map<string, string[]>();
-  const preQueryHookOwners = new Map<string, string[]>();
-  const entityPostSaveHookOwners = new Map<string, string[]>();
-  const entityPreDeleteHookOwners = new Map<string, string[]>();
-  const entityPostDeleteHookOwners = new Map<string, string[]>();
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
   const jobMap = new Map<string, JobDefinition>();
   const notificationMap = new Map<string, NotificationDefinition>();
@@ -125,65 +117,63 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     return qn(toKebab(featureName), type, toKebab(name));
   }
 
-  // Extract hook fns, optionally filtered by phase AND by owning feature.
+  // Filter hooks by phase and/or owning feature.
   //
-  // When `effectiveFeatures` is supplied, each hook's featureName (held in
-  // the parallel owners list) must be in the set — otherwise the hook is
-  // silently skipped. Extension-provided hooks carry owner "*" and are never
-  // filtered out (they're invariant plumbing, not opt-in feature logic).
-  // The `owners` arg mirrors `list`: same length, same order, owner[i] is
-  // the feature that registered list[i].
+  // - `phase === undefined` → any phase passes.
+  // - `effectiveFeatures === undefined` → ownership filter disabled.
+  // - hook.featureName === "*" or undefined → always passes ownership filter.
+  //   "*" is reserved for extension-provided hooks that are invariant
+  //   plumbing, not opt-in feature logic.
   function filterByPhase<TFn>(
     list: readonly PhasedHook<TFn>[] | undefined,
     phase: HookPhase | undefined,
-    owners?: readonly string[],
     effectiveFeatures?: ReadonlySet<string>,
   ): readonly TFn[] {
     if (!list || list.length === 0) return [];
-    const pickOwner = (i: number): boolean => {
-      if (!effectiveFeatures || !owners) return true;
-      const o = owners[i];
-      if (o === undefined) return true;
-      // Extension hooks bypass the feature filter — see extension-hook block.
-      if (o === "*") return true;
-      return effectiveFeatures.has(o);
-    };
-    if (phase === undefined) {
-      const out: TFn[] = [];
-      for (let i = 0; i < list.length; i++) {
-        if (!pickOwner(i)) continue;
-        const entry = list[i];
-        if (entry) out.push(entry.fn);
-      }
-      return out;
-    }
     const result: TFn[] = [];
-    for (let i = 0; i < list.length; i++) {
-      const entry = list[i];
-      if (!entry || entry.phase !== phase) continue;
-      if (!pickOwner(i)) continue;
+    for (const entry of list) {
+      if (phase !== undefined && entry.phase !== phase) continue;
+      if (!ownerEnabled(entry.featureName, effectiveFeatures)) continue;
       result.push(entry.fn);
     }
     return result;
   }
 
-  // Merge hooks without prefix (entity hooks). Owner-map is kept in lock-step
-  // with the hook list — same index = same owner.
+  // Same ownership rule as filterByPhase, but for unphased hook lists
+  // (preSave, preQuery). Returns the raw fns ready for the lifecycle runner.
+  function filterOwned<TFn>(
+    list: readonly OwnedFn<TFn>[] | undefined,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly TFn[] {
+    if (!list || list.length === 0) return [];
+    const result: TFn[] = [];
+    for (const entry of list) {
+      if (!ownerEnabled(entry.featureName, effectiveFeatures)) continue;
+      result.push(entry.fn);
+    }
+    return result;
+  }
+
+  function ownerEnabled(
+    owner: string | undefined,
+    effectiveFeatures: ReadonlySet<string> | undefined,
+  ): boolean {
+    if (!effectiveFeatures) return true;
+    if (owner === undefined || owner === "*") return true;
+    return effectiveFeatures.has(owner);
+  }
+
+  // Merge hooks without prefix (entity hooks). featureName is already on
+  // every hook entry (set by defineFeature), so there's no parallel
+  // bookkeeping — just append.
   function mergeHookList<T>(
     map: Map<string, T[]>,
-    ownerMap: Map<string, string[]>,
     source: Readonly<Record<string, readonly T[]>>,
-    featureName: string,
   ): void {
     for (const [name, fns] of Object.entries(source)) {
       const existing = map.get(name) ?? [];
-      const owners = ownerMap.get(name) ?? [];
-      for (const fn of fns) {
-        existing.push(fn);
-        owners.push(featureName);
-      }
+      existing.push(...fns);
       map.set(name, existing);
-      ownerMap.set(name, owners);
     }
   }
 
@@ -192,7 +182,6 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // The hookQnType indicates whether the targeted handler is a write or query handler.
   function mergeHookListQualified<T>(
     map: Map<string, T[]>,
-    ownerMap: Map<string, string[]>,
     source: Readonly<Record<string, readonly T[]>>,
     featureName: string,
     hookQnType: QnType,
@@ -200,13 +189,8 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     for (const [name, fns] of Object.entries(source)) {
       const qualified = qualify(featureName, hookQnType, name);
       const existing = map.get(qualified) ?? [];
-      const owners = ownerMap.get(qualified) ?? [];
-      for (const fn of fns) {
-        existing.push(fn);
-        owners.push(featureName);
-      }
+      existing.push(...fns);
       map.set(qualified, existing);
-      ownerMap.set(qualified, owners);
     }
   }
 
@@ -319,63 +303,19 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       mergedTranslations[`${feature.name}:${key}`] = value;
     }
 
-    // Lifecycle hooks: keyed by handler QN.
+    // Lifecycle hooks: keyed by handler QN. featureName rides along on each
+    // hook entry — defineFeature sets it, the registry just appends.
     // Save/delete hooks target write handlers, query hooks target query handlers.
-    mergeHookListQualified(
-      preSaveHooks,
-      preSaveHookOwners,
-      feature.hooks.preSave,
-      feature.name,
-      "write",
-    );
-    mergeHookListQualified(
-      postSaveHooks,
-      postSaveHookOwners,
-      feature.hooks.postSave,
-      feature.name,
-      "write",
-    );
-    mergeHookListQualified(
-      preDeleteHooks,
-      preDeleteHookOwners,
-      feature.hooks.preDelete,
-      feature.name,
-      "write",
-    );
-    mergeHookListQualified(
-      postDeleteHooks,
-      postDeleteHookOwners,
-      feature.hooks.postDelete,
-      feature.name,
-      "write",
-    );
-    mergeHookListQualified(
-      preQueryHooks,
-      preQueryHookOwners,
-      feature.hooks.preQuery,
-      feature.name,
-      "query",
-    );
+    mergeHookListQualified(preSaveHooks, feature.hooks.preSave, feature.name, "write");
+    mergeHookListQualified(postSaveHooks, feature.hooks.postSave, feature.name, "write");
+    mergeHookListQualified(preDeleteHooks, feature.hooks.preDelete, feature.name, "write");
+    mergeHookListQualified(postDeleteHooks, feature.hooks.postDelete, feature.name, "write");
+    mergeHookListQualified(preQueryHooks, feature.hooks.preQuery, feature.name, "query");
 
     // Entity hooks: NOT prefixed, keyed by entity name
-    mergeHookList(
-      entityPostSaveHooks,
-      entityPostSaveHookOwners,
-      feature.entityHooks.postSave,
-      feature.name,
-    );
-    mergeHookList(
-      entityPreDeleteHooks,
-      entityPreDeleteHookOwners,
-      feature.entityHooks.preDelete,
-      feature.name,
-    );
-    mergeHookList(
-      entityPostDeleteHooks,
-      entityPostDeleteHookOwners,
-      feature.entityHooks.postDelete,
-      feature.name,
-    );
+    mergeHookList(entityPostSaveHooks, feature.entityHooks.postSave);
+    mergeHookList(entityPreDeleteHooks, feature.entityHooks.preDelete);
+    mergeHookList(entityPostDeleteHooks, feature.entityHooks.postDelete);
 
     // Registrar extensions: collect definitions and usages
     for (const [extName, extDef] of Object.entries(feature.registrarExtensions)) {
@@ -545,27 +485,30 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     if (ext.hooks) {
       if (ext.hooks.postSave) {
         const existing = entityPostSaveHooks.get(usage.entityName) ?? [];
-        const owners = entityPostSaveHookOwners.get(usage.entityName) ?? [];
-        existing.push({ fn: ext.hooks.postSave, phase: HookPhases.afterCommit });
-        owners.push(extOwner);
+        existing.push({
+          fn: ext.hooks.postSave,
+          phase: HookPhases.afterCommit,
+          featureName: extOwner,
+        });
         entityPostSaveHooks.set(usage.entityName, existing);
-        entityPostSaveHookOwners.set(usage.entityName, owners);
       }
       if (ext.hooks.preDelete) {
         const existing = entityPreDeleteHooks.get(usage.entityName) ?? [];
-        const owners = entityPreDeleteHookOwners.get(usage.entityName) ?? [];
-        existing.push({ fn: ext.hooks.preDelete, phase: HookPhases.afterCommit });
-        owners.push(extOwner);
+        existing.push({
+          fn: ext.hooks.preDelete,
+          phase: HookPhases.afterCommit,
+          featureName: extOwner,
+        });
         entityPreDeleteHooks.set(usage.entityName, existing);
-        entityPreDeleteHookOwners.set(usage.entityName, owners);
       }
       if (ext.hooks.postDelete) {
         const existing = entityPostDeleteHooks.get(usage.entityName) ?? [];
-        const owners = entityPostDeleteHookOwners.get(usage.entityName) ?? [];
-        existing.push({ fn: ext.hooks.postDelete, phase: HookPhases.afterCommit });
-        owners.push(extOwner);
+        existing.push({
+          fn: ext.hooks.postDelete,
+          phase: HookPhases.afterCommit,
+          featureName: extOwner,
+        });
         entityPostDeleteHooks.set(usage.entityName, existing);
-        entityPostDeleteHookOwners.set(usage.entityName, owners);
       }
       // preSave on extensions: store as handler hook for all CRUD handlers of this entity
       if (ext.hooks.preSave) {
@@ -573,11 +516,8 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         for (const qualifiedHandler of writeHandlerMap.keys()) {
           if (handlerEntityMap.get(qualifiedHandler) === usage.entityName) {
             const existing = preSaveHooks.get(qualifiedHandler) ?? [];
-            const owners = preSaveHookOwners.get(qualifiedHandler) ?? [];
-            existing.push(ext.hooks.preSave);
-            owners.push(extOwner);
+            existing.push({ fn: ext.hooks.preSave, featureName: extOwner });
             preSaveHooks.set(qualifiedHandler, existing);
-            preSaveHookOwners.set(qualifiedHandler, owners);
           }
         }
       }
@@ -809,10 +749,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     notificationMap.set(qualifiedName, { ...notifDef, trigger: { on: triggerOn } });
 
     if (!postSaveHooks.has(triggerOn)) postSaveHooks.set(triggerOn, []);
-    if (!postSaveHookOwners.has(triggerOn)) postSaveHookOwners.set(triggerOn, []);
-    postSaveHookOwners.get(triggerOn)?.push(featureName);
     postSaveHooks.get(triggerOn)?.push({
       phase: HookPhases.afterCommit,
+      featureName,
       fn: async (result, context) => {
         if (!context.notify) {
           context.log?.debug(
@@ -936,20 +875,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       name: string,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PreSaveHookFn[] {
-      const list = preSaveHooks.get(name);
-      if (!list) return [];
-      if (!effectiveFeatures) return list;
-      const owners = preSaveHookOwners.get(name);
-      if (!owners) return list;
-      const out: PreSaveHookFn[] = [];
-      for (let i = 0; i < list.length; i++) {
-        const o = owners[i];
-        if (o === "*" || o === undefined || effectiveFeatures.has(o)) {
-          const fn = list[i];
-          if (fn) out.push(fn);
-        }
-      }
-      return out;
+      return filterOwned(preSaveHooks.get(name), effectiveFeatures);
     },
 
     getPostSaveHooks(
@@ -957,12 +883,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostSaveHookFn[] {
-      return filterByPhase(
-        postSaveHooks.get(name),
-        phase,
-        postSaveHookOwners.get(name),
-        effectiveFeatures,
-      );
+      return filterByPhase(postSaveHooks.get(name), phase, effectiveFeatures);
     },
 
     getPreDeleteHooks(
@@ -970,12 +891,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PreDeleteHookFn[] {
-      return filterByPhase(
-        preDeleteHooks.get(name),
-        phase,
-        preDeleteHookOwners.get(name),
-        effectiveFeatures,
-      );
+      return filterByPhase(preDeleteHooks.get(name), phase, effectiveFeatures);
     },
 
     getPostDeleteHooks(
@@ -983,32 +899,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostDeleteHookFn[] {
-      return filterByPhase(
-        postDeleteHooks.get(name),
-        phase,
-        postDeleteHookOwners.get(name),
-        effectiveFeatures,
-      );
+      return filterByPhase(postDeleteHooks.get(name), phase, effectiveFeatures);
     },
 
     getPreQueryHooks(
       name: string,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PreQueryHookFn[] {
-      const list = preQueryHooks.get(name);
-      if (!list) return [];
-      if (!effectiveFeatures) return list;
-      const owners = preQueryHookOwners.get(name);
-      if (!owners) return list;
-      const out: PreQueryHookFn[] = [];
-      for (let i = 0; i < list.length; i++) {
-        const o = owners[i];
-        if (o === "*" || o === undefined || effectiveFeatures.has(o)) {
-          const fn = list[i];
-          if (fn) out.push(fn);
-        }
-      }
-      return out;
+      return filterOwned(preQueryHooks.get(name), effectiveFeatures);
     },
 
     // Entity hooks — fire for all writes on an entity
@@ -1017,12 +915,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostSaveHookFn[] {
-      return filterByPhase(
-        entityPostSaveHooks.get(entityName),
-        phase,
-        entityPostSaveHookOwners.get(entityName),
-        effectiveFeatures,
-      );
+      return filterByPhase(entityPostSaveHooks.get(entityName), phase, effectiveFeatures);
     },
 
     getEntityPreDeleteHooks(
@@ -1030,12 +923,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PreDeleteHookFn[] {
-      return filterByPhase(
-        entityPreDeleteHooks.get(entityName),
-        phase,
-        entityPreDeleteHookOwners.get(entityName),
-        effectiveFeatures,
-      );
+      return filterByPhase(entityPreDeleteHooks.get(entityName), phase, effectiveFeatures);
     },
 
     getEntityPostDeleteHooks(
@@ -1043,12 +931,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostDeleteHookFn[] {
-      return filterByPhase(
-        entityPostDeleteHooks.get(entityName),
-        phase,
-        entityPostDeleteHookOwners.get(entityName),
-        effectiveFeatures,
-      );
+      return filterByPhase(entityPostDeleteHooks.get(entityName), phase, effectiveFeatures);
     },
 
     getAllTranslations(): TranslationKeys {

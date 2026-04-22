@@ -1,5 +1,4 @@
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
-import { FEATURE_TOGGLE_SET_EVENT_NAME } from "./constants";
 import { featureToggleSetSchema } from "./events";
 import { listQuery } from "./handlers/list.query";
 import { registeredQuery } from "./handlers/registered.query";
@@ -31,18 +30,11 @@ export function createFeatureTogglesFeature(options: FeatureTogglesOptions): Fea
   return defineFeature("feature-toggles", (r) => {
     r.systemScope();
 
-    // Toggle-change domain event. One aggregate stream per feature
-    // (aggregateId = featureName). The event ends up in the events-table
+    // Toggle-change domain event. The event ends up in the events-table
     // alongside every other write — audit.list picks it up automatically,
-    // no dedicated projection needed.
-    //
-    // Name-prefix requirement: defineEvent prepends "<feature>:event:" so
-    // the registered qualified name matches FEATURE_TOGGLE_SET_EVENT_NAME
-    // exactly. The short name "toggle-set" + auto-prefix = the constant.
+    // no dedicated projection needed. Qualified name after prefixing:
+    // "feature-toggles:event:toggle-set" (see constants.FEATURE_TOGGLE_SET_EVENT_NAME).
     r.defineEvent("toggle-set", featureToggleSetSchema);
-    // skip: the constant is imported for the reader's awareness, not used
-    // as a value here — the prefix is driven by defineEvent.
-    void FEATURE_TOGGLE_SET_EVENT_NAME;
 
     const handlers = {
       set: r.writeHandler(createSetWriteHandler(options.getRuntime)),

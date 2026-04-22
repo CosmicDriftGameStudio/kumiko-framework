@@ -1,6 +1,7 @@
 import {
   buildDrizzleTable,
   createEventStoreExecutor,
+  entityEventName,
   integer,
   table as pgTable,
   uuid,
@@ -114,12 +115,16 @@ function widgetTrackerFeature(): FeatureDefinition {
   return defineFeature("widget-tracker", (r) => {
     r.systemScope();
     r.toggleable({ default: true });
+    // Declared dependency on widget: when widget is globally off, the
+    // resolver's cascade drops widget-tracker as well (no matter its own
+    // override). That's the shape the cascade test below asserts on.
+    r.requires("widget");
 
     r.multiStreamProjection({
       name: "tracker",
       table: widgetTrackerTable,
       apply: {
-        "widget.created": async (event, tx) => {
+        [entityEventName("widget", "created")]: async (event, tx) => {
           await tx
             .insert(widgetTrackerTable)
             .values({ tenantId: event.tenantId, count: 1 })
@@ -232,14 +237,57 @@ describe("feature-toggles runtime cache", () => {
     expect(runtime.effectiveFeatures().has("widget")).toBe(false);
   });
 
-  test("cascade: A requires B, B off → A off", () => {
-    // widget-audit doesn't actually require widget — but the resolver logic
-    // is covered by the unit test suite. This integration-side check just
-    // proves the runtime hooks into computeEffectiveFeatures correctly.
+  test("cascade: widget-tracker requires widget → disabling widget drops widget-tracker too", () => {
+    // widget-tracker has r.requires("widget") declared. Disabling widget
+    // should cascade through the resolver so widget-tracker is effectively
+    // off even though nobody touched its own override row.
+    runtime.apply("widget", false);
+    expect(runtime.effectiveFeatures().has("widget")).toBe(false);
+    expect(runtime.effectiveFeatures().has("widget-tracker")).toBe(false);
+
+    // widget back on → tracker back on (override row never existed, so
+    // the cascade flips back automatically).
     runtime.apply("widget", true);
-    runtime.apply("widget-audit", true);
-    expect(runtime.effectiveFeatures().has("widget-audit")).toBe(true);
     expect(runtime.effectiveFeatures().has("widget")).toBe(true);
+    expect(runtime.effectiveFeatures().has("widget-tracker")).toBe(true);
+  });
+
+  test("cascade via HTTP: disabling widget stops widget-tracker MSP too", async () => {
+    // End-to-end cascade proof: neither the widget handler-gate NOR the
+    // widget-tracker MSP advance when widget is off, even though only
+    // widget's override row exists.
+    await createWidget("cascade-alpha");
+    await stack.eventDispatcher?.runOnce();
+    const trackerBefore = await stack.db.db.select().from(widgetTrackerTable);
+    expect(trackerBefore.length).toBe(1);
+
+    // Persist "widget off" via the real set-handler (not apply() — this
+    // proves the through-the-DB path works).
+    await stack.http.write(
+      "feature-toggles:write:set",
+      { featureName: "widget", enabled: false },
+      admin,
+    );
+
+    // widget's create-handler: gate blocks.
+    const denied = await createWidget("cascade-beta");
+    expect(denied.body.error?.code).toBe("feature_disabled");
+
+    // Simulate a widget event landing via admin-side insertion would be
+    // artificial — the gate already prevents the write. Instead check the
+    // MSP-side cascade: if we *could* emit a widget event while widget is
+    // off, the tracker consumer would still skip because effectiveFeatures
+    // reports widget-tracker off via cascade. We verify the state
+    // directly: tracker is not in effectiveFeatures.
+    expect(runtime.effectiveFeatures().has("widget-tracker")).toBe(false);
+
+    // Re-enable widget — cascade lets tracker drain again.
+    await stack.http.write(
+      "feature-toggles:write:set",
+      { featureName: "widget", enabled: true },
+      admin,
+    );
+    expect(runtime.effectiveFeatures().has("widget-tracker")).toBe(true);
   });
 });
 
