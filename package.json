@@ -29,6 +29,7 @@
     "packages/bundled-features",
     "packages/ui-core",
     "packages/dispatcher-live",
+    "packages/renderer-react",
     "samples/*",
     "app"
   ],
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.11",
+    "@testing-library/dom": "^10.4.1",
     "@vitest/coverage-v8": "^4.1.4",
     "bun-types": "^1.3.12",
     "ts-morph": "^28.0.0",

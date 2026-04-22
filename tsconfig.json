@@ -24,6 +24,7 @@
     { "path": "packages/bundled-features" },
     { "path": "packages/ui-core" },
     { "path": "packages/dispatcher-live" },
+    { "path": "packages/renderer-react" },
     { "path": "app" }
   ],
   "files": []
