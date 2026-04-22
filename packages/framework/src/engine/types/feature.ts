@@ -493,6 +493,11 @@ export type Registry = {
   // The feature that registered the given screen. Consumed by the nav
   // resolver to gate a nav-entry whose screen belongs to a disabled feature.
   getScreenFeature(qualifiedName: string): string | undefined;
+  // All entity-bound screens (entityList / entityEdit) that target the given
+  // entity. Pre-grouped so ui-core's view-model builders don't re-filter
+  // getAllScreens() on every render. Custom screens have no entity and are
+  // never returned here — walk getAllScreens() for those.
+  getScreensByEntity(entityName: string): readonly ScreenDefinition[];
 
   // Nav entries declared via r.nav() across all features. Keyed by qualified
   // name ("<feature>:nav:<id>"). Flat list — the renderer's resolveNavigation
@@ -502,4 +507,11 @@ export type Registry = {
   // The feature that registered the given nav entry. Used by the nav
   // resolver to drop entries whose owning feature is globally disabled.
   getNavFeature(qualifiedName: string): string | undefined;
+  // Direct children of the given parent nav entry. Empty array when the
+  // parent has no children. Pre-grouped for O(1) tree-walk — resolveNavigation
+  // recurses with getNavsByParent(child.qn) instead of filtering getAllNavs().
+  getNavsByParent(parentQualifiedName: string): readonly NavDefinition[];
+  // Nav entries that declare no parent — the roots of the navigation tree.
+  // resolveNavigation starts its walk here and descends via getNavsByParent.
+  getTopLevelNavs(): readonly NavDefinition[];
 };

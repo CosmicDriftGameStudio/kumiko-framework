@@ -176,6 +176,35 @@ describe("createRegistry — screen indexing", () => {
     expect(registry.getScreen("shop:screen:list")).toBeDefined();
     expect(registry.getScreen("warehouse:screen:list")).toBeDefined();
   });
+
+  test("getScreensByEntity groups entity-bound screens", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+      });
+      r.screen({
+        id: "product-edit",
+        type: "entityEdit",
+        entity: "product",
+        layout: { sections: [{ title: "t", fields: ["name"] }] },
+      });
+      // custom screens have no entity; they must not show up in the index.
+      r.screen({ id: "overview", type: "custom", renderer: { react: { __c: true } } });
+    });
+    const registry = createRegistry([feature]);
+    const byProduct = registry.getScreensByEntity("product");
+    expect(byProduct).toHaveLength(2);
+    expect(byProduct.map((s) => s.id).sort()).toEqual(["product-edit", "product-list"]);
+  });
+
+  test("getScreensByEntity returns empty for unknown entities", () => {
+    const registry = createRegistry([]);
+    expect(registry.getScreensByEntity("ghost")).toHaveLength(0);
+  });
 });
 
 describe("validateBoot — screen validation", () => {

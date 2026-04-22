@@ -114,13 +114,22 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const claimKeyMap = new Map<string, ClaimKeyDefinition>();
   // Screens — keyed by qualified name ("<feature>:screen:<id>"). One map for
   // lookup + a parallel featureMap so the nav-resolver can gate screens by
-  // effective-features without scanning.
+  // effective-features without scanning. `screensByEntity` pre-groups the
+  // entity-bound screens (entityList / entityEdit) by their entity name so
+  // ui-core's Schema-driven view-model builders don't need to scan
+  // getAllScreens() for every render.
   const screenMap = new Map<string, ScreenDefinition>();
   const screenFeatureMap = new Map<string, string>();
+  const screensByEntity = new Map<string, ScreenDefinition[]>();
   // Nav entries — same shape as screenMap. Tree assembly happens in ui-core
   // at render time; the engine just stores the flat list and its owners.
+  // `navsByParent` pre-groups children by their parent's QN so
+  // resolveNavigation does O(n) passes, not O(n²) parent-filters. Top-level
+  // entries (no parent) sit in the separate `topLevelNavs` list.
   const navMap = new Map<string, NavDefinition>();
   const navFeatureMap = new Map<string, string>();
+  const navsByParent = new Map<string, NavDefinition[]>();
+  const topLevelNavs: NavDefinition[] = [];
 
   // Qualified name helper: builds "scope:type:name" from feature + type + short name.
   // Both feature name and handler name are converted to kebab-case.
@@ -439,15 +448,32 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       const qualified = qualify(feature.name, "screen", screenId);
       screenMap.set(qualified, screenDef);
       screenFeatureMap.set(qualified, feature.name);
+      // Entity-bound screens also go into the per-entity index; custom
+      // screens have no entity to index by, so they only live in screenMap.
+      if (screenDef.type !== "custom") {
+        const existing = screensByEntity.get(screenDef.entity) ?? [];
+        existing.push(screenDef);
+        screensByEntity.set(screenDef.entity, existing);
+      }
     }
 
     // Nav entries: same qualification pattern as screens. The parent/screen
     // refs are boot-validated below (after all features are ingested, so
-    // cross-feature parents can resolve).
+    // cross-feature parents can resolve). parent-index is built in the same
+    // loop because `parent` refers to a qualified name that doesn't need
+    // resolution — just string equality with whatever's in the target
+    // entry's QN.
     for (const [navId, navDef] of Object.entries(feature.navs)) {
       const qualified = qualify(feature.name, "nav", navId);
       navMap.set(qualified, navDef);
       navFeatureMap.set(qualified, feature.name);
+      if (navDef.parent === undefined) {
+        topLevelNavs.push(navDef);
+      } else {
+        const existing = navsByParent.get(navDef.parent) ?? [];
+        existing.push(navDef);
+        navsByParent.set(navDef.parent, existing);
+      }
     }
 
     // Auth-claims hooks: order of registration is preserved. Feature name is
@@ -1075,6 +1101,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       return screenFeatureMap.get(qualifiedName);
     },
 
+    getScreensByEntity(entityName: string): readonly ScreenDefinition[] {
+      return screensByEntity.get(entityName) ?? [];
+    },
+
     getAllNavs(): ReadonlyMap<string, NavDefinition> {
       return navMap;
     },
@@ -1085,6 +1115,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getNavFeature(qualifiedName: string): string | undefined {
       return navFeatureMap.get(qualifiedName);
+    },
+
+    getNavsByParent(parentQualifiedName: string): readonly NavDefinition[] {
+      return navsByParent.get(parentQualifiedName) ?? [];
+    },
+
+    getTopLevelNavs(): readonly NavDefinition[] {
+      return topLevelNavs;
     },
   };
 }

@@ -111,6 +111,47 @@ describe("createRegistry — nav indexing", () => {
     expect(registry.getNav("shop:nav:home")).toBeDefined();
     expect(registry.getNav("settings:nav:home")).toBeDefined();
   });
+
+  test("getTopLevelNavs + getNavsByParent partition the tree cleanly", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.nav({ id: "root", label: "r" });
+      r.nav({ id: "mid", label: "m", parent: "shop:nav:root" });
+      r.nav({ id: "leaf-a", label: "a", parent: "shop:nav:mid" });
+      r.nav({ id: "leaf-b", label: "b", parent: "shop:nav:mid" });
+      r.nav({ id: "other-root", label: "r2" });
+    });
+    const registry = createRegistry([feature]);
+
+    // Two top-level entries (root + other-root), registration order preserved.
+    const tops = registry.getTopLevelNavs();
+    expect(tops.map((n) => n.id)).toEqual(["root", "other-root"]);
+
+    // Direct children of root (just `mid`).
+    const rootChildren = registry.getNavsByParent("shop:nav:root");
+    expect(rootChildren.map((n) => n.id)).toEqual(["mid"]);
+
+    // Direct children of mid (leaf-a + leaf-b, order preserved).
+    const midChildren = registry.getNavsByParent("shop:nav:mid");
+    expect(midChildren.map((n) => n.id)).toEqual(["leaf-a", "leaf-b"]);
+
+    // Unknown parent → empty.
+    expect(registry.getNavsByParent("ghost:nav:nope")).toHaveLength(0);
+  });
+
+  test("getNavsByParent aggregates cross-feature children under a shared parent", () => {
+    const shell = defineFeature("shell", (r) => {
+      r.nav({ id: "main", label: "x" });
+    });
+    const shop = defineFeature("shop", (r) => {
+      r.nav({ id: "catalog", label: "y", parent: "shell:nav:main" });
+    });
+    const settings = defineFeature("settings", (r) => {
+      r.nav({ id: "general", label: "z", parent: "shell:nav:main" });
+    });
+    const registry = createRegistry([shell, shop, settings]);
+    const children = registry.getNavsByParent("shell:nav:main");
+    expect(children.map((n) => n.id).sort()).toEqual(["catalog", "general"]);
+  });
 });
 
 describe("validateBoot — nav validation", () => {
