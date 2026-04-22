@@ -142,6 +142,7 @@ export { HookPhases } from "./hooks";
 // Domain-identifier type aliases — see identifiers.ts for rationale.
 export type { EntityId, TenantId } from "./identifiers";
 export { isSystemTenant, SYSTEM_TENANT_ID } from "./identifiers";
+export type { NavDefinition } from "./nav";
 export type {
   MspErrorMode,
   MspErrorPolicy,
@@ -151,6 +152,13 @@ export type {
   ProjectionTable,
   SingleStreamApplyFn,
 } from "./projection";
+export type {
+  BelongsToRelation,
+  EntityRelations,
+  HasManyRelation,
+  ManyToManyRelation,
+  RelationDefinition,
+} from "./relations";
 export type {
   CustomScreenDefinition,
   CustomScreenRoute,
@@ -167,10 +175,3 @@ export type {
   ScreenSlots,
 } from "./screen";
 export { normalizeEditField, normalizeListColumn } from "./screen";
-export type {
-  BelongsToRelation,
-  EntityRelations,
-  HasManyRelation,
-  ManyToManyRelation,
-  RelationDefinition,
-} from "./relations";

@@ -306,10 +306,7 @@ describe("validateBoot — screen validation", () => {
             {
               title: "shop:section.basics",
               columns: 2,
-              fields: [
-                "name",
-                { field: "sku", visible: () => true, required: () => true },
-              ],
+              fields: ["name", { field: "sku", visible: () => true, required: () => true }],
             },
           ],
         },

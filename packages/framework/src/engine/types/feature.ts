@@ -47,6 +47,7 @@ import type {
   PreSaveHookFn,
   ValidationHookFn,
 } from "./hooks";
+import type { NavDefinition } from "./nav";
 import type { MultiStreamProjectionDefinition, ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
 import type { ScreenDefinition } from "./screen";
@@ -165,6 +166,10 @@ export type FeatureDefinition = {
   // Pure data — ui-core + renderer packages interpret; engine only stores
   // and validates entity/field references against the feature's entities.
   readonly screens: Readonly<Record<string, ScreenDefinition>>;
+  // Nav entries declared via r.nav(). Keyed by the feature-local short id;
+  // registry qualifies to "<feature>:nav:<id>". Flat list — the renderer's
+  // resolveNavigation assembles the tree from parent refs at mount time.
+  readonly navEntries: Readonly<Record<string, NavDefinition>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -356,6 +361,12 @@ export type FeatureRegistrar = {
   // columns / form-field refs name real fields — cross-feature component-QN
   // validation (r.uiComponent) comes in M4/M5.
   screen(definition: ScreenDefinition): void;
+
+  // Register a nav entry. The id is the feature-local short name (kebab-case);
+  // the registry qualifies to "<feature>:nav:<id>". Boot-validation checks
+  // that `screen` and `parent` refs exist (cross-feature QNs allowed) and
+  // that parent chains don't contain cycles.
+  nav(definition: NavDefinition): void;
 };
 
 // --- Registry (created from features) ---
@@ -482,4 +493,13 @@ export type Registry = {
   // The feature that registered the given screen. Consumed by the nav
   // resolver to gate a nav-entry whose screen belongs to a disabled feature.
   getScreenFeature(qualifiedName: string): string | undefined;
+
+  // Nav entries declared via r.nav() across all features. Keyed by qualified
+  // name ("<feature>:nav:<id>"). Flat list — the renderer's resolveNavigation
+  // assembles the tree from parent refs and gates by effective-features.
+  getAllNavEntries(): ReadonlyMap<string, NavDefinition>;
+  getNavEntry(qualifiedName: string): NavDefinition | undefined;
+  // The feature that registered the given nav entry. Used by the nav
+  // resolver to drop entries whose owning feature is globally disabled.
+  getNavEntryFeature(qualifiedName: string): string | undefined;
 };

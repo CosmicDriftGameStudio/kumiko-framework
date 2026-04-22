@@ -3,7 +3,6 @@ import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 import { isKebabSegment, QnTypes, qn, toKebab } from "./qualified-name";
-import type { ScreenDefinition } from "./types/screen";
 import type {
   AccessRule,
   AuthClaimsFn,
@@ -58,6 +57,8 @@ import type {
 } from "./types";
 import { HookPhases } from "./types";
 import { resolveName } from "./types/handlers";
+import type { NavDefinition } from "./types/nav";
+import type { ScreenDefinition } from "./types/screen";
 
 const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
 
@@ -105,6 +106,7 @@ export function defineFeature<TExports = undefined>(
   const authClaimsHooks: AuthClaimsFn[] = [];
   const claimKeys: Record<string, ClaimKeyDefinition> = {};
   const screens: Record<string, ScreenDefinition> = {};
+  const navEntries: Record<string, NavDefinition> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -515,6 +517,23 @@ export function defineFeature<TExports = undefined>(
       screens[definition.id] = definition;
     },
 
+    nav(definition: NavDefinition): void {
+      if (!isKebabSegment(definition.id)) {
+        throw new Error(
+          `[Feature ${name}] Nav id "${definition.id}" must be kebab-case ` +
+            `(lowercase letters, digits, dashes; start with a letter). ` +
+            `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
+        );
+      }
+      if (navEntries[definition.id]) {
+        throw new Error(
+          `[Feature ${name}] Nav entry "${definition.id}" already registered. ` +
+            `Nav ids must be unique per feature.`,
+        );
+      }
+      navEntries[definition.id] = definition;
+    },
+
     claimKey<T extends ClaimKeyType>(
       shortName: string,
       options: { readonly type: T },
@@ -585,5 +604,6 @@ export function defineFeature<TExports = undefined>(
     authClaimsHooks,
     claimKeys,
     screens,
+    navEntries,
   };
 }

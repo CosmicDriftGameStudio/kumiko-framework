@@ -1,5 +1,6 @@
 import type { OwnershipMap, OwnershipRule } from "./ownership";
-import type { ClaimKeyDefinition, FeatureDefinition } from "./types";
+import { qn, toKebab } from "./qualified-name";
+import type { ClaimKeyDefinition, FeatureDefinition, NavDefinition } from "./types";
 import { normalizeEditField, normalizeListColumn } from "./types/screen";
 
 const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
@@ -50,6 +51,12 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   // instead of "Admin" fail at boot if nothing else ever mentions "Admi".
   const knownRoles = collectKnownRoles(features);
 
+  // Cross-feature screen + nav registry — built once up front so per-feature
+  // validators can check nav-ref targets + parent chains without re-scanning
+  // every feature's navEntries map.
+  const allScreenQns = collectScreenQns(features);
+  const allNavQns = collectNavQns(features);
+
   let hasEncryptedFields = false;
   let hasFileFields = false;
 
@@ -69,7 +76,10 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
     validateScreens(feature, featureMap);
+    validateNavEntries(feature, allScreenQns, allNavQns);
   }
+
+  validateNavCycles(allNavQns);
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
     throw new Error("ENCRYPTION_KEY environment variable is required (encrypted fields in use)");
@@ -721,7 +731,13 @@ function validateScreens(
         const normalized = normalizeListColumn(col);
         if (!fieldNames.has(normalized.field)) {
           throw new Error(
-            buildUnknownFieldMessage(feature.name, screenId, normalized.field, screen.entity, fieldNames),
+            buildUnknownFieldMessage(
+              feature.name,
+              screenId,
+              normalized.field,
+              screen.entity,
+              fieldNames,
+            ),
           );
         }
       }
@@ -768,6 +784,91 @@ function buildUnknownFieldMessage(
     `[Feature ${featureName}] Screen "${screenId}" references field "${fieldName}" ` +
     `which does not exist on entity "${entityName}" (known: ${known}).`
   );
+}
+
+// --- Nav validation ---
+//
+// The boot-validator runs BEFORE createRegistry builds the final maps, so we
+// pre-build the qualified name sets for screens + navs here. Same qualify()
+// logic the registry uses (toKebab + qn), kept in lockstep with registry.ts.
+
+function collectScreenQns(features: readonly FeatureDefinition[]): Set<string> {
+  const set = new Set<string>();
+  for (const f of features) {
+    for (const screenId of Object.keys(f.screens)) {
+      set.add(qn(toKebab(f.name), "screen", toKebab(screenId)));
+    }
+  }
+  return set;
+}
+
+function collectNavQns(
+  features: readonly FeatureDefinition[],
+): Map<string, NavDefinition & { readonly featureName: string }> {
+  const map = new Map<string, NavDefinition & { readonly featureName: string }>();
+  for (const f of features) {
+    for (const [navId, navDef] of Object.entries(f.navEntries)) {
+      const qualified = qn(toKebab(f.name), "nav", toKebab(navId));
+      map.set(qualified, { ...navDef, featureName: f.name });
+    }
+  }
+  return map;
+}
+
+// Per-feature ref validation: screen + parent refs point at real QNs. Cycle
+// detection runs once globally afterwards (it's cheaper to do a single DFS
+// over the merged graph than restart it per feature).
+function validateNavEntries(
+  feature: FeatureDefinition,
+  allScreenQns: ReadonlySet<string>,
+  allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
+): void {
+  for (const [navId, navDef] of Object.entries(feature.navEntries)) {
+    if (navDef.screen !== undefined && !allScreenQns.has(navDef.screen)) {
+      throw new Error(
+        `[Feature ${feature.name}] Nav entry "${navId}" references screen "${navDef.screen}" ` +
+          `which is not registered. Expected a qualified name of the form ` +
+          `"<feature>:screen:<id>" pointing at an r.screen() declaration.`,
+      );
+    }
+    if (navDef.parent !== undefined && !allNavQns.has(navDef.parent)) {
+      throw new Error(
+        `[Feature ${feature.name}] Nav entry "${navId}" references parent "${navDef.parent}" ` +
+          `which is not a registered nav entry. Expected a qualified name of the form ` +
+          `"<feature>:nav:<id>".`,
+      );
+    }
+  }
+}
+
+// Walks parent-refs across ALL nav entries (cross-feature). A cycle here
+// would crash client-side tree assembly — easier to fail loud at boot than
+// to debug a React "Maximum update depth exceeded" stack trace.
+function validateNavCycles(
+  allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
+): void {
+  const visited = new Set<string>();
+  const stack = new Set<string>();
+
+  function visit(qualified: string, path: string[]): void {
+    if (stack.has(qualified)) {
+      throw new Error(
+        `[Kumiko Nav] Nav entry parent cycle detected: ${[...path, qualified].join(" → ")}`,
+      );
+    }
+    if (visited.has(qualified)) return;
+    visited.add(qualified);
+    stack.add(qualified);
+    const navDef = allNavQns.get(qualified);
+    if (navDef?.parent) {
+      visit(navDef.parent, [...path, qualified]);
+    }
+    stack.delete(qualified);
+  }
+
+  for (const qualified of allNavQns.keys()) {
+    visit(qualified, []);
+  }
 }
 
 // Roles we recognise at boot time. The framework has no explicit
