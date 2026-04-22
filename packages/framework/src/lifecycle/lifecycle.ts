@@ -155,5 +155,6 @@ function makeErrorLogger(
   if (logger) {
     return (msg, err) => logger.error(`[lifecycle] ${msg}`, { err });
   }
+  // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
   return (msg, err) => console.error(`[lifecycle] ${msg}:`, err);
 }
