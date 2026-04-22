@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "dist",
+    "paths": {
+      "@kumiko/framework/*": ["../framework/src/*/index.ts"]
+    },
+    "noEmit": true
+  },
+  "include": ["src"]
+}

@@ -139,7 +139,7 @@ export type ConfigValueWithSource = {
 // Minimal contract handlers (set/reset/values.query) call against the
 // resolver. Lives in the framework so SharedContextFields.configResolver
 // can drop the `unknown` cast — the concrete implementation in
-// core-features/config/resolver.ts implements this shape.
+// bundled-features/config/resolver.ts implements this shape.
 export type ConfigResolver = {
   get(
     qualifiedKey: string,

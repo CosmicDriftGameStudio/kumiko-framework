@@ -1,0 +1,144 @@
+// Proves the L2 rate-limit (authEndpointRateLimit, Sprint G.5) actually
+// covers the public password-reset + email-verification routes. Without
+// this test the commit message's "Rate-Limit via L2" claim is just a
+// comment — a regression that silently moves the routes out of /api/auth/*
+// or tightens loginRateLimit but forgets these would sail through.
+
+import { randomBytes } from "node:crypto";
+import { createEncryptionProvider } from "@kumiko/framework/db";
+import {
+  createEntityTable,
+  pushTables,
+  setupTestStack,
+  type TestStack,
+} from "@kumiko/framework/testing";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { createConfigFeature } from "../../config";
+import { createConfigResolver } from "../../config/resolver";
+import { configValuesTable } from "../../config/table";
+import { createTenantFeature } from "../../tenant";
+import { tenantMembershipsTable } from "../../tenant/membership-table";
+import { tenantEntity } from "../../tenant/tenant-entity";
+import { userEntity, userTable } from "../../user/user-entity";
+import { createUserFeature } from "../../user/user-feature";
+import { createAuthEmailPasswordFeature } from "../auth-email-password-feature";
+import { AuthHandlers } from "../constants";
+
+let stack: TestStack;
+const encryptionKey = randomBytes(32).toString("base64");
+const resetSecret = randomBytes(32).toString("base64");
+const verifySecret = randomBytes(32).toString("base64");
+
+beforeAll(async () => {
+  const encryption = createEncryptionProvider(encryptionKey);
+  const resolver = createConfigResolver({ encryption });
+
+  stack = await setupTestStack({
+    features: [
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createAuthEmailPasswordFeature({
+        passwordReset: { hmacSecret: resetSecret, tokenTtlMinutes: 15 },
+        emailVerification: { hmacSecret: verifySecret, tokenTtlMinutes: 60, mode: "strict" },
+      }),
+    ],
+    extraContext: { configResolver: resolver },
+    authConfig: {
+      membershipQuery: "tenant:query:memberships",
+      loginHandler: AuthHandlers.login,
+      passwordReset: {
+        requestHandler: AuthHandlers.requestPasswordReset,
+        confirmHandler: AuthHandlers.resetPassword,
+        appResetUrl: "https://app.example.com/reset",
+        sendResetEmail: async () => {},
+      },
+      emailVerification: {
+        requestHandler: AuthHandlers.requestEmailVerification,
+        confirmHandler: AuthHandlers.verifyEmail,
+        appVerifyUrl: "https://app.example.com/verify",
+        sendVerificationEmail: async () => {},
+      },
+    },
+    // Tight limit so the test trips it with a small number of requests,
+    // short window so a flaky re-run doesn't keep the bucket full.
+    rateLimit: {
+      auth: { limit: 2, windowSeconds: 60, onFailClosed: () => {} },
+    },
+  });
+
+  await createEntityTable(stack.db.db, userEntity);
+  await createEntityTable(stack.db.db, tenantEntity);
+  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+beforeEach(async () => {
+  await stack.db.db.delete(userTable);
+  await stack.db.db.delete(tenantMembershipsTable);
+});
+
+// Unique IP per test so buckets don't cross-contaminate. L2 default bucket
+// is ip+path; we rely on that to keep password-reset and verify-email
+// independent in their own test.
+function withIp(ip: string): HeadersInit {
+  return { "Content-Type": "application/json", "x-forwarded-for": ip };
+}
+
+async function postFrom(path: string, ip: string, body: unknown): Promise<Response> {
+  return stack.app.request(path, {
+    method: "POST",
+    headers: withIp(ip),
+    body: JSON.stringify(body),
+  });
+}
+
+describe("L2 rate-limit covers public token routes", () => {
+  test("/auth/request-password-reset → 429 after 2 hits from same IP", async () => {
+    const ip = "10.50.0.1";
+    const path = "/api/auth/request-password-reset";
+
+    const a = await postFrom(path, ip, { email: "a@example.com" });
+    const b = await postFrom(path, ip, { email: "b@example.com" });
+    const c = await postFrom(path, ip, { email: "c@example.com" });
+
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(c.status).toBe(429);
+  });
+
+  test("/auth/verify-email → 429 after 2 hits from same IP", async () => {
+    const ip = "10.50.0.2";
+    const path = "/api/auth/verify-email";
+
+    const a = await postFrom(path, ip, { token: "not-a-real-token.1.sig" });
+    const b = await postFrom(path, ip, { token: "not-a-real-token.1.sig" });
+    const c = await postFrom(path, ip, { token: "not-a-real-token.1.sig" });
+
+    // 422 / 400 for the first two — the handler rejects the garbage token.
+    // The important assertion: the THIRD hit comes back 429 before reaching
+    // the handler, proving the L2 middleware is in front of the route.
+    expect(a.status).not.toBe(429);
+    expect(b.status).not.toBe(429);
+    expect(c.status).toBe(429);
+  });
+
+  test("different IPs buckets independently — one flooder doesn't lock out another", async () => {
+    const attacker = "10.50.0.100";
+    const victim = "10.50.0.101";
+    const path = "/api/auth/request-password-reset";
+
+    // Burn the attacker's quota.
+    await postFrom(path, attacker, { email: "bad@example.com" });
+    await postFrom(path, attacker, { email: "bad@example.com" });
+    const attackerBlocked = await postFrom(path, attacker, { email: "bad@example.com" });
+    expect(attackerBlocked.status).toBe(429);
+
+    // Victim IP still has a fresh bucket.
+    const victimFirst = await postFrom(path, victim, { email: "good@example.com" });
+    expect(victimFirst.status).toBe(200);
+  });
+});

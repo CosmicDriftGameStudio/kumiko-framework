@@ -1,0 +1,42 @@
+// Testing helpers for the sessions feature. The factory below turns a
+// `LateBoundHolder<SessionCallbacks>` into the two shapes a test needs:
+//
+//   const holder = createLateBoundHolder<SessionCallbacks>("session-callbacks");
+//   const bound = sessionCallbacksFromLateBound(holder);
+//
+//   stack = await setupTestStack({
+//     features: [..., createSessionsFeature({
+//       autoRevokeOnPasswordChange: bound.asMassRevoker(),
+//     })],
+//     authConfig: { ...bound.asAuthConfig(), membershipQuery, loginHandler },
+//   });
+//   holder.set(createSessionCallbacks({ db: stack.db.db }));
+//
+// Why the helper lives in bundled-features/sessions rather than framework/testing:
+// it closes over `AuthRoutesConfig` + `SessionCallbacks`, both of which the
+// sessions feature owns. framework/testing only provides the generic
+// `createLateBoundHolder<T>` — shape-independent.
+
+import type { AuthRoutesConfig } from "@kumiko/framework/api";
+import type { LateBoundHolder } from "@kumiko/framework/testing";
+import type { SessionCallbacks, SessionMassRevoker } from "./session-callbacks";
+
+export type BoundSessionCallbacks = {
+  /** auth-config fragment: creator + revoker + checker, all late-bound. */
+  asAuthConfig(): Pick<AuthRoutesConfig, "sessionCreator" | "sessionRevoker" | "sessionChecker">;
+  /** mass-revoker function for sessionsFeature({ autoRevokeOnPasswordChange }). */
+  asMassRevoker(): SessionMassRevoker;
+};
+
+export function sessionCallbacksFromLateBound(
+  holder: LateBoundHolder<SessionCallbacks>,
+): BoundSessionCallbacks {
+  return {
+    asAuthConfig: () => ({
+      sessionCreator: (user, meta) => holder.get().sessionCreator(user, meta),
+      sessionRevoker: (sid) => holder.get().sessionRevoker(sid),
+      sessionChecker: (sid, userId) => holder.get().sessionChecker(sid, userId),
+    }),
+    asMassRevoker: () => (userId) => holder.get().sessionMassRevoker(userId),
+  };
+}

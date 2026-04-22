@@ -1,0 +1,28 @@
+// Feature name
+export const DELIVERY_FEATURE = "delivery" as const;
+
+// Qualified write handler names (QN format: scope:type:name)
+export const DeliveryHandlers = {
+  setPreference: "delivery:write:set-preference",
+} as const;
+
+// Qualified query handler names (QN format: scope:type:name)
+export const DeliveryQueries = {
+  log: "delivery:query:log",
+  preferences: "delivery:query:preferences",
+} as const;
+
+// Error codes
+export const DeliveryErrors = {
+  noRecipient: "delivery_no_recipient",
+  channelFailed: "delivery_channel_failed",
+} as const;
+
+// Delivery status values
+export const DeliveryStatus = {
+  sent: "sent",
+  failed: "failed",
+  skipped: "skipped",
+} as const;
+
+export type DeliveryStatusValue = (typeof DeliveryStatus)[keyof typeof DeliveryStatus];

@@ -4,7 +4,7 @@
 // framework-level reason (e.g. "is this a stale-state race? retry once").
 //
 // Features add their own local Reasons objects (see `samples/errors/` or
-// `packages/core-features/src/tenant/constants.ts` → TenantErrors). The
+// `packages/bundled-features/src/tenant/constants.ts` → TenantErrors). The
 // framework deliberately does NOT enforce uniqueness across features — two
 // features may use the same reason string if the semantics match. The
 // convention: snake_case, no spaces, no feature prefix for framework reasons.

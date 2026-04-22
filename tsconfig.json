@@ -21,7 +21,7 @@
   },
   "references": [
     { "path": "packages/framework" },
-    { "path": "packages/core-features" },
+    { "path": "packages/bundled-features" },
     { "path": "app" }
   ],
   "files": []

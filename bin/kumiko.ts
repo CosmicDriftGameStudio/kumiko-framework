@@ -151,7 +151,7 @@ const commands = {
 
       for (const [name, cmd] of [
         ["Biome", "yarn biome check ."],
-        ["TypeScript", "yarn tsc --noEmit -p packages/framework/tsconfig.json && yarn tsc --noEmit -p packages/core-features/tsconfig.json"],
+        ["TypeScript", "yarn tsc --noEmit -p packages/framework/tsconfig.json && yarn tsc --noEmit -p packages/bundled-features/tsconfig.json"],
         ["Silent-Skip Guard", "yarn tsx scripts/guard-silent-skip.ts"],
         ["Admin-API Guard", "yarn tsx scripts/guard-admin-api.ts"],
         ["Unsafe-JSON-Parse Guard", "yarn tsx scripts/guard-unsafe-json-parse.ts"],

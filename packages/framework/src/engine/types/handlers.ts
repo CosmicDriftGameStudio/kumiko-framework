@@ -182,11 +182,11 @@ export type NotifyOptions = {
   readonly idempotencyKey?: string;
 };
 
-// Minimal interface for delivery notifications (concrete type in core-features/delivery)
+// Minimal interface for delivery notifications (concrete type in bundled-features/delivery)
 export type NotifyFn = (notificationType: string, options: NotifyOptions) => Promise<void>;
 
 // Factory that produces a bound NotifyFn for a specific user+tenant
-// Concrete implementation in core-features/delivery (cross-package boundary)
+// Concrete implementation in bundled-features/delivery (cross-package boundary)
 export type NotifyFactory = (user: SessionUser, tenantId: TenantId) => NotifyFn;
 
 // Shared optional fields across all execution contexts

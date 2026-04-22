@@ -19,7 +19,7 @@ export type Secret<T = string> = {
   readonly reveal: () => T;
 };
 
-// Implementation helper — core-features uses this to wrap a plaintext after
+// Implementation helper — bundled-features uses this to wrap a plaintext after
 // decryption. Kept in the framework so both sides share one canonical brand.
 export function createSecret<T>(value: T): Secret<T> {
   return {
@@ -48,10 +48,10 @@ export type SecretAuditContext = {
 // r.secret call updates all references through the import graph.
 export type SecretKeyRef = string | { readonly name: string };
 
-// The ctx.secrets contract. Concrete implementation lives in core-features
+// The ctx.secrets contract. Concrete implementation lives in bundled-features
 // (createSecretsContext) where the DB and MasterKeyProvider are known. This
 // lean interface is what the framework's HandlerContext carries so engine
-// code can talk about it without pulling in core-features.
+// code can talk about it without pulling in bundled-features.
 export interface SecretsContext {
   get(
     tenantId: TenantId,
