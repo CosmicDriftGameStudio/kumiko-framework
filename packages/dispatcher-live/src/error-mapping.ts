@@ -53,8 +53,11 @@ function normalizeDetails(details: unknown): DispatcherError["details"] {
   for (const f of fields) {
     if (!f || typeof f !== "object") continue;
     const r = f as Record<string, unknown>;
-    if (typeof r["path"] !== "string" || typeof r["code"] !== "string" ||
-        typeof r["i18nKey"] !== "string") {
+    if (
+      typeof r["path"] !== "string" ||
+      typeof r["code"] !== "string" ||
+      typeof r["i18nKey"] !== "string"
+    ) {
       continue;
     }
     mappedFields.push({

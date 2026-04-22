@@ -42,8 +42,17 @@ describe("mapServerError", () => {
       message: "Validation failed",
       details: {
         fields: [
-          { path: "title", code: "too_small", i18nKey: "errors.validation.too_small", params: { minimum: 3 } },
-          { path: "tasks.0.title", code: "invalid_type", i18nKey: "errors.validation.invalid_type" },
+          {
+            path: "title",
+            code: "too_small",
+            i18nKey: "errors.validation.too_small",
+            params: { minimum: 3 },
+          },
+          {
+            path: "tasks.0.title",
+            code: "invalid_type",
+            i18nKey: "errors.validation.invalid_type",
+          },
         ],
       },
     });

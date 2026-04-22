@@ -4,10 +4,7 @@ import { createLiveDispatcher } from "../dispatcher-live";
 // Builds a fake fetch that returns a JSON body with the given
 // payload and status. Exposes the captured Request argv so tests can
 // assert on URL/headers/body.
-function makeFetch(respond: {
-  readonly status?: number;
-  readonly body: unknown;
-}): {
+function makeFetch(respond: { readonly status?: number; readonly body: unknown }): {
   readonly fetch: typeof fetch;
   readonly calls: Array<{ url: string; init: RequestInit }>;
 } {

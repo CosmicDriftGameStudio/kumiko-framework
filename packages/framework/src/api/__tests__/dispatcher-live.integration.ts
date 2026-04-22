@@ -59,10 +59,8 @@ const admin = TestUsers.admin;
 // The fetch wrapper echoes the csrf cookie back into the X-CSRF-Token
 // header — that's the real dispatcher-live code path; the test just
 // stages the cookies first.
-type Fetch = typeof globalThis.fetch;
-
 async function buildFetch(): Promise<{
-  readonly fetch: Fetch;
+  readonly fetch: typeof fetch;
   readonly csrfToken: string;
   readonly authJwt: string;
 }> {
@@ -70,7 +68,11 @@ async function buildFetch(): Promise<{
   const csrfToken = globalThis.crypto.randomUUID();
   const cookieHeader = `kumiko_auth=${authJwt}; kumiko_csrf=${csrfToken}`;
 
-  const fetchImpl: Fetch = async (url, init) => {
+  // Cast via unknown: the native fetch interface (Bun's typing) includes a
+  // `preconnect` method we don't need and can't meaningfully implement
+  // against Hono's in-memory request handler. dispatcher-live calls the
+  // functional shape only — preconnect is a hint, not load-bearing.
+  const fetchImpl = (async (url: unknown, init: RequestInit | undefined) => {
     const reqInit: RequestInit = {
       ...(init ?? {}),
       headers: {
@@ -78,9 +80,8 @@ async function buildFetch(): Promise<{
         Cookie: cookieHeader,
       },
     };
-    // hono's app.request accepts a path+init — pass through.
     return stack.app.request(String(url), reqInit);
-  };
+  }) as unknown as typeof fetch;
   return { fetch: fetchImpl, csrfToken, authJwt };
 }
 
@@ -105,17 +106,16 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
       readCsrf: () => csrfToken,
     });
 
-    const result = await dispatcher.write<{ data?: { name?: string } }>(
-      "dlive:write:item:create",
-      { name: "hello-live" },
-    );
+    const result = await dispatcher.write<{ data?: { name?: string } }>("dlive:write:item:create", {
+      name: "hello-live",
+    });
 
     expect(result.isSuccess).toBe(true);
 
     // Prove the server actually persisted.
     const rows = await stack.db.db.select().from(itemTable);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.name).toBe("hello-live");
+    expect(rows[0]?.["name"]).toBe("hello-live");
   });
 
   test("write: validation failure surfaces as typed DispatcherError with field issues", async () => {
@@ -180,7 +180,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
 
     const rows = await stack.db.db.select().from(itemTable);
     expect(rows).toHaveLength(3);
-    const names = rows.map((r) => r.name).sort();
+    const names = rows.map((r) => r["name"]).sort();
     expect(names).toEqual(["a", "b", "c"]);
   });
 
