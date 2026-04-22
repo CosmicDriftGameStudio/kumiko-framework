@@ -5,6 +5,7 @@ import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
+import { parseQn, qn } from "../engine/qualified-name";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type {
   AggregateStreamHandle,
@@ -124,6 +125,145 @@ function dispatcherSpanAttributes(
 // Deferred afterCommit callback — collected during transaction execution,
 // fired sequentially once the transaction commits successfully.
 type AfterCommitHook = () => Promise<void>;
+
+// Specification for one nested-write expansion. The parent write's payload
+// carries items under `key`; each is dispatched as a separate write against
+// `subType`, with the foreign-key column `foreignKey` bound to the parent's
+// new id. Built by extractNestedSpecs from the parent payload + registry
+// relations. See executeNestedWrite for orchestration.
+type NestedSpec = {
+  readonly key: string;
+  readonly subType: string;
+  readonly foreignKey: string;
+  readonly items: readonly unknown[];
+};
+
+// Field-level issue collected by extractNestedSpecs and surfaced as a
+// ValidationError by the caller. Shape matches ValidationFieldIssue so we
+// can hand it directly to `new ValidationError({ fields })`.
+type NestedTypeIssue = {
+  readonly path: string;
+  readonly code: string;
+  readonly i18nKey: string;
+};
+
+// Separates a parent payload into a "clean" shape (without nested-relation
+// keys) plus the list of expansion specs. Returns null when the payload has
+// no nested relations to expand — callers short-circuit to the regular write
+// path without paying the overhead of nested orchestration.
+//
+// Expansion only applies to `:create` handlers (v1). For `:update` / `:delete`
+// we return null so the parent write runs unchanged. When a future iteration
+// adds update/delete-nested, this is the single point to extend.
+//
+// Sub-writes run through regular executeWrite, NOT recursively through
+// executeNestedWrite — deeper nesting (`tasks[0].subtasks`) is out of scope
+// for v1. Those keys reach the sub-handler's zod schema and are silently
+// stripped by default zod semantics. Documented limitation; a sub-handler
+// that wants to reject depth-2 payloads can use `.strict()` on its schema.
+function extractNestedSpecs(
+  parentType: string,
+  payload: unknown,
+  registry: Registry,
+): {
+  cleanPayload: Record<string, unknown>;
+  specs: readonly NestedSpec[];
+  typeIssues: readonly NestedTypeIssue[];
+} | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+
+  let parsed: ReturnType<typeof parseQn>;
+  try {
+    parsed = parseQn(parentType);
+  } catch {
+    return null;
+  }
+  // v1 scope: only create. Update/delete-nested are explicit future work —
+  // they'd need different sub-types and id-handling semantics.
+  if (!parsed.name.endsWith(":create")) return null;
+
+  const entityName = registry.getHandlerEntity(parentType);
+  if (!entityName) return null;
+
+  const relations = registry.getRelations(entityName);
+  const source = payload as Record<string, unknown>;
+  const clean: Record<string, unknown> = { ...source };
+  const specs: NestedSpec[] = [];
+  const typeIssues: NestedTypeIssue[] = [];
+
+  for (const [relKey, rel] of Object.entries(relations)) {
+    if (rel.type !== "hasMany" || !rel.nestedWrite) continue;
+    if (!(relKey in source)) continue;
+    const value = source[relKey];
+
+    // Non-array under a nested-write key is a client shape error. Silent
+    // strip (via default zod stripping) would hide it — a client sending
+    // `tasks: "bogus"` or `tasks: null` has to know the field was ignored,
+    // or they'll wonder why their data never showed up. Fail loud.
+    if (!Array.isArray(value)) {
+      typeIssues.push({
+        path: relKey,
+        code: "invalid_type",
+        i18nKey: "errors.validation.invalid_type",
+      });
+      // Still strip from clean payload — we're not letting the parent handler
+      // see a malformed value either.
+      delete clean[relKey];
+      continue;
+    }
+
+    // Strip the relation key from the clean payload — the parent handler
+    // only sees columns it actually owns.
+    delete clean[relKey];
+
+    // Sub-type composition: derive scope + operation from the parent qn,
+    // swap the entity segment. "feat:write:project:create" → "feat:write:task:create".
+    // Assumes target entity has a `:create` handler in the SAME feature scope
+    // as the parent. Cross-feature nested-writes are out of scope for v1;
+    // when needed, the registry would have to carry a back-pointer from
+    // entity → defining feature.
+    const subType = qn(parsed.scope, parsed.type, `${rel.target}:create`);
+
+    specs.push({
+      key: relKey,
+      subType,
+      foreignKey: rel.foreignKey,
+      items: value,
+    });
+  }
+
+  if (specs.length === 0 && typeIssues.length === 0) return null;
+  return { cleanPayload: clean, specs, typeIssues };
+}
+
+// Prefix ValidationError paths so a failure on a nested sub-write maps back
+// to the client-visible field path. Example: sub-write fails on `title` with
+// path="title"; this prefixes to "tasks.2.title" so the form-controller in
+// the UI can highlight the right sub-line's field.
+//
+// Non-validation errors pass through unchanged — they carry no field paths.
+function prefixValidationPath(info: WriteErrorInfo, prefix: string): WriteErrorInfo {
+  if (info.code !== "validation_error") return info;
+  const details = info.details as
+    | {
+        fields?: readonly {
+          path: string;
+          code: string;
+          i18nKey: string;
+          params?: Readonly<Record<string, unknown>>;
+        }[];
+      }
+    | undefined;
+  const fields = details?.fields;
+  if (!fields) return info;
+  return {
+    ...info,
+    details: {
+      ...details,
+      fields: fields.map((f) => ({ ...f, path: `${prefix}.${f.path}` })),
+    },
+  };
+}
 
 // Sentinel thrown inside a Drizzle transaction to force a rollback while
 // carrying the command failure context back out. Drizzle rolls back iff the
@@ -894,6 +1034,108 @@ export function createDispatcher(
     );
   }
 
+  // Nested-write orchestration (v1: depth=1, create-only, hasMany-only).
+  //
+  // When a parent `:create` handler's payload carries values under keys
+  // declared as `hasMany` relations with `nestedWrite: true`, those values
+  // are expanded into child writes: parent first (so its new id exists),
+  // then each nested entry as a separate `<target>:create` write with the
+  // foreign key set by the framework — never taken from the client. All of
+  // this runs inside the caller's transaction, so a child failure rolls the
+  // parent (and any earlier children) back together.
+  //
+  // This wrapper is what runBatch calls, not executeWrite. Single writes
+  // (`dispatcher.write`) flow through runBatch as batch-of-one, so they get
+  // nested-expansion too for free. A batch with N heterogeneous commands
+  // can each independently carry nested-children — all still one TX.
+  async function executeNestedWrite(
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+    tx: DbTx | undefined,
+    afterCommitHooks: AfterCommitHook[],
+  ): Promise<WriteResult> {
+    const nested = extractNestedSpecs(type, payload, registry);
+    if (!nested) return executeWrite(type, payload, user, tx, afterCommitHooks);
+
+    // Pre-flight client-shape checks. Merge non-array issues (collected up
+    // front by extractNestedSpecs) with fk-injection issues into one error
+    // so the client sees every problem in a single round-trip.
+    //
+    // Security rail: the client MUST NOT supply the foreign key on nested
+    // items. The framework binds it from the parent's new id. Silent-overwrite
+    // would mask an attempt to attach children to a different parent — fail
+    // loud with a ValidationError carrying a client-mappable path.
+    const issues: Array<{ path: string; code: string; i18nKey: string }> = [...nested.typeIssues];
+    for (const spec of nested.specs) {
+      for (let i = 0; i < spec.items.length; i++) {
+        const item = spec.items[i];
+        if (item && typeof item === "object" && spec.foreignKey in item) {
+          issues.push({
+            path: `${spec.key}.${i}.${spec.foreignKey}`,
+            code: "unexpected_field",
+            i18nKey: "errors.validation.unexpected_field",
+          });
+        }
+      }
+    }
+    if (issues.length > 0) {
+      return writeFailure(new ValidationError({ fields: issues }));
+    }
+
+    const parentResult = await executeWrite(type, nested.cleanPayload, user, tx, afterCommitHooks);
+    if (!parentResult.isSuccess) return parentResult;
+
+    // Handlers built on the CRUD executor return a SaveContext wrapper —
+    // `{ kind: "save", id, data: <row>, changes, previous, event, ... }`.
+    // The wrapper is load-bearing for batch-level hooks downstream (see
+    // flushBatchHooks), so we mutate in place: nested children land on the
+    // inner `data` (which mirrors the entity shape the client expects) while
+    // the wrapper keeps its SaveContext semantics intact for the lifecycle
+    // pipeline. For handlers that return a bare row (no wrapper), children
+    // land directly on that object.
+    //
+    // Hook-ordering note: per-entity postSave hooks already ran inside the
+    // parent's executeWrite call above — they never saw `tasks`, which is
+    // the right semantic (postSave gets the entity's own columns, not
+    // synthetic relation keys). A future postSaveBatch subscriber that
+    // enumerates columns generically WOULD see `tasks`; no such subscriber
+    // exists today. If you add one that iterates `Object.keys(save.data)`,
+    // filter by `entity.fields` membership to stay correct.
+    const parentWrapper = parentResult.data as Record<string, unknown>;
+    const parentRow = (parentWrapper["data"] ?? parentWrapper) as Record<string, unknown>;
+    const parentId = parentRow["id"];
+    if (typeof parentId !== "string") {
+      return writeFailure(
+        new InternalError({
+          message: `nested-write: parent handler "${type}" returned no string "id" — cannot attach children`,
+        }),
+      );
+    }
+
+    for (const spec of nested.specs) {
+      const subRows: Record<string, unknown>[] = [];
+      for (let i = 0; i < spec.items.length; i++) {
+        const rawItem = spec.items[i];
+        const itemObj = (rawItem ?? {}) as Record<string, unknown>;
+        const subPayload = { ...itemObj, [spec.foreignKey]: parentId };
+        const subResult = await executeWrite(spec.subType, subPayload, user, tx, afterCommitHooks);
+        if (!subResult.isSuccess) {
+          return {
+            isSuccess: false,
+            error: prefixValidationPath(subResult.error, `${spec.key}.${i}`),
+          };
+        }
+        const subWrapper = subResult.data as Record<string, unknown>;
+        const subRow = (subWrapper["data"] ?? subWrapper) as Record<string, unknown>;
+        subRows.push(subRow);
+      }
+      parentRow[spec.key] = subRows;
+    }
+
+    return parentResult;
+  }
+
   async function executeWriteInner(
     type: string,
     payload: unknown,
@@ -1156,7 +1398,13 @@ export function createDispatcher(
       for (let i = 0; i < commands.length; i++) {
         const cmd = commands[i];
         if (!cmd) continue;
-        const res = await executeWrite(cmd.type, cmd.payload, user, undefined, afterCommitHooks);
+        const res = await executeNestedWrite(
+          cmd.type,
+          cmd.payload,
+          user,
+          undefined,
+          afterCommitHooks,
+        );
         results.push(res);
         if (!res.isSuccess) {
           // No tx means no rollback — but we still drop afterCommit hooks,
@@ -1174,7 +1422,7 @@ export function createDispatcher(
         for (let i = 0; i < commands.length; i++) {
           const cmd = commands[i];
           if (!cmd) continue;
-          const res = await executeWrite(cmd.type, cmd.payload, user, tx, afterCommitHooks);
+          const res = await executeNestedWrite(cmd.type, cmd.payload, user, tx, afterCommitHooks);
           results.push(res);
           if (!res.isSuccess) {
             throw new BatchRollback(i, res.error);
