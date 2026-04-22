@@ -258,6 +258,14 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ...(wrappedRedis ? { redis: wrappedRedis } : {}),
     ...(fileCtx ? { files: fileCtx } : {}),
     ...(rateLimitResolver ? { rateLimit: rateLimitResolver } : {}),
+    // Propagate the feature-toggle resolver to the context so the event-
+    // dispatcher (and any future context-reading consumer) sees the same
+    // source as the command dispatcher's handler-gate. Options take
+    // precedence over whatever was already on context — the
+    // dispatcher-options arg is the authoritative wire-up point.
+    ...(options.dispatcherOptions?.effectiveFeatures
+      ? { effectiveFeatures: options.dispatcherOptions.effectiveFeatures }
+      : {}),
     tracer: observability.tracer,
     meter: observability.meter,
   };
@@ -318,6 +326,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
   );
   const mspConsumers: EventConsumer[] = mspDefs.map((msp) => ({
     name: msp.name,
+    // Feature-toggle gating: carry the owning feature so the event-dispatcher
+    // can pause this consumer when the feature is globally disabled. Events
+    // queue up in the store and replay cleanly from the same cursor on resume.
+    ...(options.registry.getMultiStreamProjectionFeature(msp.name) && {
+      featureName: options.registry.getMultiStreamProjectionFeature(msp.name) as string,
+    }),
     // Copy the continuous-lifecycle error policy straight onto the consumer.
     // Rebuild uses its own policy (rebuildProjection reads msp.errorMode.rebuild
     // directly); steady-state delivery runs through this consumer.

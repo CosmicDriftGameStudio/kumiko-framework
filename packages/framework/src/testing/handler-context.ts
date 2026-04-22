@@ -45,6 +45,7 @@ export function bridgeStub(): Pick<
   | "loadAggregateWithSnapshot"
   | "queryProjection"
   | "resolveAuthClaims"
+  | "hasFeature"
   | "metrics"
   | "tracer"
   | "tz"
@@ -87,6 +88,9 @@ export function bridgeStub(): Pick<
     resolveAuthClaims: notAvailable(
       "resolveAuthClaims",
     ) as unknown as HandlerContext["resolveAuthClaims"],
+    // Stub defaults to always-enabled — matches the dispatcher's behaviour
+    // when no effectiveFeatures resolver is wired (tests without toggles).
+    hasFeature: () => true,
     metrics: createNoopMetricsHandle(),
     tracer: noopTracer,
     // Echter TzContext, kein notAvailable — Test-Code nutzt ctx.tz häufig

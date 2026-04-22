@@ -26,6 +26,11 @@ export const FrameworkReasons = {
   // ConflictError: cascade-delete guard refused because dependent rows exist.
   // Details carry `blockingEntity`, `entity`, `entityId`.
   deleteRestricted: "delete_restricted",
+
+  // FeatureDisabledError: handler's owning feature is globally disabled.
+  // Distinct from access-denied — clients should surface "feature X is
+  // currently unavailable" not "you don't have permission".
+  featureDisabled: "feature_disabled",
 } as const;
 
 export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkReasons];

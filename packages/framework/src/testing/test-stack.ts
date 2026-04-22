@@ -83,6 +83,13 @@ export type TestStackOptions = {
    *  AppContext — set/delete/get + rotation job pick it up. Omit for
    *  suites that don't touch secrets. */
   masterKeyProvider?: import("../secrets").MasterKeyProvider;
+  /** Feature-toggle resolver. When present the dispatcher's feature-gate,
+   *  hook-filter, and MSP-filter all consult it; absent = every feature
+   *  treated as always-on. Pass the callback from
+   *  GlobalFeatureToggleRuntime.effectiveFeatures for real DB-backed
+   *  toggles, or a plain `() => new Set<string>(registry.features.keys())`
+   *  to force a specific snapshot in a unit-style setup. */
+  effectiveFeatures?: () => ReadonlySet<string>;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -218,7 +225,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         : options.extraContext),
     },
     jwtSecret,
-    dispatcherOptions: { eventLog, idempotency },
+    dispatcherOptions: {
+      eventLog,
+      idempotency,
+      ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
+    },
     eventDedup,
     sseBroker,
     // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for

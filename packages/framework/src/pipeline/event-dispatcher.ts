@@ -65,6 +65,12 @@ export type EventConsumer = {
   readonly name: string;
   readonly handler: EventConsumerHandler;
   readonly errorPolicy?: EventConsumerErrorPolicy;
+  // Owning feature — when present, the dispatcher skips this consumer's
+  // pass while the feature is globally disabled. Events remain in the store
+  // and the consumer resumes from the same cursor when the feature is
+  // re-enabled (no data loss, no replay). System consumers (SSE, search,
+  // framework-level plumbing) omit this and always run.
+  readonly featureName?: string;
 };
 
 // Result of a dispatcher pass (runOnce / doPass). Shared across the public
@@ -389,11 +395,23 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     let totalFailed = 0;
     const byConsumer: Record<string, { processed: number; failed: number }> = {};
 
+    // Feature-toggle snapshot taken once per pass (not per consumer): all
+    // consumers see the same disabled-set even if an operator flips a
+    // toggle mid-pass, so "this event batch" decisions stay consistent.
+    const effective = context.effectiveFeatures?.();
+
     // Seriell pro consumer. Parallelisierung wäre möglich (je eigene TX), aber
     // das einfache Modell reicht für v1 — jeder consumer hat geringe
     // per-event-Arbeit (network call at worst). Bei hunderten Events pro
     // Batch lohnt sich Parallelisierung — Optimierung für später.
     for (const consumer of consumers) {
+      // Feature-gate: consumers tagged with a featureName get paused while
+      // that feature is globally disabled. Cursor stays put — events accumulate
+      // and are re-delivered in order when the feature is re-enabled.
+      if (effective && consumer.featureName && !effective.has(consumer.featureName)) {
+        byConsumer[consumer.name] = { processed: 0, failed: 0 };
+        continue;
+      }
       const perConsumer = await processConsumer(consumer);
       byConsumer[consumer.name] = perConsumer;
       totalProcessed += perConsumer.processed;

@@ -26,6 +26,7 @@ import { HookPhases } from "../engine/types";
 import { runValidation } from "../engine/validation";
 import {
   AccessDeniedError,
+  FeatureDisabledError,
   FrameworkReasons,
   InternalError,
   isKumikoError,
@@ -151,6 +152,13 @@ export type DispatcherOptions = {
   eventLog?: EventLog;
   lifecycle?: LifecycleHooks;
   jobRunner?: JobRunnerRef;
+  // Resolves the current effective-feature set — the dispatcher uses it
+  // to gate calls to handlers of disabled features (403 feature_disabled)
+  // and to populate ctx.hasFeature. Absent = all features treated as
+  // always-on (no feature-toggles feature loaded). The resolver must be
+  // fast and synchronous per call; implementations cache a DB snapshot
+  // under the hood and refresh on toggle events.
+  effectiveFeatures?: () => ReadonlySet<string>;
 };
 
 type HandlerType = string | HandlerRef;
@@ -192,7 +200,7 @@ export function createDispatcher(
   context: AppContext,
   options: DispatcherOptions = {},
 ): Dispatcher {
-  const { idempotency, eventLog, lifecycle, jobRunner } = options;
+  const { idempotency, eventLog, lifecycle, jobRunner, effectiveFeatures } = options;
 
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
   const tableCache = new Map<string, ReturnType<typeof buildDrizzleTable>>();
@@ -557,6 +565,12 @@ export function createDispatcher(
       // handler via ctx.resolveAuthClaims, switch-tenant route via
       // dispatcher.resolveAuthClaims) cannot drift.
       resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(claimsUser),
+
+      // Feature-effective check for in-handler opt-in logic. When the
+      // feature-toggles feature isn't wired (no effectiveFeatures callback),
+      // always returns true — apps without toggles treat all features on.
+      hasFeature: (featureName: string): boolean =>
+        effectiveFeatures ? effectiveFeatures().has(featureName) : true,
     };
 
     // Registry is always the dispatcher's registry — injecting it here lets
@@ -584,6 +598,9 @@ export function createDispatcher(
       // (jobs, dispatcher MSP-applies) don't get a phantom signal that
       // would always read aborted=false but feel meaningful.
       ...(reqCtx?.signal ? { signal: reqCtx.signal } : {}),
+      // Propagate the feature-toggle resolver so the lifecycle pipeline,
+      // MSP runner, and ctx.hasFeature all pull from the same source.
+      ...(effectiveFeatures && { effectiveFeatures }),
       _userId: user.id,
       _handlerType: type,
       ...bridge,
@@ -665,6 +682,32 @@ export function createDispatcher(
   //     pass through. ip-modes are commonly used at L1/L2 middleware
   //     where the IP comes from Hono directly; falling back to "skip"
   //     here keeps non-HTTP entry-points (jobs, MSPs) functional.
+  // Feature-toggle gate. Returns the error to fold into a WriteFailure in the
+  // write path, or throws for the query path (where throws flow through the
+  // same outer instrumentation wrapper as other dispatcher errors).
+  //
+  // When `effectiveFeatures` is not wired (tests, apps without feature-toggles
+  // loaded), every handler is treated as enabled — the gate is a pure
+  // pass-through in that common case.
+  function checkFeatureEnabled(
+    qualifiedHandler: string,
+  ): import("../errors").FeatureDisabledError | undefined {
+    if (!effectiveFeatures) return undefined;
+    const owner = registry.getHandlerFeature(qualifiedHandler);
+    // skip: handler without an owning feature cannot be toggled — shouldn't
+    // happen for registry-built handlers, but guards against edge-case
+    // runtime injections.
+    if (!owner) return undefined;
+    const set = effectiveFeatures();
+    if (set.has(owner)) return undefined;
+    return new FeatureDisabledError(owner, qualifiedHandler);
+  }
+
+  function ensureFeatureEnabled(qualifiedHandler: string): void {
+    const err = checkFeatureEnabled(qualifiedHandler);
+    if (err) throw err;
+  }
+
   async function enforceRateLimit(
     rateLimit: import("../engine/types").RateLimitOption | undefined,
     handlerName: string,
@@ -718,6 +761,12 @@ export function createDispatcher(
   ): Promise<unknown> {
     const handler = registry.getQueryHandler(type);
     if (!handler) throw new NotFoundError("handler", type);
+
+    // Feature-toggle gate runs BEFORE rate-limit on purpose: calls to a
+    // disabled feature must not consume the rate-limit quota — the call
+    // never happened from the feature's perspective. Order is: lookup →
+    // feature-gate → rate-limit → access → validation → handler.
+    ensureFeatureEnabled(type);
 
     // Rate-limit gate runs BEFORE access-check on purpose: anonymous /
     // unauthorized callers must hit the cap too (otherwise the limit
@@ -848,6 +897,11 @@ export function createDispatcher(
   ): Promise<WriteResult> {
     const handler = registry.getWriteHandler(type);
     if (!handler) return writeFailure(new NotFoundError("handler", type));
+
+    // Feature-toggle gate: disabled handlers must short-circuit before any
+    // rate-limit/access/validation work — see executeQueryInner comment.
+    const disabledErr = checkFeatureEnabled(type);
+    if (disabledErr) return writeFailure(disabledErr);
 
     // Rate-limit gate before access (same reasoning as in executeQueryInner).
     // Throws RateLimitError; the outer wrapper turns it into a 429

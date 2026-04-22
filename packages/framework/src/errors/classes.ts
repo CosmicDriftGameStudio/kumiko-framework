@@ -31,6 +31,31 @@ export class ValidationError extends KumikoError {
   }
 }
 
+// Raised by the dispatcher when a handler belongs to a feature that is
+// globally disabled. Separate from AccessDenied so clients can distinguish
+// "this feature is off" (retry pointless until ops flips it on) from
+// "you don't have permission" (potentially retryable with a different user).
+export type FeatureDisabledDetails = {
+  readonly reason: "feature_disabled";
+  readonly feature: string;
+  readonly handler: string;
+};
+
+export class FeatureDisabledError extends KumikoError {
+  readonly code = "feature_disabled";
+  readonly httpStatus = 403;
+
+  constructor(feature: string, handler: string, opts?: Pick<ErrorOpts, "cause">) {
+    super({
+      message: `feature ${feature} is disabled`,
+      i18nKey: "errors.feature.disabled",
+      i18nParams: { feature },
+      details: { reason: "feature_disabled", feature, handler } satisfies FeatureDisabledDetails,
+      ...(opts?.cause && { cause: opts.cause }),
+    });
+  }
+}
+
 export class AccessDeniedError extends KumikoError {
   readonly code = "access_denied";
   readonly httpStatus = 403;

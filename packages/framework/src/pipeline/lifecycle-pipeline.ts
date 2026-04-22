@@ -250,8 +250,9 @@ export function createLifecycleHooks(
     async runPreSave(handlerName, changes, previous, isNew, context) {
       let currentChanges = changes;
       const hookContext = { ...context, previous, isNew };
+      const eff = context.effectiveFeatures?.();
 
-      for (const hook of registry.getPreSaveHooks(handlerName)) {
+      for (const hook of registry.getPreSaveHooks(handlerName, eff)) {
         currentChanges = await hook(currentChanges, hookContext);
       }
 
@@ -265,13 +266,14 @@ export function createLifecycleHooks(
     },
 
     async runPostSave(handlerName, result, context, phase = HookPhases.afterCommit) {
+      const eff = context.effectiveFeatures?.();
       await runHookSet({
         handlerName,
         payload: result,
         context,
         entityName: result.entityName,
-        getHandlerHooks: (n) => registry.getPostSaveHooks(n, phase),
-        getEntityHooks: (n) => registry.getEntityPostSaveHooks(n, phase),
+        getHandlerHooks: (n) => registry.getPostSaveHooks(n, phase, eff),
+        getEntityHooks: (n) => registry.getEntityPostSaveHooks(n, phase, eff),
         systemHookDefs: systemHooks.postSave,
         phaseLabel: `postSave:${phase}`,
         hookPhase: phase,
@@ -281,7 +283,8 @@ export function createLifecycleHooks(
     async runPreDelete(handlerName, payload, context) {
       // preDelete hooks run in-transaction and throw on failure (not best-effort).
       // They're used to check invariants before delete, so phase filter is "inTransaction".
-      for (const hook of registry.getPreDeleteHooks(handlerName, HookPhases.inTransaction)) {
+      const eff = context.effectiveFeatures?.();
+      for (const hook of registry.getPreDeleteHooks(handlerName, HookPhases.inTransaction, eff)) {
         await hook(payload, context);
       }
 
@@ -289,6 +292,7 @@ export function createLifecycleHooks(
         for (const hook of registry.getEntityPreDeleteHooks(
           payload.entityName,
           HookPhases.inTransaction,
+          eff,
         )) {
           await hook(payload, context);
         }
@@ -304,13 +308,14 @@ export function createLifecycleHooks(
     },
 
     async runPostDelete(handlerName, payload, context, phase = HookPhases.afterCommit) {
+      const eff = context.effectiveFeatures?.();
       await runHookSet({
         handlerName,
         payload,
         context,
         entityName: payload.entityName,
-        getHandlerHooks: (n) => registry.getPostDeleteHooks(n, phase),
-        getEntityHooks: (n) => registry.getEntityPostDeleteHooks(n, phase),
+        getHandlerHooks: (n) => registry.getPostDeleteHooks(n, phase, eff),
+        getEntityHooks: (n) => registry.getEntityPostDeleteHooks(n, phase, eff),
         systemHookDefs: systemHooks.postDelete,
         phaseLabel: `postDelete:${phase}`,
         hookPhase: phase,

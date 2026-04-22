@@ -261,6 +261,92 @@ describe("dispatcher event logging", () => {
   });
 });
 
+// --- Feature-toggle gate ---
+
+describe("dispatcher feature-gate", () => {
+  function toggled() {
+    return defineFeature("toggled", (r) => {
+      r.toggleable({ default: true });
+      r.entity("widget", createEntity({ table: "Widgets", fields: { name: createTextField() } }));
+      r.queryHandler("widget:list", z.object({}).passthrough(), async () => ({ items: [] }), {
+        access: { openToAll: true },
+      });
+      r.writeHandler(
+        "widget:create",
+        z.object({ name: z.string() }),
+        async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
+        { access: { roles: ["Admin"] } },
+      );
+    });
+  }
+
+  const user = createTestUser({ id: "u1", roles: ["Admin"] });
+
+  test("query of disabled feature throws FeatureDisabledError", async () => {
+    const registry = createRegistry([toggled()]);
+    const disabled = new Set<string>();
+    const dispatcher = createDispatcher(
+      registry,
+      {},
+      {
+        effectiveFeatures: () => {
+          const all = new Set(registry.features.keys());
+          for (const d of disabled) all.delete(d);
+          return all;
+        },
+      },
+    );
+
+    await expect(dispatcher.query("toggled:query:widget:list", {}, user)).resolves.toEqual({
+      items: [],
+    });
+
+    disabled.add("toggled");
+    await expect(dispatcher.query("toggled:query:widget:list", {}, user)).rejects.toThrow(
+      /feature toggled is disabled/,
+    );
+
+    disabled.delete("toggled");
+    await expect(dispatcher.query("toggled:query:widget:list", {}, user)).resolves.toEqual({
+      items: [],
+    });
+  });
+
+  test("write of disabled feature returns WriteFailure with feature_disabled reason", async () => {
+    const registry = createRegistry([toggled()]);
+    const disabled = new Set<string>(["toggled"]);
+    const dispatcher = createDispatcher(
+      registry,
+      {},
+      {
+        effectiveFeatures: () => {
+          const all = new Set(registry.features.keys());
+          for (const d of disabled) all.delete(d);
+          return all;
+        },
+      },
+    );
+
+    const result = await dispatcher.write("toggled:write:widget:create", { name: "x" }, user);
+    expect(result.isSuccess).toBe(false);
+    if (!result.isSuccess) {
+      expect(result.error.code).toBe("feature_disabled");
+      expect(result.error.details).toMatchObject({
+        reason: "feature_disabled",
+        feature: "toggled",
+      });
+    }
+  });
+
+  test("no effectiveFeatures callback → gate is pass-through", async () => {
+    const registry = createRegistry([toggled()]);
+    const dispatcher = createDispatcher(registry, {});
+    await expect(dispatcher.query("toggled:query:widget:list", {}, user)).resolves.toEqual({
+      items: [],
+    });
+  });
+});
+
 // --- Mock helpers ---
 
 function createMockIdempotencyGuard() {

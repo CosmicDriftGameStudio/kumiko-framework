@@ -1,0 +1,145 @@
+import { defineWriteHandler, SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
+import { UnprocessableError, VersionConflictError, writeFailure } from "@kumiko/framework/errors";
+import { and, eq, sql } from "drizzle-orm";
+import { Temporal } from "temporal-polyfill";
+import { z } from "zod";
+import {
+  FEATURE_TOGGLE_AGGREGATE_TYPE,
+  FEATURE_TOGGLE_SET_EVENT_NAME,
+  FeatureToggleErrors,
+} from "../constants";
+import { globalFeatureStateTable } from "../global-feature-state-table";
+import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
+
+// Factory: binds a runtime accessor to the handler at registration time.
+// The runtime holds the in-memory snapshot that the dispatcher's gate
+// reads; every successful set() call must update it, otherwise the flip
+// won't take effect until the next boot.
+//
+// Accessor form (instead of direct runtime ref) supports the bootstrapping
+// flow: tests + setupTestStack construct the feature definition BEFORE the
+// runtime exists (the runtime needs the registry, which setupTestStack
+// builds from the features). The accessor is resolved lazily, at call time.
+export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRuntime) {
+  return defineWriteHandler({
+    name: "set",
+    schema: z.object({
+      featureName: z.string().min(1),
+      enabled: z.boolean(),
+    }),
+    // Platform-operator action — SystemAdmin only.
+    access: { roles: ["SystemAdmin"] },
+    handler: async (event, ctx) => {
+      const { featureName, enabled } = event.payload;
+
+      // Guard 1: featureName must be a registered feature. Otherwise we'd
+      // pile up orphan rows from typos that the gate would silently apply
+      // (if someone ever added a feature with that name later).
+      const feature = ctx.registry.getFeature(featureName);
+      if (!feature) {
+        return writeFailure(
+          new UnprocessableError(FeatureToggleErrors.unknownFeature, {
+            i18nKey: "feature-toggles.errors.unknownFeature",
+            details: { featureName },
+          }),
+        );
+      }
+
+      // Guard 2: feature must be toggleable. Non-toggleable features (auth,
+      // tenant, user, feature-toggles itself) must stay on — the gate
+      // would ignore any row, but writing one sends the wrong signal to
+      // anyone reading the table.
+      if (feature.toggleableDefault === undefined) {
+        return writeFailure(
+          new UnprocessableError(FeatureToggleErrors.notToggleable, {
+            i18nKey: "feature-toggles.errors.notToggleable",
+            details: { featureName },
+          }),
+        );
+      }
+
+      // Read current state for event payload + optimistic-lock version.
+      const rows = (await ctx.db
+        .select({
+          enabled: globalFeatureStateTable.enabled,
+          version: globalFeatureStateTable.version,
+        })
+        .from(globalFeatureStateTable)
+        .where(eq(globalFeatureStateTable.featureName, featureName))
+        .limit(1)) as unknown as readonly { enabled: boolean; version: number }[];
+      const existing = rows[0];
+
+      const previousEnabled = existing?.enabled ?? null;
+
+      if (!existing) {
+        // First-time override: insert.
+        await ctx.db.insert(globalFeatureStateTable).values({
+          featureName,
+          enabled,
+          version: 1,
+          updatedBy: event.user.id,
+          updatedAt: Temporal.Now.instant(),
+        });
+      } else {
+        // Upsert with optimistic lock. Two operators flipping the same
+        // toggle simultaneously is rare but possible — the version-WHERE
+        // ensures only one wins; the loser sees VersionConflictError.
+        const updated = (await ctx.db
+          .update(globalFeatureStateTable)
+          .set({
+            enabled,
+            version: sql<number>`${globalFeatureStateTable.version} + 1`,
+            updatedBy: event.user.id,
+            updatedAt: Temporal.Now.instant(),
+          })
+          .where(
+            and(
+              eq(globalFeatureStateTable.featureName, featureName),
+              eq(globalFeatureStateTable.version, existing.version),
+            ),
+          )
+          .returning()) as readonly unknown[];
+
+        if (updated.length === 0) {
+          return writeFailure(
+            new VersionConflictError({
+              entityId: featureName,
+              expectedVersion: existing.version,
+              currentVersion: existing.version + 1,
+            }),
+          );
+        }
+      }
+
+      // Domain event — the event-store IS the toggle-change audit trail.
+      // aggregateId = SYSTEM_TENANT_ID (uuid) because the events table
+      // types aggregate_id as uuid. Per-feature stream isolation would
+      // need synthetic UUIDs from the feature-name, which add nothing
+      // audit-wise; one shared toggle-changes stream per system is fine,
+      // and filtering by payload.featureName is trivial at query time.
+      // This mirrors how `config` handles the same constraint for
+      // its config-changed events.
+      await ctx.appendEvent({
+        aggregateId: SYSTEM_TENANT_ID,
+        aggregateType: FEATURE_TOGGLE_AGGREGATE_TYPE,
+        type: FEATURE_TOGGLE_SET_EVENT_NAME,
+        payload: {
+          featureName,
+          enabled,
+          previousEnabled,
+          updatedBy: event.user.id,
+        },
+      });
+
+      // Update the in-memory snapshot so the next request sees the new
+      // state. Done AFTER the DB write + event append: if either fails,
+      // the snapshot stays consistent with what's persisted.
+      getRuntime().apply(featureName, enabled);
+
+      return {
+        isSuccess: true,
+        data: { featureName, enabled, previousEnabled },
+      };
+    },
+  });
+}

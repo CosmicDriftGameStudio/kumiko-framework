@@ -79,6 +79,34 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   }
 
   validateConfigReads(features, allConfigKeys);
+  warnOnToggleableDependencies(features, featureMap);
+}
+
+// --- Toggleable-dependency warnings ---
+//
+// When feature A declares r.requires("B") and B is toggleable with
+// default=false, A is effectively disabled out-of-the-box until someone
+// flips B on globally. That's usually an oversight — the dev either meant
+// optionalRequires, or forgot to ship B with default=true. We warn (not
+// fail) because the combination is legal: an app might intentionally
+// require an opt-in feature to make it explicit that B must be activated.
+function warnOnToggleableDependencies(
+  features: readonly FeatureDefinition[],
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  for (const f of features) {
+    for (const dep of f.requires) {
+      const depFeature = featureMap.get(dep);
+      if (!depFeature) continue; // requires-target-missing is handled elsewhere
+      if (depFeature.toggleableDefault === false) {
+        console.warn(
+          `[kumiko:boot] Feature "${f.name}" requires "${dep}", which is toggleable(default=false). ` +
+            `"${f.name}" will be effectively disabled until "${dep}" is enabled globally via the feature-toggles feature. ` +
+            `If this is intentional, ignore this warning; otherwise consider r.optionalRequires() or default=true.`,
+        );
+      }
+    }
+  }
 }
 
 // --- Config key bounds consistency ---

@@ -106,6 +106,7 @@ export function defineFeature<TExports = undefined>(
   }
 
   let isSystemScoped = false;
+  let toggleableDefault: boolean | undefined;
 
   // Map handler name to entity via colon convention.
   // "task:create" → entity "task". No colon → standalone handler, no mapping.
@@ -130,6 +131,15 @@ export function defineFeature<TExports = undefined>(
 
     optionalRequires(...featureNames: string[]): void {
       optionalRequires.push(...featureNames);
+    },
+
+    toggleable(options: { default: boolean }): void {
+      if (toggleableDefault !== undefined) {
+        throw new Error(
+          `[Feature ${name}] r.toggleable() called twice — a feature's toggleable status is declared once`,
+        );
+      }
+      toggleableDefault = options.default;
     },
 
     entity(entityName: string, definition: EntityDefinition): EntityRef {
@@ -512,6 +522,7 @@ export function defineFeature<TExports = undefined>(
     exports,
     requires,
     optionalRequires,
+    ...(toggleableDefault !== undefined && { toggleableDefault }),
     entities,
     relations,
     writeHandlers,

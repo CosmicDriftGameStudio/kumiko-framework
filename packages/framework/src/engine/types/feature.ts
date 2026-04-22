@@ -112,6 +112,11 @@ export type FeatureDefinition = {
   readonly exports?: unknown;
   readonly requires: readonly string[];
   readonly optionalRequires: readonly string[];
+  // Declared via r.toggleable({ default }). Presence makes the feature
+  // operator-switchable via the feature-toggles bundled feature; absence
+  // means the feature is always-on (e.g. auth, tenant, user — core infra
+  // that would brick the system if switchable).
+  readonly toggleableDefault?: boolean;
   readonly entities: Readonly<Record<string, EntityDefinition>>;
   readonly relations: Readonly<Record<string, EntityRelations>>;
   readonly writeHandlers: Readonly<Record<string, WriteHandlerDef>>;
@@ -164,6 +169,11 @@ export type FeatureRegistrar = {
   systemScope(): void;
   requires(...featureNames: string[]): void;
   optionalRequires(...featureNames: string[]): void;
+  // Declare the feature as operator-togglable. `default` is the effective
+  // state when no global-toggle row exists. Must be called at most once per
+  // feature; calling on an always-on feature (e.g. auth/tenant/user) is a
+  // bug the registry catches at boot.
+  toggleable(options: { default: boolean }): void;
 
   entity(name: string, definition: EntityDefinition): EntityRef;
 
@@ -353,14 +363,44 @@ export type Registry = {
     relationName: string;
     relation: RelationDefinition;
   }>;
-  getPreSaveHooks(name: string): readonly PreSaveHookFn[];
-  getPostSaveHooks(name: string, phase?: HookPhase): readonly PostSaveHookFn[];
-  getPreDeleteHooks(name: string, phase?: HookPhase): readonly PreDeleteHookFn[];
-  getPostDeleteHooks(name: string, phase?: HookPhase): readonly PostDeleteHookFn[];
-  getPreQueryHooks(name: string): readonly PreQueryHookFn[];
-  getEntityPostSaveHooks(entityName: string, phase?: HookPhase): readonly PostSaveHookFn[];
-  getEntityPreDeleteHooks(entityName: string, phase?: HookPhase): readonly PreDeleteHookFn[];
-  getEntityPostDeleteHooks(entityName: string, phase?: HookPhase): readonly PostDeleteHookFn[];
+  // Hook getters — pass `effectiveFeatures` to drop hooks registered by
+  // globally-disabled features. Omit the arg to get all hooks (legacy
+  // callers + places where the feature-toggles feature isn't wired).
+  getPreSaveHooks(name: string, effectiveFeatures?: ReadonlySet<string>): readonly PreSaveHookFn[];
+  getPostSaveHooks(
+    name: string,
+    phase?: HookPhase,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly PostSaveHookFn[];
+  getPreDeleteHooks(
+    name: string,
+    phase?: HookPhase,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly PreDeleteHookFn[];
+  getPostDeleteHooks(
+    name: string,
+    phase?: HookPhase,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly PostDeleteHookFn[];
+  getPreQueryHooks(
+    name: string,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly PreQueryHookFn[];
+  getEntityPostSaveHooks(
+    entityName: string,
+    phase?: HookPhase,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly PostSaveHookFn[];
+  getEntityPreDeleteHooks(
+    entityName: string,
+    phase?: HookPhase,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly PreDeleteHookFn[];
+  getEntityPostDeleteHooks(
+    entityName: string,
+    phase?: HookPhase,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly PostDeleteHookFn[];
   getHandlerEntity(qualifiedHandler: string): string | undefined;
   isHandlerSystemScoped(qualifiedHandler: string): boolean;
   getHandlerFeature(qualifiedHandler: string): string | undefined;
@@ -406,6 +446,9 @@ export type Registry = {
   // Keyed by qualified name. The server wires each into the event-dispatcher
   // as its own EventConsumer with a dedicated cursor.
   getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition>;
+  // The feature that registered the given MSP. Used by the event-dispatcher
+  // to pause MSP-consumers whose owning feature is globally disabled.
+  getMultiStreamProjectionFeature(qualifiedName: string): string | undefined;
 
   // All r.authClaims() hooks across all features, tagged with the declaring
   // feature name so the resolver can apply the auto-prefix. Pre-aggregated

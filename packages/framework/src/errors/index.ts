@@ -1,4 +1,5 @@
 export type {
+  FeatureDisabledDetails,
   NotFoundDetails,
   RateLimitDetails,
   UnprocessableOpts,
@@ -9,6 +10,7 @@ export type {
 export {
   AccessDeniedError,
   ConflictError,
+  FeatureDisabledError,
   InternalError,
   NotFoundError,
   RateLimitError,

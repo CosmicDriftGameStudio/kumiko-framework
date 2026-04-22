@@ -233,6 +233,12 @@ type SharedContextFields = {
   // can ignore it. Framework primitives (streamAllEventsByType,
   // rebuildProjection) honour it automatically.
   readonly signal?: AbortSignal;
+  // Effective feature-toggle resolver. Wired by the dispatcher when the
+  // feature-toggles feature is loaded — the lifecycle pipeline, MSP runner,
+  // and ctx.hasFeature all read from this single source. Returns the Set
+  // of feature names that are currently effectively enabled (after global
+  // overrides and r.requires() cascade). Absent = all features on.
+  readonly effectiveFeatures?: () => ReadonlySet<string>;
 };
 
 // All optional — used at pipeline/system boundaries.
@@ -274,6 +280,14 @@ export type HandlerContext = SharedContextFields & {
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
   readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
+
+  // Runtime-check whether a feature is currently effectively-enabled. Use
+  // inside an active handler when logic should opt into behaviour that
+  // depends on another toggleable feature being on (e.g. "if premiumInvoices
+  // is on, add extra columns to the export"). The dispatcher gate already
+  // blocks calls to handlers of disabled features — this is the fine-grained
+  // opt-in counterpart, not a substitute for the gate.
+  readonly hasFeature: (featureName: string) => boolean;
 
   // Append a domain event to a specific aggregate stream in the current tx.
   // Marten-aligned: every event belongs to exactly one aggregate. The runtime
