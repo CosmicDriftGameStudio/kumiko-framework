@@ -96,6 +96,16 @@ export function isKebabSegment(name: string): boolean {
   return QN_SEGMENT.test(name);
 }
 
+// Build a fully-qualified entity name from a feature name + QN type + short
+// name, running both names through toKebab first. This is the canonical
+// "how the registry qualifies things" helper — both createRegistry and
+// validateBoot need it, and they previously duplicated the literal
+// `qn(toKebab(feature), type, toKebab(short))` expression. Keeping it here
+// means a single place to change if the qualification rule ever evolves.
+export function qualifyEntityName(featureName: string, type: QnType, shortName: string): string {
+  return qn(toKebab(featureName), type, toKebab(shortName));
+}
+
 // Convert camelCase or dot.separated strings to kebab-case.
 // "task.create" → "task-create"
 // "ticketAssigned" → "ticket-assigned"

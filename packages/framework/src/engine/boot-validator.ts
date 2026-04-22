@@ -1,5 +1,5 @@
 import type { OwnershipMap, OwnershipRule } from "./ownership";
-import { qn, toKebab } from "./qualified-name";
+import { qualifyEntityName } from "./qualified-name";
 import type { ClaimKeyDefinition, FeatureDefinition, NavDefinition } from "./types";
 import { normalizeEditField, normalizeListColumn } from "./types/screen";
 
@@ -814,14 +814,15 @@ function buildUnknownFieldMessage(
 // --- Nav validation ---
 //
 // The boot-validator runs BEFORE createRegistry builds the final maps, so we
-// pre-build the qualified name sets for screens + navs here. Same qualify()
-// logic the registry uses (toKebab + qn), kept in lockstep with registry.ts.
+// pre-build the qualified name sets for screens + navs here. `qualifyEntityName`
+// is the shared helper with the registry — changing the qualification rule
+// in one place flows through both ingest paths.
 
 function collectScreenQns(features: readonly FeatureDefinition[]): Set<string> {
   const set = new Set<string>();
   for (const f of features) {
     for (const screenId of Object.keys(f.screens)) {
-      set.add(qn(toKebab(f.name), "screen", toKebab(screenId)));
+      set.add(qualifyEntityName(f.name, "screen", screenId));
     }
   }
   return set;
@@ -833,7 +834,7 @@ function collectNavQns(
   const map = new Map<string, NavDefinition & { readonly featureName: string }>();
   for (const f of features) {
     for (const [navId, navDef] of Object.entries(f.navs)) {
-      const qualified = qn(toKebab(f.name), "nav", toKebab(navId));
+      const qualified = qualifyEntityName(f.name, "nav", navId);
       map.set(qualified, { ...navDef, featureName: f.name });
     }
   }

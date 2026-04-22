@@ -1,5 +1,5 @@
 import { buildMetricName, validateMetricName } from "../observability";
-import { type QnType, qn, toKebab } from "./qualified-name";
+import { qualifyEntityName } from "./qualified-name";
 import type {
   AuthClaimsHookDef,
   ClaimKeyDefinition,
@@ -131,11 +131,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const navsByParent = new Map<string, NavDefinition[]>();
   const topLevelNavs: NavDefinition[] = [];
 
-  // Qualified name helper: builds "scope:type:name" from feature + type + short name.
-  // Both feature name and handler name are converted to kebab-case.
-  function qualify(featureName: string, type: QnType, name: string): string {
-    return qn(toKebab(featureName), type, toKebab(name));
-  }
+  // Local alias for readability — `qualifyEntityName` is the shared helper
+  // from qualified-name.ts, also used by validateBoot to keep ingest and
+  // validation in lockstep on the qualification rule.
+  const qualify = qualifyEntityName;
 
   // Filter hooks by phase and/or owning feature.
   //
@@ -446,14 +445,19 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // in O(1) without walking every screen.
     for (const [screenId, screenDef] of Object.entries(feature.screens)) {
       const qualified = qualify(feature.name, "screen", screenId);
-      screenMap.set(qualified, screenDef);
+      // Stored version overwrites `id` with the qualified name so callers
+      // never need a reverse index (NavDef → qn) during tree-walking.
+      // Same pattern as writeHandlerMap/projectionMap/multiStreamProjectionMap
+      // (see `{ ...def, name: qualified }` above). Feature-side
+      // `feature.screens[shortId]` keeps the short id — only the registry
+      // surface flips.
+      const stored = { ...screenDef, id: qualified };
+      screenMap.set(qualified, stored);
       screenFeatureMap.set(qualified, feature.name);
-      // Entity-bound screens also go into the per-entity index; custom
-      // screens have no entity to index by, so they only live in screenMap.
-      if (screenDef.type !== "custom") {
-        const existing = screensByEntity.get(screenDef.entity) ?? [];
-        existing.push(screenDef);
-        screensByEntity.set(screenDef.entity, existing);
+      if (stored.type !== "custom") {
+        const existing = screensByEntity.get(stored.entity) ?? [];
+        existing.push(stored);
+        screensByEntity.set(stored.entity, existing);
       }
     }
 
@@ -465,14 +469,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // entry's QN.
     for (const [navId, navDef] of Object.entries(feature.navs)) {
       const qualified = qualify(feature.name, "nav", navId);
-      navMap.set(qualified, navDef);
+      // See screens above — stored version carries the qualified id so
+      // resolveNavigation can recurse via getNavsByParent(child.id) without
+      // hand-building a reverse index.
+      const stored = { ...navDef, id: qualified };
+      navMap.set(qualified, stored);
       navFeatureMap.set(qualified, feature.name);
-      if (navDef.parent === undefined) {
-        topLevelNavs.push(navDef);
+      if (stored.parent === undefined) {
+        topLevelNavs.push(stored);
       } else {
-        const existing = navsByParent.get(navDef.parent) ?? [];
-        existing.push(navDef);
-        navsByParent.set(navDef.parent, existing);
+        const existing = navsByParent.get(stored.parent) ?? [];
+        existing.push(stored);
+        navsByParent.set(stored.parent, existing);
       }
     }
 

@@ -5,6 +5,13 @@ import type { AccessRule } from "./handlers";
 // packages decide what to do with them. The framework must not import
 // React / react-native from here; renderer components stay opaque so
 // `engine/` imports don't pull the whole UI toolchain into every bundle.
+//
+// Note on `id`: feature authors write the short form ("product-list"); the
+// registry overwrites `id` with the qualified name ("shop:screen:product-list")
+// in its stored copies. Callers of `registry.getScreen(qn)` /
+// `getAllScreens()` / `getScreensByEntity(...)` always see the qualified id.
+// `feature.screens[shortId]` on the unregistered FeatureDefinition keeps
+// the short form.
 
 // A per-platform component pair — used anywhere a feature attaches a
 // rendered component (screens, slots, routes, field renderers, future

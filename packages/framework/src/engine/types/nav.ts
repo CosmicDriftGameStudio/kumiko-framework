@@ -10,9 +10,12 @@ import type { AccessRule } from "./handlers";
 // registered screen QN, `parent` at any registered nav QN. The boot
 // validator checks both references exist + rejects parent cycles.
 export type NavDefinition = {
-  // Feature-local short id. Gets qualified to "<feature>:nav:<id>" in the
-  // registry — that's also the shape `parent` must use to point at another
-  // nav entry across features.
+  // Feature author writes the feature-local short id ("catalog"); the
+  // registry overwrites `id` with the qualified name ("shop:nav:catalog")
+  // in its stored copy. Callers of `registry.getNav(qn)` /
+  // `getTopLevelNavs()` / `getNavsByParent(...)` always see the qualified
+  // id — no parallel reverse index needed. `feature.navs[shortId]` on the
+  // unregistered FeatureDefinition keeps the short form.
   readonly id: string;
   // i18n translation key. Resolved at render time by the renderer's
   // useTranslation hook; engine keeps it opaque.

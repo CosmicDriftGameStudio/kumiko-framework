@@ -198,7 +198,30 @@ describe("createRegistry — screen indexing", () => {
     const registry = createRegistry([feature]);
     const byProduct = registry.getScreensByEntity("product");
     expect(byProduct).toHaveLength(2);
-    expect(byProduct.map((s) => s.id).sort()).toEqual(["product-edit", "product-list"]);
+    // Stored screens carry the qualified id — same contract as
+    // getScreen(qn).id / getAllScreens() values. Saves ui-core the reverse
+    // index when recursing through slots / field renderers by QN.
+    expect(byProduct.map((s) => s.id).sort()).toEqual([
+      "shop:screen:product-edit",
+      "shop:screen:product-list",
+    ]);
+  });
+
+  test("getScreen / getScreensByEntity return stored screens with qualified id", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+      });
+    });
+    const registry = createRegistry([feature]);
+    // Input-side (unregistered FeatureDefinition) keeps the short form.
+    expect(feature.screens["product-list"]?.id).toBe("product-list");
+    // Registry-side always exposes the qualified form.
+    expect(registry.getScreen("shop:screen:product-list")?.id).toBe("shop:screen:product-list");
   });
 
   test("getScreensByEntity returns empty for unknown entities", () => {
