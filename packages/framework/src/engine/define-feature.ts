@@ -106,7 +106,7 @@ export function defineFeature<TExports = undefined>(
   const authClaimsHooks: AuthClaimsFn[] = [];
   const claimKeys: Record<string, ClaimKeyDefinition> = {};
   const screens: Record<string, ScreenDefinition> = {};
-  const navEntries: Record<string, NavDefinition> = {};
+  const navs: Record<string, NavDefinition> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -525,13 +525,13 @@ export function defineFeature<TExports = undefined>(
             `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
         );
       }
-      if (navEntries[definition.id]) {
+      if (navs[definition.id]) {
         throw new Error(
           `[Feature ${name}] Nav entry "${definition.id}" already registered. ` +
             `Nav ids must be unique per feature.`,
         );
       }
-      navEntries[definition.id] = definition;
+      navs[definition.id] = definition;
     },
 
     claimKey<T extends ClaimKeyType>(
@@ -604,6 +604,6 @@ export function defineFeature<TExports = undefined>(
     authClaimsHooks,
     claimKeys,
     screens,
-    navEntries,
+    navs,
   };
 }

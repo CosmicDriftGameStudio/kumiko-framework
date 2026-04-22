@@ -16,8 +16,8 @@ describe("r.nav() — registration", () => {
     const feature = defineFeature("shop", (r) => {
       r.nav({ id: "catalog", label: "shop:nav.catalog" });
     });
-    expect(feature.navEntries["catalog"]).toBeDefined();
-    expect(feature.navEntries["catalog"]?.label).toBe("shop:nav.catalog");
+    expect(feature.navs["catalog"]).toBeDefined();
+    expect(feature.navs["catalog"]?.label).toBe("shop:nav.catalog");
   });
 
   test("stores a nav entry with icon, order, parent, screen, access", () => {
@@ -40,7 +40,7 @@ describe("r.nav() — registration", () => {
         access: { roles: ["Admin"] },
       });
     });
-    const nav = feature.navEntries["products"];
+    const nav = feature.navs["products"];
     expect(nav).toMatchObject({
       icon: "box",
       order: 10,
@@ -81,22 +81,22 @@ describe("createRegistry — nav indexing", () => {
       r.nav({ id: "catalog", label: "x" });
     });
     const registry = createRegistry([feature]);
-    expect(registry.getAllNavEntries().size).toBe(1);
-    expect(registry.getNavEntry("shop:nav:catalog")).toBeDefined();
+    expect(registry.getAllNavs().size).toBe(1);
+    expect(registry.getNav("shop:nav:catalog")).toBeDefined();
   });
 
   test("returns undefined for unknown qualified nav names", () => {
     const registry = createRegistry([]);
-    expect(registry.getNavEntry("ghost:nav:nope")).toBeUndefined();
+    expect(registry.getNav("ghost:nav:nope")).toBeUndefined();
   });
 
-  test("getNavEntryFeature maps a nav entry back to its owning feature", () => {
+  test("getNavFeature maps a nav entry back to its owning feature", () => {
     const feature = defineFeature("shop", (r) => {
       r.nav({ id: "catalog", label: "x" });
     });
     const registry = createRegistry([feature]);
-    expect(registry.getNavEntryFeature("shop:nav:catalog")).toBe("shop");
-    expect(registry.getNavEntryFeature("shop:nav:nope")).toBeUndefined();
+    expect(registry.getNavFeature("shop:nav:catalog")).toBe("shop");
+    expect(registry.getNavFeature("shop:nav:nope")).toBeUndefined();
   });
 
   test("same nav id from two features qualifies to different names", () => {
@@ -107,9 +107,9 @@ describe("createRegistry — nav indexing", () => {
       r.nav({ id: "home", label: "y" });
     });
     const registry = createRegistry([shop, settings]);
-    expect(registry.getAllNavEntries().size).toBe(2);
-    expect(registry.getNavEntry("shop:nav:home")).toBeDefined();
-    expect(registry.getNavEntry("settings:nav:home")).toBeDefined();
+    expect(registry.getAllNavs().size).toBe(2);
+    expect(registry.getNav("shop:nav:home")).toBeDefined();
+    expect(registry.getNav("settings:nav:home")).toBeDefined();
   });
 });
 

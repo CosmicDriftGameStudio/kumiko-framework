@@ -169,7 +169,7 @@ export type FeatureDefinition = {
   // Nav entries declared via r.nav(). Keyed by the feature-local short id;
   // registry qualifies to "<feature>:nav:<id>". Flat list — the renderer's
   // resolveNavigation assembles the tree from parent refs at mount time.
-  readonly navEntries: Readonly<Record<string, NavDefinition>>;
+  readonly navs: Readonly<Record<string, NavDefinition>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -497,9 +497,9 @@ export type Registry = {
   // Nav entries declared via r.nav() across all features. Keyed by qualified
   // name ("<feature>:nav:<id>"). Flat list — the renderer's resolveNavigation
   // assembles the tree from parent refs and gates by effective-features.
-  getAllNavEntries(): ReadonlyMap<string, NavDefinition>;
-  getNavEntry(qualifiedName: string): NavDefinition | undefined;
+  getAllNavs(): ReadonlyMap<string, NavDefinition>;
+  getNav(qualifiedName: string): NavDefinition | undefined;
   // The feature that registered the given nav entry. Used by the nav
   // resolver to drop entries whose owning feature is globally disabled.
-  getNavEntryFeature(qualifiedName: string): string | undefined;
+  getNavFeature(qualifiedName: string): string | undefined;
 };

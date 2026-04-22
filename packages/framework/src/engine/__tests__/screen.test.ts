@@ -316,4 +316,41 @@ describe("validateBoot — screen validation", () => {
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
+
+  test("entityList with empty columns fails boot", () => {
+    // Blank columns list renders as a blank table — almost always an author
+    // oversight. Locked down at boot rather than silently producing an empty
+    // UI surface.
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({ id: "list", type: "entityList", entity: "product", columns: [] });
+    });
+    expect(() => validateBoot([feature])).toThrow(/empty columns list/);
+  });
+
+  test("entityEdit with empty sections fails boot", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "edit",
+        type: "entityEdit",
+        entity: "product",
+        layout: { sections: [] },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/empty sections list/);
+  });
+
+  test("entityEdit with a section that has zero fields fails boot", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "edit",
+        type: "entityEdit",
+        entity: "product",
+        layout: { sections: [{ title: "shop:section.empty", fields: [] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/zero fields/);
+  });
 });

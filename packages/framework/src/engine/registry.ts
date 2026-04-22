@@ -119,8 +119,8 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const screenFeatureMap = new Map<string, string>();
   // Nav entries — same shape as screenMap. Tree assembly happens in ui-core
   // at render time; the engine just stores the flat list and its owners.
-  const navEntryMap = new Map<string, NavDefinition>();
-  const navEntryFeatureMap = new Map<string, string>();
+  const navMap = new Map<string, NavDefinition>();
+  const navFeatureMap = new Map<string, string>();
 
   // Qualified name helper: builds "scope:type:name" from feature + type + short name.
   // Both feature name and handler name are converted to kebab-case.
@@ -444,10 +444,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // Nav entries: same qualification pattern as screens. The parent/screen
     // refs are boot-validated below (after all features are ingested, so
     // cross-feature parents can resolve).
-    for (const [navId, navDef] of Object.entries(feature.navEntries)) {
+    for (const [navId, navDef] of Object.entries(feature.navs)) {
       const qualified = qualify(feature.name, "nav", navId);
-      navEntryMap.set(qualified, navDef);
-      navEntryFeatureMap.set(qualified, feature.name);
+      navMap.set(qualified, navDef);
+      navFeatureMap.set(qualified, feature.name);
     }
 
     // Auth-claims hooks: order of registration is preserved. Feature name is
@@ -1075,16 +1075,16 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       return screenFeatureMap.get(qualifiedName);
     },
 
-    getAllNavEntries(): ReadonlyMap<string, NavDefinition> {
-      return navEntryMap;
+    getAllNavs(): ReadonlyMap<string, NavDefinition> {
+      return navMap;
     },
 
-    getNavEntry(qualifiedName: string): NavDefinition | undefined {
-      return navEntryMap.get(qualifiedName);
+    getNav(qualifiedName: string): NavDefinition | undefined {
+      return navMap.get(qualifiedName);
     },
 
-    getNavEntryFeature(qualifiedName: string): string | undefined {
-      return navEntryFeatureMap.get(qualifiedName);
+    getNavFeature(qualifiedName: string): string | undefined {
+      return navFeatureMap.get(qualifiedName);
     },
   };
 }

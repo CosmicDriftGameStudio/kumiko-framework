@@ -6,25 +6,28 @@ import type { AccessRule } from "./handlers";
 // React / react-native from here; renderer components stay opaque so
 // `engine/` imports don't pull the whole UI toolchain into every bundle.
 
-// Per-platform renderer-component reference. Both fields are `unknown` so
-// the engine can't depend on React types; ui-core resolves the platform at
-// mount-time. Framework code only checks structural presence.
-export type ScreenComponentRef = {
+// Per-platform renderer components attached to a screen/slot/route. Both
+// fields are `unknown` so the engine can't depend on React types; ui-core
+// resolves the platform at mount-time. Framework code only checks
+// structural presence.
+export type ScreenComponent = {
   readonly react?: unknown;
   readonly native?: unknown;
 };
 
 // Level-2 field renderer (ui-architecture.md §Renderer Customization):
-//   - ScreenComponentRef → platform-specific component from the same feature
+//   - ScreenComponent → platform-specific component from the same feature
 //   - string            → cross-feature QN reference (resolved by the renderer)
 //   - function          → inline value formatter (e.g. `v => `${v} €``)
-export type FieldRenderer = ScreenComponentRef | string | ((value: unknown) => string);
+export type FieldRenderer = ScreenComponent | string | ((value: unknown) => string);
 
 // Conditional field-state evaluator. `data` is the current form row and
 // `ctx` carries user / session info — the form-controller in ui-core passes
-// both at evaluation time. Opaque here: the engine has nothing to assert
-// about their shapes, it just ferries the function through.
-export type FieldCondition = (data: unknown, ctx: unknown) => boolean;
+// both at evaluation time. Engine-side defaults are `unknown` because the
+// framework has nothing to assert about the shapes; feature code can narrow
+// them by passing type args (e.g. `FieldCondition<OrderRow>`) to skip the
+// cast at call sites.
+export type FieldCondition<TData = unknown, TCtx = unknown> = (data: TData, ctx: TCtx) => boolean;
 
 // --- entityList ---
 
@@ -45,8 +48,8 @@ export type EntityListScreenDefinition = {
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
   // from `columns`. cardRenderer fills the same role on compact layouts.
-  readonly rowRenderer?: ScreenComponentRef;
-  readonly cardRenderer?: ScreenComponentRef;
+  readonly rowRenderer?: ScreenComponent;
+  readonly cardRenderer?: ScreenComponent;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };
@@ -90,13 +93,13 @@ export type EntityEditScreenDefinition = {
 // framework owns the outer routing. Components stay opaque.
 export type CustomScreenRoute = {
   readonly path: string;
-  readonly component: ScreenComponentRef;
+  readonly component: ScreenComponent;
 };
 
 export type CustomScreenDefinition = {
   readonly id: string;
   readonly type: "custom";
-  readonly renderer: ScreenComponentRef;
+  readonly renderer: ScreenComponent;
   readonly routes?: readonly CustomScreenRoute[];
   readonly access?: AccessRule;
 };
@@ -104,12 +107,12 @@ export type CustomScreenDefinition = {
 // --- shared slots (Level 4 from ui-architecture.md) ---
 
 export type ScreenSlots = {
-  readonly header?: ScreenComponentRef;
-  readonly beforeForm?: ScreenComponentRef;
-  readonly afterForm?: ScreenComponentRef;
-  readonly sidebar?: ScreenComponentRef;
-  readonly footer?: ScreenComponentRef;
-  readonly toolbar?: ScreenComponentRef;
+  readonly header?: ScreenComponent;
+  readonly beforeForm?: ScreenComponent;
+  readonly afterForm?: ScreenComponent;
+  readonly sidebar?: ScreenComponent;
+  readonly footer?: ScreenComponent;
+  readonly toolbar?: ScreenComponent;
 };
 
 // --- discriminated union ---

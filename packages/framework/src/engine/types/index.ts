@@ -170,7 +170,7 @@ export type {
   FieldCondition,
   FieldRenderer,
   ListColumnSpec,
-  ScreenComponentRef,
+  ScreenComponent,
   ScreenDefinition,
   ScreenSlots,
 } from "./screen";

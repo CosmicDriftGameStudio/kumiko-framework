@@ -53,7 +53,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
 
   // Cross-feature screen + nav registry — built once up front so per-feature
   // validators can check nav-ref targets + parent chains without re-scanning
-  // every feature's navEntries map.
+  // every feature's navs map.
   const allScreenQns = collectScreenQns(features);
   const allNavQns = collectNavQns(features);
 
@@ -727,6 +727,16 @@ function validateScreens(
 
     const fieldNames = new Set(Object.keys(entityDef.fields));
     if (screen.type === "entityList") {
+      // Empty column list would render as a blank table — almost always the
+      // sign of an in-progress screen the author forgot to fill in. Fail
+      // loud: ui-core's computeListViewModel can't do anything useful with
+      // zero columns either.
+      if (screen.columns.length === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (entityList) has an empty columns list — ` +
+            `declare at least one column.`,
+        );
+      }
       for (const col of screen.columns) {
         const normalized = normalizeListColumn(col);
         if (!fieldNames.has(normalized.field)) {
@@ -742,7 +752,22 @@ function validateScreens(
         }
       }
     } else {
+      // Same rationale as the columns check: an entityEdit layout with zero
+      // sections (or sections without any fields) renders as nothing — reject
+      // at boot so the author sees it before the blank form surprises them.
+      if (screen.layout.sections.length === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) has an empty sections list — ` +
+            `declare at least one section.`,
+        );
+      }
       for (const section of screen.layout.sections) {
+        if (section.fields.length === 0) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) has a section "${section.title}" ` +
+              `with zero fields — drop the section or add fields to it.`,
+          );
+        }
         for (const fieldSpec of section.fields) {
           const normalized = normalizeEditField(fieldSpec);
           if (!fieldNames.has(normalized.field)) {
@@ -807,7 +832,7 @@ function collectNavQns(
 ): Map<string, NavDefinition & { readonly featureName: string }> {
   const map = new Map<string, NavDefinition & { readonly featureName: string }>();
   for (const f of features) {
-    for (const [navId, navDef] of Object.entries(f.navEntries)) {
+    for (const [navId, navDef] of Object.entries(f.navs)) {
       const qualified = qn(toKebab(f.name), "nav", toKebab(navId));
       map.set(qualified, { ...navDef, featureName: f.name });
     }
@@ -823,7 +848,7 @@ function validateNavEntries(
   allScreenQns: ReadonlySet<string>,
   allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
 ): void {
-  for (const [navId, navDef] of Object.entries(feature.navEntries)) {
+  for (const [navId, navDef] of Object.entries(feature.navs)) {
     if (navDef.screen !== undefined && !allScreenQns.has(navDef.screen)) {
       throw new Error(
         `[Feature ${feature.name}] Nav entry "${navId}" references screen "${navDef.screen}" ` +
