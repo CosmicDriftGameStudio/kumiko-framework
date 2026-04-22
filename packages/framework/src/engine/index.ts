@@ -140,6 +140,7 @@ export type {
   NotifyPriority,
   NumberFieldDef,
   OnDeleteStrategy,
+  PlatformComponent,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
