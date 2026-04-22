@@ -1,8 +1,23 @@
 import type { Context, Next } from "hono";
+import { getCookie } from "hono/cookie";
 import type { SessionUser } from "../engine/types";
 import type { JwtHelper } from "./jwt";
 
 const USER_KEY = "pipelineUser";
+const AUTH_TRANSPORT_KEY = "authTransport";
+
+// Names used across middleware and auth-routes. Kept here so csrf-middleware
+// and auth-routes import them from a single source of truth — renaming a
+// cookie is a coordinated change across issuer, reader and deleter.
+export const AUTH_COOKIE_NAME = "kumiko_auth";
+export const CSRF_COOKIE_NAME = "kumiko_csrf";
+export const CSRF_HEADER_NAME = "X-CSRF-Token";
+
+// Which wire the current request authenticated over. Downstream
+// csrf-middleware reads this: cookie-auth gets a CSRF-token check, bearer
+// does not (headers aren't set cross-origin by browsers, so there is no
+// CSRF vector on a bearer-only client).
+export type AuthTransport = "cookie" | "bearer";
 
 // Status of a sid from the server's perspective. The sessions feature owns
 // the DB-backed implementation; middleware just consults whatever function
@@ -51,16 +66,40 @@ function sessionInvalid(c: Context, reason: AuthSessionStatus | "no_sid"): Respo
   );
 }
 
+// Extract the JWT from either the kumiko_auth cookie (web) or the
+// Authorization Bearer header (native / server-to-server). The two paths
+// are mutually exclusive: if both are present the request is rejected with
+// `ambiguous_auth` to prevent a confused-deputy bug where a server-bug
+// could authenticate via one transport while the other sat there ignored.
+// Note: this is NOT a CSRF control — Bearer-only clients are already safe
+// because browsers can't set Authorization headers cross-origin. The reject
+// exists so future middleware authors can't accidentally mix transports.
+function extractToken(
+  c: Context,
+): { token: string; transport: AuthTransport } | { error: "both" | "missing" } {
+  const cookieToken = getCookie(c, AUTH_COOKIE_NAME);
+  const header = c.req.header("Authorization");
+  const bearerToken = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
+
+  if (cookieToken && bearerToken) return { error: "both" };
+  if (cookieToken) return { token: cookieToken, transport: "cookie" };
+  if (bearerToken) return { token: bearerToken, transport: "bearer" };
+  return { error: "missing" };
+}
+
 export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = {}) {
   const { sessionChecker, strictMode = false } = options;
 
   return async (c: Context, next: Next) => {
-    const header = c.req.header("Authorization");
-    if (!header?.startsWith("Bearer ")) {
+    const extracted = extractToken(c);
+    if ("error" in extracted) {
+      if (extracted.error === "both") {
+        return c.json({ error: "ambiguous_auth" }, 400);
+      }
       return c.json({ error: "missing_token" }, 401);
     }
+    const { token, transport } = extracted;
 
-    const token = header.slice(7);
     let payload: Awaited<ReturnType<JwtHelper["verify"]>>;
     try {
       payload = await jwt.verify(token);
@@ -90,10 +129,15 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       ...(payload.jti ? { sid: payload.jti } : {}),
     };
     c.set(USER_KEY, user);
+    c.set(AUTH_TRANSPORT_KEY, transport);
     await next();
   };
 }
 
 export function getUser(c: Context): SessionUser {
   return c.get(USER_KEY) as SessionUser;
+}
+
+export function getAuthTransport(c: Context): AuthTransport | undefined {
+  return c.get(AUTH_TRANSPORT_KEY) as AuthTransport | undefined;
 }

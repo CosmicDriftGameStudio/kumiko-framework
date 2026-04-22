@@ -473,3 +473,106 @@ describe("scenario 8: SessionUser.claims JWT roundtrip", () => {
     expect(payload.claims).toBeUndefined();
   });
 });
+
+describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
+  // Full-stack proof that the cookie path from Vorarbeit A behaves correctly
+  // against a real login handler + dispatcher. Unit tests cover the
+  // middleware logic in isolation; this locks down the wiring.
+
+  function extractCookie(setCookie: string[] | null, name: string): string | undefined {
+    if (!setCookie) return undefined;
+    for (const raw of setCookie) {
+      if (raw.startsWith(`${name}=`)) {
+        const first = raw.split(";")[0];
+        if (!first) continue;
+        return first.slice(name.length + 1);
+      }
+    }
+    return undefined;
+  }
+
+  test("login sets both cookies and the token works via cookie transport", async () => {
+    await seedLoginUser({ email: "cookie-user@example.com", password: "correct-horse" });
+
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "cookie-user@example.com",
+      password: "correct-horse",
+    });
+    expect(loginRes.status).toBe(200);
+
+    const setCookies = (loginRes.headers as { getSetCookie?: () => string[] }).getSetCookie?.() ?? [
+      loginRes.headers.get("set-cookie") ?? "",
+    ];
+    const authCookie = extractCookie(setCookies, "kumiko_auth");
+    const csrfCookie = extractCookie(setCookies, "kumiko_csrf");
+    expect(authCookie).toBeDefined();
+    expect(csrfCookie).toBeDefined();
+
+    // Query via cookie ONLY (no bearer). POST /query is state-changing from
+    // the middleware's POV — same API convention as /write — so the web
+    // client has to echo the csrf cookie in X-CSRF-Token on every POST.
+    const queryRes = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "user:query:user:me", payload: {} },
+      {
+        Cookie: `kumiko_auth=${authCookie}; kumiko_csrf=${csrfCookie}`,
+        ...(csrfCookie ? { "X-CSRF-Token": csrfCookie } : {}),
+      },
+    );
+    expect(queryRes.status).toBe(200);
+  });
+
+  test("state-changing request via cookie without CSRF token → 403", async () => {
+    await seedLoginUser({ email: "csrf-user@example.com", password: "correct-horse" });
+
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "csrf-user@example.com",
+      password: "correct-horse",
+    });
+    const setCookies = (loginRes.headers as { getSetCookie?: () => string[] }).getSetCookie?.() ?? [
+      loginRes.headers.get("set-cookie") ?? "",
+    ];
+    const authCookie = extractCookie(setCookies, "kumiko_auth");
+    const csrfCookie = extractCookie(setCookies, "kumiko_csrf");
+
+    // POST /write with cookie but no X-CSRF-Token → csrf-middleware blocks.
+    const writeRes = await stack.http.raw(
+      "POST",
+      "/api/write",
+      { type: "user:write:user:create", payload: {} },
+      { Cookie: `kumiko_auth=${authCookie}; kumiko_csrf=${csrfCookie}` },
+    );
+    expect(writeRes.status).toBe(403);
+    const body = await writeRes.json();
+    expect(body.error?.code).toBe("csrf_token_mismatch");
+  });
+
+  test("both cookie AND bearer present → 400 ambiguous_auth", async () => {
+    await seedLoginUser({ email: "ambig@example.com", password: "correct-horse" });
+
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "ambig@example.com",
+      password: "correct-horse",
+    });
+    const body = await loginRes.json();
+    const token = body.token;
+    const setCookies = (loginRes.headers as { getSetCookie?: () => string[] }).getSetCookie?.() ?? [
+      loginRes.headers.get("set-cookie") ?? "",
+    ];
+    const authCookie = extractCookie(setCookies, "kumiko_auth");
+
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "user:query:user:me", payload: {} },
+      {
+        Cookie: `kumiko_auth=${authCookie}`,
+        Authorization: `Bearer ${token}`,
+      },
+    );
+    expect(res.status).toBe(400);
+    const errBody = await res.json();
+    expect(errBody.error).toBe("ambiguous_auth");
+  });
+});

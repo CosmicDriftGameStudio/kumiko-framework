@@ -44,6 +44,7 @@ import type { SearchAdapter } from "../search/types";
 import { PUBLIC_API_PATHS } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
+import { csrfMiddleware } from "./csrf-middleware";
 import { createJwtHelper, type JwtHelper } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { requestIdMiddleware } from "./request-id-middleware";
@@ -476,6 +477,19 @@ export function buildServer(options: ServerOptions): KumikoServer {
   app.use("/api/*", async (c, next) => {
     if (PUBLIC_API_PATHS.has(c.req.path)) return next();
     return jwtGuard(c, next);
+  });
+
+  // Double-submit CSRF guard — runs only on cookie-authenticated,
+  // state-changing requests (POST/PUT/PATCH/DELETE). The guard reads the
+  // authTransport flag set by authMiddleware, so public paths (no auth)
+  // and bearer-authenticated paths (no cookie vector) fall straight
+  // through. Must be registered AFTER the auth middleware above so the
+  // flag is populated; registered for the same scope so /api/* routes
+  // are covered uniformly.
+  const csrfGuard = csrfMiddleware();
+  app.use("/api/*", async (c, next) => {
+    if (PUBLIC_API_PATHS.has(c.req.path)) return next();
+    return csrfGuard(c, next);
   });
 
   // Public auth routes (login) need to be registered BEFORE the generic

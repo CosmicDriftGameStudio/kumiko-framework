@@ -9,9 +9,9 @@ import { runConfirmTokenFlow } from "../handlers/confirm-token-flow";
 // purpose) all run against a wired Redis and would pass regardless.
 
 function fakeCtxWithoutRedis(): HandlerContext {
-  // biome-ignore lint/suspicious/noExplicitAny: minimal fake ctx for the
-  // specific branch under test; the flow returns before touching any
-  // other ctx field.
+  // Minimal fake ctx for the specific branch under test — the flow
+  // returns before touching any other ctx field. `as unknown as` is the
+  // established pattern for test-only fakes at system boundaries.
   return { redis: undefined } as unknown as HandlerContext;
 }
 

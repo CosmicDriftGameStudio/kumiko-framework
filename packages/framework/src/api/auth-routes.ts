@@ -1,13 +1,63 @@
+import type { Context } from "hono";
 import { Hono } from "hono";
+import { deleteCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import { createSystemUser } from "../engine/system-user";
 import { type SessionUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/types";
 import { NotFoundError } from "../errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { Routes } from "./api-constants";
-import type { AuthSessionChecker, AuthSessionStatus } from "./auth-middleware";
-import { getUser } from "./auth-middleware";
+import {
+  AUTH_COOKIE_NAME,
+  type AuthSessionChecker,
+  type AuthSessionStatus,
+  CSRF_COOKIE_NAME,
+  getUser,
+} from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
+
+// Cookie lifetime must track the JWT's exp claim — both are issued together,
+// both reference the same session. jwt.ts's createJwtHelper hardcodes
+// setExpirationTime("24h"); if that ever becomes configurable this constant
+// follows it.
+const JWT_TTL_SECONDS = 24 * 60 * 60;
+
+// Resolves the Secure cookie flag. Locked off in dev/test so Playwright
+// against http://localhost:… can actually receive the cookie. Production
+// flips it on — browsers drop Secure cookies on http, so a misconfigured
+// prod deploy would silently break login rather than fail loud.
+function cookieSecure(): boolean {
+  return process.env["NODE_ENV"] === "production";
+}
+
+// Double-entry cookie write used at login and switch-tenant. kumiko_auth is
+// the HttpOnly carrier of the JWT; kumiko_csrf is the JS-readable token the
+// web client echoes in X-CSRF-Token on every state-changing request. Both
+// cookies share lifetime and SameSite so a stale auth-cookie can't outlive
+// its csrf partner (or vice versa) and leave the client in a half-logged-in
+// state that would trip the csrf-middleware on every retry.
+function setAuthCookies(
+  c: Context,
+  opts: { token: string; csrfToken: string; sameSite: "lax" | "strict" },
+): void {
+  const sameSite = opts.sameSite === "strict" ? "Strict" : "Lax";
+  const common = {
+    secure: cookieSecure(),
+    sameSite,
+    path: "/",
+    maxAge: JWT_TTL_SECONDS,
+  } as const;
+
+  setCookie(c, AUTH_COOKIE_NAME, opts.token, { ...common, httpOnly: true });
+  // Intentionally NOT HttpOnly — the web client has to read this from
+  // document.cookie to include it in the X-CSRF-Token request header.
+  setCookie(c, CSRF_COOKIE_NAME, opts.csrfToken, { ...common, httpOnly: false });
+}
+
+function clearAuthCookies(c: Context): void {
+  deleteCookie(c, AUTH_COOKIE_NAME, { path: "/" });
+  deleteCookie(c, CSRF_COOKIE_NAME, { path: "/" });
+}
 
 // Body schema for POST /auth/login. Enforced BEFORE rate-limit so that a
 // malformed body (`email: 42`, missing password, …) returns 400 instead of
@@ -132,6 +182,19 @@ export type AuthRoutesConfig = {
   passwordReset?: PasswordResetConfig;
   // Email-verification flow. Symmetric to passwordReset.
   emailVerification?: EmailVerificationConfig;
+  // SameSite flag for the HttpOnly auth cookie + JS-readable csrf cookie
+  // issued by /auth/login and /auth/switch-tenant.
+  //   "lax"    (default) — blocks cross-site POSTs entirely (which is what
+  //            CSRF relies on) while allowing top-level GET navigation
+  //            from external sites. Email deep-links (invite, magic-link,
+  //            notification click) keep working.
+  //   "strict" — blocks the cookie on ANY cross-site navigation including
+  //            top-level GETs. Strongest CSRF control but silently breaks
+  //            email deep-links — opt-in for banking / high-security apps
+  //            that don't ship deep-linkable emails.
+  // The framework always pairs the cookie with a Double-Submit CSRF token
+  // (see csrf-middleware), so "lax" is defense-in-depth, not defense-alone.
+  cookieSameSite?: "lax" | "strict";
 };
 
 export type PasswordResetConfig = {
@@ -245,6 +308,10 @@ export function createAuthRoutes(
   config: AuthRoutesConfig,
 ): Hono {
   const api = new Hono();
+  // Default to "lax": CSRF control comes from the double-submit token, and
+  // "lax" keeps email deep-links (invite, magic-link, notification click)
+  // working. High-security apps can opt into "strict" — see AuthRoutesConfig.
+  const cookieSameSite = config.cookieSameSite ?? "lax";
 
   // POST /auth/login — public endpoint (bypasses auth middleware via PUBLIC_API_PATHS).
   // The configured login handler authenticates and returns a SessionUser;
@@ -315,6 +382,14 @@ export function createAuthRoutes(
         await rateLimiter.reset(rateLimitKey);
       }
 
+      // Cookie transport (web): set HttpOnly auth cookie + JS-readable csrf
+      // cookie. Bearer transport (native) reads the token from the body
+      // below — the token is returned for both, so a Bearer client that
+      // ignores Set-Cookie keeps working without any server-side knowledge
+      // of which transport this client will use next.
+      const csrfToken = globalThis.crypto.randomUUID();
+      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite });
+
       return c.json({
         isSuccess: true,
         token,
@@ -378,6 +453,9 @@ export function createAuthRoutes(
     if (config.sessionRevoker && user.sid) {
       await config.sessionRevoker(user.sid);
     }
+    // Clear cookies on the cookie-transport path. Idempotent — clearing a
+    // missing cookie is a no-op, so bearer-only clients aren't affected.
+    clearAuthCookies(c);
     return c.json({ isSuccess: true });
   });
 
@@ -476,6 +554,14 @@ export function createAuthRoutes(
     }
 
     const newToken = await jwt.sign(sessionForJwt);
+
+    // Rotate both cookies in lock-step with the new JWT. A fresh csrfToken
+    // is minted so a compromised csrf-value (e.g. leaked via a bug in the
+    // app's JS) can't cross a tenant boundary. Bearer-only clients get
+    // the new token in the body below — their Set-Cookie is a no-op
+    // because the browser never sent cookies.
+    const csrfToken = globalThis.crypto.randomUUID();
+    setAuthCookies(c, { token: newToken, csrfToken, sameSite: cookieSameSite });
 
     return c.json({ token: newToken, tenantId: targetTenantId, roles: membership.roles });
   });
