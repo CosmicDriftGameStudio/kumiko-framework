@@ -3,6 +3,7 @@ import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 import { isKebabSegment, QnTypes, qn, toKebab } from "./qualified-name";
+import type { ScreenDefinition } from "./types/screen";
 import type {
   AccessRule,
   AuthClaimsFn,
@@ -103,6 +104,7 @@ export function defineFeature<TExports = undefined>(
   const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
   const authClaimsHooks: AuthClaimsFn[] = [];
   const claimKeys: Record<string, ClaimKeyDefinition> = {};
+  const screens: Record<string, ScreenDefinition> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -493,6 +495,26 @@ export function defineFeature<TExports = undefined>(
       authClaimsHooks.push(fn);
     },
 
+    screen(definition: ScreenDefinition): void {
+      // Reject kebab-drift at registration-time so the stack trace points at
+      // the feature file, not at registry-boot. Same guard pattern as
+      // r.projection / r.multiStreamProjection.
+      if (!isKebabSegment(definition.id)) {
+        throw new Error(
+          `[Feature ${name}] Screen id "${definition.id}" must be kebab-case ` +
+            `(lowercase letters, digits, dashes; start with a letter). ` +
+            `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
+        );
+      }
+      if (screens[definition.id]) {
+        throw new Error(
+          `[Feature ${name}] Screen "${definition.id}" already registered. ` +
+            `Screen ids must be unique per feature.`,
+        );
+      }
+      screens[definition.id] = definition;
+    },
+
     claimKey<T extends ClaimKeyType>(
       shortName: string,
       options: { readonly type: T },
@@ -562,5 +584,6 @@ export function defineFeature<TExports = undefined>(
     multiStreamProjections,
     authClaimsHooks,
     claimKeys,
+    screens,
   };
 }

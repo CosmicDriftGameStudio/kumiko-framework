@@ -21,6 +21,8 @@ export const QnTypes = {
   channel: "channel",
   config: "config",
   secret: "secret",
+  screen: "screen",
+  nav: "nav",
 } as const;
 
 export type BuiltinQnType = (typeof QnTypes)[keyof typeof QnTypes];

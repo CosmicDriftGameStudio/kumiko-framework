@@ -28,6 +28,7 @@ import type {
   RegistrarExtensionRegistration,
   Registry,
   RelationDefinition,
+  ScreenDefinition,
   SecretKeyDefinition,
   TranslationKeys,
   WriteHandlerDef,
@@ -110,6 +111,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // Used by readClaim callers to introspect; the resolver reads it via the
   // declaredKeys set on each AuthClaimsHookDef (pre-built per feature below).
   const claimKeyMap = new Map<string, ClaimKeyDefinition>();
+  // Screens — keyed by qualified name ("<feature>:screen:<id>"). One map for
+  // lookup + a parallel featureMap so the nav-resolver can gate screens by
+  // effective-features without scanning.
+  const screenMap = new Map<string, ScreenDefinition>();
+  const screenFeatureMap = new Map<string, string>();
 
   // Qualified name helper: builds "scope:type:name" from feature + type + short name.
   // Both feature name and handler name are converted to kebab-case.
@@ -417,6 +423,17 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
       claimKeyMap.set(def.qualifiedName, def);
       declaredShortNames.add(def.shortName);
+    }
+
+    // Screens: qualified + stored. Uniqueness per-feature is enforced in
+    // defineFeature; cross-feature collisions are impossible because the
+    // qualified name includes the feature-prefix. The separate featureMap
+    // entry lets the nav resolver pause screens owned by disabled features
+    // in O(1) without walking every screen.
+    for (const [screenId, screenDef] of Object.entries(feature.screens)) {
+      const qualified = qualify(feature.name, "screen", screenId);
+      screenMap.set(qualified, screenDef);
+      screenFeatureMap.set(qualified, feature.name);
     }
 
     // Auth-claims hooks: order of registration is preserved. Feature name is
@@ -1030,6 +1047,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getClaimKey(qualifiedName: string): ClaimKeyDefinition | undefined {
       return claimKeyMap.get(qualifiedName);
+    },
+
+    getAllScreens(): ReadonlyMap<string, ScreenDefinition> {
+      return screenMap;
+    },
+
+    getScreen(qualifiedName: string): ScreenDefinition | undefined {
+      return screenMap.get(qualifiedName);
+    },
+
+    getScreenFeature(qualifiedName: string): string | undefined {
+      return screenFeatureMap.get(qualifiedName);
     },
   };
 }

@@ -49,6 +49,7 @@ import type {
 } from "./hooks";
 import type { MultiStreamProjectionDefinition, ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
+import type { ScreenDefinition } from "./screen";
 
 // --- Metrics (declared by features via r.metric()) ---
 
@@ -159,6 +160,11 @@ export type FeatureDefinition = {
   // Declared claim keys via r.claimKey(). Shorts keyed by their JS-side
   // short name, qualified name qualified at registration time.
   readonly claimKeys: Readonly<Record<string, ClaimKeyDefinition>>;
+  // Screen definitions declared via r.screen(). Keyed by the feature-local
+  // short id; the registry qualifies to "<feature>:screen:<id>" on boot.
+  // Pure data — ui-core + renderer packages interpret; engine only stores
+  // and validates entity/field references against the feature's entities.
+  readonly screens: Readonly<Record<string, ScreenDefinition>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -343,6 +349,13 @@ export type FeatureRegistrar = {
     shortName: string,
     options: { readonly type: T },
   ): ClaimKeyHandle<T>;
+
+  // Register a screen. The id is the feature-local short name (kebab-case);
+  // the registry qualifies to "<feature>:screen:<id>". Boot-validation checks
+  // that entity-bound screens reference a registered entity and that the
+  // columns / form-field refs name real fields — cross-feature component-QN
+  // validation (r.uiComponent) comes in M4/M5.
+  screen(definition: ScreenDefinition): void;
 };
 
 // --- Registry (created from features) ---
@@ -460,4 +473,13 @@ export type Registry = {
   // to introspect what claims the app can produce.
   getAllClaimKeys(): ReadonlyMap<string, ClaimKeyDefinition>;
   getClaimKey(qualifiedName: string): ClaimKeyDefinition | undefined;
+
+  // Screens declared via r.screen() across all features. Keyed by qualified
+  // name ("<feature>:screen:<id>"). ui-core / renderer consume this to build
+  // navigation + screen-tree at mount time.
+  getAllScreens(): ReadonlyMap<string, ScreenDefinition>;
+  getScreen(qualifiedName: string): ScreenDefinition | undefined;
+  // The feature that registered the given screen. Consumed by the nav
+  // resolver to gate a nav-entry whose screen belongs to a disabled feature.
+  getScreenFeature(qualifiedName: string): string | undefined;
 };

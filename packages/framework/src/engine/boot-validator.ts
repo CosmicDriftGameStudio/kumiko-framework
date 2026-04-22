@@ -1,5 +1,6 @@
 import type { OwnershipMap, OwnershipRule } from "./ownership";
 import type { ClaimKeyDefinition, FeatureDefinition } from "./types";
+import { normalizeEditField, normalizeListColumn } from "./types/screen";
 
 const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 
@@ -67,6 +68,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyAllowPerRequest(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
+    validateScreens(feature, featureMap);
   }
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
@@ -668,6 +670,103 @@ function buildUnknownRoleMessage(
     `rules across all features plus the "all" and "system" built-ins; if ` +
     `"${roleName}" is real, make sure at least one handler declares ` +
     `access.roles: ["${roleName}"]. Known roles: ${known}`
+  );
+}
+
+// --- Screen validation ---
+//
+// For every r.screen() declaration check what's locally knowable at boot:
+//   - entityList / entityEdit: the referenced entity must exist in the
+//     feature (cross-feature entity-refs aren't allowed — a feature owns
+//     the screens over its own entities) and every column/field ref must
+//     name a real field on that entity
+//   - custom: the renderer must at least have one platform component set
+//     (react OR native), otherwise the screen is structurally empty
+//
+// Field-level renderer QN strings (cross-feature `component:` references)
+// are NOT validated here — the r.uiComponent registry that would resolve
+// them ships in M4/M5. Until then those are kept opaque on purpose.
+function validateScreens(
+  feature: FeatureDefinition,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  for (const [screenId, screen] of Object.entries(feature.screens)) {
+    if (screen.type === "custom") {
+      if (!screen.renderer.react && !screen.renderer.native) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" has type="custom" but the renderer ` +
+            `declares neither a react nor a native component — at least one platform must be set.`,
+        );
+      }
+      continue;
+    }
+
+    // entityList / entityEdit: entity-refs are feature-local.
+    const entityDef = feature.entities[screen.entity];
+    if (!entityDef) {
+      const known = Object.keys(feature.entities).sort().join(", ") || "(none)";
+      const crossFeature = findEntityFeature(screen.entity, featureMap);
+      const hint = crossFeature
+        ? ` Entity "${screen.entity}" is owned by feature "${crossFeature}" — cross-feature screen ownership is not supported.`
+        : "";
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" references entity "${screen.entity}" ` +
+          `which is not declared in this feature (known: ${known}).${hint}`,
+      );
+    }
+
+    const fieldNames = new Set(Object.keys(entityDef.fields));
+    if (screen.type === "entityList") {
+      for (const col of screen.columns) {
+        const normalized = normalizeListColumn(col);
+        if (!fieldNames.has(normalized.field)) {
+          throw new Error(
+            buildUnknownFieldMessage(feature.name, screenId, normalized.field, screen.entity, fieldNames),
+          );
+        }
+      }
+    } else {
+      for (const section of screen.layout.sections) {
+        for (const fieldSpec of section.fields) {
+          const normalized = normalizeEditField(fieldSpec);
+          if (!fieldNames.has(normalized.field)) {
+            throw new Error(
+              buildUnknownFieldMessage(
+                feature.name,
+                screenId,
+                normalized.field,
+                screen.entity,
+                fieldNames,
+              ),
+            );
+          }
+        }
+      }
+    }
+  }
+}
+
+function findEntityFeature(
+  entityName: string,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): string | undefined {
+  for (const [name, feature] of featureMap) {
+    if (feature.entities[entityName]) return name;
+  }
+  return undefined;
+}
+
+function buildUnknownFieldMessage(
+  featureName: string,
+  screenId: string,
+  fieldName: string,
+  entityName: string,
+  knownFields: ReadonlySet<string>,
+): string {
+  const known = [...knownFields].sort().join(", ");
+  return (
+    `[Feature ${featureName}] Screen "${screenId}" references field "${fieldName}" ` +
+    `which does not exist on entity "${entityName}" (known: ${known}).`
   );
 }
 
