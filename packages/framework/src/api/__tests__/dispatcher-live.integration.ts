@@ -56,6 +56,14 @@ const admin = TestUsers.admin;
 // `kumiko_auth` (HttpOnly JWT) and `kumiko_csrf` cookies by hand. A
 // real browser login does the same server-side via auth-routes.ts.
 //
+// GAP: this means the real POST /auth/login round-trip (Set-Cookie
+// headers, CSRF-cookie generation on the server, SameSite/HttpOnly
+// flags as actually emitted) is NOT exercised here. If we ever change
+// the login endpoint's cookie-setting code, this file will not catch
+// regressions — the dedicated auth-routes integration test owns that
+// coverage. Keep this test focused on dispatcher-live's request-side
+// behaviour (envelope parsing, error mapping, CSRF-header echo).
+//
 // The fetch wrapper echoes the csrf cookie back into the X-CSRF-Token
 // header — that's the real dispatcher-live code path; the test just
 // stages the cookies first.

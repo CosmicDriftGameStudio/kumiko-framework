@@ -51,13 +51,23 @@ function normalizeDetails(details: unknown): DispatcherError["details"] {
   }
   const mappedFields: FieldIssue[] = [];
   for (const f of fields) {
-    if (!f || typeof f !== "object") continue;
+    if (!f || typeof f !== "object") {
+      // Server sent a non-object entry in details.fields — contract
+      // breach (ValidationFieldIssue shape is required). Warn so the
+      // skip doesn't hide a broken server build.
+      // biome-ignore lint/suspicious/noConsole: ops-visible warning when the server breaks the validation-error contract
+      console.warn("[dispatcher-live] dropping malformed field issue (not an object):", f);
+      continue;
+    }
     const r = f as Record<string, unknown>;
     if (
       typeof r["path"] !== "string" ||
       typeof r["code"] !== "string" ||
       typeof r["i18nKey"] !== "string"
     ) {
+      // Entry is an object but missing required keys — same reasoning.
+      // biome-ignore lint/suspicious/noConsole: ops-visible warning when the server breaks the validation-error contract
+      console.warn("[dispatcher-live] dropping malformed field issue (missing keys):", r);
       continue;
     }
     mappedFields.push({

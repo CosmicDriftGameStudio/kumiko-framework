@@ -240,11 +240,13 @@ function normalizeBatchResponse(call: CallOutcome): BatchResult {
 }
 
 // Query envelope: Kumiko's /api/query returns `{ data: ... }` on success
-// (no isSuccess flag — matches routes.ts:query-handler) and
-// `{ error: { code, i18nKey, message, ... } }` on failure. The HTTP
-// status carries the failure-status; the error body itself doesn't
-// repeat it (serializeError drops httpStatus to keep the wire payload
-// lean). We have to reinject httpStatus from the Response.status here.
+// (no isSuccess flag) and `{ error: { code, i18nKey, message, ... } }`
+// on failure. Source of truth: packages/framework/src/api/routes.ts:85
+// (the query route handler that emits `c.json({ data: result })`).
+// The HTTP status carries the failure-status; the error body itself
+// doesn't repeat it (serializeError drops httpStatus to keep the wire
+// payload lean). We have to reinject httpStatus from the Response.status
+// here.
 function normalizeQueryResponse<TData>(call: CallOutcome): QueryResult<TData> {
   if (!call.ok) return { isSuccess: false, error: call.networkFailure };
   const body = call.body as { data?: unknown; error?: ServerErrorLike };
