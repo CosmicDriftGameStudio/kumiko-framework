@@ -1,0 +1,24 @@
+{
+  "name": "@kumiko/dispatcher-live",
+  "version": "0.0.1",
+  "description": "HTTP-only Dispatcher for Kumiko UIs. Always-online; failures surface immediately. Default client for web admin/cockpit apps.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bender0oo0/kumiko.git",
+    "directory": "packages/dispatcher-live"
+  },
+  "bugs": {
+    "url": "https://github.com/bender0oo0/kumiko/issues"
+  },
+  "homepage": "https://github.com/bender0oo0/kumiko#readme",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@kumiko/ui-core": "0.0.1"
+  }
+}

@@ -28,6 +28,7 @@
     "packages/framework",
     "packages/bundled-features",
     "packages/ui-core",
+    "packages/dispatcher-live",
     "samples/*",
     "app"
   ],
