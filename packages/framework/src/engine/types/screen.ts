@@ -6,20 +6,21 @@ import type { AccessRule } from "./handlers";
 // React / react-native from here; renderer components stay opaque so
 // `engine/` imports don't pull the whole UI toolchain into every bundle.
 
-// Per-platform renderer components attached to a screen/slot/route. Both
-// fields are `unknown` so the engine can't depend on React types; ui-core
-// resolves the platform at mount-time. Framework code only checks
-// structural presence.
-export type ScreenComponent = {
+// A per-platform component pair — used anywhere a feature attaches a
+// rendered component (screens, slots, routes, field renderers, future
+// r.uiComponent). Both fields are `unknown` so the engine doesn't depend
+// on React types; ui-core resolves the correct platform at mount-time.
+// Framework code only checks structural presence.
+export type PlatformComponent = {
   readonly react?: unknown;
   readonly native?: unknown;
 };
 
 // Level-2 field renderer (ui-architecture.md §Renderer Customization):
-//   - ScreenComponent → platform-specific component from the same feature
+//   - PlatformComponent → platform-specific component from the same feature
 //   - string            → cross-feature QN reference (resolved by the renderer)
 //   - function          → inline value formatter (e.g. `v => `${v} €``)
-export type FieldRenderer = ScreenComponent | string | ((value: unknown) => string);
+export type FieldRenderer = PlatformComponent | string | ((value: unknown) => string);
 
 // Conditional field-state evaluator. `data` is the current form row and
 // `ctx` carries user / session info — the form-controller in ui-core passes
@@ -48,21 +49,26 @@ export type EntityListScreenDefinition = {
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
   // from `columns`. cardRenderer fills the same role on compact layouts.
-  readonly rowRenderer?: ScreenComponent;
-  readonly cardRenderer?: ScreenComponent;
+  readonly rowRenderer?: PlatformComponent;
+  readonly cardRenderer?: PlatformComponent;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };
 
 // --- entityEdit ---
 
+// camelCase `readOnly` instead of the spec's lowercase `readonly`: TS's
+// `readonly` modifier on the same line would make the declaration read
+// `readonly readonly?: FieldCondition`, which is legal but a real lese-knick.
+// Mirrors React's `readOnly` prop so the ergonomic cost of the divergence
+// from ui-architecture.md is minimal.
 export type EditFieldSpec =
   | string
   | {
       readonly field: string;
       readonly span?: number;
       readonly visible?: FieldCondition;
-      readonly readonly?: FieldCondition;
+      readonly readOnly?: FieldCondition;
       readonly required?: FieldCondition;
       readonly renderer?: FieldRenderer;
     };
@@ -93,13 +99,13 @@ export type EntityEditScreenDefinition = {
 // framework owns the outer routing. Components stay opaque.
 export type CustomScreenRoute = {
   readonly path: string;
-  readonly component: ScreenComponent;
+  readonly component: PlatformComponent;
 };
 
 export type CustomScreenDefinition = {
   readonly id: string;
   readonly type: "custom";
-  readonly renderer: ScreenComponent;
+  readonly renderer: PlatformComponent;
   readonly routes?: readonly CustomScreenRoute[];
   readonly access?: AccessRule;
 };
@@ -107,12 +113,12 @@ export type CustomScreenDefinition = {
 // --- shared slots (Level 4 from ui-architecture.md) ---
 
 export type ScreenSlots = {
-  readonly header?: ScreenComponent;
-  readonly beforeForm?: ScreenComponent;
-  readonly afterForm?: ScreenComponent;
-  readonly sidebar?: ScreenComponent;
-  readonly footer?: ScreenComponent;
-  readonly toolbar?: ScreenComponent;
+  readonly header?: PlatformComponent;
+  readonly beforeForm?: PlatformComponent;
+  readonly afterForm?: PlatformComponent;
+  readonly sidebar?: PlatformComponent;
+  readonly footer?: PlatformComponent;
+  readonly toolbar?: PlatformComponent;
 };
 
 // --- discriminated union ---

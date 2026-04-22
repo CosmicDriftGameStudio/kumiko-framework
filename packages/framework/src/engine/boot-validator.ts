@@ -76,7 +76,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
     validateScreens(feature, featureMap);
-    validateNavEntries(feature, allScreenQns, allNavQns);
+    validateNavs(feature, allScreenQns, allNavQns);
   }
 
   validateNavCycles(allNavQns);
@@ -843,7 +843,7 @@ function collectNavQns(
 // Per-feature ref validation: screen + parent refs point at real QNs. Cycle
 // detection runs once globally afterwards (it's cheaper to do a single DFS
 // over the merged graph than restart it per feature).
-function validateNavEntries(
+function validateNavs(
   feature: FeatureDefinition,
   allScreenQns: ReadonlySet<string>,
   allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
@@ -881,6 +881,9 @@ function validateNavCycles(
         `[Kumiko Nav] Nav entry parent cycle detected: ${[...path, qualified].join(" → ")}`,
       );
     }
+    // skip: already visited — cycle-detection only needs to traverse each
+    // node once, and the `stack` check above catches any actual cycles
+    // reached via a different path.
     if (visited.has(qualified)) return;
     visited.add(qualified);
     stack.add(qualified);

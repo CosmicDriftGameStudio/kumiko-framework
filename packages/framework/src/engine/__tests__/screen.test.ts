@@ -44,7 +44,7 @@ describe("r.screen() — registration", () => {
               columns: 2,
               fields: [
                 "name",
-                { field: "sku", readonly: (data) => Boolean((data as { sku?: string }).sku) },
+                { field: "sku", readOnly: (data) => Boolean((data as { sku?: string }).sku) },
               ],
             },
           ],

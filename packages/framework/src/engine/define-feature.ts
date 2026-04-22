@@ -518,6 +518,9 @@ export function defineFeature<TExports = undefined>(
     },
 
     nav(definition: NavDefinition): void {
+      // Reject kebab-drift at registration-time so the stack trace points at
+      // the feature file, not at registry-boot. Same guard pattern as
+      // r.projection / r.multiStreamProjection / r.screen.
       if (!isKebabSegment(definition.id)) {
         throw new Error(
           `[Feature ${name}] Nav id "${definition.id}" must be kebab-case ` +
