@@ -27,6 +27,7 @@
   "workspaces": [
     "packages/framework",
     "packages/bundled-features",
+    "packages/ui-core",
     "samples/*",
     "app"
   ],

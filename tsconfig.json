@@ -22,6 +22,7 @@
   "references": [
     { "path": "packages/framework" },
     { "path": "packages/bundled-features" },
+    { "path": "packages/ui-core" },
     { "path": "app" }
   ],
   "files": []
