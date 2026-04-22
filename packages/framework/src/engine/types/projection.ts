@@ -99,4 +99,20 @@ export type MultiStreamProjectionDefinition = {
   // wins). Use "api" for MSPs that need in-process state on the API
   // (rare); use "both" only when genuinely load-balancing is helpful.
   readonly runIn?: RunIn;
+  // Delivery semantics across multi-instance deploys:
+  //   "shared"       (default) — one cursor across all dispatcher instances,
+  //                   SKIP LOCKED serialises; each event delivered exactly
+  //                   once globally. The right choice for side-effects with
+  //                   any downstream state: notifications, external APIs,
+  //                   projection tables, audit rows.
+  //   "per-instance" — one cursor PER dispatcher instance, so every process
+  //                   delivers every event. Required for push-to-local-
+  //                   subscribers (SSE, in-memory caches): a split-deploy
+  //                   where API instance B emits an event that API instance
+  //                   A's clients also need to see. Handler MUST be
+  //                   side-effect-free relative to the DB — it only reaches
+  //                   in-process structures — otherwise each instance
+  //                   writes duplicate rows. Misuse = duplicated side
+  //                   effects, not a safety property.
+  readonly delivery?: "shared" | "per-instance";
 };

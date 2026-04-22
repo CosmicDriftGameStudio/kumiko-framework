@@ -165,6 +165,15 @@ export const SSE_BROADCAST_CONSUMER_NAME = "system:consumer:sse-broadcast";
 export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventConsumer {
   return {
     name: SSE_BROADCAST_CONSUMER_NAME,
+    // Per-instance delivery: each API process has its own pool of SSE
+    // clients and its own cursor. Every instance reads every event
+    // independently and pushes to its local clients. Without this, in a
+    // split-deploy (API-1/API-2 + Worker, Welle 2.5), only ONE API
+    // instance would pick up each event (shared-cursor SKIP LOCKED) and
+    // the other instance's clients would never see updates. SSE clients
+    // pin to a specific API process via the HTTP long-poll; cross-process
+    // delivery isn't solvable by sharing a cursor.
+    delivery: "per-instance",
     handler: async (event) => {
       sseBroker.pushToChannel(tenantChannel(event.tenantId), {
         type: event.type,

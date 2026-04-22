@@ -264,3 +264,163 @@ describe("E.5 — cursor-lag catch-up", () => {
     expect(finalState?.status).toBe("idle");
   });
 });
+
+// Welle 2.7 — per-instance delivery. Inverse of the shared test above:
+// with delivery="per-instance", each dispatcher gets its OWN cursor row
+// (via instance_id), so both dispatchers MUST deliver every event. SSE
+// broadcast in split-deploy is the canonical use-case.
+describe("Welle 2.7 — per-instance delivery: every dispatcher sees every event", () => {
+  test("two dispatchers with different instanceIds, same consumer name: both deliver every event", async () => {
+    const name = "multi:consumer:per-instance-echo";
+    const seenA: StoredEvent[] = [];
+    const seenB: StoredEvent[] = [];
+
+    const makeConsumer = (seen: StoredEvent[]): EventConsumer => ({
+      name,
+      delivery: "per-instance",
+      handler: async (event) => {
+        seen.push(event);
+      },
+    });
+
+    const dispA = createEventDispatcher({
+      db: stack.db.db,
+      consumers: [makeConsumer(seenA)],
+      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      instanceId: "instance-A",
+      batchSize: 200,
+      pollIntervalMs: 5000,
+    });
+    const dispB = createEventDispatcher({
+      db: stack.db.db,
+      consumers: [makeConsumer(seenB)],
+      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      instanceId: "instance-B",
+      batchSize: 200,
+      pollIntervalMs: 5000,
+    });
+    await dispA.ensureRegistered();
+    await dispB.ensureRegistered();
+
+    const count = 20;
+    for (let i = 0; i < count; i++) {
+      await appendWidget(`pi-${i}`);
+    }
+
+    // Run both dispatchers. Unlike shared delivery (race → exactly one
+    // wins), per-instance means both cursors advance independently.
+    await Promise.all([dispA.runOnce(), dispB.runOnce()]);
+
+    expect(seenA).toHaveLength(count);
+    expect(seenB).toHaveLength(count);
+
+    // Each instance has its own row with its own cursor.
+    const stateA = await getConsumerState(stack.db.db, name, "instance-A");
+    const stateB = await getConsumerState(stack.db.db, name, "instance-B");
+    expect(stateA?.lastProcessedEventId).toBe(BigInt(count));
+    expect(stateB?.lastProcessedEventId).toBe(BigInt(count));
+    expect(stateA?.instanceId).toBe("instance-A");
+    expect(stateB?.instanceId).toBe("instance-B");
+
+    // The shared sentinel row MUST NOT exist — per-instance consumers
+    // never write the default shard. If a bug ever routed per-instance
+    // writes to `__shared__`, this would silently collapse N instances'
+    // cursors into one and regress to shared semantics.
+    const stateShared = await getConsumerState(stack.db.db, name);
+    expect(stateShared).toBeNull();
+  });
+
+  test("mixed delivery: shared consumer stays exactly-once, per-instance consumer delivers to every dispatcher", async () => {
+    const sharedName = "multi:consumer:mixed-shared";
+    const perInstanceName = "multi:consumer:mixed-per-instance";
+
+    const sharedSeen: StoredEvent[] = [];
+    const perInstA: StoredEvent[] = [];
+    const perInstB: StoredEvent[] = [];
+
+    // Shared consumer registered on BOTH dispatchers — SKIP LOCKED on the
+    // one sentinel row means exactly one of them wins each event.
+    const sharedA: EventConsumer = {
+      name: sharedName,
+      handler: async (e) => void sharedSeen.push(e),
+    };
+    const sharedB: EventConsumer = { ...sharedA };
+
+    const perInstanceA: EventConsumer = {
+      name: perInstanceName,
+      delivery: "per-instance",
+      handler: async (e) => void perInstA.push(e),
+    };
+    const perInstanceB: EventConsumer = {
+      name: perInstanceName,
+      delivery: "per-instance",
+      handler: async (e) => void perInstB.push(e),
+    };
+
+    const dispA = createEventDispatcher({
+      db: stack.db.db,
+      consumers: [sharedA, perInstanceA],
+      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      instanceId: "mixed-A",
+      batchSize: 200,
+      pollIntervalMs: 5000,
+    });
+    const dispB = createEventDispatcher({
+      db: stack.db.db,
+      consumers: [sharedB, perInstanceB],
+      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      instanceId: "mixed-B",
+      batchSize: 200,
+      pollIntervalMs: 5000,
+    });
+    await dispA.ensureRegistered();
+    await dispB.ensureRegistered();
+
+    const count = 15;
+    for (let i = 0; i < count; i++) {
+      await appendWidget(`mix-${i}`);
+    }
+
+    // Multiple pass rounds so slow-loser of the SKIP-LOCKED race on the
+    // shared consumer still gets a chance to run if the fast-winner left
+    // events behind.
+    for (let pass = 0; pass < 3; pass++) {
+      await Promise.all([dispA.runOnce(), dispB.runOnce()]);
+    }
+
+    // Shared: total across both sides == count (exactly-once globally).
+    expect(sharedSeen).toHaveLength(count);
+
+    // Per-instance: each side gets the FULL set.
+    expect(perInstA).toHaveLength(count);
+    expect(perInstB).toHaveLength(count);
+  });
+
+  test("creating a dispatcher with a per-instance consumer but no instanceId throws at construction", () => {
+    expect(() =>
+      createEventDispatcher({
+        db: stack.db.db,
+        consumers: [
+          {
+            name: "multi:consumer:no-instance-id",
+            delivery: "per-instance",
+            handler: async () => {},
+          },
+        ],
+        context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+        // instanceId deliberately omitted
+      }),
+    ).toThrow(/delivery="per-instance".+instanceId/);
+  });
+
+  test("instanceId equal to the reserved sentinel is rejected at construction", () => {
+    expect(() =>
+      createEventDispatcher({
+        db: stack.db.db,
+        consumers: [{ name: "x", handler: async () => {} }],
+        context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+        instanceId: "__shared__",
+      }),
+    ).toThrow(/reserved sentinel/);
+  });
+});

@@ -59,24 +59,29 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
   // Event-dispatcher per-consumer metrics. Lag is the primary ops signal:
   // how many events sit between the consumer's cursor and events-head.
   // A growing lag means the consumer can't keep up; zero means fully caught up.
+  // instance_id labels each shard: SHARED_INSTANCE_SENTINEL for shared
+  // consumers (one cursor globally), or the process-local instanceId for
+  // per-instance consumers (one cursor per dispatcher). Without this,
+  // Prometheus collapses per-instance shards into last-writer-wins and
+  // per-instance lag is invisible to alerting.
   {
     name: "kumiko_event_consumer_lag_events",
     type: "gauge",
     description: "Number of events between the consumer's cursor and the events head.",
-    labels: ["consumer"],
+    labels: ["consumer", "instance_id"],
   },
   {
     name: "kumiko_event_consumer_events_processed_total",
     type: "counter",
     description: "Events successfully delivered to a consumer.",
-    labels: ["consumer"],
+    labels: ["consumer", "instance_id"],
   },
   {
     name: "kumiko_event_consumer_events_failed_total",
     type: "counter",
     description:
       "Event deliveries that threw. Repeated failures on the same event lead to dead-letter.",
-    labels: ["consumer"],
+    labels: ["consumer", "instance_id"],
   },
   // LISTEN-subscription health. 1 = active, 0 = dropped. Drops to 0 while
   // the dispatcher is running signal that delivery latency has regressed
@@ -166,12 +171,21 @@ export function emitProjectionRebuild(
     .inc(eventsReplayed, { projection: labels.projection });
 }
 
+// Per-shard consumer labels. `instance_id` is the reserved sentinel
+// (SHARED_INSTANCE_SENTINEL) for shared-delivery consumers, and the
+// concrete dispatcher-instanceId for per-instance shards. Labelling by
+// both keeps Prometheus series distinct across instances so per-instance
+// lag is visible — without it, scraped gauges collapse last-writer-wins
+// and a single slow shard is invisible to alerting.
 export function emitEventConsumerLag(
   meter: Meter,
-  labels: { readonly consumer: string },
+  labels: { readonly consumer: string; readonly instanceId: string },
   lagEvents: number,
 ): void {
-  meter.gauge("kumiko_event_consumer_lag_events").set(lagEvents, { consumer: labels.consumer });
+  meter.gauge("kumiko_event_consumer_lag_events").set(lagEvents, {
+    consumer: labels.consumer,
+    instance_id: labels.instanceId,
+  });
 }
 
 export function emitEventDispatcherListenConnected(meter: Meter, connected: boolean): void {
@@ -180,18 +194,20 @@ export function emitEventDispatcherListenConnected(meter: Meter, connected: bool
 
 export function emitEventConsumerPassOutcome(
   meter: Meter,
-  labels: { readonly consumer: string },
+  labels: { readonly consumer: string; readonly instanceId: string },
   processed: number,
   failed: number,
 ): void {
   if (processed > 0) {
-    meter
-      .counter("kumiko_event_consumer_events_processed_total")
-      .inc(processed, { consumer: labels.consumer });
+    meter.counter("kumiko_event_consumer_events_processed_total").inc(processed, {
+      consumer: labels.consumer,
+      instance_id: labels.instanceId,
+    });
   }
   if (failed > 0) {
-    meter
-      .counter("kumiko_event_consumer_events_failed_total")
-      .inc(failed, { consumer: labels.consumer });
+    meter.counter("kumiko_event_consumer_events_failed_total").inc(failed, {
+      consumer: labels.consumer,
+      instance_id: labels.instanceId,
+    });
   }
 }

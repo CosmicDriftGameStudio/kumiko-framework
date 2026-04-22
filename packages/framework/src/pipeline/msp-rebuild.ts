@@ -1,4 +1,4 @@
-import { asc, eq, getTableName, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, getTableName, inArray, sql } from "drizzle-orm";
 import type { DbConnection, DbRunner } from "../db/connection";
 import type { Registry, TenantId } from "../engine/types";
 import { InternalError } from "../errors";
@@ -7,7 +7,7 @@ import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store";
 import { upcastStoredEvents } from "../event-store/upcaster";
 import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
-import { eventConsumerStateTable } from "./event-consumer-state";
+import { eventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context";
 import type { RebuildResult } from "./projection-rebuild";
 
@@ -99,16 +99,24 @@ export async function rebuildMultiStreamProjection(
 
   try {
     await db.transaction(async (tx) => {
-      // Upsert + lock the consumer row. Mirrors rebuildProjection's
-      // upsert-first pattern so a never-started MSP also gets a row.
-      // The FOR UPDATE on the next SELECT is what blocks concurrent
-      // rebuilds of the same MSP; live dispatcher passes use SKIP LOCKED
-      // on this row and will bail silently while we hold it.
+      // Upsert + lock the consumer row. Rebuild always targets the
+      // SHARED-delivery shard: per-instance MSPs are side-effect-only (no
+      // table, so the guard above refuses them anyway), and rebuild's
+      // purpose is to rematerialize one persistent read-model, not fan
+      // out a local cache reset across instances. The FOR UPDATE on the
+      // next SELECT is what blocks concurrent rebuilds of the same MSP;
+      // live dispatcher passes use SKIP LOCKED on this row and will bail
+      // silently while we hold it.
       await tx
         .insert(eventConsumerStateTable)
-        .values({ name: mspName, lastProcessedEventId: 0n, status: "idle" })
+        .values({
+          name: mspName,
+          instanceId: SHARED_INSTANCE_SENTINEL,
+          lastProcessedEventId: 0n,
+          status: "idle",
+        })
         .onConflictDoUpdate({
-          target: eventConsumerStateTable.name,
+          target: [eventConsumerStateTable.name, eventConsumerStateTable.instanceId],
           set: {
             lastProcessedEventId: 0n,
             status: "idle",
@@ -120,7 +128,12 @@ export async function rebuildMultiStreamProjection(
       await tx
         .select()
         .from(eventConsumerStateTable)
-        .where(eq(eventConsumerStateTable.name, mspName))
+        .where(
+          and(
+            eq(eventConsumerStateTable.name, mspName),
+            eq(eventConsumerStateTable.instanceId, SHARED_INSTANCE_SENTINEL),
+          ),
+        )
         .for("update");
 
       // msp.table is narrowed by the upfront guard; the assertion here is
@@ -174,14 +187,24 @@ export async function rebuildMultiStreamProjection(
           lastError: null,
           updatedAt: sql`now()`,
         })
-        .where(eq(eventConsumerStateTable.name, mspName));
+        .where(
+          and(
+            eq(eventConsumerStateTable.name, mspName),
+            eq(eventConsumerStateTable.instanceId, SHARED_INSTANCE_SENTINEL),
+          ),
+        );
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     await db
       .update(eventConsumerStateTable)
       .set({ status: "dead", lastError: message, updatedAt: sql`now()` })
-      .where(eq(eventConsumerStateTable.name, mspName));
+      .where(
+        and(
+          eq(eventConsumerStateTable.name, mspName),
+          eq(eventConsumerStateTable.instanceId, SHARED_INSTANCE_SENTINEL),
+        ),
+      );
     if (deps.meter) {
       emitProjectionRebuild(
         deps.meter,

@@ -1,40 +1,54 @@
 import { sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
-import { bigint, index, instant, integer, table as pgTable, text } from "../db/dialect";
+import { bigint, index, instant, integer, table as pgTable, primaryKey, text } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import { pushTables } from "../testing";
 
-// Framework-level state per event-consumer. A "consumer" is anything that
-// walks the events-table via a persistent cursor: system consumers (SSE,
-// Search) and feature multiStreamProjections (async, cross-aggregate).
+// Reserved sentinel used in the instance_id column for consumers whose
+// delivery is "shared" — i.e. one cursor across all dispatcher instances
+// (the default, pre-Welle-2.7 behaviour). Per-instance consumers store
+// the concrete instanceId. Postgres PK columns can't be NULL and
+// `NULL = NULL` is UNKNOWN in SQL — a nullable instance_id would break
+// both uniqueness and PK constraints. The boot-validator refuses to
+// start with KUMIKO_INSTANCE_ID === SHARED_INSTANCE_SENTINEL so the
+// sentinel can never collide with a real instance identifier.
+export const SHARED_INSTANCE_SENTINEL = "__shared__";
+
+// Framework-level state per event-consumer-shard. A "consumer" is anything
+// that walks the events-table via a persistent cursor: system consumers
+// (SSE, Search) and feature multiStreamProjections (async, cross-aggregate).
 //
-// One row per consumer name. Read by the event-dispatcher (cursor + locking),
-// surfaced by the CLI for ops inspection. Sits next to kumiko_projections —
-// same lifecycle shape, different semantics:
-//
-//   - kumiko_projections = inline / rebuild cursor for read-models
-//   - kumiko_event_consumers = async cursor for post-commit subscribers
-//
-// The two tables are kept separate so a rebuild CLI never races a live
-// async consumer, and ops can see both health surfaces independently.
+// One row per (consumer name, instance_id) shard. Shared-delivery consumers
+// have exactly one row with instance_id = SHARED_INSTANCE_SENTINEL — this
+// preserves the pre-Welle-2.7 single-cursor semantic unchanged. Per-instance
+// consumers get N rows (one per dispatcher instance), each with its own
+// cursor — used by SSE so every API process pushes the same events to its
+// own clients without a pub/sub transport. Read by the event-dispatcher
+// (cursor + locking), surfaced by the CLI for ops inspection.
 //
 // Columns:
 //   - name: consumer's qualified identifier, e.g. "system:consumer:sse" or
 //     "my-feature:consumer:analytics". Matches the qualified-name convention
 //     so two features can't accidentally collide on the same consumer name.
+//   - instanceId: SHARED_INSTANCE_SENTINEL for shared-delivery consumers;
+//     concrete process-local identifier (ServerOptions.instanceId, defaults
+//     to KUMIKO_INSTANCE_ID or a boot-time UUID) for per-instance consumers.
 //   - lastProcessedEventId: bigserial `events.id` of the most recent event
-//     the consumer finished handling. Dispatcher reads events WHERE id > this.
-//   - status: "idle" (has a cursor, ready for next pass)
-//           | "processing" (current pass locked this row; released on commit)
-//           | "dead" (hit maxAttempts on the same event; paused until ops
-//              intervenes — other consumers keep running)
-//           | "disabled" (ops manually paused this consumer)
-//   - attempts: retry counter for the CURRENT event. Resets on success.
-//     Dead-letter kicks in at configured maxAttempts.
-//   - lastError: last error message when status = "dead". Kept verbatim so
-//     ops can see the exact handler throw.
-//   - updatedAt: wall-clock time of last status/cursor change. Drives
-//     lag-metric once we add one.
+//     this shard finished handling. Dispatcher reads events WHERE id > this.
+//   - status / attempts / lastError / updatedAt — per shard.
+//
+// Composite PK (name, instance_id): Postgres requires NOT NULL on all PK
+// columns, and `NULL = NULL` is UNKNOWN in SQL — nullable instance_id would
+// break uniqueness for shared rows. Sentinel avoids both hazards with one
+// uniform column shape.
+//
+// CAUTION (retention-guard + scale-down):
+//   pruneEvents refuses to delete past MIN(lastProcessedEventId) across ALL
+//   shards. A decommissioned instance leaves its row behind at its last
+//   cursor — prune is then pinned indefinitely. Before scaling down,
+//   delete stale per-instance shards:
+//     DELETE FROM kumiko_event_consumers WHERE instance_id = '<decommissioned>'
+//   TODO: auto-cleanup via heartbeat-liveness — follow-up, not in v1.
 //
 // The default(sql`0`) on lastProcessedEventId mirrors projection-state.ts:
 // drizzle-kit's JSON snapshot generator can't serialise a bigint literal, so
@@ -42,7 +56,8 @@ import { pushTables } from "../testing";
 export const eventConsumerStateTable = pgTable(
   "kumiko_event_consumers",
   {
-    name: text("name").primaryKey(),
+    name: text("name").notNull(),
+    instanceId: text("instance_id").notNull().default(SHARED_INSTANCE_SENTINEL),
     lastProcessedEventId: bigint("last_processed_event_id", { mode: "bigint" })
       .notNull()
       .default(sql`0`),
@@ -52,6 +67,7 @@ export const eventConsumerStateTable = pgTable(
     updatedAt: instant("updated_at", { precision: 3 }).notNull().default(sql`now()`),
   },
   (t) => ({
+    pk: primaryKey({ columns: [t.name, t.instanceId] }),
     statusIdx: index("kumiko_event_consumers_status_idx").on(t.status),
   }),
 );

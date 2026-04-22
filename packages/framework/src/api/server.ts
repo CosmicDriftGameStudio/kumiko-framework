@@ -24,6 +24,7 @@ import {
 } from "../observability";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher } from "../pipeline/dispatcher";
+import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state";
 import type { EventDedup } from "../pipeline/event-dedup";
 import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher";
 import { createEventDispatcher } from "../pipeline/event-dispatcher";
@@ -170,6 +171,16 @@ export type ServerOptions = {
   // When omitted, defaults to "worker" — preserves pre-Welle-2.6 behaviour
   // (every MSP runs on the single dispatcher, wherever it lives).
   processLane?: RunIn;
+  // Stable identifier for THIS process in the event-consumer state table.
+  // Used as the `instance_id` on every per-instance consumer's cursor row
+  // (Welle 2.7). Shared consumers ignore this and always write the reserved
+  // sentinel. Default: `process.env.KUMIKO_INSTANCE_ID ?? crypto.randomUUID()`
+  // — a fresh UUID at boot is fine for single-process deploys, but
+  // multi-instance deploys SHOULD set KUMIKO_INSTANCE_ID to a stable
+  // identifier (pod name, hostname) so ops can correlate lag metrics to
+  // specific instances and can DELETE stale rows on scale-down. Must never
+  // equal the sentinel; validator fails boot if it does.
+  instanceId?: string;
 };
 
 export type KumikoServer = {
@@ -200,6 +211,21 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   const jwt = createJwtHelper(options.jwtSecret, options.jwtIssuer);
   const sseBroker = options.sseBroker ?? createSseBroker();
+
+  // Resolve the per-process instance identifier. Prefer explicit
+  // ServerOptions.instanceId (tests, deliberate wiring), fall back to the
+  // deploy-env variable, finally a boot-time UUID. Validator rejects the
+  // sentinel — a deliberate collision attempt would silently merge this
+  // instance's per-instance cursors with the shared-row cursors and
+  // deliver events twice to one shard while starving the other.
+  const resolvedInstanceId =
+    options.instanceId ?? process.env["KUMIKO_INSTANCE_ID"] ?? globalThis.crypto.randomUUID();
+  if (resolvedInstanceId === SHARED_INSTANCE_SENTINEL) {
+    throw new Error(
+      `ServerOptions.instanceId / KUMIKO_INSTANCE_ID cannot equal the reserved sentinel "${SHARED_INSTANCE_SENTINEL}" — ` +
+        `pick any other stable string.`,
+    );
+  }
 
   // Observability — Noop by default so no call-site needs to null-check.
   // Every handler/middleware that reaches for ctx.tracer / ctx.metrics gets
@@ -337,6 +363,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
     // Rebuild uses its own policy (rebuildProjection reads msp.errorMode.rebuild
     // directly); steady-state delivery runs through this consumer.
     ...(msp.errorMode?.continuous && { errorPolicy: msp.errorMode.continuous }),
+    // Carry the MSP's declared delivery semantic through to the consumer.
+    // Default (shared) is applied inside event-dispatcher, so omitting when
+    // the MSP didn't declare one keeps the existing behaviour.
+    ...(msp.delivery && { delivery: msp.delivery }),
     handler: async (event, ctx) => {
       const applyFn = msp.apply[event.type];
       // skip: this MSP doesn't care about this event type — fast path,
@@ -389,6 +419,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
       context: contextWithObservability,
       tracer: observability.tracer,
       meter: observability.meter,
+      instanceId: resolvedInstanceId,
       ...dispatcherTunables,
     });
   }

@@ -1,4 +1,4 @@
-import { asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, sql } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
@@ -18,7 +18,11 @@ import {
   type Meter,
   type Tracer,
 } from "../observability";
-import { ConsumerStatuses, eventConsumerStateTable } from "./event-consumer-state";
+import {
+  ConsumerStatuses,
+  eventConsumerStateTable,
+  SHARED_INSTANCE_SENTINEL,
+} from "./event-consumer-state";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -71,6 +75,16 @@ export type EventConsumer = {
   // re-enabled (no data loss, no replay). System consumers (SSE, search,
   // framework-level plumbing) omit this and always run.
   readonly featureName?: string;
+  // Delivery semantics across multi-instance deploys:
+  //   "shared"       (default) — one cursor across all instances. SKIP LOCKED
+  //                   serialises; each event delivered exactly once globally.
+  //   "per-instance" — one cursor per (name, dispatcher.instanceId) shard.
+  //                   Every process delivers every event independently. For
+  //                   push-to-local-subscribers (SSE broker, in-memory cache
+  //                   invalidators). Handler MUST be side-effect-free with
+  //                   respect to shared storage (no DB writes), otherwise
+  //                   each instance duplicates the effect.
+  readonly delivery?: "shared" | "per-instance";
 };
 
 // Result of a dispatcher pass (runOnce / doPass). Shared across the public
@@ -114,6 +128,14 @@ export type EventDispatcherOptions = {
   readonly maxAttempts?: number;
   readonly tracer?: Tracer;
   readonly meter?: Meter;
+  // Identifies THIS dispatcher process in the consumer-state table. Used as
+  // the `instance_id` value for every per-instance consumer's cursor row.
+  // Shared-delivery consumers ignore this and always use
+  // SHARED_INSTANCE_SENTINEL. Default undefined — dispatchers without any
+  // per-instance consumers don't need it. Required when at least one
+  // consumer has delivery="per-instance"; createEventDispatcher throws on
+  // boot if the invariant is violated, avoiding a later runtime surprise.
+  readonly instanceId?: string;
   // Optional raw postgres.js client for LISTEN/NOTIFY-based wake-up
   // (Sprint E.4). When present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL
   // and fires runOnce on each NOTIFY — delivery latency becomes TCP-round-
@@ -152,11 +174,20 @@ type AcquireOutcome =
 // (a test TRUNCATE without subsequent ensureRegistered(), or an operator
 // intervention). Skipping quietly preserves the dispatcher's other
 // consumers and surfaces the issue via the metrics pass-outcome.
-async function acquireConsumerState(tx: DbTx, name: string): Promise<AcquireOutcome> {
+async function acquireConsumerState(
+  tx: DbTx,
+  name: string,
+  instanceId: string,
+): Promise<AcquireOutcome> {
   const [state] = (await tx
     .select()
     .from(eventConsumerStateTable)
-    .where(eq(eventConsumerStateTable.name, name))
+    .where(
+      and(
+        eq(eventConsumerStateTable.name, name),
+        eq(eventConsumerStateTable.instanceId, instanceId),
+      ),
+    )
     .for("update", { skipLocked: true })) as [ConsumerStateRow | undefined];
 
   if (!state) {
@@ -174,29 +205,58 @@ async function acquireConsumerState(tx: DbTx, name: string): Promise<AcquireOutc
   return { state, skip: null };
 }
 
-// Shared pre-registration: one row per consumer, cursor = 0, status = idle.
-// Idempotent under restart and concurrent start-calls via ON CONFLICT
-// DO NOTHING. Never clobbers an existing cursor.
+// Shared pre-registration: one row per (consumer, shard), cursor = 0,
+// status = idle. Shared-delivery consumers use SHARED_INSTANCE_SENTINEL;
+// per-instance consumers use the dispatcher's instanceId. Idempotent
+// under restart and concurrent start-calls via ON CONFLICT DO NOTHING
+// on the composite PK — never clobbers an existing cursor.
 async function preRegisterConsumers(
   db: DbConnection,
   consumers: readonly EventConsumer[],
+  dispatcherInstanceId: string | undefined,
 ): Promise<void> {
   for (const consumer of consumers) {
+    const instanceId = consumerInstanceId(consumer, dispatcherInstanceId);
     await db
       .insert(eventConsumerStateTable)
-      .values({ name: consumer.name, status: "idle" })
-      .onConflictDoNothing({ target: eventConsumerStateTable.name });
+      .values({ name: consumer.name, instanceId, status: "idle" })
+      .onConflictDoNothing({
+        target: [eventConsumerStateTable.name, eventConsumerStateTable.instanceId],
+      });
   }
+}
+
+// Resolve the instance_id column value for one consumer on this dispatcher.
+// Shared stays at the sentinel; per-instance rides the dispatcher's id.
+// Throws when a per-instance consumer is registered without an instanceId
+// — missing at boot is the sharp-edge to catch, not at first delivery.
+function consumerInstanceId(
+  consumer: EventConsumer,
+  dispatcherInstanceId: string | undefined,
+): string {
+  if (consumer.delivery !== "per-instance") return SHARED_INSTANCE_SENTINEL;
+  if (!dispatcherInstanceId) {
+    throw new Error(
+      `EventConsumer "${consumer.name}" has delivery="per-instance" but the dispatcher was created without an instanceId — ` +
+        `pass EventDispatcherOptions.instanceId (typically from ServerOptions.instanceId / KUMIKO_INSTANCE_ID).`,
+    );
+  }
+  return dispatcherInstanceId;
 }
 
 // Mark the consumer row as "processing" for ops visibility. The SKIP LOCKED
 // lock already guarantees single-writer semantics; this is purely
 // informational (and resets on commit to idle/dead via persistConsumerOutcome).
-async function markProcessing(tx: DbTx, name: string): Promise<void> {
+async function markProcessing(tx: DbTx, name: string, instanceId: string): Promise<void> {
   await tx
     .update(eventConsumerStateTable)
     .set({ status: "processing", updatedAt: sql`now()` })
-    .where(eq(eventConsumerStateTable.name, name));
+    .where(
+      and(
+        eq(eventConsumerStateTable.name, name),
+        eq(eventConsumerStateTable.instanceId, instanceId),
+      ),
+    );
 }
 
 async function fetchPendingEvents(
@@ -312,6 +372,7 @@ async function deliverEvents(
 async function persistConsumerOutcome(
   tx: DbTx,
   name: string,
+  instanceId: string,
   outcome: DeliveryOutcome,
 ): Promise<void> {
   await tx
@@ -323,7 +384,12 @@ async function persistConsumerOutcome(
       lastError: outcome.lastError,
       updatedAt: sql`now()`,
     })
-    .where(eq(eventConsumerStateTable.name, name));
+    .where(
+      and(
+        eq(eventConsumerStateTable.name, name),
+        eq(eventConsumerStateTable.instanceId, instanceId),
+      ),
+    );
 }
 
 // Emit the lag gauge inside the consumer pass's tx so ops sees a snapshot
@@ -332,6 +398,7 @@ async function persistConsumerOutcome(
 async function emitLagFromTx(
   tx: DbTx,
   consumerName: string,
+  instanceId: string,
   cursor: bigint,
   meter: Meter,
 ): Promise<void> {
@@ -340,7 +407,7 @@ async function emitLagFromTx(
   const raw = rows[0]?.head;
   const head = typeof raw === "bigint" ? raw : BigInt(raw ?? 0);
   const lag = head > cursor ? Number(head - cursor) : 0;
-  emitEventConsumerLag(meter, { consumer: consumerName }, lag);
+  emitEventConsumerLag(meter, { consumer: consumerName, instanceId }, lag);
 }
 
 export function createEventDispatcher(options: EventDispatcherOptions): EventDispatcher {
@@ -352,6 +419,25 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     pollIntervalMs = DEFAULT_POLL_MS,
     maxAttempts = DEFAULT_MAX_ATTEMPTS,
   } = options;
+
+  // Fail-fast on misconfigured per-instance wiring. Catching this at
+  // construction surfaces the problem in boot logs instead of first
+  // delivery attempt — where it would land as a confusing preRegister
+  // throw much later in the startup sequence.
+  for (const consumer of consumers) {
+    if (consumer.delivery === "per-instance" && !options.instanceId) {
+      throw new Error(
+        `EventConsumer "${consumer.name}" has delivery="per-instance" but EventDispatcherOptions.instanceId is missing. ` +
+          `Pass ServerOptions.instanceId (defaults to KUMIKO_INSTANCE_ID or a boot-time UUID) when any consumer uses per-instance delivery.`,
+      );
+    }
+  }
+  if (options.instanceId === SHARED_INSTANCE_SENTINEL) {
+    throw new Error(
+      `EventDispatcherOptions.instanceId cannot equal the reserved sentinel "${SHARED_INSTANCE_SENTINEL}". ` +
+        `Pick any other stable string (typically KUMIKO_INSTANCE_ID from the deploy env).`,
+    );
+  }
   const tracer: Tracer = options.tracer ?? getFallbackTracer();
   const meter: Meter = options.meter ?? getFallbackMeter();
 
@@ -427,31 +513,41 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     let processed = 0;
     let failed = 0;
 
+    const instanceId = consumerInstanceId(consumer, options.instanceId);
+
     const span = tracer.startSpan("events.consumer.pass", {
-      attributes: { "consumer.name": consumer.name },
+      attributes: {
+        "consumer.name": consumer.name,
+        "consumer.instance_id": instanceId,
+      },
     });
 
     try {
       await db.transaction(async (tx) => {
-        const acquired = await acquireConsumerState(tx, consumer.name);
+        const acquired = await acquireConsumerState(tx, consumer.name, instanceId);
         // skip: another instance holds the lock, or the consumer is
         // disabled/dead. Nothing to deliver this pass.
         if (acquired.skip !== null) {
           span.setAttribute("consumer.skip_reason", acquired.skip);
           return;
         }
-        await markProcessing(tx, consumer.name);
+        await markProcessing(tx, consumer.name, instanceId);
 
         const events = await fetchPendingEvents(tx, acquired.state.lastProcessedEventId, batchSize);
         const outcome = await deliverEvents(consumer, events, context, maxAttempts, acquired.state);
         processed = outcome.processed;
         failed = outcome.failed;
 
-        await persistConsumerOutcome(tx, consumer.name, outcome);
-        await emitLagFromTx(tx, consumer.name, outcome.cursor, meter);
+        await persistConsumerOutcome(tx, consumer.name, instanceId, outcome);
+        await emitLagFromTx(tx, consumer.name, instanceId, outcome.cursor, meter);
       });
 
-      emitEventConsumerPassOutcome(meter, { consumer: consumer.name }, processed, failed);
+      emitEventConsumerPassOutcome(
+        meter,
+        { consumer: consumer.name, instanceId },
+        processed,
+        failed,
+      );
       span.setAttribute("consumer.processed", processed);
       span.setAttribute("consumer.failed", failed);
       span.setStatus(failed === 0 ? "ok" : "error");
@@ -490,7 +586,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // moment the dispatcher starts — so the retention guard
       // (pruneEvents → ConsumerLagError) correctly refuses to prune past
       // any consumer that exists, including freshly-deployed ones.
-      await preRegisterConsumers(db, consumers);
+      await preRegisterConsumers(db, consumers, options.instanceId);
       preRegistered = true;
 
       timer = setInterval(() => {
@@ -567,7 +663,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     },
 
     async ensureRegistered() {
-      await preRegisterConsumers(db, consumers);
+      await preRegisterConsumers(db, consumers, options.instanceId);
       preRegistered = true;
     },
 
@@ -598,6 +694,7 @@ function normalizeConsumerState(
 ): ConsumerRecoveryState {
   return {
     name: row.name,
+    instanceId: row.instanceId,
     status: row.status,
     lastProcessedEventId: row.lastProcessedEventId,
     attempts: row.attempts,
@@ -608,6 +705,7 @@ function normalizeConsumerState(
 
 export type ConsumerRecoveryState = {
   readonly name: string;
+  readonly instanceId: string;
   readonly status: string;
   readonly lastProcessedEventId: bigint;
   readonly attempts: number;
@@ -615,17 +713,30 @@ export type ConsumerRecoveryState = {
   readonly updatedAt: Temporal.Instant;
 };
 
+// Ops calls default to the SHARED_INSTANCE_SENTINEL row — that's the only
+// row shared-delivery consumers have, so legacy CLI invocations without
+// --instance-id keep working. Per-instance consumers require an explicit
+// instanceId: picking one of N shards arbitrarily ("first row wins") or
+// mutating all shards simultaneously ("bounce every instance") are both
+// worse than a loud missing-arg error on the CLI.
 async function requireConsumerRow(
   db: DbConnection,
   name: string,
+  instanceId: string,
 ): Promise<typeof eventConsumerStateTable.$inferSelect> {
   const [row] = await db
     .select()
     .from(eventConsumerStateTable)
-    .where(eq(eventConsumerStateTable.name, name));
+    .where(
+      and(
+        eq(eventConsumerStateTable.name, name),
+        eq(eventConsumerStateTable.instanceId, instanceId),
+      ),
+    );
   if (!row) {
     throw new Error(
-      `Consumer "${name}" has no state row — it hasn't run yet, or the name is misspelled.`,
+      `Consumer "${name}" (instance_id="${instanceId}") has no state row — it hasn't run yet, the name is misspelled, or the instance is misspelled. ` +
+        `For per-instance consumers pass the instance_id explicitly; shared consumers use the default.`,
     );
   }
   return row;
@@ -634,20 +745,28 @@ async function requireConsumerRow(
 export async function restartConsumer(
   db: DbConnection,
   name: string,
+  instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
-  const before = await requireConsumerRow(db, name);
+  const before = await requireConsumerRow(db, name, instanceId);
   if (before.status !== "dead") {
     throw new Error(
-      `Consumer "${name}" is not dead (status="${before.status}"). Restart only applies to dead consumers; use "enable" for a disabled one.`,
+      `Consumer "${name}" (instance_id="${instanceId}") is not dead (status="${before.status}"). Restart only applies to dead consumers; use "enable" for a disabled one.`,
     );
   }
   const [updated] = await db
     .update(eventConsumerStateTable)
     .set({ status: "idle", attempts: 0, lastError: null, updatedAt: sql`now()` })
-    .where(eq(eventConsumerStateTable.name, name))
+    .where(
+      and(
+        eq(eventConsumerStateTable.name, name),
+        eq(eventConsumerStateTable.instanceId, instanceId),
+      ),
+    )
     .returning();
   if (!updated) {
-    throw new Error(`Consumer "${name}" vanished between read and write — retry.`);
+    throw new Error(
+      `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
+    );
   }
   return normalizeConsumerState(updated);
 }
@@ -655,15 +774,23 @@ export async function restartConsumer(
 export async function disableConsumer(
   db: DbConnection,
   name: string,
+  instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
-  await requireConsumerRow(db, name);
+  await requireConsumerRow(db, name, instanceId);
   const [updated] = await db
     .update(eventConsumerStateTable)
     .set({ status: "disabled", updatedAt: sql`now()` })
-    .where(eq(eventConsumerStateTable.name, name))
+    .where(
+      and(
+        eq(eventConsumerStateTable.name, name),
+        eq(eventConsumerStateTable.instanceId, instanceId),
+      ),
+    )
     .returning();
   if (!updated) {
-    throw new Error(`Consumer "${name}" vanished between read and write — retry.`);
+    throw new Error(
+      `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
+    );
   }
   return normalizeConsumerState(updated);
 }
@@ -671,20 +798,28 @@ export async function disableConsumer(
 export async function enableConsumer(
   db: DbConnection,
   name: string,
+  instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
-  const before = await requireConsumerRow(db, name);
+  const before = await requireConsumerRow(db, name, instanceId);
   if (before.status !== "disabled") {
     throw new Error(
-      `Consumer "${name}" is not disabled (status="${before.status}"). Enable only flips disabled → idle; use "restart" for a dead consumer.`,
+      `Consumer "${name}" (instance_id="${instanceId}") is not disabled (status="${before.status}"). Enable only flips disabled → idle; use "restart" for a dead consumer.`,
     );
   }
   const [updated] = await db
     .update(eventConsumerStateTable)
     .set({ status: "idle", attempts: 0, lastError: null, updatedAt: sql`now()` })
-    .where(eq(eventConsumerStateTable.name, name))
+    .where(
+      and(
+        eq(eventConsumerStateTable.name, name),
+        eq(eventConsumerStateTable.instanceId, instanceId),
+      ),
+    )
     .returning();
   if (!updated) {
-    throw new Error(`Consumer "${name}" vanished between read and write — retry.`);
+    throw new Error(
+      `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
+    );
   }
   return normalizeConsumerState(updated);
 }
@@ -696,8 +831,9 @@ export async function enableConsumer(
 export async function skipPoisonEvent(
   db: DbConnection,
   name: string,
+  instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState & { readonly skippedEventId: bigint | null }> {
-  const before = await requireConsumerRow(db, name);
+  const before = await requireConsumerRow(db, name, instanceId);
   return db.transaction(async (tx) => {
     const [poison] = (await tx
       .select({ id: eventsTable.id })
@@ -709,8 +845,14 @@ export async function skipPoisonEvent(
       const [unchanged] = await tx
         .select()
         .from(eventConsumerStateTable)
-        .where(eq(eventConsumerStateTable.name, name));
-      if (!unchanged) throw new Error(`Consumer "${name}" vanished — retry.`);
+        .where(
+          and(
+            eq(eventConsumerStateTable.name, name),
+            eq(eventConsumerStateTable.instanceId, instanceId),
+          ),
+        );
+      if (!unchanged)
+        throw new Error(`Consumer "${name}" (instance_id="${instanceId}") vanished — retry.`);
       return { ...normalizeConsumerState(unchanged), skippedEventId: null };
     }
     const [updated] = await tx
@@ -722,19 +864,29 @@ export async function skipPoisonEvent(
         lastError: null,
         updatedAt: sql`now()`,
       })
-      .where(eq(eventConsumerStateTable.name, name))
+      .where(
+        and(
+          eq(eventConsumerStateTable.name, name),
+          eq(eventConsumerStateTable.instanceId, instanceId),
+        ),
+      )
       .returning();
-    if (!updated) throw new Error(`Consumer "${name}" vanished mid-skip — retry.`);
+    if (!updated)
+      throw new Error(
+        `Consumer "${name}" (instance_id="${instanceId}") vanished mid-skip — retry.`,
+      );
     return { ...normalizeConsumerState(updated), skippedEventId: poison.id };
   });
 }
 
-// Read-only status for one consumer — CLI surface.
+// Read-only status for one consumer shard — CLI surface.
 export async function getConsumerState(
   db: DbConnection,
   name: string,
+  instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<{
   readonly name: string;
+  readonly instanceId: string;
   readonly status: string;
   readonly lastProcessedEventId: bigint;
   readonly attempts: number;
@@ -744,10 +896,16 @@ export async function getConsumerState(
   const [row] = await db
     .select()
     .from(eventConsumerStateTable)
-    .where(eq(eventConsumerStateTable.name, name));
+    .where(
+      and(
+        eq(eventConsumerStateTable.name, name),
+        eq(eventConsumerStateTable.instanceId, instanceId),
+      ),
+    );
   if (!row) return null;
   return {
     name: row.name,
+    instanceId: row.instanceId,
     status: row.status,
     lastProcessedEventId: row.lastProcessedEventId,
     attempts: row.attempts,
@@ -756,15 +914,21 @@ export async function getConsumerState(
   };
 }
 
-// List every consumer the registry knows about, joined with its state if any.
+// List every consumer the registry knows about, joined with all shard rows
+// from the state table. One entry per (name, instance_id) shard. Consumers
+// that have never run appear with status="never-run" and instance_id =
+// SHARED_INSTANCE_SENTINEL — a placeholder, because without a running
+// dispatcher we can't know the instance-ids of per-instance consumers yet.
 // Mirrors listProjectionsWithState — the registry (not the DB) is the
-// source-of-truth for which consumers exist.
+// source-of-truth for which consumer-names exist; the DB is the source-
+// of-truth for which instance-shards have been seen.
 export async function listConsumersWithState(
   db: DbConnection,
   registeredNames: readonly string[],
 ): Promise<
   ReadonlyArray<{
     readonly name: string;
+    readonly instanceId: string;
     readonly status: string;
     readonly lastProcessedEventId: bigint;
     readonly attempts: number;
@@ -772,22 +936,50 @@ export async function listConsumersWithState(
   }>
 > {
   const stateRows = await db.select().from(eventConsumerStateTable);
-  const stateByName = new Map(stateRows.map((r) => [r.name, r]));
+  const registered = new Set(registeredNames);
 
-  return registeredNames.map((name) => {
-    const s = stateByName.get(name);
-    return {
+  // Materialize one output row per (name, instance_id). Registered names
+  // without any shard (never-run) get a placeholder row so ops can still
+  // see the name exists.
+  const out: Array<{
+    name: string;
+    instanceId: string;
+    status: string;
+    lastProcessedEventId: bigint;
+    attempts: number;
+    lastError: string | null;
+  }> = [];
+
+  const seenNames = new Set<string>();
+  for (const r of stateRows) {
+    if (!registered.has(r.name)) continue; // stale row from an older deploy
+    seenNames.add(r.name);
+    out.push({
+      name: r.name,
+      instanceId: r.instanceId,
+      status: r.status,
+      lastProcessedEventId: r.lastProcessedEventId,
+      attempts: r.attempts,
+      lastError: r.lastError,
+    });
+  }
+  for (const name of registeredNames) {
+    if (seenNames.has(name)) continue;
+    out.push({
       name,
-      status: s?.status ?? "never-run",
-      lastProcessedEventId: s?.lastProcessedEventId ?? 0n,
-      attempts: s?.attempts ?? 0,
-      lastError: s?.lastError ?? null,
-    };
-  });
+      instanceId: SHARED_INSTANCE_SENTINEL,
+      status: "never-run",
+      lastProcessedEventId: 0n,
+      attempts: 0,
+      lastError: null,
+    });
+  }
+  return out;
 }
 
 export type ConsumerProgress = {
   readonly name: string;
+  readonly instanceId: string;
   readonly status: string;
   readonly lastProcessedEventId: bigint;
   readonly attempts: number;
