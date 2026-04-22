@@ -31,9 +31,9 @@ import { globalFeatureStateTable } from "../global-feature-state-table";
 import { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 
 // Widget — the "tenant" under test. toggleable(default=true), owns a
-// simple entity and a create-handler that writes through direct DB
-// (kept intentionally simple; feature-toggle gating is what's being
-// verified, not CRUD correctness).
+// simple entity and a create-handler that writes via the event-store
+// executor, so the full lifecycle pipeline (postSave hooks + event-log
+// append that the tracker-MSP consumes) actually fires downstream.
 const widgetEntity = createEntity({
   table: "widgets",
   fields: {
@@ -219,16 +219,18 @@ async function countAuditRows(): Promise<number> {
 }
 
 async function trackerCount(): Promise<number> {
-  const rows = (await stack.db.db.select().from(widgetTrackerTable)) as unknown as readonly {
-    count: number;
-  }[];
+  const rows = await stack.db.db.select().from(widgetTrackerTable);
   return rows[0]?.count ?? 0;
 }
 
+// Raw SQL because kumiko_event_consumers isn't exported as a drizzle table
+// from @kumiko/framework/db. Single cast at the system boundary with
+// explicit shape — typed access everywhere else.
+type ConsumerCursorRow = { last_processed_event_id: number | string };
 async function trackerCursor(): Promise<number> {
   const rows = (await stack.db.db.execute(
     sql`SELECT last_processed_event_id FROM kumiko_event_consumers WHERE name LIKE '%tracker%' LIMIT 1`,
-  )) as unknown as readonly { last_processed_event_id: number | string }[];
+  )) as unknown as readonly ConsumerCursorRow[];
   return Number(rows[0]?.last_processed_event_id ?? 0);
 }
 
@@ -270,61 +272,6 @@ describe("feature-toggles runtime cache", () => {
     runtime.apply("widget", true);
     expect(runtime.effectiveFeatures().has("widget")).toBe(true);
     expect(runtime.effectiveFeatures().has("widget-tracker")).toBe(true);
-  });
-
-  test("cascade via HTTP: disabling widget stops widget-tracker MSP too", async () => {
-    // End-to-end cascade proof. Both downstream surfaces must respect the
-    // cascade when *only* widget's override row is flipped:
-    //   1. widget handler-gate blocks creates (covered by inline assert)
-    //   2. widget-tracker MSP consumer pauses — cursor frozen, no projection
-    //      write, even with a pending widget.created event in the log
-    //
-    // How the MSP-side is proven: process one widget event normally, then
-    // rewind the tracker-consumer's cursor by one so the same event sits
-    // pending again. Flip widget off via HTTP (which cascades tracker off
-    // via r.requires), drain the dispatcher, and assert the cursor stayed
-    // frozen. Re-enable widget and the cursor finally advances.
-    await createWidget("cascade-alpha");
-    await stack.eventDispatcher?.runOnce();
-    const cursorAfterFirstRun = await trackerCursor();
-    expect(await trackerCount()).toBe(1);
-    expect(cursorAfterFirstRun).toBeGreaterThan(0);
-
-    // Rewind one event. The widget.created event is now "pending" from the
-    // consumer's POV — a clean setup for the cascade-pause assertion.
-    await setTrackerCursor(cursorAfterFirstRun - 1);
-
-    // Persist "widget off" via the real set-handler (not apply() — this
-    // proves the through-the-DB path works, including the cascade-refresh
-    // that the set-handler triggers).
-    await stack.http.write(
-      "feature-toggles:write:set",
-      { featureName: "widget", enabled: false },
-      admin,
-    );
-
-    // widget's create-handler: gate blocks.
-    const denied = await createWidget("cascade-beta");
-    expect(denied.body.error?.code).toBe("feature_disabled");
-
-    // MSP-side cascade: run the dispatcher. widget-tracker is cascade-off
-    // so its consumer must NOT advance the cursor even though a pending
-    // event is sitting right there waiting to be drained.
-    await stack.eventDispatcher?.runOnce();
-    expect(await trackerCursor()).toBe(cursorAfterFirstRun - 1);
-
-    // Re-enable widget via HTTP — cascade flips tracker back on, the
-    // consumer drains the pending widget.created event, cursor advances
-    // past the rewind point. Count goes up because the projection is
-    // re-run (its upsert unconditionally increments on conflict).
-    await stack.http.write(
-      "feature-toggles:write:set",
-      { featureName: "widget", enabled: true },
-      admin,
-    );
-    await stack.eventDispatcher?.runOnce();
-    expect(await trackerCursor()).toBeGreaterThanOrEqual(cursorAfterFirstRun);
-    expect(await trackerCount()).toBe(2);
   });
 });
 
@@ -496,6 +443,64 @@ describe("MSP consumer pauses for disabled features", () => {
     runtime.apply("widget-tracker", true);
     await stack.eventDispatcher?.runOnce();
     expect(await trackerCount()).toBe(3); // caught up (1 + 2)
+  });
+
+  test("cascade via HTTP: disabling widget freezes widget-tracker cursor too", async () => {
+    // End-to-end cascade proof. Both downstream surfaces must respect the
+    // cascade when *only* widget's override row is flipped:
+    //   1. widget handler-gate blocks creates (covered by inline assert)
+    //   2. widget-tracker MSP consumer pauses — cursor frozen, no projection
+    //      write, even with a pending widget.created event in the log
+    //
+    // How the MSP-side is proven: process one widget event normally, then
+    // rewind the tracker-consumer's cursor by one so the same event sits
+    // pending again. Flip widget off via HTTP (which cascades tracker off
+    // via r.requires), drain the dispatcher, and assert the cursor stayed
+    // frozen. Re-enable widget and the cursor advances past the rewind.
+    await createWidget("cascade-alpha");
+    await stack.eventDispatcher?.runOnce();
+    const cursorAfterFirstRun = await trackerCursor();
+    expect(await trackerCount()).toBe(1);
+    // cursor is some positive value — absolute id depends on the global
+    // events-sequence (bigserial; DELETE doesn't rewind it). All further
+    // assertions use this as the anchor so they stay deterministic.
+    expect(cursorAfterFirstRun).toBeGreaterThan(0);
+
+    // Rewind one event. The widget.created event is now "pending" from the
+    // consumer's POV — a clean setup for the cascade-pause assertion.
+    await setTrackerCursor(cursorAfterFirstRun - 1);
+
+    // Persist "widget off" via the real set-handler (not apply() — this
+    // proves the through-the-DB path works, including the cascade-refresh
+    // that the set-handler triggers). This also emits event 2 (toggle-set).
+    await stack.http.write(
+      "feature-toggles:write:set",
+      { featureName: "widget", enabled: false },
+      admin,
+    );
+
+    // widget's create-handler: gate blocks.
+    const denied = await createWidget("cascade-beta");
+    expect(denied.body.error?.code).toBe("feature_disabled");
+
+    // MSP-side cascade: run the dispatcher. widget-tracker is cascade-off
+    // so its consumer must NOT advance the cursor even though a pending
+    // event is sitting right there waiting to be drained.
+    await stack.eventDispatcher?.runOnce();
+    expect(await trackerCursor()).toBe(cursorAfterFirstRun - 1);
+
+    // Re-enable widget via HTTP — emits event 3 (toggle-set). Cascade flips
+    // tracker back on; consumer drains events 1..3. Only event 1 matches
+    // the tracker's apply map, so count increments from 1 → 2 (replay of
+    // the rewound event), and the cursor lands at 3.
+    await stack.http.write(
+      "feature-toggles:write:set",
+      { featureName: "widget", enabled: true },
+      admin,
+    );
+    await stack.eventDispatcher?.runOnce();
+    expect(await trackerCursor()).toBe(cursorAfterFirstRun + 2);
+    expect(await trackerCount()).toBe(2);
   });
 });
 
