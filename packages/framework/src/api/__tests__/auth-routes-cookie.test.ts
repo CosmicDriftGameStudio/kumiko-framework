@@ -11,6 +11,7 @@ import { describe, expect, test } from "vitest";
 import type { SessionUser } from "../../engine/types";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher";
 import { TestUsers } from "../../testing/fixtures";
+import { getSetCookieRaw, getSetCookies } from "../../testing/http-cookies";
 import { PUBLIC_API_PATHS } from "../api-constants";
 import { AUTH_COOKIE_NAME, authMiddleware, CSRF_COOKIE_NAME } from "../auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "../auth-routes";
@@ -21,20 +22,25 @@ const JWT_SECRET = "auth-routes-cookie-test-secret-min-32-characters";
 function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
   const base: Dispatcher = {
     async write(): Promise<WriteResult> {
-      return {
+      // Explicit `const: WriteResult` locks the `isSuccess: true` branch of
+      // the union without an `as`-cast (which widens + silences the
+      // compiler). Success shape has to satisfy `{ isSuccess: true; data }`.
+      const ok: WriteResult = {
         isSuccess: true,
         data: {
           kind: "auth-session",
           session: TestUsers.user,
         },
-      } as WriteResult;
+      };
+      return ok;
     },
     async query(): Promise<unknown> {
       return [];
     },
     async command(): Promise<void> {},
     async batch(): Promise<BatchResult> {
-      return { isSuccess: true, results: [] } as BatchResult;
+      const ok: BatchResult = { isSuccess: true, results: [] };
+      return ok;
     },
     async resolveAuthClaims(): Promise<Record<string, unknown>> {
       return {};
@@ -65,36 +71,6 @@ async function buildApp(
   return { app, validToken };
 }
 
-function parseSetCookies(res: Response): Record<string, string> {
-  // hono/cookie emits each Set-Cookie separately; Node aggregates them
-  // onto one header joined by ", " which breaks naive `split(",")`
-  // because "Expires" includes a comma. Here we only need the first
-  // segment (name=value) of each cookie, so split by "; " and look at
-  // the first token of each ", "-separated piece cautiously.
-  const header = res.headers.get("set-cookie") ?? "";
-  const out: Record<string, string> = {};
-  // Hono's test runtime exposes getSetCookie() on the underlying Response;
-  // when available use it — it returns each cookie as its own string.
-  const getSetCookie = (res.headers as { getSetCookie?: () => string[] }).getSetCookie;
-  const cookies = getSetCookie ? getSetCookie.call(res.headers) : [header];
-  for (const c of cookies) {
-    const first = c.split(";")[0];
-    if (!first) continue;
-    const eq = first.indexOf("=");
-    if (eq === -1) continue;
-    out[first.slice(0, eq).trim()] = first.slice(eq + 1).trim();
-  }
-  return out;
-}
-
-function setCookieStringFor(res: Response, name: string): string | undefined {
-  const getSetCookie = (res.headers as { getSetCookie?: () => string[] }).getSetCookie;
-  const cookies = getSetCookie
-    ? getSetCookie.call(res.headers)
-    : [res.headers.get("set-cookie") ?? ""];
-  return cookies.find((c) => c.startsWith(`${name}=`));
-}
-
 describe("auth-routes cookie behaviour on /auth/login", () => {
   test("login sets both kumiko_auth and kumiko_csrf cookies", async () => {
     const { app } = await buildApp();
@@ -104,9 +80,9 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
       body: JSON.stringify({ email: "a@b.c", password: "pw" }),
     });
     expect(res.status).toBe(200);
-    const cookies = parseSetCookies(res);
-    expect(cookies[AUTH_COOKIE_NAME]).toBeTruthy();
-    expect(cookies[CSRF_COOKIE_NAME]).toBeTruthy();
+    const cookies = getSetCookies(res);
+    expect(cookies.get(AUTH_COOKIE_NAME)).toBeDefined();
+    expect(cookies.get(CSRF_COOKIE_NAME)).toBeDefined();
   });
 
   test("cookieSameSite defaults to Lax", async () => {
@@ -116,8 +92,7 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "a@b.c", password: "pw" }),
     });
-    const raw = setCookieStringFor(res, AUTH_COOKIE_NAME);
-    expect(raw).toMatch(/SameSite=Lax/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/SameSite=Lax/i);
   });
 
   test("cookieSameSite: strict → SameSite=Strict flag", async () => {
@@ -127,8 +102,7 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "a@b.c", password: "pw" }),
     });
-    const raw = setCookieStringFor(res, AUTH_COOKIE_NAME);
-    expect(raw).toMatch(/SameSite=Strict/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/SameSite=Strict/i);
   });
 
   test("auth cookie is HttpOnly, csrf cookie is not", async () => {
@@ -138,10 +112,8 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "a@b.c", password: "pw" }),
     });
-    const authRaw = setCookieStringFor(res, AUTH_COOKIE_NAME);
-    const csrfRaw = setCookieStringFor(res, CSRF_COOKIE_NAME);
-    expect(authRaw).toMatch(/HttpOnly/i);
-    expect(csrfRaw).not.toMatch(/HttpOnly/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/HttpOnly/i);
+    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).not.toMatch(/HttpOnly/i);
   });
 
   test("login still returns token in body (for native bearer clients)", async () => {
@@ -166,10 +138,8 @@ describe("auth-routes cookie behaviour on /auth/logout", () => {
       headers: { Authorization: `Bearer ${validToken}` },
     });
     expect(res.status).toBe(200);
-    const authRaw = setCookieStringFor(res, AUTH_COOKIE_NAME);
-    const csrfRaw = setCookieStringFor(res, CSRF_COOKIE_NAME);
-    expect(authRaw).toMatch(/Max-Age=0/i);
-    expect(csrfRaw).toMatch(/Max-Age=0/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/Max-Age=0/i);
+    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).toMatch(/Max-Age=0/i);
   });
 });
 
@@ -200,9 +170,10 @@ describe("auth-routes cookie behaviour on /auth/switch-tenant", () => {
       body: JSON.stringify({ tenantId: otherTenant.tenantId }),
     });
     expect(res.status).toBe(200);
-    const cookies = parseSetCookies(res);
-    expect(cookies[AUTH_COOKIE_NAME]).toBeTruthy();
-    expect(cookies[CSRF_COOKIE_NAME]).toBeTruthy();
-    expect(cookies[AUTH_COOKIE_NAME]).not.toBe(validToken); // new jwt
+    const cookies = getSetCookies(res);
+    const newAuth = cookies.get(AUTH_COOKIE_NAME);
+    expect(newAuth).toBeDefined();
+    expect(cookies.get(CSRF_COOKIE_NAME)).toBeDefined();
+    expect(newAuth?.value).not.toBe(validToken); // new jwt
   });
 });

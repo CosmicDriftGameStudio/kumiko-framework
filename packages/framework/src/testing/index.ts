@@ -118,6 +118,12 @@ export {
   testUserId,
 } from "./fixtures";
 export { bridgeStub } from "./handler-context";
+export {
+  getSetCookieRaw,
+  getSetCookies,
+  getSetCookieValue,
+  type ParsedSetCookie,
+} from "./http-cookies";
 export { createLateBoundHolder, type LateBoundHolder } from "./late-bound";
 export {
   createMutableMasterKeyProvider,

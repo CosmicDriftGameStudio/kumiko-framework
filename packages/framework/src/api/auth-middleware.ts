@@ -49,21 +49,48 @@ export type AuthMiddlewareOptions = {
 };
 
 // Error-body shape matches the UnprocessableError/AccessDeniedError on the
-// dispatcher path — clients that already parse `{error: {code, details}}`
-// from handler responses don't need a second parser for middleware rejects.
-function sessionInvalid(c: Context, reason: AuthSessionStatus | "no_sid"): Response {
+// dispatcher path — clients parse `{error: {code, httpStatus, message,
+// i18nKey, details?}}` everywhere, not a second middleware-only shape.
+// All middleware rejects (missing/invalid/ambiguous token, session state,
+// csrf mismatch) route through this helper so one parser covers the lot.
+type MiddlewareRejectCode =
+  | "missing_token"
+  | "invalid_token"
+  | "ambiguous_auth"
+  | "session_invalid";
+
+function middlewareReject(
+  c: Context,
+  opts: {
+    code: MiddlewareRejectCode;
+    status: 400 | 401 | 403;
+    message: string;
+    i18nKey: string;
+    details?: Record<string, unknown>;
+  },
+): Response {
   return c.json(
     {
       error: {
-        code: "session_invalid",
-        httpStatus: 401,
-        message: `session ${reason}`,
-        i18nKey: "auth.errors.sessionInvalid",
-        details: { reason },
+        code: opts.code,
+        httpStatus: opts.status,
+        message: opts.message,
+        i18nKey: opts.i18nKey,
+        ...(opts.details ? { details: opts.details } : {}),
       },
     },
-    401,
+    opts.status,
   );
+}
+
+function sessionInvalid(c: Context, reason: AuthSessionStatus | "no_sid"): Response {
+  return middlewareReject(c, {
+    code: "session_invalid",
+    status: 401,
+    message: `session ${reason}`,
+    i18nKey: "auth.errors.sessionInvalid",
+    details: { reason },
+  });
 }
 
 // Extract the JWT from either the kumiko_auth cookie (web) or the
@@ -94,9 +121,19 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     const extracted = extractToken(c);
     if ("error" in extracted) {
       if (extracted.error === "both") {
-        return c.json({ error: "ambiguous_auth" }, 400);
+        return middlewareReject(c, {
+          code: "ambiguous_auth",
+          status: 400,
+          message: "cookie and bearer transport presented simultaneously",
+          i18nKey: "auth.errors.ambiguousAuth",
+        });
       }
-      return c.json({ error: "missing_token" }, 401);
+      return middlewareReject(c, {
+        code: "missing_token",
+        status: 401,
+        message: "no auth cookie or bearer token",
+        i18nKey: "auth.errors.missingToken",
+      });
     }
     const { token, transport } = extracted;
 
@@ -104,7 +141,12 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     try {
       payload = await jwt.verify(token);
     } catch {
-      return c.json({ error: "invalid_token" }, 401);
+      return middlewareReject(c, {
+        code: "invalid_token",
+        status: 401,
+        message: "token verification failed",
+        i18nKey: "auth.errors.invalidToken",
+      });
     }
 
     // Session liveness check — only when both a checker is wired AND the

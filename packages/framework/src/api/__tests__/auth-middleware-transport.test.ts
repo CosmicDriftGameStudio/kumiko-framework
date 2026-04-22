@@ -55,16 +55,17 @@ describe("auth-middleware transport selection", () => {
       },
     });
     expect(res.status).toBe(400);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("ambiguous_auth");
+    const body = (await res.json()) as { error: { code: string; httpStatus: number } };
+    expect(body.error.code).toBe("ambiguous_auth");
+    expect(body.error.httpStatus).toBe(400);
   });
 
   test("neither cookie nor bearer → 401 missing_token", async () => {
     const { app } = await buildApp();
     const res = await app.request("/api/ping");
     expect(res.status).toBe(401);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("missing_token");
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("missing_token");
   });
 
   test("invalid cookie JWT → 401 invalid_token", async () => {
@@ -73,7 +74,7 @@ describe("auth-middleware transport selection", () => {
       headers: { Cookie: `${AUTH_COOKIE_NAME}=not-a-real-jwt` },
     });
     expect(res.status).toBe(401);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("invalid_token");
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("invalid_token");
   });
 });

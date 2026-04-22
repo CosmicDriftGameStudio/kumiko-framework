@@ -5,6 +5,7 @@ import {
   createEntityTable,
   createTestUser,
   expectErrorIncludes,
+  getSetCookieValue,
   pushTables,
   setupTestStack,
   type TestStack,
@@ -479,18 +480,6 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
   // against a real login handler + dispatcher. Unit tests cover the
   // middleware logic in isolation; this locks down the wiring.
 
-  function extractCookie(setCookie: string[] | null, name: string): string | undefined {
-    if (!setCookie) return undefined;
-    for (const raw of setCookie) {
-      if (raw.startsWith(`${name}=`)) {
-        const first = raw.split(";")[0];
-        if (!first) continue;
-        return first.slice(name.length + 1);
-      }
-    }
-    return undefined;
-  }
-
   test("login sets both cookies and the token works via cookie transport", async () => {
     await seedLoginUser({ email: "cookie-user@example.com", password: "correct-horse" });
 
@@ -500,11 +489,8 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
     });
     expect(loginRes.status).toBe(200);
 
-    const setCookies = (loginRes.headers as { getSetCookie?: () => string[] }).getSetCookie?.() ?? [
-      loginRes.headers.get("set-cookie") ?? "",
-    ];
-    const authCookie = extractCookie(setCookies, "kumiko_auth");
-    const csrfCookie = extractCookie(setCookies, "kumiko_csrf");
+    const authCookie = getSetCookieValue(loginRes, "kumiko_auth");
+    const csrfCookie = getSetCookieValue(loginRes, "kumiko_csrf");
     expect(authCookie).toBeDefined();
     expect(csrfCookie).toBeDefined();
 
@@ -530,11 +516,8 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
       email: "csrf-user@example.com",
       password: "correct-horse",
     });
-    const setCookies = (loginRes.headers as { getSetCookie?: () => string[] }).getSetCookie?.() ?? [
-      loginRes.headers.get("set-cookie") ?? "",
-    ];
-    const authCookie = extractCookie(setCookies, "kumiko_auth");
-    const csrfCookie = extractCookie(setCookies, "kumiko_csrf");
+    const authCookie = getSetCookieValue(loginRes, "kumiko_auth");
+    const csrfCookie = getSetCookieValue(loginRes, "kumiko_csrf");
 
     // POST /write with cookie but no X-CSRF-Token → csrf-middleware blocks.
     const writeRes = await stack.http.raw(
@@ -557,10 +540,7 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
     });
     const body = await loginRes.json();
     const token = body.token;
-    const setCookies = (loginRes.headers as { getSetCookie?: () => string[] }).getSetCookie?.() ?? [
-      loginRes.headers.get("set-cookie") ?? "",
-    ];
-    const authCookie = extractCookie(setCookies, "kumiko_auth");
+    const authCookie = getSetCookieValue(loginRes, "kumiko_auth");
 
     const res = await stack.http.raw(
       "POST",
@@ -573,6 +553,6 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
     );
     expect(res.status).toBe(400);
     const errBody = await res.json();
-    expect(errBody.error).toBe("ambiguous_auth");
+    expect(errBody.error?.code).toBe("ambiguous_auth");
   });
 });

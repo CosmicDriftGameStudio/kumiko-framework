@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, getAuthTransport } from "./auth-middleware";
@@ -5,6 +6,19 @@ import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, getAuthTransport } from "./auth-mid
 // Methods that can mutate server state. GET/HEAD/OPTIONS are safe under
 // CORS + SameSite-cookie semantics and skip the CSRF check entirely.
 const STATE_CHANGING_METHODS: ReadonlySet<string> = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+// Constant-time byte compare. `a !== b` short-circuits at the first
+// differing byte and leaks the common prefix length to anyone who can
+// time requests — in principle exploitable against sufficiently small
+// tokens. CSRF tokens are UUIDs so the practical risk is low, but this
+// is the standard production pattern for any secret-vs-secret compare.
+// Length-check first because timingSafeEqual throws on size mismatch;
+// the length itself isn't a secret (the UUID format is known).
+const encoder = new TextEncoder();
+function tokensMatch(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(encoder.encode(a), encoder.encode(b));
+}
 
 // Double-submit CSRF guard. Runs AFTER authMiddleware — reads the
 // authTransport flag set there. Only enforces on cookie-authenticated,
@@ -44,7 +58,7 @@ export function csrfMiddleware() {
     // token was never issued (stale session or cross-origin attempt);
     // a missing header means the client didn't attach it (attacker's
     // cross-origin form submission can't read the cookie to forge one).
-    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    if (!cookieToken || !headerToken || !tokensMatch(cookieToken, headerToken)) {
       return c.json(
         {
           error: {
