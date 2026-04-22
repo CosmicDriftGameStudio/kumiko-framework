@@ -19,7 +19,7 @@ function makeFetch(respond: { readonly status?: number; readonly body: unknown }
       },
     } as unknown as Response;
   });
-  return { fetch: fetchMock as unknown as typeof fetch, calls };
+  return { fetch: fetchMock as unknown as typeof globalThis.fetch, calls };
 }
 
 describe("createLiveDispatcher", () => {
@@ -141,7 +141,7 @@ describe("createLiveDispatcher", () => {
   test("network error → failure with code='network_error', status flips offline", async () => {
     const fetch = vi.fn(async () => {
       throw new Error("ECONNREFUSED");
-    }) as unknown as typeof fetch;
+    }) as unknown as typeof globalThis.fetch;
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const seen: string[] = [];
@@ -169,7 +169,7 @@ describe("createLiveDispatcher", () => {
           return { isSuccess: true, data: {} };
         },
       } as unknown as Response;
-    }) as unknown as typeof fetch;
+    }) as unknown as typeof globalThis.fetch;
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const seen: string[] = [];
@@ -199,7 +199,7 @@ describe("createLiveDispatcher", () => {
           return { isSuccess: true, data: {} };
         },
       } as unknown as Response;
-    }) as unknown as typeof fetch;
+    }) as unknown as typeof globalThis.fetch;
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     controller.abort();
@@ -222,7 +222,7 @@ describe("createLiveDispatcher", () => {
           throw new SyntaxError("Unexpected token < in JSON at position 0");
         },
       } as unknown as Response;
-    }) as unknown as typeof fetch;
+    }) as unknown as typeof globalThis.fetch;
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const result = await disp.write("x", {});
@@ -254,7 +254,7 @@ describe("createLiveDispatcher", () => {
   });
 
   test("pendingWrites / pendingFiles always return empty arrays for live dispatcher", () => {
-    const disp = createLiveDispatcher({ fetch: vi.fn() as unknown as typeof fetch });
+    const disp = createLiveDispatcher({ fetch: vi.fn() as unknown as typeof globalThis.fetch });
     expect(disp.pendingWrites()).toEqual([]);
     expect(disp.pendingFiles()).toEqual([]);
   });
@@ -262,7 +262,7 @@ describe("createLiveDispatcher", () => {
   test("onStatusChange returns unsubscribe handle", async () => {
     const fetch = vi.fn(async () => {
       throw new Error("boom");
-    }) as unknown as typeof fetch;
+    }) as unknown as typeof globalThis.fetch;
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const listener = vi.fn();
@@ -280,7 +280,7 @@ describe("createLiveDispatcher", () => {
       async json() {
         return { isSuccess: true, data: {} };
       },
-    })) as unknown as typeof fetch;
+    })) as unknown as typeof globalThis.fetch;
     const disp2 = createLiveDispatcher({ fetch: fetchOk, readCsrf: () => "t" });
     disp2.onStatusChange(listener);
     unsub(); // original unsub — no-op on disp2
