@@ -9,14 +9,13 @@ import { globalFeatureStateTable } from "./global-feature-state-table";
 // Holds the current global-override snapshot in memory and exposes a
 // synchronous reader — the dispatcher's feature-gate calls it on every
 // handler invocation, so this must not do I/O on the hot path. The
-// snapshot is loaded once at boot via `.initialize()` and refreshed by
-// the toggle-feature's own write-handler after each successful set.
-//
-// Single-process design by choice. Multi-instance deploys would need a
-// pub/sub wake-up (listen on the toggle event consumer, re-query DB) or
-// a short-TTL DB-polling loop — both are mechanical follow-ups; neither
-// changes the API surface here. The comment is here so the need is
-// visible when that day comes.
+// snapshot is loaded once at boot via `.initialize()`, refreshed by the
+// set-handler on the local instance, and kept in sync across
+// instances by the `toggle-cache-sync` MSP (declared on the
+// feature-toggles feature, delivery: "per-instance"). Every API/worker
+// process observes every toggle-set event and applies it to its local
+// snapshot — no Redis / SSE / polling needed; the existing events-table
+// + event-dispatcher pipeline handles propagation.
 export class GlobalFeatureToggleRuntime {
   private snapshot = new Map<string, boolean>();
 

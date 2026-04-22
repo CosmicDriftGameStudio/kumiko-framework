@@ -130,9 +130,14 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
         },
       });
 
-      // Update the in-memory snapshot so the next request sees the new
-      // state. Done AFTER the DB write + event append: if either fails,
-      // the snapshot stays consistent with what's persisted.
+      // Update the local in-memory snapshot. Done AFTER the DB write +
+      // event append so a crash in either leaves the snapshot consistent
+      // with what's persisted. This is the response-latency optimization:
+      // the next request on THIS instance sees the flip without waiting
+      // for a dispatcher tick. Other instances learn the change through
+      // the `toggle-cache-sync` MSP (see feature-toggles-feature.ts). Both
+      // paths are idempotent — Map.set is last-write-wins and the DB is
+      // the source of truth after boot-time initialize().
       getRuntime().apply(featureName, enabled);
 
       return {

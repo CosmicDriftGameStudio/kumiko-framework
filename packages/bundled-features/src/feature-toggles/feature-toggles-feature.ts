@@ -1,4 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { FEATURE_TOGGLE_SET_EVENT_NAME } from "./constants";
 import { featureToggleSetSchema } from "./events";
 import { listQuery } from "./handlers/list.query";
 import { registeredQuery } from "./handlers/registered.query";
@@ -44,6 +45,44 @@ export function createFeatureTogglesFeature(options: FeatureTogglesOptions): Fea
       list: r.queryHandler(listQuery),
       registered: r.queryHandler(registeredQuery),
     };
+
+    // toggle-cache-sync — multi-instance snapshot propagation. Every
+    // API/worker instance runs its own dispatcher cursor on this MSP
+    // (delivery: "per-instance") and converges its in-memory snapshot on
+    // every toggle-set event it observes. Named "cache-sync" (not
+    // "projection" or "audit") because it's side-effect-only
+    // infrastructure — the framework's boot-validator also rejects
+    // per-instance MSPs that carry a `table`.
+    //
+    // Why this is correct alongside the set-handler's own `runtime.apply`:
+    //   - local apply = immediate response-latency optimization so the
+    //     next request on the same instance sees the flip without a
+    //     dispatcher-tick round-trip
+    //   - MSP = multi-instance propagation + crash-recovery. If a process
+    //     crashes between appendEvent (persisted) and the local apply
+    //     (volatile), the MSP rebuilds the snapshot on restart; if
+    //     instance B never ran the write, the MSP is how it learns. Both
+    //     paths are idempotent — apply is Map.set, replay on boot just
+    //     converges to the DB state that initialize() already loaded.
+    //
+    // Requires: options.getRuntime() must resolve by the time the
+    // dispatcher processes its first toggle-set event. The holder-based
+    // wire-up (see FeatureTogglesOptions.getRuntime docstring) guarantees
+    // this in setupTestStack and production boot.
+    r.multiStreamProjection({
+      name: "toggle-cache-sync",
+      delivery: "per-instance",
+      apply: {
+        [FEATURE_TOGGLE_SET_EVENT_NAME]: async (event) => {
+          // The event payload shape is guaranteed by featureToggleSetSchema
+          // (validated on append). Shallow-cast to a typed shape rather
+          // than re-parsing — the payload round-trips through JSON and is
+          // fixed at the source.
+          const payload = event.payload as { featureName: string; enabled: boolean };
+          options.getRuntime().apply(payload.featureName, payload.enabled);
+        },
+      },
+    });
 
     return { handlers, queries };
   });
