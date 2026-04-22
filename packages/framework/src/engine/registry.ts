@@ -1,5 +1,5 @@
 import { buildMetricName, validateMetricName } from "../observability";
-import { qualifyEntityName } from "./qualified-name";
+import { type QnType, qualifyEntityName } from "./qualified-name";
 import type {
   AuthClaimsHookDef,
   ClaimKeyDefinition,
