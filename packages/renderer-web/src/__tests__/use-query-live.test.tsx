@@ -9,7 +9,7 @@ import {
 } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";
-import { render, waitFor } from "./test-utils";
+import { act, render, waitFor } from "./test-utils";
 
 // Test-Helper: fake LiveEventSubscriber. Sammelt alle Subscriber, das
 // Test kann `inject(type, data)` rufen um die matching listener zu
@@ -91,12 +91,14 @@ describe("useQuery live-mode", () => {
 
     await waitFor(() => expect(getByTestId("probe").textContent).toBe("1"));
 
-    fake.inject("task.created", {
-      id: "t1",
-      aggregateType: "task",
-      version: 1,
-      payload: {},
-      createdAt: "",
+    act(() => {
+      fake.inject("task.created", {
+        id: "t1",
+        aggregateType: "task",
+        version: 1,
+        payload: {},
+        createdAt: "",
+      });
     });
 
     await waitFor(() => expect(getByTestId("probe").textContent).toBe("2"));
