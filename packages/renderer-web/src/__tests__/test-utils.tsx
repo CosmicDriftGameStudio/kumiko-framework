@@ -19,10 +19,12 @@ import {
   type NavApi,
   NavProvider,
   PrimitivesProvider,
+  TokensProvider,
 } from "@kumiko/renderer";
 import { render as _render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { defaultPrimitives } from "../primitives";
+import { defaultTokens } from "../tokens";
 
 const stubNav: NavApi = {
   route: undefined,
@@ -35,13 +37,19 @@ const stubNav: NavApi = {
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};
 
+// Stub-Tokens-API für Tests. setTokens ist ein no-op — Tests die
+// Toggle testen wollen, bauen sich ihren eigenen Wrapper.
+const stubTokens = { tokens: defaultTokens, setTokens: () => {} };
+
 function DefaultProviders({ children }: { readonly children: ReactNode }): ReactNode {
   return (
-    <PrimitivesProvider value={defaultPrimitives}>
-      <NavProvider value={stubNav}>
-        <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
-      </NavProvider>
-    </PrimitivesProvider>
+    <TokensProvider value={stubTokens}>
+      <PrimitivesProvider value={defaultPrimitives}>
+        <NavProvider value={stubNav}>
+          <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
+        </NavProvider>
+      </PrimitivesProvider>
+    </TokensProvider>
   );
 }
 

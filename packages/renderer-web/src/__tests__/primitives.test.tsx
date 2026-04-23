@@ -149,7 +149,7 @@ describe("DataTable", () => {
   test("empty rows render empty-state slot with derived testId", () => {
     render(
       <DataTable
-        columns={[{ field: "name", label: "Name", type: "string" }]}
+        columns={[{ field: "name", label: "Name", type: "string", sortable: false }]}
         rows={[]}
         testId="t"
       />,
@@ -162,8 +162,8 @@ describe("DataTable", () => {
     render(
       <DataTable
         columns={[
-          { field: "name", label: "Name", type: "string" },
-          { field: "active", label: "Active", type: "boolean" },
+          { field: "name", label: "Name", type: "string", sortable: false },
+          { field: "active", label: "Active", type: "boolean", sortable: false },
         ]}
         rows={[{ id: "r1", values: { name: "Alice", active: true } }]}
         testId="t"
@@ -179,7 +179,7 @@ describe("DataTable", () => {
     const row = { id: "r1", values: { name: "Alice" } };
     render(
       <DataTable
-        columns={[{ field: "name", label: "Name", type: "string" }]}
+        columns={[{ field: "name", label: "Name", type: "string", sortable: false }]}
         rows={[row]}
         onRowClick={onRowClick}
       />,

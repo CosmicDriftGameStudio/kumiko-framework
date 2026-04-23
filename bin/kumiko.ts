@@ -135,7 +135,7 @@ const commands = {
   },
 
   test: {
-    description: "Tests laufen lassen (test | integration | all | <path>)",
+    description: "Tests laufen lassen (test | integration | e2e | all | <path>)",
     run: async () => {
       const scope = Bun.argv[3];
       if (scope === "all") {
@@ -147,6 +147,28 @@ const commands = {
         console.log("Integration Tests (Docker muss laufen)...\n");
         await $`node vitest.integration.guard.js`;
         await $`yarn vitest run --config vitest.integration.config.ts`;
+      } else if (scope === "e2e") {
+        // E2E laufen opt-in (nicht Teil von `kumiko check`). Jeder Sample
+        // mit einer playwright.config.ts kriegt einen eigenen Run — der
+        // webServer-Hook bootet den echten dev-server pro Config.
+        // Docker muss laufen (Postgres + Redis wie Integration-Tests).
+        const { readdir } = await import("node:fs/promises");
+        const entries = await readdir("samples", { withFileTypes: true });
+        const e2eSamples: string[] = [];
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          const cfg = Bun.file(`samples/${entry.name}/playwright.config.ts`);
+          if (await cfg.exists()) e2eSamples.push(entry.name);
+        }
+        if (e2eSamples.length === 0) {
+          console.log("Keine E2E-Configs gefunden (samples/*/playwright.config.ts).");
+          return;
+        }
+        console.log(`E2E via Playwright — ${e2eSamples.length} Sample(s): ${e2eSamples.join(", ")}\n`);
+        for (const sample of e2eSamples) {
+          console.log(`\n=== ${sample} ===`);
+          await $`yarn playwright test`.cwd(`samples/${sample}`);
+        }
       } else if (scope) {
         await $`yarn vitest run ${scope}`;
       } else {

@@ -5,16 +5,22 @@ import {
   type FeatureSchema,
   KumikoScreen,
   LiveEventsProvider,
+  mergeTokens,
   NavProvider,
   PrimitivesProvider,
   type PrimitivesRegistry,
   qualifyScreenId,
+  type Tokens,
+  type TokensApi,
+  type TokensOverride,
+  TokensProvider,
   useNav,
 } from "@kumiko/renderer";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { defaultPrimitives } from "../primitives";
 import { createEventSourceLiveEvents } from "../sse/live-events";
+import { applyTokensToCssVars, defaultTokens } from "../tokens";
 import { useBrowserNavApi } from "./nav";
 
 // Web-Bootstrap. Mounted den ganzen Kumiko-Render-Stack im Browser:
@@ -50,6 +56,12 @@ export type CreateKumikoAppOptions = {
    *  components you want to swap; unspecified primitives fall
    *  through to the HTML defaults. */
   readonly primitives?: Partial<PrimitivesRegistry>;
+  /** Partial-Override für Design-Tokens (Farben, Spacing, Radius,
+   *  Font-Sizes). Nur die Werte die die App ändern will; der Rest
+   *  kommt aus defaultTokens. Deep-merged auf category-und-leaf-
+   *  Ebene — `{ color: { primary: { background: "#ff0" } } }` lässt
+   *  primary.text und alle anderen color.*-Werte unberührt. */
+  readonly tokens?: TokensOverride;
 };
 
 export function createKumikoApp(options: CreateKumikoAppOptions): void {
@@ -78,25 +90,56 @@ export function createKumikoApp(options: CreateKumikoAppOptions): void {
   // bootstrap — stable registry avoids re-render storms from a fresh
   // object identity per render.
   const primitives: PrimitivesRegistry = { ...defaultPrimitives, ...(options.primitives ?? {}) };
+  const initialTokens = mergeTokens(defaultTokens, options.tokens);
   // EventSource-subscriber lebt im Closure dieser Factory — App-
   // lifetime scoped, re-mounting bekommt eine frische Verbindung.
   const liveEvents = createEventSourceLiveEvents();
 
   createRoot(container).render(
-    <PrimitivesProvider value={primitives}>
-      <DispatcherProvider dispatcher={dispatcher}>
-        <LiveEventsProvider value={liveEvents}>
-          <BrowserNavBoot
-            schema={options.schema}
-            fallbackQn={fallbackQn}
-            {...(options.translate !== undefined && { translate: options.translate })}
-            {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
-            {...(options.shell !== undefined && { shell: options.shell })}
-          />
-        </LiveEventsProvider>
-      </DispatcherProvider>
-    </PrimitivesProvider>,
+    <TokensBoot initial={initialTokens}>
+      <PrimitivesProvider value={primitives}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <LiveEventsProvider value={liveEvents}>
+            <BrowserNavBoot
+              schema={options.schema}
+              fallbackQn={fallbackQn}
+              {...(options.translate !== undefined && { translate: options.translate })}
+              {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
+              {...(options.shell !== undefined && { shell: options.shell })}
+            />
+          </LiveEventsProvider>
+        </DispatcherProvider>
+      </PrimitivesProvider>
+    </TokensBoot>,
   );
+}
+
+// Stateful Tokens-Provider. useState hält den aktuellen Tokens-Wert;
+// setTokens merged ein Override rein und spiegelt auf CSS-Vars,
+// sodass Default-Primitives (die CSS-Vars lesen) UND useTokens-
+// Consumer (die den Context lesen) synchron bleiben. Bootstrap-Call
+// passiert im useState-Initializer damit CSS-Vars noch vor dem
+// ersten Render gesetzt sind.
+function TokensBoot({
+  initial,
+  children,
+}: {
+  readonly initial: Tokens;
+  readonly children: ReactNode;
+}): ReactNode {
+  const [tokens, setTokensState] = useState<Tokens>(() => {
+    applyTokensToCssVars(initial);
+    return initial;
+  });
+  const setTokens = useCallback((override: TokensOverride): void => {
+    setTokensState((prev) => {
+      const next = mergeTokens(prev, override);
+      applyTokensToCssVars(next);
+      return next;
+    });
+  }, []);
+  const api = useMemo<TokensApi>(() => ({ tokens, setTokens }), [tokens, setTokens]);
+  return <TokensProvider value={api}>{children}</TokensProvider>;
 }
 
 // Separates Component-Layer damit useBrowserNavApi (ruft
