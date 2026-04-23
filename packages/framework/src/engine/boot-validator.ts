@@ -112,6 +112,7 @@ function warnOnToggleableDependencies(
       const depFeature = featureMap.get(dep);
       if (!depFeature) continue; // requires-target-missing is handled elsewhere
       if (depFeature.toggleableDefault === false) {
+        // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
         console.warn(
           `[kumiko:boot] Feature "${f.name}" requires "${dep}", which is toggleable(default=false). ` +
             `"${f.name}" will be effectively disabled until "${dep}" is enabled globally via the feature-toggles feature. ` +
