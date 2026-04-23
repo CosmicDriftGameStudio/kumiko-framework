@@ -90,6 +90,15 @@ export type TestStackOptions = {
    *  toggles, or a plain `() => new Set<string>(registry.features.keys())`
    *  to force a specific snapshot in a unit-style setup. */
   effectiveFeatures?: () => ReadonlySet<string>;
+  /** Pin the underlying Postgres DB name instead of the default
+   *  `kumiko_test_<8chars>`. Forwarded to createTestDb. Primary use
+   *  case: dev servers that want persistent storage across restarts —
+   *  combine with `persistentDb: true`. */
+  dbName?: string;
+  /** When true, cleanup() keeps the Postgres DB around — the caller
+   *  owns its lifecycle. Default false (test contract). Used by
+   *  dev-server wiring to survive hot-reloads. */
+  persistentDb?: boolean;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -104,7 +113,17 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const { ensureTemporalPolyfill } = await import("../time/polyfill");
   await ensureTemporalPolyfill();
 
-  const [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
+  // Forward db-name/persistent-flag through to createTestDb. The
+  // defaults (undefined dbName, persistent:false) keep the legacy
+  // test contract: fresh kumiko_test_<random> DB per setup, dropped
+  // on cleanup.
+  const [testDb, testRedis] = await Promise.all([
+    createTestDb({
+      ...(options.dbName !== undefined && { dbName: options.dbName }),
+      ...(options.persistentDb !== undefined && { persistent: options.persistentDb }),
+    }),
+    createTestRedis(),
+  ]);
 
   // Every ES-entity writes events via createEventStoreExecutor in the
   // feature's write handlers. Auto-create the events table so every
