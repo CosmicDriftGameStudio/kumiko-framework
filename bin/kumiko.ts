@@ -122,6 +122,18 @@ const commands = {
     },
   },
 
+  "clean-test-dbs": {
+    description: "Verwaiste kumiko_test_* DBs loeschen (SIGKILLed Tests, abgebrochene Runs)",
+    run: async () => {
+      const dryRun = Bun.argv.includes("--dry-run");
+      if (dryRun) {
+        await $`bun run scripts/cleanup-test-dbs.ts --dry-run`;
+      } else {
+        await $`bun run scripts/cleanup-test-dbs.ts`;
+      }
+    },
+  },
+
   test: {
     description: "Tests laufen lassen (test | integration | all | <path>)",
     run: async () => {
