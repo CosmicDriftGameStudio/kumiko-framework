@@ -11,6 +11,15 @@
 
 @import "tailwindcss";
 
+/* Tailwind v4 scannt per default vom Import-Ort aus; da das CSS
+   aus einem temp-dir kompiliert wird, findet es sonst keine
+   Source-Dateien. Explizite @source-Direktiven decken alle
+   Workspace-Sources ab — der CLI scannt dann unsere Primitives,
+   Layout-Components UND die Sample-App. */
+@source "../../renderer-web/src/**/*.{ts,tsx}";
+@source "../../renderer/src/**/*.{ts,tsx}";
+@source "../../../samples/**/src/**/*.{ts,tsx}";
+
 /* Dark-Mode via class-selector (nicht media). Erlaubt JS-Toggle
    und überschreibt System-Preference wenn die App will. */
 @custom-variant dark (&:where(.dark, .dark *));
