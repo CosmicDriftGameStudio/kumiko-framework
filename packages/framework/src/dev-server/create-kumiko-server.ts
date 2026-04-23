@@ -221,6 +221,16 @@ export async function createKumikoServer(
   await createEventsTable(stack.db.db);
   await createEntityTablesForFeatures(stack, options.features);
 
+  // setupTestStack konfiguriert den eventDispatcher, startet ihn aber
+  // NICHT — Integration-Tests drain'en deterministisch via runOnce().
+  // Ein Dev-Server will das laufende Polling, damit SSE-Broadcasts
+  // (system-hook sse, Priorität 1001) von selbst an connected Clients
+  // fließen. Ohne start() bleiben alle Events in der events-Tabelle
+  // liegen und die Tabs sehen nichts.
+  if (stack.eventDispatcher) {
+    await stack.eventDispatcher.start();
+  }
+
   // Dev user = TestUsers.admin. Demo features are openToAll but the
   // auth-middleware still needs a valid JWT to let the request past.
   const devUser = TestUsers.admin;
@@ -350,6 +360,9 @@ export async function createKumikoServer(
   const stop = async (): Promise<void> => {
     if (server !== undefined) {
       (server as { stop: (closeActive?: boolean) => void }).stop(true);
+    }
+    if (stack.eventDispatcher) {
+      await stack.eventDispatcher.stop();
     }
     await stack.cleanup();
   };
