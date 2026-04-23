@@ -53,12 +53,10 @@ export type {
   AppTokens,
   ColorTokens,
   CoreTokens,
-  FontSizeTokens,
   RadiusTokens,
-  SpacingTokens,
+  ThemeMode,
   Tokens,
   TokensApi,
-  TokensOverride,
   TokensProviderProps,
 } from "./tokens";
-export { mergeTokens, TokensProvider, useTokenController, useTokens } from "./tokens";
+export { cssVarTokens, TokensProvider, useTokenController, useTokens } from "./tokens";

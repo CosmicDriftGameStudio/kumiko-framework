@@ -15,7 +15,7 @@ import { fireEvent, render, screen } from "./test-utils";
 const { Button, Banner, Field, Input, DataTable, Form, Text } = defaultPrimitives;
 
 describe("Button", () => {
-  test("disabled: cursor=not-allowed + opacity 0.5", () => {
+  test("disabled: attribute gesetzt + Tailwind-Klassen für pointer-events/opacity", () => {
     render(
       <Button disabled testId="btn">
         Save
@@ -23,8 +23,9 @@ describe("Button", () => {
     );
     const btn = screen.getByTestId("btn") as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
-    expect(btn.style.cursor).toBe("not-allowed");
-    expect(btn.style.opacity).toBe("0.5");
+    // Visuelles Feedback kommt aus Tailwind-Klassen (shadcn-Pattern).
+    expect(btn.className).toContain("disabled:pointer-events-none");
+    expect(btn.className).toContain("disabled:opacity-50");
   });
 
   test("onClick fires on click", () => {
@@ -70,14 +71,15 @@ describe("Banner", () => {
 });
 
 describe("Field", () => {
-  test("required renders a data-required mark", () => {
+  test("required fügt einen Stern ans Label an", () => {
     render(
       <Field id="f1" label="Name" required testId="f">
         <input />
       </Field>,
     );
-    const mark = screen.getByTestId("f").querySelector("[data-required]");
-    expect(mark).not.toBeNull();
+    // shadcn-Field rendert den Mark als <span>* mit text-destructive.
+    const label = screen.getByTestId("f").querySelector("label");
+    expect(label?.textContent).toContain("*");
   });
 
   test("issues render inside role=alert with per-testId suffix", () => {

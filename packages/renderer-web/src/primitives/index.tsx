@@ -1,12 +1,12 @@
-// HTML-Default-Primitives für den Web-Renderer. Konsumieren direkt
-// CSS-Variables (`var(--kumiko-*)`) statt `useTokens()` — der Toggle
-// läuft dann über einen einzigen `applyTokensToCssVars`-Aufruf,
-// ohne Re-Renders in der Primitives-Cascade.
+// shadcn+Tailwind Default-Primitives für den Web-Renderer.
+// Konsumieren den Primitives-Contract aus `@kumiko/renderer`. Keine
+// useTokens()-Aufrufe — die Farben kommen aus den Tailwind-Klassen
+// die auf die shadcn-CSS-Variablen referenzieren.
 //
-// `useTokens()` bleibt öffentliche API für App-Code der JS-Werte
-// braucht (Canvas, Chart-Farben). Die Default-Primitives brauchen
-// das nicht — sie rendern CSS, und CSS liest die Variables zur
-// Render-Zeit vom Browser.
+// Muster: pro Primitive eine Tailwind-Klassen-Komposition,
+// Konfigurierbarkeit über `class-variance-authority` für variant-
+// basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
+// Dropdown etc. kommen später).
 
 import type {
   BannerProps,
@@ -21,31 +21,28 @@ import type {
   SectionProps,
   TextProps,
 } from "@kumiko/renderer";
-import type { ChangeEvent, CSSProperties, ReactNode } from "react";
+import { cva } from "class-variance-authority";
+import type { ChangeEvent, ReactNode } from "react";
+import { cn } from "../lib/cn";
 
-// CSS-Variable Namen zentral. Entsprechen dem auto-generierten
-// Namensschema von applyTokensToCssVars: `color.primary.background`
-// → `--kumiko-color-primary-background` (camelCase → kebab,
-// verschachtelte Objekte durch Bindestrich getrennt).
-const css = {
-  bg: "var(--kumiko-color-background)",
-  surface: "var(--kumiko-color-surface)",
-  text: "var(--kumiko-color-text)",
-  textMuted: "var(--kumiko-color-text-muted)",
-  border: "var(--kumiko-color-border)",
-  primaryBg: "var(--kumiko-color-primary-background)",
-  primaryText: "var(--kumiko-color-primary-text)",
-  dangerBg: "var(--kumiko-color-danger-background)",
-  dangerText: "var(--kumiko-color-danger-text)",
-  xs: "var(--kumiko-spacing-xs)",
-  sm: "var(--kumiko-spacing-sm)",
-  md: "var(--kumiko-spacing-md)",
-  lg: "var(--kumiko-spacing-lg)",
-  radiusSm: "var(--kumiko-radius-sm)",
-  radiusMd: "var(--kumiko-radius-md)",
-  fontBody: "var(--kumiko-font-size-body)",
-  fontSmall: "var(--kumiko-font-size-small)",
-} as const;
+// ---- Button ----
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors " +
+    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
+    "disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        primary: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+        secondary:
+          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
+        danger: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+      },
+    },
+    defaultVariants: { variant: "primary" },
+  },
+);
 
 function DefaultButton({
   type = "button",
@@ -55,74 +52,63 @@ function DefaultButton({
   children,
   testId,
 }: ButtonProps): ReactNode {
-  const style: CSSProperties = {
-    background:
-      variant === "secondary" ? "transparent" : variant === "danger" ? css.dangerBg : css.primaryBg,
-    color:
-      variant === "secondary" ? css.text : variant === "danger" ? css.dangerText : css.primaryText,
-    border: variant === "secondary" ? `1px solid ${css.border}` : "none",
-    padding: `${css.sm} ${css.md}`,
-    borderRadius: css.radiusSm,
-    fontSize: css.fontBody,
-    cursor: disabled === true ? "not-allowed" : "pointer",
-    opacity: disabled === true ? 0.5 : 1,
-    marginRight: css.sm,
-  };
   return (
-    <button type={type} onClick={onClick} disabled={disabled} data-testid={testId} style={style}>
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testId}
+      className={cn(buttonVariants({ variant }), "h-9 px-4 py-2")}
+    >
       {children}
     </button>
   );
 }
 
+// ---- Banner (shadcn: Alert) ----
+
 function DefaultBanner({ variant = "info", children, actions, testId }: BannerProps): ReactNode {
-  const role = variant === "error" ? "alert" : undefined;
-  const bg =
-    variant === "error" ? `color-mix(in srgb, ${css.dangerBg} 12%, transparent)` : css.surface;
-  const borderColor = variant === "error" ? css.dangerBg : css.border;
-  const style: CSSProperties = {
-    display: "flex",
-    gap: css.md,
-    alignItems: "center",
-    padding: `${css.sm} ${css.md}`,
-    margin: `${css.sm} 0`,
-    background: bg,
-    border: `1px solid ${borderColor}`,
-    borderRadius: css.radiusSm,
-    fontSize: css.fontBody,
-  };
+  const isError = variant === "error";
   return (
-    <div data-testid={testId} role={role} data-variant={variant} style={style}>
-      <span style={{ flex: 1 }}>{children}</span>
-      {actions !== undefined && <span data-slot="actions">{actions}</span>}
+    <div
+      data-testid={testId}
+      role={isError ? "alert" : undefined}
+      data-variant={variant}
+      className={cn(
+        "relative w-full rounded-lg border px-4 py-3 text-sm flex items-center gap-3",
+        isError
+          ? "border-destructive/50 text-destructive bg-destructive/10 dark:border-destructive"
+          : "bg-card text-card-foreground",
+      )}
+    >
+      <div className="flex-1">{children}</div>
+      {actions !== undefined && <div data-slot="actions">{actions}</div>}
     </div>
   );
 }
 
+// ---- Field (Label + Error) ----
+
 function DefaultField({ id, label, required, issues, children, testId }: FieldProps): ReactNode {
-  const labelStyle: CSSProperties = {
-    display: "block",
-    fontSize: css.fontSmall,
-    color: css.textMuted,
-    marginBottom: css.xs,
-  };
-  const errorStyle: CSSProperties = {
-    fontSize: css.fontSmall,
-    color: css.dangerBg,
-    marginTop: css.xs,
-  };
+  const hasError = issues !== undefined && issues.length > 0;
   return (
-    <div data-testid={testId}>
-      <label htmlFor={id} style={labelStyle}>
+    <div data-testid={testId} className="flex flex-col gap-1.5">
+      <label
+        htmlFor={id}
+        className={cn(
+          "text-sm font-medium leading-none",
+          hasError ? "text-destructive" : "text-foreground",
+        )}
+      >
         {label}
-        {required === true && <span data-required>{" *"}</span>}
+        {required === true && <span className="ml-0.5 text-destructive">*</span>}
       </label>
       {children}
-      {issues !== undefined && issues.length > 0 && (
+      {hasError && (
         <div
           role="alert"
           data-testid={testId !== undefined ? `${testId}-errors` : undefined}
-          style={errorStyle}
+          className="text-xs text-destructive"
         >
           {issues.map((issue) => (
             <div key={`${issue.path}:${issue.code}`}>{issue.i18nKey}</div>
@@ -133,18 +119,17 @@ function DefaultField({ id, label, required, issues, children, testId }: FieldPr
   );
 }
 
+// ---- Input ----
+
+const inputClassBase =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm " +
+  "transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium " +
+  "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
+  "disabled:cursor-not-allowed disabled:opacity-50";
+
 function DefaultInput(props: InputProps): ReactNode {
-  const baseStyle: CSSProperties = {
-    width: "100%",
-    padding: `${css.sm} ${css.md}`,
-    background: css.bg,
-    color: css.text,
-    border: `1px solid ${props.hasError === true ? css.dangerBg : css.border}`,
-    borderRadius: css.radiusSm,
-    fontSize: css.fontBody,
-    fontFamily: "inherit",
-    boxSizing: "border-box",
-  };
+  const errorClass =
+    props.hasError === true ? "border-destructive focus-visible:ring-destructive" : "";
   const common = {
     id: props.id,
     name: props.name,
@@ -160,7 +145,7 @@ function DefaultInput(props: InputProps): ReactNode {
           {...common}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
-          style={baseStyle}
+          className={cn(inputClassBase, errorClass)}
         />
       );
     case "number":
@@ -173,7 +158,7 @@ function DefaultInput(props: InputProps): ReactNode {
             const v = e.target.value;
             props.onChange(v === "" ? undefined : Number(v));
           }}
-          style={baseStyle}
+          className={cn(inputClassBase, errorClass)}
         />
       );
     case "boolean":
@@ -183,7 +168,10 @@ function DefaultInput(props: InputProps): ReactNode {
           {...common}
           checked={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.checked)}
-          style={{ marginTop: css.xs }}
+          className={cn(
+            "h-4 w-4 rounded-sm border border-input accent-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            errorClass,
+          )}
         />
       );
     case "date":
@@ -195,11 +183,13 @@ function DefaultInput(props: InputProps): ReactNode {
           onChange={(e: ChangeEvent<HTMLInputElement>) =>
             props.onChange(e.target.value !== "" ? e.target.value : undefined)
           }
-          style={baseStyle}
+          className={cn(inputClassBase, errorClass)}
         />
       );
   }
 }
+
+// ---- DataTable (shadcn: Table) ----
 
 function DefaultDataTable({
   columns,
@@ -212,63 +202,54 @@ function DefaultDataTable({
     return (
       <div
         data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
-        style={{ padding: css.lg, color: css.textMuted }}
+        className="flex items-center justify-center rounded-md border border-dashed p-8 text-sm text-muted-foreground"
       >
         {emptyState ?? <span>No entries.</span>}
       </div>
     );
   }
-  const tableStyle: CSSProperties = {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: css.fontBody,
-  };
-  const thStyle: CSSProperties = {
-    textAlign: "left",
-    padding: `${css.sm} ${css.md}`,
-    borderBottom: `1px solid ${css.border}`,
-    fontSize: css.fontSmall,
-    color: css.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-  };
-  const tdStyle: CSSProperties = {
-    padding: `${css.sm} ${css.md}`,
-    borderBottom: `1px solid ${css.border}`,
-  };
   return (
-    <table data-testid={testId} style={tableStyle}>
-      <thead>
-        <tr>
-          {columns.map((col) => (
-            <th
-              key={col.field}
-              data-testid={`column-${col.field}`}
-              data-sortable={col.sortable === true ? true : undefined}
-              style={thStyle}
-            >
-              {col.label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr
-            key={row.id}
-            data-testid={`row-${row.id}`}
-            onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
-            style={onRowClick !== undefined ? { cursor: "pointer" } : undefined}
-          >
+    <div className="rounded-md border">
+      <table data-testid={testId} className="w-full caption-bottom text-sm">
+        <thead className="[&_tr]:border-b">
+          <tr className="border-b transition-colors hover:bg-muted/50">
             {columns.map((col) => (
-              <td key={col.field} data-testid={`cell-${row.id}-${col.field}`} style={tdStyle}>
-                {renderCell(row.values[col.field], col.type, col.renderer)}
-              </td>
+              <th
+                key={col.field}
+                data-testid={`column-${col.field}`}
+                data-sortable={col.sortable === true ? true : undefined}
+                className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+              >
+                {col.label}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="[&_tr:last-child]:border-0">
+          {rows.map((row) => (
+            <tr
+              key={row.id}
+              data-testid={`row-${row.id}`}
+              onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
+              className={cn(
+                "border-b transition-colors hover:bg-muted/50",
+                onRowClick !== undefined && "cursor-pointer",
+              )}
+            >
+              {columns.map((col) => (
+                <td
+                  key={col.field}
+                  data-testid={`cell-${row.id}-${col.field}`}
+                  className="p-4 align-middle"
+                >
+                  {renderCell(row.values[col.field], col.type, col.renderer)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -282,6 +263,8 @@ function renderCell(value: unknown, type: string, renderer?: unknown): string {
   return typeof value === "string" ? value : String(value);
 }
 
+// ---- Form + Section + Grid + Text ----
+
 function DefaultForm({ onSubmit, children, testId }: FormProps): ReactNode {
   return (
     <form
@@ -290,7 +273,7 @@ function DefaultForm({ onSubmit, children, testId }: FormProps): ReactNode {
         onSubmit(e);
       }}
       data-testid={testId}
-      style={{ display: "flex", flexDirection: "column", gap: css.md }}
+      className="flex flex-col gap-6"
     >
       {children}
     </form>
@@ -298,37 +281,29 @@ function DefaultForm({ onSubmit, children, testId }: FormProps): ReactNode {
 }
 
 function DefaultSection({ title, children, testId }: SectionProps): ReactNode {
-  const fieldsetStyle: CSSProperties = {
-    border: `1px solid ${css.border}`,
-    borderRadius: css.radiusMd,
-    padding: css.md,
-    margin: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: css.md,
-  };
-  const legendStyle: CSSProperties = {
-    padding: `0 ${css.xs}`,
-    fontSize: css.fontSmall,
-    color: css.textMuted,
-  };
   return (
-    <fieldset data-testid={testId} style={fieldsetStyle}>
-      <legend style={legendStyle}>{title}</legend>
-      {children}
-    </fieldset>
+    <section
+      data-testid={testId}
+      className="rounded-lg border bg-card text-card-foreground shadow-sm"
+    >
+      <div className="px-6 py-4 border-b">
+        <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+      </div>
+      <div className="px-6 py-4 flex flex-col gap-4">{children}</div>
+    </section>
   );
 }
 
 function DefaultGrid({ columns, children, testId }: GridProps): ReactNode {
+  // Dynamische Grid-Spalten über style-Attribute — Tailwind JIT kann
+  // `grid-cols-${N}` nicht statisch auflösen weil der Scanner nur
+  // Literal-Strings sieht. Für feste Spaltenzahlen könnte man
+  // `grid-cols-2` etc. hardcoden; Kumikos Grid ist aber generisch.
   return (
     <div
       data-testid={testId}
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${columns}, 1fr)`,
-        gap: css.md,
-      }}
+      className="grid gap-4"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
     >
       {children}
     </div>
@@ -336,7 +311,7 @@ function DefaultGrid({ columns, children, testId }: GridProps): ReactNode {
 }
 
 function DefaultGridCell({ span, children }: GridCellProps): ReactNode {
-  const s = span !== undefined ? span : 1;
+  const s = span !== undefined ? Math.min(span, 12) : 1;
   return <div style={{ gridColumn: `span ${s}` }}>{children}</div>;
 }
 
@@ -346,26 +321,20 @@ function DefaultText({ variant = "body", children, testId }: TextProps): ReactNo
       return (
         <code
           data-testid={testId}
-          style={{
-            background: css.surface,
-            padding: `1px ${css.xs}`,
-            borderRadius: css.radiusSm,
-            fontSize: css.fontSmall,
-            fontFamily: "'SF Mono', Menlo, Consolas, monospace",
-          }}
+          className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm"
         >
           {children}
         </code>
       );
     case "small":
       return (
-        <small data-testid={testId} style={{ fontSize: css.fontSmall, color: css.textMuted }}>
+        <small data-testid={testId} className="text-xs text-muted-foreground">
           {children}
         </small>
       );
     case "required-mark":
       return (
-        <span data-testid={testId} data-required style={{ color: css.dangerBg }}>
+        <span data-testid={testId} data-required className="text-destructive">
           {children}
         </span>
       );

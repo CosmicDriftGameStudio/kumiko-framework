@@ -1,9 +1,4 @@
-// Horizontale Leiste am oberen Rand. Drei Slots — start (Brand,
-// Logo), center (Hauptnav, meist <KumikoLink>-Liste), end (Actions
-// wie Theme-Toggle, User-Menu, Tenant-Switcher). Alle Slots sind
-// optional; der Layout fällt intelligent zurück wenn einer fehlt.
-
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export type TopbarProps = {
   readonly start?: ReactNode;
@@ -13,37 +8,15 @@ export type TopbarProps = {
 };
 
 export function Topbar({ start, center, end, testId }: TopbarProps): ReactNode {
-  const barStyle: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: "var(--kumiko-spacing-lg)",
-    padding: "var(--kumiko-spacing-md) var(--kumiko-spacing-lg)",
-    background: "var(--kumiko-color-surface)",
-    borderBottom: "1px solid var(--kumiko-color-border)",
-    fontSize: "var(--kumiko-font-size-body)",
-  };
-  const startStyle: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: "var(--kumiko-spacing-md)",
-  };
-  const centerStyle: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: "var(--kumiko-spacing-lg)",
-    flex: 1,
-  };
-  const endStyle: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: "var(--kumiko-spacing-sm)",
-    marginLeft: "auto",
-  };
   return (
-    <header data-testid={testId} data-kumiko-layout="topbar" style={barStyle}>
-      {start !== undefined && <div style={startStyle}>{start}</div>}
-      {center !== undefined && <nav style={centerStyle}>{center}</nav>}
-      {end !== undefined && <div style={endStyle}>{end}</div>}
+    <header
+      data-testid={testId}
+      data-kumiko-layout="topbar"
+      className="flex h-14 items-center gap-6 border-b bg-card px-6 text-sm"
+    >
+      {start !== undefined && <div className="flex items-center gap-3">{start}</div>}
+      {center !== undefined && <nav className="flex flex-1 items-center gap-6">{center}</nav>}
+      {end !== undefined && <div className="ml-auto flex items-center gap-2">{end}</div>}
     </header>
   );
 }

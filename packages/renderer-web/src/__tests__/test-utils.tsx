@@ -37,9 +37,14 @@ const stubNav: NavApi = {
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};
 
-// Stub-Tokens-API für Tests. setTokens ist ein no-op — Tests die
-// Toggle testen wollen, bauen sich ihren eigenen Wrapper.
-const stubTokens = { tokens: defaultTokens, setTokens: () => {} };
+// Stub-Tokens-API für Tests. Mode-Setter ist ein no-op — Tests die
+// Theme-Toggle testen wollen, bauen sich ihren eigenen Wrapper.
+const stubTokens = {
+  tokens: defaultTokens,
+  mode: "dark" as const,
+  setMode: () => {},
+  toggleMode: () => {},
+};
 
 function DefaultProviders({ children }: { readonly children: ReactNode }): ReactNode {
   return (

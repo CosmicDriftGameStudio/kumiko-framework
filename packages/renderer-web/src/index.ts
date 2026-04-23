@@ -7,15 +7,16 @@
 // --- Shared re-exports (Components, Hooks, Types, Contexts) ---
 export type {
   AppPrimitives,
+  AppTokens,
   BannerProps,
   ButtonProps,
   ColorTokens,
   CorePrimitives,
+  CoreTokens,
   DataTableProps,
   DispatcherProviderProps,
   FeatureSchema,
   FieldProps,
-  FontSizeTokens,
   FormProps,
   GridCellProps,
   GridProps,
@@ -35,10 +36,10 @@ export type {
   RenderFieldProps,
   RenderListProps,
   SectionProps,
-  SpacingTokens,
   TextProps,
+  ThemeMode,
   Tokens,
-  TokensOverride,
+  TokensApi,
   TokensProviderProps,
   UseFormOptions,
   UseFormResult,
@@ -46,11 +47,11 @@ export type {
   UseQueryResult,
 } from "@kumiko/renderer";
 export {
+  cssVarTokens,
   DispatcherProvider,
   formatPath,
   KumikoScreen,
   LiveEventsProvider,
-  mergeTokens,
   NavProvider,
   PrimitivesProvider,
   parsePath,
@@ -86,4 +87,9 @@ export { Topbar } from "./layout/topbar";
 export { defaultPrimitives } from "./primitives";
 export type { CreateEventSourceLiveEventsOptions } from "./sse/live-events";
 export { createEventSourceLiveEvents } from "./sse/live-events";
-export { applyTokensToCssVars, defaultTokens, lightTokens } from "./tokens";
+export {
+  applyTokensToCssVars,
+  defaultTokens,
+  lightTokens,
+  useBrowserTokensApi,
+} from "./tokens";

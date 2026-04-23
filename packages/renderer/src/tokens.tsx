@@ -1,107 +1,78 @@
-// Design-Tokens für Kumikos Rendering-Stack. Plattformneutrales
-// TypeScript-Objekt — weder CSS-Variables noch Tailwind-Klassen.
-// Die Plattform-Packages übersetzen:
+// Design-Tokens im shadcn-Namensschema. Werte sind CSS-Variable-
+// Referenzen (`var(--color-primary)`) — die echten Zahlen leben in
+// styles.css (Web) bzw. in einer StyleSheet.create-Config (Native,
+// später). Der Hook ist vor allem für Custom-Components die mal
+// einen Token-Wert in eine JS-style-prop schieben müssen; die
+// Default-Primitives nutzen direkt Tailwind-Klassen und brauchen
+// ihn nicht.
 //
-//   @kumiko/renderer-web   : spiegelt Tokens auf :root CSS-Variables
-//   @kumiko/renderer-native: nutzt Tokens direkt in StyleSheet.create
+// Theme-Toggle läuft über `.dark`-Class auf `<html>` — kein JS-State
+// nötig, CSS rendert sofort neu. `useTokenController().toggleTheme()`
+// ist nur ein DOM-Wrapper, kein eigener React-State.
 //
-// Tokens sind die SSOT für visuelle Konstanten. `useTokens()` liefert
-// den aktuellen Wert (read-only); `useTokenController()` liefert
-// zusätzlich den Setter für Runtime-Toggles (Dark/Light, Compact-
-// Mode etc.). Der Provider-Wert ist stateful — wer Tokens ändert,
-// triggert ein Re-render aller useTokens()-Consumer.
-//
-// Erweiterbar: analog zu `AppPrimitives` können Apps `AppTokens` via
-// Module-Augmentation mit eigenen Kategorien füllen (chart, brand,
-// whatever). Die Web-Spiegelung schreibt alle string-Leafs rekursiv
-// als CSS-Vars, so dass Custom-Tokens ohne weiteren Aufwand über
-// `var(--kumiko-<path>)` verfügbar sind.
+// Erweiterbar: AppTokens-Interface wie bei Primitives. Dev kann
+// eigene Token-Kategorien deklarieren und mit var-Strings befüllen.
 
 import { createContext, type ReactNode, useContext } from "react";
 
-// ---- Core-Token-Types ----
+// ---- Core-Token-Types (shadcn-Schema) ----
 
 export type ColorTokens = {
-  /** App-Hintergrund — unterste Ebene. */
   readonly background: string;
-  /** Karten/Panel-Hintergrund — eine Ebene über background. */
-  readonly surface: string;
-  /** Default-Textfarbe. Lesbar auf background UND surface. */
-  readonly text: string;
-  /** Gedämpfte Textfarbe für Labels, Platzhaltertexte, Metainfos. */
-  readonly textMuted: string;
-  /** Trennlinien, Input-Rand, Section-Divider. */
+  readonly foreground: string;
+  readonly card: string;
+  readonly cardForeground: string;
+  readonly popover: string;
+  readonly popoverForeground: string;
+  readonly primary: string;
+  readonly primaryForeground: string;
+  readonly secondary: string;
+  readonly secondaryForeground: string;
+  readonly muted: string;
+  readonly mutedForeground: string;
+  readonly accent: string;
+  readonly accentForeground: string;
+  readonly destructive: string;
+  readonly destructiveForeground: string;
   readonly border: string;
-  /** Primary (Save-Button, aktiver Nav-Tab). */
-  readonly primary: { readonly background: string; readonly text: string };
-  /** Danger (Delete-Button, Fehler-Banner). */
-  readonly danger: { readonly background: string; readonly text: string };
-  /** Success (rar — für Success-Toasts reserviert). */
-  readonly success: { readonly background: string; readonly text: string };
+  readonly input: string;
+  readonly ring: string;
 };
 
-export type SpacingTokens = {
-  readonly xs: string;
+export type RadiusTokens = {
   readonly sm: string;
   readonly md: string;
   readonly lg: string;
   readonly xl: string;
 };
 
-export type RadiusTokens = {
-  readonly sm: string;
-  readonly md: string;
-};
-
-export type FontSizeTokens = {
-  readonly body: string;
-  readonly small: string;
-  readonly heading: string;
-};
-
 export type CoreTokens = {
   readonly color: ColorTokens;
-  readonly spacing: SpacingTokens;
   readonly radius: RadiusTokens;
-  readonly fontSize: FontSizeTokens;
 };
 
-/** Offene Extension-Zone für App-eigene Token-Kategorien. Devs
- *  erweitern dieses Interface via TypeScript Module-Augmentation:
+/** Erweiterung für App-eigene Token-Kategorien. Devs augmentieren:
  *
  *    declare module "@kumiko/renderer" {
  *      interface AppTokens {
- *        chart: { gridline: string; bg: string };
- *        brand: { accent: string };
+ *        chart: { gridline: string; line: string };
  *      }
  *    }
  *
- *  Nach der Augmentation tauchen die Keys in `Tokens` auf, lassen
- *  sich via `createKumikoApp({ tokens: { chart: {...} } })` setzen
- *  und werden automatisch als `--kumiko-chart-gridline` etc. auf
- *  CSS-Variablen gespiegelt. */
+ *  Und reichen im App-CSS die passenden `--chart-*` Variablen rein.
+ *  Kumikos Default-Primitives nutzen nur CoreTokens. */
 // biome-ignore lint/suspicious/noEmptyInterface: extension point for module augmentation
 export interface AppTokens {}
 
 export type Tokens = CoreTokens & AppTokens;
 
-/** Deep-Partial über die komplette Token-Struktur. Alle Leafs werden
- *  optional, alle Zwischenknoten sind rekursiv partial. Funktioniert
- *  automatisch auch für AppTokens-Erweiterungen. */
-export type TokensOverride = DeepPartial<Tokens>;
-
-type DeepPartial<T> = {
-  readonly [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
-};
-
-// ---- Controller-API ----
+export type ThemeMode = "light" | "dark";
 
 export type TokensApi = {
   readonly tokens: Tokens;
-  /** Wendet ein Partial-Override auf die aktuellen Tokens an.
-   *  Mehrere Setter sind additiv — nachfolgende Aufrufe mergen auf
-   *  den aktuellen State, nicht auf den Bootstrap-Default. */
-  readonly setTokens: (override: TokensOverride) => void;
+  readonly mode: ThemeMode;
+  readonly setMode: (mode: ThemeMode) => void;
+  readonly toggleMode: () => void;
 };
 
 // ---- Context + Provider + Hooks ----
@@ -117,51 +88,56 @@ export function TokensProvider({ children, value }: TokensProviderProps): ReactN
   return <TokensContext.Provider value={value}>{children}</TokensContext.Provider>;
 }
 
-/** Read-only Tokens-Hook. Liefert den aktuellen Wert, re-rendert
- *  bei State-Change. Für Consumer die nur lesen (Custom-Components
- *  mit Canvas-Rendering, Chart-Farben). */
+/** Read-only Tokens-Hook. Liefert CSS-var-Strings — nutzbar in
+ *  style-Props oder Tailwind-arbitrary-values wie
+ *  `bg-[var(--color-primary)]` (selten, die shadcn-Tailwind-Klassen
+ *  `bg-primary` sind idiomatischer). */
 export function useTokens(): Tokens {
   return useTokenController().tokens;
 }
 
-/** Volle API inkl. `setTokens`. App-Code der einen Theme-Toggle
- *  baut nutzt diesen Hook. */
+/** Volle API inkl. Theme-Toggle. Für den Dark/Light-Switch-Button. */
 export function useTokenController(): TokensApi {
   const api = useContext(TokensContext);
   if (api === undefined) {
     throw new Error(
-      "useTokens/useTokenController: no <TokensProvider> mounted. Wrap your app in one (createKumikoApp does this for you with defaultTokens from @kumiko/renderer-web).",
+      "useTokens/useTokenController: no <TokensProvider> mounted. createKumikoApp verdrahtet den Provider automatisch mit @kumiko/renderer-web defaults.",
     );
   }
   return api;
 }
 
-// ---- Deep-Merge Helper ----
+/** Tokens mit var-string-Werten. Konstant — die "Werte" sind
+ *  Referenzen, die echten Farben ändern sich per CSS ohne dass das
+ *  Objekt mutiert werden muss. Plattform-Packages (renderer-web,
+ *  -native) importieren das in ihre TokensApi-Impl. */
+export const cssVarTokens: Tokens = {
+  color: {
+    background: "var(--color-background)",
+    foreground: "var(--color-foreground)",
+    card: "var(--color-card)",
+    cardForeground: "var(--color-card-foreground)",
+    popover: "var(--color-popover)",
+    popoverForeground: "var(--color-popover-foreground)",
+    primary: "var(--color-primary)",
+    primaryForeground: "var(--color-primary-foreground)",
+    secondary: "var(--color-secondary)",
+    secondaryForeground: "var(--color-secondary-foreground)",
+    muted: "var(--color-muted)",
+    mutedForeground: "var(--color-muted-foreground)",
+    accent: "var(--color-accent)",
+    accentForeground: "var(--color-accent-foreground)",
+    destructive: "var(--color-destructive)",
+    destructiveForeground: "var(--color-destructive-foreground)",
+    border: "var(--color-border)",
+    input: "var(--color-input)",
+    ring: "var(--color-ring)",
+  },
+  radius: {
+    sm: "var(--radius-sm)",
+    md: "var(--radius-md)",
+    lg: "var(--radius-lg)",
+    xl: "var(--radius-xl)",
+  },
+} as Tokens;
 
-/** Generisches Deep-Merge für Tokens. Behandelt beliebig tief
- *  verschachtelte Objekt-Strukturen, inklusive AppTokens-Extensions.
- *  Arrays und null werden als Leafs behandelt (replaced, nicht
- *  merged) — Kumikos Tokens haben keine Arrays, sollte später was
- *  dazukommen, ist der Type-Guard die Stelle.
- *
- *  Invariant: das Ergebnis ist ein vollständiges `Tokens`-Object,
- *  keine Keys entfallen. Override darf Leafs überschreiben, aber
- *  nicht wegbekommen. */
-export function mergeTokens(base: Tokens, override: TokensOverride | undefined): Tokens {
-  if (override === undefined) return base;
-  return deepMerge(base, override) as Tokens;
-}
-
-function deepMerge(base: unknown, override: unknown): unknown {
-  if (override === undefined) return base;
-  if (!isPlainObject(base) || !isPlainObject(override)) return override;
-  const result: Record<string, unknown> = { ...base };
-  for (const [key, value] of Object.entries(override)) {
-    result[key] = deepMerge((base as Record<string, unknown>)[key], value);
-  }
-  return result;
-}
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}

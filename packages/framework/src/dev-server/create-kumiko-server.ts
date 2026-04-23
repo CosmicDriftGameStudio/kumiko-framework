@@ -14,8 +14,11 @@
 // The companion prod entry will land at `@kumiko/framework/server`
 // with a different options shape (clientDist, auth config, db url).
 
+import { spawn } from "node:child_process";
+import { mkdtempSync } from "node:fs";
 import { readFile, watch } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { generateToken } from "../api/tokens";
 import type { FeatureDefinition } from "../engine/types";
 import { createEventsTable } from "../event-store";
@@ -47,6 +50,11 @@ export type CreateKumikoServerOptions = {
    *  `Bun.build` on it and serves the output at `/client.js`. Omit to
    *  run a headless API-only dev-stack (rare — every sample has one). */
   readonly clientEntry?: string;
+  /** Absolute path to the CSS entry (typischerweise styles.css mit
+   *  @import "tailwindcss"). Der dev-server startet dann den
+   *  Tailwind-CLI als watcher und servt das kompilierte CSS unter
+   *  /styles.css. Omit → keine CSS-Pipeline. */
+  readonly stylesheet?: string;
   /** Optional HTML template served at `GET /`. The dev-server injects
    *  a `<script src="/client.js">` and a reload-listener snippet into
    *  `</body>` if those aren't already there. Defaults to a minimal
@@ -150,11 +158,54 @@ function injectReload(html: string): string {
     : html + RELOAD_SNIPPET;
 }
 
+// Injiziert <link rel="stylesheet" href="/styles.css"> in den <head>,
+// wenn es noch nicht da ist. Wird nur aufgerufen wenn die App das
+// stylesheet-Option genutzt hat — andernfalls kommt keine CSS-Route.
+function injectStylesheet(html: string): string {
+  if (html.includes('href="/styles.css"')) return html;
+  const link = '<link rel="stylesheet" href="/styles.css" />';
+  return html.includes("</head>")
+    ? html.replace("</head>", `  ${link}\n</head>`)
+    : `${link}${html}`;
+}
+
 async function watchDir(dir: string, onChange: (filename: string) => void): Promise<void> {
   const watcher = watch(dir, { recursive: true });
   for await (const ev of watcher) {
     if (ev.filename) onChange(ev.filename);
   }
+}
+
+// Startet den Tailwind-CLI als watch-Prozess. Rückgabe: der Output-
+// Path (temp-file) den der dev-server als /styles.css serviert.
+// Beim ersten Aufruf blockiert die Funktion bis Tailwind den initialen
+// Build fertig hat — sonst würde der Browser 404 auf das Stylesheet
+// bekommen solange Tailwind noch arbeitet.
+async function startTailwindWatcher(entryCss: string): Promise<string> {
+  const outDir = mkdtempSync(join(tmpdir(), "kumiko-tw-"));
+  const outPath = join(outDir, "styles.css");
+  logInfo(`[kumiko-server] tailwind watcher → ${outPath}`);
+  // --watch lässt den Prozess laufen; spawn direkt ohne await auf
+  // exit. Den initialen Build warten wir mit einem ersten one-shot-
+  // Build ab — schneller als den --watch-output zu parsen.
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    // biome-ignore lint/correctness/noNodejsModules: node-API ist hier der richtige Weg
+    const child = spawn("bunx", ["@tailwindcss/cli", "-i", entryCss, "-o", outPath], {
+      stdio: "inherit",
+    });
+    child.on("exit", (code) => {
+      if (code === 0) resolvePromise();
+      else rejectPromise(new Error(`tailwind one-shot-build exit ${code}`));
+    });
+    child.on("error", rejectPromise);
+  });
+  // Dann der Watcher im Hintergrund.
+  // biome-ignore lint/correctness/noNodejsModules: node-API ist hier der richtige Weg
+  const watcher = spawn("bunx", ["@tailwindcss/cli", "-i", entryCss, "-o", outPath, "--watch"], {
+    stdio: "inherit",
+  });
+  watcher.unref();
+  return outPath;
 }
 
 // Create all entity tables declared by the given features. Uses
@@ -193,6 +244,16 @@ export async function createKumikoServer(
           ? ` (+ ${clientBundle.map.length.toLocaleString()} bytes sourcemap)`
           : ""),
     );
+  }
+
+  // --- Tailwind stylesheet (optional) ---
+  // Tailwind-CLI läuft im watch-mode, schreibt in ein temp-file, der
+  // dev-server liest es bei jedem /styles.css-Request frisch. Nicht
+  // Super-Performant, aber keine in-memory-Signal-Gymnastik nötig
+  // und der Browser-Reload kommt eh nur nach Bundle-Rebuild.
+  let stylesheetPath: string | undefined;
+  if (options.stylesheet !== undefined) {
+    stylesheetPath = await startTailwindWatcher(resolve(options.stylesheet));
   }
 
   // --- HTML template ---
@@ -260,7 +321,9 @@ export async function createKumikoServer(
     headers.set("Content-Type", "text/html; charset=utf-8");
     headers.append("Set-Cookie", `${AUTH_COOKIE}=${jwt}; Path=/; HttpOnly; SameSite=Lax`);
     headers.append("Set-Cookie", `${CSRF_COOKIE}=${csrf}; Path=/; SameSite=Lax`);
-    return new Response(injectReload(htmlTemplate), { headers });
+    let html = injectReload(htmlTemplate);
+    if (stylesheetPath !== undefined) html = injectStylesheet(html);
+    return new Response(html, { headers });
   };
 
   // --- Fetch handler (runtime-neutral) ---
@@ -278,6 +341,14 @@ export async function createKumikoServer(
       if (!clientBundle.map) return new Response("no map", { status: 404 });
       return new Response(clientBundle.map, {
         headers: { "Content-Type": "application/json; charset=utf-8" },
+      });
+    }
+
+    if (url.pathname === "/styles.css" && req.method === "GET") {
+      if (stylesheetPath === undefined) return new Response("no stylesheet", { status: 404 });
+      const css = await readFile(stylesheetPath, "utf-8");
+      return new Response(css, {
+        headers: { "Content-Type": "text/css; charset=utf-8" },
       });
     }
 

@@ -89,7 +89,6 @@ export function KumikoLink({ to, onClick, children, ...rest }: KumikoLinkProps):
     [nav, to, onClick],
   );
   return (
-    // biome-ignore lint/a11y/useValidAnchor: navigate() is the interception, href keeps a valid fallback URL
     <a href={nav.hrefFor(to)} onClick={handleClick} {...rest}>
       {children}
     </a>
