@@ -26,6 +26,7 @@ Jedes Sample = 1 Feature-Definition + 1 Test. Bricht ein Framework-Change was, w
 | Row-level Ownership (Entity + Field, Read + Write, Straddle-safe) | [ownership](ownership/) | Integration |
 | Jobs auf Deploy-Lane pinnen (runIn: "api" \| "worker"), event-triggered Fan-out | [lane-routing](lane-routing/) | Integration |
 | Screens + Navigation registrieren (r.screen + r.nav) mit entityList/entityEdit/custom, cross-feature Nav-Parents, typed FieldCondition<T> | [screens-nav](screens-nav/) | Unit |
+| Playwright-E2E-Specs aus der Registry generieren (generateE2ESpec + renderPlaywrightSpec, 4 Test-Kinds, Feldtyp→Interaktion-Mapping) | [e2e-generator](e2e-generator/) | Unit |
 
 ## Full-App Samples (geplant)
 
