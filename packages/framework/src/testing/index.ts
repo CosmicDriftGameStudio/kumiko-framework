@@ -152,9 +152,13 @@ export { expectError, expectSuccess } from "./assertions";
 export {
   type E2EGeneratorOptions,
   type E2ETestSpec,
+  type EditFillOp,
   generateE2ESpec,
   generateZodFixture,
   renderPlaywrightSpec,
+  type WriteE2ESpecOptions,
+  type WriteE2ESpecResult,
+  writeE2ESpec,
 } from "./e2e-generator";
 export { createEventCollector, type EventCollector } from "./event-collector";
 export { expectErrorIncludes } from "./expect-error";

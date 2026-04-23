@@ -24,6 +24,8 @@
 // in EINEN Commit (Renderer + diese Konvention) — sonst sind die e2e-Specs
 // still kaputt, bis jemand sie ausführt.
 
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import type { z } from "zod";
 import {
   type EntityDefinition,
@@ -533,5 +535,55 @@ function renderFillOp(op: EditFillOp): string {
       return `  await page.getByTestId("field-${op.field}").selectOption(${JSON.stringify(op.value)});`;
     case "fill":
       return `  await page.getByTestId("field-${op.field}").fill(${JSON.stringify(op.value)});`;
+  }
+}
+
+// --- Stufe 4: File-Writer ---
+//
+// Schließt den Kreis Registry → Datei. generateE2ESpec + renderPlaywrightSpec
+// bleiben pure; writeE2ESpec ist der einzige I/O-Entrypoint. Idempotent: Wenn
+// die Zieldatei bereits denselben Inhalt hat, fasst der Writer sie nicht an
+// — kein unnötiges mtime-Bumping, git sieht keine Phantom-Änderung, und
+// Build-Caches (vite, vitest) invalidieren nicht umsonst.
+
+export type WriteE2ESpecOptions = E2EGeneratorOptions & {
+  readonly registry: Registry;
+  /** Zieldatei-Pfad (typisch `<feature>/<something>.e2e.ts`). Fehlende
+   *  Parent-Verzeichnisse werden mit `mkdir -p`-Semantik angelegt. */
+  readonly outPath: string;
+};
+
+export type WriteE2ESpecResult = {
+  /** true wenn tatsächlich geschrieben wurde (neu oder Content-Diff).
+   *  false wenn die Datei bereits identisch war. */
+  readonly written: boolean;
+  readonly path: string;
+  readonly bytes: number;
+  /** Anzahl der emittierten TestSpecs — nützlich für CLI-Reports
+   *  ("Wrote 12 specs to <path>"). */
+  readonly specCount: number;
+};
+
+export async function writeE2ESpec(options: WriteE2ESpecOptions): Promise<WriteE2ESpecResult> {
+  const { registry, outPath, ...generatorOptions } = options;
+  const specs = generateE2ESpec(registry, generatorOptions);
+  const source = renderPlaywrightSpec(specs);
+
+  const existing = await readFileOrUndefined(outPath);
+  if (existing === source) {
+    return { written: false, path: outPath, bytes: source.length, specCount: specs.length };
+  }
+
+  await mkdir(dirname(outPath), { recursive: true });
+  await writeFile(outPath, source, "utf8");
+  return { written: true, path: outPath, bytes: source.length, specCount: specs.length };
+}
+
+async function readFileOrUndefined(path: string): Promise<string | undefined> {
+  try {
+    return await readFile(path, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw err;
   }
 }

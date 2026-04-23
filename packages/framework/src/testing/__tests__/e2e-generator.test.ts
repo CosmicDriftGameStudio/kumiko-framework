@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -10,7 +13,12 @@ import {
   defineEntityWriteHandler,
   defineFeature,
 } from "../../engine";
-import { generateE2ESpec, generateZodFixture, renderPlaywrightSpec } from "../e2e-generator";
+import {
+  generateE2ESpec,
+  generateZodFixture,
+  renderPlaywrightSpec,
+  writeE2ESpec,
+} from "../e2e-generator";
 
 const taskEntity = createEntity({
   table: "tasks",
@@ -265,5 +273,73 @@ describe("renderPlaywrightSpec", () => {
       (d) => d.category === ts.DiagnosticCategory.Error,
     );
     expect(syntaxErrors).toEqual([]);
+  });
+});
+
+describe("writeE2ESpec", () => {
+  test("writes a new file with the rendered output", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "e2e-gen-"));
+    const outPath = join(dir, "nested", "generated.e2e.ts");
+    const registry = createRegistry([createTasksFeature()]);
+
+    const result = await writeE2ESpec({ registry, outPath });
+
+    expect(result.written).toBe(true);
+    expect(result.path).toBe(outPath);
+    expect(result.specCount).toBeGreaterThan(0);
+    const actual = await readFile(outPath, "utf8");
+    expect(actual).toBe(renderPlaywrightSpec(generateE2ESpec(registry)));
+    // Nested parent auto-created via mkdir -p semantics.
+    expect(actual).toContain("@playwright/test");
+  });
+
+  test("idempotent: unchanged content does not touch the file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "e2e-gen-"));
+    const outPath = join(dir, "out.e2e.ts");
+    const registry = createRegistry([createTasksFeature()]);
+
+    const first = await writeE2ESpec({ registry, outPath });
+    expect(first.written).toBe(true);
+    const mtimeAfterFirst = (await stat(outPath)).mtimeMs;
+
+    // Kurz warten, damit ein naiver unconditional write einen anderen
+    // mtime produzieren würde. 10ms reichen auf allen FS die wir nutzen
+    // (ext4/apfs Auflösung ≤1ms).
+    await new Promise((r) => setTimeout(r, 10));
+
+    const second = await writeE2ESpec({ registry, outPath });
+    expect(second.written).toBe(false);
+    const mtimeAfterSecond = (await stat(outPath)).mtimeMs;
+    expect(mtimeAfterSecond).toBe(mtimeAfterFirst);
+  });
+
+  test("re-writes when registry content changes", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "e2e-gen-"));
+    const outPath = join(dir, "out.e2e.ts");
+
+    const first = await writeE2ESpec({
+      registry: createRegistry([createTasksFeature()]),
+      outPath,
+    });
+    expect(first.written).toBe(true);
+
+    // Zweites Feature erzeugt einen zweiten Screen-Satz → Content ≠ vorher.
+    // Eigene Entity (kein "task"-Duplikat) — Registry wirft sonst Duplicate.
+    const extraEntity = createEntity({
+      table: "notes",
+      fields: { body: createTextField({ required: true }) },
+    });
+    const extra = defineFeature("extra", (r) => {
+      r.systemScope();
+      r.entity("note", extraEntity);
+      r.writeHandler(defineEntityWriteHandler("note:create", extraEntity));
+      r.screen({ id: "list", type: "entityList", entity: "note", columns: ["body"] });
+    });
+    const second = await writeE2ESpec({
+      registry: createRegistry([createTasksFeature(), extra]),
+      outPath,
+    });
+    expect(second.written).toBe(true);
+    expect(second.specCount).toBeGreaterThan(first.specCount);
   });
 });
