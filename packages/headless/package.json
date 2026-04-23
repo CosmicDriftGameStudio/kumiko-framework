@@ -1,0 +1,26 @@
+{
+  "name": "@kumiko/headless",
+  "version": "0.0.1",
+  "description": "Headless UI logic for Kumiko — Dispatcher contract, Form-Controller, View-Model, Nav-Resolver. Plattform- und React-frei; jeder Renderer (renderer, renderer-web, renderer-native, …) komponiert darauf.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bender0oo0/kumiko.git",
+    "directory": "packages/headless"
+  },
+  "bugs": {
+    "url": "https://github.com/bender0oo0/kumiko/issues"
+  },
+  "homepage": "https://github.com/bender0oo0/kumiko#readme",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./dispatcher": "./src/dispatcher/index.ts"
+  },
+  "dependencies": {
+    "@kumiko/framework": "0.0.1",
+    "zod": "^4.3.6"
+  }
+}

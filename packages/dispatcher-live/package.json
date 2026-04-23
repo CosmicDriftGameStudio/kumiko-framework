@@ -19,6 +19,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@kumiko/ui-core": "0.0.1"
+    "@kumiko/headless": "0.0.1"
   }
 }

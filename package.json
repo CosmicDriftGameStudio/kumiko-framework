@@ -27,9 +27,10 @@
   "workspaces": [
     "packages/framework",
     "packages/bundled-features",
-    "packages/ui-core",
+    "packages/headless",
     "packages/dispatcher-live",
-    "packages/renderer-react",
+    "packages/renderer",
+    "packages/renderer-web",
     "samples/*",
     "app"
   ],

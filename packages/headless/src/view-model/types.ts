@@ -1,0 +1,108 @@
+import type {
+  EditFieldSpec,
+  EditSectionSpec,
+  FieldRenderer,
+  ListColumnSpec,
+  ScreenSlots,
+} from "@kumiko/framework/ui-types";
+
+// View-Models — plain data structures produced by computeListViewModel and
+// computeEditViewModel. They flatten the combined [screen-def + entity-def
+// + row-data + user] inputs into a shape the renderer draws directly,
+// without re-resolving conditions or re-reading the entity field map.
+//
+// The renderer's render-list.tsx / render-edit.tsx are essentially
+//   (viewModel) => JSX   // on web
+//   (viewModel) => <View/Text>  // on native
+// so everything the renderer needs to render one frame must be in here.
+//
+// Why pre-compute instead of resolving at render-time: predicates
+// (visible/readonly/required) are arbitrary JS closures — running them
+// inside React's render is wasteful (happens on every re-render, even
+// when values haven't changed) and mixes side-effect-free view code
+// with business logic. Computing once on form-state-change gives the
+// renderer pure data and keeps render paths trivial.
+
+// --- list view model ---
+
+// One column, fully resolved. `label` is the localized string the
+// renderer puts in the column header; view-model builder runs it through
+// LocaleResolver.translate() from the i18nKey wired onto the field.
+// `renderer` passes through ScreenDefinition's FieldRenderer verbatim.
+export type ListColumnViewModel = {
+  readonly field: string;
+  readonly label: string;
+  readonly type: string; // field-type ("text", "number", "money", ...)
+  readonly renderer?: FieldRenderer;
+  readonly sortable: boolean;
+};
+
+export type ListRowViewModel = {
+  readonly id: string;
+  readonly values: Readonly<Record<string, unknown>>;
+};
+
+export type ListViewModel = {
+  readonly screenId: string;
+  readonly entityName: string;
+  readonly columns: readonly ListColumnViewModel[];
+  readonly rows: readonly ListRowViewModel[];
+  readonly slots?: ScreenSlots;
+  // Flags for the renderer to decide what kind of container to draw.
+  readonly isEmpty: boolean;
+};
+
+// --- edit view model ---
+
+// Resolved field — all predicates evaluated, labels translated. The
+// renderer reads `{ visible, readonly, required }` directly without
+// re-running any predicate.
+export type EditFieldViewModel = {
+  readonly field: string;
+  readonly label: string;
+  readonly type: string;
+  readonly value: unknown;
+  readonly visible: boolean;
+  // `readOnly` (camelCase) matches the spec-side name on EditFieldSpec —
+  // one convention through the stack. The TS property modifier `readonly`
+  // (lowercase) only collides as a key name in type declarations of the
+  // spec; here in the view-model we could have used either, but symmetric
+  // naming beats clever ergonomics. Parallel-agent chose `readOnly` on
+  // the input; we honour it on the output.
+  readonly readOnly: boolean;
+  readonly required: boolean;
+  readonly span?: number;
+  readonly renderer?: FieldRenderer;
+};
+
+export type EditSectionViewModel = {
+  readonly title: string;
+  readonly columns: number;
+  readonly fields: readonly EditFieldViewModel[];
+};
+
+export type EditViewModel = {
+  readonly screenId: string;
+  readonly entityName: string;
+  readonly id: string | null; // null on create (no existing row)
+  readonly sections: readonly EditSectionViewModel[];
+  readonly slots?: ScreenSlots;
+};
+
+// --- resolver interfaces (host-injected) ---
+
+// The view-model builder calls this to translate i18n keys into strings.
+// Normally the host passes the renderer's LocaleResolver.translate
+// directly — keeping the interface narrow here avoids dragging the full
+// LocaleResolver (with subscribe) into a pure compute path.
+export type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
+
+// Optional condition context forwarded to field visibility/readonly/required
+// predicates. Same ctx the form-controller uses in conditional-fields — so
+// a predicate that gated "admin-only" there keeps working here.
+export type FieldConditionCtx = unknown;
+
+// Re-export the ScreenDef spec halves we don't want ui-core callers to
+// import from @kumiko/framework separately. Renderer packages expect a
+// single import surface.
+export type { EditFieldSpec, EditSectionSpec, FieldRenderer, ListColumnSpec, ScreenSlots };

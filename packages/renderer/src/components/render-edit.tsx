@@ -1,0 +1,223 @@
+import type { EntityDefinition, EntityEditScreenDefinition } from "@kumiko/framework/ui-types";
+import { normalizeEditField } from "@kumiko/framework/ui-types";
+import type {
+  DispatcherError,
+  EditFieldViewModel,
+  FieldConditions,
+  FieldIssue,
+  FormSnapshot,
+  FormValues,
+  SubmitResult,
+  Translate,
+} from "@kumiko/headless";
+import { computeEditViewModel } from "@kumiko/headless";
+import { type ReactNode, useMemo, useState } from "react";
+import type { z } from "zod";
+import { useForm } from "../hooks/use-form";
+import { usePrimitives } from "../primitives";
+import { RenderField } from "./render-field";
+
+// End-to-end renderer für einen entityEdit screen. Rendert aus-
+// schließlich über Primitives — kein raw HTML. Ein Native-Renderer
+// der dieselbe Primitives-Registry füllt kriegt das Form ohne weitere
+// Änderungen.
+
+export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
+  readonly screen: EntityEditScreenDefinition;
+  readonly entity: EntityDefinition;
+  readonly featureName: string;
+  readonly initial: TValues;
+  readonly writeCommand: string;
+  readonly translate?: Translate;
+  readonly ctx?: TCtx;
+  readonly schema?: z.ZodType;
+  readonly onSubmit?: (result: SubmitResult<unknown>) => void;
+  readonly payloadMode?: "values" | "changes";
+  readonly buildPayload?: (snapshot: FormSnapshot<TValues>) => unknown;
+  readonly onDelete?: () => Promise<void> | void;
+  readonly onReload?: () => void;
+};
+
+const defaultTranslate: Translate = (key) => key;
+
+function deriveFormFields<TValues extends FormValues, TCtx>(
+  screen: EntityEditScreenDefinition,
+): Record<string, FieldConditions<TValues, TCtx>> {
+  const out: Record<string, FieldConditions<TValues, TCtx>> = {};
+  for (const section of screen.layout.sections) {
+    for (const spec of section.fields) {
+      const normalized = normalizeEditField(spec);
+      out[normalized.field] = {
+        ...(normalized.visible !== undefined && {
+          visible: normalized.visible as FieldConditions<TValues, TCtx>["visible"],
+        }),
+        ...(normalized.readOnly !== undefined && {
+          readonly: normalized.readOnly as FieldConditions<TValues, TCtx>["readonly"],
+        }),
+        ...(normalized.required !== undefined && {
+          required: normalized.required as FieldConditions<TValues, TCtx>["required"],
+        }),
+      };
+    }
+  }
+  return out;
+}
+
+export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
+  props: RenderEditProps<TValues, TCtx>,
+): ReactNode {
+  const {
+    screen,
+    entity,
+    featureName,
+    initial,
+    writeCommand,
+    translate = defaultTranslate,
+    ctx,
+    schema,
+    onSubmit,
+    payloadMode = "values",
+    buildPayload,
+    onDelete,
+    onReload,
+  } = props;
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [formError, setFormError] = useState<DispatcherError | null>(null);
+  const { Button, Banner, Form, Section, Grid, GridCell, Text } = usePrimitives();
+
+  const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
+
+  const { controller, snapshot } = useForm<TValues, TCtx>({
+    initial,
+    fields,
+    ...(schema !== undefined && { schema }),
+    ...(ctx !== undefined && { ctx }),
+    submit: {
+      type: writeCommand,
+      payloadMode,
+      ...(buildPayload !== undefined && { buildPayload }),
+    },
+  });
+
+  const vm = useMemo(
+    () =>
+      computeEditViewModel({
+        screen,
+        entity,
+        values: snapshot.values,
+        translate,
+        featureName,
+        ctx,
+      }),
+    [screen, entity, snapshot.values, translate, featureName, ctx],
+  );
+
+  async function handleSubmit(): Promise<void> {
+    const result = await controller.submit();
+    // Form-level Errors (ohne field-level details) landen im Banner.
+    // Field-Errors fließen über snapshot.errors in die einzelnen Fields.
+    if (result.isSuccess) {
+      setFormError(null);
+    } else if (!result.validationBlocked) {
+      const fieldIssues = result.error.details?.fields ?? [];
+      setFormError(fieldIssues.length === 0 ? result.error : null);
+    }
+    onSubmit?.(result);
+  }
+
+  return (
+    <Form onSubmit={() => void handleSubmit()} testId="render-edit-form">
+      {vm.sections.map((section) => (
+        <Section key={section.title} title={section.title} testId={`section-${section.title}`}>
+          <Grid columns={section.columns}>
+            {section.fields.map((field) => (
+              <GridCellForField
+                key={field.field}
+                field={field}
+                columns={section.columns}
+                issues={snapshot.errors[field.field]}
+                onChange={(v) => {
+                  (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                }}
+                GridCell={GridCell}
+              />
+            ))}
+          </Grid>
+        </Section>
+      ))}
+      {formError !== null && (
+        <Banner
+          variant="error"
+          testId="render-edit-form-error"
+          actions={
+            formError.code === "version_conflict" && onReload !== undefined ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  onReload();
+                  setFormError(null);
+                }}
+                testId="render-edit-form-error-reload"
+              >
+                Neu laden
+              </Button>
+            ) : undefined
+          }
+        >
+          <Text testId="render-edit-form-error-key">{formError.i18nKey}</Text>
+        </Banner>
+      )}
+      <Button
+        type="submit"
+        disabled={snapshot.isUnchanged}
+        variant="primary"
+        testId="render-edit-submit"
+      >
+        Save
+      </Button>
+      {onDelete !== undefined && (
+        <Button
+          type="button"
+          variant="danger"
+          testId={confirmDelete ? "render-edit-delete-confirm" : "render-edit-delete"}
+          onClick={async () => {
+            if (!confirmDelete) {
+              setConfirmDelete(true);
+              return;
+            }
+            await onDelete();
+          }}
+        >
+          {confirmDelete ? "Wirklich löschen?" : "Delete"}
+        </Button>
+      )}
+    </Form>
+  );
+}
+
+// Winziger Wrapper der die span-Logik kapselt und die Field-Cell in
+// die Grid platziert. Eigene Component damit die map-Callback oben
+// schlank bleibt.
+type GridCellForFieldProps = {
+  readonly field: EditFieldViewModel;
+  readonly columns: number;
+  readonly issues: readonly FieldIssue[] | undefined;
+  readonly onChange: (value: unknown) => void;
+  readonly GridCell: ReturnType<typeof usePrimitives>["GridCell"];
+};
+
+function GridCellForField({
+  field,
+  columns,
+  issues,
+  onChange,
+  GridCell,
+}: GridCellForFieldProps): ReactNode {
+  const effectiveSpan = field.span !== undefined ? Math.min(field.span, columns) : 1;
+  return (
+    <GridCell span={effectiveSpan}>
+      <RenderField field={field} {...(issues !== undefined && { issues })} onChange={onChange} />
+    </GridCell>
+  );
+}

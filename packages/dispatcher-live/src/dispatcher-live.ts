@@ -11,7 +11,7 @@ import type {
   StatusChangeListener,
   WriteOpts,
   WriteResult,
-} from "@kumiko/ui-core";
+} from "@kumiko/headless";
 import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf";
 import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping";
 

@@ -1,0 +1,25 @@
+{
+  "name": "@kumiko/renderer-web",
+  "version": "0.0.1",
+  "description": "Web-platform bindings for @kumiko/renderer. HTML default-primitives, browser history-based navigation, EventSource-backed live events, and a one-call createKumikoApp that mounts the whole stack via react-dom.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@kumiko/dispatcher-live": "0.0.1",
+    "@kumiko/renderer": "0.0.1",
+    "@kumiko/headless": "0.0.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "jsdom": "^28.0.0"
+  }
+}

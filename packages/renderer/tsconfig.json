@@ -3,7 +3,6 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noPropertyAccessFromIndexSignature": true,
-    "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
     "target": "ESNext",
@@ -17,16 +16,10 @@
     "sourceMap": true,
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["bun-types"]
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["bun-types"],
+    "composite": true
   },
-  "references": [
-    { "path": "packages/framework" },
-    { "path": "packages/bundled-features" },
-    { "path": "packages/headless" },
-    { "path": "packages/dispatcher-live" },
-    { "path": "packages/renderer" },
-    { "path": "packages/renderer-web" },
-    { "path": "app" }
-  ],
-  "files": []
+  "include": ["src/**/*"]
 }
