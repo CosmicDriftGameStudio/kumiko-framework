@@ -329,19 +329,19 @@ function pickIdentifyingForEdit(
 // emittiert. Andere Typen werfen "not supported yet", bis ein Sample den Fall
 // konkret braucht.
 
-type ZodDef = {
+type ZodInternals = {
   readonly type?: string;
   readonly format?: string;
   readonly innerType?: z.ZodTypeAny;
   readonly entries?: Record<string, string>;
 };
 
-function zodDef(schema: z.ZodTypeAny): ZodDef | undefined {
-  return (schema as unknown as { _def?: ZodDef })._def;
+function readZodInternals(schema: z.ZodTypeAny): ZodInternals | undefined {
+  return (schema as unknown as { _def?: ZodInternals })._def;
 }
 
 export function generateZodFixture(schema: z.ZodTypeAny): unknown {
-  const def = zodDef(schema);
+  const def = readZodInternals(schema);
   const typeName = def?.type;
 
   switch (typeName) {
@@ -377,11 +377,18 @@ function fixtureString(format: string | undefined): string {
 }
 
 // --- Fixture aus FieldDefinition (für Stufe 1 statt Zod-Schema) ---
-
-// buildInsertSchema + generateZodFixture würde das auch können, aber:
-//   - FieldDefinition hat 'required' direkt ablesbar (kein Optional-Unwrap)
-//   - File-Felder sind per se nicht generisch e2e-testbar (Upload-Mock noch offen)
-//   - Embedded/Money/Temporal sind hier explizit adressiert, nicht blind übers Zod-Schema
+//
+// Bewusstes Duplicate zu generateZodFixture. Die beiden haben unterschiedliche
+// Aufgaben:
+//   generateZodFixture   — public, generisch, weiß nur Zod-Primitives
+//   buildEntityFixture   — intern, Kumiko-Domain, weiß über file-skip,
+//                          embedded-Shape, money/tz-Objekte und nutzt den
+//                          Feldnamen für lesbare Prefixes ("e2e-email@...")
+//
+// Ein Zusammenziehen über buildInsertSchema + generateZodFixture würde entweder
+// den Feldnamen-Hint verlieren (alle email-Fixtures bekämen denselben Wert —
+// Unique-Constraints wären inkonsistent) oder einen hint-Parameter in die
+// public API von generateZodFixture drücken, den externe Caller nie brauchen.
 function buildEntityFixture(entity: EntityDefinition): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [name, field] of Object.entries(entity.fields)) {
