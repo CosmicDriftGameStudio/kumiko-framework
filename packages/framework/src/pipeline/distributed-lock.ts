@@ -1,5 +1,5 @@
 import type Redis from "ioredis";
-import { v4 as uuid } from "uuid";
+import { generateId } from "../utils";
 import { RedisKeys } from "./redis-keys";
 
 export type DistributedLock = {
@@ -23,7 +23,7 @@ export function createDistributedLock(
   return {
     async acquire(key, options = {}) {
       const ttl = options.ttlSeconds ?? 30;
-      const token = uuid();
+      const token = generateId();
       const result = await redis.set(`${prefix}${key}`, token, "EX", ttl, "NX");
       return result === "OK" ? token : null;
     },

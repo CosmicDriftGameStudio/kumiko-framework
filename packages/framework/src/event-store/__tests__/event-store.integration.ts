@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
-import { v4 as uuid } from "uuid";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createTestDb, type TestDb } from "../../testing";
+import { generateId as uuid } from "../../utils";
 import {
   append,
   createEventsTable,

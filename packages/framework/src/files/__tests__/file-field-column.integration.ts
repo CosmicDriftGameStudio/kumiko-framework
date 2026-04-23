@@ -11,6 +11,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createEntity, createFileField, createImageField } from "../../engine";
 import { createEntityTable, createTestDb, pushTables, type TestDb } from "../../testing";
+import { generateId } from "../../utils";
 import { fileRefsTable } from "../file-ref-table";
 
 // Entity with BOTH singular file-field types exercised — the bug applied
@@ -60,8 +61,8 @@ describe("file-field entity-column type", () => {
   test("storing a fileRef UUID in a file-field column round-trips cleanly", async () => {
     // Seed a fileRef row so we have a real UUID to reference. Full upload
     // flow isn't exercised here — we're verifying the CRUD column contract.
-    const fileUuid = crypto.randomUUID();
-    const tenantId = crypto.randomUUID();
+    const fileUuid = generateId();
+    const tenantId = generateId();
     await testDb.db.execute(sql`
       INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size)
       VALUES (
@@ -70,7 +71,7 @@ describe("file-field entity-column type", () => {
       )
     `);
 
-    const docId = crypto.randomUUID();
+    const docId = generateId();
     await testDb.db.execute(sql`
       INSERT INTO regression_documents (id, tenant_id, attachment, cover)
       VALUES (
@@ -91,8 +92,8 @@ describe("file-field entity-column type", () => {
     // If the column were still `integer`, `'not-a-uuid'` would either
     // truncate or coerce to 0. With uuid the insert raises
     // invalid_text_representation (22P02) — the type is actually enforced.
-    const docId = crypto.randomUUID();
-    const tenantId = crypto.randomUUID();
+    const docId = generateId();
+    const tenantId = generateId();
     await expect(
       testDb.db.execute(sql`
         INSERT INTO regression_documents (id, tenant_id, attachment)

@@ -33,6 +33,7 @@ import {
   type TestStack,
   TestUsers,
 } from "../../testing";
+import { generateId } from "../../utils";
 
 // --- Fixture ---
 
@@ -72,7 +73,7 @@ afterEach(async () => {
 
 async function seedOldWidgetEvent(createdAt: Temporal.Instant): Promise<void> {
   await stack.db.db.insert(eventsTable).values({
-    aggregateId: globalThis.crypto.randomUUID(),
+    aggregateId: generateId(),
     aggregateType: "widget",
     tenantId: admin.tenantId,
     version: 1,

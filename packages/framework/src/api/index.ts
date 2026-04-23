@@ -23,3 +23,4 @@ export { buildServer } from "./server";
 export type { SseBroker, SseClient, SseEvent } from "./sse-broker";
 export { createSseBroker } from "./sse-broker";
 export { createSseRoute } from "./sse-route";
+export { generateToken } from "./tokens";

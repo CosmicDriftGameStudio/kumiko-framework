@@ -1,6 +1,6 @@
 import type { TenantId } from "@kumiko/framework/engine";
+import { generateId as uuid } from "@kumiko/framework/utils";
 import { Meilisearch } from "meilisearch";
-import { v4 as uuid } from "uuid";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createMeilisearchAdapter } from "../meilisearch-adapter";
 import type { SearchAdapter } from "../types";
@@ -21,7 +21,7 @@ const tenantIndex = (prefix: string, tenantId: TenantId): string => `${prefix}t$
 
 beforeAll(async () => {
   client = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });
-  indexPrefix = `test_${uuid().slice(0, 6)}_`;
+  indexPrefix = `test_${uuid().slice(-6)}_`;
   adapter = createMeilisearchAdapter({
     url: MEILI_URL,
     apiKey: MEILI_KEY,

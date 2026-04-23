@@ -23,6 +23,7 @@ import {
   type TestStack,
   TestUsers,
 } from "../../testing";
+import { generateId } from "../../utils";
 
 // Capture of the qualified event name defineEvent returns so tests can
 // assert against a moving target (kebab/qualifier transformations).
@@ -139,7 +140,7 @@ describe("E.3 — r.defineEvent return + registry wiring", () => {
 
 describe("E.3 — ctx.appendEvent strict validation", () => {
   test("valid append lands in the events-table with the qualified type on the aggregate stream", async () => {
-    const userId = globalThis.crypto.randomUUID();
+    const userId = generateId();
     const res = await stack.http.write(
       "emitter:write:emit:valid",
       { userId, email: "welcome@test.de" },
@@ -160,7 +161,7 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
   });
 
   test("unknown event name throws InternalError; nothing lands in the log", async () => {
-    const userId = globalThis.crypto.randomUUID();
+    const userId = generateId();
     const res = await stack.http.write("emitter:write:emit:unknown-event-name", { userId }, admin);
     // Non-Kumiko throw inside a handler → wrapped as InternalError → 500.
     expect(res.status).toBe(500);
@@ -171,7 +172,7 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
   });
 
   test("payload mismatch throws ValidationError; event not persisted", async () => {
-    const userId = globalThis.crypto.randomUUID();
+    const userId = generateId();
     const res = await stack.http.write("emitter:write:emit:bad-payload", { userId }, admin);
     // ValidationError is a first-class Kumiko error → 400.
     expect(res.status).toBe(400);
@@ -190,7 +191,7 @@ describe("E.3 — cross-feature ownership guard", () => {
     // in the neighbor feature, not the emitter. Without the guard the
     // append would succeed silently, attaching a "foreign" event onto the
     // emitter's aggregate stream and undermining feature encapsulation.
-    const userId = globalThis.crypto.randomUUID();
+    const userId = generateId();
     const res = await stack.http.write("emitter:write:emit:foreign-event", { userId }, admin);
     expect(res.status).toBe(500);
 

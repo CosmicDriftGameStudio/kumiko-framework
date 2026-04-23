@@ -7,9 +7,9 @@ import type {
 } from "@kumiko/framework/api";
 import type { DbConnection } from "@kumiko/framework/db";
 import type { SessionUser } from "@kumiko/framework/engine";
+import { generateId } from "@kumiko/framework/utils";
 import { and, eq, isNull } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
-import { v4 as uuid } from "uuid";
 import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";
 import { userSessionTable } from "./user-session-entity";
 
@@ -43,7 +43,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
 
   return {
     async sessionCreator(user: SessionUser, meta: SessionMetadata): Promise<string> {
-      const sid = uuid();
+      const sid = generateId();
       const now = Temporal.Now.instant();
       const expiresAt = now.add({ milliseconds: ttlMs });
       await db.insert(userSessionTable).values({

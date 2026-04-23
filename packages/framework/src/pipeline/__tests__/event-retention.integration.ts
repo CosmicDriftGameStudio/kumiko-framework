@@ -30,6 +30,7 @@ import {
   type TestStack,
   TestUsers,
 } from "../../testing";
+import { generateId } from "../../utils";
 
 // --- Fixture ---
 
@@ -82,7 +83,7 @@ async function seedOldAggregateEvent(
   const [row] = await stack.db.db
     .insert(eventsTable)
     .values({
-      aggregateId: globalThis.crypto.randomUUID(),
+      aggregateId: generateId(),
       aggregateType,
       tenantId: admin.tenantId,
       version: 1,

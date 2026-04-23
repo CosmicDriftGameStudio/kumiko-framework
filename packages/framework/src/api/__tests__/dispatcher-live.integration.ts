@@ -1,10 +1,12 @@
 import { createLiveDispatcher } from "@kumiko/dispatcher-live";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { generateToken } from "../../api/tokens";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import { generateId } from "../../utils";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.
 // This test wires dispatcher-live against the real Kumiko HTTP stack via
@@ -73,7 +75,7 @@ async function buildFetch(): Promise<{
   readonly authJwt: string;
 }> {
   const authJwt = await stack.jwt.sign(admin);
-  const csrfToken = globalThis.crypto.randomUUID();
+  const csrfToken = generateToken();
   const cookieHeader = `kumiko_auth=${authJwt}; kumiko_csrf=${csrfToken}`;
 
   // Cast via unknown: the native fetch interface (Bun's typing) includes a
@@ -157,7 +159,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
   test("query: dispatches GET-style-POST (Kumiko uses POST for query too), returns data", async () => {
     // Seed a row first.
     await stack.db.db.insert(itemTable).values({
-      id: globalThis.crypto.randomUUID(),
+      id: generateId(),
       tenantId: admin.tenantId,
       name: "seed",
     });

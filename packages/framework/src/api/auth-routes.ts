@@ -15,6 +15,7 @@ import {
   getUser,
 } from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
+import { generateToken } from "./tokens";
 
 // Cookie lifetime must track the JWT's exp claim — both are issued together,
 // both reference the same session. jwt.ts's createJwtHelper hardcodes
@@ -387,7 +388,7 @@ export function createAuthRoutes(
       // below — the token is returned for both, so a Bearer client that
       // ignores Set-Cookie keeps working without any server-side knowledge
       // of which transport this client will use next.
-      const csrfToken = globalThis.crypto.randomUUID();
+      const csrfToken = generateToken();
       setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite });
 
       return c.json({
@@ -560,7 +561,7 @@ export function createAuthRoutes(
     // app's JS) can't cross a tenant boundary. Bearer-only clients get
     // the new token in the body below — their Set-Cookie is a no-op
     // because the browser never sent cookies.
-    const csrfToken = globalThis.crypto.randomUUID();
+    const csrfToken = generateToken();
     setAuthCookies(c, { token: newToken, csrfToken, sameSite: cookieSameSite });
 
     return c.json({ token: newToken, tenantId: targetTenantId, roles: membership.roles });

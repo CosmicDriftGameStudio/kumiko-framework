@@ -1,12 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { getUser } from "../api/auth-middleware";
 import type { DbConnection } from "../db/connection";
 import type { EventDef } from "../engine/types";
 import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
 import { append as appendEvent } from "../event-store/event-store";
+import { generateId } from "../utils";
 import { buildContentDispositionHeader } from "./content-disposition";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileStorageProvider } from "./types";
@@ -151,14 +151,14 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json({ error: validationError }, 400);
     }
 
-    const fileRefId = uuid();
+    const fileRefId = generateId();
     const storageKey = buildStorageKey(
       user.tenantId,
       entityType ?? "unattached",
       entityId ?? "",
       fieldName ?? "file",
       file.name,
-      uuid(),
+      generateId(),
     );
 
     // Write binary FIRST (outside the tx — network/disk I/O doesn't belong

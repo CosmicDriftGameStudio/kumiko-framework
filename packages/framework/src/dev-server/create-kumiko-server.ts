@@ -16,6 +16,7 @@
 
 import { readFile, watch } from "node:fs/promises";
 import { resolve } from "node:path";
+import { generateToken } from "../api/tokens";
 import type { FeatureDefinition } from "../engine/types";
 import { createEventsTable } from "../event-store";
 import { ensureEntityTable, setupTestStack, type TestStack, TestUsers } from "../testing";
@@ -254,7 +255,7 @@ export async function createKumikoServer(
   // mints a working session and lets the client boot from that URL.
   const htmlResponse = async (): Promise<Response> => {
     const jwt = await stack.jwt.sign(devUser);
-    const csrf = crypto.randomUUID();
+    const csrf = generateToken();
     const headers = new Headers();
     headers.set("Content-Type", "text/html; charset=utf-8");
     headers.append("Set-Cookie", `${AUTH_COOKIE}=${jwt}; Path=/; HttpOnly; SameSite=Lax`);

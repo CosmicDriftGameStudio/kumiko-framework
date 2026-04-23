@@ -10,10 +10,10 @@
 //      spike proved on raw SQL, now enforced on the framework path.
 
 import { sql } from "drizzle-orm";
-import { v4 as uuid } from "uuid";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { TenantId } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../testing";
+import { generateId as uuid } from "../../utils";
 import {
   append,
   archiveStream,

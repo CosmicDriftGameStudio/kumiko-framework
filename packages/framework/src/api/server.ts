@@ -42,6 +42,7 @@ import {
   globalIpRateLimit,
 } from "../rate-limit";
 import type { SearchAdapter } from "../search/types";
+import { generateId } from "../utils";
 import { PUBLIC_API_PATHS } from "./api-constants";
 import { authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
@@ -174,7 +175,7 @@ export type ServerOptions = {
   // Stable identifier for THIS process in the event-consumer state table.
   // Used as the `instance_id` on every per-instance consumer's cursor row
   // (Welle 2.7). Shared consumers ignore this and always write the reserved
-  // sentinel. Default: `process.env.KUMIKO_INSTANCE_ID ?? crypto.randomUUID()`
+  // sentinel. Default: `process.env.KUMIKO_INSTANCE_ID ?? generateId()`
   // — a fresh UUID at boot is fine for single-process deploys, but
   // multi-instance deploys SHOULD set KUMIKO_INSTANCE_ID to a stable
   // identifier (pod name, hostname) so ops can correlate lag metrics to
@@ -219,7 +220,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // instance's per-instance cursors with the shared-row cursors and
   // deliver events twice to one shard while starving the other.
   const resolvedInstanceId =
-    options.instanceId ?? process.env["KUMIKO_INSTANCE_ID"] ?? globalThis.crypto.randomUUID();
+    options.instanceId ?? process.env["KUMIKO_INSTANCE_ID"] ?? generateId();
   if (resolvedInstanceId === SHARED_INSTANCE_SENTINEL) {
     throw new Error(
       `ServerOptions.instanceId / KUMIKO_INSTANCE_ID cannot equal the reserved sentinel "${SHARED_INSTANCE_SENTINEL}" — ` +

@@ -1,4 +1,4 @@
-import { v4 as uuid } from "uuid";
+import { generateId } from "../utils";
 
 export type SseClient = {
   id: string;
@@ -33,7 +33,7 @@ export function createSseBroker(): SseBroker {
 
   return {
     addClient(channel, send, close) {
-      const clientId = uuid();
+      const clientId = generateId();
       const clients = getOrCreateChannel(channel);
       clients.set(clientId, { id: clientId, send, close });
       return clientId;

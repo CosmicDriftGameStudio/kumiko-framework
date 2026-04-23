@@ -1,5 +1,4 @@
 import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
-import { v4 as uuid } from "uuid";
 import { requestContext } from "../api/request-context";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
@@ -31,6 +30,7 @@ import {
 } from "../event-store";
 import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
+import { generateId } from "../utils";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 import type { DbRow } from "./connection";
 import { decodeCursor, encodeCursor } from "./cursor";
@@ -219,10 +219,10 @@ export function createEventStoreExecutor(
   return {
     async create(payload, user, db) {
       // Respect an explicit id in the payload (seed pattern, SCIM import). Without
-      // one the framework mints a fresh v4 UUID. Strip it out of the event payload
-      // so defaults + downstream consumers don't see a redundant id field.
+      // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
+      // event payload so defaults + downstream consumers don't see a redundant id field.
       const explicitId = typeof payload["id"] === "string" ? (payload["id"] as string) : undefined;
-      const aggregateId = explicitId ?? uuid();
+      const aggregateId = explicitId ?? generateId();
       const { id: _id, ...payloadWithoutId } = payload;
       const data = applyDefaults(payloadWithoutId);
 

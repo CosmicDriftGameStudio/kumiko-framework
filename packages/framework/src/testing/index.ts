@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { v4 as uuid } from "uuid";
 import { tableExists } from "../db/schema-inspection";
 import { buildDrizzleTable, toTableName } from "../db/table-builder";
+import { generateId } from "../utils";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -48,7 +48,10 @@ export type CreateTestDbOptions = {
 export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<TestDb> {
   const opts: CreateTestDbOptions = typeof arg === "string" ? { baseUrl: arg } : (arg ?? {});
   const url = opts.baseUrl ?? requireEnv("TEST_DATABASE_URL");
-  const dbName = opts.dbName ?? `kumiko_test_${uuid().slice(0, 8)}`;
+  // slice(-8) — the last 8 hex chars of a UUIDv7 are pure random (the
+  // front 48 bits are a timestamp, which would collide across workers
+  // that start within the same millisecond).
+  const dbName = opts.dbName ?? `kumiko_test_${generateId().slice(-8)}`;
   const adminUrl = url.replace(/\/[^/]+$/, "/postgres");
 
   const adminClient = postgres(adminUrl);
@@ -117,7 +120,7 @@ export async function createTestRedis(): Promise<TestRedis> {
   // Every test gets a per-file key prefix on a shared DB (no DB-pool-of-15
   // round-robin). Collisions at birthday-paradox rates are gone — the
   // prefix space is unbounded. See Track B.3 in docs/plans/tests-refactor.
-  const prefix = `kt:${uuid().slice(0, 8)}:`;
+  const prefix = `kt:${generateId().slice(-8)}:`;
   const redis = new Redis(redisUrl, { keyPrefix: prefix });
 
   async function flushNamespace(): Promise<void> {

@@ -14,7 +14,6 @@
 // "catastrophic regression detector", not "perf SLO".
 
 import { sql } from "drizzle-orm";
-import { v4 as uuid } from "uuid";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   integer as drizzleInteger,
@@ -26,6 +25,7 @@ import type { ProjectionDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
 import { createTestDb, pushTables, type TestDb, TestUsers } from "../../testing";
+import { generateId as uuid } from "../../utils";
 
 // Counter projection: every task.created bumps a counter, every
 // task.updated is a no-op. Enough to exercise the apply path —

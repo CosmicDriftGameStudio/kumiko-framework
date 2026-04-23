@@ -38,6 +38,7 @@ import {
   type TestStack,
   TestUsers,
 } from "../../testing";
+import { generateId } from "../../utils";
 
 // --- Fixture ---
 
@@ -85,7 +86,7 @@ async function appendWidget(name: string): Promise<void> {
 // write is safe here; we're testing cursor catch-up, not the executor.
 async function bulkSeedWidgetCreated(count: number, namePrefix: string): Promise<void> {
   const rows = Array.from({ length: count }, (_, i) => ({
-    aggregateId: globalThis.crypto.randomUUID(),
+    aggregateId: generateId(),
     aggregateType: "widget",
     tenantId: admin.tenantId,
     version: 1,

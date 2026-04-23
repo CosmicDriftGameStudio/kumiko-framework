@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { v4 as uuid } from "uuid";
+import { generateId } from "../utils";
 
 // Request-scoped propagation. Populated by the HTTP middleware and by the
 // event-dispatcher when it runs an MSP-apply, so ctx.appendEvent downstream
@@ -44,6 +44,6 @@ export const requestContext = {
   },
 
   generateId(): string {
-    return uuid();
+    return generateId();
   },
 };

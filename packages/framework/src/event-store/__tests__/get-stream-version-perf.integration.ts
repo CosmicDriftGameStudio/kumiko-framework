@@ -9,10 +9,10 @@
 // Not a strict SLA test — the threshold is generous enough to survive CI
 // noise but tight enough that an index-miss regression would fail loudly.
 
-import { v4 as uuid } from "uuid";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { TenantId } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../testing";
+import { generateId as uuid } from "../../utils";
 import { append, createEventsTable, getStreamVersion } from "../index";
 
 let testDb: TestDb;

@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
 import type { FileStorageProvider } from "@kumiko/framework/files";
+import { generateId } from "@kumiko/framework/utils";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createS3ProviderFromEnv } from "../env-helper";
 import { createS3Provider } from "../s3-provider";
@@ -17,7 +17,7 @@ function requireEnv(name: string): string {
 // Keep all keys under a per-run prefix so repeated test runs don't pollute
 // each other and a stray failure doesn't leak bytes into the next developer's
 // session. Cleanup happens in afterAll via the provider's delete().
-const RUN_PREFIX = `test-run-${randomUUID()}`;
+const RUN_PREFIX = `test-run-${generateId()}`;
 const createdKeys: string[] = [];
 
 function uniqueKey(suffix: string): string {

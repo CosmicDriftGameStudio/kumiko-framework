@@ -23,6 +23,7 @@ import {
   setupTestStack,
   type TestStack,
 } from "@kumiko/framework/testing";
+import { generateId } from "@kumiko/framework/utils";
 import { sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -92,7 +93,7 @@ function widgetAuditFeature(): FeatureDefinition {
       const name = (result.changes as Record<string, unknown>)["name"] as string | undefined;
       if (!name) return;
       await ctx.db.insert(widgetAuditTable).values({
-        id: crypto.randomUUID(),
+        id: generateId(),
         widgetName: name,
         version: 1,
         tenantId: SYSTEM_TENANT_ID,
