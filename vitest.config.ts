@@ -6,7 +6,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["packages/**/*.test.{ts,tsx}", "samples/**/*.test.{ts,tsx}"],
-    exclude: ["**/*.integration.ts"],
+    exclude: ["**/*.integration.ts", "**/*.e2e.ts"],
     setupFiles: ["./vitest.setup.ts"],
     reporters: ["dot"],
     passWithNoTests: true,

@@ -94,7 +94,12 @@
       }
     },
     {
-      "includes": ["**/*.test.ts", "**/*.spec.ts", "**/*.integration.ts"],
+      "includes": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/*.integration.ts",
+        "**/*.e2e.ts"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
