@@ -77,6 +77,8 @@ export type { KumikoLinkProps } from "./app/nav";
 export { KumikoLink, useBrowserNavApi } from "./app/nav";
 export type { AppLayoutProps } from "./layout/app-layout";
 export { AppLayout } from "./layout/app-layout";
+export type { NavTreeProps } from "./layout/nav-tree";
+export { buildNavRegistrySlice, NavTree } from "./layout/nav-tree";
 export type { SidebarProps } from "./layout/sidebar";
 export { Sidebar } from "./layout/sidebar";
 export type { TopbarProps } from "./layout/topbar";
