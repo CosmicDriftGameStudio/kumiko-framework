@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { buildAbortError, buildNetworkError, mapServerError } from "../error-mapping";
 
 describe("mapServerError", () => {
@@ -75,23 +75,33 @@ describe("mapServerError", () => {
   test("skips malformed field entries — stricter than the server, by design", () => {
     // A defensive parse: if a future server emits an extra intermediate
     // wrapper or garbled JSON, we drop the malformed entry instead of
-    // rendering undefined fields in the UI.
-    const mapped = mapServerError({
-      code: "validation_error",
-      httpStatus: 400,
-      i18nKey: "errors.validation.failed",
-      message: "x",
-      details: {
-        fields: [
-          { path: "ok", code: "bad", i18nKey: "k" },
-          { path: "missing-code" }, // malformed
-          null,
-          "not-even-an-object",
-        ],
-      },
-    });
+    // rendering undefined fields in the UI. Der Code warnt bei jedem
+    // Drop (ops-visible Contract-Bruch) — im Test stummschalten UND
+    // gleichzeitig prüfen: jeder der drei Malformed-Inputs muss genau
+    // einen warn() ausgelöst haben. Das macht das "silence" im Test-
+    // Output zur Assertion, nicht zu einem Sweep-under-the-rug.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mapped = mapServerError({
+        code: "validation_error",
+        httpStatus: 400,
+        i18nKey: "errors.validation.failed",
+        message: "x",
+        details: {
+          fields: [
+            { path: "ok", code: "bad", i18nKey: "k" },
+            { path: "missing-code" }, // malformed
+            null,
+            "not-even-an-object",
+          ],
+        },
+      });
 
-    expect(mapped.details?.fields).toHaveLength(1);
+      expect(mapped.details?.fields).toHaveLength(1);
+      expect(warnSpy).toHaveBeenCalledTimes(3);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   test("passes through non-validation details unchanged", () => {
