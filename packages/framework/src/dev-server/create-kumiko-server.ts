@@ -297,7 +297,17 @@ export async function createKumikoServer(
     // HTML shell. The client-side router then reads location.pathname
     // and mounts the right screen. The "no dot" filter skips
     // /favicon.ico etc. (let the stack's 404 handler respond).
-    if (req.method === "GET" && !url.pathname.startsWith("/api/") && !url.pathname.includes(".")) {
+    //
+    // Backend routes that live outside /api (currently just /sse) have
+    // to be excluded explicitly, otherwise the catch-all would shadow
+    // the real Hono route with HTML and EventSource would never
+    // connect.
+    if (
+      req.method === "GET" &&
+      !url.pathname.startsWith("/api/") &&
+      !url.pathname.startsWith("/sse") &&
+      !url.pathname.includes(".")
+    ) {
       return htmlResponse();
     }
 
