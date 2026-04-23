@@ -30,6 +30,15 @@ export function isUniqueViolation(e: unknown): boolean {
   return extractPgError(e)?.code === "23505";
 }
 
+// PG SQLSTATE 42P07 — "relation already exists". Raised when CREATE
+// TABLE (or drizzle-kit's generated equivalent) runs against a table
+// that's already been created. Useful for idempotent boot-paths like
+// the dev-server, where a persistent DB carries the table over from
+// the previous restart.
+export function isTableAlreadyExists(e: unknown): boolean {
+  return extractPgError(e)?.code === "42P07";
+}
+
 export function constraintOf(e: unknown): string | undefined {
   return extractPgError(e)?.constraint_name;
 }

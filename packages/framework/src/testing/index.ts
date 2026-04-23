@@ -2,7 +2,8 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { v4 as uuid } from "uuid";
-import { buildDrizzleTable } from "../db/table-builder";
+import { tableExists } from "../db/schema-inspection";
+import { buildDrizzleTable, toTableName } from "../db/table-builder";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -196,6 +197,9 @@ export { waitFor } from "./wait-for";
 /**
  * Syncs a Drizzle table to the database via drizzle-kit migration.
  * No manual SQL — Drizzle generates CREATE/ALTER TABLE statements.
+ * Strict: raises a postgres `relation already exists` (42P07) error if
+ * the table is already there. Use `ensureEntityTable` for idempotent
+ * boot paths.
  */
 export async function createEntityTable(
   db: ReturnType<typeof drizzle>,
@@ -204,6 +208,25 @@ export async function createEntityTable(
 ): Promise<void> {
   const table = buildDrizzleTable(entityName ?? "entity", entity);
   await pushTables(db, { [entityName ?? "entity"]: table });
+}
+
+/**
+ * Idempotent variant of `createEntityTable`: checks whether the entity's
+ * table already exists and skips creation if so. Schema-drift is *not*
+ * detected — if the table is there but has the wrong columns, that's
+ * the caller's problem (the dev-server contract is "drop the DB by
+ * hand when you change the schema"). Tests should use
+ * `createEntityTable` instead, since they rely on fresh DBs.
+ */
+export async function ensureEntityTable(
+  db: ReturnType<typeof drizzle>,
+  entity: import("../engine/types").EntityDefinition,
+  entityName?: string,
+): Promise<boolean> {
+  const resolvedName = entity.table ?? toTableName(entityName ?? "entity");
+  if (await tableExists(db, `public.${resolvedName}`)) return false;
+  await createEntityTable(db, entity, entityName);
+  return true;
 }
 
 /**
