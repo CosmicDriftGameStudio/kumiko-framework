@@ -239,20 +239,24 @@ export async function createKumikoServer(
     }
   };
 
+  // Build a fresh HTML response with JWT/CSRF cookies. Used by the
+  // SPA-catch-all so any deep-link (/, /task-list, /task-edit/<uuid>…)
+  // mints a working session and lets the client boot from that URL.
+  const htmlResponse = async (): Promise<Response> => {
+    const jwt = await stack.jwt.sign(devUser);
+    const csrf = crypto.randomUUID();
+    const headers = new Headers();
+    headers.set("Content-Type", "text/html; charset=utf-8");
+    headers.append("Set-Cookie", `${AUTH_COOKIE}=${jwt}; Path=/; HttpOnly; SameSite=Lax`);
+    headers.append("Set-Cookie", `${CSRF_COOKIE}=${csrf}; Path=/; SameSite=Lax`);
+    return new Response(injectReload(htmlTemplate), { headers });
+  };
+
   // --- Fetch handler (runtime-neutral) ---
   const handleFetch = async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
 
-    if (url.pathname === "/" && req.method === "GET") {
-      const jwt = await stack.jwt.sign(devUser);
-      const csrf = crypto.randomUUID();
-      const headers = new Headers();
-      headers.set("Content-Type", "text/html; charset=utf-8");
-      headers.append("Set-Cookie", `${AUTH_COOKIE}=${jwt}; Path=/; HttpOnly; SameSite=Lax`);
-      headers.append("Set-Cookie", `${CSRF_COOKIE}=${csrf}; Path=/; SameSite=Lax`);
-      return new Response(injectReload(htmlTemplate), { headers });
-    }
-
+    // Specific routes first — assets, reload-SSE, API.
     if (url.pathname === "/client.js" && req.method === "GET") {
       return new Response(clientBundle.js, {
         headers: { "Content-Type": "application/javascript; charset=utf-8" },
@@ -287,6 +291,14 @@ export async function createKumikoServer(
           Connection: "keep-alive",
         },
       });
+    }
+
+    // SPA catch-all: any GET to a non-API, non-asset path returns the
+    // HTML shell. The client-side router then reads location.pathname
+    // and mounts the right screen. The "no dot" filter skips
+    // /favicon.ico etc. (let the stack's 404 handler respond).
+    if (req.method === "GET" && !url.pathname.startsWith("/api/") && !url.pathname.includes(".")) {
+      return htmlResponse();
     }
 
     return stack.app.fetch(req);
