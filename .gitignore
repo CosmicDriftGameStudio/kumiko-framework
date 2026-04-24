@@ -8,3 +8,6 @@ dist/
 !.env.example
 .DS_Store
 coverage/
+test-results/
+playwright-report/
+.e2e-data.json
