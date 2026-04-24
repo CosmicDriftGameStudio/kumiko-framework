@@ -9,7 +9,6 @@
 // error on the skip counter, advances the cursor, and keeps delivering. The
 // consumer stays "idle".
 
-import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
@@ -17,6 +16,7 @@ import { defineFeature } from "../../engine";
 import { getConsumerState } from "../../pipeline";
 import {
   createEntityTable,
+  resetEventStore,
   setupTestStack,
   sharedWidgetEntity,
   sharedWidgetTable,
@@ -92,10 +92,7 @@ afterAll(async () => {
 afterEach(async () => {
   strictObserved.length = 0;
   lenientObserved.length = 0;
-  await stack.db.db.execute(
-    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_widgets"]);
 });
 
 async function appendWidget(name: string): Promise<void> {

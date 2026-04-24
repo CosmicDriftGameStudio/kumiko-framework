@@ -15,7 +15,6 @@
 // The active propagation into cascaded writes is covered by
 // msp-multi-hop.integration.ts.
 
-import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { requestContext } from "../../api/request-context";
@@ -23,12 +22,18 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Feature ---
 
 const orderEntity = createEntity({
-  table: "causation_orders",
+  table: "read_causation_orders",
   idType: "uuid",
   fields: {
     item: createTextField({ required: true }),
@@ -109,10 +114,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   applyObservations.length = 0;
-  await stack.db.db.execute(
-    sql`TRUNCATE events, causation_orders, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_causation_orders"]);
 });
 
 // --- Helpers ---

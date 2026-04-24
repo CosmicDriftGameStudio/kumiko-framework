@@ -11,7 +11,7 @@ import { createEntity, createTextField } from "@kumiko/framework/engine";
 // is replaced with a fixed sentinel. The unique index stays on
 // (key, tenant_id, user_id) to prevent duplicate writes at the DB level.
 export const configValueEntity = createEntity({
-  table: "config_values",
+  table: "read_config_values",
   idType: "uuid",
   fields: {
     key: createTextField({ required: true }),
@@ -25,12 +25,12 @@ export const configValueEntity = createEntity({
 });
 
 export const configValuesTable = pgTable(
-  "config_values",
+  "read_config_values",
   {
     ...buildBaseColumns(false, "uuid"),
     key: text("key").notNull(),
     value: text("value"),
     userId: text("user_id"),
   },
-  (table) => [uniqueIndex("config_values_unique").on(table.key, table.tenantId, table.userId)],
+  (table) => [uniqueIndex("read_config_values_unique").on(table.key, table.tenantId, table.userId)],
 );

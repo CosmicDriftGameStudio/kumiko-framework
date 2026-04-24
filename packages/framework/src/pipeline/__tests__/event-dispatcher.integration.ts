@@ -28,6 +28,7 @@ import { eventConsumerStateTable, getAllConsumerProgress, getConsumerState } fro
 import {
   createEntityTable,
   pushTables,
+  resetEventStore,
   setupTestStack,
   sharedWidgetEntity,
   sharedWidgetTable,
@@ -40,7 +41,7 @@ import {
 // A tiny state table a subscriber mutates so we can observe "the handler was
 // called with this event" without relying on in-memory arrays — the state row
 // survives even if the test framework resets process state.
-const subscriberLogTable = drizzlePgTable("dispatcher_subscriber_log", {
+const subscriberLogTable = drizzlePgTable("read_dispatcher_subscriber_log", {
   id: drizzleUuid("id").primaryKey().defaultRandom(),
   eventId: drizzleInteger("event_id").notNull(),
   eventType: drizzleUuid("event_type"), // unused, kept to avoid another drizzle type import
@@ -108,10 +109,7 @@ afterEach(async () => {
   captureB = [];
   throwOnEventId = null;
   // Wipe events + cursor state so each test starts at event.id=0 cleanly.
-  await stack.db.db.execute(
-    sql`TRUNCATE events, widgets, kumiko_event_consumers, dispatcher_subscriber_log RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_widgets", "read_dispatcher_subscriber_log"]);
 });
 
 async function appendWidget(name: string): Promise<void> {

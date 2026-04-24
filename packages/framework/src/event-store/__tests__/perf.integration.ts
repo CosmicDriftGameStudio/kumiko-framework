@@ -40,7 +40,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await testDb.db.execute(
-    sql`TRUNCATE events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -197,14 +197,14 @@ describe("event-store performance — Gate A", () => {
     // the seed phase.
     const aggregateId = uuid();
     await testDb.db.execute(sql`
-      INSERT INTO events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
+      INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
       SELECT ${aggregateId}::uuid, 'task', ${tenantId}::uuid, 1, 'task.created',
              jsonb_build_object('title', 'v1'),
              jsonb_build_object('userId', ${userId}::text),
              ${userId}::text;
     `);
     await testDb.db.execute(sql`
-      INSERT INTO events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
+      INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
       SELECT ${aggregateId}::uuid, 'task', ${tenantId}::uuid, gs.v, 'task.updated',
              jsonb_build_object('title', 'v' || gs.v),
              jsonb_build_object('userId', ${userId}::text),

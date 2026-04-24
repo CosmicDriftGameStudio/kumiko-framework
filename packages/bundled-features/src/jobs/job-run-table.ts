@@ -27,7 +27,7 @@ export type JobLogLevel = "info" | "warn" | "error";
 // No r.entity is registered for `jobRun` — the boot-validator accepts
 // events-only projection sources where every apply-key is a registered
 // domain-event (see registry.ts).
-export const jobRunsTable = pgTable("job_runs", {
+export const jobRunsTable = pgTable("read_job_runs", {
   ...buildBaseColumns(false, "uuid"),
   jobName: text("job_name").notNull(),
   bullJobId: text("bull_job_id").notNull(),
@@ -46,7 +46,7 @@ export const jobRunsTable = pgTable("job_runs", {
 // uuid of the parent jobRun. Existing detail-query callers treat it as an
 // opaque identifier, so the type-switch is backward-compatible at the
 // query surface.
-export const jobRunLogsTable = pgTable("job_run_logs", {
+export const jobRunLogsTable = pgTable("read_job_run_logs", {
   id: serial("id").primaryKey(),
   runId: text("run_id").notNull(),
   level: text("level").notNull().$type<JobLogLevel>(),

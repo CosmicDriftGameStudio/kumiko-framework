@@ -11,13 +11,14 @@
 //   3. r.defineEvent returns `{ name: qualifiedName, schema }` — callers
 //      pass `def.name` to ctx.appendEvent without building the qn manually.
 
-import { eq, sql as sqlTag } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
   createEntityTable,
+  resetEventStore,
   setupTestStack,
   sharedWidgetEntity,
   type TestStack,
@@ -123,10 +124,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(
-    sqlTag`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_widgets"]);
 });
 
 // --- Tests ---

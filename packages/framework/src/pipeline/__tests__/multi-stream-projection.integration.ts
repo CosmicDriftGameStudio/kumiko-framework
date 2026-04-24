@@ -16,6 +16,7 @@ import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
   createEntityTable,
   createTestUser,
+  resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
@@ -24,14 +25,14 @@ import {
 // --- Two aggregate types that feed one MSP ---
 
 const shipmentEntity = createEntity({
-  table: "msp_shipments",
+  table: "read_msp_shipments",
   idType: "uuid",
   fields: { customer: createTextField({ required: true }) },
 });
 const shipmentTable = buildDrizzleTable("mspShipment", shipmentEntity);
 
 const refundEntity = createEntity({
-  table: "msp_refunds",
+  table: "read_msp_refunds",
   idType: "uuid",
   fields: { customer: createTextField({ required: true }) },
 });
@@ -42,7 +43,7 @@ const refundTable = buildDrizzleTable("mspRefund", refundEntity);
 //   - feeds off TWO aggregate types (shipment + refund), no shared entity
 //   - identity key (customer UUID) lives in the event payload, not
 //     aggregate_id — extracted inside the apply handler
-const customerBalanceTable = pgTable("msp_customer_balance", {
+const customerBalanceTable = pgTable("read_msp_customer_balance", {
   customer: pgUuid("customer").primaryKey(),
   tenantId: pgUuid("tenant_id").notNull(),
   shipments: pgInteger("shipments").notNull().default(0),
@@ -172,10 +173,11 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(
-    sql`TRUNCATE events, msp_shipments, msp_refunds, msp_customer_balance, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, [
+    "read_msp_shipments",
+    "read_msp_refunds",
+    "read_msp_customer_balance",
+  ]);
 });
 
 describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", () => {

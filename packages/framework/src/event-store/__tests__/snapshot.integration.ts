@@ -59,7 +59,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await testDb.db.execute(
-    sql`TRUNCATE events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY`,
+    sql`TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY`,
   );
 });
 

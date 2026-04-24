@@ -28,6 +28,7 @@ import {
 import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline";
 import {
   createEntityTable,
+  resetEventStore,
   setupTestStack,
   sharedWidgetEntity,
   type TestStack,
@@ -65,10 +66,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(
-    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_widgets"]);
 });
 
 async function seedOldWidgetEvent(createdAt: Temporal.Instant): Promise<void> {

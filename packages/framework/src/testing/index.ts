@@ -1,9 +1,11 @@
-import { sql } from "drizzle-orm";
+import { getTableName, sql } from "drizzle-orm";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { tableExists } from "../db/schema-inspection";
 import { buildDrizzleTable, toTableName } from "../db/table-builder";
 import { generateId } from "../utils";
+import type { TestStack } from "./test-stack";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -251,5 +253,46 @@ export async function pushTables(
   const statements = await generateMigration(prevJson, targetJson);
   for (const stmt of statements) {
     await db.execute(sql.raw(stmt));
+  }
+}
+
+/**
+ * Wipes event store + framework-state + the given feature read-models in
+ * one TRUNCATE, then re-registers the event-consumer state rows. Used in
+ * test beforeEach-hooks to return the stack to a clean slate without
+ * rebuilding it.
+ *
+ * Fixed list of framework tables (kumiko_events, kumiko_event_consumers,
+ * kumiko_archived_streams, kumiko_snapshots, kumiko_projections) is always
+ * included — any event-sourced test setup needs those cleared. The
+ * `extraTables` arg covers the feature's own read-model tables that would
+ * otherwise accumulate rows across tests.
+ *
+ * Accepts either a Drizzle PgTable (for locally-defined tables: getTableName
+ * extracts the SQL name) or a plain string (for SQL names whose Drizzle
+ * reference lives in another module and importing it for the TRUNCATE
+ * alone would be overkill). Both round-trip to the same TRUNCATE list.
+ *
+ * Pre-existing code duplicates this block 30+ times, each with its own
+ * list of extras. The helper collapses that to a one-liner per test and
+ * lets a future change to the framework-table set (e.g. adding a new
+ * consumer-state table) ripple through without touching every suite.
+ */
+export async function resetEventStore(
+  stack: TestStack,
+  extraTables: readonly (PgTable | string)[] = [],
+): Promise<void> {
+  const frameworkTables = [
+    "kumiko_events",
+    "kumiko_event_consumers",
+    "kumiko_archived_streams",
+    "kumiko_snapshots",
+    "kumiko_projections",
+  ];
+  const extraNames = extraTables.map((t) => (typeof t === "string" ? t : getTableName(t)));
+  const allTables = [...frameworkTables, ...extraNames];
+  await stack.db.db.execute(sql.raw(`TRUNCATE ${allTables.join(", ")} RESTART IDENTITY CASCADE`));
+  if (stack.eventDispatcher) {
+    await stack.eventDispatcher.ensureRegistered();
   }
 }

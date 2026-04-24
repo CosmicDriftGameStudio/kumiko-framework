@@ -30,7 +30,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE events RESTART IDENTITY`);
+  await testDb.db.execute(sql`TRUNCATE kumiko_events RESTART IDENTITY`);
 });
 
 describe("event-store: append + load", () => {

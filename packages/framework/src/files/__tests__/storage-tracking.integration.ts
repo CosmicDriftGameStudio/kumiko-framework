@@ -55,7 +55,7 @@ beforeEach(async () => {
   // re-asserted below; truncating it forces ensureRegistered to seed the
   // cursor at event.id = 0.
   await stack.db.db.execute(
-    sql`TRUNCATE events, kumiko_event_consumers, file_refs, tenant_storage_usage RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE kumiko_events, kumiko_event_consumers, file_refs, tenant_storage_usage RESTART IDENTITY CASCADE`,
   );
   await stack.eventDispatcher?.ensureRegistered();
 });

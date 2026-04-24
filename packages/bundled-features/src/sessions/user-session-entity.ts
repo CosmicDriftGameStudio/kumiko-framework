@@ -17,7 +17,10 @@ import {
 // mutate them via ctx.db inside a transaction, but no user request can bypass
 // the revocation flow by poking the column directly.
 export const userSessionEntity = createEntity({
-  table: "user_sessions",
+  // Entity-Key ist "user-session" (mit Dash), toTableName's snake-case-
+  // Transform käme auf "read_user-sessions" → kein valides SQL ohne Quoting.
+  // Deshalb expliziter Override auf den read_-konformen Namen.
+  table: "read_user_sessions",
   // sid-as-PK: the sessionCreator callback generates the UUID, returns it to
   // the framework; the framework stamps it as `jti`; here the same value is
   // the row primary key. Single source of truth for the identifier.

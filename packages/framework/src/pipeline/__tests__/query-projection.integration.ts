@@ -3,7 +3,6 @@
 // drizzle-tables directly. Auto-filters by tenant_id when the projection
 // table carries that column.
 
-import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import {
@@ -15,17 +14,23 @@ import {
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 const widgetEntity = createEntity({
-  table: "qp_widgets",
+  table: "read_qp_widgets",
   idType: "uuid",
   fields: { name: createTextField({ required: true }) },
 });
 const widgetTable = buildDrizzleTable("qpWidget", widgetEntity);
 
 // Tenant-scoped projection — auto-filter by tenant_id.
-const tenantScopedTable = pgTable("qp_widget_count_tenant", {
+const tenantScopedTable = pgTable("read_qp_widget_count_tenant", {
   widgetId: pgUuid("widget_id").primaryKey(),
   tenantId: pgUuid("tenant_id").notNull(),
   label: pgText("label").notNull(),
@@ -33,7 +38,7 @@ const tenantScopedTable = pgTable("qp_widget_count_tenant", {
 });
 
 // System-scoped projection (no tenant_id column) — every caller sees every row.
-const systemScopedTable = pgTable("qp_widget_audit", {
+const systemScopedTable = pgTable("read_qp_widget_audit", {
   widgetId: pgUuid("widget_id").primaryKey(),
   label: pgText("label").notNull(),
 });
@@ -125,9 +130,11 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(
-    sql`TRUNCATE events, qp_widgets, qp_widget_count_tenant, qp_widget_audit RESTART IDENTITY CASCADE`,
-  );
+  await resetEventStore(stack, [
+    "read_qp_widgets",
+    "read_qp_widget_count_tenant",
+    "read_qp_widget_audit",
+  ]);
 });
 
 describe("ctx.queryProjection", () => {

@@ -12,7 +12,7 @@ import { createEntity, createTextField } from "@kumiko/framework/engine";
 // the old serial-id design and keeps duplicate-write protection at the
 // database level independent of the handler lookup.
 export const tenantMembershipEntity = createEntity({
-  table: "tenant_memberships",
+  table: "read_tenant_memberships",
   idType: "uuid",
   fields: {
     userId: createTextField({ required: true }),
@@ -24,11 +24,11 @@ export const tenantMembershipEntity = createEntity({
 });
 
 export const tenantMembershipsTable = pgTable(
-  "tenant_memberships",
+  "read_tenant_memberships",
   {
     ...buildBaseColumns(false, "uuid"),
     userId: text("user_id").notNull(),
     roles: text("roles").notNull(),
   },
-  (table) => [uniqueIndex("tenant_memberships_unique").on(table.userId, table.tenantId)],
+  (table) => [uniqueIndex("read_tenant_memberships_unique").on(table.userId, table.tenantId)],
 );

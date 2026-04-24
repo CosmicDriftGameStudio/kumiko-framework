@@ -6,19 +6,24 @@
 // Events are upcasted by the dispatcher, so the reducer sees the current
 // payload shape even for old v1 events.
 
-import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { append, loadAggregate as loadAggregateRaw } from "../../event-store";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Fixture entity ---
 
 const invoiceEntity = createEntity({
-  table: "asof_invoices",
+  table: "read_asof_invoices",
   idType: "uuid",
   fields: {
     customer: createTextField({ required: true }),
@@ -135,7 +140,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(sql`TRUNCATE events, asof_invoices RESTART IDENTITY CASCADE`);
+  await resetEventStore(stack, ["read_asof_invoices"]);
 });
 
 // --- Tests ---

@@ -38,7 +38,7 @@ import { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 // executor, so the full lifecycle pipeline (postSave hooks + event-log
 // append that the tracker-MSP consumes) actually fires downstream.
 const widgetEntity = createEntity({
-  table: "widgets",
+  table: "read_widgets",
   fields: {
     name: createTextField({ required: true, maxLength: 100 }),
     active: createBooleanField({ default: true }),
@@ -190,7 +190,7 @@ beforeEach(async () => {
   // Wipe the event log + reset every consumer cursor so each test starts
   // from event-id 0. Tests that drain via eventDispatcher.runOnce() need
   // this or they drain a shared backlog and see false-positive counters.
-  await stack.db.db.execute(sql`DELETE FROM events`);
+  await stack.db.db.execute(sql`DELETE FROM kumiko_events`);
   await stack.db.db.execute(sql`UPDATE kumiko_event_consumers SET last_processed_event_id = 0`);
   await runtime.refresh();
 });
@@ -518,7 +518,7 @@ describe("feature-toggles queries + audit automation", () => {
     );
 
     const events = (await stack.db.db.execute(
-      sql`SELECT type, payload FROM events WHERE type = 'feature-toggles:event:toggle-set'`,
+      sql`SELECT type, payload FROM kumiko_events WHERE type = 'feature-toggles:event:toggle-set'`,
     )) as unknown as readonly {
       type: string;
       payload: Record<string, unknown>;

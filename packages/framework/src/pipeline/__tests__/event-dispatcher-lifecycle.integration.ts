@@ -12,7 +12,6 @@
 // via payload, not via a wrapped DB handle. Tenant-isolation-via-MSP is
 // tested in multi-stream-projection.integration.ts.
 
-import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
@@ -27,6 +26,7 @@ import {
 } from "../../observability";
 import {
   createEntityTable,
+  resetEventStore,
   setupTestStack,
   sharedWidgetEntity,
   sharedWidgetTable,
@@ -94,10 +94,7 @@ afterEach(async () => {
   observations = [];
   slowHandlerDelayMs = 0;
   slowHandlerInvocations = [];
-  await stack.db.db.execute(
-    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_widgets"]);
 });
 
 async function appendWidget(name: string): Promise<void> {

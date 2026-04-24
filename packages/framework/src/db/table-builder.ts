@@ -112,18 +112,28 @@ export function toSnakeCase(str: string): string {
  * Derives a table name from an entity name:
  * 1. camelCase → snake_case (e.g. "memberTask" → "member_task")
  * 2. Simple English pluralization (category→categories, status→statuses, task→tasks)
+ * 3. `read_` prefix — markiert die Tabelle als Event-Sourced-Read-Model,
+ *    damit im DB-Tool sofort erkennbar ist dass App-Code nicht direkt
+ *    reinschreibt. Event-Store (kumiko_events) + Framework-State
+ *    (kumiko_*) haben ihren eigenen Prefix, normale App-Side-Tables
+ *    (ohne ES-Anbindung) haben keinen — die drei Kategorien sind damit
+ *    im Tabellenbrowser unterscheidbar.
  */
 const ES_PLURAL_SUFFIXES = ["s", "sh", "ch", "x"] as const;
 
+export const READ_MODEL_PREFIX = "read_";
+
 export function toTableName(entityName: string): string {
   const snake = toSnakeCase(entityName);
+  let plural: string;
   if (snake.endsWith("y") && !/[aeiou]y$/.test(snake)) {
-    return `${snake.slice(0, -1)}ies`;
+    plural = `${snake.slice(0, -1)}ies`;
+  } else if (ES_PLURAL_SUFFIXES.some((suffix) => snake.endsWith(suffix))) {
+    plural = `${snake}es`;
+  } else {
+    plural = `${snake}s`;
   }
-  if (ES_PLURAL_SUFFIXES.some((suffix) => snake.endsWith(suffix))) {
-    return `${snake}es`;
-  }
-  return `${snake}s`;
+  return `${READ_MODEL_PREFIX}${plural}`;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables lose column types

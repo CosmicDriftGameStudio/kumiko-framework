@@ -5,7 +5,6 @@
 // Kumiko carries this as a sparse kumiko_archived_streams table so active
 // streams never pay for extra metadata writes.
 
-import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
@@ -16,10 +15,16 @@ import {
   isStreamArchived,
   loadAggregate as loadAggregateRaw,
 } from "../../event-store";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 const itemEntity = createEntity({
-  table: "arch_items",
+  table: "read_arch_items",
   idType: "uuid",
   fields: { label: createTextField({ required: true }) },
 });
@@ -107,9 +112,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(
-    sql`TRUNCATE events, arch_items, kumiko_archived_streams RESTART IDENTITY CASCADE`,
-  );
+  await resetEventStore(stack, ["read_arch_items"]);
 });
 
 describe("archiveStream — Marten ArchiveStream equivalent", () => {

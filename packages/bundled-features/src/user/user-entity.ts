@@ -9,7 +9,7 @@ import {
 // User entity — tenant-agnostic. A single user can belong to multiple tenants
 // via tenantMemberships. No tenantId column on this table.
 export const userEntity = createEntity({
-  table: "users",
+  table: "read_users",
   idType: "uuid",
   softDelete: true,
   fields: {

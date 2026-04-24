@@ -18,7 +18,6 @@
 // single-instance runs. Any regression in the locking strategy shows up
 // here first.
 
-import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
@@ -32,6 +31,7 @@ import {
 } from "../../pipeline";
 import {
   createEntityTable,
+  resetEventStore,
   setupTestStack,
   sharedWidgetEntity,
   sharedWidgetTable,
@@ -69,10 +69,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(
-    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_widgets"]);
 });
 
 async function appendWidget(name: string): Promise<void> {

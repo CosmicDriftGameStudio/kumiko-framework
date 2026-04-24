@@ -35,7 +35,7 @@ export type EventMetadata = {
 };
 
 export const eventsTable = pgTable(
-  "events",
+  "kumiko_events",
   {
     // bigserial PK: global chronological ordering cheap to index, safe past
     // 2^53 as long as we stay < ~9e15 events. Returned to JS as BigInt.
@@ -82,8 +82,8 @@ export const eventsTable = pgTable(
 export async function createEventsTable(db: DbConnection): Promise<void> {
   // skip: events table already exists — createEventsTable is called from both
   // setupTestStack and explicit test-setups, the guard keeps it idempotent.
-  if (!(await tableExists(db, "public.events"))) {
-    await pushTables(db, { events: eventsTable });
+  if (!(await tableExists(db, "public.kumiko_events"))) {
+    await pushTables(db, { kumikoEvents: eventsTable });
   }
   await createArchivedStreamsTable(db);
   await createSnapshotsTable(db);

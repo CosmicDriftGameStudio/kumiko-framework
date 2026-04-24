@@ -43,7 +43,7 @@ export type StoredMetadata = {
 // plaintext without the master key — so shipping it into the events-table
 // doesn't weaken the threat model vs. the pre-ES tenant_secrets column.
 export const tenantSecretEntity = createEntity({
-  table: "tenant_secrets",
+  table: "read_tenant_secrets",
   idType: "uuid",
   fields: {
     key: createTextField({ required: true }),
@@ -52,7 +52,7 @@ export const tenantSecretEntity = createEntity({
 });
 
 export const tenantSecretsTable = table(
-  "tenant_secrets",
+  "read_tenant_secrets",
   {
     ...buildBaseColumns(false, "uuid"),
     key: text("key").notNull(),
@@ -61,5 +61,5 @@ export const tenantSecretsTable = table(
     metadata: jsonb("metadata").$type<StoredMetadata>().default({}).notNull(),
     lastRotatedAt: instant("last_rotated_at").default(sql`now()`).notNull(),
   },
-  (t) => [uniqueIndex("tenant_secrets_tenant_key_unique").on(t.tenantId, t.key)],
+  (t) => [uniqueIndex("read_tenant_secrets_tenant_key_unique").on(t.tenantId, t.key)],
 );

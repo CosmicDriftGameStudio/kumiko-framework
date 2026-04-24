@@ -7,7 +7,7 @@
 // (MSPs, audit-feature, event-replays) who subscribe by name.
 
 import type { DbConnection } from "@kumiko/framework/db";
-import { createEventsTable, eventsTable } from "@kumiko/framework/event-store";
+import { eventsTable } from "@kumiko/framework/event-store";
 import {
   createEntityTable,
   createTestUser,
@@ -16,7 +16,7 @@ import {
   type TestStack,
   TestUsers,
 } from "@kumiko/framework/testing";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createChannelInAppFeature } from "../../channel-in-app/channel-in-app-feature";
 import { inAppMessagesTable } from "../../channel-in-app/tables";
@@ -52,16 +52,16 @@ beforeAll(async () => {
   });
   db = stack.db.db;
   await createEntityTable(db, tenantEntity);
+  // Events-table is auto-pushed by setupTestStack; we only need to add
+  // the feature-specific projection + lookup tables here. notificationPre-
+  // ferencesTable is explicit because delivery-service queries it on
+  // every notify() — without it, notify() crashes before the event append.
   await pushTables(db, {
     configValuesTable,
     tenantMembershipsTable,
     inAppMessagesTable,
-    // Needed because delivery-service's preference-check queries it on every
-    // notify() — without the table the notify() itself crashes before any
-    // event gets appended.
     notificationPreferencesTable,
   });
-  await createEventsTable(db);
 
   deliveryService = createDeliveryService({
     db,
@@ -105,8 +105,11 @@ describe("delivery event shape", () => {
     expect(event.aggregateType).toBe("deliveryAttempt");
     expect(event.tenantId).toBe(admin.tenantId);
 
-    // Every attempt is its own aggregate-stream — first event in each stream
-    // is version 1.
+    // Version invariant: each delivery attempt spawns a FRESH aggregate-id
+    // (see logDelivery → generateId()), so the event is always the first
+    // event on its stream → version 1. If this ever fails, the design
+    // changed — e.g. retries share an aggregate — and downstream replay /
+    // version-ordering logic needs to be revisited.
     expect(event.version).toBe(1);
   });
 
@@ -148,19 +151,16 @@ describe("delivery event shape", () => {
       .where(eq(eventsTable.aggregateType, "deliveryAttempt"));
     if (!event) throw new Error("expected one event");
 
+    // PK is unique — a matching row on `id === aggregateId` is already the
+    // contract; no secondary filter needed. Same convention as jobRunsTable
+    // + tenantSecretsTable: projection-row PK IS the event aggregateId, so
+    // a replay of the same event conflicts on the PK rather than
+    // duplicating the log row.
     const [row] = await db
       .select()
       .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.id, event.aggregateId),
-          eq(deliveryAttemptsTable.notificationType, "example:notify:pk-link"),
-        ),
-      );
+      .where(eq(deliveryAttemptsTable.id, event.aggregateId));
     expect(row).toBeDefined();
-    // Same convention as jobRunsTable + tenantSecretsTable: projection-row
-    // PK IS the event aggregateId. Replaying the same event conflicts on
-    // the PK rather than duplicating the log row.
-    expect(row?.id).toBe(event.aggregateId);
+    expect(row?.notificationType).toBe("example:notify:pk-link");
   });
 });

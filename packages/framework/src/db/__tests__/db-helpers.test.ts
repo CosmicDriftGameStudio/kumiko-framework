@@ -192,7 +192,7 @@ describe("buildDrizzleTable auto-indices", () => {
     const table = buildDrizzleTable("item", entity, { featureName: "shop" });
     const { indexes } = getTableConfig(table);
 
-    expect(indexes.some((idx) => idx.config.name === "shop_items_tenant_id_idx")).toBe(true);
+    expect(indexes.some((idx) => idx.config.name === "read_shop_items_tenant_id_idx")).toBe(true);
   });
 
   test("table without file fields or relations has only the tenant index", () => {
@@ -204,7 +204,7 @@ describe("buildDrizzleTable auto-indices", () => {
     const { indexes } = getTableConfig(table);
 
     expect(indexes).toHaveLength(1);
-    expect(indexes[0]?.config.name).toBe("notes_tenant_id_idx");
+    expect(indexes[0]?.config.name).toBe("read_notes_tenant_id_idx");
   });
 
   test("belongsTo relations produce an index on their foreign key column", () => {
@@ -224,9 +224,9 @@ describe("buildDrizzleTable auto-indices", () => {
     const { indexes } = getTableConfig(table);
 
     const names = indexes.map((i) => i.config.name);
-    expect(names).toContain("tasks_tenant_id_idx");
-    expect(names).toContain("tasks_assignee_id_idx");
-    expect(names).toContain("tasks_project_id_idx");
+    expect(names).toContain("read_tasks_tenant_id_idx");
+    expect(names).toContain("read_tasks_assignee_id_idx");
+    expect(names).toContain("read_tasks_project_id_idx");
   });
 
   test("hasMany / manyToMany relations do NOT produce indexes on this table (their FK lives on the other side)", () => {
@@ -248,7 +248,7 @@ describe("buildDrizzleTable auto-indices", () => {
     // Only the tenant index — hasMany FK lives on the "user" table; the join
     // table for manyToMany isn't owned by this entity either.
     expect(indexes).toHaveLength(1);
-    expect(indexes[0]?.config.name).toBe("teams_tenant_id_idx");
+    expect(indexes[0]?.config.name).toBe("read_teams_tenant_id_idx");
   });
 
   test("relation and file field on the same column deduplicate to one index", () => {

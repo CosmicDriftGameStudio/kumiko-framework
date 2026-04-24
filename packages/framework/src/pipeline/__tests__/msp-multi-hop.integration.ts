@@ -10,19 +10,24 @@
 //      a three-hop causal chain (order.placed → order.confirmed → order.shipped).
 //   5. ctx.loadAggregate reads the triggering stream's full history.
 
-import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Feature ---
 
 const orderEntity = createEntity({
-  table: "mmh_orders",
+  table: "read_mmh_orders",
   idType: "uuid",
   fields: {
     item: createTextField({ required: true }),
@@ -114,10 +119,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   confirmLoadCounts.length = 0;
-  await stack.db.db.execute(
-    sql`TRUNCATE events, mmh_orders, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_mmh_orders"]);
 });
 
 // --- Helpers ---

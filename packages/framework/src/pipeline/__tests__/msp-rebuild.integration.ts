@@ -27,26 +27,32 @@ import {
   getConsumerState,
   rebuildMultiStreamProjection,
 } from "../../pipeline";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 
 const invoiceEntity = createEntity({
-  table: "mspreb_invoices",
+  table: "read_mspreb_invoices",
   idType: "uuid",
   fields: { customer: createTextField({ required: true }) },
 });
 const invoiceTable = buildDrizzleTable("mspRebInvoice", invoiceEntity);
 
 const paymentEntity = createEntity({
-  table: "mspreb_payments",
+  table: "read_mspreb_payments",
   idType: "uuid",
   fields: { customer: createTextField({ required: true }) },
 });
 const paymentTable = buildDrizzleTable("mspRebPayment", paymentEntity);
 
 // Main read-model: running balance per customer.
-const balanceTable = pgTable("mspreb_balance", {
+const balanceTable = pgTable("read_mspreb_balance", {
   customer: pgUuid("customer").primaryKey(),
   tenantId: pgUuid("tenant_id").notNull(),
   invoicesCents: pgInteger("invoices_cents").notNull().default(0),
@@ -56,7 +62,7 @@ const balanceTable = pgTable("mspreb_balance", {
 // Saga-MSP read-model — never actually written, exists to satisfy the
 // `table` requirement. The apply below calls ctx.appendEvent; during
 // rebuild that call must throw.
-const sagaStateTable = pgTable("mspreb_saga_state", {
+const sagaStateTable = pgTable("read_mspreb_saga_state", {
   id: pgUuid("id").primaryKey(),
 });
 
@@ -219,10 +225,12 @@ afterEach(async () => {
   // Disable the saga MSP before truncating so its live pass doesn't land on
   // a half-torn-down state between tests. The webhook MSP is idempotent for
   // our purposes — it has no state to leak.
-  await stack.db.db.execute(
-    sql`TRUNCATE events, mspreb_invoices, mspreb_payments, mspreb_balance, mspreb_saga_state, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, [
+    "read_mspreb_invoices",
+    "read_mspreb_payments",
+    "read_mspreb_balance",
+    "read_mspreb_saga_state",
+  ]);
 });
 
 // --- Helpers ---

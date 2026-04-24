@@ -24,6 +24,7 @@ import {
 } from "../../pipeline";
 import {
   createEntityTable,
+  resetEventStore,
   setupTestStack,
   sharedWidgetEntity,
   sharedWidgetTable,
@@ -66,10 +67,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(
-    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_widgets"]);
 });
 
 // Seed an aggregate event directly with a specific createdAt. Bypasses the
@@ -191,7 +189,9 @@ describe("E.2 — consumer-lag guard", () => {
       .where(eq(eventConsumerStateTable.name, observerQn));
 
     // Age all three events past the cutoff.
-    await stack.db.db.execute(sql`UPDATE events SET created_at = now() - interval '30 days'`);
+    await stack.db.db.execute(
+      sql`UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
+    );
 
     await expect(
       pruneEvents(stack.db.db, {
@@ -207,7 +207,9 @@ describe("E.2 — consumer-lag guard", () => {
     await disableConsumer(stack.db.db, observerQn);
 
     // Cursor is at 1 but consumer is disabled — should be skipped.
-    await stack.db.db.execute(sql`UPDATE events SET created_at = now() - interval '30 days'`);
+    await stack.db.db.execute(
+      sql`UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
+    );
 
     const result = await pruneEvents(stack.db.db, {
       olderThanDays: 7,

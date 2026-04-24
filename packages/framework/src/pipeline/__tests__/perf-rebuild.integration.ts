@@ -31,7 +31,7 @@ import { generateId as uuid } from "../../utils";
 // task.updated is a no-op. Enough to exercise the apply path —
 // rebuild cost is dominated by event iteration + apply dispatch,
 // not the projection state shape.
-const taskCountTable = drizzlePgTable("perf_rebuild_task_count", {
+const taskCountTable = drizzlePgTable("read_perf_rebuild_task_count", {
   tenantId: drizzleUuid("tenant_id").primaryKey(),
   count: drizzleInteger("count").notNull().default(0),
 });
@@ -87,7 +87,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await testDb.db.execute(
-    sql`TRUNCATE events, perf_rebuild_task_count, kumiko_projections RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE kumiko_events, read_perf_rebuild_task_count, kumiko_projections RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -98,7 +98,7 @@ async function seedEvents(count: number, depth: number): Promise<void> {
   const userId = uuid();
   // v1 creates
   await testDb.db.execute(sql`
-    INSERT INTO events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
+    INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
     SELECT gen_random_uuid(), 'task', ${admin.tenantId}::uuid, 1, 'task.created',
            jsonb_build_object('title', 'Task ' || gs.n),
            jsonb_build_object('userId', ${userId}::text),
@@ -108,12 +108,12 @@ async function seedEvents(count: number, depth: number): Promise<void> {
   // v2..depth updates
   for (let v = 2; v <= depth; v++) {
     await testDb.db.execute(sql`
-      INSERT INTO events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
+      INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
       SELECT e.aggregate_id, 'task', ${admin.tenantId}::uuid, ${v}, 'task.updated',
              jsonb_build_object('title', 'Task v' || ${v}),
              jsonb_build_object('userId', ${userId}::text),
              ${userId}::text
-        FROM events e
+        FROM kumiko_events e
        WHERE e.aggregate_type = 'task' AND e.version = ${v - 1};
     `);
   }

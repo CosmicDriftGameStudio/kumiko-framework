@@ -402,7 +402,9 @@ async function emitLagFromTx(
   cursor: bigint,
   meter: Meter,
 ): Promise<void> {
-  const result = await tx.execute(sql`SELECT COALESCE(MAX(id), 0)::bigint AS head FROM events`);
+  const result = await tx.execute(
+    sql`SELECT COALESCE(MAX(id), 0)::bigint AS head FROM kumiko_events`,
+  );
   const rows = Array.isArray(result) ? (result as Array<{ head?: bigint | string | null }>) : [];
   const raw = rows[0]?.head;
   const head = typeof raw === "bigint" ? raw : BigInt(raw ?? 0);

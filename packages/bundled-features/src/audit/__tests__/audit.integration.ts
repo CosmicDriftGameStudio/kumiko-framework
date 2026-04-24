@@ -12,6 +12,7 @@ import {
 import {
   createEntityTable,
   createTestUser,
+  resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
@@ -70,7 +71,7 @@ afterAll(async () => {
 beforeEach(async () => {
   // Fresh event log per test — the audit query reads the events table
   // directly, so stale events from previous tests would leak into results.
-  await stack.db.db.execute(sql`TRUNCATE events RESTART IDENTITY`);
+  await resetEventStore(stack);
   await stack.db.db.execute(sql`TRUNCATE audit_widgets`);
 });
 

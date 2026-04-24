@@ -25,7 +25,7 @@ import { upcastStoredEvent } from "../upcaster";
 // --- Fixture entity + projection table ---
 
 const orderEntity = createEntity({
-  table: "upcast_orders",
+  table: "read_upcast_orders",
   idType: "uuid",
   fields: {
     customer: createTextField({ required: true }),
@@ -35,7 +35,7 @@ const orderTable = buildDrizzleTable("upcastOrder", orderEntity);
 
 // Projection stores the UPCAST view: the v3 shape expects `totalCents` (int)
 // even though the earliest writes might have stored `totalEuros` (string).
-const orderSummaryTable = pgTable("upcast_order_summary", {
+const orderSummaryTable = pgTable("read_upcast_order_summary", {
   orderId: pgText("order_id").primaryKey(),
   tenantId: pgText("tenant_id").notNull(),
   totalCents: pgInteger("total_cents").notNull(),
@@ -117,7 +117,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await testDb.db.execute(
-    sql`TRUNCATE events, upcast_orders, upcast_order_summary, kumiko_projections RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE kumiko_events, read_upcast_orders, read_upcast_order_summary, kumiko_projections RESTART IDENTITY CASCADE`,
   );
 });
 

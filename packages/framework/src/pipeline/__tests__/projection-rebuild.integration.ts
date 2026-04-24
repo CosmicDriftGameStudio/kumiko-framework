@@ -35,7 +35,7 @@ import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } f
 // --- Test fixtures ---
 
 const itemEntity = createEntity({
-  table: "rebuild_items",
+  table: "read_rebuild_items",
   idType: "uuid",
   fields: {
     groupId: createTextField({ required: true }),
@@ -45,7 +45,7 @@ const itemEntity = createEntity({
 });
 const itemTable = buildDrizzleTable("rebuildItem", itemEntity);
 
-const itemsPerGroupTable = drizzlePgTable("rebuild_items_per_group", {
+const itemsPerGroupTable = drizzlePgTable("read_rebuild_items_per_group", {
   groupId: drizzleUuid("group_id").primaryKey(),
   tenantId: drizzleUuid("tenant_id").notNull(),
   itemCount: drizzleInteger("item_count").notNull().default(0),
@@ -110,7 +110,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await testDb.db.execute(
-    sql`TRUNCATE events, rebuild_items, rebuild_items_per_group, kumiko_projections RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections RESTART IDENTITY CASCADE`,
   );
 });
 

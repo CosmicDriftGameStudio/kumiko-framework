@@ -20,7 +20,7 @@ import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "..
 // --- Feature ---
 
 const cartEntity = createEntity({
-  table: "f4w_carts",
+  table: "read_f4w_carts",
   idType: "uuid",
   fields: {
     customer: createTextField({ required: true }),
@@ -146,7 +146,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   await stack.db.db.execute(
-    sql`TRUNCATE events, f4w_carts, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE kumiko_events, read_f4w_carts, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
   await stack.eventDispatcher?.ensureRegistered();
 });

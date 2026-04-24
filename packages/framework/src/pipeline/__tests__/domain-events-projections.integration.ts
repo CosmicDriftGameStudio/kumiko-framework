@@ -10,7 +10,7 @@
 // projections-runner fires on appendEvent, dispatcher routes appendEvent to
 // the aggregate stream), any of the assertions below go red.
 
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import {
@@ -23,12 +23,18 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { loadAggregate } from "../../event-store";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import {
+  createEntityTable,
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../testing";
 
 // --- Entity ---
 
 const shipmentEntity = createEntity({
-  table: "domain_shipments",
+  table: "read_domain_shipments",
   idType: "uuid",
   fields: {
     cargo: createTextField({ required: true }),
@@ -40,7 +46,7 @@ const shipmentTable = buildDrizzleTable("domainShipment", shipmentEntity);
 
 // --- Read-model table (fed by the projection below) ---
 
-const billingTable = pgTable("domain_shipment_billing", {
+const billingTable = pgTable("read_domain_shipment_billing", {
   shipmentId: pgUuid("shipment_id").primaryKey(),
   tenantId: pgUuid("tenant_id").notNull(),
   cargo: pgText("cargo").notNull(),
@@ -178,9 +184,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(
-    sql`TRUNCATE events, domain_shipments, domain_shipment_billing RESTART IDENTITY CASCADE`,
-  );
+  await resetEventStore(stack, ["read_domain_shipments", "read_domain_shipment_billing"]);
 });
 
 // --- Tests ---

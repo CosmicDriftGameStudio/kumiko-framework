@@ -22,7 +22,7 @@ import { sql } from "drizzle-orm";
 // PK = event aggregate-id (uuid). Keeps the projection row linked back to
 // its event stream 1:1 — same convention as jobRunsTable + tenantSecretsTable.
 // Event replays stay idempotent (primary-key conflict instead of duplicate rows).
-export const deliveryAttemptsTable = pgTable("delivery_attempts", {
+export const deliveryAttemptsTable = pgTable("read_delivery_attempts", {
   id: uuid("id").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
   notificationType: text("notification_type").notNull(),
@@ -41,7 +41,7 @@ export const deliveryAttemptsTable = pgTable("delivery_attempts", {
 // event-store executor. The unique index on (tenant, user, type, channel)
 // is the effective natural key; the uuid PK is the aggregate id.
 export const notificationPreferenceEntity = createEntity({
-  table: "notification_preferences",
+  table: "read_notification_preferences",
   idType: "uuid",
   fields: {
     userId: createTextField({ required: true }),
@@ -52,7 +52,7 @@ export const notificationPreferenceEntity = createEntity({
 });
 
 export const notificationPreferencesTable = pgTable(
-  "notification_preferences",
+  "read_notification_preferences",
   {
     ...buildBaseColumns(false, "uuid"),
     userId: text("user_id").notNull(),
@@ -61,7 +61,7 @@ export const notificationPreferencesTable = pgTable(
     enabled: boolean("enabled").default(true).notNull(),
   },
   (table) => [
-    uniqueIndex("notification_pref_unique").on(
+    uniqueIndex("read_notification_preferences_unique").on(
       table.tenantId,
       table.userId,
       table.notificationType,

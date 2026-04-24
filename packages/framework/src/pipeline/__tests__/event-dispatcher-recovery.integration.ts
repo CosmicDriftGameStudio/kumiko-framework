@@ -14,7 +14,6 @@
 //                    will never succeed (broken payload, removed code).
 //   (list/status are read-only; covered by event-dispatcher wiring tests.)
 
-import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
@@ -28,6 +27,7 @@ import {
 } from "../../pipeline";
 import {
   createEntityTable,
+  resetEventStore,
   setupTestStack,
   sharedWidgetEntity,
   sharedWidgetTable,
@@ -79,10 +79,7 @@ beforeAll(async () => {
 afterEach(async () => {
   poisonNames = new Set();
   observed = [];
-  await stack.db.db.execute(
-    sql`TRUNCATE events, widgets, kumiko_event_consumers RESTART IDENTITY CASCADE`,
-  );
-  await stack.eventDispatcher?.ensureRegistered();
+  await resetEventStore(stack, ["read_widgets"]);
 });
 
 async function appendWidget(name: string): Promise<void> {
@@ -166,7 +163,7 @@ describe("E.9 — disable / enable", () => {
 describe("E.9 — skipPoisonEvent", () => {
   test("skips past a poisoned event, advances cursor, subsequent events deliver", async () => {
     await appendWidget("before-poison");
-    poisonNames.add("the-poison");
+    await poisonNames.add("the-poison");
     await appendWidget("the-poison");
     poisonNames.delete("the-poison"); // no-op for current state; only matters for later retries
     await appendWidget("after-poison");

@@ -758,16 +758,6 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     //      the delivery-service produces one event on a fresh aggregate)
     //      or `jobRun` (BullMQ-callback-driven lifecycle, no executor).
     //      A "Shape-Anchor"-entity is no longer needed for this case.
-    //
-    // Known gap: in events-only mode the source-string is NOT cross-checked
-    // against the aggregateType used when appending — `source: "deliverryAtempt"`
-    // plus a real domain-event key passes boot-validation, because we only
-    // match events by `type`, not by `aggregateType`. Impact is confined to
-    // a silent projection miss on that single feature: the event still lands
-    // on the events-table, and the typo is obvious in any query that reads
-    // the projection-table. A full fix would require r.defineEvent to carry
-    // the aggregate-type so the validator could assert source ⊆ aggregate-
-    // types-that-emit-this-event — not worth the API complexity today.
     const isEventsOnlySource = !sources.every((src) => entityMap.has(src));
     for (const src of sources) {
       if (entityMap.has(src)) {

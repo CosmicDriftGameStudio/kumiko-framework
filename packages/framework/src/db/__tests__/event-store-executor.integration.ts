@@ -14,7 +14,7 @@ import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const entity = createEntity({
-  table: "es_exec_users",
+  table: "read_es_exec_users",
   idType: "uuid",
   fields: {
     email: createTextField({ required: true, searchable: true }),
@@ -41,7 +41,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE events, es_exec_users RESTART IDENTITY CASCADE`);
+  await testDb.db.execute(sql`TRUNCATE kumiko_events, read_es_exec_users RESTART IDENTITY CASCADE`);
 });
 
 describe("event-store-executor", () => {
@@ -110,7 +110,7 @@ describe("event-store-executor", () => {
 // are excluded from every event payload: create data, update changes,
 // update previous, delete previous, restore previous.
 const sensitiveEntity = createEntity({
-  table: "es_exec_sensitive",
+  table: "read_es_exec_sensitive",
   idType: "uuid",
   fields: {
     email: createTextField({ required: true }),
@@ -131,12 +131,14 @@ describe("event-store-executor — sensitive fields", () => {
   });
 
   beforeEach(async () => {
-    await testDb.db.execute(sql`TRUNCATE events, es_exec_sensitive RESTART IDENTITY CASCADE`);
+    await testDb.db.execute(
+      sql`TRUNCATE kumiko_events, read_es_exec_sensitive RESTART IDENTITY CASCADE`,
+    );
   });
 
   async function lastEvent(): Promise<{ type: string; payload: Record<string, unknown> }> {
     const rows = await testDb.db.execute<{ type: string; payload: Record<string, unknown> }>(
-      sql`SELECT type, payload FROM events ORDER BY id DESC LIMIT 1`,
+      sql`SELECT type, payload FROM kumiko_events ORDER BY id DESC LIMIT 1`,
     );
     const row = rows[0];
     if (!row) throw new Error("no events in store");
