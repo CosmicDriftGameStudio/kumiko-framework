@@ -25,7 +25,6 @@ import { AuditQueries } from "../constants";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",
-  idType: "uuid",
   fields: {
     name: createTextField({ required: true }),
     color: createTextField(),

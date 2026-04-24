@@ -42,7 +42,6 @@ export const deliveryAttemptsTable = pgTable("read_delivery_attempts", {
 // is the effective natural key; the uuid PK is the aggregate id.
 export const notificationPreferenceEntity = createEntity({
   table: "read_notification_preferences",
-  idType: "uuid",
   fields: {
     userId: createTextField({ required: true }),
     notificationType: createTextField({ required: true }), // qualified name or "*"

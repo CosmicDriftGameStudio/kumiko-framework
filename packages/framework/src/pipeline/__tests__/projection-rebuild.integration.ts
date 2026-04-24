@@ -36,7 +36,6 @@ import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } f
 
 const itemEntity = createEntity({
   table: "read_rebuild_items",
-  idType: "uuid",
   fields: {
     groupId: createTextField({ required: true }),
     name: createTextField({ required: true }),

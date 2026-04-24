@@ -21,7 +21,6 @@ import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "..
 
 const cartEntity = createEntity({
   table: "read_f4w_carts",
-  idType: "uuid",
   fields: {
     customer: createTextField({ required: true }),
   },

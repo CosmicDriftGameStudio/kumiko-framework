@@ -231,7 +231,6 @@ export function createEntity(
     // Default to UUID — post-ES-pivot every entity is event-sourced and
     // aggregate-ids are UUID. Opt-out with `idType: "serial"` for pre-ES
     // legacy tables (should be rare).
-    idType: "uuid",
     ...def,
   };
 }

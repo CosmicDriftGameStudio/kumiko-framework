@@ -24,7 +24,6 @@ export const userSessionEntity = createEntity({
   // sid-as-PK: the sessionCreator callback generates the UUID, returns it to
   // the framework; the framework stamps it as `jti`; here the same value is
   // the row primary key. Single source of truth for the identifier.
-  idType: "uuid",
   // No softDelete: revocation is its own lifecycle (revokedAt timestamp), not
   // a delete — we want to keep the audit trail of revoked sessions for the
   // "your devices" UI ("signed out 3 days ago").

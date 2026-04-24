@@ -26,14 +26,12 @@ import {
 
 const shipmentEntity = createEntity({
   table: "read_msp_shipments",
-  idType: "uuid",
   fields: { customer: createTextField({ required: true }) },
 });
 const shipmentTable = buildDrizzleTable("mspShipment", shipmentEntity);
 
 const refundEntity = createEntity({
   table: "read_msp_refunds",
-  idType: "uuid",
   fields: { customer: createTextField({ required: true }) },
 });
 const refundTable = buildDrizzleTable("mspRefund", refundEntity);

@@ -12,7 +12,6 @@ import { createEntity, createTextField } from "@kumiko/framework/engine";
 // (key, tenant_id, user_id) to prevent duplicate writes at the DB level.
 export const configValueEntity = createEntity({
   table: "read_config_values",
-  idType: "uuid",
   fields: {
     key: createTextField({ required: true }),
     // value is JSON-encoded primitive (or encrypted blob). Nullable so a

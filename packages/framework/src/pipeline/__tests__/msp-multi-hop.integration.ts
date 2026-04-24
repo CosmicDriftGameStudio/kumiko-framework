@@ -28,7 +28,6 @@ import {
 
 const orderEntity = createEntity({
   table: "read_mmh_orders",
-  idType: "uuid",
   fields: {
     item: createTextField({ required: true }),
   },

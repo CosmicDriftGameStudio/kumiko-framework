@@ -149,14 +149,18 @@ export function createEventStoreExecutor(
   const { searchAdapter, entityName, entityCache } = options;
   const softDelete = entity.softDelete ?? false;
 
-  if (entity.idType !== "uuid") {
+  // idType default (undefined) is now "uuid" — the ES-pivot made UUID the
+  // only valid aggregate-id type. Explicit `idType: "serial"` is the only
+  // shape that's incompatible with the event-store and still rejected.
+  if (entity.idType !== undefined && entity.idType !== "uuid") {
     throw new Error(
       `event-store-executor requires entity "${entityName}" to declare idType: "uuid" — ` +
-        `got idType: "${entity.idType ?? "undefined"}". ` +
+        `got idType: "${entity.idType}". ` +
         `The events-table keys aggregates by uuid(aggregate_id); non-UUID PKs would ` +
         `require a schema split the framework does not currently support. ` +
-        `Fix: set \`idType: "uuid"\` in createEntity({...}) for "${entityName}". ` +
-        `The framework auto-assigns UUIDs on create — you do not need to generate them yourself. ` +
+        `Fix: remove the \`idType\`-override from createEntity({...}) for "${entityName}" ` +
+        `(the default is "uuid"). The framework auto-assigns UUIDs on create — ` +
+        `you do not need to generate them yourself. ` +
         `See docs/plans/architecture/event-sourcing-pivot.md (section "UUID-only aggregate IDs") for the full rationale.`,
     );
   }

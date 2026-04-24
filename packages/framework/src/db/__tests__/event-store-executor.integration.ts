@@ -15,7 +15,6 @@ import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const entity = createEntity({
   table: "read_es_exec_users",
-  idType: "uuid",
   fields: {
     email: createTextField({ required: true, searchable: true }),
     firstName: createTextField(),
@@ -111,7 +110,6 @@ describe("event-store-executor", () => {
 // update previous, delete previous, restore previous.
 const sensitiveEntity = createEntity({
   table: "read_es_exec_sensitive",
-  idType: "uuid",
   fields: {
     email: createTextField({ required: true }),
     passwordHash: createTextField({ sensitive: true }),

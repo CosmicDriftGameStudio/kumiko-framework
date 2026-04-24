@@ -60,7 +60,6 @@ const taskCountProjection: ProjectionDefinition = {
 
 const taskEntity = createEntity({
   table: "perf_rebuild_tasks",
-  idType: "uuid",
   fields: { title: createTextField({ required: true }) },
 });
 

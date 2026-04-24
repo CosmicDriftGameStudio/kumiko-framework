@@ -25,7 +25,6 @@ import {
 
 const itemEntity = createEntity({
   table: "read_arch_items",
-  idType: "uuid",
   fields: { label: createTextField({ required: true }) },
 });
 const itemTable = buildDrizzleTable("archItem", itemEntity);

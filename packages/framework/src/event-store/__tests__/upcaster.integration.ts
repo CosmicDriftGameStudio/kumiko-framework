@@ -26,7 +26,6 @@ import { upcastStoredEvent } from "../upcaster";
 
 const orderEntity = createEntity({
   table: "read_upcast_orders",
-  idType: "uuid",
   fields: {
     customer: createTextField({ required: true }),
   },

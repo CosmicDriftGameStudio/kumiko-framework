@@ -33,7 +33,6 @@ import {
 
 const contractEntity = createEntity({
   table: "h2_contracts",
-  idType: "uuid",
   softDelete: true,
   fields: {
     teamId: createTextField({ required: true }),

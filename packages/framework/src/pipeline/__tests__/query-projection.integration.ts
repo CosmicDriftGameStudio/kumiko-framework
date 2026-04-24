@@ -24,7 +24,6 @@ import {
 
 const widgetEntity = createEntity({
   table: "read_qp_widgets",
-  idType: "uuid",
   fields: { name: createTextField({ required: true }) },
 });
 const widgetTable = buildDrizzleTable("qpWidget", widgetEntity);

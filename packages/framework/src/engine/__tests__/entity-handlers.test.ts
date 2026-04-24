@@ -11,7 +11,6 @@ const VALID_UUID = "00000000-0000-4000-8000-000000000001";
 
 const noteEntity = createEntity({
   table: "notes",
-  idType: "uuid",
   fields: {
     title: createTextField({ required: true }),
     body: createTextField(),
@@ -20,7 +19,6 @@ const noteEntity = createEntity({
 
 const noteEntitySoftDelete = createEntity({
   table: "notes_soft",
-  idType: "uuid",
   fields: {
     title: createTextField({ required: true }),
   },

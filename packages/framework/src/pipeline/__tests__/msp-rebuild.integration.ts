@@ -39,14 +39,12 @@ import {
 
 const invoiceEntity = createEntity({
   table: "read_mspreb_invoices",
-  idType: "uuid",
   fields: { customer: createTextField({ required: true }) },
 });
 const invoiceTable = buildDrizzleTable("mspRebInvoice", invoiceEntity);
 
 const paymentEntity = createEntity({
   table: "read_mspreb_payments",
-  idType: "uuid",
   fields: { customer: createTextField({ required: true }) },
 });
 const paymentTable = buildDrizzleTable("mspRebPayment", paymentEntity);

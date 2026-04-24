@@ -18,7 +18,6 @@ import { fileRefsTable } from "../file-ref-table";
 // identically to `file` and `image` (same switch-case in table-builder).
 const documentEntity = createEntity({
   table: "regression_documents",
-  idType: "uuid",
   fields: {
     attachment: createFileField(),
     cover: createImageField(),

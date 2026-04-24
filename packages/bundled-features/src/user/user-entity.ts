@@ -10,7 +10,6 @@ import {
 // via tenantMemberships. No tenantId column on this table.
 export const userEntity = createEntity({
   table: "read_users",
-  idType: "uuid",
   softDelete: true,
   fields: {
     // Identity — anyone who can see the user can read the email, but only

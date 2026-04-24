@@ -139,7 +139,7 @@ export function toTableName(entityName: string): string {
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables lose column types
 type DrizzleTable = TableColumns<any>;
 
-export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "serial") {
+export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "uuid") {
   const idColumn =
     idType === "uuid"
       ? uuid("id").primaryKey().default(sql`gen_random_uuid()`)
@@ -190,7 +190,7 @@ export function buildDrizzleTable(
   entity: EntityDefinition,
   options?: BuildDrizzleTableOptions,
 ): DrizzleTable {
-  const baseColumns = buildBaseColumns(entity.softDelete ?? false, entity.idType ?? "serial");
+  const baseColumns = buildBaseColumns(entity.softDelete ?? false, entity.idType ?? "uuid");
   const fieldColumns: Record<string, ColumnBuilder> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {

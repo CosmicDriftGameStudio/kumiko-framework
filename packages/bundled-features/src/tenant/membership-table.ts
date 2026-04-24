@@ -13,7 +13,6 @@ import { createEntity, createTextField } from "@kumiko/framework/engine";
 // database level independent of the handler lookup.
 export const tenantMembershipEntity = createEntity({
   table: "read_tenant_memberships",
-  idType: "uuid",
   fields: {
     userId: createTextField({ required: true }),
     // JSON-encoded string[] — parseRoles() deserializes at read time.

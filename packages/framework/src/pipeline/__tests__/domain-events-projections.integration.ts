@@ -35,7 +35,6 @@ import {
 
 const shipmentEntity = createEntity({
   table: "read_domain_shipments",
-  idType: "uuid",
   fields: {
     cargo: createTextField({ required: true }),
     status: createTextField({ required: true }),

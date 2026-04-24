@@ -24,7 +24,6 @@ import {
 
 const invoiceEntity = createEntity({
   table: "read_asof_invoices",
-  idType: "uuid",
   fields: {
     customer: createTextField({ required: true }),
     status: createTextField({ required: true }),

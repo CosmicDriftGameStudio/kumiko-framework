@@ -43,7 +43,6 @@ import { createLocalProvider } from "../local-provider";
 // Both shapes must validate + round-trip through the CRUD pipeline.
 const documentEntity = createEntity({
   table: "pipeline_documents",
-  idType: "uuid",
   fields: {
     title: createTextField({ required: true }),
     attachment: createFileField(),
