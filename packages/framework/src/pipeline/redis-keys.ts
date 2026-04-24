@@ -7,6 +7,5 @@ export const RedisKeys = {
   entityCache: "kumiko:cache:",
   lock: "kumiko:lock:",
   events: "kumiko:events",
-  eventLog: "kumiko:events:log",
   rateLimit: "kumiko:rl:",
 } as const;

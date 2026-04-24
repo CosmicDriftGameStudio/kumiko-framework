@@ -211,56 +211,6 @@ describe("dispatcher.write idempotency", () => {
   });
 });
 
-// --- Dispatch: Event Log ---
-
-describe("dispatcher event logging", () => {
-  test("write events are logged", async () => {
-    const log: Array<{ type: string }> = [];
-    const registry = createRegistry([echoFeature]);
-    const dispatcher = createDispatcher(
-      registry,
-      {},
-      {
-        eventLog: {
-          append: async (entry) => {
-            log.push(entry);
-            return "1";
-          },
-          recent: async () => [],
-        },
-      },
-    );
-
-    await dispatcher.write("echo:write:item:create", { name: "Logged" }, createTestUser());
-
-    expect(log).toHaveLength(1);
-    expect(log[0]?.type).toBe("echo:write:item:create");
-  });
-
-  test("query events are logged", async () => {
-    const log: Array<{ type: string }> = [];
-    const registry = createRegistry([echoFeature]);
-    const dispatcher = createDispatcher(
-      registry,
-      {},
-      {
-        eventLog: {
-          append: async (entry) => {
-            log.push(entry);
-            return "1";
-          },
-          recent: async () => [],
-        },
-      },
-    );
-
-    await dispatcher.query("echo:query:item:list", {}, createTestUser());
-
-    expect(log).toHaveLength(1);
-    expect(log[0]?.type).toBe("echo:query:item:list");
-  });
-});
-
 // --- Feature-toggle gate ---
 
 describe("dispatcher feature-gate", () => {

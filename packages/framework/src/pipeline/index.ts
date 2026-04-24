@@ -35,8 +35,6 @@ export {
   restartConsumer,
   skipPoisonEvent,
 } from "./event-dispatcher";
-export type { EventLog, EventLogEntry } from "./event-log";
-export { createEventLog } from "./event-log";
 export type { PruneEventsOptions, PruneEventsResult } from "./event-retention";
 export { ConsumerLagError, pruneEvents } from "./event-retention";
 export type { IdempotencyGuard } from "./idempotency";

@@ -80,7 +80,6 @@ import { createTzContext } from "../time";
 import { parseJsonSafe } from "../utils/safe-json";
 import { appendDomainEventCore } from "./append-event-core";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver";
-import type { EventLog } from "./event-log";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { runProjections } from "./projections-runner";
@@ -295,7 +294,6 @@ export type BatchResult =
 
 export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;
-  eventLog?: EventLog;
   lifecycle?: LifecycleHooks;
   jobRunner?: JobRunnerRef;
   // Resolves the current effective-feature set — the dispatcher uses it
@@ -346,7 +344,7 @@ export function createDispatcher(
   context: AppContext,
   options: DispatcherOptions = {},
 ): Dispatcher {
-  const { idempotency, eventLog, lifecycle, jobRunner, effectiveFeatures } = options;
+  const { idempotency, lifecycle, jobRunner, effectiveFeatures } = options;
 
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
   const tableCache = new Map<string, ReturnType<typeof buildDrizzleTable>>();
@@ -408,17 +406,6 @@ export function createDispatcher(
       },
       args,
     );
-  }
-
-  async function logEvent(type: string, payload: unknown, user: SessionUser): Promise<void> {
-    // skip: no eventLog configured, nothing to persist
-    if (!eventLog) return;
-    await eventLog.append({
-      type,
-      payload: (payload ?? {}) as DbRow,
-      userId: user.id,
-      tenantId: user.tenantId,
-    });
   }
 
   function buildHandlerContext(
@@ -965,7 +952,6 @@ export function createDispatcher(
       }
     }
 
-    await logEvent(type, parsed.data, user);
     // Response-guard: fail the request if a handler accidentally included
     // a Secret<> branded value in its return. Must run AFTER field-access
     // filtering so a legitimately stripped secret doesn't false-positive.
@@ -1290,15 +1276,13 @@ export function createDispatcher(
         return writeFailure(wrapToKumiko(e));
       }
 
-      // jobRunner and eventLog have external side-effects — they must NOT fire
-      // for rolled-back writes. Defer to afterCommit in all paths.
+      // jobRunner has external side-effects (BullMQ enqueue) — must NOT
+      // fire for rolled-back writes. Defer to afterCommit.
       if (jobRunner) {
         afterCommitHooks.push(() =>
           jobRunner.handleEvent(type, (parsed.data ?? {}) as DbRow, user),
         );
       }
-      const parsedData = parsed.data;
-      afterCommitHooks.push(() => logEvent(type, parsedData, user));
     }
 
     // Response-guard: block Secret<> leaks in write responses (SaveContext

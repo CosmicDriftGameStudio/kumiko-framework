@@ -2,7 +2,6 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createTestRedis, type TestRedis } from "../../testing";
 import { createEntityCache } from "../entity-cache";
 import { createEventDedup } from "../event-dedup";
-import { createEventLog } from "../event-log";
 import { createIdempotencyGuard } from "../idempotency";
 
 let testRedis: TestRedis;
@@ -98,48 +97,6 @@ describe("idempotency guard", () => {
     // After the pending-TTL lapses, a retry should be allowed to take over.
     const second = await guard.check(requestId);
     expect(second).toBeNull(); // reclaimed
-  });
-});
-
-// --- Event Log ---
-
-describe("event log", () => {
-  test("appends and retrieves events", async () => {
-    const log = createEventLog(testRedis.redis);
-
-    await log.append({
-      type: "user:create",
-      payload: { email: "a@b.de" },
-      userId: "11111111-0000-4000-8000-000000000001",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-    });
-    await log.append({
-      type: "user:update",
-      payload: { name: "Marc" },
-      userId: "11111111-0000-4000-8000-000000000001",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-    });
-
-    const recent = await log.recent(10);
-    expect(recent.length).toBeGreaterThanOrEqual(2);
-    expect(recent[0]?.type).toBe("user:update"); // most recent first
-    expect(recent[1]?.type).toBe("user:create");
-  });
-
-  test("limits returned entries", async () => {
-    const log = createEventLog(testRedis.redis, "kumiko:test:limit-log");
-
-    for (let i = 0; i < 5; i++) {
-      await log.append({
-        type: `event.${i}`,
-        payload: {},
-        userId: "11111111-0000-4000-8000-000000000001",
-        tenantId: "00000000-0000-4000-8000-000000000001",
-      });
-    }
-
-    const recent = await log.recent(3);
-    expect(recent).toHaveLength(3);
   });
 });
 

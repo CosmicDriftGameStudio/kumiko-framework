@@ -148,26 +148,33 @@ const commands = {
         await $`node vitest.integration.guard.js`;
         await $`yarn vitest run --config vitest.integration.config.ts`;
       } else if (scope === "e2e") {
-        // E2E laufen opt-in (nicht Teil von `kumiko check`). Jeder Sample
-        // mit einer playwright.config.ts kriegt einen eigenen Run — der
-        // webServer-Hook bootet den echten dev-server pro Config.
-        // Docker muss laufen (Postgres + Redis wie Integration-Tests).
+        // E2E laufen opt-in (nicht Teil von `kumiko check`). Jedes
+        // Package/Sample mit einer playwright.config.ts kriegt einen
+        // eigenen Run — der webServer-Hook bootet den echten dev-
+        // server pro Config. Docker muss laufen (Postgres + Redis wie
+        // Integration-Tests). Packages zuerst (kleinerer Scope),
+        // dann Samples.
         const { readdir } = await import("node:fs/promises");
-        const entries = await readdir("samples", { withFileTypes: true });
-        const e2eSamples: string[] = [];
-        for (const entry of entries) {
-          if (!entry.isDirectory()) continue;
-          const cfg = Bun.file(`samples/${entry.name}/playwright.config.ts`);
-          if (await cfg.exists()) e2eSamples.push(entry.name);
+        const targets: Array<{ root: string; name: string }> = [];
+        for (const root of ["packages", "samples"]) {
+          const entries = await readdir(root, { withFileTypes: true });
+          for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const cfg = Bun.file(`${root}/${entry.name}/playwright.config.ts`);
+            if (await cfg.exists()) targets.push({ root, name: entry.name });
+          }
         }
-        if (e2eSamples.length === 0) {
-          console.log("Keine E2E-Configs gefunden (samples/*/playwright.config.ts).");
+        if (targets.length === 0) {
+          console.log(
+            "Keine E2E-Configs gefunden (packages/*/playwright.config.ts oder samples/*/playwright.config.ts).",
+          );
           return;
         }
-        console.log(`E2E via Playwright — ${e2eSamples.length} Sample(s): ${e2eSamples.join(", ")}\n`);
-        for (const sample of e2eSamples) {
-          console.log(`\n=== ${sample} ===`);
-          await $`yarn playwright test`.cwd(`samples/${sample}`);
+        const labels = targets.map((t) => `${t.root}/${t.name}`).join(", ");
+        console.log(`E2E via Playwright — ${targets.length} Target(s): ${labels}\n`);
+        for (const target of targets) {
+          console.log(`\n=== ${target.root}/${target.name} ===`);
+          await $`yarn playwright test`.cwd(`${target.root}/${target.name}`);
         }
       } else if (scope) {
         await $`yarn vitest run ${scope}`;
@@ -190,6 +197,7 @@ const commands = {
         ["Admin-API Guard", "yarn tsx scripts/guard-admin-api.ts"],
         ["Unsafe-JSON-Parse Guard", "yarn tsx scripts/guard-unsafe-json-parse.ts"],
         ["No-Date-API Guard", "yarn tsx scripts/guard-no-date-api.ts"],
+        ["Pre-ES-Patterns Guard", "yarn tsx scripts/guard-pre-es-patterns.ts"],
         ["Cross-Feature-Import Guard", "yarn tsx scripts/guard-cross-feature-imports.ts"],
         ["Renderer-Boundaries Guard", "yarn tsx scripts/guard-renderer-boundaries.ts"],
         ["Fake-Test Guard", "yarn tsx scripts/guard-fake-tests.ts"],

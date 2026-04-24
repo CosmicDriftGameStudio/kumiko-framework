@@ -9,12 +9,7 @@ import { createArchivedStreamsTable, createEventsTable } from "../event-store";
 import type { Lifecycle } from "../lifecycle";
 import type { ObservabilityProvider } from "../observability";
 import type { EventDispatcher } from "../pipeline";
-import {
-  createEntityCache,
-  createEventDedup,
-  createEventLog,
-  createIdempotencyGuard,
-} from "../pipeline";
+import { createEntityCache, createEventDedup, createIdempotencyGuard } from "../pipeline";
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
 import { createEventCollector, type EventCollector } from "./event-collector";
@@ -225,7 +220,6 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     () => {},
   );
 
-  const eventLog = createEventLog(testRedis.redis, "kumiko:test:stack-log");
   const idempotency = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 60 });
   const eventDedup = createEventDedup(testRedis.redis, { ttlSeconds: 60 });
   const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
@@ -245,7 +239,6 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     },
     jwtSecret,
     dispatcherOptions: {
-      eventLog,
       idempotency,
       ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
     },

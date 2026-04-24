@@ -4,7 +4,6 @@ import { createEventStoreExecutor } from "../db/event-store-executor";
 import { defineFeature, type EntityId, type HandlerContext, type SaveContext } from "../engine";
 import { UnprocessableError, writeFailure } from "../errors";
 import { eventsTable } from "../event-store";
-import { createEventLog } from "../pipeline";
 import {
   createEntityTable,
   createTestUser,
@@ -547,26 +546,8 @@ describe("full stack: search + sort", () => {
 });
 
 // =============================================================================
-// Event Log + SSE Route + Health
+// SSE Route + Health
 // =============================================================================
-
-describe("full stack: event log", () => {
-  test("events logged in Redis", async () => {
-    // Create at least one event first
-    await stack.http.writeOk(
-      "users:write:user:create",
-      {
-        email: "eventlog@test.de",
-      },
-      adminUser,
-    );
-
-    const eventLog = createEventLog(stack.redis.redis, "kumiko:test:stack-log");
-    const recent = await eventLog.recent(100);
-    expect(recent.length).toBeGreaterThan(0);
-    expect(recent.some((e) => e.type === "users:write:user:create")).toBe(true);
-  });
-});
 
 describe("full stack: SSE route", () => {
   test("requires auth", async () => {
