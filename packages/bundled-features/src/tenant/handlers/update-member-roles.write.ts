@@ -1,9 +1,13 @@
-import { type DbRow, fetchOne } from "@kumiko/framework/db";
+import { createEventStoreExecutor, type DbRow, fetchOne } from "@kumiko/framework/db";
 import { defineWriteHandler } from "@kumiko/framework/engine";
 import { NotFoundError, writeFailure } from "@kumiko/framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { tenantMembershipsTable } from "../membership-table";
+import { membershipEntity, tenantMembershipsTable } from "../membership-table";
+
+const executor = createEventStoreExecutor(tenantMembershipsTable, membershipEntity, {
+  entityName: "tenantMembership",
+});
 
 export const updateMemberRolesWrite = defineWriteHandler({
   name: "updateMemberRoles",
@@ -30,11 +34,19 @@ export const updateMemberRolesWrite = defineWriteHandler({
       );
     }
 
-    await db
-      .update(tenantMembershipsTable)
-      .set({ roles: JSON.stringify(event.payload.roles), modifiedAt: Temporal.Now.instant() })
-      .where(eq(tenantMembershipsTable.id, (existing as DbRow)["id"] as number));
-
+    const result = await executor.update(
+      {
+        id: (existing as DbRow)["id"] as string,
+        changes: { roles: JSON.stringify(event.payload.roles) },
+      },
+      event.user,
+      db,
+      // Handler schema carries no version — we trust the fetchOne above.
+      // Pre-ES this was a plain UPDATE with no locking; keeping that
+      // contract means we opt out of the executor's version check.
+      { skipOptimisticLock: true },
+    );
+    if (!result.isSuccess) return result;
     return { isSuccess: true, data: event.payload };
   },
 });

@@ -1,10 +1,14 @@
-import { fetchOne } from "@kumiko/framework/db";
+import { createEventStoreExecutor, fetchOne } from "@kumiko/framework/db";
 import { defineWriteHandler } from "@kumiko/framework/engine";
 import { ConflictError, writeFailure } from "@kumiko/framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { TenantErrors } from "../constants";
-import { tenantMembershipsTable } from "../membership-table";
+import { membershipEntity, tenantMembershipsTable } from "../membership-table";
+
+const executor = createEventStoreExecutor(tenantMembershipsTable, membershipEntity, {
+  entityName: "tenantMembership",
+});
 
 export const addMemberWrite = defineWriteHandler({
   name: "addMember",
@@ -36,15 +40,14 @@ export const addMemberWrite = defineWriteHandler({
       );
     }
 
-    const [row] = await db
-      .insert(tenantMembershipsTable)
-      .values({
+    return executor.create(
+      {
         userId: event.payload.userId,
         tenantId: event.payload.tenantId,
         roles: JSON.stringify(event.payload.roles),
-      })
-      .returning();
-
-    return { isSuccess: true, data: row };
+      },
+      event.user,
+      db,
+    );
   },
 });

@@ -1,9 +1,14 @@
-import { ConfigScopes, defineWriteHandler } from "@kumiko/framework/engine";
+import { createEventStoreExecutor } from "@kumiko/framework/db";
+import { ConfigScopes, defineWriteHandler, SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
 import { z } from "zod";
-import { CONFIG_CHANGED_EVENT_NAME, requireConfigResolver } from "../config-feature";
-import { prepareConfigWrite } from "./set.write";
+import { configValueEntity, configValuesTable } from "../table";
+import { findConfigRow, prepareConfigWrite } from "./set.write";
 
 const scopeEnum = z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]);
+
+const executor = createEventStoreExecutor(configValuesTable, configValueEntity, {
+  entityName: "configValue",
+});
 
 export const resetWrite = defineWriteHandler({
   name: "reset",
@@ -15,7 +20,6 @@ export const resetWrite = defineWriteHandler({
   access: { openToAll: true },
   handler: async (event, ctx) => {
     const db = ctx.db;
-    const resolver = requireConfigResolver(ctx, "config:write:reset");
 
     const prep = prepareConfigWrite({
       registry: ctx.registry,
@@ -25,22 +29,17 @@ export const resetWrite = defineWriteHandler({
     });
     if (!prep.ok) return prep.failure;
     const { scope, tenantId, userId } = prep;
-    await resolver.reset(event.payload.key, tenantId, userId, db);
 
-    // Emit the change event — same stream as `set`, action="reset", no value
-    // (the resolver fell back to keyDef.default; subscribers can re-read if
-    // they need the new effective value). aggregateId = tenantId for the
-    // same UUID-compatibility reason as set.write.
-    await ctx.appendEvent({
-      aggregateId: event.user.tenantId,
-      aggregateType: "configChanges",
-      type: CONFIG_CHANGED_EVENT_NAME,
-      payload: {
-        key: event.payload.key,
-        scope,
-        action: "reset",
-      },
-    });
+    const rowTenantId = tenantId ?? SYSTEM_TENANT_ID;
+    const existing = await findConfigRow(db, event.payload.key, rowTenantId, userId);
+
+    // No-op when there is nothing to reset. Pre-ES this path silently did
+    // nothing too — keep the contract intact so callers can reset
+    // idempotently without a 404 dance.
+    if (existing) {
+      const result = await executor.delete({ id: existing.id }, event.user, db);
+      if (!result.isSuccess) return result;
+    }
 
     return { isSuccess: true, data: { key: event.payload.key, scope } };
   },

@@ -1,4 +1,11 @@
 import {
+  createEventStoreExecutor,
+  type DbConnection,
+  type DbRow,
+  fetchOne,
+  type TenantDb,
+} from "@kumiko/framework/db";
+import {
   type ConfigKeyDefinition,
   type ConfigScope,
   ConfigScopes,
@@ -6,6 +13,7 @@ import {
   type Registry,
   type SessionUser,
   SYSTEM_ROLE,
+  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@kumiko/framework/engine";
 import {
@@ -18,11 +26,17 @@ import {
   writeFailure,
 } from "@kumiko/framework/errors";
 import { assertUnreachable } from "@kumiko/framework/utils";
+import { eq, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { CONFIG_CHANGED_EVENT_NAME, requireConfigResolver } from "../config-feature";
+import { requireConfigResolver } from "../config-feature";
 import { ConfigErrors } from "../constants";
+import { configValueEntity, configValuesTable } from "../table";
 
 const scopeEnum = z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]);
+
+const executor = createEventStoreExecutor(configValuesTable, configValueEntity, {
+  entityName: "configValue",
+});
 
 export const setWrite = defineWriteHandler({
   name: "set",
@@ -35,7 +49,6 @@ export const setWrite = defineWriteHandler({
   access: { openToAll: true },
   handler: async (event, ctx) => {
     const db = ctx.db;
-    const resolver = requireConfigResolver(ctx, "config:write:set");
 
     const prep = prepareConfigWrite({
       registry: ctx.registry,
@@ -59,33 +72,43 @@ export const setWrite = defineWriteHandler({
     const boundsError = validateBounds(event.payload.value, keyDef);
     if (boundsError) return writeFailure(boundsError);
 
-    await resolver.set(
-      event.payload.key,
-      keyDef,
-      event.payload.value,
-      tenantId,
-      userId,
-      event.user.id,
-      db,
-    );
+    let serialized = JSON.stringify(event.payload.value);
+    if (keyDef.encrypted) {
+      const resolver = requireConfigResolver(ctx, "config:write:set");
+      if (resolver.encrypt) serialized = resolver.encrypt(serialized);
+    }
 
-    // Emit the change event so subscribers (SSE/cache/audit) can react.
-    // Encrypted values are stripped — secrets must never land in the event
-    // log. One aggregate stream per tenant (`configChanges`) — the
-    // archived_streams table requires aggregateId to be a UUID, so the
-    // qualified key cannot be the aggregateId. Subscribers filter by
-    // payload.key + payload.scope.
-    await ctx.appendEvent({
-      aggregateId: event.user.tenantId,
-      aggregateType: "configChanges",
-      type: CONFIG_CHANGED_EVENT_NAME,
-      payload: {
-        key: event.payload.key,
-        scope,
-        action: "set",
-        ...(keyDef.encrypted ? {} : { value: event.payload.value }),
-      },
-    });
+    const rowTenantId = tenantId ?? SYSTEM_TENANT_ID;
+    const existing = await findConfigRow(db, event.payload.key, rowTenantId, userId);
+
+    if (existing) {
+      const result = await executor.update(
+        {
+          id: existing.id,
+          changes: { value: serialized },
+        },
+        event.user,
+        db,
+        // The event stream on `configValue` aggregates is write-once-per-
+        // request; no caller feeds us `version`, so we bypass the
+        // executor's optimistic lock. Duplicate parallel writes are
+        // barred by the (key, tenant_id, user_id) unique index.
+        { skipOptimisticLock: true },
+      );
+      if (!result.isSuccess) return result;
+    } else {
+      const result = await executor.create(
+        {
+          key: event.payload.key,
+          value: serialized,
+          tenantId: rowTenantId,
+          userId,
+        },
+        event.user,
+        db,
+      );
+      if (!result.isSuccess) return result;
+    }
 
     return {
       isSuccess: true,
@@ -95,6 +118,33 @@ export const setWrite = defineWriteHandler({
 });
 
 // --- Shared helpers (used by set + reset) ---
+
+type ConfigRowLookup = {
+  readonly id: string;
+  readonly value: string | null;
+};
+
+// Locate an existing config_values row by the (key, tenant, user) triple —
+// the effective natural key. Pulls only the columns set/reset need so the
+// resolver's ConfigRow shape (tenantId, userId) doesn't leak here.
+export async function findConfigRow(
+  db: DbConnection | TenantDb,
+  key: string,
+  tenantId: string,
+  userId: string | null,
+): Promise<ConfigRowLookup | null> {
+  const userCond =
+    userId !== null ? eq(configValuesTable.userId, userId) : isNull(configValuesTable.userId);
+  const row = await fetchOne<DbRow>(
+    db,
+    configValuesTable,
+    eq(configValuesTable.key, key),
+    eq(configValuesTable.tenantId, tenantId),
+    userCond,
+  );
+  if (!row) return null;
+  return { id: row["id"] as string, value: (row["value"] as string | null) ?? null };
+}
 
 // Three-stage pre-write gate that set + reset both need: resolve the key
 // definition (404 when unknown), check the user's roles can write it (403),
@@ -153,6 +203,12 @@ export function checkWriteAccess(
   userRoles: readonly string[],
 ): KumikoError | null {
   if (keyDef.access.write.includes(SYSTEM_ROLE)) {
+    // Pre-ES the system-only block was absolute — out-of-band writes went
+    // through resolver.set, bypassing the whole access layer. Post-ES
+    // every write flows through this handler + executor, so the escape
+    // hatch becomes explicit: SYSTEM_ROLE (jobs / seeds / framework-
+    // internal work) may write; everyone else is rejected.
+    if (userRoles.includes(SYSTEM_ROLE)) return null;
     return new AccessDeniedError({
       message: "config key is system-only",
       i18nKey: "config.errors.systemOnly",

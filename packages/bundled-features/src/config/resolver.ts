@@ -10,25 +10,22 @@ import type {
   ConfigValueSource,
   ConfigValueWithSource,
 } from "@kumiko/framework/engine";
+import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
 import { assertUnreachable, parseJsonOrThrow } from "@kumiko/framework/utils";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { configValuesTable } from "./table";
 
 type ConfigRow = {
-  id: number;
+  id: string;
   key: string;
   value: string | null;
-  tenantId: string | null;
+  tenantId: string;
   userId: string | null;
 };
 
 // Re-export so existing call sites that imported ConfigResolver from
 // "../resolver" keep compiling — the shape now lives in the framework.
 export type { ConfigResolver };
-
-function serializeValue(value: string | number | boolean): string {
-  return JSON.stringify(value);
-}
 
 export function deserializeValue(
   raw: string | null,
@@ -69,6 +66,13 @@ export type ConfigResolverOptions = {
   appOverrides?: AppConfigOverrides;
 };
 
+// Map a nullable tenantId (external contract: null == system-scope) to the
+// projection's column value. Post-ES the projection stores SYSTEM_TENANT_ID
+// instead of NULL so event-store base columns (tenant_id NOT NULL) stay valid.
+function tenantCondition(tenantId: string | null) {
+  return eq(configValuesTable.tenantId, tenantId ?? SYSTEM_TENANT_ID);
+}
+
 export function createConfigResolver(options: ConfigResolverOptions = {}): ConfigResolver {
   const { encryption, appOverrides } = options;
   async function findRow(
@@ -77,12 +81,6 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
     userId: string | null,
     db: DbConnection | TenantDb,
   ): Promise<ConfigRow | null> {
-    // Three fixed conditions — the branches pick eq/isNull for the two
-    // scope columns. fetchOne's variadic signature combines them with AND.
-    const tenantCond =
-      tenantId !== null
-        ? eq(configValuesTable.tenantId, tenantId)
-        : isNull(configValuesTable.tenantId);
     const userCond =
       userId !== null ? eq(configValuesTable.userId, userId) : isNull(configValuesTable.userId);
 
@@ -90,7 +88,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       db,
       configValuesTable,
       eq(configValuesTable.key, key),
-      tenantCond,
+      tenantCondition(tenantId),
       userCond,
     );
 
@@ -98,6 +96,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
   }
 
   return {
+    ...(encryption ? { encrypt: (value: string) => encryption.encrypt(value) } : {}),
     async get(qualifiedKey, keyDef, tenantId, userId, db) {
       // get() is a thin wrapper around getWithSource that discards the
       // source tag. Keeps the hot-path a single implementation.
@@ -170,40 +169,6 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       return { value: undefined, source: "missing" };
     },
 
-    async set(qualifiedKey, keyDef, value, tenantId, userId, modifiedById, db) {
-      let serialized = serializeValue(value);
-      if (keyDef.encrypted && encryption) {
-        serialized = encryption.encrypt(serialized);
-      }
-      const existing = await findRow(qualifiedKey, tenantId, userId, db);
-
-      if (existing) {
-        await db
-          .update(configValuesTable)
-          .set({
-            value: serialized,
-            modifiedAt: Temporal.Now.instant(),
-            modifiedById,
-          })
-          .where(eq(configValuesTable.id, existing.id));
-      } else {
-        await db.insert(configValuesTable).values({
-          key: qualifiedKey,
-          value: serialized,
-          tenantId,
-          userId,
-          modifiedById,
-        });
-      }
-    },
-
-    async reset(qualifiedKey, tenantId, userId, db) {
-      const existing = await findRow(qualifiedKey, tenantId, userId, db);
-      if (existing) {
-        await db.delete(configValuesTable).where(eq(configValuesTable.id, existing.id));
-      }
-    },
-
     async getAll(tenantId, userId, db) {
       // Only load rows relevant to this user/tenant (system + tenant + user scope)
       const rows = await db
@@ -212,7 +177,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
         .where(
           or(
             // System-level values
-            and(isNull(configValuesTable.tenantId), isNull(configValuesTable.userId)),
+            and(eq(configValuesTable.tenantId, SYSTEM_TENANT_ID), isNull(configValuesTable.userId)),
             // Tenant-level values
             and(eq(configValuesTable.tenantId, tenantId), isNull(configValuesTable.userId)),
             // User-level values
@@ -223,17 +188,14 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       const result = new Map<string, ConfigRow>();
       for (const row of rows) {
         const r = row as ConfigRow;
-        // Higher specificity wins: user > tenant > system
+        // Higher specificity wins: user > tenant > system. Under the ES
+        // schema system rows carry SYSTEM_TENANT_ID instead of NULL, so the
+        // "tenant set" check compares against the sentinel rather than null.
+        const specificityOf = (candidate: ConfigRow) =>
+          (candidate.userId !== null ? 2 : 0) + (candidate.tenantId !== SYSTEM_TENANT_ID ? 1 : 0);
         const existing = result.get(r.key);
-        if (!existing) {
+        if (!existing || specificityOf(r) > specificityOf(existing)) {
           result.set(r.key, r);
-        } else {
-          const existingSpecificity =
-            (existing.userId !== null ? 2 : 0) + (existing.tenantId !== null ? 1 : 0);
-          const newSpecificity = (r.userId !== null ? 2 : 0) + (r.tenantId !== null ? 1 : 0);
-          if (newSpecificity > existingSpecificity) {
-            result.set(r.key, r);
-          }
         }
       }
 

@@ -110,11 +110,16 @@ export type ConfigAccessorFactory = (deps: {
 // Row shape returned by ConfigResolver.getAll — just enough for the
 // values.query handler to project. Stored as `unknown` value because the
 // resolver hands raw JSON strings; deserialization is the resolver's job.
+//
+// Post-ES the config_values projection PK is a UUID (event-store aggregate
+// id) and tenantId is non-null (system-scope rows carry SYSTEM_TENANT_ID).
+// The shape stays backward-compatible for read callers: they only touch
+// `value` and `key`.
 export type ConfigStoredRow = {
-  readonly id: number;
+  readonly id: string;
   readonly key: string;
   readonly value: string | null;
-  readonly tenantId: string | null;
+  readonly tenantId: string;
   readonly userId: string | null;
 };
 
@@ -140,6 +145,10 @@ export type ConfigValueWithSource = {
 // resolver. Lives in the framework so SharedContextFields.configResolver
 // can drop the `unknown` cast — the concrete implementation in
 // bundled-features/config/resolver.ts implements this shape.
+// Read-only contract: writes flow through the config feature's
+// write-handlers (set / reset), which append events + let the event-store-
+// executor materialise the projection. The resolver is purely a read
+// cascade (user → tenant → system → app-override → computed → default).
 export type ConfigResolver = {
   get(
     qualifiedKey: string,
@@ -162,28 +171,17 @@ export type ConfigResolver = {
     db: DbConnection | TenantDb,
   ): Promise<ConfigValueWithSource>;
 
-  set(
-    qualifiedKey: string,
-    keyDef: ConfigKeyDefinition,
-    value: string | number | boolean,
-    tenantId: string | null,
-    userId: string | null,
-    modifiedById: string,
-    db: DbConnection | TenantDb,
-  ): Promise<void>;
-
-  reset(
-    qualifiedKey: string,
-    tenantId: string | null,
-    userId: string | null,
-    db: DbConnection | TenantDb,
-  ): Promise<void>;
-
   getAll(
     tenantId: TenantId,
     userId: string,
     db: DbConnection | TenantDb,
   ): Promise<ReadonlyMap<string, ConfigStoredRow>>;
+
+  // Round-trip partner for the read-side decrypt inside getWithSource.
+  // Write-handlers (set) need a deterministic encrypter so the projection
+  // stores the same bytes the resolver will later decrypt. Undefined when
+  // no encryption provider is wired — handlers fall back to raw JSON.
+  readonly encrypt?: (value: string) => string;
 };
 
 // --- Process-Placement (runIn) ---

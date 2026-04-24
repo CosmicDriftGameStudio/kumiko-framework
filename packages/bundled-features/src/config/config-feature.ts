@@ -12,33 +12,25 @@ import {
   type TenantId,
 } from "@kumiko/framework/engine";
 import { InternalError } from "@kumiko/framework/errors";
-import { z } from "zod";
 import { resetWrite } from "./handlers/reset.write";
 import { schemaQuery } from "./handlers/schema.query";
 import { setWrite } from "./handlers/set.write";
 import { valuesQuery } from "./handlers/values.query";
 import type { ConfigResolver } from "./resolver";
+import { configValueEntity } from "./table";
 
 export type ConfigContext = { readonly config: ConfigAccessor };
-
-// String constant (not EventDef) so set/reset handlers can append the event
-// without importing back into the feature factory — that loop crashes boot.
-// Encrypted values are stripped from the payload before append; see the
-// `keyDef.encrypted` guard in set.write.ts / reset.write.ts.
-export const CONFIG_CHANGED_EVENT_NAME = "config:event:config-changed";
-
-export const configChangedSchema = z.object({
-  key: z.string(),
-  scope: z.enum(["system", "tenant", "user"]),
-  action: z.enum(["set", "reset"]),
-  value: z.union([z.string(), z.number(), z.boolean()]).optional(),
-});
 
 export function createConfigFeature(): FeatureDefinition {
   return defineFeature("config", (r) => {
     r.systemScope();
 
-    r.defineEvent("config-changed", configChangedSchema);
+    // One aggregate stream per (key, scope) pair — the executor handles the
+    // lifecycle events `configValue.created / .updated / .deleted` plus the
+    // projection write in one TX. Subscribers that need config-change
+    // semantics listen to those auto-events via r.multiStreamProjection
+    // (see docs/plans/architecture/event-sourcing-pivot.md §4.7).
+    r.entity("configValue", configValueEntity);
 
     const handlers = {
       set: r.writeHandler(setWrite),

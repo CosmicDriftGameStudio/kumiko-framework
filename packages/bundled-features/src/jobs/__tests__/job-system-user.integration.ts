@@ -8,6 +8,7 @@ import {
   type Registry,
   type SessionUser,
 } from "@kumiko/framework/engine";
+import { createArchivedStreamsTable, createEventsTable } from "@kumiko/framework/event-store";
 import { createJobRunner, type JobRunner } from "@kumiko/framework/jobs";
 import {
   bridgeStub,
@@ -50,27 +51,34 @@ const billingFeature = defineFeature("billing", (r) => {
     },
   });
 
-  // Job that calculates monthly total and writes it via SYSTEM_USER
+  // Job that calculates monthly total and writes it via SYSTEM_USER.
+  // Post-ES the write path is the config:write:set handler — the old
+  // resolver.set escape hatch is gone. checkWriteAccess grants a
+  // SYSTEM_ROLE caller the right to write system-only keys that Admin
+  // cannot touch, so the security invariant (see Admin test below) holds.
   r.job("calculateTotal", { trigger: { manual: true } }, async (_payload, ctx) => {
     const systemUser = ctx["systemUser"] as SessionUser;
-    const configResolver = ctx["configResolver"] as ConfigResolver;
     const jobDb = ctx["db"] as DbConnection;
     const reg = ctx["registry"] as Registry;
 
     ctx.log?.info("Calculating monthly total...");
     const total = 42000;
 
-    // Set config using SYSTEM_USER — this key has write: ["system"]
-    const keyDef = reg.getConfigKey("billing:config:monthly-total");
-    if (keyDef) {
-      await configResolver.set(
-        "billing:config:monthly-total",
-        keyDef,
-        total,
-        systemUser.tenantId,
-        null,
-        systemUser.id,
-        jobDb,
+    const handler = reg.getWriteHandler("config:write:set");
+    if (handler) {
+      const parsed = handler.schema.parse({
+        key: "billing:config:monthly-total",
+        value: total,
+      });
+      const tenantDb = createTenantDb(jobDb, systemUser.tenantId, "system");
+      await handler.handler(
+        { type: "config:write:set", payload: parsed, user: systemUser },
+        {
+          db: tenantDb,
+          registry: reg,
+          configResolver: ctx["configResolver"] as ConfigResolver,
+          ...bridgeStub(),
+        },
       );
     }
 
@@ -86,6 +94,12 @@ beforeAll(async () => {
   db = testDb.db;
 
   await pushTables(db, { configValuesTable });
+  // Post-ES config writes go through the event-store executor, which needs
+  // the framework events + archived-streams tables to exist before the
+  // first append. setupTestStack provisions them automatically; this test
+  // builds its DB manually (createTestDb + pushTables), so we do it here.
+  await createEventsTable(db);
+  await createArchivedStreamsTable(db);
 
   const encryption = createEncryptionProvider(testEncryptionKey);
   resolver = createConfigResolver({ encryption });

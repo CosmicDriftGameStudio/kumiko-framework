@@ -770,14 +770,17 @@ describe("encrypted config", () => {
   });
 });
 
-// --- Config Change-Events ---
+// --- Config lifecycle events ---
 //
-// set/reset emit "config:event:config-changed" so subscribers (SSE-broadcast,
-// cache eviction, audit-export) can react via r.multiStreamProjection. Each
-// key gets its own aggregate stream so per-key replay/asOf works.
+// Post-ES refactor: each (key, scope) pair is its own aggregate stream with
+// auto-lifecycle events `configValue.created / .updated / .deleted`. The
+// pre-ES flat "config:event:config-changed" stream on a per-tenant
+// aggregate is gone — subscribers listen to the auto-events via
+// r.multiStreamProjection instead, and per-key replay/asOf falls out of the
+// per-value stream granularity.
 
-describe("config-changed domain event", () => {
-  test("set emits a config-changed event carrying key+scope+action+value", async () => {
+describe("configValue lifecycle events", () => {
+  test("set emits configValue.updated carrying the serialized new value", async () => {
     await stack.http.writeOk(
       ConfigHandlers.set,
       { key: "orders:config:max-order-count", value: 250 },
@@ -786,26 +789,26 @@ describe("config-changed domain event", () => {
     const events = await db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "configChanges"));
-    const setEvents = events.filter(
+      .where(eq(eventsTable.aggregateType, "configValue"));
+    // The first set in the suite created the row; subsequent sets update it.
+    // Look at the most recent update carrying our value to verify the
+    // serialized JSON lands in the event payload (key stays on the row,
+    // only value moves on updates — the executor emits a changes/previous
+    // diff).
+    const updates = events.filter(
       (e) =>
-        e.type === "config:event:config-changed" &&
-        (e.payload as { key?: string; action?: string })?.key === "orders:config:max-order-count" &&
-        (e.payload as { action?: string })?.action === "set",
+        e.type === "configValue.updated" &&
+        (e.payload as { previous?: { key?: string } })?.previous?.key ===
+          "orders:config:max-order-count",
     );
-    expect(setEvents.length).toBeGreaterThanOrEqual(1);
-    const last = setEvents[setEvents.length - 1];
-    expect(last?.aggregateType).toBe("configChanges");
-    expect(last?.aggregateId).toBe(tenantAdmin.tenantId);
-    expect(last?.payload).toMatchObject({
-      key: "orders:config:max-order-count",
-      scope: "tenant",
-      action: "set",
-      value: 250,
-    });
+    expect(updates.length).toBeGreaterThanOrEqual(1);
+    const last = updates[updates.length - 1];
+    expect((last?.payload as { changes?: { value?: string } })?.changes?.value).toBe(
+      JSON.stringify(250),
+    );
   });
 
-  test("reset emits action='reset' with NO value", async () => {
+  test("reset emits configValue.deleted for the value row", async () => {
     // Set first so reset has something to roll back.
     await stack.http.writeOk(
       ConfigHandlers.set,
@@ -820,23 +823,17 @@ describe("config-changed domain event", () => {
     const events = await db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "configChanges"));
-    const resets = events.filter(
+      .where(eq(eventsTable.aggregateType, "configValue"));
+    const deletes = events.filter(
       (e) =>
-        (e.payload as { key?: string })?.key === "invoicing:config:mail-signature" &&
-        (e.payload as { action?: string })?.action === "reset",
+        e.type === "configValue.deleted" &&
+        (e.payload as { previous?: { key?: string } })?.previous?.key ===
+          "invoicing:config:mail-signature",
     );
-    expect(resets.length).toBeGreaterThanOrEqual(1);
-    const last = resets[resets.length - 1];
-    expect(last?.payload).toMatchObject({
-      key: "invoicing:config:mail-signature",
-      scope: "tenant",
-      action: "reset",
-    });
-    expect((last?.payload as { value?: unknown })?.value).toBeUndefined();
+    expect(deletes.length).toBeGreaterThanOrEqual(1);
   });
 
-  test("encrypted-key value is stripped from the event payload (no secret leak)", async () => {
+  test("encrypted-key plaintext never appears in the event payload", async () => {
     await stack.http.writeOk(
       ConfigHandlers.set,
       { key: "integration:config:api-secret", value: "rotated-secret-987" },
@@ -845,20 +842,19 @@ describe("config-changed domain event", () => {
     const events = await db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "configChanges"));
-    const setEvents = events.filter(
+      .where(eq(eventsTable.aggregateType, "configValue"));
+    const created = events.filter(
       (e) =>
-        (e.payload as { key?: string })?.key === "integration:config:api-secret" &&
-        (e.payload as { action?: string })?.action === "set",
+        e.type === "configValue.created" &&
+        (e.payload as { key?: string })?.key === "integration:config:api-secret",
     );
-    expect(setEvents.length).toBeGreaterThanOrEqual(1);
-    const last = setEvents[setEvents.length - 1];
-    // key + scope + action present; value MUST be absent for encrypted keys.
-    expect(last?.payload).toMatchObject({
-      key: "integration:config:api-secret",
-      action: "set",
-    });
-    expect((last?.payload as { value?: unknown })?.value).toBeUndefined();
+    expect(created.length).toBeGreaterThanOrEqual(1);
+    const last = created[created.length - 1];
+    // The serialized ciphertext (not plaintext) is what landed in the
+    // payload — the resolver wraps set() in the encryption provider before
+    // the executor hands flatData to the event writer.
+    const serializedPayload = JSON.stringify(last?.payload);
+    expect(serializedPayload).not.toContain("rotated-secret-987");
   });
 });
 
