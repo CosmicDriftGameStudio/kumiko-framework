@@ -172,11 +172,13 @@ export class InternalError extends KumikoError {
   readonly code = "internal_error";
   readonly httpStatus = 500;
 
-  constructor(opts?: Pick<ErrorOpts, "message" | "cause">) {
+  constructor(opts?: Pick<ErrorOpts, "message" | "i18nKey" | "i18nParams" | "details" | "cause">) {
     super({
       message: opts?.message ?? "internal error",
-      i18nKey: "errors.internal",
-      ...(opts?.cause && { cause: opts.cause }),
+      i18nKey: opts?.i18nKey ?? "errors.internal",
+      ...(opts?.i18nParams !== undefined && { i18nParams: opts.i18nParams }),
+      ...(opts?.details !== undefined && { details: opts.details }),
+      ...(opts?.cause !== undefined && { cause: opts.cause }),
     });
   }
 }
