@@ -1,6 +1,6 @@
 import { defineWriteHandler } from "@kumiko/framework/engine";
 import { z } from "zod";
-import { notificationPreferencesTable } from "../tables";
+import { upsertPreference } from "../upsert-preference";
 
 export const setPreferenceWrite = defineWriteHandler({
   name: "setPreference",
@@ -15,20 +15,14 @@ export const setPreferenceWrite = defineWriteHandler({
     const { notificationType, channel, enabled } = event.payload;
     const { id: userId, tenantId } = event.user;
 
-    // Atomic upsert — avoids the SELECT+INSERT/UPDATE race on concurrent edits.
-    await ctx.db
-      .insert(notificationPreferencesTable)
-      .values({ tenantId, userId, notificationType, channel, enabled })
-      .onConflictDoUpdate({
-        target: [
-          notificationPreferencesTable.tenantId,
-          notificationPreferencesTable.userId,
-          notificationPreferencesTable.notificationType,
-          notificationPreferencesTable.channel,
-        ],
-        set: { enabled, updatedAt: Temporal.Now.instant() },
-      });
-
+    const result = await upsertPreference(ctx.db, event.user, {
+      tenantId,
+      userId,
+      notificationType,
+      channel,
+      enabled,
+    });
+    if (!result.isSuccess) return result;
     return { isSuccess: true, data: { notificationType, channel, enabled } };
   },
 });

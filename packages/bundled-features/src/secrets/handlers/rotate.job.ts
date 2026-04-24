@@ -7,31 +7,39 @@
 // The job is idempotent: re-running it after a partial failure picks up
 // the remaining old-version rows. Consumers that want a time-bound run
 // pass a maxDurationMs in the payload.
+//
+// Post-ES pivot: each rotation is an executor.update against the
+// tenantSecret aggregate. The resulting `.updated` event carries
+// {changes, previous} with BOTH envelopes — useful for a full rotation
+// audit trail (when did row X flip from v1 to v2, who triggered it).
+// Concurrency-guard shifts from the pre-ES `WHERE kek_version = old`
+// check to the executor's stream-version check; a parallel secrets.set
+// that landed the row on the new kekVersion first surfaces here as a
+// version_conflict error (counted as "skipped", not "failed").
 
-import type { DbConnection } from "@kumiko/framework/db";
-import type { JobHandlerFn } from "@kumiko/framework/engine";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbConnection,
+  type TenantDb,
+} from "@kumiko/framework/db";
+import type { JobHandlerFn, SessionUser, TenantId } from "@kumiko/framework/engine";
 import { InternalError } from "@kumiko/framework/errors";
 import { rewrapDek } from "@kumiko/framework/secrets";
-import { and, eq, ne } from "drizzle-orm";
-import { tenantSecretsTable } from "../table";
+import { ne } from "drizzle-orm";
+import { type StoredEnvelope, tenantSecretEntity, tenantSecretsTable } from "../table";
 
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_MAX_FAILURES = 10;
+const SYSTEM_ROLES = ["system"] as const;
+
+const executor = createEventStoreExecutor(tenantSecretsTable, tenantSecretEntity, {
+  entityName: "tenantSecret",
+});
 
 export type RotateJobPayload = {
-  // Cap on the batch size fetched per iteration. Tuning knob for ops —
-  // smaller batches hold each TX shorter, larger batches amortise the
-  // roundtrip. Default 100 fits most cases.
   readonly batchSize?: number;
-  // Optional hard cap on run duration. Useful when chaining into a
-  // maintenance window; omitting it lets the job run until empty.
   readonly maxDurationMs?: number;
-  // Circuit-breaker: bail out after N consecutive row-level failures in
-  // a single run. A systematic breakage (KEK bytes corrupt, DB constraint
-  // violation on every row) would otherwise spray the log with thousands
-  // of identical warns while making zero progress. Default 10 — first
-  // few let sporadic DB-conflicts retry next run, but a real problem
-  // halts early.
   readonly maxFailures?: number;
 };
 
@@ -68,6 +76,19 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
   let batchesProcessed = 0;
   let stoppedReason: RotateJobResult["stoppedReason"] = "empty";
 
+  // Reuse a TenantDb-per-tenant map so we don't rebuild the wrapper for
+  // each row in the same tenant. Rotation typically hits one tenant in a
+  // batch; the map trims an allocation without adding complexity.
+  const tdbCache = new Map<TenantId, TenantDb>();
+  function tdbFor(tenantId: TenantId): TenantDb {
+    let existing = tdbCache.get(tenantId);
+    if (!existing) {
+      existing = createTenantDb(db, tenantId, "system");
+      tdbCache.set(tenantId, existing);
+    }
+    return existing;
+  }
+
   while (true) {
     if (ctx.signal?.aborted) {
       stoppedReason = "signal";
@@ -78,26 +99,23 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
       break;
     }
 
-    // Fetch a batch of rows not yet on the current KEK version. The index
-    // on kek_version keeps this scan cheap even when the table is large.
     const targetVersion = provider.currentVersion();
     const batch = await db
       .select({
         id: tenantSecretsTable.id,
+        tenantId: tenantSecretsTable.tenantId,
+        version: tenantSecretsTable.version,
         envelope: tenantSecretsTable.envelope,
         kekVersion: tenantSecretsTable.kekVersion,
       })
       .from(tenantSecretsTable)
-      .where(and(ne(tenantSecretsTable.kekVersion, targetVersion)))
+      .where(ne(tenantSecretsTable.kekVersion, targetVersion))
       .limit(batchSize);
 
     if (batch.length === 0) break;
 
     batchesProcessed++;
 
-    // Circuit-breaker: checked BEFORE each row so we don't pick another
-    // batch after hitting the failure threshold. Outer-loop guard below
-    // bails the whole run.
     if (failed >= maxFailures) {
       stoppedReason = "too_many_failures";
       break;
@@ -118,35 +136,46 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
         };
         const rotated = await rewrapDek(oldEnvelope, provider);
 
-        // rewrapDek returns the same object if already current — unlikely
-        // here because our WHERE excluded current rows, but defensive.
         if (rotated.kekVersion === row.kekVersion) continue;
 
-        // Concurrency guard: only rotate when the row's kek_version is still
-        // the pre-rotation value. A parallel secrets.set would have landed
-        // the row on currentVersion already — we must not clobber it with
-        // stale wrapped bytes. returning() reports 0 rows when the guard
-        // rejected the update; we count that as "moved on, not a failure".
-        const updated = await db
-          .update(tenantSecretsTable)
-          .set({
-            envelope: {
-              ciphertext: rotated.ciphertext.toString("base64"),
-              iv: rotated.iv.toString("base64"),
-              authTag: rotated.authTag.toString("base64"),
-              encryptedDek: rotated.encryptedDek.toString("base64"),
+        const newEnvelope: StoredEnvelope = {
+          ciphertext: rotated.ciphertext.toString("base64"),
+          iv: rotated.iv.toString("base64"),
+          authTag: rotated.authTag.toString("base64"),
+          encryptedDek: rotated.encryptedDek.toString("base64"),
+          kekVersion: rotated.kekVersion,
+        };
+
+        const actor: SessionUser = {
+          id: "system",
+          tenantId: row.tenantId as TenantId,
+          roles: SYSTEM_ROLES,
+        };
+
+        const result = await executor.update(
+          {
+            id: row.id,
+            version: row.version,
+            changes: {
+              envelope: newEnvelope,
               kekVersion: rotated.kekVersion,
             },
-            kekVersion: rotated.kekVersion,
-          })
-          .where(
-            and(
-              eq(tenantSecretsTable.id, row.id),
-              eq(tenantSecretsTable.kekVersion, row.kekVersion),
-            ),
-          )
-          .returning({ id: tenantSecretsTable.id });
-        if (updated.length === 0) continue;
+          },
+          actor,
+          tdbFor(row.tenantId as TenantId),
+        );
+
+        // version_conflict == another writer (secrets.set or a parallel
+        // rotation worker) beat us. Count as "skipped" and move on — the
+        // row is already in a valid state, potentially even past target.
+        if (!result.isSuccess) {
+          if (result.error.code === "version_conflict") continue;
+          failed++;
+          ctx.log?.warn?.(`[secrets:rotate] executor rejected row ${row.id}`, {
+            code: result.error.code,
+          });
+          continue;
+        }
       } catch (err) {
         failed++;
         ctx.log?.warn?.(`[secrets:rotate] failed to rotate row ${row.id}`, { err });
@@ -155,17 +184,10 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
       migrated++;
     }
 
-    // Bail out of the outer loop if the circuit-breaker tripped during
-    // the inner row loop.
     if (stoppedReason === "too_many_failures") break;
-
-    // If we got a smaller-than-batchSize batch, we've drained the backlog.
     if (batch.length < batchSize) break;
   }
 
-  // Log the summary — BullMQ jobs don't surface return values outside the
-  // worker, so stdout + ctx.log is the observable signal for ops. Tests
-  // query the actual DB state (kekVersion) to assert success.
   const result: RotateJobResult = { migrated, failed, batchesProcessed, stoppedReason };
   ctx.log?.info?.(`[secrets:rotate] complete: ${JSON.stringify(result)}`);
 };

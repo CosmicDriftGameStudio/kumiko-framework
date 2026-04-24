@@ -7,21 +7,17 @@ import { InternalError } from "@kumiko/framework/errors";
 import type { SecretsContext } from "@kumiko/framework/secrets";
 import { deleteWrite } from "./handlers/delete.write";
 import { listQuery } from "./handlers/list.query";
-import { retentionJob } from "./handlers/retention.job";
 import { rotateJob } from "./handlers/rotate.job";
 import { setWrite } from "./handlers/set.write";
+import { tenantSecretEntity } from "./table";
 
 export {
   createSecretsContext,
   type SecretsContext,
   type SecretsContextOptions,
+  TENANT_SECRET_READ_EVENT,
 } from "./secrets-context";
-export {
-  type StoredEnvelope,
-  type StoredMetadata,
-  tenantSecretsAuditTable,
-  tenantSecretsTable,
-} from "./table";
+export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./table";
 
 // AppContext carries ctx.secrets via extraContext. requireSecretsContext
 // wraps that raw context so every `.get(...)` call auto-includes the
@@ -52,6 +48,12 @@ export function requireSecretsContext(ctx: HandlerContext, handlerName: string):
 
 export function createSecretsFeature(): FeatureDefinition {
   return defineFeature("secrets", (r) => {
+    // ES entity: set/delete go through the executor, `tenantSecret.created/
+    // .updated/.deleted` events land on the aggregate stream. Reads fire a
+    // separate `tenantSecretRead` event per call (see secrets-context.get
+    // for the one-event-per-read rationale).
+    r.entity("tenantSecret", tenantSecretEntity);
+
     // Per-tenant handlers (set/delete/list) run in the default tenant-scope,
     // giving them the automatic ctx.db tenant-filter as extra defense.
     // The rotation job deliberately reaches for ctx.db as DbConnection
@@ -64,10 +66,12 @@ export function createSecretsFeature(): FeatureDefinition {
     // BullMQ delivers to exactly one worker, so running it against a busy
     // table on multiple instances is still safe.
     r.job("rotate", { trigger: { manual: true } }, rotateJob);
-    // Manual-or-cron cleanup for tenant_secret_reads audit-log. Default
-    // retention is 90d; ops sets a schedule that fits their compliance
-    // regime. Safe to run on a live system — chunked DELETEs hold brief
-    // locks, not table-wide.
-    r.job("retention-cleanup", { trigger: { manual: true } }, retentionJob);
+
+    // Pre-ES had a separate `retention-cleanup` job scrubbing the audit
+    // table on a compliance-driven schedule (90d default). Post-ES the
+    // read-audit lives on the events-table as tenantSecretRead events;
+    // retention for those flows through the framework-wide `pruneEvents`
+    // ops-tool (see docs/plans/architecture/event-dispatcher.md §retention).
+    // No per-feature retention-job anymore.
   });
 }

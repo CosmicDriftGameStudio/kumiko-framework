@@ -64,7 +64,11 @@ export interface SecretsContext {
     value: string,
     opts?: { redact?: (plaintext: string) => string; hint?: string; updatedBy?: string },
   ): Promise<void>;
-  delete(tenantId: TenantId, key: SecretKeyRef): Promise<boolean>;
+  delete(
+    tenantId: TenantId,
+    key: SecretKeyRef,
+    opts?: { deletedBy?: string },
+  ): Promise<boolean>;
 }
 
 export type Envelope = {

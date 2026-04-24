@@ -3,10 +3,14 @@ import type { DbConnection, DbRow } from "@kumiko/framework/db";
 import { createTenantDb } from "@kumiko/framework/db";
 import type { NotifyPriority, Registry, TenantId } from "@kumiko/framework/engine";
 import { createSystemUser } from "@kumiko/framework/engine";
+import { append } from "@kumiko/framework/event-store";
+import { runProjectionsForEvent } from "@kumiko/framework/pipeline";
 import { bridgeStub } from "@kumiko/framework/testing";
+import { generateId } from "@kumiko/framework/utils";
 import { and, eq, or } from "drizzle-orm";
 import type { Redis } from "ioredis";
-import { deliveryLogTable, notificationPreferencesTable } from "./tables";
+import { DELIVERY_ATTEMPT_EVENT } from "./constants";
+import { notificationPreferencesTable } from "./tables";
 import type {
   ChannelContext,
   ChannelMessage,
@@ -153,7 +157,25 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   }
 
   async function logDelivery(entry: DeliveryLogEntry): Promise<void> {
-    await db.insert(deliveryLogTable).values(entry);
+    // Post-ES: each delivery attempt is a standalone event on its own
+    // aggregate stream (fresh UUID per attempt). The `delivery-log` inline
+    // projection materialises the same row shape into deliveryLogTable.
+    // Low-level append() does NOT auto-fire inline projections (only the
+    // dispatcher / executor / ctx.appendEvent paths do), so we invoke
+    // runProjectionsForEvent manually to keep the write synchronous with
+    // the projection update — same TX, read-your-own-write semantics.
+    const attemptId = generateId();
+    const { tenantId, ...payload } = entry;
+    const stored = await append(db, {
+      aggregateId: attemptId,
+      aggregateType: "deliveryAttempt",
+      tenantId,
+      expectedVersion: 0,
+      type: DELIVERY_ATTEMPT_EVENT,
+      payload: payload as unknown as Record<string, unknown>,
+      metadata: { userId: "system" },
+    });
+    await runProjectionsForEvent(stored, registry, db);
   }
 
   function buildMessage(

@@ -286,12 +286,14 @@ beforeAll(async () => {
   // Mount unsubscribe route BEFORE any requests (Hono router locks after first match)
   stack.app.route("/delivery", createUnsubscribeRoute({ db, jwtSecret: JWT_SECRET }));
 
+  // deliveryLogTable is auto-pushed by setupTestStack as MSP-projection-table;
+  // notificationPreferencesTable is an ES-entity, so it still needs explicit
+  // push here (entity-tables are not auto-provisioned — only projection ones).
   await pushTables(db, {
     configValuesTable,
     tenantMembershipsTable,
-    deliveryLogTable,
-    inAppMessagesTable,
     notificationPreferencesTable,
+    inAppMessagesTable,
     ticketTable,
   });
 

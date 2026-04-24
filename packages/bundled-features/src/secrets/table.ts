@@ -1,4 +1,13 @@
-import { instant, integer, jsonb, table, text, uniqueIndex, uuid } from "@kumiko/framework/db";
+import {
+  buildBaseColumns,
+  instant,
+  integer,
+  jsonb,
+  table,
+  text,
+  uniqueIndex,
+} from "@kumiko/framework/db";
+import { createEntity, createNumberField, createTextField } from "@kumiko/framework/engine";
 import { sql } from "drizzle-orm";
 
 // Envelope stored as a single jsonb blob. All ops are upsert-by-(tenantId, key)
@@ -22,38 +31,35 @@ export type StoredMetadata = {
   readonly hint?: string;
 };
 
+// Entity registration for the ES pivot. Only `key` + `kekVersion` are
+// declared as business-validated fields; the jsonb columns (envelope,
+// metadata) and the instant column (lastRotatedAt) ride along as extra
+// table-columns. The executor writes whatever keys land in `flatData`
+// into both the projection row AND the event payload, so the whole
+// envelope round-trips through events.
+//
+// The envelope is cipher-safe by construction (AES-GCM ciphertext + authTag
+// + DEK encrypted under the KEK). A leaked event row can't recover the
+// plaintext without the master key — so shipping it into the events-table
+// doesn't weaken the threat model vs. the pre-ES tenant_secrets column.
+export const tenantSecretEntity = createEntity({
+  table: "tenant_secrets",
+  idType: "uuid",
+  fields: {
+    key: createTextField({ required: true }),
+    kekVersion: createNumberField({ required: true }),
+  },
+});
+
 export const tenantSecretsTable = table(
   "tenant_secrets",
   {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    tenantId: uuid("tenant_id").notNull(),
+    ...buildBaseColumns(false, "uuid"),
     key: text("key").notNull(),
     envelope: jsonb("envelope").$type<StoredEnvelope>().notNull(),
     kekVersion: integer("kek_version").notNull(),
     metadata: jsonb("metadata").$type<StoredMetadata>().default({}).notNull(),
     lastRotatedAt: instant("last_rotated_at").default(sql`now()`).notNull(),
-    createdAt: instant("created_at").default(sql`now()`).notNull(),
-    updatedAt: instant("updated_at"),
-    updatedById: text("updated_by_id"),
   },
   (t) => [uniqueIndex("tenant_secrets_tenant_key_unique").on(t.tenantId, t.key)],
 );
-
-// Per-read audit trail. A row is appended every time feature code calls
-// ctx.secrets.get — never the value, just "who read what when from where".
-// Required by compliance regimes (SOC2, ISO 27001) that mandate provable
-// access logs on credential material. Rows are append-only in practice;
-// no UPDATE/DELETE path ships in v1.
-export const tenantSecretsAuditTable = table("tenant_secret_reads", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: uuid("tenant_id").notNull(),
-  // Secret key that was read. Matches tenant_secrets.key — no FK constraint
-  // because a read of a now-deleted secret is still a legitimate audit row
-  // (someone touched it before the delete).
-  key: text("key").notNull(),
-  userId: text("user_id").notNull(),
-  // Qualified handler name ("billing:write:charge"). Lets ops answer
-  // "which code paths touch this secret?" with a SQL GROUP BY.
-  handlerName: text("handler_name").notNull(),
-  readAt: instant("read_at").default(sql`now()`).notNull(),
-});

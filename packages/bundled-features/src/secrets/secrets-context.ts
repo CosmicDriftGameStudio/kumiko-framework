@@ -1,8 +1,26 @@
 // Feature-level accessor injected as `ctx.secrets` at boot. Not a HTTP API —
 // feature code that needs a plaintext secret (SMTP-connect, Stripe-call, …)
 // pulls it via ctx.secrets.get. Cleartext never crosses the wire.
+//
+// Post-ES pivot: all three ops (get/set/delete) flow through the events-
+// table.
+//   - set → executor.create / .update on the tenantSecret aggregate
+//   - delete → executor.delete
+//   - get → low-level append of tenantSecretRead-event on a fresh
+//           aggregate-stream (one-event-per-read, so parallel reads never
+//           race on the secret's own version). The audit invariant ("every
+//           read logged") now sits on the events-table instead of a
+//           dedicated audit-table.
 
-import type { DbConnection, DbRunner } from "@kumiko/framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbConnection,
+  type DbRow,
+  fetchOne,
+} from "@kumiko/framework/db";
+import type { SessionUser } from "@kumiko/framework/engine";
+import { append, type EventMetadata } from "@kumiko/framework/event-store";
 import {
   createDekCache,
   createSecret,
@@ -12,11 +30,12 @@ import {
   type MasterKeyProvider,
   type SecretsContext,
 } from "@kumiko/framework/secrets";
-import { and, eq, sql } from "drizzle-orm";
+import { generateId } from "@kumiko/framework/utils";
+import { and, eq } from "drizzle-orm";
 import {
   type StoredEnvelope,
   type StoredMetadata,
-  tenantSecretsAuditTable,
+  tenantSecretEntity,
   tenantSecretsTable,
 } from "./table";
 
@@ -33,9 +52,27 @@ export type SecretsContextOptions = {
   readonly dekCache?: DekCache;
 };
 
-// Normalises SecretKeyRef into the storage string. Handles from r.secret
-// carry a `.name`; callers that still pass a raw qualified-name string also
-// work. The DB stores the qualified name verbatim.
+// Synthetic actor identity for set/delete — the executor wants a full
+// SessionUser, but the secrets-context API takes only a user-id string
+// (via opts.updatedBy / opts.deletedBy). `system`-role mirrors how jobs
+// and seeds attribute out-of-band writes: non-admin paths stay blocked,
+// framework-internal ops keep working.
+const SYSTEM_ROLES = ["system"] as const;
+
+// Secret-read audit-event shape. Carried in the event payload every time a
+// feature-ctx-handler calls ctx.secrets.get. Intentionally lean — the
+// envelope NEVER lands on a read-event, only the lookup metadata.
+export const TENANT_SECRET_READ_EVENT = "secrets:event:read";
+type SecretReadPayload = {
+  readonly key: string;
+  readonly userId: string;
+  readonly handlerName: string;
+};
+
+const executor = createEventStoreExecutor(tenantSecretsTable, tenantSecretEntity, {
+  entityName: "tenantSecret",
+});
+
 function resolveKey(keyOrHandle: string | { readonly name: string }): string {
   return typeof keyOrHandle === "string" ? keyOrHandle : keyOrHandle.name;
 }
@@ -72,43 +109,74 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
   const { db, masterKeyProvider } = opts;
   const provider = cachedProvider(masterKeyProvider, opts.dekCache ?? createDekCache());
 
+  async function lookup(
+    tenantId: string,
+    key: string,
+  ): Promise<{ id: string; version: number; envelope: StoredEnvelope } | undefined> {
+    const row = await fetchOne<DbRow>(
+      db,
+      tenantSecretsTable,
+      eq(tenantSecretsTable.tenantId, tenantId),
+      eq(tenantSecretsTable.key, key),
+    );
+    if (!row) return undefined;
+    return {
+      id: row["id"] as string,
+      version: row["version"] as number,
+      envelope: row["envelope"] as StoredEnvelope,
+    };
+  }
+
   return {
     async get(tenantId, keyOrHandle, auditCtx) {
       const key = resolveKey(keyOrHandle);
       // Atomic audit + read: a decrypt that "escaped" the audit trail
-      // (because the audit-insert threw) would violate the compliance
+      // (because the audit-append threw) would violate the compliance
       // promise "every read is logged". Wrapping both in a TX means
-      // either the caller gets the plaintext AND a row in
-      // tenant_secret_reads, or neither — never one without the other.
-      // Reads without audit (framework-internal, rotation job) skip the
-      // TX entirely since there's nothing to couple.
-      const runRead = async (handle: DbRunner): Promise<string | undefined> => {
-        const rows = await handle
-          .select({ envelope: tenantSecretsTable.envelope })
-          .from(tenantSecretsTable)
-          .where(and(eq(tenantSecretsTable.tenantId, tenantId), eq(tenantSecretsTable.key, key)))
-          .limit(1);
-        const row = rows[0];
-        if (!row) return undefined;
-        return decryptValue(decodeEnvelope(row.envelope), provider);
-      };
-
+      // either the caller gets the plaintext AND a read-event row, or
+      // neither. Reads without audit (framework-internal, rotation job)
+      // skip the TX — there's nothing to couple.
       if (!auditCtx) {
-        const plaintext = await runRead(db);
-        if (plaintext === undefined) return undefined;
+        const existing = await lookup(tenantId, key);
+        if (!existing) return undefined;
+        const plaintext = await decryptValue(decodeEnvelope(existing.envelope), provider);
         return createSecret(plaintext);
       }
 
       const plaintext = await db.transaction(async (tx) => {
-        const result = await runRead(tx);
-        if (result === undefined) return undefined;
-        await tx.insert(tenantSecretsAuditTable).values({
-          tenantId,
+        const row = await fetchOne<DbRow>(
+          tx as unknown as Parameters<typeof fetchOne>[0],
+          tenantSecretsTable,
+          eq(tenantSecretsTable.tenantId, tenantId),
+          eq(tenantSecretsTable.key, key),
+        );
+        if (!row) return undefined;
+        const envelope = row["envelope"] as StoredEnvelope;
+        const pt = await decryptValue(decodeEnvelope(envelope), provider);
+
+        // One event per read on its own aggregate-stream (fresh UUID as
+        // aggregateId). Avoids version-conflicts between parallel reads —
+        // a shared stream on the tenantSecret-aggregate would force
+        // serialization and turn read-amplification into lock-amplification.
+        // MSP consumers still group by payload.key if they want per-secret
+        // read counts.
+        const readId = generateId();
+        const metadata: EventMetadata = { userId: auditCtx.userId };
+        const payload: SecretReadPayload = {
           key,
           userId: auditCtx.userId,
           handlerName: auditCtx.handlerName,
+        };
+        await append(tx, {
+          aggregateId: readId,
+          aggregateType: "tenantSecretRead",
+          tenantId,
+          expectedVersion: 0,
+          type: TENANT_SECRET_READ_EVENT,
+          payload: payload as unknown as Record<string, unknown>,
+          metadata,
         });
-        return result;
+        return pt;
       });
 
       if (plaintext === undefined) return undefined;
@@ -132,35 +200,84 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
         ...(setOpts.hint ? { hint: setOpts.hint } : {}),
       };
 
-      await db
-        .insert(tenantSecretsTable)
-        .values({
-          tenantId,
-          key,
-          envelope: stored,
-          kekVersion: envelope.kekVersion,
-          metadata,
-          ...(setOpts.updatedBy ? { updatedById: setOpts.updatedBy } : {}),
-        })
-        .onConflictDoUpdate({
-          target: [tenantSecretsTable.tenantId, tenantSecretsTable.key],
-          set: {
-            envelope: stored,
-            kekVersion: envelope.kekVersion,
-            metadata,
-            lastRotatedAt: sql`now()`,
-            ...(setOpts.updatedBy ? { updatedById: setOpts.updatedBy } : {}),
+      const actor: SessionUser = {
+        id: setOpts.updatedBy ?? "system",
+        tenantId,
+        roles: SYSTEM_ROLES,
+      };
+      const tdb = createTenantDb(db, tenantId, "system");
+
+      const existing = await lookup(tenantId, key);
+      const commonFields = {
+        envelope: stored,
+        kekVersion: envelope.kekVersion,
+        metadata,
+        lastRotatedAt: Temporal.Now.instant(),
+      };
+
+      if (existing) {
+        const result = await executor.update(
+          {
+            id: existing.id,
+            version: existing.version,
+            changes: commonFields,
           },
-        });
+          actor,
+          tdb,
+        );
+        if (!result.isSuccess) throw wrapSetFailure(result.error);
+        return;
+      }
+
+      try {
+        const result = await executor.create(
+          {
+            key,
+            tenantId,
+            ...commonFields,
+          },
+          actor,
+          tdb,
+        );
+        if (!result.isSuccess) throw wrapSetFailure(result.error);
+      } catch (err) {
+        // Race-fallback: a concurrent set won the insert. Re-lookup and
+        // convert to an update. The unique-index on (tenant, key) is what
+        // triggers this path.
+        const afterRace = await lookup(tenantId, key);
+        if (!afterRace) throw err;
+        const result = await executor.update(
+          {
+            id: afterRace.id,
+            version: afterRace.version,
+            changes: commonFields,
+          },
+          actor,
+          tdb,
+        );
+        if (!result.isSuccess) throw wrapSetFailure(result.error);
+      }
     },
 
-    async delete(tenantId, keyOrHandle) {
+    async delete(tenantId, keyOrHandle, deleteOpts = {}) {
       const key = resolveKey(keyOrHandle);
-      const deleted = await db
-        .delete(tenantSecretsTable)
-        .where(and(eq(tenantSecretsTable.tenantId, tenantId), eq(tenantSecretsTable.key, key)))
-        .returning({ id: tenantSecretsTable.id });
-      return deleted.length > 0;
+      const existing = await lookup(tenantId, key);
+      if (!existing) return false;
+
+      const actor: SessionUser = {
+        id: deleteOpts.deletedBy ?? "system",
+        tenantId,
+        roles: SYSTEM_ROLES,
+      };
+      const tdb = createTenantDb(db, tenantId, "system");
+      const result = await executor.delete({ id: existing.id }, actor, tdb);
+      return result.isSuccess;
     },
   };
+}
+
+function wrapSetFailure(err: { code: string; details?: unknown }): Error {
+  return new Error(
+    `[secrets.set] executor returned failure: ${err.code} — ${JSON.stringify(err.details ?? {})}`,
+  );
 }

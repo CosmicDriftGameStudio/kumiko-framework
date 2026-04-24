@@ -17,7 +17,10 @@ export const listQuery = defineQueryHandler({
         kekVersion: tenantSecretsTable.kekVersion,
         metadata: tenantSecretsTable.metadata,
         lastRotatedAt: tenantSecretsTable.lastRotatedAt,
-        createdAt: tenantSecretsTable.createdAt,
+        // Post-ES the projection uses the framework base-columns — `inserted_at`
+        // replaces the legacy `created_at`. Response stays on the `createdAt`
+        // key so Admin-UIs don't have to re-map.
+        createdAt: tenantSecretsTable.insertedAt,
       })
       .from(tenantSecretsTable)
       .where(eq(tenantSecretsTable.tenantId, event.user.tenantId))

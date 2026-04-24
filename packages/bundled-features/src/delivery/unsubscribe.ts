@@ -1,8 +1,8 @@
-import type { DbConnection } from "@kumiko/framework/db";
+import { createTenantDb, type DbConnection } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";
 import { Hono } from "hono";
 import * as jose from "jose";
-import { notificationPreferencesTable } from "./tables";
+import { upsertPreference } from "./upsert-preference";
 
 export type UnsubscribeTokenPayload = {
   readonly userId: string;
@@ -17,6 +17,11 @@ export type UnsubscribeRouteOptions = {
 };
 
 const UNSUBSCRIBE_EXPIRY = "7d";
+// The route runs outside the dispatcher — no SessionUser, no JWT middleware.
+// Bill the event against the token-subject (the user owns their preference)
+// and attribute it as a system-role action. This mirrors the way jobs and
+// seeds attribute their out-of-band writes.
+const SYSTEM_ROLES = ["system"] as const;
 
 export async function signUnsubscribeToken(
   payload: UnsubscribeTokenPayload,
@@ -47,41 +52,35 @@ export function createUnsubscribeRoute(options: UnsubscribeRouteOptions): Hono {
       return c.text("Missing token", 400);
     }
 
+    let userId: string;
+    let tenantId: TenantId;
+    let notificationType: string;
+    let channel: string;
     try {
       const { payload } = await jose.jwtVerify(token, encodedSecret, {
         issuer: "kumiko:unsubscribe",
       });
-
-      const userId = String(payload.sub);
-      const tenantId = payload["tenantId"] as string;
-      const notificationType = payload["notificationType"] as string;
-      const channel = payload["channel"] as string;
-
-      // Atomic upsert — two concurrent unsubscribes on the same token raced
-      // the prior SELECT+INSERT path into duplicate-key errors.
-      await db
-        .insert(notificationPreferencesTable)
-        .values({
-          tenantId,
-          userId,
-          notificationType,
-          channel,
-          enabled: false,
-        })
-        .onConflictDoUpdate({
-          target: [
-            notificationPreferencesTable.tenantId,
-            notificationPreferencesTable.userId,
-            notificationPreferencesTable.notificationType,
-            notificationPreferencesTable.channel,
-          ],
-          set: { enabled: false, updatedAt: Temporal.Now.instant() },
-        });
-
-      return c.text("You have been unsubscribed.", 200);
+      userId = String(payload.sub);
+      tenantId = payload["tenantId"] as TenantId;
+      notificationType = payload["notificationType"] as string;
+      channel = payload["channel"] as string;
     } catch {
       return c.text("Invalid or expired token", 400);
     }
+
+    // Token-verify passed — everything below is a legitimate write. Don't
+    // swallow write-errors as "invalid token", that would mask real bugs
+    // (e.g. events-table missing, DB down) behind a misleading 400.
+    const actor = { id: userId, tenantId, roles: SYSTEM_ROLES };
+    const tdb = createTenantDb(db, tenantId, "system");
+    await upsertPreference(tdb, actor, {
+      tenantId,
+      userId,
+      notificationType,
+      channel,
+      enabled: false,
+    });
+    return c.text("You have been unsubscribed.", 200);
   });
 
   return app;

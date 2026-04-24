@@ -11,7 +11,9 @@ export const deleteWrite = defineWriteHandler({
   access: { roles: ["TenantAdmin"] },
   handler: async (event, ctx) => {
     const secrets = requireSecretsContext(ctx, "secrets:write:delete");
-    const removed = await secrets.delete(event.user.tenantId, event.payload.key);
+    const removed = await secrets.delete(event.user.tenantId, event.payload.key, {
+      deletedBy: event.user.id,
+    });
     if (!removed) return failNotFound("tenantSecret", event.payload.key);
     return { isSuccess: true, data: { key: event.payload.key } };
   },
