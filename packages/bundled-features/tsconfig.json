@@ -6,7 +6,9 @@
     "paths": {
       "@kumiko/framework/*": ["../framework/src/*/index.ts"]
     },
-    "noEmit": true
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
   "include": ["src"]
 }
