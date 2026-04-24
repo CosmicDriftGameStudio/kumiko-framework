@@ -40,8 +40,10 @@
     "@aws-sdk/s3-request-presigner": "^3.700.0",
     "@kumiko/dispatcher-live": "0.0.1",
     "@kumiko/framework": "0.0.1",
+    "@kumiko/renderer": "0.0.1",
     "@node-rs/argon2": "^2.0.2",
     "clsx": "^2.1.1",
+    "lucide-react": "^0.475.0",
     "react": "^19.2.0",
     "tailwind-merge": "^3.0.2"
   }

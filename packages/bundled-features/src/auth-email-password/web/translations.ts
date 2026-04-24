@@ -24,6 +24,10 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.rateLimited": "Zu viele Login-Versuche. Bitte kurz warten.",
     "auth.errors.invalidBody": "Ungültige Eingabe.",
     "auth.errors.loginFailed": "Login fehlgeschlagen.",
+    "auth.user.menu.label": "Konto",
+    "auth.user.menu.logout": "Abmelden",
+    "auth.tenant.switcher.label": "Tenant",
+    "auth.tenant.switcher.none": "Kein Tenant",
   },
   en: {
     "auth.login.title": "Sign in",
@@ -39,6 +43,10 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.rateLimited": "Too many login attempts. Please wait briefly.",
     "auth.errors.invalidBody": "Invalid input.",
     "auth.errors.loginFailed": "Login failed.",
+    "auth.user.menu.label": "Account",
+    "auth.user.menu.logout": "Sign out",
+    "auth.tenant.switcher.label": "Tenant",
+    "auth.tenant.switcher.none": "No tenant",
   },
 };
 
