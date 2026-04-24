@@ -19,6 +19,7 @@ import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
+import { seedMembership } from "../../tenant/testing";
 import { UserHandlers } from "../../user";
 import { userEntity, userTable } from "../../user/user-entity";
 import { createUserFeature } from "../../user/user-feature";
@@ -86,10 +87,10 @@ async function seedLoginUser(opts: {
   );
 
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
-  await stack.db.db.insert(tenantMembershipsTable).values({
+  await seedMembership(stack.db.db, {
     userId: created.id,
     tenantId,
-    roles: JSON.stringify(opts.roles ?? ["User"]),
+    roles: opts.roles ?? ["User"],
   });
   return { id: created.id, tenantId };
 }
@@ -267,15 +268,15 @@ describe("scenario 7: multi-membership tenant resolution", () => {
     );
 
     // Two memberships: tenant 1 (first) and tenant 7 (preferred).
-    await stack.db.db.insert(tenantMembershipsTable).values({
+    await seedMembership(stack.db.db, {
       userId: created.id,
       tenantId: testTenantId(1),
-      roles: JSON.stringify(["User"]),
+      roles: ["User"],
     });
-    await stack.db.db.insert(tenantMembershipsTable).values({
+    await seedMembership(stack.db.db, {
       userId: created.id,
       tenantId: testTenantId(7),
-      roles: JSON.stringify(["Admin"]),
+      roles: ["Admin"],
     });
 
     // Point the user at tenant 7 as their "last active" — login should land there.
@@ -304,10 +305,10 @@ describe("scenario 7: multi-membership tenant resolution", () => {
       { email: "stale@example.com", passwordHash: hash, displayName: "Stale" },
       systemAdmin,
     );
-    await stack.db.db.insert(tenantMembershipsTable).values({
+    await seedMembership(stack.db.db, {
       userId: created.id,
       tenantId: testTenantId(3),
-      roles: JSON.stringify(["User"]),
+      roles: ["User"],
     });
     await stack.http.writeOk(
       UserHandlers.update,
@@ -366,10 +367,10 @@ describe("scenario 7b: login rate limiting", () => {
       { email: "brute@example.com", passwordHash: hash, displayName: "Brute" },
       systemAdmin,
     );
-    await rlStack.db.db.insert(tenantMembershipsTable).values({
+    await seedMembership(rlStack.db.db, {
       userId: created.id,
       tenantId: "00000000-0000-4000-8000-000000000001",
-      roles: JSON.stringify(["User"]),
+      roles: ["User"],
     });
   });
 
@@ -413,10 +414,10 @@ describe("scenario 7b: login rate limiting", () => {
       { email: "reset@example.com", passwordHash: hash, displayName: "Reset" },
       systemAdmin,
     );
-    await rlStack.db.db.insert(tenantMembershipsTable).values({
+    await seedMembership(rlStack.db.db, {
       userId: created.id,
       tenantId: "00000000-0000-4000-8000-000000000001",
-      roles: JSON.stringify(["User"]),
+      roles: ["User"],
     });
 
     // 2 wrong attempts

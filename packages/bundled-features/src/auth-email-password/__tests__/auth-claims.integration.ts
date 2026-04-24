@@ -17,6 +17,7 @@ import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
+import { seedMembership } from "../../tenant/testing";
 import { UserHandlers } from "../../user";
 import { userEntity, userTable } from "../../user/user-entity";
 import { createUserFeature } from "../../user/user-feature";
@@ -303,10 +304,10 @@ describe("scenario 2.5: reserved separator + multi-feature isolation", () => {
         { email: "sep@example.com", passwordHash: hash, displayName: "Sep" },
         systemAdmin,
       );
-      await localStack.db.db.insert(tenantMembershipsTable).values({
+      await seedMembership(localStack.db.db, {
         userId: created.id,
         tenantId: tenantA,
-        roles: JSON.stringify(["User"]),
+        roles: ["User"],
       });
 
       const res = await localStack.http.raw("POST", "/api/auth/login", {
@@ -395,10 +396,10 @@ describe("scenario 2.6: multi-feature drift warnings fire independently", () => 
         { email: "drift@example.com", passwordHash: hash, displayName: "Drift" },
         systemAdmin,
       );
-      await localStack.db.db.insert(tenantMembershipsTable).values({
+      await seedMembership(localStack.db.db, {
         userId: created.id,
         tenantId: tenantA,
-        roles: JSON.stringify(["User"]),
+        roles: ["User"],
       });
 
       const res = await localStack.http.raw("POST", "/api/auth/login", {
@@ -481,10 +482,10 @@ describe("scenario 3: a broken claims hook does not break login", () => {
         { email: "broken@example.com", passwordHash: hash, displayName: "Broken" },
         systemAdmin,
       );
-      await localStack.db.db.insert(tenantMembershipsTable).values({
+      await seedMembership(localStack.db.db, {
         userId: created.id,
         tenantId: tenantA,
-        roles: JSON.stringify(["User"]),
+        roles: ["User"],
       });
 
       const res = await localStack.http.raw("POST", "/api/auth/login", {

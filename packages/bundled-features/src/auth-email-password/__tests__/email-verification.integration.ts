@@ -17,6 +17,7 @@ import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
+import { seedMembership } from "../../tenant/testing";
 import { UserHandlers } from "../../user";
 import { userEntity, userTable } from "../../user/user-entity";
 import { createUserFeature } from "../../user/user-feature";
@@ -126,10 +127,10 @@ async function seedUser(opts: {
       .where(eq(userTable["id"], created.id));
   }
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
-  await stack.db.db.insert(tenantMembershipsTable).values({
+  await seedMembership(stack.db.db, {
     userId: created.id,
     tenantId,
-    roles: JSON.stringify(["User"]),
+    roles: ["User"],
   });
   return { id: created.id, tenantId };
 }
@@ -217,10 +218,10 @@ describe("POST /auth/verify-email", () => {
     const firstAttempt = await post("/api/auth/verify-email", { token });
     expect(firstAttempt.status).toBe(422);
 
-    await stack.db.db.insert(tenantMembershipsTable).values({
+    await seedMembership(stack.db.db, {
       userId: seed.id,
       tenantId: seed.tenantId,
-      roles: JSON.stringify(["User"]),
+      roles: ["User"],
     });
 
     const secondAttempt = await post("/api/auth/verify-email", { token });

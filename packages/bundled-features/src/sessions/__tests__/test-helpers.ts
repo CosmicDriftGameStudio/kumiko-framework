@@ -13,7 +13,7 @@ import { type TestStack, TestUsers } from "@kumiko/framework/testing";
 import * as jose from "jose";
 import { expect } from "vitest";
 import { hashPassword } from "../../auth-email-password/password-hashing";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
+import { seedMembership } from "../../tenant/testing";
 import { UserHandlers } from "../../user";
 
 export type LoginResult = {
@@ -38,10 +38,10 @@ export function makeSessionHelpers(stack: TestStack, tenantId: TenantId) {
         { email, passwordHash: hash, displayName: email.split("@")[0] ?? "u" },
         TestUsers.systemAdmin,
       );
-      await stack.db.db.insert(tenantMembershipsTable).values({
+      await seedMembership(stack.db.db, {
         userId: created.id,
         tenantId,
-        roles: JSON.stringify(opts?.roles ?? ["User"]),
+        roles: opts?.roles ?? ["User"],
       });
       return { userId: created.id };
     },
