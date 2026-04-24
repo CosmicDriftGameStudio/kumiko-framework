@@ -25,4 +25,9 @@ export type LocaleResolver = {
   // on this so a user switching language mid-session triggers a
   // re-render across every subscribed consumer.
   subscribe(listener: () => void): () => void;
+  // Optional — when present, the resolver is stateful and callers (like
+  // a language-picker UI) can trigger a locale change that will be
+  // broadcast via `subscribe`. Static resolvers (e.g. server-side
+  // render with a fixed locale) omit it.
+  setLocale?(locale: string): void;
 };

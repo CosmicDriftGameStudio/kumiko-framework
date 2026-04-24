@@ -1,25 +1,42 @@
 // Browser-spezifischer LocaleResolver-Default für createKumikoApp.
-// Liest die Präferenzen aus navigator.language + Intl.DateTimeFormat —
-// keine App-Konfiguration nötig, der Sample bekommt sofort deutsch/
-// englisch/was-auch-immer der User im Browser eingestellt hat, und
-// Plugin-Bundles springen für bekannte Locales ein.
 //
-// Die Resolver-Instanz ist statisch — keine Language-Switch-API, der
-// User muss seinen Browser umstellen für einen Wechsel. Sobald das
-// i18next-Sample existiert wird der Resolver dort lebendig gemacht
-// (subscribe triggert re-render bei User-initiierter Sprach-Wahl).
+// Stateful: hält die aktuelle Locale in localStorage, bricht subscribe-
+// listener bei setLocale(). Initial-wert kommt aus localStorage wenn
+// gespeichert, sonst aus navigator.language, sonst aus defaultLocale.
+//
+// App-Code setzt die Locale programmatisch via resolver.setLocale() —
+// der LanguageSwitcher-Component macht genau das. Persistenz über
+// localStorage heißt: nach Page-Reload gleiche Sprache, ohne Server-
+// Roundtrip. Für device-übergreifende Persistenz würde ein
+// user:write:update auf user.locale zusätzlich gesetzt (separater
+// App-Code, nicht im Resolver).
 
 import type { LocaleResolver } from "@kumiko/headless";
-import { createStaticLocaleResolver } from "@kumiko/renderer";
 
-function detectLocale(): string {
-  if (typeof navigator === "undefined") return "en";
-  const raw = navigator.language;
-  if (!raw) return "en";
-  // navigator.language kann "de-DE" oder "de" sein — beides ist
-  // valid BCP-47, wir reichen es durch wie es ist. useTranslation
-  // strippt die Region intern für Bundle-Lookups wenn nötig.
-  return raw;
+export type CreateBrowserLocaleResolverOptions = {
+  /** localStorage-Key unter dem die aktive Locale persistiert wird.
+   *  Default: `"kumiko:locale"`. Apps die mehrere Kumiko-Instanzen auf
+   *  derselben Origin mounten (selten), setzen verschiedene Keys. */
+  readonly storageKey?: string;
+  /** Fallback wenn weder localStorage noch navigator.language liefern.
+   *  Default: `"en"`. */
+  readonly defaultLocale?: string;
+};
+
+function detectInitialLocale(storageKey: string, fallback: string): string {
+  if (typeof localStorage !== "undefined") {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored !== null && stored.length > 0) return stored;
+    } catch {
+      // localStorage kann throwen (safari private mode, disabled) —
+      // leise auf navigator zurückfallen.
+    }
+  }
+  if (typeof navigator !== "undefined" && navigator.language) {
+    return navigator.language;
+  }
+  return fallback;
 }
 
 function detectTimeZone(): string {
@@ -32,14 +49,41 @@ function detectTimeZone(): string {
 }
 
 /** Default-Resolver wenn createKumikoApp ohne `locale`-Option gebootet
- *  wird. Locale kommt aus `navigator.language`, TimeZone aus
- *  `Intl.DateTimeFormat` — das ist alles was man für "es sieht auf
- *  Anhieb vernünftig aus" braucht, ohne externe Deps. Apps die eine
- *  vollwertige i18n-Schicht haben (i18next, FormatJS, eigener Store),
- *  reichen ihre eigene Resolver-Impl via `createKumikoApp({ locale })`. */
-export function createBrowserLocaleResolver(): LocaleResolver {
-  return createStaticLocaleResolver({
-    locale: detectLocale(),
-    timeZone: detectTimeZone(),
-  });
+ *  wird. Stateful: setLocale() persistiert in localStorage und ruft
+ *  subscribed listeners. Apps die eine vollwertige i18n-Schicht haben
+ *  (i18next, FormatJS, eigener Store), reichen stattdessen ihre eigene
+ *  Resolver-Impl via `createKumikoApp({ locale })`. */
+export function createBrowserLocaleResolver(
+  options: CreateBrowserLocaleResolverOptions = {},
+): LocaleResolver {
+  const storageKey = options.storageKey ?? "kumiko:locale";
+  const fallback = options.defaultLocale ?? "en";
+  let current = detectInitialLocale(storageKey, fallback);
+  const timeZone = detectTimeZone();
+  const listeners = new Set<() => void>();
+
+  return {
+    translate: (key) => key,
+    locale: () => current,
+    timeZone: () => timeZone,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    setLocale: (next) => {
+      if (next === current) return;
+      current = next;
+      if (typeof localStorage !== "undefined") {
+        try {
+          localStorage.setItem(storageKey, next);
+        } catch {
+          // Persistenz fehlgeschlagen ist nicht fatal — die Session-Locale
+          // bleibt trotzdem gesetzt, nur der nächste Reload verliert sie.
+        }
+      }
+      for (const listener of listeners) listener();
+    },
+  };
 }
