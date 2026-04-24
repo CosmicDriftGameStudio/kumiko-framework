@@ -6,7 +6,7 @@ import type { NavDefinition } from "@kumiko/framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@kumiko/headless";
 import { resolveNavigation } from "@kumiko/headless";
 import type { FeatureSchema } from "@kumiko/renderer";
-import { useNav } from "@kumiko/renderer";
+import { useNav, useTranslation } from "@kumiko/renderer";
 import { type ReactNode, useMemo } from "react";
 import { KumikoLink } from "../app/nav";
 import { cn } from "../lib/cn";
@@ -39,9 +39,17 @@ function NavNodeItem({
   readonly depth: number;
 }): ReactNode {
   const nav = useNav();
+  const t = useTranslation();
   const active = node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
 
   const indent = { paddingLeft: `${0.5 + depth * 1}rem` };
+
+  // i18n-Key Konvention: wenn label einen Punkt enthält, durchs t()
+  // laufen lassen — wenn Bundle den Key kennt, wird übersetzt, sonst
+  // bleibt der key selbst stehen (und der App-Dev sieht dass er eine
+  // Übersetzung vergessen hat). Reine String-Labels ("Dashboard")
+  // bleiben unangetastet durch das Mapping.
+  const displayLabel = node.label.includes(".") ? t(node.label) : node.label;
 
   if (node.screen !== undefined) {
     const screenId = lastSegment(node.screen);
@@ -56,7 +64,7 @@ function NavNodeItem({
             active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
           )}
         >
-          {node.label}
+          {displayLabel}
         </KumikoLink>
         {node.children.length > 0 &&
           node.children.map((child) => (
@@ -71,7 +79,7 @@ function NavNodeItem({
         style={indent}
         className="px-3 py-1.5 text-xs uppercase tracking-wider text-muted-foreground"
       >
-        {node.label}
+        {displayLabel}
       </div>
       {node.children.map((child) => (
         <NavNodeItem key={child.qualifiedName} node={child} depth={depth + 1} />

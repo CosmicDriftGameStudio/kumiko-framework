@@ -55,8 +55,15 @@ export type CreateKumikoServerOptions = {
   /** Absolute path to the CSS entry (typischerweise styles.css mit
    *  @import "tailwindcss"). Der dev-server startet dann den
    *  Tailwind-CLI als watcher und servt das kompilierte CSS unter
-   *  /styles.css. Omit → keine CSS-Pipeline. */
-  readonly stylesheet?: string;
+   *  /styles.css.
+   *
+   *  Wenn `undefined` UND `clientEntry` gesetzt: resolve die
+   *  `@kumiko/renderer-web/styles.css`-Default via Package-Exports.
+   *  So muss kein Sample mehr den monorepo-relativen Pfad
+   *  ../../packages/renderer-web/src/styles.css hardcoden.
+   *
+   *  `stylesheet: false` → CSS-Pipeline explizit deaktivieren. */
+  readonly stylesheet?: string | false;
   /** Optional HTML template served at `GET /`. The dev-server injects
    *  a `<script src="/client.js">` and a reload-listener snippet into
    *  `</body>` if those aren't already there. Defaults to a minimal
@@ -193,6 +200,41 @@ async function watchDir(dir: string, onChange: (filename: string) => void): Prom
   }
 }
 
+// Resolve den Pfad zur Tailwind-Entry-CSS. Drei Fälle:
+//   - Explicit string  → den resolved'en absoluten Pfad verwenden
+//   - false            → CSS-Pipeline aus (undefined zurück)
+//   - undefined + client: Default `@kumiko/renderer-web/styles.css` auflösen
+//   - undefined + kein clientEntry: undefined (keine CSS nötig)
+function resolveStylesheet(options: CreateKumikoServerOptions): string | undefined {
+  if (options.stylesheet === false) return undefined;
+  if (typeof options.stylesheet === "string") return resolve(options.stylesheet);
+  if (options.clientEntry === undefined) return undefined;
+
+  // Bun.resolveSync folgt Package-Exports — "./styles.css" in renderer-web's
+  // package.json. Das Monorepo auflöst direkt auf den Workspace-File, eine
+  // installierte Fremd-App auf den node_modules-File. Kein `fileURLToPath`
+  // nötig, Bun gibt schon einen absoluten FS-Pfad zurück.
+  if (!hasBun) {
+    // Unit-Tests unter vitest/Node landen hier. Ohne Bun können wir die
+    // Package-Export-Resolution nicht machen — und im Test-Kontext gibt's
+    // keine echte Tailwind-Pipeline. Skip still, keine Fehlermeldung nötig.
+    return undefined;
+  }
+  try {
+    return (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun.resolveSync(
+      "@kumiko/renderer-web/styles.css",
+      process.cwd(),
+    );
+  } catch (err) {
+    logError(
+      "[kumiko-server] couldn't auto-resolve @kumiko/renderer-web/styles.css — " +
+        "pass `stylesheet: <path>` or `stylesheet: false` explicitly.",
+      err,
+    );
+    return undefined;
+  }
+}
+
 // Startet den Tailwind-CLI als watch-Prozess. Rückgabe: der Output-
 // Path (temp-file) den der dev-server als /styles.css serviert.
 // Beim ersten Aufruf blockiert die Funktion bis Tailwind den initialen
@@ -266,9 +308,16 @@ export async function createKumikoServer(
   // dev-server liest es bei jedem /styles.css-Request frisch. Nicht
   // Super-Performant, aber keine in-memory-Signal-Gymnastik nötig
   // und der Browser-Reload kommt eh nur nach Bundle-Rebuild.
+  //
+  // Default-Resolution: wenn kein `stylesheet` übergeben und ein
+  // `clientEntry` existiert, resolve die styles.css aus
+  // `@kumiko/renderer-web` via Package-Exports. Bun.resolveSync liefert
+  // einen absoluten Pfad — funktioniert sowohl im Monorepo (Workspace-
+  // Link) als auch in einer installierten Fremd-App (node_modules).
   let stylesheetPath: string | undefined;
-  if (options.stylesheet !== undefined) {
-    stylesheetPath = await startTailwindWatcher(resolve(options.stylesheet));
+  const resolvedStylesheet = resolveStylesheet(options);
+  if (resolvedStylesheet !== undefined) {
+    stylesheetPath = await startTailwindWatcher(resolvedStylesheet);
   }
 
   // --- HTML template ---
