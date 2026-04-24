@@ -17,7 +17,8 @@ type ColumnSelection = Record<string, any>;
  *   INSERT forces tenantId — handler cannot override.
  *
  * - "system" (r.systemScope()): No tenant filter on reads/updates/deletes.
- *   INSERT uses tenantId as default but handler can override (e.g. tenantId: null for system config).
+ *   INSERT uses tenantId as default but handler can override (e.g. write a
+ *   cross-tenant row to a shared sentinel like SYSTEM_TENANT_ID).
  *
  * Tables without a tenantId column are always unfiltered regardless of mode.
  */
@@ -228,7 +229,9 @@ export function createTenantDb(
     if (!hasTenantColumn(table)) return data;
 
     if (mode === "system") {
-      // System mode: tenantId is a default, handler can override (e.g. null for system config)
+      // System mode: tenantId is a default the handler can override —
+      // e.g. to write a cross-tenant row under SYSTEM_TENANT_ID, or to
+      // target a foreign tenant's projection from a SystemAdmin action.
       return { tenantId, ...data };
     }
 

@@ -8,6 +8,7 @@ import {
   type Registry,
   type SessionUser,
   SYSTEM_ROLE,
+  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@kumiko/framework/engine";
 import { describe, expect, test } from "vitest";
@@ -118,9 +119,11 @@ describe("prepareConfigWrite", () => {
     expect(result.keyDef).toBe(TENANT_KEY_DEF);
   });
 
-  test("ok-path: scope=system maps both tenantId and userId to null", () => {
+  test("ok-path: scope=system maps tenantId to SYSTEM_TENANT_ID, userId to null", () => {
     // Default system-scope write role is "system" (programmatic-only) —
     // override to admin so a SystemAdmin can actually trigger this path.
+    // System-scope rows carry the SYSTEM_TENANT_ID sentinel on tenant_id
+    // (the projection column is NOT NULL post-ES).
     const systemKey = createSystemConfig("text", { write: access.admin });
     const result = prepareConfigWrite({
       registry: registryStub({ "ns:config:foo": systemKey }),
@@ -130,7 +133,7 @@ describe("prepareConfigWrite", () => {
     });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("unreachable");
-    expect(result.tenantId).toBeNull();
+    expect(result.tenantId).toBe(SYSTEM_TENANT_ID);
     expect(result.userId).toBeNull();
   });
 

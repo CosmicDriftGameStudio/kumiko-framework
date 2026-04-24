@@ -1,5 +1,5 @@
 import { createEventStoreExecutor } from "@kumiko/framework/db";
-import { ConfigScopes, defineWriteHandler, SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
+import { ConfigScopes, defineWriteHandler } from "@kumiko/framework/engine";
 import { writeFailure } from "@kumiko/framework/errors";
 import { z } from "zod";
 import { requireConfigEncryption } from "../config-feature";
@@ -58,8 +58,7 @@ export const setWrite = defineWriteHandler({
       serialized = encryption.encrypt(serialized);
     }
 
-    const rowTenantId = tenantId ?? SYSTEM_TENANT_ID;
-    const existing = await findConfigRow(db, event.payload.key, rowTenantId, userId);
+    const existing = await findConfigRow(db, event.payload.key, tenantId, userId);
 
     if (existing) {
       const result = await executor.update(
@@ -77,7 +76,7 @@ export const setWrite = defineWriteHandler({
         {
           key: event.payload.key,
           value: serialized,
-          tenantId: rowTenantId,
+          tenantId,
           userId,
         },
         event.user,

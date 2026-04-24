@@ -10,6 +10,7 @@ import {
   type Registry,
   type SessionUser,
   SYSTEM_ROLE,
+  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@kumiko/framework/engine";
 import {
@@ -33,12 +34,14 @@ export type ConfigRowLookup = {
 };
 
 // Locate an existing config_values row by the (key, tenant, user) triple —
-// the effective natural key. Pulls only the columns set/reset need so the
-// resolver's ConfigRow shape (tenantId, userId) doesn't leak here.
+// the effective natural key. System-scope rows carry SYSTEM_TENANT_ID on
+// the tenant_id column (the post-ES projection is NOT NULL), so callers
+// hand in that sentinel directly instead of null. userId stays nullable
+// because tenant-scope rows have no user.
 export async function findConfigRow(
   db: DbConnection | TenantDb,
   key: string,
-  tenantId: string,
+  tenantId: TenantId,
   userId: string | null,
 ): Promise<ConfigRowLookup | null> {
   const userCond =
@@ -77,7 +80,10 @@ export type PrepareConfigWriteResult =
       readonly ok: true;
       readonly keyDef: ConfigKeyDefinition;
       readonly scope: ConfigScope;
-      readonly tenantId: string | null;
+      // Non-null even for system-scope (SYSTEM_TENANT_ID sentinel) — the
+      // projection column is NOT NULL and callers should never have to
+      // bridge null → sentinel themselves.
+      readonly tenantId: TenantId;
       readonly userId: string | null;
     };
 
@@ -159,10 +165,10 @@ export function resolveScopeIds(
   scope: ConfigScope,
   tenantId: TenantId,
   userId: string,
-): { tenantId: string | null; userId: string | null } {
+): { tenantId: TenantId; userId: string | null } {
   switch (scope) {
     case ConfigScopes.system:
-      return { tenantId: null, userId: null };
+      return { tenantId: SYSTEM_TENANT_ID, userId: null };
     case ConfigScopes.tenant:
       return { tenantId, userId: null };
     case ConfigScopes.user:

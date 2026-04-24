@@ -66,18 +66,11 @@ export type ConfigResolverOptions = {
   appOverrides?: AppConfigOverrides;
 };
 
-// Map a nullable tenantId (external contract: null == system-scope) to the
-// projection's column value. Post-ES the projection stores SYSTEM_TENANT_ID
-// instead of NULL so event-store base columns (tenant_id NOT NULL) stay valid.
-function tenantCondition(tenantId: string | null) {
-  return eq(configValuesTable.tenantId, tenantId ?? SYSTEM_TENANT_ID);
-}
-
 export function createConfigResolver(options: ConfigResolverOptions = {}): ConfigResolver {
   const { encryption, appOverrides } = options;
   async function findRow(
     key: string,
-    tenantId: string | null,
+    tenantId: string,
     userId: string | null,
     db: DbConnection | TenantDb,
   ): Promise<ConfigRow | null> {
@@ -88,7 +81,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       db,
       configValuesTable,
       eq(configValuesTable.key, key),
-      tenantCondition(tenantId),
+      eq(configValuesTable.tenantId, tenantId),
       userCond,
     );
 
@@ -112,10 +105,10 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
     ): Promise<ConfigValueWithSource> {
       // Resolution cascade based on scope
       // user:   userId+tenantId → tenantId → default
-      // tenant: tenantId → system (null) → default
-      // system: system (null) → default
+      // tenant: tenantId → SYSTEM_TENANT_ID → default
+      // system: SYSTEM_TENANT_ID → default
       const lookups: Array<{
-        tenantId: string | null;
+        tenantId: string;
         userId: string | null;
         source: ConfigValueSource;
       }> = [];
@@ -127,10 +120,10 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
           break;
         case "tenant":
           lookups.push({ tenantId, userId: null, source: "tenant-row" });
-          lookups.push({ tenantId: null, userId: null, source: "system-row" });
+          lookups.push({ tenantId: SYSTEM_TENANT_ID, userId: null, source: "system-row" });
           break;
         case "system":
-          lookups.push({ tenantId: null, userId: null, source: "system-row" });
+          lookups.push({ tenantId: SYSTEM_TENANT_ID, userId: null, source: "system-row" });
           break;
         default:
           assertUnreachable(keyDef.scope, "config scope");
@@ -176,11 +169,11 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
         .where(
           or(
             // System-level values
-            and(tenantCondition(null), isNull(configValuesTable.userId)),
+            and(eq(configValuesTable.tenantId, SYSTEM_TENANT_ID), isNull(configValuesTable.userId)),
             // Tenant-level values
-            and(tenantCondition(tenantId), isNull(configValuesTable.userId)),
+            and(eq(configValuesTable.tenantId, tenantId), isNull(configValuesTable.userId)),
             // User-level values
-            and(tenantCondition(tenantId), eq(configValuesTable.userId, userId)),
+            and(eq(configValuesTable.tenantId, tenantId), eq(configValuesTable.userId, userId)),
           ),
         );
 

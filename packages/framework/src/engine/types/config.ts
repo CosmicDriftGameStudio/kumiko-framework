@@ -130,7 +130,7 @@ export type ConfigStoredRow = {
 export type ConfigValueSource =
   | "user-row" // user-scoped row (only for scope:user keys)
   | "tenant-row" // tenant-scoped row
-  | "system-row" // system-scoped row (null tenantId + null userId)
+  | "system-row" // system-scoped row (tenantId = SYSTEM_TENANT_ID, userId = null)
   | "app-override" // from createConfigResolver({ appOverrides })
   | "computed" // computed resolver in the key declaration
   | "default" // keyDef.default

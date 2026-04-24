@@ -1,5 +1,5 @@
 import { createEventStoreExecutor } from "@kumiko/framework/db";
-import { ConfigScopes, defineWriteHandler, SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
+import { ConfigScopes, defineWriteHandler } from "@kumiko/framework/engine";
 import { z } from "zod";
 import { configValueEntity, configValuesTable } from "../table";
 import { findConfigRow, prepareConfigWrite } from "../write-helpers";
@@ -30,8 +30,7 @@ export const resetWrite = defineWriteHandler({
     if (!prep.ok) return prep.failure;
     const { scope, tenantId, userId } = prep;
 
-    const rowTenantId = tenantId ?? SYSTEM_TENANT_ID;
-    const existing = await findConfigRow(db, event.payload.key, rowTenantId, userId);
+    const existing = await findConfigRow(db, event.payload.key, tenantId, userId);
 
     // No-op when there is nothing to reset. Pre-ES this path silently did
     // nothing too — keep the contract intact so callers can reset
