@@ -17,6 +17,7 @@ import { createRoot } from "react-dom/client";
 import { defaultPrimitives } from "../primitives";
 import { createEventSourceLiveEvents } from "../sse/live-events";
 import { useBrowserTokensApi } from "../tokens";
+import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { useBrowserNavApi } from "./nav";
 
 // Web-Bootstrap. Mounted den ganzen Kumiko-Render-Stack im Browser:
@@ -37,6 +38,10 @@ export type CreateKumikoAppOptions = {
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
   readonly shell?: (props: { readonly children: ReactNode }) => ReactNode;
   readonly primitives?: Partial<PrimitivesRegistry>;
+  /** Feature-gelieferte Client-Extensions. Jedes Element bringt
+   *  Provider + Gates mit — siehe ClientFeatureDefinition. Beispiel:
+   *  `clientFeatures: [emailPasswordClient()]` für Session+Login. */
+  readonly clientFeatures?: readonly ClientFeatureDefinition[];
 };
 
 export function createKumikoApp(options: CreateKumikoAppOptions): void {
@@ -64,23 +69,36 @@ export function createKumikoApp(options: CreateKumikoAppOptions): void {
   const primitives: PrimitivesRegistry = { ...defaultPrimitives, ...(options.primitives ?? {}) };
   const liveEvents = createEventSourceLiveEvents();
 
-  createRoot(container).render(
+  // Feature-Plugins: providers stacken außen (jeder Gate + Screen sieht
+  // jeden Provider), gates stacken zwischen Renderer-Providern und
+  // Shell/Screen. Array-Order: erstes Element = äußerste Hülle.
+  const clientFeatures = options.clientFeatures ?? [];
+  const providers = clientFeatures.flatMap((f) => f.providers ?? []);
+  const gates = clientFeatures.flatMap((f) => f.gates ?? []);
+
+  const screenNode = (
+    <BrowserNavBoot
+      schema={options.schema}
+      fallbackQn={fallbackQn}
+      {...(options.translate !== undefined && { translate: options.translate })}
+      {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
+      {...(options.shell !== undefined && { shell: options.shell })}
+    />
+  );
+
+  const tree = (
     <TokensBoot>
       <PrimitivesProvider value={primitives}>
         <DispatcherProvider dispatcher={dispatcher}>
           <LiveEventsProvider value={liveEvents}>
-            <BrowserNavBoot
-              schema={options.schema}
-              fallbackQn={fallbackQn}
-              {...(options.translate !== undefined && { translate: options.translate })}
-              {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
-              {...(options.shell !== undefined && { shell: options.shell })}
-            />
+            {stackWrappers(providers, stackWrappers(gates, screenNode))}
           </LiveEventsProvider>
         </DispatcherProvider>
       </PrimitivesProvider>
-    </TokensBoot>,
+    </TokensBoot>
   );
+
+  createRoot(container).render(tree);
 }
 
 // TokensBoot nutzt den browser-backed TokensApi-Hook (class-based

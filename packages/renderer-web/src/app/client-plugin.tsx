@@ -1,0 +1,41 @@
+// Plugin-Shape für feature-gelieferte Client-Extensions. Server-Features
+// (defineFeature) registrieren Handler, Projections, Hooks; Client-
+// Features registrieren Context-Provider und Gate-Wrapper. createKumikoApp
+// stackt sie in einer definierten Reihenfolge in den React-Tree.
+//
+// Warum die Zweiteilung (providers/gates)? Damit Features, die selbst
+// einen Gate brauchen (z.B. AuthGate → LoginScreen), trotzdem den
+// Context anderer Features anzapfen können: erst werden alle Provider
+// ganz außen gestackt, dann alle Gates nach innen. So hat jeder Gate
+// Zugriff auf jeden Provider, egal welches Feature ihn gebracht hat.
+
+import type { ComponentType, ReactNode } from "react";
+
+export type ClientFeatureDefinition = {
+  readonly name: string;
+  /** Context-Provider die um den kompletten Renderer-Tree gewrapped
+   *  werden. Reihenfolge: erstes Element = äußerster Provider. Alle
+   *  Provider stehen VOR allen Gates im Baum, damit jeder Gate und
+   *  jedes Screen-Child darauf Zugriff hat. */
+  readonly providers?: readonly ComponentType<{ children: ReactNode }>[];
+  /** Screen-Decorators die zwischen dem Provider-Stack und dem Shell/
+   *  Screen-Render sitzen. Typisches Muster: AuthGate rendert den
+   *  LoginScreen statt children solange der User nicht eingeloggt ist.
+   *  Reihenfolge: erstes Element = äußerster Gate. */
+  readonly gates?: readonly ComponentType<{ children: ReactNode }>[];
+};
+
+/** Wickelt einen ReactNode durch eine Liste von Providern/Gates von
+ *  innen nach außen — erstes Array-Element ist äußerste Hülle.
+ *  Der Key nutzt den Component-Display-Namen (falls gesetzt) plus
+ *  Index, damit Mounts stabil bleiben solange die Wrapper-Liste
+ *  ihre Reihenfolge nicht ändert. */
+export function stackWrappers(
+  wrappers: readonly ComponentType<{ children: ReactNode }>[],
+  inner: ReactNode,
+): ReactNode {
+  return wrappers.reduceRight<ReactNode>((acc, Wrapper, i) => {
+    const key = `${Wrapper.displayName ?? Wrapper.name ?? "wrapper"}-${i}`;
+    return <Wrapper key={key}>{acc}</Wrapper>;
+  }, inner);
+}

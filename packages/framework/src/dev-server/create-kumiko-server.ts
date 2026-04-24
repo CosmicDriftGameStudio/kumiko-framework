@@ -19,10 +19,12 @@ import { mkdtempSync } from "node:fs";
 import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { AuthRoutesConfig } from "../api/auth-routes";
 import { generateToken } from "../api/tokens";
 import type { FeatureDefinition } from "../engine/types";
 import { createEventsTable } from "../event-store";
 import { ensureEntityTable, setupTestStack, type TestStack, TestUsers } from "../testing";
+import type { TestStackOptions } from "../testing/test-stack";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
 // target runtime), but the test-suite runs under vitest on Node — we
@@ -69,6 +71,21 @@ export type CreateKumikoServerOptions = {
    *  this so repeated `createKumikoServer` calls don't accumulate
    *  listeners on the process. Default true (dev-server behaviour). */
   readonly installSignalHandlers?: boolean;
+  /** Auth-Route-Config (login, tenants, switch-tenant, logout). Wenn
+   *  gesetzt wird die Auto-JWT-Mint auf GET / abgeschaltet — der
+   *  Client ist dann selbst fürs Login zuständig. Zur echten Wirkung
+   *  brauchen die dazugehörigen Features (user/tenant/auth-email-
+   *  password) via `features` drin sein. */
+  readonly auth?: AuthRoutesConfig;
+  /** Extra-AppContext-Keys (z.B. configResolver für config-feature).
+   *  Wird an setupTestStack weitergereicht. Siehe TestStackOptions
+   *  für die erlaubten Shapes (object oder factory-function). */
+  readonly extraContext?: TestStackOptions["extraContext"];
+  /** Wird nach dem Aufsetzen der Entity-Tabellen aufgerufen. Hook für
+   *  non-entity-tables (pushTables) und Seeding (admin user, initial
+   *  tenant, …). Muss idempotent sein — im persistent-DB-Modus läuft
+   *  es bei jedem Boot. */
+  readonly onAfterSetup?: (stack: TestStack) => Promise<void>;
 };
 
 export type KumikoServerHandle = {
@@ -189,7 +206,6 @@ async function startTailwindWatcher(entryCss: string): Promise<string> {
   // exit. Den initialen Build warten wir mit einem ersten one-shot-
   // Build ab — schneller als den --watch-output zu parsen.
   await new Promise<void>((resolvePromise, rejectPromise) => {
-    // biome-ignore lint/correctness/noNodejsModules: node-API ist hier der richtige Weg
     const child = spawn("bunx", ["@tailwindcss/cli", "-i", entryCss, "-o", outPath], {
       stdio: "inherit",
     });
@@ -200,7 +216,6 @@ async function startTailwindWatcher(entryCss: string): Promise<string> {
     child.on("error", rejectPromise);
   });
   // Dann der Watcher im Hintergrund.
-  // biome-ignore lint/correctness/noNodejsModules: node-API ist hier der richtige Weg
   const watcher = spawn("bunx", ["@tailwindcss/cli", "-i", entryCss, "-o", outPath, "--watch"], {
     stdio: "inherit",
   });
@@ -279,9 +294,20 @@ export async function createKumikoServer(
   const stack = await setupTestStack({
     features: options.features,
     ...(persistentDb && { dbName: devDbName, persistentDb: true }),
+    ...(options.auth !== undefined && { authConfig: options.auth }),
+    ...(options.extraContext !== undefined && { extraContext: options.extraContext }),
   });
   await createEventsTable(stack.db.db);
   await createEntityTablesForFeatures(stack, options.features);
+
+  // Hook für Caller-spezifische Tables + Seed. Läuft nach den Entity-
+  // Tabellen damit das Sample auf `stack.db.db` / `stack.dispatcher`
+  // zugreifen kann, und VOR dem Server-Start damit der erste HTTP-Request
+  // bereits gegen einen gefüllten State läuft. Idempotenz ist Caller-
+  // Verantwortung (persistent-DB-Modus läuft es bei jedem Boot).
+  if (options.onAfterSetup !== undefined) {
+    await options.onAfterSetup(stack);
+  }
 
   // setupTestStack konfiguriert den eventDispatcher, startet ihn aber
   // NICHT — Integration-Tests drain'en deterministisch via runOnce().
@@ -295,6 +321,9 @@ export async function createKumikoServer(
 
   // Dev user = TestUsers.admin. Demo features are openToAll but the
   // auth-middleware still needs a valid JWT to let the request past.
+  // Nicht genutzt wenn `options.auth` gesetzt ist — dann macht der Client
+  // selbst den Login.
+  const autoMintJwt = options.auth === undefined;
   const devUser = TestUsers.admin;
 
   // --- SSE reload ---
@@ -311,16 +340,20 @@ export async function createKumikoServer(
     }
   };
 
-  // Build a fresh HTML response with JWT/CSRF cookies. Used by the
-  // SPA-catch-all so any deep-link (/, /task-list, /task-edit/<uuid>…)
-  // mints a working session and lets the client boot from that URL.
+  // Build a fresh HTML response. Im Auto-Mint-Modus (keine auth-Config)
+  // packen wir direkt ein gültiges JWT + CSRF-Cookie rein — Deep-Links
+  // funktionieren sofort ohne Login. Im Auth-Modus serven wir nur die
+  // nackte HTML; der Client geht dann durch /auth/login und bekommt die
+  // Cookies von dort.
   const htmlResponse = async (): Promise<Response> => {
-    const jwt = await stack.jwt.sign(devUser);
-    const csrf = generateToken();
     const headers = new Headers();
     headers.set("Content-Type", "text/html; charset=utf-8");
-    headers.append("Set-Cookie", `${AUTH_COOKIE}=${jwt}; Path=/; HttpOnly; SameSite=Lax`);
-    headers.append("Set-Cookie", `${CSRF_COOKIE}=${csrf}; Path=/; SameSite=Lax`);
+    if (autoMintJwt) {
+      const jwt = await stack.jwt.sign(devUser);
+      const csrf = generateToken();
+      headers.append("Set-Cookie", `${AUTH_COOKIE}=${jwt}; Path=/; HttpOnly; SameSite=Lax`);
+      headers.append("Set-Cookie", `${CSRF_COOKIE}=${csrf}; Path=/; SameSite=Lax`);
+    }
     let html = injectReload(htmlTemplate);
     if (stylesheetPath !== undefined) html = injectStylesheet(html);
     return new Response(html, { headers });

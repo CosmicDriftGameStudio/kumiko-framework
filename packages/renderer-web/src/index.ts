@@ -70,7 +70,7 @@ export {
   useTokenController,
   useTokens,
 } from "@kumiko/renderer";
-
+export type { ClientFeatureDefinition } from "./app/client-plugin";
 // --- Web-platform specifics ---
 export type { CreateKumikoAppOptions } from "./app/create-app";
 export { createKumikoApp } from "./app/create-app";
