@@ -42,7 +42,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
     ],
-    extraContext: { configResolver: resolver },
+    extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
@@ -343,7 +343,7 @@ describe("scenario 7b: login rate limiting", () => {
         createTenantFeature(),
         createAuthEmailPasswordFeature(),
       ],
-      extraContext: { configResolver: resolver },
+      extraContext: { configResolver: resolver, configEncryption: encryption },
       authConfig: {
         membershipQuery: "tenant:query:memberships",
         loginHandler: AuthHandlers.login,

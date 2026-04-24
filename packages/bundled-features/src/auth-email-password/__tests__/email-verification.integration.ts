@@ -57,7 +57,7 @@ beforeAll(async () => {
         passwordReset: { hmacSecret: resetSecret, tokenTtlMinutes: 15 },
       }),
     ],
-    extraContext: { configResolver: resolver },
+    extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,

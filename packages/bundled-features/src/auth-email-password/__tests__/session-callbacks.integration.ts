@@ -102,7 +102,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
     ],
-    extraContext: { configResolver: resolver },
+    extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,

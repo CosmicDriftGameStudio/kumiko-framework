@@ -176,12 +176,6 @@ export type ConfigResolver = {
     userId: string,
     db: DbConnection | TenantDb,
   ): Promise<ReadonlyMap<string, ConfigStoredRow>>;
-
-  // Round-trip partner for the read-side decrypt inside getWithSource.
-  // Write-handlers (set) need a deterministic encrypter so the projection
-  // stores the same bytes the resolver will later decrypt. Undefined when
-  // no encryption provider is wired — handlers fall back to raw JSON.
-  readonly encrypt?: (value: string) => string;
 };
 
 // --- Process-Placement (runIn) ---

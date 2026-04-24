@@ -96,7 +96,6 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
   }
 
   return {
-    ...(encryption ? { encrypt: (value: string) => encryption.encrypt(value) } : {}),
     async get(qualifiedKey, keyDef, tenantId, userId, db) {
       // get() is a thin wrapper around getWithSource that discards the
       // source tag. Keeps the hot-path a single implementation.
@@ -177,11 +176,11 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
         .where(
           or(
             // System-level values
-            and(eq(configValuesTable.tenantId, SYSTEM_TENANT_ID), isNull(configValuesTable.userId)),
+            and(tenantCondition(null), isNull(configValuesTable.userId)),
             // Tenant-level values
-            and(eq(configValuesTable.tenantId, tenantId), isNull(configValuesTable.userId)),
+            and(tenantCondition(tenantId), isNull(configValuesTable.userId)),
             // User-level values
-            and(eq(configValuesTable.tenantId, tenantId), eq(configValuesTable.userId, userId)),
+            and(tenantCondition(tenantId), eq(configValuesTable.userId, userId)),
           ),
         );
 

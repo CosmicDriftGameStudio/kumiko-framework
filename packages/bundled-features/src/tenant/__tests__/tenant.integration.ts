@@ -39,7 +39,7 @@ beforeAll(async () => {
 
   stack = await setupTestStack({
     features: [configFeature, tenantFeature],
-    extraContext: { configResolver: resolver },
+    extraContext: { configResolver: resolver, configEncryption: encryption },
   });
   db = stack.db.db;
 

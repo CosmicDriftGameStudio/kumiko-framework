@@ -165,6 +165,13 @@ const integrationFeature = defineFeature("integration", (r) => {
         read: access.systemAdmin,
         encrypted: true,
       }),
+      // Dedicated key for the lifecycle-event tests below. Kept in its own
+      // key so `.created` / `.updated` assertions don't race with earlier
+      // scenarios that mutate shared keys (max-order-count etc.).
+      lifecycleProbe: createTenantConfig("text", {
+        default: "initial",
+        write: access.roles("Admin"),
+      }),
     },
   });
 });
@@ -190,6 +197,7 @@ beforeAll(async () => {
     // so the dispatcher can mint a per-user accessor inside buildHandlerContext.
     extraContext: ({ registry }) => ({
       configResolver: resolver,
+      configEncryption: encryption,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
@@ -831,6 +839,64 @@ describe("configValue lifecycle events", () => {
           "invoicing:config:mail-signature",
     );
     expect(deletes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("first set on a fresh key emits configValue.created with key + serialized value", async () => {
+    // Uses a dedicated key (integration:config:lifecycle-probe) that no
+    // earlier scenario touches — guarantees the FIRST event is a .created,
+    // not a .updated, so the assertion reaches the create-path of the
+    // executor without depending on test execution order.
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "integration:config:lifecycle-probe", value: "alpha" },
+      tenantAdmin,
+    );
+    const events = await db
+      .select()
+      .from(eventsTable)
+      .where(eq(eventsTable.aggregateType, "configValue"));
+    const created = events.filter(
+      (e) =>
+        e.type === "configValue.created" &&
+        (e.payload as { key?: string })?.key === "integration:config:lifecycle-probe",
+    );
+    expect(created.length).toBe(1);
+    expect(created[0]?.payload).toMatchObject({
+      key: "integration:config:lifecycle-probe",
+      value: JSON.stringify("alpha"),
+    });
+  });
+
+  test("subsequent set emits configValue.updated carrying both changes and previous", async () => {
+    // Change the value we seeded above to exercise the .updated-event
+    // shape: the executor stamps BOTH halves of the diff onto the payload
+    // (changes = what the user sent, previous = the pre-update row). MSPs
+    // reading across aggregates need `previous` to decrement / undo when
+    // a parent-FK moves — dropping it would break replays.
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "integration:config:lifecycle-probe", value: "beta" },
+      tenantAdmin,
+    );
+    const events = await db
+      .select()
+      .from(eventsTable)
+      .where(eq(eventsTable.aggregateType, "configValue"));
+    const updates = events.filter(
+      (e) =>
+        e.type === "configValue.updated" &&
+        (e.payload as { previous?: { key?: string } })?.previous?.key ===
+          "integration:config:lifecycle-probe",
+    );
+    expect(updates.length).toBeGreaterThanOrEqual(1);
+    const last = updates[updates.length - 1];
+    const payload = last?.payload as {
+      changes?: { value?: string };
+      previous?: { value?: string; key?: string };
+    };
+    expect(payload.changes?.value).toBe(JSON.stringify("beta"));
+    expect(payload.previous?.value).toBe(JSON.stringify("alpha"));
+    expect(payload.previous?.key).toBe("integration:config:lifecycle-probe");
   });
 
   test("encrypted-key plaintext never appears in the event payload", async () => {

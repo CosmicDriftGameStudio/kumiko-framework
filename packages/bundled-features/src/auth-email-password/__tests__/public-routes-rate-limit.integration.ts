@@ -43,7 +43,7 @@ beforeAll(async () => {
         emailVerification: { hmacSecret: verifySecret, tokenTtlMinutes: 60, mode: "strict" },
       }),
     ],
-    extraContext: { configResolver: resolver },
+    extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,

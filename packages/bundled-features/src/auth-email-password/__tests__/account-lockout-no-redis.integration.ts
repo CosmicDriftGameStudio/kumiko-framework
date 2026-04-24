@@ -57,7 +57,11 @@ beforeAll(async () => {
     // AppContext. Framework internals (rate-limit, idempotency, eventDedup,
     // entityCache) receive the real redis via separate buildServer wiring
     // and stay operational — only the handler's ctx.redis is gone.
-    extraContext: () => ({ configResolver: resolver, redis: undefined }),
+    extraContext: () => ({
+      configResolver: resolver,
+      configEncryption: encryption,
+      redis: undefined,
+    }),
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,

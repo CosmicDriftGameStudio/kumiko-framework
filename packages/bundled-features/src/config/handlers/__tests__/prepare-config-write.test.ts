@@ -7,10 +7,11 @@ import {
   createUserConfig,
   type Registry,
   type SessionUser,
+  SYSTEM_ROLE,
   type TenantId,
 } from "@kumiko/framework/engine";
 import { describe, expect, test } from "vitest";
-import { prepareConfigWrite, validateBounds } from "../set.write";
+import { prepareConfigWrite, validateBounds } from "../../write-helpers";
 
 // Minimal Registry stub — only getConfigKey is exercised by prepareConfigWrite.
 function registryStub(keys: Record<string, unknown>): Registry {
@@ -64,6 +65,38 @@ describe("prepareConfigWrite", () => {
     const result = prepareConfigWrite({
       registry: registryStub({ "ns:config:secret": systemKey }),
       user: userStub(["SystemAdmin"]),
+      key: "ns:config:secret",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.failure.error.i18nKey).toBe("config.errors.systemOnly");
+  });
+
+  test("system-only key is writable by a caller that actually carries SYSTEM_ROLE", () => {
+    // Post-ES escape hatch: out-of-band writes (jobs, seeds, framework-
+    // internal flows) used to bypass checkWriteAccess via resolver.set.
+    // The handler is the only write path now, so SYSTEM_ROLE must flow
+    // through — otherwise billing/quota/session-cleanup jobs can't touch
+    // system-only config anymore. Non-system roles stay blocked by the
+    // test above.
+    const systemKey = createTenantConfig("text", { write: access.system });
+    const result = prepareConfigWrite({
+      registry: registryStub({ "ns:config:secret": systemKey }),
+      user: userStub([SYSTEM_ROLE]),
+      key: "ns:config:secret",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.keyDef).toBe(systemKey);
+  });
+
+  test("system-only key stays blocked for Admin even when they also carry other roles", () => {
+    // Regression guard: don't let "Admin + Billing" accidentally pass the
+    // system-only gate because role aggregation loosens the check.
+    const systemKey = createTenantConfig("text", { write: access.system });
+    const result = prepareConfigWrite({
+      registry: registryStub({ "ns:config:secret": systemKey }),
+      user: userStub(["Admin", "Billing"]),
       key: "ns:config:secret",
     });
     expect(result.ok).toBe(false);

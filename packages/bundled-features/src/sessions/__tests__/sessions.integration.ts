@@ -54,7 +54,7 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature(),
       createSessionsFeature(),
     ],
-    extraContext: { configResolver: resolver },
+    extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
       ...bound.asAuthConfig(),
       membershipQuery: "tenant:query:memberships",

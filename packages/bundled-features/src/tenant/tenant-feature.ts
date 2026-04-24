@@ -17,7 +17,7 @@ import { removeMemberWrite } from "./handlers/remove-member.write";
 import { resolveUserIdsQuery } from "./handlers/resolve-user-ids.query";
 import { updateWrite } from "./handlers/update.write";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
-import { membershipEntity } from "./membership-table";
+import { tenantMembershipEntity } from "./membership-table";
 import { tenantEntity } from "./tenant-entity";
 
 export { tenantEntity, tenantTable } from "./tenant-entity";
@@ -29,7 +29,7 @@ export function createTenantFeature(): FeatureDefinition {
     r.systemScope();
     r.requires("config");
     r.entity("tenant", tenantEntity);
-    r.entity("tenantMembership", membershipEntity);
+    r.entity("tenantMembership", tenantMembershipEntity);
 
     r.config({
       keys: {

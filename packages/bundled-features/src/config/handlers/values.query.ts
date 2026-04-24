@@ -2,7 +2,7 @@ import { type ConfigScope, defineQueryHandler } from "@kumiko/framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../config-feature";
 import { deserializeValue } from "../resolver";
-import { hasConfigAccess } from "./set.write";
+import { hasConfigAccess } from "../write-helpers";
 
 export const valuesQuery = defineQueryHandler({
   name: "values",

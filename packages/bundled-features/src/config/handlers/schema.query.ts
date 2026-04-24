@@ -1,6 +1,6 @@
 import { type ConfigKeyDefinition, defineQueryHandler } from "@kumiko/framework/engine";
 import { z } from "zod";
-import { hasConfigAccess } from "./set.write";
+import { hasConfigAccess } from "../write-helpers";
 
 export const schemaQuery = defineQueryHandler({
   name: "schema",

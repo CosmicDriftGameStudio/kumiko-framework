@@ -2,7 +2,7 @@ import { createEventStoreExecutor } from "@kumiko/framework/db";
 import { ConfigScopes, defineWriteHandler, SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
 import { z } from "zod";
 import { configValueEntity, configValuesTable } from "../table";
-import { findConfigRow, prepareConfigWrite } from "./set.write";
+import { findConfigRow, prepareConfigWrite } from "../write-helpers";
 
 const scopeEnum = z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]);
 

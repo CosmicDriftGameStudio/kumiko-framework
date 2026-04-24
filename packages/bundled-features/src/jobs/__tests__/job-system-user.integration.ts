@@ -110,7 +110,7 @@ beforeAll(async () => {
 
   jobRunner = createJobRunner({
     registry,
-    context: { db, registry, configResolver: resolver },
+    context: { db, registry, configResolver: resolver, configEncryption: encryption },
     redisUrl,
     consumerLane: "worker",
     queueNamePrefix: `kumiko-system-user-test-${Date.now()}`,

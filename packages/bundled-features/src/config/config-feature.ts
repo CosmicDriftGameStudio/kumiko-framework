@@ -1,4 +1,4 @@
-import type { DbConnection, TenantDb } from "@kumiko/framework/db";
+import type { DbConnection, EncryptionProvider, TenantDb } from "@kumiko/framework/db";
 import {
   type ConfigAccessor,
   type ConfigAccessorFactory,
@@ -94,4 +94,24 @@ export function requireConfigResolver(ctx: HandlerContext, handlerName: string):
     });
   }
   return ctx.configResolver;
+}
+
+// Mirror of requireConfigResolver for the encryption round-trip side.
+// Only keys declared `encrypted: true` need this — the setter calls it
+// lazily so apps that never wire encryption still boot (and only crash
+// if a handler tries to write an encrypted key without the provider in
+// place, pointing at the exact wiring gap).
+export function requireConfigEncryption(
+  ctx: HandlerContext,
+  handlerName: string,
+): EncryptionProvider {
+  if (!ctx.configEncryption) {
+    throw new InternalError({
+      message:
+        `[${handlerName}] ctx.configEncryption missing — at least one config key declares ` +
+        `encrypted: true, so the boot wiring must pass an EncryptionProvider via ` +
+        `extraContext.configEncryption (same instance the resolver was built with).`,
+    });
+  }
+  return ctx.configEncryption;
 }

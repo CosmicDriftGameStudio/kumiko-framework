@@ -3,9 +3,13 @@ import { defineWriteHandler } from "@kumiko/framework/engine";
 import { NotFoundError, writeFailure } from "@kumiko/framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { membershipEntity, tenantMembershipsTable } from "../membership-table";
+import {
+  tenantMembershipEntity,
+  tenantMembershipsTable,
+  withResponseData,
+} from "../membership-table";
 
-const executor = createEventStoreExecutor(tenantMembershipsTable, membershipEntity, {
+const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenantMembership",
 });
 
@@ -35,10 +39,6 @@ export const removeMemberWrite = defineWriteHandler({
       event.user,
       db,
     );
-    // Preserve the pre-ES response shape: callers expected {userId, tenantId}
-    // back, not the executor's delete-context envelope. Translate the happy
-    // path here; error path already carries a KumikoError that flows through.
-    if (!result.isSuccess) return result;
-    return { isSuccess: true, data: event.payload };
+    return withResponseData(result, event.payload);
   },
 });
