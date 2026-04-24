@@ -6,13 +6,14 @@ import {
   serial,
   text,
 } from "@kumiko/framework/db";
-import { createEntity, createSelectField, createTextField } from "@kumiko/framework/engine";
 
 export type JobRunStatus = "queued" | "running" | "completed" | "failed";
 export type JobLogLevel = "info" | "warn" | "error";
 
-// jobRun is a system-scoped ES aggregate: every job execution is its own
-// stream. Three domain-events cover the lifecycle:
+// jobRun is a system-scoped events-only aggregate: every job execution is
+// its own stream, driven entirely by BullMQ-callbacks (onJobStart /
+// -Complete / -Failed) via the low-level append() path. Three domain-
+// events cover the lifecycle:
 //   - `jobs:event:run-started`   (when BullMQ picks a job off its queue)
 //   - `jobs:event:run-completed` (duration + batched log entries)
 //   - `jobs:event:run-failed`    (error + duration + batched log entries)
@@ -23,22 +24,9 @@ export type JobLogLevel = "info" | "warn" | "error";
 // expands the batch into N rows in jobRunLogsTable, keeping the pre-ES
 // detail-query-shape intact.
 //
-// The entity itself is a shape-anchor (minimal fields for registry
-// validation); the real projection-table is jobRunsTable below, with
-// custom columns that don't need entity-field declarations.
-export const jobRunEntity = createEntity({
-  table: "job_runs",
-  idType: "uuid",
-  fields: {
-    jobName: createTextField({ required: true }),
-    bullJobId: createTextField({ required: true }),
-    status: createSelectField({
-      required: true,
-      options: ["queued", "running", "completed", "failed"],
-    }),
-  },
-});
-
+// No r.entity is registered for `jobRun` — the boot-validator accepts
+// events-only projection sources where every apply-key is a registered
+// domain-event (see registry.ts).
 export const jobRunsTable = pgTable("job_runs", {
   ...buildBaseColumns(false, "uuid"),
   jobName: text("job_name").notNull(),

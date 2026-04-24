@@ -36,7 +36,7 @@ import { createTenantFeature } from "../../tenant/tenant-feature";
 import { DeliveryHandlers, DeliveryQueries } from "../constants";
 import { createDeliveryFeature } from "../delivery-feature";
 import { collectChannels, createDeliveryService } from "../delivery-service";
-import { deliveryLogTable, notificationPreferencesTable } from "../tables";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
 import { createDeliveryTestContext } from "../testing";
 import type { DeliveryService } from "../types";
 import { createUnsubscribeRoute, signUnsubscribeToken } from "../unsubscribe";
@@ -286,7 +286,7 @@ beforeAll(async () => {
   // Mount unsubscribe route BEFORE any requests (Hono router locks after first match)
   stack.app.route("/delivery", createUnsubscribeRoute({ db, jwtSecret: JWT_SECRET }));
 
-  // deliveryLogTable is auto-pushed by setupTestStack as MSP-projection-table;
+  // deliveryAttemptsTable is auto-pushed by setupTestStack as MSP-projection-table;
   // notificationPreferencesTable is an ES-entity, so it still needs explicit
   // push here (entity-tables are not auto-provisioned — only projection ones).
   await pushTables(db, {
@@ -357,8 +357,8 @@ describe("flow 1: handler sends notification via ctx.notify()", () => {
     // DeliveryLog entries for all 3 channels
     const logs = await db
       .select()
-      .from(deliveryLogTable)
-      .where(eq(deliveryLogTable.notificationType, "app:notify:order-assigned"));
+      .from(deliveryAttemptsTable)
+      .where(eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"));
     expect(logs).toHaveLength(3);
     const channels = logs.map((l) => l["channel"]);
     expect(channels).toContain("inApp");
@@ -469,8 +469,8 @@ describe("flow 3: broadcast to multiple users + markAllRead", () => {
   test("delivery log has entries for all recipients and channels", async () => {
     const logs = await db
       .select()
-      .from(deliveryLogTable)
-      .where(eq(deliveryLogTable.notificationType, "app:notify:announcement"));
+      .from(deliveryAttemptsTable)
+      .where(eq(deliveryAttemptsTable.notificationType, "app:notify:announcement"));
 
     // 2 users × 3 channels (inApp + email + push) = 6 entries
     expect(logs).toHaveLength(6);
@@ -560,12 +560,12 @@ describe("flow 4: declarative notification via r.notification()", () => {
   test("delivery log entries for both notifications", async () => {
     const logs = await db
       .select()
-      .from(deliveryLogTable)
+      .from(deliveryAttemptsTable)
       .where(
         and(
-          eq(deliveryLogTable.channel, "inApp"),
-          eq(deliveryLogTable.recipientId, user1.id),
-          eq(deliveryLogTable.notificationType, "tickets:notify:ticket-assigned"),
+          eq(deliveryAttemptsTable.channel, "inApp"),
+          eq(deliveryAttemptsTable.recipientId, user1.id),
+          eq(deliveryAttemptsTable.notificationType, "tickets:notify:ticket-assigned"),
         ),
       );
     expect(logs).toHaveLength(1);
@@ -656,13 +656,13 @@ describe("flow 6: user preferences", () => {
     // DeliveryLog shows skipped with preference_disabled
     const logs = await db
       .select()
-      .from(deliveryLogTable)
+      .from(deliveryAttemptsTable)
       .where(
         and(
-          eq(deliveryLogTable.notificationType, "app:notify:order-assigned"),
-          eq(deliveryLogTable.recipientId, user1.id),
-          eq(deliveryLogTable.status, "skipped"),
-          eq(deliveryLogTable.error, "preference_disabled"),
+          eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"),
+          eq(deliveryAttemptsTable.recipientId, user1.id),
+          eq(deliveryAttemptsTable.status, "skipped"),
+          eq(deliveryAttemptsTable.error, "preference_disabled"),
         ),
       );
     expect(logs.length).toBeGreaterThanOrEqual(1);
@@ -812,8 +812,8 @@ describe("flow 9: email channel with renderer", () => {
   test("delivery log has entries for both channels", async () => {
     const logs = await db
       .select()
-      .from(deliveryLogTable)
-      .where(eq(deliveryLogTable.notificationType, "tickets:notify:ticket-assigned"));
+      .from(deliveryAttemptsTable)
+      .where(eq(deliveryAttemptsTable.notificationType, "tickets:notify:ticket-assigned"));
 
     const channels = logs.map((l) => l["channel"]);
     expect(channels).toContain("inApp");
@@ -902,11 +902,11 @@ describe("flow 10: complete end-to-end", () => {
 
     const logs = await db
       .select()
-      .from(deliveryLogTable)
+      .from(deliveryAttemptsTable)
       .where(
         and(
-          eq(deliveryLogTable.notificationType, "tickets:notify:ticket-assigned"),
-          eq(deliveryLogTable.recipientId, user2.id),
+          eq(deliveryAttemptsTable.notificationType, "tickets:notify:ticket-assigned"),
+          eq(deliveryAttemptsTable.recipientId, user2.id),
         ),
       );
     // Filter to logs from this test (there may be prior entries)
@@ -956,8 +956,8 @@ describe("flow 8: tenant broadcast via to: { tenant }", () => {
   test("delivery log has entries for all recipients and channels", async () => {
     const logs = await db
       .select()
-      .from(deliveryLogTable)
-      .where(eq(deliveryLogTable.notificationType, "app:notify:tenant-alert"));
+      .from(deliveryAttemptsTable)
+      .where(eq(deliveryAttemptsTable.notificationType, "app:notify:tenant-alert"));
 
     // 3 users × 3 channels (inApp + email + push) = 9
     expect(logs).toHaveLength(9);
@@ -997,13 +997,13 @@ describe("flow 12: rate limiting", () => {
     // Email should be skipped (rate limited), but inApp + push should work
     const emailLogs = await db
       .select()
-      .from(deliveryLogTable)
+      .from(deliveryAttemptsTable)
       .where(
         and(
-          eq(deliveryLogTable.notificationType, "app:notify:order-assigned"),
-          eq(deliveryLogTable.recipientId, user1.id),
-          eq(deliveryLogTable.channel, "email"),
-          eq(deliveryLogTable.error, "rate_limited"),
+          eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"),
+          eq(deliveryAttemptsTable.recipientId, user1.id),
+          eq(deliveryAttemptsTable.channel, "email"),
+          eq(deliveryAttemptsTable.error, "rate_limited"),
         ),
       );
     expect(emailLogs.length).toBeGreaterThanOrEqual(1);
@@ -1103,11 +1103,11 @@ describe("flow 12c: idempotency key dedup", () => {
     // Dup attempt is recorded in the log for audit
     const dupLogs = await db
       .select()
-      .from(deliveryLogTable)
+      .from(deliveryAttemptsTable)
       .where(
         and(
-          eq(deliveryLogTable.notificationType, "app:notify:idem-test"),
-          eq(deliveryLogTable.error, "duplicate_idempotency_key"),
+          eq(deliveryAttemptsTable.notificationType, "app:notify:idem-test"),
+          eq(deliveryAttemptsTable.error, "duplicate_idempotency_key"),
         ),
       );
     expect(dupLogs.length).toBe(1);
@@ -1158,13 +1158,13 @@ describe("flow 12d: channel error paths", () => {
     // Log shows the failure with the original error string
     const failedLogs = await db
       .select()
-      .from(deliveryLogTable)
+      .from(deliveryAttemptsTable)
       .where(
         and(
-          eq(deliveryLogTable.notificationType, "app:notify:order-assigned"),
-          eq(deliveryLogTable.recipientId, user1.id),
-          eq(deliveryLogTable.channel, "email"),
-          eq(deliveryLogTable.status, "failed"),
+          eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"),
+          eq(deliveryAttemptsTable.recipientId, user1.id),
+          eq(deliveryAttemptsTable.channel, "email"),
+          eq(deliveryAttemptsTable.status, "failed"),
         ),
       );
     expect(failedLogs.length).toBeGreaterThanOrEqual(1);
@@ -1196,13 +1196,13 @@ describe("flow 12d: channel error paths", () => {
 
     const failedLogs = await db
       .select()
-      .from(deliveryLogTable)
+      .from(deliveryAttemptsTable)
       .where(
         and(
-          eq(deliveryLogTable.notificationType, "app:notify:announcement"),
-          eq(deliveryLogTable.channel, "email"),
-          eq(deliveryLogTable.status, "failed"),
-          eq(deliveryLogTable.error, "smtp_transient"),
+          eq(deliveryAttemptsTable.notificationType, "app:notify:announcement"),
+          eq(deliveryAttemptsTable.channel, "email"),
+          eq(deliveryAttemptsTable.status, "failed"),
+          eq(deliveryAttemptsTable.error, "smtp_transient"),
         ),
       );
     expect(failedLogs.length).toBe(1);
@@ -1228,13 +1228,13 @@ describe("flow 13: tenant kill switch", () => {
     // DeliveryLog shows channel_disabled
     const pushLogs = await db
       .select()
-      .from(deliveryLogTable)
+      .from(deliveryAttemptsTable)
       .where(
         and(
-          eq(deliveryLogTable.notificationType, "app:notify:order-assigned"),
-          eq(deliveryLogTable.recipientId, user1.id),
-          eq(deliveryLogTable.channel, "push"),
-          eq(deliveryLogTable.error, "channel_disabled"),
+          eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"),
+          eq(deliveryAttemptsTable.recipientId, user1.id),
+          eq(deliveryAttemptsTable.channel, "push"),
+          eq(deliveryAttemptsTable.error, "channel_disabled"),
         ),
       );
     expect(pushLogs.length).toBeGreaterThanOrEqual(1);
@@ -1288,13 +1288,13 @@ describe("flow 14: wildcard-only preference conflicts resolve deterministically"
 
     const skipped = await db
       .select()
-      .from(deliveryLogTable)
+      .from(deliveryAttemptsTable)
       .where(
         and(
-          eq(deliveryLogTable.notificationType, "app:notify:wildcard-conflict"),
-          eq(deliveryLogTable.recipientId, user2.id),
-          eq(deliveryLogTable.channel, "inApp"),
-          eq(deliveryLogTable.error, "preference_disabled"),
+          eq(deliveryAttemptsTable.notificationType, "app:notify:wildcard-conflict"),
+          eq(deliveryAttemptsTable.recipientId, user2.id),
+          eq(deliveryAttemptsTable.channel, "inApp"),
+          eq(deliveryAttemptsTable.error, "preference_disabled"),
         ),
       );
     expect(skipped.length).toBeGreaterThanOrEqual(1);

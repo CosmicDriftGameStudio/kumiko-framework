@@ -1,7 +1,7 @@
 import { defineQueryHandler } from "@kumiko/framework/engine";
 import { desc } from "drizzle-orm";
 import { z } from "zod";
-import { deliveryLogTable } from "../tables";
+import { deliveryAttemptsTable } from "../tables";
 
 export const logQuery = defineQueryHandler({
   name: "log",
@@ -12,8 +12,8 @@ export const logQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const rows = await ctx.db
       .select()
-      .from(deliveryLogTable)
-      .orderBy(desc(deliveryLogTable.createdAt))
+      .from(deliveryAttemptsTable)
+      .orderBy(desc(deliveryAttemptsTable.createdAt))
       .limit(query.payload.limit);
 
     return { rows };

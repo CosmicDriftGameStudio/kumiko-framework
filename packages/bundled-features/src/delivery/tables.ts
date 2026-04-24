@@ -8,45 +8,18 @@ import {
   uniqueIndex,
   uuid,
 } from "@kumiko/framework/db";
-import {
-  createBooleanField,
-  createEntity,
-  createSelectField,
-  createTextField,
-} from "@kumiko/framework/engine";
+import { createBooleanField, createEntity, createTextField } from "@kumiko/framework/engine";
 import { sql } from "drizzle-orm";
 
-// Delivery-log is an append-only stream of per-attempt records. Post-ES
-// the stream of truth lives in the events-Tabelle (one aggregate per
-// attempt, event type `delivery:event:attempt`). An INLINE projection
-// materialises each event into a row of deliveryLogTable for the
-// log-query handler — same TX as the event-append, so callers can read
-// their own writes synchronously.
-//
-// `deliveryAttemptEntity` below is the source anchor for the projection:
-// r.projection requires a registered entity as `source`, but this entity
-// has no CRUD lifecycle (no executor, no table-push). The real read-model
-// is deliveryLogTable. The entity is a shape-anchor only.
-// Shape-anchor entity for the delivery-log projection. Never instantiated
-// (no table is pushed for `delivery_attempts` — the name in `table:` below
-// is a placeholder the framework needs at registration time). Events with
-// aggregateType "deliveryAttempt" flow through low-level append() and the
-// inline-projection on this entity writes the corresponding row into
-// deliveryLogTable.
-export const deliveryAttemptEntity = createEntity({
-  table: "delivery_attempts",
-  idType: "uuid",
-  fields: {
-    notificationType: createTextField({ required: true }),
-    channel: createTextField({ required: true }),
-    status: createSelectField({
-      required: true,
-      options: ["sent", "failed", "skipped"],
-    }),
-  },
-});
-
-export const deliveryLogTable = pgTable("delivery_logs", {
+// Delivery-log is an append-only stream of per-attempt records. The stream
+// of truth lives in the events-Tabelle (one aggregate per attempt, event
+// type `delivery:event:attempt`). An INLINE projection materialises each
+// event into a row of deliveryAttemptsTable for the log-query handler —
+// same TX as the event-append, so callers can read their own writes
+// synchronously. No r.entity is registered for `deliveryAttempt`: the
+// boot-validator accepts events-only projection sources as long as every
+// apply-key is a registered domain-event (see registry.ts).
+export const deliveryAttemptsTable = pgTable("delivery_attempts", {
   id: serial("id").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
   notificationType: text("notification_type").notNull(),

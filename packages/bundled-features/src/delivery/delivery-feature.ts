@@ -1,42 +1,26 @@
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
-import { z } from "zod";
-import { DELIVERY_ATTEMPT_EVENT, DeliveryStatus } from "./constants";
+import type { z } from "zod";
+import { DELIVERY_ATTEMPT_EVENT } from "./constants";
+import { deliveryAttemptSchema } from "./delivery-feature-schemas";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
 import { setPreferenceWrite } from "./handlers/set-preference.write";
-import { deliveryAttemptEntity, deliveryLogTable, notificationPreferenceEntity } from "./tables";
-
-// Mirror of DeliveryLogEntry (minus tenantId — that rides the event
-// envelope) so the event payload is schema-validated. The delivery-log
-// MSP below inserts each event verbatim into deliveryLogTable.
-const deliveryAttemptSchema = z.object({
-  notificationType: z.string(),
-  channel: z.string(),
-  recipientId: z.string().nullable(),
-  recipientAddress: z.string().nullable(),
-  status: z.enum([DeliveryStatus.sent, DeliveryStatus.failed, DeliveryStatus.skipped]),
-  error: z.string().nullable(),
-});
+import { deliveryAttemptsTable, notificationPreferenceEntity } from "./tables";
 
 export function createDeliveryFeature(): FeatureDefinition {
   return defineFeature("delivery", (r) => {
     r.systemScope();
     r.entity("notificationPreference", notificationPreferenceEntity);
-    // Shape-anchor entity for the inline delivery-log projection (see
-    // tables.ts). Never instantiated — no executor, no table-push — but
-    // r.projection requires a registered entity as `source`, so the entity
-    // exists for registry-validation purposes.
-    r.entity("deliveryAttempt", deliveryAttemptEntity);
 
-    // Event-schema registration — the service layer uses low-level append()
-    // (it runs outside the dispatcher ctx) so the schema-validation doesn't
-    // kick in at write-time, but r.defineEvent makes the event-type
-    // discoverable for ops tools, the audit-feature, and any later
-    // migration to ctx.appendEvent.
+    // Events-only projection source: "deliveryAttempt" is the aggregate-
+    // type on the events-table, but there's no r.entity for it — each
+    // attempt is a fresh stream, no CRUD lifecycle. Framework's
+    // boot-validator accepts the projection below because at least one
+    // apply-key is a registered domain-event (DELIVERY_ATTEMPT_EVENT).
     r.defineEvent("attempt", deliveryAttemptSchema);
 
     // Inline projection that materialises every delivery attempt into
-    // deliveryLogTable. Runs in the SAME transaction as the low-level
+    // deliveryAttemptsTable. Runs in the SAME transaction as the low-level
     // append(), so callers see their write immediately — no dispatcher
     // drain needed in tests. Chosen over a MultiStreamProjection because
     // delivery-log is a hot read-path for admin/audit UIs that expect
@@ -44,11 +28,11 @@ export function createDeliveryFeature(): FeatureDefinition {
     r.projection({
       name: "delivery-log",
       source: "deliveryAttempt",
-      table: deliveryLogTable,
+      table: deliveryAttemptsTable,
       apply: {
         [DELIVERY_ATTEMPT_EVENT]: async (event, tx) => {
           const p = event.payload as z.infer<typeof deliveryAttemptSchema>;
-          await tx.insert(deliveryLogTable).values({
+          await tx.insert(deliveryAttemptsTable).values({
             tenantId: event.tenantId,
             notificationType: p.notificationType,
             channel: p.channel,

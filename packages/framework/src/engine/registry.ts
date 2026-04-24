@@ -743,20 +743,48 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   for (const [projName, projDef] of projectionMap) {
     const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
     const validEventTypes = new Set<string>();
+    // Two source-modes are legal:
+    //
+    //  (a) Registered entity (r.entity(src, ...)) — the "normal" case:
+    //      auto-lifecycle events `<src>.created/.updated/.deleted/.restored`
+    //      fire when the event-store-executor writes, and any domain-event
+    //      (r.defineEvent) appended onto an aggregate of that type is
+    //      observable too.
+    //
+    //  (b) Events-only source — no r.entity registered, but at least one
+    //      apply-key must be a domain-event (not a CRUD-verb on the source
+    //      name). Use-case: features that own an append-only event-stream
+    //      without a CRUD lifecycle, e.g. `deliveryAttempt` (each call to
+    //      the delivery-service produces one event on a fresh aggregate)
+    //      or `jobRun` (BullMQ-callback-driven lifecycle, no executor).
+    //      A "Shape-Anchor"-entity is no longer needed for this case.
+    const isEventsOnlySource = !sources.every((src) => entityMap.has(src));
     for (const src of sources) {
-      if (!entityMap.has(src)) {
-        throw new Error(
-          `Projection "${projName}" declares source entity "${src}" which is not registered. ` +
-            `Did you forget r.entity("${src}", ...) or misspell the name?`,
-        );
+      if (entityMap.has(src)) {
+        for (const verb of AUTO_EVENT_VERBS) validEventTypes.add(`${src}.${verb}`);
       }
-      for (const verb of AUTO_EVENT_VERBS) validEventTypes.add(`${src}.${verb}`);
     }
     // Domain events are valid apply-keys for any projection. They arrive via
     // ctx.appendEvent on a specific aggregate — the runtime matches by event
     // type, so a projection can observe domain events whose aggregate matches
     // one of its declared sources.
     for (const domainEvt of allDomainEventNames) validEventTypes.add(domainEvt);
+
+    // In events-only mode, at least one apply-key MUST be a domain-event —
+    // otherwise the source is simply a typo (no events will ever fire).
+    if (isEventsOnlySource) {
+      const hasAnyDomainEvent = Object.keys(projDef.apply).some((k) => allDomainEventNames.has(k));
+      if (!hasAnyDomainEvent) {
+        const unregistered = sources.filter((src) => !entityMap.has(src));
+        throw new Error(
+          `Projection "${projName}" declares source(s) [${unregistered.join(", ")}] that are not registered entities, ` +
+            `and has no domain-event apply-keys. This is either a typo or a missing r.defineEvent registration. ` +
+            `Events-only projections need at least one apply-key from r.defineEvent; ` +
+            `CRUD-style projections need r.entity("${unregistered[0]}", ...).`,
+        );
+      }
+    }
+
     for (const applyKey of Object.keys(projDef.apply)) {
       if (!validEventTypes.has(applyKey)) {
         throw new Error(

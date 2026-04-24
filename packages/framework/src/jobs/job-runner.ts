@@ -57,6 +57,10 @@ function createJobLogger(logs: JobLogEntry[]): Logger {
 export type JobMeta = {
   triggeredById?: string | undefined;
   payload?: string | undefined;
+  // BullMQ numbers retries from 1 upward; the logger threads this into
+  // the run-started event so audit queries can distinguish "fresh run" vs.
+  // "nth retry" without joining back to BullMQ-internals.
+  attempt?: number | undefined;
 };
 
 export type JobRunner = {
@@ -263,11 +267,16 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const startTime = Date.now();
     const logs: JobLogEntry[] = [];
 
-    // Extract meta from job data
+    // Extract meta from job data. `attempt` is BullMQ's own counter
+    // (1-based on the first run, incremented on each retry) — threading
+    // it through lets the logger tag the run-started event with the
+    // retry number, so audit queries distinguish fresh from retry runs
+    // without peeking at BullMQ internals.
     const rawData = bullJob.data as DbRow;
     const meta: JobMeta = {
       triggeredById: rawData["_triggeredById"] as string | undefined,
       payload: rawData["_payload"] as string | undefined,
+      attempt: bullJob.attemptsMade + 1,
     };
 
     // Build handler payload (without internal meta fields)

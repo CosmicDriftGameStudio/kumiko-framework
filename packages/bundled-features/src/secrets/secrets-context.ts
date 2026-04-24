@@ -20,6 +20,7 @@ import {
   fetchOne,
 } from "@kumiko/framework/db";
 import type { SessionUser } from "@kumiko/framework/engine";
+import { InternalError, type WriteErrorInfo } from "@kumiko/framework/errors";
 import { append, type EventMetadata } from "@kumiko/framework/event-store";
 import {
   createDekCache,
@@ -31,7 +32,8 @@ import {
   type SecretsContext,
 } from "@kumiko/framework/secrets";
 import { generateId } from "@kumiko/framework/utils";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import {
   type StoredEnvelope,
   type StoredMetadata,
@@ -59,15 +61,16 @@ export type SecretsContextOptions = {
 // framework-internal ops keep working.
 const SYSTEM_ROLES = ["system"] as const;
 
-// Secret-read audit-event shape. Carried in the event payload every time a
-// feature-ctx-handler calls ctx.secrets.get. Intentionally lean — the
-// envelope NEVER lands on a read-event, only the lookup metadata.
+// Secret-read audit-event type name + schema. Colocated here instead of
+// in secrets-feature.ts because the feature file imports the context
+// (via createSecretsContext), so schema-in-feature-file would cycle.
+// secrets-feature.ts re-exports `secretReadSchema` for r.defineEvent.
 export const TENANT_SECRET_READ_EVENT = "secrets:event:read";
-type SecretReadPayload = {
-  readonly key: string;
-  readonly userId: string;
-  readonly handlerName: string;
-};
+export const secretReadSchema = z.object({
+  key: z.string(),
+  userId: z.string(),
+  handlerName: z.string(),
+});
 
 const executor = createEventStoreExecutor(tenantSecretsTable, tenantSecretEntity, {
   entityName: "tenantSecret",
@@ -144,14 +147,17 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
       }
 
       const plaintext = await db.transaction(async (tx) => {
-        const row = await fetchOne<DbRow>(
-          tx as unknown as Parameters<typeof fetchOne>[0],
-          tenantSecretsTable,
-          eq(tenantSecretsTable.tenantId, tenantId),
-          eq(tenantSecretsTable.key, key),
-        );
+        // Inline select inside the TX — fetchOne's SelectChainDb shape
+        // doesn't widen to drizzle's tx-object cleanly. Structurally
+        // identical; the one-off repeat beats a double-cast at the
+        // call site.
+        const [row] = await tx
+          .select({ envelope: tenantSecretsTable.envelope })
+          .from(tenantSecretsTable)
+          .where(and(eq(tenantSecretsTable.tenantId, tenantId), eq(tenantSecretsTable.key, key)))
+          .limit(1);
         if (!row) return undefined;
-        const envelope = row["envelope"] as StoredEnvelope;
+        const envelope = row.envelope;
         const pt = await decryptValue(decodeEnvelope(envelope), provider);
 
         // One event per read on its own aggregate-stream (fresh UUID as
@@ -162,18 +168,22 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
         // read counts.
         const readId = generateId();
         const metadata: EventMetadata = { userId: auditCtx.userId };
-        const payload: SecretReadPayload = {
+        // Parse against the registered schema so the low-level append
+        // here gets the same validation guarantee as ctx.appendEvent.
+        // A payload-shape drift between schema + call-site fails at the
+        // source instead of landing on the events-stream.
+        const payload = secretReadSchema.parse({
           key,
           userId: auditCtx.userId,
           handlerName: auditCtx.handlerName,
-        };
+        });
         await append(tx, {
           aggregateId: readId,
           aggregateType: "tenantSecretRead",
           tenantId,
           expectedVersion: 0,
           type: TENANT_SECRET_READ_EVENT,
-          payload: payload as unknown as Record<string, unknown>,
+          payload,
           metadata,
         });
         return pt;
@@ -277,8 +287,14 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
   };
 }
 
-function wrapSetFailure(err: { code: string; details?: unknown }): Error {
-  return new Error(
-    `[secrets.set] executor returned failure: ${err.code} — ${JSON.stringify(err.details ?? {})}`,
-  );
+// Wrap an executor-level write failure into a KumikoError so callers of
+// ctx.secrets.set / .delete can still branch on .code / details / i18nKey
+// after it propagates up. Plain `new Error(...)` would have stripped the
+// structured payload the error-contract promises.
+function wrapSetFailure(err: WriteErrorInfo): InternalError {
+  return new InternalError({
+    message: `[secrets.set] executor returned failure: ${err.code}`,
+    i18nKey: "secrets.errors.set_failed",
+    details: { executorCode: err.code, executorDetails: err.details ?? {} },
+  });
 }

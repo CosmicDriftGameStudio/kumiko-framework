@@ -1,6 +1,6 @@
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
+import type { z } from "zod";
 import { detailQuery } from "./handlers/detail.query";
 import { listQuery } from "./handlers/list.query";
 import { retryWrite } from "./handlers/retry.write";
@@ -10,47 +10,21 @@ import {
   JOB_RUN_FAILED_EVENT,
   JOB_RUN_STARTED_EVENT,
 } from "./job-run-logger";
-import { jobRunEntity, jobRunLogsTable, jobRunsTable } from "./job-run-table";
-
-// Event-schema registration — domain events are written via low-level
-// append() from the job-runner callbacks (BullMQ callbacks run outside
-// the dispatcher ctx), but defineEvent keeps the types discoverable for
-// ops tools and the audit-feature, AND makes them valid apply-keys for
-// the r.projection below.
-const logEntrySchema = z.object({
-  level: z.enum(["info", "warn", "error"]),
-  message: z.string(),
-  timestamp: z.string(),
-});
-
-const runStartedSchema = z.object({
-  jobName: z.string(),
-  bullJobId: z.string(),
-  status: z.literal("running"),
-  payload: z.string().nullable(),
-  triggeredById: z.string().nullable(),
-  startedAt: z.string(),
-  attempt: z.number(),
-});
-
-const runCompletedSchema = z.object({
-  duration: z.number(),
-  finishedAt: z.string(),
-  logs: z.array(logEntrySchema),
-});
-
-const runFailedSchema = z.object({
-  duration: z.number(),
-  finishedAt: z.string(),
-  error: z.string(),
-  logs: z.array(logEntrySchema),
-});
+import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
+// Event-payload schemas live in a sibling module so the logger can import
+// them without the cycle jobs-feature ↔ job-run-logger. The logger parses
+// payloads against these schemas before low-level append() — that's what
+// keeps out-of-dispatcher writes as type-safe as ctx.appendEvent.
+import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./jobs-feature-schemas";
 
 export function createJobsFeature(): FeatureDefinition {
   return defineFeature("jobs", (r) => {
     r.systemScope();
-    r.entity("jobRun", jobRunEntity);
-
+    // Events-only aggregate: "jobRun" has no r.entity registration, because
+    // the entire lifecycle is driven by BullMQ-callback → r.defineEvent
+    // (no executor, no CRUD). The boot-validator accepts the two
+    // projections below because every apply-key is a registered
+    // domain-event.
     r.defineEvent("run-started", runStartedSchema);
     r.defineEvent("run-completed", runCompletedSchema);
     r.defineEvent("run-failed", runFailedSchema);

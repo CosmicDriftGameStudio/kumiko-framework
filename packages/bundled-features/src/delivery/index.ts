@@ -15,7 +15,7 @@ export {
   type KillSwitchResolver,
   type RateLimitConfig,
 } from "./delivery-service";
-export { deliveryLogTable, notificationPreferencesTable } from "./tables";
+export { deliveryAttemptsTable, notificationPreferencesTable } from "./tables";
 export { type CreateDeliveryTestContextOptions, createDeliveryTestContext } from "./testing";
 export type {
   ChannelContext,

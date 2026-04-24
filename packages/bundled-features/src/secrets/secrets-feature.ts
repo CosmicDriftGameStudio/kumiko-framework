@@ -9,6 +9,7 @@ import { deleteWrite } from "./handlers/delete.write";
 import { listQuery } from "./handlers/list.query";
 import { rotateJob } from "./handlers/rotate.job";
 import { setWrite } from "./handlers/set.write";
+import { secretReadSchema } from "./secrets-context";
 import { tenantSecretEntity } from "./table";
 
 export {
@@ -53,6 +54,12 @@ export function createSecretsFeature(): FeatureDefinition {
     // separate `tenantSecretRead` event per call (see secrets-context.get
     // for the one-event-per-read rationale).
     r.entity("tenantSecret", tenantSecretEntity);
+
+    // Read-audit domain-event. Registered here so ops tools + MSPs can
+    // discover the type; secrets-context.get parses payloads against
+    // `secretReadSchema` at write time because the low-level append() path
+    // skips ctx.appendEvent's schema-validation guard.
+    r.defineEvent("read", secretReadSchema);
 
     // Per-tenant handlers (set/delete/list) run in the default tenant-scope,
     // giving them the automatic ctx.db tenant-filter as extra defense.

@@ -12,7 +12,7 @@ export const retryWrite = defineWriteHandler({
   name: "retry",
   // Post-ES: runId is the uuid aggregate-id. See detail.query for the
   // rationale — jobs is framework-ops, callers are admin tooling only.
-  schema: z.object({ runId: z.string() }),
+  schema: z.object({ runId: z.uuid() }),
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;

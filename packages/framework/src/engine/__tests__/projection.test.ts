@@ -112,10 +112,15 @@ describe("createRegistry — projection indexing", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("unit", exampleEntity());
       // Typo: "unti" instead of "unit". Without the source-validation guard
-      // this would silently be a no-op at runtime.
+      // this would silently be a no-op at runtime. Post "events-only-source"
+      // framework change the error message shifted: registry now accepts
+      // unregistered sources IF the apply-keys are domain-events — so a
+      // typo hits the "not registered AND no domain-event apply-keys"
+      // branch, which is what this test actually guards against.
       r.projection(exampleProjection({ source: "unti" }));
     });
-    expect(() => createRegistry([feature])).toThrow(/source entity "unti"/);
+    expect(() => createRegistry([feature])).toThrow(/unti/);
+    expect(() => createRegistry([feature])).toThrow(/no domain-event apply-keys/);
   });
 
   test("boot-validates apply-keys against the source's event types", () => {

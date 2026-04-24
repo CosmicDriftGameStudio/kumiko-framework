@@ -29,5 +29,5 @@ export type DeliveryStatusValue = (typeof DeliveryStatus)[keyof typeof DeliveryS
 
 // Qualified domain-event name. Emitted by the delivery-service on every
 // attempt (sent / failed / skipped). A multi-stream-projection materialises
-// each event into a row in deliveryLogTable for the log-query handler.
+// each event into a row in deliveryAttemptsTable for the log-query handler.
 export const DELIVERY_ATTEMPT_EVENT = "delivery:event:attempt" as const;

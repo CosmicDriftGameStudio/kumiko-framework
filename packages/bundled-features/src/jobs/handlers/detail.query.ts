@@ -9,8 +9,8 @@ export const detailQuery = defineQueryHandler({
   // Post-ES: runId is the uuid aggregate-id of the jobRun event-stream.
   // Pre-ES callers passed the serial row-id; the migration is breaking
   // for API callers (intentional — jobs is framework-ops, no external
-  // contract).
-  schema: z.object({ runId: z.string() }),
+  // contract). z.uuid() guards against accidental number-id passing.
+  schema: z.object({ runId: z.uuid() }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
     const db = ctx.db;

@@ -99,11 +99,12 @@ export async function upsertPreference(
     if (!result.isSuccess) return result;
     return { isSuccess: true, data: input };
   } catch (err) {
-    // Race-fallback: a concurrent request beat us to the insert. The
-    // unique-index on (tenant, user, type, channel) fires as a
-    // postgres 23505 — catch broadly because drivers wrap it in varying
-    // envelopes. Re-lookup; if we still miss, it's a genuine error worth
-    // rethrowing.
+    // Race-fallback: another request beat us to the insert between our
+    // lookup and the executor.create. The unique-index on
+    // (tenant, user, type, channel) fires Postgres error 23505. Only that
+    // specific error triggers the retry; DB-disconnect or any other
+    // failure must bubble up unchanged so callers see the real cause.
+    if (!isUniqueViolation(err)) throw err;
     const afterRace = await lookup(
       db,
       input.tenantId,
@@ -125,4 +126,17 @@ export async function upsertPreference(
     if (!result.isSuccess) return result;
     return { isSuccess: true, data: input };
   }
+}
+
+// Narrow detection for Postgres "duplicate key violates unique constraint"
+// (SQLSTATE 23505). Drivers wrap the DB error in varying envelopes; we
+// check the `code` field plus a string-match fallback so the match survives
+// minor driver-version shifts without drifting wide.
+function isUniqueViolation(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as { code?: unknown; cause?: { code?: unknown }; message?: unknown };
+  if (e.code === "23505") return true;
+  if (e.cause && typeof e.cause === "object" && e.cause.code === "23505") return true;
+  if (typeof e.message === "string" && e.message.includes("23505")) return true;
+  return false;
 }
