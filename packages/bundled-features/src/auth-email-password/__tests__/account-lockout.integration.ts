@@ -26,7 +26,7 @@ import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
-import { seedMembership } from "../../tenant/testing";
+import { seedTenantMembership } from "../../tenant/testing";
 import { UserHandlers } from "../../user";
 import { userEntity, userTable } from "../../user/user-entity";
 import { createUserFeature } from "../../user/user-feature";
@@ -102,7 +102,7 @@ async function seedLoginUser(
     systemAdmin,
   );
   const tenantId: TenantId = "00000000-0000-4000-8000-000000000001" as TenantId;
-  await seedMembership(stack.db.db, {
+  await seedTenantMembership(stack.db.db, {
     userId: created.id,
     tenantId,
     roles: ["User"],

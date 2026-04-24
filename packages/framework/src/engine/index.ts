@@ -168,7 +168,7 @@ export type {
   WriteResult,
 } from "./types";
 export { DEFAULT_CURRENCIES, HookPhases } from "./types";
-export { resolveName } from "./types/handlers";
+export { resolveName, withResponseData } from "./types/handlers";
 export { isSystemTenant, SYSTEM_TENANT_ID } from "./types/identifiers";
 export { normalizeEditField, normalizeListColumn } from "./types/screen";
 export { runValidation } from "./validation";

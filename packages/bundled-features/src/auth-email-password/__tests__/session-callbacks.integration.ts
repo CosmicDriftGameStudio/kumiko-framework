@@ -16,7 +16,7 @@ import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
-import { seedMembership } from "../../tenant/testing";
+import { seedTenantMembership } from "../../tenant/testing";
 import { UserHandlers } from "../../user";
 import { userEntity, userTable } from "../../user/user-entity";
 import { createUserFeature } from "../../user/user-feature";
@@ -151,7 +151,7 @@ async function seedUser(opts: {
     systemAdmin,
   );
   for (const t of opts.tenants) {
-    await seedMembership(stack.db.db, {
+    await seedTenantMembership(stack.db.db, {
       userId: created.id,
       tenantId: t.id,
       roles: t.roles,

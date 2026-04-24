@@ -1,6 +1,6 @@
-// Testing helpers for the tenant feature. `seedMembership` replaces the
-// pre-ES pattern of `db.insert(tenantMembershipsTable).values({...})` in
-// test fixtures — a direct-write bypasses the event-store executor, so
+// Testing helpers for the tenant feature. `seedTenantMembership` replaces
+// the pre-ES pattern of `db.insert(tenantMembershipsTable).values({...})`
+// in test fixtures — a direct-write bypasses the event-store executor, so
 // seeded memberships have no stream, no `.created` event, and projections
 // that consume membership events stay empty.
 //
@@ -23,17 +23,30 @@
 // The executor path skips access-checks by design (no HTTP, no JWT — this
 // IS a test fixture, not a user request) while still producing the
 // correct event + projection.
+//
+// Idempotent: calling twice for the same (userId, tenantId) is a no-op on
+// the second call. Test fixtures that seed the same membership across
+// `beforeEach` runs don't need explicit cleanup. A real `addMember` handler
+// returns ConflictError on duplicates — that's the user-facing contract.
+// Fixture-seeding prioritises "make the state exist" over "detect duplicate
+// seeding", which is usually a test-author bug we don't need to surface.
 
-import { createEventStoreExecutor, type DbConnection } from "@kumiko/framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbConnection,
+  fetchOne,
+} from "@kumiko/framework/db";
 import type { SessionUser, TenantId } from "@kumiko/framework/engine";
 import { TestUsers } from "@kumiko/framework/testing";
+import { eq } from "drizzle-orm";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenantMembership",
 });
 
-export type SeedMembershipOptions = {
+export type SeedTenantMembershipOptions = {
   readonly userId: string;
   readonly tenantId: TenantId;
   readonly roles: readonly string[];
@@ -47,21 +60,35 @@ export type SeedMembershipOptions = {
 
 /**
  * Seed a tenant membership through the event-store executor. Writes
- * both an `tenantMembership.created` event and the corresponding
+ * both a `tenantMembership.created` event and the corresponding
  * projection row in one transaction — identical effect to
- * `TenantHandlers.addMember`, minus the access-check.
+ * `TenantHandlers.addMember`, minus the access-check and minus the
+ * ConflictError on duplicates (duplicate calls no-op).
  */
-export async function seedMembership(
+export async function seedTenantMembership(
   db: DbConnection,
-  options: SeedMembershipOptions,
+  options: SeedTenantMembershipOptions,
 ): Promise<void> {
   const by = options.by ?? TestUsers.systemAdmin;
-  // Executor wants TenantDb. The test-stack hands out a plain DbConnection
-  // from `stack.db.db`; wrap on the fly into a system-scoped TenantDb so
-  // the insert respects the tenant-override (we write into options.tenantId,
-  // which may differ from `by.tenantId`).
-  const { createTenantDb } = await import("@kumiko/framework/db");
+  // Wrap into a system-scoped TenantDb so the insert respects the tenant-
+  // override (we write into options.tenantId, which may differ from by.tenantId).
   const tdb = createTenantDb(db, by.tenantId, "system");
+
+  // Idempotency: duplicate seeds are common across beforeEach-resets where
+  // only certain tables get truncated. A plain executor.create would trip
+  // the (user_id, tenant_id) unique index; the fixture call-site would then
+  // have to juggle try/catch. Lookup-first keeps call-sites clean.
+  const existing = await fetchOne(
+    db,
+    tenantMembershipsTable,
+    eq(tenantMembershipsTable.userId, options.userId),
+    eq(tenantMembershipsTable.tenantId, options.tenantId),
+  );
+  // skip: idempotent no-op — duplicate seed is expected across beforeEach-
+  // resets that don't truncate this table. Cheaper than try/catch on the
+  // unique-index, and documented in the function JSDoc above.
+  if (existing) return;
+
   const result = await executor.create(
     {
       userId: options.userId,
@@ -73,7 +100,7 @@ export async function seedMembership(
   );
   if (!result.isSuccess) {
     throw new Error(
-      `seedMembership failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
+      `seedTenantMembership failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
 }

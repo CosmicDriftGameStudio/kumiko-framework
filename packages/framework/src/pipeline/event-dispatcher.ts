@@ -5,7 +5,7 @@ import type { AppContext } from "../engine/types";
 import {
   EVENTS_PUBSUB_CHANNEL,
   eventsTable,
-  getEventLogHighWaterMark,
+  getEventsHighWaterMark,
   type StoredEvent,
 } from "../event-store";
 import {
@@ -1002,7 +1002,7 @@ export async function getAllConsumerProgress(
 ): Promise<readonly ConsumerProgress[]> {
   const [consumers, highWaterMark] = await Promise.all([
     listConsumersWithState(db, registeredNames),
-    getEventLogHighWaterMark(db),
+    getEventsHighWaterMark(db),
   ]);
 
   return consumers.map((c) => ({

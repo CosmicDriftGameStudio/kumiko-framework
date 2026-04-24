@@ -1,13 +1,9 @@
 import { createEventStoreExecutor, type DbRow, fetchOne } from "@kumiko/framework/db";
-import { defineWriteHandler } from "@kumiko/framework/engine";
+import { defineWriteHandler, withResponseData } from "@kumiko/framework/engine";
 import { NotFoundError, writeFailure } from "@kumiko/framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import {
-  tenantMembershipEntity,
-  tenantMembershipsTable,
-  withResponseData,
-} from "../membership-table";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenantMembership",

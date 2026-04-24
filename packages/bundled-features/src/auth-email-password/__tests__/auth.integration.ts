@@ -19,7 +19,7 @@ import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
-import { seedMembership } from "../../tenant/testing";
+import { seedTenantMembership } from "../../tenant/testing";
 import { UserHandlers } from "../../user";
 import { userEntity, userTable } from "../../user/user-entity";
 import { createUserFeature } from "../../user/user-feature";
@@ -87,7 +87,7 @@ async function seedLoginUser(opts: {
   );
 
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
-  await seedMembership(stack.db.db, {
+  await seedTenantMembership(stack.db.db, {
     userId: created.id,
     tenantId,
     roles: opts.roles ?? ["User"],
@@ -268,12 +268,12 @@ describe("scenario 7: multi-membership tenant resolution", () => {
     );
 
     // Two memberships: tenant 1 (first) and tenant 7 (preferred).
-    await seedMembership(stack.db.db, {
+    await seedTenantMembership(stack.db.db, {
       userId: created.id,
       tenantId: testTenantId(1),
       roles: ["User"],
     });
-    await seedMembership(stack.db.db, {
+    await seedTenantMembership(stack.db.db, {
       userId: created.id,
       tenantId: testTenantId(7),
       roles: ["Admin"],
@@ -305,7 +305,7 @@ describe("scenario 7: multi-membership tenant resolution", () => {
       { email: "stale@example.com", passwordHash: hash, displayName: "Stale" },
       systemAdmin,
     );
-    await seedMembership(stack.db.db, {
+    await seedTenantMembership(stack.db.db, {
       userId: created.id,
       tenantId: testTenantId(3),
       roles: ["User"],
@@ -367,7 +367,7 @@ describe("scenario 7b: login rate limiting", () => {
       { email: "brute@example.com", passwordHash: hash, displayName: "Brute" },
       systemAdmin,
     );
-    await seedMembership(rlStack.db.db, {
+    await seedTenantMembership(rlStack.db.db, {
       userId: created.id,
       tenantId: "00000000-0000-4000-8000-000000000001",
       roles: ["User"],
@@ -414,7 +414,7 @@ describe("scenario 7b: login rate limiting", () => {
       { email: "reset@example.com", passwordHash: hash, displayName: "Reset" },
       systemAdmin,
     );
-    await seedMembership(rlStack.db.db, {
+    await seedTenantMembership(rlStack.db.db, {
       userId: created.id,
       tenantId: "00000000-0000-4000-8000-000000000001",
       roles: ["User"],

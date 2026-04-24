@@ -17,7 +17,7 @@ import { createSessionsFeature, userSessionTable } from "../../sessions";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
-import { seedMembership } from "../../tenant/testing";
+import { seedTenantMembership } from "../../tenant/testing";
 import { UserHandlers } from "../../user";
 import { userEntity, userTable } from "../../user/user-entity";
 import { createUserFeature } from "../../user/user-feature";
@@ -116,7 +116,7 @@ async function seedUser(opts: {
     systemAdmin,
   );
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
-  await seedMembership(stack.db.db, {
+  await seedTenantMembership(stack.db.db, {
     userId: created.id,
     tenantId,
     roles: ["User"],
@@ -270,7 +270,7 @@ describe("POST /auth/reset-password", () => {
     expect(firstAttempt.status).toBe(422);
 
     // Re-insert the membership. Same userId, same token still valid.
-    await seedMembership(stack.db.db, {
+    await seedTenantMembership(stack.db.db, {
       userId: seed.id,
       tenantId: seed.tenantId,
       roles: ["User"],

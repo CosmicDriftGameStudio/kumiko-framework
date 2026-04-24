@@ -274,7 +274,7 @@ export async function getStreamVersion(
 // projection/consumer lag math: lag = HWM - cursor. Single-row aggregate over
 // the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
 // (boot, fresh tenant, post-archive).
-export async function getEventLogHighWaterMark(db: DbRunner): Promise<bigint> {
+export async function getEventsHighWaterMark(db: DbRunner): Promise<bigint> {
   const [row] = await db.select({ max: max(eventsTable.id) }).from(eventsTable);
   return row?.max ?? 0n;
 }

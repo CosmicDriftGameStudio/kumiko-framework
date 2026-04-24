@@ -116,7 +116,7 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "./handlers";
-export { resolveName } from "./handlers";
+export { resolveName, withResponseData } from "./handlers";
 export type {
   DeleteContext,
   EntityHookMap,

@@ -3,7 +3,7 @@ import type { DbConnection } from "../db/connection";
 import type { Registry, TenantId } from "../engine/types";
 import {
   eventsTable,
-  getEventLogHighWaterMark,
+  getEventsHighWaterMark,
   type StoredEvent,
   upcastStoredEvent,
 } from "../event-store";
@@ -314,7 +314,7 @@ export async function getAllProjectionProgress(
 ): Promise<readonly ProjectionProgress[]> {
   const [projections, highWaterMark] = await Promise.all([
     listProjectionsWithState(db, registry),
-    getEventLogHighWaterMark(db),
+    getEventsHighWaterMark(db),
   ]);
 
   return projections.map((p) => ({

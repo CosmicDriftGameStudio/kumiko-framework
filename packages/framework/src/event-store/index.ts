@@ -12,7 +12,7 @@ export {
   EVENTS_PUBSUB_CHANNEL,
   type EventMetadata,
   type EventToAppend,
-  getEventLogHighWaterMark,
+  getEventsHighWaterMark,
   getStreamVersion,
   loadAggregate,
   loadAggregateAsOf,
