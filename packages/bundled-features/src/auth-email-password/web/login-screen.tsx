@@ -1,14 +1,14 @@
-// Default-LoginScreen. Reine E-Mail-+-Passwort-Form, zentriert,
-// Card-Layout. Fehlermeldungen sind knapp und generisch — exakt die
-// Reason-Codes die der Login-Handler zurückliefert (invalid_credentials,
-// account_locked, rate_limited, no_membership). App-Code kann den
-// Screen überschreiben via `createKumikoApp({ loginScreen })`.
+// Default-LoginScreen. Reine E-Mail-+-Passwort-Form, zentriert, Card-
+// Layout. Texte kommen aus `useTranslation()` — die Default-Bundles
+// (de+en) liefert das Feature selber mit (translations.ts); Apps die
+// was anderes wollen, setzen entweder einen eigenen LocaleResolver auf
+// App-Level oder reichen Key-Overrides an `emailPasswordClient()`.
 //
-// Keine Primitives — wir wollen das unabhängig vom Feature-Form-Stack
-// rendern können, weil AuthGate vor jeder Screen-Mount steht und vor
-// <PrimitivesProvider> leben muss (Provider werden von createKumikoApp
-// hierunter gemountet).
+// Die Reason-Codes aus dem Login-Handler werden 1:1 auf i18n-Keys
+// gemappt (reasonToI18nKey) — neue Reason-Codes brauchen nur eine
+// neue Zeile im Bundle + hier im Mapping.
 
+import { useTranslation } from "@kumiko/renderer";
 import { type ClassValue, clsx } from "clsx";
 import { type ReactNode, useState } from "react";
 import { twMerge } from "tailwind-merge";
@@ -24,37 +24,46 @@ function cn(...inputs: ClassValue[]): string {
 }
 
 export type LoginScreenProps = {
+  /** Overridet den `auth.login.title`-i18n-Key. Nur setzen wenn der
+   *  Titel stark app-branded ist und keine Translation braucht. */
   readonly title?: string;
   readonly subtitle?: ReactNode;
   readonly submitLabel?: string;
 };
 
-function reasonToMessage(failure: LoginFailure): string {
+// Map vom Reason-Code des Login-Handlers auf einen i18n-Key plus
+// optional extrahierte Interpolations-Parameter. Ungekannte Codes
+// fallen auf `auth.errors.loginFailed` zurück.
+function reasonToKey(failure: LoginFailure): {
+  readonly key: string;
+  readonly params?: Readonly<Record<string, unknown>>;
+} {
   switch (failure.reason) {
     case "invalid_credentials":
-      return "E-Mail oder Passwort falsch.";
+      return { key: "auth.errors.invalidCredentials" };
     case "no_membership":
-      return "Dieses Konto hat keinen Tenant-Zugang.";
+      return { key: "auth.errors.noMembership" };
     case "account_locked":
-      return failure.retryAfterSeconds !== undefined
-        ? `Konto gesperrt. Neuer Versuch in ${Math.ceil(failure.retryAfterSeconds / 60)} Minuten.`
-        : "Konto vorübergehend gesperrt.";
+      if (failure.retryAfterSeconds !== undefined) {
+        return {
+          key: "auth.errors.accountLockedRetry",
+          params: { minutes: Math.ceil(failure.retryAfterSeconds / 60) },
+        };
+      }
+      return { key: "auth.errors.accountLocked" };
     case "email_not_verified":
-      return "E-Mail-Adresse noch nicht bestätigt.";
+      return { key: "auth.errors.emailNotVerified" };
     case "rate_limited":
-      return "Zu viele Login-Versuche. Bitte kurz warten.";
+      return { key: "auth.errors.rateLimited" };
     case "invalid_body":
-      return "Ungültige Eingabe.";
+      return { key: "auth.errors.invalidBody" };
     default:
-      return failure.message ?? "Login fehlgeschlagen.";
+      return { key: "auth.errors.loginFailed" };
   }
 }
 
-export function LoginScreen({
-  title = "Anmelden",
-  subtitle,
-  submitLabel = "Einloggen",
-}: LoginScreenProps): ReactNode {
+export function LoginScreen({ title, subtitle, submitLabel }: LoginScreenProps): ReactNode {
+  const t = useTranslation();
   const session = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,17 +84,20 @@ export function LoginScreen({
     "transition-colors placeholder:text-muted-foreground focus-visible:outline-none " +
     "focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
+  const effectiveTitle = title ?? t("auth.login.title");
+  const effectiveSubmit = submitLabel ?? t("auth.login.submit");
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm rounded-lg border bg-card text-card-foreground shadow-sm">
         <div className="flex flex-col space-y-1.5 p-6 pb-4">
-          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{effectiveTitle}</h1>
           {subtitle !== undefined && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <form onSubmit={onSubmit} className="flex flex-col gap-4 p-6 pt-0">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="login-email" className="text-sm font-medium leading-none">
-              E-Mail
+              {t("auth.login.email")}
             </label>
             <input
               id="login-email"
@@ -100,7 +112,7 @@ export function LoginScreen({
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="login-password" className="text-sm font-medium leading-none">
-              Passwort
+              {t("auth.login.password")}
             </label>
             <input
               id="login-password"
@@ -121,7 +133,10 @@ export function LoginScreen({
                 "border-destructive/50 text-destructive bg-destructive/10 dark:border-destructive",
               )}
             >
-              {reasonToMessage(error)}
+              {(() => {
+                const { key, params } = reasonToKey(error);
+                return t(key, params);
+              })()}
             </div>
           )}
           <button
@@ -134,7 +149,7 @@ export function LoginScreen({
               "bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2",
             )}
           >
-            {submitting ? "…" : submitLabel}
+            {submitting ? t("auth.login.submitting") : effectiveSubmit}
           </button>
         </form>
       </div>

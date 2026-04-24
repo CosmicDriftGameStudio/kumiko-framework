@@ -15,3 +15,4 @@ export type { LoginScreenProps } from "./login-screen";
 export { LoginScreen } from "./login-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";
 export { SessionProvider, useSession } from "./session";
+export { defaultTranslations } from "./translations";
