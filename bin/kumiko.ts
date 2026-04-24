@@ -198,6 +198,7 @@ const commands = {
         ["Unsafe-JSON-Parse Guard", "yarn tsx scripts/guard-unsafe-json-parse.ts"],
         ["No-Date-API Guard", "yarn tsx scripts/guard-no-date-api.ts"],
         ["Pre-ES-Patterns Guard", "yarn tsx scripts/guard-pre-es-patterns.ts"],
+        ["Direct-Entity-Writes Guard", "yarn tsx scripts/guard-direct-entity-writes.ts"],
         ["Cross-Feature-Import Guard", "yarn tsx scripts/guard-cross-feature-imports.ts"],
         ["Renderer-Boundaries Guard", "yarn tsx scripts/guard-renderer-boundaries.ts"],
         ["Fake-Test Guard", "yarn tsx scripts/guard-fake-tests.ts"],

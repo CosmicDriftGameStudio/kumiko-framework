@@ -4,11 +4,7 @@ import { DELIVERY_ATTEMPT_EVENT, DeliveryStatus } from "./constants";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
 import { setPreferenceWrite } from "./handlers/set-preference.write";
-import {
-  deliveryAttemptEntity,
-  deliveryLogTable,
-  notificationPreferenceEntity,
-} from "./tables";
+import { deliveryAttemptEntity, deliveryLogTable, notificationPreferenceEntity } from "./tables";
 
 // Mirror of DeliveryLogEntry (minus tenantId — that rides the event
 // envelope) so the event payload is schema-validated. The delivery-log

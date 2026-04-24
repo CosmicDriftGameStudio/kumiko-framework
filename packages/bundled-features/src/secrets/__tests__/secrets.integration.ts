@@ -17,7 +17,7 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createSecretsContext } from "../secrets-context";
 import { createSecretsFeature } from "../secrets-feature";
-import { type StoredEnvelope, tenantSecretsAuditTable, tenantSecretsTable } from "../table";
+import { type StoredEnvelope, tenantSecretsTable } from "../table";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",
@@ -41,10 +41,12 @@ beforeAll(async () => {
       secrets: createSecretsContext({ db, masterKeyProvider: provider }),
     }),
   });
-  await pushTables(stack.db.db, {
-    tenant_secrets: tenantSecretsTable,
-    tenant_secret_reads: tenantSecretsAuditTable,
-  });
+  // Post-ES: the pre-ES audit table is gone — read-audit rides on the
+  // events-table as tenantSecretRead domain-events. Only the projection
+  // table (tenant_secrets) still needs an explicit push here, since it
+  // belongs to an ES entity (and entity-tables aren't auto-pushed by
+  // setupTestStack).
+  await pushTables(stack.db.db, { tenant_secrets: tenantSecretsTable });
   await createEventsTable(stack.db.db);
 });
 

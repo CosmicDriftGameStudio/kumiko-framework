@@ -1,6 +1,7 @@
 import { buildServer, type JwtHelper } from "@kumiko/framework/api";
 import type { DbConnection } from "@kumiko/framework/db";
 import { createRegistry, defineFeature, type SessionUser } from "@kumiko/framework/engine";
+import { createEventsTable } from "@kumiko/framework/event-store";
 import { createJobRunner, type JobRunner } from "@kumiko/framework/jobs";
 import {
   createTestDb,
@@ -64,11 +65,17 @@ beforeAll(async () => {
   testRedis = await createTestRedis();
   db = testDb.db;
 
-  await pushTables(db, { jobRunsTable, jobRunLogsTable });
-
   const registry = createRegistry([appFeature, jobsFeature]);
+
+  // jobRuns + jobRunLogs are projection tables (auto-pushed by
+  // pushTables via the registry-declared inline projections in jobs-feature).
+  // We need events + archived_streams for the ES writes the job-runner's
+  // logger does.
+  await pushTables(db, { jobRunsTable, jobRunLogsTable });
+  await createEventsTable(db);
+
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
-  const logger = createJobRunLogger(db);
+  const logger = createJobRunLogger({ db, registry });
 
   jobRunner = createJobRunner({
     registry,
@@ -262,7 +269,11 @@ describe("scenario 4: jobs.detail", () => {
   });
 
   test("returns null for non-existent run", async () => {
-    const result = await query(systemAdmin, JobQueries.details, { runId: 99999 });
+    // Post-ES: runId is a uuid-string aggregate-id. A random v4 is
+    // guaranteed not to exist — same "miss" intent as the pre-ES `99999`.
+    const result = await query(systemAdmin, JobQueries.details, {
+      runId: "00000000-0000-4000-8000-000000099999",
+    });
     expect(result.data).toBeNull();
   });
 });

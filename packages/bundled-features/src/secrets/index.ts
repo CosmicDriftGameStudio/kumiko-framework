@@ -1,9 +1,4 @@
 export {
-  type RetentionJobPayload,
-  type RetentionJobResult,
-  retentionJob,
-} from "./handlers/retention.job";
-export {
   type RotateJobPayload,
   type RotateJobResult,
   rotateJob,
@@ -16,6 +11,6 @@ export {
   type SecretsContextOptions,
   type StoredEnvelope,
   type StoredMetadata,
-  tenantSecretsAuditTable,
+  TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
 } from "./secrets-feature";

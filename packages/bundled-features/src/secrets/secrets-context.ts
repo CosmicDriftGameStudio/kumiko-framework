@@ -31,7 +31,7 @@ import {
   type SecretsContext,
 } from "@kumiko/framework/secrets";
 import { generateId } from "@kumiko/framework/utils";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   type StoredEnvelope,
   type StoredMetadata,
@@ -226,6 +226,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
           tdb,
         );
         if (!result.isSuccess) throw wrapSetFailure(result.error);
+        // skip: update path done — don't fall through into the create branch below.
         return;
       }
 

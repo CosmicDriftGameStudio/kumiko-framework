@@ -6,7 +6,11 @@ import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
 
 export const detailQuery = defineQueryHandler({
   name: "details",
-  schema: z.object({ runId: z.number() }),
+  // Post-ES: runId is the uuid aggregate-id of the jobRun event-stream.
+  // Pre-ES callers passed the serial row-id; the migration is breaking
+  // for API callers (intentional — jobs is framework-ops, no external
+  // contract).
+  schema: z.object({ runId: z.string() }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
     const db = ctx.db;

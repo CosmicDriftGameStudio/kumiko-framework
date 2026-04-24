@@ -21,7 +21,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { rotateJob } from "../handlers/rotate.job";
 import { createSecretsContext } from "../secrets-context";
 import { createSecretsFeature } from "../secrets-feature";
-import { tenantSecretsAuditTable, tenantSecretsTable } from "../table";
+import { tenantSecretsTable } from "../table";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",
@@ -78,7 +78,6 @@ beforeAll(async () => {
   });
   await pushTables(stack.db.db, {
     tenant_secrets: tenantSecretsTable,
-    tenant_secret_reads: tenantSecretsAuditTable,
   });
 
   // Seed 20 V1 rows directly — too many for any maxFailures default.
