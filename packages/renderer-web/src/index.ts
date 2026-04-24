@@ -25,6 +25,7 @@ export type {
   LiveEvent,
   LiveEventSubscriber,
   LiveEventsProviderProps,
+  LocaleProviderProps,
   NavApi,
   NavProviderProps,
   NavRoute,
@@ -41,17 +42,21 @@ export type {
   Tokens,
   TokensApi,
   TokensProviderProps,
+  TranslationBundle,
+  TranslationsByLocale,
   UseFormOptions,
   UseFormResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@kumiko/renderer";
 export {
+  createStaticLocaleResolver,
   cssVarTokens,
   DispatcherProvider,
   formatPath,
   KumikoScreen,
   LiveEventsProvider,
+  LocaleProvider,
   NavProvider,
   PrimitivesProvider,
   parsePath,
@@ -64,14 +69,17 @@ export {
   useDispatcherStatus,
   useForm,
   useLiveEvents,
+  useLocale,
   useNav,
   usePrimitives,
   useQuery,
   useTokenController,
   useTokens,
+  useTranslation,
 } from "@kumiko/renderer";
-export type { ClientFeatureDefinition } from "./app/client-plugin";
 // --- Web-platform specifics ---
+export { createBrowserLocaleResolver } from "./app/browser-locale";
+export type { ClientFeatureDefinition } from "./app/client-plugin";
 export type { CreateKumikoAppOptions } from "./app/create-app";
 export { createKumikoApp } from "./app/create-app";
 export type { KumikoLinkProps } from "./app/nav";

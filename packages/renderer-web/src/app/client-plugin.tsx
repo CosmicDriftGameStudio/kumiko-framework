@@ -9,6 +9,7 @@
 // ganz außen gestackt, dann alle Gates nach innen. So hat jeder Gate
 // Zugriff auf jeden Provider, egal welches Feature ihn gebracht hat.
 
+import type { TranslationsByLocale } from "@kumiko/renderer";
 import type { ComponentType, ReactNode } from "react";
 
 export type ClientFeatureDefinition = {
@@ -23,6 +24,12 @@ export type ClientFeatureDefinition = {
    *  LoginScreen statt children solange der User nicht eingeloggt ist.
    *  Reihenfolge: erstes Element = äußerster Gate. */
   readonly gates?: readonly ComponentType<{ children: ReactNode }>[];
+  /** Default-Translations die das Feature für seine UI-Strings
+   *  mitbringt. Werden in den LocaleProvider als Fallback-Bundle
+   *  eingehängt — der App-Resolver (z.B. i18next) hat Vorrang und kann
+   *  einzelne Keys überschreiben, ohne dass die Feature-Bundles
+   *  komplett ausgetauscht werden müssen. */
+  readonly translations?: TranslationsByLocale;
 };
 
 /** Wickelt einen ReactNode durch eine Liste von Providern/Gates von

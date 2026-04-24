@@ -1,10 +1,12 @@
 import { createLiveDispatcher } from "@kumiko/dispatcher-live";
-import type { Dispatcher, ListRowViewModel, Translate } from "@kumiko/headless";
+import type { Dispatcher, ListRowViewModel, LocaleResolver, Translate } from "@kumiko/headless";
 import {
   DispatcherProvider,
   type FeatureSchema,
   KumikoScreen,
   LiveEventsProvider,
+  LocaleProvider,
+  type NavApi,
   NavProvider,
   PrimitivesProvider,
   type PrimitivesRegistry,
@@ -17,6 +19,7 @@ import { createRoot } from "react-dom/client";
 import { defaultPrimitives } from "../primitives";
 import { createEventSourceLiveEvents } from "../sse/live-events";
 import { useBrowserTokensApi } from "../tokens";
+import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { useBrowserNavApi } from "./nav";
 
@@ -42,6 +45,22 @@ export type CreateKumikoAppOptions = {
    *  Provider + Gates mit — siehe ClientFeatureDefinition. Beispiel:
    *  `clientFeatures: [emailPasswordClient()]` für Session+Login. */
   readonly clientFeatures?: readonly ClientFeatureDefinition[];
+  /** App-level LocaleResolver. Typischerweise ein Adapter um i18next
+   *  oder eine eigene Store-Impl. Wenn nicht gesetzt → Static-Default
+   *  (`locale: "en"`, `translate: key → key`); Plugin-Translations
+   *  springen dann als Fallback ein. */
+  readonly locale?: LocaleResolver;
+  /** Nav-Adapter — ein React-Hook der eine NavApi-Instanz liefert
+   *  (route + navigate + hrefFor). Default: `useBrowserNavApi`, das
+   *  window.history als Source-of-Truth benutzt. Wer einen anderen
+   *  Router anbinden will (TanStack Router, Expo Linking auf Mobile,
+   *  Memory-Router in Tests) übergibt hier seinen eigenen Hook.
+   *
+   *  Der Hook wird EINMAL im Component-Tree aufgerufen (siehe
+   *  `BrowserNavBoot`), muss also den React-Rules-of-Hooks folgen —
+   *  `useSyncExternalStore` auf der zugrundeliegenden Router-State
+   *  ist das gängige Pattern. */
+  readonly navAdapter?: () => NavApi;
 };
 
 export function createKumikoApp(options: CreateKumikoAppOptions): void {
@@ -75,11 +94,18 @@ export function createKumikoApp(options: CreateKumikoAppOptions): void {
   const clientFeatures = options.clientFeatures ?? [];
   const providers = clientFeatures.flatMap((f) => f.providers ?? []);
   const gates = clientFeatures.flatMap((f) => f.gates ?? []);
+  const fallbackBundles = clientFeatures.flatMap((f) =>
+    f.translations !== undefined ? [f.translations] : [],
+  );
 
+  const resolver = options.locale ?? createBrowserLocaleResolver();
+
+  const navAdapter = options.navAdapter ?? useBrowserNavApi;
   const screenNode = (
     <BrowserNavBoot
       schema={options.schema}
       fallbackQn={fallbackQn}
+      useNavApi={navAdapter}
       {...(options.translate !== undefined && { translate: options.translate })}
       {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
       {...(options.shell !== undefined && { shell: options.shell })}
@@ -88,13 +114,15 @@ export function createKumikoApp(options: CreateKumikoAppOptions): void {
 
   const tree = (
     <TokensBoot>
-      <PrimitivesProvider value={primitives}>
-        <DispatcherProvider dispatcher={dispatcher}>
-          <LiveEventsProvider value={liveEvents}>
-            {stackWrappers(providers, stackWrappers(gates, screenNode))}
-          </LiveEventsProvider>
-        </DispatcherProvider>
-      </PrimitivesProvider>
+      <LocaleProvider resolver={resolver} fallbackBundles={fallbackBundles}>
+        <PrimitivesProvider value={primitives}>
+          <DispatcherProvider dispatcher={dispatcher}>
+            <LiveEventsProvider value={liveEvents}>
+              {stackWrappers(providers, stackWrappers(gates, screenNode))}
+            </LiveEventsProvider>
+          </DispatcherProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
     </TokensBoot>
   );
 
@@ -113,17 +141,19 @@ function TokensBoot({ children }: { readonly children: ReactNode }): ReactNode {
 function BrowserNavBoot({
   schema,
   fallbackQn,
+  useNavApi,
   translate,
   onRowClick,
   shell,
 }: {
   readonly schema: FeatureSchema;
   readonly fallbackQn: string;
+  readonly useNavApi: () => NavApi;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
   readonly shell?: (props: { readonly children: ReactNode }) => ReactNode;
 }): ReactNode {
-  const navApi = useBrowserNavApi();
+  const navApi = useNavApi();
   const Shell = shell;
   const screen = (
     <RoutedScreen

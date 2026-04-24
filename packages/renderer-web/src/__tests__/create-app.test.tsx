@@ -5,7 +5,7 @@ import type {
   EntityListScreenDefinition,
 } from "@kumiko/framework/ui-types";
 import type { Dispatcher, StatusChangeListener } from "@kumiko/headless";
-import type { FeatureSchema } from "@kumiko/renderer";
+import type { FeatureSchema, NavApi } from "@kumiko/renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test } from "vitest";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
@@ -131,5 +131,29 @@ describe("createKumikoApp", () => {
     expect(() => createKumikoApp({ schema: empty, dispatcher: makeDispatcher() })).toThrow(
       /no screens/,
     );
+  });
+
+  test("navAdapter override: eigener Router steuert den aktiven Screen", async () => {
+    // Beweist den Nav-Seam: der Default-Adapter liest location.pathname,
+    // dieser Memory-Adapter hardcoded die Route. Wenn swap funktioniert,
+    // sehen wir den Listen-Screen statt den Form-Screen, ohne `screenQn`
+    // zu setzen und ohne `window.history` zu touchen.
+    mountRoot();
+    const memoryNav: NavApi = {
+      route: { screenId: "task-list" },
+      navigate: () => {},
+      hrefFor: (target) =>
+        target.entityId !== undefined
+          ? `/${target.screenId}/${target.entityId}`
+          : `/${target.screenId}`,
+    };
+    await mountApp({
+      schema: baseSchema,
+      dispatcher: makeDispatcher(),
+      navAdapter: () => memoryNav,
+    });
+    expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
+    // Und definitiv NICHT der Edit-Screen (der wäre die Default-Landing).
+    expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 });

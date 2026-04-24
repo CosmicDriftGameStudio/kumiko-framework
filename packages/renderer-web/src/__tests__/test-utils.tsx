@@ -14,8 +14,10 @@
 // browser-Nav) bauen ihren Wrapper selbst — siehe nav.test.tsx.
 
 import {
+  createStaticLocaleResolver,
   type LiveEventSubscriber,
   LiveEventsProvider,
+  LocaleProvider,
   type NavApi,
   NavProvider,
   PrimitivesProvider,
@@ -46,14 +48,18 @@ const stubTokens = {
   toggleMode: () => {},
 };
 
+const stubResolver = createStaticLocaleResolver();
+
 function DefaultProviders({ children }: { readonly children: ReactNode }): ReactNode {
   return (
     <TokensProvider value={stubTokens}>
-      <PrimitivesProvider value={defaultPrimitives}>
-        <NavProvider value={stubNav}>
-          <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
-        </NavProvider>
-      </PrimitivesProvider>
+      <LocaleProvider resolver={stubResolver}>
+        <PrimitivesProvider value={defaultPrimitives}>
+          <NavProvider value={stubNav}>
+            <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>
+          </NavProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
     </TokensProvider>
   );
 }

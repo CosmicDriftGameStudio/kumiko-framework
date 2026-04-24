@@ -31,6 +31,17 @@ export { useForm } from "./hooks/use-form";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query";
 export { useQuery } from "./hooks/use-query";
 export type {
+  LocaleProviderProps,
+  TranslationBundle,
+  TranslationsByLocale,
+} from "./i18n";
+export {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  useLocale,
+  useTranslation,
+} from "./i18n";
+export type {
   AppPrimitives,
   BannerProps,
   ButtonProps,
