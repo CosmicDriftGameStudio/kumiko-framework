@@ -90,6 +90,8 @@ export type { NavTreeProps } from "./layout/nav-tree";
 export { buildNavRegistrySlice, NavTree } from "./layout/nav-tree";
 export type { SidebarProps } from "./layout/sidebar";
 export { Sidebar } from "./layout/sidebar";
+export type { ThemeToggleProps } from "./layout/theme-toggle";
+export { ThemeToggle } from "./layout/theme-toggle";
 export type { TopbarProps } from "./layout/topbar";
 export { Topbar } from "./layout/topbar";
 export { defaultPrimitives } from "./primitives";
