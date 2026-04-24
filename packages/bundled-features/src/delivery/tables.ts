@@ -3,7 +3,6 @@ import {
   buildBaseColumns,
   instant,
   table as pgTable,
-  serial,
   text,
   uniqueIndex,
   uuid,
@@ -19,8 +18,12 @@ import { sql } from "drizzle-orm";
 // synchronously. No r.entity is registered for `deliveryAttempt`: the
 // boot-validator accepts events-only projection sources as long as every
 // apply-key is a registered domain-event (see registry.ts).
+//
+// PK = event aggregate-id (uuid). Keeps the projection row linked back to
+// its event stream 1:1 — same convention as jobRunsTable + tenantSecretsTable.
+// Event replays stay idempotent (primary-key conflict instead of duplicate rows).
 export const deliveryAttemptsTable = pgTable("delivery_attempts", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
   notificationType: text("notification_type").notNull(),
   channel: text("channel").notNull(),
