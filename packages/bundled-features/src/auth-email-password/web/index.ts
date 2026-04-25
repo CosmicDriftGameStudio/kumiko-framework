@@ -14,7 +14,7 @@ export { emailPasswordClient } from "./client-plugin";
 export type { LoginScreenProps } from "./login-screen";
 export { LoginScreen } from "./login-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";
-export { SessionProvider, useSession } from "./session";
+export { SessionContext, SessionProvider, useSession } from "./session";
 export type { TenantSwitcherProps } from "./tenant-switcher";
 export { TenantSwitcher } from "./tenant-switcher";
 export { defaultTranslations } from "./translations";

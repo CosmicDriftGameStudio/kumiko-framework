@@ -141,13 +141,16 @@ describe("buildDrizzleTable", () => {
   test("derives table name from entityName when table is omitted", () => {
     const entity = createEntity({ fields: { name: createTextField() } });
     const table = buildDrizzleTable("task", entity);
-    expect(getTableName(table)).toBe("tasks");
+    expect(getTableName(table)).toBe("read_tasks");
   });
 
   test("derives table name with featureName prefix when table is omitted", () => {
     const entity = createEntity({ fields: { name: createTextField() } });
     const table = buildDrizzleTable("order", entity, { featureName: "shop" });
-    expect(getTableName(table)).toBe("shop_orders");
+    // featureName-Prefix landet zwischen `read_` und dem Plural — alle
+    // Read-Models starten konsistent mit `read_`, egal ob ein Feature-
+    // Prefix gesetzt ist oder nicht.
+    expect(getTableName(table)).toBe("read_shop_orders");
   });
 });
 
@@ -192,7 +195,7 @@ describe("buildDrizzleTable auto-indices", () => {
     const table = buildDrizzleTable("item", entity, { featureName: "shop" });
     const { indexes } = getTableConfig(table);
 
-    expect(indexes.some((idx) => idx.config.name === "read_shop_items_tenant_id_idx")).toBe(true);
+    expect(indexes.some((idx) => idx.config.name === "shop_items_tenant_id_idx")).toBe(true);
   });
 
   test("table without file fields or relations has only the tenant index", () => {
@@ -204,7 +207,7 @@ describe("buildDrizzleTable auto-indices", () => {
     const { indexes } = getTableConfig(table);
 
     expect(indexes).toHaveLength(1);
-    expect(indexes[0]?.config.name).toBe("read_notes_tenant_id_idx");
+    expect(indexes[0]?.config.name).toBe("notes_tenant_id_idx");
   });
 
   test("belongsTo relations produce an index on their foreign key column", () => {
@@ -224,9 +227,9 @@ describe("buildDrizzleTable auto-indices", () => {
     const { indexes } = getTableConfig(table);
 
     const names = indexes.map((i) => i.config.name);
-    expect(names).toContain("read_tasks_tenant_id_idx");
-    expect(names).toContain("read_tasks_assignee_id_idx");
-    expect(names).toContain("read_tasks_project_id_idx");
+    expect(names).toContain("tasks_tenant_id_idx");
+    expect(names).toContain("tasks_assignee_id_idx");
+    expect(names).toContain("tasks_project_id_idx");
   });
 
   test("hasMany / manyToMany relations do NOT produce indexes on this table (their FK lives on the other side)", () => {
@@ -248,7 +251,7 @@ describe("buildDrizzleTable auto-indices", () => {
     // Only the tenant index — hasMany FK lives on the "user" table; the join
     // table for manyToMany isn't owned by this entity either.
     expect(indexes).toHaveLength(1);
-    expect(indexes[0]?.config.name).toBe("read_teams_tenant_id_idx");
+    expect(indexes[0]?.config.name).toBe("teams_tenant_id_idx");
   });
 
   test("relation and file field on the same column deduplicate to one index", () => {
@@ -275,43 +278,43 @@ describe("buildDrizzleTable auto-indices", () => {
 
 describe("toTableName", () => {
   test.each([
-    ["task", "tasks"],
-    ["user", "users"],
-    ["tenant", "tenants"],
+    ["task", "read_tasks"],
+    ["user", "read_users"],
+    ["tenant", "read_tenants"],
   ])("simple plural: %s → %s", (input, expected) => {
     expect(toTableName(input)).toBe(expected);
   });
 
   test.each([
-    ["category", "categories"],
-    ["entity", "entities"],
-    ["policy", "policies"],
+    ["category", "read_categories"],
+    ["entity", "read_entities"],
+    ["policy", "read_policies"],
   ])("y → ies: %s → %s", (input, expected) => {
     expect(toTableName(input)).toBe(expected);
   });
 
   test.each([
-    ["key", "keys"],
-    ["survey", "surveys"],
-    ["day", "days"],
+    ["key", "read_keys"],
+    ["survey", "read_surveys"],
+    ["day", "read_days"],
   ])("vowel+y stays: %s → %s", (input, expected) => {
     expect(toTableName(input)).toBe(expected);
   });
 
   test.each([
-    ["status", "statuses"],
-    ["address", "addresses"],
-    ["match", "matches"],
-    ["tax", "taxes"],
-    ["wish", "wishes"],
+    ["status", "read_statuses"],
+    ["address", "read_addresses"],
+    ["match", "read_matches"],
+    ["tax", "read_taxes"],
+    ["wish", "read_wishes"],
   ])("sibilant → es: %s → %s", (input, expected) => {
     expect(toTableName(input)).toBe(expected);
   });
 
   test.each([
-    ["memberTask", "member_tasks"],
-    ["userProfile", "user_profiles"],
-    ["orderItem", "order_items"],
+    ["memberTask", "read_member_tasks"],
+    ["userProfile", "read_user_profiles"],
+    ["orderItem", "read_order_items"],
   ])("camelCase → snake_case + plural: %s → %s", (input, expected) => {
     expect(toTableName(input)).toBe(expected);
   });

@@ -9,19 +9,10 @@
 // neue Zeile im Bundle + hier im Mapping.
 
 import { useTranslation } from "@kumiko/renderer";
-import { type ClassValue, clsx } from "clsx";
+import { cn } from "@kumiko/renderer-web";
 import { type ReactNode, useState } from "react";
-import { twMerge } from "tailwind-merge";
 import type { LoginFailure } from "./auth-client";
 import { useSession } from "./session";
-
-// Lokaler cn-Helper — 1:1 Dublette von renderer-web/src/lib/cn.ts.
-// Das Feature soll unabhängig von renderer-web-Interna bleiben;
-// eine Utils-Auslagerung macht erst Sinn wenn das dritte Feature
-// dieselben Zeilen braucht.
-function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
-}
 
 export type LoginScreenProps = {
   /** Overridet den `auth.login.title`-i18n-Key. Nur setzen wenn der

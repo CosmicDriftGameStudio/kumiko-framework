@@ -12,13 +12,9 @@
 // Unicode-Glyph (🌐) als Default.
 
 import { useLocale } from "@kumiko/renderer";
-import { type ClassValue, clsx } from "clsx";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
-}
+import { type ReactNode, useMemo, useRef, useState } from "react";
+import { cn } from "../lib/cn";
+import { useDropdownMenu } from "../lib/use-dropdown-menu";
 
 export type LocaleOption = {
   /** BCP-47-Code, z.B. "de", "en-US", "fr-CA". Wird 1:1 an
@@ -48,22 +44,7 @@ export function LanguageSwitcher({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent): void => {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDropdownMenu({ containerRef, open, onClose: () => setOpen(false) });
 
   const activeLocale = resolver.locale();
   // Match entweder exact ("de-DE") oder Language-Root ("de") gegen die

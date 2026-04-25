@@ -1,0 +1,48 @@
+// @vitest-environment jsdom
+import { fireEvent, screen } from "@testing-library/react";
+import { describe, expect, test } from "vitest";
+import { UserMenu } from "../user-menu";
+import { makeSessionApi, renderWithProviders } from "./test-utils";
+
+describe("UserMenu", () => {
+  test("renders nothing when user is null", () => {
+    const session = makeSessionApi({ status: "unauthenticated", user: null });
+    const { container } = renderWithProviders(<UserMenu />, { session });
+    expect(container.firstChild).toBeNull();
+  });
+
+  test("shows displayName + initials when authenticated", () => {
+    const session = makeSessionApi({
+      user: { id: "u1", email: "alice@example.com", displayName: "Alice Wonder" },
+    });
+    renderWithProviders(<UserMenu />, { session });
+    // Avatar = "AW", Display-Name "Alice Wonder"
+    expect(screen.getByText("AW")).toBeTruthy();
+    expect(screen.getByText("Alice Wonder")).toBeTruthy();
+  });
+
+  test("falls back to email-based initials when displayName empty", () => {
+    const session = makeSessionApi({
+      user: { id: "u1", email: "bob@example.com", displayName: "" },
+    });
+    renderWithProviders(<UserMenu />, { session });
+    // Trim "" → leerer displayName → fallback auf email → erste 2 Chars
+    expect(screen.getByText("BO")).toBeTruthy();
+  });
+
+  test("opens dropdown on click and shows logout button", () => {
+    const session = makeSessionApi();
+    renderWithProviders(<UserMenu />, { session });
+    fireEvent.click(screen.getAllByRole("button")[0]!);
+    expect(screen.getByText("Abmelden")).toBeTruthy();
+    expect(screen.getByText("user@example.com")).toBeTruthy();
+  });
+
+  test("logout-click triggers session.logout", () => {
+    const session = makeSessionApi();
+    renderWithProviders(<UserMenu />, { session });
+    fireEvent.click(screen.getAllByRole("button")[0]!);
+    fireEvent.click(screen.getByText("Abmelden"));
+    expect(session.logout).toHaveBeenCalledOnce();
+  });
+});

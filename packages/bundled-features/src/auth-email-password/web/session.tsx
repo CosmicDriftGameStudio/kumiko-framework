@@ -43,7 +43,11 @@ const INITIAL: SessionState = {
   tenants: [],
 };
 
-const SessionContext = createContext<SessionApi | undefined>(undefined);
+/** Internal — exposed for tests die einen Mock-SessionApi-Wert reinreichen
+ *  wollen, ohne durch SessionProvider's refresh-Lifecycle zu müssen. App-
+ *  Code nutzt SessionProvider + useSession; direkter Context-Zugriff ist
+ *  für Tests/Stories. */
+export const SessionContext = createContext<SessionApi | undefined>(undefined);
 
 // Eine Refresh-Runde: /auth/tenants → wenn 401 nicht-eingeloggt, sonst
 // parallel /user:me. Beides zusammen ergibt den vollen SessionState.

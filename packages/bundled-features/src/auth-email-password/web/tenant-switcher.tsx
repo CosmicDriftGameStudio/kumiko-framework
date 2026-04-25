@@ -12,15 +12,10 @@
 // einmalig am App-Boot geladen wird).
 
 import { useTranslation } from "@kumiko/renderer";
-import { type ClassValue, clsx } from "clsx";
+import { cn, useDropdownMenu } from "@kumiko/renderer-web";
 import { Building2, Check, ChevronDown } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 import { useSession } from "./session";
-
-function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
-}
 
 export type TenantSwitcherProps = {
   /** Optional: liefert einen menschenlesbaren Namen pro Tenant-ID.
@@ -37,22 +32,7 @@ export function TenantSwitcher({ tenantName }: TenantSwitcherProps): ReactNode {
   const [switching, setSwitching] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent): void => {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDropdownMenu({ containerRef, open, onClose: () => setOpen(false) });
 
   const handleSwitch = useCallback(
     async (tenantId: string) => {

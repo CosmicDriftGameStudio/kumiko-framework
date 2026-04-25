@@ -198,10 +198,18 @@ export function buildDrizzleTable(
     Object.assign(fieldColumns, cols);
   }
 
-  // Default table name derived from entityName (e.g. "memberTask" → "member_tasks")
+  // Default table name derived from entityName (e.g. "memberTask" → "read_member_tasks")
   const baseTableName = entity.table ?? toTableName(entityName);
+  // featureName-prefix wird zwischen read_ und den base-Namen geschoben,
+  // damit alle read-models einheitlich mit `read_` starten — egal ob
+  // featureName gesetzt ist oder nicht. Beispiel:
+  //   featureName="shop", base="read_orders"  →  "read_shop_orders"
+  //   featureName=undef,  base="read_orders"  →  "read_orders"
+  //   featureName="shop", base="orders" (no read_)  →  "shop_orders"
   const tableName = options?.featureName
-    ? `${options.featureName}_${baseTableName}`
+    ? baseTableName.startsWith(READ_MODEL_PREFIX)
+      ? `${READ_MODEL_PREFIX}${options.featureName}_${baseTableName.slice(READ_MODEL_PREFIX.length)}`
+      : `${options.featureName}_${baseTableName}`
     : baseTableName;
 
   // Build the list of foreign-key columns to index. Sources:

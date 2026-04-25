@@ -11,15 +11,10 @@
 // ein harter Fehler entsteht.
 
 import { useTranslation } from "@kumiko/renderer";
-import { type ClassValue, clsx } from "clsx";
+import { cn, useDropdownMenu } from "@kumiko/renderer-web";
 import { ChevronDown, LogOut } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 import { useSession } from "./session";
-
-function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
-}
 
 export type UserMenuProps = {
   /** Zusätzliche Menu-Items über dem Logout. Per-item class/behaviour
@@ -46,26 +41,9 @@ export function UserMenu({ children }: UserMenuProps): ReactNode {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Close on click outside + Escape. Beides ist Standard-Popup-Verhalten;
-  // Radix würde das gleiche machen, nur mit fokus-trap on top. Kein
-  // Focus-Trap hier — das Menu hat wenige Items und wir wollen die
-  // Tab-Reihenfolge nicht blockieren.
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent): void => {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  // Click-outside + Escape via shared hook (kein Focus-Trap — Tab-
+  // Reihenfolge soll nicht blockiert werden).
+  useDropdownMenu({ containerRef, open, onClose: () => setOpen(false) });
 
   const handleLogout = useCallback(async () => {
     setOpen(false);

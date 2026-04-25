@@ -43,6 +43,7 @@
     "@kumiko/dispatcher-live": "0.0.1",
     "@kumiko/framework": "0.0.1",
     "@kumiko/renderer": "0.0.1",
+    "@kumiko/renderer-web": "0.0.1",
     "@node-rs/argon2": "^2.0.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
