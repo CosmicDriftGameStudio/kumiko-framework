@@ -9,7 +9,9 @@
 import type { DbConnection } from "@kumiko/framework/db";
 import type { SessionUser, TenantId } from "@kumiko/framework/engine";
 import { TestUsers } from "@kumiko/framework/testing";
+// kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { seedTenant, seedTenantMembership } from "../tenant/testing";
+// kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { seedUser } from "../user/testing";
 import { hashPassword } from "./password-hashing";
 
@@ -17,7 +19,9 @@ import { hashPassword } from "./password-hashing";
 // Das Auth-Feature ist der natürliche Aufrufer für "seed admin user mit
 // password + tenant + membership" — wer das nutzt soll nicht aus drei
 // verschiedenen sub-paths zusammensammeln müssen.
+// kumiko-lint-ignore cross-feature-import re-export of test-helpers
 export { seedTenant, seedTenantMembership } from "../tenant/testing";
+// kumiko-lint-ignore cross-feature-import re-export of test-helpers
 export { seedUser } from "../user/testing";
 
 export type SeedUserWithPasswordOptions = {

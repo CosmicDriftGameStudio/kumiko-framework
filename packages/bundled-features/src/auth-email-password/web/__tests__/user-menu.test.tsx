@@ -33,7 +33,7 @@ describe("UserMenu", () => {
   test("opens dropdown on click and shows logout button", () => {
     const session = makeSessionApi();
     renderWithProviders(<UserMenu />, { session });
-    fireEvent.click(screen.getAllByRole("button")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /Test User/ }));
     expect(screen.getByText("Abmelden")).toBeTruthy();
     expect(screen.getByText("user@example.com")).toBeTruthy();
   });
@@ -41,7 +41,7 @@ describe("UserMenu", () => {
   test("logout-click triggers session.logout", () => {
     const session = makeSessionApi();
     renderWithProviders(<UserMenu />, { session });
-    fireEvent.click(screen.getAllByRole("button")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /Test User/ }));
     fireEvent.click(screen.getByText("Abmelden"));
     expect(session.logout).toHaveBeenCalledOnce();
   });

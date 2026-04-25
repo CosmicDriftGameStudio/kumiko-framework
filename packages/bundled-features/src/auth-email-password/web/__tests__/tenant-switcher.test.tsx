@@ -43,7 +43,7 @@ describe("TenantSwitcher", () => {
     renderWithProviders(<TenantSwitcher tenantName={(id) => `Tenant ${id}`} />, {
       session,
     });
-    fireEvent.click(screen.getAllByRole("button")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
     // Trigger zeigt aktiven Tenant ("Tenant tenant-a") + Dropdown-Items
     // listen ALLE Tenants — nutze getAllByText um Mehrdeutigkeit
     // explizit zu erlauben, dann Roles-Strings als eindeutigen Anker.
@@ -64,7 +64,7 @@ describe("TenantSwitcher", () => {
     renderWithProviders(<TenantSwitcher tenantName={(id) => `Tenant ${id}`} />, {
       session,
     });
-    fireEvent.click(screen.getAllByRole("button")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
     fireEvent.click(screen.getByText("Tenant tenant-b"));
     expect(session.switchTenant).toHaveBeenCalledWith("tenant-b");
   });
@@ -80,7 +80,7 @@ describe("TenantSwitcher", () => {
     renderWithProviders(<TenantSwitcher tenantName={(id) => `Tenant ${id}`} />, {
       session,
     });
-    fireEvent.click(screen.getAllByRole("button")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
     // Im Dropdown gibt's einen menuitem-Button für tenant-a — nicht
     // den Trigger erwischen, sondern den im role="menu".
     const dropdownItems = screen.getAllByRole("menuitem");

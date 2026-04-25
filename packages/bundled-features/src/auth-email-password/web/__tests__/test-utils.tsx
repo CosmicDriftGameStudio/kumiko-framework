@@ -7,7 +7,7 @@
 import type { LocaleResolver } from "@kumiko/headless";
 import { createStaticLocaleResolver, LocaleProvider } from "@kumiko/renderer";
 import { render as _render, type RenderResult } from "@testing-library/react";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 import { vi } from "vitest";
 import type { SessionApi, SessionState } from "../session";
 import { SessionContext } from "../session";
@@ -34,9 +34,9 @@ export function makeSessionApi(overrides: MakeSessionApiOptions = {}): SessionAp
   };
   return {
     ...base,
-    login: login ?? (vi.fn(async () => ({ ok: true })) as SessionApi["login"]),
-    logout: logout ?? vi.fn(async () => {}),
-    switchTenant: switchTenant ?? vi.fn(async () => {}),
+    login: login ?? vi.fn<SessionApi["login"]>(async () => ({ ok: true })),
+    logout: logout ?? vi.fn<SessionApi["logout"]>(async () => {}),
+    switchTenant: switchTenant ?? vi.fn<SessionApi["switchTenant"]>(async () => {}),
   };
 }
 

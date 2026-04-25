@@ -25,7 +25,7 @@ function makeStatefulResolver(initial: string): LocaleResolver {
     },
     setLocale: vi.fn((next: string) => {
       current = next;
-      listeners.forEach((l) => l());
+      for (const l of listeners) l();
     }),
   };
 }

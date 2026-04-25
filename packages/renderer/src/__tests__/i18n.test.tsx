@@ -22,11 +22,13 @@ function makeStatefulResolver(initial: string): LocaleResolver {
     timeZone: () => "UTC",
     subscribe: (l) => {
       listeners.add(l);
-      return () => listeners.delete(l);
+      return () => {
+        listeners.delete(l);
+      };
     },
     setLocale: (next) => {
       current = next;
-      listeners.forEach((l) => l());
+      for (const l of listeners) l();
     },
   };
 }

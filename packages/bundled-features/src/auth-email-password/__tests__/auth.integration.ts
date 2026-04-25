@@ -5,6 +5,7 @@ import {
   createEntityTable,
   createTestUser,
   expectErrorIncludes,
+  getSetCookieRaw,
   getSetCookieValue,
   pushTables,
   setupTestStack,
@@ -530,6 +531,54 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
     expect(writeRes.status).toBe(403);
     const body = await writeRes.json();
     expect(body.error?.code).toBe("csrf_token_mismatch");
+  });
+
+  test("browser auth flow: login → /me → logout → /me 401", async () => {
+    // Bildet exakt den Pfad ab, den die Web-UI fährt: SessionProvider
+    // ruft refresh() (→ /auth/tenants + /me), nach Login funktioniert /me,
+    // nach Logout ist der Cookie weg → /me OHNE Cookie ist 401.
+    await seedLoginUser({ email: "flow@example.com", password: "correct-horse" });
+
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "flow@example.com",
+      password: "correct-horse",
+    });
+    expect(loginRes.status).toBe(200);
+    const authCookie = getSetCookieValue(loginRes, "kumiko_auth");
+    const csrfCookie = getSetCookieValue(loginRes, "kumiko_csrf");
+    expect(authCookie).toBeDefined();
+    expect(csrfCookie).toBeDefined();
+
+    const cookieHeader = `kumiko_auth=${authCookie}; kumiko_csrf=${csrfCookie}`;
+
+    // Eingeloggt: /me liefert User
+    const meOk = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "user:query:user:me", payload: {} },
+      { Cookie: cookieHeader, ...(csrfCookie ? { "X-CSRF-Token": csrfCookie } : {}) },
+    );
+    expect(meOk.status).toBe(200);
+
+    // Logout: Server muss Cookies löschen (Set-Cookie mit Max-Age=0)
+    const logoutRes = await stack.http.raw(
+      "POST",
+      "/api/auth/logout",
+      {},
+      { Cookie: cookieHeader, ...(csrfCookie ? { "X-CSRF-Token": csrfCookie } : {}) },
+    );
+    expect(logoutRes.status).toBe(200);
+    const clearedAuth = getSetCookieRaw(logoutRes, "kumiko_auth");
+    const clearedCsrf = getSetCookieRaw(logoutRes, "kumiko_csrf");
+    expect(clearedAuth).toMatch(/Max-Age=0/);
+    expect(clearedCsrf).toMatch(/Max-Age=0/);
+
+    // Nach Logout: kein Cookie mehr → /me ohne Cookie/Bearer = 401
+    const meAfter = await stack.http.raw("POST", "/api/query", {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(meAfter.status).toBe(401);
   });
 
   test("both cookie AND bearer present → 400 ambiguous_auth", async () => {
