@@ -1,45 +1,66 @@
 # UI Walkthrough
 
-Browser live-viewer for Kumiko's ui-core logic layer. No React, no
-renderer — raw HTML inputs on the left, live JSON panels on the right
-showing:
-
-- the form-controller's snapshot (values, changes, errors, field-states)
-- the output of `computeEditViewModel` (label, visible, readOnly, required)
-- the dispatcher-live result when you click Submit
+Full-Stack-Demo des Kumiko-Renderers: `DefaultAppShell` + `LanguageSwitcher`
++ `ThemeToggle` + `emailPasswordClient` + `TenantSwitcher` + Tasks-CRUD.
+Bootet via `runDevApp` aus `@kumiko/dev-server` mit Auth-Mode (Login-
+Screen vor Zugang) und zwei Dev-Tenants damit der TenantSwitcher
+sichtbar wird.
 
 ## Run
 
+```bash
+# Postgres + Redis hochfahren (einmal)
+yarn kumiko dev
+
+# In neuem Terminal — bootet Sample auf http://localhost:4173
+cd samples/apps/ui-walkthrough && yarn dev
 ```
-yarn install            # once
-bun run samples/ui-walkthrough/src/server.ts
+
+`PORT=4180 yarn dev` für anderen Port. `KUMIKO_DEV_DB_NAME=tasks_demo
+yarn dev` für persistente DB (Daten überleben Restart).
+
+## Login
+
+```
+admin@kumiko.dev
+kumiko-admin
 ```
 
-The server prints the URL it landed on (default `http://localhost:4173`
-— set `PORT` in your shell to override).
+Der Admin ist Mitglied in zwei Tenants — der TenantSwitcher in der
+Topbar wechselt zwischen "Dev Tenant" (Rolle Admin) und "Beta Tenant"
+(Rolle User), und beweist tenant-isolierte Memberships.
 
-## What to try
+## Was zu probieren
 
-- Type into **Title** — watch `snapshot.changes.title` and
-  `snapshot.isDirty` flip.
-- Leave **Title** empty and click **Submit** — `validate()` fails,
-  `snapshot.errors.title` populates, no network call fires
-  (`validationBlocked: true` in the result panel).
-- Tick **Is urgent** — the `notes` row appears and gains a red
-  asterisk; the view-model now shows
-  `{ field: "notes", visible: true, required: true }`.
-- Submit with urgent + empty notes — `superRefine` flags the issue; it
-  lands under `snapshot.errors.notes`.
-- Submit with valid values — `isSuccess: true` comes back from the
-  in-memory echo server, snapshot rebases to the submitted values, and
-  `isDirty` goes quiet.
+**Form + Validation**
+- Tippe in **Title** — der Form-Controller pinnt `dirty` + `changes`.
+- Leerer Title + Submit → `required`-Validierung blockt, kein Netz-Call.
+- Tick **Is urgent** → das `notes`-Feld erscheint mit Required-Marker.
+- Mit urgent+leeren-notes submitten → Field-Error.
 
-## What's echoed
+**Optimistic Locking**
+- Open Form für eine Task in Tab A.
+- Edit dieselbe Task in Tab B, save.
+- Tab A: save → Banner "Version-Conflict, neu laden".
 
-The dev server (`src/server.ts`) is not a real Kumiko stack — it only
-bundles `client.ts` for the browser and echoes `POST /api/write` back
-in Kumiko's success-envelope shape. The CSRF double-submit check is
-real; the auth pipeline is not.
+**Tenant-Switch**
+- Klick auf Tenant-Switcher in der Topbar → wechselt zu Beta-Tenant.
+- Aufgaben-Liste leer (Beta hat keine), Rolle wechselt zu User.
 
-The real thing lands in M2 when the renderer and the full
-`createApp()` stack wire together; this sample retires then.
+**Theme-Toggle**
+- Klick auf Sonne/Mond rechts oben — `<html>`-class wechselt
+  zwischen `light` und `dark`, Tailwind-Tokens passen sich an.
+
+**Sprache**
+- LanguageSwitcher → de/en, Nav-Labels switchen sofort
+  (`tasks.nav.list` → "Aufgaben" / "Tasks").
+
+## Tests
+
+```bash
+# Aus Repo-Root
+yarn kumiko test e2e samples/apps/ui-walkthrough
+```
+
+Sechs Playwright-Specs: smoke + create-flow + update-flow + 4
+generated-Specs (aus dem Registry-driven E2E-Generator).
