@@ -30,6 +30,7 @@
     "./errors": "./src/errors/index.ts",
     "./db": "./src/db/index.ts",
     "./event-store": "./src/event-store/index.ts",
+    "./event-store/admin-api": "./src/event-store/admin-api.ts",
     "./pipeline": "./src/pipeline/index.ts",
     "./api": "./src/api/index.ts",
     "./i18n": "./src/i18n/index.ts",
