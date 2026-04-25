@@ -204,6 +204,26 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.hasError !== undefined && { hasError: props.hasError })}
         />
       );
+    case "textarea":
+      // Default 4 Zeilen — vertikal-resize via resize-y. min-h damit
+      // ein bewusstes rows={2} nicht unter eine sinnvolle Mindesthöhe
+      // schrumpft. Field-Klasse wird leicht angepasst (kein h-9 weil
+      // multiline).
+      return (
+        <textarea
+          {...common}
+          value={props.value}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => props.onChange(e.target.value)}
+          rows={props.rows ?? 4}
+          className={cn(
+            "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm",
+            "transition-colors placeholder:text-muted-foreground focus-visible:outline-none",
+            "focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+            "resize-y min-h-[80px]",
+            errorClass,
+          )}
+        />
+      );
   }
 }
 
@@ -284,6 +304,10 @@ function renderCell(value: unknown, type: string, renderer?: unknown): string {
 // ---- Form + Section + Grid + Text ----
 
 function DefaultForm({ onSubmit, children, testId }: FormProps): ReactNode {
+  // max-w-3xl + mx-auto: Form wird auf 768px begrenzt, zentriert. Auf
+  // breiten Screens spreizen sich Inputs nicht über 1500px (looked
+  // verloren). Pattern parallel zu Notion/Linear-Forms. Lists nutzen
+  // weiter die volle main-Breite — DefaultDataTable hat kein max-w.
   return (
     <form
       onSubmit={(e) => {
@@ -291,7 +315,7 @@ function DefaultForm({ onSubmit, children, testId }: FormProps): ReactNode {
         onSubmit(e);
       }}
       data-testid={testId}
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-6 max-w-3xl mx-auto w-full"
     >
       {children}
     </form>
@@ -313,15 +337,16 @@ function DefaultSection({ title, children, testId }: SectionProps): ReactNode {
 }
 
 function DefaultGrid({ columns, children, testId }: GridProps): ReactNode {
-  // Dynamische Grid-Spalten über style-Attribute — Tailwind JIT kann
-  // `grid-cols-${N}` nicht statisch auflösen weil der Scanner nur
-  // Literal-Strings sieht. Für feste Spaltenzahlen könnte man
-  // `grid-cols-2` etc. hardcoden; Kumikos Grid ist aber generisch.
+  // Responsive: Mobile (< sm = 640px) bleibt 1-spaltig, ab sm: greift
+  // die Author-deklarierte Spaltenzahl. Inline-style schreibt
+  // CSS-Variable; Tailwind-Klasse liest die Variable mit
+  // `grid-template-columns: var(--grid-cols)`. Saubere Lösung weil
+  // Tailwind JIT keinen dynamischen `grid-cols-${N}` auflösen kann.
   return (
     <div
       data-testid={testId}
-      className="grid gap-4"
-      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      className="grid gap-4 grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]"
+      style={{ "--grid-cols": `repeat(${columns}, minmax(0, 1fr))` } as React.CSSProperties}
     >
       {children}
     </div>

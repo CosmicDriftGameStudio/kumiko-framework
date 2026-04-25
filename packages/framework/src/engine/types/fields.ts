@@ -31,6 +31,11 @@ export type TextFieldDef = {
   readonly format?: "email" | "url" | "phone";
   readonly default?: string;
   readonly access?: FieldAccess;
+  /** Mehrzeiliger Text — DefaultInput rendert dann ein <textarea> statt
+   *  <input type="text">. `true` = Default 4 Zeilen, `{ rows: N }` =
+   *  explizite Höhe. Search/sort/encrypt verhalten sich unverändert
+   *  identisch zu single-line — nur die Render-Surface wechselt. */
+  readonly multiline?: boolean | { readonly rows?: number };
 };
 
 export type BooleanFieldDef = {

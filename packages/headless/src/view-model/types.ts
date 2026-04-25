@@ -77,6 +77,10 @@ export type EditFieldViewModel = {
    *  vom Renderer als Dropdown-Optionen genutzt. Quelle ist
    *  SelectFieldDef.options aus der EntityDefinition. */
   readonly options?: readonly string[];
+  /** Nur bei `type: "text"` gesetzt wenn TextFieldDef.multiline true
+   *  ist — dann rendert der Renderer textarea statt single-line input.
+   *  `true` = Default-Zeilen, `{ rows }` = explizite Höhe. */
+  readonly multiline?: boolean | { readonly rows?: number };
 };
 
 export type EditSectionViewModel = {

@@ -16,18 +16,32 @@ import {
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 
-// i18n-Bundles für die Nav-Labels. Ohne diese Bundles würde NavTree
-// die raw keys ("showcase:nav.list") rendern.
+// i18n-Bundles für Nav-Labels + Field-Labels. Ohne diese Bundles
+// würde der NavTree (raw nav-keys) und die EditViewModel-Builder
+// (`<feature>:entity:<entity>:field:<name>`-keys) raw fallback-Keys
+// rendern.
 const appClientFeature: ClientFeatureDefinition = {
   name: "showcase",
   translations: {
     de: {
       "showcase:nav.list": "Items",
       "showcase:nav.new": "Neuer Eintrag",
+      "showcase:entity:item:field:title": "Titel",
+      "showcase:entity:item:field:priority": "Priorität",
+      "showcase:entity:item:field:isDone": "Erledigt?",
+      "showcase:entity:item:field:status": "Status",
+      "showcase:entity:item:field:notes": "Notizen",
+      "showcase:entity:item:field:dueDate": "Fällig am",
     },
     en: {
       "showcase:nav.list": "Items",
       "showcase:nav.new": "New item",
+      "showcase:entity:item:field:title": "Title",
+      "showcase:entity:item:field:priority": "Priority",
+      "showcase:entity:item:field:isDone": "Done?",
+      "showcase:entity:item:field:status": "Status",
+      "showcase:entity:item:field:notes": "Notes",
+      "showcase:entity:item:field:dueDate": "Due date",
     },
   },
 };

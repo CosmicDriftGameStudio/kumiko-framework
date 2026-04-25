@@ -129,6 +129,19 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+    }
+  | {
+      readonly kind: "textarea";
+      readonly id: string;
+      readonly name: string;
+      readonly value: string;
+      readonly onChange: (v: string) => void;
+      /** Anzahl sichtbarer Zeilen. Default 4 in der Default-Primitive
+       *  — hinreichend für Notes, vertikal-scrollbar drüber. */
+      readonly rows?: number;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
     };
 
 export type DataTableProps = {

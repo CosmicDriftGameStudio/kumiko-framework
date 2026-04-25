@@ -17,7 +17,8 @@ export const itemEntity = {
   fields: {
     // Text-Varianten
     title: { type: "text", required: true, sortable: true, searchable: true },
-    notes: { type: "text" },
+    // multiline: textarea statt single-line input
+    notes: { type: "text", multiline: { rows: 4 } },
     // Number mit Default
     priority: { type: "number", default: 1, sortable: true },
     // Boolean mit Default

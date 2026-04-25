@@ -68,6 +68,13 @@ export function computeEditViewModel<
         fieldDef.type === "select"
           ? ((fieldDef as unknown as { options?: readonly string[] }).options ?? [])
           : undefined;
+      // Multiline-Hint bei `type: "text"` — der Renderer wechselt
+      // dann auf textarea. ViewModel hält die Form-Render-Decision
+      // damit der Renderer nicht selbst auf die FieldDefinition greift.
+      const multiline =
+        fieldDef.type === "text"
+          ? (fieldDef as unknown as { multiline?: boolean | { rows?: number } }).multiline
+          : undefined;
       const view: EditFieldViewModel = {
         field: normalized.field,
         label,
@@ -79,6 +86,7 @@ export function computeEditViewModel<
         ...(normalized.span !== undefined && { span: normalized.span }),
         ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
         ...(options !== undefined && { options }),
+        ...(multiline !== undefined && { multiline }),
       };
       return view;
     });
