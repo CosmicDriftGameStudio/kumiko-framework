@@ -1,14 +1,14 @@
-// Dev-Server für den Showcase. runDevApp mit Auth + ein Dev-Tenant.
-// Ephemeral DB by default (KUMIKO_DEV_DB_NAME=showcase_demo für
-// Persistent).
+// Dev-Server für den Showcase. KEIN Auth — der Showcase ist eine UI-
+// Primitive-Spielwiese, Login-Reibung ist hier kontraproduktiv. Auto-
+// Mint-JWT-Mode aktiv (TestUsers.admin) → direkt im Edit-Screen.
+// Wer Auth-Pfade testen will: ui-walkthrough oder workspaces.
 
 import { runDevApp } from "@kumiko/dev-server";
-import type { TenantId } from "@kumiko/framework/engine";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_TENANT_ID } from "./auth-constants";
 import { showcaseFeature } from "./feature";
 
 await runDevApp({
   features: [showcaseFeature],
+  port: 4175,
   clientEntry: "./src/client.tsx",
   htmlPath: "./public/index.html",
   // Extra Watch-Paths zu den Renderer-Packages: ändert sich primitives/
@@ -22,19 +22,4 @@ await runDevApp({
     "../../../packages/headless/src",
     "../../../packages/bundled-features/src/auth-email-password/web",
   ],
-  auth: {
-    admin: {
-      email: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD,
-      displayName: "Admin",
-      memberships: [
-        {
-          tenantId: DEMO_TENANT_ID as TenantId,
-          tenantKey: "demo",
-          tenantName: "Demo Tenant",
-          roles: ["Admin"],
-        },
-      ],
-    },
-  },
 });

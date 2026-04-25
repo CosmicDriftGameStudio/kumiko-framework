@@ -20,6 +20,7 @@ import { taskFeature } from "./feature";
 
 await runDevApp({
   features: [taskFeature],
+  port: 4173,
   clientEntry: "./src/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src"],

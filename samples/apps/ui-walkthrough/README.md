@@ -16,7 +16,8 @@ yarn kumiko dev
 cd samples/apps/ui-walkthrough && yarn dev
 ```
 
-`PORT=4180 yarn dev` für anderen Port. `KUMIKO_DEV_DB_NAME=tasks_demo
+Port 4173 ist hardcoded im dev-Script damit drei Samples parallel laufen
+können (workspaces=4174, showcase=4175). `KUMIKO_DEV_DB_NAME=tasks_demo
 yarn dev` für persistente DB (Daten überleben Restart).
 
 ## Login

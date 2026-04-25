@@ -20,6 +20,7 @@ const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000010" as TenantId;
 
 await runDevApp({
   features: [demoFeature, driverFeature],
+  port: 4174,
   clientEntry: "./src/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src"],

@@ -261,7 +261,9 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
 // Beim ersten Aufruf blockiert die Funktion bis Tailwind den initialen
 // Build fertig hat — sonst würde der Browser 404 auf das Stylesheet
 // bekommen solange Tailwind noch arbeitet.
-async function startTailwindWatcher(entryCss: string): Promise<string> {
+async function startTailwindWatcher(
+  entryCss: string,
+): Promise<{ outPath: string; kill: () => void }> {
   const outDir = mkdtempSync(join(tmpdir(), "kumiko-tw-"));
   const outPath = join(outDir, "styles.css");
   logInfo(`[kumiko-server] tailwind watcher → ${outPath}`);
@@ -278,12 +280,25 @@ async function startTailwindWatcher(entryCss: string): Promise<string> {
     });
     child.on("error", rejectPromise);
   });
-  // Dann der Watcher im Hintergrund.
+  // Dann der Watcher im Hintergrund. Caller kriegt einen kill-Handle —
+  // der dev-server räumt damit auf wenn der Prozess endet (SIGINT,
+  // uncaughtException, regulärer stop()). Vorher: watcher.unref()
+  // entkoppelt vom Parent und blieb beim Crash als orphan-process
+  // hängen.
   const watcher = spawn("bunx", ["@tailwindcss/cli", "-i", entryCss, "-o", outPath, "--watch"], {
     stdio: "inherit",
   });
   watcher.unref();
-  return outPath;
+  return {
+    outPath,
+    kill: () => {
+      try {
+        watcher.kill("SIGTERM");
+      } catch {
+        // schon tot oder nie gestartet — nicht weiter relevant
+      }
+    },
+  };
 }
 
 // Create all entity tables declared by the given features. Uses
@@ -336,9 +351,12 @@ export async function createKumikoServer(
   // einen absoluten Pfad — funktioniert sowohl im Monorepo (Workspace-
   // Link) als auch in einer installierten Fremd-App (node_modules).
   let stylesheetPath: string | undefined;
+  let killTailwind: (() => void) | undefined;
   const resolvedStylesheet = resolveStylesheet(options);
   if (resolvedStylesheet !== undefined) {
-    stylesheetPath = await startTailwindWatcher(resolvedStylesheet);
+    const handle = await startTailwindWatcher(resolvedStylesheet);
+    stylesheetPath = handle.outPath;
+    killTailwind = handle.kill;
   }
 
   // --- HTML template ---
@@ -541,6 +559,7 @@ export async function createKumikoServer(
   }
 
   const stop = async (): Promise<void> => {
+    if (killTailwind) killTailwind();
     if (server !== undefined) {
       (server as { stop: (closeActive?: boolean) => void }).stop(true);
     }
@@ -552,8 +571,11 @@ export async function createKumikoServer(
 
   // --- graceful shutdown ---
   // Signal handlers fire on Ctrl-C / kill. Without them, repeated dev
-  // restarts leak Postgres pools and (in persistent mode) leave
-  // temporary clients dangling.
+  // restarts leak Postgres pools, lassen Tailwind-Watcher als orphan
+  // hängen und (in persistent mode) hinterlassen temp Clients.
+  // uncaughtException + unhandledRejection: Crashes hatten den Tailwind-
+  // Watcher nicht gekillt, der lief munter weiter im Hintergrund. Jetzt
+  // räumen wir auch im Fehlerfall auf bevor wir mit non-zero exit'n.
   const installHandlers = options.installSignalHandlers ?? true;
   if (installHandlers) {
     for (const sig of ["SIGINT", "SIGTERM"] as const) {
@@ -563,6 +585,22 @@ export async function createKumikoServer(
         process.exit(0);
       });
     }
+    process.on("uncaughtException", async (err) => {
+      logError("[kumiko-server] uncaughtException — cleaning up…", err);
+      try {
+        await stop();
+      } finally {
+        process.exit(1);
+      }
+    });
+    process.on("unhandledRejection", async (err) => {
+      logError("[kumiko-server] unhandledRejection — cleaning up…", err);
+      try {
+        await stop();
+      } finally {
+        process.exit(1);
+      }
+    });
   }
 
   if (server !== undefined) {

@@ -17,9 +17,12 @@ löst die Merge auf, der Browser bekommt das fertige AppSchema via
 # Postgres + Redis hochfahren (einmal)
 yarn kumiko dev
 
-# In neuem Terminal — bootet Sample auf http://localhost:4173
+# In neuem Terminal — bootet Sample auf http://localhost:4174
 cd samples/apps/workspaces && yarn dev
 ```
+
+Port 4174 ist hardcoded damit drei Sample-Apps parallel laufen können
+(ui-walkthrough=4173, showcase=4175).
 
 ## Login
 

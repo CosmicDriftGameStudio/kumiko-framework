@@ -5,49 +5,47 @@ DefaultInput rendert, alle relevanten Layout-Pfade, alle Primitive-
 States durch normale Click-Pfade erreichbar. Gut zum schnellen
 optischen + funktionellen Sichten beim Refactoring.
 
+**Kein Auth** — der Server läuft im Auto-Mint-JWT-Mode, du landest
+direkt im Edit-Screen ohne Login. Wer Auth-Pfade testen will, schaut
+in `samples/apps/ui-walkthrough` oder `samples/apps/workspaces`.
+
 ## Run
 
 ```bash
 yarn kumiko dev                  # Postgres + Redis
 cd samples/apps/showcase && yarn dev
-# → http://localhost:4173
+# → http://localhost:4175
 ```
 
-## Login
-
-```
-admin@kumiko.dev
-kumiko-admin
-```
+Port 4175 ist hardcoded damit drei Sample-Apps parallel laufen können
+(ui-walkthrough=4173, workspaces=4174).
 
 ## Click-Through-Guide
 
 ### Empty-State (List-Primitive)
 
-Direkt nach Login → leere List-Screen. Du solltest sehen:
-
-- Sidebar: zwei Nav-Einträge ("Items", "Neuer Eintrag") — `NavTree`
-- Topbar: Brand links, TenantSwitcher (versteckt bei nur einem
-  Tenant), ThemeToggle, UserMenu rechts — `DefaultTopbarActions`
-- Main: gerahmtes "No entries." — `render-list-empty`
+Nach Mount → List-Screen mit "No entries." (`render-list-empty`).
+Sidebar zeigt zwei Nav-Einträge ("Items", "Neuer Eintrag"), Topbar hat
+Brand + ThemeToggle.
 
 ### Form-Primitives + Conditional Visibility
 
 Klick auf "Neuer Eintrag" → entityEdit-Screen.
 
-- **Section "Basics"** mit 2-Spalten-Layout (`Section` mit `columns: 2`)
+- **Section "Basics"** mit 2-Spalten-Layout (`Section` mit `columns: 2`),
+  Mobile (<640px) automatisch einspaltig
 - **`title`** als `text` Input, full-width via `span: 2` (Required-Marker
   rot rechts neben dem Label)
-- **`priority`** als `number` Input, Default 1 (sieht "1" sofort im
-  Feld)
+- **`priority`** als `number` Input, Default 1
 - **`isDone`** als checkbox
-- **`status`** als `<select>` mit 4 Optionen (draft/active/blocked/done),
-  Default "draft", full-width via `span: 2`
+- **`status`** als shadcn/Radix-Select-Dropdown mit 4 Optionen
+  (draft/active/blocked/done), Default "draft", full-width
 - **Section "Details"** mit 1-Spalte-Layout
-- **`notes`** ist UNSICHTBAR — `visible: (d) => d.isDone === true`
+- **`notes`** ist UNSICHTBAR — `visible: (d) => d.isDone === true`,
+  rendert als 4-zeilige Textarea wenn sichtbar (`multiline: { rows: 4 }`)
 - **`dueDate`** als nativer date-Picker
 
-→ Tick **`isDone`**: das `notes`-Feld erscheint mit Required-Marker.
+→ Tick **`isDone`**: das `notes`-Textarea erscheint mit Required-Marker.
 Beweist die FieldCondition-Pipeline.
 
 → Wechsle den Status im Dropdown: Form-Controller markiert dirty,
@@ -58,18 +56,15 @@ Submit-Button enabled.
 - Submit-Button ist **disabled** solange das Form unverändert ist
   (`isUnchanged` Gate) — sieht sofort grau aus
 - Tippe in `title` → Button enabled sich
-- Klick auf Submit ohne `title` einzutippen: nicht möglich, dann
-  füll `title` und lösch ihn wieder → bleibt enabled bis... hmm
-  besser: tick isDone, dann title=leer + submit → `field-error` an title
-- Submit mit valid: Submit klappt, navigiert zur Liste
+- Tick isDone, lass title leer, submit → `field-error` an title
+- Submit mit valid: navigiert zur Liste
 
 ### List-Primitive mit Daten + Custom-Renderer
 
-Nach erstem Submit → List-Screen (KumikoScreen useNavigateToListAfter).
+Nach erstem Submit → List-Screen.
 
-- **DataTable** mit Spalten Title, IsDone (rendert ✓ / ✗), Priority
-  (Custom-Renderer `(v) => v === 0 ? "—" : "P{v}"`), DueDate
-- Einzeilige Tabelle für deinen ersten Eintrag
+- **DataTable** mit Spalten Title, Status, IsDone (rendert ✓ / ✗),
+  Priority (Custom-Renderer `(v) => v === 0 ? "—" : "P{v}"`), DueDate
 
 → Klick auf die Row → navigiert zur Edit-Form für genau dieses Item
 (useDispatcher.detail-Query).
@@ -87,17 +82,12 @@ Click auf den Theme-Toggle (Sonne/Mond rechts oben) → `<html class>`
 wechselt zwischen `light` und `dark`. Tailwind-Tokens (background,
 foreground, border, accent) passen sich an.
 
-### Tenant-Switcher
+### Responsiveness
 
-Bei diesem Sample nur ein Tenant (Demo Tenant) — der TenantSwitcher
-versteckt sich. Wenn du mehrere demonstrieren willst, kopiere den
-ui-walkthrough-Sample (zwei Tenants).
-
-### UserMenu
-
-Klick auf User-Avatar rechts oben → Dropdown mit Logout-Action.
-`session.logout()` → Cookies clear → Page-Reload → wieder
-LoginScreen.
+- Browser-Window auf <640px Breite ziehen → 2-Spalten-Section wird
+  einspaltig (Mobile-Breakpoint sm:)
+- Form bleibt zentriert mit `max-w-3xl` (768px) — auf großen Screens
+  spreizen sich Inputs nicht über die volle Breite
 
 ## Was beweisbar ist
 
@@ -107,9 +97,8 @@ LoginScreen.
 - Field-Conditions: visible + required als Functions auf `data`
 - DataTable: Empty-State, Header-Row, Cell-Renderers (boolean ✓/✗,
   custom render-function)
-- Layout: Section-Title, columns, span, KumikoLink, NavTree
+- Layout: Section-Title, responsive columns + span, KumikoLink, NavTree
 - Theme: light/dark via TokensProvider
-- Auth: Login → AuthGate → Session → useShellUser
 - AppSchema-Injection: kein hand-geschriebener clientSchema, alles
   vom Server geliefert
 
@@ -117,9 +106,12 @@ LoginScreen.
 
 - `timestamp`-Field-Type (Tier 2.2 pending)
 - `money`-Field-Type (Tier 2.3 pending)
+- Searchable Select (Tier 2.1c pending)
+- Multi-Select (Tier 2.1d pending)
 - `embedded`-Field-Type (Tier 2.4 pending — niedrige Prio)
 - `file/image`-Field-Types (Tier 2.5/2.5b pending — Resize-Pipeline + UI)
-- `WorkspaceShell` mit role-gating (siehe `samples/apps/workspaces/`)
+- Auth-Pfade (siehe `samples/apps/ui-walkthrough/`)
+- Workspaces (siehe `samples/apps/workspaces/`)
 - TenantSwitcher mit mehreren Tenants (siehe `samples/apps/ui-walkthrough/`)
 - LanguageSwitcher (siehe `samples/apps/ui-walkthrough/`)
 
