@@ -38,6 +38,7 @@ export type {
 export type { AccessRule } from "../engine/types/handlers";
 
 export type { NavDefinition } from "../engine/types/nav";
+export type { WorkspaceDefinition } from "../engine/types/workspace";
 export type {
   CustomScreenDefinition,
   CustomScreenRoute,

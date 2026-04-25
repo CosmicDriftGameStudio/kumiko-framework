@@ -15,13 +15,18 @@ export type NavTreeProps = {
   readonly schema: FeatureSchema;
   readonly user?: { readonly id: string; readonly roles: readonly string[] };
   readonly testId?: string;
+  // Workspace membership filter — when set, only nav entries whose qualified
+  // id is in the set are visible. WorkspaceShell passes the active
+  // workspace's `navMembers` list. Undefined = no filter (legacy / non-
+  // workspace apps render every nav).
+  readonly allowedNavQns?: ReadonlySet<string>;
 };
 
-export function NavTree({ schema, user, testId }: NavTreeProps): ReactNode {
+export function NavTree({ schema, user, testId, allowedNavQns }: NavTreeProps): ReactNode {
   const tree = useMemo(() => {
-    const source = buildNavRegistrySlice(schema);
+    const source = buildNavRegistrySlice(schema, allowedNavQns);
     return resolveNavigation({ source, ...(user !== undefined && { user }) });
-  }, [schema, user]);
+  }, [schema, user, allowedNavQns]);
   return (
     <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex flex-col gap-0.5">
       {tree.map((node) => (
@@ -88,17 +93,31 @@ function NavNodeItem({
   );
 }
 
-export function buildNavRegistrySlice(schema: FeatureSchema): NavRegistrySlice {
+export function buildNavRegistrySlice(
+  schema: FeatureSchema,
+  allowedNavQns?: ReadonlySet<string>,
+): NavRegistrySlice {
   const qualified: NavDefinition[] = (schema.navs ?? []).map((n) => ({
     ...n,
     id: qualifyNavId(schema.featureName, n.id),
     ...(n.parent !== undefined && { parent: qualifyNavId(schema.featureName, n.parent) }),
     ...(n.screen !== undefined && { screen: qualifyScreenId(schema.featureName, n.screen) }),
   }));
+  // Workspace filter: drop nav entries whose qualified id isn't in the
+  // allow-set. A child whose parent gets dropped surfaces as a top-level
+  // entry — the workspace owner should list parents explicitly if they
+  // want the grouping preserved.
+  const filtered =
+    allowedNavQns !== undefined ? qualified.filter((n) => allowedNavQns.has(n.id)) : qualified;
+  const allowedQnSet = new Set(filtered.map((n) => n.id));
   const topLevel: NavDefinition[] = [];
   const byParentMap = new Map<string, NavDefinition[]>();
-  for (const nav of qualified) {
-    if (nav.parent !== undefined) {
+  for (const nav of filtered) {
+    // Treat the entry as top-level when its parent isn't visible — keeps
+    // children visible after filtering, even if the workspace omits the
+    // parent group from its members list.
+    const hasVisibleParent = nav.parent !== undefined && allowedQnSet.has(nav.parent);
+    if (hasVisibleParent && nav.parent !== undefined) {
       const list = byParentMap.get(nav.parent) ?? [];
       list.push(nav);
       byParentMap.set(nav.parent, list);

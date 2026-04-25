@@ -1,4 +1,9 @@
-import type { EntityDefinition, NavDefinition, ScreenDefinition } from "@kumiko/framework/ui-types";
+import type {
+  EntityDefinition,
+  NavDefinition,
+  ScreenDefinition,
+  WorkspaceDefinition,
+} from "@kumiko/framework/ui-types";
 
 // Client-safe view of a feature: the subset the renderer needs to
 // mount screens. Intentionally narrower than the server-side
@@ -39,4 +44,21 @@ export type FeatureSchema = {
   // Flat list; resolveNavigation builds the tree at render-time from
   // the registry's indexes. Omitted when the app has no top-level nav.
   readonly navs?: readonly NavDefinition[];
+  // Workspaces — persona-/role-scoped UI surfaces. Each entry carries
+  // the resolved nav-membership pre-merged from r.workspace.nav AND
+  // r.nav.workspaces (the engine's getWorkspaceNavs() output) so the
+  // browser bundle doesn't need to redo the merge. Omitted when the app
+  // doesn't use workspaces — WorkspaceShell falls back to all-navs.
+  readonly workspaces?: readonly WorkspaceSchema[];
+};
+
+// Per-workspace projection of the engine's WorkspaceDefinition + the
+// pre-resolved member nav QNs. The shell renders the switcher from
+// `definition` and filters the nav tree using `navMembers`.
+export type WorkspaceSchema = {
+  readonly definition: WorkspaceDefinition;
+  // Nav QNs that belong to this workspace, in the order the engine
+  // resolved them (explicit r.workspace.nav first, then nav-self-assigned
+  // entries — deduped). Empty when no nav has been assigned.
+  readonly navMembers: readonly string[];
 };
