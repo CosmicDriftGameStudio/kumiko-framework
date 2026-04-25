@@ -262,12 +262,30 @@ describe("serializeError", () => {
     expect(body.error.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  test("InternalError hides details from client body (secret-safety)", () => {
-    const err = new InternalError({ cause: new Error("leak me if you can") });
+  test("InternalError exposes cause snapshot in dev (NODE_ENV !== production)", () => {
+    // Dev/test path: the cause is surfaced as causeMessage / causeStack so
+    // developers don't have to bolt try/catch onto every handler to learn
+    // why a request 500'd. Production strips it (next test).
+    const err = new InternalError({ cause: new Error("redis_pool_exhausted") });
     const body = serializeError(err, "req-xyz");
     expect(body.error.code).toBe("internal_error");
-    expect(body.error).not.toHaveProperty("details");
     expect(body.error.message).toBe("internal error");
+    expect(body.error.details).toMatchObject({ causeMessage: "redis_pool_exhausted" });
+  });
+
+  test("InternalError hides details in production (secret-safety)", () => {
+    const original = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      const err = new InternalError({ cause: new Error("leak me if you can") });
+      const body = serializeError(err, "req-xyz");
+      expect(body.error.code).toBe("internal_error");
+      expect(body.error).not.toHaveProperty("details");
+      expect(body.error.message).toBe("internal error");
+    } finally {
+      if (original === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = original;
+    }
   });
 
   test("omits requestId field when not provided", () => {

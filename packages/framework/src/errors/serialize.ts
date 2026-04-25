@@ -14,13 +14,52 @@ export type ErrorResponseBody = {
   };
 };
 
-// InternalError deliberately omits `details` from the response even if one was
-// set, because that field often carries the internal cause. The log still has
+// InternalError deliberately omits `details` from the response in production,
+// because that field often carries the internal cause. The log still has
 // everything (see buildErrorLog).
+//
+// In dev/test the cause is exposed in the response body to make debugging
+// possible — without this, a crash in a handler comes back as a bare
+// "internal error" and developers have to add try/catch + UnprocessableError
+// just to see what went wrong (real footgun, not theoretical). The exposure
+// is gated on NODE_ENV !== "production" so a misconfigured prod deploy
+// doesn't leak stack traces over the wire.
 const CODES_WITHOUT_CLIENT_DETAILS = new Set(["internal_error"]);
 
+const isProductionEnv = (): boolean => process.env["NODE_ENV"] === "production";
+
+// Snapshot of the cause chain (top-most error only) suitable for inclusion
+// in dev-mode error responses. Stack is truncated to keep the body small.
+type DevCauseDetail = {
+  readonly causeName?: string;
+  readonly causeMessage?: string;
+  readonly causeStack?: string;
+};
+
+function devCauseDetail(cause: unknown): DevCauseDetail | undefined {
+  if (!(cause instanceof Error)) return undefined;
+  return {
+    causeName: cause.name,
+    causeMessage: cause.message,
+    ...(cause.stack && { causeStack: cause.stack.split("\n").slice(0, 8).join("\n") }),
+  };
+}
+
 export function serializeError(err: KumikoError, requestId?: string): ErrorResponseBody {
-  const exposeDetails = err.details !== undefined && !CODES_WITHOUT_CLIENT_DETAILS.has(err.code);
+  const stripped = CODES_WITHOUT_CLIENT_DETAILS.has(err.code) && isProductionEnv();
+  const exposeDeclaredDetails = err.details !== undefined && !stripped;
+
+  // For internal_error in dev/test, surface the cause chain so the
+  // response body has something useful instead of "internal error".
+  // Priority: declared details (if any) win over the cause snapshot —
+  // a hand-set details on InternalError should not be replaced.
+  const detailsForResponse = (() => {
+    if (exposeDeclaredDetails) return err.details;
+    if (CODES_WITHOUT_CLIENT_DETAILS.has(err.code) && !isProductionEnv()) {
+      return devCauseDetail(err.cause);
+    }
+    return undefined;
+  })();
 
   return {
     error: {
@@ -28,7 +67,7 @@ export function serializeError(err: KumikoError, requestId?: string): ErrorRespo
       i18nKey: err.i18nKey,
       ...(err.i18nParams && { i18nParams: err.i18nParams }),
       message: err.message,
-      ...(exposeDetails && { details: err.details }),
+      ...(detailsForResponse !== undefined && { details: detailsForResponse }),
       ...(requestId && { requestId }),
       timestamp: new Date().toISOString(),
     },

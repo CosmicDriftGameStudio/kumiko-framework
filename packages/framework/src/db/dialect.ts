@@ -77,7 +77,15 @@ const instantBuilder = (config?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }) =>
     fromDriver(value: string): Temporal.Instant {
       return Temporal.Instant.from(value);
     },
-    toDriver(value: Temporal.Instant): string {
+    toDriver(value: Temporal.Instant | string): string {
+      // Forgiving overload: payloads from custom write-handlers sometimes
+      // arrive as ISO strings rather than Temporal.Instant (Zod insert-
+      // schemas use z.iso.datetime, not a Temporal validator). Coerce
+      // here at the boundary so the DB always sees a normalised string —
+      // and Temporal.Instant.from throws on bad input, which is the right
+      // failure mode (vs. the obscure "x.toString is not a function"
+      // crash that hit feature authors before this overload existed).
+      if (typeof value === "string") return Temporal.Instant.from(value).toString();
       return value.toString();
     },
   });

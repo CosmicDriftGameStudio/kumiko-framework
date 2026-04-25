@@ -103,6 +103,30 @@ function isLifecycleResult(data: unknown): data is LifecycleResult {
   return !!data && typeof data === "object" && "kind" in data;
 }
 
+// Shape-check for write-handler returns. The compile-time type already
+// requires WriteResult, but the inline form (r.writeHandler(name, schema,
+// fn, opts)) sometimes lets a wrong shape through structural widening —
+// the runtime guard below turns the obscure crash that follows into a
+// clear, actionable error message.
+function isWriteResultShape(result: unknown): boolean {
+  return (
+    !!result &&
+    typeof result === "object" &&
+    "isSuccess" in result &&
+    typeof (result as { isSuccess: unknown }).isSuccess === "boolean"
+  );
+}
+
+// Compact, log-safe shape description for the shape-guard error message.
+// We don't dump JSON of arbitrary user data — just the keys + type so the
+// developer can spot the missing isSuccess at a glance.
+function describeShape(result: unknown): string {
+  if (result === null) return "null";
+  if (result === undefined) return "undefined";
+  if (typeof result !== "object") return typeof result;
+  return `object with keys [${Object.keys(result as object).slice(0, 6).join(", ")}]`;
+}
+
 // Standard span attributes for a dispatcher call. Feature may be undefined
 // for internal handlers that weren't registered via defineFeature.
 function dispatcherSpanAttributes(
@@ -1267,6 +1291,23 @@ export function createDispatcher(
       result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
     } catch (e) {
       return writeFailure(wrapToKumiko(e));
+    }
+
+    // Runtime shape-guard. The compile-time type WriteHandlerFn already
+    // requires `Promise<WriteResult>`, but custom handlers wired through
+    // r.writeHandler(name, schema, fn, opts) sometimes slip through with
+    // `Promise<{id: string}>` — TypeScript misses it under structural-
+    // widening, the dispatcher then reads .isSuccess on undefined and
+    // crashes obscure. Surface a clear actionable message instead.
+    if (!isWriteResultShape(result)) {
+      return writeFailure(
+        new InternalError({
+          message:
+            `Write handler "${type}" returned an invalid shape. Expected WriteResult ` +
+            `({ isSuccess: true, data: ... } or writeFailure(err)), got ${describeShape(result)}. ` +
+            `Use defineWriteHandler() or wrap the return as { isSuccess: true as const, data: ... }.`,
+        }),
+      );
     }
 
     if (result.isSuccess) {

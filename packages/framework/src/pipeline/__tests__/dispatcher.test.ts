@@ -297,6 +297,47 @@ describe("dispatcher feature-gate", () => {
   });
 });
 
+describe("write-handler shape guard", () => {
+  // Real footgun caught while building the publicstatus showcase: a custom
+  // handler that returns `{ id }` instead of `{ isSuccess: true, data: { id } }`
+  // used to crash the dispatcher with an obscure "internal error". The
+  // shape-guard turns this into a clear actionable message at the
+  // dispatcher boundary.
+
+  function brokenFeature() {
+    return defineFeature("broken", (r) => {
+      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.writeHandler(
+        "item:create",
+        z.object({ name: z.string() }),
+        // biome-ignore lint/suspicious/noExplicitAny: deliberate wrong-shape return for the test
+        async (event) => ({ id: "x", name: event.payload.name } as any),
+        { access: { roles: ["Admin"] } },
+      );
+    });
+  }
+
+  test("handler returning a non-WriteResult shape → InternalError with actionable hint", async () => {
+    const registry = createRegistry([brokenFeature()]);
+    const dispatcher = createDispatcher(registry, {});
+    const result = await dispatcher.write(
+      "broken:write:item:create",
+      { name: "test" },
+      createTestUser(),
+    );
+
+    expect(result.isSuccess).toBe(false);
+    if (!result.isSuccess) {
+      expect(result.error.code).toBe("internal_error");
+      // Message points at defineWriteHandler / WriteResult-shape — that's
+      // the developer's actionable next step. Also surfaces in the
+      // dev-mode response body via error.message.
+      expect(result.error.message).toContain("invalid shape");
+      expect(result.error.message).toContain("defineWriteHandler");
+    }
+  });
+});
+
 // --- Mock helpers ---
 
 function createMockIdempotencyGuard() {
