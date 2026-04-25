@@ -33,4 +33,12 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.healthReady}`,
 ]);
 
+// Tenant transports for unauthenticated callers on public endpoints. JWT
+// users carry tenantId in the signed token; anonymous callers must declare
+// the tenant out-of-band — header for SPA/mobile, cookie for browser-direct
+// access. The middleware reads header first, then cookie, then falls back to
+// `anonymousAccess.tenantResolver` and finally `anonymousAccess.defaultTenantId`.
+export const TENANT_HEADER_NAME = "X-Tenant";
+export const TENANT_COOKIE_NAME = "kumiko_tenant";
+
 export type Route = (typeof Routes)[keyof typeof Routes];

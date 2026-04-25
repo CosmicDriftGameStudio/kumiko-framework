@@ -22,6 +22,11 @@ export const access = {
   // (change-password, logout, me-style queries). Does NOT include "system"
   // since an unauthenticated system call shouldn't be able to hit these.
   authenticated: ["User", "Admin", "SystemAdmin"] as readonly string[],
+  // Unauthenticated callers reaching public endpoints (server must opt in
+  // via `anonymousAccess`). Combine with authenticated roles when an
+  // endpoint should serve both — e.g. `roles: ["anonymous", "customer"]`
+  // for a product-listing that personalises when a session is present.
+  anonymous: ["anonymous"] as readonly string[],
   roles: (...roles: string[]): readonly string[] => roles,
 } as const;
 

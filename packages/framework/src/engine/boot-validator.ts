@@ -267,6 +267,12 @@ function validateCircularDeps(
 
 // --- Handler access validation ---
 
+// Rate-limit modes that bucket per user.id. Anonymous endpoints would put
+// every unauthenticated caller into a single shared bucket (id="anonymous"),
+// turning the rate-limit into a global tap any caller can drain. Boot-fail
+// before the misconfiguration ships.
+const USER_BUCKETED_RATE_LIMIT_PER: ReadonlySet<string> = new Set(["user", "user+handler"]);
+
 // Every handler must declare access. Missing access is treated as default-deny
 // at runtime, but we fail at boot to turn an easy-to-miss security regression
 // into a loud configuration error.
@@ -278,6 +284,7 @@ function validateHandlerAccess(feature: FeatureDefinition): void {
           `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
       );
     }
+    validateAnonymousRateLimit(feature.name, "write", name, handler.access, handler.rateLimit);
   }
   for (const [name, handler] of Object.entries(feature.queryHandlers)) {
     if (!handler.access) {
@@ -286,7 +293,32 @@ function validateHandlerAccess(feature: FeatureDefinition): void {
           `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
       );
     }
+    validateAnonymousRateLimit(feature.name, "query", name, handler.access, handler.rateLimit);
   }
+}
+
+function validateAnonymousRateLimit(
+  featureName: string,
+  kind: "write" | "query",
+  handlerName: string,
+  access: NonNullable<FeatureDefinition["writeHandlers"][string]["access"]>,
+  rateLimit: FeatureDefinition["writeHandlers"][string]["rateLimit"],
+): void {
+  // skip: handler doesn't opt into rate-limit, no user-bucket risk
+  if (!rateLimit) return;
+  // skip: openToAll handlers don't allow anonymous (hasAccess rejects), so
+  // the user-bucket footgun doesn't apply
+  if (!("roles" in access)) return;
+  // skip: handler doesn't list anonymous, regular role-rate-limit is fine
+  if (!access.roles.includes("anonymous")) return;
+  // skip: rate-limit is already keyed on something safe (ip / tenant)
+  if (!USER_BUCKETED_RATE_LIMIT_PER.has(rateLimit.per)) return;
+  throw new Error(
+    `${kind} handler "${featureName}:${kind}:${handlerName}" allows anonymous callers but uses ` +
+      `rateLimit.per="${rateLimit.per}" — every anonymous request shares user.id="anonymous", ` +
+      `so this bucket would be a single global tap any caller could drain. ` +
+      `Use rateLimit.per="ip" or "ip+handler" for anonymous endpoints.`,
+  );
 }
 
 // --- MultiStreamProjection delivery-invariant ---

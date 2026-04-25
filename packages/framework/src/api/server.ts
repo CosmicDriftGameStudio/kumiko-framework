@@ -44,7 +44,7 @@ import {
 import type { SearchAdapter } from "../search/types";
 import { generateId } from "../utils";
 import { PUBLIC_API_PATHS } from "./api-constants";
-import { authMiddleware } from "./auth-middleware";
+import { type AnonymousAccessConfig, authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
 import { createJwtHelper, type JwtHelper } from "./jwt";
@@ -182,6 +182,11 @@ export type ServerOptions = {
   // specific instances and can DELETE stale rows on scale-down. Must never
   // equal the sentinel; validator fails boot if it does.
   instanceId?: string;
+  // Opt-in: serve unauthenticated requests on handlers that allow
+  // roles=["anonymous"]. When omitted, every /api/* request still requires
+  // a valid JWT (status quo). See AnonymousAccessConfig for the resolution
+  // chain (header → cookie → resolver → defaultTenantId).
+  anonymousAccess?: AnonymousAccessConfig;
 };
 
 export type KumikoServer = {
@@ -517,11 +522,13 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   // Auth middleware skips public paths (login, health) — those routes need
   // to be callable without a valid JWT. Every other /api/* request requires
-  // a token. A session-checker is forwarded when the auth-config wires one,
-  // so the middleware can reject revoked sids on every request.
+  // a token (or, when anonymousAccess is wired, falls through as anonymous).
+  // A session-checker is forwarded when the auth-config wires one, so the
+  // middleware can reject revoked sids on every request.
   const jwtGuard = authMiddleware(jwt, {
     ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
     ...(options.auth?.sessionStrictMode ? { strictMode: options.auth.sessionStrictMode } : {}),
+    ...(options.anonymousAccess ? { anonymousAccess: options.anonymousAccess } : {}),
   });
   app.use("/api/*", async (c, next) => {
     if (PUBLIC_API_PATHS.has(c.req.path)) return next();

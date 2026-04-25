@@ -97,6 +97,9 @@ export type TestStackOptions = {
    *  owns its lifecycle. Default false (test contract). Used by
    *  dev-server wiring to survive hot-reloads. */
   persistentDb?: boolean;
+  /** Forwarded to buildServer — when set, requests without a JWT pass
+   *  through as anonymous instead of 401. See AnonymousAccessConfig. */
+  anonymousAccess?: import("../api/server").ServerOptions["anonymousAccess"];
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -274,6 +277,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     ...(options.observability ? { observability: options.observability } : {}),
     ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
     ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}),
+    ...(options.anonymousAccess ? { anonymousAccess: options.anonymousAccess } : {}),
     // Wire the upload routes + ctx.files only when the caller registered a
     // provider. Tests that don't touch files skip both without extra setup.
     ...(options.files

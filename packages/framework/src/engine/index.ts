@@ -66,7 +66,14 @@ export { resolveConfigOrParam } from "./resolve-config-or-param";
 export { runsInLane } from "./run-in";
 export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 export { defineTransitions, guardTransition } from "./state-machine";
-export { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "./system-user";
+export {
+  ANONYMOUS_ROLE,
+  ANONYMOUS_USER_ID,
+  createAnonymousUser,
+  createSystemUser,
+  SYSTEM_ROLE,
+  SYSTEM_USER_ID,
+} from "./system-user";
 // Types
 export type {
   AccessRule,

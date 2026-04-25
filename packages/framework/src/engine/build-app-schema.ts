@@ -26,8 +26,8 @@
 // `effectiveFeatures` Argument annehmen und über alle iterations filtern.
 
 import type { AppSchema, EntityDefinition, FeatureSchema, WorkspaceSchema } from "../ui-types";
-import type { FieldDefinition } from "./types/fields";
 import type { Registry } from "./types/feature";
+import type { FieldDefinition } from "./types/fields";
 
 export function buildAppSchema(registry: Registry): AppSchema {
   const features: FeatureSchema[] = [];

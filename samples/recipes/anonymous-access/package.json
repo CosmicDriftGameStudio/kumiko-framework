@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-anonymous-access",
+  "description": "Public endpoints (anonymous role) for shop / CMS-style apps. Tenant resolution via header, cookie, or default.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}
