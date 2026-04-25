@@ -11,6 +11,8 @@ export type {
   EmailPasswordClientOptions,
 } from "./client-plugin";
 export { emailPasswordClient } from "./client-plugin";
+export type { DefaultTopbarActionsProps } from "./default-topbar-actions";
+export { DefaultTopbarActions } from "./default-topbar-actions";
 export type { LoginScreenProps } from "./login-screen";
 export { LoginScreen } from "./login-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";

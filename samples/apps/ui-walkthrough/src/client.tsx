@@ -1,30 +1,32 @@
 // Browser-Entrypoint. Bundled via Bun.build (server.ts).
 //
-// Was in diesem File steckt ist was eine echte App in dieser Zeile
-// auch entscheiden würde: Tenant-Name-Mapping, welche Locales der
-// LanguageSwitcher anzeigt, App-spezifische Strings. Die Topbar-
-// Komposition selbst (Layout + Sidebar + NavTree) liegt als
-// `DefaultAppShell` im Framework.
+// Was hier in der Datei steckt sind die App-spezifischen Entscheidungen
+// die jede echte App auch treffen würde: Tenant-Name-Mapping, welche
+// Locales der LanguageSwitcher anzeigt, App-spezifische Strings + i18n-
+// Keys. Die Topbar-Komposition (TenantSwitcher + ThemeToggle + UserMenu)
+// kommt als `DefaultTopbarActions` aus auth-email-password/web; eigene
+// Extras (hier LanguageSwitcher) gehen in den `extras`-Slot.
+//
+// Schema kommt vom dev-server beim Boot (window.__KUMIKO_SCHEMA__),
+// kein hand-geschriebener clientSchema-Mirror mehr.
 
 import {
+  DefaultTopbarActions,
   emailPasswordClient,
-  TenantSwitcher,
-  UserMenu,
 } from "@kumiko/bundled-features/auth-email-password/web";
 import {
+  type AppSchema,
   type ClientFeatureDefinition,
   createKumikoApp,
   DefaultAppShell,
   LanguageSwitcher,
-  ThemeToggle,
 } from "@kumiko/renderer-web";
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
-import { clientSchema } from "./feature-schema";
 
-// Gespiegelt aus seed.ts — seed.ts darf nicht ins Browser-Bundle
-// (importiert argon2 + @kumiko/framework/testing). Zwei Zeilen
-// Konstanten sind pragmatischer als ein separates shared-Modul.
+// Gespiegelt aus server.ts — server.ts darf nicht ins Browser-Bundle
+// (importiert framework/runtime). Zwei Zeilen Konstanten sind
+// pragmatischer als ein separates shared-Modul.
 const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000001";
 const BETA_TENANT_ID = "00000000-0000-4000-8000-000000000002";
 
@@ -41,13 +43,7 @@ const availableLocales = [
 
 // App-level Client-Feature: nur Translations, keine Provider/Gates.
 // Pattern ist dasselbe wie bei auth-email-password — der Sample wird
-// selbst zu einem "Feature" das seine i18n-Keys mitbringt. Apps mit
-// mehreren Domänen würden das pro Domäne aufteilen oder ein
-// zentrales app-translations-Modul laden.
-// Brand-Strings sind typischerweise app-konstant — nicht jede Sprache
-// braucht einen anderen Markennamen. Daher direkt als string-Literal,
-// ohne Umweg über useTranslation. Die i18n-Keys hier (tasks.nav.*)
-// gehen über NavTree's useTranslation-Pfad.
+// selbst zu einem "Feature" das seine i18n-Keys mitbringt.
 const APP_NAME = "Kumiko Walkthrough";
 
 const appClientFeature: ClientFeatureDefinition = {
@@ -68,26 +64,30 @@ const Brand = (): ReactNode => (
   <strong className="text-foreground tracking-tight">{APP_NAME}</strong>
 );
 
-const TopbarActions = (): ReactNode => (
-  <div className="flex items-center gap-2">
-    <TenantSwitcher tenantName={tenantName} />
-    <LanguageSwitcher locales={availableLocales} />
-    <ThemeToggle
-      lightIcon={<Sun className="h-4 w-4" />}
-      darkIcon={<MoonStar className="h-4 w-4" />}
-    />
-    <UserMenu />
-  </div>
-);
-
-const AppShell = ({ children }: { readonly children: ReactNode }): ReactNode => (
-  <DefaultAppShell brand={<Brand />} schema={clientSchema} topbarActions={<TopbarActions />}>
+const AppShell = ({
+  children,
+  schema,
+}: {
+  readonly children: ReactNode;
+  readonly schema: AppSchema;
+}): ReactNode => (
+  <DefaultAppShell
+    brand={<Brand />}
+    schema={schema}
+    topbarActions={
+      <DefaultTopbarActions
+        tenantName={tenantName}
+        extras={<LanguageSwitcher locales={availableLocales} />}
+        lightIcon={<Sun className="h-4 w-4" />}
+        darkIcon={<MoonStar className="h-4 w-4" />}
+      />
+    }
+  >
     {children}
   </DefaultAppShell>
 );
 
 createKumikoApp({
-  schema: clientSchema,
   shell: AppShell,
   clientFeatures: [emailPasswordClient(), appClientFeature],
 });

@@ -1,48 +1,38 @@
-// Dev-Server für ui-walkthrough. Der ganze Boilerplate
-// (Client-Bundle, setupTestStack, SSE-Reload, SIGINT cleanup) lebt in
-// @kumiko/dev-server. Braucht Postgres + Redis (siehe
-// `yarn kumiko dev`). Persistent-DB-Modus: setze KUMIKO_DEV_DB_NAME
-// in der Umgebung.
+// Dev-Server für ui-walkthrough. runDevApp mischt die Standard-Features
+// (config/user/tenant/auth) automatisch dazu wenn `auth` gesetzt ist und
+// ruft seedAdmin im onAfterSetup. Schema landet als window.__KUMIKO_
+// SCHEMA__-Injection im Browser.
 //
-// Auth-Mode: features + `auth` gesetzt → kein Auto-Mint-JWT mehr, der
-// Client muss sich über den Login-Screen gegen POST /api/auth/login
-// authentifizieren. Der Admin-User wird von seedAdminUser() beim Boot
-// angelegt (idempotent, über die offiziellen Handler-QNs).
+// Auth-Mode aktiv: Client muss sich über den Login-Screen anmelden,
+// kein Auto-Mint-JWT mehr. Persistent-DB-Modus über KUMIKO_DEV_DB_NAME
+// in der Umgebung.
 
-import {
-  AuthErrors,
-  AuthHandlers,
-  createAuthEmailPasswordFeature,
-} from "@kumiko/bundled-features/auth-email-password";
-import { createConfigFeature, createConfigResolver } from "@kumiko/bundled-features/config";
-import { createTenantFeature, TenantQueries } from "@kumiko/bundled-features/tenant";
-import { createUserFeature } from "@kumiko/bundled-features/user";
-import { createKumikoServer } from "@kumiko/dev-server";
+import { runDevApp } from "@kumiko/dev-server";
+import type { TenantId } from "@kumiko/framework/engine";
+import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./auth-constants";
 import { taskFeature } from "./feature";
-import { seedAdminUser } from "./seed";
 
-await createKumikoServer({
-  features: [
-    createConfigFeature(),
-    createUserFeature(),
-    createTenantFeature(),
-    createAuthEmailPasswordFeature(),
-    taskFeature,
-  ],
+// Zwei feste Tenants — Admin ist in beiden Mitglied damit der
+// TenantSwitcher im Sample sichtbar ist (rendert nur bei >1 Tenant).
+// Unterschiedliche Rollen pro Tenant beweisen tenant-isolierte
+// Memberships. IDs gespiegelt im client.tsx (siehe Kommentar dort).
+const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
+const BETA_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
+
+await runDevApp({
+  features: [taskFeature],
   clientEntry: "./src/client.tsx",
-  // stylesheet: default via @kumiko/renderer-web/styles.css package-export
   htmlPath: "./public/index.html",
   watchDirs: ["./src"],
-  extraContext: { configResolver: createConfigResolver() },
   auth: {
-    membershipQuery: TenantQueries.memberships,
-    loginHandler: AuthHandlers.login,
-    loginErrorStatusMap: {
-      [AuthErrors.invalidCredentials]: 401,
-      [AuthErrors.noMembership]: 403,
+    admin: {
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD,
+      displayName: "Admin",
+      memberships: [
+        { tenantId: DEV_TENANT_ID, tenantKey: "dev", tenantName: "Dev Tenant", roles: ["Admin"] },
+        { tenantId: BETA_TENANT_ID, tenantKey: "beta", tenantName: "Beta Tenant", roles: ["User"] },
+      ],
     },
-  },
-  onAfterSetup: async (stack) => {
-    await seedAdminUser(stack);
   },
 });

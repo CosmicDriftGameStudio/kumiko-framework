@@ -1,47 +1,38 @@
 // Dev-server für den workspaces Sample. Auth-Mode aktiv: der Client
-// muss sich über den Login-Screen anmelden, bevor der WorkspaceShell
-// rendert. WorkspaceShell filtert die sichtbaren Workspaces nach den
-// `user.roles` aus der Session — Admin sieht alle drei, andere Rollen
-// nur ihre.
+// muss sich über den Login-Screen anmelden. WorkspaceShell filtert dann
+// nach `user.roles` aus der Session — Admin sieht alle drei, andere
+// Rollen nur ihre.
 //
-// Die hand-geschriebene clientSchema-Spiegelung ist obsolet — der dev-
-// server resolved das AppSchema via buildAppSchema(registry) und
-// injiziert es als window.__KUMIKO_SCHEMA__.
+// runDevApp mischt die Standard-Features (config/user/tenant/auth)
+// automatisch dazu wenn `auth` gesetzt ist und ruft seedAdmin im
+// onAfterSetup. Schema landet als window.__KUMIKO_SCHEMA__-Injection
+// im Browser, kein hand-geschriebener clientSchema-Spiegel.
 
-import {
-  AuthErrors,
-  AuthHandlers,
-  createAuthEmailPasswordFeature,
-} from "@kumiko/bundled-features/auth-email-password";
-import { createConfigFeature, createConfigResolver } from "@kumiko/bundled-features/config";
-import { createTenantFeature, TenantQueries } from "@kumiko/bundled-features/tenant";
-import { createUserFeature } from "@kumiko/bundled-features/user";
-import { createKumikoServer } from "@kumiko/dev-server";
+import { runDevApp } from "@kumiko/dev-server";
+import type { TenantId } from "@kumiko/framework/engine";
+import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./auth-constants";
 import { demoFeature, driverFeature } from "./feature";
-import { seedAdminUser } from "./seed";
 
-await createKumikoServer({
-  features: [
-    createConfigFeature(),
-    createUserFeature(),
-    createTenantFeature(),
-    createAuthEmailPasswordFeature(),
-    demoFeature,
-    driverFeature,
-  ],
+// Ein Dev-Tenant reicht — die Workspaces filtern nach `roles` (nicht
+// nach Tenant). Wer Tenant-Switching demoen will, schaut in den
+// ui-walkthrough-Sample.
+const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000010" as TenantId;
+
+await runDevApp({
+  features: [demoFeature, driverFeature],
   clientEntry: "./src/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src"],
-  extraContext: { configResolver: createConfigResolver() },
   auth: {
-    membershipQuery: TenantQueries.memberships,
-    loginHandler: AuthHandlers.login,
-    loginErrorStatusMap: {
-      [AuthErrors.invalidCredentials]: 401,
-      [AuthErrors.noMembership]: 403,
+    admin: {
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD,
+      displayName: "Admin",
+      // Admin-Rolle gibt Zugriff auf alle drei Workspaces (admin/dispatch/
+      // driver). Realwelt-Apps würden weitere Rollen + User definieren.
+      memberships: [
+        { tenantId: DEV_TENANT_ID, tenantKey: "dev", tenantName: "Dev Tenant", roles: ["Admin"] },
+      ],
     },
-  },
-  onAfterSetup: async (stack) => {
-    await seedAdminUser(stack);
   },
 });
