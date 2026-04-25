@@ -41,6 +41,11 @@ import type { SessionUser, TenantId } from "@kumiko/framework/engine";
 import { TestUsers } from "@kumiko/framework/testing";
 import { eq } from "drizzle-orm";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
+import { tenantEntity, tenantTable } from "./tenant-entity";
+
+const tenantExecutor = createEventStoreExecutor(tenantTable, tenantEntity, {
+  entityName: "tenant",
+});
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenantMembership",
@@ -57,6 +62,50 @@ export type SeedTenantMembershipOptions = {
    */
   readonly by?: SessionUser;
 };
+
+export type SeedTenantOptions = {
+  /** Stable UUID — required for fixtures so the FE/BE können dieselbe ID
+   *  hardcoden (Sample-Switcher zeigt den Tenant beim Namen, der Test
+   *  prüft Memberships gegen exakt diese ID). Ohne ID müsste der Caller
+   *  den lookup-by-key extra machen. */
+  readonly id: TenantId;
+  /** URL-/Slug-Form (z.B. "dev", "acme"). Indexed unique in der DB. */
+  readonly key: string;
+  /** Human-readable label (im Switcher angezeigt). */
+  readonly name: string;
+  readonly by?: SessionUser;
+};
+
+/**
+ * Seed a tenant through the event-store executor. Idempotent: a second
+ * call for the same `id` is a no-op. Same TX-semantics as the real
+ * `TenantHandlers.create`, minus the SystemAdmin-access-check and minus
+ * ConflictError-on-duplicate.
+ */
+export async function seedTenant(db: DbConnection, options: SeedTenantOptions): Promise<TenantId> {
+  const by = options.by ?? TestUsers.systemAdmin;
+  // Tenant-Schreibvorgänge laufen im public-scope, aber der Executor
+  // erwartet eine TenantDb — wir wrappen mit by.tenantId. Da tenant.id
+  // selbst NICHT tenant-scoped ist, hat der Wrap keinen funktionalen
+  // Effekt außer den gleichen Konstrukten zu folgen wie die anderen
+  // seed-Helper.
+  const tdb = createTenantDb(db, by.tenantId, "system");
+
+  const existing = await fetchOne(db, tenantTable, eq(tenantTable["id"], options.id));
+  if (existing) return options.id;
+
+  const result = await tenantExecutor.create(
+    { id: options.id, key: options.key, name: options.name },
+    by,
+    tdb,
+  );
+  if (!result.isSuccess) {
+    throw new Error(
+      `seedTenant failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
+    );
+  }
+  return options.id;
+}
 
 /**
  * Seed a tenant membership through the event-store executor. Writes
