@@ -56,18 +56,34 @@ function pushPath(path: string): void {
   for (const l of listeners) l();
 }
 
+function replacePath(path: string): void {
+  if (typeof window === "undefined") return;
+  // No path-change short-circuit here: callers explicitly chose replace
+  // to avoid creating a history entry, even when the URL is identical.
+  // (pushPath skips no-op pushes; replacePath honors the call so the
+  // entry-stack semantics stay predictable.)
+  window.history.replaceState(null, "", path);
+  for (const l of listeners) l();
+}
+
 /** React-Hook der eine NavApi aus der Browser-History baut. Sollte
  *  einmal im App-Root aufgerufen und als value an den shared
- *  `<NavProvider>` durchgereicht werden — createKumikoApp tut das. */
-export function useBrowserNavApi(): NavApi {
+ *  `<NavProvider>` durchgereicht werden — createKumikoApp tut das.
+ *
+ *  hasWorkspaces aus dem Schema (schema.workspaces non-empty) entscheidet,
+ *  ob das erste URL-Segment als Workspace-id parsed wird. Pure Pass-
+ *  through an parsePath; formatPath checkt selbst auf target.workspaceId. */
+export function useBrowserNavApi(options?: { readonly hasWorkspaces?: boolean }): NavApi {
   const path = useSyncExternalStore(subscribe, readPath, () => "/");
+  const hasWorkspaces = options?.hasWorkspaces === true;
   return useMemo<NavApi>(
     () => ({
-      route: parsePath(path),
+      route: parsePath(path, hasWorkspaces),
       navigate: (target) => pushPath(formatPath(target)),
+      replace: (target) => replacePath(formatPath(target)),
       hrefFor: (target) => formatPath(target),
     }),
-    [path],
+    [path, hasWorkspaces],
   );
 }
 

@@ -7,22 +7,21 @@
 // shells live side-by-side; createKumikoApp's `shell` prop picks one.
 //
 // Active-workspace resolution priority:
-//   1. URL ?w=<workspaceShortId>            (user-driven, shareable)
-//   2. `initialWorkspaceId` prop             (caller-pinned, e.g. SSR/test)
-//   3. WorkspaceDefinition with default:true (engine-validated unique)
+//   1. URL workspace segment `/<workspace>/...`  (user-driven, shareable)
+//   2. `initialWorkspaceId` prop                  (caller-pinned, SSR/test)
+//   3. WorkspaceDefinition with default:true      (engine-validated unique)
 //   4. First workspace the user has access to
 //
-// State lives in the URL (?w=) as the single source of truth via
-// `useBrowserWorkspaceQuery`. No local React state — tenant-switches and
-// role refreshes heal automatically: `visible` recomputes, the URL id no
-// longer matches a visible workspace, and the resolution chain falls
-// through to the default. Reloads / bookmarks / shared links keep the
-// active workspace because the URL carries it.
+// State lives in the URL as the single source of truth via the standard
+// nav route (`useNav().route.workspaceId`). No local React state —
+// tenant-switches and role refreshes heal automatically: `visible`
+// recomputes, the URL id no longer matches a visible workspace, the
+// resolution chain falls through to the default. Reloads / bookmarks /
+// shared links keep the active workspace because it's part of the URL.
 //
-// Followup: `nav.tsx#pushPath` currently overwrites the search part on
-// every navigate(), which drops `?w=` on a sidebar click. Fixing that
-// preserves workspace state across nav events; until then the user
-// snaps back to the default after each click.
+// The switcher's onSelect calls nav.navigate({ workspaceId, screenId })
+// where screenId is the first nav-member of the target workspace, so a
+// click lands on a real screen instead of an unresolved root URL.
 //
 // Roles gating:
 //   * access.openToAll → always shown
@@ -32,8 +31,9 @@
 
 import type { AccessRule } from "@kumiko/framework/ui-types";
 import type { FeatureSchema, WorkspaceSchema } from "@kumiko/renderer";
-import { type ReactNode, useCallback, useMemo } from "react";
-import { useBrowserWorkspaceQuery } from "../app/workspace";
+import { useNav } from "@kumiko/renderer";
+import { type ReactNode, useCallback, useEffect, useMemo } from "react";
+import { lastSegment } from "./nav-tree";
 import { AppLayout } from "./app-layout";
 import { NavTree } from "./nav-tree";
 import { Sidebar } from "./sidebar";
@@ -77,21 +77,61 @@ export function WorkspaceShell({
     [schema.workspaces, user?.roles],
   );
 
-  const [urlId, setUrlId] = useBrowserWorkspaceQuery();
+  const nav = useNav();
+  const routeWorkspaceId = nav.route?.workspaceId;
 
   // Single source of truth: URL > initial > engine-default > first visible.
   // Recomputed on every dependency change — no local state, no stale-id
-  // healing useEffect. If urlId points at a workspace the user can no
+  // healing useEffect. If the URL points at a workspace the user can no
   // longer access (e.g. after a tenant-switch), the chain falls through
   // to the resolveDefaultId fallback.
   const activeId = useMemo(() => {
-    if (urlId !== undefined && visible.some((ws) => ws.definition.id === urlId)) {
-      return urlId;
+    if (
+      routeWorkspaceId !== undefined &&
+      visible.some((ws) => ws.definition.id === routeWorkspaceId)
+    ) {
+      return routeWorkspaceId;
     }
     return resolveDefaultId(visible, initialWorkspaceId);
-  }, [urlId, visible, initialWorkspaceId]);
+  }, [routeWorkspaceId, visible, initialWorkspaceId]);
 
-  const handleSelect = useCallback((id: string) => setUrlId(id), [setUrlId]);
+  const handleSelect = useCallback(
+    (id: string) => {
+      // Pick a default screen for the target workspace so the URL lands
+      // on something renderable instead of `/<workspace>` (workspace-only).
+      // First nav-member after qualifying-prefix-strip is a safe pick.
+      const target = visible.find((ws) => ws.definition.id === id);
+      const firstNavQn = target?.navMembers[0];
+      const screenId = firstNavQn !== undefined ? lastSegment(firstNavQn) : "";
+      nav.navigate({ workspaceId: id, screenId });
+    },
+    [nav, visible],
+  );
+
+  // Initial sync: when the URL has no workspace yet but the app is in
+  // workspace mode, fill the active workspace into it on mount. Without
+  // this, NavTree links would render WITHOUT the /<workspace>/ prefix
+  // (no route.workspaceId to pick up) and a click would produce a flat
+  // path that the workspace-mode parser misreads.
+  //
+  // replace, NOT navigate: this is a default-fill, not a user action.
+  // Using pushState would create a history entry the user never asked
+  // for — Browser-Back from /admin/x → / → useEffect re-pushes →
+  // Back-loop. replaceState swaps in place: Back leaves the app cleanly.
+  //
+  // Followup: a user-typed `/admin` URL (workspace-only, no screen)
+  // matches the routeWorkspaceId === activeId guard, so this effect
+  // doesn't fire and the screen stays unresolved (empty content). Worth
+  // a follow-up that fills in the default screen for that case.
+  useEffect(() => {
+    if (activeId === undefined) return;
+    if (routeWorkspaceId === activeId) return;
+    const target = visible.find((ws) => ws.definition.id === activeId);
+    const firstNavQn = target?.navMembers[0];
+    const screenId =
+      firstNavQn !== undefined ? lastSegment(firstNavQn) : (nav.route?.screenId ?? "");
+    nav.replace({ workspaceId: activeId, screenId });
+  }, [activeId, routeWorkspaceId, visible, nav]);
 
   const activeWorkspace = useMemo(
     () => visible.find((ws) => ws.definition.id === activeId),

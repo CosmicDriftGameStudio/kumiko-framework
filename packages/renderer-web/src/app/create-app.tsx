@@ -59,8 +59,14 @@ export type CreateKumikoAppOptions = {
    *  Der Hook wird EINMAL im Component-Tree aufgerufen (siehe
    *  `BrowserNavBoot`), muss also den React-Rules-of-Hooks folgen —
    *  `useSyncExternalStore` auf der zugrundeliegenden Router-State
-   *  ist das gängige Pattern. */
-  readonly navAdapter?: () => NavApi;
+   *  ist das gängige Pattern.
+   *
+   *  Wenn das Schema Workspaces deklariert, wird der Adapter mit
+   *  `{ hasWorkspaces: true }` aufgerufen — der Default-Hook nutzt das
+   *  um das URL-Pattern auf `/<workspace>/<screen>[/<entityId>]`
+   *  umzustellen. Eigene Adapter dürfen die Option ignorieren wenn ihr
+   *  Router das anders löst. */
+  readonly navAdapter?: (options?: { readonly hasWorkspaces?: boolean }) => NavApi;
 };
 
 export function createKumikoApp(options: CreateKumikoAppOptions): void {
@@ -101,11 +107,13 @@ export function createKumikoApp(options: CreateKumikoAppOptions): void {
   const resolver = options.locale ?? createBrowserLocaleResolver();
 
   const navAdapter = options.navAdapter ?? useBrowserNavApi;
+  const hasWorkspaces = (options.schema.workspaces?.length ?? 0) > 0;
   const screenNode = (
     <BrowserNavBoot
       schema={options.schema}
       fallbackQn={fallbackQn}
       useNavApi={navAdapter}
+      hasWorkspaces={hasWorkspaces}
       {...(options.translate !== undefined && { translate: options.translate })}
       {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
       {...(options.shell !== undefined && { shell: options.shell })}
@@ -142,18 +150,20 @@ function BrowserNavBoot({
   schema,
   fallbackQn,
   useNavApi,
+  hasWorkspaces,
   translate,
   onRowClick,
   shell,
 }: {
   readonly schema: FeatureSchema;
   readonly fallbackQn: string;
-  readonly useNavApi: () => NavApi;
+  readonly useNavApi: (options?: { readonly hasWorkspaces?: boolean }) => NavApi;
+  readonly hasWorkspaces: boolean;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
   readonly shell?: (props: { readonly children: ReactNode }) => ReactNode;
 }): ReactNode {
-  const navApi = useNavApi();
+  const navApi = useNavApi({ hasWorkspaces });
   const Shell = shell;
   const screen = (
     <RoutedScreen

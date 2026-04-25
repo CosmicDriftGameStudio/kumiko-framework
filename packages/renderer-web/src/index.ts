@@ -86,7 +86,6 @@ export type { CreateKumikoAppOptions } from "./app/create-app";
 export { createKumikoApp } from "./app/create-app";
 export type { KumikoLinkProps } from "./app/nav";
 export { KumikoLink, useBrowserNavApi } from "./app/nav";
-export { useBrowserWorkspaceQuery } from "./app/workspace";
 export type { AppLayoutProps } from "./layout/app-layout";
 export { AppLayout } from "./layout/app-layout";
 export type { DefaultAppShellProps } from "./layout/default-app-shell";

@@ -5,16 +5,26 @@ import { createContext, type ReactNode, useContext } from "react";
 // react-navigation im Native) kommt via `<NavProvider value={...}>`
 // vom Plattform-Package rein.
 //
-// Pfad-Format bleibt einheitlich: `/<screenId>[/<entityId>]`. Parser
-// und Formatter sind reine Funktionen und leben hier, damit Tests +
-// andere Plattformen sie ohne DOM-Setup verwenden können.
+// Pfad-Format hat zwei Modi je nach App-Schema:
+//   * ohne Workspaces: `/<screenId>[/<entityId>]`
+//   * mit Workspaces:  `/<workspaceId>/<screenId>[/<entityId>]`
+// Der Mode wird beim parsePath() per `hasWorkspaces` Flag durchgereicht
+// — Schema-Layer entscheidet, parsePath bleibt dumm/pure. formatPath()
+// braucht keinen Hint: target.workspaceId vorhanden → Prefix; sonst flach.
 
 export type NavRoute = {
+  // Active workspace short id, present iff the app runs in workspace
+  // mode (schema.workspaces non-empty). undefined for non-workspace apps.
+  readonly workspaceId?: string;
   readonly screenId: string;
   readonly entityId?: string;
 };
 
 export type NavTarget = {
+  // Optional in workspace-aware navigate calls. Omit for cross-workspace
+  // navigation (current workspace stays); set to switch workspaces in the
+  // same call as picking a screen — e.g. WorkspaceSwitcher does this.
+  readonly workspaceId?: string;
   readonly screenId: string;
   readonly entityId?: string;
 };
@@ -26,27 +36,56 @@ export type NavApi = {
   /** Push a new route. Platform-specific Impl writes to
    *  history/stack and notifies subscribers. */
   readonly navigate: (target: NavTarget) => void;
+  /** Replace the current route in place. Same effect as navigate from
+   *  the user's perspective, but doesn't add a history entry — used for
+   *  mount-time URL fills (e.g. WorkspaceShell defaulting to `/admin/x`
+   *  when the user typed `/`). Browser Back must take the user out of
+   *  the app, not back to the original empty path. */
+  readonly replace: (target: NavTarget) => void;
   /** Build the href a click on {target} would produce. Used by
    *  platform-specific Link-Komponenten (Web: `<a href>`; Native
    *  typically doesn't need this). */
   readonly hrefFor: (target: NavTarget) => string;
 };
 
-// Pfad-Format: `/task-list`, `/task-edit/abc-123`, `/` für "keine Route".
-// Alles nach den ersten zwei Segmenten wird ignoriert — kumikos
-// Navigation-Grammatik nested nicht weiter. Nested-Routes ist eine
+// Pfad-Format:
+//   ohne workspaces: `/task-list`, `/task-edit/abc-123`, `/` → undefined
+//   mit workspaces:  `/admin/task-list`, `/admin/task-edit/abc`,
+//                    `/admin` → workspace-only (no screen yet),
+//                    `/` → undefined.
+// Alles nach den ersten 2/3 Segmenten wird ignoriert — kumikos
+// Navigation-Grammatik nested nicht weiter. Nested-Routes wäre eine
 // Spec-Änderung, nicht ein URL-Shape-Unfall.
-export function parsePath(pathname: string): NavRoute | undefined {
+export function parsePath(pathname: string, hasWorkspaces?: boolean): NavRoute | undefined {
   const parts = pathname.split("/").filter((p) => p !== "");
+  if (hasWorkspaces === true) {
+    const [workspaceId, screenId, entityId] = parts;
+    if (workspaceId === undefined || workspaceId === "") return undefined;
+    if (screenId === undefined || screenId === "") {
+      // Workspace-only URL ("/admin") — caller resolves the default screen
+      // for that workspace. We carry workspaceId WITHOUT a screen so the
+      // shell can branch instead of making something up.
+      return { workspaceId, screenId: "" };
+    }
+    return {
+      workspaceId,
+      screenId,
+      ...(entityId !== undefined && { entityId }),
+    };
+  }
   const [screenId, entityId] = parts;
   if (screenId === undefined || screenId === "") return undefined;
   return { screenId, ...(entityId !== undefined && { entityId }) };
 }
 
 export function formatPath(target: NavTarget): string {
-  return target.entityId !== undefined
-    ? `/${target.screenId}/${target.entityId}`
-    : `/${target.screenId}`;
+  // Workspace-Mode: prefix the workspace short id. Order matters —
+  // workspace before screen mirrors parsePath's segment order.
+  const segments: string[] = [];
+  if (target.workspaceId !== undefined) segments.push(target.workspaceId);
+  segments.push(target.screenId);
+  if (target.entityId !== undefined) segments.push(target.entityId);
+  return `/${segments.join("/")}`;
 }
 
 // Context + Hook. Default ist `undefined` damit fehlender Provider

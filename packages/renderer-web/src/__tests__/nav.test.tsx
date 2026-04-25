@@ -41,6 +41,41 @@ describe("formatPath", () => {
   test("screenId + entityId", () => {
     expect(formatPath({ screenId: "task-edit", entityId: "abc-123" })).toBe("/task-edit/abc-123");
   });
+
+  test("workspaceId prefix bei Workspace-Mode", () => {
+    expect(formatPath({ workspaceId: "admin", screenId: "task-list" })).toBe("/admin/task-list");
+  });
+
+  test("workspaceId + screenId + entityId", () => {
+    expect(
+      formatPath({ workspaceId: "dispatch", screenId: "order-edit", entityId: "abc-123" }),
+    ).toBe("/dispatch/order-edit/abc-123");
+  });
+});
+
+describe("parsePath — workspace mode", () => {
+  test("/<workspaceId>/<screenId> → trägt beide", () => {
+    expect(parsePath("/admin/task-list", true)).toEqual({
+      workspaceId: "admin",
+      screenId: "task-list",
+    });
+  });
+
+  test("/<workspaceId>/<screenId>/<entityId> → mit entityId", () => {
+    expect(parsePath("/admin/task-edit/abc-123", true)).toEqual({
+      workspaceId: "admin",
+      screenId: "task-edit",
+      entityId: "abc-123",
+    });
+  });
+
+  test("/<workspaceId> ohne screen → screenId leer (caller resolved Default)", () => {
+    expect(parsePath("/admin", true)).toEqual({ workspaceId: "admin", screenId: "" });
+  });
+
+  test("/ → undefined auch im Workspace-Mode", () => {
+    expect(parsePath("/", true)).toBeUndefined();
+  });
 });
 
 // Wrapper der das web-spezifische useBrowserNavApi aufruft und in

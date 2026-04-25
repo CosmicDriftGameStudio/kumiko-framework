@@ -133,6 +133,7 @@ describe("createKumikoApp", () => {
     const memoryNav: NavApi = {
       route: { screenId: "task-list" },
       navigate: () => {},
+      replace: () => {},
       hrefFor: (target) =>
         target.entityId !== undefined
           ? `/${target.screenId}/${target.entityId}`

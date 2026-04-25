@@ -56,12 +56,18 @@ function NavNodeItem({
   // bleiben unangetastet durch das Mapping.
   const displayLabel = node.label.includes(".") ? t(node.label) : node.label;
 
+  // In workspace mode the URL is /<ws>/<screen> — sidebar links must
+  // carry the active workspaceId, otherwise navigate({ screenId }) would
+  // produce /<screen> and the parser would interpret <screen> as a
+  // workspace id. Pulled from useNav().route so the link tracks switches.
+  const workspaceId = nav.route?.workspaceId;
+
   if (node.screen !== undefined) {
     const screenId = lastSegment(node.screen);
     return (
       <>
         <KumikoLink
-          to={{ screenId }}
+          to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
           style={indent}
           className={cn(
             "flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
@@ -139,7 +145,10 @@ function qualifyScreenId(feature: string, id: string): string {
   return id.includes(":screen:") ? id : `${feature}:screen:${id}`;
 }
 
-function lastSegment(qn: string): string {
+// Strip qualifying prefix off a QN ("feature:nav:my-screen" → "my-screen").
+// Exported because workspace-shell builds nav targets from the same QN
+// shape and a duplicate copy would drift.
+export function lastSegment(qn: string): string {
   const idx = qn.lastIndexOf(":");
   return idx < 0 ? qn : qn.slice(idx + 1);
 }

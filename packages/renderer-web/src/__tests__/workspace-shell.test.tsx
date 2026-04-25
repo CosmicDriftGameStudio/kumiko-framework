@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 
+import { LocaleProvider, NavProvider, PrimitivesProvider } from "@kumiko/renderer";
+import { createStaticLocaleResolver } from "@kumiko/renderer";
 import type { WorkspaceSchema } from "@kumiko/renderer";
+import { act, render as _render } from "@testing-library/react";
+import { type ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { useBrowserNavApi } from "../app/nav";
 import { filterByAccess, resolveDefaultId, WorkspaceShell } from "../layout/workspace-shell";
 import { WorkspaceSwitcher } from "../layout/workspace-switcher";
-import { act } from "@testing-library/react";
+import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
 
 // jsdom shares window.history across tests in the same file. Reset to /
@@ -13,6 +18,25 @@ import { fireEvent, render, screen } from "./test-utils";
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
 });
+
+// Custom render wrapper: real `useBrowserNavApi` instead of test-utils'
+// stub, because WorkspaceShell now reads workspace state from the nav
+// route (URL-driven). The stub's no-op navigate() would freeze tab
+// clicks. Workspaces-mode is on by default for these tests; the parser
+// expects the first path segment to be a workspace short id.
+function renderShell(ui: ReactNode): ReturnType<typeof _render> {
+  function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
+    const nav = useBrowserNavApi({ hasWorkspaces: true });
+    return (
+      <LocaleProvider resolver={createStaticLocaleResolver()}>
+        <PrimitivesProvider value={defaultPrimitives}>
+          <NavProvider value={nav}>{children}</NavProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    );
+  }
+  return _render(ui, { wrapper: Wrapper });
+}
 
 // Build a minimal WorkspaceSchema by hand — production-side, this comes
 // from a registry-builder, but the shell must work with whatever shape
@@ -202,7 +226,7 @@ describe("WorkspaceShell", () => {
   } as const;
 
   test("an admin sees admin + dispatch in the switcher (driver hidden)", () => {
-    render(
+    renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={schema}
@@ -217,7 +241,7 @@ describe("WorkspaceShell", () => {
   });
 
   test("default workspace (admin) is active on first render for an admin", () => {
-    render(
+    renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={schema}
@@ -230,7 +254,7 @@ describe("WorkspaceShell", () => {
   });
 
   test("only the active workspace's nav members appear in the sidebar", () => {
-    render(
+    renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={schema}
@@ -246,7 +270,7 @@ describe("WorkspaceShell", () => {
   });
 
   test("clicking the dispatch tab swaps the visible nav set", () => {
-    render(
+    renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={schema}
@@ -263,7 +287,7 @@ describe("WorkspaceShell", () => {
   });
 
   test("a driver lands on the driver workspace (their only one)", () => {
-    render(
+    renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={schema}
@@ -281,7 +305,7 @@ describe("WorkspaceShell", () => {
   });
 
   test("schema without workspaces falls back to plain rendering (all navs visible)", () => {
-    render(
+    renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={{ ...schema, workspaces: undefined }}
@@ -299,7 +323,7 @@ describe("WorkspaceShell", () => {
   });
 
   test("initialWorkspaceId picks a non-default workspace at mount", () => {
-    render(
+    renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={schema}
@@ -318,7 +342,7 @@ describe("WorkspaceShell", () => {
   // would fall back to "no filter" and leak admin nav items to a user
   // that has zero accessible workspaces.
   test("user with no accessible workspace sees an empty sidebar (not all navs)", () => {
-    render(
+    renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={schema}
@@ -357,7 +381,7 @@ describe("WorkspaceShell — nav hierarchy after filter", () => {
         }),
       ],
     } as const;
-    render(
+    renderShell(
       <WorkspaceShell brand={<div>B</div>} schema={schema} user={{ id: "u", roles: [] }}>
         <div>content</div>
       </WorkspaceShell>,
@@ -368,10 +392,10 @@ describe("WorkspaceShell — nav hierarchy after filter", () => {
 });
 
 // ---------------------------------------------------------------------------
-// URL sync — single source of truth via ?w=
+// URL sync — workspace lives in the path: /<workspace>/<screen>[/<id>]
 // ---------------------------------------------------------------------------
 
-describe("WorkspaceShell — URL sync", () => {
+describe("WorkspaceShell — URL sync (path-based)", () => {
   const schema = {
     featureName: "bmc",
     entities: {},
@@ -396,9 +420,9 @@ describe("WorkspaceShell — URL sync", () => {
     ],
   } as const;
 
-  test("URL ?w=<id> wins over the engine-default at mount", () => {
-    window.history.replaceState(null, "", "/?w=dispatch");
-    render(
+  test("URL /<workspace>/<screen> wins over the engine-default at mount", () => {
+    window.history.replaceState(null, "", "/dispatch/orders");
+    renderShell(
       <WorkspaceShell
         brand={<div>B</div>}
         schema={schema}
@@ -413,8 +437,8 @@ describe("WorkspaceShell — URL sync", () => {
     expect(screen.getByTestId("workspace-tab-admin").getAttribute("aria-selected")).toBe("false");
   });
 
-  test("clicking a tab writes ?w= to the URL", () => {
-    render(
+  test("clicking a tab pushes /<workspace>/<screen> to the URL", () => {
+    renderShell(
       <WorkspaceShell
         brand={<div>B</div>}
         schema={schema}
@@ -424,12 +448,54 @@ describe("WorkspaceShell — URL sync", () => {
       </WorkspaceShell>,
     );
     fireEvent.click(screen.getByTestId("workspace-tab-dispatch"));
-    expect(window.location.search).toBe("?w=dispatch");
+    // dispatch's first nav-member is bmc:nav:orders → screenId "orders"
+    expect(window.location.pathname).toBe("/dispatch/orders");
   });
 
-  test("URL ?w=<unknown> falls through to the engine-default", () => {
-    window.history.replaceState(null, "", "/?w=ghost");
-    render(
+  test("initial-sync uses replaceState (no extra history entry)", () => {
+    // pushState during the mount-time URL fill would trap the user in a
+    // back-loop: Back → / → useEffect re-pushes → Back stays inside.
+    // The fix is replaceState — same URL, no history bloat. Asserts on
+    // history.length so a regression to navigate() (which is pushState)
+    // would fail loud.
+    window.history.replaceState(null, "", "/");
+    const before = window.history.length;
+    renderShell(
+      <WorkspaceShell
+        brand={<div>B</div>}
+        schema={schema}
+        user={{ id: "u1", roles: ["admin"] }}
+      >
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    expect(window.history.length).toBe(before);
+    expect(window.location.pathname).toBe("/admin/system");
+  });
+
+  test("mounting on / writes the default workspace into the URL", () => {
+    // Before this fix, an empty pathname meant nav.route?.workspaceId was
+    // undefined, so NavTree links rendered without /<workspace>/ prefix
+    // and a click would land on a flat path that the workspace-mode parser
+    // then misreads as a workspace id. WorkspaceShell now syncs on mount.
+    window.history.replaceState(null, "", "/");
+    renderShell(
+      <WorkspaceShell
+        brand={<div>B</div>}
+        schema={schema}
+        user={{ id: "u1", roles: ["admin"] }}
+      >
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    // admin = default. First nav-member of admin is bmc:nav:system →
+    // screenId "system".
+    expect(window.location.pathname).toBe("/admin/system");
+  });
+
+  test("URL /<unknown-workspace> falls through to the engine-default", () => {
+    window.history.replaceState(null, "", "/ghost/whatever");
+    renderShell(
       <WorkspaceShell
         brand={<div>B</div>}
         schema={schema}
@@ -443,8 +509,8 @@ describe("WorkspaceShell — URL sync", () => {
   });
 
   test("popstate (back/forward) updates the active tab", () => {
-    window.history.replaceState(null, "", "/?w=admin");
-    render(
+    window.history.replaceState(null, "", "/admin/system");
+    renderShell(
       <WorkspaceShell
         brand={<div>B</div>}
         schema={schema}
@@ -454,12 +520,12 @@ describe("WorkspaceShell — URL sync", () => {
       </WorkspaceShell>,
     );
     expect(screen.getByTestId("workspace-tab-admin").getAttribute("aria-selected")).toBe("true");
-    // Simulate the user hitting "forward" to a state where ?w=dispatch.
-    // pushState alone doesn't fire popstate — we synthesize the event so
-    // the hook's listener-set notifies subscribers. act() flushes the
+    // Simulate the user hitting "forward" to /dispatch/orders. pushState
+    // alone doesn't fire popstate — we synthesize the event so the
+    // hook's listener-set notifies subscribers. act() flushes the
     // ensuing React render before the next assertion.
     act(() => {
-      window.history.pushState(null, "", "/?w=dispatch");
+      window.history.pushState(null, "", "/dispatch/orders");
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
     expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe(

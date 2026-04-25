@@ -37,6 +37,7 @@ import { defaultTokens } from "../tokens";
 const stubNav: NavApi = {
   route: undefined,
   navigate: () => {},
+  replace: () => {},
   hrefFor: (target) =>
     target.entityId !== undefined
       ? `/${target.screenId}/${target.entityId}`
