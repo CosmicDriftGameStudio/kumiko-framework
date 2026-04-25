@@ -58,8 +58,8 @@ import type {
 import { HookPhases } from "./types";
 import { resolveName } from "./types/handlers";
 import type { NavDefinition } from "./types/nav";
-import type { WorkspaceDefinition } from "./types/workspace";
 import type { ScreenDefinition } from "./types/screen";
+import type { WorkspaceDefinition } from "./types/workspace";
 
 const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
 

@@ -33,9 +33,8 @@ import type { AccessRule } from "@kumiko/framework/ui-types";
 import type { FeatureSchema, WorkspaceSchema } from "@kumiko/renderer";
 import { useNav } from "@kumiko/renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
-import { lastSegment } from "./nav-tree";
 import { AppLayout } from "./app-layout";
-import { NavTree } from "./nav-tree";
+import { lastSegment, NavTree } from "./nav-tree";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { WorkspaceSwitcher } from "./workspace-switcher";
@@ -130,8 +129,7 @@ export function WorkspaceShell({
   // the resolved screen. (No SSR here, otherwise we'd need a guard.)
   useLayoutEffect(() => {
     if (activeId === undefined) return;
-    const routeScreenEmpty =
-      nav.route?.screenId === undefined || nav.route.screenId === "";
+    const routeScreenEmpty = nav.route?.screenId === undefined || nav.route.screenId === "";
     const workspaceMatches = routeWorkspaceId === activeId;
     if (workspaceMatches && !routeScreenEmpty) return; // URL is fine
     const target = visible.find((ws) => ws.definition.id === activeId);
@@ -160,8 +158,7 @@ export function WorkspaceShell({
   //   * Schema doesn't declare workspaces at all → undefined (no filter).
   //     Apps that haven't opted into workspaces yet get every nav as before.
   const allowedNavQns = useMemo(() => {
-    const hasWorkspaceMode =
-      schema.workspaces !== undefined && schema.workspaces.length > 0;
+    const hasWorkspaceMode = schema.workspaces !== undefined && schema.workspaces.length > 0;
     if (!hasWorkspaceMode) return undefined;
     if (activeWorkspace === undefined) return new Set<string>();
     return new Set(activeWorkspace.navMembers);
@@ -201,10 +198,7 @@ export function filterByAccess(
     .sort(byOrderThenInsertion);
 }
 
-function userMatchesAccess(
-  access: AccessRule | undefined,
-  userRoles: readonly string[],
-): boolean {
+function userMatchesAccess(access: AccessRule | undefined, userRoles: readonly string[]): boolean {
   if (access === undefined) return true;
   if ("openToAll" in access) return access.openToAll;
   return access.roles.some((r) => userRoles.includes(r));
@@ -232,4 +226,3 @@ export function resolveDefaultId(
   // 3. First workspace the user can see.
   return visible[0]?.definition.id;
 }
-

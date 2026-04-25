@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
-import { LocaleProvider, NavProvider, PrimitivesProvider } from "@kumiko/renderer";
-import { createStaticLocaleResolver } from "@kumiko/renderer";
 import type { WorkspaceSchema } from "@kumiko/renderer";
-import { act, render as _render } from "@testing-library/react";
-import { type ReactNode } from "react";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  NavProvider,
+  PrimitivesProvider,
+} from "@kumiko/renderer";
+import { render as _render, act } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { useBrowserNavApi } from "../app/nav";
 import { filterByAccess, resolveDefaultId, WorkspaceShell } from "../layout/workspace-shell";
@@ -333,9 +337,7 @@ describe("WorkspaceShell", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe("true");
   });
 
   // Security regression — without the empty-allow-set branch, the NavTree
@@ -423,27 +425,17 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
   test("URL /<workspace>/<screen> wins over the engine-default at mount", () => {
     window.history.replaceState(null, "", "/dispatch/orders");
     renderShell(
-      <WorkspaceShell
-        brand={<div>B</div>}
-        schema={schema}
-        user={{ id: "u1", roles: ["admin"] }}
-      >
+      <WorkspaceShell brand={<div>B</div>} schema={schema} user={{ id: "u1", roles: ["admin"] }}>
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe("true");
     expect(screen.getByTestId("workspace-tab-admin").getAttribute("aria-selected")).toBe("false");
   });
 
   test("clicking a tab pushes /<workspace>/<screen> to the URL", () => {
     renderShell(
-      <WorkspaceShell
-        brand={<div>B</div>}
-        schema={schema}
-        user={{ id: "u1", roles: ["admin"] }}
-      >
+      <WorkspaceShell brand={<div>B</div>} schema={schema} user={{ id: "u1", roles: ["admin"] }}>
         <div>content</div>
       </WorkspaceShell>,
     );
@@ -461,11 +453,7 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
     window.history.replaceState(null, "", "/");
     const before = window.history.length;
     renderShell(
-      <WorkspaceShell
-        brand={<div>B</div>}
-        schema={schema}
-        user={{ id: "u1", roles: ["admin"] }}
-      >
+      <WorkspaceShell brand={<div>B</div>} schema={schema} user={{ id: "u1", roles: ["admin"] }}>
         <div>content</div>
       </WorkspaceShell>,
     );
@@ -479,11 +467,7 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
     // default screen, otherwise RoutedScreen has nothing to render.
     window.history.replaceState(null, "", "/admin");
     renderShell(
-      <WorkspaceShell
-        brand={<div>B</div>}
-        schema={schema}
-        user={{ id: "u1", roles: ["admin"] }}
-      >
+      <WorkspaceShell brand={<div>B</div>} schema={schema} user={{ id: "u1", roles: ["admin"] }}>
         <div>content</div>
       </WorkspaceShell>,
     );
@@ -497,11 +481,7 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
     // then misreads as a workspace id. WorkspaceShell now syncs on mount.
     window.history.replaceState(null, "", "/");
     renderShell(
-      <WorkspaceShell
-        brand={<div>B</div>}
-        schema={schema}
-        user={{ id: "u1", roles: ["admin"] }}
-      >
+      <WorkspaceShell brand={<div>B</div>} schema={schema} user={{ id: "u1", roles: ["admin"] }}>
         <div>content</div>
       </WorkspaceShell>,
     );
@@ -513,11 +493,7 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
   test("URL /<unknown-workspace> falls through to the engine-default", () => {
     window.history.replaceState(null, "", "/ghost/whatever");
     renderShell(
-      <WorkspaceShell
-        brand={<div>B</div>}
-        schema={schema}
-        user={{ id: "u1", roles: ["admin"] }}
-      >
+      <WorkspaceShell brand={<div>B</div>} schema={schema} user={{ id: "u1", roles: ["admin"] }}>
         <div>content</div>
       </WorkspaceShell>,
     );
@@ -528,11 +504,7 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
   test("popstate (back/forward) updates the active tab", () => {
     window.history.replaceState(null, "", "/admin/system");
     renderShell(
-      <WorkspaceShell
-        brand={<div>B</div>}
-        schema={schema}
-        user={{ id: "u1", roles: ["admin"] }}
-      >
+      <WorkspaceShell brand={<div>B</div>} schema={schema} user={{ id: "u1", roles: ["admin"] }}>
         <div>content</div>
       </WorkspaceShell>,
     );
@@ -545,8 +517,6 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
       window.history.pushState(null, "", "/dispatch/orders");
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
-    expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe("true");
   });
 });
