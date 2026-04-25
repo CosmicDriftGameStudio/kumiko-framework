@@ -2,6 +2,7 @@
 
 export { hasAccess } from "./access";
 export { validateBoot } from "./boot-validator";
+export { buildAppSchema } from "./build-app-schema";
 export { access, createSystemConfig, createTenantConfig, createUserConfig } from "./config-helpers";
 export type { SystemHookName } from "./constants";
 export {

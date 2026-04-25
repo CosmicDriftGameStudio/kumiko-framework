@@ -21,6 +21,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { AuthRoutesConfig } from "../api/auth-routes";
 import { generateToken } from "../api/tokens";
+import { buildAppSchema } from "../engine/build-app-schema";
 import type { FeatureDefinition } from "../engine/types";
 import { createEventsTable } from "../event-store";
 import { ensureEntityTable, setupTestStack, type TestStack, TestUsers } from "../testing";
@@ -191,6 +192,20 @@ function injectStylesheet(html: string): string {
   return html.includes("</head>")
     ? html.replace("</head>", `  ${link}\n</head>`)
     : `${link}${html}`;
+}
+
+// Injiziert das Server-aufgelöste AppSchema vor dem client.js-Script,
+// damit createKumikoApp() es synchron unter `window.__KUMIKO_SCHEMA__`
+// vorfindet. JSON ist valides JS — direkt eingebettet, der Browser
+// parsed das Object-Literal nativ. Dev-server-Kontext, schema kommt aus
+// feature-Defs (kein User-Input), keine Escape-Gymnastik nötig.
+function injectSchema(html: string, schemaJson: string): string {
+  if (html.includes("__KUMIKO_SCHEMA__")) return html;
+  const tag = `<script>window.__KUMIKO_SCHEMA__=${schemaJson};</script>`;
+  if (html.includes('<script src="/client.js"')) {
+    return html.replace('<script src="/client.js"', `${tag}<script src="/client.js"`);
+  }
+  return html.includes("</body>") ? html.replace("</body>", `${tag}</body>`) : html + tag;
 }
 
 async function watchDir(dir: string, onChange: (filename: string) => void): Promise<void> {
@@ -378,6 +393,13 @@ export async function createKumikoServer(
   const autoMintJwt = options.auth === undefined;
   const devUser = TestUsers.admin;
 
+  // AppSchema einmal beim Boot bauen. Sample-clients ohne explizites
+  // schema-Argument lesen das via window.__KUMIKO_SCHEMA__ aus — der
+  // dev-server injiziert das in jede HTML-Response. Re-build NICHT
+  // bei Hot-Reload weil sich Feature-Defs nur über einen restart
+  // ändern.
+  const appSchemaJson = JSON.stringify(buildAppSchema(stack.registry));
+
   // --- SSE reload ---
   const reloadClients = new Set<ReloadClient>();
   const broadcastReload = (): void => {
@@ -408,6 +430,7 @@ export async function createKumikoServer(
     }
     let html = injectReload(htmlTemplate);
     if (stylesheetPath !== undefined) html = injectStylesheet(html);
+    html = injectSchema(html, appSchemaJson);
     return new Response(html, { headers });
   };
 

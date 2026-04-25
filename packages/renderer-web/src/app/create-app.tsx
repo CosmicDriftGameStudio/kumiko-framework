@@ -36,14 +36,29 @@ import { useBrowserNavApi } from "./nav";
 
 export type CreateKumikoAppOptions = {
   /** App-Schema. Akzeptiert AppSchema (multi-feature) oder die legacy
-   *  FeatureSchema (single-feature) — toAppSchema() normalisiert intern. */
-  readonly schema: AppSchema | FeatureSchema;
+   *  FeatureSchema (single-feature) — toAppSchema() normalisiert intern.
+   *
+   *  Optional: ohne Argument liest createKumikoApp das schema aus
+   *  `window.__KUMIKO_SCHEMA__`, das der dev-server beim Boot in die
+   *  HTML injiziert (siehe @kumiko/framework/dev-server: injectSchema).
+   *  Production-Apps mit eigenem Bundling-Setup können das Global selbst
+   *  setzen (`<script>window.__KUMIKO_SCHEMA__=...</script>` aus einem
+   *  build-time bake oder einem fetch). Wer kein Schema übergibt UND
+   *  keins im Window vorfindet bekommt einen Fehler beim Mount. */
+  readonly schema?: AppSchema | FeatureSchema;
   readonly rootId?: string;
   readonly dispatcher?: Dispatcher;
   readonly screenQn?: string;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
-  readonly shell?: (props: { readonly children: ReactNode }) => ReactNode;
+  /** App-Shell. Bekommt das resolved `schema` als Prop — so können
+   *  AppShell-Komponenten an WorkspaceShell/DefaultAppShell durchreichen
+   *  ohne selbst das Schema zu importieren oder auf window-Globals zu
+   *  greifen. */
+  readonly shell?: (props: {
+    readonly children: ReactNode;
+    readonly schema: AppSchema;
+  }) => ReactNode;
   readonly primitives?: Partial<PrimitivesRegistry>;
   /** Feature-gelieferte Client-Extensions. Jedes Element bringt
    *  Provider + Gates mit — siehe ClientFeatureDefinition. Beispiel:
@@ -73,7 +88,16 @@ export type CreateKumikoAppOptions = {
   readonly navAdapter?: (options?: { readonly hasWorkspaces?: boolean }) => NavApi;
 };
 
-export function createKumikoApp(options: CreateKumikoAppOptions): void {
+// Reads the dev-server-injected schema from the global. Guarded for
+// SSR/node — die Funktion läuft heute nur im Browser, aber das schadet
+// auch unter jsdom nicht.
+function readInjectedSchema(): AppSchema | FeatureSchema | undefined {
+  if (typeof window === "undefined") return undefined;
+  const w = window as unknown as { __KUMIKO_SCHEMA__?: AppSchema | FeatureSchema };
+  return w.__KUMIKO_SCHEMA__;
+}
+
+export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
   const rootId = options.rootId ?? "root";
   const container = document.getElementById(rootId);
   if (!container) {
@@ -82,10 +106,21 @@ export function createKumikoApp(options: CreateKumikoAppOptions): void {
     );
   }
 
-  // Normalisierung an der API-Grenze: ab hier kennen alle Layouts +
-  // Renderer nur AppSchema. Single-Feature-Apps gehen über toAppSchema
-  // ohne Mehraufwand durch (eine Wrapping-Allocation pro Boot).
-  const app = toAppSchema(options.schema);
+  // Resolve das Schema. Reihenfolge:
+  //   1. options.schema explizit übergeben → nutzen
+  //   2. window.__KUMIKO_SCHEMA__ (vom dev-server injiziert) → nutzen
+  //   3. Sonst → throw mit klarer Anleitung was zu tun ist
+  // toAppSchema normalisiert die FeatureSchema/AppSchema-Union, ab hier
+  // kennen alle Layouts nur noch AppSchema.
+  const rawSchema = options.schema ?? readInjectedSchema();
+  if (rawSchema === undefined) {
+    throw new Error(
+      "createKumikoApp: kein Schema übergeben und window.__KUMIKO_SCHEMA__ nicht gesetzt. " +
+        "Entweder `schema: <FeatureSchema|AppSchema>` an createKumikoApp übergeben, oder " +
+        "den dev-server (@kumiko/framework/dev-server) nutzen — der injiziert das Schema beim Boot.",
+    );
+  }
+  const app = toAppSchema(rawSchema);
 
   // Fallback-Screen: erstes Screen über alle Features in deklarierter
   // Reihenfolge. War vorher schema.screens[0], jetzt search the first
@@ -174,7 +209,10 @@ function BrowserNavBoot({
   readonly hasWorkspaces: boolean;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
-  readonly shell?: (props: { readonly children: ReactNode }) => ReactNode;
+  readonly shell?: (props: {
+    readonly children: ReactNode;
+    readonly schema: AppSchema;
+  }) => ReactNode;
 }): ReactNode {
   const navApi = useNavApi({ hasWorkspaces });
   const Shell = shell;
@@ -188,7 +226,7 @@ function BrowserNavBoot({
   );
   return (
     <NavProvider value={navApi}>
-      {Shell !== undefined ? <Shell>{screen}</Shell> : screen}
+      {Shell !== undefined ? <Shell schema={app}>{screen}</Shell> : screen}
     </NavProvider>
   );
 }

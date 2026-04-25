@@ -1,15 +1,13 @@
-import type {
-  EntityDefinition,
-  NavDefinition,
-  ScreenDefinition,
-  WorkspaceDefinition,
-} from "@kumiko/framework/ui-types";
-
 // Client-safe view of a feature: the subset the renderer needs to
 // mount screens. Intentionally narrower than the server-side
 // FeatureDefinition (no handlers, no hooks, no projections) so the
 // file that exports a schema can be imported from the browser bundle
 // without dragging in Node-only framework internals.
+//
+// Types wohnen in `framework/ui-types/app-schema.ts` damit der Server
+// (buildAppSchema, dev-server) sie produzieren kann ohne renderer als
+// Dependency zu ziehen. Hier nur Re-Export + Runtime-Helpers
+// (toAppSchema, isAppSchema) die Client-Code zur Laufzeit braucht.
 //
 // Typical layout on the feature author's side:
 //
@@ -30,56 +28,10 @@ import type {
 //     r.screen(editScreen);
 //     ...
 //   });
-//
-// The duplication at the boundary (listing screens in both the schema
-// AND the feature registrar) is the price of splitting client vs
-// server concerns without requiring explicit markers on each
-// registrar call. Later: a `defineFeature` tree-shakeable enough that
-// the client can safely import just the schema parts directly.
 
-export type FeatureSchema = {
-  readonly featureName: string;
-  readonly entities: Readonly<Record<string, EntityDefinition>>;
-  readonly screens: readonly ScreenDefinition[];
-  // Flat list; resolveNavigation builds the tree at render-time from
-  // the registry's indexes. Omitted when the app has no top-level nav.
-  readonly navs?: readonly NavDefinition[];
-  // Workspaces — Legacy-Slot für single-feature-Apps. Bevorzugt liegt
-  // workspaces auf der AppSchema-Ebene weil ihre navMembers regelmäßig
-  // Cross-Feature-Navs referenzieren (siehe AppSchema-Doc). Hier als
-  // Fallback erhalten damit alte clientSchema-Files (vor AppSchema)
-  // ohne Migration weiter laufen — toAppSchema() hebt die Liste hoch.
-  readonly workspaces?: readonly WorkspaceSchema[];
-};
+import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@kumiko/framework/ui-types";
 
-// Per-workspace projection of the engine's WorkspaceDefinition + the
-// pre-resolved member nav QNs. The shell renders the switcher from
-// `definition` and filters the nav tree using `navMembers`.
-export type WorkspaceSchema = {
-  readonly definition: WorkspaceDefinition;
-  // Nav QNs that belong to this workspace, in the order the engine
-  // resolved them (explicit r.workspace.nav first, then nav-self-assigned
-  // entries — deduped). Empty when no nav has been assigned.
-  readonly navMembers: readonly string[];
-};
-
-// App-level schema. Bündelt ein oder mehrere FeatureSchemas + die App-
-// weiten Workspaces. Sinn der Trennung: Workspaces aggregieren über
-// Feature-Grenzen (admin-Workspace zeigt navs aus mehreren Features), und
-// die navMembers-Liste enthält voll qualifizierte QNs die der Browser
-// gegen die jeweilige feature-spezifische `navs`-Liste auflöst.
-//
-// Backwards-Compat: createKumikoApp + die Layouts (DefaultAppShell,
-// WorkspaceShell) akzeptieren beides — `FeatureSchema` (single-feature,
-// historisch) und `AppSchema` (multi-feature). Ein `toAppSchema(input)`-
-// Adapter normalisiert intern, sodass die ganze inneren Renderer-Pipeline
-// nur noch AppSchema kennt.
-export type AppSchema = {
-  readonly features: readonly FeatureSchema[];
-  // Optional — Apps ohne Workspaces nutzen DefaultAppShell und sehen
-  // schlicht die NavTree aller Features.
-  readonly workspaces?: readonly WorkspaceSchema[];
-};
+export type { AppSchema, FeatureSchema, WorkspaceSchema };
 
 // Normalisiert FeatureSchema → AppSchema. Idempotent für AppSchema.
 // Hebt eine Feature-lokal deklarierte `workspaces`-Liste (Legacy) auf

@@ -36,7 +36,6 @@ export type {
   TextFieldDef,
 } from "../engine/types/fields";
 export type { AccessRule } from "../engine/types/handlers";
-
 export type { NavDefinition } from "../engine/types/nav";
 export type {
   CustomScreenDefinition,
@@ -55,3 +54,4 @@ export type {
 } from "../engine/types/screen";
 export { normalizeEditField, normalizeListColumn } from "../engine/types/screen";
 export type { WorkspaceDefinition } from "../engine/types/workspace";
+export type { AppSchema, FeatureSchema, WorkspaceSchema } from "./app-schema";
