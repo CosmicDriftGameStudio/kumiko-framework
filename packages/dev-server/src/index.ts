@@ -21,3 +21,10 @@ export {
 } from "./create-kumiko-server";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app";
 export { runDevApp } from "./run-dev-app";
+export type {
+  ProdAppHandle,
+  ProdSeedFn,
+  RunProdAppAuthOptions,
+  RunProdAppOptions,
+} from "./run-prod-app";
+export { runProdApp } from "./run-prod-app";
