@@ -14,3 +14,7 @@ playwright-report/
 .kumiko-check.lock/
 .kumiko-check.log
 .kumiko-check.result
+
+# Migration-Runtime-State (sample-spezifisch, pro Run regeneriert)
+.beammycar-checkpoint.json
+.beammycar-checkpoint.json.tmp

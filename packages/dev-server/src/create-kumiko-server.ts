@@ -92,6 +92,11 @@ export type CreateKumikoServerOptions = {
    *  Wird an setupTestStack weitergereicht. Siehe TestStackOptions
    *  für die erlaubten Shapes (object oder factory-function). */
   readonly extraContext?: TestStackOptions["extraContext"];
+  /** Anonymous-Access aktivieren — Requests ohne JWT werden als
+   *  Pseudo-User mit Rolle `anonymous` durchgelassen, sofern der
+   *  Handler `roles: ["anonymous"]` deklariert. Tenant-Resolution per
+   *  Header/Cookie/Default; siehe AnonymousAccessConfig. */
+  readonly anonymousAccess?: TestStackOptions["anonymousAccess"];
   /** Wird nach dem Aufsetzen der Entity-Tabellen aufgerufen. Hook für
    *  non-entity-tables (pushTables) und Seeding (admin user, initial
    *  tenant, …). Muss idempotent sein — im persistent-DB-Modus läuft
@@ -384,6 +389,7 @@ export async function createKumikoServer(
     ...(persistentDb && { dbName: devDbName, persistentDb: true }),
     ...(options.auth !== undefined && { authConfig: options.auth }),
     ...(options.extraContext !== undefined && { extraContext: options.extraContext }),
+    ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
   });
   await createEventsTable(stack.db);
   await createEntityTablesForFeatures(stack, options.features);

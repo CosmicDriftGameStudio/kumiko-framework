@@ -178,7 +178,22 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     }
   }
   if (Object.keys(projectionTables).length > 0) {
-    await pushTables(testDb.db, projectionTables);
+    // pushTables emits raw CREATE TABLE — fine for ephemeral test DBs but
+    // collides on re-boot against a persistent DB whose projection tables
+    // were created during a previous run. Filter out the ones that already
+    // exist; drizzle-kit's diff machinery would otherwise emit CREATE for
+    // them again.
+    const { tableExists } = await import("../db/schema-inspection");
+    const { getTableName } = await import("drizzle-orm");
+    const missing: Record<string, unknown> = {};
+    for (const [key, tbl] of Object.entries(projectionTables)) {
+      const physical = getTableName(tbl as Parameters<typeof getTableName>[0]);
+      if (await tableExists(testDb.db, `public.${physical}`)) continue;
+      missing[key] = tbl;
+    }
+    if (Object.keys(missing).length > 0) {
+      await pushTables(testDb.db, missing);
+    }
   }
 
   const searchAdapter = createInMemorySearchAdapter();

@@ -42,6 +42,7 @@
     "./search": "./src/search/index.ts",
     "./secrets": "./src/secrets/index.ts",
     "./testing": "./src/testing/index.ts",
+    "./time": "./src/time/index.ts",
     "./ui-types": "./src/ui-types/index.ts",
     "./utils": "./src/utils/index.ts"
   },

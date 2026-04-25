@@ -77,6 +77,10 @@ export type RunDevAppOptions = {
   /** Extra-AppContext-Keys. Im auth-mode wird `configResolver` automatisch
    *  hinzugefügt — kein Override durch den Caller nötig. */
   readonly extraContext?: CreateKumikoServerOptions["extraContext"];
+  /** Anonymous-Access für Public-Endpoints — Requests ohne JWT laufen
+   *  als Pseudo-User mit Rolle `anonymous` durch, wenn der Handler die
+   *  Rolle in `access.roles` führt. */
+  readonly anonymousAccess?: CreateKumikoServerOptions["anonymousAccess"];
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
@@ -111,6 +115,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       installSignalHandlers: options.installSignalHandlers,
     }),
     ...(extraContext !== undefined && { extraContext }),
+    ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
     ...(options.auth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
