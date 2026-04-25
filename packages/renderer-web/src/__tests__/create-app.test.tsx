@@ -4,7 +4,7 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@kumiko/framework/ui-types";
-import type { Dispatcher, StatusChangeListener } from "@kumiko/headless";
+import type { Dispatcher } from "@kumiko/headless";
 import type { FeatureSchema, NavApi } from "@kumiko/renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test } from "vitest";
@@ -31,7 +31,6 @@ const listScreen: EntityListScreenDefinition = {
 };
 
 function makeDispatcher(): Dispatcher {
-  const listeners = new Set<StatusChangeListener>();
   return {
     write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
     query: (async () => ({
@@ -40,10 +39,7 @@ function makeDispatcher(): Dispatcher {
     })) as unknown as Dispatcher["query"],
     batch: async () => ({ isSuccess: true, results: [] }) as never,
     status: () => "online",
-    onStatusChange: (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
+    subscribeStatus: () => () => {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };

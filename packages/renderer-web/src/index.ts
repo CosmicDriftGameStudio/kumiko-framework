@@ -73,6 +73,8 @@ export {
   useNav,
   usePrimitives,
   useQuery,
+  useStore,
+  useStoreSelector,
   useTokenController,
   useTokens,
   useTranslation,

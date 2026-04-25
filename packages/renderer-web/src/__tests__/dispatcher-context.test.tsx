@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Dispatcher, StatusChangeListener } from "@kumiko/headless";
+import type { Dispatcher } from "@kumiko/headless";
 import { DispatcherProvider, useDispatcher, useDispatcherStatus } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";
@@ -12,7 +12,7 @@ function makeFakeDispatcher(): {
   readonly dispatcher: Dispatcher;
   setStatus(next: "online" | "offline" | "syncing"): void;
 } {
-  const listeners = new Set<StatusChangeListener>();
+  const listeners = new Set<() => void>();
   let currentStatus: "online" | "offline" | "syncing" = "online";
   const dispatcher: Dispatcher = {
     write: async () => {
@@ -25,7 +25,7 @@ function makeFakeDispatcher(): {
       throw new Error("batch not used in this test");
     },
     status: () => currentStatus,
-    onStatusChange: (listener) => {
+    subscribeStatus: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
@@ -36,7 +36,7 @@ function makeFakeDispatcher(): {
     dispatcher,
     setStatus(next) {
       currentStatus = next;
-      for (const l of listeners) l(next);
+      for (const l of listeners) l();
     },
   };
 }
@@ -71,7 +71,7 @@ describe("DispatcherContext", () => {
     expect(result.current).toBe("offline");
   });
 
-  test("useDispatcherStatus updates when dispatcher.onStatusChange fires", () => {
+  test("useDispatcherStatus updates when dispatcher.subscribeStatus fires", () => {
     const { dispatcher, setStatus } = makeFakeDispatcher();
     const { result } = renderHook(() => useDispatcherStatus(), { wrapper: wrapper(dispatcher) });
     expect(result.current).toBe("online");

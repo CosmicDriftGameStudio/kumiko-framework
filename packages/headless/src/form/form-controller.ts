@@ -1,4 +1,5 @@
 import type { FieldIssue } from "../dispatcher";
+import { createStore } from "../store";
 import type {
   FieldConditions,
   FieldConditionValue,
@@ -93,12 +94,11 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   // declare conditional predicates that depend on it.
   let ctx: TCtx = (options.ctx as TCtx) ?? (undefined as TCtx);
 
-  // Cached snapshot — same reference across getSnapshot() calls until a
-  // mutator invalidates it. React's useSyncExternalStore compares snapshot
-  // identity to decide on a re-render; a fresh object per tick would
-  // re-render constantly.
-  let snapshot: FormSnapshot<TValues> = buildSnapshot();
-  const listeners = new Set<() => void>();
+  // Snapshot lives in a Store — same reference across getSnapshot() calls
+  // until a mutator invalidates it via setState. React's useSyncExternalStore
+  // compares snapshot identity to decide on a re-render; the Store holds the
+  // identity stable until invalidate() swaps it for a fresh build.
+  const snapshotStore = createStore<FormSnapshot<TValues>>(buildSnapshot());
 
   // In-flight submit tracker. When a submit() is pending, a second call
   // awaits the same promise instead of firing a parallel write — avoids
@@ -123,8 +123,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   }
 
   function invalidate() {
-    snapshot = buildSnapshot();
-    for (const listener of listeners) listener();
+    snapshotStore.setState(buildSnapshot());
   }
 
   // Local shared implementations so submit() can call validate/rebase
@@ -190,15 +189,8 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   }
 
   return {
-    getSnapshot() {
-      return snapshot;
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    getSnapshot: snapshotStore.getSnapshot,
+    subscribe: snapshotStore.subscribe,
     setField(key, value) {
       // Skip work when the new value is identical to the current one —
       // avoids a notify + re-render for "setField with same value" which
@@ -246,7 +238,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     validate: runValidate,
     reset() {
       // Cheap no-op when already at baseline and no errors to clear.
-      const alreadyClean = !snapshot.isDirty && Object.keys(errors).length === 0;
+      const alreadyClean = !snapshotStore.getSnapshot().isDirty && Object.keys(errors).length === 0;
       if (alreadyClean) return;
       values = { ...initial };
       errors = Object.freeze({});
@@ -290,7 +282,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // the user would see it as "saved" despite the server never seeing
       // it. Same snapshot is fed to buildPayload — a custom transformer
       // (nested-write case) sees exactly what submit() sees.
-      const submittedSnapshot = snapshot;
+      const submittedSnapshot = snapshotStore.getSnapshot();
       const submittedValues = submittedSnapshot.values;
 
       // buildPayload wins over payloadMode when both are set.

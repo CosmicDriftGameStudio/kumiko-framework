@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Dispatcher, StatusChangeListener } from "@kumiko/headless";
+import type { Dispatcher } from "@kumiko/headless";
 import { DispatcherProvider, useForm } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
@@ -14,16 +14,12 @@ function makeDispatcher(
     data: {},
   })) as unknown as Dispatcher["write"],
 ): Dispatcher {
-  const listeners = new Set<StatusChangeListener>();
   return {
     write: writeFn,
     query: async () => ({ isSuccess: true, data: {} }) as never,
     batch: async () => ({ isSuccess: true, results: [] }) as never,
     status: () => "online",
-    onStatusChange: (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
+    subscribeStatus: () => () => {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };

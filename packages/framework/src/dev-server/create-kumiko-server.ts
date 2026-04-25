@@ -221,10 +221,9 @@ function resolveStylesheet(options: CreateKumikoServerOptions): string | undefin
     return undefined;
   }
   try {
-    return (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun.resolveSync(
-      "@kumiko/renderer-web/styles.css",
-      process.cwd(),
-    );
+    return (
+      globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
+    ).Bun.resolveSync("@kumiko/renderer-web/styles.css", process.cwd());
   } catch (err) {
     logError(
       "[kumiko-server] couldn't auto-resolve @kumiko/renderer-web/styles.css — " +

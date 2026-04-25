@@ -38,9 +38,9 @@ export function useDispatcher(): Dispatcher {
 
 // Subscribes to online/offline/syncing transitions via
 // useSyncExternalStore — React 18+'s concurrent-safe subscription
-// primitive. The dispatcher exposes `status()` and `onStatusChange()`
-// which are exactly the `getSnapshot` and `subscribe` shapes this
-// hook needs, so there's no wrapping layer.
+// primitive. The dispatcher exposes `status()` (getSnapshot) and
+// `subscribeStatus()` (Pull-Style subscribe) which match the hook's
+// contract directly.
 //
 // Server rendering: returns "online" during SSR (no network state
 // available yet). The app renders, hydrates, the first client tick
@@ -48,9 +48,5 @@ export function useDispatcher(): Dispatcher {
 // the default optimistic status on the client.
 export function useDispatcherStatus(): DispatcherStatus {
   const dispatcher = useDispatcher();
-  return useSyncExternalStore(
-    (notify) => dispatcher.onStatusChange(notify),
-    () => dispatcher.status(),
-    () => "online",
-  );
+  return useSyncExternalStore(dispatcher.subscribeStatus, dispatcher.status, () => "online");
 }

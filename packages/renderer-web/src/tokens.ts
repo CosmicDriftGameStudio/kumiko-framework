@@ -1,3 +1,4 @@
+import { createStore } from "@kumiko/headless";
 import { cssVarTokens, type ThemeMode, type Tokens, type TokensApi } from "@kumiko/renderer";
 import { useSyncExternalStore } from "react";
 
@@ -5,8 +6,13 @@ import { useSyncExternalStore } from "react";
 // <html>. Die echten Farben leben in styles.css; hier ist nur die
 // JS-Seite die den class-switch triggert und React-Consumer mit
 // useSyncExternalStore darüber informiert.
+//
+// Source-of-truth ist der DOM (`<html class="dark">`); der Store ist
+// reiner Notification-Bus (Tick-Counter), den setMode/toggleMode bei
+// jedem Class-Wechsel hochzählen. So bleibt die DOM-Klasse die einzige
+// Wahrheit — readCurrentMode liest sie frisch bei jedem getSnapshot.
 
-const THEME_EVENT = "kumiko:theme-change";
+const themeTick = createStore(0);
 
 function readCurrentMode(): ThemeMode {
   if (typeof document === "undefined") return "dark";
@@ -14,14 +20,7 @@ function readCurrentMode(): ThemeMode {
 }
 
 function notifyThemeChange(): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(THEME_EVENT));
-}
-
-function subscribeThemeChange(cb: () => void): () => void {
-  if (typeof window === "undefined") return () => {};
-  window.addEventListener(THEME_EVENT, cb);
-  return () => window.removeEventListener(THEME_EVENT, cb);
+  themeTick.setState((t) => t + 1);
 }
 
 /** Hook der eine TokensApi für den Browser baut. Wird von
@@ -29,7 +28,7 @@ function subscribeThemeChange(cb: () => void): () => void {
  *  braucht (z.B. User-Präferenz aus localStorage) kann selber
  *  `<TokensProvider value={...}>` mounten. */
 export function useBrowserTokensApi(): TokensApi {
-  const mode = useSyncExternalStore(subscribeThemeChange, readCurrentMode, () => "dark" as const);
+  const mode = useSyncExternalStore(themeTick.subscribe, readCurrentMode, () => "dark" as const);
   return {
     tokens: cssVarTokens,
     mode,

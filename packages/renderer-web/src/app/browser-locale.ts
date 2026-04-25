@@ -11,7 +11,7 @@
 // user:write:update auf user.locale zusätzlich gesetzt (separater
 // App-Code, nicht im Resolver).
 
-import type { LocaleResolver } from "@kumiko/headless";
+import { createStore, type LocaleResolver } from "@kumiko/headless";
 
 export type CreateBrowserLocaleResolverOptions = {
   /** localStorage-Key unter dem die aktive Locale persistiert wird.
@@ -58,23 +58,20 @@ export function createBrowserLocaleResolver(
 ): LocaleResolver {
   const storageKey = options.storageKey ?? "kumiko:locale";
   const fallback = options.defaultLocale ?? "en";
-  let current = detectInitialLocale(storageKey, fallback);
+  const store = createStore(detectInitialLocale(storageKey, fallback));
   const timeZone = detectTimeZone();
-  const listeners = new Set<() => void>();
 
   return {
     translate: (key) => key,
-    locale: () => current,
+    locale: () => store.getSnapshot(),
     timeZone: () => timeZone,
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    subscribe: store.subscribe,
     setLocale: (next) => {
-      if (next === current) return;
-      current = next;
+      // Early-Return so we don't write localStorage on a no-op. Store's
+      // own Object.is-Gate would already block listener notification,
+      // but the persistence side-effect lives outside the store.
+      if (next === store.getSnapshot()) return;
+      store.setState(next);
       if (typeof localStorage !== "undefined") {
         try {
           localStorage.setItem(storageKey, next);
@@ -83,7 +80,6 @@ export function createBrowserLocaleResolver(
           // bleibt trotzdem gesetzt, nur der nächste Reload verliert sie.
         }
       }
-      for (const listener of listeners) listener();
     },
   };
 }

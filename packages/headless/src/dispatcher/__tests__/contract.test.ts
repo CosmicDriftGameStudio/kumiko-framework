@@ -7,7 +7,6 @@ import type {
   PendingFile,
   PendingWrite,
   QueryResult,
-  StatusChangeListener,
   WriteResult,
 } from "../types";
 
@@ -31,7 +30,7 @@ function createFakeDispatcher(options?: {
   setStatus(next: DispatcherStatus): void;
 } {
   const calls: Array<{ kind: "write" | "query" | "batch"; type?: string; payload?: unknown }> = [];
-  const listeners = new Set<StatusChangeListener>();
+  const listeners = new Set<() => void>();
   let status: DispatcherStatus = "online";
   const pendingWritesStore: PendingWrite[] = [];
   const pendingFilesStore: PendingFile[] = [];
@@ -61,7 +60,7 @@ function createFakeDispatcher(options?: {
       return result;
     },
     status: () => status,
-    onStatusChange(listener) {
+    subscribeStatus(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
@@ -69,7 +68,7 @@ function createFakeDispatcher(options?: {
     pendingFiles: () => pendingFilesStore,
     setStatus(next) {
       status = next;
-      for (const l of listeners) l(next);
+      for (const l of listeners) l();
     },
   };
 }
@@ -144,11 +143,11 @@ describe("Dispatcher contract", () => {
     }
   });
 
-  test("onStatusChange fires on transitions and unsubscribes cleanly", () => {
+  test("subscribeStatus fires on transitions and unsubscribes cleanly", () => {
     const disp = createFakeDispatcher();
     const seen: DispatcherStatus[] = [];
 
-    const unsubscribe = disp.onStatusChange((s) => seen.push(s));
+    const unsubscribe = disp.subscribeStatus(() => seen.push(disp.status()));
     disp.setStatus("offline");
     disp.setStatus("syncing");
     unsubscribe();

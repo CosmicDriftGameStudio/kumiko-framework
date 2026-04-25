@@ -30,7 +30,6 @@ export type {
   PendingWrite,
   QueryOpts,
   QueryResult,
-  StatusChangeListener,
   WriteOpts,
   WriteResult,
 } from "./dispatcher";
@@ -56,6 +55,8 @@ export type {
   ResolveNavigationOptions,
 } from "./nav";
 export { resolveNavigation } from "./nav";
+export type { Store, WritableStore } from "./store";
+export { createStore, shallowEqual } from "./store";
 export type {
   ComputeEditViewModelInput,
   ComputeListViewModelInput,

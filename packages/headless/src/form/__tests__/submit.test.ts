@@ -21,7 +21,7 @@ function makeDispatcher(response?: WriteResult): Dispatcher & {
       return { isSuccess: true, results: [] };
     },
     status: () => "online",
-    onStatusChange: () => () => {},
+    subscribeStatus: () => () => {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };
@@ -166,7 +166,7 @@ describe("createFormController — submit()", () => {
         return { isSuccess: true as const, results: [] };
       },
       status: (): "online" => "online",
-      onStatusChange: () => () => {},
+      subscribeStatus: () => () => {},
       pendingWrites: () => [],
       pendingFiles: () => [],
     };
@@ -270,7 +270,7 @@ describe("createFormController — submit()", () => {
         return { isSuccess: true as const, results: [] };
       },
       status: (): "online" => "online",
-      onStatusChange: () => () => {},
+      subscribeStatus: () => () => {},
       pendingWrites: () => [],
       pendingFiles: () => [],
     };

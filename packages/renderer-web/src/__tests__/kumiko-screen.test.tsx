@@ -4,7 +4,7 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@kumiko/framework/ui-types";
-import type { Dispatcher, StatusChangeListener } from "@kumiko/headless";
+import type { Dispatcher } from "@kumiko/headless";
 import type { FeatureSchema } from "@kumiko/renderer";
 import { DispatcherProvider, KumikoScreen } from "@kumiko/renderer";
 import { describe, expect, test, vi } from "vitest";
@@ -41,7 +41,6 @@ const schema: FeatureSchema = {
 };
 
 function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
-  const listeners = new Set<StatusChangeListener>();
   const base: Dispatcher = {
     write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
     query: (async () => ({
@@ -50,10 +49,7 @@ function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
     })) as unknown as Dispatcher["query"],
     batch: async () => ({ isSuccess: true, results: [] }) as never,
     status: () => "online",
-    onStatusChange: (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
+    subscribeStatus: () => () => {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };

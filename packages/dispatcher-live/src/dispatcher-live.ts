@@ -1,16 +1,16 @@
-import type {
-  BatchResult,
-  Command,
-  Dispatcher,
-  DispatcherError,
-  DispatcherStatus,
-  PendingFile,
-  PendingWrite,
-  QueryOpts,
-  QueryResult,
-  StatusChangeListener,
-  WriteOpts,
-  WriteResult,
+import {
+  type BatchResult,
+  type Command,
+  createStore,
+  type Dispatcher,
+  type DispatcherError,
+  type DispatcherStatus,
+  type PendingFile,
+  type PendingWrite,
+  type QueryOpts,
+  type QueryResult,
+  type WriteOpts,
+  type WriteResult,
 } from "@kumiko/headless";
 import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf";
 import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping";
@@ -65,13 +65,10 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
   // nothing to catch up on). Initial "online": optimism — we haven't
   // proven the server is unreachable, and a down-state on boot would
   // show an offline-toast before the user has even clicked anything.
-  let status: DispatcherStatus = "online";
-  const listeners = new Set<StatusChangeListener>();
+  const statusStore = createStore<DispatcherStatus>("online");
 
   function setStatus(next: DispatcherStatus): void {
-    if (status === next) return;
-    status = next;
-    for (const l of listeners) l(next);
+    statusStore.setState(next);
   }
 
   // A status-flip drives network-error → "offline" and any subsequent
@@ -183,13 +180,8 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
       return normalizeBatchResponse(call);
     },
 
-    status: () => status,
-    onStatusChange(listener: StatusChangeListener) {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    status: statusStore.getSnapshot,
+    subscribeStatus: statusStore.subscribe,
     // Live dispatcher has no queue. Returning a constant empty array
     // keeps the contract uniform with savable; UI code that renders
     // pending-badges draws nothing instead of branching on dispatcher

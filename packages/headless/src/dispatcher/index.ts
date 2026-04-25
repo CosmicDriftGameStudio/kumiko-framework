@@ -9,7 +9,6 @@ export type {
   PendingWrite,
   QueryOpts,
   QueryResult,
-  StatusChangeListener,
   WriteOpts,
   WriteResult,
 } from "./types";

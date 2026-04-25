@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Dispatcher, StatusChangeListener } from "@kumiko/headless";
+import type { Dispatcher } from "@kumiko/headless";
 import {
   DispatcherProvider,
   type LiveEvent,
@@ -38,16 +38,12 @@ function makeFakeLiveEvents(): {
 }
 
 function makeDispatcher(queryFn: Dispatcher["query"]): Dispatcher {
-  const listeners = new Set<StatusChangeListener>();
   return {
     write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
     query: queryFn,
     batch: async () => ({ isSuccess: true, results: [] }) as never,
     status: () => "online",
-    onStatusChange: (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
+    subscribeStatus: () => () => {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };

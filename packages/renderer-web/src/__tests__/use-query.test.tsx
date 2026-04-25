@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Dispatcher, DispatcherError, StatusChangeListener } from "@kumiko/headless";
+import type { Dispatcher, DispatcherError } from "@kumiko/headless";
 import { DispatcherProvider, useQuery } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
@@ -11,16 +11,12 @@ function makeDispatcher(
     data: [],
   })) as unknown as Dispatcher["query"],
 ): Dispatcher {
-  const listeners = new Set<StatusChangeListener>();
   return {
     write: async () => ({ isSuccess: true, data: {} }) as never,
     query: queryFn,
     batch: async () => ({ isSuccess: true, results: [] }) as never,
     status: () => "online",
-    onStatusChange: (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
+    subscribeStatus: () => () => {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };

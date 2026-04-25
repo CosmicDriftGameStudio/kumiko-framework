@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { EntityDefinition, EntityEditScreenDefinition } from "@kumiko/framework/ui-types";
-import type { Dispatcher, StatusChangeListener, SubmitResult } from "@kumiko/headless";
+import type { Dispatcher, SubmitResult } from "@kumiko/headless";
 import { DispatcherProvider, RenderEdit } from "@kumiko/renderer";
 import { describe, expect, test, vi } from "vitest";
 import { act, fireEvent, render, screen } from "./test-utils";
@@ -43,16 +43,12 @@ function makeScreen(): EntityEditScreenDefinition {
 function makeDispatcher(
   writeFn: Dispatcher["write"] = async () => ({ isSuccess: true, data: { id: "1" } }) as never,
 ): Dispatcher {
-  const listeners = new Set<StatusChangeListener>();
   return {
     write: writeFn,
     query: async () => ({ isSuccess: true, data: {} }) as never,
     batch: async () => ({ isSuccess: true, results: [] }) as never,
     status: () => "online",
-    onStatusChange: (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
+    subscribeStatus: () => () => {},
     pendingWrites: () => [],
     pendingFiles: () => [],
   };

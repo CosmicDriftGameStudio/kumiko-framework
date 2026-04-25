@@ -102,8 +102,6 @@ export type Command = {
 //             live-dispatcher never reports "syncing" — nothing to catch up.
 export type DispatcherStatus = "online" | "offline" | "syncing";
 
-export type StatusChangeListener = (status: DispatcherStatus) => void;
-
 // What the UI shows as "N changes waiting" badges. Both entries hold enough
 // context for a user-facing list ("Task 'Buy milk' – retry? / discard?");
 // the dispatcher itself drives the retry/sync — this is read-only for
@@ -176,9 +174,10 @@ export type Dispatcher = {
 
   status(): DispatcherStatus;
 
-  // Returns an unsubscribe function. The UI uses this to drive an
-  // online-indicator / sync-badge without polling.
-  onStatusChange(listener: StatusChangeListener): () => void;
+  // Subscribe/Emit, Pull-Style — listener kriegt keinen Payload, liest den
+  // Status frisch via `status()`. Matcht direkt useSyncExternalStore.
+  // Returns an unsubscribe function.
+  subscribeStatus(listener: () => void): () => void;
 
   // --- Pending queues (only meaningful for savable; live returns []) ---
 

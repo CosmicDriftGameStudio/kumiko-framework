@@ -145,7 +145,7 @@ describe("createLiveDispatcher", () => {
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const seen: string[] = [];
-    disp.onStatusChange((s) => seen.push(s));
+    disp.subscribeStatus(() => seen.push(disp.status()));
 
     const result = await disp.write("x", {});
 
@@ -173,7 +173,7 @@ describe("createLiveDispatcher", () => {
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const seen: string[] = [];
-    disp.onStatusChange((s) => seen.push(s));
+    disp.subscribeStatus(() => seen.push(disp.status()));
 
     await disp.write("x", {}); // offline
     await disp.write("x", {}); // online
@@ -245,7 +245,7 @@ describe("createLiveDispatcher", () => {
     });
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
     const seen: string[] = [];
-    disp.onStatusChange((s) => seen.push(s));
+    disp.subscribeStatus(() => seen.push(disp.status()));
 
     await disp.write("x", {});
 
@@ -259,14 +259,14 @@ describe("createLiveDispatcher", () => {
     expect(disp.pendingFiles()).toEqual([]);
   });
 
-  test("onStatusChange returns unsubscribe handle", async () => {
+  test("subscribeStatus returns unsubscribe handle", async () => {
     const fetch = vi.fn(async () => {
       throw new Error("boom");
     }) as unknown as typeof globalThis.fetch;
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const listener = vi.fn();
-    const unsub = disp.onStatusChange(listener);
+    const unsub = disp.subscribeStatus(listener);
     await disp.write("x", {});
     expect(listener).toHaveBeenCalledTimes(1);
 
@@ -282,7 +282,7 @@ describe("createLiveDispatcher", () => {
       },
     })) as unknown as typeof globalThis.fetch;
     const disp2 = createLiveDispatcher({ fetch: fetchOk, readCsrf: () => "t" });
-    disp2.onStatusChange(listener);
+    disp2.subscribeStatus(listener);
     unsub(); // original unsub — no-op on disp2
     await disp2.write("x", {});
     // listener was triggered once above (initial offline), and disp2's
