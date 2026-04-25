@@ -3,8 +3,8 @@
 // for WordPress-clones, SaaS landing pages, and standalone shops.
 //
 // For multi-tenant deployments, swap defaultTenantId for a tenantResolver
-// that parses the host (acme.shop.com → tenantId) plus a tenantValidator
-// that confirms the tenant exists in DB.
+// that parses the host (acme.shop.com → tenantId) plus a tenantExists
+// callback that confirms the tenant is real (against DB or cache).
 
 import { ANONYMOUS_USER_ID, type TenantId } from "@kumiko/framework/engine";
 import { createEventsTable } from "@kumiko/framework/event-store";

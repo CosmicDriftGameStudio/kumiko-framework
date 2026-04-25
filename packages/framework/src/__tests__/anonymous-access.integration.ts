@@ -176,6 +176,33 @@ describe("anonymous access — single-tenant default", () => {
     const res = await stack.http.query("anonshop:query:product:list", {}, TestUsers.admin);
     expect(res.status).toBe(200);
   });
+
+  test("X-Tenant header that disagrees with default → 400 tenant_mismatch", async () => {
+    // Single-tenant mode is locked: a client cannot override defaultTenantId
+    // by sending a different X-Tenant. Silent acceptance would let a
+    // confused client write into the wrong tenant of a single-tenant
+    // deployment that happened to have data for OTHER_TENANT_ID.
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { "X-Tenant": OTHER_TENANT_ID },
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_mismatch");
+  });
+
+  test("X-Tenant header matching default → accepted", async () => {
+    // Same default, redundant header — fine.
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { "X-Tenant": TENANT_ID },
+    );
+    expect(res.status).toBe(200);
+  });
 });
 
 describe("anonymous access — header-supplied tenant", () => {
@@ -186,7 +213,7 @@ describe("anonymous access — header-supplied tenant", () => {
       features: [shopFeature],
       anonymousAccess: {
         // No defaultTenantId — every anonymous request must declare its tenant.
-        tenantValidator: async (id) => id === TENANT_ID || id === OTHER_TENANT_ID,
+        tenantExists: async (id: TenantId) => id === TENANT_ID || id === OTHER_TENANT_ID,
       },
     });
     await createEntityTable(stack.db, productEntity);
@@ -203,6 +230,24 @@ describe("anonymous access — header-supplied tenant", () => {
       { "X-Tenant": TENANT_ID },
     );
     expect(res.status).toBe(200);
+  });
+
+  test("malformed X-Tenant header → 400 invalid_tenant_format", async () => {
+    // Junk strings (SQL fragments, path traversals, plain typos) must never
+    // reach the pipeline as a TenantId. parseTenantId rejects anything that
+    // isn't a UUID-shape, the middleware turns that into a 400 here.
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { "X-Tenant": "not-a-uuid" },
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as {
+      error: { code: string; details: { source: string } };
+    };
+    expect(body.error.code).toBe("invalid_tenant_format");
+    expect(body.error.details.source).toBe("X-Tenant header");
   });
 
   test("missing tenant → 400 tenant_required", async () => {

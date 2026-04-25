@@ -70,6 +70,7 @@ export type {
   ImagesFieldDef,
   LocatedTimestampFieldDef,
   MoneyFieldDef,
+  MultiSelectFieldDef,
   NumberFieldDef,
   SelectFieldDef,
   TextFieldDef,

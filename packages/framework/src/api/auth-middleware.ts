@@ -2,6 +2,7 @@ import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
 import { createAnonymousUser } from "../engine/system-user";
 import type { SessionUser, TenantId } from "../engine/types";
+import { parseTenantId } from "../engine/types/identifiers";
 import { TENANT_COOKIE_NAME, TENANT_HEADER_NAME } from "./api-constants";
 import type { JwtHelper } from "./jwt";
 
@@ -56,36 +57,42 @@ export type AuthMiddlewareOptions = {
 };
 
 // Resolves the tenant for an unauthenticated request. Returns null when no
-// tenant can be determined — the middleware then falls through to the next
-// link in the chain (defaultTenantId) or rejects with 400.
-// Throw only on infrastructure failures (DB down, cache broken) — those
-// surface as 500. "Subdomain unknown" is null, not throw.
+// tenant can be determined — the middleware rejects with 400 instead of
+// silently falling through. Throw only on infrastructure failures (DB down,
+// cache broken) — those surface as 500. "Subdomain unknown" is null, not
+// throw.
 export type TenantResolver = (c: Context) => Promise<TenantId | null> | TenantId | null;
 
-// Returns true when the tenantId names an active tenant. Used after
-// header/cookie/resolver to confirm the caller-supplied id is real before a
-// SessionUser is synthesised. Omit to skip validation (e.g. single-tenant
-// apps that already vet defaultTenantId at boot).
-export type TenantValidator = (tenantId: TenantId) => Promise<boolean> | boolean;
+// Returns true when the tenantId names an active tenant. The middleware
+// calls this after a header/cookie/resolver supplied a candidate, before
+// the anonymous SessionUser is synthesised. Omit to skip the existence
+// check entirely — fine for prototypes, NOT for production multi-tenant
+// deployments where a caller could otherwise probe arbitrary ids.
+export type TenantExists = (tenantId: TenantId) => Promise<boolean> | boolean;
 
 export type AnonymousAccessConfig = {
-  // Resolution chain (first non-null wins):
-  //   1. JWT-tenantId (when a token is present — anonymous path is skipped)
-  //   2. X-Tenant header
-  //   3. kumiko_tenant cookie
-  //   4. tenantResolver(req)         — custom (e.g. subdomain parser)
-  //   5. defaultTenantId             — single-tenant apps' shortcut
-  // No tenant resolved → 400 "tenant_required".
+  // Custom resolver (e.g. subdomain parser). Consulted only when neither
+  // the X-Tenant header nor the kumiko_tenant cookie are present.
   readonly tenantResolver?: TenantResolver;
-  // Trusted as-is on the request path — there is no boot-time DB lookup.
-  // Set this to a tenantId you control (single-tenant deployments) and
-  // verify it at app-boot before passing it in (see sample for the pattern).
+  // Single-tenant shortcut. When set, the server runs in **locked** mode:
+  //   - no client-supplied tenant: defaultTenantId is used.
+  //   - client supplies a matching tenant (header/cookie/resolver): allowed.
+  //   - client supplies a non-matching tenant: 400 tenant_mismatch (the
+  //     server is single-tenant; rejecting protects against confused clients
+  //     who think they're talking to a different deployment).
+  // The framework does NOT verify defaultTenantId against the DB at boot;
+  // the caller is responsible (see sample for the pattern).
   readonly defaultTenantId?: TenantId;
   // Per-request existence check for header/cookie/resolver-supplied ids.
-  // Defaults to "trust the value" — fine for prototypes, NOT for production
-  // multi-tenant deployments where a caller could probe arbitrary ids.
-  readonly tenantValidator?: TenantValidator;
+  // Skipped for the defaultTenantId path (the caller already vetted that
+  // value when configuring the server).
+  readonly tenantExists?: TenantExists;
 };
+
+// Where the candidate tenant came from. Drives the validation policy:
+//   - header / cookie / resolver: untrusted, must pass tenantExists if set.
+//   - default: trusted (configured at boot), no per-request check.
+type TenantSource = "header" | "cookie" | "resolver" | "default";
 
 // Error-body shape matches the UnprocessableError/AccessDeniedError on the
 // dispatcher path — clients parse `{error: {code, httpStatus, message,
@@ -99,7 +106,8 @@ type MiddlewareRejectCode =
   | "session_invalid"
   | "tenant_required"
   | "tenant_not_found"
-  | "tenant_mismatch";
+  | "tenant_mismatch"
+  | "invalid_tenant_format";
 
 function middlewareReject(
   c: Context,
@@ -247,65 +255,146 @@ export function getAuthTransport(c: Context): AuthTransport | undefined {
   return c.get(AUTH_TRANSPORT_KEY) as AuthTransport | undefined;
 }
 
-// Anonymous request flow: resolve a tenant via header → cookie → resolver →
-// default; reject with 400 (no tenant) or 404 (unknown tenant) when nothing
-// produces a verified id; otherwise stamp an anonymous SessionUser and pass
-// through. The transport flag stays unset so csrf-middleware skips the
-// double-submit check (no auth-cookie ⇒ no CSRF vector to defend against).
+// Anonymous request flow. Steps:
+//   1. Read raw client-supplied tenant from X-Tenant header / cookie.
+//   2. Validate format (UUID-shape) — junk strings get 400 right here.
+//   3. Pick the authoritative tenant:
+//        - defaultTenantId set: locked single-tenant mode. A client tenant
+//          that disagrees with default → 400 tenant_mismatch. Otherwise
+//          default wins.
+//        - else: client tenant > resolver(req). No tenant at all → 400.
+//   4. For non-default sources, run tenantExists if configured → 404.
+//   5. Synthesise the anonymous SessionUser. The transport flag stays unset
+//      so csrf-middleware skips the double-submit check (no auth-cookie ⇒
+//      no CSRF vector to defend against).
 async function handleAnonymous(
   c: Context,
   config: AnonymousAccessConfig,
   next: Next,
 ): Promise<Response | undefined> {
-  const headerTenant = c.req.header(TENANT_HEADER_NAME);
-  const cookieTenant = getCookie(c, TENANT_COOKIE_NAME);
+  // Step 1+2: parse client-supplied tenant. Reject malformed values before
+  // they touch any downstream consumer (DB, cache, audit row).
+  const headerRaw = c.req.header(TENANT_HEADER_NAME);
+  const cookieRaw = getCookie(c, TENANT_COOKIE_NAME);
 
-  let candidate: string | undefined = headerTenant ?? cookieTenant;
-  let mustValidate = candidate !== undefined;
+  const headerCheck = parseClientTenant(headerRaw, "X-Tenant header");
+  if (headerCheck.error) return middlewareReject(c, headerCheck.error);
+  const cookieCheck = parseClientTenant(cookieRaw, "kumiko_tenant cookie");
+  if (cookieCheck.error) return middlewareReject(c, cookieCheck.error);
 
-  if (candidate === undefined && config.tenantResolver) {
-    const resolved = await config.tenantResolver(c);
-    if (resolved !== null && resolved !== undefined) {
-      candidate = resolved;
-      mustValidate = true;
-    }
-  }
-  if (candidate === undefined && config.defaultTenantId !== undefined) {
-    // defaultTenantId is trusted as configured — the framework does NOT
-    // verify it against the DB at boot. Callers are responsible for setting
-    // it to a real tenantId; a typo surfaces as an FK violation on the first
-    // anonymous write. The sample wires a guard at app-boot instead of at
-    // every request, which is the recommended pattern.
-    candidate = config.defaultTenantId;
-    mustValidate = false;
-  }
+  const clientTenant: { id: TenantId; source: "header" | "cookie" } | null =
+    headerCheck.tenantId !== null
+      ? { id: headerCheck.tenantId, source: "header" }
+      : cookieCheck.tenantId !== null
+        ? { id: cookieCheck.tenantId, source: "cookie" }
+        : null;
 
-  if (candidate === undefined) {
-    return middlewareReject(c, {
-      code: "tenant_required",
-      status: 400,
-      message:
-        "anonymous access requires a tenant (X-Tenant header, kumiko_tenant cookie, or server-side resolver)",
-      i18nKey: "auth.errors.tenantRequired",
-    });
-  }
+  // Step 3: pick the authoritative tenant.
+  const resolved = await resolveTenant(c, config, clientTenant);
+  if ("error" in resolved) return middlewareReject(c, resolved.error);
 
-  if (mustValidate && config.tenantValidator) {
-    const exists = await config.tenantValidator(candidate as TenantId);
+  // Step 4: existence check for untrusted sources.
+  if (resolved.source !== "default" && config.tenantExists) {
+    const exists = await config.tenantExists(resolved.tenantId);
     if (!exists) {
       return middlewareReject(c, {
         code: "tenant_not_found",
         status: 404,
-        message: `tenant "${candidate}" does not exist`,
+        message: `tenant "${resolved.tenantId}" does not exist`,
         i18nKey: "auth.errors.tenantNotFound",
-        details: { tenantId: candidate },
+        details: { tenantId: resolved.tenantId },
       });
     }
   }
 
-  c.set(USER_KEY, createAnonymousUser(candidate as TenantId));
+  // Step 5: synthesise + continue.
+  c.set(USER_KEY, createAnonymousUser(resolved.tenantId));
   await next();
   // skip: anonymous path completed — Hono middleware contract returns void
   // when next() ran; explicit return makes the union return-type honest.
   return;
 }
+
+// Validates an X-Tenant / cookie value against the tenantId format. Returns
+// `{tenantId: null}` when absent, `{tenantId: TenantId}` when valid, or
+// `{error: …}` when the value is non-empty junk (so the caller can return
+// 400 instead of silently treating it as "no tenant supplied").
+function parseClientTenant(
+  raw: string | undefined,
+  source: string,
+): { tenantId: TenantId | null; error?: never } | { tenantId?: never; error: RejectArgs } {
+  if (raw === undefined || raw === "") return { tenantId: null };
+  const parsed = parseTenantId(raw);
+  if (parsed === null) {
+    return {
+      error: {
+        code: "invalid_tenant_format",
+        status: 400,
+        message: `${source} is not a valid tenant id`,
+        i18nKey: "auth.errors.invalidTenantFormat",
+        details: { source, value: raw },
+      },
+    };
+  }
+  return { tenantId: parsed };
+}
+
+type ResolvedTenant = { tenantId: TenantId; source: TenantSource };
+type ResolveError = { error: RejectArgs };
+
+// Implements the "client tenant vs default" precedence. Single-tenant mode
+// (defaultTenantId set) is **locked**: the client either agrees with the
+// default or gets tenant_mismatch — defending the deployment from confused
+// clients that think they're talking to a different installation.
+async function resolveTenant(
+  c: Context,
+  config: AnonymousAccessConfig,
+  clientTenant: { id: TenantId; source: "header" | "cookie" } | null,
+): Promise<ResolvedTenant | ResolveError> {
+  if (config.defaultTenantId !== undefined) {
+    if (clientTenant && clientTenant.id !== config.defaultTenantId) {
+      return {
+        error: {
+          code: "tenant_mismatch",
+          status: 400,
+          message: `${clientTenant.source} tenant disagrees with server default`,
+          i18nKey: "auth.errors.tenantMismatch",
+          details: {
+            clientTenantId: clientTenant.id,
+            defaultTenantId: config.defaultTenantId,
+          },
+        },
+      };
+    }
+    return { tenantId: config.defaultTenantId, source: "default" };
+  }
+
+  if (clientTenant) {
+    return { tenantId: clientTenant.id, source: clientTenant.source };
+  }
+
+  if (config.tenantResolver) {
+    const resolved = await config.tenantResolver(c);
+    if (resolved !== null && resolved !== undefined) {
+      return { tenantId: resolved, source: "resolver" };
+    }
+  }
+
+  return {
+    error: {
+      code: "tenant_required",
+      status: 400,
+      message:
+        "anonymous access requires a tenant (X-Tenant header, kumiko_tenant cookie, or server-side resolver)",
+      i18nKey: "auth.errors.tenantRequired",
+    },
+  };
+}
+
+type RejectArgs = {
+  code: MiddlewareRejectCode;
+  status: 400 | 401 | 403 | 404;
+  message: string;
+  i18nKey: string;
+  details?: Record<string, unknown>;
+};
