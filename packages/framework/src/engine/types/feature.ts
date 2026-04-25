@@ -51,6 +51,7 @@ import type { NavDefinition } from "./nav";
 import type { MultiStreamProjectionDefinition, ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
 import type { ScreenDefinition } from "./screen";
+import type { WorkspaceDefinition } from "./workspace";
 
 // --- Metrics (declared by features via r.metric()) ---
 
@@ -170,6 +171,11 @@ export type FeatureDefinition = {
   // registry qualifies to "<feature>:nav:<id>". Flat list — the renderer's
   // resolveNavigation assembles the tree from parent refs at mount time.
   readonly navs: Readonly<Record<string, NavDefinition>>;
+  // Workspaces declared via r.workspace(). Keyed by feature-local short id;
+  // registry qualifies to "<feature>:workspace:<id>". Pure UI metadata —
+  // shellWorkspaces consumes the resolved per-workspace nav list at mount
+  // time; engine validates roles + nav refs at boot.
+  readonly workspaces: Readonly<Record<string, WorkspaceDefinition>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -367,6 +373,13 @@ export type FeatureRegistrar = {
   // that `screen` and `parent` refs exist (cross-feature QNs allowed) and
   // that parent chains don't contain cycles.
   nav(definition: NavDefinition): void;
+
+  // Register a workspace — a persona-/role-scoped UI surface. Pure UI
+  // composition; the registry qualifies the short id to
+  // "<feature>:workspace:<id>". Boot-validation checks that any nav refs
+  // exist, that workspace ids referenced from r.nav() are real, and that
+  // at most one workspace per app declares `default: true`.
+  workspace(definition: WorkspaceDefinition): void;
 };
 
 // --- Registry (created from features) ---
@@ -514,4 +527,21 @@ export type Registry = {
   // Nav entries that declare no parent — the roots of the navigation tree.
   // resolveNavigation starts its walk here and descends via getNavsByParent.
   getTopLevelNavs(): readonly NavDefinition[];
+
+  // Workspaces declared via r.workspace() across all features. Keyed by
+  // qualified name ("<feature>:workspace:<id>"). The active web shell
+  // (shellWorkspaces) consumes this to render the switcher.
+  getAllWorkspaces(): ReadonlyMap<string, WorkspaceDefinition>;
+  getWorkspace(qualifiedName: string): WorkspaceDefinition | undefined;
+  // The feature that registered the workspace. Mirrors getNavFeature —
+  // lets the resolver drop workspaces whose owning feature is disabled.
+  getWorkspaceFeature(qualifiedName: string): string | undefined;
+  // Resolved nav QNs that belong to the given workspace. Pre-computed at
+  // boot from BOTH r.workspace.nav AND r.nav.workspaces — the shell
+  // doesn't have to merge sources at render time.
+  getWorkspaceNavs(workspaceQualifiedName: string): readonly string[];
+  // The single workspace whose `default: true` is set, if any. Boot
+  // validator rejects more than one. Apps without a default fall back to
+  // the first workspace the user has access to.
+  getDefaultWorkspace(): WorkspaceDefinition | undefined;
 };

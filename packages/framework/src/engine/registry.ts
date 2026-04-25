@@ -32,6 +32,7 @@ import type {
   ScreenDefinition,
   SecretKeyDefinition,
   TranslationKeys,
+  WorkspaceDefinition,
   WriteHandlerDef,
 } from "./types";
 import { HookPhases } from "./types";
@@ -130,6 +131,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const navFeatureMap = new Map<string, string>();
   const navsByParent = new Map<string, NavDefinition[]>();
   const topLevelNavs: NavDefinition[] = [];
+
+  // Workspaces — stored verbatim, plus a parallel feature-owner map and a
+  // pre-computed nav-membership map. Membership merges two sources at boot:
+  //   1. r.workspace({ nav: [...] }) — explicit list on the workspace
+  //   2. r.nav({ workspaces: [...] }) — self-assignment on the nav entry
+  // Order matters for the switcher: workspace-declared QNs come first (in
+  // declaration order), then nav-self-assigned ones (in registration order).
+  // Duplicates are deduped — a nav entry listed in both shows up once.
+  const workspaceMap = new Map<string, WorkspaceDefinition>();
+  const workspaceFeatureMap = new Map<string, string>();
+  const navsByWorkspace = new Map<string, string[]>();
+  let defaultWorkspace: WorkspaceDefinition | undefined;
 
   // Local alias for readability — `qualifyEntityName` is the shared helper
   // from qualified-name.ts, also used by validateBoot to keep ingest and
@@ -484,6 +497,29 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
     }
 
+    // Workspaces: same qualification pattern as nav/screen. Step one stores
+    // the workspace itself + its explicit nav list; step two (after every
+    // feature has been ingested) folds nav-self-assigned QNs into the same
+    // member list. Doing it in two passes keeps cross-feature workspace
+    // refs valid — a nav entry can self-assign to a workspace whose feature
+    // hasn't been ingested yet.
+    for (const [wsId, wsDef] of Object.entries(feature.workspaces)) {
+      const qualified = qualify(feature.name, "workspace", wsId);
+      const stored = { ...wsDef, id: qualified };
+      workspaceMap.set(qualified, stored);
+      workspaceFeatureMap.set(qualified, feature.name);
+      // Seed the membership list with the workspace's explicit nav refs in
+      // declaration order. Boot-validator checks the QNs resolve.
+      navsByWorkspace.set(qualified, [...(stored.nav ?? [])]);
+      if (stored.default === true) {
+        // Boot-validator enforces uniqueness; here we just remember the
+        // first one and let validateBoot complain if there's a second.
+        if (defaultWorkspace === undefined) {
+          defaultWorkspace = stored;
+        }
+      }
+    }
+
     // Auth-claims hooks: order of registration is preserved. Feature name is
     // captured alongside so the resolver can apply the auto-prefix at merge
     // time — the feature author never ships pre-prefixed keys.
@@ -499,6 +535,22 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         fn,
         ...(declaredKeys && { declaredKeys }),
       });
+    }
+  }
+
+  // Pass 2 for workspaces: fold any nav-self-assigned QNs into their
+  // workspace's member list. We can do this safely now that every feature
+  // (and therefore every workspace) is in workspaceMap. Cross-feature refs
+  // — a nav from feature A self-assigning to a workspace from feature B —
+  // resolve here because B's workspace was registered in pass 1 above.
+  // Dedup: a nav entry that's also in r.workspace({ nav: [...] }) shouldn't
+  // appear twice. Boot-validator catches dangling workspace ids.
+  for (const [navQn, navDef] of navMap) {
+    if (!navDef.workspaces || navDef.workspaces.length === 0) continue;
+    for (const wsQn of navDef.workspaces) {
+      const members = navsByWorkspace.get(wsQn);
+      if (members === undefined) continue; // dangling — boot-validator reports
+      if (!members.includes(navQn)) members.push(navQn);
     }
   }
 
@@ -1159,6 +1211,26 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getTopLevelNavs(): readonly NavDefinition[] {
       return topLevelNavs;
+    },
+
+    getAllWorkspaces(): ReadonlyMap<string, WorkspaceDefinition> {
+      return workspaceMap;
+    },
+
+    getWorkspace(qualifiedName: string): WorkspaceDefinition | undefined {
+      return workspaceMap.get(qualifiedName);
+    },
+
+    getWorkspaceFeature(qualifiedName: string): string | undefined {
+      return workspaceFeatureMap.get(qualifiedName);
+    },
+
+    getWorkspaceNavs(workspaceQualifiedName: string): readonly string[] {
+      return navsByWorkspace.get(workspaceQualifiedName) ?? [];
+    },
+
+    getDefaultWorkspace(): WorkspaceDefinition | undefined {
+      return defaultWorkspace;
     },
   };
 }

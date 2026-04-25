@@ -38,4 +38,9 @@ export type NavDefinition = {
   // reach; leave unset to always show (engine stays un-opinionated about
   // who sees what — apps that need default-deny can set { roles: [] }).
   readonly access?: AccessRule;
+  // Workspace QNs this entry self-assigns to. Merged at boot with any
+  // r.workspace({ nav: [...] }) explicit lists. Omit to leave workspace
+  // membership decided solely by the workspace's nav list (or both empty
+  // → entry belongs to no workspace).
+  readonly workspaces?: readonly string[];
 };

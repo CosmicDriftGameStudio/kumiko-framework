@@ -143,6 +143,7 @@ export { HookPhases } from "./hooks";
 export type { EntityId, TenantId } from "./identifiers";
 export { isSystemTenant, SYSTEM_TENANT_ID } from "./identifiers";
 export type { NavDefinition } from "./nav";
+export type { WorkspaceDefinition } from "./workspace";
 export type {
   MspErrorMode,
   MspErrorPolicy,

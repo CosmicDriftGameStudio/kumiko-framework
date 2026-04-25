@@ -58,6 +58,7 @@ import type {
 import { HookPhases } from "./types";
 import { resolveName } from "./types/handlers";
 import type { NavDefinition } from "./types/nav";
+import type { WorkspaceDefinition } from "./types/workspace";
 import type { ScreenDefinition } from "./types/screen";
 
 const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
@@ -107,6 +108,7 @@ export function defineFeature<TExports = undefined>(
   const claimKeys: Record<string, ClaimKeyDefinition> = {};
   const screens: Record<string, ScreenDefinition> = {};
   const navs: Record<string, NavDefinition> = {};
+  const workspaces: Record<string, WorkspaceDefinition> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -537,6 +539,25 @@ export function defineFeature<TExports = undefined>(
       navs[definition.id] = definition;
     },
 
+    workspace(definition: WorkspaceDefinition): void {
+      // Same kebab guard as r.screen / r.nav so authoring-time mistakes
+      // surface at the feature file, not deep in registry boot.
+      if (!isKebabSegment(definition.id)) {
+        throw new Error(
+          `[Feature ${name}] Workspace id "${definition.id}" must be kebab-case ` +
+            `(lowercase letters, digits, dashes; start with a letter). ` +
+            `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
+        );
+      }
+      if (workspaces[definition.id]) {
+        throw new Error(
+          `[Feature ${name}] Workspace "${definition.id}" already registered. ` +
+            `Workspace ids must be unique per feature.`,
+        );
+      }
+      workspaces[definition.id] = definition;
+    },
+
     claimKey<T extends ClaimKeyType>(
       shortName: string,
       options: { readonly type: T },
@@ -608,5 +629,6 @@ export function defineFeature<TExports = undefined>(
     claimKeys,
     screens,
     navs,
+    workspaces,
   };
 }

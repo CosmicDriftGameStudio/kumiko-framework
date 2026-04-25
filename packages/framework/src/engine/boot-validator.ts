@@ -1,6 +1,11 @@
 import type { OwnershipMap, OwnershipRule } from "./ownership";
 import { qualifyEntityName } from "./qualified-name";
-import type { ClaimKeyDefinition, FeatureDefinition, NavDefinition } from "./types";
+import type {
+  ClaimKeyDefinition,
+  FeatureDefinition,
+  NavDefinition,
+  WorkspaceDefinition,
+} from "./types";
 import { normalizeEditField, normalizeListColumn } from "./types/screen";
 
 const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
@@ -56,6 +61,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   // every feature's navs map.
   const allScreenQns = collectScreenQns(features);
   const allNavQns = collectNavQns(features);
+  const allWorkspaceQns = collectWorkspaceQns(features);
 
   let hasEncryptedFields = false;
   let hasFileFields = false;
@@ -76,10 +82,12 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
     validateScreens(feature, featureMap);
-    validateNavs(feature, allScreenQns, allNavQns);
+    validateNavs(feature, allScreenQns, allNavQns, allWorkspaceQns);
+    validateWorkspaces(feature, allNavQns);
   }
 
   validateNavCycles(allNavQns);
+  validateDefaultWorkspaceUniqueness(allWorkspaceQns);
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
     throw new Error("ENCRYPTION_KEY environment variable is required (encrypted fields in use)");
@@ -849,6 +857,7 @@ function validateNavs(
   feature: FeatureDefinition,
   allScreenQns: ReadonlySet<string>,
   allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
+  allWorkspaceQns: ReadonlyMap<string, WorkspaceDefinition & { readonly featureName: string }>,
 ): void {
   for (const [navId, navDef] of Object.entries(feature.navs)) {
     if (navDef.screen !== undefined && !allScreenQns.has(navDef.screen)) {
@@ -864,6 +873,17 @@ function validateNavs(
           `which is not a registered nav entry. Expected a qualified name of the form ` +
           `"<feature>:nav:<id>".`,
       );
+    }
+    if (navDef.workspaces !== undefined) {
+      for (const wsQn of navDef.workspaces) {
+        if (!allWorkspaceQns.has(wsQn)) {
+          throw new Error(
+            `[Feature ${feature.name}] Nav entry "${navId}" self-assigns to workspace "${wsQn}" ` +
+              `which is not registered. Expected a qualified name of the form ` +
+              `"<feature>:workspace:<id>" pointing at an r.workspace() declaration.`,
+          );
+        }
+      }
     }
   }
 }
@@ -919,4 +939,61 @@ function collectKnownRoles(features: readonly FeatureDefinition[]): Set<string> 
     }
   }
   return roles;
+}
+
+// --- Workspace validation ---
+//
+// Per-app workspace registry, built once up front. Carries `featureName`
+// alongside the definition so error messages can point at the offending
+// feature without a parallel reverse index.
+
+function collectWorkspaceQns(
+  features: readonly FeatureDefinition[],
+): Map<string, WorkspaceDefinition & { readonly featureName: string }> {
+  const map = new Map<string, WorkspaceDefinition & { readonly featureName: string }>();
+  for (const f of features) {
+    for (const [wsId, wsDef] of Object.entries(f.workspaces)) {
+      const qualified = qualifyEntityName(f.name, "workspace", wsId);
+      map.set(qualified, { ...wsDef, featureName: f.name });
+    }
+  }
+  return map;
+}
+
+function validateWorkspaces(
+  feature: FeatureDefinition,
+  allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
+): void {
+  for (const [wsId, wsDef] of Object.entries(feature.workspaces)) {
+    if (wsDef.nav !== undefined) {
+      for (const navQn of wsDef.nav) {
+        if (!allNavQns.has(navQn)) {
+          throw new Error(
+            `[Feature ${feature.name}] Workspace "${wsId}" references nav "${navQn}" ` +
+              `which is not registered. Expected a qualified name of the form ` +
+              `"<feature>:nav:<id>" pointing at an r.nav() declaration.`,
+          );
+        }
+      }
+    }
+  }
+}
+
+// Single-default rule across the entire app. Mirrors how createApp validates
+// roles up front — a second `default: true` is a configuration error, not a
+// runtime fallback. Apps without any default fall back to "first workspace
+// the user has access to" at render time (handled by shellWorkspaces).
+function validateDefaultWorkspaceUniqueness(
+  allWorkspaceQns: ReadonlyMap<string, WorkspaceDefinition & { readonly featureName: string }>,
+): void {
+  const defaults: string[] = [];
+  for (const [qn, ws] of allWorkspaceQns) {
+    if (ws.default === true) defaults.push(qn);
+  }
+  if (defaults.length > 1) {
+    throw new Error(
+      `[Kumiko Workspaces] Multiple workspaces declare default: true — ` +
+        `${defaults.join(", ")}. At most one workspace per app may be the default.`,
+    );
+  }
 }

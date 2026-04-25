@@ -162,6 +162,7 @@ export type {
   TranslationsDef,
   ValidationError,
   ValidationHookFn,
+  WorkspaceDefinition,
   WriteEvent,
   WriteHandlerDef,
   WriteHandlerFn,
