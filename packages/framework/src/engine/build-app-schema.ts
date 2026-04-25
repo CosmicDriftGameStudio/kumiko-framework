@@ -26,6 +26,7 @@
 // `effectiveFeatures` Argument annehmen und über alle iterations filtern.
 
 import type { AppSchema, EntityDefinition, FeatureSchema, WorkspaceSchema } from "../ui-types";
+import type { FieldDefinition } from "./types/fields";
 import type { Registry } from "./types/feature";
 
 export function buildAppSchema(registry: Registry): AppSchema {
@@ -80,30 +81,32 @@ function projectEntities(
 // Whitelist. Was nicht durchkommt: Server-only-runtime wie ZodValidate-
 // Functions, Computed-Functions, Default-Functions.
 function projectEntity(entity: EntityDefinition): EntityDefinition {
-  const fieldsIn = entity.fields as Readonly<Record<string, unknown>>;
-  const fieldsOut: Record<string, unknown> = {};
-  for (const [fieldName, fieldDef] of Object.entries(fieldsIn)) {
+  const fieldsOut: Record<string, FieldDefinition> = {};
+  for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
     fieldsOut[fieldName] = projectField(fieldDef);
   }
-  // EntityDefinition akzeptiert eine Reihe optionaler Felder (idType,
-  // table, ...), aber der Browser-Renderer liest nur fields[]. Wir
-  // schicken `table` mit weil Apps die mit `entity.table` direkt
-  // arbeiten könnten — kostet nichts und beugt Backwards-Compat-Brüche
-  // vor.
-  const projected: Record<string, unknown> = {
+  // EntityDefinition akzeptiert idType/access/searchWeight als optional —
+  // wir lassen die weg weil der Browser-Renderer sie nicht liest. `table`
+  // schicken wir mit, falls Apps `entity.table` direkt referenzieren.
+  // Kein Cast nötig: alle weggelassenen Felder sind `?`-optional.
+  return {
     fields: fieldsOut,
+    ...(typeof entity.table === "string" && { table: entity.table }),
   };
-  const table = (entity as { table?: unknown }).table;
-  if (typeof table === "string") projected["table"] = table;
-  return projected as unknown as EntityDefinition;
 }
 
 // Whitelist pro Field. `default` darf nur durch wenn Literal (string/
-// number/boolean/null) — Function-Defaults gehören zur Server-Logik
-// (z.B. `() => crypto.randomUUID()`) und dürfen den Browser nicht
-// erreichen, der hat dafür keine Reproduktion.
-function projectField(fieldDef: unknown): unknown {
-  if (typeof fieldDef !== "object" || fieldDef === null) return {};
+// number/boolean/null) — auch wenn die FieldDefinition-Types „default"
+// nur als Literal typisieren, hat das Sample-Pattern
+// `as unknown as EntityDefinition` Authorinnen schon Function-Defaults
+// reinschmuggeln lassen. Diese Defense-in-Depth fängt sie ab BEVOR
+// JSON.stringify sie in der Browser-Injection-Pipeline droppt.
+//
+// Cast am Exit `as FieldDefinition`: type-system-wise erfüllt unsere
+// Out-Map die Discriminated-Union nur mit unverengtem `type`-String —
+// der Cast bridged die Variant-Inferenz, die TS aus einem Generic
+// Record nicht zurückrechnet.
+function projectField(fieldDef: FieldDefinition): FieldDefinition {
   const def = fieldDef as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   if (typeof def["type"] === "string") out["type"] = def["type"];
@@ -112,7 +115,7 @@ function projectField(fieldDef: unknown): unknown {
   if (isLiteral(def["default"])) out["default"] = def["default"];
   // Select: options-Liste ist plain JSON, durchschicken.
   if (Array.isArray(def["options"])) out["options"] = def["options"];
-  return out;
+  return out as FieldDefinition;
 }
 
 function isLiteral(value: unknown): boolean {

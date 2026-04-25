@@ -11,3 +11,10 @@
 
 export const ADMIN_EMAIL = "admin@kumiko.dev";
 export const ADMIN_PASSWORD = "kumiko-admin";
+
+// Tenant-IDs gespiegelt zwischen server.ts (TenantId-Cast) und client.tsx
+// (plain string für tenantName-Mapping). Hier zentral als plain strings,
+// da diese Datei framework-frei bleibt — server.ts macht den
+// `as TenantId`-Cast lokal.
+export const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000001";
+export const BETA_TENANT_ID = "00000000-0000-4000-8000-000000000002";

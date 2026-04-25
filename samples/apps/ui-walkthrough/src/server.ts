@@ -9,15 +9,14 @@
 
 import { runDevApp } from "@kumiko/dev-server";
 import type { TenantId } from "@kumiko/framework/engine";
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./auth-constants";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { taskFeature } from "./feature";
 
 // Zwei feste Tenants — Admin ist in beiden Mitglied damit der
 // TenantSwitcher im Sample sichtbar ist (rendert nur bei >1 Tenant).
 // Unterschiedliche Rollen pro Tenant beweisen tenant-isolierte
-// Memberships. IDs gespiegelt im client.tsx (siehe Kommentar dort).
-const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
-const BETA_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
+// Memberships. TenantId-Cast lokal an der Use-Site (auth-constants.ts
+// bleibt framework-frei für den E2E-Helper-Pfad).
 
 await runDevApp({
   features: [taskFeature],
@@ -30,8 +29,18 @@ await runDevApp({
       password: ADMIN_PASSWORD,
       displayName: "Admin",
       memberships: [
-        { tenantId: DEV_TENANT_ID, tenantKey: "dev", tenantName: "Dev Tenant", roles: ["Admin"] },
-        { tenantId: BETA_TENANT_ID, tenantKey: "beta", tenantName: "Beta Tenant", roles: ["User"] },
+        {
+          tenantId: DEV_TENANT_ID as TenantId,
+          tenantKey: "dev",
+          tenantName: "Dev Tenant",
+          roles: ["Admin"],
+        },
+        {
+          tenantId: BETA_TENANT_ID as TenantId,
+          tenantKey: "beta",
+          tenantName: "Beta Tenant",
+          roles: ["User"],
+        },
       ],
     },
   },

@@ -23,12 +23,7 @@ import {
 } from "@kumiko/renderer-web";
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
-
-// Gespiegelt aus server.ts — server.ts darf nicht ins Browser-Bundle
-// (importiert framework/runtime). Zwei Zeilen Konstanten sind
-// pragmatischer als ein separates shared-Modul.
-const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000001";
-const BETA_TENANT_ID = "00000000-0000-4000-8000-000000000002";
+import { BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 
 const tenantName = (tenantId: string): string => {
   if (tenantId === DEV_TENANT_ID) return "Dev Tenant";

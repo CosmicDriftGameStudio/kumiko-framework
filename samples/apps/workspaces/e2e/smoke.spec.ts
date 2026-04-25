@@ -25,9 +25,7 @@ test("workspaces: boot, login, lands on admin workspace, sidebar zeigt admin-nav
   // Der Admin-Tab wird Default — das pinnt sowohl den Login-Path als
   // auch die Resolution-Reihenfolge (URL > initial > engine-default).
   await expect(page.getByTestId("workspace-tab-admin")).toBeVisible();
-  expect(page.getByTestId("workspace-tab-admin").getAttribute("aria-selected")).resolves.toBe(
-    "true",
-  );
+  await expect(page.getByTestId("workspace-tab-admin")).toHaveAttribute("aria-selected", "true");
 
   expect(errors, errors.join("\n")).toEqual([]);
 });
@@ -52,9 +50,6 @@ test("workspaces: switcher klick wechselt Sidebar-Inhalt", async ({ page }) => {
   await expect(page).toHaveURL(/^http:\/\/localhost:\d+\/dispatch(\/.*)?$/);
 
   // Switcher-State: dispatch ist jetzt aktiv.
-  await expect(page.getByTestId("workspace-tab-dispatch")).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(page.getByTestId("workspace-tab-dispatch")).toHaveAttribute("aria-selected", "true");
   await expect(page.getByTestId("workspace-tab-admin")).toHaveAttribute("aria-selected", "false");
 });
