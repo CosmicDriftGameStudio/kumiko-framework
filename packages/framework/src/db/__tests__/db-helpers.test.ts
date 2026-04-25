@@ -5,6 +5,7 @@ import {
   createBooleanField,
   createEntity,
   createImageField,
+  createMultiSelectField,
   createSelectField,
   createTextField,
 } from "../../engine";
@@ -101,6 +102,26 @@ describe("buildDrizzleTable", () => {
 
     const table = buildDrizzleTable("user", entity);
     expect(table["locale"]).toBeDefined();
+  });
+
+  test("multiSelect field becomes jsonb column with default []", () => {
+    const entity = createEntity({
+      table: "drivers",
+      fields: {
+        licenceClasses: createMultiSelectField({ options: ["B", "BE", "C"] as const }),
+      },
+    });
+
+    const table = buildDrizzleTable("driver", entity);
+    const config = getTableConfig(table);
+    const column = config.columns.find((c) => c.name === "licence_classes");
+    expect(column).toBeDefined();
+    // jsonb-customType: column-data-type ist string ("jsonb"); column-type
+    // hier reicht als Smoke — die Default-`[]`-Garantie testen wir indirekt
+    // über die Migration-Rebuild-Integration-Tests, die echte Inserts
+    // gegen Postgres machen.
+    expect(column?.dataType).toBe("json");
+    expect(column?.default).toEqual([]);
   });
 
   test("converts camelCase to snake_case", () => {
