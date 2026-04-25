@@ -1,7 +1,12 @@
+export type { SetTenantCookieOptions } from "./anonymous-cookie";
+export { deleteTenantCookie, setTenantCookie } from "./anonymous-cookie";
 export type {
+  AnonymousAccessConfig,
   AuthMiddlewareOptions,
   AuthSessionChecker,
   AuthSessionStatus,
+  TenantExists,
+  TenantResolver,
 } from "./auth-middleware";
 export { authMiddleware, getUser } from "./auth-middleware";
 export type {
