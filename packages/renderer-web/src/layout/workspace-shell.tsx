@@ -32,7 +32,7 @@
 import type { AccessRule } from "@kumiko/framework/ui-types";
 import type { FeatureSchema, WorkspaceSchema } from "@kumiko/renderer";
 import { useNav } from "@kumiko/renderer";
-import { type ReactNode, useCallback, useEffect, useMemo } from "react";
+import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
 import { lastSegment } from "./nav-tree";
 import { AppLayout } from "./app-layout";
 import { NavTree } from "./nav-tree";
@@ -118,9 +118,17 @@ export function WorkspaceShell({
   //
   // replace, NOT navigate: these are default-fills, not user actions.
   // Using pushState would create a history entry the user never asked
-  // for — Browser-Back from /admin/x → / → useEffect re-pushes →
+  // for — Browser-Back from /admin/x → / → effect re-pushes →
   // Back-loop. replaceState swaps in place: Back leaves the app cleanly.
-  useEffect(() => {
+  //
+  // useLayoutEffect, NOT useEffect: the children below this shell render
+  // RoutedScreen with the URL's current screenId. If that's "" (URL was
+  // "/" or "/admin"), KumikoScreen renders a "Screen not found" banner
+  // for the empty qn. useEffect would let that banner paint to the
+  // screen for one frame before the URL got fixed. useLayoutEffect runs
+  // synchronously between commit and paint, so the user only ever sees
+  // the resolved screen. (No SSR here, otherwise we'd need a guard.)
+  useLayoutEffect(() => {
     if (activeId === undefined) return;
     const routeScreenEmpty =
       nav.route?.screenId === undefined || nav.route.screenId === "";
