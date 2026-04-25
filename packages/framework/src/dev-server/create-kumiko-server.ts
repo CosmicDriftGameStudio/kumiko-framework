@@ -205,7 +205,11 @@ async function watchDir(dir: string, onChange: (filename: string) => void): Prom
 //   - false            → CSS-Pipeline aus (undefined zurück)
 //   - undefined + client: Default `@kumiko/renderer-web/styles.css` auflösen
 //   - undefined + kein clientEntry: undefined (keine CSS nötig)
-function resolveStylesheet(options: CreateKumikoServerOptions): string | undefined {
+//
+// @internal — exportiert nur für Unit-Tests, nicht aus dem Package-Index
+//   re-exportiert. Konsumenten gehen ausschließlich über die `stylesheet`-
+//   Option der createKumikoServer-Aufrufstelle.
+export function resolveStylesheet(options: CreateKumikoServerOptions): string | undefined {
   if (options.stylesheet === false) return undefined;
   if (typeof options.stylesheet === "string") return resolve(options.stylesheet);
   if (options.clientEntry === undefined) return undefined;

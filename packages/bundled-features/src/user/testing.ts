@@ -41,6 +41,9 @@ export type SeedUserOptions = {
  */
 export async function seedUser(db: DbConnection, options: SeedUserOptions): Promise<string> {
   const by = options.by ?? TestUsers.systemAdmin;
+  // executor.create erwartet eine TenantDb (mit .insert()-API). User
+  // ist zwar tenant-agnostic (kein tenant_id-Spalte), aber das runtime-
+  // Interface braucht den Wrap.
   const tdb = createTenantDb(db, by.tenantId, "system");
 
   const existing = await fetchOne(db, userTable, eq(userTable["email"], options.email));
@@ -61,7 +64,18 @@ export async function seedUser(db: DbConnection, options: SeedUserOptions): Prom
       `seedUser failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
-  // Executor.create gibt das geschriebene Objekt zurück — id steckt drin.
-  const created = result.data as { id: string };
-  return created.id;
+  return extractId(result.data, "seedUser");
+}
+
+// Extrahiert die `id`-Spalte aus dem executor.create-Result. Der
+// Executor liefert ein Record<string, unknown> (die Projection-Row), in
+// das die DB die Aggregat-id reinschreibt — wir prüfen runtime statt
+// blindem `as { id: string }`-Cast, damit ein API-Vertragsbruch sofort
+// als ehrlicher Throw rauskommt statt downstream als undefined-Bug.
+function extractId(data: unknown, who: string): string {
+  if (typeof data === "object" && data !== null && "id" in data) {
+    const id = (data as { id: unknown }).id;
+    if (typeof id === "string") return id;
+  }
+  throw new Error(`${who}: executor.create result has no string id (got ${JSON.stringify(data)})`);
 }

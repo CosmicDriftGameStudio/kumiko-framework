@@ -84,11 +84,11 @@ export type SeedTenantOptions = {
  */
 export async function seedTenant(db: DbConnection, options: SeedTenantOptions): Promise<TenantId> {
   const by = options.by ?? TestUsers.systemAdmin;
-  // Tenant-Schreibvorgänge laufen im public-scope, aber der Executor
-  // erwartet eine TenantDb — wir wrappen mit by.tenantId. Da tenant.id
-  // selbst NICHT tenant-scoped ist, hat der Wrap keinen funktionalen
-  // Effekt außer den gleichen Konstrukten zu folgen wie die anderen
-  // seed-Helper.
+  // executor.create erwartet eine TenantDb (mit .insert()-API), nicht
+  // die rohe DbConnection. Auch wenn das Tenant-Aggregat selbst NICHT
+  // tenant-scoped ist, braucht der Wrap-Layer für die runtime-API zu
+  // existieren. by.tenantId reicht — keine Override-Semantik wie bei
+  // seedTenantMembership nötig.
   const tdb = createTenantDb(db, by.tenantId, "system");
 
   const existing = await fetchOne(db, tenantTable, eq(tenantTable["id"], options.id));

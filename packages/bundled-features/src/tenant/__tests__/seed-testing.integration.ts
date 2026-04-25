@@ -27,14 +27,15 @@ import { createConfigFeature } from "../../config/config-feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { tenantMembershipsTable } from "../membership-table";
-import { tenantEntity } from "../tenant-entity";
+import { tenantEntity, tenantTable } from "../tenant-entity";
 import { createTenantFeature } from "../tenant-feature";
-import { seedTenantMembership } from "../testing";
+import { seedTenant, seedTenantMembership } from "../testing";
 
 let stack: TestStack;
 
 const ALICE_ID = "11111111-0000-4000-8000-000000000aaa";
 const TENANT_A: TenantId = "00000000-0000-4000-8000-000000000aaa" as TenantId;
+const TENANT_B: TenantId = "00000000-0000-4000-8000-000000000bbb" as TenantId;
 
 beforeAll(async () => {
   const resolver = createConfigResolver();
@@ -53,9 +54,72 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await stack.db.db.delete(tenantMembershipsTable);
+  await stack.db.db.delete(tenantTable);
   // Events stay — the idempotency test below inspects how many .created
-  // events exist for the same (user, tenant) pair across runs.
+  // events exist for the same aggregate-key pair across runs.
   await stack.db.db.delete(eventsTable);
+});
+
+describe("seedTenant", () => {
+  test("schreibt Projection-Row mit id/key/name", async () => {
+    const id = await seedTenant(stack.db.db, {
+      id: TENANT_A,
+      key: "tenant-a",
+      name: "Tenant A",
+    });
+    expect(id).toBe(TENANT_A);
+
+    const rows = await stack.db.db
+      .select()
+      .from(tenantTable)
+      .where(eq(tenantTable["id"], TENANT_A));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["id"]).toBe(TENANT_A);
+    expect(rows[0]?.["key"]).toBe("tenant-a");
+    expect(rows[0]?.["name"]).toBe("Tenant A");
+  });
+
+  test("emittiert tenant.created-Event auf den Aggregate-Stream", async () => {
+    await seedTenant(stack.db.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
+    const events = await stack.db.db
+      .select()
+      .from(eventsTable)
+      .where(eq(eventsTable.aggregateType, "tenant"));
+    const createdEvents = events.filter((e) => e.type === "tenant.created");
+    expect(createdEvents).toHaveLength(1);
+    // Aggregate-id steht im event-row (aggregateId), nicht im payload —
+    // payload trägt die Aggregat-Felder ohne PK.
+    expect(createdEvents[0]?.aggregateId).toBe(TENANT_A);
+    const payload = createdEvents[0]?.payload as Record<string, unknown>;
+    expect(payload["key"]).toBe("tenant-a");
+    expect(payload["name"]).toBe("Tenant A");
+  });
+
+  test("zweiter Aufruf für dieselbe id: no-op (kein zweites Event, kein Crash)", async () => {
+    await seedTenant(stack.db.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
+    await seedTenant(stack.db.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A v2" });
+
+    // Projection bleibt bei Original-name (zweiter Call wurde geskippt, kein update).
+    const rows = await stack.db.db
+      .select()
+      .from(tenantTable)
+      .where(eq(tenantTable["id"], TENANT_A));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["name"]).toBe("Tenant A");
+
+    const events = await stack.db.db
+      .select()
+      .from(eventsTable)
+      .where(eq(eventsTable.aggregateType, "tenant"));
+    expect(events.filter((e) => e.type === "tenant.created")).toHaveLength(1);
+  });
+
+  test("zwei verschiedene Tenants in einem Test — beide in der Projection", async () => {
+    await seedTenant(stack.db.db, { id: TENANT_A, key: "a", name: "A" });
+    await seedTenant(stack.db.db, { id: TENANT_B, key: "b", name: "B" });
+    const rows = await stack.db.db.select().from(tenantTable);
+    expect(rows.map((r) => r["id"]).sort()).toEqual([TENANT_A, TENANT_B].sort());
+  });
 });
 
 describe("seedTenantMembership", () => {
