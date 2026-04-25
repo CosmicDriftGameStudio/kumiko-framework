@@ -74,9 +74,9 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db.db, userEntity);
-  await createEntityTable(stack.db.db, tenantEntity);
-  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
+  await createEntityTable(stack.db, userEntity);
+  await createEntityTable(stack.db, tenantEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -84,8 +84,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(tenantMembershipsTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(tenantMembershipsTable);
 });
 
 async function seedLoginUser(
@@ -99,7 +99,7 @@ async function seedLoginUser(
     systemAdmin,
   );
   const tenantId: TenantId = "00000000-0000-4000-8000-000000000001" as TenantId;
-  await seedTenantMembership(stack.db.db, {
+  await seedTenantMembership(stack.db, {
     userId: created.id,
     tenantId,
     roles: ["User"],

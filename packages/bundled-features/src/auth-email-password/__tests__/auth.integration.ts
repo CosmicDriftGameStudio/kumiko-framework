@@ -55,9 +55,9 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db.db, userEntity);
-  await createEntityTable(stack.db.db, tenantEntity);
-  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
+  await createEntityTable(stack.db, userEntity);
+  await createEntityTable(stack.db, tenantEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -65,8 +65,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(tenantMembershipsTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(tenantMembershipsTable);
 });
 
 // Helper: seed a full login-ready user (user row + membership).
@@ -88,7 +88,7 @@ async function seedLoginUser(opts: {
   );
 
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
-  await seedTenantMembership(stack.db.db, {
+  await seedTenantMembership(stack.db, {
     userId: created.id,
     tenantId,
     roles: opts.roles ?? ["User"],
@@ -269,12 +269,12 @@ describe("scenario 7: multi-membership tenant resolution", () => {
     );
 
     // Two memberships: tenant 1 (first) and tenant 7 (preferred).
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: created.id,
       tenantId: testTenantId(1),
       roles: ["User"],
     });
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: created.id,
       tenantId: testTenantId(7),
       roles: ["Admin"],
@@ -306,7 +306,7 @@ describe("scenario 7: multi-membership tenant resolution", () => {
       { email: "stale@example.com", passwordHash: hash, displayName: "Stale" },
       systemAdmin,
     );
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: created.id,
       tenantId: testTenantId(3),
       roles: ["User"],
@@ -357,9 +357,9 @@ describe("scenario 7b: login rate limiting", () => {
         loginRateLimit: createInMemoryLoginRateLimiter(3, 60_000),
       },
     });
-    await createEntityTable(rlStack.db.db, userEntity);
-    await createEntityTable(rlStack.db.db, tenantEntity);
-    await pushTables(rlStack.db.db, { configValuesTable, tenantMembershipsTable });
+    await createEntityTable(rlStack.db, userEntity);
+    await createEntityTable(rlStack.db, tenantEntity);
+    await pushTables(rlStack.db, { configValuesTable, tenantMembershipsTable });
 
     // Seed one real user
     const hash = await hashPassword("right-password");
@@ -368,7 +368,7 @@ describe("scenario 7b: login rate limiting", () => {
       { email: "brute@example.com", passwordHash: hash, displayName: "Brute" },
       systemAdmin,
     );
-    await seedTenantMembership(rlStack.db.db, {
+    await seedTenantMembership(rlStack.db, {
       userId: created.id,
       tenantId: "00000000-0000-4000-8000-000000000001",
       roles: ["User"],
@@ -415,7 +415,7 @@ describe("scenario 7b: login rate limiting", () => {
       { email: "reset@example.com", passwordHash: hash, displayName: "Reset" },
       systemAdmin,
     );
-    await seedTenantMembership(rlStack.db.db, {
+    await seedTenantMembership(rlStack.db, {
       userId: created.id,
       tenantId: "00000000-0000-4000-8000-000000000001",
       roles: ["User"],

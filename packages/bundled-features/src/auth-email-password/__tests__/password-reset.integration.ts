@@ -79,9 +79,9 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db.db, userEntity);
-  await createEntityTable(stack.db.db, tenantEntity);
-  await pushTables(stack.db.db, {
+  await createEntityTable(stack.db, userEntity);
+  await createEntityTable(stack.db, tenantEntity);
+  await pushTables(stack.db, {
     configValuesTable,
     tenantMembershipsTable,
     userSessionTable,
@@ -93,9 +93,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(tenantMembershipsTable);
-  await stack.db.db.delete(userSessionTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(tenantMembershipsTable);
+  await stack.db.delete(userSessionTable);
   capturedEmails.length = 0;
   autoRevokeCalls.length = 0;
 });
@@ -116,7 +116,7 @@ async function seedUser(opts: {
     systemAdmin,
   );
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
-  await seedTenantMembership(stack.db.db, {
+  await seedTenantMembership(stack.db, {
     userId: created.id,
     tenantId,
     roles: ["User"],
@@ -182,7 +182,7 @@ describe("POST /auth/reset-password", () => {
 
     // Proof: the new password actually hashes in. Read the row, verify the
     // hash matches the new plaintext.
-    const row = (await stack.db.db.select().from(userTable)).find((r) => r["id"] === seed.id);
+    const row = (await stack.db.select().from(userTable)).find((r) => r["id"] === seed.id);
     if (!row?.["passwordHash"]) throw new Error("user row / hash missing");
     expect(await verifyPassword(row["passwordHash"] as string, "brand-new-pw-9876")).toBe(true);
     expect(await verifyPassword(row["passwordHash"] as string, "old-pw-1234")).toBe(false);
@@ -203,7 +203,7 @@ describe("POST /auth/reset-password", () => {
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidResetToken);
 
     // Old password still wins.
-    const row = (await stack.db.db.select().from(userTable)).find((r) => r["id"] === seed.id);
+    const row = (await stack.db.select().from(userTable)).find((r) => r["id"] === seed.id);
     if (!row?.["passwordHash"]) throw new Error("user row / hash missing");
     expect(await verifyPassword(row["passwordHash"] as string, "keep-me!")).toBe(true);
   });
@@ -262,7 +262,7 @@ describe("POST /auth/reset-password", () => {
     const seed = await seedUser({ email: "retry@example.com", password: "pw-retry-1234" });
     const { token } = signResetToken(seed.id, 15, resetSecret);
 
-    await stack.db.db.delete(tenantMembershipsTable);
+    await stack.db.delete(tenantMembershipsTable);
     const firstAttempt = await post("/api/auth/reset-password", {
       token,
       newPassword: "never-lands-1234",
@@ -270,7 +270,7 @@ describe("POST /auth/reset-password", () => {
     expect(firstAttempt.status).toBe(422);
 
     // Re-insert the membership. Same userId, same token still valid.
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: seed.id,
       tenantId: seed.tenantId,
       roles: ["User"],

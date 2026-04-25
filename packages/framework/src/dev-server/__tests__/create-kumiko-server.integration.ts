@@ -43,7 +43,7 @@ async function boot(): Promise<KumikoServerHandle> {
 describe("createKumikoServer", () => {
   test("bootet den Kumiko-Stack + legt die Feature-Tables an", async () => {
     const h = await boot();
-    const rows = await h.stack.db.db.execute<{ exists: boolean }>(
+    const rows = await h.stack.db.execute<{ exists: boolean }>(
       sql`SELECT to_regclass('public.kumiko_server_probe') IS NOT NULL AS exists`,
     );
     expect(rows[0]?.exists).toBe(true);

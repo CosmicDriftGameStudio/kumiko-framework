@@ -187,12 +187,12 @@ const guest = createTestUser({ id: 2, roles: ["Guest"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [errorFeature] });
-  await createEntityTable(stack.db.db, itemEntity);
+  await createEntityTable(stack.db, itemEntity);
 });
 afterAll(async () => stack.cleanup());
 beforeEach(async () => {
   stack.events.reset();
-  await stack.db.db.delete(itemTable);
+  await stack.db.delete(itemTable);
 });
 
 // --- Helpers ---

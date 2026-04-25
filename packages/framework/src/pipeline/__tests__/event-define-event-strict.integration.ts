@@ -120,7 +120,7 @@ beforeAll(async () => {
     features: [emitterFeature, neighborFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
+  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
 });
 
 afterEach(async () => {
@@ -146,7 +146,7 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
     );
     expect(res.status).toBe(200);
 
-    const stored = await stack.db.db
+    const stored = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.type, welcomeEventName));
@@ -164,7 +164,7 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
     // Non-Kumiko throw inside a handler → wrapped as InternalError → 500.
     expect(res.status).toBe(500);
 
-    const stored = await stack.db.db.select().from(eventsTable);
+    const stored = await stack.db.select().from(eventsTable);
     // TX rolled back: no event landed.
     expect(stored).toHaveLength(0);
   });
@@ -175,7 +175,7 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
     // ValidationError is a first-class Kumiko error → 400.
     expect(res.status).toBe(400);
 
-    const stored = await stack.db.db
+    const stored = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.type, welcomeEventName));
@@ -193,7 +193,7 @@ describe("E.3 — cross-feature ownership guard", () => {
     const res = await stack.http.write("emitter:write:emit:foreign-event", { userId }, admin);
     expect(res.status).toBe(500);
 
-    const stored = await stack.db.db
+    const stored = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.type, foreignEventName));

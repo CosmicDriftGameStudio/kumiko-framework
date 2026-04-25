@@ -61,13 +61,13 @@ beforeAll(async () => {
       loginHandler: AuthHandlers.login,
     },
   });
-  callbacks.set(createSessionCallbacks({ db: stack.db.db }));
+  callbacks.set(createSessionCallbacks({ db: stack.db }));
   h = makeSessionHelpers(stack, TENANT);
 
-  await createEntityTable(stack.db.db, userEntity);
-  await createEntityTable(stack.db.db, tenantEntity);
-  await createEntityTable(stack.db.db, userSessionEntity);
-  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
+  await createEntityTable(stack.db, userEntity);
+  await createEntityTable(stack.db, tenantEntity);
+  await createEntityTable(stack.db, userSessionEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -75,9 +75,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(tenantMembershipsTable);
-  await stack.db.db.delete(userSessionTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(tenantMembershipsTable);
+  await stack.db.delete(userSessionTable);
 });
 
 describe("sessions feature — login → check → revoke → rejected", () => {
@@ -85,7 +85,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     await h.seedUser("persist@example.com", "pw-long-enough");
     const { sid } = await h.login("persist@example.com", "pw-long-enough");
 
-    const rows = await stack.db.db.select().from(userSessionTable);
+    const rows = await stack.db.select().from(userSessionTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["id"]).toBe(sid);
     expect(rows[0]?.["revokedAt"]).toBeNull();
@@ -126,7 +126,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     const logoutRes = await h.authedPost("/api/auth/logout", token);
     expect(logoutRes.status).toBe(200);
 
-    const rows = await stack.db.db.select().from(userSessionTable);
+    const rows = await stack.db.select().from(userSessionTable);
     expect(rows[0]?.["id"]).toBe(sid);
     expect(rows[0]?.["revokedAt"]).not.toBeNull();
 
@@ -153,7 +153,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     });
     expect(firstRevoke.status).toBe(200);
 
-    const [rowAfterFirst] = await stack.db.db
+    const [rowAfterFirst] = await stack.db
       .select()
       .from(userSessionTable)
       .where(eq(userSessionTable["id"], first.sid));
@@ -173,7 +173,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(body.error?.details?.reason).toBe("session_already_revoked");
 
     // Audit: the retry must NOT have touched the row. Same timestamp as t1.
-    const [rowAfterRetry] = await stack.db.db
+    const [rowAfterRetry] = await stack.db
       .select()
       .from(userSessionTable)
       .where(eq(userSessionTable["id"], first.sid));
@@ -340,7 +340,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     // not a bypass hack). If the audit-guard were missing, the second
     // readout would move forward because one of the late racers would
     // have overwritten t1.
-    const [row] = await stack.db.db
+    const [row] = await stack.db
       .select()
       .from(userSessionTable)
       .where(eq(userSessionTable["id"], sid));
@@ -356,7 +356,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     });
     expect(retry.status).toBe(422);
 
-    const [rowAfterRetry] = await stack.db.db
+    const [rowAfterRetry] = await stack.db
       .select()
       .from(userSessionTable)
       .where(eq(userSessionTable["id"], sid));
@@ -381,7 +381,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
 
     // Hard-delete the session row so it's gone from the store (as opposed to
     // soft-revoked). The JWT stays syntactically valid.
-    await stack.db.db.delete(userSessionTable).where(eq(userSessionTable["id"], sid));
+    await stack.db.delete(userSessionTable).where(eq(userSessionTable["id"], sid));
 
     const res = await h.authedPost("/api/query", token, {
       type: "user:query:user:me",
@@ -398,7 +398,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
 
     // Back-date expiresAt so the row is still present + not revoked, just
     // past its window. Simulates what a long-lived JWT would hit.
-    await stack.db.db
+    await stack.db
       .update(userSessionTable)
       .set({ expiresAt: Temporal.Instant.from("2020-01-01T00:00:00Z") })
       .where(eq(userSessionTable["id"], sid));
@@ -434,7 +434,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     // so she gets a fresh JWT with the new role in its claims. This is the
     // actual production path — roles are tenant-membership data, not JWT
     // metadata we can fiddle with directly.
-    await stack.db.db
+    await stack.db
       .update(tenantMembershipsTable)
       .set({ roles: JSON.stringify(["Admin"]) })
       .where(

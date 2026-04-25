@@ -50,7 +50,7 @@ beforeAll(async () => {
     ],
     extraContext: { configResolver: createConfigResolver() },
   });
-  db = stack.db.db;
+  db = stack.db;
   await createEntityTable(db, tenantEntity);
   // Events-table is auto-pushed by setupTestStack; we only need to add
   // the feature-specific projection + lookup tables here. notificationPre-

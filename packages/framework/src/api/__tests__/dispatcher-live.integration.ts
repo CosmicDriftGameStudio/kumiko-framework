@@ -97,7 +97,7 @@ async function buildFetch(): Promise<{
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [itemFeature] });
-  await createEntityTable(stack.db.db, itemEntity);
+  await createEntityTable(stack.db, itemEntity);
 });
 
 afterAll(async () => {
@@ -105,7 +105,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(itemTable);
+  await stack.db.delete(itemTable);
 });
 
 describe("dispatcher-live (integration) — full path against Kumiko server", () => {
@@ -123,7 +123,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
     expect(result.isSuccess).toBe(true);
 
     // Prove the server actually persisted.
-    const rows = await stack.db.db.select().from(itemTable);
+    const rows = await stack.db.select().from(itemTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["name"]).toBe("hello-live");
   });
@@ -158,7 +158,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
 
   test("query: dispatches GET-style-POST (Kumiko uses POST for query too), returns data", async () => {
     // Seed a row first.
-    await stack.db.db.insert(itemTable).values({
+    await stack.db.insert(itemTable).values({
       id: generateId(),
       tenantId: admin.tenantId,
       name: "seed",
@@ -188,7 +188,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
 
     expect(result.isSuccess).toBe(true);
 
-    const rows = await stack.db.db.select().from(itemTable);
+    const rows = await stack.db.select().from(itemTable);
     expect(rows).toHaveLength(3);
     const names = rows.map((r) => r["name"]).sort();
     expect(names).toEqual(["a", "b", "c"]);
@@ -210,7 +210,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
     }
 
     // DB must be empty — prior success within a failed batch rolls back.
-    const rows = await stack.db.db.select().from(itemTable);
+    const rows = await stack.db.select().from(itemTable);
     expect(rows).toHaveLength(0);
   });
 });

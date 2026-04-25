@@ -151,8 +151,8 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [itemFeature] });
-  await createEntityTable(stack.db.db, itemEntity);
-  await createEntityTable(stack.db.db, auditEntity);
+  await createEntityTable(stack.db, itemEntity);
+  await createEntityTable(stack.db, auditEntity);
 });
 
 afterAll(async () => {
@@ -166,8 +166,8 @@ beforeEach(async () => {
   afterCommitShouldThrow = false;
   parallelismWindows.length = 0;
   stack.events.reset();
-  await stack.db.db.delete(itemTable);
-  await stack.db.db.delete(auditTable);
+  await stack.db.delete(itemTable);
+  await stack.db.delete(auditTable);
 });
 
 describe("POST /api/batch", () => {
@@ -213,16 +213,16 @@ describe("POST /api/batch", () => {
     expect(afterCommitHookLog.map((h) => h.name)).toEqual(["alpha", "beta", "gamma"]);
 
     // Rows actually persisted
-    const rows = await stack.db.db.select().from(itemTable);
+    const rows = await stack.db.select().from(itemTable);
     expect(rows).toHaveLength(3);
   });
 
   test("mid-batch failure: all writes roll back, afterCommit hooks do NOT fire", async () => {
     // Seed with one existing item so we can verify the batch didn't persist anything
-    await stack.db.db
+    await stack.db
       .insert(itemTable)
       .values({ name: "seed", counter: 0, tenantId: "00000000-0000-4000-8000-000000000001" });
-    const seedCount = (await stack.db.db.select().from(itemTable)).length;
+    const seedCount = (await stack.db.select().from(itemTable)).length;
 
     const res = await stack.http.batch(
       [
@@ -252,7 +252,7 @@ describe("POST /api/batch", () => {
     expect(afterCommitHookLog).toEqual([]);
 
     // DB: only the seed row remains, the batch's first successful write rolled back
-    const rows = await stack.db.db.select().from(itemTable);
+    const rows = await stack.db.select().from(itemTable);
     expect(rows).toHaveLength(seedCount);
     expect((rows[0] as { name: string }).name).toBe("seed");
   });
@@ -264,13 +264,13 @@ describe("POST /api/batch", () => {
       admin,
     );
     expect((await okRes.json()).isSuccess).toBe(true);
-    const auditAfterOk = await stack.db.db.select().from(auditTable);
+    const auditAfterOk = await stack.db.select().from(auditTable);
     expect(auditAfterOk).toHaveLength(1);
     expect((auditAfterOk[0] as { action: string }).action).toBe("item_saved");
 
     // Reset — new batch fails mid-way. Both entity rows AND audit rows must roll back.
-    await stack.db.db.delete(itemTable);
-    await stack.db.db.delete(auditTable);
+    await stack.db.delete(itemTable);
+    await stack.db.delete(auditTable);
 
     const failRes = await stack.http.batch(
       [
@@ -283,8 +283,8 @@ describe("POST /api/batch", () => {
 
     // Both tables are empty — the inTransaction audit hook's write rolled back
     // together with the item row.
-    const itemsAfterFail = await stack.db.db.select().from(itemTable);
-    const auditAfterFail = await stack.db.db.select().from(auditTable);
+    const itemsAfterFail = await stack.db.select().from(itemTable);
+    const auditAfterFail = await stack.db.select().from(auditTable);
     expect(itemsAfterFail).toHaveLength(0);
     expect(auditAfterFail).toHaveLength(0);
   });
@@ -328,7 +328,7 @@ describe("POST /api/batch", () => {
     expect(body.isSuccess).toBe(true);
 
     // DB row persisted (tx committed)
-    const rows = await stack.db.db.select().from(itemTable);
+    const rows = await stack.db.select().from(itemTable);
     expect(rows).toHaveLength(1);
 
     // The hook AFTER the throwing one still ran — errors don't cascade
@@ -344,7 +344,7 @@ describe("POST /api/batch", () => {
     expect(firstBody.isSuccess).toBe(true);
     expect(firstBody.results).toHaveLength(1);
 
-    const rowsAfterFirst = await stack.db.db.select().from(itemTable);
+    const rowsAfterFirst = await stack.db.select().from(itemTable);
     expect(rowsAfterFirst).toHaveLength(1);
 
     // Hook logs reflect one execution
@@ -359,7 +359,7 @@ describe("POST /api/batch", () => {
     expect(secondBody.results).toEqual(firstBody.results);
 
     // DB still has only one row (no double-insert)
-    const rowsAfterSecond = await stack.db.db.select().from(itemTable);
+    const rowsAfterSecond = await stack.db.select().from(itemTable);
     expect(rowsAfterSecond).toHaveLength(1);
 
     // Hooks didn't fire a second time
@@ -376,8 +376,8 @@ describe("POST /api/write (single write runs in its own transaction)", () => {
 
     // Both the item row AND the audit row exist — proves the single write
     // went through a transaction and the inTx hook shared it.
-    const items = await stack.db.db.select().from(itemTable);
-    const audits = await stack.db.db.select().from(auditTable);
+    const items = await stack.db.select().from(itemTable);
+    const audits = await stack.db.select().from(auditTable);
     expect(items).toHaveLength(1);
     expect(audits).toHaveLength(1);
   });
@@ -385,8 +385,8 @@ describe("POST /api/write (single write runs in its own transaction)", () => {
   test("handler throw rolls back inTransaction hook writes too", async () => {
     // First a successful write so there's something to compare against
     await stack.http.write("batch:write:item:create", { name: "survivor" }, admin);
-    const beforeItems = await stack.db.db.select().from(itemTable);
-    const beforeAudits = await stack.db.db.select().from(auditTable);
+    const beforeItems = await stack.db.select().from(itemTable);
+    const beforeAudits = await stack.db.select().from(auditTable);
     expect(beforeItems).toHaveLength(1);
     expect(beforeAudits).toHaveLength(1);
 
@@ -395,8 +395,8 @@ describe("POST /api/write (single write runs in its own transaction)", () => {
     const body = await res.json();
     expect(body.isSuccess).toBe(false);
 
-    const afterItems = await stack.db.db.select().from(itemTable);
-    const afterAudits = await stack.db.db.select().from(auditTable);
+    const afterItems = await stack.db.select().from(itemTable);
+    const afterAudits = await stack.db.select().from(auditTable);
     // Counts unchanged — no partial commit
     expect(afterItems).toHaveLength(beforeItems.length);
     expect(afterAudits).toHaveLength(beforeAudits.length);

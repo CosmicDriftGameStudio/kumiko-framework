@@ -41,7 +41,7 @@ beforeAll(async () => {
     features: [configFeature, tenantFeature],
     extraContext: { configResolver: resolver, configEncryption: encryption },
   });
-  db = stack.db.db;
+  db = stack.db;
 
   await createEntityTable(db, tenantEntity);
   await pushTables(db, { configValuesTable });

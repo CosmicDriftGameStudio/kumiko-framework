@@ -109,7 +109,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [mmhFeature], systemHooks: [] });
-  await createEntityTable(stack.db.db, orderEntity, "mmhOrder");
+  await createEntityTable(stack.db, orderEntity, "mmhOrder");
 });
 
 afterAll(async () => {
@@ -132,7 +132,7 @@ async function postWrite(correlationId: string, item: string) {
 async function drainUntilShipped(aggregateId: string, maxPasses = 10): Promise<void> {
   for (let i = 0; i < maxPasses; i++) {
     await stack.eventDispatcher?.runOnce();
-    const rows = await stack.db.db.select().from(eventsTable);
+    const rows = await stack.db.select().from(eventsTable);
     if (rows.some((r) => r.aggregateId === aggregateId && r.type === "mmh:event:shipped")) return;
   }
   throw new Error(`drainUntilShipped: never saw shipped event for ${aggregateId}`);
@@ -147,7 +147,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
 
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await stack.db.db.select().from(eventsTable);
+    const rows = await stack.db.select().from(eventsTable);
     const types = rows.map((r) => r.type).sort();
     // Order: CRUD create, placed, confirmed (hop 1 fired).
     expect(types).toContain("mmhOrder.created");
@@ -160,7 +160,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
 
     // Find the aggregateId from the first placed event.
     await stack.eventDispatcher?.runOnce();
-    const placedRow = (await stack.db.db.select().from(eventsTable)).find(
+    const placedRow = (await stack.db.select().from(eventsTable)).find(
       (r) => r.type === "mmh:event:placed",
     );
     expect(placedRow).toBeDefined();
@@ -168,7 +168,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
 
     await drainUntilShipped(aggregateId);
 
-    const rows = (await stack.db.db.select().from(eventsTable))
+    const rows = (await stack.db.select().from(eventsTable))
       .filter((r) => r.aggregateId === aggregateId)
       .sort((a, b) => Number(a.id - b.id));
 
@@ -220,7 +220,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
     await stack.eventDispatcher?.runOnce();
 
     // Every event written on this chain belongs to the admin's tenant.
-    const rows = await stack.db.db.select().from(eventsTable);
+    const rows = await stack.db.select().from(eventsTable);
     for (const row of rows) {
       expect(row.tenantId).toBe(admin.tenantId);
     }

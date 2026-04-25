@@ -116,9 +116,9 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db.db, userEntity);
-  await createEntityTable(stack.db.db, tenantEntity);
-  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
+  await createEntityTable(stack.db, userEntity);
+  await createEntityTable(stack.db, tenantEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -126,8 +126,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(tenantMembershipsTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(tenantMembershipsTable);
   // Reset the in-memory store but KEEP sidStream running — otherwise a test
   // that leaks a sid into another test would produce confusing collisions.
   store.live.clear();
@@ -151,7 +151,7 @@ async function seedUser(opts: {
     systemAdmin,
   );
   for (const t of opts.tenants) {
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: created.id,
       tenantId: t.id,
       roles: t.roles,

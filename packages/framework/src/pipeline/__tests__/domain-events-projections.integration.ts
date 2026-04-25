@@ -175,7 +175,7 @@ beforeAll(async () => {
     features: [shippingFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, shipmentEntity, "domainShipment");
+  await createEntityTable(stack.db, shipmentEntity, "domainShipment");
 });
 
 afterAll(async () => {
@@ -196,7 +196,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
       admin,
     );
 
-    const rows = await stack.db.db.select().from(billingTable);
+    const rows = await stack.db.select().from(billingTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.shipmentId).toBe(data.id);
     expect(rows[0]?.billedMarker).toBe("pending");
@@ -212,7 +212,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
 
     await stack.http.writeOk("shipping:write:shipment:bill", { id: created.id, cost: 1500 }, admin);
 
-    const [row] = await stack.db.db
+    const [row] = await stack.db
       .select()
       .from(billingTable)
       .where(eq(billingTable.shipmentId, created.id));
@@ -232,7 +232,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     );
     await stack.http.writeOk("shipping:write:shipment:bill", { id: created.id, cost: 999 }, admin);
 
-    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events).toHaveLength(2);
     expect(events.map((e) => e.type)).toEqual(["domainShipment.created", "shipping:event:billed"]);
     expect(events.map((e) => e.version)).toEqual([1, 2]);
@@ -259,7 +259,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     expect(res.status).toBe(500);
 
     // Nothing for the ghost type is on disk.
-    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events.some((e) => e.type === "shipping:event:ghost")).toBe(false);
   });
 
@@ -292,7 +292,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     );
     expect(updated.data.version).toBe(3);
 
-    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events.map((e) => e.type)).toEqual([
       "domainShipment.created",
       "shipping:event:billed",
@@ -317,7 +317,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     );
     expect([400, 422, 500]).toContain(res.status);
 
-    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events.some((e) => e.type === "shipping:event:billed")).toBe(false);
   });
 });

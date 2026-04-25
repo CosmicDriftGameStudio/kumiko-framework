@@ -72,8 +72,8 @@ beforeAll(async () => {
     features: [recoveryFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db.db, admin.tenantId);
+  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  tdb = createTenantDb(stack.db, admin.tenantId);
 });
 
 afterEach(async () => {
@@ -101,12 +101,12 @@ describe("E.9 — restartConsumer", () => {
     await appendWidget("poison");
     await driveUntilDead();
 
-    const deadState = await getConsumerState(stack.db.db, qn);
+    const deadState = await getConsumerState(stack.db, qn);
     expect(deadState?.status).toBe("dead");
     expect(deadState?.attempts).toBe(10);
     const cursorBefore = deadState?.lastProcessedEventId;
 
-    const after = await restartConsumer(stack.db.db, qn);
+    const after = await restartConsumer(stack.db, qn);
     expect(after.status).toBe("idle");
     expect(after.attempts).toBe(0);
     expect(after.lastError).toBeNull();
@@ -115,7 +115,7 @@ describe("E.9 — restartConsumer", () => {
 
     // Retry still poisoned (handler still throws) — attempts climbs again.
     await stack.eventDispatcher?.runOnce();
-    const afterRetry = await getConsumerState(stack.db.db, qn);
+    const afterRetry = await getConsumerState(stack.db, qn);
     expect(afterRetry?.attempts).toBe(1);
     expect(afterRetry?.lastError).toMatch(/poisoned: poison/);
   });
@@ -123,10 +123,10 @@ describe("E.9 — restartConsumer", () => {
   test("refuses to restart a healthy consumer (only dead makes sense)", async () => {
     await appendWidget("clean");
     await stack.eventDispatcher?.runOnce();
-    const state = await getConsumerState(stack.db.db, qn);
+    const state = await getConsumerState(stack.db, qn);
     expect(state?.status).toBe("idle");
 
-    await expect(restartConsumer(stack.db.db, qn)).rejects.toThrow(/not dead/);
+    await expect(restartConsumer(stack.db, qn)).rejects.toThrow(/not dead/);
   });
 });
 
@@ -136,8 +136,8 @@ describe("E.9 — disable / enable", () => {
     await stack.eventDispatcher?.runOnce();
     expect(observed.map((o) => o.name)).toEqual(["first"]);
 
-    await disableConsumer(stack.db.db, qn);
-    const disabled = await getConsumerState(stack.db.db, qn);
+    await disableConsumer(stack.db, qn);
+    const disabled = await getConsumerState(stack.db, qn);
     expect(disabled?.status).toBe("disabled");
 
     await appendWidget("while-disabled");
@@ -145,8 +145,8 @@ describe("E.9 — disable / enable", () => {
     // Still only "first" — disabled consumer didn't pick up "while-disabled".
     expect(observed.map((o) => o.name)).toEqual(["first"]);
 
-    await enableConsumer(stack.db.db, qn);
-    const enabled = await getConsumerState(stack.db.db, qn);
+    await enableConsumer(stack.db, qn);
+    const enabled = await getConsumerState(stack.db, qn);
     expect(enabled?.status).toBe("idle");
 
     await stack.eventDispatcher?.runOnce();
@@ -156,7 +156,7 @@ describe("E.9 — disable / enable", () => {
   test("enable on a non-disabled consumer throws (prevents accidental state reset)", async () => {
     await appendWidget("healthy");
     await stack.eventDispatcher?.runOnce();
-    await expect(enableConsumer(stack.db.db, qn)).rejects.toThrow(/not disabled/);
+    await expect(enableConsumer(stack.db, qn)).rejects.toThrow(/not disabled/);
   });
 });
 
@@ -173,12 +173,12 @@ describe("E.9 — skipPoisonEvent", () => {
     poisonNames.add("the-poison");
     await driveUntilDead();
 
-    const beforeSkip = await getConsumerState(stack.db.db, qn);
+    const beforeSkip = await getConsumerState(stack.db, qn);
     expect(beforeSkip?.status).toBe("dead");
     // "before-poison" was delivered successfully, so cursor sits at event 1.
     expect(beforeSkip?.lastProcessedEventId).toBe(1n);
 
-    const skipResult = await skipPoisonEvent(stack.db.db, qn);
+    const skipResult = await skipPoisonEvent(stack.db, qn);
     expect(skipResult.status).toBe("idle");
     expect(skipResult.attempts).toBe(0);
     expect(skipResult.skippedEventId).toBe(2n);
@@ -192,10 +192,10 @@ describe("E.9 — skipPoisonEvent", () => {
   test("no-op when cursor is already at events head", async () => {
     await appendWidget("only-one");
     await stack.eventDispatcher?.runOnce();
-    const caught = await getConsumerState(stack.db.db, qn);
+    const caught = await getConsumerState(stack.db, qn);
     expect(caught?.lastProcessedEventId).toBe(1n);
 
-    const skipResult = await skipPoisonEvent(stack.db.db, qn);
+    const skipResult = await skipPoisonEvent(stack.db, qn);
     expect(skipResult.skippedEventId).toBeNull();
     // Cursor did not move.
     expect(skipResult.lastProcessedEventId).toBe(1n);

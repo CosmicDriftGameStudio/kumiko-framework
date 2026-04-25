@@ -69,8 +69,8 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [nestedFeature] });
-  await createEntityTable(stack.db.db, projectEntity);
-  await createEntityTable(stack.db.db, taskEntity);
+  await createEntityTable(stack.db, projectEntity);
+  await createEntityTable(stack.db, taskEntity);
 });
 
 afterAll(async () => {
@@ -78,8 +78,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(taskTable);
-  await stack.db.db.delete(projectTable);
+  await stack.db.delete(taskTable);
+  await stack.db.delete(projectTable);
 });
 
 describe("POST /api/write — nested-write (Welle M1)", () => {
@@ -111,8 +111,8 @@ describe("POST /api/write — nested-write (Welle M1)", () => {
     expect(parent.tasks[1].title).toBe("t2");
 
     // DB reflects both writes.
-    const dbProjects = await stack.db.db.select().from(projectTable);
-    const dbTasks = await stack.db.db
+    const dbProjects = await stack.db.select().from(projectTable);
+    const dbTasks = await stack.db
       .select()
       .from(taskTable)
       .where(eq(taskTable["projectId"], parent.id));
@@ -137,8 +137,8 @@ describe("POST /api/write — nested-write (Welle M1)", () => {
     expect(body.isSuccess).toBe(false);
 
     // DB empty — prior sub-task and parent both rolled back.
-    const dbProjects = await stack.db.db.select().from(projectTable);
-    const dbTasks = await stack.db.db.select().from(taskTable);
+    const dbProjects = await stack.db.select().from(projectTable);
+    const dbTasks = await stack.db.select().from(taskTable);
     expect(dbProjects).toHaveLength(0);
     expect(dbTasks).toHaveLength(0);
   });
@@ -182,7 +182,7 @@ describe("POST /api/write — nested-write (Welle M1)", () => {
 
     // Parent did not persist — the pre-flight check runs before the parent
     // write, so the TX never opened on a malformed nested key.
-    const dbProjects = await stack.db.db.select().from(projectTable);
+    const dbProjects = await stack.db.select().from(projectTable);
     expect(dbProjects).toHaveLength(0);
   });
 
@@ -207,7 +207,7 @@ describe("POST /api/write — nested-write (Welle M1)", () => {
     expect(body.error.details.fields[0].path).toMatch(/tasks\.0\.projectId/);
 
     // DB empty.
-    const dbProjects = await stack.db.db.select().from(projectTable);
+    const dbProjects = await stack.db.select().from(projectTable);
     expect(dbProjects).toHaveLength(0);
   });
 });

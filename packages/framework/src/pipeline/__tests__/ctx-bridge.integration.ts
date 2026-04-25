@@ -144,8 +144,8 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [bridgeFeature] });
-  await createEntityTable(stack.db.db, bagEntity);
-  await createEntityTable(stack.db.db, secretEntity);
+  await createEntityTable(stack.db, bagEntity);
+  await createEntityTable(stack.db, secretEntity);
 });
 
 afterAll(async () => {
@@ -154,8 +154,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   afterCommitLog.length = 0;
-  await stack.db.db.delete(bagTable);
-  await stack.db.db.delete(secretTable);
+  await stack.db.delete(bagTable);
+  await stack.db.delete(secretTable);
   // Clear the event-dedup cache — tests re-use entity ids (Postgres sequences
   // reset, each test sees id=1). Without flushing Redis the second test hits
   // a dedup hit on the same handler:id:version:phase key and the hook is
@@ -195,8 +195,8 @@ describe("ctx.writeAs shares the outer transaction", () => {
     expect(body.isSuccess).toBe(false);
 
     // Both tables empty — outer bag + inner secret rolled back together
-    const bags = await stack.db.db.select().from(bagTable);
-    const secrets = await stack.db.db.select().from(secretTable);
+    const bags = await stack.db.select().from(bagTable);
+    const secrets = await stack.db.select().from(secretTable);
     expect(bags).toHaveLength(0);
     expect(secrets).toHaveLength(0);
   });
@@ -209,8 +209,8 @@ describe("ctx.writeAs shares the outer transaction", () => {
     );
     expect((await res.json()).isSuccess).toBe(true);
 
-    const bags = await stack.db.db.select().from(bagTable);
-    const secrets = await stack.db.db.select().from(secretTable);
+    const bags = await stack.db.select().from(bagTable);
+    const secrets = await stack.db.select().from(secretTable);
     expect(bags).toHaveLength(1);
     expect(secrets).toHaveLength(1);
 

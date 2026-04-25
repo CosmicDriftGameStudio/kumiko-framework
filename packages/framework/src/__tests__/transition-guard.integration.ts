@@ -183,9 +183,9 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
-  await createEntityTable(stack.db.db, invoiceEntity);
-  await createEntityTable(stack.db.db, orderEntity);
-  await createEntityTable(stack.db.db, ticketEntity);
+  await createEntityTable(stack.db, invoiceEntity);
+  await createEntityTable(stack.db, orderEntity);
+  await createEntityTable(stack.db, ticketEntity);
 });
 
 afterAll(async () => {
@@ -273,7 +273,7 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // terminal state. If the guard fired, any status write would throw
     // "Invalid transition: closed → <x>". We want it silently skipped.
     const { eq } = await import("drizzle-orm");
-    await stack.db.db
+    await stack.db
       .update(ticketTable)
       .set({ status: "closed", isDeleted: true })
       .where(eq(ticketTable["id"], ticket["id"]));

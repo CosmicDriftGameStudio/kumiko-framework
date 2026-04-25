@@ -74,13 +74,13 @@ beforeAll(async () => {
       loginHandler: AuthHandlers.login,
     },
   });
-  callbacks.set(createSessionCallbacks({ db: stack.db.db }));
+  callbacks.set(createSessionCallbacks({ db: stack.db }));
   h = makeSessionHelpers(stack, TENANT);
 
-  await createEntityTable(stack.db.db, userEntity);
-  await createEntityTable(stack.db.db, tenantEntity);
-  await createEntityTable(stack.db.db, userSessionEntity);
-  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
+  await createEntityTable(stack.db, userEntity);
+  await createEntityTable(stack.db, tenantEntity);
+  await createEntityTable(stack.db, userSessionEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -88,9 +88,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(tenantMembershipsTable);
-  await stack.db.db.delete(userSessionTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(tenantMembershipsTable);
+  await stack.db.delete(userSessionTable);
   massRevokeSpy.mockClear();
 });
 
@@ -143,7 +143,7 @@ describe("password change mass-revokes every live session", () => {
     ).toBe(401);
 
     // DB state confirms: zero live rows for this user
-    const liveRows = await stack.db.db.select().from(userSessionTable);
+    const liveRows = await stack.db.select().from(userSessionTable);
     const stillLive = liveRows.filter((r) => r["revokedAt"] === null);
     expect(stillLive).toHaveLength(0);
 

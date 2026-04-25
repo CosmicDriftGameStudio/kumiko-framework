@@ -291,7 +291,7 @@ export async function resetEventStore(
   ];
   const extraNames = extraTables.map((t) => (typeof t === "string" ? t : getTableName(t)));
   const allTables = [...frameworkTables, ...extraNames];
-  await stack.db.db.execute(sql.raw(`TRUNCATE ${allTables.join(", ")} RESTART IDENTITY CASCADE`));
+  await stack.db.execute(sql.raw(`TRUNCATE ${allTables.join(", ")} RESTART IDENTITY CASCADE`));
   if (stack.eventDispatcher) {
     await stack.eventDispatcher.ensureRegistered();
   }

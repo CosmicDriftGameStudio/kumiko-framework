@@ -31,9 +31,9 @@ beforeAll(async () => {
     features: [createConfigFeature(), createUserFeature()],
     extraContext: { configResolver: resolver },
   });
-  await createEntityTable(stack.db.db, userEntity);
-  await pushTables(stack.db.db, { configValuesTable });
-  await createEventsTable(stack.db.db);
+  await createEntityTable(stack.db, userEntity);
+  await pushTables(stack.db, { configValuesTable });
+  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -41,20 +41,20 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(eventsTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(eventsTable);
 });
 
 describe("seedUser", () => {
   test("schreibt Projection-Row mit email/displayName/passwordHash", async () => {
-    const userId = await seedUser(stack.db.db, {
+    const userId = await seedUser(stack.db, {
       email: "alice@example.com",
       displayName: "Alice",
       passwordHash: "$argon2id$test-hash",
     });
     expect(userId).toMatch(/^[0-9a-f-]{36}$/);
 
-    const rows = await stack.db.db
+    const rows = await stack.db
       .select()
       .from(userTable)
       .where(eq(userTable["email"], "alice@example.com"));
@@ -65,11 +65,11 @@ describe("seedUser", () => {
   });
 
   test("emittiert user.created-Event auf den Aggregate-Stream", async () => {
-    const userId = await seedUser(stack.db.db, {
+    const userId = await seedUser(stack.db, {
       email: "bob@example.com",
       displayName: "Bob",
     });
-    const events = await stack.db.db
+    const events = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.aggregateType, "user"));
@@ -82,17 +82,17 @@ describe("seedUser", () => {
   });
 
   test("idempotent über email — zweiter Call liefert dieselbe userId, kein zweites Event", async () => {
-    const first = await seedUser(stack.db.db, {
+    const first = await seedUser(stack.db, {
       email: "carol@example.com",
       displayName: "Carol",
     });
-    const second = await seedUser(stack.db.db, {
+    const second = await seedUser(stack.db, {
       email: "carol@example.com",
       displayName: "Carol Updated",
     });
     expect(second).toBe(first);
 
-    const rows = await stack.db.db
+    const rows = await stack.db
       .select()
       .from(userTable)
       .where(eq(userTable["email"], "carol@example.com"));
@@ -100,7 +100,7 @@ describe("seedUser", () => {
     // Original-displayName bleibt — zweiter Call wurde geskippt, kein update.
     expect(rows[0]?.["displayName"]).toBe("Carol");
 
-    const created = await stack.db.db
+    const created = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.aggregateType, "user"));
@@ -108,20 +108,20 @@ describe("seedUser", () => {
   });
 
   test("passwordHash optional — User ohne Hash anlegbar (z.B. SSO-Federation)", async () => {
-    const userId = await seedUser(stack.db.db, {
+    const userId = await seedUser(stack.db, {
       email: "dave@example.com",
       displayName: "Dave",
     });
-    const [row] = await stack.db.db.select().from(userTable).where(eq(userTable["id"], userId));
+    const [row] = await stack.db.select().from(userTable).where(eq(userTable["id"], userId));
     expect(row?.["passwordHash"]).toBeNull();
   });
 
   test("default `by` ist TestUsers.systemAdmin (für audit-trail)", async () => {
-    const userId = await seedUser(stack.db.db, {
+    const userId = await seedUser(stack.db, {
       email: "eve@example.com",
       displayName: "Eve",
     });
-    const [row] = await stack.db.db.select().from(userTable).where(eq(userTable["id"], userId));
+    const [row] = await stack.db.select().from(userTable).where(eq(userTable["id"], userId));
     expect(row?.["insertedById"]).toBe(TestUsers.systemAdmin.id);
   });
 });

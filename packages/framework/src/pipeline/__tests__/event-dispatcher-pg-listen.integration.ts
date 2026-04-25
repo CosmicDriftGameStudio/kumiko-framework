@@ -54,8 +54,8 @@ beforeAll(async () => {
     features: [listenFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db.db, admin.tenantId);
+  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  tdb = createTenantDb(stack.db, admin.tenantId);
 });
 
 afterAll(async () => {

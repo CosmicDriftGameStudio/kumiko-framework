@@ -86,8 +86,8 @@ beforeAll(async () => {
     features: [wiringFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db.db, admin.tenantId);
+  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  tdb = createTenantDb(stack.db, admin.tenantId);
 });
 
 afterEach(async () => {
@@ -182,8 +182,8 @@ describe("E.1 — consumer-lag metric", () => {
       observability: recordingProvider,
     });
     try {
-      await createEntityTable(recStack.db.db, sharedWidgetEntity, "widget");
-      const recTdb = createTenantDb(recStack.db.db, admin.tenantId);
+      await createEntityTable(recStack.db, sharedWidgetEntity, "widget");
+      const recTdb = createTenantDb(recStack.db, admin.tenantId);
       await executor.create({ name: "lag-check" }, admin, recTdb);
 
       await recStack.eventDispatcher?.runOnce();

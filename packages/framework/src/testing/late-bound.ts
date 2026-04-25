@@ -1,5 +1,5 @@
 // Late-bound reference for values that only exist AFTER setupTestStack
-// returns — typically the session-callbacks, which close over stack.db.db.
+// returns — typically the session-callbacks, which close over stack.db.
 //
 // Without this helper, integration tests repeat the same trampoline
 // pattern (let real; async wrapper; null-check on each call). The holder

@@ -91,9 +91,9 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db.db, userEntity);
-  await createEntityTable(stack.db.db, tenantEntity);
-  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
+  await createEntityTable(stack.db, userEntity);
+  await createEntityTable(stack.db, tenantEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -101,8 +101,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(tenantMembershipsTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(tenantMembershipsTable);
   segmentsByUserAndTenant.clear();
   plansByTenant.clear();
 });
@@ -118,7 +118,7 @@ async function seedUser(email: string, password: string): Promise<string> {
 }
 
 async function addMembership(userId: string, tenantId: TenantId, roles: string[]): Promise<void> {
-  await stack.db.db.insert(tenantMembershipsTable).values({
+  await stack.db.insert(tenantMembershipsTable).values({
     userId,
     tenantId,
     roles: JSON.stringify(roles),
@@ -294,9 +294,9 @@ describe("scenario 2.5: reserved separator + multi-feature isolation", () => {
       },
     });
     try {
-      await createEntityTable(localStack.db.db, userEntity);
-      await createEntityTable(localStack.db.db, tenantEntity);
-      await pushTables(localStack.db.db, { configValuesTable, tenantMembershipsTable });
+      await createEntityTable(localStack.db, userEntity);
+      await createEntityTable(localStack.db, tenantEntity);
+      await pushTables(localStack.db, { configValuesTable, tenantMembershipsTable });
 
       const hash = await hashPassword("pw-long-enough");
       const created = await localStack.http.writeOk<{ id: string }>(
@@ -304,7 +304,7 @@ describe("scenario 2.5: reserved separator + multi-feature isolation", () => {
         { email: "sep@example.com", passwordHash: hash, displayName: "Sep" },
         systemAdmin,
       );
-      await seedTenantMembership(localStack.db.db, {
+      await seedTenantMembership(localStack.db, {
         userId: created.id,
         tenantId: tenantA,
         roles: ["User"],
@@ -386,9 +386,9 @@ describe("scenario 2.6: multi-feature drift warnings fire independently", () => 
       },
     });
     try {
-      await createEntityTable(localStack.db.db, userEntity);
-      await createEntityTable(localStack.db.db, tenantEntity);
-      await pushTables(localStack.db.db, { configValuesTable, tenantMembershipsTable });
+      await createEntityTable(localStack.db, userEntity);
+      await createEntityTable(localStack.db, tenantEntity);
+      await pushTables(localStack.db, { configValuesTable, tenantMembershipsTable });
 
       const hash = await hashPassword("pw-long-enough");
       const created = await localStack.http.writeOk<{ id: string }>(
@@ -396,7 +396,7 @@ describe("scenario 2.6: multi-feature drift warnings fire independently", () => 
         { email: "drift@example.com", passwordHash: hash, displayName: "Drift" },
         systemAdmin,
       );
-      await seedTenantMembership(localStack.db.db, {
+      await seedTenantMembership(localStack.db, {
         userId: created.id,
         tenantId: tenantA,
         roles: ["User"],
@@ -472,9 +472,9 @@ describe("scenario 3: a broken claims hook does not break login", () => {
       },
     });
     try {
-      await createEntityTable(localStack.db.db, userEntity);
-      await createEntityTable(localStack.db.db, tenantEntity);
-      await pushTables(localStack.db.db, { configValuesTable, tenantMembershipsTable });
+      await createEntityTable(localStack.db, userEntity);
+      await createEntityTable(localStack.db, tenantEntity);
+      await pushTables(localStack.db, { configValuesTable, tenantMembershipsTable });
 
       const hash = await hashPassword("pw-long-enough");
       const created = await localStack.http.writeOk<{ id: string }>(
@@ -482,7 +482,7 @@ describe("scenario 3: a broken claims hook does not break login", () => {
         { email: "broken@example.com", passwordHash: hash, displayName: "Broken" },
         systemAdmin,
       );
-      await seedTenantMembership(localStack.db.db, {
+      await seedTenantMembership(localStack.db, {
         userId: created.id,
         tenantId: tenantA,
         roles: ["User"],

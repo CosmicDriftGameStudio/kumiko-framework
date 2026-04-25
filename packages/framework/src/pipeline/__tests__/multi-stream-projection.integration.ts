@@ -162,8 +162,8 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [mspFeature], systemHooks: [] });
-  await createEntityTable(stack.db.db, shipmentEntity, "mspShipment");
-  await createEntityTable(stack.db.db, refundEntity, "mspRefund");
+  await createEntityTable(stack.db, shipmentEntity, "mspShipment");
+  await createEntityTable(stack.db, refundEntity, "mspRefund");
 });
 
 afterAll(async () => {
@@ -207,7 +207,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     // Drain the dispatcher — MSPs run async.
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await stack.db.db
+    const rows = await stack.db
       .select()
       .from(customerBalanceTable)
       .orderBy(customerBalanceTable.customer);
@@ -239,7 +239,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     expect(pass2?.byConsumer[mspName]?.processed ?? 0).toBe(0);
 
     // Row state is stable across the no-op pass.
-    const [row] = await stack.db.db
+    const [row] = await stack.db
       .select()
       .from(customerBalanceTable)
       .where(eq(customerBalanceTable.customer, cust));
@@ -273,7 +273,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     );
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await stack.db.db
+    const rows = await stack.db
       .select()
       .from(customerBalanceTable)
       .orderBy(customerBalanceTable.customer);
@@ -298,7 +298,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
 
     // Only the shipment-billed event was folded in; the auto "created"
     // event was silently skipped.
-    const [row] = await stack.db.db
+    const [row] = await stack.db
       .select()
       .from(customerBalanceTable)
       .where(eq(customerBalanceTable.customer, cust));

@@ -84,9 +84,9 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db.db, userEntity);
-  await createEntityTable(stack.db.db, tenantEntity);
-  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
+  await createEntityTable(stack.db, userEntity);
+  await createEntityTable(stack.db, tenantEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -94,8 +94,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(tenantMembershipsTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(tenantMembershipsTable);
   capturedEmails.length = 0;
 });
 
@@ -121,13 +121,13 @@ async function seedUser(opts: {
   // it directly via SQL after create. Row.version is left at 1; no
   // subsequent event-store writes happen on this row in these tests.
   if (opts.emailVerified === true) {
-    await stack.db.db
+    await stack.db
       .update(userTable)
       .set({ emailVerified: true })
       .where(eq(userTable["id"], created.id));
   }
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
-  await seedTenantMembership(stack.db.db, {
+  await seedTenantMembership(stack.db, {
     userId: created.id,
     tenantId,
     roles: ["User"],
@@ -191,7 +191,7 @@ describe("POST /auth/verify-email", () => {
     const res = await post("/api/auth/verify-email", { token });
     expect(res.status).toBe(200);
 
-    const row = (await stack.db.db.select().from(userTable)).find((r) => r["id"] === seed.id);
+    const row = (await stack.db.select().from(userTable)).find((r) => r["id"] === seed.id);
     expect(row?.["emailVerified"]).toBe(true);
   });
 
@@ -214,11 +214,11 @@ describe("POST /auth/verify-email", () => {
     const seed = await seedUser({ email: "retry@example.com", password: "pw-retry-1234" });
     const { token } = signVerificationToken(seed.id, 60, verifySecret);
 
-    await stack.db.db.delete(tenantMembershipsTable);
+    await stack.db.delete(tenantMembershipsTable);
     const firstAttempt = await post("/api/auth/verify-email", { token });
     expect(firstAttempt.status).toBe(422);
 
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: seed.id,
       tenantId: seed.tenantId,
       roles: ["User"],

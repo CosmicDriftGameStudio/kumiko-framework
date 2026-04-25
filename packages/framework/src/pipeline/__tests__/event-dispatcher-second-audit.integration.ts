@@ -62,7 +62,7 @@ beforeAll(async () => {
     features: [auditFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
+  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
 });
 
 afterEach(async () => {
@@ -70,7 +70,7 @@ afterEach(async () => {
 });
 
 async function seedOldWidgetEvent(createdAt: Temporal.Instant): Promise<void> {
-  await stack.db.db.insert(eventsTable).values({
+  await stack.db.insert(eventsTable).values({
     aggregateId: generateId(),
     aggregateType: "widget",
     tenantId: admin.tenantId,
@@ -94,7 +94,7 @@ describe("Second audit — consumer pre-registration on start()", () => {
     // every consumer at cursor=0, refuses to prune past them.
     await stack.eventDispatcher?.start();
     try {
-      const rows = await stack.db.db.select().from(eventConsumerStateTable);
+      const rows = await stack.db.select().from(eventConsumerStateTable);
       const names = new Set(rows.map((r) => r.name));
 
       // The test-stack wires only feature MSP consumers (systemHooks: []),
@@ -122,7 +122,7 @@ describe("Second audit — consumer pre-registration on start()", () => {
     await stack.eventDispatcher?.start();
     try {
       await expect(
-        pruneEvents(stack.db.db, { olderThanDays: 1, aggregateTypes: ["widget"] }),
+        pruneEvents(stack.db, { olderThanDays: 1, aggregateTypes: ["widget"] }),
       ).rejects.toBeInstanceOf(ConsumerLagError);
     } finally {
       await stack.eventDispatcher?.stop();
@@ -138,14 +138,14 @@ describe("Second audit — consumer pre-registration on start()", () => {
 
     // Advance the cursor explicitly so we can prove the second start
     // doesn't clobber it back to 0.
-    await stack.db.db
+    await stack.db
       .update(eventConsumerStateTable)
       .set({ lastProcessedEventId: 42n })
       .where(eq(eventConsumerStateTable.name, "audit:projection:default-scope"));
 
     await stack.eventDispatcher?.start();
     try {
-      const [row] = await stack.db.db
+      const [row] = await stack.db
         .select()
         .from(eventConsumerStateTable)
         .where(eq(eventConsumerStateTable.name, "audit:projection:default-scope"));
@@ -179,7 +179,7 @@ describe("Second audit — LISTEN gauge", () => {
       observability: recordingProvider,
     });
     try {
-      await createEntityTable(recStack.db.db, sharedWidgetEntity, "widget");
+      await createEntityTable(recStack.db, sharedWidgetEntity, "widget");
 
       await recStack.eventDispatcher?.start();
       try {
@@ -233,7 +233,7 @@ describe("Second audit — LISTEN gauge", () => {
       observability: recordingProvider,
     });
     try {
-      await createEntityTable(recStack.db.db, sharedWidgetEntity, "widget");
+      await createEntityTable(recStack.db, sharedWidgetEntity, "widget");
 
       await recStack.eventDispatcher?.start();
       try {
@@ -255,7 +255,7 @@ describe("Second audit — LISTEN gauge", () => {
         // `LISTEN "kumiko_events_new"` and is now idle. pg_terminate_backend
         // on it closes the TCP; postgres.js's onclose handler re-subscribes
         // and fires onlisten again.
-        await recStack.db.db.execute(
+        await recStack.db.execute(
           sql`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
               WHERE datname = current_database()
                 AND query ILIKE 'listen%'

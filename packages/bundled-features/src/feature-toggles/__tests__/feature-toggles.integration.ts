@@ -165,14 +165,14 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await pushTables(stack.db.db, { globalFeatureStateTable });
+  await pushTables(stack.db, { globalFeatureStateTable });
   // widgetTrackerTable is auto-pushed by setupTestStack because it's the
   // projection-table of a registered r.multiStreamProjection — manually
   // pushing again would re-run the CREATE TABLE and fail duplicate.
-  await createEntityTable(stack.db.db, widgetEntity);
-  await createEntityTable(stack.db.db, widgetAuditEntity, "widget-audit");
+  await createEntityTable(stack.db, widgetEntity);
+  await createEntityTable(stack.db, widgetAuditEntity, "widget-audit");
 
-  runtime = new GlobalFeatureToggleRuntime(stack.db.db, stack.registry);
+  runtime = new GlobalFeatureToggleRuntime(stack.db, stack.registry);
   await runtime.initialize();
   effective = runtime.effectiveFeatures;
   runtimeHolder.set(runtime);
@@ -183,15 +183,15 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(widgetAuditTable);
-  await stack.db.db.delete(widgetTable);
-  await stack.db.db.delete(widgetTrackerTable);
-  await stack.db.db.delete(globalFeatureStateTable);
+  await stack.db.delete(widgetAuditTable);
+  await stack.db.delete(widgetTable);
+  await stack.db.delete(widgetTrackerTable);
+  await stack.db.delete(globalFeatureStateTable);
   // Wipe the event log + reset every consumer cursor so each test starts
   // from event-id 0. Tests that drain via eventDispatcher.runOnce() need
   // this or they drain a shared backlog and see false-positive counters.
-  await stack.db.db.execute(sql`DELETE FROM kumiko_events`);
-  await stack.db.db.execute(sql`UPDATE kumiko_event_consumers SET last_processed_event_id = 0`);
+  await stack.db.execute(sql`DELETE FROM kumiko_events`);
+  await stack.db.execute(sql`UPDATE kumiko_event_consumers SET last_processed_event_id = 0`);
   await runtime.refresh();
 });
 
@@ -212,17 +212,17 @@ async function createWidget(name: string) {
 }
 
 async function countWidgets(): Promise<number> {
-  const rows = await stack.db.db.select().from(widgetTable);
+  const rows = await stack.db.select().from(widgetTable);
   return rows.length;
 }
 
 async function countAuditRows(): Promise<number> {
-  const rows = await stack.db.db.select().from(widgetAuditTable);
+  const rows = await stack.db.select().from(widgetAuditTable);
   return rows.length;
 }
 
 async function trackerCount(): Promise<number> {
-  const rows = await stack.db.db.select().from(widgetTrackerTable);
+  const rows = await stack.db.select().from(widgetTrackerTable);
   return rows[0]?.count ?? 0;
 }
 
@@ -231,14 +231,14 @@ async function trackerCount(): Promise<number> {
 // explicit shape — typed access everywhere else.
 type ConsumerCursorRow = { last_processed_event_id: number | string };
 async function trackerCursor(): Promise<number> {
-  const rows = (await stack.db.db.execute(
+  const rows = (await stack.db.execute(
     sql`SELECT last_processed_event_id FROM kumiko_event_consumers WHERE name LIKE '%tracker%' LIMIT 1`,
   )) as unknown as readonly ConsumerCursorRow[];
   return Number(rows[0]?.last_processed_event_id ?? 0);
 }
 
 async function setTrackerCursor(value: number): Promise<void> {
-  await stack.db.db.execute(
+  await stack.db.execute(
     sql`UPDATE kumiko_event_consumers SET last_processed_event_id = ${value} WHERE name LIKE '%tracker%'`,
   );
 }
@@ -252,7 +252,7 @@ describe("feature-toggles runtime cache", () => {
   });
 
   test("refresh() re-reads the DB snapshot", async () => {
-    await stack.db.db.insert(globalFeatureStateTable).values({
+    await stack.db.insert(globalFeatureStateTable).values({
       featureName: "widget",
       enabled: false,
       version: 1,
@@ -330,7 +330,7 @@ describe("runtime on/off/on — the user's scenario", () => {
     expect(body.data?.previousEnabled).toBeNull();
 
     // Row persisted.
-    const rows = await stack.db.db.select().from(globalFeatureStateTable);
+    const rows = await stack.db.select().from(globalFeatureStateTable);
     expect(rows).toHaveLength(1);
 
     // Snapshot updated — widget:create now 403s.
@@ -517,7 +517,7 @@ describe("feature-toggles queries + audit automation", () => {
       admin,
     );
 
-    const events = (await stack.db.db.execute(
+    const events = (await stack.db.execute(
       sql`SELECT type, payload FROM kumiko_events WHERE type = 'feature-toggles:event:toggle-set'`,
     )) as unknown as readonly {
       type: string;
@@ -600,7 +600,7 @@ describe("multi-instance cache-sync via toggle-cache-sync MSP", () => {
     // own in-memory snapshot. `initialize()` loads the pre-existing rows;
     // at this point there are no override rows (beforeEach wiped the
     // table), so `widget` is on via its toggleable default.
-    const runtimeB = new GlobalFeatureToggleRuntime(stack.db.db, stack.registry);
+    const runtimeB = new GlobalFeatureToggleRuntime(stack.db, stack.registry);
     await runtimeB.initialize();
     expect(runtimeB.effectiveFeatures().has("widget")).toBe(true);
 
@@ -621,9 +621,9 @@ describe("multi-instance cache-sync via toggle-cache-sync MSP", () => {
       },
     };
     const dispatcherB = createEventDispatcher({
-      db: stack.db.db,
+      db: stack.db,
       consumers: [consumer],
-      context: { db: stack.db.db, registry: stack.registry },
+      context: { db: stack.db, registry: stack.registry },
       instanceId: "test-instance-B",
       batchSize: 200,
       pollIntervalMs: 5000,

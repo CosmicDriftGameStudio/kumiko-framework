@@ -196,7 +196,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
       observability: provider,
       systemHooks: [],
     });
-    await createEntityTable(stack.db.db, todoEntity, "todo");
+    await createEntityTable(stack.db, todoEntity, "todo");
   });
 
   afterEach(async () => {

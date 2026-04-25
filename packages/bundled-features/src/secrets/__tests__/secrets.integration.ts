@@ -46,8 +46,8 @@ beforeAll(async () => {
   // table (tenant_secrets) still needs an explicit push here, since it
   // belongs to an ES entity (and entity-tables aren't auto-pushed by
   // setupTestStack).
-  await pushTables(stack.db.db, { tenant_secrets: tenantSecretsTable });
-  await createEventsTable(stack.db.db);
+  await pushTables(stack.db, { tenant_secrets: tenantSecretsTable });
+  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -73,7 +73,7 @@ describe("secrets feature — CRUD round-trip", () => {
     expect(row?.kekVersion).toBe(1);
 
     // DB row holds an envelope, no plaintext
-    const [dbRow] = await stack.db.db
+    const [dbRow] = await stack.db
       .select()
       .from(tenantSecretsTable)
       .where(

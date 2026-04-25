@@ -136,7 +136,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [cartFeature], systemHooks: [] });
-  await createEntityTable(stack.db.db, cartEntity, "f4wCart");
+  await createEntityTable(stack.db, cartEntity, "f4wCart");
 });
 
 afterAll(async () => {
@@ -144,7 +144,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.db.execute(
+  await stack.db.execute(
     sql`TRUNCATE kumiko_events, read_f4w_carts, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
   await stack.eventDispatcher?.ensureRegistered();
@@ -168,7 +168,7 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
     // CRUD create = v1, appendOne = v2.
     expect(result.version).toBe(2);
 
-    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events.map((e) => e.type)).toEqual(["f4wCart.created", "f4w:event:item-added"]);
   });
 
@@ -187,7 +187,7 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
     // CRUD = v1, then three appendOne = v2, v3, v4. Handle reports v4.
     expect(result.finalVersion).toBe(4);
 
-    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events.map((e) => e.version)).toEqual([1, 2, 3, 4]);
   });
 
@@ -208,7 +208,7 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
     expect(body.error?.code).toBe("version_conflict");
 
     // Stream untouched — only the original create event is present.
-    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events).toHaveLength(1);
     expect(events[0]?.type).toBe("f4wCart.created");
   });
@@ -227,7 +227,7 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
     );
     expect(res.status).toBe(200);
 
-    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events).toHaveLength(2);
   });
 
@@ -272,7 +272,7 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
     expect(body.error?.code).toBe("unprocessable");
 
     // Stream untouched by the refused add — only create + checkedOut remain.
-    const events = await loadAggregate(stack.db.db, created.id, admin.tenantId);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     const types = events.map((e) => e.type);
     expect(types).toContain("f4wCart.created");
     expect(types).toContain("f4w:event:checked-out");

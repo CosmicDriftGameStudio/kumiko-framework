@@ -60,7 +60,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [widgetFeature, createAuditFeature()],
   });
-  await createEntityTable(stack.db.db, widgetEntity);
+  await createEntityTable(stack.db, widgetEntity);
 });
 
 afterAll(async () => {
@@ -71,7 +71,7 @@ beforeEach(async () => {
   // Fresh event log per test — the audit query reads the events table
   // directly, so stale events from previous tests would leak into results.
   await resetEventStore(stack);
-  await stack.db.db.execute(sql`TRUNCATE audit_widgets`);
+  await stack.db.execute(sql`TRUNCATE audit_widgets`);
 });
 
 async function createWidget(user: SessionUser, name: string, color?: string): Promise<string> {

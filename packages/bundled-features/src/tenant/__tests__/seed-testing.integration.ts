@@ -43,9 +43,9 @@ beforeAll(async () => {
     features: [createConfigFeature(), createTenantFeature()],
     extraContext: { configResolver: resolver },
   });
-  await createEntityTable(stack.db.db, tenantEntity);
-  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
-  await createEventsTable(stack.db.db);
+  await createEntityTable(stack.db, tenantEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -53,26 +53,23 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(tenantMembershipsTable);
-  await stack.db.db.delete(tenantTable);
+  await stack.db.delete(tenantMembershipsTable);
+  await stack.db.delete(tenantTable);
   // Events stay — the idempotency test below inspects how many .created
   // events exist for the same aggregate-key pair across runs.
-  await stack.db.db.delete(eventsTable);
+  await stack.db.delete(eventsTable);
 });
 
 describe("seedTenant", () => {
   test("schreibt Projection-Row mit id/key/name", async () => {
-    const id = await seedTenant(stack.db.db, {
+    const id = await seedTenant(stack.db, {
       id: TENANT_A,
       key: "tenant-a",
       name: "Tenant A",
     });
     expect(id).toBe(TENANT_A);
 
-    const rows = await stack.db.db
-      .select()
-      .from(tenantTable)
-      .where(eq(tenantTable["id"], TENANT_A));
+    const rows = await stack.db.select().from(tenantTable).where(eq(tenantTable["id"], TENANT_A));
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["id"]).toBe(TENANT_A);
     expect(rows[0]?.["key"]).toBe("tenant-a");
@@ -80,8 +77,8 @@ describe("seedTenant", () => {
   });
 
   test("emittiert tenant.created-Event auf den Aggregate-Stream", async () => {
-    await seedTenant(stack.db.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
-    const events = await stack.db.db
+    await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
+    const events = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.aggregateType, "tenant"));
@@ -96,18 +93,15 @@ describe("seedTenant", () => {
   });
 
   test("zweiter Aufruf für dieselbe id: no-op (kein zweites Event, kein Crash)", async () => {
-    await seedTenant(stack.db.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
-    await seedTenant(stack.db.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A v2" });
+    await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
+    await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A v2" });
 
     // Projection bleibt bei Original-name (zweiter Call wurde geskippt, kein update).
-    const rows = await stack.db.db
-      .select()
-      .from(tenantTable)
-      .where(eq(tenantTable["id"], TENANT_A));
+    const rows = await stack.db.select().from(tenantTable).where(eq(tenantTable["id"], TENANT_A));
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["name"]).toBe("Tenant A");
 
-    const events = await stack.db.db
+    const events = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.aggregateType, "tenant"));
@@ -115,22 +109,22 @@ describe("seedTenant", () => {
   });
 
   test("zwei verschiedene Tenants in einem Test — beide in der Projection", async () => {
-    await seedTenant(stack.db.db, { id: TENANT_A, key: "a", name: "A" });
-    await seedTenant(stack.db.db, { id: TENANT_B, key: "b", name: "B" });
-    const rows = await stack.db.db.select().from(tenantTable);
+    await seedTenant(stack.db, { id: TENANT_A, key: "a", name: "A" });
+    await seedTenant(stack.db, { id: TENANT_B, key: "b", name: "B" });
+    const rows = await stack.db.select().from(tenantTable);
     expect(rows.map((r) => r["id"]).sort()).toEqual([TENANT_A, TENANT_B].sort());
   });
 });
 
 describe("seedTenantMembership", () => {
   test("writes the projection row with the given userId / tenantId / roles", async () => {
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: ALICE_ID,
       tenantId: TENANT_A,
       roles: ["Admin", "Billing"],
     });
 
-    const rows = await stack.db.db
+    const rows = await stack.db
       .select()
       .from(tenantMembershipsTable)
       .where(
@@ -146,13 +140,13 @@ describe("seedTenantMembership", () => {
   });
 
   test("writes a tenantMembership.created event on the aggregate stream", async () => {
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: ALICE_ID,
       tenantId: TENANT_A,
       roles: ["User"],
     });
 
-    const events = await stack.db.db
+    const events = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.aggregateType, "tenantMembership"));
@@ -167,7 +161,7 @@ describe("seedTenantMembership", () => {
 
   test("calling twice for the same (userId, tenantId) is idempotent — no second event, no crash", async () => {
     // First call: creates both projection row + event.
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: ALICE_ID,
       tenantId: TENANT_A,
       roles: ["User"],
@@ -176,19 +170,19 @@ describe("seedTenantMembership", () => {
     // trip the (user_id, tenant_id) unique index AND would bump the event
     // count — both are footguns for beforeEach-resets that only clear some
     // tables.
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: ALICE_ID,
       tenantId: TENANT_A,
       roles: ["User"],
     });
 
-    const projectionRows = await stack.db.db
+    const projectionRows = await stack.db
       .select()
       .from(tenantMembershipsTable)
       .where(eq(tenantMembershipsTable.userId, ALICE_ID));
     expect(projectionRows).toHaveLength(1);
 
-    const events = await stack.db.db
+    const events = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.aggregateType, "tenantMembership"));
@@ -200,14 +194,14 @@ describe("seedTenantMembership", () => {
     // `by` is TestUsers.systemAdmin; override to a custom test user and
     // assert it propagates to the projection's inserted_by_id column.
     const seedActor = createTestUser({ id: 99, tenantId: TENANT_A });
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: ALICE_ID,
       tenantId: TENANT_A,
       roles: ["User"],
       by: seedActor,
     });
 
-    const [row] = await stack.db.db
+    const [row] = await stack.db
       .select()
       .from(tenantMembershipsTable)
       .where(eq(tenantMembershipsTable.userId, ALICE_ID));
@@ -217,12 +211,12 @@ describe("seedTenantMembership", () => {
   test("default `by` is TestUsers.systemAdmin", async () => {
     // Documents the fallback — a regression that changed the default would
     // silently skew audit queries across 18 call-sites.
-    await seedTenantMembership(stack.db.db, {
+    await seedTenantMembership(stack.db, {
       userId: ALICE_ID,
       tenantId: TENANT_A,
       roles: ["User"],
     });
-    const [row] = await stack.db.db
+    const [row] = await stack.db
       .select()
       .from(tenantMembershipsTable)
       .where(eq(tenantMembershipsTable.userId, ALICE_ID));

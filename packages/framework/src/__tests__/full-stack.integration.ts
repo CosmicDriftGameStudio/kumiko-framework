@@ -205,7 +205,7 @@ const otherTenantAdmin = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [userFeature] });
-  await createEntityTable(stack.db.db, userEntity, "user");
+  await createEntityTable(stack.db, userEntity, "user");
 });
 
 afterAll(async () => {
@@ -712,7 +712,7 @@ describe("full stack: entity cache", () => {
 
     // Raw DB update — bypasses cache invalidation
     const { eq } = await import("drizzle-orm");
-    await stack.db.db
+    await stack.db
       .update(userTable)
       .set({ firstName: "RawDbChange" })
       .where(eq(userTable["id"], id));
@@ -786,7 +786,7 @@ describe("full stack: ctx.appendEvent via event-dispatcher", () => {
   // events table is shared across tests so we pick out just the ones this
   // test appended.
   async function domainEventsForEmail(email: string) {
-    const rows = await stack.db.db
+    const rows = await stack.db
       .select()
       .from(eventsTable)
       .where(

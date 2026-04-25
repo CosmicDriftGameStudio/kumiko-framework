@@ -81,8 +81,8 @@ beforeAll(async () => {
     features: [z2Feature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db.db, admin.tenantId);
+  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  tdb = createTenantDb(stack.db, admin.tenantId);
 });
 
 afterAll(async () => {
@@ -114,7 +114,7 @@ describe("Runde 2 / C.4 — MSP skipApplyErrors", () => {
 
     // Strict consumer saw "a" but nothing past it — the poison blocked it.
     expect(strictObserved).toEqual(["a"]);
-    const state = await getConsumerState(stack.db.db, strictQn);
+    const state = await getConsumerState(stack.db, strictQn);
     expect(state?.status).toBe("dead");
     expect(state?.lastError).toMatch(/boom-strict/);
   });
@@ -129,7 +129,7 @@ describe("Runde 2 / C.4 — MSP skipApplyErrors", () => {
     // Lenient consumer skipped the poison and saw "c".
     expect(lenientObserved).toEqual(["a", "c"]);
     // State stays idle — no dead-letter, no retry.
-    const state = await getConsumerState(stack.db.db, lenientQn);
+    const state = await getConsumerState(stack.db, lenientQn);
     expect(state?.status).toBe("idle");
     // Cursor advanced past all three events (latest event id = 3).
     expect(state?.lastProcessedEventId).toBe(3n);
@@ -143,7 +143,7 @@ describe("Runde 2 / C.4 — MSP skipApplyErrors", () => {
     await stack.eventDispatcher?.runOnce();
 
     expect(lenientObserved).toEqual(["survivor"]);
-    const state = await getConsumerState(stack.db.db, lenientQn);
+    const state = await getConsumerState(stack.db, lenientQn);
     expect(state?.status).toBe("idle");
     expect(state?.lastProcessedEventId).toBe(3n);
   });

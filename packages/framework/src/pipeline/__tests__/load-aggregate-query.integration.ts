@@ -131,7 +131,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [asOfFeature], systemHooks: [] });
-  await createEntityTable(stack.db.db, invoiceEntity, "asofInvoice");
+  await createEntityTable(stack.db, invoiceEntity, "asofInvoice");
 });
 
 afterAll(async () => {
@@ -214,7 +214,7 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
     // against v2 (integer cents) — without upcasting it would blow up or
     // produce garbage.
     const invoiceId = "00000000-0000-4000-8000-000000000042";
-    await stack.db.db.transaction(async (tx) => {
+    await stack.db.transaction(async (tx) => {
       await tx.insert(invoiceTable).values({
         id: invoiceId,
         tenantId: admin.tenantId,
@@ -258,7 +258,7 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
 
     // Raw reader (no upcasting) still sees the original shape on disk —
     // upcasting is a read-time transform, writes stay immutable.
-    const raw = await loadAggregateRaw(stack.db.db, invoiceId, admin.tenantId);
+    const raw = await loadAggregateRaw(stack.db, invoiceId, admin.tenantId);
     const rawApproved = raw.find((e) => e.type === "asoftest:event:approved");
     expect(rawApproved?.eventVersion).toBe(1);
     expect(rawApproved?.payload).toEqual({ amount: "42.50", approvedBy: "legacy" });

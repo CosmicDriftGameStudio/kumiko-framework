@@ -76,14 +76,14 @@ beforeAll(async () => {
       secrets: createSecretsContext({ db, masterKeyProvider: seedProvider }),
     }),
   });
-  await pushTables(stack.db.db, {
+  await pushTables(stack.db, {
     tenant_secrets: tenantSecretsTable,
   });
 
   // Seed 20 V1 rows directly — too many for any maxFailures default.
   for (let i = 0; i < 20; i++) {
     const envelope = await encryptValue(`secret-${i}`, seedProvider);
-    await stack.db.db.insert(tenantSecretsTable).values({
+    await stack.db.insert(tenantSecretsTable).values({
       tenantId: admin.tenantId,
       key: `test:secret:k-${i}`,
       envelope: {
@@ -100,9 +100,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Clean up the seeded fixtures so downstream suites don't see them.
-  await stack.db.db
-    .delete(tenantSecretsTable)
-    .where(eq(tenantSecretsTable.tenantId, admin.tenantId));
+  await stack.db.delete(tenantSecretsTable).where(eq(tenantSecretsTable.tenantId, admin.tenantId));
   await stack.cleanup();
 });
 
@@ -122,7 +120,7 @@ function silentLogger(): Log {
 type RotateJobCtx = Pick<AppContext, "db" | "masterKeyProvider" | "log">;
 function jobCtx(provider: MasterKeyProvider): Parameters<typeof rotateJob>[1] {
   const ctx: RotateJobCtx = {
-    db: stack.db.db,
+    db: stack.db,
     masterKeyProvider: provider,
     log: silentLogger(),
   };
@@ -130,7 +128,7 @@ function jobCtx(provider: MasterKeyProvider): Parameters<typeof rotateJob>[1] {
 }
 
 async function countV1Rows(): Promise<number> {
-  const rows = await stack.db.db
+  const rows = await stack.db
     .select({ kekVersion: tenantSecretsTable.kekVersion })
     .from(tenantSecretsTable)
     .where(sql`${tenantSecretsTable.tenantId} = ${admin.tenantId}`);

@@ -72,7 +72,7 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await createEntityTable(stack.db.db, sharedItemEntity, "item");
+  await createEntityTable(stack.db, sharedItemEntity, "item");
 });
 
 afterAll(async () => {

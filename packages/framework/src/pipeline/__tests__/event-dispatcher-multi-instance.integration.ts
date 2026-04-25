@@ -64,8 +64,8 @@ beforeAll(async () => {
     features: [multiFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db.db, admin.tenantId);
+  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  tdb = createTenantDb(stack.db, admin.tenantId);
 });
 
 afterEach(async () => {
@@ -92,14 +92,14 @@ async function bulkSeedWidgetCreated(count: number, namePrefix: string): Promise
     metadata: { userId: admin.id },
     createdBy: admin.id,
   }));
-  await stack.db.db.insert(eventsTable).values(rows);
+  await stack.db.insert(eventsTable).values(rows);
 }
 
 function buildDispatcherWith(consumers: readonly EventConsumer[]): EventDispatcher {
   return createEventDispatcher({
-    db: stack.db.db,
+    db: stack.db,
     consumers,
-    context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+    context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
     // Tight batch + poll so the test doesn't hinge on timing in .start();
     // we drive everything through runOnce() for determinism.
     batchSize: 200,
@@ -155,7 +155,7 @@ describe("E.5 — SKIP LOCKED: exactly-once delivery across dispatchers", () => 
     const expected = Array.from({ length: count }, (_, i) => `event-${i}`).sort();
     expect(names).toEqual(expected);
 
-    const finalState = await getConsumerState(stack.db.db, name);
+    const finalState = await getConsumerState(stack.db, name);
     expect(finalState?.lastProcessedEventId).toBe(BigInt(count));
     expect(finalState?.status).toBe("idle");
   });
@@ -202,8 +202,8 @@ describe("E.5 — SKIP LOCKED: exactly-once delivery across dispatchers", () => 
     expect(fastSeen).toHaveLength(count);
     expect(slowSeen).toHaveLength(count);
 
-    const fastState = await getConsumerState(stack.db.db, fastName);
-    const slowState = await getConsumerState(stack.db.db, slowName);
+    const fastState = await getConsumerState(stack.db, fastName);
+    const slowState = await getConsumerState(stack.db, slowName);
     expect(fastState?.lastProcessedEventId).toBe(BigInt(count));
     expect(slowState?.lastProcessedEventId).toBe(BigInt(count));
   });
@@ -228,12 +228,12 @@ describe("E.5 — cursor-lag catch-up", () => {
     await bulkSeedWidgetCreated(count, "backlog-");
     // State row does not exist yet — this dispatcher is constructed inside
     // the test, not via setupTestStack's auto-ensureRegistered.
-    expect(await getConsumerState(stack.db.db, name)).toBeNull();
+    expect(await getConsumerState(stack.db, name)).toBeNull();
 
     const disp = createEventDispatcher({
-      db: stack.db.db,
+      db: stack.db,
       consumers: [consumer],
-      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
       batchSize: 100,
       pollIntervalMs: 5000,
     });
@@ -241,7 +241,7 @@ describe("E.5 — cursor-lag catch-up", () => {
     // where start() runs before any runOnce(). Post-ensureRegistered the
     // cursor row exists at 0 with the 500-event backlog ahead.
     await disp.ensureRegistered();
-    const bootState = await getConsumerState(stack.db.db, name);
+    const bootState = await getConsumerState(stack.db, name);
     expect(bootState?.lastProcessedEventId).toBe(0n);
 
     // batchSize = 100 → 5 passes cover 500 events. Run 8 to leave headroom;
@@ -257,7 +257,7 @@ describe("E.5 — cursor-lag catch-up", () => {
       expect(seen[i]?.payload["name"]).toBe(`backlog-${i}`);
     }
 
-    const finalState = await getConsumerState(stack.db.db, name);
+    const finalState = await getConsumerState(stack.db, name);
     expect(finalState?.lastProcessedEventId).toBe(BigInt(count));
     expect(finalState?.status).toBe("idle");
   });
@@ -282,17 +282,17 @@ describe("Welle 2.7 — per-instance delivery: every dispatcher sees every event
     });
 
     const dispA = createEventDispatcher({
-      db: stack.db.db,
+      db: stack.db,
       consumers: [makeConsumer(seenA)],
-      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
       instanceId: "instance-A",
       batchSize: 200,
       pollIntervalMs: 5000,
     });
     const dispB = createEventDispatcher({
-      db: stack.db.db,
+      db: stack.db,
       consumers: [makeConsumer(seenB)],
-      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
       instanceId: "instance-B",
       batchSize: 200,
       pollIntervalMs: 5000,
@@ -313,8 +313,8 @@ describe("Welle 2.7 — per-instance delivery: every dispatcher sees every event
     expect(seenB).toHaveLength(count);
 
     // Each instance has its own row with its own cursor.
-    const stateA = await getConsumerState(stack.db.db, name, "instance-A");
-    const stateB = await getConsumerState(stack.db.db, name, "instance-B");
+    const stateA = await getConsumerState(stack.db, name, "instance-A");
+    const stateB = await getConsumerState(stack.db, name, "instance-B");
     expect(stateA?.lastProcessedEventId).toBe(BigInt(count));
     expect(stateB?.lastProcessedEventId).toBe(BigInt(count));
     expect(stateA?.instanceId).toBe("instance-A");
@@ -324,7 +324,7 @@ describe("Welle 2.7 — per-instance delivery: every dispatcher sees every event
     // never write the default shard. If a bug ever routed per-instance
     // writes to `__shared__`, this would silently collapse N instances'
     // cursors into one and regress to shared semantics.
-    const stateShared = await getConsumerState(stack.db.db, name);
+    const stateShared = await getConsumerState(stack.db, name);
     expect(stateShared).toBeNull();
   });
 
@@ -356,17 +356,17 @@ describe("Welle 2.7 — per-instance delivery: every dispatcher sees every event
     };
 
     const dispA = createEventDispatcher({
-      db: stack.db.db,
+      db: stack.db,
       consumers: [sharedA, perInstanceA],
-      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
       instanceId: "mixed-A",
       batchSize: 200,
       pollIntervalMs: 5000,
     });
     const dispB = createEventDispatcher({
-      db: stack.db.db,
+      db: stack.db,
       consumers: [sharedB, perInstanceB],
-      context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+      context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
       instanceId: "mixed-B",
       batchSize: 200,
       pollIntervalMs: 5000,
@@ -397,7 +397,7 @@ describe("Welle 2.7 — per-instance delivery: every dispatcher sees every event
   test("creating a dispatcher with a per-instance consumer but no instanceId throws at construction", () => {
     expect(() =>
       createEventDispatcher({
-        db: stack.db.db,
+        db: stack.db,
         consumers: [
           {
             name: "multi:consumer:no-instance-id",
@@ -405,7 +405,7 @@ describe("Welle 2.7 — per-instance delivery: every dispatcher sees every event
             handler: async () => {},
           },
         ],
-        context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+        context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
         // instanceId deliberately omitted
       }),
     ).toThrow(/delivery="per-instance".+instanceId/);
@@ -414,9 +414,9 @@ describe("Welle 2.7 — per-instance delivery: every dispatcher sees every event
   test("instanceId equal to the reserved sentinel is rejected at construction", () => {
     expect(() =>
       createEventDispatcher({
-        db: stack.db.db,
+        db: stack.db,
         consumers: [{ name: "x", handler: async () => {} }],
-        context: { db: stack.db.db, redis: stack.redis.redis, registry: stack.registry },
+        context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
         instanceId: "__shared__",
       }),
     ).toThrow(/reserved sentinel/);

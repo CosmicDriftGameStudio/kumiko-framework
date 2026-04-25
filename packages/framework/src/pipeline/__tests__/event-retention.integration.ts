@@ -62,8 +62,8 @@ beforeAll(async () => {
     features: [retentionFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db.db, admin.tenantId);
+  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  tdb = createTenantDb(stack.db, admin.tenantId);
 });
 
 afterEach(async () => {
@@ -78,7 +78,7 @@ async function seedOldAggregateEvent(
   type: string,
   aggregateType = "widget",
 ): Promise<bigint> {
-  const [row] = await stack.db.db
+  const [row] = await stack.db
     .insert(eventsTable)
     .values({
       aggregateId: generateId(),
@@ -112,17 +112,17 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     // Disable the single consumer so the lag guard doesn't interfere. The
     // row was auto-registered by setupTestStack (strict Sprint-E mode);
     // flip its status to disabled instead of inserting a duplicate.
-    await disableConsumer(stack.db.db, observerQn);
+    await disableConsumer(stack.db, observerQn);
 
     // Prune only the obsolete type — widget events survive.
-    const result = await pruneEvents(stack.db.db, {
+    const result = await pruneEvents(stack.db, {
       olderThanDays: 7,
       aggregateTypes: ["obsolete"],
     });
     expect(result.deletedCount).toBe(1);
     expect(result.aggregateTypes).toEqual(["obsolete"]);
 
-    const remaining = await stack.db.db.select().from(eventsTable);
+    const remaining = await stack.db.select().from(eventsTable);
     const ids = remaining.map((r) => r.id);
     expect(ids).toContain(widgetId);
     expect(ids).not.toContain(obsoleteId);
@@ -140,14 +140,14 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     // Disable the auto-registered consumer so the lag guard passes — the
     // consumer is at cursor=0 and would otherwise block a prune that
     // touches higher event ids.
-    await disableConsumer(stack.db.db, observerQn);
-    const result = await pruneEvents(stack.db.db, {
+    await disableConsumer(stack.db, observerQn);
+    const result = await pruneEvents(stack.db, {
       olderThanDays: 7,
       aggregateTypes: ["obsolete"],
     });
     expect(result.deletedCount).toBe(1);
 
-    const remaining = await stack.db.db.select().from(eventsTable);
+    const remaining = await stack.db.select().from(eventsTable);
     const ids = remaining.map((r) => r.id).sort();
     expect(ids).toEqual([freshId]);
     expect(ids.includes(staleId)).toBe(false);
@@ -157,8 +157,8 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
     await seedOldAggregateEvent(tenDaysAgo, "obsolete.drain", "obsolete");
 
-    await disableConsumer(stack.db.db, observerQn);
-    const result = await pruneEvents(stack.db.db, {
+    await disableConsumer(stack.db, observerQn);
+    const result = await pruneEvents(stack.db, {
       olderThanDays: 7,
       aggregateTypes: ["obsolete"],
       dryRun: true,
@@ -166,7 +166,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     expect(result.deletedCount).toBe(1);
     expect(result.dryRun).toBe(true);
 
-    const remaining = await stack.db.db.select().from(eventsTable);
+    const remaining = await stack.db.select().from(eventsTable);
     expect(remaining).toHaveLength(1);
   });
 });
@@ -183,18 +183,16 @@ describe("E.2 — consumer-lag guard", () => {
     // Only let the first one through.
     await stack.eventDispatcher?.runOnce();
     // Force cursor to 1 so the guard sees "consumer at 1, max candidate 3".
-    await stack.db.db
+    await stack.db
       .update(eventConsumerStateTable)
       .set({ lastProcessedEventId: 1n, status: "idle" })
       .where(eq(eventConsumerStateTable.name, observerQn));
 
     // Age all three events past the cutoff.
-    await stack.db.db.execute(
-      sql`UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
-    );
+    await stack.db.execute(sql`UPDATE kumiko_events SET created_at = now() - interval '30 days'`);
 
     await expect(
-      pruneEvents(stack.db.db, {
+      pruneEvents(stack.db, {
         olderThanDays: 7,
         aggregateTypes: ["widget"],
       }),
@@ -204,14 +202,12 @@ describe("E.2 — consumer-lag guard", () => {
   test("disabled consumers are ignored by the lag guard", async () => {
     await appendAggregateWidget("solo");
     await stack.eventDispatcher?.runOnce();
-    await disableConsumer(stack.db.db, observerQn);
+    await disableConsumer(stack.db, observerQn);
 
     // Cursor is at 1 but consumer is disabled — should be skipped.
-    await stack.db.db.execute(
-      sql`UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
-    );
+    await stack.db.execute(sql`UPDATE kumiko_events SET created_at = now() - interval '30 days'`);
 
-    const result = await pruneEvents(stack.db.db, {
+    const result = await pruneEvents(stack.db, {
       olderThanDays: 7,
       aggregateTypes: ["widget"],
     });
@@ -221,7 +217,7 @@ describe("E.2 — consumer-lag guard", () => {
 
 describe("E.2 — empty sets and input validation", () => {
   test("returns zero when nothing matches the cutoff", async () => {
-    const result = await pruneEvents(stack.db.db, {
+    const result = await pruneEvents(stack.db, {
       olderThanDays: 365,
       aggregateTypes: ["widget"],
     });
@@ -229,7 +225,7 @@ describe("E.2 — empty sets and input validation", () => {
   });
 
   test("refuses call without olderThan or olderThanDays", async () => {
-    await expect(pruneEvents(stack.db.db, { aggregateTypes: ["widget"] })).rejects.toThrow(
+    await expect(pruneEvents(stack.db, { aggregateTypes: ["widget"] })).rejects.toThrow(
       /olderThan/,
     );
   });
@@ -238,9 +234,7 @@ describe("E.2 — empty sets and input validation", () => {
     // Typescript would catch this at compile time, but the runtime guard
     // exists for JS callers and JSON-config-driven cron pipes.
     await expect(
-      pruneEvents(stack.db.db, { olderThanDays: 7 } as unknown as Parameters<
-        typeof pruneEvents
-      >[1]),
+      pruneEvents(stack.db, { olderThanDays: 7 } as unknown as Parameters<typeof pruneEvents>[1]),
     ).rejects.toThrow(/aggregateTypes/);
   });
 });

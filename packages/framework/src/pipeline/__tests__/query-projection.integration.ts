@@ -121,7 +121,7 @@ const otherTenantAdmin = {
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [qpFeature], systemHooks: [] });
-  await createEntityTable(stack.db.db, widgetEntity, "qpWidget");
+  await createEntityTable(stack.db, widgetEntity, "qpWidget");
 });
 
 afterAll(async () => {

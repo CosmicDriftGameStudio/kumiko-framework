@@ -3,6 +3,7 @@ import type { AuthRoutesConfig } from "../api/auth-routes";
 import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
+import type { DbConnection } from "../db/connection";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
@@ -13,14 +14,16 @@ import { createEntityCache, createEventDedup, createIdempotencyGuard } from "../
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
 import { createEventCollector, type EventCollector } from "./event-collector";
-import { createTestDb, createTestRedis, pushTables, type TestDb, type TestRedis } from "./index";
+import { createTestDb, createTestRedis, pushTables, type TestRedis } from "./index";
 import { createRequestHelper, type RequestHelper } from "./request-helper";
 
 export type TestStack = {
   app: Hono;
   jwt: JwtHelper;
   registry: Registry;
-  db: TestDb;
+  /** Drizzle connection — the test DB's lifecycle (name, raw pg client,
+   *  drop) lives inside setupTestStack and is released via stack.cleanup(). */
+  db: DbConnection;
   redis: TestRedis;
   search: SearchAdapter;
   events: EventCollector;
@@ -293,7 +296,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     app: server.app,
     jwt: server.jwt,
     registry,
-    db: testDb,
+    db: testDb.db,
     redis: testRedis,
     search: searchAdapter,
     events,

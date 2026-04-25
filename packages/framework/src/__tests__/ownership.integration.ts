@@ -123,7 +123,7 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [teamsFeature, contractsFeature] });
-  await createEntityTable(stack.db.db, contractEntity, "contract");
+  await createEntityTable(stack.db, contractEntity, "contract");
 });
 
 afterAll(async () => {
@@ -134,7 +134,7 @@ let engRow: { id: string; version: number };
 let opsRow: { id: string; version: number };
 
 beforeEach(async () => {
-  await stack.db.db.execute("DELETE FROM h2_contracts");
+  await stack.db.execute("DELETE FROM h2_contracts");
   const eng = await stack.http.writeOk<{ id: string; data: { version: number } }>(
     "h2contracts:write:contract:create",
     {

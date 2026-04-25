@@ -211,8 +211,8 @@ beforeAll(async () => {
     features: [feature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, invoiceEntity, "mspRebInvoice");
-  await createEntityTable(stack.db.db, paymentEntity, "mspRebPayment");
+  await createEntityTable(stack.db, invoiceEntity, "mspRebInvoice");
+  await createEntityTable(stack.db, paymentEntity, "mspRebPayment");
 });
 
 afterAll(async () => {
@@ -248,7 +248,7 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     // Disable the saga MSP for this test — it runs on the same event types
     // and would trip its own ctx.appendEvent path during live delivery
     // (which is fine in production, but noise here).
-    await stack.db.db
+    await stack.db
       .update(eventConsumerStateTable)
       .set({ status: "disabled", updatedAt: sql`now()` })
       .where(eq(eventConsumerStateTable.name, SAGA_MSP));
@@ -263,7 +263,7 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     await stack.http.writeOk("mspreb:write:invoice:bill", { customer: bob, cents: 7_50 }, admin);
     await runFullDispatcher();
 
-    const liveRows = await stack.db.db.select().from(balanceTable).orderBy(balanceTable.customer);
+    const liveRows = await stack.db.select().from(balanceTable).orderBy(balanceTable.customer);
     const aliceLive = liveRows.find((r) => r.customer === alice);
     const bobLive = liveRows.find((r) => r.customer === bob);
     expect(aliceLive).toMatchObject({ invoicesCents: 15_00, paymentsCents: 3_00 });
@@ -272,29 +272,26 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     // Rebuild — the table is TRUNCATEd inside the rebuild TX, then events
     // are replayed in-order. Final state must equal the live state.
     const result = await rebuildMultiStreamProjection(BALANCE_MSP, {
-      db: stack.db.db,
+      db: stack.db,
       registry: stack.registry,
     });
     expect(result.projection).toBe(BALANCE_MSP);
     expect(result.eventsProcessed).toBe(4); // 2 invoices + 1 payment + 1 invoice
     expect(result.lastProcessedEventId).toBeGreaterThan(0n);
 
-    const rebuiltRows = await stack.db.db
-      .select()
-      .from(balanceTable)
-      .orderBy(balanceTable.customer);
+    const rebuiltRows = await stack.db.select().from(balanceTable).orderBy(balanceTable.customer);
     expect(rebuiltRows).toEqual(liveRows);
 
     // Consumer cursor is at head after rebuild — the live dispatcher should
     // NOT redeliver those events on its next pass.
-    const state = await getConsumerState(stack.db.db, BALANCE_MSP);
+    const state = await getConsumerState(stack.db, BALANCE_MSP);
     expect(state?.status).toBe("idle");
     expect(state?.lastProcessedEventId).toBe(result.lastProcessedEventId);
   });
 
   test("rebuild after table corruption restores the correct state", async () => {
     const carol = "00000000-0000-4000-8000-000000000c03";
-    await stack.db.db
+    await stack.db
       .update(eventConsumerStateTable)
       .set({ status: "disabled", updatedAt: sql`now()` })
       .where(eq(eventConsumerStateTable.name, SAGA_MSP));
@@ -302,17 +299,17 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     await runFullDispatcher();
 
     // Corrupt the read-model — simulate a buggy apply() landing bad numbers.
-    await stack.db.db
+    await stack.db
       .update(balanceTable)
       .set({ invoicesCents: -999, paymentsCents: 999 })
       .where(eq(balanceTable.customer, carol));
 
     await rebuildMultiStreamProjection(BALANCE_MSP, {
-      db: stack.db.db,
+      db: stack.db,
       registry: stack.registry,
     });
 
-    const [row] = await stack.db.db
+    const [row] = await stack.db
       .select()
       .from(balanceTable)
       .where(eq(balanceTable.customer, carol));
@@ -324,7 +321,7 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
   test("side-effect MSP (no table) is rejected with a clear error", async () => {
     await expect(
       rebuildMultiStreamProjection(WEBHOOK_MSP, {
-        db: stack.db.db,
+        db: stack.db,
         registry: stack.registry,
       }),
     ).rejects.toThrow(/no backing table|side-effect/i);
@@ -333,7 +330,7 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
   test("unknown MSP name lists the known ones in the error", async () => {
     await expect(
       rebuildMultiStreamProjection("does:not:exist", {
-        db: stack.db.db,
+        db: stack.db,
         registry: stack.registry,
       }),
     ).rejects.toThrow(/not registered/i);
@@ -342,7 +339,7 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
   test("saga MSP using ctx.appendEvent fails rebuild at the first appendEvent call", async () => {
     const dave = "00000000-0000-4000-8000-000000000d04";
     // Disable the saga in live passes so we control when the apply runs.
-    await stack.db.db
+    await stack.db
       .update(eventConsumerStateTable)
       .set({ status: "disabled", updatedAt: sql`now()` })
       .where(eq(eventConsumerStateTable.name, SAGA_MSP));
@@ -350,21 +347,21 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
     // Put the consumer back to idle so rebuild doesn't treat it as "just
     // disabled on purpose" — rebuild is opinionated about WHEN it refuses,
     // not about the consumer's live-status.
-    await stack.db.db
+    await stack.db
       .update(eventConsumerStateTable)
       .set({ status: "idle", updatedAt: sql`now()` })
       .where(eq(eventConsumerStateTable.name, SAGA_MSP));
 
     await expect(
       rebuildMultiStreamProjection(SAGA_MSP, {
-        db: stack.db.db,
+        db: stack.db,
         registry: stack.registry,
       }),
     ).rejects.toThrow(/appendEvent.*not supported during rebuild/);
 
     // Failure path: outer catch wrote status="dead" + lastError — ops sees
     // the break after the TX rolled back.
-    const state = await getConsumerState(stack.db.db, SAGA_MSP);
+    const state = await getConsumerState(stack.db, SAGA_MSP);
     expect(state?.status).toBe("dead");
     expect(state?.lastError).toMatch(/appendEvent/);
   });

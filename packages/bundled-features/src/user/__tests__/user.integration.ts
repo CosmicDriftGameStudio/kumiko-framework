@@ -18,7 +18,7 @@ const userFeature = createUserFeature();
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [userFeature] });
-  await createEntityTable(stack.db.db, userEntity);
+  await createEntityTable(stack.db, userEntity);
 });
 
 afterAll(async () => {
@@ -26,7 +26,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userTable);
+  await stack.db.delete(userTable);
 });
 
 // Helper: create a user as SystemAdmin and return its id.
@@ -103,7 +103,7 @@ describe("scenario 2: field-level read access", () => {
 
     expect(me).not.toHaveProperty("passwordHash");
     // Sanity: the value is actually stored, just hidden from this role
-    const [row] = await stack.db.db.select().from(userTable);
+    const [row] = await stack.db.select().from(userTable);
     expect((row as { passwordHash: string }).passwordHash).toBe("must-stay-hidden");
   });
 });
@@ -137,7 +137,7 @@ describe("scenario 3: self-update + field-level write access", () => {
     expectErrorIncludes(error, "field_access_denied");
 
     // Email is unchanged in the DB
-    const [row] = await stack.db.db.select().from(userTable);
+    const [row] = await stack.db.select().from(userTable);
     expect((row as { email: string }).email).toBe("locked@example.com");
   });
 

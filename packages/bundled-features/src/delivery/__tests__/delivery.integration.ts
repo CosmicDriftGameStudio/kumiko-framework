@@ -281,7 +281,7 @@ beforeAll(async () => {
       return ctx;
     },
   });
-  db = stack.db.db;
+  db = stack.db;
 
   // Mount unsubscribe route BEFORE any requests (Hono router locks after first match)
   stack.app.route("/delivery", createUnsubscribeRoute({ db, jwtSecret: JWT_SECRET }));

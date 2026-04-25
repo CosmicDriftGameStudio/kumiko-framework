@@ -38,7 +38,7 @@ export function makeSessionHelpers(stack: TestStack, tenantId: TenantId) {
         { email, passwordHash: hash, displayName: email.split("@")[0] ?? "u" },
         TestUsers.systemAdmin,
       );
-      await seedTenantMembership(stack.db.db, {
+      await seedTenantMembership(stack.db, {
         userId: created.id,
         tenantId,
         roles: opts?.roles ?? ["User"],

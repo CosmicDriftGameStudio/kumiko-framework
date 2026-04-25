@@ -47,8 +47,8 @@ beforeAll(async () => {
       secrets: createSecretsContext({ db, masterKeyProvider: provider }),
     }),
   });
-  await pushTables(stack.db.db, { tenantSecretsTable });
-  await createEventsTable(stack.db.db);
+  await pushTables(stack.db, { tenantSecretsTable });
+  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -56,8 +56,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(eventsTable);
-  await stack.db.db.delete(tenantSecretsTable);
+  await stack.db.delete(eventsTable);
+  await stack.db.delete(tenantSecretsTable);
 });
 
 describe("tenantSecret lifecycle events", () => {
@@ -68,7 +68,7 @@ describe("tenantSecret lifecycle events", () => {
       admin,
     );
 
-    const created = await stack.db.db
+    const created = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.type, "tenantSecret.created"));
@@ -88,7 +88,7 @@ describe("tenantSecret lifecycle events", () => {
     );
     await stack.http.writeOk("secrets:write:delete", { key: "example.to.delete" }, admin);
 
-    const events = await stack.db.db
+    const events = await stack.db
       .select()
       .from(eventsTable)
       .where(eq(eventsTable.aggregateType, "tenantSecret"));

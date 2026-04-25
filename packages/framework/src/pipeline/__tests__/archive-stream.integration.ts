@@ -103,7 +103,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [archFeature], systemHooks: [] });
-  await createEntityTable(stack.db.db, itemEntity, "archItem");
+  await createEntityTable(stack.db, itemEntity, "archItem");
 });
 
 afterAll(async () => {
@@ -142,7 +142,7 @@ describe("archiveStream — Marten ArchiveStream equivalent", () => {
     expect(archived).toBe(true);
 
     // Low-level loader with includeArchived surfaces the events for ops.
-    const raw = await loadAggregateRaw(stack.db.db, id, admin.tenantId, {
+    const raw = await loadAggregateRaw(stack.db, id, admin.tenantId, {
       includeArchived: true,
     });
     expect(raw).toHaveLength(2);
@@ -169,7 +169,7 @@ describe("archiveStream — Marten ArchiveStream equivalent", () => {
     expect(res.status).toBe(500);
 
     // Sanity: the failed write did not land on disk.
-    const raw = await loadAggregateRaw(stack.db.db, id, admin.tenantId, {
+    const raw = await loadAggregateRaw(stack.db, id, admin.tenantId, {
       includeArchived: true,
     });
     const types = raw.map((e) => e.type);
@@ -184,16 +184,16 @@ describe("archiveStream — Marten ArchiveStream equivalent", () => {
       admin,
     );
     await stack.http.writeOk("archtest:write:item:archive", { id }, admin);
-    expect(await isStreamArchived(stack.db.db, admin.tenantId, id)).toBe(true);
+    expect(await isStreamArchived(stack.db, admin.tenantId, id)).toBe(true);
 
     await stack.http.writeOk("archtest:write:item:restore", { id }, admin);
-    expect(await isStreamArchived(stack.db.db, admin.tenantId, id)).toBe(false);
+    expect(await isStreamArchived(stack.db, admin.tenantId, id)).toBe(false);
 
     // Writes go through again AND keep the correct version lineage —
     // the original "created" event is at version 1, so the post-restore
     // relabel lands at version 2.
     await stack.http.writeOk("archtest:write:item:relabel", { id, label: "reborn" }, admin);
-    const events = await loadAggregateRaw(stack.db.db, id, admin.tenantId);
+    const events = await loadAggregateRaw(stack.db, id, admin.tenantId);
     expect(events.map((e) => e.version)).toEqual([1, 2]);
   });
 
@@ -207,7 +207,7 @@ describe("archiveStream — Marten ArchiveStream equivalent", () => {
     await stack.http.writeOk("archtest:write:item:archive", { id, reason: "first" }, admin);
     await stack.http.writeOk("archtest:write:item:archive", { id, reason: "second" }, admin);
 
-    const archived = await isStreamArchived(stack.db.db, admin.tenantId, id);
+    const archived = await isStreamArchived(stack.db, admin.tenantId, id);
     expect(archived).toBe(true);
   });
 

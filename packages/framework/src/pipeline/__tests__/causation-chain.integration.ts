@@ -104,7 +104,7 @@ beforeAll(async () => {
     features: [causationFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, orderEntity, "causationOrder");
+  await createEntityTable(stack.db, orderEntity, "causationOrder");
 });
 
 afterAll(async () => {
@@ -121,7 +121,7 @@ afterEach(async () => {
 type EventRow = typeof eventsTable.$inferSelect;
 
 async function eventsByType(type: string): Promise<EventRow[]> {
-  const rows = await stack.db.db.select().from(eventsTable);
+  const rows = await stack.db.select().from(eventsTable);
   return rows.filter((r) => r.type === type);
 }
 

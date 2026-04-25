@@ -10,7 +10,7 @@
 //     })],
 //     authConfig: { ...bound.asAuthConfig(), membershipQuery, loginHandler },
 //   });
-//   holder.set(createSessionCallbacks({ db: stack.db.db }));
+//   holder.set(createSessionCallbacks({ db: stack.db }));
 //
 // Why the helper lives in bundled-features/sessions rather than framework/testing:
 // it closes over `AuthRoutesConfig` + `SessionCallbacks`, both of which the

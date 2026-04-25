@@ -99,9 +99,9 @@ beforeAll(async () => {
     // hook chain. SSE / search are irrelevant to cursor behaviour.
     systemHooks: [],
   });
-  await createEntityTable(stack.db.db, sharedWidgetEntity, "widget");
-  await pushTables(stack.db.db, { subscriberLog: subscriberLogTable });
-  tdb = createTenantDb(stack.db.db, admin.tenantId);
+  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  await pushTables(stack.db, { subscriberLog: subscriberLogTable });
+  tdb = createTenantDb(stack.db, admin.tenantId);
 });
 
 afterEach(async () => {
@@ -130,7 +130,7 @@ describe("event-dispatcher — happy path", () => {
     // because it opened a race against prune; the row is now guaranteed to
     // exist from dispatcher boot.
     expect(captureA).toHaveLength(0);
-    const preState = await getConsumerState(stack.db.db, qnA);
+    const preState = await getConsumerState(stack.db, qnA);
     expect(preState?.lastProcessedEventId).toBe(0n);
     expect(preState?.status).toBe("idle");
 
@@ -151,8 +151,8 @@ describe("event-dispatcher — happy path", () => {
     ]);
 
     // Cursor advanced independently for each consumer.
-    const stateA = await getConsumerState(stack.db.db, qnA);
-    const stateB = await getConsumerState(stack.db.db, qnB);
+    const stateA = await getConsumerState(stack.db, qnA);
+    const stateB = await getConsumerState(stack.db, qnB);
     expect(stateA?.status).toBe("idle");
     expect(stateA?.lastProcessedEventId).toBeGreaterThan(0n);
     expect(stateB?.status).toBe("idle");
@@ -196,7 +196,7 @@ describe("event-dispatcher — isolation between consumers", () => {
     // the per-consumer transaction boundary holds.
     // Pre-registered state rows exist from boot (strict Sprint-E mode) — at
     // this point they're at cursor=0 / status=idle for both observers.
-    const state = await stack.db.db
+    const state = await stack.db
       .select()
       .from(eventConsumerStateTable)
       .where(sql`${eventConsumerStateTable.name} = ${qnA}`);
@@ -214,8 +214,8 @@ describe("event-dispatcher — isolation between consumers", () => {
     expect(captureB).toHaveLength(1);
     expect(captureB[0]?.event.payload["name"]).toBe("safe-1");
 
-    const stateA = await getConsumerState(stack.db.db, qnA);
-    const stateB = await getConsumerState(stack.db.db, qnB);
+    const stateA = await getConsumerState(stack.db, qnA);
+    const stateB = await getConsumerState(stack.db, qnB);
 
     expect(stateA?.status).toBe("idle");
     expect(stateA?.lastProcessedEventId).toBe(3n);
@@ -237,14 +237,14 @@ describe("event-dispatcher — isolation between consumers", () => {
       await stack.eventDispatcher?.runOnce();
     }
 
-    const stateB = await getConsumerState(stack.db.db, qnB);
+    const stateB = await getConsumerState(stack.db, qnB);
     expect(stateB?.status).toBe("dead");
     expect(stateB?.attempts).toBe(10);
     expect(stateB?.lastError).toMatch(/injected-failure-on-event-1/);
 
     // observer-a is unaffected.
     expect(captureA).toHaveLength(1);
-    const stateA = await getConsumerState(stack.db.db, qnA);
+    const stateA = await getConsumerState(stack.db, qnA);
     expect(stateA?.status).toBe("idle");
     expect(stateA?.lastProcessedEventId).toBe(1n);
 
@@ -254,7 +254,7 @@ describe("event-dispatcher — isolation between consumers", () => {
     // observer-a picked up the new event.
     expect(captureA).toHaveLength(2);
     // observer-b stayed dead — no further attempts.
-    const stateBAfter = await getConsumerState(stack.db.db, qnB);
+    const stateBAfter = await getConsumerState(stack.db, qnB);
     expect(stateBAfter?.status).toBe("dead");
     expect(stateBAfter?.attempts).toBe(10);
   });
@@ -267,7 +267,7 @@ describe("getAllConsumerProgress — Ops-View für consumer lag", () => {
     await appendWidget("two");
     await stack.eventDispatcher?.runOnce();
 
-    const caughtUp = await getAllConsumerProgress(stack.db.db, [qnA, qnB]);
+    const caughtUp = await getAllConsumerProgress(stack.db, [qnA, qnB]);
     const a = caughtUp.find((c) => c.name === qnA);
     const b = caughtUp.find((c) => c.name === qnB);
     expect(a?.highWaterMark).toBe(2n);
@@ -279,7 +279,7 @@ describe("getAllConsumerProgress — Ops-View für consumer lag", () => {
     await appendWidget("four");
     await appendWidget("five");
 
-    const lagged = await getAllConsumerProgress(stack.db.db, [qnA, qnB]);
+    const lagged = await getAllConsumerProgress(stack.db, [qnA, qnB]);
     const aLag = lagged.find((c) => c.name === qnA);
     expect(aLag?.highWaterMark).toBe(5n);
     expect(aLag?.lastProcessedEventId).toBe(2n);

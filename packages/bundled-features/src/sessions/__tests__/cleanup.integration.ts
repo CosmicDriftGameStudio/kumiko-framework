@@ -38,7 +38,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [createSessionsFeature()],
   });
-  await createEntityTable(stack.db.db, userSessionEntity);
+  await createEntityTable(stack.db, userSessionEntity);
 });
 
 afterAll(async () => {
@@ -46,13 +46,13 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(userSessionTable);
+  await stack.db.delete(userSessionTable);
 });
 
 type JobCtx = Pick<AppContext, "db" | "registry" | "log">;
 function jobCtx(): Parameters<typeof cleanupJob>[1] {
   const ctx: JobCtx = {
-    db: stack.db.db,
+    db: stack.db,
     registry: stack.registry,
     log: silentLogger(),
   };
@@ -74,7 +74,7 @@ async function seedSession(opts: {
   const past = sql`now() - ${sql.raw(`interval '${opts.ageDays} days'`)}`;
   const future = sql`now() + ${sql.raw(`interval '30 days'`)}`;
 
-  await stack.db.db.insert(userSessionTable).values({
+  await stack.db.insert(userSessionTable).values({
     id: opts.id,
     tenantId: TENANT,
     userId: opts.userId,
@@ -88,7 +88,7 @@ async function seedSession(opts: {
 }
 
 async function countSessions(): Promise<number> {
-  const rows = await stack.db.db.select().from(userSessionTable);
+  const rows = await stack.db.select().from(userSessionTable);
   return rows.length;
 }
 
@@ -111,7 +111,7 @@ describe("sessions cleanup job — purge expired/revoked rows", () => {
     await cleanupJob({}, jobCtx());
 
     expect(await countSessions()).toBe(1);
-    const [remaining] = await stack.db.db.select().from(userSessionTable);
+    const [remaining] = await stack.db.select().from(userSessionTable);
     expect(remaining?.["revokedAt"]).toBeNull();
   });
 

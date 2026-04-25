@@ -201,7 +201,7 @@ beforeAll(async () => {
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
-  db = stack.db.db;
+  db = stack.db;
 
   await pushTables(db, { configValuesTable });
   // setupTestStack already calls createEventsTable + createArchivedStreamsTable

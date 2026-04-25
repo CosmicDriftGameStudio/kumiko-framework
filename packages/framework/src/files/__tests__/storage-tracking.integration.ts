@@ -54,7 +54,7 @@ beforeEach(async () => {
   // each test starts from zero. kumiko_event_consumers registration is
   // re-asserted below; truncating it forces ensureRegistered to seed the
   // cursor at event.id = 0.
-  await stack.db.db.execute(
+  await stack.db.execute(
     sql`TRUNCATE kumiko_events, kumiko_event_consumers, file_refs, read_tenant_storage_usage RESTART IDENTITY CASCADE`,
   );
   await stack.eventDispatcher?.ensureRegistered();
@@ -73,7 +73,7 @@ async function upload(user: SessionUser, name: string, content: Uint8Array): Pro
 }
 
 async function usageFor(tenantId: string): Promise<{ totalBytes: number; fileCount: number }> {
-  const [row] = await stack.db.db
+  const [row] = await stack.db
     .select({
       totalBytes: tenantStorageUsageTable.totalBytes,
       fileCount: tenantStorageUsageTable.fileCount,
@@ -105,7 +105,7 @@ describe("tenant-storage-usage MSP", () => {
 
     // Exactly one row per tenant — the UPSERT must not insert a second
     // row for the second upload.
-    const rows = await stack.db.db
+    const rows = await stack.db
       .select()
       .from(tenantStorageUsageTable)
       .where(eq(tenantStorageUsageTable.tenantId, admin.tenantId));
@@ -128,7 +128,7 @@ describe("tenant-storage-usage MSP", () => {
     await upload(admin, "a.png", SMALL);
     await stack.eventDispatcher?.runOnce();
 
-    const [first] = await stack.db.db
+    const [first] = await stack.db
       .select({ at: tenantStorageUsageTable.lastUpdatedAt })
       .from(tenantStorageUsageTable)
       .where(eq(tenantStorageUsageTable.tenantId, admin.tenantId));
@@ -142,7 +142,7 @@ describe("tenant-storage-usage MSP", () => {
     await upload(admin, "b.png", LARGE);
     await stack.eventDispatcher?.runOnce();
 
-    const [second] = await stack.db.db
+    const [second] = await stack.db
       .select({ at: tenantStorageUsageTable.lastUpdatedAt })
       .from(tenantStorageUsageTable)
       .where(eq(tenantStorageUsageTable.tenantId, admin.tenantId));

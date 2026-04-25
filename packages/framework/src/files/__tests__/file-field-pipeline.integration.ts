@@ -74,7 +74,7 @@ beforeAll(async () => {
     features: [documentFeature],
     files: { storageProvider: createLocalProvider(storagePath) },
   });
-  await createEntityTable(stack.db.db, documentEntity);
+  await createEntityTable(stack.db, documentEntity);
 });
 
 afterAll(async () => {
@@ -83,7 +83,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.execute(sql`TRUNCATE pipeline_documents`);
+  await stack.db.execute(sql`TRUNCATE pipeline_documents`);
 });
 
 async function uploadFile(fileName: string, body: Uint8Array, mimeType: string): Promise<string> {

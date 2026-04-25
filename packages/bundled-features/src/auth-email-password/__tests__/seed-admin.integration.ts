@@ -42,10 +42,10 @@ beforeAll(async () => {
     features: [createConfigFeature(), createUserFeature(), createTenantFeature()],
     extraContext: { configResolver: resolver },
   });
-  await createEntityTable(stack.db.db, tenantEntity);
-  await createEntityTable(stack.db.db, userEntity);
-  await pushTables(stack.db.db, { configValuesTable, tenantMembershipsTable });
-  await createEventsTable(stack.db.db);
+  await createEntityTable(stack.db, tenantEntity);
+  await createEntityTable(stack.db, userEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -53,15 +53,15 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.db.delete(tenantMembershipsTable);
-  await stack.db.db.delete(tenantTable);
-  await stack.db.db.delete(userTable);
-  await stack.db.db.delete(eventsTable);
+  await stack.db.delete(tenantMembershipsTable);
+  await stack.db.delete(tenantTable);
+  await stack.db.delete(userTable);
+  await stack.db.delete(eventsTable);
 });
 
 describe("seedAdmin", () => {
   test("legt Tenants, User mit gehashtem Password und Memberships an — Login-Roundtrip funktioniert", async () => {
-    const userId = await seedAdmin(stack.db.db, {
+    const userId = await seedAdmin(stack.db, {
       email: "admin@example.com",
       password: "secret-pw",
       displayName: "Admin",
@@ -82,11 +82,11 @@ describe("seedAdmin", () => {
     });
 
     // Tenants angelegt
-    const tenants = await stack.db.db.select().from(tenantTable);
+    const tenants = await stack.db.select().from(tenantTable);
     expect(tenants.map((t) => t["id"]).sort()).toEqual([TENANT_DEV, TENANT_BETA].sort());
 
     // User angelegt mit Hash (NICHT plain-Password)
-    const [user] = await stack.db.db
+    const [user] = await stack.db
       .select()
       .from(userTable)
       .where(eq(userTable["email"], "admin@example.com"));
@@ -101,7 +101,7 @@ describe("seedAdmin", () => {
     expect(invalid).toBe(false);
 
     // Memberships pro Tenant mit unterschiedlichen Rollen
-    const devMembership = await stack.db.db
+    const devMembership = await stack.db
       .select()
       .from(tenantMembershipsTable)
       .where(
@@ -112,7 +112,7 @@ describe("seedAdmin", () => {
       );
     expect(devMembership[0]?.["roles"]).toBe(JSON.stringify(["Admin"]));
 
-    const betaMembership = await stack.db.db
+    const betaMembership = await stack.db
       .select()
       .from(tenantMembershipsTable)
       .where(
@@ -126,7 +126,7 @@ describe("seedAdmin", () => {
 
   test("idempotent: zweiter Aufruf no-op (kein Crash, Stand bleibt)", async () => {
     // Erstaufruf
-    const userId1 = await seedAdmin(stack.db.db, {
+    const userId1 = await seedAdmin(stack.db, {
       email: "admin@example.com",
       password: "pw1",
       displayName: "Admin",
@@ -137,7 +137,7 @@ describe("seedAdmin", () => {
     // Zweiter Aufruf — gleicher Email, anderes Password (würde theoretisch
     // einen neuen Hash erzeugen und neu schreiben, der idempotent-Check
     // greift VOR dem Insert).
-    const userId2 = await seedAdmin(stack.db.db, {
+    const userId2 = await seedAdmin(stack.db, {
       email: "admin@example.com",
       password: "pw2",
       displayName: "Admin",
@@ -148,7 +148,7 @@ describe("seedAdmin", () => {
     expect(userId2).toBe(userId1);
 
     // Genau ein User-Row, original-Hash (passt zu pw1, nicht pw2).
-    const users = await stack.db.db.select().from(userTable);
+    const users = await stack.db.select().from(userTable);
     expect(users).toHaveLength(1);
     const valid = await verifyPassword(users[0]?.["passwordHash"] as string, "pw1");
     expect(valid).toBe(true);
@@ -156,11 +156,11 @@ describe("seedAdmin", () => {
     expect(invalid).toBe(false);
 
     // Genau ein Membership-Row.
-    const memberships = await stack.db.db.select().from(tenantMembershipsTable);
+    const memberships = await stack.db.select().from(tenantMembershipsTable);
     expect(memberships).toHaveLength(1);
 
     // Genau ein .created-Event pro Aggregat-Typ.
-    const events = await stack.db.db.select().from(eventsTable);
+    const events = await stack.db.select().from(eventsTable);
     const createdByType = events
       .filter((e) => e.type.endsWith(".created"))
       .reduce<Record<string, number>>((acc, e) => {

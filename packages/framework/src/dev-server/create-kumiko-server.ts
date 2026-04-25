@@ -278,7 +278,7 @@ async function createEntityTablesForFeatures(
 ): Promise<void> {
   for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities)) {
-      const created = await ensureEntityTable(stack.db.db, entity, entityName);
+      const created = await ensureEntityTable(stack.db, entity, entityName);
       if (!created) {
         logInfo(
           `[kumiko-server] table ${entity.table ?? entityName} already exists — skipping create`,
@@ -349,11 +349,11 @@ export async function createKumikoServer(
     ...(options.auth !== undefined && { authConfig: options.auth }),
     ...(options.extraContext !== undefined && { extraContext: options.extraContext }),
   });
-  await createEventsTable(stack.db.db);
+  await createEventsTable(stack.db);
   await createEntityTablesForFeatures(stack, options.features);
 
   // Hook für Caller-spezifische Tables + Seed. Läuft nach den Entity-
-  // Tabellen damit das Sample auf `stack.db.db` / `stack.dispatcher`
+  // Tabellen damit das Sample auf `stack.db` / `stack.dispatcher`
   // zugreifen kann, und VOR dem Server-Start damit der erste HTTP-Request
   // bereits gegen einen gefüllten State läuft. Idempotenz ist Caller-
   // Verantwortung (persistent-DB-Modus läuft es bei jedem Boot).
