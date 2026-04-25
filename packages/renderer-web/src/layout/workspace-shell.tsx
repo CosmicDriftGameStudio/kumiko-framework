@@ -30,8 +30,8 @@
 //                        rule that NavDefinition.access follows)
 
 import type { AccessRule } from "@kumiko/framework/ui-types";
-import type { FeatureSchema, WorkspaceSchema } from "@kumiko/renderer";
-import { useNav } from "@kumiko/renderer";
+import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@kumiko/renderer";
+import { toAppSchema, useNav } from "@kumiko/renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
 import { AppLayout } from "./app-layout";
 import { lastSegment, NavTree } from "./nav-tree";
@@ -47,10 +47,12 @@ export type WorkspaceShellUser = {
 export type WorkspaceShellProps = {
   /** Branding / logo on the left side of the topbar. */
   readonly brand: ReactNode;
-  /** Schema with .workspaces populated — the engine builds this from
-   *  registry.getAllWorkspaces() + getWorkspaceNavs(). When empty,
-   *  WorkspaceShell falls back to plain NavTree without a switcher. */
-  readonly schema: FeatureSchema;
+  /** Schema mit `workspaces` populated — die engine baut das aus
+   *  registry.getAllWorkspaces() + getWorkspaceNavs(). Akzeptiert
+   *  AppSchema (multi-feature) oder die legacy FeatureSchema (single-
+   *  feature, workspaces inline). Ohne Workspaces fällt der Shell auf
+   *  plain NavTree ohne Switcher zurück. */
+  readonly schema: AppSchema | FeatureSchema;
   /** Optional topbar end-slot — TenantSwitcher / ThemeToggle / UserMenu. */
   readonly topbarActions?: ReactNode;
   /** Current user. Drives which workspaces appear in the switcher. */
@@ -71,9 +73,10 @@ export function WorkspaceShell({
   initialWorkspaceId,
   children,
 }: WorkspaceShellProps): ReactNode {
+  const app = useMemo(() => toAppSchema(schema), [schema]);
   const visible = useMemo<readonly WorkspaceSchema[]>(
-    () => filterByAccess(schema.workspaces ?? [], user?.roles),
-    [schema.workspaces, user?.roles],
+    () => filterByAccess(app.workspaces ?? [], user?.roles),
+    [app.workspaces, user?.roles],
   );
 
   const nav = useNav();
@@ -158,11 +161,11 @@ export function WorkspaceShell({
   //   * Schema doesn't declare workspaces at all → undefined (no filter).
   //     Apps that haven't opted into workspaces yet get every nav as before.
   const allowedNavQns = useMemo(() => {
-    const hasWorkspaceMode = schema.workspaces !== undefined && schema.workspaces.length > 0;
+    const hasWorkspaceMode = app.workspaces !== undefined && app.workspaces.length > 0;
     if (!hasWorkspaceMode) return undefined;
     if (activeWorkspace === undefined) return new Set<string>();
     return new Set(activeWorkspace.navMembers);
-  }, [schema.workspaces, activeWorkspace]);
+  }, [app.workspaces, activeWorkspace]);
 
   const switcher = activeId !== undefined && (
     <WorkspaceSwitcher workspaces={visible} activeId={activeId} onSelect={handleSelect} />
@@ -174,7 +177,7 @@ export function WorkspaceShell({
       sidebar={
         <Sidebar>
           <NavTree
-            schema={schema}
+            schema={app}
             {...(user !== undefined && { user })}
             {...(allowedNavQns !== undefined && { allowedNavQns })}
           />

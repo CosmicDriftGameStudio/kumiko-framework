@@ -44,11 +44,11 @@ export type FeatureSchema = {
   // Flat list; resolveNavigation builds the tree at render-time from
   // the registry's indexes. Omitted when the app has no top-level nav.
   readonly navs?: readonly NavDefinition[];
-  // Workspaces — persona-/role-scoped UI surfaces. Each entry carries
-  // the resolved nav-membership pre-merged from r.workspace.nav AND
-  // r.nav.workspaces (the engine's getWorkspaceNavs() output) so the
-  // browser bundle doesn't need to redo the merge. Omitted when the app
-  // doesn't use workspaces — WorkspaceShell falls back to all-navs.
+  // Workspaces — Legacy-Slot für single-feature-Apps. Bevorzugt liegt
+  // workspaces auf der AppSchema-Ebene weil ihre navMembers regelmäßig
+  // Cross-Feature-Navs referenzieren (siehe AppSchema-Doc). Hier als
+  // Fallback erhalten damit alte clientSchema-Files (vor AppSchema)
+  // ohne Migration weiter laufen — toAppSchema() hebt die Liste hoch.
   readonly workspaces?: readonly WorkspaceSchema[];
 };
 
@@ -62,3 +62,42 @@ export type WorkspaceSchema = {
   // entries — deduped). Empty when no nav has been assigned.
   readonly navMembers: readonly string[];
 };
+
+// App-level schema. Bündelt ein oder mehrere FeatureSchemas + die App-
+// weiten Workspaces. Sinn der Trennung: Workspaces aggregieren über
+// Feature-Grenzen (admin-Workspace zeigt navs aus mehreren Features), und
+// die navMembers-Liste enthält voll qualifizierte QNs die der Browser
+// gegen die jeweilige feature-spezifische `navs`-Liste auflöst.
+//
+// Backwards-Compat: createKumikoApp + die Layouts (DefaultAppShell,
+// WorkspaceShell) akzeptieren beides — `FeatureSchema` (single-feature,
+// historisch) und `AppSchema` (multi-feature). Ein `toAppSchema(input)`-
+// Adapter normalisiert intern, sodass die ganze inneren Renderer-Pipeline
+// nur noch AppSchema kennt.
+export type AppSchema = {
+  readonly features: readonly FeatureSchema[];
+  // Optional — Apps ohne Workspaces nutzen DefaultAppShell und sehen
+  // schlicht die NavTree aller Features.
+  readonly workspaces?: readonly WorkspaceSchema[];
+};
+
+// Normalisiert FeatureSchema → AppSchema. Idempotent für AppSchema.
+// Hebt eine Feature-lokal deklarierte `workspaces`-Liste (Legacy) auf
+// App-Ebene hoch, damit alle Layouts mit der neuen Form arbeiten können
+// ohne dass alte clientSchemas migriert werden müssen.
+export function toAppSchema(input: FeatureSchema | AppSchema): AppSchema {
+  if ("features" in input) return input;
+  // Old single-feature shape — wrap.
+  const { workspaces, ...feature } = input;
+  return {
+    features: [feature],
+    ...(workspaces !== undefined && { workspaces }),
+  };
+}
+
+// TypeGuard — Caller die schon zur Laufzeit unterscheiden müssen
+// (selten; meist reicht toAppSchema). Nicht via `"features" in x` inline
+// machen — narrow'd TS dann auf den join-Typ statt die echte Differenz.
+export function isAppSchema(input: FeatureSchema | AppSchema): input is AppSchema {
+  return "features" in input;
+}

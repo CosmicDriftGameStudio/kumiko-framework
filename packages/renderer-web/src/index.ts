@@ -7,6 +7,7 @@
 // --- Shared re-exports (Components, Hooks, Types, Contexts) ---
 export type {
   AppPrimitives,
+  AppSchema,
   AppTokens,
   BannerProps,
   ButtonProps,
@@ -48,6 +49,7 @@ export type {
   UseFormResult,
   UseQueryOptions,
   UseQueryResult,
+  WorkspaceSchema,
 } from "@kumiko/renderer";
 export {
   createStaticLocaleResolver,

@@ -9,7 +9,7 @@
 // <AppLayout>/<Topbar>/<Sidebar>/<NavTree> — dieser Wrapper ist kein
 // Muss, nur ein Shortcut.
 
-import type { FeatureSchema } from "@kumiko/renderer";
+import type { AppSchema, FeatureSchema } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { AppLayout } from "./app-layout";
 import { NavTree } from "./nav-tree";
@@ -20,9 +20,10 @@ export type DefaultAppShellProps = {
   /** Content links in der Topbar — Logo, App-Name, Branding. Freier
    *  JSX-Slot, App entscheidet komplett über den Look. */
   readonly brand: ReactNode;
-  /** Das Feature-Schema wird an NavTree durchgereicht; Sidebar-
-   *  Einträge bauen sich automatisch aus schema.navs auf. */
-  readonly schema: FeatureSchema;
+  /** Schema (AppSchema oder legacy FeatureSchema) wird an NavTree
+   *  durchgereicht; Sidebar-Einträge bauen sich automatisch aus
+   *  schema.navs (per-Feature) auf. */
+  readonly schema: AppSchema | FeatureSchema;
   /** Content rechts in der Topbar — typisch LanguageSwitcher,
    *  TenantSwitcher, ThemeToggle, UserMenu. Als ReactNode statt
    *  Array: App ordnet die Reihenfolge selbst. */

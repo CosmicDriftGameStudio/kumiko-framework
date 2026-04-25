@@ -9,7 +9,8 @@
 // eigenen Bootstrap schreiben will. Normale Samples gehen über
 // @kumiko/renderer-web/createKumikoApp, das alle Provider verdrahtet.
 
-export type { FeatureSchema, WorkspaceSchema } from "./app/feature-schema";
+export type { AppSchema, FeatureSchema, WorkspaceSchema } from "./app/feature-schema";
+export { isAppSchema, toAppSchema } from "./app/feature-schema";
 export type { KumikoScreenProps } from "./app/kumiko-screen";
 export { KumikoScreen, qualifyScreenId } from "./app/kumiko-screen";
 export type { NavApi, NavProviderProps, NavRoute, NavTarget } from "./app/nav";

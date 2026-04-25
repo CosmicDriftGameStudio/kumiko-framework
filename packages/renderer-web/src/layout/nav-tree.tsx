@@ -1,18 +1,26 @@
-// NavTree: Sidebar-Navigation aus dem Feature-Schema. Rekursiv mit
-// Indentation pro Tiefe. Aktiver Eintrag bekommt die accent-Farben
-// (hintergrund + foreground), inaktive nur muted-foreground.
+// NavTree: Sidebar-Navigation aus dem Schema. Multi-Feature-aware —
+// jedes Feature trägt seinen Featurenamen, der zum Qualifizieren der
+// nav-ids genutzt wird. Pre-qualifizierte ids (enthält schon ":nav:")
+// gehen unverändert durch — so können einzelne Features Cross-Feature-
+// Referenzen einfügen ohne zur AppSchema migrieren zu müssen.
+//
+// Aktiver Eintrag bekommt die accent-Farben (hintergrund + foreground),
+// inaktive nur muted-foreground. Rekursiv mit Indentation pro Tiefe.
 
 import type { NavDefinition } from "@kumiko/framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@kumiko/headless";
 import { resolveNavigation } from "@kumiko/headless";
-import type { FeatureSchema } from "@kumiko/renderer";
-import { useNav, useTranslation } from "@kumiko/renderer";
+import type { AppSchema, FeatureSchema } from "@kumiko/renderer";
+import { toAppSchema, useNav, useTranslation } from "@kumiko/renderer";
 import { type ReactNode, useMemo } from "react";
 import { KumikoLink } from "../app/nav";
 import { cn } from "../lib/cn";
 
 export type NavTreeProps = {
-  readonly schema: FeatureSchema;
+  // Akzeptiert beide Shapes — AppSchema (multi-feature) oder
+  // FeatureSchema (legacy single-feature). toAppSchema normalisiert
+  // intern, sodass die Pipeline nur AppSchema kennt.
+  readonly schema: AppSchema | FeatureSchema;
   readonly user?: { readonly id: string; readonly roles: readonly string[] };
   readonly testId?: string;
   // Workspace membership filter — when set, only nav entries whose qualified
@@ -23,10 +31,11 @@ export type NavTreeProps = {
 };
 
 export function NavTree({ schema, user, testId, allowedNavQns }: NavTreeProps): ReactNode {
+  const app = useMemo(() => toAppSchema(schema), [schema]);
   const tree = useMemo(() => {
-    const source = buildNavRegistrySlice(schema, allowedNavQns);
+    const source = buildNavRegistrySliceForApp(app, allowedNavQns);
     return resolveNavigation({ source, ...(user !== undefined && { user }) });
-  }, [schema, user, allowedNavQns]);
+  }, [app, user, allowedNavQns]);
   return (
     <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex flex-col gap-0.5">
       {tree.map((node) => (
@@ -99,16 +108,38 @@ function NavNodeItem({
   );
 }
 
+// Backwards-kompatibler Single-Feature-Builder. Convenience-Wrapper um
+// buildNavRegistrySliceForApp — bestehende Tests die direkt mit
+// FeatureSchema rufen brauchen keine Änderung.
 export function buildNavRegistrySlice(
   schema: FeatureSchema,
   allowedNavQns?: ReadonlySet<string>,
 ): NavRegistrySlice {
-  const qualified: NavDefinition[] = (schema.navs ?? []).map((n) => ({
-    ...n,
-    id: qualifyNavId(schema.featureName, n.id),
-    ...(n.parent !== undefined && { parent: qualifyNavId(schema.featureName, n.parent) }),
-    ...(n.screen !== undefined && { screen: qualifyScreenId(schema.featureName, n.screen) }),
-  }));
+  return buildNavRegistrySliceForApp(toAppSchema(schema), allowedNavQns);
+}
+
+// Multi-Feature-Variante. Iteriert alle Features, qualifiziert pro
+// Feature mit dem eigenen featureName. Reihenfolge: Features in der
+// AppSchema-Ordnung, navs in der vom Feature deklarierten Reihenfolge.
+//
+// Cross-Feature-Workspaces sind hier nativ unterstützt — `navMembers`
+// referenzieren QNs, der Filter trifft die jeweils richtigen Einträge
+// egal in welchem Feature sie deklariert sind.
+export function buildNavRegistrySliceForApp(
+  app: AppSchema,
+  allowedNavQns?: ReadonlySet<string>,
+): NavRegistrySlice {
+  const qualified: NavDefinition[] = [];
+  for (const feature of app.features) {
+    for (const n of feature.navs ?? []) {
+      qualified.push({
+        ...n,
+        id: qualifyNavId(feature.featureName, n.id),
+        ...(n.parent !== undefined && { parent: qualifyNavId(feature.featureName, n.parent) }),
+        ...(n.screen !== undefined && { screen: qualifyScreenId(feature.featureName, n.screen) }),
+      });
+    }
+  }
   // Workspace filter: drop nav entries whose qualified id isn't in the
   // allow-set. A child whose parent gets dropped surfaces as a top-level
   // entry — the workspace owner should list parents explicitly if they

@@ -1,6 +1,7 @@
 import { createLiveDispatcher } from "@kumiko/dispatcher-live";
 import type { Dispatcher, ListRowViewModel, LocaleResolver, Translate } from "@kumiko/headless";
 import {
+  type AppSchema,
   DispatcherProvider,
   type FeatureSchema,
   KumikoScreen,
@@ -12,6 +13,7 @@ import {
   type PrimitivesRegistry,
   qualifyScreenId,
   TokensProvider,
+  toAppSchema,
   useNav,
 } from "@kumiko/renderer";
 import { type ReactNode, useMemo } from "react";
@@ -33,7 +35,9 @@ import { useBrowserNavApi } from "./nav";
 //   createKumikoApp({ schema: clientSchema });
 
 export type CreateKumikoAppOptions = {
-  readonly schema: FeatureSchema;
+  /** App-Schema. Akzeptiert AppSchema (multi-feature) oder die legacy
+   *  FeatureSchema (single-feature) — toAppSchema() normalisiert intern. */
+  readonly schema: AppSchema | FeatureSchema;
   readonly rootId?: string;
   readonly dispatcher?: Dispatcher;
   readonly screenQn?: string;
@@ -78,11 +82,20 @@ export function createKumikoApp(options: CreateKumikoAppOptions): void {
     );
   }
 
-  const [firstScreen] = options.schema.screens;
+  // Normalisierung an der API-Grenze: ab hier kennen alle Layouts +
+  // Renderer nur AppSchema. Single-Feature-Apps gehen über toAppSchema
+  // ohne Mehraufwand durch (eine Wrapping-Allocation pro Boot).
+  const app = toAppSchema(options.schema);
+
+  // Fallback-Screen: erstes Screen über alle Features in deklarierter
+  // Reihenfolge. War vorher schema.screens[0], jetzt search the first
+  // feature with screens.
+  const firstFeatureWithScreens = app.features.find((f) => f.screens.length > 0);
+  const firstScreen = firstFeatureWithScreens?.screens[0];
   const fallbackQn =
     options.screenQn ??
-    (firstScreen !== undefined
-      ? qualifyScreenId(options.schema.featureName, firstScreen.id)
+    (firstScreen !== undefined && firstFeatureWithScreens !== undefined
+      ? qualifyScreenId(firstFeatureWithScreens.featureName, firstScreen.id)
       : undefined);
   if (!fallbackQn) {
     throw new Error(
@@ -107,10 +120,10 @@ export function createKumikoApp(options: CreateKumikoAppOptions): void {
   const resolver = options.locale ?? createBrowserLocaleResolver();
 
   const navAdapter = options.navAdapter ?? useBrowserNavApi;
-  const hasWorkspaces = (options.schema.workspaces?.length ?? 0) > 0;
+  const hasWorkspaces = (app.workspaces?.length ?? 0) > 0;
   const screenNode = (
     <BrowserNavBoot
-      schema={options.schema}
+      app={app}
       fallbackQn={fallbackQn}
       useNavApi={navAdapter}
       hasWorkspaces={hasWorkspaces}
@@ -147,7 +160,7 @@ function TokensBoot({ children }: { readonly children: ReactNode }): ReactNode {
 }
 
 function BrowserNavBoot({
-  schema,
+  app,
   fallbackQn,
   useNavApi,
   hasWorkspaces,
@@ -155,7 +168,7 @@ function BrowserNavBoot({
   onRowClick,
   shell,
 }: {
-  readonly schema: FeatureSchema;
+  readonly app: AppSchema;
   readonly fallbackQn: string;
   readonly useNavApi: (options?: { readonly hasWorkspaces?: boolean }) => NavApi;
   readonly hasWorkspaces: boolean;
@@ -167,7 +180,7 @@ function BrowserNavBoot({
   const Shell = shell;
   const screen = (
     <RoutedScreen
-      schema={schema}
+      app={app}
       fallbackQn={fallbackQn}
       {...(translate !== undefined && { translate })}
       {...(onRowClick !== undefined && { onRowClick })}
@@ -180,42 +193,98 @@ function BrowserNavBoot({
   );
 }
 
+// Sucht das Feature, dem ein vollständig qualifizierter ScreenQn gehört.
+// Returns undefined wenn der Screen in keinem Feature-Schema deklariert
+// ist — KumikoScreen rendert dann den "Screen not found"-Banner.
+function findOwnerFeature(app: AppSchema, qn: string): FeatureSchema | undefined {
+  for (const feature of app.features) {
+    for (const s of feature.screens) {
+      if (qualifyScreenId(feature.featureName, s.id) === qn) return feature;
+    }
+  }
+  return undefined;
+}
+
 function RoutedScreen({
-  schema,
+  app,
   fallbackQn,
   translate,
   onRowClick,
 }: {
-  readonly schema: FeatureSchema;
+  readonly app: AppSchema;
   readonly fallbackQn: string;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
 }): ReactNode {
   const nav = useNav();
-  const { qn, entityId } = useMemo(() => {
-    if (nav.route === undefined) return { qn: fallbackQn, entityId: undefined };
+
+  // ScreenId aus dem Route ist NICHT qualified — nav.route.screenId
+  // kommt aus dem URL-Path und ist die kurze Form ("order-list"). Wir
+  // müssen das ans richtige Feature heften. Strategie: durch alle
+  // Features iterieren bis das passende Screen-Decl auftaucht. Ohne
+  // Match → Fallback-Feature (das vom fallbackQn).
+  const { feature, qn, entityId } = useMemo(() => {
+    if (nav.route === undefined) {
+      return {
+        feature: findOwnerFeature(app, fallbackQn),
+        qn: fallbackQn,
+        entityId: undefined as string | undefined,
+      };
+    }
+    const shortId = nav.route.screenId;
+    // Suche das Feature dessen Screens den short id enthalten.
+    let matchedFeature: FeatureSchema | undefined;
+    for (const f of app.features) {
+      if (f.screens.some((s) => s.id === shortId)) {
+        matchedFeature = f;
+        break;
+      }
+    }
+    const ownerFeature = matchedFeature ?? findOwnerFeature(app, fallbackQn);
+    const qualifiedQn = ownerFeature ? qualifyScreenId(ownerFeature.featureName, shortId) : shortId;
     return {
-      qn: qualifyScreenId(schema.featureName, nav.route.screenId),
+      feature: ownerFeature,
+      qn: qualifiedQn,
       entityId: nav.route.entityId,
     };
-  }, [nav.route, fallbackQn, schema.featureName]);
+  }, [nav.route, app, fallbackQn]);
 
   const effectiveOnRowClick = useMemo<
     ((row: ListRowViewModel, entityName: string) => void) | undefined
   >(() => {
     if (onRowClick !== undefined) return onRowClick;
     return (row, entityName) => {
-      const editScreen = schema.screens.find(
-        (s) => s.type === "entityEdit" && s.entity === entityName,
-      );
-      if (!editScreen) return;
-      nav.navigate({ screenId: editScreen.id, entityId: row.id });
+      // Edit-Screen für die Entity über alle Features suchen — im
+      // Single-Feature-Setup ist das das gleiche Feature wie das aktive,
+      // im Multi-Feature kann der Edit theoretisch in einem anderen
+      // Feature liegen (eines, das die Entity teilt).
+      for (const f of app.features) {
+        const editScreen = f.screens.find(
+          (s) => s.type === "entityEdit" && s.entity === entityName,
+        );
+        if (editScreen) {
+          nav.navigate({ screenId: editScreen.id, entityId: row.id });
+          return;
+        }
+      }
     };
-  }, [onRowClick, schema.screens, nav]);
+  }, [onRowClick, app.features, nav]);
+
+  // KumikoScreen will nach wie vor ein single-feature schema. Wir
+  // füttern es mit dem owning Feature — es enthält Entity-Defs +
+  // Screen-Defs für den aktiven Render-Pfad. Kein Owner gefunden → wir
+  // nutzen das erste Feature als Fallback (KumikoScreen zeigt dann den
+  // "Screen not found"-Banner für das nicht-existente qn).
+  const schemaForScreen: FeatureSchema = feature ??
+    app.features[0] ?? {
+      featureName: "",
+      entities: {},
+      screens: [],
+    };
 
   return (
     <KumikoScreen
-      schema={schema}
+      schema={schemaForScreen}
       qn={qn}
       {...(translate !== undefined && { translate })}
       {...(entityId !== undefined && { entityId })}

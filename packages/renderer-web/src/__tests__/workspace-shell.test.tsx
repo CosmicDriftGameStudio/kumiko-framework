@@ -520,3 +520,127 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
     expect(screen.getByTestId("workspace-tab-dispatch").getAttribute("aria-selected")).toBe("true");
   });
 });
+
+// ---------------------------------------------------------------------------
+// AppSchema (multi-feature) — workspaces with cross-feature nav members
+// ---------------------------------------------------------------------------
+//
+// Hier deckt die Test-Klammer den eigentlichen Use-Case ab: ein Workspace
+// dessen navMembers Navs aus mehreren Features referenzieren. Vorher
+// ging das nur über pre-qualifizierte ids im single-feature schema, jetzt
+// sauber über AppSchema.features[].
+
+describe("WorkspaceShell — AppSchema (multi-feature)", () => {
+  test("admin Workspace zeigt Navs aus zwei Features in einer Sidebar", () => {
+    const app = {
+      features: [
+        {
+          featureName: "orders",
+          entities: {},
+          screens: [],
+          navs: [{ id: "list", label: "Order List" }],
+        },
+        {
+          featureName: "fleet",
+          entities: {},
+          screens: [],
+          navs: [{ id: "vehicles", label: "Vehicles" }],
+        },
+      ],
+      workspaces: [
+        ws("admin", {
+          label: "Admin",
+          openToAll: true,
+          isDefault: true,
+          navMembers: ["orders:nav:list", "fleet:nav:vehicles"],
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell brand={<div>Brand</div>} schema={app} user={{ id: "u1", roles: ["admin"] }}>
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    // Beide Navs müssen in der Sidebar landen, jede mit ihrem eigenen
+    // featureName qualifiziert. Vorher (single-feature schema) hätte
+    // qualifyNavId orders+fleet beide unter dem einen featureName
+    // qualifiziert und der allowedNavQns-Filter hätte fleet:nav:vehicles
+    // nie matchen können.
+    expect(screen.getByText("Order List")).toBeTruthy();
+    expect(screen.getByText("Vehicles")).toBeTruthy();
+  });
+
+  test("Workspace-Filter respektiert features-übergreifende Membership", () => {
+    const app = {
+      features: [
+        {
+          featureName: "orders",
+          entities: {},
+          screens: [],
+          navs: [{ id: "list", label: "Order List" }],
+        },
+        {
+          featureName: "fleet",
+          entities: {},
+          screens: [],
+          navs: [{ id: "vehicles", label: "Vehicles" }],
+        },
+      ],
+      workspaces: [
+        ws("admin", {
+          label: "Admin",
+          openToAll: true,
+          isDefault: true,
+          navMembers: ["orders:nav:list"], // Nur Orders-Navs
+        }),
+        ws("dispatch", {
+          label: "Dispatch",
+          openToAll: true,
+          navMembers: ["fleet:nav:vehicles"], // Nur Fleet-Navs
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell brand={<div>Brand</div>} schema={app} user={{ id: "u1", roles: ["admin"] }}>
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    // Admin = aktiv (default) → nur Order List, KEIN Vehicles.
+    expect(screen.getByText("Order List")).toBeTruthy();
+    expect(screen.queryByText("Vehicles")).toBeNull();
+  });
+
+  test("toAppSchema hebt FeatureSchema.workspaces auf App-Ebene (Backwards-Compat)", () => {
+    // Legacy single-feature shape mit inline workspaces — der Wrapper
+    // soll exakt das gleiche Rendering liefern wie ein expliziter
+    // AppSchema-Aufruf mit demselben Inhalt.
+    const legacy = {
+      featureName: "demo",
+      entities: {},
+      screens: [],
+      navs: [{ id: "list", label: "List" }],
+      workspaces: [
+        ws("admin", {
+          label: "Admin",
+          openToAll: true,
+          isDefault: true,
+          navMembers: ["demo:nav:list"],
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell brand={<div>Brand</div>} schema={legacy} user={{ id: "u1", roles: [] }}>
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    // Sidebar zeigt den nav — beweist dass die Legacy-Schema-Workspaces
+    // korrekt zur App-Ebene hochgehoben wurden und der allowedNavQns-
+    // Filter den Eintrag durchließ. WorkspaceSwitcher rendert bei einem
+    // einzelnen Workspace nichts (no-choice-no-UI), das ist nicht der
+    // Test-Punkt hier.
+    expect(screen.getByText("List")).toBeTruthy();
+  });
+});
