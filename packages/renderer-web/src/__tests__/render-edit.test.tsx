@@ -3,7 +3,7 @@ import type { EntityDefinition, EntityEditScreenDefinition } from "@kumiko/frame
 import type { Dispatcher, SubmitResult } from "@kumiko/headless";
 import { DispatcherProvider, RenderEdit } from "@kumiko/renderer";
 import { describe, expect, test, vi } from "vitest";
-import { act, fireEvent, render, screen } from "./test-utils";
+import { act, fireEvent, makeMockDispatcher, render, screen } from "./test-utils";
 
 const orderEntity = {
   fields: {
@@ -40,18 +40,11 @@ function makeScreen(): EntityEditScreenDefinition {
   };
 }
 
-function makeDispatcher(
-  writeFn: Dispatcher["write"] = async () => ({ isSuccess: true, data: { id: "1" } }) as never,
-): Dispatcher {
-  return {
-    write: writeFn,
-    query: async () => ({ isSuccess: true, data: {} }) as never,
-    batch: async () => ({ isSuccess: true, results: [] }) as never,
-    status: () => "online",
-    subscribeStatus: () => () => {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+function makeDispatcher(writeFn?: Dispatcher["write"]): Dispatcher {
+  return makeMockDispatcher({
+    write:
+      writeFn ?? ((async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"]),
+  });
 }
 
 type TestValues = {

@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 import type { Dispatcher, WriteResult } from "../../dispatcher";
+import { createStore } from "../../store";
 import { createFormController } from "../form-controller";
 
 // Fake dispatcher scoped to this test file — same shape as contract.test.ts
@@ -20,8 +21,7 @@ function makeDispatcher(response?: WriteResult): Dispatcher & {
     async batch() {
       return { isSuccess: true, results: [] };
     },
-    status: () => "online",
-    subscribeStatus: () => () => {},
+    statusStore: createStore("online"),
     pendingWrites: () => [],
     pendingFiles: () => [],
   };
@@ -165,8 +165,7 @@ describe("createFormController — submit()", () => {
       async batch() {
         return { isSuccess: true as const, results: [] };
       },
-      status: (): "online" => "online",
-      subscribeStatus: () => () => {},
+      statusStore: createStore("online"),
       pendingWrites: () => [],
       pendingFiles: () => [],
     };
@@ -269,8 +268,7 @@ describe("createFormController — submit()", () => {
       async batch() {
         return { isSuccess: true as const, results: [] };
       },
-      status: (): "online" => "online",
-      subscribeStatus: () => () => {},
+      statusStore: createStore("online"),
       pendingWrites: () => [],
       pendingFiles: () => [],
     };

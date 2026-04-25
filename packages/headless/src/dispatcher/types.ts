@@ -32,6 +32,8 @@
 // the same dotted convention the server uses (see kumiko errors/classes.ts),
 // so form-controllers can map `tasks.2.title` back to the right sub-line's
 // input without any translation.
+import type { Store } from "../store";
+
 export type FieldIssue = {
   readonly path: string;
   readonly code: string;
@@ -172,12 +174,13 @@ export type Dispatcher = {
 
   // --- Status ---
 
-  status(): DispatcherStatus;
-
-  // Subscribe/Emit, Pull-Style — listener kriegt keinen Payload, liest den
-  // Status frisch via `status()`. Matcht direkt useSyncExternalStore.
-  // Returns an unsubscribe function.
-  subscribeStatus(listener: () => void): () => void;
+  // Subscribe/Emit-Store für Online/Offline/Syncing-Transitions. Konsumenten
+  // greifen direkt mit `useStore(dispatcher.statusStore)` zu — keine eigenen
+  // status()/subscribe()-Wrapper, der Store ist die ganze API.
+  // `Store` (read-only): UI darf den Status NICHT setzen, das ist
+  // Dispatcher-intern. Live-Dispatcher hält intern eine WritableStore-Ref,
+  // exportiert aber nur den Read-View.
+  readonly statusStore: Store<DispatcherStatus>;
 
   // --- Pending queues (only meaningful for savable; live returns []) ---
 

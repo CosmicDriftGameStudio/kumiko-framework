@@ -1,20 +1,19 @@
 // @vitest-environment jsdom
-import type { Dispatcher } from "@kumiko/headless";
+import type { Dispatcher, DispatcherStatus } from "@kumiko/headless";
 import { DispatcherProvider, useDispatcher, useDispatcherStatus } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";
-import { act, render, renderHook } from "./test-utils";
+import { act, makeMockDispatcher, render, renderHook } from "./test-utils";
 
-// Minimal fake dispatcher for testing. Only the three methods the
-// context actually uses — the rest are no-op stubs and throw if touched,
-// which tells us fast if a hook under test reaches somewhere it shouldn't.
+// Minimal fake dispatcher: write/query/batch throwen, damit klar wird
+// wenn ein Hook unter Test irgendwohin greift wo er nicht hingehört.
+// Status-Mutationen laufen über den exposed setStatus-Helper, der den
+// statusStore direkt schreibt.
 function makeFakeDispatcher(): {
   readonly dispatcher: Dispatcher;
-  setStatus(next: "online" | "offline" | "syncing"): void;
+  setStatus(next: DispatcherStatus): void;
 } {
-  const listeners = new Set<() => void>();
-  let currentStatus: "online" | "offline" | "syncing" = "online";
-  const dispatcher: Dispatcher = {
+  const dispatcher = makeMockDispatcher({
     write: async () => {
       throw new Error("write not used in this test");
     },
@@ -24,19 +23,11 @@ function makeFakeDispatcher(): {
     batch: async () => {
       throw new Error("batch not used in this test");
     },
-    status: () => currentStatus,
-    subscribeStatus: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  });
   return {
     dispatcher,
     setStatus(next) {
-      currentStatus = next;
-      for (const l of listeners) l();
+      dispatcher.statusStore.setState(next);
     },
   };
 }
@@ -71,7 +62,7 @@ describe("DispatcherContext", () => {
     expect(result.current).toBe("offline");
   });
 
-  test("useDispatcherStatus updates when dispatcher.subscribeStatus fires", () => {
+  test("useDispatcherStatus updates when statusStore changes", () => {
     const { dispatcher, setStatus } = makeFakeDispatcher();
     const { result } = renderHook(() => useDispatcherStatus(), { wrapper: wrapper(dispatcher) });
     expect(result.current).toBe("online");

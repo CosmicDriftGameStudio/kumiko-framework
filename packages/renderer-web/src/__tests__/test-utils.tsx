@@ -14,6 +14,12 @@
 // browser-Nav) bauen ihren Wrapper selbst — siehe nav.test.tsx.
 
 import {
+  createStore,
+  type Dispatcher,
+  type DispatcherStatus,
+  type WritableStore,
+} from "@kumiko/headless";
+import {
   createStaticLocaleResolver,
   type LiveEventSubscriber,
   LiveEventsProvider,
@@ -66,6 +72,57 @@ function DefaultProviders({ children }: { readonly children: ReactNode }): React
 
 export function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">): RenderResult {
   return _render(ui, { wrapper: DefaultProviders, ...options });
+}
+
+// ---------------------------------------------------------------------------
+// Mock-Dispatcher-Helper
+// ---------------------------------------------------------------------------
+
+export type MockDispatcherOptions = {
+  /** Initialer Status. Default: "online". Tests die Transitions prüfen,
+   *  greifen den zurückgegebenen `statusStore` ab und mutieren ihn via
+   *  `statusStore.setState(...)`. */
+  readonly initialStatus?: DispatcherStatus;
+  /** Override write(). Default: returnt `{ isSuccess: true, data: {} }`. */
+  readonly write?: Dispatcher["write"];
+  /** Override query(). Default: returnt `{ isSuccess: true, data: {} }`. */
+  readonly query?: Dispatcher["query"];
+  /** Override batch(). Default: returnt `{ isSuccess: true, results: [] }`. */
+  readonly batch?: Dispatcher["batch"];
+};
+
+/** Minimal Mock-Dispatcher für renderer-web-Tests. Replaces the
+ *  hand-rolled `makeDispatcher()` Funktionen, die in fast jedem
+ *  Test-File identisch waren. Der zurückgegebene `statusStore` ist
+ *  ein WritableStore, damit Tests Status-Wechsel auslösen können —
+ *  beim public Dispatcher-Contract ist statusStore read-only, aber
+ *  Mocks dürfen mehr.
+ *
+ *  Pending queues sind immer `[]` (live-dispatcher-Semantik); Tests
+ *  die savable-Pending-Verhalten prüfen wollen, mocken den Dispatcher
+ *  selbst.
+ */
+export function makeMockDispatcher(options: MockDispatcherOptions = {}): Dispatcher & {
+  /** Schreibbarer Zugriff auf den Status-Store für Test-Mutationen.
+   *  Identisch zu `dispatcher.statusStore` (Aliasing), aber als
+   *  WritableStore typisiert. */
+  readonly statusStore: WritableStore<DispatcherStatus>;
+} {
+  const statusStore = createStore<DispatcherStatus>(options.initialStatus ?? "online");
+  return {
+    write:
+      options.write ??
+      ((async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"]),
+    query:
+      options.query ??
+      ((async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"]),
+    batch:
+      options.batch ??
+      ((async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"]),
+    statusStore,
+    pendingWrites: () => [],
+    pendingFiles: () => [],
+  };
 }
 
 export * from "@testing-library/react";

@@ -145,13 +145,13 @@ describe("createLiveDispatcher", () => {
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const seen: string[] = [];
-    disp.subscribeStatus(() => seen.push(disp.status()));
+    disp.statusStore.subscribe(() => seen.push(disp.statusStore.getSnapshot()));
 
     const result = await disp.write("x", {});
 
     expect(result.isSuccess).toBe(false);
     if (!result.isSuccess) expect(result.error.code).toBe("network_error");
-    expect(disp.status()).toBe("offline");
+    expect(disp.statusStore.getSnapshot()).toBe("offline");
     expect(seen).toEqual(["offline"]);
   });
 
@@ -173,13 +173,13 @@ describe("createLiveDispatcher", () => {
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const seen: string[] = [];
-    disp.subscribeStatus(() => seen.push(disp.status()));
+    disp.statusStore.subscribe(() => seen.push(disp.statusStore.getSnapshot()));
 
     await disp.write("x", {}); // offline
     await disp.write("x", {}); // online
 
     expect(seen).toEqual(["offline", "online"]);
-    expect(disp.status()).toBe("online");
+    expect(disp.statusStore.getSnapshot()).toBe("online");
   });
 
   test("abort signal: request propagated + AbortError mapped to 'aborted'", async () => {
@@ -210,7 +210,7 @@ describe("createLiveDispatcher", () => {
     // Abort is a user cancellation, not a network outage — status MUST
     // not flip to offline (UX: cancelling a save shouldn't make the
     // online-indicator light up red).
-    expect(disp.status()).toBe("online");
+    expect(disp.statusStore.getSnapshot()).toBe("online");
   });
 
   test("non-JSON server response (HTML 502 page) maps to network_error", async () => {
@@ -245,11 +245,11 @@ describe("createLiveDispatcher", () => {
     });
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
     const seen: string[] = [];
-    disp.subscribeStatus(() => seen.push(disp.status()));
+    disp.statusStore.subscribe(() => seen.push(disp.statusStore.getSnapshot()));
 
     await disp.write("x", {});
 
-    expect(disp.status()).toBe("online");
+    expect(disp.statusStore.getSnapshot()).toBe("online");
     expect(seen).toEqual([]); // no status flip
   });
 
@@ -266,7 +266,7 @@ describe("createLiveDispatcher", () => {
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     const listener = vi.fn();
-    const unsub = disp.subscribeStatus(listener);
+    const unsub = disp.statusStore.subscribe(listener);
     await disp.write("x", {});
     expect(listener).toHaveBeenCalledTimes(1);
 
@@ -282,7 +282,7 @@ describe("createLiveDispatcher", () => {
       },
     })) as unknown as typeof globalThis.fetch;
     const disp2 = createLiveDispatcher({ fetch: fetchOk, readCsrf: () => "t" });
-    disp2.subscribeStatus(listener);
+    disp2.statusStore.subscribe(listener);
     unsub(); // original unsub — no-op on disp2
     await disp2.write("x", {});
     // listener was triggered once above (initial offline), and disp2's

@@ -9,7 +9,7 @@ import { sql } from "drizzle-orm";
 // name IS the identity here. No tenantId: this is a global override that
 // applies across every tenant (per-tenant toggles are intentionally out of
 // scope, see core-feature-toggles.md).
-export const globalFeatureStateTable = pgTable("global_feature_state", {
+export const globalFeatureStateTable = pgTable("read_global_feature_state", {
   featureName: text("feature_name").primaryKey(),
   enabled: boolean("enabled").notNull(),
   // Optimistic-lock column. The set-handler reads the existing row, then

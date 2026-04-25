@@ -9,6 +9,7 @@ import type { FeatureSchema, NavApi } from "@kumiko/renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test } from "vitest";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
+import { makeMockDispatcher } from "./test-utils";
 
 const taskEntity = {
   fields: {
@@ -31,18 +32,12 @@ const listScreen: EntityListScreenDefinition = {
 };
 
 function makeDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+  return makeMockDispatcher({
     query: (async () => ({
       isSuccess: true,
       data: { rows: [], nextCursor: null },
     })) as unknown as Dispatcher["query"],
-    batch: async () => ({ isSuccess: true, results: [] }) as never,
-    status: () => "online",
-    subscribeStatus: () => () => {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  });
 }
 
 function mountRoot(id = "root"): HTMLDivElement {

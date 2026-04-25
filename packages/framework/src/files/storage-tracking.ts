@@ -20,7 +20,7 @@ import { fileUploadedEvent } from "./file-routes";
 // quota). Default "bigint" mode would hand back a bigint value, which
 // arithmetic on Drizzle's sql`` template would still accept but forces
 // callers to remember the type.
-export const tenantStorageUsageTable = pgTable("tenant_storage_usage", {
+export const tenantStorageUsageTable = pgTable("read_tenant_storage_usage", {
   tenantId: uuid("tenant_id").primaryKey(),
   totalBytes: bigint("total_bytes", { mode: "number" }).notNull().default(0),
   fileCount: integer("file_count").notNull().default(0),

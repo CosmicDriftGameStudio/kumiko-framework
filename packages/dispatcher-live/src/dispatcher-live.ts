@@ -180,8 +180,7 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
       return normalizeBatchResponse(call);
     },
 
-    status: statusStore.getSnapshot,
-    subscribeStatus: statusStore.subscribe,
+    statusStore,
     // Live dispatcher has no queue. Returning a constant empty array
     // keeps the contract uniform with savable; UI code that renders
     // pending-badges draws nothing instead of branching on dispatcher

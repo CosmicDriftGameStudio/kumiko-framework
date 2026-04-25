@@ -2,8 +2,14 @@
 // Types + Context + useNav leben im shared `@kumiko/renderer`; dieser
 // File liefert nur die Web-spezifische NavApi-Instanz und die
 // `<KumikoLink>` Anchor-Komponente.
+//
+// Bewusst KEIN createStore: Source-of-truth ist `window.location.pathname`
+// (extern, kann via replaceState außerhalb unserer Kontrolle wechseln).
+// Ein Store wäre entweder eine zweite Wahrheit (Drift-Risiko) oder ein
+// reiner Tick-Counter (Anti-Pattern — createStore ist State-Holder, kein
+// Event-Bus). Hand-rolled Listener-Set ist hier idiomatisch: zwei
+// Notify-Trigger (eigenes pushPath, popstate-Event), nicht generalisierbar.
 
-import { createStore } from "@kumiko/headless";
 import { formatPath, type NavApi, type NavTarget, parsePath, useNav } from "@kumiko/renderer";
 import {
   type AnchorHTMLAttributes,
@@ -14,30 +20,27 @@ import {
   useSyncExternalStore,
 } from "react";
 
-// Source-of-truth für den aktuellen Pfad ist `window.location.pathname`
-// (kann von außen via replaceState geändert werden, ohne dass wir es
-// merken). Der Store dient hier rein als Notification-Bus: bei jedem
-// Change-Trigger (eigene navigate() oder popstate) tickt der Counter,
-// useSyncExternalStore re-evaluiert getSnapshot, das den DOM-Pfad
-// frisch liest. Der Store ersetzt nur das hand-rolled Listener-Set —
-// kein State-Caching, weil der DOM die Wahrheit hat.
-const navTick = createStore(0);
-
-function notifyNav(): void {
-  navTick.setState((t) => t + 1);
-}
-
+// pushState feuert keinen popstate — wir halten einen eigenen
+// Listener-Set, den navigate() notifiziert. popstate (Back/Forward)
+// läuft über einen window-Listener, den wir einmalig verdrahten.
+const listeners = new Set<() => void>();
 let popstateWired = false;
+
 function ensurePopstateWired(): void {
   if (popstateWired) return;
   if (typeof window === "undefined") return;
-  window.addEventListener("popstate", notifyNav);
+  window.addEventListener("popstate", () => {
+    for (const l of listeners) l();
+  });
   popstateWired = true;
 }
 
 function subscribe(listener: () => void): () => void {
   ensurePopstateWired();
-  return navTick.subscribe(listener);
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 function readPath(): string {
@@ -50,7 +53,7 @@ function pushPath(path: string): void {
   // Aufrufe mit demselben Ziel sollen nicht die History fluten.
   if (window.location.pathname === path) return;
   window.history.pushState(null, "", path);
-  notifyNav();
+  for (const l of listeners) l();
 }
 
 /** React-Hook der eine NavApi aus der Browser-History baut. Sollte

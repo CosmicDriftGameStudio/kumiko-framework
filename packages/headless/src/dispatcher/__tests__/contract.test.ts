@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { createStore } from "../../store";
 import type {
   BatchResult,
   Command,
@@ -30,8 +31,7 @@ function createFakeDispatcher(options?: {
   setStatus(next: DispatcherStatus): void;
 } {
   const calls: Array<{ kind: "write" | "query" | "batch"; type?: string; payload?: unknown }> = [];
-  const listeners = new Set<() => void>();
-  let status: DispatcherStatus = "online";
+  const statusStore = createStore<DispatcherStatus>("online");
   const pendingWritesStore: PendingWrite[] = [];
   const pendingFilesStore: PendingFile[] = [];
 
@@ -59,16 +59,11 @@ function createFakeDispatcher(options?: {
       const result: BatchResult = { isSuccess: true, results };
       return result;
     },
-    status: () => status,
-    subscribeStatus(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+    statusStore,
     pendingWrites: () => pendingWritesStore,
     pendingFiles: () => pendingFilesStore,
     setStatus(next) {
-      status = next;
-      for (const l of listeners) l();
+      statusStore.setState(next);
     },
   };
 }
@@ -143,11 +138,11 @@ describe("Dispatcher contract", () => {
     }
   });
 
-  test("subscribeStatus fires on transitions and unsubscribes cleanly", () => {
+  test("statusStore fires on transitions and unsubscribes cleanly", () => {
     const disp = createFakeDispatcher();
     const seen: DispatcherStatus[] = [];
 
-    const unsubscribe = disp.subscribeStatus(() => seen.push(disp.status()));
+    const unsubscribe = disp.statusStore.subscribe(() => seen.push(disp.statusStore.getSnapshot()));
     disp.setStatus("offline");
     disp.setStatus("syncing");
     unsubscribe();

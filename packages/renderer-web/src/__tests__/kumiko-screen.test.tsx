@@ -8,7 +8,7 @@ import type { Dispatcher } from "@kumiko/headless";
 import type { FeatureSchema } from "@kumiko/renderer";
 import { DispatcherProvider, KumikoScreen } from "@kumiko/renderer";
 import { describe, expect, test, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "./test-utils";
+import { fireEvent, makeMockDispatcher, render, screen, waitFor } from "./test-utils";
 
 const taskEntity = {
   fields: {
@@ -41,18 +41,12 @@ const schema: FeatureSchema = {
 };
 
 function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
-  const base: Dispatcher = {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+  const base = makeMockDispatcher({
     query: (async () => ({
       isSuccess: true,
       data: { rows: [], nextCursor: null },
     })) as unknown as Dispatcher["query"],
-    batch: async () => ({ isSuccess: true, results: [] }) as never,
-    status: () => "online",
-    subscribeStatus: () => () => {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  });
   return { ...base, ...overrides };
 }
 

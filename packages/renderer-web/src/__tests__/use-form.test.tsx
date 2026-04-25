@@ -4,25 +4,12 @@ import { DispatcherProvider, useForm } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
 import { z } from "zod";
-import { act, renderHook } from "./test-utils";
+import { act, makeMockDispatcher, renderHook } from "./test-utils";
 
 type Values = { title: string; count?: number };
 
-function makeDispatcher(
-  writeFn: Dispatcher["write"] = (async () => ({
-    isSuccess: true,
-    data: {},
-  })) as unknown as Dispatcher["write"],
-): Dispatcher {
-  return {
-    write: writeFn,
-    query: async () => ({ isSuccess: true, data: {} }) as never,
-    batch: async () => ({ isSuccess: true, results: [] }) as never,
-    status: () => "online",
-    subscribeStatus: () => () => {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+function makeDispatcher(writeFn?: Dispatcher["write"]): Dispatcher {
+  return makeMockDispatcher({ write: writeFn });
 }
 
 function wrap(dispatcher: Dispatcher) {

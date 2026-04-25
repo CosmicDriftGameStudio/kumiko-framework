@@ -3,23 +3,10 @@ import type { Dispatcher, DispatcherError } from "@kumiko/headless";
 import { DispatcherProvider, useQuery } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
-import { act, renderHook, waitFor } from "./test-utils";
+import { act, makeMockDispatcher, renderHook, waitFor } from "./test-utils";
 
-function makeDispatcher(
-  queryFn: Dispatcher["query"] = (async () => ({
-    isSuccess: true,
-    data: [],
-  })) as unknown as Dispatcher["query"],
-): Dispatcher {
-  return {
-    write: async () => ({ isSuccess: true, data: {} }) as never,
-    query: queryFn,
-    batch: async () => ({ isSuccess: true, results: [] }) as never,
-    status: () => "online",
-    subscribeStatus: () => () => {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+function makeDispatcher(queryFn?: Dispatcher["query"]): Dispatcher {
+  return makeMockDispatcher({ query: queryFn });
 }
 
 function wrap(dispatcher: Dispatcher) {

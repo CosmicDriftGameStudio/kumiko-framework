@@ -1,5 +1,6 @@
 import type { Dispatcher, DispatcherStatus } from "@kumiko/headless";
-import { createContext, type ReactNode, useContext, useSyncExternalStore } from "react";
+import { createContext, type ReactNode, useContext } from "react";
+import { useStore } from "../hooks/use-store";
 
 // React Context threading the Dispatcher through the tree. An app
 // wraps its root in <DispatcherProvider dispatcher={createLiveDispatcher()}>
@@ -36,17 +37,14 @@ export function useDispatcher(): Dispatcher {
   return dispatcher;
 }
 
-// Subscribes to online/offline/syncing transitions via
-// useSyncExternalStore — React 18+'s concurrent-safe subscription
-// primitive. The dispatcher exposes `status()` (getSnapshot) and
-// `subscribeStatus()` (Pull-Style subscribe) which match the hook's
-// contract directly.
+// Subscribes to online/offline/syncing transitions. The dispatcher
+// exposes `statusStore: Store<DispatcherStatus>` directly; useStore is
+// the canonical React-binding for that contract.
 //
-// Server rendering: returns "online" during SSR (no network state
-// available yet). The app renders, hydrates, the first client tick
-// picks up the real status. Doesn't flash because "online" is also
-// the default optimistic status on the client.
+// Server rendering: useStore reads the store's getServerSnapshot which
+// returns the same snapshot the client sees on hydration — for the
+// live-dispatcher that's "online" (the optimistic boot default), so
+// no flash on hydration.
 export function useDispatcherStatus(): DispatcherStatus {
-  const dispatcher = useDispatcher();
-  return useSyncExternalStore(dispatcher.subscribeStatus, dispatcher.status, () => "online");
+  return useStore(useDispatcher().statusStore);
 }
