@@ -91,6 +91,22 @@ describe("buildInsertSchema", () => {
       invalid: null,
     },
     {
+      name: "required multiSelect rejects empty array",
+      fields: {
+        tags: createMultiSelectField({ options: ["a", "b"] as const, required: true }),
+      },
+      valid: { tags: ["a"] },
+      invalid: { tags: [] },
+    },
+    {
+      name: "required multiSelect rejects missing field",
+      fields: {
+        tags: createMultiSelectField({ options: ["a", "b"] as const, required: true }),
+      },
+      valid: { tags: ["b"] },
+      invalid: {},
+    },
+    {
       name: "number field",
       fields: { age: createNumberField({ required: true }) },
       valid: { age: 25 },

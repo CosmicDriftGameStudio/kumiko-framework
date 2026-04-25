@@ -41,12 +41,11 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
     case "multiSelect": {
       const [first, ...rest] = field.options;
       if (!first) return z.array(z.string());
-      // Boot-validator garantiert: options non-empty + default ist Subset.
-      // Hier nur das Per-Element-Enum + Array-Wrapper. Keine min(1)-
-      // Constraint heute — `required: true` würde das ergänzen, machen
-      // wir wenn ein Caller es braucht (Memory: don't add validation
-      // for scenarios that can't happen yet).
-      const schema = z.array(z.enum([first, ...rest]));
+      // `required: true` heißt non-empty — Analogie zu `text`-Field.
+      // Leeres Array wird rejected; das globale `.optional()`-Wrapping
+      // in buildInsertSchema kümmert sich um „darf fehlen".
+      let schema = z.array(z.enum([first, ...rest]));
+      if (field.required) schema = schema.min(1);
       return field.default !== undefined ? schema.default([...field.default]) : schema;
     }
     case "number": {
