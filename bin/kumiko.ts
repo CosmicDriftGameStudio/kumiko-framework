@@ -1,7 +1,15 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun";
-import { existsSync } from "node:fs";
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
 
 // Suppress Node's deprecation warnings (notably DEP0169 url.parse, emitted
 // by yarn-classic's own url handling — not our code). Using --no-deprecation
@@ -187,7 +195,24 @@ const commands = {
   check: {
     description: "Alles pruefen: Lint, Types, Tests",
     run: async () => {
-      console.log("Checke alles durch...\n");
+      // Parallel-Dedup: zwei gleichzeitige `kumiko check`-Aufrufe sollen
+      // den realen Run nur einmal machen. Erster Aufruf haelt den Lock und
+      // streamt Output zur Console UND in eine Log-Datei. Folge-Aufrufe
+      // tail-en die Log-Datei live und uebernehmen am Ende den Exit-Code
+      // aus der Result-Datei.
+      const lockDir = ".kumiko-check.lock";
+      const logPath = ".kumiko-check.log";
+      const resultPath = ".kumiko-check.result";
+
+      if (!acquireCheckLock(lockDir, logPath, resultPath)) {
+        const code = await followCheck(lockDir, logPath, resultPath);
+        if (code !== 0) process.exit(code);
+        return;
+      }
+
+      registerLockCleanup(lockDir);
+
+      logBoth("Checke alles durch...\n", logPath);
       const results: Array<{ name: string; ok: boolean }> = [];
 
       for (const [name, cmd] of [
@@ -213,22 +238,19 @@ const commands = {
         ["Integration Guard", "node vitest.integration.guard.js"],
         ["Integration Tests", "yarn vitest run --config vitest.integration.config.ts"],
       ] as const) {
-        console.log(`--- ${name} ---`);
-        try {
-          await $`${{ raw: cmd }}`;
-          results.push({ name, ok: true });
-        } catch {
-          results.push({ name, ok: false });
-        }
-        console.log();
+        logBoth(`--- ${name} ---`, logPath);
+        const code = await runWithTee(cmd, logPath);
+        results.push({ name, ok: code === 0 });
+        logBoth("", logPath);
       }
 
       const allGood = results.every((r) => r.ok);
-      console.log(allGood ? "Alles im gruenen Bereich!" : "Da gibt's was zu tun:");
+      logBoth(allGood ? "Alles im gruenen Bereich!" : "Da gibt's was zu tun:", logPath);
       for (const r of results) {
-        console.log(`  ${r.ok ? "PASS" : "FAIL"} ${r.name}`);
+        logBoth(`  ${r.ok ? "PASS" : "FAIL"} ${r.name}`, logPath);
       }
 
+      writeFileSync(resultPath, allGood ? "0" : "1");
       if (!allGood) process.exit(1);
     },
   },
@@ -858,6 +880,119 @@ async function waitForPostgres(retries = 30): Promise<void> {
   }
   console.error("\nPostgreSQL wouldn't wake up. Try: docker compose logs postgres");
   process.exit(1);
+}
+
+// --- Check Lock Helpers ---
+
+function acquireCheckLock(lockDir: string, logPath: string, resultPath: string): boolean {
+  // mkdirSync ohne recursive ist atomar — EEXIST entscheidet ueber den
+  // Wettlauf zweier paralleler Aufrufe. Stale-Locks (Owner ist tot)
+  // werden einmal aufgeraeumt und dann neu versucht.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      mkdirSync(lockDir);
+      writeFileSync(join(lockDir, "pid"), String(process.pid));
+      writeFileSync(logPath, "");
+      rmSync(resultPath, { force: true });
+      return true;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      if (isLockHolderAlive(lockDir)) return false;
+      rmSync(lockDir, { recursive: true, force: true });
+    }
+  }
+  return false;
+}
+
+function isLockHolderAlive(lockDir: string): boolean {
+  try {
+    const pid = Number.parseInt(readFileSync(join(lockDir, "pid"), "utf8"), 10);
+    if (!Number.isFinite(pid) || pid <= 0) return false;
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function registerLockCleanup(lockDir: string): void {
+  const release = (): void => {
+    try {
+      rmSync(lockDir, { recursive: true, force: true });
+    } catch {
+      // ignore — best effort
+    }
+  };
+  process.on("exit", release);
+  process.on("SIGINT", () => {
+    release();
+    process.exit(130);
+  });
+  process.on("SIGTERM", () => {
+    release();
+    process.exit(143);
+  });
+}
+
+function logBoth(line: string, logPath: string): void {
+  console.log(line);
+  try {
+    writeFileSync(logPath, `${line}\n`, { flag: "a" });
+  } catch {
+    // ignore — log is best effort
+  }
+}
+
+async function runWithTee(cmd: string, logPath: string): Promise<number> {
+  const proc = Bun.spawn(["sh", "-c", cmd], {
+    stdout: "pipe",
+    stderr: "pipe",
+    env: process.env,
+  });
+  const logStream = createWriteStream(logPath, { flags: "a" });
+
+  const pump = async (
+    stream: ReadableStream<Uint8Array>,
+    sink: NodeJS.WriteStream,
+  ): Promise<void> => {
+    const reader = stream.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      sink.write(value);
+      logStream.write(value);
+    }
+  };
+
+  await Promise.all([pump(proc.stdout, process.stdout), pump(proc.stderr, process.stderr)]);
+  const code = await proc.exited;
+  await new Promise<void>((resolve) => logStream.end(resolve));
+  return code;
+}
+
+async function followCheck(lockDir: string, logPath: string, resultPath: string): Promise<number> {
+  console.log("kumiko check laeuft schon — haenge mich dran...\n");
+  // tail -F (capital F) folgt dem Log auch wenn er noch nicht existiert
+  // und ueberlebt File-Rotation. Das deckt den Race ab, in dem wir den
+  // Lock sehen aber der Owner die Log-Datei noch nicht angelegt hat.
+  const tail = Bun.spawn(["tail", "-n", "+1", "-F", logPath], {
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+
+  while (existsSync(lockDir)) {
+    await Bun.sleep(200);
+  }
+  tail.kill();
+  await tail.exited;
+
+  if (!existsSync(resultPath)) {
+    console.error("\nLaufender Run beendet, aber kein Result gefunden — vermutlich gecrasht.");
+    return 1;
+  }
+  const raw = readFileSync(resultPath, "utf8").trim();
+  const code = Number.parseInt(raw, 10);
+  return Number.isFinite(code) ? code : 1;
 }
 
 // --- Entry point ---
