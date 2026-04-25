@@ -29,7 +29,7 @@ import { configValuesTable } from "../../config/table";
 import { tenantMembershipsTable } from "../membership-table";
 import { tenantEntity, tenantTable } from "../tenant-entity";
 import { createTenantFeature } from "../tenant-feature";
-import { seedTenant, seedTenantMembership } from "../testing";
+import { seedTenant, seedTenantMembership } from "../seeding";
 
 let stack: TestStack;
 

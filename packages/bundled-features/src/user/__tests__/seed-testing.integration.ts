@@ -19,7 +19,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { createConfigFeature } from "../../config/config-feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
-import { seedUser } from "../testing";
+import { seedUser } from "../seeding";
 import { userEntity, userTable } from "../user-entity";
 import { createUserFeature } from "../user-feature";
 

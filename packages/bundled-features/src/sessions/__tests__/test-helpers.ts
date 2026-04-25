@@ -13,7 +13,7 @@ import { type TestStack, TestUsers } from "@kumiko/framework/testing";
 import * as jose from "jose";
 import { expect } from "vitest";
 import { hashPassword } from "../../auth-email-password/password-hashing";
-import { seedTenantMembership } from "../../tenant/testing";
+import { seedTenantMembership } from "../../tenant/seeding";
 import { UserHandlers } from "../../user";
 
 export type LoginResult = {
