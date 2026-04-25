@@ -22,7 +22,7 @@ Getestete Beispiele fuer Framework-Features. Drei Buckets:
 | Volltextsuche (searchable, searchWeight) | [recipes/search](recipes/search/) | Integration |
 | Echtzeit-Updates via SSE | [recipes/realtime-sse](recipes/realtime-sse/) | Integration |
 | Cross-Feature-Reaktionen (ctx.appendEvent + r.multiStreamProjection) | [recipes/cross-feature-events](recipes/cross-feature-events/) | Integration |
-| Event Sourcing Vollbild (defineEvent + Upcaster + Projections + asOf + archive) | [recipes/event-sourcing-showcase](recipes/event-sourcing-showcase/) | Integration |
+| Event Sourcing Vollbild (defineEvent + Upcaster + Projections + asOf + archive) | [recipes/event-sourcing](recipes/event-sourcing/) | Integration |
 | Request-Deduplizierung (Idempotency) | [recipes/idempotency](recipes/idempotency/) | Integration |
 | Multi-Tenant Datentrennung | [recipes/tenant-isolation](recipes/tenant-isolation/) | Integration |
 | Mehrsprachigkeit (i18n) | [recipes/i18n](recipes/i18n/) | Unit |

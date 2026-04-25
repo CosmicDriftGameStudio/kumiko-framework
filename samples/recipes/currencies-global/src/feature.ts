@@ -48,7 +48,7 @@ const CURRENCY_CATALOG = [
   { code: "XYZ", name: "Custom Token" },
 ] as const;
 
-export const moneyFeature = defineFeature("money", (r) => {
+export const currenciesGlobalFeature = defineFeature("currenciesGlobal", (r) => {
   const currency = r.entity("currency", currencyEntity);
   r.entity("tenant-currency", tenantCurrencyEntity);
   r.entity("invoice", invoiceEntity);

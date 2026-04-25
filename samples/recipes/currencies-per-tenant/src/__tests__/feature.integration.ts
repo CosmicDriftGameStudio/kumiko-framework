@@ -24,7 +24,7 @@ import {
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { currencyEntity } from "../entities/currency";
 import { invoiceEntity } from "../entities/invoice";
-import { moneyTenantFeature } from "../feature";
+import { currenciesPerTenantFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -33,7 +33,7 @@ const tenant2Admin = createTestUser({ id: 2, tenantId: "00000000-0000-4000-8000-
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [moneyTenantFeature],
+    features: [currenciesPerTenantFeature],
     systemHooks: [],
   });
 
@@ -46,7 +46,11 @@ beforeAll(async () => {
     { code: "USD", name: "US Dollar" },
     { code: "XYZ", name: "Custom Token" },
   ]) {
-    await stack.http.writeOk("money-tenant:write:currency:create", { code, name }, tenant1Admin);
+    await stack.http.writeOk(
+      "currencies-per-tenant:write:currency:create",
+      { code, name },
+      tenant1Admin,
+    );
   }
 
   // Tenant 2 creates their own currencies: GBP, JPY, TRY, KRW (inactive)
@@ -57,7 +61,7 @@ beforeAll(async () => {
     { code: "KRW", name: "Korean Won", isActive: false },
   ]) {
     await stack.http.writeOk(
-      "money-tenant:write:currency:create",
+      "currencies-per-tenant:write:currency:create",
       { code, name, isActive },
       tenant2Admin,
     );
@@ -73,7 +77,7 @@ afterAll(async () => {
 describe("tenant 1: allowed currencies", () => {
   test("create invoice with EUR succeeds", async () => {
     const data = await stack.http.writeOk(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Invoice T1-EUR", amount: 150050, amountCurrency: "EUR" },
       tenant1Admin,
     );
@@ -84,7 +88,7 @@ describe("tenant 1: allowed currencies", () => {
 
   test("create invoice with XYZ (custom tenant currency) succeeds", async () => {
     const data = await stack.http.writeOk(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Invoice T1-XYZ", amount: 42, amountCurrency: "XYZ" },
       tenant1Admin,
     );
@@ -96,7 +100,7 @@ describe("tenant 1: allowed currencies", () => {
 describe("tenant 1: denied currencies", () => {
   test("GBP fails (tenant 1 never created it)", async () => {
     const error = await stack.http.writeErr(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Fail", amount: 100, amountCurrency: "GBP" },
       tenant1Admin,
     );
@@ -109,7 +113,7 @@ describe("tenant 1: denied currencies", () => {
 describe("tenant 2: allowed currencies", () => {
   test("create invoice with GBP succeeds", async () => {
     const data = await stack.http.writeOk(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Invoice T2-GBP", amount: 99999, amountCurrency: "GBP" },
       tenant2Admin,
     );
@@ -121,7 +125,7 @@ describe("tenant 2: allowed currencies", () => {
 describe("tenant 2: denied currencies", () => {
   test("EUR fails (tenant 2 never created it)", async () => {
     const error = await stack.http.writeErr(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Fail", amount: 100, amountCurrency: "EUR" },
       tenant2Admin,
     );
@@ -130,7 +134,7 @@ describe("tenant 2: denied currencies", () => {
 
   test("KRW fails (inactive)", async () => {
     const error = await stack.http.writeErr(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Fail", amount: 100, amountCurrency: "KRW" },
       tenant2Admin,
     );
@@ -143,7 +147,7 @@ describe("tenant 2: denied currencies", () => {
 describe("tenant isolation", () => {
   test("tenant 2 cannot use tenant 1's XYZ", async () => {
     const error = await stack.http.writeErr(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Cross-tenant", amount: 100, amountCurrency: "XYZ" },
       tenant2Admin,
     );
@@ -152,7 +156,7 @@ describe("tenant isolation", () => {
 
   test("tenant 1 cannot use tenant 2's TRY", async () => {
     const error = await stack.http.writeErr(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Cross-tenant", amount: 100, amountCurrency: "TRY" },
       tenant1Admin,
     );
@@ -165,18 +169,18 @@ describe("tenant isolation", () => {
 describe("invoice detail", () => {
   test("detail returns the correct invoice by id", async () => {
     const _first = await stack.http.writeOk(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Detail-First", amount: 100, amountCurrency: "EUR" },
       tenant1Admin,
     );
     const second = await stack.http.writeOk(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Detail-Second", amount: 200, amountCurrency: "USD" },
       tenant1Admin,
     );
 
     const detail = await stack.http.queryOk<Record<string, unknown>>(
-      "money-tenant:query:invoice:detail",
+      "currencies-per-tenant:query:invoice:detail",
       { id: second.id },
       tenant1Admin,
     );
@@ -187,13 +191,13 @@ describe("invoice detail", () => {
 
   test("detail returns null for other tenant's invoice", async () => {
     const created = await stack.http.writeOk(
-      "money-tenant:write:invoice:create",
+      "currencies-per-tenant:write:invoice:create",
       { title: "Tenant1-Only", amount: 50, amountCurrency: "EUR" },
       tenant1Admin,
     );
 
     const detail = await stack.http.queryOk<null>(
-      "money-tenant:query:invoice:detail",
+      "currencies-per-tenant:query:invoice:detail",
       { id: created.id },
       tenant2Admin,
     );

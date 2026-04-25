@@ -1,5 +1,5 @@
 {
-  "name": "@kumiko/sample-basic-crud",
+  "name": "@kumiko/sample-basic-entity",
   "description": "The simplest possible CRUD demo. About six lines of actual code.",
   "private": true,
   "dependencies": {

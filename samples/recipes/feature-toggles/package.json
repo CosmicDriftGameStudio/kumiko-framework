@@ -1,5 +1,5 @@
 {
-  "name": "@kumiko/sample-feature-toggles-showcase",
+  "name": "@kumiko/sample-feature-toggles",
   "description": "Runtime feature-toggle flip — two toggleable features, one registers a cross-feature hook on the other; disabling either has the documented effect without reboot.",
   "private": true,
   "dependencies": {

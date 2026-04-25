@@ -18,7 +18,7 @@ import { invoiceDetail } from "./handlers/invoice-detail.query";
 export { currencyEntity } from "./entities/currency";
 export { invoiceEntity } from "./entities/invoice";
 
-export const moneyTenantFeature = defineFeature("moneyTenant", (r) => {
+export const currenciesPerTenantFeature = defineFeature("currenciesPerTenant", (r) => {
   r.entity("currency", currencyEntity);
   r.entity("invoice", invoiceEntity);
 

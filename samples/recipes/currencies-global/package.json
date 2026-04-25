@@ -1,5 +1,5 @@
 {
-  "name": "@kumiko/sample-money-shared",
+  "name": "@kumiko/sample-currencies-global",
   "description": "Shared money fields across tenants. Commas still matter.",
   "private": true,
   "dependencies": {
