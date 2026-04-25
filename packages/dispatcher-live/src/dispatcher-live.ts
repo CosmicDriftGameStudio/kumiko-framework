@@ -67,16 +67,12 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
   // show an offline-toast before the user has even clicked anything.
   const statusStore = createStore<DispatcherStatus>("online");
 
-  function setStatus(next: DispatcherStatus): void {
-    statusStore.setState(next);
-  }
-
   // A status-flip drives network-error → "offline" and any subsequent
   // success → "online". Typed server failures (400, 403, ...) don't flip
   // status — the network reached the server, the server answered, we're
   // online in every operational sense.
   function observeNetworkOutcome(ok: boolean): void {
-    setStatus(ok ? "online" : "offline");
+    statusStore.setState(ok ? "online" : "offline");
   }
 
   type CallResult =

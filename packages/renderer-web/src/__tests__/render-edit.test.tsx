@@ -3,7 +3,7 @@ import type { EntityDefinition, EntityEditScreenDefinition } from "@kumiko/frame
 import type { Dispatcher, SubmitResult } from "@kumiko/headless";
 import { DispatcherProvider, RenderEdit } from "@kumiko/renderer";
 import { describe, expect, test, vi } from "vitest";
-import { act, fireEvent, makeMockDispatcher, render, screen } from "./test-utils";
+import { act, createMockDispatcher, fireEvent, render, screen } from "./test-utils";
 
 const orderEntity = {
   fields: {
@@ -41,7 +41,7 @@ function makeScreen(): EntityEditScreenDefinition {
 }
 
 function makeDispatcher(writeFn?: Dispatcher["write"]): Dispatcher {
-  return makeMockDispatcher({
+  return createMockDispatcher({
     write:
       writeFn ?? ((async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"]),
   });

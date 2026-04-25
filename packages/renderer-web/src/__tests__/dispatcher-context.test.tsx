@@ -3,7 +3,7 @@ import type { Dispatcher, DispatcherStatus } from "@kumiko/headless";
 import { DispatcherProvider, useDispatcher, useDispatcherStatus } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";
-import { act, makeMockDispatcher, render, renderHook } from "./test-utils";
+import { act, createMockDispatcher, render, renderHook } from "./test-utils";
 
 // Minimal fake dispatcher: write/query/batch throwen, damit klar wird
 // wenn ein Hook unter Test irgendwohin greift wo er nicht hingehört.
@@ -13,7 +13,7 @@ function makeFakeDispatcher(): {
   readonly dispatcher: Dispatcher;
   setStatus(next: DispatcherStatus): void;
 } {
-  const dispatcher = makeMockDispatcher({
+  const dispatcher = createMockDispatcher({
     write: async () => {
       throw new Error("write not used in this test");
     },

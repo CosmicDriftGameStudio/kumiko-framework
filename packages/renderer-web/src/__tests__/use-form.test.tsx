@@ -4,12 +4,12 @@ import { DispatcherProvider, useForm } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
 import { z } from "zod";
-import { act, makeMockDispatcher, renderHook } from "./test-utils";
+import { act, createMockDispatcher, renderHook } from "./test-utils";
 
 type Values = { title: string; count?: number };
 
 function makeDispatcher(writeFn?: Dispatcher["write"]): Dispatcher {
-  return makeMockDispatcher({ write: writeFn });
+  return createMockDispatcher({ write: writeFn });
 }
 
 function wrap(dispatcher: Dispatcher) {

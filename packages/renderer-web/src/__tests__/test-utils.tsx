@@ -102,7 +102,7 @@ export type MockDispatcherOptions = {
  *  die savable-Pending-Verhalten prüfen wollen, mocken den Dispatcher
  *  selbst.
  */
-export function makeMockDispatcher(options: MockDispatcherOptions = {}): Dispatcher & {
+export function createMockDispatcher(options: MockDispatcherOptions = {}): Dispatcher & {
   /** Schreibbarer Zugriff auf den Status-Store für Test-Mutationen.
    *  Identisch zu `dispatcher.statusStore` (Aliasing), aber als
    *  WritableStore typisiert. */

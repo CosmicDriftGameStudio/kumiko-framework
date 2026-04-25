@@ -9,7 +9,7 @@ import {
 } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";
-import { act, makeMockDispatcher, render, waitFor } from "./test-utils";
+import { act, createMockDispatcher, render, waitFor } from "./test-utils";
 
 // Test-Helper: fake LiveEventSubscriber. Sammelt alle Subscriber, das
 // Test kann `inject(type, data)` rufen um die matching listener zu
@@ -38,7 +38,7 @@ function makeFakeLiveEvents(): {
 }
 
 function makeDispatcher(queryFn: Dispatcher["query"]): Dispatcher {
-  return makeMockDispatcher({ query: queryFn });
+  return createMockDispatcher({ query: queryFn });
 }
 
 function Probe({ live }: { readonly live: boolean }): React.ReactElement {

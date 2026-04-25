@@ -9,7 +9,7 @@ import type { FeatureSchema, NavApi } from "@kumiko/renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test } from "vitest";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
-import { makeMockDispatcher } from "./test-utils";
+import { createMockDispatcher } from "./test-utils";
 
 const taskEntity = {
   fields: {
@@ -32,7 +32,7 @@ const listScreen: EntityListScreenDefinition = {
 };
 
 function makeDispatcher(): Dispatcher {
-  return makeMockDispatcher({
+  return createMockDispatcher({
     query: (async () => ({
       isSuccess: true,
       data: { rows: [], nextCursor: null },

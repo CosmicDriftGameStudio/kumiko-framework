@@ -3,10 +3,10 @@ import type { Dispatcher, DispatcherError } from "@kumiko/headless";
 import { DispatcherProvider, useQuery } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
-import { act, makeMockDispatcher, renderHook, waitFor } from "./test-utils";
+import { act, createMockDispatcher, renderHook, waitFor } from "./test-utils";
 
 function makeDispatcher(queryFn?: Dispatcher["query"]): Dispatcher {
-  return makeMockDispatcher({ query: queryFn });
+  return createMockDispatcher({ query: queryFn });
 }
 
 function wrap(dispatcher: Dispatcher) {

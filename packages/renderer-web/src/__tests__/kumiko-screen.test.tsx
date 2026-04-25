@@ -8,7 +8,7 @@ import type { Dispatcher } from "@kumiko/headless";
 import type { FeatureSchema } from "@kumiko/renderer";
 import { DispatcherProvider, KumikoScreen } from "@kumiko/renderer";
 import { describe, expect, test, vi } from "vitest";
-import { fireEvent, makeMockDispatcher, render, screen, waitFor } from "./test-utils";
+import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
 
 const taskEntity = {
   fields: {
@@ -41,7 +41,7 @@ const schema: FeatureSchema = {
 };
 
 function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
-  const base = makeMockDispatcher({
+  const base = createMockDispatcher({
     query: (async () => ({
       isSuccess: true,
       data: { rows: [], nextCursor: null },

@@ -11,6 +11,16 @@ import type { WritableStore } from "./types";
 // loop (Set iteration tolerates concurrent mutation of already-visited
 // entries). MDN: "callbackFn is not invoked for values deleted before
 // being visited." This is exactly the contract callers expect.
+//
+// Caveat — Function-valued stores: setState detects the reducer-form via
+// `typeof next === "function"`. If T itself is a function type
+// (`createStore<() => string>(...)`), there is no way to tell a "new
+// value that happens to be a function" apart from a "reducer producing a
+// new function". Same trap React's useState has. Workaround: wrap the
+// new function in a reducer that ignores prev:
+//   store.setState(() => myNewFn);
+// In practice, function-valued stores are rare — feature controllers
+// hold values, not callbacks.
 
 export function createStore<T>(initial: T): WritableStore<T> {
   let snapshot = initial;
