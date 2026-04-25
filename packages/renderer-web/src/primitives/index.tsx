@@ -24,6 +24,7 @@ import type {
 import { cva } from "class-variance-authority";
 import type { ChangeEvent, ReactNode } from "react";
 import { cn } from "../lib/cn";
+import { SelectInput } from "./select";
 
 // ---- Button ----
 
@@ -187,26 +188,21 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "select":
-      // Native <select> — kein Radix-Dropdown weil shadcn-Select eine
-      // SSR-/Portal-Komplexität mitbringt die für die Default-Variante
-      // unverhältnismäßig wäre. Apps die ein gestyltes Custom-Dropdown
-      // wollen, liefern eine eigene Input-Primitive über
-      // PrimitivesProvider. Empty-Option als Placeholder wenn nicht-
-      // required UND value=="" — sonst muss ein Eintrag gewählt sein.
+      // shadcn-Style Select via @radix-ui/react-select. Trigger-Button
+      // mit Chevron, Portal'd Popover-Content, Items mit Check-
+      // Indicator. SelectInput kapselt das Radix-Setup damit
+      // DefaultInput nicht mit Sub-Component-Imports zugemüllt wird.
       return (
-        <select
-          {...common}
+        <SelectInput
+          id={props.id}
+          name={props.name}
           value={props.value}
-          onChange={(e: ChangeEvent<HTMLSelectElement>) => props.onChange(e.target.value)}
-          className={cn(inputClassBase, errorClass)}
-        >
-          {props.required !== true && <option value="">—</option>}
-          {props.options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+          onChange={props.onChange}
+          options={props.options}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.required !== undefined && { required: props.required })}
+          {...(props.hasError !== undefined && { hasError: props.hasError })}
+        />
       );
   }
 }

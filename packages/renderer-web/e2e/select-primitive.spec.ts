@@ -1,8 +1,12 @@
-// Select-Primitive Smoke. Beweist:
+// Select-Primitive Smoke (shadcn/Radix-style). Beweist:
 //   1. SelectFieldDef.options landet im EditFieldViewModel.options
-//   2. DefaultInput rendert <select> mit den Options + Empty-Placeholder
-//   3. Selection-Change → Form-Controller registriert die Änderung
+//   2. SelectInput rendert Radix-Trigger (Button-style mit Chevron)
+//   3. Click-Trigger öffnet Portal-Popover, Click-Item setzt Wert
 //   4. Submit serialisiert den ausgewählten Wert ans Dispatcher
+//
+// Radix-spezifisch: native <select> würde mit page.selectOption gehen,
+// hier müssen wir Trigger klicken → Item klicken (Popover ist
+// portal'd).
 
 import { expect, test } from "@playwright/test";
 
@@ -19,26 +23,25 @@ test("select-primitive: render + change + submit-roundtrip", async ({ page }) =>
   await expect(page.getByTestId("render-edit-form")).toBeVisible();
 
   // Status-Field hat type=select, options=["draft","active","done"],
-  // default="draft". Initial-Value ist undefined (kein values-Override),
-  // also rendert der Empty-"-"-Placeholder + 3 Options.
-  const statusSelect = page.getByTestId("field-status").locator("select");
-  await expect(statusSelect).toBeVisible();
+  // default="draft". Renderer's buildInitialValues füllt das Default
+  // ein → Trigger zeigt initial "draft". Radix rendert den Trigger als
+  // <button role="combobox">.
+  const trigger = page.getByTestId("field-status").locator('button[role="combobox"]');
+  await expect(trigger).toBeVisible();
+  await expect(trigger).toHaveText("draft");
 
-  // Alle 4 Optionen da: 1 Empty-Placeholder + 3 Status-Werte.
-  const optionTexts = await statusSelect.locator("option").allTextContents();
-  expect(optionTexts).toEqual(["—", "draft", "active", "done"]);
+  // Click öffnet das portal'd Popover. Items rendern als role="option".
+  await trigger.click();
+  await page.getByRole("option", { name: "active" }).click();
 
-  // User wählt "active" — Form-Controller markiert das Feld dirty.
-  await statusSelect.selectOption("active");
-  await expect(statusSelect).toHaveValue("active");
+  // Trigger zeigt jetzt den ausgewählten Wert.
+  await expect(trigger).toHaveText("active");
 
   // Title füllen damit das Form complete-required wird, dann submit.
   await page.getByTestId("field-label").locator("input").fill(label);
   await page.getByTestId("render-edit-submit").click();
 
-  // List-Screen rendert die neu erstellte Row. status-Cell hat den Wert
-  // "active" — der MockDispatcher hat ihn gespeichert UND der DataTable-
-  // Default-Renderer zeigt den string direkt.
+  // List-Screen rendert die neue Row mit "active" in der status-Spalte.
   await expect(page.getByTestId("render-list-table")).toBeVisible();
   const statusCell = page.locator('[data-testid^="cell-"][data-testid$="-status"]', {
     hasText: "active",
