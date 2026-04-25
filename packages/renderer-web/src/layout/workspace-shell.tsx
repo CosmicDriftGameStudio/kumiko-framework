@@ -108,29 +108,34 @@ export function WorkspaceShell({
     [nav, visible],
   );
 
-  // Initial sync: when the URL has no workspace yet but the app is in
-  // workspace mode, fill the active workspace into it on mount. Without
-  // this, NavTree links would render WITHOUT the /<workspace>/ prefix
-  // (no route.workspaceId to pick up) and a click would produce a flat
-  // path that the workspace-mode parser misreads.
+  // Initial sync: covers two URL states that need a default-fill so
+  // NavTree links and RoutedScreen have something to chew on.
   //
-  // replace, NOT navigate: this is a default-fill, not a user action.
+  //   1. No workspace in URL ("/" or wrong workspace id) → fill the
+  //      active workspace AND its first nav-member's screen.
+  //   2. Workspace present but screen missing ("/admin") → fill in the
+  //      first nav-member's screen, keep the workspace.
+  //
+  // replace, NOT navigate: these are default-fills, not user actions.
   // Using pushState would create a history entry the user never asked
   // for — Browser-Back from /admin/x → / → useEffect re-pushes →
   // Back-loop. replaceState swaps in place: Back leaves the app cleanly.
-  //
-  // Followup: a user-typed `/admin` URL (workspace-only, no screen)
-  // matches the routeWorkspaceId === activeId guard, so this effect
-  // doesn't fire and the screen stays unresolved (empty content). Worth
-  // a follow-up that fills in the default screen for that case.
   useEffect(() => {
     if (activeId === undefined) return;
-    if (routeWorkspaceId === activeId) return;
+    const routeScreenEmpty =
+      nav.route?.screenId === undefined || nav.route.screenId === "";
+    const workspaceMatches = routeWorkspaceId === activeId;
+    if (workspaceMatches && !routeScreenEmpty) return; // URL is fine
     const target = visible.find((ws) => ws.definition.id === activeId);
     const firstNavQn = target?.navMembers[0];
-    const screenId =
-      firstNavQn !== undefined ? lastSegment(firstNavQn) : (nav.route?.screenId ?? "");
-    nav.replace({ workspaceId: activeId, screenId });
+    if (firstNavQn === undefined && !routeScreenEmpty) {
+      // Workspace exists but no nav members — keep whatever screen the
+      // user typed, just lock the workspace prefix.
+      nav.replace({ workspaceId: activeId, screenId: nav.route?.screenId ?? "" });
+      return;
+    }
+    if (firstNavQn === undefined) return; // nothing sane to default to
+    nav.replace({ workspaceId: activeId, screenId: lastSegment(firstNavQn) });
   }, [activeId, routeWorkspaceId, visible, nav]);
 
   const activeWorkspace = useMemo(

@@ -473,6 +473,23 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
     expect(window.location.pathname).toBe("/admin/system");
   });
 
+  test("URL /<workspace> with no screen fills in the default screen", () => {
+    // User types `/admin` directly (or has an old bookmark). Workspace
+    // matches but screenId is empty — the effect must still fill the
+    // default screen, otherwise RoutedScreen has nothing to render.
+    window.history.replaceState(null, "", "/admin");
+    renderShell(
+      <WorkspaceShell
+        brand={<div>B</div>}
+        schema={schema}
+        user={{ id: "u1", roles: ["admin"] }}
+      >
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    expect(window.location.pathname).toBe("/admin/system");
+  });
+
   test("mounting on / writes the default workspace into the URL", () => {
     // Before this fix, an empty pathname meant nav.route?.workspaceId was
     // undefined, so NavTree links rendered without /<workspace>/ prefix
