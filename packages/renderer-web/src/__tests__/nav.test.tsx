@@ -113,6 +113,13 @@ describe("useBrowserNavApi + NavProvider", () => {
         >
           go-edit
         </button>
+        <button
+          type="button"
+          data-testid="replace-list"
+          onClick={() => nav.replace({ screenId: "task-list" })}
+        >
+          replace-list
+        </button>
       </div>
     );
   }
@@ -143,6 +150,25 @@ describe("useBrowserNavApi + NavProvider", () => {
     expect(window.location.pathname).toBe("/task-edit/xyz");
     expect(screen.getByTestId("screen-id").textContent).toBe("task-edit");
     expect(screen.getByTestId("entity-id").textContent).toBe("xyz");
+  });
+
+  test("replace() aktualisiert location ohne History-Eintrag", () => {
+    render(
+      <BrowserNav>
+        <Probe />
+      </BrowserNav>,
+    );
+    const before = window.history.length;
+    act(() => {
+      fireEvent.click(screen.getByTestId("replace-list"));
+    });
+    expect(window.location.pathname).toBe("/task-list");
+    expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
+    // Das ist der Unterschied zu navigate(): keine zusätzliche History-
+    // Stufe. Browser-Back springt damit zur Origin-Seite zurück, nicht
+    // auf die alte URL — wichtig für Mount-Time URL-Fills wie in
+    // WorkspaceShell, wo der User die alte URL nie gewählt hat.
+    expect(window.history.length).toBe(before);
   });
 
   test("popstate (Browser-Back) re-rendert die aktuelle Route", () => {
