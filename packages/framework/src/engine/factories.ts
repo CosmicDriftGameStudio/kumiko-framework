@@ -9,6 +9,7 @@ import type {
   ImagesFieldDef,
   LocatedTimestampFieldDef,
   MoneyFieldDef,
+  MultiSelectFieldDef,
   NumberFieldDef,
   SelectFieldDef,
   TextFieldDef,
@@ -43,6 +44,37 @@ export function createSelectField<const TOptions extends readonly string[]>(
 ): SelectFieldDef<TOptions> {
   return {
     type: "select",
+    required: false,
+    ...opts,
+  };
+}
+
+/**
+ * Multi-Select-Field — N Werte aus einer festen Options-Liste.
+ *
+ * Storage: jsonb-Array<string>. Jeder Eintrag muss in `options` enthalten
+ * sein (Boot-Validator). UI-Renderer rendert das als Checkbox-Group oder
+ * Multi-Select-Dropdown.
+ *
+ * ```ts
+ * licenceClasses: createMultiSelectField({
+ *   options: ["B", "BE", "C", "C1", "CE", "C1E", "D", "D1"] as const,
+ *   default: ["B"],
+ * }),
+ * ```
+ *
+ * Caller-API:
+ *   Write: `{ licenceClasses: ["B", "BE", "C1"] }`
+ *   Read:  `{ licenceClasses: ["B", "BE", "C1"] }`
+ *
+ * Wann statt `select`: wenn mehrere Werte gleichzeitig erlaubt sind.
+ * Wann statt `embedded` mit Booleans: bei mehr als ~5 Optionen.
+ */
+export function createMultiSelectField<const TOptions extends readonly string[]>(
+  opts: { options: TOptions } & Partial<Omit<MultiSelectFieldDef<TOptions>, "type" | "options">>,
+): MultiSelectFieldDef<TOptions> {
+  return {
+    type: "multiSelect",
     required: false,
     ...opts,
   };

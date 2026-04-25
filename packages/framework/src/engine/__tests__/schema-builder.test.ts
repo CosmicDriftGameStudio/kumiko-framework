@@ -9,6 +9,7 @@ import {
   createImageField,
   createImagesField,
   createMoneyField,
+  createMultiSelectField,
   createNumberField,
   createSelectField,
   createTextField,
@@ -68,6 +69,26 @@ describe("buildInsertSchema", () => {
       fields: { locale: createSelectField({ options: ["de", "en", "fr"] as const }) },
       valid: { locale: "de" },
       invalid: { locale: "xx" },
+    },
+    {
+      name: "multiSelect field accepts subset",
+      fields: { tags: createMultiSelectField({ options: ["red", "green", "blue"] as const }) },
+      valid: { tags: ["red", "blue"] },
+      invalid: { tags: ["yellow"] },
+    },
+    {
+      name: "multiSelect field accepts empty array",
+      fields: { tags: createMultiSelectField({ options: ["a", "b"] as const }) },
+      valid: { tags: [] },
+      invalid: null,
+    },
+    {
+      name: "multiSelect with default",
+      fields: {
+        tags: createMultiSelectField({ options: ["a", "b", "c"] as const, default: ["a"] }),
+      },
+      valid: {},
+      invalid: null,
     },
     {
       name: "number field",

@@ -46,6 +46,10 @@ function fieldToColumns(
       };
     case "select":
       return { [name]: text(snakeName) };
+    case "multiSelect":
+      // jsonb-Array<string>. Default `[]` damit Selects ohne Wert nicht
+      // NULL produzieren — vereinfacht Read-Side-Code (kein null-check).
+      return { [name]: jsonb(snakeName).default([]) };
     case "number":
       return { [name]: integer(snakeName) };
     case "money":

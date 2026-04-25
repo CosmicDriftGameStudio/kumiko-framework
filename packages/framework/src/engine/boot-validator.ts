@@ -71,6 +71,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     if (validateEncryptedFields(feature)) hasEncryptedFields = true;
     if (validateFileFields(feature)) hasFileFields = true;
     validateEmbeddedFields(feature);
+    validateMultiSelectFields(feature);
     validateTransitions(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
@@ -460,6 +461,37 @@ function validateEmbeddedFields(feature: FeatureDefinition): void {
           throw new Error(
             `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has invalid type "${subField.type}". Allowed: ${[...VALID_EMBEDDED_SUB_TYPES].join(", ")}`,
           );
+        }
+      }
+    }
+  }
+}
+
+// --- MultiSelect field validation ---
+//
+// options muss non-empty sein (sonst wäre das Feld nicht benutzbar) und
+// default — wenn gesetzt — ist eine Teilmenge der options. Beides würde
+// auch im Zod-Schema bei runtime fehlschlagen, der Boot-Catch ist nur
+// die früheste Stelle für klare Fehlermeldungen.
+function validateMultiSelectFields(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities)) {
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      if (field.type !== "multiSelect") continue;
+
+      if (field.options.length === 0) {
+        throw new Error(
+          `MultiSelect field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has empty options`,
+        );
+      }
+
+      if (field.default !== undefined) {
+        const validOptions = new Set<string>(field.options);
+        for (const value of field.default) {
+          if (!validOptions.has(value)) {
+            throw new Error(
+              `MultiSelect default "${value}" on "${entityName}.${fieldName}" is not a valid option. Valid: ${field.options.join(", ")}`,
+            );
+          }
         }
       }
     }

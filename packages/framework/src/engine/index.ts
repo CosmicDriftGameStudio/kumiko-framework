@@ -42,6 +42,7 @@ export {
   createImagesField,
   createLocatedTimestampField,
   createMoneyField,
+  createMultiSelectField,
   createNumberField,
   createSelectField,
   createTextField,
@@ -136,6 +137,7 @@ export type {
   LifecycleHookType,
   ListColumnSpec,
   ManyToManyRelation,
+  MultiSelectFieldDef,
   NameOrRef,
   NavDefinition,
   NotificationDataFn,
@@ -178,6 +180,6 @@ export type {
 } from "./types";
 export { DEFAULT_CURRENCIES, HookPhases } from "./types";
 export { resolveName, withResponseData } from "./types/handlers";
-export { isSystemTenant, SYSTEM_TENANT_ID } from "./types/identifiers";
+export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
 export { normalizeEditField, normalizeListColumn } from "./types/screen";
 export { runValidation } from "./validation";

@@ -3,7 +3,13 @@ import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { validateBoot } from "../boot-validator";
 import { createSystemConfig, createTenantConfig } from "../config-helpers";
-import { createEntity, createTextField, defineFeature, from } from "../index";
+import {
+  createEntity,
+  createMultiSelectField,
+  createTextField,
+  defineFeature,
+  from,
+} from "../index";
 
 describe("boot-validator", () => {
   test("passes for valid features with no issues", () => {
@@ -889,6 +895,85 @@ describe("boot-validator", () => {
             delivery: "shared",
             apply: { "some:event": async () => {} },
           });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+  });
+
+  // --- MultiSelect-Field-Validation ---
+
+  describe("multiSelect fields", () => {
+    test("accepts multiSelect with non-empty options", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({ options: ["a", "b", "c"] as const }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("rejects multiSelect with empty options", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                // Cast over the empty-array hole — the factory's generic
+                // `as const` widens to `readonly never[]` for `[]`, which
+                // is what we want to test against. The validator catches
+                // it at boot.
+                tags: createMultiSelectField({ options: [] as readonly string[] }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/empty options/);
+    });
+
+    test("rejects default value not in options", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({
+                  options: ["a", "b"] as const,
+                  // biome-ignore lint/suspicious/noExplicitAny: testing runtime guard
+                  default: ["c"] as any,
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/not a valid option/);
+    });
+
+    test("accepts default that is a subset of options", () => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({
+                  options: ["a", "b", "c"] as const,
+                  default: ["a", "c"],
+                }),
+              },
+            }),
+          );
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();

@@ -38,6 +38,17 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
       const schema = z.enum([first, ...rest]);
       return field.default !== undefined ? schema.default(field.default) : schema;
     }
+    case "multiSelect": {
+      const [first, ...rest] = field.options;
+      if (!first) return z.array(z.string());
+      // Boot-validator garantiert: options non-empty + default ist Subset.
+      // Hier nur das Per-Element-Enum + Array-Wrapper. Keine min(1)-
+      // Constraint heute — `required: true` würde das ergänzen, machen
+      // wir wenn ein Caller es braucht (Memory: don't add validation
+      // for scenarios that can't happen yet).
+      const schema = z.array(z.enum([first, ...rest]));
+      return field.default !== undefined ? schema.default([...field.default]) : schema;
+    }
     case "number": {
       const schema = z.number();
       return field.default !== undefined ? schema.default(field.default) : schema;

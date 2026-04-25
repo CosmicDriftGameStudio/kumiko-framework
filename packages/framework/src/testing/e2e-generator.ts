@@ -407,6 +407,10 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
       return true;
     case "select":
       return field.options[0] ?? "";
+    case "multiSelect": {
+      const first = field.options[0];
+      return first ? [first] : [];
+    }
     case "number":
       return 1;
     case "money":

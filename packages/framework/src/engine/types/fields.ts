@@ -50,6 +50,29 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly access?: FieldAccess;
 };
 
+// Mehrere Werte aus einer festen Options-Liste — UI rendert als
+// Checkbox-/Multi-Select-Kontrolle. Storage: jsonb-Array<string>;
+// jeder Eintrag muss in `options` enthalten sein.
+//
+// Wann statt `select`: wenn der User mehr als einen Wert gleichzeitig
+// auswählen darf (Führerscheinklassen, Tags, Sprachen, Skills).
+// Wann statt `embedded` mit Booleans: wenn die Option-Liste nicht
+// hardcoded sein soll oder bei mehr als ~5 Optionen — sonst explodiert
+// das embedded-Schema.
+//
+// Ordering: das Array bewahrt die Caller-Reihenfolge (jsonb-array, nicht
+// set). Das Framework dedupliziert beim Schreiben nicht — Validator
+// rejected Duplikate erst wenn Bedarf da ist.
+export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly string[]> = {
+  readonly type: "multiSelect";
+  readonly options: TOptions;
+  readonly required?: boolean;
+  readonly sensitive?: boolean;
+  /** Default-Auswahl. Jeder Eintrag muss in `options` sein (Boot-Validator). */
+  readonly default?: readonly TOptions[number][];
+  readonly access?: FieldAccess;
+};
+
 export type NumberFieldDef = {
   readonly type: "number";
   readonly required?: boolean;
@@ -216,6 +239,7 @@ export type FieldDefinition =
   | TextFieldDef
   | BooleanFieldDef
   | SelectFieldDef
+  | MultiSelectFieldDef
   | NumberFieldDef
   | MoneyFieldDef
   | EmbeddedFieldDef
