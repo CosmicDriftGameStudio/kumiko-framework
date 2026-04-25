@@ -29,7 +29,7 @@ export function createTenantFeature(): FeatureDefinition {
     r.systemScope();
     r.requires("config");
     r.entity("tenant", tenantEntity);
-    r.entity("tenantMembership", tenantMembershipEntity);
+    r.entity("tenant-membership", tenantMembershipEntity);
 
     r.config({
       keys: {

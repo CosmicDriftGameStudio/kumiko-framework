@@ -7,7 +7,7 @@ import { findConfigRow, prepareConfigWrite } from "../write-helpers";
 const scopeEnum = z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]);
 
 const executor = createEventStoreExecutor(configValuesTable, configValueEntity, {
-  entityName: "configValue",
+  entityName: "config-value",
 });
 
 export const resetWrite = defineWriteHandler({

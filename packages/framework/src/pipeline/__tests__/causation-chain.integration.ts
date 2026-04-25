@@ -39,7 +39,7 @@ const orderEntity = createEntity({
   },
 });
 
-const orderTable = buildDrizzleTable("causationOrder", orderEntity);
+const orderTable = buildDrizzleTable("causation-order", orderEntity);
 
 // MSP-apply observation sink — every apply run pushes its reqCtx snapshot
 // here so the tests can assert what the event-dispatcher wrapped it with.
@@ -51,12 +51,12 @@ type ReqCtxSnapshot = {
 const applyObservations: ReqCtxSnapshot[] = [];
 
 const causationFeature = defineFeature("causation", (r) => {
-  r.entity("causationOrder", orderEntity);
+  r.entity("causation-order", orderEntity);
 
   const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }));
 
   const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
-    entityName: "causationOrder",
+    entityName: "causation-order",
   });
 
   r.writeHandler(
@@ -67,7 +67,7 @@ const causationFeature = defineFeature("causation", (r) => {
       if (!created.isSuccess) return created;
       await ctx.appendEvent({
         aggregateId: String(created.data.id),
-        aggregateType: "causationOrder",
+        aggregateType: "causation-order",
         type: placed.name,
         payload: { orderId: String(created.data.id) },
       });
@@ -104,7 +104,7 @@ beforeAll(async () => {
     features: [causationFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, orderEntity, "causationOrder");
+  await createEntityTable(stack.db, orderEntity, "causation-order");
 });
 
 afterAll(async () => {
@@ -156,7 +156,7 @@ describe("Runde 2 — correlationId on root HTTP request", () => {
 
     // The handler writes TWO events: one CRUD (causationOrder.created) and
     // one domain (causation:event:placed). Both share the correlationId.
-    const crudEvent = (await eventsByType("causationOrder.created"))[0];
+    const crudEvent = (await eventsByType("causation-order.created"))[0];
     const placedEvent = (await eventsByType("causation:event:placed"))[0];
 
     expect((crudEvent?.metadata as { correlationId?: string })?.correlationId).toBe(

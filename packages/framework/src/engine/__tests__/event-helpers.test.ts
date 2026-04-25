@@ -14,12 +14,12 @@ describe("emitEvent", () => {
     const ctx = { appendEvent: vi.fn().mockResolvedValue(undefined) };
     await emitEvent(ctx, orderPlaced, {
       aggregateId: "agg-1",
-      aggregateType: "pubsubOrder",
+      aggregateType: "pubsub-order",
       payload: { id: "agg-1", customer: "alice" },
     });
     expect(ctx.appendEvent).toHaveBeenCalledWith({
       aggregateId: "agg-1",
-      aggregateType: "pubsubOrder",
+      aggregateType: "pubsub-order",
       type: "pubsub-orders:event:order-placed",
       payload: { id: "agg-1", customer: "alice" },
     });
@@ -31,7 +31,7 @@ describe("emitEvent", () => {
     // make sure the value flows through unchanged.
     await emitEvent(ctx, orderPlaced, {
       aggregateId: "a",
-      aggregateType: "pubsubOrder",
+      aggregateType: "pubsub-order",
       payload: { id: "a", customer: "bob" },
     });
     const call = ctx.appendEvent.mock.calls[0]?.[0] as { payload: unknown };

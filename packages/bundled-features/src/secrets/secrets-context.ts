@@ -73,7 +73,7 @@ export const secretReadSchema = z.object({
 });
 
 const executor = createEventStoreExecutor(tenantSecretsTable, tenantSecretEntity, {
-  entityName: "tenantSecret",
+  entityName: "tenant-secret",
 });
 
 function resolveKey(keyOrHandle: string | { readonly name: string }): string {

@@ -30,7 +30,7 @@ const orderEntity = createEntity({
     customer: createTextField({ required: true }),
   },
 });
-const orderTable = buildDrizzleTable("upcastOrder", orderEntity);
+const orderTable = buildDrizzleTable("upcast-order", orderEntity);
 
 // Projection stores the UPCAST view: the v3 shape expects `totalCents` (int)
 // even though the earliest writes might have stored `totalEuros` (string).
@@ -44,7 +44,7 @@ const orderSummaryTable = pgTable("read_upcast_order_summary", {
 // --- Feature: version 3 event with v1→v2 and v2→v3 migrations registered ---
 
 const orderFeature = defineFeature("upcastshop", (r) => {
-  r.entity("upcastOrder", orderEntity);
+  r.entity("upcast-order", orderEntity);
 
   // v3 shape: { totalCents: int, currency: string }
   const orderPriced = r.defineEvent(
@@ -67,7 +67,7 @@ const orderFeature = defineFeature("upcastshop", (r) => {
 
   r.projection({
     name: "order-summary",
-    source: "upcastOrder",
+    source: "upcast-order",
     table: orderSummaryTable,
     apply: {
       [orderPriced.name]: async (event, tx) => {
@@ -97,12 +97,12 @@ const admin = TestUsers.admin;
 const registry = createRegistry([orderFeature]);
 const qualifiedProjectionName = "upcastshop:projection:order-summary";
 const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
-  entityName: "upcastOrder",
+  entityName: "upcast-order",
 });
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEntityTable(testDb.db, orderEntity, "upcastOrder");
+  await createEntityTable(testDb.db, orderEntity, "upcast-order");
   await createEventsTable(testDb.db);
   const { createProjectionStateTable } = await import("../../pipeline");
   await createProjectionStateTable(testDb.db);
@@ -128,7 +128,7 @@ describe("upcaster: in-memory transform chain", () => {
     const raw: StoredEvent = {
       id: "1",
       aggregateId: "00000000-0000-4000-8000-000000000001",
-      aggregateType: "upcastOrder",
+      aggregateType: "upcast-order",
       tenantId: admin.tenantId,
       version: 1,
       type: "upcastshop:event:priced",
@@ -153,7 +153,7 @@ describe("upcaster: in-memory transform chain", () => {
     const raw: StoredEvent = {
       id: "2",
       aggregateId: "00000000-0000-4000-8000-000000000002",
-      aggregateType: "upcastOrder",
+      aggregateType: "upcast-order",
       tenantId: admin.tenantId,
       version: 1,
       type: "upcastshop:event:priced",
@@ -178,7 +178,7 @@ describe("upcaster: in-memory transform chain", () => {
     const raw: StoredEvent = {
       id: "3",
       aggregateId: "00000000-0000-4000-8000-000000000003",
-      aggregateType: "upcastOrder",
+      aggregateType: "upcast-order",
       tenantId: admin.tenantId,
       version: 1,
       type: "upcastshop:event:priced",
@@ -202,7 +202,7 @@ describe("upcaster: in-memory transform chain", () => {
     const raw: StoredEvent = {
       id: "4",
       aggregateId: "00000000-0000-4000-8000-000000000004",
-      aggregateType: "upcastOrder",
+      aggregateType: "upcast-order",
       tenantId: admin.tenantId,
       version: 1,
       type: "some:event:never-declared",
@@ -239,7 +239,7 @@ describe("upcaster: projection rebuild walks the chain on replay", () => {
     // v1 + v2 events would crash or produce garbage.
     await append(testDb.db, {
       aggregateId: ord1,
-      aggregateType: "upcastOrder",
+      aggregateType: "upcast-order",
       tenantId: admin.tenantId,
       expectedVersion: 0,
       type: "upcastshop:event:priced",
@@ -249,7 +249,7 @@ describe("upcaster: projection rebuild walks the chain on replay", () => {
     });
     await append(testDb.db, {
       aggregateId: ord2,
-      aggregateType: "upcastOrder",
+      aggregateType: "upcast-order",
       tenantId: admin.tenantId,
       expectedVersion: 0,
       type: "upcastshop:event:priced",
@@ -259,7 +259,7 @@ describe("upcaster: projection rebuild walks the chain on replay", () => {
     });
     await append(testDb.db, {
       aggregateId: ord3,
-      aggregateType: "upcastOrder",
+      aggregateType: "upcast-order",
       tenantId: admin.tenantId,
       expectedVersion: 0,
       type: "upcastshop:event:priced",
@@ -312,7 +312,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
 
     // Feature with async upcaster v1 → v2: enrich payload with segment from DB.
     const asyncFeature = defineFeature("upcastasync", (r) => {
-      r.entity("upcastAsyncOrder", orderEntity);
+      r.entity("upcast-async-order", orderEntity);
       const placed = r.defineEvent(
         "placed",
         z.object({ customerId: z.string(), segment: z.string() }),
@@ -330,7 +330,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
 
       r.projection({
         name: "async-summary",
-        source: "upcastAsyncOrder",
+        source: "upcast-async-order",
         table: asyncSummary,
         apply: {
           [placed.name]: async (event, tx) => {
@@ -353,7 +353,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
     const orderId2 = "00000000-0000-4000-8000-00000000ddd2";
     await append(testDb.db, {
       aggregateId: orderId1,
-      aggregateType: "upcastAsyncOrder",
+      aggregateType: "upcast-async-order",
       tenantId: admin.tenantId,
       expectedVersion: 0,
       type: "upcastasync:event:placed",
@@ -363,7 +363,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
     });
     await append(testDb.db, {
       aggregateId: orderId2,
-      aggregateType: "upcastAsyncOrder",
+      aggregateType: "upcast-async-order",
       tenantId: admin.tenantId,
       expectedVersion: 0,
       type: "upcastasync:event:placed",
@@ -391,7 +391,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
 describe("upcaster: boot-time validation", () => {
   test("defineEvent with version=N and only partial migrations fails at registry build", () => {
     const incomplete = defineFeature("holes", (r) => {
-      r.entity("holeOrder", orderEntity);
+      r.entity("hole-order", orderEntity);
       r.defineEvent("bad", z.object({ v3: z.string() }), { version: 3 });
       // Only 1→2 registered — the 2→3 gap must be rejected.
       r.eventMigration("bad", 1, 2, (p) => p);
@@ -401,7 +401,7 @@ describe("upcaster: boot-time validation", () => {
 
   test("migration declared but no defineEvent → rejected", () => {
     const orphan = defineFeature("orphans", (r) => {
-      r.entity("orphOrder", orderEntity);
+      r.entity("orph-order", orderEntity);
       r.eventMigration("ghost", 1, 2, (p) => p);
     });
     expect(() => createRegistry([orphan])).toThrow(/no r\.defineEvent/i);
@@ -409,7 +409,7 @@ describe("upcaster: boot-time validation", () => {
 
   test("migration toVersion > defineEvent version → rejected", () => {
     const future = defineFeature("future", (r) => {
-      r.entity("futureOrder", orderEntity);
+      r.entity("future-order", orderEntity);
       r.defineEvent("early", z.object({ x: z.number() }), { version: 1 });
       r.eventMigration("early", 1, 2, (p) => p);
     });
@@ -418,7 +418,7 @@ describe("upcaster: boot-time validation", () => {
 
   test("non-contiguous (1→2 and 3→4 without 2→3) → rejected", () => {
     const gaps = defineFeature("gaps", (r) => {
-      r.entity("gapOrder", orderEntity);
+      r.entity("gap-order", orderEntity);
       r.defineEvent("jumpy", z.object({ v: z.number() }), { version: 4 });
       r.eventMigration("jumpy", 1, 2, (p) => p);
       r.eventMigration("jumpy", 3, 4, (p) => p);
@@ -431,7 +431,7 @@ describe("upcaster: registrar input validation", () => {
   test("r.eventMigration rejects multi-step jumps", () => {
     expect(() =>
       defineFeature("bigstep", (r) => {
-        r.entity("bigstepOrder", orderEntity);
+        r.entity("bigstep-order", orderEntity);
         r.defineEvent("biz", z.object({ x: z.number() }), { version: 3 });
         r.eventMigration("biz", 1, 3, (p) => p);
       }),
@@ -441,7 +441,7 @@ describe("upcaster: registrar input validation", () => {
   test("r.eventMigration rejects duplicate step", () => {
     expect(() =>
       defineFeature("dupestep", (r) => {
-        r.entity("dupOrder", orderEntity);
+        r.entity("dup-order", orderEntity);
         r.defineEvent("dup", z.object({ x: z.number() }), { version: 2 });
         r.eventMigration("dup", 1, 2, (p) => p);
         r.eventMigration("dup", 1, 2, (p) => p);
@@ -452,7 +452,7 @@ describe("upcaster: registrar input validation", () => {
   test("r.defineEvent rejects non-positive version", () => {
     expect(() =>
       defineFeature("badver", (r) => {
-        r.entity("badverOrder", orderEntity);
+        r.entity("badver-order", orderEntity);
         r.defineEvent("neg", z.object({ x: z.number() }), { version: 0 });
       }),
     ).toThrow(/positive integer/);

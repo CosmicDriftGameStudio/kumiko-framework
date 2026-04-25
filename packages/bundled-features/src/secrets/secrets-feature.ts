@@ -53,7 +53,7 @@ export function createSecretsFeature(): FeatureDefinition {
     // .updated/.deleted` events land on the aggregate stream. Reads fire a
     // separate `tenantSecretRead` event per call (see secrets-context.get
     // for the one-event-per-read rationale).
-    r.entity("tenantSecret", tenantSecretEntity);
+    r.entity("tenant-secret", tenantSecretEntity);
 
     // Read-audit domain-event. Registered here so ops tools + MSPs can
     // discover the type; secrets-context.get parses payloads against

@@ -27,15 +27,15 @@ const itemEntity = createEntity({
   table: "read_arch_items",
   fields: { label: createTextField({ required: true }) },
 });
-const itemTable = buildDrizzleTable("archItem", itemEntity);
+const itemTable = buildDrizzleTable("arch-item", itemEntity);
 
 const archFeature = defineFeature("archtest", (r) => {
-  r.entity("archItem", itemEntity);
+  r.entity("arch-item", itemEntity);
 
   const labelChanged = r.defineEvent("label-changed", z.object({ label: z.string() }));
 
   const executor = createEventStoreExecutor(itemTable, itemEntity, {
-    entityName: "archItem",
+    entityName: "arch-item",
   });
 
   r.writeHandler(
@@ -51,7 +51,7 @@ const archFeature = defineFeature("archtest", (r) => {
     async (event, ctx) => {
       await ctx.appendEvent({
         aggregateId: event.payload.id,
-        aggregateType: "archItem",
+        aggregateType: "arch-item",
         type: labelChanged.name,
         payload: { label: event.payload.label },
       });
@@ -65,7 +65,7 @@ const archFeature = defineFeature("archtest", (r) => {
     z.object({ id: z.uuid(), reason: z.string().optional() }),
     async (event, ctx) => {
       await ctx.archiveStream(event.payload.id, {
-        aggregateType: "archItem",
+        aggregateType: "arch-item",
         reason: event.payload.reason,
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
@@ -103,7 +103,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [archFeature], systemHooks: [] });
-  await createEntityTable(stack.db, itemEntity, "archItem");
+  await createEntityTable(stack.db, itemEntity, "arch-item");
 });
 
 afterAll(async () => {
@@ -173,7 +173,7 @@ describe("archiveStream — Marten ArchiveStream equivalent", () => {
       includeArchived: true,
     });
     const types = raw.map((e) => e.type);
-    expect(types).toContain("archItem.created");
+    expect(types).toContain("arch-item.created");
     expect(types).not.toContain("archtest:event:label-changed");
   });
 

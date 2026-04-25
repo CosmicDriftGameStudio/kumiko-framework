@@ -42,7 +42,7 @@ const itemEntity = createEntity({
   },
   softDelete: true,
 });
-const itemTable = buildDrizzleTable("rebuildItem", itemEntity);
+const itemTable = buildDrizzleTable("rebuild-item", itemEntity);
 
 const itemsPerGroupTable = drizzlePgTable("read_rebuild_items_per_group", {
   groupId: drizzleUuid("group_id").primaryKey(),
@@ -63,17 +63,17 @@ async function bump(tx: unknown, groupId: string, tenantId: string, delta: numbe
 
 const itemsPerGroupProjection: ProjectionDefinition = {
   name: "items-per-group",
-  source: "rebuildItem",
+  source: "rebuild-item",
   table: itemsPerGroupTable,
   apply: {
-    "rebuildItem.created": async (event, tx) => {
+    "rebuild-item.created": async (event, tx) => {
       await bump(tx, event.payload["groupId"] as string, event.tenantId, 1);
     },
-    "rebuildItem.deleted": async (event, tx) => {
+    "rebuild-item.deleted": async (event, tx) => {
       const prev = event.payload["previous"] as Record<string, unknown>;
       await bump(tx, prev["groupId"] as string, event.tenantId, -1);
     },
-    "rebuildItem.restored": async (event, tx) => {
+    "rebuild-item.restored": async (event, tx) => {
       const prev = event.payload["previous"] as Record<string, unknown>;
       await bump(tx, prev["groupId"] as string, event.tenantId, 1);
     },
@@ -81,7 +81,7 @@ const itemsPerGroupProjection: ProjectionDefinition = {
 };
 
 const feature = defineFeature("rebuildtest", (r) => {
-  r.entity("rebuildItem", itemEntity);
+  r.entity("rebuild-item", itemEntity);
   r.projection(itemsPerGroupProjection);
 });
 
@@ -92,11 +92,11 @@ const registry = createRegistry([feature]);
 const qualifiedProjectionName = "rebuildtest:projection:items-per-group";
 
 // Drizzle identifier for the executor.
-const executor = createEventStoreExecutor(itemTable, itemEntity, { entityName: "rebuildItem" });
+const executor = createEventStoreExecutor(itemTable, itemEntity, { entityName: "rebuild-item" });
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEntityTable(testDb.db, itemEntity, "rebuildItem");
+  await createEntityTable(testDb.db, itemEntity, "rebuild-item");
   await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   await pushTables(testDb.db, { rebuildItemsPerGroup: itemsPerGroupTable });
@@ -250,14 +250,14 @@ describe("rebuildProjection — error path", () => {
     await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
     expect(await getCount(group)).toBe(2);
 
-    // Construct a broken registry where apply("rebuildItem.created") throws.
+    // Construct a broken registry where apply("rebuild-item.created") throws.
     const brokenFeature = defineFeature("brokentest", (r) => {
-      r.entity("rebuildItem", itemEntity);
+      r.entity("rebuild-item", itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         name: "items-per-group",
         apply: {
-          "rebuildItem.created": async () => {
+          "rebuild-item.created": async () => {
             throw new Error("boom");
           },
         },
@@ -294,11 +294,11 @@ describe("rebuildProjection — error path", () => {
 
     // Now attempt a rebuild with a broken apply under the SAME projection name.
     const brokenFeature = defineFeature("rebuildtest", (r) => {
-      r.entity("rebuildItem", itemEntity);
+      r.entity("rebuild-item", itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         apply: {
-          "rebuildItem.created": async () => {
+          "rebuild-item.created": async () => {
             throw new Error("poisoned");
           },
         },
@@ -335,7 +335,7 @@ describe("listProjectionsWithState", () => {
     expect(before).toHaveLength(1);
     expect(before[0]?.name).toBe(qualifiedProjectionName);
     expect(before[0]?.status).toBe("never-rebuilt");
-    expect(before[0]?.sources).toEqual(["rebuildItem"]);
+    expect(before[0]?.sources).toEqual(["rebuild-item"]);
 
     // After rebuild: status reflects DB state.
     await appendCreatedEvent("00000000-0000-4000-8000-000000000040", "x");
@@ -454,11 +454,11 @@ describe("rebuildProjection — meter emission", () => {
     await appendCreatedEvent(group, "a");
 
     const brokenFeature = defineFeature("failmeter", (r) => {
-      r.entity("rebuildItem", itemEntity);
+      r.entity("rebuild-item", itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         apply: {
-          "rebuildItem.created": async () => {
+          "rebuild-item.created": async () => {
             throw new Error("metric-failure-probe");
           },
         },

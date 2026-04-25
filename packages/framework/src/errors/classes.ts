@@ -101,8 +101,13 @@ export class NotFoundError extends KumikoError {
   }
 }
 
+// Accepts camelCase OR kebab-case entity names and produces snake_case for
+// the reason tag. New code uses kebab; legacy camelCase still flows through.
 function toSnake(s: string): string {
-  return s.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase();
+  return s
+    .replace(/-/g, "_")
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
+    .toLowerCase();
 }
 
 // Generic 409. Features that need a narrower shape should subclass (see

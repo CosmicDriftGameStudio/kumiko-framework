@@ -14,7 +14,7 @@ export const deleteWrite = defineWriteHandler({
     const removed = await secrets.delete(event.user.tenantId, event.payload.key, {
       deletedBy: event.user.id,
     });
-    if (!removed) return failNotFound("tenantSecret", event.payload.key);
+    if (!removed) return failNotFound("tenant-secret", event.payload.key);
     return { isSuccess: true, data: { key: event.payload.key } };
   },
 });

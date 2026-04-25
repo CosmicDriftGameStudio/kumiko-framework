@@ -28,13 +28,13 @@ const shipmentEntity = createEntity({
   table: "read_msp_shipments",
   fields: { customer: createTextField({ required: true }) },
 });
-const shipmentTable = buildDrizzleTable("mspShipment", shipmentEntity);
+const shipmentTable = buildDrizzleTable("msp-shipment", shipmentEntity);
 
 const refundEntity = createEntity({
   table: "read_msp_refunds",
   fields: { customer: createTextField({ required: true }) },
 });
-const refundTable = buildDrizzleTable("mspRefund", refundEntity);
+const refundTable = buildDrizzleTable("msp-refund", refundEntity);
 
 // Cross-cutting MSP: one row per customer, sums shipments − refunds. Key
 // differences from a single-stream projection:
@@ -50,8 +50,8 @@ const customerBalanceTable = pgTable("read_msp_customer_balance", {
 });
 
 const mspFeature = defineFeature("msptest", (r) => {
-  r.entity("mspShipment", shipmentEntity);
-  r.entity("mspRefund", refundEntity);
+  r.entity("msp-shipment", shipmentEntity);
+  r.entity("msp-refund", refundEntity);
 
   const shipmentBilled = r.defineEvent(
     "shipment-billed",
@@ -108,10 +108,10 @@ const mspFeature = defineFeature("msptest", (r) => {
   });
 
   const shipmentExecutor = createEventStoreExecutor(shipmentTable, shipmentEntity, {
-    entityName: "mspShipment",
+    entityName: "msp-shipment",
   });
   const refundExecutor = createEventStoreExecutor(refundTable, refundEntity, {
-    entityName: "mspRefund",
+    entityName: "msp-refund",
   });
 
   r.writeHandler(
@@ -126,7 +126,7 @@ const mspFeature = defineFeature("msptest", (r) => {
       if (!res.isSuccess) return res;
       await ctx.appendEvent({
         aggregateId: String(res.data.id),
-        aggregateType: "mspShipment",
+        aggregateType: "msp-shipment",
         type: shipmentBilled.name,
         payload: { customer: event.payload.customer, cents: event.payload.cents },
       });
@@ -147,7 +147,7 @@ const mspFeature = defineFeature("msptest", (r) => {
       if (!res.isSuccess) return res;
       await ctx.appendEvent({
         aggregateId: String(res.data.id),
-        aggregateType: "mspRefund",
+        aggregateType: "msp-refund",
         type: refundIssued.name,
         payload: { customer: event.payload.customer, cents: event.payload.cents },
       });
@@ -162,8 +162,8 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [mspFeature], systemHooks: [] });
-  await createEntityTable(stack.db, shipmentEntity, "mspShipment");
-  await createEntityTable(stack.db, refundEntity, "mspRefund");
+  await createEntityTable(stack.db, shipmentEntity, "msp-shipment");
+  await createEntityTable(stack.db, refundEntity, "msp-refund");
 });
 
 afterAll(async () => {
@@ -310,7 +310,7 @@ describe("r.multiStreamProjection — registrar validation", () => {
   test("empty apply map is rejected", () => {
     expect(() =>
       defineFeature("mspbad", (r) => {
-        r.entity("mspShipment", shipmentEntity);
+        r.entity("msp-shipment", shipmentEntity);
         r.multiStreamProjection({
           name: "empty",
           table: customerBalanceTable,
@@ -323,12 +323,12 @@ describe("r.multiStreamProjection — registrar validation", () => {
   test("name collision with single-stream projection is rejected", () => {
     expect(() =>
       defineFeature("mspcollision", (r) => {
-        r.entity("mspShipment", shipmentEntity);
+        r.entity("msp-shipment", shipmentEntity);
         r.projection({
           name: "shared",
-          source: "mspShipment",
+          source: "msp-shipment",
           table: customerBalanceTable,
-          apply: { "mspShipment.created": async () => {} },
+          apply: { "msp-shipment.created": async () => {} },
         });
         r.multiStreamProjection({
           name: "shared",

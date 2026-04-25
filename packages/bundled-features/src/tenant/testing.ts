@@ -48,7 +48,7 @@ const tenantExecutor = createEventStoreExecutor(tenantTable, tenantEntity, {
 });
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
-  entityName: "tenantMembership",
+  entityName: "tenant-membership",
 });
 
 export type SeedTenantMembershipOptions = {

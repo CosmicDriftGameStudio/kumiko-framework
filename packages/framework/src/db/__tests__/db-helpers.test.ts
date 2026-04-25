@@ -318,6 +318,14 @@ describe("toTableName", () => {
   ])("camelCase → snake_case + plural: %s → %s", (input, expected) => {
     expect(toTableName(input)).toBe(expected);
   });
+
+  test.each([
+    ["tenant-membership", "read_tenant_memberships"],
+    ["user-profile-address", "read_user_profile_addresses"],
+    ["invoice-issuer", "read_invoice_issuers"],
+  ])("kebab-case → snake_case + plural: %s → %s", (input, expected) => {
+    expect(toTableName(input)).toBe(expected);
+  });
 });
 
 // --- Sorting in CursorQueryOptions ---

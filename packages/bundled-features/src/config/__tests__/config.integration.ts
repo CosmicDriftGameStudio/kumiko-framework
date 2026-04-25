@@ -797,7 +797,7 @@ describe("configValue lifecycle events", () => {
     const events = await db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "configValue"));
+      .where(eq(eventsTable.aggregateType, "config-value"));
     // The first set in the suite created the row; subsequent sets update it.
     // Look at the most recent update carrying our value to verify the
     // serialized JSON lands in the event payload (key stays on the row,
@@ -805,7 +805,7 @@ describe("configValue lifecycle events", () => {
     // diff).
     const updates = events.filter(
       (e) =>
-        e.type === "configValue.updated" &&
+        e.type === "config-value.updated" &&
         (e.payload as { previous?: { key?: string } })?.previous?.key ===
           "orders:config:max-order-count",
     );
@@ -831,10 +831,10 @@ describe("configValue lifecycle events", () => {
     const events = await db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "configValue"));
+      .where(eq(eventsTable.aggregateType, "config-value"));
     const deletes = events.filter(
       (e) =>
-        e.type === "configValue.deleted" &&
+        e.type === "config-value.deleted" &&
         (e.payload as { previous?: { key?: string } })?.previous?.key ===
           "invoicing:config:mail-signature",
     );
@@ -854,10 +854,10 @@ describe("configValue lifecycle events", () => {
     const events = await db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "configValue"));
+      .where(eq(eventsTable.aggregateType, "config-value"));
     const created = events.filter(
       (e) =>
-        e.type === "configValue.created" &&
+        e.type === "config-value.created" &&
         (e.payload as { key?: string })?.key === "integration:config:lifecycle-probe",
     );
     expect(created.length).toBe(1);
@@ -881,10 +881,10 @@ describe("configValue lifecycle events", () => {
     const events = await db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "configValue"));
+      .where(eq(eventsTable.aggregateType, "config-value"));
     const updates = events.filter(
       (e) =>
-        e.type === "configValue.updated" &&
+        e.type === "config-value.updated" &&
         (e.payload as { previous?: { key?: string } })?.previous?.key ===
           "integration:config:lifecycle-probe",
     );
@@ -908,10 +908,10 @@ describe("configValue lifecycle events", () => {
     const events = await db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "configValue"));
+      .where(eq(eventsTable.aggregateType, "config-value"));
     const created = events.filter(
       (e) =>
-        e.type === "configValue.created" &&
+        e.type === "config-value.created" &&
         (e.payload as { key?: string })?.key === "integration:config:api-secret",
     );
     expect(created.length).toBeGreaterThanOrEqual(1);

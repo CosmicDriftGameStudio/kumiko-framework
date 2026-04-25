@@ -23,7 +23,7 @@ import { notificationPreferenceEntity, notificationPreferencesTable } from "./ta
 const executor = createEventStoreExecutor(
   notificationPreferencesTable,
   notificationPreferenceEntity,
-  { entityName: "notificationPreference" },
+  { entityName: "notification-preference" },
 );
 
 async function lookup(

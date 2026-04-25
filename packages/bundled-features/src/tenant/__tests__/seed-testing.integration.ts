@@ -149,8 +149,8 @@ describe("seedTenantMembership", () => {
     const events = await stack.db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "tenantMembership"));
-    const createdEvents = events.filter((e) => e.type === "tenantMembership.created");
+      .where(eq(eventsTable.aggregateType, "tenant-membership"));
+    const createdEvents = events.filter((e) => e.type === "tenant-membership.created");
     expect(createdEvents).toHaveLength(1);
     // Payload should carry the seeded data — MSPs/audit rely on this.
     const payload = createdEvents[0]?.payload as Record<string, unknown>;
@@ -185,8 +185,8 @@ describe("seedTenantMembership", () => {
     const events = await stack.db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "tenantMembership"));
-    expect(events.filter((e) => e.type === "tenantMembership.created")).toHaveLength(1);
+      .where(eq(eventsTable.aggregateType, "tenant-membership"));
+    expect(events.filter((e) => e.type === "tenant-membership.created")).toHaveLength(1);
   });
 
   test("records the `by` user as insertedById on the projection", async () => {

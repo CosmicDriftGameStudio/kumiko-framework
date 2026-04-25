@@ -170,7 +170,7 @@ describe("seedAdmin", () => {
     expect(createdByType).toEqual({
       tenant: 1,
       user: 1,
-      tenantMembership: 1,
+      "tenant-membership": 1,
     });
   });
 });

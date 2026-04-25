@@ -6,7 +6,7 @@ import { z } from "zod";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
-  entityName: "tenantMembership",
+  entityName: "tenant-membership",
 });
 
 export const removeMemberWrite = defineWriteHandler({

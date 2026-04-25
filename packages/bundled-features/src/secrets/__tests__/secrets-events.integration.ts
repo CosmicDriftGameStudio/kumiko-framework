@@ -71,10 +71,10 @@ describe("tenantSecret lifecycle events", () => {
     const created = await stack.db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.type, "tenantSecret.created"));
+      .where(eq(eventsTable.type, "tenant-secret.created"));
     expect(created.length).toBe(1);
     // aggregateType stable; downstream MSPs filter by this.
-    expect(created[0]?.aggregateType).toBe("tenantSecret");
+    expect(created[0]?.aggregateType).toBe("tenant-secret");
     // Plaintext never lands on the event-stream — only the envelope.
     const serialized = JSON.stringify(created[0]?.payload);
     expect(serialized).not.toContain("secret-value-xyz");
@@ -91,11 +91,11 @@ describe("tenantSecret lifecycle events", () => {
     const events = await stack.db
       .select()
       .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "tenantSecret"));
+      .where(eq(eventsTable.aggregateType, "tenant-secret"));
 
     // Exactly 2 events on the same aggregate-stream: created + deleted.
     expect(events.length).toBe(2);
-    expect(events.map((e) => e.type)).toEqual(["tenantSecret.created", "tenantSecret.deleted"]);
+    expect(events.map((e) => e.type)).toEqual(["tenant-secret.created", "tenant-secret.deleted"]);
     const ids = new Set(events.map((e) => e.aggregateId));
     expect(ids.size).toBe(1);
   });

@@ -192,6 +192,11 @@ describe("NotFoundError", () => {
     const err = new NotFoundError("billingPeriod", 7);
     expect((err.details as { reason: string }).reason).toBe("billing_period_not_found");
   });
+
+  test("kebab-case entity name becomes snake_case in the reason", () => {
+    const err = new NotFoundError("billing-period", 7);
+    expect((err.details as { reason: string }).reason).toBe("billing_period_not_found");
+  });
 });
 
 describe("ConflictError + VersionConflictError", () => {

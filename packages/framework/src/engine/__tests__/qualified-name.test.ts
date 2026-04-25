@@ -108,7 +108,7 @@ describe("isValidQn()", () => {
 describe("toKebab()", () => {
   test("converts dot-separated to kebab-case", () => {
     expect(toKebab("task.create")).toBe("task-create");
-    expect(toKebab("billingPeriod.create")).toBe("billing-period-create");
+    expect(toKebab("billing-period.create")).toBe("billing-period-create");
   });
 
   test("converts camelCase to kebab-case", () => {

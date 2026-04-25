@@ -41,7 +41,7 @@ const shipmentEntity = createEntity({
   },
 });
 
-const shipmentTable = buildDrizzleTable("domainShipment", shipmentEntity);
+const shipmentTable = buildDrizzleTable("domain-shipment", shipmentEntity);
 
 // --- Read-model table (fed by the projection below) ---
 
@@ -56,18 +56,18 @@ const billingTable = pgTable("read_domain_shipment_billing", {
 // --- Feature ---
 
 const shippingFeature = defineFeature("shipping", (r) => {
-  r.entity("domainShipment", shipmentEntity);
+  r.entity("domain-shipment", shipmentEntity);
 
   // Domain event. Qualified name is "shipping:event:billed".
   const shipmentBilled = r.defineEvent("billed", z.object({ cost: z.number() }));
 
   r.projection({
     name: "shipment-billing",
-    source: "domainShipment",
+    source: "domain-shipment",
     table: billingTable,
     apply: {
       // Auto CRUD event — fires on shipment create.
-      "domainShipment.created": async (event, tx) => {
+      "domain-shipment.created": async (event, tx) => {
         const payload = event.payload as { cargo?: string };
         await tx.insert(billingTable).values({
           shipmentId: event.aggregateId,
@@ -91,7 +91,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
   });
 
   const shipmentExecutor = createEventStoreExecutor(shipmentTable, shipmentEntity, {
-    entityName: "domainShipment",
+    entityName: "domain-shipment",
   });
 
   r.writeHandler(
@@ -107,7 +107,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     async (event, ctx) => {
       await ctx.appendEvent({
         aggregateId: event.payload.id,
-        aggregateType: "domainShipment",
+        aggregateType: "domain-shipment",
         type: shipmentBilled.name,
         payload: { cost: event.payload.cost },
       });
@@ -139,7 +139,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     async (event, ctx) => {
       await ctx.appendEvent({
         aggregateId: event.payload.id,
-        aggregateType: "domainShipment",
+        aggregateType: "domain-shipment",
         type: "shipping:event:ghost", // never defined via r.defineEvent
         payload: {},
       });
@@ -154,7 +154,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     async (event, ctx) => {
       await ctx.appendEvent({
         aggregateId: event.payload.id,
-        aggregateType: "domainShipment",
+        aggregateType: "domain-shipment",
         type: shipmentBilled.name,
         // cost must be a number per the defineEvent schema
         payload: { cost: "definitely-not-a-number" } as unknown as { cost: number },
@@ -175,7 +175,7 @@ beforeAll(async () => {
     features: [shippingFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, shipmentEntity, "domainShipment");
+  await createEntityTable(stack.db, shipmentEntity, "domain-shipment");
 });
 
 afterAll(async () => {
@@ -234,9 +234,9 @@ describe("Marten gold-standard: domain events → inline projections", () => {
 
     const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events).toHaveLength(2);
-    expect(events.map((e) => e.type)).toEqual(["domainShipment.created", "shipping:event:billed"]);
+    expect(events.map((e) => e.type)).toEqual(["domain-shipment.created", "shipping:event:billed"]);
     expect(events.map((e) => e.version)).toEqual([1, 2]);
-    expect(events.every((e) => e.aggregateType === "domainShipment")).toBe(true);
+    expect(events.every((e) => e.aggregateType === "domain-shipment")).toBe(true);
     expect(events.every((e) => e.aggregateId === created.id)).toBe(true);
   });
 
@@ -294,9 +294,9 @@ describe("Marten gold-standard: domain events → inline projections", () => {
 
     const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events.map((e) => e.type)).toEqual([
-      "domainShipment.created",
+      "domain-shipment.created",
       "shipping:event:billed",
-      "domainShipment.updated",
+      "domain-shipment.updated",
     ]);
     expect(events.map((e) => e.version)).toEqual([1, 2, 3]);
   });

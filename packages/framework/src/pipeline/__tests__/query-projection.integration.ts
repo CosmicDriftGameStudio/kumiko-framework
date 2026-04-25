@@ -26,7 +26,7 @@ const widgetEntity = createEntity({
   table: "read_qp_widgets",
   fields: { name: createTextField({ required: true }) },
 });
-const widgetTable = buildDrizzleTable("qpWidget", widgetEntity);
+const widgetTable = buildDrizzleTable("qp-widget", widgetEntity);
 
 // Tenant-scoped projection — auto-filter by tenant_id.
 const tenantScopedTable = pgTable("read_qp_widget_count_tenant", {
@@ -43,14 +43,14 @@ const systemScopedTable = pgTable("read_qp_widget_audit", {
 });
 
 const qpFeature = defineFeature("qp", (r) => {
-  r.entity("qpWidget", widgetEntity);
+  r.entity("qp-widget", widgetEntity);
 
   r.projection({
     name: "widget-count-tenant",
-    source: "qpWidget",
+    source: "qp-widget",
     table: tenantScopedTable,
     apply: {
-      "qpWidget.created": async (event, tx) => {
+      "qp-widget.created": async (event, tx) => {
         const p = event.payload as { name?: string };
         await tx.insert(tenantScopedTable).values({
           widgetId: event.aggregateId,
@@ -63,10 +63,10 @@ const qpFeature = defineFeature("qp", (r) => {
 
   r.projection({
     name: "widget-audit",
-    source: "qpWidget",
+    source: "qp-widget",
     table: systemScopedTable,
     apply: {
-      "qpWidget.created": async (event, tx) => {
+      "qp-widget.created": async (event, tx) => {
         const p = event.payload as { name?: string };
         await tx.insert(systemScopedTable).values({
           widgetId: event.aggregateId,
@@ -77,7 +77,7 @@ const qpFeature = defineFeature("qp", (r) => {
   });
 
   const executor = createEventStoreExecutor(widgetTable, widgetEntity, {
-    entityName: "qpWidget",
+    entityName: "qp-widget",
   });
 
   r.writeHandler(
@@ -121,7 +121,7 @@ const otherTenantAdmin = {
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [qpFeature], systemHooks: [] });
-  await createEntityTable(stack.db, widgetEntity, "qpWidget");
+  await createEntityTable(stack.db, widgetEntity, "qp-widget");
 });
 
 afterAll(async () => {

@@ -33,20 +33,20 @@ const orderEntity = createEntity({
   },
 });
 
-const orderTable = buildDrizzleTable("mmhOrder", orderEntity);
+const orderTable = buildDrizzleTable("mmh-order", orderEntity);
 
 // Snapshot what each MSP-apply observed via ctx.loadAggregate.
 const confirmLoadCounts: number[] = [];
 
 const mmhFeature = defineFeature("mmh", (r) => {
-  r.entity("mmhOrder", orderEntity);
+  r.entity("mmh-order", orderEntity);
 
   const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }));
   const confirmed = r.defineEvent("confirmed", z.object({ orderId: z.uuid() }));
   const shipped = r.defineEvent("shipped", z.object({ orderId: z.uuid() }));
 
   const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
-    entityName: "mmhOrder",
+    entityName: "mmh-order",
   });
 
   r.writeHandler(
@@ -57,7 +57,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
       if (!created.isSuccess) return created;
       await ctx.appendEvent({
         aggregateId: String(created.data.id),
-        aggregateType: "mmhOrder",
+        aggregateType: "mmh-order",
         type: placed.name,
         payload: { orderId: String(created.data.id) },
       });
@@ -77,7 +77,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
         confirmLoadCounts.push(history.length);
         await ctx.appendEvent({
           aggregateId: event.aggregateId,
-          aggregateType: "mmhOrder",
+          aggregateType: "mmh-order",
           type: confirmed.name,
           payload: { orderId: event.aggregateId },
         });
@@ -93,7 +93,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
         if (!ctx) throw new Error("MSP-apply ctx missing — regression of C.2b wiring");
         await ctx.appendEvent({
           aggregateId: event.aggregateId,
-          aggregateType: "mmhOrder",
+          aggregateType: "mmh-order",
           type: shipped.name,
           payload: { orderId: event.aggregateId },
         });
@@ -109,7 +109,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [mmhFeature], systemHooks: [] });
-  await createEntityTable(stack.db, orderEntity, "mmhOrder");
+  await createEntityTable(stack.db, orderEntity, "mmh-order");
 });
 
 afterAll(async () => {
@@ -150,7 +150,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
     const rows = await stack.db.select().from(eventsTable);
     const types = rows.map((r) => r.type).sort();
     // Order: CRUD create, placed, confirmed (hop 1 fired).
-    expect(types).toContain("mmhOrder.created");
+    expect(types).toContain("mmh-order.created");
     expect(types).toContain("mmh:event:placed");
     expect(types).toContain("mmh:event:confirmed");
   });

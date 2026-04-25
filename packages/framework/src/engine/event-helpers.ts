@@ -15,7 +15,7 @@ export type EmitCtx = Pick<HandlerContext, "appendEvent">;
 //
 //   await emitEvent(ctx, orderPlaced, {
 //     aggregateId: String(result.data.id),
-//     aggregateType: "pubsubOrder",
+//     aggregateType: "pubsub-order",
 //     payload: { id, customer, product },
 //   });
 //

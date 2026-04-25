@@ -94,8 +94,8 @@ beforeAll(async () => {
   userTable = buildDrizzleTable("user", userEntity);
   sessionTable = buildDrizzleTable("session", sessionEntity);
   groupTable = buildDrizzleTable("group", groupEntity);
-  userGroupRestrictTable = buildDrizzleTable("userGroupRestrict", userGroupRestrictEntity);
-  userGroupCascadeTable = buildDrizzleTable("userGroupCascade", userGroupCascadeEntity);
+  userGroupRestrictTable = buildDrizzleTable("user-group-restrict", userGroupRestrictEntity);
+  userGroupCascadeTable = buildDrizzleTable("user-group-cascade", userGroupCascadeEntity);
   teamTable = buildDrizzleTable("team", teamEntity);
   memberTable = buildDrizzleTable("member", memberEntity);
 
@@ -104,8 +104,8 @@ beforeAll(async () => {
     r.entity("user", userEntity);
     r.entity("session", sessionEntity);
     r.entity("group", groupEntity);
-    r.entity("userGroupRestrict", userGroupRestrictEntity);
-    r.entity("userGroupCascade", userGroupCascadeEntity);
+    r.entity("user-group-restrict", userGroupRestrictEntity);
+    r.entity("user-group-cascade", userGroupCascadeEntity);
     r.entity("team", teamEntity);
     r.entity("member", memberEntity);
 
@@ -126,14 +126,14 @@ beforeAll(async () => {
     r.relation("user", "groupsRestrict", {
       type: "manyToMany",
       target: "group",
-      through: { table: "userGroupRestrict", sourceKey: "userId", targetKey: "groupId" },
+      through: { table: "user-group-restrict", sourceKey: "userId", targetKey: "groupId" },
       onDelete: "restrict",
     });
 
     r.relation("user", "groupsCascade", {
       type: "manyToMany",
       target: "group",
-      through: { table: "userGroupCascade", sourceKey: "userId", targetKey: "groupId" },
+      through: { table: "user-group-cascade", sourceKey: "userId", targetKey: "groupId" },
       onDelete: "cascade",
     });
 
@@ -157,12 +157,12 @@ beforeAll(async () => {
   userGroupRestrictExecutor = createEventStoreExecutor(
     userGroupRestrictTable,
     userGroupRestrictEntity,
-    { entityName: "userGroupRestrict" },
+    { entityName: "user-group-restrict" },
   );
   userGroupCascadeExecutor = createEventStoreExecutor(
     userGroupCascadeTable,
     userGroupCascadeEntity,
-    { entityName: "userGroupCascade" },
+    { entityName: "user-group-cascade" },
   );
   teamExecutor = createEventStoreExecutor(teamTable, teamEntity, { entityName: "team" });
   memberExecutor = createEventStoreExecutor(memberTable, memberEntity, { entityName: "member" });
@@ -261,7 +261,7 @@ describe("cascade delete: manyToMany restrict", () => {
 
     const cascadeHook = createCascadeDeleteHook(
       registry,
-      new Map([["userGroupRestrict", userGroupRestrictTable]]),
+      new Map([["user-group-restrict", userGroupRestrictTable]]),
     );
 
     await expect(
@@ -278,7 +278,7 @@ describe("cascade delete: manyToMany restrict", () => {
       code: "conflict",
       details: {
         reason: "delete_restricted",
-        blockingEntity: "userGroupRestrict",
+        blockingEntity: "user-group-restrict",
       },
     });
   });
@@ -289,7 +289,7 @@ describe("cascade delete: manyToMany restrict", () => {
 
     const cascadeHook = createCascadeDeleteHook(
       registry,
-      new Map([["userGroupRestrict", userGroupRestrictTable]]),
+      new Map([["user-group-restrict", userGroupRestrictTable]]),
     );
 
     await expect(
@@ -329,7 +329,7 @@ describe("cascade delete: manyToMany cascade", () => {
 
     const cascadeHook = createCascadeDeleteHook(
       registry,
-      new Map([["userGroupCascade", userGroupCascadeTable]]),
+      new Map([["user-group-cascade", userGroupCascadeTable]]),
     );
 
     await cascadeHook.fn(

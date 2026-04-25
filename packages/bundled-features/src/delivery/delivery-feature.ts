@@ -10,7 +10,7 @@ import { deliveryAttemptsTable, notificationPreferenceEntity } from "./tables";
 export function createDeliveryFeature(): FeatureDefinition {
   return defineFeature("delivery", (r) => {
     r.systemScope();
-    r.entity("notificationPreference", notificationPreferenceEntity);
+    r.entity("notification-preference", notificationPreferenceEntity);
 
     // Events-only projection source: "deliveryAttempt" is the aggregate-
     // type on the events-table, but there's no r.entity for it — each

@@ -29,12 +29,12 @@ const invoiceEntity = createEntity({
     status: createTextField({ required: true }),
   },
 });
-const invoiceTable = buildDrizzleTable("asofInvoice", invoiceEntity);
+const invoiceTable = buildDrizzleTable("asof-invoice", invoiceEntity);
 
 // --- Feature ---
 
 const asOfFeature = defineFeature("asoftest", (r) => {
-  r.entity("asofInvoice", invoiceEntity);
+  r.entity("asof-invoice", invoiceEntity);
 
   // Two domain events at different versions. v1→v2 migration bumps the
   // "amount" field from string to integer cents, same pattern as B1.
@@ -52,7 +52,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
   });
 
   const executor = createEventStoreExecutor(invoiceTable, invoiceEntity, {
-    entityName: "asofInvoice",
+    entityName: "asof-invoice",
   });
 
   r.writeHandler(
@@ -68,7 +68,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     async (event, ctx) => {
       await ctx.appendEvent({
         aggregateId: event.payload.id,
-        aggregateType: "asofInvoice",
+        aggregateType: "asof-invoice",
         type: approved.name,
         payload: { amount: event.payload.amount, approvedBy: event.payload.approvedBy },
       });
@@ -106,7 +106,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
         approvedBy: null,
       };
       for (const evt of events) {
-        if (evt.type === "asofInvoice.created") {
+        if (evt.type === "asof-invoice.created") {
           const p = evt.payload as { id: string; customer: string; status: string };
           state.id = p.id;
           state.customer = p.customer;
@@ -131,7 +131,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [asOfFeature], systemHooks: [] });
-  await createEntityTable(stack.db, invoiceEntity, "asofInvoice");
+  await createEntityTable(stack.db, invoiceEntity, "asof-invoice");
 });
 
 afterAll(async () => {
@@ -226,16 +226,16 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
       // has no migration, its eventVersion is irrelevant here.
       await append(tx, {
         aggregateId: invoiceId,
-        aggregateType: "asofInvoice",
+        aggregateType: "asof-invoice",
         tenantId: admin.tenantId,
         expectedVersion: 0,
-        type: "asofInvoice.created",
+        type: "asof-invoice.created",
         payload: { id: invoiceId, customer: "LegacyCo", status: "imported" },
         metadata: { userId: admin.id },
       });
       await append(tx, {
         aggregateId: invoiceId,
-        aggregateType: "asofInvoice",
+        aggregateType: "asof-invoice",
         tenantId: admin.tenantId,
         expectedVersion: 1,
         type: "asoftest:event:approved",

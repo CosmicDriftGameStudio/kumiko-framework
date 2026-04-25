@@ -34,7 +34,7 @@ const DEFAULT_MAX_FAILURES = 10;
 const SYSTEM_ROLES = ["system"] as const;
 
 const executor = createEventStoreExecutor(tenantSecretsTable, tenantSecretEntity, {
-  entityName: "tenantSecret",
+  entityName: "tenant-secret",
 });
 
 export type RotateJobPayload = {

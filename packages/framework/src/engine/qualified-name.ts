@@ -109,7 +109,7 @@ export function qualifyEntityName(featureName: string, type: QnType, shortName: 
 // Convert camelCase or dot.separated strings to kebab-case.
 // "task.create" → "task-create"
 // "ticketAssigned" → "ticket-assigned"
-// "billingPeriod.create" → "billing-period-create"
+// "billing-period.create" → "billing-period-create"
 // "monthlyReport" → "monthly-report"
 // Already kebab-case → unchanged
 // Colons are preserved: "task:create" → "task:create"

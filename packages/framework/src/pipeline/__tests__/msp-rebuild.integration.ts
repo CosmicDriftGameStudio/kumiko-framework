@@ -41,13 +41,13 @@ const invoiceEntity = createEntity({
   table: "read_mspreb_invoices",
   fields: { customer: createTextField({ required: true }) },
 });
-const invoiceTable = buildDrizzleTable("mspRebInvoice", invoiceEntity);
+const invoiceTable = buildDrizzleTable("msp-reb-invoice", invoiceEntity);
 
 const paymentEntity = createEntity({
   table: "read_mspreb_payments",
   fields: { customer: createTextField({ required: true }) },
 });
-const paymentTable = buildDrizzleTable("mspRebPayment", paymentEntity);
+const paymentTable = buildDrizzleTable("msp-reb-payment", paymentEntity);
 
 // Main read-model: running balance per customer.
 const balanceTable = pgTable("read_mspreb_balance", {
@@ -65,8 +65,8 @@ const sagaStateTable = pgTable("read_mspreb_saga_state", {
 });
 
 const feature = defineFeature("mspreb", (r) => {
-  r.entity("mspRebInvoice", invoiceEntity);
-  r.entity("mspRebPayment", paymentEntity);
+  r.entity("msp-reb-invoice", invoiceEntity);
+  r.entity("msp-reb-payment", paymentEntity);
 
   const invoiceBilled = r.defineEvent(
     "invoice-billed",
@@ -141,7 +141,7 @@ const feature = defineFeature("mspreb", (r) => {
         const p = event.payload as { customer: string };
         await ctx.appendEvent({
           aggregateId: p.customer,
-          aggregateType: "mspRebInvoice",
+          aggregateType: "msp-reb-invoice",
           type: escalationTriggered.name,
           payload: { customer: p.customer },
         });
@@ -150,10 +150,10 @@ const feature = defineFeature("mspreb", (r) => {
   });
 
   const invoiceExecutor = createEventStoreExecutor(invoiceTable, invoiceEntity, {
-    entityName: "mspRebInvoice",
+    entityName: "msp-reb-invoice",
   });
   const paymentExecutor = createEventStoreExecutor(paymentTable, paymentEntity, {
-    entityName: "mspRebPayment",
+    entityName: "msp-reb-payment",
   });
 
   r.writeHandler(
@@ -168,7 +168,7 @@ const feature = defineFeature("mspreb", (r) => {
       if (!res.isSuccess) return res;
       await ctx.appendEvent({
         aggregateId: String(res.data.id),
-        aggregateType: "mspRebInvoice",
+        aggregateType: "msp-reb-invoice",
         type: invoiceBilled.name,
         payload: event.payload,
       });
@@ -189,7 +189,7 @@ const feature = defineFeature("mspreb", (r) => {
       if (!res.isSuccess) return res;
       await ctx.appendEvent({
         aggregateId: String(res.data.id),
-        aggregateType: "mspRebPayment",
+        aggregateType: "msp-reb-payment",
         type: paymentReceived.name,
         payload: event.payload,
       });
@@ -211,8 +211,8 @@ beforeAll(async () => {
     features: [feature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, invoiceEntity, "mspRebInvoice");
-  await createEntityTable(stack.db, paymentEntity, "mspRebPayment");
+  await createEntityTable(stack.db, invoiceEntity, "msp-reb-invoice");
+  await createEntityTable(stack.db, paymentEntity, "msp-reb-payment");
 });
 
 afterAll(async () => {

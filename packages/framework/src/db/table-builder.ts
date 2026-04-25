@@ -104,8 +104,12 @@ function fieldToColumns(
   }
 }
 
+// Accepts both camelCase (`tenantMembership`) and kebab-case (`tenant-membership`)
+// entity / field names. Kebab is the canonical form for new multi-word entity
+// types (consistent across r.entity, event-types, table names) — camelCase is
+// kept working for already-shipped code.
 export function toSnakeCase(str: string): string {
-  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+  return str.replace(/-/g, "_").replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
 /**

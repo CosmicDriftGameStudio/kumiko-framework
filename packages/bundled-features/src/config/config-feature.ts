@@ -30,7 +30,7 @@ export function createConfigFeature(): FeatureDefinition {
     // projection write in one TX. Subscribers that need config-change
     // semantics listen to those auto-events via r.multiStreamProjection
     // (see docs/plans/architecture/event-sourcing-pivot.md §4.7).
-    r.entity("configValue", configValueEntity);
+    r.entity("config-value", configValueEntity);
 
     const handlers = {
       set: r.writeHandler(setWrite),
