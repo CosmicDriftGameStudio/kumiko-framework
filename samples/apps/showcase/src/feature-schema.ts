@@ -38,11 +38,7 @@ export const itemEditScreen: EntityEditScreenDefinition = {
         title: "Basics",
         columns: 2,
         // span: 2 lässt das Feld die ganze Breite belegen
-        fields: [
-          { field: "title", span: 2 },
-          "priority",
-          "isDone",
-        ],
+        fields: [{ field: "title", span: 2 }, "priority", "isDone"],
       },
       {
         title: "Details",
