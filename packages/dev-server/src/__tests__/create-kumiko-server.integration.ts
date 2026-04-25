@@ -1,7 +1,11 @@
+import {
+  createBooleanField,
+  createEntity,
+  createTextField,
+  defineFeature,
+} from "@kumiko/framework/engine";
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, test } from "vitest";
-import { defineFeature } from "../../engine";
-import { createBooleanField, createEntity, createTextField } from "../../engine/factories";
 import { createKumikoServer, type KumikoServerHandle } from "../create-kumiko-server";
 
 // Integration-Test: bootet createKumikoServer mit echtem Postgres,

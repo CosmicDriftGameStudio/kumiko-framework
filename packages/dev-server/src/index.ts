@@ -1,0 +1,23 @@
+// Public API für den Kumiko-Dev-Server. Zwei Schichten:
+//
+//   - createKumikoServer (low-level)
+//     Bun.serve-Wrapper der Client-Bundle, /styles.css, AppSchema-
+//     Injection, SSE-Reload und einen Auto-Mint-JWT-Modus liefert. Nimmt
+//     features + clientEntry direkt an, kein Auth-Auto-Wiring. Wer
+//     einen ungewöhnlichen Auth-Setup braucht (alternative Membership-
+//     Query, eigener Rate-Limiter, custom Login-Routes) geht hier rein.
+//
+//   - runDevApp (high-level)
+//     Mischt die Standard-Features (config/user/tenant/auth-email-
+//     password) automatisch dazu wenn `auth` gesetzt ist, wired die
+//     Login-Routes + Error-Map, ruft seedAdmin im onAfterSetup. Default
+//     für Sample-Apps und Showcases — 5-10 Zeilen Bootstrap statt 50.
+
+export {
+  type CreateKumikoServerOptions,
+  createKumikoServer,
+  type KumikoServerHandle,
+  resolveStylesheet,
+} from "./create-kumiko-server";
+export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app";
+export { runDevApp } from "./run-dev-app";

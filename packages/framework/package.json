@@ -35,7 +35,6 @@
     "./api": "./src/api/index.ts",
     "./i18n": "./src/i18n/index.ts",
     "./auth": "./src/auth/index.ts",
-    "./dev-server": "./src/dev-server/index.ts",
     "./files": "./src/files/index.ts",
     "./jobs": "./src/jobs/index.ts",
     "./entrypoint": "./src/entrypoint/index.ts",

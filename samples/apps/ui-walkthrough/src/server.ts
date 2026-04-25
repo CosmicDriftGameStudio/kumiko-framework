@@ -1,6 +1,6 @@
 // Dev-Server für ui-walkthrough. Der ganze Boilerplate
 // (Client-Bundle, setupTestStack, SSE-Reload, SIGINT cleanup) lebt in
-// @kumiko/framework/dev-server. Braucht Postgres + Redis (siehe
+// @kumiko/dev-server. Braucht Postgres + Redis (siehe
 // `yarn kumiko dev`). Persistent-DB-Modus: setze KUMIKO_DEV_DB_NAME
 // in der Umgebung.
 //
@@ -17,7 +17,7 @@ import {
 import { createConfigFeature, createConfigResolver } from "@kumiko/bundled-features/config";
 import { createTenantFeature, TenantQueries } from "@kumiko/bundled-features/tenant";
 import { createUserFeature } from "@kumiko/bundled-features/user";
-import { createKumikoServer } from "@kumiko/framework/dev-server";
+import { createKumikoServer } from "@kumiko/dev-server";
 import { taskFeature } from "./feature";
 import { seedAdminUser } from "./seed";
 

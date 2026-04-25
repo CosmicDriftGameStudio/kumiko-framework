@@ -16,7 +16,7 @@ import {
 import { createConfigFeature, createConfigResolver } from "@kumiko/bundled-features/config";
 import { createTenantFeature, TenantQueries } from "@kumiko/bundled-features/tenant";
 import { createUserFeature } from "@kumiko/bundled-features/user";
-import { createKumikoServer } from "@kumiko/framework/dev-server";
+import { createKumikoServer } from "@kumiko/dev-server";
 import { demoFeature, driverFeature } from "./feature";
 import { seedAdminUser } from "./seed";
 

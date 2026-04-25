@@ -18,5 +18,7 @@ export { SessionContext, SessionProvider, useSession } from "./session";
 export type { TenantSwitcherProps } from "./tenant-switcher";
 export { TenantSwitcher } from "./tenant-switcher";
 export { defaultTranslations } from "./translations";
+export type { ShellUser } from "./use-shell-user";
+export { useShellUser } from "./use-shell-user";
 export type { UserMenuProps } from "./user-menu";
 export { UserMenu } from "./user-menu";

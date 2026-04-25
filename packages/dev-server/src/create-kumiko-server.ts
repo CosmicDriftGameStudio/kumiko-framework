@@ -19,13 +19,16 @@ import { mkdtempSync } from "node:fs";
 import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { AuthRoutesConfig } from "../api/auth-routes";
-import { generateToken } from "../api/tokens";
-import { buildAppSchema } from "../engine/build-app-schema";
-import type { FeatureDefinition } from "../engine/types";
-import { createEventsTable } from "../event-store";
-import { ensureEntityTable, setupTestStack, type TestStack, TestUsers } from "../testing";
-import type { TestStackOptions } from "../testing/test-stack";
+import { type AuthRoutesConfig, generateToken } from "@kumiko/framework/api";
+import { buildAppSchema, type FeatureDefinition } from "@kumiko/framework/engine";
+import { createEventsTable } from "@kumiko/framework/event-store";
+import {
+  ensureEntityTable,
+  setupTestStack,
+  type TestStack,
+  type TestStackOptions,
+  TestUsers,
+} from "@kumiko/framework/testing";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
 // target runtime), but the test-suite runs under vitest on Node — we

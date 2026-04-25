@@ -27,6 +27,7 @@
   "workspaces": [
     "packages/framework",
     "packages/bundled-features",
+    "packages/dev-server",
     "packages/headless",
     "packages/dispatcher-live",
     "packages/renderer",
