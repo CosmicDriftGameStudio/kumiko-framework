@@ -8,7 +8,13 @@
 //8-line shape, no recursion. Apps that need deep equality reach for
 // their own helper.
 
-export function shallowEqual<T>(a: T, b: T): boolean {
+// Signature is `(a: unknown, b: unknown)` not `<T>(a: T, b: T)` because the
+// function legitimately compares cross-type values (primitive vs. object,
+// null vs. {}, etc.) and returns false for mismatches. A generic `<T>`
+// would force callers into type-gymnastics for those cases. Contra-variance
+// ensures this still satisfies `(a: S, b: S) => boolean` slots like
+// useStoreSelector's `equals` arg.
+export function shallowEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
   if (typeof a !== "object" || a === null) return false;
   if (typeof b !== "object" || b === null) return false;

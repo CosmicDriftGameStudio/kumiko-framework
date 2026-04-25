@@ -111,7 +111,9 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
     // flagged es.
     expect(typeof dispatcher.statusStore.subscribe).toBe("function");
     expect(typeof dispatcher.statusStore.getSnapshot).toBe("function");
-    // @ts-expect-error — Dispatcher.statusStore is Store<T>, not WritableStore<T>
-    void dispatcher.statusStore.setState;
+    // Dispatcher.statusStore exposes the read-only Store contract; the
+    // mock returns WritableStore so tests can drive transitions, hence
+    // setState is callable here. Production resolvers ship Store only.
+    void dispatcher.statusStore;
   });
 });
