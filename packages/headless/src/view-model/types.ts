@@ -73,6 +73,10 @@ export type EditFieldViewModel = {
   readonly required: boolean;
   readonly span?: number;
   readonly renderer?: FieldRenderer;
+  /** Nur bei `type: "select"` gesetzt — die zugelassenen Werte. Wird
+   *  vom Renderer als Dropdown-Optionen genutzt. Quelle ist
+   *  SelectFieldDef.options aus der EntityDefinition. */
+  readonly options?: readonly string[];
 };
 
 export type EditSectionViewModel = {

@@ -186,6 +186,28 @@ function DefaultInput(props: InputProps): ReactNode {
           className={cn(inputClassBase, errorClass)}
         />
       );
+    case "select":
+      // Native <select> — kein Radix-Dropdown weil shadcn-Select eine
+      // SSR-/Portal-Komplexität mitbringt die für die Default-Variante
+      // unverhältnismäßig wäre. Apps die ein gestyltes Custom-Dropdown
+      // wollen, liefern eine eigene Input-Primitive über
+      // PrimitivesProvider. Empty-Option als Placeholder wenn nicht-
+      // required UND value=="" — sonst muss ein Eintrag gewählt sein.
+      return (
+        <select
+          {...common}
+          value={props.value}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => props.onChange(e.target.value)}
+          className={cn(inputClassBase, errorClass)}
+        >
+          {props.required !== true && <option value="">—</option>}
+          {props.options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      );
   }
 }
 

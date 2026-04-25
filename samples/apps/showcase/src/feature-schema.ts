@@ -24,6 +24,14 @@ export const itemEntity = {
     isDone: { type: "boolean", default: false, sortable: true },
     // Date — nativer date-Input des Browsers
     dueDate: { type: "date" },
+    // Select mit options-Liste — DefaultInput rendert ein <select> mit
+    // Empty-Option (—) als Placeholder solange nicht-required.
+    status: {
+      type: "select",
+      options: ["draft", "active", "blocked", "done"],
+      default: "draft",
+      sortable: true,
+    },
   },
 } as unknown as EntityDefinition;
 
@@ -38,7 +46,7 @@ export const itemEditScreen: EntityEditScreenDefinition = {
         title: "Basics",
         columns: 2,
         // span: 2 lässt das Feld die ganze Breite belegen
-        fields: [{ field: "title", span: 2 }, "priority", "isDone"],
+        fields: [{ field: "title", span: 2 }, "priority", "isDone", { field: "status", span: 2 }],
       },
       {
         title: "Details",
@@ -64,6 +72,7 @@ export const itemListScreen: EntityListScreenDefinition = {
   entity: "item",
   columns: [
     "title",
+    "status",
     // Boolean-Spalte: DataTable-Primitive rendert ✓ / ✗
     "isDone",
     // Custom-Renderer: Number → "P{n}" oder "—" wenn 0

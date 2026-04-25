@@ -61,6 +61,13 @@ export function computeEditViewModel<
         values,
         ctx,
       );
+      // Select-Optionen bei `type: "select"` mitnehmen — der Renderer
+      // braucht sie für das Dropdown ohne nochmal die EntityDefinition
+      // zu reichen.
+      const options =
+        fieldDef.type === "select"
+          ? ((fieldDef as unknown as { options?: readonly string[] }).options ?? [])
+          : undefined;
       const view: EditFieldViewModel = {
         field: normalized.field,
         label,
@@ -71,6 +78,7 @@ export function computeEditViewModel<
         required,
         ...(normalized.span !== undefined && { span: normalized.span }),
         ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+        ...(options !== undefined && { options }),
       };
       return view;
     });

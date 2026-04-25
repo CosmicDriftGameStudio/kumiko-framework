@@ -41,10 +41,10 @@ function inputId(field: EditFieldViewModel): string {
   return `kumiko-edit-${field.field}`;
 }
 
-// Dispatch auf field.type → Input-Kind. "select" und unknown fallen
-// auf text zurück, wie zuvor in renderControl. Options-Threading für
-// select kommt später; bis dahin verhält sich der Sample identisch
-// zum Vor-Refactor-Stand.
+// Dispatch auf field.type → Input-Kind. Select threaded options aus dem
+// EditFieldViewModel (computeEditViewModel zieht sie aus
+// SelectFieldDef.options). Unknown-Types fallen auf text zurück damit
+// die Form was Sinnvolles rendert statt blank zu sein.
 function renderInput({
   field,
   id,
@@ -96,8 +96,18 @@ function renderInput({
           onChange={(v) => onChange(v)}
         />
       );
+    case "select":
+      return (
+        <Input
+          kind="select"
+          {...common}
+          value={stringValue(field.value)}
+          onChange={(v) => onChange(v)}
+          options={field.options ?? []}
+        />
+      );
     default:
-      // text, select, unknown → plain text input
+      // text, unknown → plain text input
       return (
         <Input
           kind="text"

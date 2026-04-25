@@ -115,6 +115,20 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+    }
+  | {
+      readonly kind: "select";
+      readonly id: string;
+      readonly name: string;
+      readonly value: string;
+      readonly onChange: (v: string) => void;
+      /** Erlaubte Werte. Leeres Array → Dropdown ohne Optionen, ein
+       *  required Field ist dann nicht erfüllbar (Author-Hinweis, nicht
+       *  Endnutzer). */
+      readonly options: readonly string[];
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
     };
 
 export type DataTableProps = {

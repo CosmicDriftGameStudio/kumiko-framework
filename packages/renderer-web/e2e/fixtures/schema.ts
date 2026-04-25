@@ -17,6 +17,7 @@ export const thingEntity = {
     label: { type: "text", required: true, sortable: true },
     isDone: { type: "boolean", default: false },
     notes: { type: "text" },
+    status: { type: "select", options: ["draft", "active", "done"], default: "draft" },
   },
 } as unknown as EntityDefinition;
 
@@ -24,7 +25,7 @@ export const thingListScreen: EntityListScreenDefinition = {
   id: "thing-list",
   type: "entityList",
   entity: "thing",
-  columns: ["label", "isDone"],
+  columns: ["label", "isDone", "status"],
 };
 
 export const thingEditScreen: EntityEditScreenDefinition = {
@@ -36,7 +37,12 @@ export const thingEditScreen: EntityEditScreenDefinition = {
       {
         title: "Thing",
         columns: 2,
-        fields: [{ field: "label", span: 2 }, "isDone", { field: "notes", span: 2 }],
+        fields: [
+          { field: "label", span: 2 },
+          "isDone",
+          "status",
+          { field: "notes", span: 2 },
+        ],
       },
     ],
   },

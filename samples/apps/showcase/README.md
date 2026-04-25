@@ -41,12 +41,17 @@ Klick auf "Neuer Eintrag" → entityEdit-Screen.
 - **`priority`** als `number` Input, Default 1 (sieht "1" sofort im
   Feld)
 - **`isDone`** als checkbox
+- **`status`** als `<select>` mit 4 Optionen (draft/active/blocked/done),
+  Default "draft", full-width via `span: 2`
 - **Section "Details"** mit 1-Spalte-Layout
 - **`notes`** ist UNSICHTBAR — `visible: (d) => d.isDone === true`
 - **`dueDate`** als nativer date-Picker
 
 → Tick **`isDone`**: das `notes`-Feld erscheint mit Required-Marker.
 Beweist die FieldCondition-Pipeline.
+
+→ Wechsle den Status im Dropdown: Form-Controller markiert dirty,
+Submit-Button enabled.
 
 ### Validation + Submit-Button-States
 
@@ -110,10 +115,10 @@ LoginScreen.
 
 ## Was hier NICHT drin ist
 
-- `select`-Field-Type (DefaultInput hat noch keinen select-case)
-- `money`-Field-Type
-- `embedded`-Field-Type
-- `file/image`-Field-Types (S3-Setup nötig)
+- `timestamp`-Field-Type (Tier 2.2 pending)
+- `money`-Field-Type (Tier 2.3 pending)
+- `embedded`-Field-Type (Tier 2.4 pending — niedrige Prio)
+- `file/image`-Field-Types (Tier 2.5/2.5b pending — Resize-Pipeline + UI)
 - `WorkspaceShell` mit role-gating (siehe `samples/apps/workspaces/`)
 - TenantSwitcher mit mehreren Tenants (siehe `samples/apps/ui-walkthrough/`)
 - LanguageSwitcher (siehe `samples/apps/ui-walkthrough/`)
