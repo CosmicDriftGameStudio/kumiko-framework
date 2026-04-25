@@ -27,9 +27,9 @@ import { createConfigFeature } from "../../config/config-feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { tenantMembershipsTable } from "../membership-table";
+import { seedTenant, seedTenantMembership } from "../seeding";
 import { tenantEntity, tenantTable } from "../tenant-entity";
 import { createTenantFeature } from "../tenant-feature";
-import { seedTenant, seedTenantMembership } from "../seeding";
 
 let stack: TestStack;
 

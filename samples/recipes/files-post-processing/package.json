@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-files-post-processing",
+  "description": "Upload emits files:event:uploaded; a multiStreamProjection reacts async and writes a derivate — without ever passing the binary through an event payload.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

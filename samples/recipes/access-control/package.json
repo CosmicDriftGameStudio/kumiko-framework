@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-access-control",
+  "description": "Default-deny access rules, openToAll vs. role-based handlers, and auto-indices for foreign keys.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

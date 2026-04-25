@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-embedded",
+  "description": "Embedded fields on entities. Structured JSON without the JSON part.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

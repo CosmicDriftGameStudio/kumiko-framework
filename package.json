@@ -31,7 +31,9 @@
     "packages/dispatcher-live",
     "packages/renderer",
     "packages/renderer-web",
-    "samples/*",
+    "samples/recipes/*",
+    "samples/apps/*",
+    "samples/showcases/*",
     "app"
   ],
   "scripts": {

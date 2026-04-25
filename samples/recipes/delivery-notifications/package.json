@@ -1,0 +1,9 @@
+{
+  "name": "@kumiko/sample-delivery-notifications",
+  "description": "Delivery flows plus notifications. Package tracking, minus the tracking.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*",
+    "@kumiko/bundled-features": "workspace:*"
+  }
+}

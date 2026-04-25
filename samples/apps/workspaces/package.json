@@ -1,0 +1,17 @@
+{
+  "name": "@kumiko/sample-workspaces",
+  "description": "r.workspace() — persona-/role-scoped UI surfaces. Live demo with 3 workspaces and the WorkspaceShell switcher.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --env-file=../../.env run src/server.ts"
+  },
+  "dependencies": {
+    "@kumiko/dispatcher-live": "workspace:*",
+    "@kumiko/framework": "workspace:*",
+    "@kumiko/headless": "workspace:*",
+    "@kumiko/renderer-web": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}

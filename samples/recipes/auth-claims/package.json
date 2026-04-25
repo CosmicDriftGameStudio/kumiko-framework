@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-auth-claims",
+  "description": "r.authClaims() — features contribute identity facts into the JWT at login time with auto-prefixed keys.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

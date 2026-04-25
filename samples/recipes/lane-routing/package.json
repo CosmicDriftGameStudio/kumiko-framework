@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-lane-routing",
+  "description": "runIn lane-routing: r.job pinned to api/worker deploy-lanes, event-chain via ctx.appendEvent, verified end-to-end through createAllInOneEntrypoint.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

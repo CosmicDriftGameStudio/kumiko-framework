@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-money-shared",
+  "description": "Shared money fields across tenants. Commas still matter.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

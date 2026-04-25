@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-realtime-sse",
+  "description": "Server-sent events demo. Goodbye F5.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

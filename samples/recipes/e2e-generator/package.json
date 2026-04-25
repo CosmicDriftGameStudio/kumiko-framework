@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-e2e-generator",
+  "description": "generateE2ESpec + renderPlaywrightSpec — Registry → Playwright-Tests. Zeigt die 4 Test-Kinds, Feldtyp→Interaktion-Mapping und welche Feldtypen heute noch nicht generisch unterstützt sind.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

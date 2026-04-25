@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-i18n",
+  "description": "Feature-scoped translations. 'Hallo' and 'Hello' in the same app.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

@@ -18,7 +18,7 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      include: ["packages/framework/src/**", "samples/*/src/**"],
+      include: ["packages/framework/src/**", "samples/*/*/src/**"],
     },
   },
   // Cap worker threads to keep Load Avg reasonable on high-core machines.

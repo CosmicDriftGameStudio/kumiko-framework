@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-tenant-isolation",
+  "description": "Multi-tenant separation. Your data stays your data.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@kumiko/sample-session-revocation",
+  "description": "createSessionCallbacks + sessionChecker — server-side session revocation via JWT jti.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/bundled-features": "workspace:*",
+    "@kumiko/framework": "workspace:*"
+  }
+}

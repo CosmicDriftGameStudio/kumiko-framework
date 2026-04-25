@@ -1,0 +1,19 @@
+{
+  "name": "@kumiko/sample-ui-walkthrough",
+  "description": "Browser live-viewer for the ui-core logic layer. No renderer — raw inputs + a <pre> panel that shows form-state + view-model updating in real time as you type.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --env-file=../../.env run src/server.ts"
+  },
+  "dependencies": {
+    "@kumiko/bundled-features": "workspace:*",
+    "@kumiko/dispatcher-live": "workspace:*",
+    "@kumiko/framework": "workspace:*",
+    "@kumiko/headless": "workspace:*",
+    "@kumiko/renderer-web": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.3.6"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-money-tenant",
+  "description": "Tenant-scoped money fields. Commas matter.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

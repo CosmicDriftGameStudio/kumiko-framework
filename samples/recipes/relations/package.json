@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-relations",
+  "description": "belongsTo, hasMany, manyToMany — the good stuff.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

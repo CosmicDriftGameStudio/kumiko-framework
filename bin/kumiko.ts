@@ -161,10 +161,11 @@ const commands = {
         // eigenen Run — der webServer-Hook bootet den echten dev-
         // server pro Config. Docker muss laufen (Postgres + Redis wie
         // Integration-Tests). Packages zuerst (kleinerer Scope),
-        // dann Samples.
+        // dann Sample-Apps + Showcases.
         const { readdir } = await import("node:fs/promises");
         const targets: Array<{ root: string; name: string }> = [];
-        for (const root of ["packages", "samples"]) {
+        const roots = ["packages", "samples/apps", "samples/showcases"];
+        for (const root of roots) {
           const entries = await readdir(root, { withFileTypes: true });
           for (const entry of entries) {
             if (!entry.isDirectory()) continue;
@@ -174,7 +175,7 @@ const commands = {
         }
         if (targets.length === 0) {
           console.log(
-            "Keine E2E-Configs gefunden (packages/*/playwright.config.ts oder samples/*/playwright.config.ts).",
+            "Keine E2E-Configs gefunden (packages/*/playwright.config.ts oder samples/{apps,showcases}/*/playwright.config.ts).",
           );
           return;
         }

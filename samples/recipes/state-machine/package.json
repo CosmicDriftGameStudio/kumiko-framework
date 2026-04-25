@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-state-machine",
+  "description": "Enforced entity state transitions. No more illegal state changes.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

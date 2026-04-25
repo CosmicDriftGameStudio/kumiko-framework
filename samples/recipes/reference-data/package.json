@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-reference-data",
+  "description": "Upsert-based seeds. Lookup tables done right.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

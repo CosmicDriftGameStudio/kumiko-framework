@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-lifecycle-hooks",
+  "description": "preSave, postSave, and the rest. Your logic, our plumbing.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

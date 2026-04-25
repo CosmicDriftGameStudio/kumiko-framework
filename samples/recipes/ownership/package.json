@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-ownership",
+  "description": "Entity- and Field-level Row-Ownership: from() helper, Straddle-safe multi-role checks, Field-level Read/Write filtering.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

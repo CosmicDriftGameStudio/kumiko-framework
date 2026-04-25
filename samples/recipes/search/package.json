@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-search",
+  "description": "Tenant-scoped Meilisearch. Because ILIKE is not search.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

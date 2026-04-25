@@ -1,0 +1,8 @@
+{
+  "name": "@kumiko/sample-error-contract",
+  "description": "Typed errors on the wire. With snake_case reasons, because we care.",
+  "private": true,
+  "dependencies": {
+    "@kumiko/framework": "workspace:*"
+  }
+}

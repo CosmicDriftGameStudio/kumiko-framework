@@ -37,7 +37,7 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      include: ["packages/framework/src/**", "samples/*/src/**"],
+      include: ["packages/framework/src/**", "samples/*/*/src/**"],
     },
   },
   // Integration tests are DB-I/O-bound (Postgres + Redis + Meilisearch).
