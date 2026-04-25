@@ -1,0 +1,20 @@
+{
+  "name": "@kumiko/sample-showcase",
+  "description": "Kitchen-sink Sample-App — alle Field-Types, alle Primitive-States, alle Layout-Pfade in einer App. Optisch + funktionell durchklickbar.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --env-file=../../../.env run src/server.ts"
+  },
+  "dependencies": {
+    "@kumiko/bundled-features": "workspace:*",
+    "@kumiko/dev-server": "workspace:*",
+    "@kumiko/dispatcher-live": "workspace:*",
+    "@kumiko/framework": "workspace:*",
+    "@kumiko/headless": "workspace:*",
+    "@kumiko/renderer-web": "workspace:*",
+    "lucide-react": "^0.475.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}
