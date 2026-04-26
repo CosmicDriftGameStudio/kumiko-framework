@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "PORT=4174 bun --env-file=../../../.env run src/app/server.ts"
+    "dev": "PORT=4174 bun --env-file=../../../.env run kumiko-dev src/app/server.ts"
   },
   "dependencies": {
+    "@kumiko/dev-server": "workspace:*",
     "@kumiko/dispatcher-live": "workspace:*",
     "@kumiko/framework": "workspace:*",
     "@kumiko/headless": "workspace:*",
