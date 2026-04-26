@@ -39,6 +39,7 @@ export function defineTransitions<const TMap extends Record<string, readonly str
       return set ? ([...set] as TStates[]) : [];
     },
     assertTransition: (from, to) => {
+      // skip: erlaubter Übergang — kein Throw, fall through.
       if (internal.get(from)?.has(to) === true) return;
       const allowed = internal.get(from);
       const validTargets = allowed ? [...allowed].join(", ") : "none";

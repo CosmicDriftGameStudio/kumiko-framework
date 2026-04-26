@@ -56,11 +56,7 @@ export function failUnprocessable(
  *
  * `allowed` ist typisch `MAINTENANCE_TRANSITIONS.allowedFrom(from)`.
  */
-export function failTransition(
-  from: string,
-  to: string,
-  allowed: readonly string[],
-): WriteFailure {
+export function failTransition(from: string, to: string, allowed: readonly string[]): WriteFailure {
   return writeFailure(
     new UnprocessableError(FrameworkReasons.invalidTransition, {
       i18nKey: "errors.invalidTransition",

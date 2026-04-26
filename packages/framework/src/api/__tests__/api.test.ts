@@ -252,7 +252,6 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
     registry: routeRegistry,
     context: {},
     jwtSecret: JWT_SECRET,
-    anonymousAccess: { roles: ["Guest"] },
   });
 
   test("GET /version returnt deklarierten JSON-Response", async () => {

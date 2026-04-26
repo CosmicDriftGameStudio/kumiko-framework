@@ -29,7 +29,9 @@ const notAvailable = (what: string) => async (): Promise<never> => {
 // a valid Tracer shape. No allocations per call.
 const noopTracer = getFallbackTracer();
 
-export function bridgeStub(): Pick<
+export function bridgeStub(opts?: {
+  readonly user?: SessionUser;
+}): Pick<
   HandlerContext,
   | "query"
   | "queryAs"
@@ -49,8 +51,20 @@ export function bridgeStub(): Pick<
   | "metrics"
   | "tracer"
   | "tz"
+  | "user"
 > {
+  // ctx.user ist Convenience-Alias zu event.user (siehe HandlerContext-
+  // Doku). Caller-Code erwartet das Feld; bridgeStub liefert es als
+  // Stub mit den Anonymous-Default-Werten wenn kein User explizit
+  // übergeben wird. Test-Code mit Identity-Bezug übergibt seinen
+  // SessionUser hier und bekommt ihn am ctx zurück.
+  const stubUser: SessionUser = opts?.user ?? {
+    id: "00000000-0000-0000-0000-000000000000",
+    tenantId: "00000000-0000-0000-0000-000000000000" as SessionUser["tenantId"],
+    roles: ["all"],
+  };
   return {
+    user: stubUser,
     query: notAvailable("query") as HandlerContext["query"],
     queryAs: notAvailable("queryAs") as unknown as (
       user: SessionUser,
