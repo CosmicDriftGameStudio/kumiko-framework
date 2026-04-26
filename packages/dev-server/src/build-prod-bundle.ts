@@ -210,7 +210,10 @@ export function discoverHtmlTemplate(cwd: string): string | undefined {
 async function runTailwindOnce(entry: string): Promise<string> {
   const tmpDir = await mkdtemp(join(tmpdir(), "kumiko-build-tw-"));
   const outPath = join(tmpDir, "styles.css");
-  const proc = Bun.spawn(["bunx", "@tailwindcss/cli", "-i", entry, "-o", outPath], {
+  // --minify: Tailwind-CLI default ist NICHT minified. Symmetric zum
+  // Bun.build minify-Flag — sonst ist das CSS in dist/ ~30 % größer als
+  // nötig (Whitespace, Kommentare, Newlines).
+  const proc = Bun.spawn(["bunx", "@tailwindcss/cli", "-i", entry, "-o", outPath, "--minify"], {
     stdout: "inherit",
     stderr: "inherit",
   });
