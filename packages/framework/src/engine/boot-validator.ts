@@ -823,6 +823,7 @@ function validateScreens(
             ),
           );
         }
+        validateColumnRendererForm(feature.name, screenId, normalized);
       }
     } else {
       // Same rationale as the columns check: an entityEdit layout with zero
@@ -857,6 +858,45 @@ function validateScreens(
         }
       }
     }
+  }
+}
+
+// Form-check für ListColumn-Renderer in der PlatformComponent-Form
+// (`{ react: { __component: "Name" } }`). Der Server kennt die client-
+// seitige columnRenderers-Map nicht — also nur prüfen ob die Struktur
+// stimmt: wenn `react` als Object gesetzt ist, MUSS `__component` ein
+// nicht-leerer String sein. Ein client-seitig ausgelassener Key löst
+// nur eine Warnung aus, kein Boot-Fail.
+function validateColumnRendererForm(
+  featureName: string,
+  screenId: string,
+  column: { readonly field: string; readonly renderer?: unknown },
+): void {
+  const renderer = column.renderer;
+  // skip: nur die PlatformComponent-Form ({ react: { __component: "..." } })
+  // wird strukturell validiert. Funktions-, String-QN- und null/undefined-
+  // Renderer sind alle gültige andere Formen — kein Form-Fehler.
+  if (renderer === null || typeof renderer !== "object") return;
+  const react = (renderer as { react?: unknown }).react;
+  // skip: kein react-Branch → entweder native-only oder kein
+  // PlatformComponent — beides außerhalb dieses Checks.
+  if (react === undefined || react === null) return;
+  if (typeof react !== "object") {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" column "${column.field}" has a renderer with ` +
+        `a non-object \`react\` branch — expected \`{ react: { __component: "Name" } }\`.`,
+    );
+  }
+  const component = (react as { __component?: unknown }).__component;
+  // skip: ohne __component-Schlüssel ist das keine String-Key-Form
+  // (z.B. ein zukünftiger direkter Component-Ref); nicht unsere Domäne.
+  if (component === undefined) return;
+  if (typeof component !== "string" || component.length === 0) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" column "${column.field}" has a renderer with ` +
+        `\`react.__component\` = ${JSON.stringify(component)} — expected a non-empty string identifying ` +
+        `a client-side columnRenderers entry.`,
+    );
   }
 }
 

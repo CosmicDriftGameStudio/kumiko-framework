@@ -9,6 +9,7 @@ export const demosTranslations: TranslationsByLocale = {
     "screen:demo-buttons.title": "Buttons",
     "screen:demo-inputs.title": "Inputs",
     "screen:demo-banner.title": "Banner",
+    "screen:demo-dialog.title": "Dialog",
     "screen:demo-text.title": "Text",
   },
   en: {
@@ -16,6 +17,7 @@ export const demosTranslations: TranslationsByLocale = {
     "screen:demo-buttons.title": "Buttons",
     "screen:demo-inputs.title": "Inputs",
     "screen:demo-banner.title": "Banner",
+    "screen:demo-dialog.title": "Dialog",
     "screen:demo-text.title": "Text",
   },
 };

@@ -9,6 +9,13 @@
 // eigenen Bootstrap schreiben will. Normale Samples gehen über
 // @kumiko/renderer-web/createKumikoApp, das alle Provider verdrahtet.
 
+export type {
+  ColumnRendererComponent,
+  ColumnRendererProps,
+  ColumnRenderersMap,
+  ColumnRenderersProviderProps,
+} from "./app/column-renderers";
+export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-renderers";
 export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens";
 export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens";
 export type { AppSchema, FeatureSchema, WorkspaceSchema } from "./app/feature-schema";

@@ -5,9 +5,11 @@ import type {
   EntityListScreenDefinition,
 } from "@kumiko/framework/ui-types";
 import type { Dispatcher } from "@kumiko/headless";
-import type { FeatureSchema, NavApi } from "@kumiko/renderer";
+import type { ColumnRendererProps, FeatureSchema, NavApi } from "@kumiko/renderer";
 import { act, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test } from "vitest";
+import type { ClientFeatureDefinition } from "../app/client-plugin";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
 import { createMockDispatcher } from "./test-utils";
 
@@ -122,6 +124,56 @@ describe("createKumikoApp", () => {
     expect(() => createKumikoApp({ schema: empty, dispatcher: makeDispatcher() })).toThrow(
       /no screens/,
     );
+  });
+
+  test("clientFeatures.columnRenderers → __component-Renderer mounten echtes Component im DOM", async () => {
+    // Beweist die Verdrahtung end-to-end: ClientFeatureDefinition.columnRenderers
+    // → Provider in create-app → useColumnRenderer im DataTable-Cell → JSX
+    // landet im DOM. Schema deklariert die String-Form, Component lebt nur
+    // client-seitig.
+    function Swatch({ value, column }: ColumnRendererProps): ReactNode {
+      return (
+        <span data-testid="ca-swatch">
+          <span data-testid="ca-swatch-value">{String(value)}</span>
+          <span data-testid="ca-swatch-field">{column.field}</span>
+        </span>
+      );
+    }
+    const colorEntity = {
+      fields: { title: { type: "text" }, color: { type: "text" } },
+    } as unknown as EntityDefinition;
+    const colorListScreen: EntityListScreenDefinition = {
+      id: "color-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title", { field: "color", renderer: { react: { __component: "Swatch" } } }],
+    };
+    const colorSchema: FeatureSchema = {
+      featureName: "tasks",
+      entities: { task: colorEntity },
+      screens: [colorListScreen],
+    };
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [{ id: "r1", title: "Alpha", color: "#a1b2c3" }], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+    const clientFeature: ClientFeatureDefinition = {
+      name: "tasks",
+      columnRenderers: { Swatch },
+    };
+
+    mountRoot();
+    await mountApp({
+      schema: colorSchema,
+      dispatcher,
+      clientFeatures: [clientFeature],
+    });
+
+    expect(await screen.findByTestId("ca-swatch")).toBeTruthy();
+    expect(screen.getByTestId("ca-swatch-value").textContent).toBe("#a1b2c3");
+    expect(screen.getByTestId("ca-swatch-field").textContent).toBe("color");
   });
 
   test("navAdapter override: eigener Router steuert den aktiven Screen", async () => {

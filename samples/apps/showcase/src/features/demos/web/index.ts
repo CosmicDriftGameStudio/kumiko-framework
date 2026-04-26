@@ -7,6 +7,7 @@ import type { ClientFeatureDefinition } from "@kumiko/renderer-web";
 import { demosTranslations } from "../i18n";
 import { BannerDemo } from "./pages/banner";
 import { ButtonsDemo } from "./pages/buttons";
+import { DialogDemo } from "./pages/dialog";
 import { InputsDemo } from "./pages/inputs";
 import { LayoutDemo } from "./pages/layout";
 import { TextDemo } from "./pages/text";
@@ -19,6 +20,7 @@ export const demosClient: ClientFeatureDefinition = {
     "demo-buttons": ButtonsDemo,
     "demo-inputs": InputsDemo,
     "demo-banner": BannerDemo,
+    "demo-dialog": DialogDemo,
     "demo-text": TextDemo,
   },
 };

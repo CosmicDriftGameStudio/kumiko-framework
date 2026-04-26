@@ -59,6 +59,29 @@ import { ensureEntityTable } from "@kumiko/framework/testing";
 import Redis from "ioredis";
 import { ASSETS_DIR } from "./build-prod-bundle";
 
+/**
+ * Bun.serve-Options für Production.
+ *
+ * Spec: idleTimeout: 0 (= disabled). SSE-Streams werden via Heartbeat
+ * lebend gehalten (siehe SSE_HEARTBEAT_INTERVAL_MS in framework/api/
+ * sse-route.ts), kein Bun-side Idle-Cleanup nötig. Mit dem Default
+ * von 10 s killt Bun nach jedem Heartbeat-Gap die Connection mit
+ * halbem HTTP/2-RST_STREAM → Browser ERR_HTTP2_PROTOCOL_ERROR.
+ *
+ * Spec-Test in __tests__/run-prod-app-spec.test.ts pinst die 0 gegen
+ * "looks like a leak"-Reverts.
+ */
+export function buildBunServeOptions(
+  port: number,
+  fetchHandler: (req: Request) => Response | Promise<Response>,
+): {
+  readonly port: number;
+  readonly fetch: (req: Request) => Response | Promise<Response>;
+  readonly idleTimeout: number;
+} {
+  return { port, fetch: fetchHandler, idleTimeout: 0 };
+}
+
 // Strict env-var read. Throws with a clear hint when missing — better
 // than discovering a Postgres-connection-refused 30s into the boot.
 function requireEnv(name: string): string {
@@ -118,11 +141,14 @@ export type RunProdAppOptions = {
    *  Systems. Aufgerufen NACH /api/* + /health, VOR der static-fallback —
    *  perfekt für GET-Endpoints die kein JSON liefern: /feed.xml,
    *  /og-image, /sitemap.xml, /robots.txt-mit-Logik. Bekommt das raw
-   *  Hono-app + den AppContext (db/redis/registry/...) mit dem die
-   *  Route gegen die Domain queryen kann. */
+   *  Hono-app + die Connection-Deps (db/redis) zum Querying.
+   *
+   *  Naming: `deps` statt `ctx` weil im Framework `ctx` der HandlerContext
+   *  mit user/tenant/registry ist — hier ist der Scope absichtlich kleiner
+   *  (Routes laufen außerhalb der Auth/Tenant-Pipeline). */
   readonly extraRoutes?: (
     app: import("hono").Hono,
-    ctx: { db: import("@kumiko/framework/db").DbConnection; redis: import("ioredis").default },
+    deps: { db: import("@kumiko/framework/db").DbConnection; redis: import("ioredis").default },
   ) => void;
   /** When true (default), Bun.serve is started before runProdApp resolves —
    *  the common case: `await runProdApp({...})` boots the server and the
@@ -286,14 +312,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     listen: async (listenPort = port) => {
       // Bun.serve is the production HTTP. Tests don't call listen()
       // because vitest runs under Node where Bun.serve doesn't exist.
-      // idleTimeout: 0 disabled die default-10s Idle-Close — kritisch
-      // für SSE: ohne das beendet Bun ungenutzte Streams nach 10s mit
-      // einem halben HTTP/2-RST_STREAM, Browser sieht's als
-      // ERR_HTTP2_PROTOCOL_ERROR und reconnected im Loop. Lebende SSE-
-      // Connections halten sich ohnehin via Heartbeat-Frames (15s) ihre
-      // eigene Aktivität, normale HTTP-Requests sind kurzlebig — der
-      // Default-Schutz ist hier kontraproduktiv.
-      handle.server = Bun.serve({ port: listenPort, fetch: fetchHandler, idleTimeout: 0 });
+      // Options-Shape (inkl. idleTimeout: 0 für SSE) liegt in der
+      // exportierten buildBunServeOptions-Funktion — siehe ihren
+      // Header für die Begründung.
+      handle.server = Bun.serve(buildBunServeOptions(listenPort, fetchHandler));
 
       // SIGTERM/SIGINT — graceful shutdown. Only registered when we
       // actually own a Bun-server, otherwise the test process picks up
@@ -352,6 +374,61 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 //                             (Update-Detection-Mechanismen, müssen frisch sein)
 //   alles andere            → kein expliziter Header
 //                             (Browser-Default, public/-Files wie favicon)
+// File-reader für den static-fallback. Nutzt node:fs/promises statt
+// Bun.file damit der Pfad in vitest+node integration-tests laufen kann
+// (Bun.file ist Bun-only). Performance-cost ist marginal: die Disk-
+// Files in einem prod-staticDir sind 1-200 KB, full-buffer-Read ist
+// ein paar Mikrosekunden. Streaming via Bun.file wäre nur relevant ab
+// ~1 MB.
+async function readStaticFile(
+  filePath: string,
+): Promise<{ readonly bytes: Uint8Array; readonly mime: string } | undefined> {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const bytes = await readFile(filePath);
+    return { bytes, mime: mimeTypeFor(filePath) };
+  } catch (err) {
+    if ((err as { code?: string }).code === "ENOENT") return undefined;
+    throw err;
+  }
+}
+
+// Minimal-Mime-Map — deckt die Files ab die kumiko-build und typische
+// public/-Inhalte produzieren. Bun.file leitet das aus dem Suffix ab,
+// im node-Pfad müssen wir es selbst tun. Default: octet-stream (Browser
+// fragt bei unbekanntem MIME nach).
+function mimeTypeFor(filePath: string): string {
+  const ext = filePath.toLowerCase().split(".").pop() ?? "";
+  switch (ext) {
+    case "html":
+      return "text/html; charset=utf-8";
+    case "js":
+    case "mjs":
+      return "text/javascript; charset=utf-8";
+    case "css":
+      return "text/css; charset=utf-8";
+    case "json":
+      return "application/json; charset=utf-8";
+    case "svg":
+      return "image/svg+xml";
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "ico":
+      return "image/x-icon";
+    case "txt":
+      return "text/plain; charset=utf-8";
+    case "xml":
+      return "application/xml; charset=utf-8";
+    case "webmanifest":
+      return "application/manifest+json";
+    default:
+      return "application/octet-stream";
+  }
+}
+
 function buildStaticFallback(
   apiHandler: (req: Request) => Response | Promise<Response>,
   staticDir: string,
@@ -378,19 +455,19 @@ function buildStaticFallback(
     // Try the static file. Default route "/" → index.html.
     const relPath = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
     const filePath = `${staticDir}/${relPath}`;
-    const file = Bun.file(filePath);
-    if (await file.exists()) {
-      return new Response(file, {
-        headers: cacheHeadersFor(url.pathname),
+    const file = await readStaticFile(filePath);
+    if (file) {
+      return new Response(file.bytes, {
+        headers: { ...cacheHeadersFor(url.pathname), "content-type": file.mime },
       });
     }
 
     // Fallback to index.html for SPA-style routes that neither Hono
     // (oben schon getestet, gab 404) noch eine Disk-Datei beanspruchen.
-    const index = Bun.file(indexHtml);
-    if (await index.exists()) {
-      return new Response(index, {
-        headers: cacheHeadersFor("/index.html"),
+    const index = await readStaticFile(indexHtml);
+    if (index) {
+      return new Response(index.bytes, {
+        headers: { ...cacheHeadersFor("/index.html"), "content-type": index.mime },
       });
     }
 

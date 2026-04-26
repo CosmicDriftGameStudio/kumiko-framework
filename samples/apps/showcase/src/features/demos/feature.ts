@@ -18,6 +18,7 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
   r.screen({ id: "demo-buttons", type: "custom", renderer: {} });
   r.screen({ id: "demo-inputs", type: "custom", renderer: {} });
   r.screen({ id: "demo-banner", type: "custom", renderer: {} });
+  r.screen({ id: "demo-dialog", type: "custom", renderer: {} });
   r.screen({ id: "demo-text", type: "custom", renderer: {} });
 
   // Section "Primitives" — clickbar-collapsible weil parent ohne screen.
@@ -49,6 +50,13 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
     parent: "primitives",
     screen: "demo-banner",
     order: 30,
+  });
+  r.nav({
+    id: "demo-dialog",
+    label: "Dialog",
+    parent: "primitives",
+    screen: "demo-dialog",
+    order: 35,
   });
   r.nav({
     id: "demo-text",

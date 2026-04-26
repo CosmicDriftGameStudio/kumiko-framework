@@ -9,7 +9,7 @@
 // ganz außen gestackt, dann alle Gates nach innen. So hat jeder Gate
 // Zugriff auf jeden Provider, egal welches Feature ihn gebracht hat.
 
-import type { TranslationsByLocale } from "@kumiko/renderer";
+import type { ColumnRendererComponent, TranslationsByLocale } from "@kumiko/renderer";
 import type { ComponentType, ReactNode } from "react";
 
 export type ClientFeatureDefinition = {
@@ -37,6 +37,14 @@ export type ClientFeatureDefinition = {
    *  selbst routen. Convention: screenId entspricht dem `id` aus
    *  `r.screen({ id, type: "custom", ... })` im server-side Feature. */
   readonly components?: Readonly<Record<string, ComponentType>>;
+  /** Column-Renderer-Components — Map renderer-name → React-Component.
+   *  Schema deklariert eine Column mit
+   *  `renderer: { react: { __component: "ColorSwatch" } }`; client-side
+   *  zieht der DataTable-Cell-Renderer den Component hier raus.
+   *  Schemas bleiben so serializable (nur ein String-Key auf der Wire),
+   *  echte JSX-Renderer leben im Client-Bundle. Last-Wins bei Key-
+   *  Kollision über mehrere Features. */
+  readonly columnRenderers?: Readonly<Record<string, ColumnRendererComponent>>;
 };
 
 /** Wickelt einen ReactNode durch eine Liste von Providern/Gates von

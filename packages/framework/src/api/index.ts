@@ -27,5 +27,5 @@ export type { KumikoServer, ServerOptions } from "./server";
 export { buildServer } from "./server";
 export type { SseBroker, SseClient, SseEvent } from "./sse-broker";
 export { createSseBroker } from "./sse-broker";
-export { createSseRoute } from "./sse-route";
+export { createSseRoute, SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route";
 export { generateToken } from "./tokens";

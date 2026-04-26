@@ -21,6 +21,7 @@ import {
   type InputProps,
   type SectionProps,
   type TextProps,
+  useColumnRenderer,
   useTranslation,
 } from "@kumiko/renderer";
 import { cva } from "class-variance-authority";
@@ -342,7 +343,13 @@ function tableInner(
                 data-testid={`cell-${row.id}-${col.field}`}
                 className="p-4 align-middle"
               >
-                {renderCell(row.values[col.field], col.type, col.renderer)}
+                <DataTableCell
+                  value={row.values[col.field]}
+                  row={row.values}
+                  field={col.field}
+                  type={col.type}
+                  renderer={col.renderer}
+                />
               </td>
             ))}
           </tr>
@@ -352,14 +359,60 @@ function tableInner(
   );
 }
 
-function renderCell(value: unknown, type: string, renderer?: unknown): string {
+// Type-guard für die `{ react: { __component: "Name" } }`-Form, in der
+// PlatformComponent-Renderer im Schema serialisiert ankommen. Schemas
+// reisen über die Wire (Server → Client), echte Component-Refs würden
+// das brechen — der String-Key ist die SSoT.
+function isComponentRendererRef(renderer: unknown): { readonly name: string } | undefined {
+  if (renderer === null || typeof renderer !== "object") return undefined;
+  const reactBranch = (renderer as { react?: unknown }).react;
+  if (reactBranch === null || typeof reactBranch !== "object") return undefined;
+  const component = (reactBranch as { __component?: unknown }).__component;
+  if (typeof component !== "string" || component.length === 0) return undefined;
+  return { name: component };
+}
+
+function defaultCellRender(value: unknown, type: string): string {
+  if (value === null || value === undefined) return "";
+  if (type === "boolean") return value === true ? "✓" : "";
+  return typeof value === "string" ? value : String(value);
+}
+
+type DataTableCellProps = {
+  readonly value: unknown;
+  readonly row: Readonly<Record<string, unknown>>;
+  readonly field: string;
+  readonly type: string;
+  readonly renderer?: unknown;
+};
+
+// Cell-Renderer als Component (statt reiner Funktion) damit der
+// useColumnRenderer-Hook aus dem Provider lesen kann. Die drei Pfade
+// sind:
+//   1. Funktion → ruft fn(value) auf, returnt String. Bestand-Pfad,
+//      bleibt unverändert für alle bestehenden Schemas.
+//   2. PlatformComponent (`{ react: { __component: "X" } }`) → schaut
+//      "X" über useColumnRenderer auf und rendert `<X value row column/>`.
+//      Nicht registriert → einmalige Warnung + Default-Fallback.
+//   3. Sonst → defaultCellRender (Type-basierter String-Renderer).
+function DataTableCell({ value, row, field, type, renderer }: DataTableCellProps): ReactNode {
+  const componentRef = isComponentRendererRef(renderer);
+  const ResolvedComponent = useColumnRenderer(componentRef?.name ?? "");
   if (typeof renderer === "function") {
     const fn = renderer as (v: unknown) => string;
     return fn(value);
   }
-  if (value === null || value === undefined) return "";
-  if (type === "boolean") return value === true ? "✓" : "";
-  return typeof value === "string" ? value : String(value);
+  if (componentRef !== undefined) {
+    if (ResolvedComponent !== undefined) {
+      return <ResolvedComponent value={value} row={row} column={{ field }} />;
+    }
+    // Renderer im Schema referenziert, aber client-side keine Map-Eintrag —
+    // typischer Fall: clientFeatures.columnRenderers vergessen oder
+    // Tippfehler im __component-Key. Warnen statt crashen, damit ein
+    // Schema-Boot trotzdem funktioniert (Default-Type-Renderer übernimmt).
+    console.warn(`[kumiko] columnRenderer "${componentRef.name}" not registered`);
+  }
+  return defaultCellRender(value, type);
 }
 
 // ---- Form + Section + Grid + Text ----

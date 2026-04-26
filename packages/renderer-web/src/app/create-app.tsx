@@ -2,6 +2,8 @@ import { createLiveDispatcher } from "@kumiko/dispatcher-live";
 import type { Dispatcher, ListRowViewModel, LocaleResolver, Translate } from "@kumiko/headless";
 import {
   type AppSchema,
+  type ColumnRendererComponent,
+  ColumnRenderersProvider,
   CustomScreensProvider,
   DispatcherProvider,
   type FeatureSchema,
@@ -165,6 +167,22 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
   for (const f of clientFeatures) {
     if (f.components !== undefined) Object.assign(customScreens, f.components);
   }
+  // Column-Renderer-Map mergen — gleiche Last-Wins-Semantik wie bei
+  // customScreens. Doppelte Keys über Features sind selten gewollt;
+  // wir warnen einmalig pro Kollision damit das nicht stillschweigend
+  // den Renderer einer Library überschreibt.
+  const columnRenderers: Record<string, ColumnRendererComponent> = {};
+  for (const f of clientFeatures) {
+    if (f.columnRenderers === undefined) continue;
+    for (const [key, value] of Object.entries(f.columnRenderers)) {
+      if (columnRenderers[key] !== undefined) {
+        console.warn(
+          `[kumiko] columnRenderer "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
+        );
+      }
+      columnRenderers[key] = value;
+    }
+  }
 
   const resolver = options.locale ?? createBrowserLocaleResolver();
 
@@ -189,7 +207,9 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
           <DispatcherProvider dispatcher={dispatcher}>
             <LiveEventsProvider value={liveEvents}>
               <CustomScreensProvider value={customScreens}>
-                {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                <ColumnRenderersProvider value={columnRenderers}>
+                  {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                </ColumnRenderersProvider>
               </CustomScreensProvider>
             </LiveEventsProvider>
           </DispatcherProvider>

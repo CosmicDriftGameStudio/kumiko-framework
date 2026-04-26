@@ -5,6 +5,28 @@ import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
 import type { SseBroker } from "./sse-broker";
 
+/**
+ * Heartbeat-Cadence für SSE-Streams.
+ *
+ * Spec: muss UNTER jedem realistischen Idle-Timeout der Hop-by-Hop-Layer
+ * liegen, sonst killt einer davon die Connection und der Browser sieht
+ * ERR_HTTP2_PROTOCOL_ERROR. Bekannte Limits:
+ *   - Bun.serve default: 10 s (lokal disabled via idleTimeout: 0,
+ *     aber Spec-konform auch ohne Override)
+ *   - Caddy reverse_proxy: kein default-Timeout für SSE (auto-detect
+ *     via Content-Type), aber langlebige idle Streams können von
+ *     Connection-Tracking dichtgemacht werden
+ *   - Cloudflare Edge: 100 s
+ *   - AWS ALB: 60 s
+ *
+ * 15 s liegt komfortabel unter allen davon. Server-side Cost ist
+ * marginal (1 Frame pro Client alle 15 s).
+ *
+ * Spec-Test in __tests__/sse-route-spec.test.ts pinst diesen Wert
+ * gegen versehentliches Hochsetzen.
+ */
+export const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
+
 export function createSseRoute(broker: SseBroker) {
   const route = new Hono();
 
@@ -27,15 +49,11 @@ export function createSseRoute(broker: SseBroker) {
         broker.removeClient(channel, clientId);
       });
 
-      // Keep connection alive with heartbeat. 15s is conservative gegen
-      // intermediäre Idle-Timeouts: Bun.serve default ist 10s, viele
-      // Reverse-Proxies (Caddy/Nginx default) und CDN-Edges (Cloudflare:
-      // 100s, AWS-ALB: 60s) schließen lange ruhige Streams. Mit ping
-      // alle 15s bleibt jede Schicht happy. Server-side fast gratis
-      // (1 Frame pro Client alle 15s).
+      // Keep connection alive with heartbeat — siehe SSE_HEARTBEAT_INTERVAL_MS
+      // header für die Layer-für-Layer-Begründung der 15s-Cadence.
       while (true) {
         await stream.writeSSE({ event: "ping", data: "" });
-        await stream.sleep(15000);
+        await stream.sleep(SSE_HEARTBEAT_INTERVAL_MS);
       }
     });
   });

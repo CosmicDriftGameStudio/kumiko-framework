@@ -9,6 +9,9 @@
 // fetch direkt. Bun.serve-Wiring ist in Production-Coolify selbst
 // getestet wenn der Container hochfährt.
 
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   createBooleanField,
   createEntity,
@@ -20,6 +23,19 @@ import postgres from "postgres";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app";
+
+// tmp-Verzeichnisse pro Test, in afterEach geräumt. Tests die staticDir
+// brauchen registrieren ihren Pfad hier.
+const tempDirs: string[] = [];
+
+async function createTempStaticDir(files: Record<string, string>): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "kumiko-prod-static-"));
+  tempDirs.push(dir);
+  for (const [name, content] of Object.entries(files)) {
+    await writeFile(join(dir, name), content);
+  }
+  return dir;
+}
 
 const widgetEntity = createEntity({
   fields: {
@@ -67,6 +83,10 @@ afterEach(async () => {
     await handle.stop();
   }
   prodAppHandles = [];
+  for (const dir of tempDirs) {
+    await rm(dir, { recursive: true, force: true });
+  }
+  tempDirs.length = 0;
 });
 
 async function boot(
@@ -119,13 +139,13 @@ describe("runProdApp", () => {
     // ist das Fundament für /feed.xml, /sitemap.xml, /og-image etc.
     let extraInvoked = false;
     const handle = await boot(undefined, {
-      extraRoutes: (app, ctx) => {
+      extraRoutes: (app, deps) => {
         extraInvoked = true;
-        // ctx.db + ctx.redis sind die runProdApp-Connections — die
+        // deps.db + deps.redis sind die runProdApp-Connections — die
         // Route kann gegen die Domain queryen, hier reicht ein simple
         // Echo zum Beweis dass wir ans App-Object kommen.
         app.get("/feed.xml", (c) => {
-          const dbAvailable = ctx.db !== undefined;
+          const dbAvailable = deps.db !== undefined;
           return c.body(`<?xml version="1.0"?><probe ok="${dbAvailable}" />`, 200, {
             "content-type": "application/rss+xml",
           });
@@ -135,11 +155,73 @@ describe("runProdApp", () => {
 
     expect(extraInvoked).toBe(true);
 
-    const res = await handle.entrypoint.app.fetch(new Request("http://test/feed.xml"));
+    // handle.fetch durchläuft den static-fallback wrapper — dort liegt
+    // die "Hono-First, dann Disk"-Logik. entrypoint.app.fetch würde den
+    // wrapper umgehen und damit die regression nicht erkennen.
+    const res = await handle.fetch(new Request("http://test/feed.xml"));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/rss+xml");
     const body = await res.text();
     expect(body).toContain('<probe ok="true" />');
+  });
+
+  test("static-fallback: extraRoute beats Disk-File at colliding path (Hono-First)", async () => {
+    // Regression-Test für den static-fallback-Bug von Phase 2 Step 1:
+    // wenn ein extraRoute (z.B. /feed.xml) UND eine gleichnamige Disk-
+    // Datei in staticDir existieren, gewinnt der extraRoute. Sonst
+    // schluckt der SPA-Fallback unbekannte Pfade als index.html und
+    // der App-Author wundert sich warum sein /feed.xml nichts macht.
+    const tmpStaticDir = await createTempStaticDir({
+      "feed.xml": "<this-is-the-disk-version />",
+      "index.html": "<html>SPA shell</html>",
+    });
+
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      extraRoutes: (app) => {
+        app.get("/feed.xml", (c) =>
+          c.body("<this-is-the-hono-version />", 200, {
+            "content-type": "application/rss+xml",
+          }),
+        );
+      },
+    });
+
+    const res = await handle.fetch(new Request("http://test/feed.xml"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("<this-is-the-hono-version />");
+  });
+
+  test("static-fallback: Disk-File served when no extraRoute matches", async () => {
+    // Komplement-Test: ohne kollidierenden extraRoute liefert der
+    // static-fallback die Disk-Datei. Beweist dass der Hono-First-Pfad
+    // nicht versehentlich Static-Files schluckt.
+    const tmpStaticDir = await createTempStaticDir({
+      "robots.txt": "User-agent: *\nAllow: /",
+      "index.html": "<html>SPA shell</html>",
+    });
+
+    const handle = await boot(undefined, { staticDir: tmpStaticDir });
+
+    const res = await handle.fetch(new Request("http://test/robots.txt"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("User-agent: *");
+  });
+
+  test("static-fallback: unknown path → SPA-fallback to index.html", async () => {
+    // Path ohne extraRoute, ohne Disk-File, mit existierendem
+    // index.html → liefert die SPA-Shell. Standard-SPA-Routing-Pattern,
+    // aber wir wollen sicher sein dass der Hono-First-Refactor das
+    // nicht gebrochen hat.
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>SPA shell</html>",
+    });
+
+    const handle = await boot(undefined, { staticDir: tmpStaticDir });
+
+    const res = await handle.fetch(new Request("http://test/some/spa/route"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("SPA shell");
   });
 
   test("anonymousAccess flows from runProdApp through entrypoint into the auth-middleware", async () => {

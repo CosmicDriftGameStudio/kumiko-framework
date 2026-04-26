@@ -29,6 +29,7 @@ import {
   type TestStackOptions,
   TestUsers,
 } from "@kumiko/framework/testing";
+import { buildBunServeOptions } from "./run-prod-app";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
 // target runtime), but the test-suite runs under vitest on Node — we
@@ -105,10 +106,11 @@ export type CreateKumikoServerOptions = {
   /** Mount-Point für app-eigene HTTP-Routes außerhalb des Dispatcher-
    *  Systems — symmetrisch zum runProdApp.extraRoutes. Wird VOR der
    *  Static/HTML-Auslieferung aufgerufen, sodass eigene GETs (/feed.xml,
-   *  /og-image, …) Vorrang vor dem Dev-Asset-Pfad haben. */
+   *  /og-image, …) Vorrang vor dem Dev-Asset-Pfad haben. `deps` statt
+   *  `ctx` weil dies kein HandlerContext ist — kein user/tenant. */
   readonly extraRoutes?: (
     app: import("hono").Hono,
-    ctx: { db: TestStack["db"]; redis: TestStack["redis"] },
+    deps: { db: TestStack["db"]; redis: TestStack["redis"] },
   ) => void;
 };
 
@@ -592,16 +594,13 @@ export async function createKumikoServer(
   // Under Node/vitest we skip Bun.serve entirely — the handle's
   // .fetch() is the test surface. Real dev runs under Bun, where
   // Bun.serve wires the listener.
-  // idleTimeout: 0 deaktiviert Bun.serve's default 10s-Idle-Close —
-  // SSE-Connections wären sonst nach 10s mit halbem HTTP/2-RST_STREAM
-  // dichtgemacht (= ERR_HTTP2_PROTOCOL_ERROR im Browser → reconnect-loop).
-  // Dev-server ist symmetrisch zur Prod-Konfiguration in run-prod-app.ts.
+  // Bun.serve-Options kommen aus buildBunServeOptions (run-prod-app.ts)
+  // damit Dev und Prod genau dieselben SSE-relevanten Defaults nutzen
+  // (idleTimeout: 0). Spec-Test in run-prod-app-spec.test.ts pinst das.
   const server = hasBun
-    ? (globalThis as { Bun: { serve: (opts: unknown) => BunServer } }).Bun.serve({
-        port,
-        fetch: handleFetch,
-        idleTimeout: 0,
-      })
+    ? (globalThis as { Bun: { serve: (opts: unknown) => BunServer } }).Bun.serve(
+        buildBunServeOptions(port, handleFetch),
+      )
     : undefined;
 
   // --- file watcher → rebundle + reload ---
