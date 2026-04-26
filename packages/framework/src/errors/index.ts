@@ -29,6 +29,7 @@ export type { WriteErrorInfo, WriteFailure } from "./write-error-info";
 
 export {
   failNotFound,
+  failTransition,
   failUnprocessable,
   reraiseAsKumikoError,
   toWriteErrorInfo,

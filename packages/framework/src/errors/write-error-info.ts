@@ -1,5 +1,6 @@
 import { NotFoundError, UnprocessableError } from "./classes";
 import { KumikoError } from "./kumiko-error";
+import { FrameworkReasons } from "./reasons";
 
 // Plain, JSON-serializable snapshot of a KumikoError for use on the write-path
 // (WriteResult.error, BatchResult.error). The dispatcher stores results under
@@ -44,6 +45,35 @@ export function failUnprocessable(
   details?: Readonly<Record<string, unknown>>,
 ): WriteFailure {
   return writeFailure(new UnprocessableError(reason, details ? { details } : undefined));
+}
+
+/**
+ * Convenience für State-Transition-Rejects: produces a WriteFailure mit
+ * reason="invalid_transition" + strukturiertem `from`/`to`/`allowed`-
+ * Detail-Block + lesbarer message. Pattern hat sich in publicstatus-
+ * Maintenance + bestehenden state-machine-Helpers wiederholt — Helper
+ * sammelt das in einem Aufruf statt drei manuelle Detail-Felder.
+ *
+ * `allowed` ist typisch `MAINTENANCE_TRANSITIONS.allowedFrom(from)`.
+ */
+export function failTransition(
+  from: string,
+  to: string,
+  allowed: readonly string[],
+): WriteFailure {
+  return writeFailure(
+    new UnprocessableError(FrameworkReasons.invalidTransition, {
+      i18nKey: "errors.invalidTransition",
+      details: {
+        from,
+        to,
+        allowed,
+        message: `Invalid transition: "${from}" → "${to}". Allowed from "${from}": ${
+          allowed.length > 0 ? allowed.join(", ") : "none"
+        }`,
+      },
+    }),
+  );
 }
 
 export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
