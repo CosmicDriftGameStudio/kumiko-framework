@@ -1,4 +1,4 @@
-import { FrameworkReasons, UnprocessableError } from "../errors";
+import { buildInvalidTransitionDetails, FrameworkReasons, UnprocessableError } from "../errors";
 
 /**
  * Type-safe transition graph. Wraps the underlying Map so callers don't
@@ -39,18 +39,13 @@ export function defineTransitions<const TMap extends Record<string, readonly str
       return set ? ([...set] as TStates[]) : [];
     },
     assertTransition: (from, to) => {
+      const set = internal.get(from);
       // skip: erlaubter Übergang — kein Throw, fall through.
-      if (internal.get(from)?.has(to) === true) return;
-      const allowed = internal.get(from);
-      const validTargets = allowed ? [...allowed].join(", ") : "none";
+      if (set?.has(to) === true) return;
+      const allowed = set ? [...set] : [];
       throw new UnprocessableError(FrameworkReasons.invalidTransition, {
         i18nKey: "errors.invalidTransition",
-        details: {
-          from,
-          to,
-          validTargets,
-          message: `Invalid transition: "${from}" → "${to}". Allowed from "${from}": ${validTargets}`,
-        },
+        details: buildInvalidTransitionDetails(from, to, allowed),
       });
     },
   };

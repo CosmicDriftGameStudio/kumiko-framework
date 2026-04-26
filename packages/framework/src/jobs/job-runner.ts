@@ -292,11 +292,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       SYSTEM_TENANT_ID;
     const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null;
 
+    // _triggerName aus rawData übernehmen falls gesetzt — handleEvent
+    // packt das beim Multi-Trigger-Dispatch rein (siehe unten). Über
+    // jobContext.triggerName freigegeben damit der Handler nicht selbst
+    // im rohen Payload kramen muss.
+    const triggerName = rawData["_triggerName"] as string | undefined;
     const jobContext: AppContext = {
       ...context,
       systemUser: createSystemUser(tenantId),
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
       log: createJobLogger(logs),
+      ...(triggerName !== undefined && { triggerName }),
     };
 
     await options.onJobStart?.(jobName, jobId, meta);

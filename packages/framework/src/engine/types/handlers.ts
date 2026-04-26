@@ -277,6 +277,12 @@ export type AppContext = SharedContextFields & {
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
+  /** Bei Job-Handler-Aufrufen die aus einem Event-Trigger heraus laufen
+   *  (r.job mit `trigger: { on: ... }`): der Name des Handlers der das
+   *  Event ausgelöst hat. Bei Multi-Trigger-Jobs (`on: [...]`) ist das
+   *  die einzige Möglichkeit für den Handler zu wissen WELCHER Trigger
+   *  gefeuert hat. Cron- und manual-Jobs lassen das Feld undefined. */
+  readonly triggerName?: string;
   readonly _userId?: string | undefined;
   readonly _handlerType?: string | undefined;
 };

@@ -267,6 +267,53 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
     expect(body.hasApp).toBe(true);
   });
 
+  test("Handler kann via deps.app intern /api/query aufrufen (anonymous + defaultTenantId)", async () => {
+    // Realistischer Use-Case (publicstatus feed.xml): die r.httpRoute
+    // baut eine View aus internen /api/query-Daten. Anonymous-Access mit
+    // defaultTenantId macht den inner-Call ohne Bearer-Token möglich;
+    // pinst dass deps.app.fetch identisch zu einem echten HTTP-Call läuft.
+    const inner = defineFeature("inner", (r) => {
+      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      // Bewusst "anonymous" — openToAll schließt anonymous-User explizit
+      // aus (siehe access.ts), damit das Aktivieren von anonymousAccess
+      // nicht versehentlich jeden openToAll-Handler public macht.
+      r.queryHandler("item:list", z.object({}), async () => [{ id: 42, name: "hello" }], {
+        access: { roles: ["anonymous"] },
+      });
+      r.httpRoute({
+        method: "GET",
+        path: "/feed",
+        anonymous: true,
+        handler: async (c, deps) => {
+          const queryRes = await deps.app.fetch(
+            new Request(`${new URL(c.req.url).origin}/api/query`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "inner:query:item:list", payload: {} }),
+            }),
+          );
+          const body = (await queryRes.json()) as { data?: unknown };
+          return c.json({ status: queryRes.status, items: body.data });
+        },
+      });
+    });
+    const innerRegistry = createRegistry([inner]);
+    const { app: innerApp } = buildServer({
+      registry: innerRegistry,
+      context: {},
+      jwtSecret: JWT_SECRET,
+      anonymousAccess: {
+        defaultTenantId: "00000000-0000-4000-8000-000000000000" as TenantId,
+      },
+    });
+
+    const res = await innerApp.request("/feed");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: number; items: unknown };
+    expect(body.status).toBe(200);
+    expect(body.items).toEqual([{ id: 42, name: "hello" }]);
+  });
+
   test("Boot-Validator: Route auf /api/* ist verboten", () => {
     expect(() =>
       defineFeature("bad", (r) => {

@@ -1,6 +1,7 @@
 import { NotFoundError, UnprocessableError } from "./classes";
 import { KumikoError } from "./kumiko-error";
 import { FrameworkReasons } from "./reasons";
+import { buildInvalidTransitionDetails } from "./transition-details";
 
 // Plain, JSON-serializable snapshot of a KumikoError for use on the write-path
 // (WriteResult.error, BatchResult.error). The dispatcher stores results under
@@ -60,14 +61,7 @@ export function failTransition(from: string, to: string, allowed: readonly strin
   return writeFailure(
     new UnprocessableError(FrameworkReasons.invalidTransition, {
       i18nKey: "errors.invalidTransition",
-      details: {
-        from,
-        to,
-        allowed,
-        message: `Invalid transition: "${from}" → "${to}". Allowed from "${from}": ${
-          allowed.length > 0 ? allowed.join(", ") : "none"
-        }`,
-      },
+      details: buildInvalidTransitionDetails(from, to, allowed),
     }),
   );
 }

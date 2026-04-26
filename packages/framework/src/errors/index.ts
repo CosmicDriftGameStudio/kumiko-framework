@@ -23,8 +23,9 @@ export { isKumikoError, KumikoError } from "./kumiko-error";
 export type { FrameworkReason } from "./reasons";
 export { FrameworkReasons } from "./reasons";
 export type { ErrorLogEntry, ErrorResponseBody } from "./serialize";
-
 export { buildErrorLog, serializeError } from "./serialize";
+export type { InvalidTransitionDetails } from "./transition-details";
+export { buildInvalidTransitionDetails } from "./transition-details";
 export type { WriteErrorInfo, WriteFailure } from "./write-error-info";
 
 export {

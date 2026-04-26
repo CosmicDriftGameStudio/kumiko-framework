@@ -83,28 +83,52 @@ describe("assertTransition / guardTransition", () => {
         reason: "invalid_transition",
         from: "draft",
         to: "paid",
+        allowed: ["sent"],
       });
       expect((err.details as { message: string }).message).toContain('"draft" → "paid"');
     }
   });
 
-  test("error details: validTargets aus allowedFrom", () => {
+  test("error details: allowed-array aus der State-Machine", () => {
     try {
       transitions.assertTransition("sent", "draft");
     } catch (e) {
       expect((e as UnprocessableError).details).toMatchObject({
-        validTargets: "paid, cancelled",
+        allowed: ["paid", "cancelled"],
       });
     }
   });
 
-  test("rejects transition from unknown state mit validTargets='none'", () => {
+  test("rejects transition from unknown state mit allowed=[] (leeres Array)", () => {
     try {
       transitions.assertTransition("unknown" as "draft", "sent");
     } catch (e) {
       const err = e as UnprocessableError;
-      expect(err.details).toMatchObject({ from: "unknown", validTargets: "none" });
+      expect(err.details).toMatchObject({ from: "unknown", allowed: [] });
     }
+  });
+
+  test("identische details-shape zwischen assertTransition + failTransition", async () => {
+    // Beide Pfade müssen den gleichen Detail-Block bauen — Clients
+    // parsen den 422-Body uniform und dürfen kein "validTargets vs.
+    // allowed"-Branch fühlen.
+    const { failTransition } = await import("../../errors");
+    let assertDetails: Record<string, unknown> | undefined;
+    try {
+      transitions.assertTransition("draft", "paid");
+    } catch (e) {
+      assertDetails = (e as UnprocessableError).details as Record<string, unknown>;
+    }
+    const failResult = failTransition("draft", "paid", ["sent"]);
+    const failDetails = failResult.error.details as Record<string, unknown>;
+    // assertTransition wirft via UnprocessableError → details bekommt
+    // automatisch `reason` injiziert; failTransition geht denselben
+    // Pfad. Strukturelle Felder müssen 1:1 matchen.
+    expect(assertDetails?.["from"]).toEqual(failDetails["from"]);
+    expect(assertDetails?.["to"]).toEqual(failDetails["to"]);
+    expect(assertDetails?.["allowed"]).toEqual(failDetails["allowed"]);
+    expect(assertDetails?.["message"]).toEqual(failDetails["message"]);
+    expect(assertDetails?.["reason"]).toEqual(failDetails["reason"]);
   });
 
   test("rejects transition from terminal state", () => {
