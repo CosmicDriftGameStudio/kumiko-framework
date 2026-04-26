@@ -28,10 +28,10 @@ import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
 import { seedTenantMembership } from "../../tenant/testing";
 import { UserHandlers } from "../../user";
+import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/user-entity";
-import { createUserFeature } from "../../user/user-feature";
-import { createAuthEmailPasswordFeature } from "../auth-email-password-feature";
 import { AuthErrors, AuthHandlers } from "../constants";
+import { createAuthEmailPasswordFeature } from "../feature";
 import { getLockoutState, type LockoutState } from "../lockout-store";
 import { hashPassword } from "../password-hashing";
 

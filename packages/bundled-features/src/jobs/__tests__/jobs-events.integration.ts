@@ -19,6 +19,7 @@ import {
 } from "@kumiko/framework/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { createJobsFeature } from "../feature";
 import {
   createJobRunLogger,
   JOB_RUN_COMPLETED_EVENT,
@@ -26,7 +27,6 @@ import {
   JOB_RUN_STARTED_EVENT,
 } from "../job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
-import { createJobsFeature } from "../jobs-feature";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "../jobs-feature-schemas";
 
 let testDb: TestDb;

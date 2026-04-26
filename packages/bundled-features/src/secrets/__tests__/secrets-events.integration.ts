@@ -16,12 +16,12 @@ import {
 } from "@kumiko/framework/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { createSecretsFeature } from "../feature";
 import {
   createSecretsContext,
   secretReadSchema,
   TENANT_SECRET_READ_EVENT,
 } from "../secrets-context";
-import { createSecretsFeature } from "../secrets-feature";
 import { tenantSecretsTable } from "../table";
 
 const admin = createTestUser({

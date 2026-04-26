@@ -19,10 +19,10 @@ import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
+import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/user-entity";
-import { createUserFeature } from "../../user/user-feature";
-import { createAuthEmailPasswordFeature } from "../auth-email-password-feature";
 import { AuthHandlers } from "../constants";
+import { createAuthEmailPasswordFeature } from "../feature";
 
 let stack: TestStack;
 const encryptionKey = randomBytes(32).toString("base64");

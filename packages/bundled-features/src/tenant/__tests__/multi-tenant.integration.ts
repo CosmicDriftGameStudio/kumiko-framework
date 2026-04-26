@@ -23,13 +23,13 @@ import {
 } from "@kumiko/framework/testing";
 import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { createConfigFeature } from "../../config/config-feature";
+import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { TenantHandlers, TenantQueries } from "../constants";
+import { createTenantFeature } from "../feature";
 import { tenantMembershipsTable } from "../membership-table";
 import { tenantEntity } from "../tenant-entity";
-import { createTenantFeature } from "../tenant-feature";
 
 // --- Track job executions ---
 

@@ -6,12 +6,12 @@ export {
   SessionHandlers,
   SessionQueries,
 } from "./constants";
+export type { SessionsFeatureOptions } from "./feature";
+export { createSessionsFeature } from "./feature";
 export type {
   SessionCallbacks,
   SessionCallbacksOptions,
   SessionMassRevoker,
 } from "./session-callbacks";
 export { createSessionCallbacks } from "./session-callbacks";
-export type { SessionsFeatureOptions } from "./sessions-feature";
-export { createSessionsFeature } from "./sessions-feature";
 export { userSessionEntity, userSessionTable } from "./user-session-entity";

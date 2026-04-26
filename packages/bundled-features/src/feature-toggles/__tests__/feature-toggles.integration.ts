@@ -29,7 +29,7 @@ import { Temporal } from "temporal-polyfill";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { FEATURE_TOGGLE_SET_EVENT_NAME } from "../constants";
-import { createFeatureTogglesFeature } from "../feature-toggles-feature";
+import { createFeatureTogglesFeature } from "../feature";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 

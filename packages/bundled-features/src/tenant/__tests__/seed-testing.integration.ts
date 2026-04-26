@@ -23,13 +23,13 @@ import {
 } from "@kumiko/framework/testing";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { createConfigFeature } from "../../config/config-feature";
+import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createTenantFeature } from "../feature";
 import { tenantMembershipsTable } from "../membership-table";
 import { seedTenant, seedTenantMembership } from "../seeding";
 import { tenantEntity, tenantTable } from "../tenant-entity";
-import { createTenantFeature } from "../tenant-feature";
 
 let stack: TestStack;
 

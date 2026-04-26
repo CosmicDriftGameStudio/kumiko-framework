@@ -8,8 +8,8 @@ import {
 } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
+import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../user-entity";
-import { createUserFeature } from "../user-feature";
 
 let stack: TestStack;
 

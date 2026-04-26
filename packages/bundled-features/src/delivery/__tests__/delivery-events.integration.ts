@@ -18,16 +18,16 @@ import {
 } from "@kumiko/framework/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { createChannelInAppFeature } from "../../channel-in-app/channel-in-app-feature";
+import { createChannelInAppFeature } from "../../channel-in-app/feature";
 import { inAppMessagesTable } from "../../channel-in-app/tables";
 import { createConfigFeature, createConfigResolver } from "../../config";
 import { configValuesTable } from "../../config/table";
 import { createTenantFeature, tenantEntity } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { DELIVERY_ATTEMPT_EVENT } from "../constants";
-import { createDeliveryFeature } from "../delivery-feature";
 import { deliveryAttemptSchema } from "../delivery-feature-schemas";
 import { collectChannels, createDeliveryService } from "../delivery-service";
+import { createDeliveryFeature } from "../feature";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
 import type { DeliveryService } from "../types";
 

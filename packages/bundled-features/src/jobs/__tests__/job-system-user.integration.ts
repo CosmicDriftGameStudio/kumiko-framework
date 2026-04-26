@@ -21,8 +21,8 @@ import {
   TestUsers,
 } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { createConfigAccessor, createConfigFeature } from "../../config/config-feature";
 import { ConfigHandlers } from "../../config/constants";
+import { createConfigAccessor, createConfigFeature } from "../../config/feature";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 

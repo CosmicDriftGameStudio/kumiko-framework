@@ -1,6 +1,6 @@
 import { defineWriteHandler } from "@kumiko/framework/engine";
 import { z } from "zod";
-import { requireSecretsContext } from "../secrets-feature";
+import { requireSecretsContext } from "../feature";
 
 export const setWrite = defineWriteHandler({
   name: "set",

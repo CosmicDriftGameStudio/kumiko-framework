@@ -16,9 +16,9 @@ import {
 import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { JobHandlers, JobQueries } from "../constants";
+import { createJobsFeature } from "../feature";
 import { createJobRunLogger } from "../job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
-import { createJobsFeature } from "../jobs-feature";
 
 // --- Setup ---
 

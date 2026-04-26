@@ -1,2 +1,2 @@
-export { createRendererSimpleFeature } from "./renderer-simple-feature";
+export { createRendererSimpleFeature } from "./feature";
 export { simpleRenderer } from "./simple-renderer";

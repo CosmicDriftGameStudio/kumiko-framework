@@ -17,8 +17,8 @@ import { ConfigHandlers, ConfigQueries } from "../../config/constants";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { TenantHandlers, TenantQueries } from "../constants";
+import { createTenantFeature } from "../feature";
 import { tenantEntity } from "../tenant-entity";
-import { createTenantFeature } from "../tenant-feature";
 
 // --- Setup ---
 

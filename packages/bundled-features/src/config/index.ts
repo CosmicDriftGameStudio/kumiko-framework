@@ -1,9 +1,9 @@
-export type { ConfigContext } from "./config-feature";
+export type { ConfigContext } from "./feature";
 export {
   createConfigAccessor,
   createConfigAccessorFactory,
   createConfigFeature,
-} from "./config-feature";
+} from "./feature";
 export type { AppConfigOverrides, ConfigResolver } from "./resolver";
 export { createConfigResolver, validateAppOverrides } from "./resolver";
 export { configValuesTable } from "./table";

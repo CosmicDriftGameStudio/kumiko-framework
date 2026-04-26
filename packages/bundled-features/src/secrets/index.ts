@@ -1,9 +1,4 @@
 export {
-  type RotateJobPayload,
-  type RotateJobResult,
-  rotateJob,
-} from "./handlers/rotate.job";
-export {
   createSecretsContext,
   createSecretsFeature,
   requireSecretsContext,
@@ -13,4 +8,9 @@ export {
   type StoredMetadata,
   TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
-} from "./secrets-feature";
+} from "./feature";
+export {
+  type RotateJobPayload,
+  type RotateJobResult,
+  rotateJob,
+} from "./handlers/rotate.job";

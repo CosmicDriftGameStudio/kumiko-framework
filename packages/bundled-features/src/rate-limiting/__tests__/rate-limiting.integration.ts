@@ -9,7 +9,7 @@ import { defineFeature } from "@kumiko/framework/engine";
 import { setupTestStack, type TestStack, TestUsers } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { createRateLimitingFeature } from "../rate-limiting-feature";
+import { createRateLimitingFeature } from "../feature";
 
 let stack: TestStack;
 const admin = TestUsers.admin;

@@ -18,9 +18,9 @@ import {
 } from "@kumiko/framework/testing";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { createSecretsFeature } from "../feature";
 import { rotateJob } from "../handlers/rotate.job";
 import { createSecretsContext } from "../secrets-context";
-import { createSecretsFeature } from "../secrets-feature";
 import { tenantSecretsTable } from "../table";
 
 const admin = createTestUser({

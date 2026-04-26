@@ -6,7 +6,6 @@ export {
   DeliveryQueries,
   DeliveryStatus,
 } from "./constants";
-export { createDeliveryFeature } from "./delivery-feature";
 export {
   collectChannels,
   collectRenderers,
@@ -15,6 +14,7 @@ export {
   type KillSwitchResolver,
   type RateLimitConfig,
 } from "./delivery-service";
+export { createDeliveryFeature } from "./feature";
 export { deliveryAttemptsTable, notificationPreferencesTable } from "./tables";
 export { type CreateDeliveryTestContextOptions, createDeliveryTestContext } from "./testing";
 export type {

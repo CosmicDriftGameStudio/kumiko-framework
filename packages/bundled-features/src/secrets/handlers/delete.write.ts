@@ -1,7 +1,7 @@
 import { defineWriteHandler } from "@kumiko/framework/engine";
 import { failNotFound } from "@kumiko/framework/errors";
 import { z } from "zod";
-import { requireSecretsContext } from "../secrets-feature";
+import { requireSecretsContext } from "../feature";
 
 export const deleteWrite = defineWriteHandler({
   name: "delete",

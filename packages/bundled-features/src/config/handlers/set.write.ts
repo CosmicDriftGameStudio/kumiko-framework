@@ -2,7 +2,7 @@ import { createEventStoreExecutor } from "@kumiko/framework/db";
 import { ConfigScopes, defineWriteHandler } from "@kumiko/framework/engine";
 import { writeFailure } from "@kumiko/framework/errors";
 import { z } from "zod";
-import { requireConfigEncryption } from "../config-feature";
+import { requireConfigEncryption } from "../feature";
 import { configValueEntity, configValuesTable } from "../table";
 import {
   findConfigRow,

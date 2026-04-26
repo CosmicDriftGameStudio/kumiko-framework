@@ -19,12 +19,8 @@ import {
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
-import {
-  createConfigAccessor,
-  createConfigAccessorFactory,
-  createConfigFeature,
-} from "../config-feature";
 import { ConfigHandlers, ConfigQueries } from "../constants";
+import { createConfigAccessor, createConfigAccessorFactory, createConfigFeature } from "../feature";
 import { type ConfigResolver, createConfigResolver, validateAppOverrides } from "../resolver";
 import { configValuesTable } from "../table";
 

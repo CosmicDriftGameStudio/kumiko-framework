@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user";
-import { createAuthEmailPasswordFeature } from "../auth-email-password-feature";
+import { createAuthEmailPasswordFeature } from "../feature";
 
 let stack: TestStack;
 const TENANT: TenantId = testTenantId(1);

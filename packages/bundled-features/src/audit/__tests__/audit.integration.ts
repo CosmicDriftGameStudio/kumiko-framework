@@ -20,8 +20,8 @@ import {
 } from "@kumiko/framework/testing";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { createAuditFeature } from "../audit-feature";
 import { AuditQueries } from "../constants";
+import { createAuditFeature } from "../feature";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",

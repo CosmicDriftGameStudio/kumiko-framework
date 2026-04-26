@@ -16,12 +16,12 @@ import {
 } from "@kumiko/framework/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { createConfigFeature } from "../../config/config-feature";
+import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createUserFeature } from "../feature";
 import { seedUser } from "../seeding";
 import { userEntity, userTable } from "../user-entity";
-import { createUserFeature } from "../user-feature";
 
 let stack: TestStack;
 

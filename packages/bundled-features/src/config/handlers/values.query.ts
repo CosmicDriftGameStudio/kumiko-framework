@@ -1,6 +1,6 @@
 import { type ConfigScope, defineQueryHandler } from "@kumiko/framework/engine";
 import { z } from "zod";
-import { requireConfigResolver } from "../config-feature";
+import { requireConfigResolver } from "../feature";
 import { deserializeValue } from "../resolver";
 import { hasConfigAccess } from "../write-helpers";
 

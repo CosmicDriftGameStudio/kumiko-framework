@@ -10,8 +10,8 @@ import {
   testTenantId,
 } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/auth-email-password-feature";
 import { AuthHandlers } from "../../auth-email-password/constants";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -19,10 +19,10 @@ import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/tenant-entity";
 import { UserHandlers } from "../../user";
+import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/user-entity";
-import { createUserFeature } from "../../user/user-feature";
+import { createSessionsFeature } from "../feature";
 import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
-import { createSessionsFeature } from "../sessions-feature";
 import { sessionCallbacksFromLateBound } from "../testing";
 import { userSessionEntity, userSessionTable } from "../user-session-entity";
 import { makeSessionHelpers } from "./test-helpers";

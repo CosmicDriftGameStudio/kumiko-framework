@@ -20,14 +20,14 @@ import {
 } from "@kumiko/framework/testing";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { createConfigFeature } from "../../config/config-feature";
+import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createTenantFeature } from "../../tenant/feature";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity, tenantTable } from "../../tenant/tenant-entity";
-import { createTenantFeature } from "../../tenant/tenant-feature";
+import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/user-entity";
-import { createUserFeature } from "../../user/user-feature";
 import { verifyPassword } from "../password-hashing";
 import { seedAdmin } from "../testing";
 

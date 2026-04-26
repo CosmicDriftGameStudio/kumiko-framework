@@ -6,4 +6,4 @@ export {
   type FeatureTogglesOptions,
   GlobalFeatureToggleRuntime,
   globalFeatureStateTable,
-} from "./feature-toggles-feature";
+} from "./feature";

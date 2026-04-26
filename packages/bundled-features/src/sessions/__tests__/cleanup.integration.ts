@@ -13,8 +13,8 @@ import {
 } from "@kumiko/framework/testing";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { createSessionsFeature } from "../feature";
 import { cleanupJob } from "../handlers/cleanup.job";
-import { createSessionsFeature } from "../sessions-feature";
 import { userSessionEntity, userSessionTable } from "../user-session-entity";
 
 type Log = NonNullable<AppContext["log"]>;
