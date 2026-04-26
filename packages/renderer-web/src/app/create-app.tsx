@@ -176,6 +176,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
     if (f.columnRenderers === undefined) continue;
     for (const [key, value] of Object.entries(f.columnRenderers)) {
       if (columnRenderers[key] !== undefined) {
+        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
         console.warn(
           `[kumiko] columnRenderer "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
         );
