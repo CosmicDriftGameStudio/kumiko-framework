@@ -6,10 +6,10 @@
 
 import type { TranslationsByLocale } from "@kumiko/renderer";
 import type { ComponentType, ReactNode } from "react";
+import { defaultTranslations, mergeTranslations } from "../i18n";
 import { makeAuthGate } from "./auth-gate";
 import type { LoginScreenProps } from "./login-screen";
 import { SessionProvider } from "./session";
-import { defaultTranslations, mergeTranslations } from "./translations";
 
 export type EmailPasswordClientOptions = {
   /** Eigener Login-Screen. Default: der shadcn-stylte LoginScreen

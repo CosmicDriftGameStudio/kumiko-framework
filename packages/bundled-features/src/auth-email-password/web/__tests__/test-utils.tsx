@@ -9,9 +9,9 @@ import { createStaticLocaleResolver, LocaleProvider } from "@kumiko/renderer";
 import { render as _render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { vi } from "vitest";
+import { defaultTranslations } from "../../i18n";
 import type { SessionApi, SessionState } from "../session";
 import { SessionContext } from "../session";
-import { defaultTranslations } from "../translations";
 
 export type MakeSessionApiOptions = Partial<SessionState> & {
   readonly login?: SessionApi["login"];
