@@ -11,6 +11,7 @@ import { RenderList } from "../components/render-list";
 import { useDispatcher } from "../context/dispatcher-context";
 import { useQuery } from "../hooks/use-query";
 import { usePrimitives } from "../primitives";
+import { useCustomScreenComponent } from "./custom-screens";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
 
@@ -90,15 +91,27 @@ export function KumikoScreen({
         />
       );
     case "custom":
-      // Custom screens need the feature-supplied component — that's
-      // M4's r.uiComponent territory. Render a placeholder so the app
-      // doesn't silently go blank.
-      return (
-        <Banner padded variant="info" testId="kumiko-screen-custom-placeholder">
-          Custom screens not yet wired (M4 — r.uiComponent)
-        </Banner>
-      );
+      return <CustomScreenBody screenId={screen.id} />;
   }
+}
+
+// Lookup-Body für custom-screens: schaut die Component aus dem
+// CustomScreens-Context (gefüttert von clientFeatures.components in
+// createKumikoApp). Wenn weder Provider gemounted noch screenId
+// registriert ist, fällt es auf einen Banner zurück — Apps die das
+// sehen wissen sofort: "Component fehlt im clientFeatures.components".
+function CustomScreenBody({ screenId }: { readonly screenId: string }): ReactNode {
+  const { Banner, Text } = usePrimitives();
+  const Component = useCustomScreenComponent(screenId);
+  if (Component === undefined) {
+    return (
+      <Banner padded variant="info" testId="kumiko-screen-custom-placeholder">
+        Custom screen <Text variant="code">{screenId}</Text> hat keine Component im{" "}
+        <Text variant="code">clientFeatures.components</Text>.
+      </Banner>
+    );
+  }
+  return <Component />;
 }
 
 // ---- entity-edit ----

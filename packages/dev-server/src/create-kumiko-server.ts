@@ -15,7 +15,7 @@
 // with a different options shape (clientDist, auth config, db url).
 
 import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, statSync } from "node:fs";
 import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -221,6 +221,41 @@ async function watchDir(dir: string, onChange: (filename: string) => void): Prom
   for await (const ev of watcher) {
     if (ev.filename) onChange(ev.filename);
   }
+}
+
+// Expandiert watchDirs-Patterns auf konkrete Verzeichnisse. Ein Eintrag
+// ohne `*` wird als gewöhnlicher Pfad resolved; mit `*` wird er per
+// glob expanded und alle Treffer die Verzeichnisse sind übernommen.
+// Erlaubt z.B. `"../../../packages/*/src"` statt vier hart-kodierte
+// Pfade. Glob ist sync — wird einmal beim Boot ausgewertet, nicht
+// während der Watcher läuft.
+function expandWatchPatterns(patterns: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const p of patterns) {
+    if (!p.includes("*")) {
+      out.push(resolve(p));
+      continue;
+    }
+    const glob = new (
+      globalThis as {
+        Bun?: {
+          Glob: new (
+            p: string,
+          ) => { scanSync: (opts: { onlyFiles: false; cwd: string }) => Iterable<string> };
+        };
+      }
+    ).Bun!.Glob(p);
+    const matches = Array.from(glob.scanSync({ onlyFiles: false, cwd: process.cwd() }));
+    for (const m of matches) {
+      const abs = resolve(m);
+      try {
+        if (statSync(abs).isDirectory()) out.push(abs);
+      } catch {
+        // ignore unreadable matches — typisch defekte Symlinks
+      }
+    }
+  }
+  return out;
 }
 
 // Resolve den Pfad zur Tailwind-Entry-CSS. Drei Fälle:
@@ -546,7 +581,7 @@ export async function createKumikoServer(
   if (options.clientEntry !== undefined) {
     const entry = resolve(options.clientEntry);
     const entryDir = resolve(entry, "..");
-    const dirs = [entryDir, ...(options.watchDirs ?? []).map((d) => resolve(d))];
+    const dirs = [entryDir, ...expandWatchPatterns(options.watchDirs ?? [])];
     for (const dir of dirs) {
       void watchDir(dir, async (filename) => {
         // skip: nur TS-Änderungen triggern ein Rebuild — CSS/HTML fließen

@@ -131,41 +131,42 @@ function NavNodeItem({ node, depth, collapsed, onToggle }: NavNodeItemProps): Re
         ))
       : null;
 
-  // Variante 1: Node hat einen Screen → KumikoLink. Chevron sitzt rechts
-  // neben dem Link-Inhalt im selben h-7-Container.
+  // Variante 1: Node hat einen Screen → KumikoLink. Wenn das Item auch
+  // children hat, sitzt der Chevron als Geschwister rechts NEBEN dem
+  // Link (nicht IM Link) — sonst würde ein <button> im <a> für invalid
+  // HTML sorgen. Wrapper-Div bekommt das hover/active-Styling, Link
+  // selbst ist nur die Klick-Fläche.
   if (node.screen !== undefined) {
     const screenId = lastSegment(node.screen);
+    const rowClass = cn(
+      "flex h-7 items-center gap-2 rounded-md text-sm transition-colors",
+      "hover:bg-accent hover:text-accent-foreground",
+      active
+        ? "bg-accent text-accent-foreground font-medium"
+        : "text-muted-foreground hover:text-accent-foreground",
+    );
     return (
       <>
-        <KumikoLink
-          to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
-          style={indent}
-          className={cn(
-            // Linear-style: kompakte Zeilen (h-7), aktiv = bg-accent +
-            // foreground-Color, inaktiv = subtler muted-Text der bei
-            // Hover scharf wird.
-            "flex h-7 items-center gap-2 rounded-md px-2 text-sm transition-colors",
-            "hover:bg-accent hover:text-accent-foreground",
-            active
-              ? "bg-accent text-accent-foreground font-medium"
-              : "text-muted-foreground hover:text-accent-foreground",
-          )}
-          {...(active && { "aria-current": "page" })}
-        >
-          {/* Icon-Slot (heute small dot) — sobald NavDefinition.icon
-              ein lookup-fähiger Schlüssel ist, wird hier ein lucide-
-              Icon gerendert. Behält die Vertikal-Achse aligned auch
-              ohne Icon. */}
-          <span
-            aria-hidden="true"
+        <div style={indent} className={rowClass}>
+          <KumikoLink
+            to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
             className={cn(
-              "inline-block size-1.5 rounded-full",
-              active ? "bg-accent-foreground" : "bg-muted-foreground/40",
+              "flex flex-1 min-w-0 items-center gap-2 px-2 h-full",
+              hasChildren && "pr-0",
             )}
-          />
-          <span className="truncate">{displayLabel}</span>
-          {chevron}
-        </KumikoLink>
+            {...(active && { "aria-current": "page" })}
+          >
+            <span
+              aria-hidden="true"
+              className={cn(
+                "inline-block size-1.5 rounded-full",
+                active ? "bg-accent-foreground" : "bg-muted-foreground/40",
+              )}
+            />
+            <span className="truncate">{displayLabel}</span>
+          </KumikoLink>
+          {chevron !== null && <div className="pr-2">{chevron}</div>}
+        </div>
         {children}
       </>
     );
@@ -173,7 +174,14 @@ function NavNodeItem({ node, depth, collapsed, onToggle }: NavNodeItemProps): Re
 
   // Variante 2: Node ist ein Section-Header (kein Screen). Mit children
   // wird das Label zum Toggle-Button — Click klappt die ganze Section
-  // auf/zu. Ohne children rendert ein dezenter Section-Header (uppercase).
+  // auf/zu. Chevron rendert hier als Span (kein nested button), weil
+  // der äußere Button schon das Toggle-Target ist. Ohne children
+  // rendert ein dezenter Section-Header (uppercase).
+  const chevronSpan = hasChildren ? (
+    <span aria-hidden="true" className="ml-auto flex size-4 items-center justify-center">
+      {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
+    </span>
+  ) : null;
   return (
     <>
       {hasChildren ? (
@@ -185,7 +193,7 @@ function NavNodeItem({ node, depth, collapsed, onToggle }: NavNodeItemProps): Re
           className="flex h-7 items-center gap-2 rounded-md px-2 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 hover:text-foreground transition-colors text-left"
         >
           <span className="truncate">{displayLabel}</span>
-          {chevron}
+          {chevronSpan}
         </button>
       ) : (
         <div

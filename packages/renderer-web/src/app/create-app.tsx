@@ -2,6 +2,7 @@ import { createLiveDispatcher } from "@kumiko/dispatcher-live";
 import type { Dispatcher, ListRowViewModel, LocaleResolver, Translate } from "@kumiko/headless";
 import {
   type AppSchema,
+  CustomScreensProvider,
   DispatcherProvider,
   type FeatureSchema,
   KumikoScreen,
@@ -16,7 +17,7 @@ import {
   toAppSchema,
   useNav,
 } from "@kumiko/renderer";
-import { type ReactNode, useMemo } from "react";
+import { type ComponentType, type ReactNode, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { defaultPrimitives } from "../primitives";
 import { createEventSourceLiveEvents } from "../sse/live-events";
@@ -151,6 +152,13 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
   const fallbackBundles = clientFeatures.flatMap((f) =>
     f.translations !== undefined ? [f.translations] : [],
   );
+  // Custom-Screen-Components-Map mergen: spätere Features überschreiben
+  // frühere bei screenId-Kollision (Last-Wins). Apps können so ein
+  // bundled-Feature mit lokaler Override versehen.
+  const customScreens: Record<string, ComponentType> = {};
+  for (const f of clientFeatures) {
+    if (f.components !== undefined) Object.assign(customScreens, f.components);
+  }
 
   const resolver = options.locale ?? createBrowserLocaleResolver();
 
@@ -174,7 +182,9 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
         <PrimitivesProvider value={primitives}>
           <DispatcherProvider dispatcher={dispatcher}>
             <LiveEventsProvider value={liveEvents}>
-              {stackWrappers(providers, stackWrappers(gates, screenNode))}
+              <CustomScreensProvider value={customScreens}>
+                {stackWrappers(providers, stackWrappers(gates, screenNode))}
+              </CustomScreensProvider>
             </LiveEventsProvider>
           </DispatcherProvider>
         </PrimitivesProvider>

@@ -21,8 +21,9 @@ function makeSchema(): FeatureSchema {
       { id: "backlog", type: "entityList", entity: "item", columns: [] },
     ],
     navs: [
-      // Section ohne Screen mit children — togglebar
+      // Section ohne Screen mit children — togglebar (Variant 2)
       { id: "data", label: "Data", order: 10 },
+      // Parent mit Screen UND children — Link + separater Chevron (Variant 1)
       {
         id: "items",
         label: "Items",
@@ -31,22 +32,16 @@ function makeSchema(): FeatureSchema {
         order: 10,
       },
       {
-        id: "items-sub",
-        label: "Sub",
-        parent: "data",
-        order: 20,
-      },
-      {
         id: "active",
         label: "Active",
-        parent: "items-sub",
+        parent: "items",
         screen: "active",
         order: 10,
       },
       {
         id: "backlog",
         label: "Backlog",
-        parent: "items-sub",
+        parent: "items",
         screen: "backlog",
         order: 20,
       },
@@ -65,7 +60,8 @@ describe("NavTree", () => {
 
     // Children sind sichtbar im DOM.
     expect(screen.getByText("Items")).toBeTruthy();
-    expect(screen.getByText("Sub")).toBeTruthy();
+    expect(screen.getByText("Active")).toBeTruthy();
+    expect(screen.getByText("Backlog")).toBeTruthy();
   });
 
   test("Click auf Section-Header toggled aria-expanded — children verschwinden", () => {
@@ -77,32 +73,28 @@ describe("NavTree", () => {
     expect(dataHeader.getAttribute("aria-expanded")).toBe("false");
     // Items ist child von Data → nach Collapse nicht mehr im DOM
     expect(screen.queryByText("Items")).toBeNull();
-    expect(screen.queryByText("Sub")).toBeNull();
+    expect(screen.queryByText("Active")).toBeNull();
   });
 
   test("Parent mit Screen + children — Chevron-Click toggled, ohne Navigation", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
-    // "Sub" hat children Active+Backlog; default expanded
+    // "Items" hat children Active+Backlog; default expanded
     expect(screen.getByText("Active")).toBeTruthy();
     expect(screen.getByText("Backlog")).toBeTruthy();
 
-    // Chevron-Button auf "Sub": aria-label "Zuklappen" wenn expanded
-    const subChevrons = screen.getAllByRole("button", { name: /Zuklappen|Aufklappen/ });
-    // Zwei Chevrons existieren: für "Data" (section header click is on the button itself,
-    // chevron ist eingebettet) und für "Sub". Filter nach Sub-row's chevron — finde via parent.
-    const subRow = screen.getByText("Sub").closest("button");
-    const subChevron = subRow?.querySelector("button");
-    expect(subChevron).not.toBeNull();
-    if (subChevron === null || subChevron === undefined) return;
-    fireEvent.click(subChevron);
+    // Section-Header "Data" ist ein einziger Toggle-Button (kein nested
+    // chevron-button drin). Parent-mit-Screen "Items" rendert dagegen den
+    // KumikoLink + separaten Chevron-Button als Geschwister — der ist
+    // der EINZIGE button mit aria-label "Zuklappen"/"Aufklappen".
+    const chevronButtons = screen.getAllByRole("button", { name: /Zuklappen|Aufklappen/ });
+    expect(chevronButtons.length).toBe(1);
+    fireEvent.click(chevronButtons[0] as HTMLButtonElement);
 
-    // Sub ist jetzt collapsed; Active/Backlog weg
+    // Items ist jetzt collapsed; Active/Backlog weg
     expect(screen.queryByText("Active")).toBeNull();
     expect(screen.queryByText("Backlog")).toBeNull();
-    // Sub selbst bleibt sichtbar
-    expect(screen.getByText("Sub")).toBeTruthy();
-    // Suppress unused-var warning
-    expect(subChevrons.length).toBeGreaterThan(0);
+    // Items selbst bleibt sichtbar
+    expect(screen.getByText("Items")).toBeTruthy();
   });
 });

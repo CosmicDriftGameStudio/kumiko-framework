@@ -1,11 +1,12 @@
-// Kitchen-Sink Entity — alle Field-Types die DefaultInput rendert
-// (text, number, boolean, date) plus die Layout-Features die der
-// renderer-web kann: Section-Sperre, Spaltigkeit, Span, Conditional
-// Visibility, Conditional Required, Custom Column-Renderer in der List.
+// Items-Feature — Schema (beidseitig importierbar). Entity-Fields plus
+// Edit/List-Screen-Definitionen. KEIN Server-Code (keine Drizzle-,
+// kein Handler-Import) — feature.ts (Server) UND client.ts (Client)
+// importieren das hier.
 //
-// Was bewusst FEHLT: select, money, embedded, file/image — die
-// dazugehörigen Primitives sind in DefaultInput noch nicht eingezogen.
-// Sobald sie da sind, gehören sie hier rein.
+// Kitchen-Sink: deckt alle Field-Types ab die DefaultInput rendert
+// (text, number, boolean, date, select), plus Layout-Features
+// (Section, columns, span, conditional visibility/required, custom
+// column renderer).
 
 import type {
   EntityDefinition,
@@ -15,18 +16,11 @@ import type {
 
 export const itemEntity = {
   fields: {
-    // Text-Varianten
     title: { type: "text", required: true, sortable: true, searchable: true },
-    // multiline: textarea statt single-line input
     notes: { type: "text", multiline: { rows: 4 } },
-    // Number mit Default
     priority: { type: "number", default: 1, sortable: true },
-    // Boolean mit Default
     isDone: { type: "boolean", default: false, sortable: true },
-    // Date — nativer date-Input des Browsers
     dueDate: { type: "date" },
-    // Select mit options-Liste — DefaultInput rendert ein <select> mit
-    // Empty-Option (—) als Placeholder solange nicht-required.
     status: {
       type: "select",
       options: ["draft", "active", "blocked", "done"],
@@ -43,18 +37,14 @@ export const itemEditScreen: EntityEditScreenDefinition = {
   layout: {
     sections: [
       {
-        // Erste Section — Section-Title rendert als Banner-artige Headline
         title: "Basics",
         columns: 2,
-        // span: 2 lässt das Feld die ganze Breite belegen
         fields: [{ field: "title", span: 2 }, "priority", "isDone", { field: "status", span: 2 }],
       },
       {
         title: "Details",
         columns: 1,
         fields: [
-          // Conditional Visibility + Required: erscheint nur wenn isDone=true,
-          // ist dann auch required. Beweist die FieldCondition-Pipe.
           {
             field: "notes",
             visible: (d) => (d as { isDone?: boolean }).isDone === true,
@@ -74,9 +64,7 @@ export const itemListScreen: EntityListScreenDefinition = {
   columns: [
     "title",
     "status",
-    // Boolean-Spalte: DataTable-Primitive rendert ✓ / ✗
     "isDone",
-    // Custom-Renderer: Number → "P{n}" oder "—" wenn 0
     {
       field: "priority",
       renderer: (v: unknown) => (v === undefined || v === 0 ? "—" : `P${v}`),

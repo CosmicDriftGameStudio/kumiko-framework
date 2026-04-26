@@ -30,6 +30,13 @@ export type ClientFeatureDefinition = {
    *  einzelne Keys überschreiben, ohne dass die Feature-Bundles
    *  komplett ausgetauscht werden müssen. */
   readonly translations?: TranslationsByLocale;
+  /** Custom-Screen-Components — Map screenId → React-Component. Wenn
+   *  ein Schema-Screen `type: "custom"` hat, schaut KumikoScreen in
+   *  diese Map (gemerged aus allen ClientFeatures) und rendert die
+   *  passende Component. So muss kein Sample mehr im AppShell-Wrapper
+   *  selbst routen. Convention: screenId entspricht dem `id` aus
+   *  `r.screen({ id, type: "custom", ... })` im server-side Feature. */
+  readonly components?: Readonly<Record<string, ComponentType>>;
 };
 
 /** Wickelt einen ReactNode durch eine Liste von Providern/Gates von
