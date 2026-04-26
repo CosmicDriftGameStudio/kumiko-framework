@@ -1,49 +1,58 @@
-// DefaultAppShell — komplette Topbar + Sidebar + Main-Layout-Komposition
-// die 90% der Apps identisch brauchen. Zieht das aus dem Sample-Copy/
-// Paste-Pattern raus. Einzige erwartete App-spezifische Entscheidung
-// ist `brand` (Logo/Text links in der Topbar) und `topbarActions`
-// (User/Tenant/Theme-Buttons rechts). NavTree wird automatisch aus
-// dem Schema aufgebaut.
+// DefaultAppShell — Linear-Pattern: kein globaler Topbar, Sidebar
+// nimmt full-height und trägt die ganze Chrome-Identität. 90% der
+// Apps brauchen exakt das hier.
 //
-// Apps die feingranulare Kontrolle wollen, gehen weiterhin direkt auf
-// <AppLayout>/<Topbar>/<Sidebar>/<NavTree> — dieser Wrapper ist kein
-// Muss, nur ein Shortcut.
+// Sidebar-Slots:
+//   1. brand          — Workspace-Identity oben (z.B. Logo + Name)
+//   2. sidebarActions — Icon-Row mit Search/Theme/Tenant-Switch etc.
+//   3. NavTree        — automatisch aus dem Schema
+//   4. sidebarFooter  — Bottom-Slot für Profile/Help/Plan-Banner
+//
+// Apps die feingranulare Kontrolle wollen, gehen direkt auf
+// <AppLayout>/<Sidebar>/<NavTree>. Wer ein Topbar zurück will (z.B.
+// für Multi-Workspace mit Switcher in der Topbar), nutzt
+// <WorkspaceShell> oder baut den Shell selber.
 
 import type { AppSchema, FeatureSchema } from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { AppLayout } from "./app-layout";
 import { NavTree } from "./nav-tree";
 import { Sidebar } from "./sidebar";
-import { Topbar } from "./topbar";
 
 export type DefaultAppShellProps = {
-  /** Content links in der Topbar — Logo, App-Name, Branding. Freier
-   *  JSX-Slot, App entscheidet komplett über den Look. */
+  /** Header-Slot oben in der Sidebar — Workspace-Identity (Logo,
+   *  Name, Plan-Tag). Caller liefert frei. */
   readonly brand: ReactNode;
   /** Schema (AppSchema oder legacy FeatureSchema) wird an NavTree
    *  durchgereicht; Sidebar-Einträge bauen sich automatisch aus
    *  schema.navs (per-Feature) auf. */
   readonly schema: AppSchema | FeatureSchema;
-  /** Content rechts in der Topbar — typisch LanguageSwitcher,
-   *  TenantSwitcher, ThemeToggle, UserMenu. Als ReactNode statt
-   *  Array: App ordnet die Reihenfolge selbst. */
-  readonly topbarActions?: ReactNode;
-  /** Screen-Content der in `main` gerendert wird. Kommt vom
-   *  createKumikoApp-Router bzw. vom AuthGate. */
+  /** Icon-Row zwischen Brand und NavTree — typisch Search-Trigger,
+   *  ThemeToggle, TenantSwitcher. Linear hat hier ~3 Icons in einer
+   *  horizontalen Reihe. */
+  readonly sidebarActions?: ReactNode;
+  /** Footer-Slot unten in der Sidebar — Profile-Row, Help-Link,
+   *  Plan-Banner. Klebt am unteren Rand via `mt-auto`. */
+  readonly sidebarFooter?: ReactNode;
+  /** Screen-Content der in `main` gerendert wird. */
   readonly children: ReactNode;
 };
 
 export function DefaultAppShell({
   brand,
   schema,
-  topbarActions,
+  sidebarActions,
+  sidebarFooter,
   children,
 }: DefaultAppShellProps): ReactNode {
   return (
     <AppLayout
-      topbar={<Topbar start={brand} end={topbarActions} />}
       sidebar={
-        <Sidebar>
+        <Sidebar
+          header={brand}
+          {...(sidebarActions !== undefined && { actions: sidebarActions })}
+          {...(sidebarFooter !== undefined && { footer: sidebarFooter })}
+        >
           <NavTree schema={schema} />
         </Sidebar>
       }

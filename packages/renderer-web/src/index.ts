@@ -21,6 +21,7 @@ export type {
   FormProps,
   GridCellProps,
   GridProps,
+  HeadingProps,
   InputProps,
   KumikoScreenProps,
   LiveEvent,

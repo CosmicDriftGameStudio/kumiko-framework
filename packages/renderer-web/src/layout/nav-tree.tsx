@@ -6,13 +6,18 @@
 //
 // Aktiver Eintrag bekommt die accent-Farben (hintergrund + foreground),
 // inaktive nur muted-foreground. Rekursiv mit Indentation pro Tiefe.
+//
+// Parent-Nodes mit children sind collapsible — Chevron rechts toggled
+// auf/zu. State lebt lokal im NavTree (useState); Default expanded
+// für alles, Caller kann später localStorage-Persistenz drüberlegen.
 
 import type { NavDefinition } from "@kumiko/framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@kumiko/headless";
 import { resolveNavigation } from "@kumiko/headless";
 import type { AppSchema, FeatureSchema } from "@kumiko/renderer";
 import { toAppSchema, useNav, useTranslation } from "@kumiko/renderer";
-import { type ReactNode, useMemo } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { KumikoLink } from "../app/nav";
 import { cn } from "../lib/cn";
 
@@ -36,26 +41,49 @@ export function NavTree({ schema, user, testId, allowedNavQns }: NavTreeProps): 
     const source = buildNavRegistrySliceForApp(app, allowedNavQns);
     return resolveNavigation({ source, ...(user !== undefined && { user }) });
   }, [app, user, allowedNavQns]);
+
+  // Collapsed-Set: nur die explizit zugeklappten qualified-names. Default
+  // ist also "alles auf" — neue Features tauchen sofort offen auf, ohne
+  // dass der User erst klicken muss.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const onToggle = useCallback((qn: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(qn)) next.delete(qn);
+      else next.add(qn);
+      return next;
+    });
+  }, []);
+
   return (
     <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex flex-col gap-0.5">
       {tree.map((node) => (
-        <NavNodeItem key={node.qualifiedName} node={node} depth={0} />
+        <NavNodeItem
+          key={node.qualifiedName}
+          node={node}
+          depth={0}
+          collapsed={collapsed}
+          onToggle={onToggle}
+        />
       ))}
     </div>
   );
 }
 
-function NavNodeItem({
-  node,
-  depth,
-}: {
+type NavNodeItemProps = {
   readonly node: NavNode;
   readonly depth: number;
-}): ReactNode {
+  readonly collapsed: ReadonlySet<string>;
+  readonly onToggle: (qn: string) => void;
+};
+
+function NavNodeItem({ node, depth, collapsed, onToggle }: NavNodeItemProps): ReactNode {
   const nav = useNav();
   const t = useTranslation();
   const active = node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
 
+  const hasChildren = node.children.length > 0;
+  const isCollapsed = collapsed.has(node.qualifiedName);
   const indent = { paddingLeft: `${0.5 + depth * 1}rem` };
 
   // i18n-Key Konvention: wenn label einen Punkt enthält, durchs t()
@@ -71,6 +99,40 @@ function NavNodeItem({
   // workspace id. Pulled from useNav().route so the link tracks switches.
   const workspaceId = nav.route?.workspaceId;
 
+  // Chevron-Icon — nur wenn Node children hat. Rechts neben dem Label
+  // angeordnet; ein Click auf den Chevron alleine toggled die Section
+  // ohne zu navigieren (stopPropagation auf dem KumikoLink-Wrapper).
+  const chevron = hasChildren ? (
+    <button
+      type="button"
+      aria-label={isCollapsed ? "Aufklappen" : "Zuklappen"}
+      aria-expanded={!isCollapsed}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onToggle(node.qualifiedName);
+      }}
+      className="ml-auto flex size-4 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+    >
+      {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
+    </button>
+  ) : null;
+
+  const children =
+    hasChildren && !isCollapsed
+      ? node.children.map((child) => (
+          <NavNodeItem
+            key={child.qualifiedName}
+            node={child}
+            depth={depth + 1}
+            collapsed={collapsed}
+            onToggle={onToggle}
+          />
+        ))
+      : null;
+
+  // Variante 1: Node hat einen Screen → KumikoLink. Chevron sitzt rechts
+  // neben dem Link-Inhalt im selben h-7-Container.
   if (node.screen !== undefined) {
     const screenId = lastSegment(node.screen);
     return (
@@ -79,31 +141,61 @@ function NavNodeItem({
           to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
           style={indent}
           className={cn(
-            "flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            // Linear-style: kompakte Zeilen (h-7), aktiv = bg-accent +
+            // foreground-Color, inaktiv = subtler muted-Text der bei
+            // Hover scharf wird.
+            "flex h-7 items-center gap-2 rounded-md px-2 text-sm transition-colors",
             "hover:bg-accent hover:text-accent-foreground",
-            active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+            active
+              ? "bg-accent text-accent-foreground font-medium"
+              : "text-muted-foreground hover:text-accent-foreground",
           )}
+          {...(active && { "aria-current": "page" })}
         >
-          {displayLabel}
+          {/* Icon-Slot (heute small dot) — sobald NavDefinition.icon
+              ein lookup-fähiger Schlüssel ist, wird hier ein lucide-
+              Icon gerendert. Behält die Vertikal-Achse aligned auch
+              ohne Icon. */}
+          <span
+            aria-hidden="true"
+            className={cn(
+              "inline-block size-1.5 rounded-full",
+              active ? "bg-accent-foreground" : "bg-muted-foreground/40",
+            )}
+          />
+          <span className="truncate">{displayLabel}</span>
+          {chevron}
         </KumikoLink>
-        {node.children.length > 0 &&
-          node.children.map((child) => (
-            <NavNodeItem key={child.qualifiedName} node={child} depth={depth + 1} />
-          ))}
+        {children}
       </>
     );
   }
+
+  // Variante 2: Node ist ein Section-Header (kein Screen). Mit children
+  // wird das Label zum Toggle-Button — Click klappt die ganze Section
+  // auf/zu. Ohne children rendert ein dezenter Section-Header (uppercase).
   return (
     <>
-      <div
-        style={indent}
-        className="px-3 py-1.5 text-xs uppercase tracking-wider text-muted-foreground"
-      >
-        {displayLabel}
-      </div>
-      {node.children.map((child) => (
-        <NavNodeItem key={child.qualifiedName} node={child} depth={depth + 1} />
-      ))}
+      {hasChildren ? (
+        <button
+          type="button"
+          onClick={() => onToggle(node.qualifiedName)}
+          aria-expanded={!isCollapsed}
+          style={indent}
+          className="flex h-7 items-center gap-2 rounded-md px-2 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 hover:text-foreground transition-colors text-left"
+        >
+          <span className="truncate">{displayLabel}</span>
+          {chevron}
+        </button>
+      ) : (
+        <div
+          style={indent}
+          className="px-2 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70"
+        >
+          {displayLabel}
+        </div>
+      )}
+      {children}
     </>
   );
 }

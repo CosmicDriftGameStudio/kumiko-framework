@@ -69,7 +69,7 @@ const AppShell = ({
   <DefaultAppShell
     brand={<Brand />}
     schema={schema}
-    topbarActions={
+    sidebarActions={
       <DefaultTopbarActions
         tenantName={tenantName}
         extras={<LanguageSwitcher locales={availableLocales} />}

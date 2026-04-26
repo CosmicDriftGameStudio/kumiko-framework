@@ -152,4 +152,24 @@ describe("RenderEdit", () => {
     expect(seenResults).toHaveLength(1);
     expect(seenResults[0]?.isSuccess).toBe(true);
   });
+
+  test("title resolved aus i18n-Key `screen:<id>.title` mit screenId als Fallback", () => {
+    const dispatcher = makeDispatcher();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+    // Default-Translate (Test-Setup hat keinen Bundle für screen:*.title)
+    // → i18n returnt den Key selber, RenderEdit detected das + zeigt
+    // den screenId. Beweist die Convention: kein Hardcoded "Untitled".
+    const actionsBar = screen.getByTestId("render-edit-form-actions");
+    expect(actionsBar.textContent).toContain("orders:screen:order-edit");
+  });
 });

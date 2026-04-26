@@ -12,7 +12,7 @@ import { describe, expect, test, vi } from "vitest";
 import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
 
-const { Button, Banner, Field, Input, DataTable, Form, Text } = defaultPrimitives;
+const { Button, Banner, Field, Input, DataTable, Form, Text, Heading } = defaultPrimitives;
 
 describe("Button", () => {
   test("disabled: attribute gesetzt + Tailwind-Klassen für pointer-events/opacity", () => {
@@ -204,6 +204,105 @@ describe("Form", () => {
     fireEvent(form, submitEvent);
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(submitEvent.defaultPrevented).toBe(true);
+  });
+
+  test("title slot rendert in der Action-Bar links neben den Actions", () => {
+    render(
+      <Form
+        onSubmit={() => undefined}
+        title="Eintrag bearbeiten"
+        actions={<button type="submit">Save</button>}
+        testId="form"
+      >
+        <div>content</div>
+      </Form>,
+    );
+    const actionsBar = screen.getByTestId("form-actions");
+    expect(actionsBar.textContent).toContain("Eintrag bearbeiten");
+    expect(actionsBar.textContent).toContain("Save");
+  });
+
+  test("ohne title und actions: keine Action-Bar gerendert", () => {
+    render(
+      <Form onSubmit={() => undefined} testId="form">
+        <div>content</div>
+      </Form>,
+    );
+    expect(screen.queryByTestId("form-actions")).toBeNull();
+  });
+});
+
+describe("Banner padded", () => {
+  test("padded=true wraps in p-6 container für Page-State-Use", () => {
+    const { container } = render(
+      <Banner padded variant="info" testId="banner">
+        Loading…
+      </Banner>,
+    );
+    const banner = screen.getByTestId("banner");
+    // Outer wrapper hat p-6, banner innen
+    const wrapper = banner.parentElement;
+    expect(wrapper?.className).toContain("p-6");
+    expect(container.firstChild).toBe(wrapper);
+  });
+
+  test("padded=undefined rendert ohne Wrapper (inline-Use)", () => {
+    const { container } = render(
+      <Banner variant="info" testId="banner">
+        Inline
+      </Banner>,
+    );
+    expect(container.firstChild).toBe(screen.getByTestId("banner"));
+  });
+});
+
+describe("Heading variants", () => {
+  test('variant="page" renders h1', () => {
+    render(
+      <Heading variant="page" testId="h">
+        Items
+      </Heading>,
+    );
+    expect(screen.getByTestId("h").tagName).toBe("H1");
+  });
+
+  test('variant="section" renders h2 mit uppercase styling', () => {
+    render(
+      <Heading variant="section" testId="h">
+        Basics
+      </Heading>,
+    );
+    const h = screen.getByTestId("h");
+    expect(h.tagName).toBe("H2");
+    expect(h.className).toContain("uppercase");
+  });
+});
+
+describe("DataTable toolbar slots", () => {
+  test("toolbarTitle + toolbarStart + toolbarEnd rendern in einer Zeile", () => {
+    render(
+      <DataTable
+        columns={[]}
+        rows={[]}
+        toolbarTitle="Items"
+        toolbarStart={<input data-testid="search" />}
+        toolbarEnd={
+          <button type="button" data-testid="create">
+            + Neu
+          </button>
+        }
+        testId="dt"
+      />,
+    );
+    const toolbar = screen.getByTestId("dt-toolbar");
+    expect(toolbar.textContent).toContain("Items");
+    expect(toolbar.querySelector('[data-testid="search"]')).not.toBeNull();
+    expect(toolbar.querySelector('[data-testid="create"]')).not.toBeNull();
+  });
+
+  test("ohne toolbar slots wird kein Toolbar-Container gerendert", () => {
+    render(<DataTable columns={[]} rows={[]} testId="dt" />);
+    expect(screen.queryByTestId("dt-toolbar")).toBeNull();
   });
 });
 

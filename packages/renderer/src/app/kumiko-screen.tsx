@@ -64,7 +64,7 @@ export function KumikoScreen({
 
   if (!screen) {
     return (
-      <Banner variant="error" testId="kumiko-screen-not-found">
+      <Banner padded variant="error" testId="kumiko-screen-not-found">
         Screen not found: <Text variant="code">{qn}</Text>
       </Banner>
     );
@@ -94,7 +94,7 @@ export function KumikoScreen({
       // M4's r.uiComponent territory. Render a placeholder so the app
       // doesn't silently go blank.
       return (
-        <Banner variant="info" testId="kumiko-screen-custom-placeholder">
+        <Banner padded variant="info" testId="kumiko-screen-custom-placeholder">
           Custom screens not yet wired (M4 — r.uiComponent)
         </Banner>
       );
@@ -126,6 +126,25 @@ function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () =
     if (!list) return;
     nav.navigate({ screenId: list.id });
   }, [nav, schema.screens, entityName]);
+}
+
+// Default "+ Neu"-Navigation für die List-Toolbar: findet den ersten
+// entityEdit-Screen ohne entityId-Anhang und navigiert dorthin.
+// Returns undefined wenn kein Edit-Screen registriert ist — RenderList
+// rendert dann keinen + Neu Button.
+function useNavigateToCreateFor(
+  schema: FeatureSchema,
+  entityName: string,
+): (() => void) | undefined {
+  const nav = useNav();
+  const editScreenId = useMemo(() => {
+    const edit = schema.screens.find((s) => s.type === "entityEdit" && s.entity === entityName);
+    return edit?.id;
+  }, [schema.screens, entityName]);
+  const navigate = useCallback(() => {
+    if (editScreenId !== undefined) nav.navigate({ screenId: editScreenId });
+  }, [nav, editScreenId]);
+  return editScreenId !== undefined ? navigate : undefined;
 }
 
 // Initial form values — respect field.default when the entity declares
@@ -165,7 +184,7 @@ function EntityEditScreen({
   const entity = schema.entities[screen.entity];
   if (!entity) {
     return (
-      <Banner variant="error" testId="kumiko-screen-entity-missing">
+      <Banner padded variant="error" testId="kumiko-screen-entity-missing">
         Entity <Text variant="code">{screen.entity}</Text> referenced by screen{" "}
         <Text variant="code">{screen.id}</Text> not registered in the schema.
       </Banner>
@@ -223,6 +242,7 @@ function EntityEditCreateBody({
       initial={initial}
       writeCommand={writeCommand}
       onSubmit={handleSubmitted}
+      onCancel={navigateToList}
       {...(translate !== undefined && { translate })}
     />
   );
@@ -251,14 +271,14 @@ function EntityEditUpdateBody({
 
   if (detailQuery.loading && detailQuery.data === null) {
     return (
-      <Banner variant="loading" testId="kumiko-screen-loading">
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
         Loading…
       </Banner>
     );
   }
   if (detailQuery.error) {
     return (
-      <Banner variant="error" testId="kumiko-screen-error">
+      <Banner padded variant="error" testId="kumiko-screen-error">
         {detailQuery.error.i18nKey}
       </Banner>
     );
@@ -266,7 +286,7 @@ function EntityEditUpdateBody({
   const record = detailQuery.data;
   if (!record) {
     return (
-      <Banner variant="error" testId="kumiko-screen-record-missing">
+      <Banner padded variant="error" testId="kumiko-screen-record-missing">
         Record <Text variant="code">{entityId}</Text> not found.
       </Banner>
     );
@@ -360,6 +380,7 @@ function EntityEditUpdateForm({
       buildPayload={buildPayload}
       onSubmit={handleSubmitted}
       onDelete={handleDelete}
+      onCancel={navigateToList}
       onReload={() => void onReload()}
       {...(translate !== undefined && { translate })}
     />
@@ -395,7 +416,7 @@ function EntityListScreen({
   const entity = schema.entities[screen.entity];
   if (!entity) {
     return (
-      <Banner variant="error" testId="kumiko-screen-entity-missing">
+      <Banner padded variant="error" testId="kumiko-screen-entity-missing">
         Entity <Text variant="code">{screen.entity}</Text> referenced by screen{" "}
         <Text variant="code">{screen.id}</Text> not registered in the schema.
       </Banner>
@@ -406,7 +427,7 @@ function EntityListScreen({
   // dev-error state; no point hitting the server for it.
   return (
     <EntityListBody
-      featureName={schema.featureName}
+      schema={schema}
       screen={screen}
       entity={entity}
       {...(translate !== undefined && { translate })}
@@ -416,32 +437,34 @@ function EntityListScreen({
 }
 
 function EntityListBody({
-  featureName,
+  schema,
   screen,
   entity,
   translate,
   onRowClick,
 }: {
-  readonly featureName: string;
+  readonly schema: FeatureSchema;
   readonly screen: EntityListScreenDefinition;
   readonly entity: EntityDefinition;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
 }): ReactNode {
+  const featureName = schema.featureName;
+  const onCreate = useNavigateToCreateFor(schema, screen.entity);
   const { Banner } = usePrimitives();
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const rowsQuery = useQuery<PagedRows>(queryType, {}, { live: true });
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
-      <Banner variant="loading" testId="kumiko-screen-loading">
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
         Loading…
       </Banner>
     );
   }
   if (rowsQuery.error) {
     return (
-      <Banner variant="error" testId="kumiko-screen-error">
+      <Banner padded variant="error" testId="kumiko-screen-error">
         {rowsQuery.error.i18nKey}
       </Banner>
     );
@@ -462,6 +485,8 @@ function EntityListBody({
       entity={entity}
       rows={rowsQuery.data?.rows ?? []}
       featureName={featureName}
+      searchable
+      {...(onCreate !== undefined && { onCreate })}
       {...(translate !== undefined && { translate })}
       {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
     />

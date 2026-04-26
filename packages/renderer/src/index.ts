@@ -53,6 +53,7 @@ export type {
   FormProps,
   GridCellProps,
   GridProps,
+  HeadingProps,
   InputProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,

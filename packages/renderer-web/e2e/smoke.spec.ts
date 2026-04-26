@@ -21,7 +21,7 @@ test("renderer-web/e2e: bundle bootet, DefaultAppShell rendert NavTree + Edit-Fo
 
   await page.goto("/");
 
-  // Brand sitzt links in der Topbar — beweist dass DefaultAppShell mit
+  // Brand sitzt im Sidebar-Header — beweist dass DefaultAppShell mit
   // dem hand-übergebenen schema rendert (kein Server-Inject).
   await expect(page.getByText("Renderer-Web E2E")).toBeVisible();
 

@@ -110,8 +110,7 @@ function renderInput({
       // text + unknown → text input. Wenn TextFieldDef.multiline gesetzt
       // ist (das ViewModel hält's), wechselt der Renderer auf textarea.
       if (field.type === "text" && field.multiline) {
-        const rows =
-          typeof field.multiline === "object" ? field.multiline.rows : undefined;
+        const rows = typeof field.multiline === "object" ? field.multiline.rows : undefined;
         return (
           <Input
             kind="textarea"

@@ -52,6 +52,10 @@ export type ButtonProps = {
   readonly testId?: string;
 };
 
+/** Banner für inline-Message ODER Page-State (z.B. "Loading…",
+ *  "Screen not found"). `padded` setzt einen Außenabstand damit der
+ *  Banner nicht edge-to-edge an den Main-Border klebt — relevant
+ *  seit `<main>` kein eigenes Padding mehr hat. */
 export type BannerProps = {
   /** "error" für Alerts (Konflikt, Netzfehler), "info" für neutrale
    *  Platzhalter (Not-Found, Loading), "loading" für Lade-States. */
@@ -60,6 +64,10 @@ export type BannerProps = {
   /** Optional — weitere Knöpfe/Elemente rechts vom Text (z.B. "Neu
    *  laden"). Inline, nicht als eigener Block. */
   readonly actions?: ReactNode;
+  /** Setzt einen Außenabstand um den Banner — für Page-States wo der
+   *  Banner alleine im Main rendert (KumikoScreen "not-found",
+   *  "loading", etc.). Web fügt p-6 als Margin um den Banner. */
+  readonly padded?: boolean;
   readonly testId?: string;
 };
 
@@ -85,6 +93,9 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** Hint-Text wenn das Feld leer ist. Used für Search-Inputs in
+       *  Toolbars ("Suchen…") wo kein Label sinnvoll ist. */
+      readonly placeholder?: string;
     }
   | {
       readonly kind: "number";
@@ -148,17 +159,39 @@ export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
   readonly rows: readonly ListRowViewModel[];
   readonly onRowClick?: (row: ListRowViewModel) => void;
+  /** Custom Empty-State-Inhalt (z. B. Icon + Heading + CTA-Button).
+   *  Default-Renderer rahmt ihn in einer dashed-border Box. */
   readonly emptyState?: ReactNode;
+  /** Optionaler Titel-Slot ganz links der Toolbar — Screen-Titel
+   *  ("Items", "Bestellungen"). Web rendert als font-medium Heading. */
+  readonly toolbarTitle?: ReactNode;
+  /** Toolbar-Slot mittig (typisch Search-Input). Renderer entscheidet
+   *  das Layout — Web spreizt das Element als flex-1 mit max-Breite,
+   *  Native könnte es als Header-Suchleiste rendern. */
+  readonly toolbarStart?: ReactNode;
+  /** Toolbar-Slot rechts (typisch + Neu Button, Filter, View-Switch).
+   *  Web zieht den Cluster mit ml-auto an die rechte Kante. */
+  readonly toolbarEnd?: ReactNode;
   readonly testId?: string;
 };
 
 /** Submit-Wrapper. Web: `<form onSubmit>`, Native: View das einen
  *  onSubmit-Callback via Button-Press triggert. `onSubmit` bekommt
  *  eine abstrakte Signatur (keine FormEvent) damit Native-Impls das
- *  sinnvoll füllen können. */
+ *  sinnvoll füllen können.
+ *
+ *  `title`: linker Slot der sticky-top Bar — typisch der Screen-Titel
+ *  ("Neuer Eintrag", "Bestellung bearbeiten"). Wenn gesetzt, rendert
+ *  die Bar mit `justify-between` (Title links, Actions rechts).
+ *  `actions`: optionaler Slot für die primären Form-Aktionen (Save,
+ *  Cancel). Web rendert die Bar sticky-top, damit der Save-Button
+ *  bei langen Forms beim Scrollen erreichbar bleibt. Native-Impls
+ *  dürfen denselben Slot z. B. als Bottom-Bar rendern. */
 export type FormProps = {
   readonly onSubmit: (e?: FormEvent) => void;
   readonly children: ReactNode;
+  readonly title?: ReactNode;
+  readonly actions?: ReactNode;
   readonly testId?: string;
 };
 
@@ -197,6 +230,15 @@ export type TextProps = {
   readonly testId?: string;
 };
 
+/** Heading mit zwei Rollen — `page` als Page-Titel (Web: h1), `section`
+ *  als Sub-Header über einer Group (Web: h2 mit uppercase + muted).
+ *  Native-Impls mappen auf `<Text>` mit entsprechendem fontWeight/Size. */
+export type HeadingProps = {
+  readonly variant?: "page" | "section";
+  readonly children: ReactNode;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -210,6 +252,7 @@ export type CorePrimitives = {
   readonly Grid: ComponentType<GridProps>;
   readonly GridCell: ComponentType<GridCellProps>;
   readonly Text: ComponentType<TextProps>;
+  readonly Heading: ComponentType<HeadingProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

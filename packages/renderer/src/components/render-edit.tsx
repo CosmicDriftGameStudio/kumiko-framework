@@ -14,6 +14,7 @@ import { computeEditViewModel } from "@kumiko/headless";
 import { type ReactNode, useMemo, useState } from "react";
 import type { z } from "zod";
 import { useForm } from "../hooks/use-form";
+import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
 import { RenderField } from "./render-field";
 
@@ -35,10 +36,9 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly payloadMode?: "values" | "changes";
   readonly buildPayload?: (snapshot: FormSnapshot<TValues>) => unknown;
   readonly onDelete?: () => Promise<void> | void;
+  readonly onCancel?: () => void;
   readonly onReload?: () => void;
 };
-
-const defaultTranslate: Translate = (key) => key;
 
 function deriveFormFields<TValues extends FormValues, TCtx>(
   screen: EntityEditScreenDefinition,
@@ -72,15 +72,23 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     featureName,
     initial,
     writeCommand,
-    translate = defaultTranslate,
+    translate: translateProp,
     ctx,
     schema,
     onSubmit,
     payloadMode = "values",
     buildPayload,
     onDelete,
+    onCancel,
     onReload,
   } = props;
+  // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
+  // konsumieren wir den i18next-Context direkt. Sonst wären Field-
+  // Labels ohne Caller-Wiring raw-Keys (`feature:entity:foo:field:title`).
+  // useTranslation throwt ohne LocaleProvider — das ist ok, weil RenderEdit
+  // ohnehin nur in einem mounted Kumiko-App-Tree läuft.
+  const t = useTranslation();
+  const translate = translateProp ?? t;
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
@@ -126,8 +134,46 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onSubmit?.(result);
   }
 
+  // Sticky-top Action-Bar: Save (+ optional Cancel) wandern in den
+  // `actions`-Slot der Form-Primitive. Bei langen Forms bleibt der
+  // Save-Button beim Scrollen erreichbar. Delete (destructive) bleibt
+  // bewusst am Boden — andere Konzeptklasse als die primäre Action.
+  const formActions = (
+    <>
+      {onCancel !== undefined && (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => onCancel()}
+          testId="render-edit-cancel"
+        >
+          Cancel
+        </Button>
+      )}
+      <Button
+        type="submit"
+        disabled={snapshot.isUnchanged}
+        variant="primary"
+        testId="render-edit-submit"
+      >
+        Save
+      </Button>
+    </>
+  );
+
+  // Title-Resolution analog zu RenderList: i18n-Key `screen:<id>.title`,
+  // mit screenId als Fallback wenn das Bundle den Key nicht kennt.
+  const titleKey = `screen:${screen.id}.title`;
+  const resolvedTitle = translate(titleKey);
+  const formTitle = resolvedTitle === titleKey ? screen.id : resolvedTitle;
+
   return (
-    <Form onSubmit={() => void handleSubmit()} testId="render-edit-form">
+    <Form
+      onSubmit={() => void handleSubmit()}
+      title={formTitle}
+      actions={formActions}
+      testId="render-edit-form"
+    >
       {vm.sections.map((section) => (
         <Section key={section.title} title={section.title} testId={`section-${section.title}`}>
           <Grid columns={section.columns}>
@@ -168,14 +214,6 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           <Text testId="render-edit-form-error-key">{formError.i18nKey}</Text>
         </Banner>
       )}
-      <Button
-        type="submit"
-        disabled={snapshot.isUnchanged}
-        variant="primary"
-        testId="render-edit-submit"
-      >
-        Save
-      </Button>
       {onDelete !== undefined && (
         <Button
           type="button"

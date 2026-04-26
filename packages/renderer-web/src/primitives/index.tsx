@@ -17,6 +17,7 @@ import type {
   FormProps,
   GridCellProps,
   GridProps,
+  HeadingProps,
   InputProps,
   SectionProps,
   TextProps,
@@ -68,9 +69,15 @@ function DefaultButton({
 
 // ---- Banner (shadcn: Alert) ----
 
-function DefaultBanner({ variant = "info", children, actions, testId }: BannerProps): ReactNode {
+function DefaultBanner({
+  variant = "info",
+  children,
+  actions,
+  padded,
+  testId,
+}: BannerProps): ReactNode {
   const isError = variant === "error";
-  return (
+  const banner = (
     <div
       data-testid={testId}
       role={isError ? "alert" : undefined}
@@ -86,6 +93,10 @@ function DefaultBanner({ variant = "info", children, actions, testId }: BannerPr
       {actions !== undefined && <div data-slot="actions">{actions}</div>}
     </div>
   );
+  // Page-State: Banner sitzt alleine im Main (das kein Padding mehr
+  // hat). Wrapper gibt 24px Außenabstand damit der Banner nicht edge-
+  // to-edge an Sidebar/Browser klebt.
+  return padded === true ? <div className="p-6">{banner}</div> : banner;
 }
 
 // ---- Field (Label + Error) ----
@@ -146,6 +157,7 @@ function DefaultInput(props: InputProps): ReactNode {
           {...common}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
+          {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           className={cn(inputClassBase, errorClass)}
         />
       );
@@ -234,60 +246,103 @@ function DefaultDataTable({
   rows,
   onRowClick,
   emptyState,
+  toolbarTitle,
+  toolbarStart,
+  toolbarEnd,
   testId,
 }: DataTableProps): ReactNode {
-  if (rows.length === 0) {
-    return (
+  // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
+  // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
+  // scrollen typischerweise mit dem Page-Container, nicht intern.
+  // Sticky würde mit der Topbar konkurrieren.
+  const content =
+    rows.length === 0 ? (
       <div
         data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
-        className="flex items-center justify-center rounded-md border border-dashed p-8 text-sm text-muted-foreground"
+        className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-sm text-muted-foreground gap-3"
       >
         {emptyState ?? <span>No entries.</span>}
       </div>
+    ) : (
+      <div className="rounded-md border">
+        <table data-testid={testId} className="w-full caption-bottom text-sm">
+          {tableInner(columns, rows, onRowClick)}
+        </table>
+      </div>
     );
-  }
+
+  const hasToolbar =
+    toolbarTitle !== undefined || toolbarStart !== undefined || toolbarEnd !== undefined;
+  if (!hasToolbar) return <div className="p-6">{content}</div>;
+
+  // Toolbar als full-width Bar (Main hat kein Padding, also nimmt die
+  // Bar von alleine die volle Breite). bg-muted/30 + border-b geben
+  // die visuelle Distinction zum Content. Content darunter bekommt
+  // eigenes p-6 damit Tabelle/Empty-State nicht an die Edges kleben.
   return (
-    <div className="rounded-md border">
-      <table data-testid={testId} className="w-full caption-bottom text-sm">
-        <thead className="[&_tr]:border-b">
-          <tr className="border-b transition-colors hover:bg-muted/50">
+    <div className="flex flex-col w-full">
+      <div
+        data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
+        className="h-12 px-6 bg-muted/30 border-b flex items-center gap-3"
+      >
+        {toolbarTitle !== undefined && (
+          <div className="text-base font-semibold tracking-tight truncate">{toolbarTitle}</div>
+        )}
+        {toolbarStart !== undefined && <div className="flex-1 max-w-sm">{toolbarStart}</div>}
+        {toolbarEnd !== undefined && (
+          <div className="flex items-center gap-2 ml-auto">{toolbarEnd}</div>
+        )}
+      </div>
+      <div className="p-6">{content}</div>
+    </div>
+  );
+}
+
+function tableInner(
+  columns: DataTableProps["columns"],
+  rows: DataTableProps["rows"],
+  onRowClick?: DataTableProps["onRowClick"],
+): ReactNode {
+  return (
+    <>
+      <thead className="[&_tr]:border-b">
+        <tr className="border-b transition-colors hover:bg-muted/50">
+          {columns.map((col) => (
+            <th
+              key={col.field}
+              data-testid={`column-${col.field}`}
+              data-sortable={col.sortable === true ? true : undefined}
+              className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+            >
+              {col.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody className="[&_tr:last-child]:border-0">
+        {rows.map((row) => (
+          <tr
+            key={row.id}
+            data-testid={`row-${row.id}`}
+            onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
+            className={cn(
+              "border-b transition-colors hover:bg-muted/50",
+              onRowClick !== undefined && "cursor-pointer",
+            )}
+          >
             {columns.map((col) => (
-              <th
+              <td
                 key={col.field}
-                data-testid={`column-${col.field}`}
-                data-sortable={col.sortable === true ? true : undefined}
-                className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+                data-testid={`cell-${row.id}-${col.field}`}
+                className="p-4 align-middle"
               >
-                {col.label}
-              </th>
+                {renderCell(row.values[col.field], col.type, col.renderer)}
+              </td>
             ))}
           </tr>
-        </thead>
-        <tbody className="[&_tr:last-child]:border-0">
-          {rows.map((row) => (
-            <tr
-              key={row.id}
-              data-testid={`row-${row.id}`}
-              onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
-              className={cn(
-                "border-b transition-colors hover:bg-muted/50",
-                onRowClick !== undefined && "cursor-pointer",
-              )}
-            >
-              {columns.map((col) => (
-                <td
-                  key={col.field}
-                  data-testid={`cell-${row.id}-${col.field}`}
-                  className="p-4 align-middle"
-                >
-                  {renderCell(row.values[col.field], col.type, col.renderer)}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </>
   );
 }
 
@@ -303,11 +358,11 @@ function renderCell(value: unknown, type: string, renderer?: unknown): string {
 
 // ---- Form + Section + Grid + Text ----
 
-function DefaultForm({ onSubmit, children, testId }: FormProps): ReactNode {
-  // max-w-3xl + mx-auto: Form wird auf 768px begrenzt, zentriert. Auf
-  // breiten Screens spreizen sich Inputs nicht über 1500px (looked
-  // verloren). Pattern parallel zu Notion/Linear-Forms. Lists nutzen
-  // weiter die volle main-Breite — DefaultDataTable hat kein max-w.
+function DefaultForm({ onSubmit, children, title, actions, testId }: FormProps): ReactNode {
+  // Form ist full-width — main hat kein Padding, also fügen wir's hier
+  // pro Bereich hinzu. Action-Bar bekommt h-12 + horizontal-px-6 und
+  // klebt sticky am main-Top (ohne Negative-Margin-Tricks). Content
+  // unten kriegt eigenes p-6 + max-w-4xl damit Zeilen nicht reißen.
   return (
     <form
       onSubmit={(e) => {
@@ -315,23 +370,37 @@ function DefaultForm({ onSubmit, children, testId }: FormProps): ReactNode {
         onSubmit(e);
       }}
       data-testid={testId}
-      className="flex flex-col gap-6 max-w-3xl mx-auto w-full"
+      className="flex flex-col w-full"
     >
-      {children}
+      {(title !== undefined || actions !== undefined) && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+          className="sticky top-0 z-10 h-12 px-6 bg-muted/30 border-b flex items-center gap-3"
+        >
+          {title !== undefined && (
+            <div className="text-base font-semibold tracking-tight truncate">{title}</div>
+          )}
+          {actions !== undefined && (
+            <div className="flex items-center gap-2 ml-auto">{actions}</div>
+          )}
+        </div>
+      )}
+      <div className="px-6 pt-6 pb-12 max-w-4xl w-full flex flex-col gap-8">{children}</div>
     </form>
   );
 }
 
 function DefaultSection({ title, children, testId }: SectionProps): ReactNode {
+  // Linear-Pattern: keine Card-Box, nur ein dezenter Section-Header
+  // (uppercase, klein, muted) als Trennung. Sections fließen vertikal
+  // im Form-Container; Visualität entsteht aus Whitespace + Typo, nicht
+  // aus Border + Shadow. Spart Chrome und sieht weniger "boxy" aus.
   return (
-    <section
-      data-testid={testId}
-      className="rounded-lg border bg-card text-card-foreground shadow-sm"
-    >
-      <div className="px-6 py-4 border-b">
-        <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
-      </div>
-      <div className="px-6 py-4 flex flex-col gap-4">{children}</div>
+    <section data-testid={testId} className="flex flex-col gap-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </h3>
+      <div className="flex flex-col gap-4">{children}</div>
     </section>
   );
 }
@@ -386,6 +455,28 @@ function DefaultText({ variant = "body", children, testId }: TextProps): ReactNo
   }
 }
 
+function DefaultHeading({ variant = "page", children, testId }: HeadingProps): ReactNode {
+  // Page-Heading = h1, sehr selten in einer App (max 1 pro Screen).
+  // Section-Heading = h2 mit uppercase + muted-foreground — derselbe
+  // Look wie der Section-Header in Forms, aber als Standalone-Component
+  // für Demo-Pages und Custom-Screens nutzbar.
+  if (variant === "section") {
+    return (
+      <h2
+        data-testid={testId}
+        className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+      >
+        {children}
+      </h2>
+    );
+  }
+  return (
+    <h1 data-testid={testId} className="text-2xl font-semibold tracking-tight">
+      {children}
+    </h1>
+  );
+}
+
 export const defaultPrimitives: CorePrimitives = {
   Button: DefaultButton,
   Banner: DefaultBanner,
@@ -397,4 +488,5 @@ export const defaultPrimitives: CorePrimitives = {
   Grid: DefaultGrid,
   GridCell: DefaultGridCell,
   Text: DefaultText,
+  Heading: DefaultHeading,
 };

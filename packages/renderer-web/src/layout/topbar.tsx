@@ -12,7 +12,7 @@ export function Topbar({ start, center, end, testId }: TopbarProps): ReactNode {
     <header
       data-testid={testId}
       data-kumiko-layout="topbar"
-      className="flex h-14 items-center gap-6 border-b bg-card px-6 text-sm"
+      className="flex h-12 items-center gap-4 border-b bg-muted/40 px-4 text-sm"
     >
       {start !== undefined && <div className="flex items-center gap-3">{start}</div>}
       {center !== undefined && <nav className="flex flex-1 items-center gap-6">{center}</nav>}
