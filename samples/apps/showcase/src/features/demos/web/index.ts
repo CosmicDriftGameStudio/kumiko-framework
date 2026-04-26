@@ -11,6 +11,7 @@ import { DialogDemo } from "./pages/dialog";
 import { InputsDemo } from "./pages/inputs";
 import { LayoutDemo } from "./pages/layout";
 import { TextDemo } from "./pages/text";
+import { ToastDemo } from "./pages/toast";
 
 export const demosClient: ClientFeatureDefinition = {
   name: "showcase-demos",
@@ -21,6 +22,7 @@ export const demosClient: ClientFeatureDefinition = {
     "demo-inputs": InputsDemo,
     "demo-banner": BannerDemo,
     "demo-dialog": DialogDemo,
+    "demo-toast": ToastDemo,
     "demo-text": TextDemo,
   },
 };
