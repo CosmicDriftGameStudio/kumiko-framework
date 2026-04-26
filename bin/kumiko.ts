@@ -255,6 +255,7 @@ const commands = {
         ["Feature-Integration-Test Guard", "yarn tsx scripts/guard-feature-integration-tests.ts"],
         ["i18n-Keys Guard", "yarn tsx scripts/guard-i18n-keys.ts"],
         ["Test-Stack-Drift Guard", "yarn tsx scripts/guard-test-stack-drift.ts"],
+        ["Lockfile-Drift Guard", "yarn tsx scripts/guard-lockfile-drift.ts"],
         ["Error-Reasons Guard", "yarn tsx scripts/guard-error-reasons.ts"],
         ["Predicate Extraction Check", "yarn tsx scripts/check-predicates.ts"],
         ["as-Cast Audit", "yarn tsx scripts/check-as-casts.ts"],
