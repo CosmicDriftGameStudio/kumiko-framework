@@ -374,7 +374,7 @@ export function createDispatcher(
 
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
   const tableCache = new Map<string, ReturnType<typeof buildDrizzleTable>>();
-  const transitionCache = new Map<string, ReadonlyMap<string, ReadonlySet<string>>>();
+  const transitionCache = new Map<string, ReturnType<typeof defineTransitions>>();
 
   function getTable(entityName: string): ReturnType<typeof buildDrizzleTable> | undefined {
     if (tableCache.has(entityName)) return tableCache.get(entityName);
@@ -391,14 +391,14 @@ export function createDispatcher(
     entityName: string;
     fieldName: string;
     map: Record<string, readonly string[]>;
-  }): ReadonlyMap<string, ReadonlySet<string>> {
+  }): ReturnType<typeof defineTransitions> {
     // Scope by entity — `fieldName` alone collides across entities (e.g. both
     // `invoice.status` and `driverOrder.status` exist with different maps),
     // which would apply the wrong transition rules to whichever entity arrives
     // second.
     const key = `${args.entityName}:${args.fieldName}`;
-    if (transitionCache.has(key))
-      return transitionCache.get(key) as ReadonlyMap<string, ReadonlySet<string>>;
+    const cached = transitionCache.get(key);
+    if (cached) return cached;
     const transitions = defineTransitions(args.map);
     transitionCache.set(key, transitions);
     return transitions;

@@ -2,36 +2,7 @@ import { describe, expect, test } from "vitest";
 import { UnprocessableError } from "../../errors";
 import { defineTransitions, guardTransition } from "../state-machine";
 
-describe("defineTransitions", () => {
-  test("creates a map from transition config", () => {
-    const transitions = defineTransitions({
-      draft: ["sent"],
-      sent: ["paid", "cancelled"],
-      paid: [],
-      cancelled: [],
-    });
-
-    expect(transitions.get("draft")?.has("sent")).toBe(true);
-    expect(transitions.get("sent")?.has("paid")).toBe(true);
-    expect(transitions.get("sent")?.has("cancelled")).toBe(true);
-    expect(transitions.get("paid")?.size).toBe(0);
-  });
-
-  test("supports non-linear transitions (backtrack)", () => {
-    const transitions = defineTransitions({
-      draft: ["in_progress"],
-      in_progress: ["review"],
-      review: ["finalized", "in_progress"],
-      finalized: ["sent"],
-      sent: [],
-    });
-
-    expect(transitions.get("review")?.has("in_progress")).toBe(true);
-    expect(transitions.get("review")?.has("finalized")).toBe(true);
-  });
-});
-
-describe("guardTransition", () => {
+describe("defineTransitions — TransitionGraph API", () => {
   const transitions = defineTransitions({
     draft: ["sent"],
     sent: ["paid", "cancelled"],
@@ -39,21 +10,71 @@ describe("guardTransition", () => {
     cancelled: [],
   });
 
-  // guardTransition throws an UnprocessableError with reason="invalid_transition"
-  // so the HTTP layer maps it to 422 and the client can key off details.reason /
-  // details.from / details.to. The human-readable arrow text lives in
-  // details.message for log and error-toast rendering.
-
-  test("allows valid transition", () => {
-    expect(() => guardTransition(transitions, "draft", "sent")).not.toThrow();
-    expect(() => guardTransition(transitions, "sent", "paid")).not.toThrow();
-    expect(() => guardTransition(transitions, "sent", "cancelled")).not.toThrow();
+  test("canTransition: erlaubte Übergänge", () => {
+    expect(transitions.canTransition("draft", "sent")).toBe(true);
+    expect(transitions.canTransition("sent", "paid")).toBe(true);
+    expect(transitions.canTransition("sent", "cancelled")).toBe(true);
   });
 
-  test("rejects invalid transition as UnprocessableError", () => {
+  test("canTransition: verbotene Übergänge", () => {
+    expect(transitions.canTransition("draft", "paid")).toBe(false);
+    expect(transitions.canTransition("paid", "draft")).toBe(false);
+  });
+
+  test("canTransition: unbekannter from-State liefert false (kein Throw)", () => {
+    expect(transitions.canTransition("unknown" as "draft", "sent")).toBe(false);
+  });
+
+  test("allowedFrom: liefert die erlaubten Targets", () => {
+    expect(transitions.allowedFrom("sent")).toEqual(["paid", "cancelled"]);
+    expect(transitions.allowedFrom("draft")).toEqual(["sent"]);
+  });
+
+  test("allowedFrom: terminaler State → leeres Array", () => {
+    expect(transitions.allowedFrom("paid")).toEqual([]);
+  });
+
+  test("allowedFrom: unbekannter State → leeres Array", () => {
+    expect(transitions.allowedFrom("unknown" as "draft")).toEqual([]);
+  });
+
+  test("supports non-linear transitions (backtrack)", () => {
+    const t = defineTransitions({
+      draft: ["in_progress"],
+      in_progress: ["review"],
+      review: ["finalized", "in_progress"],
+      finalized: ["sent"],
+      sent: [],
+    });
+    expect(t.canTransition("review", "in_progress")).toBe(true);
+    expect(t.canTransition("review", "finalized")).toBe(true);
+  });
+});
+
+describe("assertTransition / guardTransition", () => {
+  const transitions = defineTransitions({
+    draft: ["sent"],
+    sent: ["paid", "cancelled"],
+    paid: [],
+    cancelled: [],
+  });
+
+  // assertTransition wirft UnprocessableError mit reason="invalid_transition"
+  // (HTTP 422). guardTransition ist Convenience-Wrapper mit derselben Logik —
+  // beide müssen identisch verhalten.
+
+  test("method-form: erlaubter Übergang läuft durch", () => {
+    expect(() => transitions.assertTransition("draft", "sent")).not.toThrow();
+  });
+
+  test("function-form (guardTransition): identisches Verhalten", () => {
+    expect(() => guardTransition(transitions, "draft", "sent")).not.toThrow();
     expect(() => guardTransition(transitions, "draft", "paid")).toThrow(UnprocessableError);
+  });
+
+  test("rejects invalid transition mit details + i18nKey", () => {
     try {
-      guardTransition(transitions, "draft", "paid");
+      transitions.assertTransition("draft", "paid");
     } catch (e) {
       const err = e as UnprocessableError;
       expect(err.code).toBe("unprocessable");
@@ -67,36 +88,26 @@ describe("guardTransition", () => {
     }
   });
 
-  test("rejects skipping states", () => {
+  test("error details: validTargets aus allowedFrom", () => {
     try {
-      guardTransition(transitions, "draft", "cancelled");
+      transitions.assertTransition("sent", "draft");
     } catch (e) {
-      expect((e as UnprocessableError).details).toMatchObject({ from: "draft", to: "cancelled" });
+      expect((e as UnprocessableError).details).toMatchObject({
+        validTargets: "paid, cancelled",
+      });
     }
   });
 
-  test("rejects transition from terminal state", () => {
+  test("rejects transition from unknown state mit validTargets='none'", () => {
     try {
-      guardTransition(transitions, "paid", "draft");
-    } catch (e) {
-      expect((e as UnprocessableError).details).toMatchObject({ from: "paid", to: "draft" });
-    }
-  });
-
-  test("error details include allowed targets", () => {
-    try {
-      guardTransition(transitions, "sent", "draft");
-    } catch (e) {
-      expect((e as UnprocessableError).details).toMatchObject({ validTargets: "paid, cancelled" });
-    }
-  });
-
-  test("rejects transition from unknown state", () => {
-    try {
-      guardTransition(transitions, "unknown" as "draft", "sent");
+      transitions.assertTransition("unknown" as "draft", "sent");
     } catch (e) {
       const err = e as UnprocessableError;
       expect(err.details).toMatchObject({ from: "unknown", validTargets: "none" });
     }
+  });
+
+  test("rejects transition from terminal state", () => {
+    expect(() => transitions.assertTransition("paid", "draft")).toThrow(UnprocessableError);
   });
 });
