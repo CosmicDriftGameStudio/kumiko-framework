@@ -57,6 +57,7 @@ import type {
 } from "./types";
 import { HookPhases } from "./types";
 import { resolveName } from "./types/handlers";
+import type { HttpRouteDefinition } from "./types/http-route";
 import type { NavDefinition } from "./types/nav";
 import type { ScreenDefinition } from "./types/screen";
 import type { WorkspaceDefinition } from "./types/workspace";
@@ -109,6 +110,7 @@ export function defineFeature<TExports = undefined>(
   const screens: Record<string, ScreenDefinition> = {};
   const navs: Record<string, NavDefinition> = {};
   const workspaces: Record<string, WorkspaceDefinition> = {};
+  const httpRoutes: Record<string, HttpRouteDefinition> = {};
   let translations: TranslationKeys = {};
 
   for (const t of LIFECYCLE_TYPES) {
@@ -558,6 +560,34 @@ export function defineFeature<TExports = undefined>(
       workspaces[definition.id] = definition;
     },
 
+    httpRoute(definition: HttpRouteDefinition): void {
+      // Path-Validation: muss mit "/" beginnen, keine /api/-Routes (die
+      // sind dem Dispatcher reserviert; eine HTTP-Route die /api/foo
+      // belegt, würde die Auth-Middleware umgehen ohne dass der Author
+      // das ausgesprochen hat — bewusster Block).
+      if (!definition.path.startsWith("/")) {
+        throw new Error(
+          `[Feature ${name}] httpRoute path "${definition.path}" must start with "/". ` +
+            `Got "${definition.path}".`,
+        );
+      }
+      if (definition.path === "/api" || definition.path.startsWith("/api/")) {
+        throw new Error(
+          `[Feature ${name}] httpRoute path "${definition.path}" is in the /api/* namespace ` +
+            `which is reserved for the dispatcher (write/query/batch/auth/sse). ` +
+            `Pick a different path or use r.queryHandler / r.writeHandler.`,
+        );
+      }
+      const key = `${definition.method} ${definition.path}`;
+      if (httpRoutes[key]) {
+        throw new Error(
+          `[Feature ${name}] HTTP-Route "${key}" already registered. ` +
+            `method + path must be unique per feature.`,
+        );
+      }
+      httpRoutes[key] = definition;
+    },
+
     claimKey<T extends ClaimKeyType>(
       shortName: string,
       options: { readonly type: T },
@@ -630,5 +660,6 @@ export function defineFeature<TExports = undefined>(
     screens,
     navs,
     workspaces,
+    httpRoutes,
   };
 }

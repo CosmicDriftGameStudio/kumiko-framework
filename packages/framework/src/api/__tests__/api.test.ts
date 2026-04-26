@@ -214,3 +214,78 @@ describe("GET /api/sse", () => {
     expect(res.headers.get("content-type")).toContain("text/event-stream");
   });
 });
+
+// --- r.httpRoute (feature-deklarierte HTTP-Routes außerhalb /api/) ---
+
+describe("feature-declared HTTP routes (r.httpRoute)", () => {
+  // Eigenes buildServer-Setup mit einem Feature das eine Route deklariert.
+  // Pinst die Verdrahtung end-to-end: r.httpRoute → registry → buildServer
+  // → Hono-app.{get,post}(path) → Response. deps.app erlaubt internal-call
+  // an /api/* (gleicher Auth-Pfad wie ein echter HTTP-Call).
+  const routeFeature = defineFeature("routes", (r) => {
+    r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+    r.queryHandler("item:list", z.object({}), async () => [{ id: 7 }], {
+      access: { openToAll: true },
+    });
+    r.httpRoute({
+      method: "GET",
+      path: "/version",
+      anonymous: true,
+      handler: (c) => c.json({ version: "1.2.3" }),
+    });
+    r.httpRoute({
+      method: "GET",
+      path: "/probe-deps",
+      anonymous: true,
+      handler: (c, deps) => {
+        // Beweist dass deps.app die Hono-App-Instanz ist — Handler kann
+        // sie für internal app.fetch(...)-Calls nutzen (typischer
+        // Use-Case: feed.xml ruft /api/query intern auf).
+        return c.json({
+          hasApp: typeof deps.app === "object" && typeof deps.app.fetch === "function",
+        });
+      },
+    });
+  });
+  const routeRegistry = createRegistry([routeFeature]);
+  const { app: routeApp } = buildServer({
+    registry: routeRegistry,
+    context: {},
+    jwtSecret: JWT_SECRET,
+    anonymousAccess: { roles: ["Guest"] },
+  });
+
+  test("GET /version returnt deklarierten JSON-Response", async () => {
+    const res = await routeApp.request("/version");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ version: "1.2.3" });
+  });
+
+  test("Handler bekommt deps.app — Hono-Instance für internal-fetch", async () => {
+    const res = await routeApp.request("/probe-deps");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { hasApp: boolean };
+    expect(body.hasApp).toBe(true);
+  });
+
+  test("Boot-Validator: Route auf /api/* ist verboten", () => {
+    expect(() =>
+      defineFeature("bad", (r) => {
+        r.httpRoute({
+          method: "GET",
+          path: "/api/forbidden",
+          handler: (c) => c.text("nope"),
+        });
+      }),
+    ).toThrow(/\/api\/\* namespace.*reserved/);
+  });
+
+  test("Boot-Validator: doppelte method+path-Combo wird abgelehnt", () => {
+    expect(() =>
+      defineFeature("dup", (r) => {
+        r.httpRoute({ method: "GET", path: "/x", handler: (c) => c.text("a") });
+        r.httpRoute({ method: "GET", path: "/x", handler: (c) => c.text("b") });
+      }),
+    ).toThrow(/already registered/);
+  });
+});

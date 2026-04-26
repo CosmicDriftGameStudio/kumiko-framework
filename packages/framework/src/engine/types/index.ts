@@ -140,6 +140,12 @@ export type {
   ValidationHookFn,
 } from "./hooks";
 export { HookPhases } from "./hooks";
+export type {
+  HttpRouteDefinition,
+  HttpRouteHandler,
+  HttpRouteHandlerDeps,
+  HttpRouteMethod,
+} from "./http-route";
 // Domain-identifier type aliases — see identifiers.ts for rationale.
 export type { EntityId, TenantId } from "./identifiers";
 export { isSystemTenant, SYSTEM_TENANT_ID } from "./identifiers";

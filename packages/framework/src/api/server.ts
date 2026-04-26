@@ -569,6 +569,40 @@ export function buildServer(options: ServerOptions): KumikoServer {
     );
   }
 
+  // Feature-deklarierte HTTP-Routes (r.httpRoute). Mount nach /api/* damit
+  // /api/* immer Vorrang hat — feature-Routes liegen ohnehin außerhalb
+  // (Boot-Validator blockt /api-Prefix). deps.app ist die Outer-App, sodass
+  // der Handler /api/query intern via app.fetch(...) nutzen kann (gleicher
+  // Auth-Pfad wie ein echter HTTP-Call).
+  for (const feature of options.registry.features.values()) {
+    for (const route of Object.values(feature.httpRoutes)) {
+      const honoHandler = async (c: import("hono").Context): Promise<Response> =>
+        route.handler(c, { app });
+      switch (route.method) {
+        case "GET":
+          app.get(route.path, honoHandler);
+          break;
+        case "POST":
+          app.post(route.path, honoHandler);
+          break;
+        case "PUT":
+          app.put(route.path, honoHandler);
+          break;
+        case "PATCH":
+          app.patch(route.path, honoHandler);
+          break;
+        case "DELETE":
+          app.delete(route.path, honoHandler);
+          break;
+        case "OPTIONS":
+        case "HEAD":
+          // Hono-on() für die Methoden ohne Convenience-Method.
+          app.on(route.method, route.path, honoHandler);
+          break;
+      }
+    }
+  }
+
   return {
     app,
     jwt,

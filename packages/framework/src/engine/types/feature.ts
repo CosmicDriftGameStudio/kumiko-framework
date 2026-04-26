@@ -47,6 +47,7 @@ import type {
   PreSaveHookFn,
   ValidationHookFn,
 } from "./hooks";
+import type { HttpRouteDefinition } from "./http-route";
 import type { NavDefinition } from "./nav";
 import type { MultiStreamProjectionDefinition, ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
@@ -176,6 +177,12 @@ export type FeatureDefinition = {
   // shellWorkspaces consumes the resolved per-workspace nav list at mount
   // time; engine validates roles + nav refs at boot.
   readonly workspaces: Readonly<Record<string, WorkspaceDefinition>>;
+  // HTTP-Routes declared via r.httpRoute(). Index is "METHOD path"
+  // (z.B. "GET /feed.xml") — eindeutig pro Feature. Die App-Server-
+  // Boot-Stage iteriert getAllHttpRoutes() und mountet jede Route auf
+  // den Hono-app (außerhalb /api/*). Pattern symmetrisch zu queryHandlers/
+  // writeHandlers — Routes leben mit dem Feature, nicht im Bootstrap.
+  readonly httpRoutes: Readonly<Record<string, HttpRouteDefinition>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -380,6 +387,15 @@ export type FeatureRegistrar = {
   // exist, that workspace ids referenced from r.nav() are real, and that
   // at most one workspace per app declares `default: true`.
   workspace(definition: WorkspaceDefinition): void;
+
+  // Register an HTTP-route owned by this feature. The route is mounted
+  // outside the dispatcher pipeline (= außerhalb /api/write|query|batch),
+  // direkt an die app — Use-Case: RSS/Atom-Feeds, OG-Images, OpenAPI-Specs.
+  // Boot-validation rejects duplicate "method path"-Combinations.
+  // Symmetric to queryHandler/writeHandler — Routes leben mit dem Feature,
+  // nicht im Bootstrap. Escape-hatch für nicht-feature-bound Routes
+  // bleibt runProdApp.extraRoutes.
+  httpRoute(definition: HttpRouteDefinition): void;
 };
 
 // --- Registry (created from features) ---
