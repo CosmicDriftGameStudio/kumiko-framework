@@ -70,6 +70,7 @@ async function boot(
   try {
     const handle = await runProdApp({
       features: [widgetFeature],
+      autoListen: false,
       ...(seedFn && { seeds: [seedFn] }),
     });
     prodAppHandles.push(handle);

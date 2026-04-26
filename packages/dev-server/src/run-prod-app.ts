@@ -113,6 +113,12 @@ export type RunProdAppOptions = {
   readonly staticDir?: string;
   /** Extra AppContext keys. configResolver is auto-set in auth-mode. */
   readonly extraContext?: Record<string, unknown>;
+  /** When true (default), Bun.serve is started before runProdApp resolves —
+   *  the common case: `await runProdApp({...})` boots the server and the
+   *  process stays up listening on PORT. Set to false in tests that drive
+   *  the fetch-handler directly (Bun.serve isn't available under vitest +
+   *  node), then call handle.listen() manually if needed. */
+  readonly autoListen?: boolean;
 };
 
 export type ProdAppHandle = {
@@ -294,6 +300,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     },
   };
 
+  // 12. Auto-listen unless explicitly suppressed (tests pass autoListen:
+  //     false because Bun.serve isn't available under vitest/node).
+  //     Production path: `await runProdApp({...})` and the server is up.
+  if (options.autoListen !== false) {
+    await handle.listen();
+  }
+
   return handle;
 }
 
@@ -349,8 +362,9 @@ function buildStaticFallback(
 
 // Map URL-Pfad → Cache-Control. Hashed-Asset-Pfade (/assets/*) sind
 // unveränderlich, der Rest bleibt no-cache damit Updates ohne Hard-
-// Reload greifen.
-function cacheHeadersFor(pathname: string): HeadersInit {
+// Reload greifen. Exported für Unit-Tests; Konsumenten gehen via
+// runProdApp.
+export function cacheHeadersFor(pathname: string): HeadersInit {
   if (pathname.startsWith("/assets/")) {
     return { "cache-control": "public, max-age=31536000, immutable" };
   }
