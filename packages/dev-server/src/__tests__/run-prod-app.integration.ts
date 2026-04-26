@@ -18,6 +18,7 @@ import {
 import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app";
 
 const widgetEntity = createEntity({
@@ -30,7 +31,18 @@ const widgetEntity = createEntity({
 
 const widgetFeature = defineFeature("prod-probe", (r) => {
   r.entity("widget", widgetEntity);
+  // Anonymous query — covers the "anonymousAccess flows from runProdApp
+  // through createApiEntrypoint to the auth-middleware" wiring that
+  // earlier silently dropped the option in the entrypoint layer.
+  r.queryHandler({
+    name: "ping",
+    schema: z.object({}),
+    access: { roles: ["anonymous"] },
+    handler: async () => ({ pong: true }),
+  });
 });
+
+const TENANT_ID = "00000000-0000-4000-8000-000000000001";
 
 // Per-suite DB so reboots can be tested without conflicting with other
 // test suites. Created in beforeAll, dropped at module end via the admin
@@ -59,6 +71,7 @@ afterEach(async () => {
 
 async function boot(
   seedFn?: (deps: { db: import("@kumiko/framework/db").DbConnection }) => Promise<void>,
+  extra?: Partial<Parameters<typeof runProdApp>[0]>,
 ): Promise<ProdAppHandle> {
   // Override env per boot to point at the suite's DB.
   const originalDbUrl = process.env["DATABASE_URL"];
@@ -72,6 +85,7 @@ async function boot(
       features: [widgetFeature],
       autoListen: false,
       ...(seedFn && { seeds: [seedFn] }),
+      ...(extra ?? {}),
     });
     prodAppHandles.push(handle);
     return handle;
@@ -97,6 +111,30 @@ describe("runProdApp", () => {
 
     const res = await second.entrypoint.app.fetch(new Request("http://test/health"));
     expect(res.status).toBe(200);
+  });
+
+  test("anonymousAccess flows from runProdApp through entrypoint into the auth-middleware", async () => {
+    // Regression for the silent-drop bug: ApiEntrypointOptions had no
+    // anonymousAccess field, so runProdApp's option went into createApi
+    // Entrypoint's spread, vanished, and the auth-middleware never saw
+    // it → 401 missing_token even on `roles: ["anonymous"]` handlers.
+    const handle = await boot(undefined, {
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+    });
+
+    const res = await handle.entrypoint.app.fetch(
+      new Request("http://test/api/query", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "prod-probe:query:ping",
+          payload: {},
+        }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: { pong?: boolean } };
+    expect(body.data?.pong).toBe(true);
   });
 
   test("seed runs once on first boot, but the seed's own idempotence prevents duplication on reboot", async () => {

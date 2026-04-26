@@ -79,6 +79,7 @@ type JobsBlock = {
 
 export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly auth?: AuthRoutesConfig;
+  readonly anonymousAccess?: ServerOptions["anonymousAccess"];
   readonly sseBroker?: SseBroker;
   readonly files?: Omit<FileRoutesOptions, "db"> & { db?: FileRoutesOptions["db"] };
   readonly rateLimit?: ServerOptions["rateLimit"];
@@ -183,6 +184,7 @@ function buildApiServer(
     processLane,
     jwtIssuer: opts.jwtIssuer,
     auth: opts.auth,
+    anonymousAccess: opts.anonymousAccess,
     files: opts.files,
     sseBroker: opts.sseBroker,
     rateLimit: opts.rateLimit,
