@@ -68,7 +68,6 @@ function renderInput({
 
   switch (field.type) {
     case "number":
-    case "money":
       return (
         <Input
           kind="number"
@@ -77,6 +76,19 @@ function renderInput({
           onChange={(v) => onChange(v)}
         />
       );
+    case "money": {
+      const moneyDef = field as unknown as { currency?: string; locale?: string };
+      return (
+        <Input
+          kind="money"
+          {...common}
+          value={numberValue(field.value)}
+          onChange={(v) => onChange(v)}
+          {...(moneyDef.currency !== undefined && { currency: moneyDef.currency })}
+          {...(moneyDef.locale !== undefined && { locale: moneyDef.locale })}
+        />
+      );
+    }
     case "boolean":
       return (
         <Input
@@ -87,10 +99,18 @@ function renderInput({
         />
       );
     case "date":
-    case "timestamp":
       return (
         <Input
           kind="date"
+          {...common}
+          value={stringValue(field.value)}
+          onChange={(v) => onChange(v)}
+        />
+      );
+    case "timestamp":
+      return (
+        <Input
+          kind="timestamp"
           {...common}
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}

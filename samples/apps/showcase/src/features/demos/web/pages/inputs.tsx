@@ -10,11 +10,15 @@ export function InputsDemo(): ReactNode {
   const [date, setDate] = useState("2026-04-25");
   const [select, setSelect] = useState("draft");
   const [textarea, setTextarea] = useState("Zeile 1\nZeile 2\nZeile 3");
+  const [moneyEur, setMoneyEur] = useState<number | "">(1299);
+  const [moneyUsd, setMoneyUsd] = useState<number | "">(2599);
+  const [moneyJpy, setMoneyJpy] = useState<number | "">(1500);
+  const [timestamp, setTimestamp] = useState("2026-04-25T13:45");
 
   return (
     <DemoPage
       title="Inputs"
-      description="Alle Input-Kinds aus dem Primitives-Contract — text, number, boolean, date, select, textarea."
+      description="Alle Input-Kinds aus dem Primitives-Contract — text, number, money, boolean, date, timestamp, select, textarea."
     >
       <DemoSection title="Text">
         <Field id="demo-text" label="Title">
@@ -49,6 +53,41 @@ export function InputsDemo(): ReactNode {
           <Input kind="boolean" id="demo-bool" name="done" value={bool} onChange={setBool} />
         </Field>
       </DemoSection>
+      <DemoSection title="Money (EUR — Default)">
+        <Field id="demo-money-eur" label="Preis">
+          <Input
+            kind="money"
+            id="demo-money-eur"
+            name="priceEur"
+            value={moneyEur}
+            onChange={(v) => setMoneyEur(v ?? "")}
+          />
+        </Field>
+      </DemoSection>
+      <DemoSection title="Money (USD — andere Currency)">
+        <Field id="demo-money-usd" label="Preis">
+          <Input
+            kind="money"
+            id="demo-money-usd"
+            name="priceUsd"
+            value={moneyUsd}
+            onChange={(v) => setMoneyUsd(v ?? "")}
+            currency="USD"
+          />
+        </Field>
+      </DemoSection>
+      <DemoSection title="Money (JPY — 0 Dezimalen)">
+        <Field id="demo-money-jpy" label="Preis">
+          <Input
+            kind="money"
+            id="demo-money-jpy"
+            name="priceJpy"
+            value={moneyJpy}
+            onChange={(v) => setMoneyJpy(v ?? "")}
+            currency="JPY"
+          />
+        </Field>
+      </DemoSection>
       <DemoSection title="Date">
         <Field id="demo-date" label="Due date">
           <Input
@@ -57,6 +96,17 @@ export function InputsDemo(): ReactNode {
             name="dueDate"
             value={date}
             onChange={(v) => setDate(v ?? "")}
+          />
+        </Field>
+      </DemoSection>
+      <DemoSection title="Timestamp (Datum + Uhrzeit)">
+        <Field id="demo-timestamp" label="Termin">
+          <Input
+            kind="timestamp"
+            id="demo-timestamp"
+            name="appointment"
+            value={timestamp}
+            onChange={(v) => setTimestamp(v ?? "")}
           />
         </Field>
       </DemoSection>

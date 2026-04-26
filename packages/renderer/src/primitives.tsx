@@ -150,6 +150,39 @@ export type InputProps =
       readonly hasError?: boolean;
     }
   | {
+      readonly kind: "money";
+      readonly id: string;
+      readonly name: string;
+      /** Internal-Format: Cents/Minor-Units als Integer (z.B. 1299 für
+       *  12,99 EUR). Renderer übersetzt fürs UI in Major-Units mit
+       *  Locale-formatierten Dezimalstellen. Empty-State = `""`. */
+      readonly value: number | "";
+      readonly onChange: (v: number | undefined) => void;
+      /** ISO-4217 Currency-Code, z.B. "EUR" / "USD" / "CHF". Default
+       *  "EUR". Renderer zeigt das Symbol als Suffix und formatiert die
+       *  Decimal-Stellen entsprechend (EUR/USD/CHF haben 2, JPY hat 0). */
+      readonly currency?: string;
+      /** Locale für Zahlen-Formatierung. Default "de-DE" (Komma als
+       *  Dezimaltrenner). Apps mit eigenem LocaleResolver können ihren
+       *  current locale durchreichen. */
+      readonly locale?: string;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+    }
+  | {
+      readonly kind: "timestamp";
+      readonly id: string;
+      readonly name: string;
+      /** ISO-8601 Datetime-String inkl. Zeit ("2026-04-25T13:45").
+       *  Empty-State = `""`. Web nutzt `<input type="datetime-local">`. */
+      readonly value: string;
+      readonly onChange: (v: string | undefined) => void;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+    }
+  | {
       readonly kind: "textarea";
       readonly id: string;
       readonly name: string;

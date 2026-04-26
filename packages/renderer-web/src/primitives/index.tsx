@@ -223,6 +223,48 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.hasError !== undefined && { hasError: props.hasError })}
         />
       );
+    case "money": {
+      // Money: Input zeigt Major-Units (Euro), speichert Minor-Units
+      // (Cents). Currency-Symbol als Suffix rechts. Wir nutzen ein
+      // type="number" mit step=0.01 + entsprechenden decimals — Native
+      // numeric-Input mit Locale-correct Comma/Punkt klappt nicht
+      // konsistent über Browser, daher Fallback auf number.
+      const currency = props.currency ?? "EUR";
+      const decimals = currencyDecimals(currency);
+      const factor = 10 ** decimals;
+      const majorValue = props.value === "" ? "" : props.value / factor;
+      return (
+        <div className="relative w-full">
+          <input
+            type="number"
+            step={1 / factor}
+            {...common}
+            value={majorValue}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const v = e.target.value;
+              if (v === "") props.onChange(undefined);
+              else props.onChange(Math.round(Number(v) * factor));
+            }}
+            className={cn(inputClassBase, "pr-12", errorClass)}
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+            {currency}
+          </span>
+        </div>
+      );
+    }
+    case "timestamp":
+      return (
+        <input
+          type="datetime-local"
+          {...common}
+          value={props.value}
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            props.onChange(e.target.value !== "" ? e.target.value : undefined)
+          }
+          className={cn(inputClassBase, errorClass)}
+        />
+      );
     case "textarea":
       // Default 4 Zeilen — vertikal-resize via resize-y. min-h damit
       // ein bewusstes rows={2} nicht unter eine sinnvolle Mindesthöhe
@@ -247,6 +289,16 @@ function DefaultInput(props: InputProps): ReactNode {
 }
 
 // ---- DataTable (shadcn: Table) ----
+
+// Currency-Decimal-Stellen — überdeckt die wichtigsten Welt-Währungen.
+// Default 2 wenn Code unbekannt. Voll ISO-4217-Tabelle wäre overkill;
+// Apps mit exotischen Currencies können den Renderer überschreiben.
+function currencyDecimals(code: string): number {
+  if (code === "JPY" || code === "KRW" || code === "VND" || code === "ISK") return 0;
+  if (code === "BHD" || code === "JOD" || code === "KWD" || code === "OMR" || code === "TND")
+    return 3;
+  return 2;
+}
 
 function DefaultDataTable({
   columns,
@@ -410,6 +462,7 @@ function DataTableCell({ value, row, field, type, renderer }: DataTableCellProps
     // typischer Fall: clientFeatures.columnRenderers vergessen oder
     // Tippfehler im __component-Key. Warnen statt crashen, damit ein
     // Schema-Boot trotzdem funktioniert (Default-Type-Renderer übernimmt).
+    // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
     console.warn(`[kumiko] columnRenderer "${componentRef.name}" not registered`);
   }
   return defaultCellRender(value, type);
