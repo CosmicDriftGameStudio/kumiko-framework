@@ -137,6 +137,20 @@ export type RunProdAppOptions = {
   readonly staticDir?: string;
   /** Extra AppContext keys. configResolver is auto-set in auth-mode. */
   readonly extraContext?: Record<string, unknown>;
+  /** Job-Block. Wenn das Feature `r.job(...)` registriert, MUSS dieser
+   *  Block gesetzt sein — sonst wirft createApiEntrypoint mit dem
+   *  expliziten "registry declares N job(s)..."-Fehler. Default-Pattern
+   *  für Single-Container-Deployments (publicstatus, kleine SaaS):
+   *  `{ runLocalJobs: true }` — der API-Process consumiert auch die
+   *  Worker-Lane, kein separates worker-Image nötig. Für skalierende
+   *  Setups (mehrere API-Replicas + dezidierte Worker): runLocalJobs
+   *  weglassen + workers via separatem `runWorkerApp` (kommt Phase 4). */
+  readonly jobs?: {
+    /** Default true (Single-Container). */
+    readonly runLocalJobs?: boolean;
+    /** BullMQ-Queue-Prefix (default "kumiko"). */
+    readonly queueNamePrefix?: string;
+  };
   /** Mount-Point für app-eigene HTTP-Routes außerhalb des Dispatcher-
    *  Systems. Aufgerufen NACH /api/* + /health, VOR der static-fallback —
    *  perfekt für GET-Endpoints die kein JSON liefern: /feed.xml,
@@ -265,6 +279,20 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       },
     }),
     ...(options.anonymousAccess && { anonymousAccess: options.anonymousAccess }),
+    // Auto-Pass-Through für r.job-Wiring: wenn das Registry Jobs
+    // deklariert, MUSS der jobs-Block gesetzt sein — sonst stoppt
+    // createApiEntrypoint mit explizitem Fehler. Default für Single-
+    // Container-Deployments: runLocalJobs=true (API-Process consumiert
+    // auch worker-Lane). Caller kann override'n via options.jobs.
+    ...(registry.getAllJobs().size > 0 && {
+      jobs: {
+        redisUrl,
+        runLocalJobs: options.jobs?.runLocalJobs ?? true,
+        ...(options.jobs?.queueNamePrefix !== undefined && {
+          queueNamePrefix: options.jobs.queueNamePrefix,
+        }),
+      },
+    }),
   } satisfies ApiEntrypointOptions);
 
   // 8. Build the AppSchema once so feature-toggles / nav-config / screen-
