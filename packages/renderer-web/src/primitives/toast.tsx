@@ -16,6 +16,7 @@ import {
   useContext,
   useId,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { cn } from "../lib/cn";
@@ -54,17 +55,20 @@ export type ToastProviderProps = {
 
 export function ToastProvider({ children }: ToastProviderProps): ReactNode {
   const [entries, setEntries] = useState<readonly ToastEntry[]>([]);
-  // Counter für deterministische IDs — Date.now()-basiert würde bei
-  // 2-Toasts-im-selben-Tick kollidieren.
+  // Monoton wachsender Counter via useRef — useState hätte einen
+  // closure-Bug: zwei toast()-Calls im selben Tick lesen denselben
+  // alten Wert aus dem Closure und kollidieren bei der ID. Ref ist
+  // synchron-mutabel, jeder Aufruf bekommt eine garantiert neue ID.
   const idPrefix = useId();
-  const [counter, setCounter] = useState(0);
+  const counterRef = useRef(0);
 
   const toast = useCallback(
     (opts: ToastOptions) => {
-      setCounter((c) => c + 1);
-      setEntries((current) => [...current, { ...opts, id: `${idPrefix}-${counter}` }]);
+      counterRef.current += 1;
+      const id = `${idPrefix}-${counterRef.current}`;
+      setEntries((current) => [...current, { ...opts, id }]);
     },
-    [counter, idPrefix],
+    [idPrefix],
   );
 
   const api = useMemo<ToastApi>(() => ({ toast }), [toast]);

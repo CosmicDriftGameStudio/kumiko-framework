@@ -75,26 +75,21 @@ export function MoneyInput({
           maximumFractionDigits: decimals,
         }).format(major);
 
-  const editable = focused
-    ? draft
-    : major === null
+  // Edit-Mode: Decimal-String ohne Tausender-Trenner. Konsistente Helper-
+  // Funktion damit Focus-Init und Render-Fallback nicht auseinanderdriften.
+  const toEditable = (m: number | null): string =>
+    m === null
       ? ""
-      : major.toLocaleString(resolvedLocale, {
+      : m.toLocaleString(resolvedLocale, {
           minimumFractionDigits: decimals,
           maximumFractionDigits: decimals,
           useGrouping: false,
         });
 
+  const editable = focused ? draft : toEditable(major);
+
   const handleFocus = (_e: FocusEvent<HTMLInputElement>): void => {
-    setDraft(
-      major === null
-        ? ""
-        : major.toLocaleString(resolvedLocale, {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals,
-            useGrouping: false,
-          }),
-    );
+    setDraft(toEditable(major));
     setFocused(true);
   };
 
@@ -177,16 +172,21 @@ function guessLocale(): string {
 
 // Locale-Decimal-Parse: erkennt automatisch ob Komma oder Punkt der
 // Decimal-Separator ist. Intl.NumberFormat liefert die Trenner für
-// das Locale, daraus bauen wir den Reverse-Parser.
-function parseLocaleNumber(raw: string, locale: string): number {
+// das Locale, daraus bauen wir den Reverse-Parser. Strict beim
+// Vorzeichen: ein `-` darf NUR ganz vorne stehen — `1-23` ist invalid,
+// nicht `-123` (sonst würden vertippte Inputs zu falschen Beträgen).
+export function parseLocaleNumber(raw: string, locale: string): number {
   const parts = new Intl.NumberFormat(locale).formatToParts(1234.5);
   const groupSep = parts.find((p) => p.type === "group")?.value ?? ",";
   const decimalSep = parts.find((p) => p.type === "decimal")?.value ?? ".";
-  const cleaned = raw
-    .split(groupSep)
-    .join("")
-    .split(decimalSep)
-    .join(".")
-    .replace(/[^0-9.-]/g, "");
-  return Number(cleaned);
+  const trimmed = raw.trim();
+  const negative = trimmed.startsWith("-");
+  const body = negative ? trimmed.slice(1) : trimmed;
+  // Body darf nur noch Ziffern, Group- und Decimal-Separator enthalten.
+  // Alles andere (zweites Minus, Buchstaben, etc.) → NaN, damit Caller
+  // (handleBlur) den Wert verwirft statt eine korrupte Zahl zu setzen.
+  const cleaned = body.split(groupSep).join("").split(decimalSep).join(".");
+  if (!/^[0-9]*\.?[0-9]*$/.test(cleaned) || cleaned === "" || cleaned === ".") return Number.NaN;
+  const n = Number(cleaned);
+  return negative ? -n : n;
 }

@@ -244,7 +244,9 @@ async function watchDir(dir: string, onChange: (filename: string) => void): Prom
 //       - in `/web/` oder `/client/` Subdir → hot-reload (Client-Bundle)
 //       - sonst → restart (könnte Schema/Feature-Definition sein)
 //   - andere Dateitypen → ignore (kein TS rebuild nötig)
-function classifyChange(filename: string): "restart" | "hot-reload" | "ignore" {
+//
+// Exportiert für Tests; intern wird's von der Watcher-Loop gerufen.
+export function classifyChange(filename: string): "restart" | "hot-reload" | "ignore" {
   if (!filename.endsWith(".ts") && !filename.endsWith(".tsx")) return "ignore";
   if (filename.includes("__tests__")) return "ignore";
   if (filename.endsWith(".test.ts") || filename.endsWith(".test.tsx")) return "ignore";
