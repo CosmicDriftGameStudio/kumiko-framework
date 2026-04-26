@@ -114,6 +114,16 @@ export type RunProdAppOptions = {
   readonly staticDir?: string;
   /** Extra AppContext keys. configResolver is auto-set in auth-mode. */
   readonly extraContext?: Record<string, unknown>;
+  /** Mount-Point für app-eigene HTTP-Routes außerhalb des Dispatcher-
+   *  Systems. Aufgerufen NACH /api/* + /health, VOR der static-fallback —
+   *  perfekt für GET-Endpoints die kein JSON liefern: /feed.xml,
+   *  /og-image, /sitemap.xml, /robots.txt-mit-Logik. Bekommt das raw
+   *  Hono-app + den AppContext (db/redis/registry/...) mit dem die
+   *  Route gegen die Domain queryen kann. */
+  readonly extraRoutes?: (
+    app: import("hono").Hono,
+    ctx: { db: import("@kumiko/framework/db").DbConnection; redis: import("ioredis").default },
+  ) => void;
   /** When true (default), Bun.serve is started before runProdApp resolves —
    *  the common case: `await runProdApp({...})` boots the server and the
    *  process stays up listening on PORT. Set to false in tests that drive
@@ -249,9 +259,20 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   await entrypoint.start();
 
-  // 10. Build the fetch-handler. Static-fallback for non-/api/ paths
-  //     wired via a wrapper so Hono owns /api/* and disk owns the rest.
-  //     Tests use this directly; listen() wraps it in Bun.serve.
+  // 10. App-eigene HTTP-Routes mounten — vor dem static-fallback. Hono
+  //     matcht in Eintrags-Reihenfolge, also greifen explizite Routen
+  //     der App (z.B. /feed.xml) bevor der Static-Fallback nach Disk-
+  //     Files sucht. Eingehende /api/*-Pfade sind schon vom dispatcher
+  //     belegt; extraRoutes sollte die nicht überschreiben (kein
+  //     enforce, das ist Author-Verantwortung).
+  if (options.extraRoutes) {
+    options.extraRoutes(entrypoint.app, { db, redis });
+  }
+
+  // 11. Build the fetch-handler. Static-fallback for non-/api/ paths
+  //     wired via a wrapper so Hono owns /api/* + extraRoutes and disk
+  //     owns the rest. Tests use this directly; listen() wraps it in
+  //     Bun.serve.
   const fetchHandler = options.staticDir
     ? buildStaticFallback(entrypoint.app.fetch.bind(entrypoint.app), options.staticDir)
     : entrypoint.app.fetch.bind(entrypoint.app);

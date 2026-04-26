@@ -113,6 +113,35 @@ describe("runProdApp", () => {
     expect(res.status).toBe(200);
   });
 
+  test("extraRoutes-callback mounts custom HTTP-routes on the Hono-app", async () => {
+    // Beweist dass die runProdApp.extraRoutes-Option den Hono-app
+    // bekommt und Routes daran VOR dem static-fallback greifen — das
+    // ist das Fundament für /feed.xml, /sitemap.xml, /og-image etc.
+    let extraInvoked = false;
+    const handle = await boot(undefined, {
+      extraRoutes: (app, ctx) => {
+        extraInvoked = true;
+        // ctx.db + ctx.redis sind die runProdApp-Connections — die
+        // Route kann gegen die Domain queryen, hier reicht ein simple
+        // Echo zum Beweis dass wir ans App-Object kommen.
+        app.get("/feed.xml", (c) => {
+          const dbAvailable = ctx.db !== undefined;
+          return c.body(`<?xml version="1.0"?><probe ok="${dbAvailable}" />`, 200, {
+            "content-type": "application/rss+xml",
+          });
+        });
+      },
+    });
+
+    expect(extraInvoked).toBe(true);
+
+    const res = await handle.entrypoint.app.fetch(new Request("http://test/feed.xml"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/rss+xml");
+    const body = await res.text();
+    expect(body).toContain('<probe ok="true" />');
+  });
+
   test("anonymousAccess flows from runProdApp through entrypoint into the auth-middleware", async () => {
     // Regression for the silent-drop bug: ApiEntrypointOptions had no
     // anonymousAccess field, so runProdApp's option went into createApi

@@ -81,6 +81,10 @@ export type RunDevAppOptions = {
    *  als Pseudo-User mit Rolle `anonymous` durch, wenn der Handler die
    *  Rolle in `access.roles` führt. */
   readonly anonymousAccess?: CreateKumikoServerOptions["anonymousAccess"];
+  /** App-eigene HTTP-Routes (z.B. /feed.xml, /sitemap.xml) — wird ans
+   *  Hono-app gehängt, läuft VOR dem static-asset-Pfad. Symmetrisch zur
+   *  gleichnamigen Option in runProdApp. */
+  readonly extraRoutes?: CreateKumikoServerOptions["extraRoutes"];
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
@@ -116,6 +120,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     }),
     ...(extraContext !== undefined && { extraContext }),
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
+    ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
     ...(options.auth && {
       auth: {
         membershipQuery: TenantQueries.memberships,

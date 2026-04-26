@@ -102,6 +102,14 @@ export type CreateKumikoServerOptions = {
    *  tenant, …). Muss idempotent sein — im persistent-DB-Modus läuft
    *  es bei jedem Boot. */
   readonly onAfterSetup?: (stack: TestStack) => Promise<void>;
+  /** Mount-Point für app-eigene HTTP-Routes außerhalb des Dispatcher-
+   *  Systems — symmetrisch zum runProdApp.extraRoutes. Wird VOR der
+   *  Static/HTML-Auslieferung aufgerufen, sodass eigene GETs (/feed.xml,
+   *  /og-image, …) Vorrang vor dem Dev-Asset-Pfad haben. */
+  readonly extraRoutes?: (
+    app: import("hono").Hono,
+    ctx: { db: TestStack["db"]; redis: TestStack["redis"] },
+  ) => void;
 };
 
 export type KumikoServerHandle = {
@@ -442,6 +450,14 @@ export async function createKumikoServer(
   // Verantwortung (persistent-DB-Modus läuft es bei jedem Boot).
   if (options.onAfterSetup !== undefined) {
     await options.onAfterSetup(stack);
+  }
+
+  // App-eigene HTTP-Routes ans Hono-app hängen — symmetrisch zur
+  // gleichnamigen Option in runProdApp. Wird vor dem dev-fallback
+  // (HTML/JS/CSS-Serving via handleFetch unten) registriert, damit
+  // explizite Routen wie /feed.xml den Asset-Pfad schlagen.
+  if (options.extraRoutes !== undefined) {
+    options.extraRoutes(stack.app, { db: stack.db, redis: stack.redis });
   }
 
   // setupTestStack konfiguriert den eventDispatcher, startet ihn aber
