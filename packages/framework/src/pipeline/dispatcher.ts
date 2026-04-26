@@ -124,7 +124,9 @@ function describeShape(result: unknown): string {
   if (result === null) return "null";
   if (result === undefined) return "undefined";
   if (typeof result !== "object") return typeof result;
-  return `object with keys [${Object.keys(result as object).slice(0, 6).join(", ")}]`;
+  return `object with keys [${Object.keys(result as object)
+    .slice(0, 6)
+    .join(", ")}]`;
 }
 
 // Standard span attributes for a dispatcher call. Feature may be undefined

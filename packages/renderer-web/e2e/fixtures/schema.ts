@@ -37,12 +37,7 @@ export const thingEditScreen: EntityEditScreenDefinition = {
       {
         title: "Thing",
         columns: 2,
-        fields: [
-          { field: "label", span: 2 },
-          "isDone",
-          "status",
-          { field: "notes", span: 2 },
-        ],
+        fields: [{ field: "label", span: 2 }, "isDone", "status", { field: "notes", span: 2 }],
       },
     ],
   },

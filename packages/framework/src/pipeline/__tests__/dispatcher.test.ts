@@ -311,7 +311,7 @@ describe("write-handler shape guard", () => {
         "item:create",
         z.object({ name: z.string() }),
         // biome-ignore lint/suspicious/noExplicitAny: deliberate wrong-shape return for the test
-        async (event) => ({ id: "x", name: event.payload.name } as any),
+        async (event) => ({ id: "x", name: event.payload.name }) as any,
         { access: { roles: ["Admin"] } },
       );
     });
