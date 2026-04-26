@@ -53,6 +53,11 @@ export function DefaultDialog({
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           data-testid={testId}
+          // Wenn description fehlt, signalisieren wir Radix explizit
+          // `aria-describedby={undefined}` — sonst warnt Radix zur
+          // Laufzeit (aria-Best-Practice: Modals sollen entweder eine
+          // Description haben oder den Hinweis tragen dass keine da ist).
+          {...(description === undefined && { "aria-describedby": undefined })}
           className={cn(
             "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-card p-6 shadow-lg",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",

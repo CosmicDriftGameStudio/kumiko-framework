@@ -8,6 +8,7 @@
 // ChangeEvent) und das testId-Forwarding, von dem die E2E-Tests
 // abhängen werden.
 
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
@@ -358,6 +359,7 @@ describe("Dialog", () => {
   });
 
   test("Confirm-Button feuert onConfirm und schließt den Dialog", async () => {
+    const user = userEvent.setup();
     const onConfirm = vi.fn();
     const onOpenChange = vi.fn();
     render(
@@ -369,11 +371,12 @@ describe("Dialog", () => {
         testId="dlg"
       />,
     );
-    fireEvent.click(screen.getByTestId("dlg-confirm"));
-    // onConfirm sync gefeuert; onOpenChange(false) im finally-Block.
+    // userEvent.click wartet auf React-State-Updates die durch Radix-
+    // Lifecycle (Presence/FocusScope/DismissableLayer) ausgelöst werden
+    // — fireEvent.click würde dieselben Updates uneingewickelt lassen
+    // und mit ~13 act()-Warnings spammen.
+    await user.click(screen.getByTestId("dlg-confirm"));
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    // Wait für finally → setLoading(false) + onOpenChange(false)
-    await new Promise((r) => setTimeout(r, 0));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

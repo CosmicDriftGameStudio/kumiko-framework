@@ -13,6 +13,12 @@ import { defaultTranslations } from "../../i18n";
 import type { SessionApi, SessionState } from "../session";
 import { SessionContext } from "../session";
 
+// Stateless Resolver — module-level cached, weil renderWithProviders
+// ihn pro Mount sonst neu konstruiert (~0.5ms × N Tests). Tests die
+// einen *anderen* Locale brauchen, übergeben ihren eigenen Resolver
+// über options.resolver.
+const sharedDeResolver = createStaticLocaleResolver({ locale: "de" });
+
 export type MakeSessionApiOptions = Partial<SessionState> & {
   readonly login?: SessionApi["login"];
   readonly logout?: SessionApi["logout"];
@@ -47,7 +53,7 @@ export function renderWithProviders(
     readonly session?: SessionApi;
   } = {},
 ): RenderResult & { readonly session: SessionApi } {
-  const resolver = options.resolver ?? createStaticLocaleResolver({ locale: "de" });
+  const resolver = options.resolver ?? sharedDeResolver;
   const session = options.session ?? makeSessionApi();
   const result = _render(
     <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>

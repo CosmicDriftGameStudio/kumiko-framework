@@ -7,6 +7,7 @@ import type {
 import type { Dispatcher } from "@kumiko/headless";
 import type { FeatureSchema } from "@kumiko/renderer";
 import { DispatcherProvider, KumikoScreen } from "@kumiko/renderer";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
 
@@ -187,6 +188,7 @@ describe("KumikoScreen", () => {
   });
 
   test("entityEdit update-mode: Delete-Button öffnet Confirm-Dialog + write('delete')", async () => {
+    const user = userEvent.setup();
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
       query: (async () => ({
@@ -206,14 +208,14 @@ describe("KumikoScreen", () => {
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
-    // Erster Klick: öffnet Confirm-Dialog (Radix Dialog, Portal'd).
-    // Kein write fired noch — Dialog wartet auf User-Bestätigung.
-    fireEvent.click(screen.getByTestId("render-edit-delete"));
+    // userEvent statt fireEvent: Radix Dialog feuert async State-Updates
+    // (Presence/FocusScope/DismissableLayer) — fireEvent würde sie un-
+    // gewickelt lassen und mit ~26 act()-Warnings spammen.
+    await user.click(screen.getByTestId("render-edit-delete"));
     expect(screen.getByTestId("render-edit-delete-dialog")).toBeTruthy();
     expect(writeCalls.length).toBe(0);
 
-    // Confirm im Dialog: delete-command feuert.
-    fireEvent.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
+    await user.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
     await waitFor(() => expect(writeCalls.length).toBe(1));
     expect(writeCalls[0]).toEqual({
       type: "tasks:write:task:delete",

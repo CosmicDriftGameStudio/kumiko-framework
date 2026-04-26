@@ -26,3 +26,10 @@ if (typeof globalThis.HTMLElement !== "undefined") {
     proto.releasePointerCapture = (): void => undefined;
   if (proto.scrollIntoView === undefined) proto.scrollIntoView = (): void => undefined;
 }
+
+// Hinweis: Die "(node:...) Warning: --localstorage-file was provided
+// without a valid path"-Zeile beim Test-Start ist ein Bun-Quirk —
+// Bun spawnt seine Worker mit einem leeren localstorage-Flag und logt
+// das direkt auf stderr (nicht über process.emit('warning'), daher
+// kein Listener-Filter möglich). Pro vollem Test-Run einmalig, kein
+// Loop, kein Spam — daher hingenommen statt mit hacks unterdrückt.
