@@ -360,10 +360,19 @@ function buildStaticFallback(
 
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
-    // /api/* and /_health → always Hono. Static-fallback only for
-    // browser-facing paths.
+    // /api/* and /health → always Hono (Dispatcher + Health-Probe).
     if (url.pathname.startsWith("/api/") || url.pathname === "/health") {
       return apiHandler(req);
+    }
+
+    // Hono-First für andere Pfade: extraRoutes (z.B. /feed.xml,
+    // /sitemap.xml) müssen vor dem Disk-Lookup greifen, sonst
+    // schluckt der SPA-Fallback unten unbekannte Pfade als index.html.
+    // Wenn Hono "matched" (= status !== 404), wir liefern die Antwort
+    // durch. Bei 404 fallen wir auf den Static/SPA-Pfad zurück.
+    const honoRes = await apiHandler(req);
+    if (honoRes.status !== 404) {
+      return honoRes;
     }
 
     // Try the static file. Default route "/" → index.html.
@@ -376,8 +385,8 @@ function buildStaticFallback(
       });
     }
 
-    // Fallback to index.html for SPA-style routes that the Hono app
-    // doesn't claim.
+    // Fallback to index.html for SPA-style routes that neither Hono
+    // (oben schon getestet, gab 404) noch eine Disk-Datei beanspruchen.
     const index = Bun.file(indexHtml);
     if (await index.exists()) {
       return new Response(index, {
@@ -385,7 +394,9 @@ function buildStaticFallback(
       });
     }
 
-    return apiHandler(req);
+    // Kein Hono-Match, keine Disk-Datei, kein index.html → liefer den
+    // ursprünglichen 404 von Hono durch (statt einen neuen Roundtrip).
+    return honoRes;
   };
 }
 
