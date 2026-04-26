@@ -9,8 +9,8 @@
 
 import { runDevApp } from "@kumiko/dev-server";
 import type { TenantId } from "@kumiko/framework/engine";
+import { taskFeature } from "../features/tasks";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
-import { taskFeature } from "./feature";
 
 // Zwei feste Tenants — Admin ist in beiden Mitglied damit der
 // TenantSwitcher im Sample sichtbar ist (rendert nur bei >1 Tenant).
@@ -21,9 +21,9 @@ import { taskFeature } from "./feature";
 await runDevApp({
   features: [taskFeature],
   port: 4173,
-  clientEntry: "./src/client.tsx",
+  clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
-  watchDirs: ["./src"],
+  watchDirs: ["./src", "../../../packages/*/src"],
   auth: {
     admin: {
       email: ADMIN_EMAIL,

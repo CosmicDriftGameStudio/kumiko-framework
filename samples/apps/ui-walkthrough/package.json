@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "PORT=4173 bun --env-file=../../../.env run src/server.ts"
+    "dev": "PORT=4173 bun --env-file=../../../.env run src/app/server.ts"
   },
   "dependencies": {
     "@kumiko/bundled-features": "workspace:*",

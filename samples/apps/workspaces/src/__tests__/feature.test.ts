@@ -10,7 +10,8 @@
 
 import { createRegistry, defineFeature, validateBoot } from "@kumiko/framework/engine";
 import { describe, expect, test } from "vitest";
-import { demoFeature, driverFeature } from "../feature";
+import { demoFeature } from "../features/demo";
+import { driverFeature } from "../features/demo-driver";
 
 const features = [demoFeature, driverFeature];
 const registry = createRegistry(features);

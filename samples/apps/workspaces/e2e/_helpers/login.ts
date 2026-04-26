@@ -5,7 +5,7 @@
 // dem page-Context, anschließendes goto bootet authentifiziert.
 
 import type { Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../../src/auth-constants";
+import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../../src/app/auth-constants";
 
 export async function loginAsAdmin(page: Page): Promise<void> {
   const res = await page.request.post("/api/auth/login", {

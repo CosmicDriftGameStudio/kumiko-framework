@@ -9,7 +9,7 @@ import {
   defineEntityWriteHandler,
   defineFeature,
 } from "@kumiko/framework/engine";
-import { editScreen, listScreen, taskEntity } from "./feature-schema";
+import { editScreen, listScreen, taskEntity } from "./schema";
 
 // Re-export so the server bootstrap (server.ts) keeps one source of
 // truth when it calls createEntityTable(stack.db, taskEntity).

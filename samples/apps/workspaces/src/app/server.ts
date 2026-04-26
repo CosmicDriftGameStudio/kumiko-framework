@@ -10,8 +10,9 @@
 
 import { runDevApp } from "@kumiko/dev-server";
 import type { TenantId } from "@kumiko/framework/engine";
+import { demoFeature } from "../features/demo";
+import { driverFeature } from "../features/demo-driver";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./auth-constants";
-import { demoFeature, driverFeature } from "./feature";
 
 // Ein Dev-Tenant reicht — die Workspaces filtern nach `roles` (nicht
 // nach Tenant). Wer Tenant-Switching demoen will, schaut in den
@@ -21,9 +22,9 @@ const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000010" as TenantId;
 await runDevApp({
   features: [demoFeature, driverFeature],
   port: 4174,
-  clientEntry: "./src/client.tsx",
+  clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
-  watchDirs: ["./src"],
+  watchDirs: ["./src", "../../../packages/*/src"],
   auth: {
     admin: {
       email: ADMIN_EMAIL,
