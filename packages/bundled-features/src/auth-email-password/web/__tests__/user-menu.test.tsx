@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
-import { fireEvent, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 import { UserMenu } from "../user-menu";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
+
+// Radix-DropdownMenu reagiert auf pointerdown — fireEvent.click greift
+// dort nicht. userEvent simuliert die volle Pointer-Sequenz und Radix
+// öffnet sauber.
 
 describe("UserMenu", () => {
   test("renders nothing when user is null", () => {
@@ -30,19 +35,21 @@ describe("UserMenu", () => {
     expect(screen.getByText("BO")).toBeTruthy();
   });
 
-  test("opens dropdown on click and shows logout button", () => {
+  test("opens dropdown on click and shows logout button", async () => {
+    const user = userEvent.setup();
     const session = makeSessionApi();
     renderWithProviders(<UserMenu />, { session });
-    fireEvent.click(screen.getByRole("button", { name: /Test User/ }));
+    await user.click(screen.getByRole("button", { name: /Test User/ }));
     expect(screen.getByText("Abmelden")).toBeTruthy();
     expect(screen.getByText("user@example.com")).toBeTruthy();
   });
 
-  test("logout-click triggers session.logout", () => {
+  test("logout-click triggers session.logout", async () => {
+    const user = userEvent.setup();
     const session = makeSessionApi();
     renderWithProviders(<UserMenu />, { session });
-    fireEvent.click(screen.getByRole("button", { name: /Test User/ }));
-    fireEvent.click(screen.getByText("Abmelden"));
+    await user.click(screen.getByRole("button", { name: /Test User/ }));
+    await user.click(screen.getByText("Abmelden"));
     expect(session.logout).toHaveBeenCalledOnce();
   });
 });

@@ -1,6 +1,6 @@
-// LanguageSwitcher — Dropdown-Button der die App-Locale via
-// LocaleResolver.setLocale umschaltet. Nutzt denselben self-rolled
-// Popup-Mechanismus wie UserMenu/TenantSwitcher (kein Radix-Dep).
+// LanguageSwitcher — Dropdown der die App-Locale via
+// LocaleResolver.setLocale umschaltet. Auf Radix-DropdownMenu, gleicher
+// Stack wie UserMenu/TenantSwitcher.
 //
 // Rendert gar nix wenn der Resolver keine setLocale-Methode anbietet
 // (statischer Resolver) — App-Dev sieht dann sofort dass er einen
@@ -12,9 +12,14 @@
 // Unicode-Glyph (🌐) als Default.
 
 import { useLocale } from "@kumiko/renderer";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo } from "react";
 import { cn } from "../lib/cn";
-import { useDropdownMenu } from "../lib/use-dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "../primitives/dropdown-menu";
 
 export type LocaleOption = {
   /** BCP-47-Code, z.B. "de", "en-US", "fr-CA". Wird 1:1 an
@@ -41,10 +46,6 @@ export function LanguageSwitcher({
   testId,
 }: LanguageSwitcherProps): ReactNode {
   const resolver = useLocale();
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  useDropdownMenu({ containerRef, open, onClose: () => setOpen(false) });
 
   const activeLocale = resolver.locale();
   // Match entweder exact ("de-DE") oder Language-Root ("de") gegen die
@@ -62,65 +63,39 @@ export function LanguageSwitcher({
     return null;
   }
 
-  const handleSelect = (code: string): void => {
-    setOpen(false);
-    resolver.setLocale?.(code);
-  };
+  const setLocale = resolver.setLocale;
 
   return (
-    <div ref={containerRef} className="relative" data-testid={testId}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={label}
-        title={label}
-        className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-md border bg-background px-2 text-sm",
-          "hover:bg-accent hover:text-accent-foreground",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        )}
-      >
-        <span aria-hidden="true">{icon}</span>
-        <span className="uppercase text-xs text-muted-foreground">
-          {activeOption?.code ?? activeLocale.slice(0, 2)}
-        </span>
-      </button>
-      {open && (
-        <div
-          role="menu"
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
           aria-label={label}
+          title={label}
+          data-testid={testId}
           className={cn(
-            "absolute right-0 z-50 mt-1 min-w-[10rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
-            "animate-in fade-in-0 zoom-in-95",
+            "inline-flex h-8 items-center gap-1.5 rounded-md border bg-background px-2 text-sm",
+            "hover:bg-accent hover:text-accent-foreground",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           )}
         >
-          {locales.map((opt) => {
-            const isActive = opt === activeOption;
-            return (
-              <button
-                key={opt.code}
-                type="button"
-                role="menuitem"
-                onClick={() => handleSelect(opt.code)}
-                className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  "focus-visible:outline-none focus-visible:bg-accent",
-                )}
-              >
-                <span className="truncate">{opt.label}</span>
-                {isActive && (
-                  <span aria-hidden="true" className="text-xs">
-                    ✓
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+          <span aria-hidden="true">{icon}</span>
+          <span className="uppercase text-xs text-muted-foreground">
+            {activeOption?.code ?? activeLocale.slice(0, 2)}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[10rem]" aria-label={label}>
+        {locales.map((opt) => (
+          <DropdownMenuCheckboxItem
+            key={opt.code}
+            checked={opt === activeOption}
+            onSelect={() => setLocale(opt.code)}
+          >
+            <span className="truncate">{opt.label}</span>
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

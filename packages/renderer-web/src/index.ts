@@ -108,9 +108,19 @@ export { filterByAccess, resolveDefaultId, WorkspaceShell } from "./layout/works
 export type { WorkspaceSwitcherProps } from "./layout/workspace-switcher";
 export { WorkspaceSwitcher } from "./layout/workspace-switcher";
 export { cn } from "./lib/cn";
-export type { UseDropdownMenuOptions } from "./lib/use-dropdown-menu";
-export { useDropdownMenu } from "./lib/use-dropdown-menu";
 export { defaultPrimitives } from "./primitives";
+export {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./primitives/dropdown-menu";
+export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast";
+export { ToastProvider, useToast } from "./primitives/toast";
 export type { CreateEventSourceLiveEventsOptions } from "./sse/live-events";
 export { createEventSourceLiveEvents } from "./sse/live-events";
 export {

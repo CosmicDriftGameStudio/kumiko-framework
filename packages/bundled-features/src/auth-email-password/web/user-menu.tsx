@@ -1,19 +1,24 @@
-// UserMenu — kleines Avatar-Dropdown in der Topbar. Zeigt Name/Email
-// des aktuellen Users und rendert einen Logout-Button. Nutzt einen
-// minimalen self-rolled Popup (click-outside + Escape-Close), damit
-// das Feature keine Radix-Abhängigkeit braucht — der ui-Kern bleibt
-// klein. Wer mehr (Profil-Link, Preferences, Theme-Toggle-Integration)
-// will, kann den Menu-Body per Children-Prop reinreichen.
+// UserMenu — Avatar-Dropdown in der Topbar/Sidebar. Zeigt Name/Email
+// des aktuellen Users + Logout-Button. Auf Radix-DropdownMenu, damit
+// Click-outside, Escape, Focus-Management, Keyboard-Nav (↑↓/Home/End)
+// und ARIA-Roles aus der Kiste funktionieren.
 //
-// Rendert bewusst NICHTS wenn kein User eingeloggt ist — Hosts dürfen
-// das Component auch außerhalb des AuthGate einhängen (z.B. um eine
-// Topbar zu bauen die im Login-Screen mit-angezeigt wird), ohne dass
-// ein harter Fehler entsteht.
+// Rendert NICHTS wenn kein User eingeloggt ist — Hosts dürfen das
+// Component außerhalb des AuthGate einhängen ohne dass ein harter
+// Fehler entsteht.
 
 import { useTranslation } from "@kumiko/renderer";
-import { cn, useDropdownMenu } from "@kumiko/renderer-web";
+import {
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@kumiko/renderer-web";
 import { ChevronDown, LogOut } from "lucide-react";
-import { type ReactNode, useCallback, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useSession } from "./session";
 
 export type UserMenuProps = {
@@ -38,17 +43,6 @@ function initials(value: string): string {
 export function UserMenu({ children }: UserMenuProps): ReactNode {
   const t = useTranslation();
   const { user, logout } = useSession();
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // Click-outside + Escape via shared hook (kein Focus-Trap — Tab-
-  // Reihenfolge soll nicht blockiert werden).
-  useDropdownMenu({ containerRef, open, onClose: () => setOpen(false) });
-
-  const handleLogout = useCallback(async () => {
-    setOpen(false);
-    await logout();
-  }, [logout]);
 
   if (user === null) return null;
 
@@ -56,57 +50,38 @@ export function UserMenu({ children }: UserMenuProps): ReactNode {
   const avatarText = initials(displayName);
 
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={cn(
-          "inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm",
-          "text-foreground hover:bg-accent hover:text-accent-foreground",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        )}
-      >
-        <span
-          aria-hidden="true"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground"
-        >
-          {avatarText}
-        </span>
-        <span className="hidden sm:inline max-w-[12ch] truncate">{displayName}</span>
-        <ChevronDown className="h-3 w-3 text-muted-foreground" />
-      </button>
-      {open && (
-        <div
-          role="menu"
-          aria-label={t("auth.user.menu.label")}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
           className={cn(
-            "absolute right-0 z-50 mt-1 min-w-[12rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
-            "animate-in fade-in-0 zoom-in-95",
+            "inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm",
+            "text-foreground hover:bg-accent hover:text-accent-foreground",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           )}
         >
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-            <div className="font-medium text-foreground truncate">{displayName}</div>
-            <div className="truncate">{user.email}</div>
-          </div>
-          <div className="my-1 h-px bg-border" />
-          {children}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleLogout}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm",
-              "hover:bg-accent hover:text-accent-foreground",
-              "focus-visible:outline-none focus-visible:bg-accent focus-visible:text-accent-foreground",
-            )}
+          <span
+            aria-hidden="true"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground"
           >
-            <LogOut className="h-4 w-4" />
-            <span>{t("auth.user.menu.logout")}</span>
-          </button>
-        </div>
-      )}
-    </div>
+            {avatarText}
+          </span>
+          <span className="hidden sm:inline max-w-[12ch] truncate">{displayName}</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" aria-label={t("auth.user.menu.label")}>
+        <DropdownMenuLabel className="text-xs">
+          <div className="font-medium text-foreground truncate">{displayName}</div>
+          <div className="truncate">{user.email}</div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {children}
+        <DropdownMenuItem onSelect={() => void logout()}>
+          <LogOut className="h-4 w-4" />
+          <span>{t("auth.user.menu.logout")}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
-import { fireEvent, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 import { TenantSwitcher } from "../tenant-switcher";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
+
+// Radix-DropdownMenu reagiert auf pointerdown, nicht auf click — daher
+// userEvent statt fireEvent.
 
 describe("TenantSwitcher", () => {
   test("renders nothing when user is null", () => {
@@ -32,7 +36,8 @@ describe("TenantSwitcher", () => {
     expect(screen.getByText("Tenant tenant-a")).toBeTruthy();
   });
 
-  test("opens dropdown showing all memberships with roles", () => {
+  test("opens dropdown showing all memberships with roles", async () => {
+    const user = userEvent.setup();
     const session = makeSessionApi({
       activeTenantId: "tenant-a",
       tenants: [
@@ -43,7 +48,7 @@ describe("TenantSwitcher", () => {
     renderWithProviders(<TenantSwitcher tenantName={(id) => `Tenant ${id}`} />, {
       session,
     });
-    fireEvent.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
+    await user.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
     // Trigger zeigt aktiven Tenant ("Tenant tenant-a") + Dropdown-Items
     // listen ALLE Tenants — nutze getAllByText um Mehrdeutigkeit
     // explizit zu erlauben, dann Roles-Strings als eindeutigen Anker.
@@ -53,7 +58,8 @@ describe("TenantSwitcher", () => {
     expect(screen.getByText("User, Billing")).toBeTruthy();
   });
 
-  test("clicking a tenant triggers switchTenant", () => {
+  test("clicking a tenant triggers switchTenant", async () => {
+    const user = userEvent.setup();
     const session = makeSessionApi({
       activeTenantId: "tenant-a",
       tenants: [
@@ -64,12 +70,13 @@ describe("TenantSwitcher", () => {
     renderWithProviders(<TenantSwitcher tenantName={(id) => `Tenant ${id}`} />, {
       session,
     });
-    fireEvent.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
-    fireEvent.click(screen.getByText("Tenant tenant-b"));
+    await user.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
+    await user.click(screen.getByText("Tenant tenant-b"));
     expect(session.switchTenant).toHaveBeenCalledWith("tenant-b");
   });
 
-  test("clicking the active tenant is a no-op (closes menu, no switch call)", () => {
+  test("clicking the active tenant is a no-op (closes menu, no switch call)", async () => {
+    const user = userEvent.setup();
     const session = makeSessionApi({
       activeTenantId: "tenant-a",
       tenants: [
@@ -80,13 +87,14 @@ describe("TenantSwitcher", () => {
     renderWithProviders(<TenantSwitcher tenantName={(id) => `Tenant ${id}`} />, {
       session,
     });
-    fireEvent.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
-    // Im Dropdown gibt's einen menuitem-Button für tenant-a — nicht
-    // den Trigger erwischen, sondern den im role="menu".
-    const dropdownItems = screen.getAllByRole("menuitem");
-    const activeItem = dropdownItems.find((el) => el.textContent?.includes("Tenant tenant-a"));
+    await user.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
+    // Im Dropdown gibt's einen menuitemcheckbox für tenant-a (Radix-Role
+    // bei CheckboxItem) — nicht den Trigger erwischen, sondern den im
+    // role="menu".
+    const items = screen.getAllByRole("menuitemcheckbox");
+    const activeItem = items.find((el) => el.textContent?.includes("Tenant tenant-a"));
     expect(activeItem).toBeDefined();
-    if (activeItem) fireEvent.click(activeItem);
+    if (activeItem) await user.click(activeItem);
     expect(session.switchTenant).not.toHaveBeenCalled();
   });
 });

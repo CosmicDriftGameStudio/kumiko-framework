@@ -23,6 +23,7 @@ import {
 import { type ComponentType, type ReactNode, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { defaultPrimitives } from "../primitives";
+import { ToastProvider } from "../primitives/toast";
 import { createEventSourceLiveEvents } from "../sse/live-events";
 import { useBrowserTokensApi } from "../tokens";
 import { createBrowserLocaleResolver } from "./browser-locale";
@@ -209,7 +210,9 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
             <LiveEventsProvider value={liveEvents}>
               <CustomScreensProvider value={customScreens}>
                 <ColumnRenderersProvider value={columnRenderers}>
-                  {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                  <ToastProvider>
+                    {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                  </ToastProvider>
                 </ColumnRenderersProvider>
               </CustomScreensProvider>
             </LiveEventsProvider>
