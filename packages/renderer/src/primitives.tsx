@@ -40,10 +40,18 @@ import {
 
 // ---- Prop-Types (die Primitive-Contract-Oberfläche) ----
 
+/** Standard-Button. `loading` zeigt einen Spinner statt der Children
+ *  und sollte mit `disabled` kombiniert werden, wenn die Action wirklich
+ *  blockiert bis das Loading durch ist (z.B. async submit). Native-
+ *  Impls können den Spinner als Activity-Indicator rendern. */
 export type ButtonProps = {
   readonly type?: "button" | "submit";
   readonly onClick?: () => void | Promise<void>;
   readonly disabled?: boolean;
+  /** Spinner statt Children rendern. Caller sollte `disabled` mit-
+   *  setzen wenn die Action blockiert bis das Loading abgeschlossen
+   *  ist (verhindert Double-Submit). */
+  readonly loading?: boolean;
   /** Semantische Klasse — default="primary". Custom-Impls entscheiden
    *  was daraus visuell wird; die Renderer verwenden "primary" für
    *  Save, "danger" für Delete, "secondary" für Confirm-State. */
@@ -239,6 +247,38 @@ export type HeadingProps = {
   readonly testId?: string;
 };
 
+/** Modal-Dialog für Bestätigungen oder kompakte Sub-Forms. Web rendert
+ *  Radix-Dialog (Focus-Trap, Esc-Schließen, Overlay-Click); Native
+ *  würde ein Native-Modal nutzen. Apps öffnen den Dialog über einen
+ *  External-State (`open` + `onOpenChange`); Confirm-Action läuft
+ *  durch `onConfirm`, Cancel klappt zu via `onOpenChange(false)`.
+ *
+ *  Variant `danger` markiert destruktive Bestätigungen visuell
+ *  (rote Confirm-Button-Klasse), `default` für neutrale Dialoge. */
+export type DialogProps = {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly title: string;
+  /** Optional Beschreibung — typisch ein Satz der die Konsequenz
+   *  erklärt ("Diese Aktion lässt sich nicht rückgängig machen."). */
+  readonly description?: string;
+  /** Confirm-Button-Label. Default kommt aus i18n
+   *  (`kumiko.dialog.confirm`). */
+  readonly confirmLabel?: string;
+  /** Cancel-Button-Label. Default `kumiko.dialog.cancel`. */
+  readonly cancelLabel?: string;
+  /** `default` = Confirm primary, `danger` = Confirm danger. */
+  readonly variant?: "default" | "danger";
+  /** Wird gefeuert wenn der User Confirm drückt. Async-Funktion ist
+   *  ok — Dialog setzt automatisch loading-State, ruft danach
+   *  onOpenChange(false). */
+  readonly onConfirm: () => void | Promise<void>;
+  /** Optional zusätzlicher Inhalt zwischen description und Buttons
+   *  (z.B. ein Input wenn der Dialog auch Eingaben sammelt). */
+  readonly children?: ReactNode;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -253,6 +293,7 @@ export type CorePrimitives = {
   readonly GridCell: ComponentType<GridCellProps>;
   readonly Text: ComponentType<TextProps>;
   readonly Heading: ComponentType<HeadingProps>;
+  readonly Dialog: ComponentType<DialogProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

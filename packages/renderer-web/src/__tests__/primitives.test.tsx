@@ -12,7 +12,7 @@ import { describe, expect, test, vi } from "vitest";
 import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
 
-const { Button, Banner, Field, Input, DataTable, Form, Text, Heading } = defaultPrimitives;
+const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog } = defaultPrimitives;
 
 describe("Button", () => {
   test("disabled: attribute gesetzt + Tailwind-Klassen für pointer-events/opacity", () => {
@@ -37,6 +37,21 @@ describe("Button", () => {
     );
     fireEvent.click(screen.getByTestId("btn"));
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  test("loading: rendert Spinner statt Children + ist disabled", () => {
+    const onClick = vi.fn();
+    render(
+      <Button loading onClick={onClick} testId="btn">
+        Save
+      </Button>,
+    );
+    const btn = screen.getByTestId("btn") as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.dataset["loading"]).toBe("true");
+    // Children verschwinden während loading; Spinner ist ein <svg>.
+    expect(btn.textContent).not.toContain("Save");
+    expect(btn.querySelector("svg")).not.toBeNull();
   });
 });
 
@@ -303,6 +318,58 @@ describe("DataTable toolbar slots", () => {
   test("ohne toolbar slots wird kein Toolbar-Container gerendert", () => {
     render(<DataTable columns={[]} rows={[]} testId="dt" />);
     expect(screen.queryByTestId("dt-toolbar")).toBeNull();
+  });
+});
+
+describe("Dialog", () => {
+  test("open=true rendert Dialog mit Title und Confirm/Cancel Buttons", () => {
+    const onConfirm = vi.fn();
+    const onOpenChange = vi.fn();
+    render(
+      <Dialog
+        open
+        onOpenChange={onOpenChange}
+        title="Wirklich löschen?"
+        onConfirm={onConfirm}
+        testId="confirm"
+      />,
+    );
+    expect(screen.getByText("Wirklich löschen?")).toBeTruthy();
+    expect(screen.getByTestId("confirm-confirm")).toBeTruthy();
+    expect(screen.getByTestId("confirm-cancel")).toBeTruthy();
+  });
+
+  test("open=false rendert nichts (Portal leer)", () => {
+    render(
+      <Dialog
+        open={false}
+        onOpenChange={() => undefined}
+        title="Hidden"
+        onConfirm={() => undefined}
+        testId="hidden-dialog"
+      />,
+    );
+    expect(screen.queryByTestId("hidden-dialog")).toBeNull();
+  });
+
+  test("Confirm-Button feuert onConfirm und schließt den Dialog", async () => {
+    const onConfirm = vi.fn();
+    const onOpenChange = vi.fn();
+    render(
+      <Dialog
+        open
+        onOpenChange={onOpenChange}
+        title="Bestätigen?"
+        onConfirm={onConfirm}
+        testId="dlg"
+      />,
+    );
+    fireEvent.click(screen.getByTestId("dlg-confirm"));
+    // onConfirm sync gefeuert; onOpenChange(false) im finally-Block.
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    // Wait für finally → setLoading(false) + onOpenChange(false)
+    await new Promise((r) => setTimeout(r, 0));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
 

@@ -30,6 +30,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.nav.expand": "Aufklappen",
     "kumiko.nav.collapse": "Zuklappen",
 
+    // Dialog — Confirm-Buttons + Close-aria-Label.
+    "kumiko.dialog.confirm": "Bestätigen",
+    "kumiko.dialog.cancel": "Abbrechen",
+    "kumiko.dialog.close": "Schließen",
+
     // Form — Standard-Errors (App-Code kann eigene zod-Reasons nutzen,
     // diese sind die letzte Sicherheitsschicht).
     "kumiko.form.error.generic": "Etwas ist schiefgegangen.",
@@ -60,6 +65,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",
+
+    "kumiko.dialog.confirm": "Confirm",
+    "kumiko.dialog.cancel": "Cancel",
+    "kumiko.dialog.close": "Close",
 
     "kumiko.form.error.generic": "Something went wrong.",
     "kumiko.form.error.version-conflict":

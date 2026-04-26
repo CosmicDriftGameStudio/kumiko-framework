@@ -24,8 +24,10 @@ import {
   useTranslation,
 } from "@kumiko/renderer";
 import { cva } from "class-variance-authority";
+import { Loader2 } from "lucide-react";
 import type { ChangeEvent, ReactNode } from "react";
 import { cn } from "../lib/cn";
+import { DefaultDialog } from "./dialog";
 import { SelectInput } from "./select";
 
 // ---- Button ----
@@ -51,6 +53,7 @@ function DefaultButton({
   type = "button",
   onClick,
   disabled,
+  loading,
   variant = "primary",
   children,
   testId,
@@ -59,11 +62,12 @@ function DefaultButton({
     <button
       type={type}
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled === true || loading === true}
       data-testid={testId}
+      data-loading={loading === true ? "true" : undefined}
       className={cn(buttonVariants({ variant }), "h-9 px-4 py-2")}
     >
-      {children}
+      {loading === true ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : children}
     </button>
   );
 }
@@ -491,4 +495,5 @@ export const defaultPrimitives: CorePrimitives = {
   GridCell: DefaultGridCell,
   Text: DefaultText,
   Heading: DefaultHeading,
+  Dialog: DefaultDialog,
 };

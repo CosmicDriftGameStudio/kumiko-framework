@@ -90,9 +90,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const t = useTranslation();
   const translate = translateProp ?? t;
 
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
-  const { Button, Banner, Form, Section, Grid, GridCell, Text } = usePrimitives();
+  const { Button, Banner, Dialog, Form, Section, Grid, GridCell, Text } = usePrimitives();
 
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
@@ -122,16 +123,21 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   );
 
   async function handleSubmit(): Promise<void> {
-    const result = await controller.submit();
-    // Form-level Errors (ohne field-level details) landen im Banner.
-    // Field-Errors fließen über snapshot.errors in die einzelnen Fields.
-    if (result.isSuccess) {
-      setFormError(null);
-    } else if (!result.validationBlocked) {
-      const fieldIssues = result.error.details?.fields ?? [];
-      setFormError(fieldIssues.length === 0 ? result.error : null);
+    setIsSubmitting(true);
+    try {
+      const result = await controller.submit();
+      // Form-level Errors (ohne field-level details) landen im Banner.
+      // Field-Errors fließen über snapshot.errors in die einzelnen Fields.
+      if (result.isSuccess) {
+        setFormError(null);
+      } else if (!result.validationBlocked) {
+        const fieldIssues = result.error.details?.fields ?? [];
+        setFormError(fieldIssues.length === 0 ? result.error : null);
+      }
+      onSubmit?.(result);
+    } finally {
+      setIsSubmitting(false);
     }
-    onSubmit?.(result);
   }
 
   // Sticky-top Action-Bar: Save (+ optional Cancel) wandern in den
@@ -152,7 +158,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       )}
       <Button
         type="submit"
-        disabled={snapshot.isUnchanged}
+        disabled={snapshot.isUnchanged || isSubmitting}
+        loading={isSubmitting}
         variant="primary"
         testId="render-edit-submit"
       >
@@ -215,20 +222,27 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         </Banner>
       )}
       {onDelete !== undefined && (
-        <Button
-          type="button"
-          variant="danger"
-          testId={confirmDelete ? "render-edit-delete-confirm" : "render-edit-delete"}
-          onClick={async () => {
-            if (!confirmDelete) {
-              setConfirmDelete(true);
-              return;
-            }
-            await onDelete();
-          }}
-        >
-          {translate(confirmDelete ? "kumiko.actions.delete-confirm" : "kumiko.actions.delete")}
-        </Button>
+        <>
+          <Button
+            type="button"
+            variant="danger"
+            testId="render-edit-delete"
+            onClick={() => setConfirmDeleteOpen(true)}
+          >
+            {translate("kumiko.actions.delete")}
+          </Button>
+          <Dialog
+            open={confirmDeleteOpen}
+            onOpenChange={setConfirmDeleteOpen}
+            title={translate("kumiko.actions.delete-confirm")}
+            confirmLabel={translate("kumiko.actions.delete")}
+            variant="danger"
+            onConfirm={async () => {
+              await onDelete();
+            }}
+            testId="render-edit-delete-dialog"
+          />
+        </>
       )}
     </Form>
   );

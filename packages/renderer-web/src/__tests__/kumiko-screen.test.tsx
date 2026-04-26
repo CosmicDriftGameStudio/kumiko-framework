@@ -186,7 +186,7 @@ describe("KumikoScreen", () => {
     expect(clicks).toEqual([{ id: "row-1" }]);
   });
 
-  test("entityEdit update-mode: Delete-Button zwei-click-confirm + write('delete')", async () => {
+  test("entityEdit update-mode: Delete-Button öffnet Confirm-Dialog + write('delete')", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
       query: (async () => ({
@@ -206,13 +206,14 @@ describe("KumikoScreen", () => {
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
-    // Erster Klick: zeigt Confirm-State, kein write noch.
+    // Erster Klick: öffnet Confirm-Dialog (Radix Dialog, Portal'd).
+    // Kein write fired noch — Dialog wartet auf User-Bestätigung.
     fireEvent.click(screen.getByTestId("render-edit-delete"));
-    expect(screen.getByTestId("render-edit-delete-confirm")).toBeTruthy();
+    expect(screen.getByTestId("render-edit-delete-dialog")).toBeTruthy();
     expect(writeCalls.length).toBe(0);
 
-    // Zweiter Klick: delete-command feuert.
-    fireEvent.click(screen.getByTestId("render-edit-delete-confirm"));
+    // Confirm im Dialog: delete-command feuert.
+    fireEvent.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
     await waitFor(() => expect(writeCalls.length).toBe(1));
     expect(writeCalls[0]).toEqual({
       type: "tasks:write:task:delete",
