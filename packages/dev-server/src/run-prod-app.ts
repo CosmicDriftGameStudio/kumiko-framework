@@ -265,7 +265,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     listen: async (listenPort = port) => {
       // Bun.serve is the production HTTP. Tests don't call listen()
       // because vitest runs under Node where Bun.serve doesn't exist.
-      handle.server = Bun.serve({ port: listenPort, fetch: fetchHandler });
+      // idleTimeout: 0 disabled die default-10s Idle-Close — kritisch
+      // für SSE: ohne das beendet Bun ungenutzte Streams nach 10s mit
+      // einem halben HTTP/2-RST_STREAM, Browser sieht's als
+      // ERR_HTTP2_PROTOCOL_ERROR und reconnected im Loop. Lebende SSE-
+      // Connections halten sich ohnehin via Heartbeat-Frames (15s) ihre
+      // eigene Aktivität, normale HTTP-Requests sind kurzlebig — der
+      // Default-Schutz ist hier kontraproduktiv.
+      handle.server = Bun.serve({ port: listenPort, fetch: fetchHandler, idleTimeout: 0 });
 
       // SIGTERM/SIGINT — graceful shutdown. Only registered when we
       // actually own a Bun-server, otherwise the test process picks up

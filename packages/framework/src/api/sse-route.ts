@@ -27,10 +27,15 @@ export function createSseRoute(broker: SseBroker) {
         broker.removeClient(channel, clientId);
       });
 
-      // Keep connection alive with heartbeat
+      // Keep connection alive with heartbeat. 15s is conservative gegen
+      // intermediäre Idle-Timeouts: Bun.serve default ist 10s, viele
+      // Reverse-Proxies (Caddy/Nginx default) und CDN-Edges (Cloudflare:
+      // 100s, AWS-ALB: 60s) schließen lange ruhige Streams. Mit ping
+      // alle 15s bleibt jede Schicht happy. Server-side fast gratis
+      // (1 Frame pro Client alle 15s).
       while (true) {
         await stream.writeSSE({ event: "ping", data: "" });
-        await stream.sleep(30000);
+        await stream.sleep(15000);
       }
     });
   });

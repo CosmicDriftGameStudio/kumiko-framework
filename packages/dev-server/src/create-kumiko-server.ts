@@ -236,7 +236,11 @@ function expandWatchPatterns(patterns: readonly string[]): string[] {
       out.push(resolve(p));
       continue;
     }
-    const glob = new (
+    // expandWatchPatterns wird nur unter Bun aufgerufen (createKumikoServer
+    // ist Bun-only); der ?.! -dance ist nötig weil TS Bun nicht im
+    // globalThis-default sieht. Wenn Bun fehlt, ist der Aufrufstapel eh
+    // schon fail-fast unten in Bun.serve.
+    const BunRef = (
       globalThis as {
         Bun?: {
           Glob: new (
@@ -244,7 +248,9 @@ function expandWatchPatterns(patterns: readonly string[]): string[] {
           ) => { scanSync: (opts: { onlyFiles: false; cwd: string }) => Iterable<string> };
         };
       }
-    ).Bun!.Glob(p);
+    ).Bun;
+    if (!BunRef) throw new Error("expandWatchPatterns requires Bun.Glob");
+    const glob = new BunRef.Glob(p);
     const matches = Array.from(glob.scanSync({ onlyFiles: false, cwd: process.cwd() }));
     for (const m of matches) {
       const abs = resolve(m);
@@ -570,10 +576,15 @@ export async function createKumikoServer(
   // Under Node/vitest we skip Bun.serve entirely — the handle's
   // .fetch() is the test surface. Real dev runs under Bun, where
   // Bun.serve wires the listener.
+  // idleTimeout: 0 deaktiviert Bun.serve's default 10s-Idle-Close —
+  // SSE-Connections wären sonst nach 10s mit halbem HTTP/2-RST_STREAM
+  // dichtgemacht (= ERR_HTTP2_PROTOCOL_ERROR im Browser → reconnect-loop).
+  // Dev-server ist symmetrisch zur Prod-Konfiguration in run-prod-app.ts.
   const server = hasBun
     ? (globalThis as { Bun: { serve: (opts: unknown) => BunServer } }).Bun.serve({
         port,
         fetch: handleFetch,
+        idleTimeout: 0,
       })
     : undefined;
 
