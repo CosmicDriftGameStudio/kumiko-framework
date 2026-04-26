@@ -6,6 +6,7 @@ import {
   DispatcherProvider,
   type FeatureSchema,
   KumikoScreen,
+  kumikoDefaultTranslations,
   LiveEventsProvider,
   LocaleProvider,
   type NavApi,
@@ -149,9 +150,14 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
   const clientFeatures = options.clientFeatures ?? [];
   const providers = clientFeatures.flatMap((f) => f.providers ?? []);
   const gates = clientFeatures.flatMap((f) => f.gates ?? []);
-  const fallbackBundles = clientFeatures.flatMap((f) =>
-    f.translations !== undefined ? [f.translations] : [],
-  );
+  // Framework-Default-Bundle als ALLERLETZTER Fallback — App-Resolver +
+  // clientFeatures.translations haben Vorrang. Apps können einzelne
+  // kumiko.*-Keys via clientFeatures.translations überschreiben (z.B.
+  // "kumiko.actions.save" → "Sichern" für ein bestimmtes Feature).
+  const fallbackBundles = [
+    ...clientFeatures.flatMap((f) => (f.translations !== undefined ? [f.translations] : [])),
+    kumikoDefaultTranslations,
+  ];
   // Custom-Screen-Components-Map mergen: spätere Features überschreiben
   // frühere bei screenId-Kollision (Last-Wins). Apps können so ein
   // bundled-Feature mit lokaler Override versehen.

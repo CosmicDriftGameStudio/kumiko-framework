@@ -87,7 +87,10 @@ describe("NavTree", () => {
     // chevron-button drin). Parent-mit-Screen "Items" rendert dagegen den
     // KumikoLink + separaten Chevron-Button als Geschwister — der ist
     // der EINZIGE button mit aria-label "Zuklappen"/"Aufklappen".
-    const chevronButtons = screen.getAllByRole("button", { name: /Zuklappen|Aufklappen/ });
+    // aria-Label kommt aus dem Framework-Default-Bundle. Test-Setup
+    // läuft auf "en" → "Expand"/"Collapse". Apps können das in eigenen
+    // Bundles per `kumiko.nav.*` überschreiben.
+    const chevronButtons = screen.getAllByRole("button", { name: /Expand|Collapse/ });
     expect(chevronButtons.length).toBe(1);
     fireEvent.click(chevronButtons[0] as HTMLButtonElement);
 

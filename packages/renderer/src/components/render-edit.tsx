@@ -147,7 +147,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           onClick={() => onCancel()}
           testId="render-edit-cancel"
         >
-          Cancel
+          {translate("kumiko.actions.cancel")}
         </Button>
       )}
       <Button
@@ -156,7 +156,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         variant="primary"
         testId="render-edit-submit"
       >
-        Save
+        {translate("kumiko.actions.save")}
       </Button>
     </>
   );
@@ -206,12 +206,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 }}
                 testId="render-edit-form-error-reload"
               >
-                Neu laden
+                {translate("kumiko.actions.reload")}
               </Button>
             ) : undefined
           }
         >
-          <Text testId="render-edit-form-error-key">{formError.i18nKey}</Text>
+          <Text testId="render-edit-form-error-key">{translate(formError.i18nKey)}</Text>
         </Banner>
       )}
       {onDelete !== undefined && (
@@ -227,7 +227,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             await onDelete();
           }}
         >
-          {confirmDelete ? "Wirklich löschen?" : "Delete"}
+          {translate(confirmDelete ? "kumiko.actions.delete-confirm" : "kumiko.actions.delete")}
         </Button>
       )}
     </Form>

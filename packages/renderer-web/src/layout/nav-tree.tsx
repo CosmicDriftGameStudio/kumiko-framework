@@ -105,7 +105,7 @@ function NavNodeItem({ node, depth, collapsed, onToggle }: NavNodeItemProps): Re
   const chevron = hasChildren ? (
     <button
       type="button"
-      aria-label={isCollapsed ? "Aufklappen" : "Zuklappen"}
+      aria-label={t(isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
       aria-expanded={!isCollapsed}
       onClick={(e) => {
         e.preventDefault();

@@ -8,19 +8,20 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
-import type {
-  BannerProps,
-  ButtonProps,
-  CorePrimitives,
-  DataTableProps,
-  FieldProps,
-  FormProps,
-  GridCellProps,
-  GridProps,
-  HeadingProps,
-  InputProps,
-  SectionProps,
-  TextProps,
+import {
+  type BannerProps,
+  type ButtonProps,
+  type CorePrimitives,
+  type DataTableProps,
+  type FieldProps,
+  type FormProps,
+  type GridCellProps,
+  type GridProps,
+  type HeadingProps,
+  type InputProps,
+  type SectionProps,
+  type TextProps,
+  useTranslation,
 } from "@kumiko/renderer";
 import { cva } from "class-variance-authority";
 import type { ChangeEvent, ReactNode } from "react";
@@ -102,6 +103,7 @@ function DefaultBanner({
 // ---- Field (Label + Error) ----
 
 function DefaultField({ id, label, required, issues, children, testId }: FieldProps): ReactNode {
+  const t = useTranslation();
   const hasError = issues !== undefined && issues.length > 0;
   return (
     <div data-testid={testId} className="flex flex-col gap-1.5">
@@ -123,7 +125,7 @@ function DefaultField({ id, label, required, issues, children, testId }: FieldPr
           className="text-xs text-destructive"
         >
           {issues.map((issue) => (
-            <div key={`${issue.path}:${issue.code}`}>{issue.i18nKey}</div>
+            <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey)}</div>
           ))}
         </div>
       )}

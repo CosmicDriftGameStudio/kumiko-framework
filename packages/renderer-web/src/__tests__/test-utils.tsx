@@ -21,6 +21,7 @@ import {
 } from "@kumiko/headless";
 import {
   createStaticLocaleResolver,
+  kumikoDefaultTranslations,
   type LiveEventSubscriber,
   LiveEventsProvider,
   LocaleProvider,
@@ -60,7 +61,7 @@ const stubResolver = createStaticLocaleResolver();
 function DefaultProviders({ children }: { readonly children: ReactNode }): ReactNode {
   return (
     <TokensProvider value={stubTokens}>
-      <LocaleProvider resolver={stubResolver}>
+      <LocaleProvider resolver={stubResolver} fallbackBundles={[kumikoDefaultTranslations]}>
         <PrimitivesProvider value={defaultPrimitives}>
           <NavProvider value={stubNav}>
             <LiveEventsProvider value={stubLiveEvents}>{children}</LiveEventsProvider>

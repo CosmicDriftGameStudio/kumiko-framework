@@ -29,13 +29,15 @@ export type RenderListProps = {
    *  der Default-Empty-Box. Caller liefert die Action selber (z. B.
    *  navigate auf den Edit-Screen). */
   readonly onCreate?: () => void;
-  /** Label für den + Neu Button. Default "Neu". Caller kann durch
-   *  ein bereits-übersetztes Label ersetzen. */
+  /** Label für den + Neu Button. Default kommt aus dem i18n-Bundle
+   *  (`kumiko.actions.create`). Caller kann durch eigenen String
+   *  überschreiben. */
   readonly createLabel?: string;
   /** Aktiviert ein Search-Input in der Toolbar. Filtert die rows
    *  client-side. */
   readonly searchable?: boolean;
-  /** Placeholder für das Search-Input. Default "Suchen…". */
+  /** Placeholder für das Search-Input. Default kommt aus dem i18n-
+   *  Bundle (`kumiko.list.search-placeholder`). */
   readonly searchPlaceholder?: string;
 };
 
@@ -49,9 +51,9 @@ export function RenderList(props: RenderListProps): ReactNode {
     onRowClick,
     emptyState,
     onCreate,
-    createLabel = "Neu",
+    createLabel,
     searchable = false,
-    searchPlaceholder = "Suchen…",
+    searchPlaceholder,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
@@ -73,6 +75,13 @@ export function RenderList(props: RenderListProps): ReactNode {
     [screen, entity, filteredRows, translate, featureName],
   );
 
+  // i18n-Defaults für Toolbar/Empty-State Strings — Caller kann jeden
+  // einzeln per Prop überschreiben, sonst kommen die Framework-Bundles
+  // (kumiko.actions.create, kumiko.list.search-placeholder, …).
+  const effectiveCreateLabel = createLabel ?? translate("kumiko.actions.create");
+  const effectiveSearchPlaceholder =
+    searchPlaceholder ?? translate("kumiko.list.search-placeholder");
+
   // Toolbar: Search links (flex-1, expandiert), + Neu rechts. Layout
   // (flex/max-w) lebt in der Web-Primitive — wir reichen nur strukturierte
   // Slots durch, damit Native eigene Anordnung wählen kann.
@@ -83,29 +92,29 @@ export function RenderList(props: RenderListProps): ReactNode {
       name="search"
       value={search}
       onChange={setSearch}
-      placeholder={searchPlaceholder}
+      placeholder={effectiveSearchPlaceholder}
     />
   ) : undefined;
 
   const toolbarEnd =
     onCreate !== undefined ? (
       <Button variant="primary" onClick={onCreate} testId="render-list-create">
-        {`+ ${createLabel}`}
+        {`+ ${effectiveCreateLabel}`}
       </Button>
     ) : undefined;
 
   // Empty-State: Default zeigt Heading + Description + optional CTA-
   // Button. Caller kann via emptyState-Prop komplett überschreiben.
   // Wenn weder onCreate noch ein Override gegeben ist, fällt die
-  // DataTable auf "No entries." zurück.
+  // DataTable auf den DataTable-Default zurück (`kumiko.list.no-entries`).
   const composedEmptyState =
     emptyState ??
     (onCreate !== undefined ? (
       <>
-        <Text>Noch keine Einträge.</Text>
-        <Text variant="small">Lege den ersten an, um loszulegen.</Text>
+        <Text>{translate("kumiko.list.empty.title")}</Text>
+        <Text variant="small">{translate("kumiko.list.empty.hint")}</Text>
         <Button variant="primary" onClick={onCreate} testId="render-list-empty-create">
-          {`+ ${createLabel}`}
+          {`+ ${effectiveCreateLabel}`}
         </Button>
       </>
     ) : undefined);
