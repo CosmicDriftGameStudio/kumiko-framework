@@ -142,7 +142,7 @@ const commands = {
       //   1. Bun.argv[3] (explicit path)        → kumiko build samples/apps/showcase
       //   2. $INIT_CWD (yarn-Workspace-Aufruf)  → cd <app> && yarn build
       //   3. process.cwd() (fallback)
-      const { buildProdBundle } = await import("@kumiko/dev-server");
+      const { buildProdBundle, formatBuildResult } = await import("@kumiko/dev-server");
       const explicit = Bun.argv[3];
       const cwd = explicit
         ? resolvePath(explicit)
@@ -150,17 +150,7 @@ const commands = {
       const t0 = performance.now();
       const result = await buildProdBundle({ cwd });
       const ms = Math.round(performance.now() - t0);
-      const dim = "\x1b[2m";
-      const green = "\x1b[32m";
-      const reset = "\x1b[0m";
-      console.log(`\n  ${green}✓${reset} built ${cwd} → ${result.outDir} ${dim}(${ms}ms)${reset}`);
-      const entries = Object.entries(result.manifest);
-      if (entries.length > 0) {
-        for (const [logical, hashed] of entries) {
-          console.log(`    ${dim}${logical.padEnd(14)}${reset} ${hashed}`);
-        }
-      }
-      console.log();
+      console.log(formatBuildResult(result, ms));
     },
   },
 

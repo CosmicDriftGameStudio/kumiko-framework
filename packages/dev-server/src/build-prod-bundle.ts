@@ -72,6 +72,11 @@ const DEFAULT_HTML = `<!doctype html>
 </html>
 `;
 
+/** Folder name relative to dist/ for hashed assets (JS, CSS, file-loader
+ *  outputs). Exported damit runProdApp dieselbe Konvention für Cache-
+ *  Header nutzt — Drift verhindern. */
+export const ASSETS_DIR = "assets";
+
 const ASSET_LOADERS = {
   ".png": "file",
   ".jpg": "file",
@@ -89,7 +94,7 @@ const ASSET_LOADERS = {
 export async function buildProdBundle(options: BuildProdBundleOptions = {}): Promise<BuildResult> {
   const cwd = resolve(options.cwd ?? process.cwd());
   const outDir = resolve(cwd, options.outDir ?? "dist");
-  const assetsDir = join(outDir, "assets");
+  const assetsDir = join(outDir, ASSETS_DIR);
 
   // 1. Discovery: was ist da?
   const clientEntry = discoverClientEntry(cwd);
@@ -120,13 +125,13 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
     const hash = shortHash(css);
     const filename = `styles-${hash}.css`;
     await writeFile(join(assetsDir, filename), css);
-    manifest["styles.css"] = `/assets/${filename}`;
+    manifest["styles.css"] = `/${ASSETS_DIR}/${filename}`;
   }
 
   // 4. Bun.build mit splitting + hash + asset-loader
   if (clientEntry) {
     const entryFilename = await buildClientBundle(clientEntry, assetsDir);
-    manifest["client.js"] = `/assets/${entryFilename}`;
+    manifest["client.js"] = `/${ASSETS_DIR}/${entryFilename}`;
   }
 
   // 5. Public-Folder rsync (ohne index.html — das wird separat gerendert)
@@ -323,4 +328,26 @@ export function injectAssetTags(html: string, manifest: BuildManifest): string {
 
 function shortHash(content: string | Uint8Array): string {
   return createHash("sha256").update(content).digest("hex").slice(0, 8);
+}
+
+// ---------------------------------------------------------------------------
+// CLI output
+// ---------------------------------------------------------------------------
+
+/** Formatiert ein BuildResult als CLI-freundliche Mehrzeilen-Zusammenfassung
+ *  mit ANSI-Farben. Wird sowohl von `kumiko build` als auch von dem
+ *  hoisted `kumiko-build`-Bin verwendet, damit das Output konsistent ist. */
+export function formatBuildResult(result: BuildResult, durationMs: number): string {
+  const dim = "\x1b[2m";
+  const green = "\x1b[32m";
+  const reset = "\x1b[0m";
+  const lines: string[] = [
+    "",
+    `  ${green}✓${reset} built ${result.outDir} ${dim}(${durationMs}ms)${reset}`,
+  ];
+  for (const [logical, hashed] of Object.entries(result.manifest)) {
+    lines.push(`    ${dim}${logical.padEnd(14)}${reset} ${hashed}`);
+  }
+  lines.push("");
+  return lines.join("\n");
 }

@@ -11,7 +11,7 @@
 //   kumiko-build samples/apps/showcase
 
 import { resolve } from "node:path";
-import { buildProdBundle } from "../src/build-prod-bundle";
+import { buildProdBundle, formatBuildResult } from "../src/build-prod-bundle";
 
 const explicit = process.argv[2];
 const cwd = explicit ? resolve(process.cwd(), explicit) : process.cwd();
@@ -20,17 +20,8 @@ const t0 = performance.now();
 try {
   const result = await buildProdBundle({ cwd });
   const ms = Math.round(performance.now() - t0);
-  const dim = "\x1b[2m";
-  const green = "\x1b[32m";
-  const reset = "\x1b[0m";
   // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg
-  console.log(`\n  ${green}✓${reset} built ${cwd} → ${result.outDir} ${dim}(${ms}ms)${reset}`);
-  for (const [logical, hashed] of Object.entries(result.manifest)) {
-    // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg
-    console.log(`    ${dim}${logical.padEnd(14)}${reset} ${hashed}`);
-  }
-  // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg
-  console.log();
+  console.log(formatBuildResult(result, ms));
 } catch (err) {
   const red = "\x1b[31m";
   const reset = "\x1b[0m";

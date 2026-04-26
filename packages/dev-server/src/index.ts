@@ -14,10 +14,12 @@
 //     für Sample-Apps und Showcases — 5-10 Zeilen Bootstrap statt 50.
 
 export {
+  ASSETS_DIR,
   type BuildManifest,
   type BuildProdBundleOptions,
   type BuildResult,
   buildProdBundle,
+  formatBuildResult,
 } from "./build-prod-bundle";
 export {
   type CreateKumikoServerOptions,

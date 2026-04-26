@@ -57,6 +57,7 @@ import {
 } from "@kumiko/framework/pipeline";
 import { ensureEntityTable } from "@kumiko/framework/testing";
 import Redis from "ioredis";
+import { ASSETS_DIR } from "./build-prod-bundle";
 
 // Strict env-var read. Throws with a clear hint when missing — better
 // than discovering a Postgres-connection-refused 30s into the boot.
@@ -365,7 +366,7 @@ function buildStaticFallback(
 // Reload greifen. Exported für Unit-Tests; Konsumenten gehen via
 // runProdApp.
 export function cacheHeadersFor(pathname: string): HeadersInit {
-  if (pathname.startsWith("/assets/")) {
+  if (pathname.startsWith(`/${ASSETS_DIR}/`)) {
     return { "cache-control": "public, max-age=31536000, immutable" };
   }
   if (pathname === "/" || pathname === "/index.html") {
