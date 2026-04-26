@@ -532,25 +532,36 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // the same causal chain.
       const reqCtx = requestContext.get();
       for (const [name, jobDef] of allJobs) {
-        if ("on" in jobDef.trigger && jobDef.trigger.on === eventName) {
-          const data: Record<string, unknown> = { ...payload };
-          if (user) {
-            data["_tenantId"] = user.tenantId;
-            data["_triggeredById"] = user.id;
-          }
-          if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
-          if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
-          // Same maxPerTenant guard as dispatch — events that fan into many
-          // jobs must respect the per-tenant cap or the limit is one-sided.
-          if (jobDef.maxPerTenant !== undefined && user?.tenantId !== undefined) {
-            if (await isOverPerTenantLimit(name, String(user.tenantId), jobDef.maxPerTenant)) {
-              continue;
-            }
-          }
-          // Route to the job's declared lane, not a fixed queue — that's
-          // the whole reason both queues are held.
-          await queues[laneForJob(jobDef)].add(name, data);
+        if (!("on" in jobDef.trigger)) continue;
+        // skip: andere Trigger-Formen (cron, manual) reagieren nicht auf
+        // Events. Nur "on"-Trigger werden hier matched.
+        const triggerOn = jobDef.trigger.on;
+        const matches = Array.isArray(triggerOn)
+          ? triggerOn.includes(eventName)
+          : triggerOn === eventName;
+        if (!matches) continue;
+        const data: Record<string, unknown> = { ...payload };
+        if (user) {
+          data["_tenantId"] = user.tenantId;
+          data["_triggeredById"] = user.id;
         }
+        // Multi-Trigger: payload bekommt _triggerName damit der Handler
+        // weiß, welcher der N Trigger gefeuert hat. Bei Single-Trigger
+        // setzen wir es auch — kostet nichts und vereinfacht Handler-Code
+        // (kein "ist es Multi?"-Branch nötig).
+        data["_triggerName"] = eventName;
+        if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
+        if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
+        // Same maxPerTenant guard as dispatch — events that fan into many
+        // jobs must respect the per-tenant cap or the limit is one-sided.
+        if (jobDef.maxPerTenant !== undefined && user?.tenantId !== undefined) {
+          if (await isOverPerTenantLimit(name, String(user.tenantId), jobDef.maxPerTenant)) {
+            continue;
+          }
+        }
+        // Route to the job's declared lane, not a fixed queue — that's
+        // the whole reason both queues are held.
+        await queues[laneForJob(jobDef)].add(name, data);
       }
     },
   };

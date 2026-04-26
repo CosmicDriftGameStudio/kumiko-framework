@@ -940,18 +940,19 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
-  // Validate: job event triggers must reference existing handlers
+  // Validate: job event triggers must reference existing handlers.
+  // Multi-Trigger-Form: jeden Eintrag im Array gegen allHandlers prüfen,
+  // auch wenn nur einer fehlt fail-fast.
   for (const [jobName, jobDef] of jobMap) {
-    if ("on" in jobDef.trigger) {
-      const rawName = resolveName(jobDef.trigger.on);
-      // If already a valid QN (cross-feature ref), check directly
+    if (!("on" in jobDef.trigger)) continue;
+    const triggerOn = jobDef.trigger.on;
+    const triggers = Array.isArray(triggerOn) ? triggerOn : [triggerOn];
+    for (const t of triggers) {
+      const rawName = resolveName(t);
       if (allHandlers.has(rawName)) continue;
-      // Otherwise resolve: try the raw name as-is, it may already be qualified
-      if (!allHandlers.has(rawName)) {
-        throw new Error(
-          `Job "${jobName}" triggers on "${rawName}" but no handler with that name exists`,
-        );
-      }
+      throw new Error(
+        `Job "${jobName}" triggers on "${rawName}" but no handler with that name exists`,
+      );
     }
   }
 

@@ -208,7 +208,13 @@ export type JobRunIn = Exclude<RunIn, "both">;
 export type JobHandlerFn = (payload: Record<string, unknown>, context: AppContext) => Promise<void>;
 
 export type JobTrigger =
-  | { readonly on: import("./handlers").NameOrRef }
+  // `on` akzeptiert ein einzelnes Handler-Ref ODER eine Liste. Multi-
+  // Trigger-Form ist DRY für Fanout-Patterns: ein Job-Body, mehrere
+  // Trigger (z.B. webhook-fanout: incident.open / incident.update /
+  // maintenance.start) statt N r.job-Calls mit demselben Handler-Body.
+  // Im Handler-payload landet `_triggerName: string` damit der Code
+  // weiß, welcher Trigger gefeuert hat.
+  | { readonly on: import("./handlers").NameOrRef | readonly import("./handlers").NameOrRef[] }
   | { readonly cron: string }
   | { readonly manual: true };
 

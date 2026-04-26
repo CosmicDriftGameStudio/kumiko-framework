@@ -315,9 +315,17 @@ export function defineFeature<TExports = undefined>(
       options: Omit<JobDefinition, "name" | "handler">,
       handler: JobHandlerFn,
     ): void {
-      // Resolve NameOrRef in trigger.on to string for storage
+      // Resolve NameOrRef(s) in trigger.on. Multi-Trigger-Form: Array
+      // wird zu Array von resolved strings, Single bleibt single string —
+      // job-runner unterscheidet anhand Array.isArray.
       const trigger =
-        "on" in options.trigger ? { on: resolveName(options.trigger.on) } : options.trigger;
+        "on" in options.trigger
+          ? {
+              on: Array.isArray(options.trigger.on)
+                ? options.trigger.on.map(resolveName)
+                : resolveName(options.trigger.on as NameOrRef),
+            }
+          : options.trigger;
       jobs[jobName] = { ...options, trigger, name: jobName, handler };
     },
 

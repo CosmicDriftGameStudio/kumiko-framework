@@ -1343,6 +1343,46 @@ describe("registry boot validation", () => {
     expect(() => createRegistry([feature])).toThrow(/my-job.*ghost-handler.*no handler/i);
   });
 
+  test("multi-trigger: r.job akzeptiert ein Array von Trigger-Refs", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("order", createEntity({ table: "Orders", fields: {} }));
+      r.writeHandler("order:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
+      r.writeHandler("order:cancel", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
+      // Ein Job-Body, zwei Trigger — DRY-Pattern für Fanout-Cases.
+      r.job(
+        "fanout",
+        { trigger: { on: ["shop:write:order:create", "shop:write:order:cancel"] } },
+        async () => {},
+      );
+    });
+    const registry = createRegistry([feature]);
+    const job = registry.getJob("shop:job:fanout");
+    expect(job).toBeDefined();
+    if (job && "on" in job.trigger) {
+      expect(job.trigger.on).toEqual(["shop:write:order:create", "shop:write:order:cancel"]);
+    }
+  });
+
+  test("multi-trigger: einer der Targets fehlt → Boot-Reject", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("order", createEntity({ table: "Orders", fields: {} }));
+      r.writeHandler("order:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+        access: { openToAll: true },
+      });
+      // create existiert, cancel nicht — zweiter Trigger ist Geist
+      r.job(
+        "fanout",
+        { trigger: { on: ["shop:write:order:create", "shop:write:order:ghost"] } },
+        async () => {},
+      );
+    });
+    expect(() => createRegistry([feature])).toThrow(/fanout.*ghost.*no handler/i);
+  });
+
   test("throws for extension usage referencing non-existent extension", () => {
     const feature = defineFeature("test", (r) => {
       r.useExtension("nonexistent", "user");
