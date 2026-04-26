@@ -1,19 +1,23 @@
 import type { EntityDefinition, EntityListScreenDefinition } from "@kumiko/framework/ui-types";
 import type { ListRowViewModel, Translate } from "@kumiko/headless";
 import { computeListViewModel } from "@kumiko/headless";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import type { ListSort } from "../hooks/use-list-url-state";
 import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
+import { type DataTableSort, usePrimitives } from "../primitives";
 
-// RenderList reicht das ListViewModel an die DataTable-Primitive
-// weiter und composed optional eine Toolbar (+Neu-Button, Search-
-// Filter) sowie einen Empty-State mit CTA.
+// RenderList — präsentationaler View für entityList-Screens.
 //
-// Search ist client-side: filtert die zugelieferten rows per
-// case-insensitive substring-Match auf alle Werte. Server-Filter
-// kommt zusammen mit Tier 2.7 (List Filter), wo das auf eine
-// Query-Erweiterung umgestellt wird ohne den Caller-Vertrag zu
-// brechen — `searchable: true` bleibt das gleiche Flag.
+// Daten + State sind komplett controlled vom Caller (KumikoScreen):
+//   - rows kommen aus dem Server (durch useQuery + URL-State-Payload)
+//   - sort/q sind Props, RenderList ruft onSortChange/onQChange wenn
+//     der User UI-Aktionen macht
+//   - Search ist serverseitig (via SearchAdapter / Meilisearch). Lokaler
+//     State im Search-Input ist nur Debounce-Buffer, keine Filterung.
+//
+// Apps die RenderList ohne Server-State nutzen wollen (z.B. ein
+// statischer Lookup) liefern stabile rows + lassen sort/q weg —
+// DataTable fällt dann auf "kein Sort-Wiring + kein Search" zurück.
 
 export type RenderListProps = {
   readonly screen: EntityListScreenDefinition;
@@ -33,13 +37,26 @@ export type RenderListProps = {
    *  (`kumiko.actions.create`). Caller kann durch eigenen String
    *  überschreiben. */
   readonly createLabel?: string;
-  /** Aktiviert ein Search-Input in der Toolbar. Filtert die rows
-   *  client-side. */
+  /** Aktiviert ein Search-Input in der Toolbar. Server-side Filter
+   *  via Caller's onSearchChange — RenderList filtert NICHT lokal. */
   readonly searchable?: boolean;
   /** Placeholder für das Search-Input. Default kommt aus dem i18n-
    *  Bundle (`kumiko.list.search-placeholder`). */
   readonly searchPlaceholder?: string;
+  /** Aktueller Search-Term (vom URL-State / Parent). RenderList puffert
+   *  Tipps lokal mit 300ms Debounce, bevor onSearchChange gefeuert
+   *  wird — sonst macht jeder Tastendruck einen Server-Roundtrip. */
+  readonly searchValue?: string;
+  /** Wird gerufen wenn der debounced Search-Term sich ändert. Caller
+   *  setzt damit URL-State (?<id>.q=…) und triggert ein refetch. */
+  readonly onSearchChange?: (next: string) => void;
+  /** Aktuelle Sortierung (oder null = Server-Default-Order). */
+  readonly sort?: ListSort | null;
+  /** Wird gerufen mit dem nächsten Sort-State nach einem Header-Klick. */
+  readonly onSortChange?: (next: ListSort | null) => void;
 };
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function RenderList(props: RenderListProps): ReactNode {
   const {
@@ -54,25 +71,34 @@ export function RenderList(props: RenderListProps): ReactNode {
     createLabel,
     searchable = false,
     searchPlaceholder,
+    searchValue,
+    onSearchChange,
+    sort,
+    onSortChange,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
   const t = useTranslation();
   const translate: Translate = translateProp ?? t;
   const { DataTable, Button, Input, Text } = usePrimitives();
-  const [search, setSearch] = useState("");
 
-  const filteredRows = useMemo(() => {
-    if (!searchable || search === "") return rows;
-    const needle = search.toLowerCase();
-    return rows.filter((row) =>
-      Object.values(row).some((v) => stringifyForSearch(v).toLowerCase().includes(needle)),
-    );
-  }, [rows, search, searchable]);
+  // Local Search-Buffer + Debounce. Externe Änderungen (Browser-Back,
+  // Cross-Component-Reset) spiegeln wir per Sync-Effect zurück; Tipps
+  // im Input feuern onSearchChange erst nach 300ms ohne weitere Tasten.
+  const [localQ, setLocalQ] = useState(searchValue ?? "");
+  useEffect(() => {
+    setLocalQ(searchValue ?? "");
+  }, [searchValue]);
+  useEffect(() => {
+    if (onSearchChange === undefined) return;
+    if (localQ === (searchValue ?? "")) return;
+    const timer = setTimeout(() => onSearchChange(localQ), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [localQ, searchValue, onSearchChange]);
 
   const vm = useMemo(
-    () => computeListViewModel({ screen, entity, rows: filteredRows, translate, featureName }),
-    [screen, entity, filteredRows, translate, featureName],
+    () => computeListViewModel({ screen, entity, rows, translate, featureName }),
+    [screen, entity, rows, translate, featureName],
   );
 
   // i18n-Defaults für Toolbar/Empty-State Strings — Caller kann jeden
@@ -82,16 +108,13 @@ export function RenderList(props: RenderListProps): ReactNode {
   const effectiveSearchPlaceholder =
     searchPlaceholder ?? translate("kumiko.list.search-placeholder");
 
-  // Toolbar: Search links (flex-1, expandiert), + Neu rechts. Layout
-  // (flex/max-w) lebt in der Web-Primitive — wir reichen nur strukturierte
-  // Slots durch, damit Native eigene Anordnung wählen kann.
   const toolbarStart = searchable ? (
     <Input
       kind="text"
       id="render-list-search"
       name="search"
-      value={search}
-      onChange={setSearch}
+      value={localQ}
+      onChange={setLocalQ}
       placeholder={effectiveSearchPlaceholder}
     />
   ) : undefined;
@@ -127,6 +150,11 @@ export function RenderList(props: RenderListProps): ReactNode {
   const resolvedTitle = translate(titleKey);
   const toolbarTitle = resolvedTitle === titleKey ? screen.id : resolvedTitle;
 
+  // ListSort und DataTableSort haben dieselbe Shape, sind aber separate
+  // Type-Aliases (verschiedene Module). Ein Cast ist hier ehrlich:
+  // strukturell identisch, semantisch beide "URL-namespaced sort spec".
+  const tableSort: DataTableSort | null | undefined = sort ?? undefined;
+
   return (
     <DataTable
       columns={vm.columns}
@@ -136,14 +164,9 @@ export function RenderList(props: RenderListProps): ReactNode {
       {...(composedEmptyState !== undefined && { emptyState: composedEmptyState })}
       {...(toolbarStart !== undefined && { toolbarStart })}
       {...(toolbarEnd !== undefined && { toolbarEnd })}
+      {...(tableSort !== undefined && { sort: tableSort })}
+      {...(onSortChange !== undefined && { onSortChange })}
       testId="render-list-table"
     />
   );
-}
-
-function stringifyForSearch(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  if (typeof v === "string") return v;
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  return JSON.stringify(v);
 }

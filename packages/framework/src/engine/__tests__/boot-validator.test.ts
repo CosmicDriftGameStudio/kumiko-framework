@@ -1115,4 +1115,34 @@ describe("boot-validator", () => {
       ).toThrow(/defaultSort\.field "description" is not sortable/);
     });
   });
+
+  // --- screen.id ohne Punkt ---
+  // Renderer nutzt screen.id als URL-Param-Namespace (`<id>.sort=…`).
+  // defineFeature() rejected screen-ids mit '.' bereits über den
+  // kebab-case-Check (define-feature.ts) — bevor der Boot-Validator
+  // dran kommt. Wir pinnen hier nur dass der Reject am Author-API-
+  // Eingangstor passiert, mit klarer Message.
+  describe("screen.id constraints", () => {
+    test('screen.id mit "." → defineFeature throws (kebab-case)', () => {
+      expect(() =>
+        defineFeature("shop", (r) => {
+          r.entity("product", createEntity({ fields: { name: createTextField() } }));
+          r.screen({
+            id: "product.list",
+            type: "entityList",
+            entity: "product",
+            columns: ["name"],
+          });
+        }),
+      ).toThrow(/kebab-case/);
+    });
+
+    test("screen.id im kebab-case → kein Throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({ id: "product-list", type: "entityList", entity: "product", columns: ["name"] });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+  });
 });

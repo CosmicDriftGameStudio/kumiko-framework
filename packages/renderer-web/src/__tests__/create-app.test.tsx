@@ -246,6 +246,8 @@ describe("createKumikoApp", () => {
         target.entityId !== undefined
           ? `/${target.screenId}/${target.entityId}`
           : `/${target.screenId}`,
+      searchParams: {},
+      setSearchParams: () => {},
     };
     await mountApp({
       schema: baseSchema,

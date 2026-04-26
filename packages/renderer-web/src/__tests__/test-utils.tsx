@@ -43,6 +43,8 @@ const stubNav: NavApi = {
     target.entityId !== undefined
       ? `/${target.screenId}/${target.entityId}`
       : `/${target.screenId}`,
+  searchParams: {},
+  setSearchParams: () => {},
 };
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};

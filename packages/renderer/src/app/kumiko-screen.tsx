@@ -9,6 +9,7 @@ import { type ReactNode, useCallback, useMemo } from "react";
 import { RenderEdit } from "../components/render-edit";
 import { RenderList } from "../components/render-list";
 import { useDispatcher } from "../context/dispatcher-context";
+import { useListUrlState } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { usePrimitives } from "../primitives";
 import { useCustomScreenComponent } from "./custom-screens";
@@ -466,7 +467,31 @@ function EntityListBody({
   const onCreate = useNavigateToCreateFor(schema, screen.entity);
   const { Banner } = usePrimitives();
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
-  const rowsQuery = useQuery<PagedRows>(queryType, {}, { live: true });
+
+  // URL-State: sort/dir/q/page leben unter dem screen.id-Namespace
+  // (`/orders?orders.sort=createdAt&orders.dir=desc&orders.q=acme`),
+  // damit zwei Lists auf derselben Route nicht über dieselben
+  // Query-Keys streiten. Default-Sort aus der Screen-Def gewinnt nur
+  // wenn URL keinen sort hat — Author-Default vs User-Choice.
+  const urlState = useListUrlState(screen.id);
+  const effectiveSort = urlState.sort ?? screen.defaultSort ?? null;
+  const limit = screen.pageSize ?? 50;
+
+  // Payload für den Server-Query-Handler (LIST_PAYLOAD_SCHEMA):
+  // search/sort/sortDirection/limit. Pagination kommt cursor-basiert
+  // (Tier 2.6d/e); für jetzt liefert der Server die erste Seite und
+  // der Client rendert alles was ankommt.
+  const queryPayload = useMemo(() => {
+    const payload: Record<string, unknown> = { limit };
+    if (urlState.q !== "") payload["search"] = urlState.q;
+    if (effectiveSort !== null) {
+      payload["sort"] = effectiveSort.field;
+      payload["sortDirection"] = effectiveSort.dir;
+    }
+    return payload;
+  }, [limit, urlState.q, effectiveSort]);
+
+  const rowsQuery = useQuery<PagedRows>(queryType, queryPayload, { live: true });
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -492,13 +517,24 @@ function EntityListBody({
       ? (row: ListRowViewModel) => onRowClick(row, screen.entity)
       : undefined;
 
+  // Searchable-Default: explizite Author-Wahl gewinnt, sonst auto-on
+  // wenn die Entity searchable Felder hat (sonst wäre die Toolbar-Bar
+  // ein toter Slot — Server-Search-Index hat eh nichts zum Filtern).
+  const searchable =
+    screen.searchable ??
+    Object.values(entity.fields).some((f) => "searchable" in f && f.searchable === true);
+
   return (
     <RenderList
       screen={screen}
       entity={entity}
       rows={rowsQuery.data?.rows ?? []}
       featureName={featureName}
-      searchable
+      searchable={searchable}
+      searchValue={urlState.q}
+      onSearchChange={urlState.setQ}
+      sort={effectiveSort}
+      onSortChange={urlState.setSort}
       {...(onCreate !== undefined && { onCreate })}
       {...(translate !== undefined && { translate })}
       {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}

@@ -46,6 +46,17 @@ export type NavApi = {
    *  platform-specific Link-Komponenten (Web: `<a href>`; Native
    *  typically doesn't need this). */
   readonly hrefFor: (target: NavTarget) => string;
+  /** Lese-Snapshot der aktuellen Search-Params (Browser: ?key=value-
+   *  Pairs nach dem Pfad). Native-Impls die kein URL-Konzept haben
+   *  liefern ein leeres Object. Wert ist ein Plain-Record (kein Map)
+   *  damit React-Subscribers shallow-compare können. */
+  readonly searchParams: Readonly<Record<string, string>>;
+  /** Mergt Updates in die aktuellen Search-Params. Wert `null` löscht
+   *  den Key. Ändert NICHT den Pfad. Plattform-Impls nutzen
+   *  history.replaceState (kein Push) — Sort/Filter-Toggles sollen
+   *  nicht die Back-Navigation fluten. Native-Impls können no-op'en
+   *  wenn das Konzept nicht existiert. */
+  readonly setSearchParams: (updates: Readonly<Record<string, string | null>>) => void;
 };
 
 // Pfad-Format:
