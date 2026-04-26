@@ -107,7 +107,7 @@ async function writeApi(user: SessionUser, type: string, payload: unknown) {
 }
 
 describe("r.job multi-trigger — runtime-dispatch", () => {
-  test("Trigger 1 (order:open) → Job läuft mit _triggerName=order:open", async () => {
+  test("Trigger 1 (order:open) → Job läuft mit ctx.triggerName=multi:write:order:open", async () => {
     jobExecutions.length = 0;
 
     const result = await writeApi(adminUser, "multi:write:order:open", { id: "o-1" });
@@ -121,7 +121,7 @@ describe("r.job multi-trigger — runtime-dispatch", () => {
     });
   });
 
-  test("Trigger 2 (order:cancel) → derselbe Job läuft mit _triggerName=order:cancel", async () => {
+  test("Trigger 2 (order:cancel) → derselbe Job läuft mit ctx.triggerName=multi:write:order:cancel", async () => {
     jobExecutions.length = 0;
 
     const result = await writeApi(adminUser, "multi:write:order:cancel", { id: "o-2" });
@@ -135,7 +135,7 @@ describe("r.job multi-trigger — runtime-dispatch", () => {
     });
   });
 
-  test("Beide Trigger nacheinander → 2 Job-Läufe, jeweils mit korrektem _triggerName", async () => {
+  test("Beide Trigger nacheinander → 2 Job-Läufe, jeweils mit korrektem ctx.triggerName", async () => {
     jobExecutions.length = 0;
 
     await writeApi(adminUser, "multi:write:order:open", { id: "a" });

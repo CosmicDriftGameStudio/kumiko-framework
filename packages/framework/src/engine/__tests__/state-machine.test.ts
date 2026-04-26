@@ -119,6 +119,10 @@ describe("assertTransition / guardTransition", () => {
     } catch (e) {
       assertDetails = (e as UnprocessableError).details as Record<string, unknown>;
     }
+    // Wenn assertTransition nicht wirft (zukünftiger Bug), bleibt
+    // assertDetails undefined → Diagnose unklar. Frühzeitiger Check macht
+    // den Fehlerpfad eindeutig.
+    expect(assertDetails).toBeDefined();
     const failResult = failTransition("draft", "paid", ["sent"]);
     const failDetails = failResult.error.details as Record<string, unknown>;
     // assertTransition wirft via UnprocessableError → details bekommt
