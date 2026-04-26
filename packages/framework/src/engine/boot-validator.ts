@@ -825,6 +825,42 @@ function validateScreens(
         }
         validateColumnRendererForm(feature.name, screenId, normalized);
       }
+      // Pagination/Sort/Search-Validierung: Author-Fehler beim Boot
+      // fangen, damit kein "warum kommt die Liste leer / falsch
+      // sortiert"-Debug-Cycle zur Laufzeit losgeht.
+      if (screen.pageSize !== undefined && screen.pageSize <= 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (entityList) has pageSize=${screen.pageSize} — ` +
+            `must be a positive integer.`,
+        );
+      }
+      if (screen.defaultSort !== undefined) {
+        const sortField = screen.defaultSort.field;
+        if (!fieldNames.has(sortField)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityList) defaultSort references unknown ` +
+              `field "${sortField}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+          );
+        }
+        // sortable: true Pflicht — verhindert dass das UI auf einer
+        // Spalte sortiert, die Server-Side gar keinen DB-Index hat
+        // oder im Schema absichtlich nicht sortiert werden soll
+        // (Audit-Felder, Computed-Werte). `sortable` lebt heute nur
+        // auf TextFieldDef; "in"-narrow lässt das auch für andere
+        // Field-Types ohne explizites Flag durchfallen, was ok ist:
+        // Number/Date sind natürlich sortierbar, der Author kann sie
+        // im Author-Code als sortable markieren wenn das Field-Type
+        // es trägt (Erweiterung folgt).
+        const fieldDef = entityDef.fields[sortField];
+        const isSortable =
+          fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true;
+        if (!isSortable) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityList) defaultSort.field "${sortField}" ` +
+              `is not sortable. Set sortable: true on the field definition or pick another field.`,
+          );
+        }
+      }
     } else {
       // Same rationale as the columns check: an entityEdit layout with zero
       // sections (or sections without any fields) renders as nothing — reject

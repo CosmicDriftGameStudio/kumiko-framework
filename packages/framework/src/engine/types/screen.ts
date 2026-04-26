@@ -49,6 +49,29 @@ export type ListColumnSpec =
       readonly renderer?: FieldRenderer;
     };
 
+// Pagination-Modi für entityList:
+//   - "pages":     klassischer Pager (← 1 2 ... N →) — bookmarkable
+//                  via ?page=N in der URL. Server liefert `total`
+//                  damit der Pager "Page X of Y" rendern kann.
+//                  Default für CRUD-/Admin-Listen.
+//   - "infinite":  IntersectionObserver am Bottom — beim Sichtbar
+//                  werden lädt cursor-basiert die nächste Page und
+//                  appended an `rows`. Kein page-State in URL (Scroll-
+//                  Position ist Browser-eigen).
+//   - false:       Pagination aus — `executor.list()` lädt alles
+//                  was zur Tenant-Sicht passt. Sinnvoll für kleine
+//                  Lookup-/Master-Daten (≤ ~200 Rows).
+export type ListPaginationMode = "pages" | "infinite" | false;
+
+// Sort-State auf der Wire — Field-Name muss zur Entity-Definition
+// passen UND als sortable: true markiert sein. Validator lehnt sonst
+// beim Boot ab.
+export type ListSortDir = "asc" | "desc";
+export type ListSortSpec = {
+  readonly field: string;
+  readonly dir: ListSortDir;
+};
+
 export type EntityListScreenDefinition = {
   readonly id: string;
   readonly type: "entityList";
@@ -58,6 +81,23 @@ export type EntityListScreenDefinition = {
   // from `columns`. cardRenderer fills the same role on compact layouts.
   readonly rowRenderer?: PlatformComponent;
   readonly cardRenderer?: PlatformComponent;
+  // Pagination-Modus (Default "pages"). Bestimmt UI (Pager vs Scroll-
+  // Sentinel) und ob der Server `total` mitliefern muss.
+  readonly pagination?: ListPaginationMode;
+  // Page-Größe. Default 50 — guter Kompromiss zwischen "viel sichtbar"
+  // und "DB liefert schnell". Apps mit teurem Read (Joins, Computed-
+  // Fields) gehen runter; Power-User-Listen (z.B. internal Analytics)
+  // gehen hoch.
+  readonly pageSize?: number;
+  // Default-Sortierung beim Erst-Mount. Wenn URL-Param `?sort=…`
+  // gesetzt ist, gewinnt der; sonst nutzt RenderList diesen Default.
+  // `field` muss in der Entity sortable: true sein — Boot-Validator
+  // pinnt das.
+  readonly defaultSort?: ListSortSpec;
+  // Search-Toolbar im UI an/aus. Server-Search geht IMMER über den
+  // SearchAdapter (Meilisearch) — kein DB-ILIKE-Drift. Default true
+  // wenn die Entity searchable Felder hat, sonst false.
+  readonly searchable?: boolean;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

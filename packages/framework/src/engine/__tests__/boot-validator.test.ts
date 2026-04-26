@@ -1045,4 +1045,74 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
   });
+
+  // --- entityList: pagination + sort validation ---
+  // Author-Fehler vor Production fangen, damit "Screen lädt nichts /
+  // sortiert falsch / crasht beim Pager-Klick" nicht erst zur Laufzeit
+  // bemerkt wird. Die Tests pinnen nur server-side Validierungen —
+  // UI-Verhalten (Pager-Rendering) ist Renderer-Sache.
+  describe("entityList pagination + sort", () => {
+    function makeFeature(
+      override: Partial<{
+        readonly pageSize: number;
+        readonly defaultSort: { readonly field: string; readonly dir: "asc" | "desc" };
+      }>,
+    ) {
+      return defineFeature("shop", (r) => {
+        r.entity(
+          "product",
+          createEntity({
+            fields: {
+              name: createTextField({ sortable: true }),
+              // Bewusst NICHT sortable: bestätigt dass Validator das
+              // unterscheidet und nur sortable-Felder als defaultSort
+              // akzeptiert.
+              description: createTextField(),
+            },
+          }),
+        );
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: [{ field: "name" }],
+          ...override,
+        });
+      });
+    }
+
+    test("pageSize: positiv → kein Throw", () => {
+      expect(() => validateBoot([makeFeature({ pageSize: 100 })])).not.toThrow();
+    });
+
+    test("pageSize: 0 → Throw mit klarer Message", () => {
+      expect(() => validateBoot([makeFeature({ pageSize: 0 })])).toThrow(
+        /pageSize=0 — must be a positive integer/,
+      );
+    });
+
+    test("pageSize: negativ → Throw", () => {
+      expect(() => validateBoot([makeFeature({ pageSize: -10 })])).toThrow(
+        /pageSize=-10 — must be a positive integer/,
+      );
+    });
+
+    test("defaultSort.field: existiert + sortable=true → kein Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ defaultSort: { field: "name", dir: "asc" } })]),
+      ).not.toThrow();
+    });
+
+    test("defaultSort.field: existiert NICHT → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ defaultSort: { field: "ghost", dir: "asc" } })]),
+      ).toThrow(/defaultSort references unknown field "ghost"/);
+    });
+
+    test("defaultSort.field: existiert aber sortable=false → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ defaultSort: { field: "description", dir: "asc" } })]),
+      ).toThrow(/defaultSort\.field "description" is not sortable/);
+    });
+  });
 });
