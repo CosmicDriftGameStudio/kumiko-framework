@@ -296,6 +296,14 @@ export type AppContext = SharedContextFields & {
 export type HandlerContext = SharedContextFields & {
   readonly db: TenantDb;
   readonly registry: Registry;
+  /** Aktiver SessionUser des Handler-Aufrufs — Convenience-Alias zu
+   *  `event.user`. Existiert weil Handler intuitiv `ctx.user.tenantId`
+   *  schreiben (Context = "kennt seinen User") und der Pfad sonst nur
+   *  über `event.user` läuft, was typo-anfällig ist und stillschweigend
+   *  zu `internal_error` führt wenn der falsche Pfad gewählt wird.
+   *  Identisch zum event.user-Wert; Identity-Switches nutzen
+   *  weiterhin queryAs/writeAs. */
+  readonly user: SessionUser;
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;

@@ -73,6 +73,32 @@ describe("dispatcher.write", () => {
     }
   });
 
+  test("ctx.user ist Convenience-Alias auf event.user (gleicher Wert)", async () => {
+    // Pinst dass der Handler auf ctx.user zugreifen kann ohne den
+    // typo-resistenten event.user-Pfad zu nutzen. Identitätsprüfung
+    // gegen denselben SessionUser — sonst ist's nicht der gleiche.
+    const captured: { fromEvent?: unknown; fromCtx?: unknown } = {};
+    const aliasFeature = defineFeature("alias", (r) => {
+      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.writeHandler(
+        "item:create",
+        z.object({ name: z.string() }),
+        async (event, ctx) => {
+          captured.fromEvent = event.user;
+          captured.fromCtx = ctx.user;
+          return { isSuccess: true, data: {} };
+        },
+        { access: { roles: ["Admin"] } },
+      );
+    });
+    const dispatcher = createDispatcher(createRegistry([aliasFeature]), {});
+    const user = createTestUser();
+    const res = await dispatcher.write("alias:write:item:create", { name: "x" }, user);
+    expect(res.isSuccess).toBe(true);
+    expect(captured.fromCtx).toBe(captured.fromEvent);
+    expect((captured.fromCtx as { id: number }).id).toBe(user.id);
+  });
+
   test("runs validation hooks", async () => {
     const dispatcher = createTestDispatcher();
     const result = await dispatcher.write(

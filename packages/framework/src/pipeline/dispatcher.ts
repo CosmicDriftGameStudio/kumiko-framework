@@ -760,6 +760,12 @@ export function createDispatcher(
       // Propagate the feature-toggle resolver so the lifecycle pipeline,
       // MSP runner, and ctx.hasFeature all pull from the same source.
       ...(effectiveFeatures && { effectiveFeatures }),
+      // ctx.user als Convenience-Alias auf event.user. Der typisch-
+      // intuitive Pfad „der Context kennt seinen User" — ohne den
+      // schreiben Handler `event.user.tenantId` und brechen sich die
+      // Finger an typo-resistenten ctx.user-Patterns. Identisch zum
+      // event.user-Wert; Identity-Switches nutzen weiterhin queryAs/writeAs.
+      user,
       _userId: user.id,
       _handlerType: type,
       ...bridge,
