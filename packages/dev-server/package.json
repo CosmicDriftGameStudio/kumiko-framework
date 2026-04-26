@@ -18,6 +18,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "bin": {
+    "kumiko-build": "./bin/kumiko-build.ts"
+  },
   "dependencies": {
     "@kumiko/bundled-features": "0.0.1",
     "@kumiko/framework": "0.0.1"

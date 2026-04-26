@@ -39,6 +39,7 @@
   ],
   "scripts": {
     "kumiko": "NODE_OPTIONS=--no-deprecation bun run bin/kumiko.ts",
+    "build:apps": "bun run scripts/build-apps.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "test:all": "vitest --config vitest.all.config.ts",

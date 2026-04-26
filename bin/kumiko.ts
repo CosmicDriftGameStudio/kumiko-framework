@@ -9,7 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 
 // Suppress Node's deprecation warnings (notably DEP0169 url.parse, emitted
 // by yarn-classic's own url handling — not our code). Using --no-deprecation
@@ -127,6 +127,40 @@ const commands = {
       await $`docker compose up -d`.quiet();
       await waitForPostgres();
       console.log("Wie neu. Kein Byte ueberlebt.");
+    },
+  },
+
+  build: {
+    description: "Production-Build für eine App (dist/) — nimmt path oder $INIT_CWD",
+    run: async () => {
+      // Discovery + Bun.build + Tailwind + Public-Folder-Copy.
+      // Convention-driven: src/client.tsx → bundle, src/styles.css →
+      // Tailwind, public/ → 1:1, index.html → Template. Output landet
+      // unter <cwd>/dist.
+      //
+      // CWD-Resolution:
+      //   1. Bun.argv[3] (explicit path)        → kumiko build samples/apps/showcase
+      //   2. $INIT_CWD (yarn-Workspace-Aufruf)  → cd <app> && yarn build
+      //   3. process.cwd() (fallback)
+      const { buildProdBundle } = await import("@kumiko/dev-server");
+      const explicit = Bun.argv[3];
+      const cwd = explicit
+        ? resolvePath(explicit)
+        : (Bun.env["INIT_CWD"] ?? process.cwd());
+      const t0 = performance.now();
+      const result = await buildProdBundle({ cwd });
+      const ms = Math.round(performance.now() - t0);
+      const dim = "\x1b[2m";
+      const green = "\x1b[32m";
+      const reset = "\x1b[0m";
+      console.log(`\n  ${green}✓${reset} built ${cwd} → ${result.outDir} ${dim}(${ms}ms)${reset}`);
+      const entries = Object.entries(result.manifest);
+      if (entries.length > 0) {
+        for (const [logical, hashed] of entries) {
+          console.log(`    ${dim}${logical.padEnd(14)}${reset} ${hashed}`);
+        }
+      }
+      console.log();
     },
   },
 

@@ -300,6 +300,16 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 // Static-fallback: try the Hono app first, fall back to a file in
 // staticDir if Hono returns 404. Keeps /api/* on the dispatcher and
 // everything else (HTML, JS, CSS, images) on the disk.
+//
+// Cache-Header-Strategie:
+//   /assets/*               → public, max-age=31536000, immutable
+//                             (gehashte Filenames vom Build, sicher cachebar)
+//   /index.html             → no-cache, must-revalidate
+//                             (HTML-Shell, must reload on deploy)
+//   /manifest.json, /sw.js  → no-cache
+//                             (Update-Detection-Mechanismen, müssen frisch sein)
+//   alles andere            → kein expliziter Header
+//                             (Browser-Default, public/-Files wie favicon)
 function buildStaticFallback(
   apiHandler: (req: Request) => Response | Promise<Response>,
   staticDir: string,
@@ -319,16 +329,36 @@ function buildStaticFallback(
     const filePath = `${staticDir}/${relPath}`;
     const file = Bun.file(filePath);
     if (await file.exists()) {
-      return new Response(file);
+      return new Response(file, {
+        headers: cacheHeadersFor(url.pathname),
+      });
     }
 
     // Fallback to index.html for SPA-style routes that the Hono app
     // doesn't claim.
     const index = Bun.file(indexHtml);
     if (await index.exists()) {
-      return new Response(index);
+      return new Response(index, {
+        headers: cacheHeadersFor("/index.html"),
+      });
     }
 
     return apiHandler(req);
   };
+}
+
+// Map URL-Pfad → Cache-Control. Hashed-Asset-Pfade (/assets/*) sind
+// unveränderlich, der Rest bleibt no-cache damit Updates ohne Hard-
+// Reload greifen.
+function cacheHeadersFor(pathname: string): HeadersInit {
+  if (pathname.startsWith("/assets/")) {
+    return { "cache-control": "public, max-age=31536000, immutable" };
+  }
+  if (pathname === "/" || pathname === "/index.html") {
+    return { "cache-control": "no-cache, must-revalidate" };
+  }
+  if (pathname === "/manifest.json" || pathname === "/sw.js") {
+    return { "cache-control": "no-cache" };
+  }
+  return {};
 }
