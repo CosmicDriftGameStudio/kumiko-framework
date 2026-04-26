@@ -180,7 +180,7 @@ function DefaultInput(props: InputProps): ReactNode {
             const v = e.target.value;
             props.onChange(v === "" ? undefined : Number(v));
           }}
-          className={cn(inputClassBase, errorClass)}
+          className={cn(inputClassBase, "text-right tabular-nums", errorClass)}
         />
       );
     case "boolean":
