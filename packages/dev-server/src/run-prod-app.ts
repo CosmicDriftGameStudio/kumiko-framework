@@ -343,6 +343,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       // Options-Shape (inkl. idleTimeout: 0 für SSE) liegt in der
       // exportierten buildBunServeOptions-Funktion — siehe ihren
       // Header für die Begründung.
+      if (typeof (globalThis as { Bun?: unknown }).Bun === "undefined") {
+        // Klare Fehlermeldung statt nackter ReferenceError. Trifft wenn
+        // jemand listen() unter Node/vitest aufruft ohne autoListen:false
+        // — hilft beim Debug, statt sich an "Bun is not defined" abzumühen.
+        throw new Error(
+          "[runProdApp] listen() requires Bun runtime (Bun.serve). " +
+            "Under Node/vitest pass `autoListen: false` and call the returned `fetch()` directly.",
+        );
+      }
       handle.server = Bun.serve(buildBunServeOptions(listenPort, fetchHandler));
 
       // SIGTERM/SIGINT — graceful shutdown. Only registered when we

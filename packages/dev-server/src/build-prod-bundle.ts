@@ -45,6 +45,12 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+// Bun-Runtime-Check als module-level Konstante: alle Build-Schritte
+// (Tailwind via Bun.spawn, Client-Bundle via Bun.build, Stylesheet-
+// Resolution via Bun.resolveSync) sind Bun-only. Pro-Funktions-Inline-
+// Checks driften sonst — eine Konstante hier hält das konsistent.
+const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+
 export type BuildProdBundleOptions = {
   /** App-Root. Default: process.cwd(). */
   readonly cwd?: string;
@@ -194,7 +200,6 @@ function resolveStylesheetEntry(
   // server, damit lokal/prod identisch bauen.
   if (!clientEntry) return undefined;
 
-  const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
   if (!hasBun) return undefined;
   try {
     return (
@@ -219,6 +224,11 @@ export function discoverHtmlTemplate(cwd: string): string | undefined {
 // ---------------------------------------------------------------------------
 
 async function runTailwindOnce(entry: string): Promise<string> {
+  if (!hasBun) {
+    throw new Error(
+      "[kumiko build] Tailwind one-shot requires Bun (Bun.spawn) — run via `bun run …` or `yarn kumiko build`.",
+    );
+  }
   const tmpDir = await mkdtemp(join(tmpdir(), "kumiko-build-tw-"));
   const outPath = join(tmpDir, "styles.css");
   // --minify: Tailwind-CLI default ist NICHT minified. Symmetric zum
@@ -238,7 +248,6 @@ async function runTailwindOnce(entry: string): Promise<string> {
 }
 
 async function buildClientBundle(entry: string, outDir: string): Promise<string> {
-  const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
   if (!hasBun) {
     throw new Error("[kumiko build] requires Bun — run via `bun run …` or `yarn kumiko build`.");
   }
