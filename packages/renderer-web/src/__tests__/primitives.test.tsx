@@ -210,6 +210,119 @@ describe("DataTable", () => {
     fireEvent.click(screen.getByTestId("row-r1"));
     expect(onRowClick).toHaveBeenCalledWith(row);
   });
+
+  // Sort-Header pinnt das 3-State-Toggle-Verhalten + Visual-Indicator
+  // + aria-sort. Renderer-Vertrag mit dem Caller (RenderList): jede
+  // sortable-Column liefert beim Click den nächsten Sort-State zurück
+  // — Caller setzt damit URL-State und re-fetcht.
+  describe("Sort-Header", () => {
+    const sortableCols = [
+      { field: "name", label: "Name", type: "string", sortable: true },
+      { field: "createdAt", label: "Created", type: "timestamp", sortable: true },
+      { field: "id", label: "ID", type: "string", sortable: false },
+    ] as const;
+    // Mindestens eine Row, sonst rendert der DefaultDataTable den
+    // Empty-State-Branch und das thead-Markup ist gar nicht im DOM.
+    // Sort-Header lebt im thead, das brauchen wir hier.
+    const oneRow = [{ id: "r1", values: { name: "A", createdAt: "2026-01-01", id: "r1" } }];
+
+    test("ohne onSortChange: Header bleibt plain (kein Button, kein cursor)", () => {
+      render(<DataTable columns={sortableCols} rows={oneRow} />);
+      // Plain th.textContent enthält das Label. KEIN Button drinnen.
+      expect(screen.getByTestId("column-name").querySelector("button")).toBeNull();
+    });
+
+    test("mit onSortChange: sortable-Column rendert Button + ArrowUpDown-Icon", () => {
+      render(<DataTable columns={sortableCols} rows={oneRow} onSortChange={vi.fn()} />);
+      const header = screen.getByTestId("column-name");
+      expect(header.querySelector("button")).not.toBeNull();
+      // Default-Icon (kein active sort) ist ArrowUpDown — Lucide rendert
+      // svg ohne expliziten name; wir prüfen aria-sort='none'.
+      expect(header.getAttribute("aria-sort")).toBe("none");
+    });
+
+    test("non-sortable Column rendert KEINEN Button (auch mit onSortChange)", () => {
+      render(<DataTable columns={sortableCols} rows={oneRow} onSortChange={vi.fn()} />);
+      expect(screen.getByTestId("column-id").querySelector("button")).toBeNull();
+    });
+
+    test("aria-sort=ascending wenn sort.field passt + dir=asc", () => {
+      render(
+        <DataTable
+          columns={sortableCols}
+          rows={oneRow}
+          sort={{ field: "name", dir: "asc" }}
+          onSortChange={vi.fn()}
+        />,
+      );
+      expect(screen.getByTestId("column-name").getAttribute("aria-sort")).toBe("ascending");
+      expect(screen.getByTestId("column-createdAt").getAttribute("aria-sort")).toBe("none");
+    });
+
+    test("aria-sort=descending wenn dir=desc", () => {
+      render(
+        <DataTable
+          columns={sortableCols}
+          rows={oneRow}
+          sort={{ field: "name", dir: "desc" }}
+          onSortChange={vi.fn()}
+        />,
+      );
+      expect(screen.getByTestId("column-name").getAttribute("aria-sort")).toBe("descending");
+    });
+
+    test("Click ohne aktiven Sort: onSortChange({field, dir:'asc'})", () => {
+      const onSortChange = vi.fn();
+      render(<DataTable columns={sortableCols} rows={oneRow} onSortChange={onSortChange} />);
+      fireEvent.click(screen.getByTestId("column-name").querySelector("button") as HTMLElement);
+      expect(onSortChange).toHaveBeenCalledWith({ field: "name", dir: "asc" });
+    });
+
+    test("Click mit aktivem asc: onSortChange({field, dir:'desc'})", () => {
+      const onSortChange = vi.fn();
+      render(
+        <DataTable
+          columns={sortableCols}
+          rows={oneRow}
+          sort={{ field: "name", dir: "asc" }}
+          onSortChange={onSortChange}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("column-name").querySelector("button") as HTMLElement);
+      expect(onSortChange).toHaveBeenCalledWith({ field: "name", dir: "desc" });
+    });
+
+    test("Click mit aktivem desc: onSortChange(null) (3-State zurück zu unsorted)", () => {
+      const onSortChange = vi.fn();
+      render(
+        <DataTable
+          columns={sortableCols}
+          rows={oneRow}
+          sort={{ field: "name", dir: "desc" }}
+          onSortChange={onSortChange}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("column-name").querySelector("button") as HTMLElement);
+      expect(onSortChange).toHaveBeenCalledWith(null);
+    });
+
+    test("Click auf andere Spalte (sort=null für die): startet bei asc", () => {
+      const onSortChange = vi.fn();
+      render(
+        <DataTable
+          columns={sortableCols}
+          rows={oneRow}
+          sort={{ field: "name", dir: "desc" }}
+          onSortChange={onSortChange}
+        />,
+      );
+      fireEvent.click(
+        screen.getByTestId("column-createdAt").querySelector("button") as HTMLElement,
+      );
+      // Andere Spalte: dort gibt's keinen aktiven Sort, also asc.
+      expect(onSortChange).toHaveBeenCalledWith({ field: "createdAt", dir: "asc" });
+    });
+  });
 });
 
 describe("Form", () => {

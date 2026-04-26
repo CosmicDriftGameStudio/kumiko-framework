@@ -41,6 +41,7 @@ export type TextFieldDef = {
 export type BooleanFieldDef = {
   readonly type: "boolean";
   readonly required?: boolean;
+  readonly sortable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: boolean;
   readonly access?: FieldAccess;
@@ -50,6 +51,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly type: "select";
   readonly options: TOptions;
   readonly required?: boolean;
+  readonly sortable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: TOptions[number];
   readonly access?: FieldAccess;
@@ -81,6 +83,7 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
 export type NumberFieldDef = {
   readonly type: "number";
   readonly required?: boolean;
+  readonly sortable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
@@ -89,6 +92,7 @@ export type NumberFieldDef = {
 export type MoneyFieldDef = {
   readonly type: "money";
   readonly required?: boolean;
+  readonly sortable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
 };
@@ -142,6 +146,7 @@ export type EmbeddedFieldDef = {
 export type DateFieldDef = {
   readonly type: "date";
   readonly required?: boolean;
+  readonly sortable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
 };
@@ -160,6 +165,7 @@ export type DateFieldDef = {
 export type TimestampFieldDef = {
   readonly type: "timestamp";
   readonly required?: boolean;
+  readonly sortable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
   /**
@@ -204,6 +210,7 @@ export type TzFieldDef = {
 export type LocatedTimestampFieldDef = {
   readonly type: "locatedTimestamp";
   readonly required?: boolean;
+  readonly sortable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
 };

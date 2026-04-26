@@ -25,8 +25,9 @@ import {
   useTranslation,
 } from "@kumiko/renderer";
 import * as LabelPrimitive from "@radix-ui/react-label";
+import type { DataTableSort, DataTableSortDir } from "@kumiko/renderer";
 import { cva } from "class-variance-authority";
-import { Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from "lucide-react";
 import type { ChangeEvent, ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { DateInput } from "./date-input";
@@ -287,6 +288,8 @@ function DefaultDataTable({
   columns,
   rows,
   onRowClick,
+  sort,
+  onSortChange,
   emptyState,
   toolbarTitle,
   toolbarStart,
@@ -308,7 +311,7 @@ function DefaultDataTable({
     ) : (
       <div className="rounded-md border">
         <table data-testid={testId} className="w-full caption-bottom text-sm">
-          {tableInner(columns, rows, onRowClick)}
+          {tableInner(columns, rows, onRowClick, sort, onSortChange)}
         </table>
       </div>
     );
@@ -344,20 +347,22 @@ function tableInner(
   columns: DataTableProps["columns"],
   rows: DataTableProps["rows"],
   onRowClick?: DataTableProps["onRowClick"],
+  sort?: DataTableProps["sort"],
+  onSortChange?: DataTableProps["onSortChange"],
 ): ReactNode {
   return (
     <>
       <thead className="[&_tr]:border-b">
         <tr className="border-b transition-colors hover:bg-muted/50">
           {columns.map((col) => (
-            <th
+            <SortableHeader
               key={col.field}
-              data-testid={`column-${col.field}`}
-              data-sortable={col.sortable === true ? true : undefined}
-              className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
-            >
-              {col.label}
-            </th>
+              field={col.field}
+              label={col.label}
+              sortable={col.sortable === true}
+              {...(sort !== undefined && sort !== null && { sort })}
+              {...(onSortChange !== undefined && { onSortChange })}
+            />
           ))}
         </tr>
       </thead>
@@ -392,6 +397,89 @@ function tableInner(
       </tbody>
     </>
   );
+}
+
+// SortableHeader — rendert pro Spalte den th-Header, mit oder ohne
+// Click-Sort. Drei Pfade:
+//   (a) sortable=false ODER kein onSortChange → plain Label, keine
+//       Cursor-Interaktion (DataTable rein als View ohne Sort-Wiring).
+//   (b) sortable=true + onSortChange → Header ist ein Button, klick
+//       cycled asc → desc → null. aria-sort spiegelt den State.
+//   (c) sortable=true im Schema, aber keine onSortChange-Prop → still
+//       label-only, aber data-sortable=true bleibt damit Tests die
+//       Schema-Sicht kennen.
+function SortableHeader({
+  field,
+  label,
+  sortable,
+  sort,
+  onSortChange,
+}: {
+  readonly field: string;
+  readonly label: string;
+  readonly sortable: boolean;
+  readonly sort?: DataTableSort;
+  readonly onSortChange?: (next: DataTableSort | null) => void;
+}): ReactNode {
+  const active = sort?.field === field ? sort : undefined;
+  const ariaSort: "ascending" | "descending" | "none" =
+    active?.dir === "asc" ? "ascending" : active?.dir === "desc" ? "descending" : "none";
+
+  if (!sortable || onSortChange === undefined) {
+    return (
+      <th
+        data-testid={`column-${field}`}
+        data-sortable={sortable === true ? true : undefined}
+        className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+      >
+        {label}
+      </th>
+    );
+  }
+
+  const Icon = active?.dir === "asc" ? ArrowUp : active?.dir === "desc" ? ArrowDown : ArrowUpDown;
+  const next = nextSortState(active?.dir, field);
+
+  return (
+    <th
+      data-testid={`column-${field}`}
+      data-sortable="true"
+      aria-sort={ariaSort}
+      className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+    >
+      <button
+        type="button"
+        onClick={() => onSortChange(next)}
+        className={cn(
+          "inline-flex h-8 items-center gap-1.5 rounded-sm px-2 -mx-2 text-sm font-medium",
+          "hover:bg-accent hover:text-accent-foreground",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          active !== undefined && "text-foreground",
+        )}
+      >
+        <span>{label}</span>
+        <Icon
+          className={cn(
+            "size-3.5",
+            active === undefined && "opacity-40",
+          )}
+          aria-hidden="true"
+        />
+      </button>
+    </th>
+  );
+}
+
+// 3-State-Toggle: kein Sort → asc → desc → kein Sort. Idiomatisch für
+// Power-User-Listen wo "ich will die Server-Default-Order zurück" eine
+// echte Aktion ist (statt unendlich asc↔desc zu togglen).
+function nextSortState(
+  current: DataTableSortDir | undefined,
+  field: string,
+): DataTableSort | null {
+  if (current === undefined) return { field, dir: "asc" };
+  if (current === "asc") return { field, dir: "desc" };
+  return null;
 }
 
 // Type-guard für die `{ react: { __component: "Name" } }`-Form, in der

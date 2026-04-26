@@ -200,10 +200,30 @@ export type InputProps =
       readonly hasError?: boolean;
     };
 
+// Sort-Wire-Format. `null`-State unterscheidet "User hat noch nichts
+// gesortiert" vom "ich sortiere nach X" — wichtig für 3-State-Toggle
+// (asc → desc → null → asc …). Renderer kennt den aktuellen sort und
+// callt onSortChange wenn der User auf einen sortable-Header klickt.
+export type DataTableSortDir = "asc" | "desc";
+export type DataTableSort = {
+  readonly field: string;
+  readonly dir: DataTableSortDir;
+};
+
 export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
   readonly rows: readonly ListRowViewModel[];
   readonly onRowClick?: (row: ListRowViewModel) => void;
+  /** Aktuelle Sortierung (oder null = unsorted). Wenn columns ein
+   *  `sortable: true`-Feld haben und onSortChange gesetzt ist, rendert
+   *  der Renderer Click-Header mit Asc/Desc-Indikator. Ohne onSortChange
+   *  bleibt die Header-Click-Mechanik aus, columns.sortable ist dann nur
+   *  semantischer Hinweis. */
+  readonly sort?: DataTableSort | null;
+  /** Wird gerufen mit dem nächsten Sort-State nach einem Header-Klick.
+   *  3-State-Toggle (Convention): asc → desc → null. Caller setzt damit
+   *  seinen URL-State / Query-Param und triggert ein refetch. */
+  readonly onSortChange?: (next: DataTableSort | null) => void;
   /** Custom Empty-State-Inhalt (z. B. Icon + Heading + CTA-Button).
    *  Default-Renderer rahmt ihn in einer dashed-border Box. */
   readonly emptyState?: ReactNode;

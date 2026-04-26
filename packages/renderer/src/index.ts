@@ -59,6 +59,8 @@ export type {
   ButtonProps,
   CorePrimitives,
   DataTableProps,
+  DataTableSort,
+  DataTableSortDir,
   DialogProps,
   FieldProps,
   FormProps,
