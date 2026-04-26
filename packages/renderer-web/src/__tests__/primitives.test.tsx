@@ -148,12 +148,17 @@ describe("Input kind mapping", () => {
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
-  test('kind="date": "" → undefined', () => {
+  test('kind="date": Trigger zeigt formatiertes Datum, kein nativer date-Input', () => {
+    // Default-DateInput nutzt Radix-Popover + DayPicker statt native
+    // <input type="date">. Trigger ist ein Button mit dem formatierten
+    // Datum als sichtbarem Text.
     const onChange = vi.fn();
-    render(<Input id="i" name="i" kind="date" value="2026-04-23" onChange={onChange} />);
-    const input = document.querySelector('input[type="date"]') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "" } });
-    expect(onChange).toHaveBeenCalledWith(undefined);
+    render(
+      <Input id="i" name="i" kind="date" value="2026-04-23" onChange={onChange} locale="de-DE" />,
+    );
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+    const trigger = screen.getByRole("button");
+    expect(trigger.textContent).toContain("23. April 2026");
   });
 
   test("hasError=true sets aria-invalid", () => {

@@ -28,7 +28,9 @@ import { cva } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
 import type { ChangeEvent, ReactNode } from "react";
 import { cn } from "../lib/cn";
+import { DateInput } from "./date-input";
 import { DefaultDialog } from "./dialog";
+import { MoneyInput } from "./money-input";
 import { SelectInput } from "./select";
 
 // ---- Button ----
@@ -196,14 +198,15 @@ function DefaultInput(props: InputProps): ReactNode {
       );
     case "date":
       return (
-        <input
-          type="date"
-          {...common}
+        <DateInput
+          id={props.id}
+          name={props.name}
           value={props.value}
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            props.onChange(e.target.value !== "" ? e.target.value : undefined)
-          }
-          className={cn(inputClassBase, errorClass)}
+          onChange={props.onChange}
+          {...(props.locale !== undefined && { locale: props.locale })}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.required !== undefined && { required: props.required })}
+          {...(props.hasError !== undefined && { hasError: props.hasError })}
         />
       );
     case "select":
@@ -223,36 +226,20 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.hasError !== undefined && { hasError: props.hasError })}
         />
       );
-    case "money": {
-      // Money: Input zeigt Major-Units (Euro), speichert Minor-Units
-      // (Cents). Currency-Symbol als Suffix rechts. Wir nutzen ein
-      // type="number" mit step=0.01 + entsprechenden decimals — Native
-      // numeric-Input mit Locale-correct Comma/Punkt klappt nicht
-      // konsistent über Browser, daher Fallback auf number.
-      const currency = props.currency ?? "EUR";
-      const decimals = currencyDecimals(currency);
-      const factor = 10 ** decimals;
-      const majorValue = props.value === "" ? "" : props.value / factor;
+    case "money":
       return (
-        <div className="relative w-full">
-          <input
-            type="number"
-            step={1 / factor}
-            {...common}
-            value={majorValue}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              const v = e.target.value;
-              if (v === "") props.onChange(undefined);
-              else props.onChange(Math.round(Number(v) * factor));
-            }}
-            className={cn(inputClassBase, "pr-12", errorClass)}
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-            {currency}
-          </span>
-        </div>
+        <MoneyInput
+          id={props.id}
+          name={props.name}
+          value={props.value}
+          onChange={props.onChange}
+          currency={props.currency ?? "EUR"}
+          {...(props.locale !== undefined && { locale: props.locale })}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.required !== undefined && { required: props.required })}
+          {...(props.hasError !== undefined && { hasError: props.hasError })}
+        />
       );
-    }
     case "timestamp":
       return (
         <input
@@ -289,16 +276,6 @@ function DefaultInput(props: InputProps): ReactNode {
 }
 
 // ---- DataTable (shadcn: Table) ----
-
-// Currency-Decimal-Stellen — überdeckt die wichtigsten Welt-Währungen.
-// Default 2 wenn Code unbekannt. Voll ISO-4217-Tabelle wäre overkill;
-// Apps mit exotischen Currencies können den Renderer überschreiben.
-function currencyDecimals(code: string): number {
-  if (code === "JPY" || code === "KRW" || code === "VND" || code === "ISK") return 0;
-  if (code === "BHD" || code === "JOD" || code === "KWD" || code === "OMR" || code === "TND")
-    return 3;
-  return 2;
-}
 
 function DefaultDataTable({
   columns,
@@ -474,7 +451,9 @@ function DefaultForm({ onSubmit, children, title, actions, testId }: FormProps):
   // Form ist full-width — main hat kein Padding, also fügen wir's hier
   // pro Bereich hinzu. Action-Bar bekommt h-12 + horizontal-px-6 und
   // klebt sticky am main-Top (ohne Negative-Margin-Tricks). Content
-  // unten kriegt eigenes p-6 + max-w-4xl damit Zeilen nicht reißen.
+  // unten kriegt eigenes p-6 + max-w-2xl — schmaler als die volle
+  // Sidebar-flankierte Breite, damit Zeilen nicht reißen und der
+  // Single-Column-Linear-Look erhalten bleibt.
   return (
     <form
       onSubmit={(e) => {
@@ -497,7 +476,7 @@ function DefaultForm({ onSubmit, children, title, actions, testId }: FormProps):
           )}
         </div>
       )}
-      <div className="px-6 pt-6 pb-12 max-w-4xl w-full flex flex-col gap-8">{children}</div>
+      <div className="px-6 pt-6 pb-12 max-w-2xl w-full flex flex-col gap-8">{children}</div>
     </form>
   );
 }

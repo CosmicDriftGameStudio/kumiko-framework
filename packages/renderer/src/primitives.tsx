@@ -131,6 +131,10 @@ export type InputProps =
       readonly name: string;
       readonly value: string;
       readonly onChange: (v: string | undefined) => void;
+      /** Locale für die Datum-Formatierung im Trigger. Default = Browser-
+       *  Locale via navigator.language. Apps mit eigenem LocaleResolver
+       *  können ihren current locale durchreichen. */
+      readonly locale?: string;
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;

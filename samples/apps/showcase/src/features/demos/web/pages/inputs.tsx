@@ -10,9 +10,9 @@ export function InputsDemo(): ReactNode {
   const [date, setDate] = useState("2026-04-25");
   const [select, setSelect] = useState("draft");
   const [textarea, setTextarea] = useState("Zeile 1\nZeile 2\nZeile 3");
-  const [moneyEur, setMoneyEur] = useState<number | "">(1299);
+  const [moneyEur, setMoneyEur] = useState<number | "">(123456);
   const [moneyUsd, setMoneyUsd] = useState<number | "">(2599);
-  const [moneyJpy, setMoneyJpy] = useState<number | "">(1500);
+  const [moneyJpy, setMoneyJpy] = useState<number | "">(150000);
   const [timestamp, setTimestamp] = useState("2026-04-25T13:45");
 
   return (
@@ -53,7 +53,7 @@ export function InputsDemo(): ReactNode {
           <Input kind="boolean" id="demo-bool" name="done" value={bool} onChange={setBool} />
         </Field>
       </DemoSection>
-      <DemoSection title="Money (EUR — Default)">
+      <DemoSection title="Money (EUR — de-DE — Tausender-Trenner + €)">
         <Field id="demo-money-eur" label="Preis">
           <Input
             kind="money"
@@ -61,10 +61,12 @@ export function InputsDemo(): ReactNode {
             name="priceEur"
             value={moneyEur}
             onChange={(v) => setMoneyEur(v ?? "")}
+            currency="EUR"
+            locale="de-DE"
           />
         </Field>
       </DemoSection>
-      <DemoSection title="Money (USD — andere Currency)">
+      <DemoSection title="Money (USD — en-US — $ + comma-separator)">
         <Field id="demo-money-usd" label="Preis">
           <Input
             kind="money"
@@ -73,10 +75,11 @@ export function InputsDemo(): ReactNode {
             value={moneyUsd}
             onChange={(v) => setMoneyUsd(v ?? "")}
             currency="USD"
+            locale="en-US"
           />
         </Field>
       </DemoSection>
-      <DemoSection title="Money (JPY — 0 Dezimalen)">
+      <DemoSection title="Money (JPY — ja-JP — ¥ ohne Dezimalen)">
         <Field id="demo-money-jpy" label="Preis">
           <Input
             kind="money"
@@ -85,10 +88,11 @@ export function InputsDemo(): ReactNode {
             value={moneyJpy}
             onChange={(v) => setMoneyJpy(v ?? "")}
             currency="JPY"
+            locale="ja-JP"
           />
         </Field>
       </DemoSection>
-      <DemoSection title="Date">
+      <DemoSection title="Date (Radix-Popover + Calendar)">
         <Field id="demo-date" label="Due date">
           <Input
             kind="date"
@@ -96,6 +100,7 @@ export function InputsDemo(): ReactNode {
             name="dueDate"
             value={date}
             onChange={(v) => setDate(v ?? "")}
+            locale="de-DE"
           />
         </Field>
       </DemoSection>

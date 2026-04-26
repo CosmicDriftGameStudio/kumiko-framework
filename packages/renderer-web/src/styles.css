@@ -11,6 +11,14 @@
 
 @import "tailwindcss";
 
+/* react-day-picker v9 liefert seine Struktur-CSS separat (kein bundled
+   Default mehr seit v9). Ohne diesen Import bricht das Calendar-Layout
+   — Wochen rutschen ineinander, weil rdp den table-Reset (border-
+   collapse, cell-Geometrie) extern hält. Unsere classNames-Map in
+   `date-input.tsx` überschreibt nur Slot-Tokens, die strukturellen
+   Defaults bleiben rdp's eigenes Stylesheet. */
+@import "react-day-picker/style.css";
+
 /* Tailwind v4 scannt per default vom Import-Ort aus; da das CSS
    aus einem temp-dir kompiliert wird, findet es sonst keine
    Source-Dateien. Explizite @source-Direktiven decken alle
