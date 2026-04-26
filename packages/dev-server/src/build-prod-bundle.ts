@@ -237,7 +237,10 @@ async function buildClientBundle(entry: string, outDir: string): Promise<string>
     target: "browser",
     splitting: true,
     minify: true,
-    sourcemap: "linked",
+    // Keine Source-Maps in Prod: 1.6 MB+ Müll im Container, plus
+    // exposed Source-Code reverse-engineerable. Dev hat seine eigenen
+    // sourcemaps via create-kumiko-server.ts.
+    sourcemap: "none",
     naming: {
       entry: "[name]-[hash].[ext]",
       chunk: "[name]-[hash].[ext]",
