@@ -19,7 +19,8 @@
     ".": "./src/index.ts"
   },
   "bin": {
-    "kumiko-build": "./bin/kumiko-build.ts"
+    "kumiko-build": "./bin/kumiko-build.ts",
+    "kumiko-dev": "./bin/kumiko-dev.ts"
   },
   "dependencies": {
     "@kumiko/bundled-features": "0.0.1",

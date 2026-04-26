@@ -233,6 +233,34 @@ async function watchDir(dir: string, onChange: (filename: string) => void): Prom
   }
 }
 
+// Klassifiziert eine geänderte Datei: `hot-reload` für Client-Side
+// (Browser-Bundle rebuild + reload), `restart` für Server-Side (Bun-
+// Module-Cache zwingt einen Process-Restart durch), `ignore` für
+// alles was den Server nicht beeinflusst (Tests, .css, .json…).
+//
+// Heuristik:
+//   - Tests (`__tests__/` oder `*.test.ts(x)`) → ignore
+//   - `.ts` / `.tsx` außer Tests:
+//       - in `/web/` oder `/client/` Subdir → hot-reload (Client-Bundle)
+//       - sonst → restart (könnte Schema/Feature-Definition sein)
+//   - andere Dateitypen → ignore (kein TS rebuild nötig)
+function classifyChange(filename: string): "restart" | "hot-reload" | "ignore" {
+  if (!filename.endsWith(".ts") && !filename.endsWith(".tsx")) return "ignore";
+  if (filename.includes("__tests__")) return "ignore";
+  if (filename.endsWith(".test.ts") || filename.endsWith(".test.tsx")) return "ignore";
+  if (filename.endsWith(".integration.ts") || filename.endsWith(".e2e.ts")) return "ignore";
+  // Plattformpfad-agnostisch: prüfen auf POSIX und Windows-Trenner.
+  if (
+    filename.includes("/web/") ||
+    filename.includes("\\web\\") ||
+    filename.endsWith("/client.tsx") ||
+    filename.endsWith("/client.ts")
+  ) {
+    return "hot-reload";
+  }
+  return "restart";
+}
+
 // Expandiert watchDirs-Patterns auf konkrete Verzeichnisse. Ein Eintrag
 // ohne `*` wird als gewöhnlicher Pfad resolved; mit `*` wird er per
 // glob expanded und alle Treffer die Verzeichnisse sind übernommen.
@@ -603,16 +631,28 @@ export async function createKumikoServer(
       )
     : undefined;
 
-  // --- file watcher → rebundle + reload ---
+  // --- file watcher → rebundle + reload, oder process-restart bei Schema-Änderungen ---
+  // Heuristik: alles in `web/` oder `__tests__/` ist client-side oder
+  // test-only — Hot-Reload reicht (rebuild + broadcast reload). Alles
+  // andere ist server-side; Bun cached die Module-Imports, also würde ein
+  // Schema-Change in feature.ts nicht durchschlagen ohne process-restart.
+  // Wir exiten dann mit Code 75 (EX_TEMPFAIL) — `kumiko-dev` Wrapper
+  // detected das und respawnt.
   if (options.clientEntry !== undefined) {
     const entry = resolve(options.clientEntry);
     const entryDir = resolve(entry, "..");
     const dirs = [entryDir, ...expandWatchPatterns(options.watchDirs ?? [])];
     for (const dir of dirs) {
       void watchDir(dir, async (filename) => {
-        // skip: nur TS-Änderungen triggern ein Rebuild — CSS/HTML fließen
-        // über den separaten Public-Watcher ein (falls eingerichtet).
-        if (!filename.endsWith(".ts") && !filename.endsWith(".tsx")) return;
+        const action = classifyChange(filename);
+        if (action === "ignore") return;
+        if (action === "restart") {
+          logInfo(
+            `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht)`,
+          );
+          await stop();
+          process.exit(75);
+        }
         try {
           clientBundle = await buildClient(entry);
           logInfo(`[kumiko-server] rebuilt on ${filename}, broadcasting reload`);
