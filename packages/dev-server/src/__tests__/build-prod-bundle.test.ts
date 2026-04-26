@@ -100,33 +100,37 @@ describe("build-prod-bundle/injectAssetTags", () => {
     expect(result).not.toContain('href="/styles.css"');
   });
 
-  test("injiziert script-tag in </body> wenn keine /client.js Referenz da ist", () => {
+  test("wirft mit Anweisung wenn /client.js Placeholder fehlt", () => {
     const html = `<html><body><div id="root"></div></body></html>`;
-    const result = injectAssetTags(html, { "client.js": "/assets/client-abc.js" });
 
-    expect(result).toContain('<script type="module" src="/assets/client-abc.js"></script>');
-    expect(result).toContain("</body>");
+    expect(() => injectAssetTags(html, { "client.js": "/assets/client-abc.js" })).toThrow(
+      /index\.html hat keinen Entry-Tag für \/client\.js/,
+    );
+    expect(() => injectAssetTags(html, { "client.js": "/assets/client-abc.js" })).toThrow(
+      /<script type="module" src="\/client\.js"><\/script>/,
+    );
   });
 
-  test("injiziert link-tag in </head> wenn keine /styles.css Referenz da ist", () => {
+  test("wirft mit Anweisung wenn /styles.css Placeholder fehlt", () => {
     const html = `<html><head><title>App</title></head><body></body></html>`;
-    const result = injectAssetTags(html, { "styles.css": "/assets/styles-xyz.css" });
 
-    expect(result).toContain('<link rel="stylesheet" href="/assets/styles-xyz.css"');
-    // link muss vor </head> stehen
-    const linkPos = result.indexOf('<link rel="stylesheet"');
-    const headEndPos = result.indexOf("</head>");
-    expect(linkPos).toBeLessThan(headEndPos);
-    expect(linkPos).toBeGreaterThan(0);
+    expect(() => injectAssetTags(html, { "styles.css": "/assets/styles-xyz.css" })).toThrow(
+      /index\.html hat keinen Entry-Tag für \/styles\.css/,
+    );
+    expect(() => injectAssetTags(html, { "styles.css": "/assets/styles-xyz.css" })).toThrow(
+      /<link rel="stylesheet" href="\/styles\.css" \/>/,
+    );
   });
 
-  test("ist idempotent — zweite Injection ändert nichts", () => {
-    const html = `<html><body></body></html>`;
+  test("ist idempotent — zweite Injection auf bereits ersetztem HTML ändert nichts", () => {
+    const html = `<html><body><script type="module" src="/client.js"></script></body></html>`;
     const manifest = { "client.js": "/assets/client-abc.js" };
     const first = injectAssetTags(html, manifest);
     const second = injectAssetTags(first, manifest);
 
     expect(first).toBe(second);
+    // erste Injection hat ersetzt
+    expect(first).toContain('src="/assets/client-abc.js"');
   });
 
   test("ändert template ohne client/styles im manifest nicht", () => {

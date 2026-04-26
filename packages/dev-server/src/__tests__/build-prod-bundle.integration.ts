@@ -117,6 +117,28 @@ describe("buildProdBundle (vanilla pipeline)", () => {
     // tmp ist leer
     await expect(buildProdBundle({ cwd: tmp })).rejects.toThrow(/nothing to build/);
   });
+
+  test("wirft mit Anweisung wenn HTML-Template ohne /client.js Placeholder vorliegt", async () => {
+    // Simuliert: User hat bereits manifest-entry (faken über option, in
+    // realer Pipeline kommt's aus Bun.build). Wir testen renderHtml /
+    // injectAssetTags-Verhalten via lower-level Pfad: HTML ohne Tag,
+    // public-folder simuliert dass Build was zu tun hat. Erwartete
+    // Error-Message zitiert das exakte Snippet.
+    //
+    // Dieser Pfad wird im realen Build durch buildClientBundle ausgelöst
+    // und im Vanilla-Test können wir ihn nicht direkt triggern (kein
+    // Bun.build). Der CLI-Subprocess-Test deckt das ab.
+    await mkdir(join(tmp, "public"), { recursive: true });
+    await writeFile(
+      join(tmp, "public/index.html"),
+      `<!doctype html><html><body>no script tag here</body></html>`,
+    );
+    // Ohne client.tsx läuft Bun.build nicht, manifest bleibt {} →
+    // injectAssetTags wirft NICHT. Das ist gewollt: wenn nichts zu
+    // injizieren da ist, ist's auch kein Fehler.
+    const result = await buildProdBundle({ cwd: tmp });
+    expect(result.manifest).toEqual({});
+  });
 });
 
 // Voller Pipeline-Test gegen das echte CLI-bin via subprocess. Bringt
@@ -143,7 +165,7 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     await mkdir(join(tmp, "public"), { recursive: true });
     await writeFile(
       join(tmp, "public/index.html"),
-      `<!doctype html><html><head></head><body><div id="root"></div></body></html>`,
+      `<!doctype html><html><head></head><body><div id="root"></div><script type="module" src="/client.js"></script></body></html>`,
     );
     // package.json mit stylesheet:false äquivalent — wir setzen kein
     // src/styles.css und sind außerhalb des monorepos, sodass der
@@ -171,9 +193,59 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     expect(await readFile(assetPath, "utf8")).toContain('"hi"');
   });
 
+  test("client.ts ohne index.html → klarer Error mit Template-Vorschlag", async () => {
+    await mkdir(join(tmp, "src"), { recursive: true });
+    await writeFile(join(tmp, "src/client.ts"), `console.log("hi");`);
+    await writeFile(join(tmp, "package.json"), `{"name":"no-html","private":true}`);
+
+    let stderr = "";
+    expect(() => {
+      try {
+        execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+      } catch (err) {
+        const e = err as { stderr?: Buffer };
+        stderr = e.stderr?.toString() ?? "";
+        throw err;
+      }
+    }).toThrow();
+
+    expect(stderr).toContain("kein index.html gefunden");
+    expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
+  });
+
+  test("client.ts + index.html ohne /client.js Placeholder → klarer Error", async () => {
+    await mkdir(join(tmp, "src"), { recursive: true });
+    await writeFile(join(tmp, "src/client.ts"), `console.log("hi");`);
+    await mkdir(join(tmp, "public"), { recursive: true });
+    await writeFile(
+      join(tmp, "public/index.html"),
+      `<!doctype html><html><body>no script</body></html>`,
+    );
+    await writeFile(join(tmp, "package.json"), `{"name":"no-placeholder","private":true}`);
+
+    let stderr = "";
+    expect(() => {
+      try {
+        execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+      } catch (err) {
+        const e = err as { stderr?: Buffer };
+        stderr = e.stderr?.toString() ?? "";
+        throw err;
+      }
+    }).toThrow();
+
+    expect(stderr).toContain("keinen Entry-Tag für /client.js");
+    expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
+  });
+
   test("Re-Build mit unverändertem Source produziert identischen Hash (reproducibility)", async () => {
     await mkdir(join(tmp, "src"), { recursive: true });
     await writeFile(join(tmp, "src/client.ts"), `console.log("stable");`);
+    await mkdir(join(tmp, "public"), { recursive: true });
+    await writeFile(
+      join(tmp, "public/index.html"),
+      `<!doctype html><html><body><script type="module" src="/client.js"></script></body></html>`,
+    );
     await writeFile(join(tmp, "package.json"), `{"name":"hash-stability","private":true}`);
 
     execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });

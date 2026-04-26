@@ -10,8 +10,15 @@
 //                                       (oder fallback auf @kumiko/renderer-web/styles.css
 //                                        wenn nur clientEntry da ist und kein eigenes CSS)
 //   public/                          →  rsync 1:1 (kein Hash — User-bewusste URLs)
-//   public/index.html | index.html   →  Template, Asset-Tags injiziert
-//   (sonst)                          →  Default-HTML mit #root + script-tag
+//   public/index.html | index.html   →  Template, Placeholder-Tags ersetzt:
+//                                         <script src="/client.js"> → /assets/client-<hash>.js
+//                                         <link href="/styles.css"> → /assets/styles-<hash>.css
+//   (kein HTML, vanilla)             →  Default-HTML ohne Asset-Tags
+//
+// Fehler-Modus: hat client.tsx oder Tailwind etwas produziert, aber das HTML
+// hat keinen passenden Placeholder, wirft der Build mit dem exakten Snippet
+// zum Reinkopieren. Keine silent-injection — das HTML soll lesen wie's
+// auch im Dev-Server liefert.
 //
 // Output:
 //
@@ -59,6 +66,10 @@ export type BuildResult = {
   readonly manifest: BuildManifest;
 };
 
+// Default-HTML wird nur genutzt wenn der App-Author KEIN index.html liefert.
+// Hat keine Asset-Placeholder, weil der Default-Pfad für vanilla apps
+// (nur public/) gedacht ist — wer JS/CSS will, schreibt ein eigenes
+// index.html mit den richtigen Placeholder-Tags.
 const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>
@@ -283,49 +294,96 @@ async function renderHtml(
   templatePath: string | undefined,
   manifest: BuildManifest,
 ): Promise<string> {
+  // Edge-Case: kein eigenes HTML-Template + Bun.build oder Tailwind hat
+  // Output produziert. DEFAULT_HTML hat keine Placeholder (vanilla
+  // template), also würde injectAssetTags eh fehlschlagen. Klarer Fehler
+  // mit Vorschlag-Snippet zum Reinkopieren.
+  if (!templatePath && Object.keys(manifest).length > 0) {
+    throw new Error(buildMissingTemplateError(manifest));
+  }
   const template = templatePath ? await readFile(templatePath, "utf8") : DEFAULT_HTML;
   return injectAssetTags(template, manifest);
 }
 
+function buildMissingTemplateError(manifest: BuildManifest): string {
+  const cssLine = manifest["styles.css"]
+    ? `    <link rel="stylesheet" href="/styles.css" />\n`
+    : "";
+  const jsLine = manifest["client.js"]
+    ? `    <script type="module" src="/client.js"></script>\n`
+    : "";
+  return (
+    `[kumiko build] kein index.html gefunden, aber es gibt JS/CSS-Output.\n` +
+    `Leg ein public/index.html oder index.html im App-Root an, z. B.:\n` +
+    `\n` +
+    `<!doctype html>\n` +
+    `<html>\n` +
+    `  <head>\n` +
+    `    <meta charset="utf-8" />\n` +
+    `    <title>Meine App</title>\n` +
+    cssLine +
+    `  </head>\n` +
+    `  <body>\n` +
+    `    <div id="root"></div>\n` +
+    jsLine +
+    `  </body>\n` +
+    `</html>\n` +
+    `\n` +
+    `Der Build ersetzt /styles.css und /client.js durch die gehashten URLs.`
+  );
+}
+
 // @internal — exported nur für Unit-Tests.
+//
+// Convention: das HTML-Template MUSS Placeholder-Tags für jedes Asset
+// im Manifest enthalten — `<script src="/client.js">` für client.js,
+// `<link href="/styles.css">` für styles.css. Der Build ersetzt sie
+// durch die gehashten URLs.
+//
+// Fehlt ein erwarteter Tag, wirft der Build einen Fehler mit dem exakten
+// Snippet zum Reinkopieren — kein silent injection mehr, weil das den
+// Diff zwischen Dev- und Prod-HTML unsichtbar macht.
 export function injectAssetTags(html: string, manifest: BuildManifest): string {
   let result = html;
 
   const cssUrl = manifest["styles.css"];
-  if (cssUrl) {
-    const link = `<link rel="stylesheet" href="${cssUrl}" />`;
-    if (!result.includes(cssUrl)) {
-      // Existing <link href="/styles.css"> ersetzen, sonst in </head>
-      // injizieren, sonst voranstellen.
-      const existingLink = /<link\s+rel="stylesheet"\s+href="\/styles\.css"\s*\/?>/.exec(result);
-      if (existingLink) {
-        result = result.replace(existingLink[0], link);
-      } else if (result.includes("</head>")) {
-        result = result.replace("</head>", `  ${link}\n  </head>`);
-      } else {
-        result = link + result;
-      }
+  if (cssUrl && !result.includes(cssUrl)) {
+    const placeholder = /<link\s+rel="stylesheet"\s+href="\/styles\.css"\s*\/?>/.exec(result);
+    if (!placeholder) {
+      throw new Error(buildMissingTagError("styles.css"));
     }
+    result = result.replace(placeholder[0], `<link rel="stylesheet" href="${cssUrl}" />`);
   }
 
   const jsUrl = manifest["client.js"];
-  if (jsUrl) {
-    const tag = `<script type="module" src="${jsUrl}"></script>`;
-    if (!result.includes(jsUrl)) {
-      // Existing /client.js Reference ersetzen (Dev-Pattern aus
-      // public/index.html), sonst in </body>, sonst anhängen.
-      const existingScript = /<script\b[^>]*src="\/client\.js"[^>]*><\/script>/.exec(result);
-      if (existingScript) {
-        result = result.replace(existingScript[0], tag);
-      } else if (result.includes("</body>")) {
-        result = result.replace("</body>", `  ${tag}\n  </body>`);
-      } else {
-        result = result + tag;
-      }
+  if (jsUrl && !result.includes(jsUrl)) {
+    const placeholder = /<script\b[^>]*src="\/client\.js"[^>]*><\/script>/.exec(result);
+    if (!placeholder) {
+      throw new Error(buildMissingTagError("client.js"));
     }
+    result = result.replace(placeholder[0], `<script type="module" src="${jsUrl}"></script>`);
   }
 
   return result;
+}
+
+function buildMissingTagError(asset: "client.js" | "styles.css"): string {
+  if (asset === "client.js") {
+    return (
+      `[kumiko build] index.html hat keinen Entry-Tag für /client.js — füg vor </body> ein:\n` +
+      `\n` +
+      `    <script type="module" src="/client.js"></script>\n` +
+      `\n` +
+      `Der Build ersetzt das durch /assets/client-<hash>.js. Im Dev-Server liefert er die Datei direkt.`
+    );
+  }
+  return (
+    `[kumiko build] index.html hat keinen Entry-Tag für /styles.css — füg ins <head> ein:\n` +
+    `\n` +
+    `    <link rel="stylesheet" href="/styles.css" />\n` +
+    `\n` +
+    `Der Build ersetzt das durch /assets/styles-<hash>.css. Im Dev-Server liefert er die Datei direkt.`
+  );
 }
 
 // ---------------------------------------------------------------------------
