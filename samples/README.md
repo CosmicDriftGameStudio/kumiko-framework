@@ -57,6 +57,14 @@ yarn kumiko test e2e          # Playwright E2Es (apps/ + showcases/)
 yarn kumiko test all          # Unit + Integration
 ```
 
+## Production-Build
+
+`yarn build` im App-Workspace produziert `dist/` (deploybar). Voraussetzung:
+`"scripts": { "build": "kumiko-build" }` in der `package.json`. Convention-
+driven Discovery: `src/client.tsx`, `src/styles.css`, `public/`, `index.html`
+— Details + Container-Deploy-Pattern in der Repo-`CLAUDE.md` unter
+"Production Build".
+
 ## Neues Recipe erstellen
 
 ```
