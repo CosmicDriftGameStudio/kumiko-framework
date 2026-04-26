@@ -979,4 +979,70 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
   });
+
+  // --- entityList column-renderer form-check ---
+  // Validator akzeptiert die `{ react: { __component: "Name" } }`-Form
+  // (PlatformComponent → client-side Registry-Lookup) und prüft sie
+  // strukturell. String-Funktionen, null/undefined, native-only und
+  // andere Formen bleiben opak.
+  describe("entityList column renderer form", () => {
+    function shopFeature(renderer: unknown) {
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          // Renderer ist absichtlich unknown — die Validator-Tests pinnen
+          // auch Formen die der TS-Compiler bei sauberer Hand-Schreibe
+          // niemals zulassen würde (leerer __component, number etc.).
+          // kumiko-lint-ignore as-cast renderer ist Test-Fixture für invalid forms
+          columns: [{ field: "name", renderer: renderer as never }],
+        });
+      });
+    }
+
+    test("function-renderer → kein Throw (Bestand)", () => {
+      expect(() => validateBoot([shopFeature((v: unknown) => String(v))])).not.toThrow();
+    });
+
+    test("undefined renderer → kein Throw (Spalte ohne Renderer)", () => {
+      expect(() => validateBoot([shopFeature(undefined)])).not.toThrow();
+    });
+
+    test("null renderer → kein Throw (skip)", () => {
+      expect(() => validateBoot([shopFeature(null)])).not.toThrow();
+    });
+
+    test("object ohne react-Branch → kein Throw (z.B. native-only)", () => {
+      expect(() => validateBoot([shopFeature({ native: { __component: "X" } })])).not.toThrow();
+    });
+
+    test("react-Branch ist non-object → Throw mit klarer Message", () => {
+      expect(() => validateBoot([shopFeature({ react: 42 })])).toThrow(/non-object `react` branch/);
+    });
+
+    test("react-Branch ohne __component-Schlüssel → kein Throw (skip)", () => {
+      // {} oder { __component: undefined } sind nicht unsere String-Key-Form
+      expect(() => validateBoot([shopFeature({ react: {} })])).not.toThrow();
+    });
+
+    test("react.__component leerer String → Throw", () => {
+      expect(() => validateBoot([shopFeature({ react: { __component: "" } })])).toThrow(
+        /expected a non-empty string/,
+      );
+    });
+
+    test("react.__component non-String (number) → Throw", () => {
+      expect(() => validateBoot([shopFeature({ react: { __component: 42 } })])).toThrow(
+        /expected a non-empty string/,
+      );
+    });
+
+    test("react.__component nicht-leerer String → kein Throw (gültige Form)", () => {
+      expect(() =>
+        validateBoot([shopFeature({ react: { __component: "ColorSwatch" } })]),
+      ).not.toThrow();
+    });
+  });
 });

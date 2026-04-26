@@ -8,7 +8,7 @@ import type { Dispatcher } from "@kumiko/headless";
 import type { ColumnRendererProps, FeatureSchema, NavApi } from "@kumiko/renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, type MockInstance, test, vi } from "vitest";
 import type { ClientFeatureDefinition } from "../app/client-plugin";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
 import { createMockDispatcher } from "./test-utils";
@@ -124,6 +124,62 @@ describe("createKumikoApp", () => {
     expect(() => createKumikoApp({ schema: empty, dispatcher: makeDispatcher() })).toThrow(
       /no screens/,
     );
+  });
+
+  test("clientFeatures.columnRenderers → bei Key-Kollision warnt + last-wins gewinnt", async () => {
+    // Zwei Features liefern denselben Renderer-Key — der Merge in
+    // create-app warnt und behält den späteren Eintrag (Last-Wins).
+    // Beweist dass das bewusste Override-Verhalten nicht silent
+    // wegrutscht falls jemand auf "first-wins" refactored.
+    const warnSpy: MockInstance<typeof console.warn> = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
+
+    function FirstSwatch({ value }: ColumnRendererProps): ReactNode {
+      return <span data-testid="ca-first">{String(value)}</span>;
+    }
+    function SecondSwatch({ value }: ColumnRendererProps): ReactNode {
+      return <span data-testid="ca-second">{String(value)}</span>;
+    }
+    const colorEntity = {
+      fields: { color: { type: "text" } },
+    } as unknown as EntityDefinition;
+    const conflictSchema: FeatureSchema = {
+      featureName: "tasks",
+      entities: { task: colorEntity },
+      screens: [
+        {
+          id: "color-list",
+          type: "entityList",
+          entity: "task",
+          columns: [{ field: "color", renderer: { react: { __component: "Swatch" } } }],
+        },
+      ],
+    };
+
+    mountRoot();
+    await mountApp({
+      schema: conflictSchema,
+      dispatcher: createMockDispatcher({
+        query: (async () => ({
+          isSuccess: true,
+          data: { rows: [{ id: "r1", color: "#ddd" }], nextCursor: null },
+        })) as unknown as Dispatcher["query"],
+      }),
+      clientFeatures: [
+        { name: "first", columnRenderers: { Swatch: FirstSwatch } },
+        { name: "second", columnRenderers: { Swatch: SecondSwatch } },
+      ],
+    });
+
+    // Last-Wins: SecondSwatch ist gemounted, FirstSwatch nicht.
+    expect(await screen.findByTestId("ca-second")).toBeTruthy();
+    expect(screen.queryByTestId("ca-first")).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('columnRenderer "Swatch" defined by multiple clientFeatures'),
+    );
+
+    warnSpy.mockRestore();
   });
 
   test("clientFeatures.columnRenderers → __component-Renderer mounten echtes Component im DOM", async () => {

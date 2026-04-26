@@ -449,7 +449,7 @@ type DataTableCellProps = {
 //   3. Sonst → defaultCellRender (Type-basierter String-Renderer).
 function DataTableCell({ value, row, field, type, renderer }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
-  const ResolvedComponent = useColumnRenderer(componentRef?.name ?? "");
+  const ResolvedComponent = useColumnRenderer(componentRef?.name);
   if (typeof renderer === "function") {
     const fn = renderer as (v: unknown) => string;
     return fn(value);

@@ -47,11 +47,18 @@ export function ColumnRenderersProvider({
 }
 
 /** Schaut die Component für einen Renderer-Key nach. Returnt undefined
- *  wenn weder Provider gemounted noch der Key in der Map ist — der
- *  Caller (DataTable.renderCell) loggt dann eine Warnung und fällt auf
- *  den Default-Type-Renderer zurück. */
-export function useColumnRenderer(name: string): ColumnRendererComponent | undefined {
+ *  wenn `name` leer/undefined ist (Caller hat keinen __component-Renderer)
+ *  oder weder Provider gemounted noch der Key in der Map ist. Der Caller
+ *  (DataTable.renderCell) loggt dann eine Warnung und fällt auf den
+ *  Default-Type-Renderer zurück.
+ *
+ *  `name` ist optional damit Caller den Hook unkonditional aufrufen
+ *  können — Rules-of-Hooks verbieten einen Function-Branch der den Hook
+ *  überspringt. So bleibt der Aufruf eine einzige Zeile, ohne dass der
+ *  Caller einen Stub-Key wie `""` reichen muss. */
+export function useColumnRenderer(name?: string): ColumnRendererComponent | undefined {
   const map = useContext(ColumnRenderersContext);
+  if (name === undefined || name === "") return undefined;
   if (map === undefined) return undefined;
   return map[name];
 }
