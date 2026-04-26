@@ -51,6 +51,7 @@ type RowLockStrength = "update" | "no key update" | "share" | "key share";
 type TenantSelectQuery = PromiseLike<Record<string, unknown>[]> & {
   where(condition: WhereCondition): TenantSelectQuery;
   limit(n: number): TenantSelectQuery;
+  offset(n: number): TenantSelectQuery;
   orderBy(...columns: (SQL | Column)[]): TenantSelectQuery;
   /** Row-level locking (FOR UPDATE / FOR SHARE). Must be called inside a tx. */
   for(strength: RowLockStrength): TenantSelectQuery;

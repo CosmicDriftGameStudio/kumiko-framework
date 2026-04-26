@@ -408,11 +408,13 @@ function entityQueryCommand(featureName: string, entity: string, verb: "list"): 
 }
 
 // Server-side entity-query-handlers return the paged envelope
-// `{ rows, nextCursor }`. Narrow the useQuery generic to that shape so
-// RenderList gets plain rows.
+// `{ rows, nextCursor, total? }`. Narrow the useQuery generic to that
+// shape so RenderList gets plain rows. `total` ist optional — Server
+// liefert es nur wenn der Caller `totalCount: true` setzt.
 type PagedRows = {
   readonly rows: Readonly<Record<string, unknown>>[];
   readonly nextCursor: string | null;
+  readonly total?: number;
 };
 
 function EntityListScreen({
@@ -476,11 +478,13 @@ function EntityListBody({
   const urlState = useListUrlState(screen.id);
   const effectiveSort = urlState.sort ?? screen.defaultSort ?? null;
   const limit = screen.pageSize ?? 50;
+  const paginationMode = screen.pagination ?? "pages";
+  const usePager = paginationMode === "pages";
 
   // Payload für den Server-Query-Handler (LIST_PAYLOAD_SCHEMA):
-  // search/sort/sortDirection/limit. Pagination kommt cursor-basiert
-  // (Tier 2.6d/e); für jetzt liefert der Server die erste Seite und
-  // der Client rendert alles was ankommt.
+  // search/sort/sortDirection/limit + offset/totalCount für Pager-Mode.
+  // Cursor-Mode (infinite-scroll, 2.6e) wird sich später hier andocken
+  // ohne diesen Pfad zu brechen.
   const queryPayload = useMemo(() => {
     const payload: Record<string, unknown> = { limit };
     if (urlState.q !== "") payload["search"] = urlState.q;
@@ -488,8 +492,18 @@ function EntityListBody({
       payload["sort"] = effectiveSort.field;
       payload["sortDirection"] = effectiveSort.dir;
     }
+    if (usePager) {
+      // page=1 → offset=0, page=2 → offset=limit, etc. Server
+      // clampt selbst wenn offset >= total.
+      const offset = (urlState.page - 1) * limit;
+      if (offset > 0) payload["offset"] = offset;
+      // totalCount: extra COUNT(*) damit der Pager "Page X of Y"
+      // rendern kann. Bei pagination=false oder "infinite" sparen wir
+      // den Roundtrip.
+      payload["totalCount"] = true;
+    }
     return payload;
-  }, [limit, urlState.q, effectiveSort]);
+  }, [limit, urlState.q, effectiveSort, usePager, urlState.page]);
 
   const rowsQuery = useQuery<PagedRows>(queryType, queryPayload, { live: true });
 
@@ -524,6 +538,20 @@ function EntityListBody({
     screen.searchable ??
     Object.values(entity.fields).some((f) => "searchable" in f && f.searchable === true);
 
+  // Pager-Props nur bei pagination="pages" zusammenstellen. Server-
+  // total kommt async — bis es da ist, rendert RenderList die Tabelle
+  // ohne Pager (Pager hat eine eigene total>0-Guard).
+  const total = rowsQuery.data?.total;
+  const pager =
+    usePager && total !== undefined
+      ? {
+          page: urlState.page,
+          limit,
+          total,
+          onPageChange: urlState.setPage,
+        }
+      : undefined;
+
   return (
     <RenderList
       screen={screen}
@@ -535,6 +563,7 @@ function EntityListBody({
       onSearchChange={urlState.setQ}
       sort={effectiveSort}
       onSortChange={urlState.setSort}
+      {...(pager !== undefined && { pager })}
       {...(onCreate !== undefined && { onCreate })}
       {...(translate !== undefined && { translate })}
       {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}

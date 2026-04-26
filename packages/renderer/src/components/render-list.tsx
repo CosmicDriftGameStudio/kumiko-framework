@@ -54,6 +54,15 @@ export type RenderListProps = {
   readonly sort?: ListSort | null;
   /** Wird gerufen mit dem nächsten Sort-State nach einem Header-Klick. */
   readonly onSortChange?: (next: ListSort | null) => void;
+  /** Pager-Props für pagination="pages". Wenn undefined, kein Pager-
+   *  UI — Default oder infinite-Mode. KumikoScreen liefert das je nach
+   *  screen.pagination. */
+  readonly pager?: {
+    readonly page: number;
+    readonly limit: number;
+    readonly total: number;
+    readonly onPageChange: (next: number) => void;
+  };
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -75,6 +84,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     onSearchChange,
     sort,
     onSortChange,
+    pager,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
@@ -166,6 +176,7 @@ export function RenderList(props: RenderListProps): ReactNode {
       {...(toolbarEnd !== undefined && { toolbarEnd })}
       {...(tableSort !== undefined && { sort: tableSort })}
       {...(onSortChange !== undefined && { onSortChange })}
+      {...(pager !== undefined && { pager })}
       testId="render-list-table"
     />
   );

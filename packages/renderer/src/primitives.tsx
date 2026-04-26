@@ -237,6 +237,17 @@ export type DataTableProps = {
   /** Toolbar-Slot rechts (typisch + Neu Button, Filter, View-Switch).
    *  Web zieht den Cluster mit ml-auto an die rechte Kante. */
   readonly toolbarEnd?: ReactNode;
+  /** Pagination-State + Callback. Wenn gesetzt, rendert der Renderer
+   *  einen Pager unter der Tabelle (Web: Footer-Bar mit ← 1 ... N →).
+   *  total/limit/page sind 1-basiert für die UI; Server-Translation
+   *  zu offset = (page-1)*limit liegt beim Caller. Wenn page > total/limit
+   *  würde, soll der Caller das vorab clampen. */
+  readonly pager?: {
+    readonly page: number;
+    readonly limit: number;
+    readonly total: number;
+    readonly onPageChange: (next: number) => void;
+  };
   readonly testId?: string;
 };
 

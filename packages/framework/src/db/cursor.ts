@@ -15,6 +15,10 @@ export type CursorQueryOptions = {
 export type CursorResult<T> = {
   rows: T[];
   nextCursor: string | null;
+  /** Optional total row count — nur present wenn der Caller `totalCount: true`
+   *  in der Query setzt. Pager-UI braucht's für "Page X of Y"; Infinite-
+   *  Scroll und Default-Lists lassen den extra COUNT(*) weg. */
+  total?: number;
 };
 
 export function encodeCursor(id: number): string {

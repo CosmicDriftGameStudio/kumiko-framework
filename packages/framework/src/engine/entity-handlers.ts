@@ -37,6 +37,17 @@ type ListPayload = {
   search?: string;
   sort?: string;
   sortDirection?: "asc" | "desc";
+  // Page-based Pagination: offset 0-basiert, mit limit zusammen statt
+  // cursor genutzt. Cursor ist für infinite-scroll / live-tailing
+  // präziser; offset ist für klassische Pager (← 1 2 ... N →) wo der
+  // User direkt zu "page 7" springen will. Nur EINE Variante pro
+  // Request — wenn beide gesetzt sind, gewinnt cursor (DB-stabil).
+  offset?: number;
+  // Wenn true, liefert der executor zusätzlich eine `total`-Zahl im
+  // Response. Extra-Roundtrip auf der DB (COUNT(*)), nur dann sinnvoll
+  // wenn der Pager "Page X of Y" rendern muss. Infinite-Scroll oder
+  // unbedingte Lists lassen das weg um die COUNT-Kosten zu sparen.
+  totalCount?: boolean;
 };
 
 const idSchema = z.object({ id: z.uuid() });
@@ -46,6 +57,8 @@ const listSchema = z.object({
   search: z.string().optional(),
   sort: z.string().optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
+  offset: z.number().int().nonnegative().optional(),
+  totalCount: z.boolean().optional(),
 });
 
 function parseHandlerName<TVerb extends string>(

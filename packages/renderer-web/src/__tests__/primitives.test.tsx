@@ -323,6 +323,128 @@ describe("DataTable", () => {
       expect(onSortChange).toHaveBeenCalledWith({ field: "createdAt", dir: "asc" });
     });
   });
+
+  // Pager: Window-of-7 Logik + 3 State-Pfade (first/middle/last page),
+  // disabled-Edges, Click-Callback. Server-Wiring (offset etc.) liegt
+  // im KumikoScreen — hier nur das UI.
+  describe("Pager", () => {
+    const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+    const oneRow = [{ id: "r1", values: { name: "A" } }];
+
+    test("ohne pager-prop: kein Pager im DOM", () => {
+      render(<DataTable columns={cols} rows={oneRow} testId="dt" />);
+      expect(screen.queryByTestId("dt-pager")).toBeNull();
+    });
+
+    test("pager mit total=0: kein Pager (nichts zu paginieren)", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={[]}
+          testId="dt"
+          pager={{ page: 1, limit: 50, total: 0, onPageChange: vi.fn() }}
+        />,
+      );
+      expect(screen.queryByTestId("dt-pager")).toBeNull();
+    });
+
+    test("page=1: Prev-Button disabled, Next aktiv", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          pager={{ page: 1, limit: 50, total: 3000, onPageChange: vi.fn() }}
+        />,
+      );
+      expect((screen.getByTestId("dt-pager-prev") as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByTestId("dt-pager-next") as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    test("page=last: Next-Button disabled", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          pager={{ page: 60, limit: 50, total: 3000, onPageChange: vi.fn() }}
+        />,
+      );
+      expect((screen.getByTestId("dt-pager-next") as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    test("Click auf Page-Button: onPageChange feuert mit der Seite", () => {
+      const onPageChange = vi.fn();
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          pager={{ page: 1, limit: 50, total: 3000, onPageChange }}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("dt-pager-page-2"));
+      expect(onPageChange).toHaveBeenCalledWith(2);
+    });
+
+    test("Click auf Prev von page=3: onPageChange(2)", () => {
+      const onPageChange = vi.fn();
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          pager={{ page: 3, limit: 50, total: 3000, onPageChange }}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("dt-pager-prev"));
+      expect(onPageChange).toHaveBeenCalledWith(2);
+    });
+
+    test("aria-current='page' auf der aktiven Seite", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          pager={{ page: 5, limit: 50, total: 3000, onPageChange: vi.fn() }}
+        />,
+      );
+      expect(screen.getByTestId("dt-pager-page-5").getAttribute("aria-current")).toBe("page");
+    });
+
+    test("totalPages ≤ 7: alle Seiten ohne Ellipse", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          pager={{ page: 1, limit: 50, total: 200, onPageChange: vi.fn() }}
+        />,
+      );
+      // total=200, limit=50 → 4 Seiten, kein Window
+      expect(screen.queryByTestId("dt-pager-page-1")).not.toBeNull();
+      expect(screen.queryByTestId("dt-pager-page-4")).not.toBeNull();
+      // Kein Ellipsis-Glyph im DOM
+      expect(screen.queryByText("…")).toBeNull();
+    });
+
+    test("totalPages > 7 und page in der Mitte: Ellipsen außen", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          pager={{ page: 30, limit: 50, total: 3000, onPageChange: vi.fn() }}
+        />,
+      );
+      // Window: 1 ... 28 29 [30] 31 32 ... 60
+      expect(screen.getAllByText("…")).toHaveLength(2);
+      expect(screen.queryByTestId("dt-pager-page-1")).not.toBeNull();
+      expect(screen.queryByTestId("dt-pager-page-60")).not.toBeNull();
+      expect(screen.queryByTestId("dt-pager-page-30")).not.toBeNull();
+    });
+  });
 });
 
 describe("Form", () => {

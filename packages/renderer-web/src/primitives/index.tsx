@@ -8,6 +8,7 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
+import type { DataTableSort, DataTableSortDir } from "@kumiko/renderer";
 import {
   type BannerProps,
   type ButtonProps,
@@ -25,9 +26,8 @@ import {
   useTranslation,
 } from "@kumiko/renderer";
 import * as LabelPrimitive from "@radix-ui/react-label";
-import type { DataTableSort, DataTableSortDir } from "@kumiko/renderer";
 import { cva } from "class-variance-authority";
-import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { ChangeEvent, ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { DateInput } from "./date-input";
@@ -294,13 +294,14 @@ function DefaultDataTable({
   toolbarTitle,
   toolbarStart,
   toolbarEnd,
+  pager,
   testId,
 }: DataTableProps): ReactNode {
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
   // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
   // scrollen typischerweise mit dem Page-Container, nicht intern.
   // Sticky würde mit der Topbar konkurrieren.
-  const content =
+  const tableContent =
     rows.length === 0 ? (
       <div
         data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
@@ -314,6 +315,26 @@ function DefaultDataTable({
           {tableInner(columns, rows, onRowClick, sort, onSortChange)}
         </table>
       </div>
+    );
+
+  // Pager wird IMMER unter der Tabelle gerendert (auch bei rows=[]),
+  // damit der User bei einem Filter-Hit-of-Zero zurückblättern kann
+  // ohne die Liste zu verlieren. Außer total === 0 — dann gibt's
+  // nichts zu paginieren.
+  const content =
+    pager !== undefined && pager.total > 0 ? (
+      <>
+        {tableContent}
+        <Pager
+          page={pager.page}
+          limit={pager.limit}
+          total={pager.total}
+          onPageChange={pager.onPageChange}
+          testId={testId !== undefined ? `${testId}-pager` : "render-list-pager"}
+        />
+      </>
+    ) : (
+      tableContent
     );
 
   const hasToolbar =
@@ -399,6 +420,142 @@ function tableInner(
   );
 }
 
+// Pager — klassischer Page-Pager (← 1 … N →) für DataTables mit
+// pagination="pages". Layout: Status-Text links ("X – Y of Z"),
+// Page-Buttons mittig, Prev/Next pfeile außen. Window-of-7 zeigt nicht
+// alle Pages bei großen Listen — der User sieht den aktuellen Bereich
+// + first/last als Anchor.
+function Pager({
+  page,
+  limit,
+  total,
+  onPageChange,
+  testId,
+}: {
+  readonly page: number;
+  readonly limit: number;
+  readonly total: number;
+  readonly onPageChange: (next: number) => void;
+  readonly testId?: string;
+}): ReactNode {
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const safePage = Math.max(1, Math.min(page, totalPages));
+  const from = (safePage - 1) * limit + 1;
+  const to = Math.min(safePage * limit, total);
+  const visible = computeVisiblePages(safePage, totalPages);
+
+  return (
+    <div
+      data-testid={testId}
+      className="flex items-center justify-between mt-3 gap-3 text-sm text-muted-foreground"
+    >
+      <div data-testid={testId !== undefined ? `${testId}-status` : undefined}>
+        {from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}
+      </div>
+      <div className="flex items-center gap-1">
+        <PagerButton
+          ariaLabel="Previous page"
+          disabled={safePage <= 1}
+          onClick={() => onPageChange(safePage - 1)}
+          testId={testId !== undefined ? `${testId}-prev` : undefined}
+        >
+          <ChevronLeft className="size-4" aria-hidden="true" />
+        </PagerButton>
+        {visible.map((entry, idx) =>
+          entry === "ellipsis" ? (
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: visible array is pure-derived from safePage/totalPages, so idx is stable across renders. No DnD/Reorder.
+              key={`ellipsis-${idx}`}
+              className="px-2 text-muted-foreground"
+            >
+              …
+            </span>
+          ) : (
+            <PagerButton
+              key={entry}
+              ariaLabel={`Page ${entry}`}
+              ariaCurrent={entry === safePage ? "page" : undefined}
+              active={entry === safePage}
+              onClick={() => onPageChange(entry)}
+              testId={testId !== undefined ? `${testId}-page-${entry}` : undefined}
+            >
+              {entry}
+            </PagerButton>
+          ),
+        )}
+        <PagerButton
+          ariaLabel="Next page"
+          disabled={safePage >= totalPages}
+          onClick={() => onPageChange(safePage + 1)}
+          testId={testId !== undefined ? `${testId}-next` : undefined}
+        >
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </PagerButton>
+      </div>
+    </div>
+  );
+}
+
+function PagerButton({
+  children,
+  onClick,
+  ariaLabel,
+  ariaCurrent,
+  active,
+  disabled,
+  testId,
+}: {
+  readonly children: ReactNode;
+  readonly onClick: () => void;
+  readonly ariaLabel: string;
+  readonly ariaCurrent?: "page";
+  readonly active?: boolean;
+  readonly disabled?: boolean;
+  readonly testId?: string;
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      aria-current={ariaCurrent}
+      data-testid={testId}
+      className={cn(
+        "inline-flex h-8 min-w-8 items-center justify-center rounded-sm px-2 text-sm",
+        "hover:bg-accent hover:text-accent-foreground",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "disabled:opacity-40 disabled:pointer-events-none",
+        active === true && "bg-accent text-accent-foreground font-medium",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Window-of-7 Strategie: erste + letzte Page immer sichtbar als Anker,
+// 5 Pages um den aktuellen Wert + Ellipsen wenn Distanz zu first/last
+// > 1. Beispiele:
+//   p=1, total=20:  [1] 2 3 4 5 … 20
+//   p=10, total=20: 1 … 8 9 [10] 11 12 … 20
+//   p=20, total=20: 1 … 16 17 18 19 [20]
+//   total=5: 1 2 3 4 5 (kein Window nötig)
+function computeVisiblePages(page: number, totalPages: number): readonly (number | "ellipsis")[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const out: (number | "ellipsis")[] = [];
+  // Always show 1
+  out.push(1);
+  if (page > 4) out.push("ellipsis");
+  const start = Math.max(2, page - 2);
+  const end = Math.min(totalPages - 1, page + 2);
+  for (let i = start; i <= end; i++) out.push(i);
+  if (page < totalPages - 3) out.push("ellipsis");
+  // Always show last
+  out.push(totalPages);
+  return out;
+}
+
 // SortableHeader — rendert pro Spalte den th-Header, mit oder ohne
 // Click-Sort. Drei Pfade:
 //   (a) sortable=false ODER kein onSortChange → plain Label, keine
@@ -458,13 +615,7 @@ function SortableHeader({
         )}
       >
         <span>{label}</span>
-        <Icon
-          className={cn(
-            "size-3.5",
-            active === undefined && "opacity-40",
-          )}
-          aria-hidden="true"
-        />
+        <Icon className={cn("size-3.5", active === undefined && "opacity-40")} aria-hidden="true" />
       </button>
     </th>
   );
@@ -473,10 +624,7 @@ function SortableHeader({
 // 3-State-Toggle: kein Sort → asc → desc → kein Sort. Idiomatisch für
 // Power-User-Listen wo "ich will die Server-Default-Order zurück" eine
 // echte Aktion ist (statt unendlich asc↔desc zu togglen).
-function nextSortState(
-  current: DataTableSortDir | undefined,
-  field: string,
-): DataTableSort | null {
+function nextSortState(current: DataTableSortDir | undefined, field: string): DataTableSort | null {
   if (current === undefined) return { field, dir: "asc" };
   if (current === "asc") return { field, dir: "desc" };
   return null;

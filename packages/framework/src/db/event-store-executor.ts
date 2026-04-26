@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, type SQL, sql } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
@@ -129,6 +129,8 @@ export type EventStoreExecutor = {
       search?: string | undefined;
       sort?: string | undefined;
       sortDirection?: "asc" | "desc" | undefined;
+      offset?: number | undefined;
+      totalCount?: boolean | undefined;
     },
     user: SessionUser,
     db: TenantDb,
@@ -626,12 +628,16 @@ export function createEventStoreExecutor(
     // read-model and serve these queries directly.
     async list(payload, user, db) {
       const limit = payload.limit ?? 50;
+      const offset = payload.offset ?? 0;
+      const totalCount = payload.totalCount === true;
 
       // H.2 — entity-level read ownership. Decide before touching search or
       // the DB: `empty` means there's no row the user could ever see, so
       // skip both paths and return an empty page.
       const ownership = buildOwnershipClause(user, entity.access?.read, table);
-      if (ownership.kind === "empty") return { rows: [], nextCursor: null };
+      if (ownership.kind === "empty") {
+        return { rows: [], nextCursor: null, ...(totalCount && { total: 0 }) };
+      }
 
       let filterIds: EntityId[] | undefined;
       if (payload.search && searchAdapter && entityName) {
@@ -639,13 +645,19 @@ export function createEventStoreExecutor(
           filterType: entityName,
         });
         filterIds = results.map((r) => r.entityId);
-        if (filterIds.length === 0) return { rows: [], nextCursor: null };
+        if (filterIds.length === 0) {
+          return { rows: [], nextCursor: null, ...(totalCount && { total: 0 }) };
+        }
       }
 
       const conditions: SQL[] = [];
       if (softDelete && table["isDeleted"]) {
         conditions.push(eq(table["isDeleted"], false));
       }
+      // Cursor und Offset schließen sich aus: Cursor ist DB-stable (gt id),
+      // Offset ist für klassische Page-Navigation. Wenn beide gesetzt sind,
+      // gewinnt Cursor — Caller hätte eh nicht gleichzeitig beide nutzen
+      // sollen, das pinnt die Verteidigung.
       if (payload.cursor) {
         conditions.push(gt(table["id"], decodeCursor(payload.cursor)));
       }
@@ -656,15 +668,17 @@ export function createEventStoreExecutor(
         conditions.push(ownership.sql);
       }
 
-      let query =
-        conditions.length > 0
-          ? db
-              .select()
-              .from(table)
-              .where(and(...conditions) as SQL)
-          : db.select().from(table);
+      const whereClause = conditions.length > 0 ? (and(...conditions) as SQL) : undefined;
+      let query = whereClause
+        ? db.select().from(table).where(whereClause)
+        : db.select().from(table);
 
       query = query.limit(limit);
+      // Offset NUR wenn kein Cursor — sonst kombinieren wir zwei
+      // Pagination-Schemes und der Caller bekommt unverhoffte Skips.
+      if (!payload.cursor && offset > 0) {
+        query = query.offset(offset);
+      }
 
       if (payload.sort && table[payload.sort]) {
         const column = table[payload.sort];
@@ -691,7 +705,24 @@ export function createEventStoreExecutor(
       const nextCursor =
         rows.length === limit && lastRow ? encodeCursor(lastRow["id"] as number) : null;
 
-      return { rows, nextCursor };
+      // total: extra COUNT(*) — nur wenn explizit angefordert (Pager-UI).
+      // Postgres-Cost ist O(table-scan) ohne Filter, mit Filter so teuer
+      // wie der entsprechende WHERE — bei indexed columns billig genug.
+      // Bei Search-Path ist `total = filterIds.length` ohne extra Query.
+      let total: number | undefined;
+      if (totalCount) {
+        if (filterIds) {
+          total = filterIds.length;
+        } else {
+          const countQuery = whereClause
+            ? db.select({ count: sql<number>`count(*)::int` }).from(table).where(whereClause)
+            : db.select({ count: sql<number>`count(*)::int` }).from(table);
+          const countRow = (await countQuery) as Array<{ count: number }>;
+          total = countRow[0]?.count ?? 0;
+        }
+      }
+
+      return { rows, nextCursor, ...(total !== undefined && { total }) };
     },
 
     async detail(payload, user, db) {
