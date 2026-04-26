@@ -2,7 +2,7 @@ import type { DbRow } from "@kumiko/framework/db";
 import { access, defineQueryHandler } from "@kumiko/framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { userTable } from "../user-entity";
+import { userTable } from "../schema/user";
 
 // Privileged auth lookup: returns the full user row — including passwordHash —
 // by email OR id (exactly one, enforced by the schema). Used by the auth

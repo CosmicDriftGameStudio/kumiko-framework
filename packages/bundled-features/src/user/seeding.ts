@@ -18,7 +18,7 @@ import {
 import type { SessionUser } from "@kumiko/framework/engine";
 import { TestUsers } from "@kumiko/framework/testing";
 import { eq } from "drizzle-orm";
-import { userEntity, userTable } from "./user-entity";
+import { userEntity, userTable } from "./schema/user";
 
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

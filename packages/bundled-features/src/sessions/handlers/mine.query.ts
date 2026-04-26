@@ -1,7 +1,7 @@
 import { defineQueryHandler } from "@kumiko/framework/engine";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { userSessionTable } from "../user-session-entity";
+import { userSessionTable } from "../schema/user-session";
 
 // "My live sessions" — the backing data for a devices/sessions UI. Returns
 // ONLY the current user's own, currently-live sessions, ordered by most-

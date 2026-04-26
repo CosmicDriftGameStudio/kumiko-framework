@@ -20,8 +20,8 @@ import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createUserFeature } from "../feature";
+import { userEntity, userTable } from "../schema/user";
 import { seedUser } from "../seeding";
-import { userEntity, userTable } from "../user-entity";
 
 let stack: TestStack;
 

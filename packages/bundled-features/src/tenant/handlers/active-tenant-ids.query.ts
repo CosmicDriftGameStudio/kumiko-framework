@@ -2,7 +2,7 @@ import type { DbRow } from "@kumiko/framework/db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@kumiko/framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { tenantTable } from "../tenant-entity";
+import { tenantTable } from "../schema/tenant";
 
 export const activeTenantIdsQuery = defineQueryHandler({
   name: "activeTenantIds",

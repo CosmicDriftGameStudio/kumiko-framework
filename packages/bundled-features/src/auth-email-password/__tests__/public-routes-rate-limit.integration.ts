@@ -18,9 +18,9 @@ import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/tenant-entity";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/user-entity";
+import { userEntity, userTable } from "../../user/schema/user";
 import { AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 

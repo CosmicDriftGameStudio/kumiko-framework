@@ -15,7 +15,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createSessionsFeature } from "../feature";
 import { cleanupJob } from "../handlers/cleanup.job";
-import { userSessionEntity, userSessionTable } from "../user-session-entity";
+import { userSessionEntity, userSessionTable } from "../schema/user-session";
 
 type Log = NonNullable<AppContext["log"]>;
 function silentLogger(): Log {

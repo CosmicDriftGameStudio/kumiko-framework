@@ -28,8 +28,8 @@ import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../feature";
 import { tenantMembershipsTable } from "../membership-table";
+import { tenantEntity, tenantTable } from "../schema/tenant";
 import { seedTenant, seedTenantMembership } from "../seeding";
-import { tenantEntity, tenantTable } from "../tenant-entity";
 
 let stack: TestStack;
 

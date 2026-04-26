@@ -9,7 +9,7 @@ import {
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
-import { userEntity, userTable } from "../user-entity";
+import { userEntity, userTable } from "../schema/user";
 
 let stack: TestStack;
 

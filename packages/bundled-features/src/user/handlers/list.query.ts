@@ -1,5 +1,5 @@
 import { access, defineEntityQueryHandler } from "@kumiko/framework/engine";
-import { userEntity } from "../user-entity";
+import { userEntity } from "../schema/user";
 
 // System-wide user listing is SystemAdmin-only. Tenant admins list their
 // members via the tenant feature (which scopes by membership, not globally).

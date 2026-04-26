@@ -11,7 +11,7 @@ import { generateId } from "@kumiko/framework/utils";
 import { and, eq, isNull } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";
-import { userSessionTable } from "./user-session-entity";
+import { userSessionTable } from "./schema/user-session";
 
 // Why the callbacks live at the raw-DB level rather than going through the
 // dispatcher: session-create/revoke/check run on the hot path of every

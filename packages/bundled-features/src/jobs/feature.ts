@@ -1,6 +1,11 @@
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
 import { eq } from "drizzle-orm";
 import type { z } from "zod";
+// Event-payload schemas live in a sibling module so the logger can import
+// them without the cycle jobs-feature ↔ job-run-logger. The logger parses
+// payloads against these schemas before low-level append() — that's what
+// keeps out-of-dispatcher writes as type-safe as ctx.appendEvent.
+import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
 import { detailQuery } from "./handlers/detail.query";
 import { listQuery } from "./handlers/list.query";
 import { retryWrite } from "./handlers/retry.write";
@@ -11,11 +16,6 @@ import {
   JOB_RUN_STARTED_EVENT,
 } from "./job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
-// Event-payload schemas live in a sibling module so the logger can import
-// them without the cycle jobs-feature ↔ job-run-logger. The logger parses
-// payloads against these schemas before low-level append() — that's what
-// keeps out-of-dispatcher writes as type-safe as ctx.appendEvent.
-import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./jobs-feature-schemas";
 
 export function createJobsFeature(): FeatureDefinition {
   return defineFeature("jobs", (r) => {

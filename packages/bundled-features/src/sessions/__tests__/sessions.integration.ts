@@ -19,14 +19,14 @@ import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/tenant-entity";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/user-entity";
+import { userEntity, userTable } from "../../user/schema/user";
 import { SessionHandlers, SessionQueries } from "../constants";
 import { createSessionsFeature } from "../feature";
+import { userSessionEntity, userSessionTable } from "../schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
 import { sessionCallbacksFromLateBound } from "../testing";
-import { userSessionEntity, userSessionTable } from "../user-session-entity";
 import { makeSessionHelpers } from "./test-helpers";
 
 // End-to-end test of the sessions feature. Full loop: login persists a

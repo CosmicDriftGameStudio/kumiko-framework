@@ -18,9 +18,9 @@ import { resolveUserIdsQuery } from "./handlers/resolve-user-ids.query";
 import { updateWrite } from "./handlers/update.write";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
 import { tenantMembershipEntity } from "./membership-table";
-import { tenantEntity } from "./tenant-entity";
+import { tenantEntity } from "./schema/tenant";
 
-export { tenantEntity, tenantTable } from "./tenant-entity";
+export { tenantEntity, tenantTable } from "./schema/tenant";
 
 // --- Feature ---
 

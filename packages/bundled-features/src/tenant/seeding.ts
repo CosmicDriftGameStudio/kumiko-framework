@@ -41,7 +41,7 @@ import type { SessionUser, TenantId } from "@kumiko/framework/engine";
 import { TestUsers } from "@kumiko/framework/testing";
 import { eq } from "drizzle-orm";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
-import { tenantEntity, tenantTable } from "./tenant-entity";
+import { tenantEntity, tenantTable } from "./schema/tenant";
 
 const tenantExecutor = createEventStoreExecutor(tenantTable, tenantEntity, {
   entityName: "tenant",

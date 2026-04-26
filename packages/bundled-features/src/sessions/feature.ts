@@ -4,8 +4,8 @@ import { listQuery } from "./handlers/list.query";
 import { mineQuery } from "./handlers/mine.query";
 import { revokeWrite } from "./handlers/revoke.write";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write";
+import { userSessionEntity } from "./schema/user-session";
 import type { SessionMassRevoker } from "./session-callbacks";
-import { userSessionEntity } from "./user-session-entity";
 
 export type SessionsFeatureOptions = {
   // When wired, a successful update on the `user` entity that changes the

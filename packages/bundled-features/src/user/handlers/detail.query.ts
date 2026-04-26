@@ -1,5 +1,5 @@
 import { access, defineEntityQueryHandler } from "@kumiko/framework/engine";
-import { userEntity } from "../user-entity";
+import { userEntity } from "../schema/user";
 
 // Only SystemAdmins can read arbitrary users. Tenant-level "Admin" does NOT
 // grant this — the user feature is tenant-agnostic, and an Admin's scope is

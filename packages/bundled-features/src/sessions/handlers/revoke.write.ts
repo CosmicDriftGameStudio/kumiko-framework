@@ -4,7 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { SessionErrors } from "../constants";
-import { userSessionTable } from "../user-session-entity";
+import { userSessionTable } from "../schema/user-session";
 
 // Revoke a single session by id (= JWT jti). Three distinguishable outcomes:
 //

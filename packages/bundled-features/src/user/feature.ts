@@ -5,7 +5,7 @@ import { findForAuthQuery } from "./handlers/find-for-auth.query";
 import { listQuery } from "./handlers/list.query";
 import { meQuery } from "./handlers/me.query";
 import { updateWrite } from "./handlers/update.write";
-import { userEntity } from "./user-entity";
+import { userEntity } from "./schema/user";
 
 // The user feature holds the cross-tenant user identity. `systemScope()` means
 // queries and writes bypass the tenant filter — a user exists above any tenant.

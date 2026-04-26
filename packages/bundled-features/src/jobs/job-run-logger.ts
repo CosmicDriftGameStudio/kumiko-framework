@@ -5,8 +5,8 @@ import type { JobLogEntry, JobMeta, JobRunnerOptions } from "@kumiko/framework/j
 import { runProjectionsForEvent } from "@kumiko/framework/pipeline";
 import { generateId } from "@kumiko/framework/utils";
 import { eq } from "drizzle-orm";
+import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
 import { jobRunsTable } from "./job-run-table";
-import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./jobs-feature-schemas";
 
 // ES job-run lifecycle:
 //   - onJobStart  → jobs:event:run-started   (first append, version 0→1)

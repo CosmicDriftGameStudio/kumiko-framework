@@ -1,7 +1,7 @@
 import { access, defineQueryHandler } from "@kumiko/framework/engine";
 import { desc } from "drizzle-orm";
 import { z } from "zod";
-import { userSessionTable } from "../user-session-entity";
+import { userSessionTable } from "../schema/user-session";
 
 // Admin view of every session in the active tenant. Tenant admins use this
 // to investigate "who is logged in right now" or revoke a suspicious

@@ -21,7 +21,7 @@ import type { DbConnection } from "@kumiko/framework/db";
 import type { JobHandlerFn } from "@kumiko/framework/engine";
 import { InternalError } from "@kumiko/framework/errors";
 import { or, sql } from "drizzle-orm";
-import { userSessionTable } from "../user-session-entity";
+import { userSessionTable } from "../schema/user-session";
 
 const DEFAULT_OLDER_THAN_DAYS = 30;
 const DEFAULT_BATCH_SIZE = 1000;

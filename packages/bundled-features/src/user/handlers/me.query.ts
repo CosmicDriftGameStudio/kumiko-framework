@@ -1,7 +1,7 @@
 import { createEventStoreExecutor } from "@kumiko/framework/db";
 import { defineQueryHandler } from "@kumiko/framework/engine";
 import { z } from "zod";
-import { userEntity, userTable } from "../user-entity";
+import { userEntity, userTable } from "../schema/user";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

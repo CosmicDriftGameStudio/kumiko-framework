@@ -29,7 +29,7 @@ import { configValuesTable } from "../../config/table";
 import { TenantHandlers, TenantQueries } from "../constants";
 import { createTenantFeature } from "../feature";
 import { tenantMembershipsTable } from "../membership-table";
-import { tenantEntity } from "../tenant-entity";
+import { tenantEntity } from "../schema/tenant";
 
 // --- Track job executions ---
 

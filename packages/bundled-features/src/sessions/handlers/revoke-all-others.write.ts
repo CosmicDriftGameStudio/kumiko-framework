@@ -4,7 +4,7 @@ import { and, eq, isNull, ne } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { SessionErrors } from "../constants";
-import { userSessionTable } from "../user-session-entity";
+import { userSessionTable } from "../schema/user-session";
 
 // "Sign out everywhere else" — keep the caller's current session, kill all
 // other live sessions for this user. Requires `user.sid` so "keep current"

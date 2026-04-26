@@ -25,9 +25,9 @@ import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity, tenantTable } from "../../tenant/tenant-entity";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
 import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/user-entity";
+import { userEntity, userTable } from "../../user/schema/user";
 import { verifyPassword } from "../password-hashing";
 import { seedAdmin } from "../testing";
 

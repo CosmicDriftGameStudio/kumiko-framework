@@ -32,7 +32,7 @@ import { simpleRenderer } from "../../renderer-simple/simple-renderer";
 import { TenantQueries } from "../../tenant/constants";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/tenant-entity";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { DeliveryHandlers, DeliveryQueries } from "../constants";
 import { collectChannels, createDeliveryService } from "../delivery-service";
 import { createDeliveryFeature } from "../feature";

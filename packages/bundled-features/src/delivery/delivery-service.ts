@@ -10,7 +10,7 @@ import { generateId } from "@kumiko/framework/utils";
 import { and, eq, or } from "drizzle-orm";
 import type { Redis } from "ioredis";
 import { DELIVERY_ATTEMPT_EVENT } from "./constants";
-import { deliveryAttemptSchema } from "./delivery-feature-schemas";
+import { deliveryAttemptSchema } from "./events";
 import { notificationPreferencesTable } from "./tables";
 import type {
   ChannelContext,

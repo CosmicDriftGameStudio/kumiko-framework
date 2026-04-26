@@ -1,7 +1,7 @@
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
 import type { z } from "zod";
 import { DELIVERY_ATTEMPT_EVENT } from "./constants";
-import { deliveryAttemptSchema } from "./delivery-feature-schemas";
+import { deliveryAttemptSchema } from "./events";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
 import { setPreferenceWrite } from "./handlers/set-preference.write";

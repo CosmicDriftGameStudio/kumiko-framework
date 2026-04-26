@@ -3,7 +3,7 @@ import { access, defineWriteHandler, hasAccess } from "@kumiko/framework/engine"
 import { AccessDeniedError, writeFailure } from "@kumiko/framework/errors";
 import { z } from "zod";
 import { UserErrors } from "../constants";
-import { userEntity, userTable } from "../user-entity";
+import { userEntity, userTable } from "../schema/user";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

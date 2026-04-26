@@ -8,10 +8,10 @@ export {
 } from "./constants";
 export type { SessionsFeatureOptions } from "./feature";
 export { createSessionsFeature } from "./feature";
+export { userSessionEntity, userSessionTable } from "./schema/user-session";
 export type {
   SessionCallbacks,
   SessionCallbacksOptions,
   SessionMassRevoker,
 } from "./session-callbacks";
 export { createSessionCallbacks } from "./session-callbacks";
-export { userSessionEntity, userSessionTable } from "./user-session-entity";
