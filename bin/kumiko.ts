@@ -302,11 +302,11 @@ const commands = {
         process.exit(1);
       }
 
-      // drizzle-kit benutzt unter node einen CJS-Loader der bei ESM-only-
-      // Imports (z.B. vitest aus @kumiko/framework/testing/expect-error)
-      // crashed. bun's CJS-Interop ist kompatibel — wir rufen drizzle-kit
-      // explizit mit `bun --bun <absolute-path>` (bunx fällt manchmal auf
-      // node zurück, siehe drizzle-kit generate). Hoisted-Binary lebt im
+      // drizzle-kit läuft unter raw node — der frühere `bun --bun`-Workaround
+      // war wegen einem Vitest-Top-Level-Import in framework/testing, der den
+      // node CJS-Loader sprengte. Strukturell behoben (testing/ in eigenen
+      // Sub-Path getrennt vom runtime-stack), drizzle.config.ts und
+      // schema.ts laden jetzt sauber unter node. Hoisted-Binary lebt im
       // Repo-Root node_modules — wir auflösen über bin/kumiko.ts → ../
       // statt process.cwd() (das ist im App-Workspace via INIT_CWD).
       const repoRoot = resolvePath(import.meta.dir, "..");
@@ -336,7 +336,7 @@ const commands = {
           //      ruft. Marker wird zum Migration-File committed.
           console.log(`\n  Generiere Schema + Migration-File (${appCwd})…`);
           await $`bun run drizzle/generate.ts`.cwd(appCwd);
-          await $`bun --bun ${drizzleKitBin} generate`.cwd(appCwd);
+          await $`node ${drizzleKitBin} generate`.cwd(appCwd);
           if (existsSync(join(appCwd, "drizzle/migration-hooks.ts"))) {
             await $`bun run drizzle/migration-hooks.ts write-rebuild-marker`.cwd(appCwd);
           }
@@ -374,11 +374,11 @@ const commands = {
           // vergleicht Migration-Files miteinander, NICHT DB. Für DB-vs-
           // Code-Diff: 'kumiko migrate validate'.
           console.log(`\n  Prüfe Migration-File-Konsistenz (${appCwd})…`);
-          await $`bun --bun ${drizzleKitBin} check`.cwd(appCwd).nothrow();
+          await $`node ${drizzleKitBin} check`.cwd(appCwd).nothrow();
           break;
         }
         case "drop": {
-          await $`bun --bun ${drizzleKitBin} drop`.cwd(appCwd);
+          await $`node ${drizzleKitBin} drop`.cwd(appCwd);
           break;
         }
         default: {
@@ -931,7 +931,7 @@ async function runMigrateApply(appCwd: string, drizzleKitBin: string): Promise<v
     }
   }
 
-  await $`bun --bun ${drizzleKitBin} migrate`.cwd(appCwd);
+  await $`node ${drizzleKitBin} migrate`.cwd(appCwd);
 
   if (dbUrl && existsSync(journalPath) && existsSync(hooksPath)) {
     const { loadJournal } = await import("@kumiko/framework/migrations");
