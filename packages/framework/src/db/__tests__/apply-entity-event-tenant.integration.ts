@@ -1,0 +1,131 @@
+// Direkte Tests für applyEntityEvent's tenantId-Defaulting. Zwei
+// Branches (siehe apply-entity-event.ts:created):
+//
+//   - payload.tenantId GESETZT → wins (z.B. seedTenantMembership-Pfad
+//     wo Operator tenantId und Ziel-tenantId divergieren)
+//   - payload.tenantId NICHT gesetzt → Fallback auf event.tenantId
+//     (Replay-Fall für entity-Tabellen ohne tenantId-Feld)
+//
+// Beide Branches werden indirekt durch andere Tests berührt
+// (seedTenantMembership-Integration für A, Live==Rebuild für B), aber
+// kein expliziter Test pinst das exakte Verhalten von applyEntityEvent.
+// Wenn jemand die Spread-Reihenfolge im values()-Object umdreht
+// (`...event.payload, tenantId: event.tenantId` statt
+// `tenantId: event.tenantId, ...event.payload`), würde Branch A still
+// zerbrechen — der bestehende seed-Test wäre der einzige Catcher, und
+// der lief vor dem Refactor durch Zufall grün.
+
+import { eq, sql } from "drizzle-orm";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { createEntity, createTextField } from "../../engine/factories";
+import type { TenantId } from "../../engine/types";
+import type { StoredEvent } from "../../event-store";
+import { createEventsTable } from "../../event-store";
+import { createTestDb, type TestDb } from "../../stack";
+import { applyEntityEvent } from "../apply-entity-event";
+import { buildDrizzleTable } from "../table-builder";
+
+const entity = createEntity({
+  table: "read_apply_tenant_check",
+  fields: {
+    name: createTextField({ required: true }),
+  },
+});
+const table = buildDrizzleTable("apply-tenant-check", entity);
+
+let testDb: TestDb;
+
+beforeAll(async () => {
+  testDb = await createTestDb();
+  await createEventsTable(testDb.db);
+  await testDb.db.execute(sql`
+    CREATE TABLE read_apply_tenant_check (
+      id uuid PRIMARY KEY,
+      tenant_id uuid NOT NULL,
+      version integer NOT NULL DEFAULT 1,
+      inserted_at timestamptz NOT NULL DEFAULT now(),
+      modified_at timestamptz,
+      inserted_by_id text,
+      modified_by_id text,
+      name text NOT NULL
+    )
+  `);
+});
+
+afterAll(async () => {
+  await testDb.cleanup();
+});
+
+beforeEach(async () => {
+  await testDb.db.execute(sql`TRUNCATE read_apply_tenant_check`);
+});
+
+const TENANT_OPERATOR = "11111111-1111-1111-1111-111111111111" as TenantId;
+const TENANT_TARGET = "22222222-2222-2222-2222-222222222222" as TenantId;
+
+function syntheticCreateEvent(payload: Record<string, unknown>): StoredEvent {
+  return {
+    id: "evt-1",
+    aggregateId: "33333333-3333-3333-3333-333333333333",
+    aggregateType: "apply-tenant-check",
+    tenantId: TENANT_OPERATOR,
+    version: 1,
+    type: "apply-tenant-check.created",
+    eventVersion: 1,
+    payload,
+    metadata: { userId: "u-1" },
+    createdAt: { toString: () => "2026-04-27T00:00:00Z" } as never,
+    createdBy: "u-1",
+  };
+}
+
+describe("applyEntityEvent — tenantId-Defaulting", () => {
+  test("payload OHNE tenantId → row.tenantId fällt auf event.tenantId zurück (Replay-Default)", async () => {
+    const event = syntheticCreateEvent({ name: "without-tenantId-in-payload" });
+    const result = await applyEntityEvent(event, table, entity, testDb.db);
+    expect(result.kind).toBe("applied");
+
+    const [row] = await testDb.db.select().from(table).where(eq(table["id"], event.aggregateId));
+    expect(row?.["tenantId"]).toBe(TENANT_OPERATOR);
+    expect(row?.["name"]).toBe("without-tenantId-in-payload");
+  });
+
+  test("payload MIT tenantId überschreibt event.tenantId (seed-Override-Case)", async () => {
+    // seedTenantMembership-Realität: Operator (event.tenantId =
+    // OPERATOR) schreibt eine Membership in den Ziel-Tenant (payload
+    // .tenantId = TARGET). Der Row gehört in den Ziel-Tenant.
+    const event = syntheticCreateEvent({
+      name: "tenantId-override",
+      tenantId: TENANT_TARGET,
+    });
+    const result = await applyEntityEvent(event, table, entity, testDb.db);
+    expect(result.kind).toBe("applied");
+
+    const [row] = await testDb.db.select().from(table).where(eq(table["id"], event.aggregateId));
+    expect(row?.["tenantId"]).toBe(TENANT_TARGET);
+    expect(row?.["tenantId"]).not.toBe(TENANT_OPERATOR);
+  });
+
+  test("Spread-Reihenfolge: payload-Felder bleiben erhalten, framework-Defaults nicht überschrieben", async () => {
+    // Negative-Anchor: id/version/insertedAt/insertedById dürfen NICHT
+    // aus dem payload kommen (kommen vom event). Wenn jemand die
+    // Reihenfolge im values() umstellt, würde dieser Test fangen.
+    const event = syntheticCreateEvent({
+      name: "spread-order-check",
+      // Diese Felder im payload müssen vom framework überschrieben werden:
+      id: "00000000-0000-0000-0000-000000000000",
+      version: 999,
+      insertedById: "fake-user",
+    });
+    const result = await applyEntityEvent(event, table, entity, testDb.db);
+    expect(result.kind).toBe("applied");
+
+    const [row] = await testDb.db.select().from(table).where(eq(table["id"], event.aggregateId));
+    // event.aggregateId wins, nicht payload.id
+    expect(row?.["id"]).toBe(event.aggregateId);
+    // event.version wins, nicht payload.version
+    expect(row?.["version"]).toBe(event.version);
+    // event.createdBy wins, nicht payload.insertedById
+    expect(row?.["insertedById"]).toBe(event.createdBy);
+  });
+});

@@ -212,3 +212,93 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
     ]);
   });
 });
+
+// Sensitive-Drift ist eine bekannte Welle-3-Lücke: das Event-Log strippt
+// sensitive-Felder VOR dem Append (GDPR-Annahme), die Live-Read-Tabelle
+// bekommt sie über den unstripped flatData, der Rebuild-Pfad nur den
+// stripped event.payload. Bei Schema-Rebuilds gehen sensitive Daten
+// verloren.
+//
+// Dieser Test pinst die Drift explizit: Live row hat das sensitive Feld,
+// Rebuild row hat NULL. Wenn Welle 3 das fixt (z.B. via separater
+// sensitive-Spalte oder verschlüsseltem Event-Payload), bricht der Test
+// und zwingt zu Aufmerksamkeit.
+
+import { sql as drizzleSql, eq } from "drizzle-orm";
+
+const sensitiveTable = "read_implicit_sensitive_users";
+
+const sensitiveEntity = createEntity({
+  table: sensitiveTable,
+  fields: {
+    email: createTextField({ required: true }),
+    apiKey: createTextField({ sensitive: true }),
+  },
+});
+
+const sensitiveFeature = defineFeature("implicitsensitive", (r) => {
+  r.entity("sensitive-user", sensitiveEntity);
+});
+
+const sensitiveDrizzleTable = buildDrizzleTable("sensitive-user", sensitiveEntity);
+
+describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
+  beforeAll(async () => {
+    await createEntityTable(testDb.db, sensitiveEntity, "sensitive-user");
+  });
+
+  beforeEach(async () => {
+    await testDb.db.execute(
+      drizzleSql.raw(
+        `TRUNCATE ${sensitiveTable}, kumiko_events, kumiko_projections RESTART IDENTITY CASCADE`,
+      ),
+    );
+  });
+
+  test("Live schreibt sensitive-Felder, Rebuild lässt sie NULL (Welle-3-Roadmap)", async () => {
+    const crud = createEventStoreExecutor(sensitiveDrizzleTable, sensitiveEntity, {
+      entityName: "sensitive-user",
+    });
+
+    // 1. Live: create mit apiKey (sensitive). Read-Tabelle bekommt den
+    //    Wert direkt vom Live-Pfad (unstripped flatData).
+    const created = await crud.create(
+      { email: "x@test.de", apiKey: "secret-token-abc" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("setup failed");
+
+    const [liveRow] = await testDb.db
+      .select()
+      .from(sensitiveDrizzleTable)
+      .where(eq(sensitiveDrizzleTable["id"], created.data.id));
+    expect(liveRow?.["apiKey"]).toBe("secret-token-abc");
+    expect(liveRow?.["email"]).toBe("x@test.de");
+
+    // 2. Verifiziere dass das Event-Log das Feld NICHT enthält (stripped).
+    const events = await testDb.db.execute<{ payload: Record<string, unknown> }>(
+      drizzleSql`SELECT payload FROM kumiko_events WHERE aggregate_id = ${created.data.id}::uuid`,
+    );
+    expect(events[0]?.payload).toBeDefined();
+    expect(events[0]?.payload?.["apiKey"]).toBeUndefined();
+    expect(events[0]?.payload?.["email"]).toBe("x@test.de");
+
+    // 3. Rebuild über die ImplicitProjection. Read-Tabelle wird aus
+    //    event.payload neu materialisiert — apiKey ist nicht im Log,
+    //    landet also als NULL/undefined in der rebuilt Row.
+    const registry = createRegistry([sensitiveFeature]);
+    await rebuildProjection("implicitsensitive:projection:sensitive-user-entity", {
+      db: testDb.db,
+      registry,
+    });
+
+    const [rebuiltRow] = await testDb.db
+      .select()
+      .from(sensitiveDrizzleTable)
+      .where(eq(sensitiveDrizzleTable["id"], created.data.id));
+    expect(rebuiltRow?.["email"]).toBe("x@test.de");
+    // DAS ist die Drift: sensitive Feld ist nach Rebuild weg.
+    expect(rebuiltRow?.["apiKey"]).toBeNull();
+  });
+});
