@@ -116,7 +116,11 @@ export async function detectDrift(
       : [];
 
   const snapshot = loadLatestSnapshot(migrationsDir);
-  const expectedTables = Object.values(snapshot.tables).map((t) => `${t.schema}.${t.name}`);
+  // Drizzle's snapshot schreibt `schema: ""` für public — to_regclass
+  // ohne Schema-Prefix resolved ebenfalls in public, also passt empty.
+  const expectedTables = Object.values(snapshot.tables).map((t) =>
+    t.schema && t.schema.length > 0 ? `${t.schema}.${t.name}` : t.name,
+  );
   const exists = await Promise.all(expectedTables.map((q) => tableExists(db, q)));
   const missingTables = expectedTables.filter((_, i) => !exists[i]);
 

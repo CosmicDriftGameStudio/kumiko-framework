@@ -146,12 +146,22 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     }
   }
 
-  // Sticky-top Action-Bar: Save (+ optional Cancel) wandern in den
-  // `actions`-Slot der Form-Primitive. Bei langen Forms bleibt der
-  // Save-Button beim Scrollen erreichbar. Delete (destructive) bleibt
-  // bewusst am Boden — andere Konzeptklasse als die primäre Action.
+  // Sticky-top Action-Bar: Delete (links, destructive) + Cancel +
+  // Save. Delete sitzt links abgesetzt damit die Click-Distanz zu
+  // Save groß ist; rot + Confirm-Dialog sind ausreichend Schutz
+  // gegen Fehlklicks. Save bleibt rechts (primary affordance).
   const formActions = (
     <>
+      {onDelete !== undefined && (
+        <Button
+          type="button"
+          variant="danger"
+          testId="render-edit-delete"
+          onClick={() => setConfirmDeleteOpen(true)}
+        >
+          {translate("kumiko.actions.delete")}
+        </Button>
+      )}
       {onCancel !== undefined && (
         <Button
           type="button"
@@ -229,27 +239,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         </Banner>
       )}
       {onDelete !== undefined && (
-        <>
-          <Button
-            type="button"
-            variant="danger"
-            testId="render-edit-delete"
-            onClick={() => setConfirmDeleteOpen(true)}
-          >
-            {translate("kumiko.actions.delete")}
-          </Button>
-          <Dialog
-            open={confirmDeleteOpen}
-            onOpenChange={setConfirmDeleteOpen}
-            title={translate("kumiko.actions.delete-confirm")}
-            confirmLabel={translate("kumiko.actions.delete")}
-            variant="danger"
-            onConfirm={async () => {
-              await onDelete();
-            }}
-            testId="render-edit-delete-dialog"
-          />
-        </>
+        <Dialog
+          open={confirmDeleteOpen}
+          onOpenChange={setConfirmDeleteOpen}
+          title={translate("kumiko.actions.delete-confirm")}
+          confirmLabel={translate("kumiko.actions.delete")}
+          variant="danger"
+          onConfirm={async () => {
+            await onDelete();
+          }}
+          testId="render-edit-delete-dialog"
+        />
       )}
     </Form>
   );

@@ -282,39 +282,157 @@ const commands = {
   },
 
   migrate: {
-    description: "DB-Schema migrieren (push | generate | status)",
+    description:
+      "DB-Schema (per-app) migrieren — generate-schema | generate | apply | validate | status | drop",
     run: async () => {
       const subCommand = Bun.argv[3];
 
-      // Always regenerate schema from entities first
-      console.log("Generiere Schema aus Entity-Definitionen...");
-      await $`bun run drizzle/generate.ts`;
+      // Per-App-CWD: yarn ruft uns aus dem App-Workspace, $INIT_CWD ist
+      // dort gesetzt. drizzle.config.ts + drizzle/ leben pro App, nicht
+      // im Repo-Root. Fallback auf process.cwd() für direkte Aufrufe.
+      const appCwd = process.env["INIT_CWD"] ?? process.cwd();
+      const drizzleConfig = join(appCwd, "drizzle.config.ts");
+      if (!existsSync(drizzleConfig)) {
+        console.error(
+          `\n  Kein drizzle.config.ts in ${appCwd}.\n  ` +
+            `'kumiko migrate' läuft pro App-Workspace — wechsle in den App-Ordner ` +
+            `(samples/showcases/<app>) oder rufe via 'yarn workspace <app> kumiko migrate ...' auf.\n`,
+        );
+        process.exit(1);
+      }
+
+      // drizzle-kit benutzt unter node einen CJS-Loader der bei ESM-only-
+      // Imports (z.B. vitest aus @kumiko/framework/testing/expect-error)
+      // crashed. bun's CJS-Interop ist kompatibel — wir rufen drizzle-kit
+      // explizit mit `bun --bun <absolute-path>` (bunx fällt manchmal auf
+      // node zurück, siehe drizzle-kit generate). Hoisted-Binary lebt im
+      // Repo-Root node_modules — process.cwd() bei direktem CLI-Aufruf
+      // oder wir auflösen über INIT_CWD-Parent.
+      const repoRoot = process.cwd();
+      const drizzleKitBin = resolvePath(repoRoot, "node_modules/.bin/drizzle-kit");
+      if (!existsSync(drizzleKitBin)) {
+        console.error(
+          `\n  drizzle-kit nicht gefunden unter ${drizzleKitBin}.\n` +
+            `  Wahrscheinlich ist 'yarn install' nicht gelaufen.\n`,
+        );
+        process.exit(1);
+      }
 
       switch (subCommand) {
-        case "generate":
-          // Generate SQL migration files (for production)
-          console.log("\nGeneriere Migration-Files...");
-          await $`yarn drizzle-kit generate`;
+        case "generate-schema": {
+          // Schema-Files (entity tables) aus run-config regenerieren.
+          // schema.custom.ts bleibt hand-maintained.
+          console.log(`\n  Generiere Schema aus Entities (${appCwd})…`);
+          await $`bun run drizzle/generate.ts`.cwd(appCwd);
           break;
-        case "status":
-          // Show what would change (dry-run)
-          console.log("\nPrüfe Aenderungen...");
-          try {
-            await $`yarn drizzle-kit check`;
-          } catch {
-            console.log("  Schema-Aenderungen erkannt. Nutze 'yarn kumiko migrate' zum Anwenden.");
+        }
+        case "generate": {
+          // Drei Schritte:
+          //   1. schema.generated.ts neu schreiben (App-Features → Drizzle-Tables)
+          //   2. drizzle-kit generate (SQL-Migration-File + Snapshot)
+          //   3. Rebuild-Marker schreiben wenn Projection-Tabellen Schema-Changes
+          //      haben — sodass `migrate apply` automatisch rebuildProjection
+          //      ruft. Marker wird zum Migration-File committed.
+          console.log(`\n  Generiere Schema + Migration-File (${appCwd})…`);
+          await $`bun run drizzle/generate.ts`.cwd(appCwd);
+          await $`bun --bun ${drizzleKitBin} generate`.cwd(appCwd);
+          if (existsSync(join(appCwd, "drizzle/migration-hooks.ts"))) {
+            await $`bun run drizzle/migration-hooks.ts write-rebuild-marker`.cwd(appCwd);
           }
           break;
-        case "drop":
-          // Drop a migration
-          await $`yarn drizzle-kit drop`;
+        }
+        case "apply": {
+          // Production-Migration in zwei Phasen:
+          //   1. drizzle-kit migrate (idempotent — fährt pending SQL-Files
+          //      gegen DATABASE_URL + trackt in __drizzle_migrations)
+          //   2. Rebuild-Hook für die soeben neu applied Migrations:
+          //      liest <tag>__rebuild.json und ruft rebuildProjection.
+          //      Diff "vorher vs. nachher applied" via Journal-Index.
+          console.log(`\n  Wende Migrations an (${appCwd})…`);
+
+          // Pre-apply: applied-count merken (für Diff)
+          const dbUrl = process.env["DATABASE_URL"];
+          let appliedBefore = 0;
+          if (dbUrl && existsSync(join(appCwd, "drizzle/migrations/meta/_journal.json"))) {
+            const { createDbConnection } = await import("@kumiko/framework/db");
+            const { loadAppliedMigrations } = await import("@kumiko/framework/migrations");
+            const { db, close } = createDbConnection(dbUrl);
+            try {
+              const applied = await loadAppliedMigrations(db);
+              appliedBefore = applied.length;
+            } finally {
+              await close();
+            }
+          }
+
+          await $`bun --bun ${drizzleKitBin} migrate`.cwd(appCwd);
+
+          // Post-apply: welche tags sind neu? Journal-Index slice.
+          if (
+            dbUrl &&
+            existsSync(join(appCwd, "drizzle/migrations/meta/_journal.json")) &&
+            existsSync(join(appCwd, "drizzle/migration-hooks.ts"))
+          ) {
+            const { loadJournal } = await import("@kumiko/framework/migrations");
+            const journal = loadJournal(join(appCwd, "drizzle/migrations"));
+            const newlyApplied = journal.entries.slice(appliedBefore).map((e) => e.tag);
+            if (newlyApplied.length > 0) {
+              await $`bun run drizzle/migration-hooks.ts run-rebuilds ${newlyApplied}`.cwd(
+                appCwd,
+              );
+            }
+          }
+
+          console.log("\n  ✓ DB ist aktuell.");
           break;
-        default:
-          // Default: push schema directly (dev workflow)
-          console.log("\nWende Schema-Aenderungen an...");
-          await $`yarn drizzle-kit push`;
-          console.log("\nDB ist aktuell.");
+        }
+        case "validate": {
+          // Schema-Drift-Check: Journal vs. __drizzle_migrations + erwartete
+          // Tabellen vs. tatsächlicher DB-Stand. Exit 1 bei Drift.
+          console.log(`\n  Prüfe Schema-Drift (${appCwd})…`);
+          const { createDbConnection } = await import("@kumiko/framework/db");
+          const { detectDrift, formatDriftReport } = await import(
+            "@kumiko/framework/migrations"
+          );
+          const dbUrl = process.env["DATABASE_URL"];
+          if (!dbUrl) {
+            console.error("  DATABASE_URL nicht gesetzt.");
+            process.exit(1);
+          }
+          const { db, close } = createDbConnection(dbUrl);
+          try {
+            const report = await detectDrift(db, join(appCwd, "drizzle/migrations"));
+            console.log(`\n  ${formatDriftReport(report)}\n`);
+            if (!report.ok) process.exit(1);
+          } finally {
+            await close();
+          }
           break;
+        }
+        case "status": {
+          // Zeigt was sich (lokal) ändern würde. Drizzle-kit's check
+          // vergleicht Migration-Files miteinander, NICHT DB. Für DB-vs-
+          // Code-Diff: 'kumiko migrate validate'.
+          console.log(`\n  Prüfe Migration-File-Konsistenz (${appCwd})…`);
+          await $`bun --bun ${drizzleKitBin} check`.cwd(appCwd).nothrow();
+          break;
+        }
+        case "drop": {
+          await $`bun --bun ${drizzleKitBin} drop`.cwd(appCwd);
+          break;
+        }
+        default: {
+          console.log(
+            "\n  Subcommands:\n" +
+              "    generate-schema   Regeneriere drizzle/schema.generated.ts aus Entities\n" +
+              "    generate          generate-schema + drizzle-kit generate (SQL-Migration-File)\n" +
+              "    apply             drizzle-kit migrate (Production: pending Migrations anwenden)\n" +
+              "    validate          Schema-Drift-Check (DB vs. Journal/Snapshot)\n" +
+              "    status            drizzle-kit check (Migration-Files konsistent?)\n" +
+              "    drop              drizzle-kit drop (latest Migration löschen)\n",
+          );
+          break;
+        }
       }
     },
   },

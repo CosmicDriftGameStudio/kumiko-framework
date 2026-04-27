@@ -3,10 +3,12 @@
 // Symmetrisch zu runDevApp, aber:
 //   - DATABASE_URL / REDIS_URL / JWT_SECRET aus env (fail-fast bei Boot,
 //     keine ephemeralen Test-DBs)
-//   - Idempotente Migration: ensureEntityTable für jede Entity beim Boot.
-//     Existiert die Tabelle schon, wird nichts gemacht. Schema-Drift-
-//     Detection ist hier bewusst NICHT implementiert — Phase 4 bringt
-//     versioned migrations via drizzle-kit.
+//   - Hard Schema-Drift-Gate: prüft drizzle/migrations/_journal vs.
+//     __drizzle_migrations + tableExists für jede erwartete Tabelle.
+//     KEIN Auto-CREATE TABLE im Boot — Migration ist ein CI-Step
+//     (`yarn kumiko migrate apply`), Boot validiert nur. Verhindert
+//     Race-Conditions bei Multi-Replica-Deploys + macht Schema-Stand
+//     reviewbar in der Pull-Request.
 //   - Idempotente Seeds: laufen nur wenn DB leer (über `isDbEmpty`-Probe
 //     pro Seed). Re-Boots nach erstem Seed sind no-op.
 //   - HTTP-Server via Bun.serve mit graceful SIGTERM/SIGINT → drain().
@@ -42,15 +44,12 @@ import {
   type ApiEntrypointOptions,
   createApiEntrypoint,
 } from "@kumiko/framework/entrypoint";
-import { createArchivedStreamsTable, createEventsTable } from "@kumiko/framework/event-store";
+import { assertSchemaCurrent, SchemaDriftError } from "@kumiko/framework/migrations";
 import {
   createEntityCache,
-  createEventConsumerStateTable,
   createEventDedup,
   createIdempotencyGuard,
-  createProjectionStateTable,
 } from "@kumiko/framework/pipeline";
-import { ensureEntityTable } from "@kumiko/framework/testing";
 import Redis from "ioredis";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { composeFeatures } from "./compose-features";
@@ -132,6 +131,15 @@ export type RunProdAppOptions = {
    *  for any path that doesn't match an /api/ handler. Use this for the
    *  public status page HTML, embed widget JS, etc. */
   readonly staticDir?: string;
+  /** Pfad zu drizzle/migrations für den Boot-Gate. Default "./drizzle/
+   *  migrations" relativ zum process-cwd (wo die App gestartet wird —
+   *  bei Container-Deploys typischerweise der App-Workspace-Root, weil
+   *  WORKDIR im Dockerfile dorthin zeigt). Boot wirft SchemaDriftError
+   *  wenn Migrations pending sind oder erwartete Tabellen fehlen.
+   *  Setze auf `false` um den Gate komplett zu deaktivieren — nur für
+   *  Setups die ihren eigenen Schema-Check fahren (z.B. bring-your-own-
+   *  ORM). Standard-Apps lassen das default. */
+  readonly migrations?: { readonly dir: string } | false;
   /** Extra AppContext keys. configResolver is auto-set in auth-mode. */
   readonly extraContext?: Record<string, unknown>;
   /** Job-Block. Wenn das Feature `r.job(...)` registriert, MUSS dieser
@@ -215,21 +223,26 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   validateBoot(features);
   const registry = createRegistry(features);
 
-  // 5. Migrations: ensure framework + feature tables exist. ensureEntityTable
-  //    is a no-op if the table is already there, so re-boots are safe.
-  //    Schema-drift detection (drizzle-kit migrate) is Phase-4 work.
-  // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
-  console.log("[runProdApp] ensuring tables…");
-  await createEventsTable(db);
-  await createArchivedStreamsTable(db);
-  await createProjectionStateTable(db);
-  await createEventConsumerStateTable(db);
-
-  for (const feature of features) {
-    for (const [entityName, entity] of Object.entries(feature.entities)) {
-      const created = await ensureEntityTable(db, entity, entityName);
-      // biome-ignore lint/suspicious/noConsole: migration-step log, visible in container stdout
-      if (created) console.log(`[runProdApp]   created table for ${feature.name}:${entityName}`);
+  // 5. Schema-Drift-Gate. Drizzle-kit migrate (yarn kumiko migrate apply)
+  //    läuft als CI-Step VOR dem Container-Rollout. Boot prüft hier nur:
+  //      (a) Alle Migrations aus drizzle/migrations/meta/_journal.json
+  //          sind in __drizzle_migrations applied
+  //      (b) Alle erwarteten Tabellen existieren physisch
+  //    Drift = Boot-Error mit klarer Meldung (kein Auto-Heal — mehrere
+  //    Container-Replicas würden sonst race-conditionen beim ALTER TABLE
+  //    fahren). Opt-out via `migrations: false` für custom Schema-Setups.
+  if (options.migrations !== false) {
+    const migrationsDir = options.migrations?.dir ?? "./drizzle/migrations";
+    // biome-ignore lint/suspicious/noConsole: boot-time progress hint
+    console.log(`[runProdApp] checking schema drift (${migrationsDir})…`);
+    try {
+      await assertSchemaCurrent(db, migrationsDir);
+    } catch (err) {
+      if (err instanceof SchemaDriftError) {
+        // biome-ignore lint/suspicious/noConsole: terminal error message
+        console.error(`\n[runProdApp] BOOT ABORTED — ${err.message}\n`);
+      }
+      throw err;
     }
   }
 

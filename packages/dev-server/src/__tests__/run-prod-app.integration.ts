@@ -12,12 +12,19 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createDbConnection } from "@kumiko/framework/db";
 import {
   createBooleanField,
   createEntity,
   createTextField,
   defineFeature,
 } from "@kumiko/framework/engine";
+import { createArchivedStreamsTable, createEventsTable } from "@kumiko/framework/event-store";
+import {
+  createEventConsumerStateTable,
+  createProjectionStateTable,
+} from "@kumiko/framework/pipeline";
+import { ensureEntityTable } from "@kumiko/framework/testing";
 import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
@@ -89,6 +96,29 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
+// Production-Apps booten gegen eine VORHER migrierte DB (CI-Step
+// `kumiko migrate apply`). In diesem Test gibt's keine drizzle-Migration-
+// Files, also imitieren wir den Migration-Step direkt: Framework-Infra-
+// Tables + die widget-Entity-Tabelle anlegen, dann runProdApp mit
+// `migrations: false` (= kein Schema-Drift-Gate) starten. So bleibt der
+// Test fokussiert auf Boot-Wiring (Entrypoint, Hono-Routes, Seeds), ohne
+// den Migrationspfad zu duplizieren.
+async function migrateTestDb(): Promise<void> {
+  const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
+  const { db, close } = createDbConnection(url);
+  try {
+    await createEventsTable(db);
+    await createArchivedStreamsTable(db);
+    await createProjectionStateTable(db);
+    await createEventConsumerStateTable(db);
+    await ensureEntityTable(db, widgetEntity, "widget");
+  } finally {
+    await close();
+  }
+}
+
+let testDbMigrated = false;
+
 async function boot(
   seedFn?: (deps: { db: import("@kumiko/framework/db").DbConnection }) => Promise<void>,
   extra?: Partial<Parameters<typeof runProdApp>[0]>,
@@ -100,10 +130,16 @@ async function boot(
   process.env["JWT_SECRET"] = "test-runprod-secret-32-chars-min!!";
   process.env["PORT"] = "0"; // Bun.serve picks an ephemeral port
 
+  if (!testDbMigrated) {
+    await migrateTestDb();
+    testDbMigrated = true;
+  }
+
   try {
     const handle = await runProdApp({
       features: [widgetFeature],
       autoListen: false,
+      migrations: false,
       ...(seedFn && { seeds: [seedFn] }),
       ...(extra ?? {}),
     });
