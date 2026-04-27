@@ -309,7 +309,12 @@ const commands = {
       // schema.ts laden jetzt sauber unter node. Hoisted-Binary lebt im
       // Repo-Root node_modules — wir auflösen über bin/kumiko.ts → ../
       // statt process.cwd() (das ist im App-Workspace via INIT_CWD).
-      const repoRoot = resolvePath(import.meta.dir, "..");
+      //
+      // KUMIKO_REPO_ROOT-Override: bei einem gebundelten kumiko.ts (Server-
+      // Bundle in einer Production-App) zeigt import.meta.dir aufs Bundle-
+      // Verzeichnis — die node_modules liegen direkt daneben, nicht parent.
+      // Der Bundle-Container setzt KUMIKO_REPO_ROOT auf seinen App-Root.
+      const repoRoot = process.env["KUMIKO_REPO_ROOT"] ?? resolvePath(import.meta.dir, "..");
       const drizzleKitBin = resolvePath(repoRoot, "node_modules/.bin/drizzle-kit");
       if (!existsSync(drizzleKitBin)) {
         console.error(
@@ -916,7 +921,11 @@ async function runMigrateApply(appCwd: string, drizzleKitBin: string): Promise<v
 
   const dbUrl = process.env["DATABASE_URL"];
   const journalPath = join(appCwd, "drizzle/migrations/meta/_journal.json");
-  const hooksPath = join(appCwd, "drizzle/migration-hooks.ts");
+  // Bundle-Container überschreiben den Hooks-Pfad mit der gebundelten
+  // Variante (KUMIKO_MIGRATION_HOOKS=/app/migration-hooks.js), weil das
+  // unbundled .ts ihre Imports (compose-features etc.) nicht resolven kann.
+  const hooksPath =
+    process.env["KUMIKO_MIGRATION_HOOKS"] ?? join(appCwd, "drizzle/migration-hooks.ts");
 
   let appliedBefore = 0;
   if (dbUrl && existsSync(journalPath)) {
@@ -938,7 +947,7 @@ async function runMigrateApply(appCwd: string, drizzleKitBin: string): Promise<v
     const journal = loadJournal(join(appCwd, "drizzle/migrations"));
     const newlyApplied = journal.entries.slice(appliedBefore).map((e) => e.tag);
     if (newlyApplied.length > 0) {
-      await $`bun run drizzle/migration-hooks.ts run-rebuilds ${newlyApplied}`.cwd(appCwd);
+      await $`bun run ${hooksPath} run-rebuilds ${newlyApplied}`.cwd(appCwd);
     }
   }
 
