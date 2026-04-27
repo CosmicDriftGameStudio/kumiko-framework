@@ -110,13 +110,19 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
       requestId?: string,
     ): Promise<T> {
       const res = await writeRaw(type, payload, user, requestId);
-      const body = await res.json();
+      // wire-body shape direkt nach JSON.parse — Caller-Code prüft danach
+      // selber ob isSuccess/error/data tatsächlich da sind.
+      const body = (await res.json()) as {
+        isSuccess?: boolean;
+        data?: unknown;
+        error?: { code?: string } | string;
+      };
       // Success path still has { isSuccess: true, data }. Error responses now
       // follow the error-contract shape { error: { code, i18nKey, ... } } with
       // a 4xx/5xx status — no isSuccess flag. Detect either.
       if (body.isSuccess !== true) {
         const code =
-          (body.error as { code?: string } | undefined)?.code ??
+          (typeof body.error === "object" ? body.error?.code : undefined) ??
           (typeof body.error === "string" ? body.error : "unknown");
         throw new Error(`Expected write "${type}" to succeed but got error: ${code}`);
       }
@@ -129,11 +135,14 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
       user: SessionUser,
     ): Promise<import("../errors").WriteErrorInfo> {
       const res = await writeRaw(type, payload, user);
-      const body = await res.json();
+      const body = (await res.json()) as {
+        isSuccess?: boolean;
+        error?: Omit<import("../errors").WriteErrorInfo, "httpStatus">;
+      };
       if (body.isSuccess === true) {
         throw new Error(`Expected write "${type}" to fail but it succeeded`);
       }
-      const wire = body.error as Omit<import("../errors").WriteErrorInfo, "httpStatus"> | undefined;
+      const wire = body.error;
       if (!wire || typeof wire !== "object" || typeof wire.code !== "string") {
         throw new Error(
           `Expected error response for "${type}" but got unexpected shape: ${JSON.stringify(body)}`,
@@ -147,7 +156,7 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
 
     async queryOk<T = unknown>(type: string, payload: unknown, user: SessionUser): Promise<T> {
       const res = await queryRaw(type, payload, user);
-      const body = await res.json();
+      const body = (await res.json()) as { data: unknown };
       return body.data as T;
     },
 

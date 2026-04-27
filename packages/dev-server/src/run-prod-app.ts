@@ -556,7 +556,7 @@ function buildStaticFallback(
 // unveränderlich, der Rest bleibt no-cache damit Updates ohne Hard-
 // Reload greifen. Exported für Unit-Tests; Konsumenten gehen via
 // runProdApp.
-export function cacheHeadersFor(pathname: string): HeadersInit {
+export function cacheHeadersFor(pathname: string): Record<string, string> {
   if (pathname.startsWith(`/${ASSETS_DIR}/`)) {
     return { "cache-control": "public, max-age=31536000, immutable" };
   }
