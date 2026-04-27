@@ -16,9 +16,13 @@ import { buildBaseColumns, buildDrizzleTable, toTableName } from "../table-build
 // --- Cursor encoding ---
 
 describe("cursor encoding", () => {
-  test.each([1, 42, 999, 100000])("encodes and decodes id %i", (id) => {
+  // String-Roundtrip seit Sprint F: encodeCursor akzeptiert string|number,
+  // decodeCursor returnt immer einen String — UUID-IDs (Default) brauchen
+  // keine Number-Kapsel, Integer-IDs werden via PG-Cast in der WHERE-Clause
+  // korrekt verglichen. Detail-Tests in cursor.test.ts.
+  test.each([1, 42, 999, 100000])("encodes and decodes integer id %i", (id) => {
     const cursor = encodeCursor(id);
-    expect(decodeCursor(cursor)).toBe(id);
+    expect(decodeCursor(cursor)).toBe(String(id));
   });
 
   test("cursor is url-safe base64", () => {
@@ -26,8 +30,8 @@ describe("cursor encoding", () => {
     expect(cursor).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
-  test("throws on invalid cursor", () => {
-    expect(() => decodeCursor("not-a-number")).toThrow(/invalid cursor/i);
+  test("throws on empty/corrupted cursor", () => {
+    expect(() => decodeCursor("")).toThrow(/invalid cursor/i);
   });
 });
 

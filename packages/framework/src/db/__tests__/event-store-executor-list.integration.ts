@@ -86,12 +86,32 @@ describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => 
     expect(res.total).toBe(3);
   });
 
-  // Note: "cursor wins über offset" ist im Code per `if (!payload.cursor
-  // && offset > 0)` umgesetzt. Direkter DB-Roundtrip-Test scheitert hier
-  // an einer separaten Cursor-vs-UUID-Unschärfe (encodeCursor erwartet
-  // einen integer, neue Entities haben UUID-ids) — outside-of-scope für
-  // Tier 2.6d. Die Branch-Logik ist trivial genug dass sie über die
-  // anderen offset-Tests indirekt mitläuft.
+  test("cursor wins über offset (kombination ist Caller-bug, defensiv)", async () => {
+    // Wenn der Caller versehentlich BEIDE setzt — z.B. ein Migrations-
+    // Skript das Cursor-Pagination + Page-Number mischt — soll cursor
+    // gewinnen weil DB-stable. Offset wird ignoriert.
+    await seed(10);
+    const first = await exec.list({ limit: 3, sort: "rank", sortDirection: "asc" }, admin, tdb);
+    expect(first.rows.map((r) => r["rank"])).toEqual([0, 1, 2]);
+    const cursor = first.nextCursor;
+    expect(cursor).not.toBeNull();
+    if (cursor === null) return;
+    // cursor + offset:50 — cursor sollte gewinnen, nicht das offset.
+    // Note: cursor-pagination hier ist NICHT row-3 → row-4-stable, weil
+    // die UUIDs zwar UUIDv7 sind aber innerhalb derselben Millisekunde
+    // generiert die Sub-Sort nicht garantiert mit `rank` korreliert. Wir
+    // pinnen nur "cursor wird benutzt → kein offset:50-Skip auf row-50
+    // (die's gar nicht gibt)".
+    const next = await exec.list(
+      { limit: 3, cursor, offset: 50, sort: "rank", sortDirection: "asc" },
+      admin,
+      tdb,
+    );
+    // Ohne cursor-wins-Branch wäre das offset=50 → leeres Result.
+    // Mit cursor-wins läuft der gt(id, cursor)-Filter und liefert
+    // rows die NACH dem cursor kommen → mindestens 1 Eintrag.
+    expect(next.rows.length).toBeGreaterThan(0);
+  });
 
   test("totalCount auf empty-result: total=0, rows=[]", async () => {
     const res = await exec.list({ limit: 50, totalCount: true }, admin, tdb);

@@ -20,7 +20,7 @@ export const itemEntity = {
     notes: { type: "text", multiline: { rows: 4 } },
     priority: { type: "number", default: 1, sortable: true },
     isDone: { type: "boolean", default: false, sortable: true },
-    dueDate: { type: "date" },
+    dueDate: { type: "date", sortable: true },
     status: {
       type: "select",
       options: ["draft", "active", "blocked", "done"],

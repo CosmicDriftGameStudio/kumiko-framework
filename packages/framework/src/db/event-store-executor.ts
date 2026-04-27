@@ -703,7 +703,7 @@ export function createEventStoreExecutor(
 
       const lastRow = rows[rows.length - 1];
       const nextCursor =
-        rows.length === limit && lastRow ? encodeCursor(lastRow["id"] as number) : null;
+        rows.length === limit && lastRow ? encodeCursor(lastRow["id"] as string) : null;
 
       // total: extra COUNT(*) — nur wenn explizit angefordert (Pager-UI).
       // Postgres-Cost ist O(table-scan) ohne Filter, mit Filter so teuer
