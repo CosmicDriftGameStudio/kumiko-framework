@@ -1,4 +1,5 @@
 import type {
+  ActionFormScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
@@ -92,6 +93,8 @@ export function KumikoScreen({
           {...(onRowClick !== undefined && { onRowClick })}
         />
       );
+    case "actionForm":
+      return <ActionFormBody schema={schema} screen={screen} translate={translate} />;
     case "custom":
       return <CustomScreenBody screenId={screen.id} />;
   }
@@ -748,6 +751,83 @@ function EntityListBody({
       {...(onCreate !== undefined && { onCreate })}
       {...(translate !== undefined && { translate })}
       {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
+    />
+  );
+}
+
+// ---- actionForm (Tier 2.7d) ----
+
+// Action-Form-Body — non-CRUD Write-Handler-driven Form. Re-uses
+// RenderEdit über synthetische EntityEditScreenDefinition + Entity:
+// die Form-Mechanik (useForm, RenderEdit, DefaultInput, Banner,
+// Submit-Button) ist identisch zu entityEdit, nur der Submit-Pfad
+// wechselt vom CRUD-verb auf den Author-deklarierten handler-QN +
+// payloadMode="values" (alle Form-Werte schicken statt nur Changes).
+//
+// Synthetic-Cast-Schuld (Audit-flag): RenderEdit verlangt heute
+// `entity: EntityDefinition` + `screen: EntityEditScreenDefinition`,
+// nutzt aber intern nur `entity.fields` und `screen.layout`. Wir
+// shapen das hier ad-hoc um den existing Stack zu reusen. Sobald
+// RenderEdit auf "fields-First"-Signature refactored wird (oder
+// Workflow-Transitions auf entity.transitions zugreifen), bricht
+// der Cast — dann ist es Zeit für eine eigene RenderActionForm-
+// Komponente. Dokumentiert in docs/plans/features (Tier 2.7).
+function ActionFormBody({
+  schema,
+  screen,
+  translate,
+}: {
+  readonly schema: FeatureSchema;
+  readonly screen: ActionFormScreenDefinition;
+  readonly translate?: Translate;
+}): ReactNode {
+  const nav = useNav();
+  const synthEntity = useMemo<EntityDefinition>(
+    () => ({ fields: screen.fields }) as EntityDefinition,
+    [screen.fields],
+  );
+  const synthScreen = useMemo<EntityEditScreenDefinition>(
+    () => ({
+      id: screen.id,
+      type: "entityEdit",
+      entity: "__action-form__",
+      layout: screen.layout,
+      ...(screen.access !== undefined && { access: screen.access }),
+    }),
+    [screen.id, screen.layout, screen.access],
+  );
+  const initial = useMemo(() => buildInitialValues(screen.fields) as FormValues, [screen.fields]);
+  const handleSubmitted = useCallback(
+    (result: SubmitResult<unknown>) => {
+      // Redirect ist optional. Bei isSuccess + redirect → nav.navigate.
+      // Author entscheidet bewusst ob "stay on form" (default) oder
+      // "back to list" (typisch bei Create-style Aktionen).
+      if (result.isSuccess && screen.redirect !== undefined) {
+        nav.navigate({ screenId: screen.redirect });
+      }
+    },
+    [nav, screen.redirect],
+  );
+  // Cancel ist nur sinnvoll wenn ein Redirect-Target gesetzt ist —
+  // sonst hätte der Button nirgendwo hin zu navigieren. Bei Forms
+  // ohne redirect bleibt der User per Sidebar/Browser-Back im Flow,
+  // analog zu Settings-Pages.
+  const handleCancel = useMemo<(() => void) | undefined>(() => {
+    if (screen.redirect === undefined) return undefined;
+    const target = screen.redirect;
+    return () => nav.navigate({ screenId: target });
+  }, [nav, screen.redirect]);
+  return (
+    <RenderEdit
+      screen={synthScreen}
+      entity={synthEntity}
+      featureName={schema.featureName}
+      initial={initial}
+      writeCommand={screen.handler}
+      payloadMode="values"
+      onSubmit={handleSubmitted}
+      {...(handleCancel !== undefined && { onCancel: handleCancel })}
+      {...(translate !== undefined && { translate })}
     />
   );
 }

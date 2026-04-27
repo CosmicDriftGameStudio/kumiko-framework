@@ -467,7 +467,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       const stored = { ...screenDef, id: qualified };
       screenMap.set(qualified, stored);
       screenFeatureMap.set(qualified, feature.name);
-      if (stored.type !== "custom") {
+      // entity-Index nur für Screens die direkt an einer Entity hängen.
+      // entityList/entityEdit haben `entity`; custom + actionForm haben
+      // keinen entity-Bezug (custom ist opaque, actionForm hat inline
+      // fields ohne Entity-Reference).
+      if (stored.type === "entityList" || stored.type === "entityEdit") {
         const existing = screensByEntity.get(stored.entity) ?? [];
         existing.push(stored);
         screensByEntity.set(stored.entity, existing);

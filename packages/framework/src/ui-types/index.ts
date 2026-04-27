@@ -38,6 +38,7 @@ export type {
 export type { AccessRule } from "../engine/types/handlers";
 export type { NavDefinition } from "../engine/types/nav";
 export type {
+  ActionFormScreenDefinition,
   CustomScreenDefinition,
   CustomScreenRoute,
   EditFieldSpec,
@@ -50,6 +51,8 @@ export type {
   ListColumnSpec,
   PlatformComponent,
   ScreenDefinition,
+  ScreenFilter,
+  ScreenFilterOp,
   ScreenSlots,
 } from "../engine/types/screen";
 export { normalizeEditField, normalizeListColumn } from "../engine/types/screen";

@@ -1209,6 +1209,79 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- Tier 2.7d: actionForm-Screen ---
+  // Non-CRUD Write-Handler-driven Form. Author-Code-Checks am Boot:
+  // handler-Format (":write:"-segment), non-empty fields, layout-
+  // Konsistenz (sections + fields-Refs).
+  describe("actionForm screen (Tier 2.7d)", () => {
+    type ActionFormOverride = {
+      readonly handler?: string | undefined;
+      readonly fields?: Record<string, unknown>;
+      readonly sections?: ReadonlyArray<{
+        readonly title: string;
+        readonly fields: readonly string[];
+      }>;
+    };
+
+    function makeFeature(override: ActionFormOverride = {}) {
+      const handler = override.handler ?? "shop:write:invoice:approve";
+      const fields = override.fields ?? {
+        note: { type: "text" },
+        priority: { type: "number" },
+      };
+      const sections = override.sections ?? [{ title: "Approval", fields: ["note", "priority"] }];
+      return defineFeature("shop", (r) => {
+        r.screen({
+          id: "approve-invoice",
+          type: "actionForm",
+          handler,
+          fields: fields as never,
+          layout: { sections: sections as never },
+        });
+      });
+    }
+
+    test("happy path: handler + fields + layout konsistent → kein Throw", () => {
+      expect(() => validateBoot([makeFeature()])).not.toThrow();
+    });
+
+    test("handler ohne ':write:'-segment → Throw mit Hinweis", () => {
+      expect(() => validateBoot([makeFeature({ handler: "shop:query:invoice:list" })])).toThrow(
+        /handler "shop:query:invoice:list" does not look like a write-handler QN/,
+      );
+    });
+
+    test("handler leer → Throw", () => {
+      expect(() => validateBoot([makeFeature({ handler: "" })])).toThrow(
+        /has empty or non-string handler/,
+      );
+    });
+
+    test("fields empty-Map → Throw", () => {
+      expect(() => validateBoot([makeFeature({ fields: {} })])).toThrow(
+        /has empty fields map — declare at least one field/,
+      );
+    });
+
+    test("layout.sections leer → Throw", () => {
+      expect(() => validateBoot([makeFeature({ sections: [] })])).toThrow(
+        /has an empty sections list/,
+      );
+    });
+
+    test("section.fields leer → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ sections: [{ title: "Empty", fields: [] }] })]),
+      ).toThrow(/section "Empty" with zero fields/);
+    });
+
+    test("layout referenziert unknown field → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ sections: [{ title: "x", fields: ["ghost"] }] })]),
+      ).toThrow(/layout references unknown field "ghost"/);
+    });
+  });
+
   // --- defaultSort funktioniert für ALLE Field-Types die sortable
   //     unterstützen (Tier 2.6b Field-Erweiterung) ---
   // Vor Tier 2.6b war `sortable` nur auf TextFieldDef. Erweitert auf

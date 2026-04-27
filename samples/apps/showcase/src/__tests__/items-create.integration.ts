@@ -201,6 +201,32 @@ test("filter undefined (HTTP): default-Pfad, alle Items zurück (keine Regressio
   expect(all.rows.find((r) => r["title"] === "no-filter-marker")).toBeDefined();
 });
 
+test("actionForm Tier 2.7d (HTTP): submit mit nur title+priority erstellt item via item:create", async () => {
+  // Pinst Tier-2.7d End-to-End: itemQuickAddScreen schickt nur 2
+  // Felder (title + priority), während itemEntity insgesamt 6 Felder
+  // hat. Defaults im Insert-Schema (status="draft", isDone=false,
+  // notes/dueDate optional) machen den Submit valide ohne dass die
+  // actionForm alle Felder rendert. Verifiziert dass payloadMode=
+  // "values" + Server-side Defaults zusammen funktionieren.
+  const created = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    { title: "quick-via-action", priority: 7 },
+    TestUsers.admin,
+  );
+  expect(created.id).toBeDefined();
+
+  const list = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    { limit: 500 },
+    TestUsers.admin,
+  );
+  const found = list.rows.find((r) => r["id"] === created.id);
+  expect(found).toBeDefined();
+  expect(found?.["title"]).toBe("quick-via-action");
+  expect(found?.["priority"]).toBe(7);
+  expect(found?.["status"]).toBe("draft"); // Server-default greift
+});
+
 test("item:delete via rowAction-Pfad: Default-Payload {id} reicht", async () => {
   // Pinst Tier-2.7a End-to-End: die Delete-Action im itemListScreen
   // schickt nur `{ id: row.id }` (kein expliziter payload-Builder im

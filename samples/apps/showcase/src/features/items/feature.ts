@@ -18,6 +18,7 @@ import {
   itemEntity,
   itemFeedScreen,
   itemListScreen,
+  itemQuickAddScreen,
 } from "./schema";
 
 const open = { access: { openToAll: true } } as const;
@@ -35,6 +36,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   r.screen(itemListScreen);
   r.screen(itemFeedScreen);
   r.screen(itemActiveScreen);
+  r.screen(itemQuickAddScreen);
 
   // Section "Data" — clickbar zum Auf/Zuklappen weil parent ohne screen.
   r.nav({ id: "data", label: "Data", order: 100 });
@@ -65,5 +67,12 @@ export const itemsFeature = defineFeature("showcase", (r) => {
     parent: "data",
     screen: "item-edit",
     order: 20,
+  });
+  r.nav({
+    id: "item-quick-add",
+    label: "showcase:nav.quick-add",
+    parent: "data",
+    screen: "item-quick-add",
+    order: 25,
   });
 });

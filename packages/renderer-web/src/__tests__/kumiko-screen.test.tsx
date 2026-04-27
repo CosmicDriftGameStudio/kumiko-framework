@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import type {
+  ActionFormScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
@@ -547,6 +548,143 @@ describe("KumikoScreen", () => {
 
     expect(screen.queryByTestId("row-r1-action-start")).not.toBeNull();
     expect(screen.queryByTestId("row-r2-action-start")).toBeNull();
+  });
+
+  // --- actionForm (Tier 2.7d) ---
+  // Non-CRUD Write-Handler-driven Form. Schema deklariert handler-QN +
+  // inline fields; Renderer baut darauf den selben RenderEdit-Stack
+  // wie entityEdit, aber Submit ruft den deklarierten handler statt
+  // <feature>:write:<entity>:create.
+  test("actionForm: rendert Form-Felder + Submit triggert dispatcher.write(handler, values)", async () => {
+    const writeCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async (type: string, payload: unknown) => {
+        writeCalls.push({ type, payload });
+        return { isSuccess: true, data: { id: "new-id" } };
+      }) as unknown as Dispatcher["write"],
+    });
+
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: {
+        title: { type: "text", required: true },
+        priority: { type: "number", default: 1 },
+      },
+      layout: { sections: [{ title: "Basics", fields: ["title", "priority"] }] },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={{ ...schema, screens: [actionScreen] }} qn="tasks:screen:quick-add" />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    expect(titleInput).toBeTruthy();
+    fireEvent.change(titleInput, { target: { value: "New Task" } });
+
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(writeCalls.length).toBe(1));
+    expect(writeCalls[0]?.type).toBe("tasks:write:task:quick-add");
+    // payloadMode="values" — alle Form-Werte landen im Payload, nicht
+    // nur die geänderten. Defaults (priority=1) bleiben drin.
+    expect(writeCalls[0]?.payload).toEqual({ title: "New Task", priority: 1 });
+  });
+
+  test("actionForm mit redirect: nach success → nav.navigate({screenId: redirect})", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "x" },
+      })) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      redirect: "task-list",
+    };
+
+    const { NavProvider } = await import("@kumiko/renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen, listScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "go" } });
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
+  });
+
+  test("actionForm ohne redirect: nach success bleibt der User auf der Form (kein navigate)", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const writeCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async (type: string, payload: unknown) => {
+        writeCalls.push({ type, payload });
+        return { isSuccess: true, data: { id: "x" } };
+      }) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      // redirect bewusst NICHT gesetzt
+    };
+
+    const { NavProvider } = await import("@kumiko/renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "stay" } });
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    // Auf den Write-Call warten — sonst racet der Test gegen den
+    // async submit und prüft navigate-Calls bevor handleSubmitted
+    // überhaupt gerufen wurde (waitFor auf "render-edit-form" wäre
+    // ein no-op weil die Form sowieso schon mounted ist).
+    await waitFor(() => expect(writeCalls.length).toBe(1));
+    expect(navigateCalls).toEqual([]);
   });
 
   test("custom screen type → placeholder (M4 wires r.uiComponent)", () => {

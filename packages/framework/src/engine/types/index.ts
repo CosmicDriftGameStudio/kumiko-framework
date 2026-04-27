@@ -167,6 +167,7 @@ export type {
   RelationDefinition,
 } from "./relations";
 export type {
+  ActionFormScreenDefinition,
   CustomScreenDefinition,
   CustomScreenRoute,
   EditFieldSpec,

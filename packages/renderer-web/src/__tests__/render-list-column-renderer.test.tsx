@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { EntityDefinition, EntityListScreenDefinition } from "@kumiko/framework/ui-types";
 import { type ColumnRendererProps, ColumnRenderersProvider, RenderList } from "@kumiko/renderer";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { afterAll, beforeEach, describe, expect, type MockInstance, test, vi } from "vitest";
 import { render, screen } from "./test-utils";
 
@@ -35,7 +35,7 @@ function ColorSwatch({ value, row, column }: ColumnRendererProps): ReactNode {
   );
 }
 
-function withRenderers(ui: ReactNode, map: Record<string, typeof ColorSwatch>): ReactNode {
+function withRenderers(ui: ReactNode, map: Record<string, typeof ColorSwatch>): ReactElement {
   return <ColumnRenderersProvider value={map}>{ui}</ColumnRenderersProvider>;
 }
 

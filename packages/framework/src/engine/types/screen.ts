@@ -1,3 +1,4 @@
+import type { FieldDefinition } from "./fields";
 import type { AccessRule } from "./handlers";
 
 // Screen definitions describe how a feature surfaces data to the user.
@@ -264,6 +265,48 @@ export type EntityEditScreenDefinition = {
   readonly access?: AccessRule;
 };
 
+// --- actionForm ---
+
+// Form-Screen für non-CRUD Write-Handler. Wird gerendert wie ein
+// EntityEditScreen (sections + fields), aber:
+//   - kein detail-fetch beim Mount (initial-state = field-defaults)
+//   - kein CRUD-verb-mapping ("create"/"update") — Author gibt
+//     explizit die Write-Handler-QN an
+//   - Form-Object landet 1:1 als payload beim Handler; sein Zod-Schema
+//     validiert weiter
+//   - optional `redirect` zu einem anderen Screen nach Submit-Success
+//
+// Beispiele: "Send invitation" (mit recipient-email + role), "Approve
+// invoice" (mit notes), "Bulk-import" (mit CSV-string + mode).
+//
+// Field-Shape: inline am Screen statt entity-Reference. Author hat
+// explizite Kontrolle was die Form rendert ohne eine ganze Entity
+// dafür anzulegen. Die FieldDefinitions sind dieselben wie auf
+// Entities (text/select/number/...) — alle DefaultInput-Renderer
+// greifen unverändert.
+export type ActionFormScreenDefinition = {
+  readonly id: string;
+  readonly type: "actionForm";
+  /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
+   *  1:1 als payload — Handler-Schema (Zod) validiert weiter. */
+  readonly handler: string;
+  /** Form-Shape: Field-Map pro Name. Nutzt dieselben FieldDefinitions
+   *  wie Entity-Felder. Mindestens ein Feld erforderlich (Boot-
+   *  Validator). */
+  readonly fields: Readonly<Record<string, FieldDefinition>>;
+  /** Layout analog zu EntityEditScreen: sections mit fields aus dem
+   *  fields-Map oben. */
+  readonly layout: EditLayout;
+  /** i18n-key für den Submit-Button. Default: i18n-Default des
+   *  Renderers (typischerweise "actions.submit"). */
+  readonly submitLabel?: string;
+  /** Nach erfolgreichem Submit zu diesem Screen-ID navigieren. Wenn
+   *  nicht gesetzt, bleibt der User auf dem Form-Screen. */
+  readonly redirect?: string;
+  readonly slots?: ScreenSlots;
+  readonly access?: AccessRule;
+};
+
 // --- custom ---
 
 // Sub-route declared by a custom screen (Expo Router / URL-routing use).
@@ -298,6 +341,7 @@ export type ScreenSlots = {
 export type ScreenDefinition =
   | EntityListScreenDefinition
   | EntityEditScreenDefinition
+  | ActionFormScreenDefinition
   | CustomScreenDefinition;
 
 // Collapse the string-shorthand into the object form. Both the boot-validator

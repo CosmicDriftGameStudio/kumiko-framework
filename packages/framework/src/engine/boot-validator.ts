@@ -785,6 +785,62 @@ function validateScreens(
       continue;
     }
 
+    if (screen.type === "actionForm") {
+      // Tier 2.7d: Action-Form-Screens haben keinen entity-Link, nur
+      // einen Write-Handler-QN + Inline-Fields. Drei Author-Code-
+      // Checks am Boot:
+      //   1) handler ist ein non-empty String mit ":write:"-Pattern
+      //      (validiert dass es eine Write-Handler-QN ist und kein
+      //      query-Handler oder Tippfehler).
+      //   2) fields-Map ist non-empty (sonst rendert die Form als
+      //      leerer Submit-Button — Author-Fehler).
+      //   3) layout.sections + jedes referenced field existiert in
+      //      fields. Identisch zu entityEdit, nur fields lebt am
+      //      Screen statt auf einer Entity.
+      if (!screen.handler || typeof screen.handler !== "string") {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has empty or non-string handler.`,
+        );
+      }
+      if (!screen.handler.includes(":write:")) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) handler "${screen.handler}" ` +
+            `does not look like a write-handler QN (expected ":write:" segment, e.g. "feat:write:thing:do").`,
+        );
+      }
+      const fieldNames = new Set(Object.keys(screen.fields));
+      if (fieldNames.size === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has empty fields map — ` +
+            `declare at least one field.`,
+        );
+      }
+      if (screen.layout.sections.length === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has an empty sections list — ` +
+            `declare at least one section.`,
+        );
+      }
+      for (const section of screen.layout.sections) {
+        if (section.fields.length === 0) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has a section "${section.title}" ` +
+              `with zero fields — drop the section or add fields to it.`,
+          );
+        }
+        for (const fieldSpec of section.fields) {
+          const normalized = normalizeEditField(fieldSpec);
+          if (!fieldNames.has(normalized.field)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (actionForm) layout references unknown field ` +
+                `"${normalized.field}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+            );
+          }
+        }
+      }
+      continue;
+    }
+
     // entityList / entityEdit: entity-refs are feature-local.
     const entityDef = feature.entities[screen.entity];
     if (!entityDef) {

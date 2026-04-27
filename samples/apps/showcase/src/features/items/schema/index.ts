@@ -9,4 +9,5 @@ export {
   itemEntity,
   itemFeedScreen,
   itemListScreen,
+  itemQuickAddScreen,
 } from "./item";

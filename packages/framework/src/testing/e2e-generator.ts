@@ -102,6 +102,9 @@ export function generateE2ESpec(
 
   for (const [screenQn, screen] of registry.getAllScreens()) {
     if (screen.type === "custom") continue; // keine generische Annahme möglich
+    // actionForm: kein generischer E2E-Spec — Author-defined Handler
+    // braucht Author-defined Test-Daten, die der Generator nicht kennt.
+    if (screen.type === "actionForm") continue;
     const { scope: feature, name: short } = parseQn(screenQn);
     const urlPath = `/t/${tenant}/${feature}/${short}`;
     const title = `${feature}/${short}`;

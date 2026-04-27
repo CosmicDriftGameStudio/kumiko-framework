@@ -9,6 +9,7 @@
 // column renderer).
 
 import type {
+  ActionFormScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
@@ -127,4 +128,36 @@ export const itemActiveScreen: EntityListScreenDefinition = {
   defaultSort: { field: "title", dir: "asc" },
   searchable: true,
   filter: { field: "status", op: "eq", value: "active" },
+};
+
+// Tier 2.7d Demo — actionForm Screen-Typ. Non-CRUD Write-Handler-
+// driven Form, hier mit dem existing item:create-Handler aber
+// reduzierter Field-Auswahl (nur title + priority). Demonstriert dass
+// eine actionForm:
+//   - keine Entity-Reference braucht (fields sind inline)
+//   - einen beliebigen Write-Handler-QN triggert (hier item:create,
+//     üblich wäre auch sowas wie item:archive-batch oder
+//     invoice:approve mit dedizierten Handlern)
+//   - nach Submit redirecten kann (hier zur Liste)
+//
+// Default-Werte greifen für nicht-Form-Felder: status=draft, isDone=
+// false, priority kommt aus dem Form, notes/dueDate optional.
+export const itemQuickAddScreen: ActionFormScreenDefinition = {
+  id: "item-quick-add",
+  type: "actionForm",
+  handler: "showcase:write:item:create",
+  fields: {
+    title: { type: "text", required: true },
+    priority: { type: "number", default: 1 },
+  },
+  layout: {
+    sections: [
+      {
+        title: "Quick Add",
+        columns: 2,
+        fields: [{ field: "title", span: 2 }, "priority"],
+      },
+    ],
+  },
+  redirect: "item-list",
 };
