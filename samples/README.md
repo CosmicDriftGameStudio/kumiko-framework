@@ -32,7 +32,7 @@ Getestete Beispiele fuer Framework-Features. Drei Buckets:
 | Row-level Ownership (Entity + Field, Read + Write, Straddle-safe) | [recipes/ownership](recipes/ownership/) | Integration |
 | Jobs auf Deploy-Lane pinnen (runIn: "api" \| "worker"), event-triggered Fan-out | [recipes/lane-routing](recipes/lane-routing/) | Integration |
 | Screens + Navigation registrieren (r.screen + r.nav) mit entityList/entityEdit/custom, cross-feature Nav-Parents, typed FieldCondition<T> | [recipes/screens-nav](recipes/screens-nav/) | Unit |
-| Playwright-E2E-Specs aus der Registry generieren (generateE2ESpec + renderPlaywrightSpec, 4 Test-Kinds, Feldtyp→Interaktion-Mapping) | [recipes/e2e-generator](recipes/e2e-generator/) | Unit |
+| Playwright-E2E-Specs aus der Registry generieren (generateE2ESpec + generateZodFixture, 4 Test-Kinds, Feldtyp→Interaktion-Mapping; JSON-serialisierbar für externen Worker) | [recipes/e2e-generator](recipes/e2e-generator/) | Unit |
 
 ## Apps — UI + dev-server
 

@@ -351,14 +351,35 @@ describe("error contract: wire format per class", () => {
     expect(body.error.i18nKey).toBe("errctr.errors.alreadyFulfilled");
   });
 
-  test("InternalError (auto-wrap of non-Kumiko throw) → 500, details hidden", async () => {
-    const { status, body } = await writeErrorBody("errctr:write:item:boom", {});
-    expect(status).toBe(500);
-    expect(body.error.code).toBe("internal_error");
-    // Internal details must NOT be exposed to the client — the original
-    // TypeError message lives in the log only.
-    expect(body.error).not.toHaveProperty("details");
-    expect(body.error.message).not.toContain("cannot_read_prop");
+  test("InternalError (auto-wrap) → 500, generic message; dev exposes cause, prod hides it", async () => {
+    // Default test-Run läuft mit NODE_ENV !== "production" — dev-Modus exposed
+    // die cause-Details (causeName/causeMessage/causeStack), damit Handler-
+    // Bugs nicht als nackter "internal error" zurückkommen. Memory:
+    // Framework-DX Fixes 2026-04-25.
+    const dev = await writeErrorBody("errctr:write:item:boom", {});
+    expect(dev.status).toBe(500);
+    expect(dev.body.error.code).toBe("internal_error");
+    // Generic message für Client (keine Stack-Leak im message-Feld), aber
+    // details enthalten die cause-Zusammenfassung für DX.
+    expect(dev.body.error.message).not.toContain("cannot_read_prop");
+    expect(dev.body.error.details).toMatchObject({
+      causeName: "TypeError",
+      causeMessage: "cannot_read_prop",
+    });
+
+    // Production-Modus: details werden gestripped, der Stack lebt nur im Log.
+    const prevEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      const prod = await writeErrorBody("errctr:write:item:boom", {});
+      expect(prod.status).toBe(500);
+      expect(prod.body.error.code).toBe("internal_error");
+      expect(prod.body.error).not.toHaveProperty("details");
+      expect(prod.body.error.message).not.toContain("cannot_read_prop");
+    } finally {
+      if (prevEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = prevEnv;
+    }
   });
 });
 

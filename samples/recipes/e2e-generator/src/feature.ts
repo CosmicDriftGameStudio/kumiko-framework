@@ -3,12 +3,12 @@
 // Zeigt die Feldtyp-Bandbreite die der Generator heute abdeckt, plus einen
 // bewusst ausgelassenen Fall (money + image) den er korrekt skippt.
 //
-// Im begleitenden Test wird dieses Feature an generateE2ESpec +
-// renderPlaywrightSpec übergeben und die vier Test-Kinds (list-renders,
-// list-has-fixture-row, edit-validates-required, edit-save-persists) werden
-// als Snapshot eingefroren. Ein Feature-Autor sieht damit direkt wie ein
-// "echter" Generator-Run aussieht und an welchen Stellen der Generator heute
-// noch "not supported yet" sagen würde.
+// Im begleitenden Test wird dieses Feature an generateE2ESpec übergeben
+// und die vier Test-Kinds (list-renders, list-has-fixture-row,
+// edit-validates-required, edit-save-persists) werden als Snapshot
+// eingefroren. Output ist JSON-serialisierbares E2ETestSpec[] — der Test
+// dokumentiert die Konvention, dieses JSON auf Platte zu schreiben und
+// vom externen Playwright-Worker konsumieren zu lassen.
 
 import {
   createBooleanField,
