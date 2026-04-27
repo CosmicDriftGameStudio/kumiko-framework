@@ -54,7 +54,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   });
   r.nav({
     id: "item-active",
-    label: "showcase:nav.active",
+    label: "showcase:nav.active-items",
     parent: "data",
     screen: "item-active",
     order: 17,

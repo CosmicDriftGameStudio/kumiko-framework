@@ -1,5 +1,6 @@
 import type { OwnershipMap, OwnershipRule } from "./ownership";
 import { qualifyEntityName } from "./qualified-name";
+import { getAllowedFilterOps, isFieldFilterable } from "./screen-filter-ops";
 import type {
   ClaimKeyDefinition,
   FeatureDefinition,
@@ -861,14 +862,15 @@ function validateScreens(
           );
         }
       }
-      // Screen-Filter (Tier 2.7c) — pin field gegen die Entity. Der
-      // Filter wird server-side in der WHERE-Clause appliziert; ein
-      // Tippfehler im Field-Namen würde sonst silent als "no match"
-      // durchfallen (executor liest table[filter.field] → undefined
-      // → kein Filter). Boot-Fail ist deutlich besser als leere Liste.
-      // Op-Spezifika: "in" verlangt readonly Array; "lt"/"gt" sind nur
-      // für vergleichbare Types (Number/Date/Instant) sinnvoll, das
-      // checken wir erstmal nicht — Drizzle wirft bei Type-Mismatch.
+      // Screen-Filter (Tier 2.7c) — drei Layer Author-Code-Check:
+      //   1) Field existiert auf der Entity (Tippfehler = leere Liste
+      //      statt Crash; Boot-Fail ist deutlich besser).
+      //   2) Field hat `filterable: true` (Author opt-in, analog zu
+      //      `sortable`). Verhindert dass Audit-/Computed-/encrypted-
+      //      Felder unbeabsichtigt filterbar werden.
+      //   3) Op passt zum Field-Type. Lt/gt auf text-Feldern → Boot-
+      //      Fail mit Hinweis statt String-Sort-Surprise zur Laufzeit.
+      // Außerdem: "in" verlangt readonly Array.
       if (screen.filter !== undefined) {
         const filterField = screen.filter.field;
         if (!fieldNames.has(filterField)) {
@@ -876,6 +878,24 @@ function validateScreens(
             `[Feature ${feature.name}] Screen "${screenId}" (entityList) filter references unknown ` +
               `field "${filterField}". Known fields: ${[...fieldNames].sort().join(", ")}`,
           );
+        }
+        const fieldDef = entityDef.fields[filterField];
+        if (fieldDef !== undefined && !isFieldFilterable(fieldDef)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityList) filter references field ` +
+              `"${filterField}" which is not filterable. Set filterable: true on the field ` +
+              `definition or pick another field.`,
+          );
+        }
+        if (fieldDef !== undefined) {
+          const allowedOps = getAllowedFilterOps(fieldDef);
+          if (!allowedOps.includes(screen.filter.op)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (entityList) filter.op ` +
+                `"${screen.filter.op}" is not allowed on field "${filterField}" ` +
+                `(type "${fieldDef.type}"). Allowed ops: ${allowedOps.join(", ") || "(none)"}.`,
+            );
+          }
         }
         if (screen.filter.op === "in" && !Array.isArray(screen.filter.value)) {
           throw new Error(

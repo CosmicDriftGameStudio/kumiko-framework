@@ -144,14 +144,14 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows.map((r) => r["rank"])).toEqual([5]);
   });
 
-  test("filter neq: alle außer rank=5", async () => {
+  test("filter ne: alle außer rank=2", async () => {
     await seed(5);
     const res = await exec.list(
       {
         limit: 50,
         sort: "rank",
         sortDirection: "asc",
-        filter: { field: "rank", op: "neq", value: 2 },
+        filter: { field: "rank", op: "ne", value: 2 },
       },
       admin,
       tdb,

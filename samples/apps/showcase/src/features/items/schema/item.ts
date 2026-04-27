@@ -18,14 +18,15 @@ export const itemEntity = {
   fields: {
     title: { type: "text", required: true, sortable: true, searchable: true },
     notes: { type: "text", multiline: { rows: 4 } },
-    priority: { type: "number", default: 1, sortable: true },
-    isDone: { type: "boolean", default: false, sortable: true },
-    dueDate: { type: "date", sortable: true },
+    priority: { type: "number", default: 1, sortable: true, filterable: true },
+    isDone: { type: "boolean", default: false, sortable: true, filterable: true },
+    dueDate: { type: "date", sortable: true, filterable: true },
     status: {
       type: "select",
       options: ["draft", "active", "blocked", "done"],
       default: "draft",
       sortable: true,
+      filterable: true,
     },
   },
 } as unknown as EntityDefinition;

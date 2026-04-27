@@ -478,6 +478,33 @@ describe("KumikoScreen", () => {
     expect(payload.filter).toEqual({ field: "status", op: "eq", value: "scheduled" });
   });
 
+  // Regression-Guard: Default-Pfad (kein screen.filter) darf KEIN
+  // filter-Feld in den queryPayload schicken. Sonst würde Zod-Strict
+  // ein leeres `filter: undefined` als 400 abweisen, oder ein
+  // "match-none"-Default-Drift entstehen.
+  test("entityList ohne screen.filter: queryPayload hat kein filter-Feld", async () => {
+    const queryCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        queryCalls.push({ type, payload });
+        return {
+          isSuccess: true,
+          data: { rows: [], nextCursor: null },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="tasks:screen:task-list" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+
+    const payload = queryCalls[0]?.payload as Record<string, unknown>;
+    expect("filter" in payload).toBe(false);
+  });
+
   test("entityList rowActions visible-filter: hidden Action erscheint nicht im DOM", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({

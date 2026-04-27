@@ -8,7 +8,7 @@ export const itemsTranslations: TranslationsByLocale = {
   de: {
     "showcase:nav.list": "Items (Pages)",
     "showcase:nav.feed": "Items (Feed)",
-    "showcase:nav.active": "Items (Active)",
+    "showcase:nav.active-items": "Items (Active)",
     "showcase:nav.new": "Neuer Eintrag",
     "showcase:entity:item:field:title": "Titel",
     "showcase:entity:item:field:priority": "Priorität",
@@ -27,7 +27,7 @@ export const itemsTranslations: TranslationsByLocale = {
   en: {
     "showcase:nav.list": "Items (Pages)",
     "showcase:nav.feed": "Items (Feed)",
-    "showcase:nav.active": "Items (Active)",
+    "showcase:nav.active-items": "Items (Active)",
     "showcase:nav.new": "New item",
     "showcase:entity:item:field:title": "Title",
     "showcase:entity:item:field:priority": "Priority",

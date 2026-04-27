@@ -54,7 +54,7 @@ type ListPayload = {
   // den gleichen Query-Handler.
   filter?: {
     readonly field: string;
-    readonly op: "eq" | "neq" | "lt" | "gt" | "in";
+    readonly op: "eq" | "ne" | "lt" | "gt" | "in";
     readonly value: unknown;
   };
 };
@@ -71,7 +71,7 @@ const listSchema = z.object({
   filter: z
     .object({
       field: z.string(),
-      op: z.enum(["eq", "neq", "lt", "gt", "in"]),
+      op: z.enum(["eq", "ne", "lt", "gt", "in"]),
       // Value ist `unknown` zur Compile-Zeit; Server-Side prüft beim
       // Build der WHERE-Clause ob der Type zum Field passt. z.unknown()
       // lässt alles durch; Type-Check kommt im executor.list.

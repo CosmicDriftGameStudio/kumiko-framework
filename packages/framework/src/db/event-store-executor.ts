@@ -41,6 +41,34 @@ import type { TenantDb } from "./tenant-db";
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
 
+// Screen-Filter (Tier 2.7c) — Op-Mapping zur Drizzle-WHERE-Clause.
+// Lebt isoliert hier (statt inline im list-Body) damit der einzige
+// Wire-Boundary `as never`-Cast lokal bleibt: payload.filter.value ist
+// `unknown` (Wire-Boundary), Drizzle's eq/ne/lt/gt/inArray verlangen
+// den Column-Type. Type-Mismatch wirft erst der PostgreSQL-Driver zur
+// Laufzeit; Author hat über `filterable: true` + Boot-Validator op-
+// vs-Type-Compat ohnehin Kontrolle was reinkommt.
+//
+// Empty-array IN ist explizit "no match" (SQL false), nicht "match all".
+// biome-ignore lint/suspicious/noExplicitAny: Drizzle-Column ist generic; siehe oben.
+function buildFilterCondition(col: any, op: "eq" | "ne" | "lt" | "gt" | "in", value: unknown): SQL {
+  switch (op) {
+    case "eq":
+      return eq(col, value as never);
+    case "ne":
+      return ne(col, value as never);
+    case "lt":
+      return lt(col, value as never);
+    case "gt":
+      return gt(col, value as never);
+    case "in":
+      if (Array.isArray(value) && value.length > 0) {
+        return inArray(col, value as never);
+      }
+      return sql`false`;
+  }
+}
+
 // Returns the scalar default of a field, or undefined if the field's type
 // doesn't carry a default or no default was declared. Only scalar types
 // (text/number/boolean/select) support creation-time defaults — money/date/
@@ -134,7 +162,7 @@ export type EventStoreExecutor = {
       filter?:
         | {
             readonly field: string;
-            readonly op: "eq" | "neq" | "lt" | "gt" | "in";
+            readonly op: "eq" | "ne" | "lt" | "gt" | "in";
             readonly value: unknown;
           }
         | undefined;
@@ -674,43 +702,15 @@ export function createEventStoreExecutor(
       if (ownership.kind === "sql") {
         conditions.push(ownership.sql);
       }
-      // Screen-Filter (Tier 2.7c) — vom Author deklariert, hier zu SQL
-      // gebaut. Field muss auf der Drizzle-Tabelle existieren (Boot-
-      // Validator hat das beim Author-Code-Eingang gepinnt; Runtime-
-      // Defense: undefined-column → silent skip statt Crash).
-      //
-      // `as never`-Casts: drizzle-orm typt eq/ne/lt/gt/inArray gegen die
-      // Column-Type-Inferenz; payload.filter.value ist `unknown` (Wire-
-      // Boundary). Wir umgehen den Compile-Time-Check bewusst — der
-      // PostgreSQL-Driver wirft bei Type-Mismatch zur Laufzeit, und der
-      // Author hat über die Schema-Deklaration ohnehin Kontrolle was
-      // reinkommt.
+      // Screen-Filter (Tier 2.7c) — Boot-Validator hat field-Existenz
+      // + filterable + op-vs-Type-Compat schon gepinnt. Runtime-Defense:
+      // undefined-column → silent skip (kein Crash). Op-Mapping läuft
+      // durch buildFilterCondition() — da lebt auch der einzige
+      // `as never`-Cast (Wire-Boundary).
       if (payload.filter !== undefined) {
         const col = table[payload.filter.field];
         if (col !== undefined) {
-          const v = payload.filter.value;
-          switch (payload.filter.op) {
-            case "eq":
-              conditions.push(eq(col, v as never));
-              break;
-            case "neq":
-              conditions.push(ne(col, v as never));
-              break;
-            case "lt":
-              conditions.push(lt(col, v as never));
-              break;
-            case "gt":
-              conditions.push(gt(col, v as never));
-              break;
-            case "in":
-              if (Array.isArray(v) && v.length > 0) {
-                conditions.push(inArray(col, v as never));
-              } else {
-                // Empty-array IN: per Convention "no match" — SQL-true=false.
-                conditions.push(sql`false`);
-              }
-              break;
-          }
+          conditions.push(buildFilterCondition(col, payload.filter.op, payload.filter.value));
         }
       }
 

@@ -1117,26 +1117,24 @@ describe("boot-validator", () => {
   });
 
   // --- Tier 2.7c: Screen-Filter ---
-  // Filter-Field muss im Schema existieren — sonst läuft die Liste
-  // server-side silent als "no match" (executor: undefined column →
-  // skip filter), was als leerer Bucket auf dem Bildschirm landet.
-  // Boot-Fail ist deutlich besser als das.
+  // Drei Layer Author-Code-Validation: field-existiert, filterable: true
+  // gesetzt, op passt zum Field-Type. Boot-Fail ist deutlich besser als
+  // silent-leerer Bucket / Drizzle-Crash zur Laufzeit.
   describe("entityList screen-filter (Tier 2.7c)", () => {
-    function makeFeature(filter: {
-      readonly field: string;
-      readonly op: "eq" | "neq" | "lt" | "gt" | "in";
-      readonly value: unknown;
-    }) {
+    function makeFeature(
+      filter: {
+        readonly field: string;
+        readonly op: "eq" | "ne" | "lt" | "gt" | "in";
+        readonly value: unknown;
+      },
+      fields: Record<string, unknown> = {
+        name: { type: "text", sortable: true, filterable: true },
+        status: { type: "text", filterable: true },
+        secret: { type: "text" },
+      },
+    ) {
       return defineFeature("shop", (r) => {
-        r.entity(
-          "product",
-          createEntity({
-            fields: {
-              name: createTextField({ sortable: true }),
-              status: createTextField(),
-            },
-          }),
-        );
+        r.entity("product", createEntity({ fields: fields as never }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -1147,7 +1145,7 @@ describe("boot-validator", () => {
       });
     }
 
-    test("filter.field existiert → kein Throw", () => {
+    test("filter.field existiert + filterable → kein Throw", () => {
       expect(() =>
         validateBoot([makeFeature({ field: "status", op: "eq", value: "active" })]),
       ).not.toThrow();
@@ -1157,6 +1155,32 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature({ field: "ghost", op: "eq", value: "x" })])).toThrow(
         /filter references unknown field "ghost"/,
       );
+    });
+
+    test("filter.field existiert aber filterable=false → Throw", () => {
+      expect(() => validateBoot([makeFeature({ field: "secret", op: "eq", value: "x" })])).toThrow(
+        /filter references field "secret" which is not filterable/,
+      );
+    });
+
+    test("filter.op=lt auf text-Feld → Throw (op-vs-Type-Compat)", () => {
+      expect(() => validateBoot([makeFeature({ field: "status", op: "lt", value: "x" })])).toThrow(
+        /filter\.op "lt" is not allowed on field "status" \(type "text"\)/,
+      );
+    });
+
+    test("filter.op=gt auf number-Feld → kein Throw (vergleichbar)", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature(
+            { field: "rank", op: "gt", value: 5 },
+            {
+              name: { type: "text", filterable: true },
+              rank: { type: "number", filterable: true },
+            },
+          ),
+        ]),
+      ).not.toThrow();
     });
 
     test('filter.op="in" mit non-array value → Throw', () => {
@@ -1171,11 +1195,17 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("filter.op=eq mit beliebigem value → kein Throw (Type-Check zur Laufzeit)", () => {
-      // String/number/boolean alle ok, server prüft beim WHERE-Build.
+    test("filter.op=ne auf boolean → kein Throw, lt auf boolean → Throw", () => {
+      const fields = {
+        name: { type: "text", filterable: true },
+        flag: { type: "boolean", filterable: true },
+      };
       expect(() =>
-        validateBoot([makeFeature({ field: "status", op: "eq", value: 42 })]),
+        validateBoot([makeFeature({ field: "flag", op: "ne", value: true }, fields)]),
       ).not.toThrow();
+      expect(() =>
+        validateBoot([makeFeature({ field: "flag", op: "lt", value: true }, fields)]),
+      ).toThrow(/filter\.op "lt" is not allowed on field "flag" \(type "boolean"\)/);
     });
   });
 

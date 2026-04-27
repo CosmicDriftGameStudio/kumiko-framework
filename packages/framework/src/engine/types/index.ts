@@ -179,6 +179,8 @@ export type {
   ListColumnSpec,
   PlatformComponent,
   ScreenDefinition,
+  ScreenFilter,
+  ScreenFilterOp,
   ScreenSlots,
 } from "./screen";
 export { normalizeEditField, normalizeListColumn } from "./screen";

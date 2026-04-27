@@ -78,19 +78,22 @@ export type ListSortSpec = {
 // "Past Maintenance") ohne drei Custom-Pages — Filter pro Screen
 // unterscheidet sie.
 //
-// Operatoren:
-//   eq/neq → field = value | field != value
-//   lt/gt  → field < value | field > value (numerisch / temporal)
-//   in     → field IN (...values), value muss readonly array sein
+// Operatoren (Drizzle-konsistent):
+//   eq/ne → field = value | field != value
+//   lt/gt → field < value | field > value (numerisch / temporal)
+//   in    → field IN (...values), value muss readonly array sein
 //
-// Field muss in der Entity existieren (Boot-Validator pinned).
+// Field muss in der Entity existieren UND `filterable: true` haben
+// (Boot-Validator pinned beides). `lt`/`gt` nur auf vergleichbaren
+// Field-Types (number/money/date/timestamp/locatedTimestamp); auf
+// text/boolean/select/multiSelect lehnt der Validator das ab.
 //
 // Security-Modell: Filter ist UX-Bucketing, KEINE Access-Boundary. Der
 // Server appliziert den filter aus dem Payload — der Client kann ihn
 // weglassen oder durch einen anderen ersetzen. Boundary bleiben
 // access-rule + Tenant-Scope; Felder mit Sicherheits-Bias (encrypted,
 // restricted) müssen dort geschützt werden, nicht über den Screen-Filter.
-export type ScreenFilterOp = "eq" | "neq" | "lt" | "gt" | "in";
+export type ScreenFilterOp = "eq" | "ne" | "lt" | "gt" | "in";
 export type ScreenFilter = {
   readonly field: string;
   readonly op: ScreenFilterOp;

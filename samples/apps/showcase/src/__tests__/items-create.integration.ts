@@ -66,18 +66,23 @@ test("item:list mit pagination-payload (limit + totalCount) liefert total", asyn
   expect(typeof list.total).toBe("number");
 });
 
-test("item:list mit screen-filter (Tier 2.7c): nur status=active zurück", async () => {
-  // Pinst Tier-2.7c End-to-End: dispatcher payload mit `filter` gelangt
-  // durch den Zod-Validator + executor.list WHERE-Builder. Pre-Tier-2.7c
-  // hätte das Zod den filter rejected und der Server hätte status:400
-  // statt einer gefilterten Liste geantwortet.
+// Tier-2.7c End-to-End: dispatcher payload mit `filter` durchläuft
+// Zod-Validator + executor.list WHERE-Builder. Tests pinnen alle 5 Ops
+// über den vollen HTTP-Pfad — pre-2.7c hätte Zod den filter rejected
+// und der Server hätte status:400 statt gefilterter Liste geantwortet.
+//
+// Die Tests legen pro Test eigene Items mit eindeutigen Markern an
+// (priority-Werte 100-104) damit sie unabhängig von anderen Tests in
+// derselben Suite stabil sind. status="active"/"draft" reicht für eq/ne,
+// priority für lt/gt/in.
+test("filter eq (HTTP): status=active liefert nur active items", async () => {
   await stack.http.writeOk(
     "showcase:write:item:create",
     {
-      title: "active-1",
+      title: "filter-eq-active",
       status: "active",
       isDone: false,
-      priority: 1,
+      priority: 100,
       dueDate: "2026-05-01",
       notes: "",
     },
@@ -86,10 +91,10 @@ test("item:list mit screen-filter (Tier 2.7c): nur status=active zurück", async
   await stack.http.writeOk(
     "showcase:write:item:create",
     {
-      title: "draft-1",
+      title: "filter-eq-draft",
       status: "draft",
       isDone: false,
-      priority: 1,
+      priority: 100,
       dueDate: "2026-05-01",
       notes: "",
     },
@@ -101,10 +106,99 @@ test("item:list mit screen-filter (Tier 2.7c): nur status=active zurück", async
     { limit: 200, filter: { field: "status", op: "eq", value: "active" } },
     TestUsers.admin,
   );
-  // Mindestens das eine "active-1" — andere Tests legen evtl. mehr an.
   expect(filtered.rows.length).toBeGreaterThan(0);
-  // Aber KEINE drafts unter den results.
   expect(filtered.rows.every((r) => r["status"] === "active")).toBe(true);
+});
+
+test("filter ne (HTTP): status!=draft schließt drafts aus", async () => {
+  const res = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    { limit: 200, filter: { field: "status", op: "ne", value: "draft" } },
+    TestUsers.admin,
+  );
+  expect(res.rows.every((r) => r["status"] !== "draft")).toBe(true);
+});
+
+test("filter lt/gt (HTTP): priority Range-Compare", async () => {
+  // Eindeutige priority-Marker (200-204) damit die Suite-internen Tests
+  // andere priority-Werte nicht stören.
+  for (let i = 200; i <= 204; i++) {
+    await stack.http.writeOk(
+      "showcase:write:item:create",
+      {
+        title: `filter-prio-${i}`,
+        status: "draft",
+        isDone: false,
+        priority: i,
+        dueDate: "2026-05-01",
+        notes: "",
+      },
+      TestUsers.admin,
+    );
+  }
+  const lt = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    { limit: 200, filter: { field: "priority", op: "lt", value: 202 } },
+    TestUsers.admin,
+  );
+  // 200 + 201 sind drin, 202+ raus.
+  const ltPriorities = lt.rows.map((r) => r["priority"]).filter((p) => typeof p === "number");
+  expect(ltPriorities.every((p) => (p as number) < 202)).toBe(true);
+
+  const gt = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    { limit: 200, filter: { field: "priority", op: "gt", value: 202 } },
+    TestUsers.admin,
+  );
+  const gtPriorities = gt.rows.map((r) => r["priority"]).filter((p) => typeof p === "number");
+  expect(gtPriorities.every((p) => (p as number) > 202)).toBe(true);
+});
+
+test("filter in (HTTP): priority IN [...] inkl. empty-array → leeres Resultat", async () => {
+  const res = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    {
+      limit: 200,
+      filter: { field: "priority", op: "in", value: [200, 201, 204] },
+    },
+    TestUsers.admin,
+  );
+  const found = res.rows.map((r) => r["priority"]);
+  expect(found.every((p) => p === 200 || p === 201 || p === 204)).toBe(true);
+
+  // Empty-array IN: per Convention "no match" — pinst dass der Server
+  // nicht "match-all" macht (was Drizzle's Default-Verhalten wäre).
+  const empty = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    { limit: 200, filter: { field: "priority", op: "in", value: [] } },
+    TestUsers.admin,
+  );
+  expect(empty.rows).toHaveLength(0);
+});
+
+test("filter undefined (HTTP): default-Pfad, alle Items zurück (keine Regression)", async () => {
+  // Pinst dass Caller ohne filter den vorherigen Pfad bekommt — kein
+  // versteckter "match-none"-Default oder Schema-Drift in der Zod-Pipe.
+  // Nutzt einen frisch angelegten Test-Marker damit auch bei isolierter
+  // DB ein Resultat existiert.
+  await stack.http.writeOk(
+    "showcase:write:item:create",
+    {
+      title: "no-filter-marker",
+      status: "draft",
+      isDone: false,
+      priority: 999,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+  const all = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    { limit: 500 },
+    TestUsers.admin,
+  );
+  expect(all.rows.find((r) => r["title"] === "no-filter-marker")).toBeDefined();
 });
 
 test("item:delete via rowAction-Pfad: Default-Payload {id} reicht", async () => {

@@ -26,6 +26,10 @@ export type TextFieldDef = {
   readonly required?: boolean;
   readonly searchable?: boolean;
   readonly sortable?: boolean;
+  /** Author erlaubt Screen-Filter auf diesem Feld (Tier 2.7c).
+   *  Boot-Validator weist Filter mit `filterable !== true` zurück.
+   *  Default: false — analog zu `sortable`, opt-in. */
+  readonly filterable?: boolean;
   readonly encrypted?: boolean;
   readonly sensitive?: boolean;
   readonly format?: "email" | "url" | "phone";
@@ -42,6 +46,7 @@ export type BooleanFieldDef = {
   readonly type: "boolean";
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: boolean;
   readonly access?: FieldAccess;
@@ -52,6 +57,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly options: TOptions;
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: TOptions[number];
   readonly access?: FieldAccess;
@@ -74,6 +80,7 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   readonly type: "multiSelect";
   readonly options: TOptions;
   readonly required?: boolean;
+  readonly filterable?: boolean;
   readonly sensitive?: boolean;
   /** Default-Auswahl. Jeder Eintrag muss in `options` sein (Boot-Validator). */
   readonly default?: readonly TOptions[number][];
@@ -84,6 +91,7 @@ export type NumberFieldDef = {
   readonly type: "number";
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
@@ -93,6 +101,7 @@ export type MoneyFieldDef = {
   readonly type: "money";
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
 };
@@ -147,6 +156,7 @@ export type DateFieldDef = {
   readonly type: "date";
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
 };
@@ -166,6 +176,7 @@ export type TimestampFieldDef = {
   readonly type: "timestamp";
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
   /**
@@ -211,6 +222,7 @@ export type LocatedTimestampFieldDef = {
   readonly type: "locatedTimestamp";
   readonly required?: boolean;
   readonly sortable?: boolean;
+  readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
 };
