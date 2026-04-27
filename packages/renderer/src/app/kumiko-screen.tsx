@@ -5,7 +5,7 @@ import type {
   ScreenDefinition,
 } from "@kumiko/framework/ui-types";
 import type { FormValues, ListRowViewModel, SubmitResult, Translate } from "@kumiko/headless";
-import { type ReactNode, useCallback, useMemo } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit";
 import { RenderList } from "../components/render-list";
 import { useDispatcher } from "../context/dispatcher-context";
@@ -480,11 +480,33 @@ function EntityListBody({
   const limit = screen.pageSize ?? 50;
   const paginationMode = screen.pagination ?? "pages";
   const usePager = paginationMode === "pages";
+  const useInfinite = paginationMode === "infinite";
+
+  // Infinite-Scroll: lokaler State akkumuliert rows über mehrere
+  // useQuery-Aufrufe (statt replacen wie bei Pager). cursor wechselt
+  // wenn der User den Bottom-Sentinel erreicht; bei sort/q-Change
+  // resetten wir alles, da die Insert-Order der akkumulierten Rows
+  // sonst inkonsistent ist mit der neuen Sortierung.
+  const [accumulated, setAccumulated] = useState<readonly Readonly<Record<string, unknown>>[]>([]);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [hasMore, setHasMore] = useState(true);
+  // Ref damit der useEffect-Cleanup nicht alten state sieht.
+  const sortQRef = useRef<string>("");
+  const sortQKey = `${urlState.q}|${effectiveSort?.field ?? ""}|${effectiveSort?.dir ?? ""}`;
+  // Bei sort/q-Wechsel rows + cursor reseten — vor dem nächsten useQuery
+  // damit der Reload mit cursor=undefined startet.
+  useEffect(() => {
+    if (!useInfinite) return;
+    if (sortQRef.current === sortQKey) return;
+    sortQRef.current = sortQKey;
+    setAccumulated([]);
+    setCursor(undefined);
+    setHasMore(true);
+  }, [useInfinite, sortQKey]);
 
   // Payload für den Server-Query-Handler (LIST_PAYLOAD_SCHEMA):
-  // search/sort/sortDirection/limit + offset/totalCount für Pager-Mode.
-  // Cursor-Mode (infinite-scroll, 2.6e) wird sich später hier andocken
-  // ohne diesen Pfad zu brechen.
+  // search/sort/sortDirection/limit + offset/totalCount für Pager-Mode
+  // ODER cursor für Infinite-Scroll.
   const queryPayload = useMemo(() => {
     const payload: Record<string, unknown> = { limit };
     if (urlState.q !== "") payload["search"] = urlState.q;
@@ -501,11 +523,45 @@ function EntityListBody({
       // rendern kann. Bei pagination=false oder "infinite" sparen wir
       // den Roundtrip.
       payload["totalCount"] = true;
+    } else if (useInfinite && cursor !== undefined) {
+      payload["cursor"] = cursor;
     }
     return payload;
-  }, [limit, urlState.q, effectiveSort, usePager, urlState.page]);
+  }, [limit, urlState.q, effectiveSort, usePager, urlState.page, useInfinite, cursor]);
 
   const rowsQuery = useQuery<PagedRows>(queryType, queryPayload, { live: true });
+
+  // Infinite-Scroll: bei jedem erfolgreichen Result die rows appenden +
+  // hasMore aus nextCursor ableiten. Live-Updates (postgres NOTIFY) und
+  // initiale Loads laufen beide hier durch — das useEffect-Dep-Array
+  // pinnt die Dedup auf dem letzten verarbeiteten data-Pointer.
+  const lastDataRef = useRef<PagedRows | null>(null);
+  useEffect(() => {
+    if (!useInfinite) return;
+    const data = rowsQuery.data;
+    if (data === null) return;
+    if (data === lastDataRef.current) return;
+    lastDataRef.current = data;
+    setAccumulated((prev) => {
+      // Wenn cursor undefined ist, ist das die erste Page nach
+      // sort/q-Change → komplett ersetzen statt anhängen. Sonst dedupe
+      // auf id falls Live-Updates einen Eintrag in der nächsten Page
+      // bringen die schon angehängt war.
+      if (cursor === undefined) return data.rows;
+      const seen = new Set(prev.map((r) => r["id"] as string));
+      const fresh = data.rows.filter((r) => !seen.has(r["id"] as string));
+      return [...prev, ...fresh];
+    });
+    setHasMore(data.nextCursor !== null);
+  }, [rowsQuery.data, useInfinite, cursor]);
+
+  const loadMore = useCallback(() => {
+    if (!useInfinite) return;
+    if (rowsQuery.loading) return;
+    const data = rowsQuery.data;
+    if (data?.nextCursor === undefined || data.nextCursor === null) return;
+    setCursor(data.nextCursor);
+  }, [useInfinite, rowsQuery.loading, rowsQuery.data]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -552,11 +608,15 @@ function EntityListBody({
         }
       : undefined;
 
+  // Bei Infinite-Mode: rows kommen aus accumulated (über mehrere
+  // useQuery-Calls gesammelt), bei pages/false aus dem aktuellen Result.
+  const renderRows = useInfinite ? accumulated : (rowsQuery.data?.rows ?? []);
+
   return (
     <RenderList
       screen={screen}
       entity={entity}
-      rows={rowsQuery.data?.rows ?? []}
+      rows={renderRows}
       featureName={featureName}
       searchable={searchable}
       searchValue={urlState.q}
@@ -564,6 +624,11 @@ function EntityListBody({
       sort={effectiveSort}
       onSortChange={urlState.setSort}
       {...(pager !== undefined && { pager })}
+      {...(useInfinite && {
+        onReachEnd: loadMore,
+        loadingMore: rowsQuery.loading,
+        hasMore,
+      })}
       {...(onCreate !== undefined && { onCreate })}
       {...(translate !== undefined && { translate })}
       {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}

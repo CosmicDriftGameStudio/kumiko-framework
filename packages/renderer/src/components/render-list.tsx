@@ -63,6 +63,12 @@ export type RenderListProps = {
     readonly total: number;
     readonly onPageChange: (next: number) => void;
   };
+  /** Infinite-Scroll-Wiring für pagination="infinite". KumikoScreen
+   *  hält accumulated rows + cursor, RenderList reicht die Callbacks
+   *  einfach durch an DataTable. */
+  readonly onReachEnd?: () => void;
+  readonly loadingMore?: boolean;
+  readonly hasMore?: boolean;
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -85,6 +91,9 @@ export function RenderList(props: RenderListProps): ReactNode {
     sort,
     onSortChange,
     pager,
+    onReachEnd,
+    loadingMore,
+    hasMore,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
@@ -173,6 +182,9 @@ export function RenderList(props: RenderListProps): ReactNode {
       {...(sort !== undefined && { sort })}
       {...(onSortChange !== undefined && { onSortChange })}
       {...(pager !== undefined && { pager })}
+      {...(onReachEnd !== undefined && { onReachEnd })}
+      {...(loadingMore !== undefined && { loadingMore })}
+      {...(hasMore !== undefined && { hasMore })}
       testId="render-list-table"
     />
   );

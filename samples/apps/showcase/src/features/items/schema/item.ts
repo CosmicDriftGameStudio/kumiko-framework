@@ -78,3 +78,25 @@ export const itemListScreen: EntityListScreenDefinition = {
   defaultSort: { field: "title", dir: "asc" },
   searchable: true,
 };
+
+// Zweiter Screen auf derselben Entity, aber im Infinite-Scroll-Modus.
+// Demonstriert dass beide Pagination-Stile (Pager + Infinite) auf
+// denselben Daten funktionieren — Author-Choice pro Screen.
+export const itemFeedScreen: EntityListScreenDefinition = {
+  id: "item-feed",
+  type: "entityList",
+  entity: "item",
+  columns: [
+    "title",
+    "status",
+    {
+      field: "priority",
+      renderer: (v: unknown) => (v === undefined || v === 0 ? "—" : `P${v}`),
+    },
+    "dueDate",
+  ],
+  pagination: "infinite",
+  pageSize: 30, // kleinere Pages damit Scroll-Effekt häufiger triggert
+  defaultSort: { field: "title", dir: "asc" },
+  searchable: true,
+};

@@ -445,6 +445,67 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("dt-pager-page-30")).not.toBeNull();
     });
   });
+
+  // Infinite-Scroll Sentinel: rendert sentinel-div, zeigt Spinner wenn
+  // loadingMore, "End of list" wenn !hasMore. IntersectionObserver
+  // selbst ist in jsdom unmocked — wir testen nur die Marker, der
+  // Observer-Fire-Pfad ist im KumikoScreen.EntityListBody.
+  describe("InfiniteSentinel", () => {
+    const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+    const oneRow = [{ id: "r1", values: { name: "A" } }];
+
+    test("ohne onReachEnd: kein Sentinel im DOM", () => {
+      render(<DataTable columns={cols} rows={oneRow} testId="dt" />);
+      expect(screen.queryByTestId("dt-sentinel")).toBeNull();
+    });
+
+    test("mit onReachEnd + hasMore=true + loadingMore=false: leerer Sentinel", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          onReachEnd={vi.fn()}
+          loadingMore={false}
+          hasMore={true}
+        />,
+      );
+      const sentinel = screen.getByTestId("dt-sentinel");
+      // Weder End-Marker noch Spinner — der Sentinel wartet auf den
+      // Observer-Fire (Pre-Fetch via rootMargin: 200px).
+      expect(sentinel.querySelector("svg")).toBeNull();
+      expect(screen.queryByTestId("dt-sentinel-end")).toBeNull();
+    });
+
+    test("loadingMore=true: Spinner sichtbar", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          onReachEnd={vi.fn()}
+          loadingMore={true}
+          hasMore={true}
+        />,
+      );
+      expect(screen.getByTestId("dt-sentinel").querySelector("svg")).not.toBeNull();
+    });
+
+    test("hasMore=false: 'End of list' Marker statt Sentinel-Wirkung", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={oneRow}
+          testId="dt"
+          onReachEnd={vi.fn()}
+          loadingMore={false}
+          hasMore={false}
+        />,
+      );
+      expect(screen.getByTestId("dt-sentinel-end")).not.toBeNull();
+      expect(screen.getByTestId("dt-sentinel-end").textContent).toContain("End of list");
+    });
+  });
 });
 
 describe("Form", () => {

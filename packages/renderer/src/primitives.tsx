@@ -248,6 +248,17 @@ export type DataTableProps = {
     readonly total: number;
     readonly onPageChange: (next: number) => void;
   };
+  /** Infinite-Scroll Callback. Wenn gesetzt, rendert der Renderer einen
+   *  Bottom-Sentinel und ruft `onReachEnd` wenn der ins Viewport rückt
+   *  (Web: IntersectionObserver). Caller verwaltet accumulation +
+   *  cursor + hasMore. `loadingMore=true` zeigt einen Spinner unter
+   *  der Tabelle solange die nächste Page lädt. Inkompatibel mit
+   *  `pager` — entweder Pager ODER Infinite-Scroll, nicht beides. */
+  readonly onReachEnd?: () => void;
+  readonly loadingMore?: boolean;
+  /** Wenn false und onReachEnd gesetzt, rendert der Renderer einen
+   *  "Ende der Liste"-Hinweis statt des Sentinels. Default true. */
+  readonly hasMore?: boolean;
   readonly testId?: string;
 };
 

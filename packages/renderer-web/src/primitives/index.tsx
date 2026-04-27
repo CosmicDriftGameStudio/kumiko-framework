@@ -28,7 +28,7 @@ import {
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { cva } from "class-variance-authority";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import type { ChangeEvent, ReactNode } from "react";
+import { type ChangeEvent, type ReactNode, useEffect, useRef } from "react";
 import { cn } from "../lib/cn";
 import { DateInput } from "./date-input";
 import { DefaultDialog } from "./dialog";
@@ -295,6 +295,9 @@ function DefaultDataTable({
   toolbarStart,
   toolbarEnd,
   pager,
+  onReachEnd,
+  loadingMore,
+  hasMore,
   testId,
 }: DataTableProps): ReactNode {
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
@@ -320,7 +323,8 @@ function DefaultDataTable({
   // Pager wird IMMER unter der Tabelle gerendert (auch bei rows=[]),
   // damit der User bei einem Filter-Hit-of-Zero zurückblättern kann
   // ohne die Liste zu verlieren. Außer total === 0 — dann gibt's
-  // nichts zu paginieren.
+  // nichts zu paginieren. Inkompatibel mit Infinite-Scroll: Caller
+  // setzt entweder pager ODER onReachEnd.
   const content =
     pager !== undefined && pager.total > 0 ? (
       <>
@@ -331,6 +335,16 @@ function DefaultDataTable({
           total={pager.total}
           onPageChange={pager.onPageChange}
           testId={testId !== undefined ? `${testId}-pager` : "render-list-pager"}
+        />
+      </>
+    ) : onReachEnd !== undefined ? (
+      <>
+        {tableContent}
+        <InfiniteSentinel
+          onReachEnd={onReachEnd}
+          loadingMore={loadingMore === true}
+          hasMore={hasMore !== false}
+          testId={testId !== undefined ? `${testId}-sentinel` : "render-list-sentinel"}
         />
       </>
     ) : (
@@ -417,6 +431,72 @@ function tableInner(
         ))}
       </tbody>
     </>
+  );
+}
+
+// InfiniteSentinel — leeres div am Ende der Tabelle, das via
+// IntersectionObserver erkennt wann der User in die Nähe des Listen-
+// Endes scrollt. onReachEnd feuert genau einmal pro "wird sichtbar"-
+// Übergang; der Caller debounced via loadingMore (während eine Page
+// lädt, ignorieren wir weitere Sichtbar-Events). Kein observer in
+// Server-Side-Render, kein observer wenn hasMore=false — dann zeigt
+// der Sentinel nur den End-of-list-Hinweis.
+function InfiniteSentinel({
+  onReachEnd,
+  loadingMore,
+  hasMore,
+  testId,
+}: {
+  readonly onReachEnd: () => void;
+  readonly loadingMore: boolean;
+  readonly hasMore: boolean;
+  readonly testId?: string;
+}): ReactNode {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!hasMore) return;
+    if (loadingMore) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const node = ref.current;
+    if (node === null) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Nur das erste sichtbar-Event pro Mount auslösen — wenn der
+        // User weiter scrollt während noch geladen wird, hindert
+        // loadingMore=true den useEffect dass er den Observer überhaupt
+        // erst remountet.
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            onReachEnd();
+            break;
+          }
+        }
+      },
+      { rootMargin: "200px" }, // pre-fetch wenn der Sentinel 200px vom Viewport ist
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [onReachEnd, loadingMore, hasMore]);
+
+  return (
+    <div
+      ref={ref}
+      data-testid={testId}
+      className="flex items-center justify-center py-4 text-sm text-muted-foreground"
+    >
+      {!hasMore ? (
+        <span data-testid={testId !== undefined ? `${testId}-end` : undefined}>
+          — End of list —
+        </span>
+      ) : loadingMore ? (
+        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+      ) : (
+        // Unsichtbar-Spacer wenn weder loading noch end — der Observer
+        // braucht ein DOM-Node, der User soll aber nichts sehen.
+        <span aria-hidden="true">&nbsp;</span>
+      )}
+    </div>
   );
 }
 
