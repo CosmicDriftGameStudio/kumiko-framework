@@ -257,9 +257,16 @@ export async function getProjectionState(
 // List every registered projection with its current state (if any).
 // The registry is the source-of-truth for which projections exist; the
 // state table holds per-projection rebuild info and may be sparse.
+//
+// Implicit-Projections (auto-registered pro r.entity, eine pro entity)
+// werden default ausgefiltert — sie sind als rebuild-Ziele weiter mit
+// `<feature>:projection:<entity>-entity` adressierbar, aber in `kumiko
+// project list` würden sie das Bild dominieren ohne Mehrwert. Mit
+// `{ includeImplicit: true }` opt-in einschalten.
 export async function listProjectionsWithState(
   db: DbConnection,
   registry: Registry,
+  options: { readonly includeImplicit?: boolean } = {},
 ): Promise<
   ReadonlyArray<{
     readonly name: string;
@@ -274,18 +281,20 @@ export async function listProjectionsWithState(
   const stateRows = await db.select().from(projectionStateTable);
   const stateByName = new Map(stateRows.map((r) => [r.name, r]));
 
-  return [...projections.values()].map((proj) => {
-    const state = stateByName.get(proj.name);
-    const sources = Array.isArray(proj.source) ? proj.source : [proj.source];
-    return {
-      name: proj.name,
-      sources,
-      status: state?.status ?? "never-rebuilt",
-      lastProcessedEventId: state?.lastProcessedEventId ?? 0n,
-      lastRebuildAt: state?.lastRebuildAt ?? null,
-      lastError: state?.lastError ?? null,
-    };
-  });
+  return [...projections.values()]
+    .filter((proj) => options.includeImplicit === true || !proj.isImplicit)
+    .map((proj) => {
+      const state = stateByName.get(proj.name);
+      const sources = Array.isArray(proj.source) ? proj.source : [proj.source];
+      return {
+        name: proj.name,
+        sources,
+        status: state?.status ?? "never-rebuilt",
+        lastProcessedEventId: state?.lastProcessedEventId ?? 0n,
+        lastRebuildAt: state?.lastRebuildAt ?? null,
+        lastError: state?.lastError ?? null,
+      };
+    });
 }
 
 export type ProjectionProgress = {

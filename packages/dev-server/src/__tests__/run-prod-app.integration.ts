@@ -317,4 +317,46 @@ describe("runProdApp", () => {
     const res = await ctx.app.fetch(new Request("http://test/health"));
     expect(res.status).toBe(200);
   });
+
+  test("Hard Boot-Gate: pending Migration im Journal → SchemaDriftError, kein Boot", async () => {
+    // Schreibt ein synthetisches Migration-Dir mit einer Migration die
+    // nie applied wurde. runProdApp soll mit SchemaDriftError abbrechen
+    // bevor irgendetwas anderes initialisiert wird.
+    const { mkdir } = await import("node:fs/promises");
+    const driftDir = await mkdtemp(join(tmpdir(), "kumiko-drift-boot-"));
+    tempDirs.push(driftDir);
+    await mkdir(join(driftDir, "meta"), { recursive: true });
+    await writeFile(
+      join(driftDir, "meta", "_journal.json"),
+      JSON.stringify({
+        version: "7",
+        dialect: "postgresql",
+        entries: [
+          {
+            idx: 0,
+            version: "7",
+            when: 1700000000000,
+            tag: "0000_pending_migration",
+            breakpoints: true,
+          },
+        ],
+      }),
+    );
+    await writeFile(
+      join(driftDir, "meta", "0000_snapshot.json"),
+      JSON.stringify({
+        tables: {
+          "public.never_created_table": {
+            schema: "",
+            name: "never_created_table",
+            columns: { id: { name: "id", type: "uuid", primaryKey: true, notNull: true } },
+          },
+        },
+      }),
+    );
+
+    await expect(boot(undefined, { migrations: { dir: driftDir } })).rejects.toThrow(
+      /Schema drift detected/,
+    );
+  });
 });

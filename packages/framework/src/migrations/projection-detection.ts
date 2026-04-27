@@ -13,36 +13,13 @@
 
 import { getTableName } from "drizzle-orm";
 import type { Registry } from "../engine/types/feature";
-import { loadJournal, type DrizzleSnapshot } from "./schema-drift";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-/** Bundle Snapshot mit Tabellen-spezifischen Spalten-Maps. Wir lesen
- *  nur die Felder die wir vergleichen — der Rest bleibt opaque. */
-export type DetailedSnapshot = {
-  readonly tables: Readonly<
-    Record<
-      string,
-      {
-        readonly schema: string;
-        readonly name: string;
-        readonly columns: Readonly<Record<string, ColumnSpec>>;
-      }
-    >
-  >;
-};
-
-export type ColumnSpec = {
-  readonly name: string;
-  readonly type: string;
-  readonly notNull?: boolean;
-  readonly primaryKey?: boolean;
-  readonly default?: unknown;
-};
-
-export function loadDetailedSnapshot(snapshotPath: string): DetailedSnapshot {
-  return JSON.parse(readFileSync(snapshotPath, "utf-8")) as DetailedSnapshot;
-}
+import {
+  type ColumnSpec,
+  loadJournal,
+  loadLatestSnapshot,
+  loadPreviousSnapshot,
+  type Snapshot,
+} from "./schema-drift";
 
 /** Welche Tabellen haben sich zwischen prev und current geändert?
  *  Reine Tabellen-Existenz: in current aber nicht in prev → "added".
@@ -54,8 +31,8 @@ export type ChangedTable = {
 };
 
 export function compareSnapshots(
-  prev: DetailedSnapshot | null,
-  current: DetailedSnapshot,
+  prev: Snapshot | null,
+  current: Snapshot,
 ): readonly ChangedTable[] {
   const changes: ChangedTable[] = [];
   const prevKeys = new Set(prev ? Object.keys(prev.tables) : []);
@@ -146,44 +123,19 @@ export function projectionsFromChanges(
   return [...names].sort();
 }
 
-/** Hilfs-Funktion: lade vorletzten Snapshot relativ zum letzten Eintrag.
- *  Returns null wenn das gerade die erste Migration ist. */
-export function loadPreviousSnapshot(migrationsDir: string): DetailedSnapshot | null {
-  const journal = loadJournal(migrationsDir);
-  const entries = journal.entries;
-  if (entries.length < 2) return null;
-  const prevEntry = entries[entries.length - 2];
-  if (!prevEntry) return null;
-  const file = `${String(prevEntry.idx).padStart(4, "0")}_snapshot.json`;
-  return loadDetailedSnapshot(resolve(migrationsDir, "meta", file));
-}
-
-export function loadCurrentSnapshot(migrationsDir: string): DetailedSnapshot {
-  const journal = loadJournal(migrationsDir);
-  const entries = journal.entries;
-  if (entries.length === 0) {
-    throw new Error(`loadCurrentSnapshot: no migrations in ${migrationsDir}`);
-  }
-  const last = entries[entries.length - 1];
-  if (!last) throw new Error(`loadCurrentSnapshot: empty journal`);
-  const file = `${String(last.idx).padStart(4, "0")}_snapshot.json`;
-  return loadDetailedSnapshot(resolve(migrationsDir, "meta", file));
-}
-
 /** Convenience: gibt für die letzte Migration zurück welche Projections
- *  rebuild brauchen würden. null = erste Migration (kein vorheriger
- *  Snapshot, alle Tabellen "added"). */
+ *  rebuild brauchen würden. Empty wenn das gerade die erste Migration ist
+ *  (kein vorheriger Snapshot, alle Tabellen "added", aber keine Events). */
 export function detectProjectionsToRebuild(
   registry: Registry,
   migrationsDir: string,
 ): readonly string[] {
   const prev = loadPreviousSnapshot(migrationsDir);
-  const current = loadCurrentSnapshot(migrationsDir);
-  const changes = compareSnapshots(prev, current);
-  // Initial migration: keine prev-Tabellen → alle "added". Skip rebuild
-  // für additive Erstmigration (Projection-Tabelle gerade entstanden,
-  // Events sind noch nicht da).
+  // Initial migration: nur "added"-Changes, keine historischen Events
+  // zum Replayen → kein Rebuild nötig.
   if (prev === null) return [];
+  const current = loadLatestSnapshot(migrationsDir);
+  const changes = compareSnapshots(prev, current);
   const index = buildProjectionTableIndex(registry);
   return projectionsFromChanges(changes, index);
 }

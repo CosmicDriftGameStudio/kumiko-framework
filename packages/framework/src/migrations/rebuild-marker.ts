@@ -15,6 +15,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { parseJsonOrThrow } from "../utils/safe-json";
 
 const MARKER_VERSION = 1 as const;
 
@@ -33,8 +34,10 @@ export function writeRebuildMarker(
   migrationTag: string,
   projections: readonly string[],
 ): void {
-  // Leere Liste → kein File. Reduziert Noise bei Migrations die keine
-  // Projection berühren (z.B. nur Infra-Tabellen oder pure Indizes).
+  // skip: leere Projections-Liste → kein Marker-File. Reduziert Noise
+  // bei Migrations die keine Projection berühren (Infra-Tabellen, pure
+  // Index-Adds). Caller braucht keinen Confirm — File-Existenz ist die
+  // Truth-Quelle.
   if (projections.length === 0) return;
   const marker: RebuildMarker = {
     schemaVersion: MARKER_VERSION,
@@ -50,7 +53,7 @@ export function readRebuildMarker(
 ): RebuildMarker | null {
   const path = markerPath(migrationsDir, migrationTag);
   if (!existsSync(path)) return null;
-  const parsed = JSON.parse(readFileSync(path, "utf-8")) as RebuildMarker;
+  const parsed = parseJsonOrThrow<RebuildMarker>(readFileSync(path, "utf-8"), `marker at ${path}`);
   if (parsed.schemaVersion !== MARKER_VERSION) {
     throw new Error(
       `readRebuildMarker: ${path} hat schemaVersion ${parsed.schemaVersion}, ` +

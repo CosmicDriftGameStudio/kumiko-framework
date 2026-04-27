@@ -84,17 +84,22 @@ describe("createRegistry — projection indexing", () => {
       r.projection(exampleProjection());
     });
     const registry = createRegistry([feature]);
-    const byUnit = registry.getProjectionsForSource("unit");
+    // Filter Implicit-Projections (Sprint G — eine pro r.entity auto-
+    // registriert). Dieser Test prüft die explicit-Projection-Indexierung.
+    const byUnit = registry.getProjectionsForSource("unit").filter((p) => !p.isImplicit);
     expect(byUnit).toHaveLength(1);
     expect(byUnit[0]?.source).toBe("unit");
   });
 
-  test("returns empty list for entities with no projections", () => {
+  test("returns empty list for entities with no explicit projections", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("unit", exampleEntity());
     });
     const registry = createRegistry([feature]);
-    expect(registry.getProjectionsForSource("unit")).toHaveLength(0);
+    // r.entity registriert eine Implicit-Projection — die filtern wir hier
+    // explizit raus, weil dieser Test die Abwesenheit von explicit
+    // Projections beweisen will.
+    expect(registry.getProjectionsForSource("unit").filter((p) => !p.isImplicit)).toHaveLength(0);
   });
 
   test("fans out a multi-source projection to each entity's index", () => {
@@ -104,8 +109,8 @@ describe("createRegistry — projection indexing", () => {
       r.projection(exampleProjection({ name: "combined", source: ["unit", "lease"] }));
     });
     const registry = createRegistry([feature]);
-    expect(registry.getProjectionsForSource("unit")).toHaveLength(1);
-    expect(registry.getProjectionsForSource("lease")).toHaveLength(1);
+    expect(registry.getProjectionsForSource("unit").filter((p) => !p.isImplicit)).toHaveLength(1);
+    expect(registry.getProjectionsForSource("lease").filter((p) => !p.isImplicit)).toHaveLength(1);
   });
 
   test("boot-validates source entity — typos must fail loudly", () => {
@@ -163,7 +168,9 @@ describe("createRegistry — projection indexing", () => {
       r.projection(exampleProjection({ name: "other" }));
     });
     const registry = createRegistry([feature]);
-    expect(registry.getAllProjections().size).toBe(2);
+    // 2 explicit projections + 1 implicit (für r.entity "unit")
+    const explicit = [...registry.getAllProjections().values()].filter((p) => !p.isImplicit);
+    expect(explicit).toHaveLength(2);
   });
 
   test("rejects the same projection name registered by two features", () => {

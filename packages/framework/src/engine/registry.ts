@@ -1,3 +1,5 @@
+import { applyEntityEvent } from "../db/apply-entity-event";
+import { buildDrizzleTable } from "../db/table-builder";
 import { buildMetricName, validateMetricName } from "../observability";
 import { type QnType, qualifyEntityName } from "./qualified-name";
 import type {
@@ -43,6 +45,54 @@ type IncomingRelation = {
   relationName: string;
   relation: RelationDefinition;
 };
+
+const IMPLICIT_PROJECTION_SUFFIX = "-entity" as const;
+
+// Pro r.entity-Registration eine ImplicitProjection mit auto-generierten
+// apply-Handlern für die 4 Auto-Verben. Live-Pfad geht durch
+// EventStoreExecutor und schreibt direkt in die Tabelle; rebuildProjection
+// nutzt diese Definition um aus Events zu replayen. Beide rufen dieselbe
+// applyEntityEvent-Funktion → Live==Rebuild by-construction (verstärkt
+// durch implicit-projection-equivalence.integration.ts).
+function buildImplicitProjection(
+  featureName: string,
+  entityName: string,
+  entity: EntityDefinition,
+  qualify: typeof qualifyEntityName,
+): ProjectionDefinition {
+  const name = qualify(featureName, "projection", `${entityName}${IMPLICIT_PROJECTION_SUFFIX}`);
+  const drizzleTable = buildDrizzleTable(entityName, entity);
+  // applyEntityEvent gibt boolean zurück (`true` wenn was geschrieben
+  // wurde — der Live-Pfad nutzt das nicht aktuell, ist aber dort als
+  // Hook drin damit zukünftiger Live-Pfad-Refactor die Information hat).
+  // SingleStreamApplyFn erwartet Promise<void>, also wrappen wir im
+  // async-arrow um den Boolean zu discarden.
+  const handler = async (
+    event: Parameters<ProjectionDefinition["apply"][string]>[0],
+    tx: Parameters<ProjectionDefinition["apply"][string]>[1],
+  ): Promise<void> => {
+    await applyEntityEvent(event, drizzleTable, entity, tx);
+  };
+  const apply: Record<string, ProjectionDefinition["apply"][string]> = {
+    [`${entityName}.created`]: handler,
+    [`${entityName}.updated`]: handler,
+    [`${entityName}.deleted`]: handler,
+  };
+  // Restore-Verb existiert nur für softDelete-Entities. Hard-Delete-
+  // Entities sollten keine restored-Events produzieren — würden sie es
+  // doch, würde applyEntityEvent intern als no-op laufen, aber wir
+  // registrieren den Handler gar nicht erst.
+  if (entity.softDelete) {
+    apply[`${entityName}.restored`] = handler;
+  }
+  return {
+    name,
+    source: entityName,
+    table: drizzleTable,
+    apply,
+    isImplicit: true,
+  };
+}
 
 // This is where the magic happens. By "magic" I mean: precomputed maps.
 // I build everything once at boot (hooks, relations, searchable fields, ...)
@@ -665,6 +715,29 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
     searchableFieldsCache.set(name, searchable);
     sortableFieldsCache.set(name, sortable);
+  }
+
+  // Implicit-Projection pro r.entity. Macht die Entity-Tabelle rebaubar
+  // ohne dass Apps eine explizite r.projection schreiben müssen.
+  // Naming-Convention: `<feature>:projection:<entityName>-entity` — der
+  // "-entity"-Suffix unterscheidet implicit von explicit-Projections und
+  // vermeidet Kollisionen wenn jemand z.B. eine Cross-Aggregate-Projection
+  // mit Entity-Name registriert.
+  for (const feature of features) {
+    for (const [entityName, entity] of Object.entries(feature.entities)) {
+      const def = buildImplicitProjection(feature.name, entityName, entity, qualify);
+      if (projectionMap.has(def.name)) {
+        throw new Error(
+          `Implicit projection "${def.name}" kollidiert mit einer explizit registrierten r.projection. ` +
+            `Implicit-Projections werden für jede r.entity mit "-entity"-Suffix angelegt — ` +
+            `benenne deine explicit projection um (z.B. "<entity>-summary") um die Kollision aufzulösen.`,
+        );
+      }
+      projectionMap.set(def.name, def);
+      const existing = projectionsBySource.get(entityName) ?? [];
+      existing.push(def);
+      projectionsBySource.set(entityName, existing);
+    }
   }
 
   for (const [entityName, rels] of relationMap) {

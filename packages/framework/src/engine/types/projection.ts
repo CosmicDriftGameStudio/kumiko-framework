@@ -45,6 +45,13 @@ export type ProjectionDefinition = {
   // Missing keys are silently skipped — a projection declares only the events it
   // cares about.
   readonly apply: Readonly<Record<string, SingleStreamApplyFn>>;
+  // Auto-registered projection (one per r.entity) that exists ONLY to
+  // make rebuildProjection work for entity-tables. Live writes go through
+  // the EventStoreExecutor directly — firing the implicit apply inline
+  // would double-write into the same table. The inline-projection-runner
+  // skips entries with this flag; rebuildProjection treats them
+  // identically to explicit projections.
+  readonly isImplicit?: boolean;
 };
 
 // Per-lifecycle error policy for a MultiStreamProjection. Mirrors Marten's

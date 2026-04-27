@@ -306,9 +306,9 @@ const commands = {
       // crashed. bun's CJS-Interop ist kompatibel — wir rufen drizzle-kit
       // explizit mit `bun --bun <absolute-path>` (bunx fällt manchmal auf
       // node zurück, siehe drizzle-kit generate). Hoisted-Binary lebt im
-      // Repo-Root node_modules — process.cwd() bei direktem CLI-Aufruf
-      // oder wir auflösen über INIT_CWD-Parent.
-      const repoRoot = process.cwd();
+      // Repo-Root node_modules — wir auflösen über bin/kumiko.ts → ../
+      // statt process.cwd() (das ist im App-Workspace via INIT_CWD).
+      const repoRoot = resolvePath(import.meta.dir, "..");
       const drizzleKitBin = resolvePath(repoRoot, "node_modules/.bin/drizzle-kit");
       if (!existsSync(drizzleKitBin)) {
         console.error(
@@ -342,48 +342,7 @@ const commands = {
           break;
         }
         case "apply": {
-          // Production-Migration in zwei Phasen:
-          //   1. drizzle-kit migrate (idempotent — fährt pending SQL-Files
-          //      gegen DATABASE_URL + trackt in __drizzle_migrations)
-          //   2. Rebuild-Hook für die soeben neu applied Migrations:
-          //      liest <tag>__rebuild.json und ruft rebuildProjection.
-          //      Diff "vorher vs. nachher applied" via Journal-Index.
-          console.log(`\n  Wende Migrations an (${appCwd})…`);
-
-          // Pre-apply: applied-count merken (für Diff)
-          const dbUrl = process.env["DATABASE_URL"];
-          let appliedBefore = 0;
-          if (dbUrl && existsSync(join(appCwd, "drizzle/migrations/meta/_journal.json"))) {
-            const { createDbConnection } = await import("@kumiko/framework/db");
-            const { loadAppliedMigrations } = await import("@kumiko/framework/migrations");
-            const { db, close } = createDbConnection(dbUrl);
-            try {
-              const applied = await loadAppliedMigrations(db);
-              appliedBefore = applied.length;
-            } finally {
-              await close();
-            }
-          }
-
-          await $`bun --bun ${drizzleKitBin} migrate`.cwd(appCwd);
-
-          // Post-apply: welche tags sind neu? Journal-Index slice.
-          if (
-            dbUrl &&
-            existsSync(join(appCwd, "drizzle/migrations/meta/_journal.json")) &&
-            existsSync(join(appCwd, "drizzle/migration-hooks.ts"))
-          ) {
-            const { loadJournal } = await import("@kumiko/framework/migrations");
-            const journal = loadJournal(join(appCwd, "drizzle/migrations"));
-            const newlyApplied = journal.entries.slice(appliedBefore).map((e) => e.tag);
-            if (newlyApplied.length > 0) {
-              await $`bun run drizzle/migration-hooks.ts run-rebuilds ${newlyApplied}`.cwd(
-                appCwd,
-              );
-            }
-          }
-
-          console.log("\n  ✓ DB ist aktuell.");
+          await runMigrateApply(appCwd, drizzleKitBin);
           break;
         }
         case "validate": {
@@ -937,6 +896,53 @@ const commands = {
 } satisfies Record<string, { description: string; run: () => Promise<void> }>;
 
 // --- Interactive menu ---
+
+// Wendet alle pending Migrations gegen DATABASE_URL an und ruft danach
+// die Rebuild-Hooks für die soeben neu applied Migrations. Ablauf:
+//
+//   1. Pre-apply: applied-Count merken (kommt aus __drizzle_migrations
+//      über loadAppliedMigrations).
+//   2. drizzle-kit migrate fährt alle pending SQL-Files. Idempotent —
+//      bei Re-Run no-op weil Hashes schon getrackt sind.
+//   3. Post-apply: Journal-Slice ab dem Pre-apply-Index gibt die neu
+//      applied Tags. Für jeden Tag liest migration-hooks.ts die
+//      <tag>__rebuild.json-Marker und ruft rebuildProjection.
+//
+// Ohne DATABASE_URL läuft drizzle-kit selbst los und fällt mit eigenem
+// Fehler — wir lassen ihm den Vortritt statt vorab zu prüfen.
+async function runMigrateApply(appCwd: string, drizzleKitBin: string): Promise<void> {
+  console.log(`\n  Wende Migrations an (${appCwd})…`);
+
+  const dbUrl = process.env["DATABASE_URL"];
+  const journalPath = join(appCwd, "drizzle/migrations/meta/_journal.json");
+  const hooksPath = join(appCwd, "drizzle/migration-hooks.ts");
+
+  let appliedBefore = 0;
+  if (dbUrl && existsSync(journalPath)) {
+    const { createDbConnection } = await import("@kumiko/framework/db");
+    const { loadAppliedMigrations } = await import("@kumiko/framework/migrations");
+    const { db, close } = createDbConnection(dbUrl);
+    try {
+      const applied = await loadAppliedMigrations(db);
+      appliedBefore = applied.length;
+    } finally {
+      await close();
+    }
+  }
+
+  await $`bun --bun ${drizzleKitBin} migrate`.cwd(appCwd);
+
+  if (dbUrl && existsSync(journalPath) && existsSync(hooksPath)) {
+    const { loadJournal } = await import("@kumiko/framework/migrations");
+    const journal = loadJournal(join(appCwd, "drizzle/migrations"));
+    const newlyApplied = journal.entries.slice(appliedBefore).map((e) => e.tag);
+    if (newlyApplied.length > 0) {
+      await $`bun run drizzle/migration-hooks.ts run-rebuilds ${newlyApplied}`.cwd(appCwd);
+    }
+  }
+
+  console.log("\n  ✓ DB ist aktuell.");
+}
 
 async function interactiveMenu(): Promise<void> {
   const entries = Object.entries(commands);

@@ -43,6 +43,11 @@ export async function runProjectionsForEvent(
   // skip: no projection feeds off this entity — fast path for the common case
   if (projections.length === 0) return;
   for (const proj of projections) {
+    // ImplicitProjections existieren nur für rebuildProjection — der
+    // EventStoreExecutor schreibt im Live-Pfad bereits direkt in die
+    // Tabelle. Live-Apply der Implicit würde doppelt schreiben → unique
+    // key violation. Filter ist Pflicht.
+    if (proj.isImplicit) continue;
     const applyFn = proj.apply[event.type];
     // skip: this projection doesn't care about this event type
     if (!applyFn) continue;
