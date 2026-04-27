@@ -95,7 +95,20 @@ export const seedShowcaseItems: SeedFn = async (stack) => {
     if (!res.ok) {
       const body = await res.text();
       // biome-ignore lint/suspicious/noConsole: sample-server diagnostics
-      console.warn(`[showcase-seed] item ${i + 1} failed (${res.status}): ${body}`);
+      console.warn(`[showcase-seed] item ${i + 1} failed (${res.status}):`, body);
+      // Versuche cause-detail aus dem dev-mode Error-Body zu fischen
+      // (serializeError exposed cause auf error.details bei NODE_ENV
+      // !== production). Wenn da was steht, ist's der echte server-
+      // side Stack-Trace.
+      try {
+        const parsed = JSON.parse(body) as { error?: { details?: unknown } };
+        if (parsed.error?.details !== undefined) {
+          // biome-ignore lint/suspicious/noConsole: sample-server diagnostics
+          console.warn("[showcase-seed] details:", parsed.error.details);
+        }
+      } catch {
+        // body was not JSON — already logged the raw text above
+      }
       // Erste Fehler-Zeile reicht — typisch ist die ganze Schar betroffen
       // (Schema-Mismatch, Auth-Issue), kein Sinn alle 200 zu probieren.
       return;
