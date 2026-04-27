@@ -37,6 +37,15 @@ export function useDispatcher(): Dispatcher {
   return dispatcher;
 }
 
+// Soft-Variante: null wenn kein Provider mounted statt throw. Für
+// Components die einen Dispatcher OPTIONAL brauchen (z.B. KumikoScreen
+// rendert mit/ohne rowActions; die Test-Suite mountet kein Dispatcher
+// wenn der Screen keine Mutation triggert). Caller ist zuständig dass
+// er bei null einen sinnvollen Fallback hat (typisch: kein Action-Wiring).
+export function useOptionalDispatcher(): Dispatcher | undefined {
+  return useContext(DispatcherContext) ?? undefined;
+}
+
 // Subscribes to online/offline/syncing transitions. The dispatcher
 // exposes `statusStore: Store<DispatcherStatus>` directly; useStore is
 // the canonical React-binding for that contract.

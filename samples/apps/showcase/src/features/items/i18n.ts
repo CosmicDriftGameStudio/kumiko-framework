@@ -18,6 +18,9 @@ export const itemsTranslations: TranslationsByLocale = {
     "screen:item-list.title": "Items (Pages)",
     "screen:item-feed.title": "Items (Feed)",
     "screen:item-edit.title": "Eintrag bearbeiten",
+    "showcase:actions.delete": "Löschen",
+    "showcase:actions.delete-confirm":
+      "Eintrag wird unwiderruflich entfernt. Diese Aktion lässt sich nicht rückgängig machen.",
   },
   en: {
     "showcase:nav.list": "Items (Pages)",
@@ -32,5 +35,7 @@ export const itemsTranslations: TranslationsByLocale = {
     "screen:item-list.title": "Items (Pages)",
     "screen:item-feed.title": "Items (Feed)",
     "screen:item-edit.title": "Edit item",
+    "showcase:actions.delete": "Delete",
+    "showcase:actions.delete-confirm": "Item will be removed permanently. This cannot be undone.",
   },
 };

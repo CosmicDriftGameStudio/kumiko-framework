@@ -8,9 +8,10 @@ import type { FormValues, ListRowViewModel, SubmitResult, Translate } from "@kum
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit";
 import { RenderList } from "../components/render-list";
-import { useDispatcher } from "../context/dispatcher-context";
+import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useListUrlState } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
+import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
 import { useCustomScreenComponent } from "./custom-screens";
 import type { FeatureSchema } from "./feature-schema";
@@ -563,6 +564,39 @@ function EntityListBody({
     setCursor(data.nextCursor);
   }, [useInfinite, rowsQuery.loading, rowsQuery.data]);
 
+  // RowActions: Schema-Form (handler-QN + i18n-Key) → Resolved-Form
+  // (dispatcher-Call + translated Strings). dispatcher.write kennt den
+  // User intern (JWT-Cookie). Schema kann sowohl raw-Strings als auch
+  // i18n-Keys enthalten — translate() returnt den Key wenn das Bundle
+  // ihn nicht kennt (Convention überall im Renderer).
+  // Hooks-Reihenfolge: ALLE Hooks vor early-return für loading/error,
+  // sonst kollidieren die Hook-Slots zwischen Renders.
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
+  // Soft-Dispatcher: in Tests die ohne DispatcherProvider mounten,
+  // bleibt rowActions undefined statt zu crashen. Echte Apps haben
+  // den Provider via createKumikoApp.
+  const dispatcher = useOptionalDispatcher();
+  const rowActions = useMemo(() => {
+    if (screen.rowActions === undefined) return undefined;
+    if (dispatcher === undefined) return undefined;
+    return screen.rowActions.map((action) => ({
+      id: action.id,
+      label: effectiveTranslate(action.label),
+      ...(action.style !== undefined && { style: action.style }),
+      ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
+      onTrigger: async (row: ListRowViewModel) => {
+        const buildPayload = action.payload;
+        const payload =
+          buildPayload !== undefined ? buildPayload(row.values) : { id: row.values["id"] };
+        await dispatcher.write(action.handler, payload);
+      },
+      ...(action.visible !== undefined && {
+        isVisible: (row: ListRowViewModel) => action.visible?.(row.values, undefined) ?? true,
+      }),
+    }));
+  }, [screen.rowActions, effectiveTranslate, dispatcher]);
+
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
       <Banner padded variant="loading" testId="kumiko-screen-loading">
@@ -624,6 +658,7 @@ function EntityListBody({
       sort={effectiveSort}
       onSortChange={urlState.setSort}
       {...(pager !== undefined && { pager })}
+      {...(rowActions !== undefined && { rowActions })}
       {...(useInfinite && {
         onReachEnd: loadMore,
         loadingMore: rowsQuery.loading,

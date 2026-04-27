@@ -210,6 +210,30 @@ export type DataTableSort = {
   readonly dir: DataTableSortDir;
 };
 
+// Resolved-Form einer Row-Action (KumikoScreen baut das aus
+// EntityListScreenDefinition.rowActions): Labels schon translated,
+// handler-QN aufgelöst zu einer onTrigger-Function die den dispatcher
+// kennt. DataTable rendert das ohne weiteres i18n/dispatcher-Wissen.
+export type DataTableRowAction = {
+  /** Stable id für aria-labels und data-testids. */
+  readonly id: string;
+  /** Translated Label. */
+  readonly label: string;
+  /** Visual-Style — danger triggert in der Default-Primitive eine rote
+   *  Variante UND erzwingt einen Confirm-Dialog wenn keiner gesetzt ist. */
+  readonly style?: "primary" | "secondary" | "danger";
+  /** Translated Confirm-Prompt — wenn gesetzt, öffnet ein Modal vor
+   *  der Ausführung. Bei style=danger ohne explizitem confirm sollte
+   *  der Renderer einen generischen Default zeigen. */
+  readonly confirm?: string;
+  /** Wird mit der ListRowViewModel der geklickten Row aufgerufen. Async
+   *  erlaubt — der Renderer kann während der Promise-Resolution einen
+   *  Loading-State auf dem Button zeigen. */
+  readonly onTrigger: (row: ListRowViewModel) => Promise<void> | void;
+  /** Conditional Visibility pro Row (z.B. "Start" nur wenn status==="scheduled"). */
+  readonly isVisible?: (row: ListRowViewModel) => boolean;
+};
+
 export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
   readonly rows: readonly ListRowViewModel[];
@@ -224,6 +248,11 @@ export type DataTableProps = {
    *  3-State-Toggle (Convention): asc → desc → null. Caller setzt damit
    *  seinen URL-State / Query-Param und triggert ein refetch. */
   readonly onSortChange?: (next: DataTableSort | null) => void;
+  /** Pro-Row-Aktionen — eine Spalte am rechten Rand mit Inline-Buttons
+   *  (≤2 Aktionen) oder Kebab-Dropdown (>2). Caller liefert Resolved-
+   *  Form (Labels + onTrigger schon verdrahtet); DataTable kümmert
+   *  sich nur um Render + Confirm-Dialog. */
+  readonly rowActions?: readonly DataTableRowAction[];
   /** Custom Empty-State-Inhalt (z. B. Icon + Heading + CTA-Button).
    *  Default-Renderer rahmt ihn in einer dashed-border Box. */
   readonly emptyState?: ReactNode;

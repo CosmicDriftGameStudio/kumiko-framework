@@ -72,6 +72,58 @@ export type ListSortSpec = {
   readonly dir: ListSortDir;
 };
 
+// RowAction — per-Row Button/Dropdown-Item das einen Write-Handler
+// triggert. Lebt im Schema (Author deklariert pro List-Screen welche
+// Aktionen möglich sind), Caller liefert die handler-QN + optional
+// payload-Builder + Confirm-Prompt.
+//
+// Pattern: row-level Lifecycle-Operations (Maintenance start/cancel/
+// complete, Incident resolve, Order ship etc.) — Sachen die in einem
+// CRUD-update kein passendes Verb haben aber als WriteHandler existieren.
+export type RowAction = {
+  /** Stable id pro Screen — kebab-case, eindeutig im Action-Set. URL-
+   *  Parameter wenn der Confirm-Dialog open ist (zukünftig). */
+  readonly id: string;
+  /** Anzeige-Text (i18n-Key). */
+  readonly label: string;
+  /** Qualified-Name des Server-Handlers, z.B.
+   *  "publicstatus:write:maintenance:start". Wird via useDispatcher
+   *  dispatcht. */
+  readonly handler: string;
+  /** Optional: Payload-Builder pro Row. Default = `{ id: row.id }`. */
+  readonly payload?: (row: Readonly<Record<string, unknown>>) => Record<string, unknown>;
+  /** i18n-Key für ein Confirm-Dialog vor der Ausführung. Wenn gesetzt,
+   *  öffnet ein Modal mit Bestätigungs-Frage und Cancel/Confirm-Buttons. */
+  readonly confirm?: string;
+  /** Conditional Visibility — Action erscheint nur wenn die Bedingung
+   *  true returnt. Beispiel: nur "Start" zeigen wenn status === "scheduled". */
+  readonly visible?: FieldCondition;
+  /** Visual-Style. "danger" rendert rot + meist mit Confirm-Dialog. */
+  readonly style?: "primary" | "secondary" | "danger";
+};
+
+// ToolbarAction — Button im List-Header. Zwei Varianten: navigate auf
+// einen anderen Screen (z.B. zu einem actionForm) oder direkt einen
+// Handler dispatchen (z.B. "Sync All" ohne Form).
+export type ToolbarAction =
+  | {
+      readonly kind: "navigate";
+      readonly id: string;
+      readonly label: string;
+      /** Screen-id (kurz, unqualified) zu dem navigiert wird. */
+      readonly screen: string;
+      readonly style?: "primary" | "secondary";
+    }
+  | {
+      readonly kind: "writeHandler";
+      readonly id: string;
+      readonly label: string;
+      readonly handler: string;
+      readonly payload?: () => Record<string, unknown>;
+      readonly confirm?: string;
+      readonly style?: "primary" | "secondary" | "danger";
+    };
+
 export type EntityListScreenDefinition = {
   readonly id: string;
   readonly type: "entityList";
@@ -81,6 +133,14 @@ export type EntityListScreenDefinition = {
   // from `columns`. cardRenderer fills the same role on compact layouts.
   readonly rowRenderer?: PlatformComponent;
   readonly cardRenderer?: PlatformComponent;
+  /** Per-Row-Aktionen — rendert eine Actions-Spalte rechts in der Tabelle.
+   *  Bis zu 2 actions als inline-Buttons; >2 als Kebab-Dropdown.
+   *  Reihenfolge im Array = Reihenfolge in der UI. */
+  readonly rowActions?: readonly RowAction[];
+  /** Toolbar-Aktionen (List-Header). "Open Incident", "Schedule Maintenance"
+   *  etc. — neben "+ Neu" wenn vorhanden. Reihenfolge im Array = UI-
+   *  Reihenfolge, primary-style links. */
+  readonly toolbarActions?: readonly ToolbarAction[];
   // Pagination-Modus (Default "pages"). Bestimmt UI (Pager vs Scroll-
   // Sentinel) und ob der Server `total` mitliefern muss.
   readonly pagination?: ListPaginationMode;

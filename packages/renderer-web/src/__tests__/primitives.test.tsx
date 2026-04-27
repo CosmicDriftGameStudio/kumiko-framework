@@ -506,6 +506,142 @@ describe("DataTable", () => {
       expect(screen.getByTestId("dt-sentinel-end").textContent).toContain("End of list");
     });
   });
+
+  // RowActions: pinst die Inline-vs-Kebab-Entscheidung, Confirm-Dialog
+  // bei style=danger, Visibility-Filter pro Row und onTrigger-Wiring.
+  describe("RowActions", () => {
+    const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+    const rows = [
+      { id: "r1", values: { id: "r1", name: "Alpha" } },
+      { id: "r2", values: { id: "r2", name: "Beta" } },
+    ];
+
+    test("ohne rowActions: keine Actions-Spalte im Header", () => {
+      render(<DataTable columns={cols} rows={rows} testId="dt" />);
+      expect(screen.queryByTestId("column-actions")).toBeNull();
+      expect(screen.queryByTestId("cell-r1-actions")).toBeNull();
+    });
+
+    test("mit rowActions: Actions-Spalte gerendert", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[{ id: "edit", label: "Edit", onTrigger: vi.fn() }]}
+        />,
+      );
+      expect(screen.queryByTestId("column-actions")).not.toBeNull();
+      expect(screen.queryByTestId("cell-r1-actions")).not.toBeNull();
+    });
+
+    test("≤2 Actions: Inline-Buttons (kein Kebab)", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            { id: "edit", label: "Edit", onTrigger: vi.fn() },
+            { id: "delete", label: "Delete", style: "danger", onTrigger: vi.fn() },
+          ]}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-action-edit")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
+    });
+
+    test(">2 Actions: Kebab-Dropdown statt Inline-Buttons", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            { id: "a", label: "A", onTrigger: vi.fn() },
+            { id: "b", label: "B", onTrigger: vi.fn() },
+            { id: "c", label: "C", onTrigger: vi.fn() },
+          ]}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-actions-menu")).not.toBeNull();
+      // Inline-Buttons der Kebab-Items sind nicht direkt im DOM —
+      // Radix portal'd Content ist erst nach Click sichtbar.
+      expect(screen.queryByTestId("row-r1-action-a")).toBeNull();
+    });
+
+    test("Click auf Action ohne confirm: onTrigger wird mit Row gerufen", async () => {
+      const onTrigger = vi.fn();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[{ id: "edit", label: "Edit", onTrigger }]}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("row-r1-action-edit"));
+      // onTrigger ist async (await im Component) — micro-task warten.
+      await new Promise((r) => setTimeout(r, 0));
+      expect(onTrigger).toHaveBeenCalledWith(rows[0]);
+    });
+
+    test("style=danger: erzwingt Confirm-Dialog vor onTrigger", async () => {
+      const onTrigger = vi.fn();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[{ id: "delete", label: "Delete", style: "danger", onTrigger }]}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("row-r1-action-delete"));
+      // Click triggered den Dialog, NICHT direkt onTrigger.
+      expect(onTrigger).not.toHaveBeenCalled();
+      // Dialog muss im DOM sein — wir checken den testId-Suffix.
+      expect(screen.queryByTestId("row-r1-action-delete-dialog")).not.toBeNull();
+    });
+
+    test("isVisible=false: Action erscheint nicht in der Cell", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            {
+              id: "archive",
+              label: "Archive",
+              onTrigger: vi.fn(),
+              // Nur für r1 sichtbar
+              isVisible: (row) => row.id === "r1",
+            },
+          ]}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-action-archive")).not.toBeNull();
+      expect(screen.queryByTestId("row-r2-action-archive")).toBeNull();
+    });
+
+    test("Click auf Action-Cell propagiert NICHT auf onRowClick", () => {
+      const onRowClick = vi.fn();
+      const onTrigger = vi.fn();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          onRowClick={onRowClick}
+          rowActions={[{ id: "edit", label: "Edit", onTrigger }]}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("row-r1-action-edit"));
+      // onTrigger feuert, onRowClick MUSS NICHT — sonst würde der User
+      // beim Action-Click gleichzeitig zum Edit-Screen navigieren.
+      expect(onRowClick).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe("Form", () => {

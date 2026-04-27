@@ -77,6 +77,17 @@ export const itemListScreen: EntityListScreenDefinition = {
   pageSize: 50,
   defaultSort: { field: "title", dir: "asc" },
   searchable: true,
+  // RowActions-Demo. Default-Payload ist `{ id: row.id }` — reicht für
+  // delete. Confirm-Dialog wegen style="danger" automatisch.
+  rowActions: [
+    {
+      id: "delete",
+      label: "showcase:actions.delete",
+      handler: "showcase:write:item:delete",
+      confirm: "showcase:actions.delete-confirm",
+      style: "danger",
+    },
+  ],
 };
 
 // Zweiter Screen auf derselben Entity, aber im Infinite-Scroll-Modus.

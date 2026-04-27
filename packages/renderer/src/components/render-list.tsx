@@ -4,7 +4,7 @@ import { computeListViewModel } from "@kumiko/headless";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import type { ListSort } from "../hooks/use-list-url-state";
 import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
+import { type DataTableRowAction, usePrimitives } from "../primitives";
 
 // RenderList — präsentationaler View für entityList-Screens.
 //
@@ -69,6 +69,10 @@ export type RenderListProps = {
   readonly onReachEnd?: () => void;
   readonly loadingMore?: boolean;
   readonly hasMore?: boolean;
+  /** Pro-Row-Aktionen — Resolved-Form (KumikoScreen baut das aus
+   *  EntityListScreenDefinition.rowActions: handler-QN → dispatcher-Call,
+   *  i18n-Keys → translated Strings). */
+  readonly rowActions?: readonly DataTableRowAction[];
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -94,6 +98,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     onReachEnd,
     loadingMore,
     hasMore,
+    rowActions,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
@@ -185,6 +190,7 @@ export function RenderList(props: RenderListProps): ReactNode {
       {...(onReachEnd !== undefined && { onReachEnd })}
       {...(loadingMore !== undefined && { loadingMore })}
       {...(hasMore !== undefined && { hasMore })}
+      {...(rowActions !== undefined && { rowActions })}
       testId="render-list-table"
     />
   );

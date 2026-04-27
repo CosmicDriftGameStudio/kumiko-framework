@@ -8,7 +8,8 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
-import type { DataTableSort, DataTableSortDir } from "@kumiko/renderer";
+import type { ListRowViewModel } from "@kumiko/headless";
+import type { DataTableRowAction, DataTableSort, DataTableSortDir } from "@kumiko/renderer";
 import {
   type BannerProps,
   type ButtonProps,
@@ -27,11 +28,25 @@ import {
 } from "@kumiko/renderer";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { cva } from "class-variance-authority";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { type ChangeEvent, type ReactNode, useEffect, useRef } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  MoreHorizontal,
+} from "lucide-react";
+import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 import { DateInput } from "./date-input";
 import { DefaultDialog } from "./dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./dropdown-menu";
 import { MoneyInput } from "./money-input";
 import { SelectInput } from "./select";
 
@@ -298,6 +313,7 @@ function DefaultDataTable({
   onReachEnd,
   loadingMore,
   hasMore,
+  rowActions,
   testId,
 }: DataTableProps): ReactNode {
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
@@ -315,7 +331,7 @@ function DefaultDataTable({
     ) : (
       <div className="rounded-md border">
         <table data-testid={testId} className="w-full caption-bottom text-sm">
-          {tableInner(columns, rows, onRowClick, sort, onSortChange)}
+          {tableInner(columns, rows, onRowClick, sort, onSortChange, rowActions)}
         </table>
       </div>
     );
@@ -384,7 +400,9 @@ function tableInner(
   onRowClick?: DataTableProps["onRowClick"],
   sort?: DataTableProps["sort"],
   onSortChange?: DataTableProps["onSortChange"],
+  rowActions?: DataTableProps["rowActions"],
 ): ReactNode {
+  const hasActions = rowActions !== undefined && rowActions.length > 0;
   return (
     <>
       <thead className="[&_tr]:border-b">
@@ -399,6 +417,13 @@ function tableInner(
               {...(onSortChange !== undefined && { onSortChange })}
             />
           ))}
+          {hasActions && (
+            <th
+              data-testid="column-actions"
+              className="h-10 px-4 text-right align-middle font-medium text-muted-foreground w-px whitespace-nowrap"
+              aria-label="Actions"
+            />
+          )}
         </tr>
       </thead>
       <tbody className="[&_tr:last-child]:border-0">
@@ -427,9 +452,188 @@ function tableInner(
                 />
               </td>
             ))}
+            {hasActions && (
+              <td
+                data-testid={`cell-${row.id}-actions`}
+                className="p-2 align-middle text-right whitespace-nowrap"
+                // Action-Cell-Events dürfen nicht den Row-Click/Activation
+                // triggern (typisch "Open Detail" — der User wollte ja die
+                // Action, nicht navigieren). Wir stopPropagation für Mouse
+                // UND Keyboard, damit a11y konsistent ist.
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <RowActionsCell row={row} actions={rowActions} />
+              </td>
+            )}
           </tr>
         ))}
       </tbody>
+    </>
+  );
+}
+
+// RowActionsCell — entscheidet zwischen Inline-Buttons (≤2 actions) und
+// Kebab-Dropdown (>2). isVisible-Filter wird hier ausgeführt; eine action
+// die für eine Row unsichtbar ist, kommt nicht in den Render. Wenn alle
+// Actions für eine Row hidden sind, bleibt die Cell leer (keine
+// Phantom-Spalte).
+function RowActionsCell({
+  row,
+  actions,
+}: {
+  readonly row: ListRowViewModel;
+  readonly actions: readonly DataTableRowAction[];
+}): ReactNode {
+  const visible = actions.filter((a) => a.isVisible === undefined || a.isVisible(row));
+  if (visible.length === 0) return null;
+  if (visible.length <= 2) {
+    return (
+      <div className="inline-flex items-center gap-1 justify-end">
+        {visible.map((a) => (
+          <RowActionButton key={a.id} row={row} action={a} />
+        ))}
+      </div>
+    );
+  }
+  return <RowActionsKebab row={row} actions={visible} />;
+}
+
+function RowActionButton({
+  row,
+  action,
+}: {
+  readonly row: ListRowViewModel;
+  readonly action: DataTableRowAction;
+}): ReactNode {
+  const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const trigger = async (): Promise<void> => {
+    setBusy(true);
+    try {
+      await action.onTrigger(row);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const variantClass =
+    action.style === "danger"
+      ? "text-destructive hover:bg-destructive/10"
+      : action.style === "primary"
+        ? "text-primary hover:bg-primary/10"
+        : "text-foreground hover:bg-accent";
+
+  return (
+    <>
+      <button
+        type="button"
+        data-testid={`row-${row.id}-action-${action.id}`}
+        disabled={busy}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (action.confirm !== undefined || action.style === "danger") {
+            setConfirmOpen(true);
+          } else {
+            void trigger();
+          }
+        }}
+        className={cn(
+          "inline-flex h-8 items-center justify-center rounded-sm px-2 text-sm",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "disabled:opacity-50 disabled:pointer-events-none",
+          variantClass,
+        )}
+      >
+        {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : action.label}
+      </button>
+      <DefaultDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={action.label}
+        {...(action.confirm !== undefined && { description: action.confirm })}
+        confirmLabel={action.label}
+        {...(action.style === "danger" && { variant: "danger" as const })}
+        onConfirm={trigger}
+        testId={`row-${row.id}-action-${action.id}-dialog`}
+      />
+    </>
+  );
+}
+
+// Kebab-Dropdown für >2 actions. Confirm-Dialog ist hier inline pro
+// Item analog zum Inline-Button-Pfad — ein gemeinsamer State-Holder
+// per Action damit das Dropdown nach dem Click zumacht und der Dialog
+// danach öffnet (Radix-Dropdown-Item swallowt den Click sonst).
+function RowActionsKebab({
+  row,
+  actions,
+}: {
+  readonly row: ListRowViewModel;
+  readonly actions: readonly DataTableRowAction[];
+}): ReactNode {
+  const [pendingConfirm, setPendingConfirm] = useState<DataTableRowAction | null>(null);
+
+  const triggerNow = async (action: DataTableRowAction): Promise<void> => {
+    await action.onTrigger(row);
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="More actions"
+            data-testid={`row-${row.id}-actions-menu`}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-sm",
+              "hover:bg-accent text-muted-foreground hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            )}
+          >
+            <MoreHorizontal className="size-4" aria-hidden="true" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {actions.map((action) => (
+            <DropdownMenuItem
+              key={action.id}
+              data-testid={`row-${row.id}-action-${action.id}`}
+              onSelect={(e) => {
+                e.preventDefault();
+                if (action.confirm !== undefined || action.style === "danger") {
+                  setPendingConfirm(action);
+                } else {
+                  void triggerNow(action);
+                }
+              }}
+              className={cn(action.style === "danger" && "text-destructive focus:text-destructive")}
+            >
+              {action.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {pendingConfirm !== null && (
+        <DefaultDialog
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setPendingConfirm(null);
+          }}
+          title={pendingConfirm.label}
+          {...(pendingConfirm.confirm !== undefined && { description: pendingConfirm.confirm })}
+          confirmLabel={pendingConfirm.label}
+          {...(pendingConfirm.style === "danger" && { variant: "danger" as const })}
+          onConfirm={async () => {
+            const action = pendingConfirm;
+            setPendingConfirm(null);
+            await triggerNow(action);
+          }}
+          testId={`row-${row.id}-action-${pendingConfirm.id}-dialog`}
+        />
+      )}
     </>
   );
 }
