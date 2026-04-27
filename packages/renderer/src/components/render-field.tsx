@@ -1,5 +1,5 @@
 import type { EditFieldViewModel, FieldIssue } from "@kumiko/headless";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useQuery } from "../hooks/use-query";
 import { usePrimitives } from "../primitives";
 
@@ -69,7 +69,10 @@ export function RenderField({ field, issues, onChange, featureName }: RenderFiel
 //
 // Storage: UI-Wert ist UUID (row.id) oder UUID-Array bei multiple.
 // Server-Schema: z.uuid() bzw. z.array(z.uuid()).
-const REFERENCE_LOOKUP_LIMIT = 200;
+// Combobox zeigt max ~10 Items aufeinmal; bei limit:50 ist der Tail
+// scrollbar erreichbar ohne Server-Roundtrips. Bei searched-Mode greift
+// der Server-Filter und die 50 sind schon die relevantesten Treffer.
+const REFERENCE_LOOKUP_LIMIT = 50;
 
 function ReferenceInput({
   field,
@@ -94,9 +97,23 @@ function ReferenceInput({
   // (z.B. items.assignee → users:query:user:list). Default ist
   // same-feature, kommt aus dem ViewModel (parseRefTarget).
   const queryQn = `${refFeature}:query:${refEntity}:list`;
-  const queryResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
-    limit: REFERENCE_LOOKUP_LIMIT,
-  });
+  // Tier 2.7e Remote-Search: User tippt im Combobox → Server filtert
+  // via existing list-payload `search`-Param (Tier 2.6c). Combobox
+  // debounced den keystroke selbst (300ms) und ruft onSearchChange.
+  // Initial-State leer → erste 50 Items vom Server (default-sortiert).
+  const [searchTerm, setSearchTerm] = useState("");
+  const queryPayload = useMemo<Record<string, unknown>>(
+    () =>
+      searchTerm === ""
+        ? { limit: REFERENCE_LOOKUP_LIMIT }
+        : { limit: REFERENCE_LOOKUP_LIMIT, search: searchTerm },
+    [searchTerm],
+  );
+  const queryResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(
+    queryQn,
+    queryPayload,
+  );
+  const handleSearchChange = useCallback((q: string) => setSearchTerm(q), []);
   const options = useMemo(() => {
     const rows = queryResult.data?.rows ?? [];
     return rows.map((row) => {
@@ -120,7 +137,8 @@ function ReferenceInput({
       kind="combobox"
       id={id}
       name={field.field}
-      disabled={field.readOnly || queryResult.loading}
+      // Initial-Load disabled — danach loading-Indicator im Popover.
+      disabled={field.readOnly || (queryResult.loading && options.length === 0)}
       required={field.required}
       hasError={hasError}
       value={value}
@@ -133,6 +151,8 @@ function ReferenceInput({
         onChange(single === "" ? null : single);
       }}
       options={options}
+      onSearchChange={handleSearchChange}
+      loading={queryResult.loading}
       {...(isMultiple && { multiple: true })}
     />
   );

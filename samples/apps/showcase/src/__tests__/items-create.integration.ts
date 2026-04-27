@@ -268,6 +268,23 @@ test("Tier 2.7e-3 Reference-Field: parent + child, child speichert parentId, lis
   expect(detail["parentId"]).toBe(parent.id);
 });
 
+test("Tier 2.7e Remote-Combobox: list mit search-Param geht durch die Pipeline ohne Crash", async () => {
+  // Pinst dass das `search`-Field im list-payload akzeptiert wird
+  // und die Pipeline durchläuft (Zod-Validation, executor.list,
+  // optional SearchAdapter). Tatsächliche Filter-Ergebnisse hängen
+  // vom konfigurierten SearchAdapter ab — der Showcase-Test-Stack
+  // mountet einen InMemorySearchAdapter, aber der wird in der
+  // defaultEntityQueryHandler-Pipe nicht in den executor gereicht
+  // (Wiring-Schuld, separater Sprint). Wichtig hier: keine 400/500
+  // beim Zod-Schema-Parse mit search-Param.
+  const result = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    { limit: 50, search: "irgendwas" },
+    TestUsers.admin,
+  );
+  expect(Array.isArray(result.rows)).toBe(true);
+});
+
 test("Tier 2.7e Server-Eagerload: detail mit reference-Feld liefert _refs.parentId mit resolved Row", async () => {
   // Pinst dass entity-handlers.detail nach executor.detail eine
   // enrichRowWithReferences-Stage durchläuft und die referenced

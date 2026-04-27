@@ -15,8 +15,8 @@
 
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
-import { Check, ChevronDown } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn";
 
 export type ComboboxOption = { readonly value: string; readonly label: string };
@@ -36,6 +36,14 @@ export type ComboboxInputProps = {
   readonly placeholder?: string;
   readonly searchPlaceholder?: string;
   readonly emptyText?: string;
+  /** Tier 2.7e Remote-Search: wenn gesetzt, wechselt der Combobox in
+   *  Remote-Mode. cmdk's client-side Filter wird deaktiviert (Server
+   *  hat schon gefiltert), und der Search-Input ruft onSearchChange
+   *  debounced (300ms). Ohne diesen Callback bleibt die Local-Filter-
+   *  Variante (cmdk fuzzy-match auf den geladenen options). */
+  readonly onSearchChange?: (q: string) => void;
+  /** Spinner im Trigger + Popover-Footer wenn remote search läuft. */
+  readonly loading?: boolean;
 };
 
 const triggerClass =
@@ -54,6 +62,8 @@ const tagClass =
   "inline-flex items-center gap-1 rounded-sm bg-muted px-2 py-0.5 text-xs " +
   "font-medium text-muted-foreground";
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 export function ComboboxInput({
   id,
   name,
@@ -67,8 +77,27 @@ export function ComboboxInput({
   placeholder = "—",
   searchPlaceholder,
   emptyText = "No matches.",
+  onSearchChange,
+  loading,
 }: ComboboxInputProps): ReactNode {
   const [open, setOpen] = useState(false);
+  // Local Search-Buffer für Remote-Mode. Tipps werden mit 300ms
+  // Debounce an onSearchChange weitergereicht, damit pro Tastendruck
+  // nicht ein Server-Roundtrip fliegt. Im Local-Mode ist das State
+  // ungenutzt (cmdk steuert sein Search-Input intern).
+  const [searchTerm, setSearchTerm] = useState("");
+  const isRemote = onSearchChange !== undefined;
+  useEffect(() => {
+    if (!isRemote) return;
+    const timer = setTimeout(() => onSearchChange(searchTerm), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [isRemote, searchTerm, onSearchChange]);
+  // Beim Schließen des Popovers den Suchbegriff zurücksetzen damit
+  // beim nächsten Öffnen nicht der vorherige term hängt. Würde sonst
+  // den Server-State stale halten zwischen Aufrufen.
+  useEffect(() => {
+    if (!open && searchTerm !== "") setSearchTerm("");
+  }, [open, searchTerm]);
   // Multi-Mode hält value als Array; Single-Mode als String. Wir
   // normalisieren intern auf Set für Lookup-Schnelligkeit.
   const selectedValues = multiple
@@ -130,14 +159,21 @@ export function ComboboxInput({
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content className={popoverContentClass} align="start" sideOffset={4}>
-          <Command>
-            <Command.Input
-              placeholder={searchPlaceholder ?? "Search…"}
-              className="flex h-9 w-full border-0 border-b border-border bg-transparent px-3 py-1 text-sm outline-none placeholder:text-muted-foreground"
-            />
+          <Command shouldFilter={!isRemote}>
+            <div className="relative">
+              <Command.Input
+                placeholder={searchPlaceholder ?? "Search…"}
+                value={isRemote ? searchTerm : undefined}
+                onValueChange={isRemote ? setSearchTerm : undefined}
+                className="flex h-9 w-full border-0 border-b border-border bg-transparent px-3 py-1 text-sm outline-none placeholder:text-muted-foreground"
+              />
+              {loading === true && (
+                <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
             <Command.List className="max-h-64 overflow-y-auto p-1">
               <Command.Empty className="py-3 text-center text-sm text-muted-foreground">
-                {emptyText}
+                {loading === true ? "Loading…" : emptyText}
               </Command.Empty>
               {options.map((opt) => {
                 const isSelected = multiple

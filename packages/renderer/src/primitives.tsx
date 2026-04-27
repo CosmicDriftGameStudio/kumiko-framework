@@ -176,6 +176,11 @@ export type InputProps =
       readonly placeholder?: string;
       readonly searchPlaceholder?: string;
       readonly emptyText?: string;
+      /** Tier 2.7e Remote-Search: gesetzt = Combobox läuft im Remote-
+       *  Mode (cmdk-Local-Filter aus, Search-Input ruft onSearchChange
+       *  debounced an den Caller). */
+      readonly onSearchChange?: (q: string) => void;
+      readonly loading?: boolean;
     }
   | {
       readonly kind: "money";

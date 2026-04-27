@@ -252,6 +252,7 @@ function DefaultInput(props: InputProps): ReactNode {
     case "combobox":
       // Tier 2.1c: cmdk-basiertes Searchable-Select. Multi-Mode via
       // multiple-Prop (selected items als Tags + offenes Search-Input).
+      // Tier 2.7e Remote-Search: onSearchChange + loading durchreichen.
       return (
         <ComboboxInput
           id={props.id}
@@ -268,6 +269,8 @@ function DefaultInput(props: InputProps): ReactNode {
             searchPlaceholder: props.searchPlaceholder,
           })}
           {...(props.emptyText !== undefined && { emptyText: props.emptyText })}
+          {...(props.onSearchChange !== undefined && { onSearchChange: props.onSearchChange })}
+          {...(props.loading !== undefined && { loading: props.loading })}
         />
       );
     case "money":

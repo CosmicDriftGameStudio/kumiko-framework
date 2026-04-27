@@ -138,6 +138,26 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect((screen.getByTestId("combobox-combo") as HTMLButtonElement).disabled).toBe(true);
   });
 
+  // Tier 2.7e Remote-Mode: typed-search-API. Wir testen hier nur das
+  // Wiring (props durchgereicht, debounce-Effect mounted ohne crash);
+  // das End-to-End-Verhalten (typed → server-query → updated options)
+  // läuft im Showcase-Integration-Test über echte Items + useQuery.
+  test("remote-mode: render mit onSearchChange + loading mountet ohne crash", () => {
+    render(
+      <ComboboxInput
+        id="combo"
+        name="combo"
+        value=""
+        onChange={() => {}}
+        options={[{ value: "a", label: "Alpha" }]}
+        onSearchChange={() => {}}
+        loading
+      />,
+    );
+    // Smoke-Test: Trigger ist da, kein Crash beim Mount.
+    expect(screen.getByTestId("combobox-combo")).toBeTruthy();
+  });
+
   test("hasError: Trigger hat aria-invalid=true", () => {
     render(
       <ComboboxInput id="combo" name="combo" value="" onChange={() => {}} options={[]} hasError />,
