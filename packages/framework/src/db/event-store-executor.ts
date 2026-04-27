@@ -169,6 +169,13 @@ export type EventStoreExecutor = {
     },
     user: SessionUser,
     db: TenantDb,
+    /** Tier 2.7e Audit-Fix: per-Call SearchAdapter Override. Wenn der
+     *  Executor beim Build keinen SearchAdapter via Options bekommen
+     *  hat (defaultEntityQueryHandler-Pfad), kann der Caller (Handler)
+     *  hier zur Runtime einen aus ctx.searchAdapter durchreichen.
+     *  options.searchAdapter (build-time) gewinnt — runtime-Override
+     *  ist Fallback für die default-Wrapper. */
+    runtimeOptions?: { readonly searchAdapter?: SearchAdapter },
   ) => Promise<CursorResult<Record<string, unknown>>>;
 
   detail: (
@@ -661,7 +668,7 @@ export function createEventStoreExecutor(
 
     // list + detail are unchanged from crud-executor — projections are the
     // read-model and serve these queries directly.
-    async list(payload, user, db) {
+    async list(payload, user, db, runtimeOptions) {
       const limit = payload.limit ?? 50;
       const offset = payload.offset ?? 0;
       const totalCount = payload.totalCount === true;
@@ -675,8 +682,13 @@ export function createEventStoreExecutor(
       }
 
       let filterIds: EntityId[] | undefined;
-      if (payload.search && searchAdapter && entityName) {
-        const results = await searchAdapter.search(user.tenantId, payload.search, {
+      // Build-Time options.searchAdapter gewinnt; runtime-Override ist
+      // Fallback für die defaultEntityQueryHandler-Pipe (die nutzt den
+      // ctx.searchAdapter erst zur Laufzeit weil createEventStoreExecutor
+      // beim Definition-Time noch keinen Server-Context hat).
+      const effectiveSearchAdapter = searchAdapter ?? runtimeOptions?.searchAdapter;
+      if (payload.search && effectiveSearchAdapter && entityName) {
+        const results = await effectiveSearchAdapter.search(user.tenantId, payload.search, {
           filterType: entityName,
         });
         filterIds = results.map((r) => r.entityId);

@@ -1,3 +1,4 @@
+import type { EagerloadedRow } from "@kumiko/framework/db";
 import type { EntityDefinition, EntityListScreenDefinition } from "@kumiko/framework/ui-types";
 import type { ListRowViewModel, Translate } from "@kumiko/headless";
 import { computeListViewModel } from "@kumiko/headless";
@@ -186,24 +187,20 @@ export function RenderList(props: RenderListProps): ReactNode {
       if (col.renderer !== undefined) return col;
       const map = referenceLookups[col.field];
       const labelField = col.refLabelField ?? "id";
-      const renderer = (value: unknown, row?: Record<string, unknown>): string => {
+      const renderer = (value: unknown, row?: Readonly<Record<string, unknown>>): string => {
         // Tier 2.7e Server-Eagerload: wenn der Server _refs mit-
         // schickt, lesen wir den Display-Wert direkt aus der
         // resolved Row — kein Roundtrip durch die Bridge-Map nötig
-        // und keine limit:200-Constraint.
-        const refs = row?.["_refs"] as Record<string, unknown> | undefined;
-        const resolved = refs?.[col.field];
+        // und keine limit:200-Constraint. EagerloadedRow-Type aus
+        // @kumiko/framework/db pinnt die Form von _refs.
+        const eagerloadedRow = row as EagerloadedRow | undefined;
+        const resolved = eagerloadedRow?._refs?.[col.field];
         if (Array.isArray(resolved) && resolved.length > 0) {
-          return resolved
-            .map((r) => {
-              const obj = r as Record<string, unknown>;
-              return String(obj[labelField] ?? obj["id"] ?? "");
-            })
-            .join(", ");
+          return resolved.map((r) => String(r[labelField] ?? r["id"] ?? "")).join(", ");
         }
-        if (resolved !== undefined && resolved !== null && typeof resolved === "object") {
-          const obj = resolved as Record<string, unknown>;
-          return String(obj[labelField] ?? obj["id"] ?? "");
+        if (resolved !== undefined && !Array.isArray(resolved)) {
+          const single = resolved as Record<string, unknown>;
+          return String(single[labelField] ?? single["id"] ?? "");
         }
         // Renderer-Side-Fallback (kein Server-Eagerload aktiv).
         if (Array.isArray(value)) {

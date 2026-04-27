@@ -1326,10 +1326,27 @@ describe("boot-validator", () => {
 
   // --- Tier 2.7e-3: ReferenceFieldDef ---
   describe("reference field (Tier 2.7e-3)", () => {
+    // Helper: registriert einen Stub-Query-Handler `<entity>:list`
+    // damit der Boot-Validator den Audit-Fix-#2-Check (Handler-
+    // Existenz auf der target-Entity) durch lässt.
+    function stubListHandler(
+      // biome-ignore lint/suspicious/noExplicitAny: Registrar-Typ ist generisch, hier reicht das.
+      r: any,
+      entityName: string,
+    ): void {
+      r.queryHandler({
+        name: `${entityName}:list`,
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }) as never,
+        access: { openToAll: true },
+      });
+    }
+
     test("reference auf bestehende Entity → kein Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity("customer", createEntity({ fields: { name: createTextField() } }));
+          stubListHandler(r, "customer");
           r.entity(
             "order",
             createEntity({
@@ -1384,6 +1401,7 @@ describe("boot-validator", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity("customer", createEntity({ fields: { name: createTextField() } }));
+          stubListHandler(r, "customer");
           r.entity(
             "order",
             createEntity({
@@ -1409,6 +1427,7 @@ describe("boot-validator", () => {
               },
             }),
           );
+          stubListHandler(r, "category");
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -1418,6 +1437,7 @@ describe("boot-validator", () => {
       const features = [
         defineFeature("shop", (r) => {
           r.entity("tag", createEntity({ fields: { name: createTextField() } }));
+          stubListHandler(r, "tag");
           r.entity(
             "post",
             createEntity({
@@ -1442,6 +1462,7 @@ describe("boot-validator", () => {
       const features = [
         defineFeature("users", (r) => {
           r.entity("user", createEntity({ fields: { email: createTextField() } }));
+          stubListHandler(r, "user");
         }),
         defineFeature("shop", (r) => {
           r.entity(
@@ -1455,6 +1476,28 @@ describe("boot-validator", () => {
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("Audit-Fix #2: cross-feature reference ohne list-handler → Throw", () => {
+      const features = [
+        defineFeature("users", (r) => {
+          r.entity("user", createEntity({ fields: { email: createTextField() } }));
+          // KEINE stubListHandler — das ist der Punkt des Tests
+        }),
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: { type: "reference", entity: "users:user" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /no list-query-handler is registered there\. Add r\.queryHandler\(defineEntityQueryHandler\("user:list"/,
+      );
     });
 
     test("cross-feature reference auf unknown feature → Throw mit klarer Message", () => {

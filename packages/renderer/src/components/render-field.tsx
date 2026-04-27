@@ -1,5 +1,6 @@
 import type { EditFieldViewModel, FieldIssue } from "@kumiko/headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";
 import { usePrimitives } from "../primitives";
 
@@ -69,10 +70,8 @@ export function RenderField({ field, issues, onChange, featureName }: RenderFiel
 //
 // Storage: UI-Wert ist UUID (row.id) oder UUID-Array bei multiple.
 // Server-Schema: z.uuid() bzw. z.array(z.uuid()).
-// Combobox zeigt max ~10 Items aufeinmal; bei limit:50 ist der Tail
-// scrollbar erreichbar ohne Server-Roundtrips. Bei searched-Mode greift
-// der Server-Filter und die 50 sind schon die relevantesten Treffer.
-const REFERENCE_LOOKUP_LIMIT = 50;
+// REFERENCE_COMBOBOX_LIMIT lebt zentral in hooks/reference-limits.ts
+// (siehe dort für Begründung der Default-Werte).
 
 function ReferenceInput({
   field,
@@ -105,8 +104,8 @@ function ReferenceInput({
   const queryPayload = useMemo<Record<string, unknown>>(
     () =>
       searchTerm === ""
-        ? { limit: REFERENCE_LOOKUP_LIMIT }
-        : { limit: REFERENCE_LOOKUP_LIMIT, search: searchTerm },
+        ? { limit: REFERENCE_COMBOBOX_LIMIT }
+        : { limit: REFERENCE_COMBOBOX_LIMIT, search: searchTerm },
     [searchTerm],
   );
   const queryResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(
@@ -125,35 +124,38 @@ function ReferenceInput({
   // Single: value ist String/null; Multi: Array. Coerce auf das was
   // der Combobox-Mode erwartet, damit Storage-Drift (Server liefert
   // alten String wo jetzt Array erwartet wird) keine Crash auslöst.
-  const value: string | readonly string[] = isMultiple
-    ? Array.isArray(field.value)
+  const baseInputProps = {
+    id,
+    name: field.field,
+    // Initial-Load disabled — danach loading-Indicator im Popover.
+    disabled: field.readOnly || (queryResult.loading && options.length === 0),
+    required: field.required,
+    hasError,
+    options,
+    onSearchChange: handleSearchChange,
+    loading: queryResult.loading,
+  } as const;
+  if (isMultiple) {
+    const arrayValue: readonly string[] = Array.isArray(field.value)
       ? (field.value as readonly string[])
-      : []
-    : field.value === undefined || field.value === null
-      ? ""
-      : String(field.value);
+      : [];
+    return (
+      <Input
+        kind="combobox"
+        {...baseInputProps}
+        multiple
+        value={arrayValue}
+        onChange={(v) => onChange(v)}
+      />
+    );
+  }
+  const stringValue = field.value === undefined || field.value === null ? "" : String(field.value);
   return (
     <Input
       kind="combobox"
-      id={id}
-      name={field.field}
-      // Initial-Load disabled — danach loading-Indicator im Popover.
-      disabled={field.readOnly || (queryResult.loading && options.length === 0)}
-      required={field.required}
-      hasError={hasError}
-      value={value}
-      onChange={(v) => {
-        if (isMultiple) {
-          onChange(v);
-          return;
-        }
-        const single = typeof v === "string" ? v : "";
-        onChange(single === "" ? null : single);
-      }}
-      options={options}
-      onSearchChange={handleSearchChange}
-      loading={queryResult.loading}
-      {...(isMultiple && { multiple: true })}
+      {...baseInputProps}
+      value={stringValue}
+      onChange={(v) => onChange(v === "" ? null : v)}
     />
   );
 }

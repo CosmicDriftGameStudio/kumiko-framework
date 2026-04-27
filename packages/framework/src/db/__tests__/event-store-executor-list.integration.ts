@@ -252,3 +252,62 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.total).toBe(4);
   });
 });
+
+describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-Fix #1)", () => {
+  // Pinst dass der executor einen searchAdapter aus runtimeOptions
+  // akzeptiert wenn er beim Build keinen über options.searchAdapter
+  // bekommen hat. defaultEntityQueryHandler nutzt diesen Pfad weil
+  // der executor zur Definition-Time keinen ctx-Adapter kennt.
+  const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
+
+  test("ohne searchAdapter: search-Param ist no-op (alle rows zurück)", async () => {
+    for (let i = 0; i < 3; i++) {
+      await exec.create({ title: `item-${i}`, rank: i }, admin, tdb);
+    }
+    const res = await exec.list({ limit: 50, search: "irgendwas" }, admin, tdb);
+    expect(res.rows.length).toBe(3);
+  });
+
+  test("mit runtimeOptions.searchAdapter: search filtert auf returned IDs", async () => {
+    for (let i = 0; i < 3; i++) {
+      await exec.create({ title: `item-${i}`, rank: i }, admin, tdb);
+    }
+    const allRows = await exec.list({ limit: 50 }, admin, tdb);
+    const matchedId = allRows.rows[1]?.["id"] as string;
+    expect(matchedId).toBeDefined();
+
+    // Mock-Adapter: returnt genau eine ID — nur die wird durchgelassen.
+    const mockAdapter = {
+      configure: async () => {},
+      index: async () => {},
+      indexBatch: async () => {},
+      remove: async () => {},
+      search: async () => [{ entityType: "pagerItem", entityId: matchedId }],
+      reset: async () => {},
+    } as never;
+
+    const res = await exec.list({ limit: 50, search: "x" }, admin, tdb, {
+      searchAdapter: mockAdapter,
+    });
+    expect(res.rows).toHaveLength(1);
+    expect(res.rows[0]?.["id"]).toBe(matchedId);
+  });
+
+  test("mit search ohne match (Adapter returnt []): leere rows + no DB-Query", async () => {
+    for (let i = 0; i < 3; i++) {
+      await exec.create({ title: `item-${i}`, rank: i }, admin, tdb);
+    }
+    const mockAdapter = {
+      configure: async () => {},
+      index: async () => {},
+      indexBatch: async () => {},
+      remove: async () => {},
+      search: async () => [],
+      reset: async () => {},
+    } as never;
+    const res = await exec.list({ limit: 50, search: "no-match" }, admin, tdb, {
+      searchAdapter: mockAdapter,
+    });
+    expect(res.rows).toHaveLength(0);
+  });
+});

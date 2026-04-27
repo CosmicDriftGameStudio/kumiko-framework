@@ -13,6 +13,7 @@
 // Auswahl. Selected-Tags rendern als kleine entfernbare Chips, das
 // Search-Input bleibt offen für weitere Auswahl.
 
+import { REFERENCE_SEARCH_DEBOUNCE_MS, useTranslation } from "@kumiko/renderer";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
@@ -21,15 +22,14 @@ import { cn } from "../lib/cn";
 
 export type ComboboxOption = { readonly value: string; readonly label: string };
 
-export type ComboboxInputProps = {
+// Discriminated Union per `multiple`-Flag — Single-Mode hat string-
+// value/onChange, Multi-Mode hat string[]/string[]. Caller muss den
+// Mode beim Build entscheiden, der Compiler zwingt dann die richtige
+// Signature ohne Runtime-narrow.
+type ComboboxBaseProps = {
   readonly id: string;
   readonly name: string;
-  /** Single-Mode: ein String (UUID/value). Multi-Mode: string[]. */
-  readonly value: string | readonly string[];
-  /** Single-Mode wird mit string aufgerufen, Multi-Mode mit string[]. */
-  readonly onChange: (v: string | readonly string[]) => void;
   readonly options: readonly ComboboxOption[];
-  readonly multiple?: boolean;
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
@@ -44,7 +44,27 @@ export type ComboboxInputProps = {
   readonly onSearchChange?: (q: string) => void;
   /** Spinner im Trigger + Popover-Footer wenn remote search läuft. */
   readonly loading?: boolean;
+  /** Test-Hook: forciert den initial open-state des Popovers. In
+   *  jsdom + Radix-Popover triggert userEvent.click auf den Trigger
+   *  nicht zuverlässig PointerEvents — Tests setzen defaultOpen=true,
+   *  damit der Popover sofort gerendert ist. Production-Code lässt
+   *  den Default (false). */
+  readonly defaultOpen?: boolean;
 };
+
+export type ComboboxInputProps = ComboboxBaseProps &
+  (
+    | {
+        readonly multiple?: false;
+        readonly value: string;
+        readonly onChange: (v: string) => void;
+      }
+    | {
+        readonly multiple: true;
+        readonly value: readonly string[];
+        readonly onChange: (v: readonly string[]) => void;
+      }
+  );
 
 const triggerClass =
   "flex h-9 w-full items-center justify-between rounded-md border border-input " +
@@ -62,25 +82,34 @@ const tagClass =
   "inline-flex items-center gap-1 rounded-sm bg-muted px-2 py-0.5 text-xs " +
   "font-medium text-muted-foreground";
 
-const SEARCH_DEBOUNCE_MS = 300;
+// Debounce-Default lebt zentral (hooks/reference-limits.ts) damit
+// app-weit ein consistentes Tipp-Window gilt.
 
-export function ComboboxInput({
-  id,
-  name,
-  value,
-  onChange,
-  options,
-  multiple = false,
-  disabled,
-  required,
-  hasError,
-  placeholder = "—",
-  searchPlaceholder,
-  emptyText = "No matches.",
-  onSearchChange,
-  loading,
-}: ComboboxInputProps): ReactNode {
-  const [open, setOpen] = useState(false);
+export function ComboboxInput(props: ComboboxInputProps): ReactNode {
+  const {
+    id,
+    name,
+    options,
+    disabled,
+    required,
+    hasError,
+    placeholder,
+    searchPlaceholder,
+    emptyText,
+    onSearchChange,
+    loading,
+    defaultOpen,
+  } = props;
+  // i18n-Defaults aus dem Framework-Bundle (kumikoDefaultTranslations).
+  // Caller-Override gewinnt; Bundle-Override greift wenn der Caller
+  // den Prop nicht setzt; raw-Key-Fallback wenn weder noch.
+  const t = useTranslation();
+  const effectivePlaceholder = placeholder ?? t("kumiko.combobox.placeholder");
+  const effectiveSearchPlaceholder = searchPlaceholder ?? t("kumiko.combobox.search-placeholder");
+  const effectiveEmptyText = emptyText ?? t("kumiko.combobox.empty");
+  const loadingText = t("kumiko.combobox.loading");
+  const multiple = props.multiple === true;
+  const [open, setOpen] = useState(defaultOpen === true);
   // Local Search-Buffer für Remote-Mode. Tipps werden mit 300ms
   // Debounce an onSearchChange weitergereicht, damit pro Tastendruck
   // nicht ein Server-Roundtrip fliegt. Im Local-Mode ist das State
@@ -89,7 +118,7 @@ export function ComboboxInput({
   const isRemote = onSearchChange !== undefined;
   useEffect(() => {
     if (!isRemote) return;
-    const timer = setTimeout(() => onSearchChange(searchTerm), SEARCH_DEBOUNCE_MS);
+    const timer = setTimeout(() => onSearchChange(searchTerm), REFERENCE_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [isRemote, searchTerm, onSearchChange]);
   // Beim Schließen des Popovers den Suchbegriff zurücksetzen damit
@@ -98,27 +127,26 @@ export function ComboboxInput({
   useEffect(() => {
     if (!open && searchTerm !== "") setSearchTerm("");
   }, [open, searchTerm]);
-  // Multi-Mode hält value als Array; Single-Mode als String. Wir
-  // normalisieren intern auf Set für Lookup-Schnelligkeit.
-  const selectedValues = multiple
-    ? new Set(Array.isArray(value) ? value : value === "" ? [] : [value as string])
-    : new Set<string>();
-  const singleValue = !multiple && typeof value === "string" ? value : "";
+  // Discriminated-Union per `multiple`: TS narrowt props.value/onChange
+  // automatisch — Runtime-Cast entfällt.
+  const selectedValues = multiple ? new Set(props.value) : new Set<string>();
+  const singleValue = !multiple ? props.value : "";
   const singleLabel = options.find((o) => o.value === singleValue)?.label ?? "";
 
   const toggleMulti = (v: string): void => {
-    const current = Array.isArray(value) ? [...value] : [];
+    if (!multiple) return;
+    const current = [...props.value];
     const idx = current.indexOf(v);
     if (idx >= 0) current.splice(idx, 1);
     else current.push(v);
-    onChange(current);
+    props.onChange(current);
   };
 
   const triggerLabel = multiple ? null : singleLabel === "" ? placeholder : singleLabel;
 
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
-      <input type="hidden" name={name} value={Array.isArray(value) ? value.join(",") : value} />
+      <input type="hidden" name={name} value={multiple ? props.value.join(",") : props.value} />
       <PopoverPrimitive.Trigger
         id={id}
         data-testid={`combobox-${id}`}
@@ -136,7 +164,7 @@ export function ComboboxInput({
         {multiple ? (
           <span className="flex flex-wrap items-center gap-1">
             {selectedValues.size === 0 ? (
-              <span className="text-muted-foreground">{placeholder}</span>
+              <span className="text-muted-foreground">{effectivePlaceholder}</span>
             ) : (
               // Tags sind read-only Anzeige (kein nested <button>
               // möglich im Trigger-<button>). Entfernen via Re-Click
@@ -162,7 +190,7 @@ export function ComboboxInput({
           <Command shouldFilter={!isRemote}>
             <div className="relative">
               <Command.Input
-                placeholder={searchPlaceholder ?? "Search…"}
+                placeholder={effectiveSearchPlaceholder}
                 value={isRemote ? searchTerm : undefined}
                 onValueChange={isRemote ? setSearchTerm : undefined}
                 className="flex h-9 w-full border-0 border-b border-border bg-transparent px-3 py-1 text-sm outline-none placeholder:text-muted-foreground"
@@ -173,7 +201,7 @@ export function ComboboxInput({
             </div>
             <Command.List className="max-h-64 overflow-y-auto p-1">
               <Command.Empty className="py-3 text-center text-sm text-muted-foreground">
-                {loading === true ? "Loading…" : emptyText}
+                {loading === true ? loadingText : effectiveEmptyText}
               </Command.Empty>
               {options.map((opt) => {
                 const isSelected = multiple
@@ -184,10 +212,10 @@ export function ComboboxInput({
                     key={opt.value}
                     value={opt.label}
                     onSelect={() => {
-                      if (multiple) {
+                      if (props.multiple === true) {
                         toggleMulti(opt.value);
                       } else {
-                        onChange(opt.value);
+                        props.onChange(opt.value);
                         setOpen(false);
                       }
                     }}

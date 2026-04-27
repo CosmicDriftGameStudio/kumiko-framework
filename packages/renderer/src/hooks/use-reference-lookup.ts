@@ -18,9 +18,8 @@
 // Entity, Live-Updates kommen via SSE (use-query-live).
 
 import { useMemo } from "react";
+import { REFERENCE_LIST_LOOKUP_LIMIT } from "./reference-limits";
 import { useQuery } from "./use-query";
-
-const REFERENCE_LOOKUP_LIMIT = 200;
 
 export type ReferenceLookupMap = ReadonlyMap<string, string>;
 
@@ -38,7 +37,7 @@ export function useReferenceLookup(
 ): { readonly map: ReferenceLookupMap; readonly loading: boolean } {
   const queryQn = `${featureName}:query:${refEntity}:list`;
   const result = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
-    limit: REFERENCE_LOOKUP_LIMIT,
+    limit: REFERENCE_LIST_LOOKUP_LIMIT,
   });
   const map = useMemo(() => {
     const out = new Map<string, string>();

@@ -455,6 +455,9 @@ const VALID_EMBEDDED_SUB_TYPES = new Set(["text", "number", "boolean", "date"]);
 //      Default; cross-feature verlangt expliziten ":"-Prefix.
 //   2) labelField (wenn gesetzt) existiert auf der referenced Entity.
 //   3) Self-Reference erlaubt (entity → entity).
+//   4) Audit-Fix: Query-Handler `<feature>:query:<entity>:list` muss
+//      registriert sein — der Renderer feuert den beim Combobox-
+//      Open. Ohne Handler crasht die Combobox zur Laufzeit.
 function validateReferenceFields(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -496,6 +499,21 @@ function validateReferenceFields(
               `"${target.entityName}". Known fields: ${[...knownFields, "id"].sort().join(", ")}.`,
           );
         }
+      }
+      // Audit-Fix #2: Query-Handler-Existenz pinnen. Renderer feuert
+      // `<targetFeature>:query:<targetEntity>:list` beim Combobox-Open
+      // (use-reference-lookup, ReferenceInput); ohne Handler kommt
+      // beim ersten Klick ein 404. defaultEntityQueryHandler-Names
+      // sind als kurz "<entity>:list" in feature.queryHandlers gespeichert.
+      const expectedHandlerShortName = `${target.entityName}:list`;
+      if (targetFeature.queryHandlers[expectedHandlerShortName] === undefined) {
+        throw new Error(
+          `[Feature ${feature.name}] Reference field "${fieldName}" on entity "${entityName}" ` +
+            `targets entity "${target.entityName}" but no list-query-handler is registered ` +
+            `there. Add r.queryHandler(defineEntityQueryHandler("${target.entityName}:list", ` +
+            `${target.entityName}Entity)) to feature "${target.featureName}", or pick a ` +
+            `different label/entity.`,
+        );
       }
     }
   }

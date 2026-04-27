@@ -249,30 +249,32 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.hasError !== undefined && { hasError: props.hasError })}
         />
       );
-    case "combobox":
-      // Tier 2.1c: cmdk-basiertes Searchable-Select. Multi-Mode via
-      // multiple-Prop (selected items als Tags + offenes Search-Input).
-      // Tier 2.7e Remote-Search: onSearchChange + loading durchreichen.
-      return (
-        <ComboboxInput
-          id={props.id}
-          name={props.name}
-          value={props.value}
-          onChange={props.onChange}
-          options={props.options}
-          {...(props.multiple !== undefined && { multiple: props.multiple })}
-          {...(props.disabled !== undefined && { disabled: props.disabled })}
-          {...(props.required !== undefined && { required: props.required })}
-          {...(props.hasError !== undefined && { hasError: props.hasError })}
-          {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
-          {...(props.searchPlaceholder !== undefined && {
-            searchPlaceholder: props.searchPlaceholder,
-          })}
-          {...(props.emptyText !== undefined && { emptyText: props.emptyText })}
-          {...(props.onSearchChange !== undefined && { onSearchChange: props.onSearchChange })}
-          {...(props.loading !== undefined && { loading: props.loading })}
-        />
-      );
+    case "combobox": {
+      // Tier 2.1c + Tier 2.7e: Discriminated-Union per `multiple` —
+      // wir splittan TS-side in zwei Branches damit ComboboxInput's
+      // Single/Multi-Variants typgerecht gerendert werden.
+      const baseProps = {
+        id: props.id,
+        name: props.name,
+        options: props.options,
+        ...(props.disabled !== undefined && { disabled: props.disabled }),
+        ...(props.required !== undefined && { required: props.required }),
+        ...(props.hasError !== undefined && { hasError: props.hasError }),
+        ...(props.placeholder !== undefined && { placeholder: props.placeholder }),
+        ...(props.searchPlaceholder !== undefined && {
+          searchPlaceholder: props.searchPlaceholder,
+        }),
+        ...(props.emptyText !== undefined && { emptyText: props.emptyText }),
+        ...(props.onSearchChange !== undefined && { onSearchChange: props.onSearchChange }),
+        ...(props.loading !== undefined && { loading: props.loading }),
+      } as const;
+      if (props.multiple === true) {
+        return (
+          <ComboboxInput {...baseProps} multiple value={props.value} onChange={props.onChange} />
+        );
+      }
+      return <ComboboxInput {...baseProps} value={props.value} onChange={props.onChange} />;
+    }
     case "money":
       return (
         <MoneyInput

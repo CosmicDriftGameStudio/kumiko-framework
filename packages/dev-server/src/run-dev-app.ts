@@ -13,22 +13,18 @@
 // alternativer Membership-Query, eigener LoginRateLimiter): geht direkt
 // auf `createKumikoServer` aus @kumiko/dev-server.
 
-import {
-  AuthErrors,
-  AuthHandlers,
-  createAuthEmailPasswordFeature,
-} from "@kumiko/bundled-features/auth-email-password";
+import { AuthErrors, AuthHandlers } from "@kumiko/bundled-features/auth-email-password";
 import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@kumiko/bundled-features/auth-email-password/seeding";
-import { createConfigFeature, createConfigResolver } from "@kumiko/bundled-features/config";
-import { createTenantFeature, TenantQueries } from "@kumiko/bundled-features/tenant";
-import { createUserFeature } from "@kumiko/bundled-features/user";
+import { createConfigResolver } from "@kumiko/bundled-features/config";
+import { TenantQueries } from "@kumiko/bundled-features/tenant";
 
 import type { FeatureDefinition } from "@kumiko/framework/engine";
 import type { TestStack } from "@kumiko/framework/testing";
 
+import { composeFeatures } from "./compose-features";
 import {
   type CreateKumikoServerOptions,
   createKumikoServer,
@@ -88,19 +84,11 @@ export type RunDevAppOptions = {
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
-  // Auto-mix Standard-Features im auth-mode. Reihenfolge: Infrastruktur-
-  // Features (config/user/tenant) zuerst, dann auth-email-password, dann
-  // die App-Features. Spätere Features dürfen auf Frühere referenzieren
-  // (z.B. authClaims-Hooks an user/tenant).
-  const features: FeatureDefinition[] = options.auth
-    ? [
-        createConfigFeature(),
-        createUserFeature(),
-        createTenantFeature(),
-        createAuthEmailPasswordFeature(),
-        ...options.features,
-      ]
-    : [...options.features];
+  // Auto-mix Standard-Features im auth-mode via composeFeatures (single
+  // source of truth — auch runProdApp und der per-app drizzle-Schema-
+  // Generator nutzen denselben Helper, damit Migration und Runtime nie
+  // auseinanderdriften können).
+  const features = composeFeatures(options.features, { includeBundled: !!options.auth });
 
   // configResolver braucht das config-feature — im auth-mode immer
   // hinzufügen, im no-auth-mode dem Caller überlassen.

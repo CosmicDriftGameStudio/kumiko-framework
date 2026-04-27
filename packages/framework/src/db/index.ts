@@ -18,6 +18,12 @@ export {
   uniqueIndex,
   uuid,
 } from "./dialect";
+export type { EagerLoadEntityResolver, EagerloadedRow } from "./eagerload";
+export {
+  collectReferenceFields,
+  enrichRowWithReferences,
+  enrichWithReferences,
+} from "./eagerload";
 export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
 export type {

@@ -35,6 +35,21 @@ import type { TenantDb } from "./tenant-db";
 // Closure rein.
 export type EagerLoadEntityResolver = (entityName: string) => EntityDefinition | undefined;
 
+// Tier 2.7e Audit-Fix #6: zentral typed Row-Shape mit _refs. Der
+// `_refs`-Property ist Server-Eagerload-Output: pro reference-Field
+// die resolved Row (single) oder ein Array resolved Rows (multiple).
+// Eine reference-Spalte mit value=null hat _refs[fieldName]=undefined.
+//
+// Renderer/Cell-Code liest `row._refs?.[fieldName]` statt inline-Cast;
+// Server-Code stempelt `_refs` über enrichWithReferences. Type ist
+// strukturell — auch Apps die ihre eigenen Refs setzen (Custom-
+// Handler) sollten das hier wiederverwenden.
+export type EagerloadedRow<T extends Record<string, unknown> = Record<string, unknown>> = T & {
+  readonly _refs?: Readonly<
+    Record<string, Record<string, unknown> | ReadonlyArray<Record<string, unknown>> | undefined>
+  >;
+};
+
 type ReferenceFieldEntry = {
   readonly fieldName: string;
   readonly refEntityName: string;

@@ -37,6 +37,11 @@ export {
   useDispatcherStatus,
   useOptionalDispatcher,
 } from "./context/dispatcher-context";
+export {
+  REFERENCE_COMBOBOX_LIMIT,
+  REFERENCE_LIST_LOOKUP_LIMIT,
+  REFERENCE_SEARCH_DEBOUNCE_MS,
+} from "./hooks/reference-limits";
 export type { UseFormOptions, UseFormResult } from "./hooks/use-form";
 export { useForm } from "./hooks/use-form";
 export type {

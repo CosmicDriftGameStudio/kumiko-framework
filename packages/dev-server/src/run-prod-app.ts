@@ -23,18 +23,13 @@
 //   PORT=3000
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
-import {
-  AuthErrors,
-  AuthHandlers,
-  createAuthEmailPasswordFeature,
-} from "@kumiko/bundled-features/auth-email-password";
+import { AuthErrors, AuthHandlers } from "@kumiko/bundled-features/auth-email-password";
 import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@kumiko/bundled-features/auth-email-password/seeding";
-import { createConfigFeature, createConfigResolver } from "@kumiko/bundled-features/config";
-import { createTenantFeature, TenantQueries } from "@kumiko/bundled-features/tenant";
-import { createUserFeature } from "@kumiko/bundled-features/user";
+import { createConfigResolver } from "@kumiko/bundled-features/config";
+import { TenantQueries } from "@kumiko/bundled-features/tenant";
 import { createDbConnection } from "@kumiko/framework/db";
 import {
   buildAppSchema,
@@ -58,6 +53,7 @@ import {
 import { ensureEntityTable } from "@kumiko/framework/testing";
 import Redis from "ioredis";
 import { ASSETS_DIR } from "./build-prod-bundle";
+import { composeFeatures } from "./compose-features";
 import { injectSchema } from "./inject-schema";
 
 /**
@@ -211,16 +207,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
   // 4. Feature registry. Auth-mode auto-mixes config/user/tenant/auth-email-
-  //    password — same convention as runDevApp.
-  const features: FeatureDefinition[] = options.auth
-    ? [
-        createConfigFeature(),
-        createUserFeature(),
-        createTenantFeature(),
-        createAuthEmailPasswordFeature(),
-        ...options.features,
-      ]
-    : [...options.features];
+  //    password via composeFeatures — same source-of-truth as runDevApp
+  //    AND the per-app drizzle-Schema-Generator, so Migration und Runtime
+  //    sehen exakt dieselbe Liste.
+  const features = composeFeatures(options.features, { includeBundled: !!options.auth });
 
   validateBoot(features);
   const registry = createRegistry(features);

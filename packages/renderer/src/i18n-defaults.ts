@@ -26,6 +26,12 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.empty.hint": "Lege den ersten an, um loszulegen.",
     "kumiko.list.no-entries": "Keine Einträge.",
 
+    // Combobox — Tier 2.1c Searchable-Select.
+    "kumiko.combobox.search-placeholder": "Suchen…",
+    "kumiko.combobox.empty": "Keine Treffer.",
+    "kumiko.combobox.loading": "Lade…",
+    "kumiko.combobox.placeholder": "—",
+
     // Nav — Sidebar Tree (Toggle-aria-Labels).
     "kumiko.nav.expand": "Aufklappen",
     "kumiko.nav.collapse": "Zuklappen",
@@ -62,6 +68,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.empty.title": "No entries yet.",
     "kumiko.list.empty.hint": "Create the first one to get started.",
     "kumiko.list.no-entries": "No entries.",
+
+    "kumiko.combobox.search-placeholder": "Search…",
+    "kumiko.combobox.empty": "No matches.",
+    "kumiko.combobox.loading": "Loading…",
+    "kumiko.combobox.placeholder": "—",
 
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",

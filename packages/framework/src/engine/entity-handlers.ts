@@ -187,7 +187,14 @@ export function defineEntityQueryHandler(
     case "list":
       schema = listSchema;
       handler = async (query, ctx) => {
-        const result = await executor.list(query.payload as ListPayload, query.user, ctx.db);
+        // Tier 2.7e Audit-Fix: SearchAdapter aus ctx durchreichen,
+        // damit payload.search zur Laufzeit gegen Meilisearch/InMem
+        // läuft (Remote-Combobox-Search). Der executor wird beim
+        // Definition-Time gebaut, kennt den Adapter also nicht —
+        // Runtime-Override holt das.
+        const result = await executor.list(query.payload as ListPayload, query.user, ctx.db, {
+          ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
+        });
         if (!hasRefFields) return result;
         const enrichedRows = await enrichWithReferences(
           result.rows,

@@ -21,6 +21,7 @@ export {
   buildProdBundle,
   formatBuildResult,
 } from "./build-prod-bundle";
+export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features";
 export {
   type CreateKumikoServerOptions,
   createKumikoServer,

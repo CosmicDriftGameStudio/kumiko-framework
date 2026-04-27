@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
+import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { act } from "react";
 import { describe, expect, test } from "vitest";
 import { ComboboxInput } from "../primitives/combobox";
 import { render, screen } from "./test-utils";
@@ -138,10 +140,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect((screen.getByTestId("combobox-combo") as HTMLButtonElement).disabled).toBe(true);
   });
 
-  // Tier 2.7e Remote-Mode: typed-search-API. Wir testen hier nur das
-  // Wiring (props durchgereicht, debounce-Effect mounted ohne crash);
-  // das End-to-End-Verhalten (typed → server-query → updated options)
-  // läuft im Showcase-Integration-Test über echte Items + useQuery.
+  // Tier 2.7e Remote-Mode: typed-search-API.
   test("remote-mode: render mit onSearchChange + loading mountet ohne crash", () => {
     render(
       <ComboboxInput
@@ -154,8 +153,51 @@ describe("ComboboxInput (Tier 2.1c)", () => {
         loading
       />,
     );
-    // Smoke-Test: Trigger ist da, kein Crash beim Mount.
     expect(screen.getByTestId("combobox-combo")).toBeTruthy();
+  });
+
+  // Audit-Fix #3: Real-Search-Verhalten ohne fake-Timers (collidieren
+  // mit RTL findBy-polling). defaultOpen forciert den Popover-Mount,
+  // dann triggern wir change-event direkt am Search-Input und warten
+  // auf real-time 350ms damit der 300ms-Debounce durch ist.
+  test("remote-mode: Search-Input typing → onSearchChange debounced (300ms)", async () => {
+    const searches: string[] = [];
+    render(
+      <ComboboxInput
+        id="combo"
+        name="combo"
+        value=""
+        onChange={() => {}}
+        options={[{ value: "a", label: "Alpha" }]}
+        onSearchChange={(q) => searches.push(q)}
+        defaultOpen
+      />,
+    );
+    const searchInput = await screen.findByRole("combobox");
+    await act(async () => {
+      fireEvent.change(searchInput, { target: { value: "abc" } });
+    });
+    // Real-time Debounce-Window — kein fake-timers weil das mit
+    // findByRole's polling kollidiert.
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(searches[searches.length - 1]).toBe("abc");
+  });
+
+  test("remote-mode: loading=true zeigt 'Loading…' im Empty-State", async () => {
+    render(
+      <ComboboxInput
+        id="combo"
+        name="combo"
+        value=""
+        onChange={() => {}}
+        options={[]}
+        onSearchChange={() => {}}
+        loading
+        defaultOpen
+      />,
+    );
+    const loadingText = await screen.findByText("Loading…");
+    expect(loadingText).toBeTruthy();
   });
 
   test("hasError: Trigger hat aria-invalid=true", () => {
