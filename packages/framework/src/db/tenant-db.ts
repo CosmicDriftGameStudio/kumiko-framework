@@ -262,6 +262,9 @@ export function createTenantDb(
       limit(n: number) {
         return wrapSelect(ensureFiltered().limit(n), table, true);
       },
+      offset(n: number) {
+        return wrapSelect(ensureFiltered().offset(n), table, true);
+      },
       orderBy(...columns: SQL[]) {
         return wrapSelect(ensureFiltered().orderBy(...columns), table, true);
       },

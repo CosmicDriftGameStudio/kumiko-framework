@@ -774,10 +774,6 @@ function validateScreens(
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   for (const [screenId, screen] of Object.entries(feature.screens)) {
-    // Note: defineFeature() rejects screen-ids mit '.' bereits über den
-    // kebab-case-Check (define-feature.ts), bevor wir hier ankommen.
-    // URL-Param-Namespacing (`<id>.sort=…`) ist damit by construction
-    // sicher — kein eigener Boot-Validator-Check nötig.
     if (screen.type === "custom") {
       if (!screen.renderer.react && !screen.renderer.native) {
         throw new Error(

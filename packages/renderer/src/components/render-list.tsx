@@ -4,7 +4,7 @@ import { computeListViewModel } from "@kumiko/headless";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import type { ListSort } from "../hooks/use-list-url-state";
 import { useTranslation } from "../i18n";
-import { type DataTableSort, usePrimitives } from "../primitives";
+import { usePrimitives } from "../primitives";
 
 // RenderList — präsentationaler View für entityList-Screens.
 //
@@ -160,11 +160,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   const resolvedTitle = translate(titleKey);
   const toolbarTitle = resolvedTitle === titleKey ? screen.id : resolvedTitle;
 
-  // ListSort und DataTableSort haben dieselbe Shape, sind aber separate
-  // Type-Aliases (verschiedene Module). Ein Cast ist hier ehrlich:
-  // strukturell identisch, semantisch beide "URL-namespaced sort spec".
-  const tableSort: DataTableSort | null | undefined = sort ?? undefined;
-
+  // ListSort = DataTableSort (use-list-url-state aliased) — kein Cast nötig.
   return (
     <DataTable
       columns={vm.columns}
@@ -174,7 +170,7 @@ export function RenderList(props: RenderListProps): ReactNode {
       {...(composedEmptyState !== undefined && { emptyState: composedEmptyState })}
       {...(toolbarStart !== undefined && { toolbarStart })}
       {...(toolbarEnd !== undefined && { toolbarEnd })}
-      {...(tableSort !== undefined && { sort: tableSort })}
+      {...(sort !== undefined && { sort })}
       {...(onSortChange !== undefined && { onSortChange })}
       {...(pager !== undefined && { pager })}
       testId="render-list-table"

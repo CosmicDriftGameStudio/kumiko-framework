@@ -14,12 +14,12 @@
 
 import { useCallback, useMemo } from "react";
 import { useNav } from "../app/nav";
+import type { DataTableSort, DataTableSortDir } from "../primitives";
 
-export type ListSortDir = "asc" | "desc";
-export type ListSort = {
-  readonly field: string;
-  readonly dir: ListSortDir;
-};
+// ListSort + DataTableSort hatten dieselbe Shape und drohten zu driften
+// — aliased auf den primitives-Type (eine Quelle, kein Cast in RenderList).
+export type ListSortDir = DataTableSortDir;
+export type ListSort = DataTableSort;
 
 export type ListUrlState = {
   /** Aktive Sortierung (oder null = unsorted, Server liefert Default-Order). */

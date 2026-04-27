@@ -1116,6 +1116,83 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- defaultSort funktioniert für ALLE Field-Types die sortable
+  //     unterstützen (Tier 2.6b Field-Erweiterung) ---
+  // Vor Tier 2.6b war `sortable` nur auf TextFieldDef. Erweitert auf
+  // Number/Money/Date/Timestamp/Boolean/Select/LocatedTimestamp; der
+  // Validator erkennt das via "sortable" in fieldDef. Diese Tests pinnen
+  // dass der per-Field-Type-Roundtrip wirklich greift.
+  describe("entityList defaultSort: alle sortable-Field-Types", () => {
+    function buildFeature(fieldName: string, fields: Record<string, unknown>) {
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: fields as never }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: [{ field: fieldName }],
+          defaultSort: { field: fieldName, dir: "asc" },
+        });
+      });
+    }
+
+    test("number-Field mit sortable: true → kein Throw", () => {
+      expect(() =>
+        validateBoot([buildFeature("rank", { rank: { type: "number", sortable: true } })]),
+      ).not.toThrow();
+    });
+
+    test("money-Field mit sortable: true → kein Throw", () => {
+      expect(() =>
+        validateBoot([buildFeature("price", { price: { type: "money", sortable: true } })]),
+      ).not.toThrow();
+    });
+
+    test("date-Field mit sortable: true → kein Throw", () => {
+      expect(() =>
+        validateBoot([buildFeature("dueDate", { dueDate: { type: "date", sortable: true } })]),
+      ).not.toThrow();
+    });
+
+    test("timestamp-Field mit sortable: true → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          buildFeature("createdAt", { createdAt: { type: "timestamp", sortable: true } }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("boolean-Field mit sortable: true → kein Throw", () => {
+      expect(() =>
+        validateBoot([buildFeature("isActive", { isActive: { type: "boolean", sortable: true } })]),
+      ).not.toThrow();
+    });
+
+    test("select-Field mit sortable: true → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          buildFeature("status", {
+            status: { type: "select", options: ["a", "b"], sortable: true },
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("locatedTimestamp-Field mit sortable: true → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          buildFeature("pickup", { pickup: { type: "locatedTimestamp", sortable: true } }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("number-Field OHNE sortable → Throw (sortable: true ist Pflicht)", () => {
+      expect(() => validateBoot([buildFeature("rank", { rank: { type: "number" } })])).toThrow(
+        /is not sortable/,
+      );
+    });
+  });
+
   // --- screen.id ohne Punkt ---
   // Renderer nutzt screen.id als URL-Param-Namespace (`<id>.sort=…`).
   // defineFeature() rejected screen-ids mit '.' bereits über den

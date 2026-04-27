@@ -9,12 +9,12 @@ import { createEventsTable } from "@kumiko/framework/event-store";
 import {
   createEntityTable,
   setupTestStack,
-  TestUsers,
   type TestStack,
+  TestUsers,
 } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { itemEntity } from "../features/items/schema";
 import { itemsFeature } from "../features/items/feature";
+import { itemEntity } from "../features/items/schema";
 
 let stack: TestStack;
 
