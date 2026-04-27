@@ -106,6 +106,35 @@ export type MoneyFieldDef = {
   readonly access?: FieldAccess;
 };
 
+// Reference-Field (Tier 2.7e-3) — FK-Style Verweis auf eine andere
+// Entity. Gespeichert als UUID-Spalte (uuid type), Read-Side liefert
+// optional die referenced Row mit (Tier 2.7e-4 eagerload).
+//
+// Single-Reference (multiple: false / undefined): ein UUID. Multi-
+// Reference ist BEWUSST nicht in diesem MVP — JSONB-Array-Storage
+// + Multi-Lookup-UI verlangen Searchable-Select (Tier 2.1c) das es
+// noch nicht gibt. Folgt in Tier 2.7e-5 / 2.7f.
+//
+// `entity` ist der kurze Entity-Name (z.B. "customer", "user") im
+// SELBEN Feature wie das referencing Field. Cross-Feature-Refs sind
+// im MVP nicht supported — der Boot-Validator prüft Lokalität.
+//
+// `labelField` (optional) — welches Feld der referenced Entity wird
+// im Select-Dropdown als Label gezeigt. Default: "id". Best practice
+// ist ein menschlich-lesbares Feld wie "name", "title", "email".
+export type ReferenceFieldDef = {
+  readonly type: "reference";
+  readonly entity: string;
+  readonly required?: boolean;
+  readonly filterable?: boolean;
+  readonly sensitive?: boolean;
+  readonly access?: FieldAccess;
+  /** Welches Feld der referenced Entity als Display-Label im
+   *  Select-Dropdown erscheint. Default: "id". Boot-Validator pinst
+   *  dass das Feld auf der referenced Entity existiert. */
+  readonly labelField?: string;
+};
+
 // --- Currency ---
 
 export const DEFAULT_CURRENCIES = [
@@ -266,6 +295,7 @@ export type FieldDefinition =
   | MultiSelectFieldDef
   | NumberFieldDef
   | MoneyFieldDef
+  | ReferenceFieldDef
   | EmbeddedFieldDef
   | DateFieldDef
   | TimestampFieldDef

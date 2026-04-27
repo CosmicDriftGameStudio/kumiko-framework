@@ -52,6 +52,15 @@ function fieldToColumns(
       return { [name]: jsonb(snakeName).default([]) };
     case "number":
       return { [name]: integer(snakeName) };
+    case "reference":
+      // Tier 2.7e-3: FK-Style UUID-Spalte. Storage kompatibel zu
+      // entity.id (uuid). NOT-NULL nur wenn required: true gesetzt;
+      // optionale Refs sind die Norm (User-assignment, Category etc.
+      // dürfen leer bleiben). Eagerload-Read kommt im executor.list/
+      // detail (Tier 2.7e-4).
+      return {
+        [name]: field.required ? uuid(snakeName).notNull() : uuid(snakeName),
+      };
     case "money":
       // BIGINT storing the integer minor unit (cents for EUR, yen for JPY —
       // the currency column tells you which). INTEGER would cap at ~21 M EUR

@@ -29,6 +29,11 @@ export const itemEntity = {
       sortable: true,
       filterable: true,
     },
+    // Tier 2.7e-3 Demo — Self-Reference: jedes Item kann optional ein
+    // anderes Item als "parent task" referenzieren. Renderer zeigt im
+    // Edit-Form ein Dropdown mit allen Items (limit:50), List-Spalte
+    // resolvet die UUID via Bulk-Lookup zum title.
+    parentId: { type: "reference", entity: "item", labelField: "title" },
   },
 } as unknown as EntityDefinition;
 
@@ -53,6 +58,7 @@ export const itemEditScreen: EntityEditScreenDefinition = {
             required: (d) => (d as { isDone?: boolean }).isDone === true,
           },
           "dueDate",
+          "parentId",
         ],
       },
     ],
@@ -72,6 +78,9 @@ export const itemListScreen: EntityListScreenDefinition = {
       renderer: (v: unknown) => (v === undefined || v === 0 ? "—" : `P${v}`),
     },
     "dueDate",
+    // Tier 2.7e-4 Demo — Reference-Spalte. Renderer macht Bulk-Lookup
+    // auf item:list (limit:200), zeigt parentId als parent.title.
+    "parentId",
   ],
   // Server-side Pagination Demo — Showcase seedet ~200 items, der
   // Pager hat 4 Seiten zum Durchklicken bei pageSize: 50.

@@ -1324,6 +1324,97 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- Tier 2.7e-3: ReferenceFieldDef ---
+  describe("reference field (Tier 2.7e-3)", () => {
+    test("reference auf bestehende Entity → kein Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity("customer", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: { type: "reference", entity: "customer", labelField: "name" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("reference auf unknown Entity → Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: { type: "reference", entity: "ghost-entity" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /Reference field "customerId" on entity "order" targets unknown entity "ghost-entity"/,
+      );
+    });
+
+    test("reference labelField auf unknown Field → Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity("customer", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: { type: "reference", entity: "customer", labelField: "ghost-field" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /references labelField "ghost-field" which does not exist on entity "customer"/,
+      );
+    });
+
+    test("reference labelField=id ist immer ok (PK)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity("customer", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: { type: "reference", entity: "customer", labelField: "id" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("self-reference (entity → entity) → kein Throw", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "category",
+            createEntity({
+              fields: {
+                name: createTextField(),
+                parentId: { type: "reference", entity: "category", labelField: "name" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+  });
+
   // --- Tier 2.7e-1: rowAction kind="navigate" target-existenz ---
   describe("entityList rowAction kind=navigate (Tier 2.7e-1)", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {

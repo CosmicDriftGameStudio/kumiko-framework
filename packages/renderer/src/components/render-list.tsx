@@ -1,8 +1,9 @@
 import type { EntityDefinition, EntityListScreenDefinition } from "@kumiko/framework/ui-types";
 import type { ListRowViewModel, Translate } from "@kumiko/headless";
 import { computeListViewModel } from "@kumiko/headless";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { ListSort } from "../hooks/use-list-url-state";
+import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
 import { useTranslation } from "../i18n";
 import { type DataTableRowAction, usePrimitives } from "../primitives";
 
@@ -144,6 +145,53 @@ export function RenderList(props: RenderListProps): ReactNode {
     [screen, entity, rows, translate, featureName],
   );
 
+  // Tier 2.7e-4: Reference-Field-Eagerload via Bridge-Component-Pattern.
+  // Hooks-Rule-Konflikt: pro reference-Spalte muss useReferenceLookup
+  // gerufen werden, aber die Anzahl varriiert per Schema. Lösung —
+  // ReferenceLookupBridge-Komponenten pro Spalte gemountet, die ihre
+  // Map über onMap-Callback in einen lokalen State veröffentlichen.
+  // Anzahl der Hook-Calls pro Bridge-Component ist konstant (1), und
+  // React verwaltet die mounted/unmounted Lifecycles beim Schema-
+  // Wechsel über die key-Property automatisch.
+  const referenceColumns = useMemo(
+    () =>
+      vm.columns
+        .filter((c) => c.type === "reference" && c.refEntity !== undefined)
+        .map((c) => ({
+          field: c.field,
+          refEntity: c.refEntity ?? "",
+          labelField: c.refLabelField ?? "id",
+        })),
+    [vm.columns],
+  );
+  const [referenceLookups, setReferenceLookups] = useState<Record<string, ReferenceLookupMap>>({});
+  const handleLookupMap = useCallback((field: string, map: ReferenceLookupMap) => {
+    setReferenceLookups((prev) => {
+      // skip-update wenn die Map identisch ist (Render-Loop-Schutz —
+      // Bridge-Component re-rendert sonst und schickt die gleiche Map
+      // wieder rein bis React in eine Endlosschleife geht).
+      if (prev[field] === map) return prev;
+      return { ...prev, [field]: map };
+    });
+  }, []);
+  const enrichedColumns = useMemo(() => {
+    if (referenceColumns.length === 0) return vm.columns;
+    return vm.columns.map((col) => {
+      if (col.type !== "reference") return col;
+      // Author-deklarierter Renderer übersteuert immer — Default greift
+      // nur wenn keiner gesetzt ist.
+      if (col.renderer !== undefined) return col;
+      const map = referenceLookups[col.field];
+      const renderer = (value: unknown): string => {
+        if (value === null || value === undefined || value === "") return "—";
+        const idStr = String(value);
+        return map?.get(idStr) ?? idStr;
+      };
+      return { ...col, renderer };
+    });
+  }, [vm.columns, referenceColumns, referenceLookups]);
+  const enrichedVm = useMemo(() => ({ ...vm, columns: enrichedColumns }), [vm, enrichedColumns]);
+
   // i18n-Defaults für Toolbar/Empty-State Strings — Caller kann jeden
   // einzeln per Prop überschreiben, sonst kommen die Framework-Bundles
   // (kumiko.actions.create, kumiko.list.search-placeholder, …).
@@ -208,24 +256,64 @@ export function RenderList(props: RenderListProps): ReactNode {
 
   // ListSort = DataTableSort (use-list-url-state aliased) — kein Cast nötig.
   return (
-    <DataTable
-      columns={vm.columns}
-      rows={vm.rows}
-      toolbarTitle={toolbarTitle}
-      {...(onRowClick !== undefined && { onRowClick })}
-      {...(composedEmptyState !== undefined && { emptyState: composedEmptyState })}
-      {...(toolbarStart !== undefined && { toolbarStart })}
-      {...(toolbarEnd !== undefined && { toolbarEnd })}
-      {...(sort !== undefined && { sort })}
-      {...(onSortChange !== undefined && { onSortChange })}
-      {...(pager !== undefined && { pager })}
-      {...(onReachEnd !== undefined && { onReachEnd })}
-      {...(loadingMore !== undefined && { loadingMore })}
-      {...(hasMore !== undefined && { hasMore })}
-      {...(rowActions !== undefined && { rowActions })}
-      testId="render-list-table"
-    />
+    <>
+      {referenceColumns.map((rc) => (
+        <ReferenceLookupBridge
+          key={rc.field}
+          field={rc.field}
+          refEntity={rc.refEntity}
+          labelField={rc.labelField}
+          featureName={featureName}
+          onMap={handleLookupMap}
+        />
+      ))}
+      <DataTable
+        columns={enrichedVm.columns}
+        rows={enrichedVm.rows}
+        toolbarTitle={toolbarTitle}
+        {...(onRowClick !== undefined && { onRowClick })}
+        {...(composedEmptyState !== undefined && { emptyState: composedEmptyState })}
+        {...(toolbarStart !== undefined && { toolbarStart })}
+        {...(toolbarEnd !== undefined && { toolbarEnd })}
+        {...(sort !== undefined && { sort })}
+        {...(onSortChange !== undefined && { onSortChange })}
+        {...(pager !== undefined && { pager })}
+        {...(onReachEnd !== undefined && { onReachEnd })}
+        {...(loadingMore !== undefined && { loadingMore })}
+        {...(hasMore !== undefined && { hasMore })}
+        {...(rowActions !== undefined && { rowActions })}
+        testId="render-list-table"
+      />
+    </>
   );
+}
+
+// Tier 2.7e-4: Bridge-Component pro reference-Spalte. Mounted für jede
+// Spalte einmal, ruft useReferenceLookup unconditional (Hook-Rules
+// happy), und published die Map über onMap an den Parent. React
+// verwaltet das Mounting/Unmounting beim Schema-Wechsel über die
+// key-Prop im map-Loop des Parents.
+function ReferenceLookupBridge({
+  field,
+  refEntity,
+  labelField,
+  featureName,
+  onMap,
+}: {
+  readonly field: string;
+  readonly refEntity: string;
+  readonly labelField: string;
+  readonly featureName: string;
+  readonly onMap: (field: string, map: ReferenceLookupMap) => void;
+}): null {
+  const lookup = useReferenceLookup(featureName, refEntity, labelField);
+  // useEffect statt direktem call damit setState außerhalb des Render-
+  // Pfads passiert (sonst React-Warning "Cannot update a component
+  // while rendering a different component").
+  useEffect(() => {
+    onMap(field, lookup.map);
+  }, [field, lookup.map, onMap]);
+  return null;
 }
 
 // ToolbarActionView — pro Toolbar-Action ein Button (+ Confirm-Dialog

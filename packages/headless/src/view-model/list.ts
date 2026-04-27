@@ -47,12 +47,25 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       );
     }
     const label = translate(fieldLabelKey(featureName, screen.entity, normalized.field));
+    // Tier 2.7e-3: Reference-Field — refEntity + labelField in das
+    // ViewModel mitnehmen, der Renderer macht damit den Bulk-Lookup
+    // für die Cell-Display-Werte.
+    const refEntity =
+      fieldDef.type === "reference"
+        ? (fieldDef as unknown as { entity?: string }).entity
+        : undefined;
+    const refLabelField =
+      fieldDef.type === "reference"
+        ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
+        : undefined;
     const column: ListColumnViewModel = {
       field: normalized.field,
       label,
       type: fieldDef.type,
       sortable: fieldIsSortable(fieldDef),
       ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+      ...(refEntity !== undefined && { refEntity }),
+      ...(refLabelField !== undefined && { refLabelField }),
     };
     columns.push(column);
   }

@@ -75,6 +75,17 @@ export function computeEditViewModel<
         fieldDef.type === "text"
           ? (fieldDef as unknown as { multiline?: boolean | { rows?: number } }).multiline
           : undefined;
+      // Tier 2.7e-3: Reference-Field — refEntity + refLabelField in
+      // das ViewModel reichen damit der Renderer die Lookup-Query
+      // bauen kann ohne noch an EntityDefinition zu greifen.
+      const refEntity =
+        fieldDef.type === "reference"
+          ? (fieldDef as unknown as { entity?: string }).entity
+          : undefined;
+      const refLabelField =
+        fieldDef.type === "reference"
+          ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
+          : undefined;
       const view: EditFieldViewModel = {
         field: normalized.field,
         label,
@@ -87,6 +98,8 @@ export function computeEditViewModel<
         ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
         ...(options !== undefined && { options }),
         ...(multiline !== undefined && { multiline }),
+        ...(refEntity !== undefined && { refEntity }),
+        ...(refLabelField !== undefined && { refLabelField }),
       };
       return view;
     });

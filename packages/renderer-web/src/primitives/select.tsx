@@ -12,17 +12,32 @@ import { Check, ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 
+// Options-Form: entweder ein `string[]` (Wert == Label, übliche
+// Select-Felder mit hardcoded Optionen) oder ein `{value, label}[]`
+// (Tier 2.7e-3: Reference-Field — Wert ist UUID, Label ein human-
+// readable Feld der referenced Entity).
+export type SelectOption = { readonly value: string; readonly label: string };
 export type SelectInputProps = {
   readonly id: string;
   readonly name: string;
   readonly value: string;
   readonly onChange: (v: string) => void;
-  readonly options: readonly string[];
+  readonly options: readonly string[] | readonly SelectOption[];
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
   readonly placeholder?: string;
 };
+
+function normalizeOptions(
+  opts: readonly string[] | readonly SelectOption[],
+): readonly SelectOption[] {
+  if (opts.length === 0) return [];
+  if (typeof opts[0] === "string") {
+    return (opts as readonly string[]).map((s) => ({ value: s, label: s }));
+  }
+  return opts as readonly SelectOption[];
+}
 
 const triggerClass =
   "flex h-9 w-full items-center justify-between rounded-md border border-input " +
@@ -90,14 +105,14 @@ export function SelectInput({
           className={cn(contentClass, "data-[side=bottom]:translate-y-1")}
         >
           <SelectPrimitive.Viewport className="p-1">
-            {options.map((opt) => (
-              <SelectPrimitive.Item key={opt} value={opt} className={itemClass}>
+            {normalizeOptions(options).map((opt) => (
+              <SelectPrimitive.Item key={opt.value} value={opt.value} className={itemClass}>
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
                   <SelectPrimitive.ItemIndicator>
                     <Check className="h-4 w-4" />
                   </SelectPrimitive.ItemIndicator>
                 </span>
-                <SelectPrimitive.ItemText>{opt}</SelectPrimitive.ItemText>
+                <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
               </SelectPrimitive.Item>
             ))}
           </SelectPrimitive.Viewport>

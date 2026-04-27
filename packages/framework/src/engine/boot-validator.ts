@@ -74,6 +74,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     if (validateFileFields(feature)) hasFileFields = true;
     validateEmbeddedFields(feature);
     validateMultiSelectFields(feature);
+    validateReferenceFields(feature);
     validateTransitions(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
@@ -446,6 +447,42 @@ function validateExtensionUsages(
 // --- Embedded field validation ---
 
 const VALID_EMBEDDED_SUB_TYPES = new Set(["text", "number", "boolean", "date"]);
+
+// Tier 2.7e-3: ReferenceFieldDef-Validation.
+//   1) referenced entity existiert im selben Feature (cross-feature
+//      Refs sind im MVP nicht supported).
+//   2) labelField (wenn gesetzt) existiert auf der referenced Entity.
+//   3) Self-Reference erlaubt (z.B. category → parent_category) —
+//      kein Sonderfall, da entity-Lookup als nicht-fehlgeschlagen
+//      akzeptiert wird.
+function validateReferenceFields(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities)) {
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      if (field.type !== "reference") continue;
+
+      const target = feature.entities[field.entity];
+      if (!target) {
+        const known = Object.keys(feature.entities).sort().join(", ") || "(none)";
+        throw new Error(
+          `[Feature ${feature.name}] Reference field "${fieldName}" on entity "${entityName}" ` +
+            `targets unknown entity "${field.entity}". Cross-feature references are not ` +
+            `supported in this MVP. Known entities in this feature: ${known}.`,
+        );
+      }
+      if (field.labelField !== undefined) {
+        const knownFields = Object.keys(target.fields);
+        // "id" ist immer da, auch ohne Field-Definition (PK).
+        if (field.labelField !== "id" && !knownFields.includes(field.labelField)) {
+          throw new Error(
+            `[Feature ${feature.name}] Reference field "${fieldName}" on entity "${entityName}" ` +
+              `references labelField "${field.labelField}" which does not exist on entity ` +
+              `"${field.entity}". Known fields: ${[...knownFields, "id"].sort().join(", ")}.`,
+          );
+        }
+      }
+    }
+  }
+}
 
 function validateEmbeddedFields(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities)) {

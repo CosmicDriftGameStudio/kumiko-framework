@@ -147,8 +147,11 @@ export type InputProps =
       readonly onChange: (v: string) => void;
       /** Erlaubte Werte. Leeres Array → Dropdown ohne Optionen, ein
        *  required Field ist dann nicht erfüllbar (Author-Hinweis, nicht
-       *  Endnutzer). */
-      readonly options: readonly string[];
+       *  Endnutzer). String-Form für statische Listen (Wert == Label),
+       *  {value,label}-Form für DB-getragene Refs (Tier 2.7e-3). */
+      readonly options:
+        | readonly string[]
+        | readonly { readonly value: string; readonly label: string }[];
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;

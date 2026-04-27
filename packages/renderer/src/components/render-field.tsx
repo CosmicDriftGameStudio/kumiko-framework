@@ -1,5 +1,6 @@
 import type { EditFieldViewModel, FieldIssue } from "@kumiko/headless";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
+import { useQuery } from "../hooks/use-query";
 import { usePrimitives } from "../primitives";
 
 // RenderField übersetzt ein EditFieldViewModel → Primitives-Baum.
@@ -13,16 +14,35 @@ export type RenderFieldProps = {
   readonly field: EditFieldViewModel;
   readonly issues?: readonly FieldIssue[];
   readonly onChange: (value: unknown) => void;
+  /** Nur bei type:"reference" relevant — Feature-Name für die Lookup-
+   *  Query-QN (`<feature>:query:<refEntity>:list`). Andere Field-Types
+   *  ignorieren das Prop. */
+  readonly featureName?: string;
 };
 
-export function RenderField({ field, issues, onChange }: RenderFieldProps): ReactNode {
+export function RenderField({ field, issues, onChange, featureName }: RenderFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   if (!field.visible) return null;
 
   const id = inputId(field);
   const hasError = issues !== undefined && issues.length > 0;
 
-  const control = renderInput({ field, id, hasError, onChange, Input });
+  // Reference-Field rendert eine eigene Component — sie nutzt
+  // useQuery() für den Live-Lookup, also muss sie als React-
+  // Komponente gemountet werden (nicht als pure render-Call).
+  const control =
+    field.type === "reference" ? (
+      <ReferenceInput
+        field={field}
+        id={id}
+        hasError={hasError}
+        onChange={onChange}
+        Input={Input}
+        featureName={featureName ?? ""}
+      />
+    ) : (
+      renderInput({ field, id, hasError, onChange, Input })
+    );
 
   return (
     <Field
@@ -34,6 +54,62 @@ export function RenderField({ field, issues, onChange }: RenderFieldProps): Reac
     >
       {control}
     </Field>
+  );
+}
+
+// Tier 2.7e-3: Reference-Input rendert ein Select-Dropdown gefüllt
+// aus einer Live-Query auf die referenced Entity. MVP-Limits:
+//   - limit: 50 — größere Datasets brauchen Tier 2.7e-5 / 2.1c
+//     (Searchable Combobox).
+//   - Display = row[refLabelField], Default labelField "id".
+//   - Loading-State: leeres Dropdown bis die rows da sind. Field
+//     ist disabled während useQuery läuft, damit der User nicht
+//     ein leeres Dropdown öffnet und sich wundert.
+//
+// Storage: Der UI-Wert ist die UUID (row.id). Das Server-Schema
+// erwartet z.uuid() (siehe schema-builder.ts).
+function ReferenceInput({
+  field,
+  id,
+  hasError,
+  onChange,
+  Input,
+  featureName,
+}: {
+  readonly field: EditFieldViewModel;
+  readonly id: string;
+  readonly hasError: boolean;
+  readonly onChange: (value: unknown) => void;
+  readonly Input: ReturnType<typeof usePrimitives>["Input"];
+  readonly featureName: string;
+}): ReactNode {
+  const refEntity = field.refEntity ?? "";
+  const labelField = field.refLabelField ?? "id";
+  const queryQn = `${featureName}:query:${refEntity}:list`;
+  const queryResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
+    limit: 50,
+  });
+  const options = useMemo(() => {
+    const rows = queryResult.data?.rows ?? [];
+    return rows.map((row) => {
+      const id = String(row["id"] ?? "");
+      const label = String(row[labelField] ?? id);
+      return { value: id, label };
+    });
+  }, [queryResult.data, labelField]);
+  const value = field.value === undefined || field.value === null ? "" : String(field.value);
+  return (
+    <Input
+      kind="select"
+      id={id}
+      name={field.field}
+      disabled={field.readOnly || queryResult.loading}
+      required={field.required}
+      hasError={hasError}
+      value={value}
+      onChange={(v) => onChange(v === "" ? null : v)}
+      options={options}
+    />
   );
 }
 

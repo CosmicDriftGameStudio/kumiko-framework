@@ -227,6 +227,47 @@ test("actionForm Tier 2.7d (HTTP): submit mit nur title+priority erstellt item v
   expect(found?.["status"]).toBe("draft"); // Server-default greift
 });
 
+test("Tier 2.7e-3 Reference-Field: parent + child, child speichert parentId, list+detail liefern UUID zurück", async () => {
+  // Pinst End-to-End dass das `reference`-Field-Type:
+  //   1) eine UUID-Spalte in der DB anlegt (table-builder)
+  //   2) die UUID via Zod-Validator akzeptiert (schema-builder)
+  //   3) auf Read als UUID zurückkommt (Renderer macht Bulk-Lookup
+  //      gegen item:list für die Display-Auflösung).
+  const parent = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "ref-parent",
+      status: "active",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+  const child = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "ref-child",
+      status: "draft",
+      isDone: false,
+      priority: 2,
+      dueDate: "2026-05-01",
+      notes: "",
+      parentId: parent.id,
+    },
+    TestUsers.admin,
+  );
+  expect(child.id).toBeDefined();
+
+  const detail = await stack.http.queryOk<Record<string, unknown>>(
+    "showcase:query:item:detail",
+    { id: child.id },
+    TestUsers.admin,
+  );
+  expect(detail["parentId"]).toBe(parent.id);
+});
+
 test("item:delete via rowAction-Pfad: Default-Payload {id} reicht", async () => {
   // Pinst Tier-2.7a End-to-End: die Delete-Action im itemListScreen
   // schickt nur `{ id: row.id }` (kein expliziter payload-Builder im

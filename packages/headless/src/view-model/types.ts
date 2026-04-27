@@ -35,6 +35,12 @@ export type ListColumnViewModel = {
   readonly type: string; // field-type ("text", "number", "money", ...)
   readonly renderer?: FieldRenderer;
   readonly sortable: boolean;
+  /** Nur bei `type: "reference"` — referenced Entity-Name für Bulk-
+   *  Lookup im Renderer (`<feature>:query:<refEntity>:list`). */
+  readonly refEntity?: string;
+  /** Nur bei `type: "reference"` — Welches Feld der referenced Entity
+   *  als Display-Wert in der Cell erscheint (Default "id"). */
+  readonly refLabelField?: string;
 };
 
 export type ListRowViewModel = {
@@ -81,6 +87,13 @@ export type EditFieldViewModel = {
    *  ist — dann rendert der Renderer textarea statt single-line input.
    *  `true` = Default-Zeilen, `{ rows }` = explizite Höhe. */
   readonly multiline?: boolean | { readonly rows?: number };
+  /** Nur bei `type: "reference"` gesetzt — Tier 2.7e-3.
+   *  Die referenced Entity (kurz, im selben Feature). Der Renderer
+   *  ruft `<featureName>:query:<refEntity>:list` für die Options. */
+  readonly refEntity?: string;
+  /** Nur bei `type: "reference"` gesetzt — Welches Feld der referenced
+   *  Entity als Display-Label im Dropdown erscheint. Default: "id". */
+  readonly refLabelField?: string;
 };
 
 export type EditSectionViewModel = {

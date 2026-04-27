@@ -116,6 +116,12 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
       // fileRefsTable.id.
       return z.array(z.uuid());
     }
+    case "reference":
+      // Tier 2.7e-3: Validiert UUID-shape. Existenz-Check der Reference
+      // (Row im referenced Table existiert + Tenant-Scope) ist Server-
+      // side-Verantwortung im Handler / Foreign-Key-Constraint, nicht
+      // im Schema-Validator (würde sonst Round-trip zur DB beim Parse).
+      return z.uuid();
     default:
       assertUnreachable(field, "field type");
   }

@@ -200,6 +200,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   (controller.setField as (k: string, v: unknown) => void)(field.field, v);
                 }}
                 GridCell={GridCell}
+                featureName={featureName}
               />
             ))}
           </Grid>
@@ -263,6 +264,9 @@ type GridCellForFieldProps = {
   readonly issues: readonly FieldIssue[] | undefined;
   readonly onChange: (value: unknown) => void;
   readonly GridCell: ReturnType<typeof usePrimitives>["GridCell"];
+  /** Tier 2.7e-3: durchgereicht damit Reference-Felder die richtige
+   *  Lookup-Query-QN bauen können (`<feature>:query:<refEntity>:list`). */
+  readonly featureName: string;
 };
 
 function GridCellForField({
@@ -271,11 +275,17 @@ function GridCellForField({
   issues,
   onChange,
   GridCell,
+  featureName,
 }: GridCellForFieldProps): ReactNode {
   const effectiveSpan = field.span !== undefined ? Math.min(field.span, columns) : 1;
   return (
     <GridCell span={effectiveSpan}>
-      <RenderField field={field} {...(issues !== undefined && { issues })} onChange={onChange} />
+      <RenderField
+        field={field}
+        {...(issues !== undefined && { issues })}
+        onChange={onChange}
+        featureName={featureName}
+      />
     </GridCell>
   );
 }
