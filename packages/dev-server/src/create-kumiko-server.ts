@@ -29,6 +29,7 @@ import {
   type TestStackOptions,
   TestUsers,
 } from "@kumiko/framework/testing";
+import { injectSchema } from "./inject-schema";
 import { buildBunServeOptions } from "./run-prod-app";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
@@ -212,19 +213,8 @@ function injectStylesheet(html: string): string {
     : `${link}${html}`;
 }
 
-// Injiziert das Server-aufgelöste AppSchema vor dem client.js-Script,
-// damit createKumikoApp() es synchron unter `window.__KUMIKO_SCHEMA__`
-// vorfindet. JSON ist valides JS — direkt eingebettet, der Browser
-// parsed das Object-Literal nativ. Dev-server-Kontext, schema kommt aus
-// feature-Defs (kein User-Input), keine Escape-Gymnastik nötig.
-function injectSchema(html: string, schemaJson: string): string {
-  if (html.includes("__KUMIKO_SCHEMA__")) return html;
-  const tag = `<script>window.__KUMIKO_SCHEMA__=${schemaJson};</script>`;
-  if (html.includes('<script src="/client.js"')) {
-    return html.replace('<script src="/client.js"', `${tag}<script src="/client.js"`);
-  }
-  return html.includes("</body>") ? html.replace("</body>", `${tag}</body>`) : html + tag;
-}
+// injectSchema lebt in `./inject-schema.ts` damit dev-server + prod-
+// server denselben Inject-Pfad nutzen.
 
 async function watchDir(dir: string, onChange: (filename: string) => void): Promise<void> {
   const watcher = watch(dir, { recursive: true });

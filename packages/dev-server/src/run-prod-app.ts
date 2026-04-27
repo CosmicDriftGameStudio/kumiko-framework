@@ -58,6 +58,7 @@ import {
 import { ensureEntityTable } from "@kumiko/framework/testing";
 import Redis from "ioredis";
 import { ASSETS_DIR } from "./build-prod-bundle";
+import { injectSchema } from "./inject-schema";
 
 /**
  * Bun.serve-Options für Production.
@@ -295,10 +296,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     }),
   } satisfies ApiEntrypointOptions);
 
-  // 8. Build the AppSchema once so feature-toggles / nav-config / screen-
-  //    metadata is computable. Useful for debug-endpoints; harmless to
-  //    pre-compute.
-  void buildAppSchema(registry);
+  // 8. Build the AppSchema once + serialize. Wird beim Static-Fallback
+  //    in die index.html injiziert damit createKumikoApp() im Browser
+  //    `window.__KUMIKO_SCHEMA__` synchron lesen kann — gleicher Pfad
+  //    wie im dev-server, damit der Client-Code keine Sonderfall-
+  //    Branch zwischen dev/prod braucht. Boot-once weil Features
+  //    nach dem Start nicht mehr ändern.
+  const appSchemaJson = JSON.stringify(buildAppSchema(registry));
 
   // 9. Seeds: admin first, then app-specific. Both expected to be
   //    idempotent — runProdApp doesn't gate "first boot" via flag,
@@ -328,7 +332,11 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //     owns the rest. Tests use this directly; listen() wraps it in
   //     Bun.serve.
   const fetchHandler = options.staticDir
-    ? buildStaticFallback(entrypoint.app.fetch.bind(entrypoint.app), options.staticDir)
+    ? buildStaticFallback(
+        entrypoint.app.fetch.bind(entrypoint.app),
+        options.staticDir,
+        appSchemaJson,
+      )
     : entrypoint.app.fetch.bind(entrypoint.app);
 
   // 11. Mark lifecycle ready — health/ready flips to 200 after this.
@@ -469,8 +477,22 @@ function mimeTypeFor(filePath: string): string {
 function buildStaticFallback(
   apiHandler: (req: Request) => Response | Promise<Response>,
   staticDir: string,
+  appSchemaJson: string,
 ): (req: Request) => Promise<Response> {
   const indexHtml = `${staticDir}/index.html`;
+
+  // Helper: liest index.html von der Disk + injiziert das pre-serialized
+  // AppSchema vor dem client.js-Tag. Mehrere Code-Pfade unten servieren
+  // index.html (Disk-Match auf "/" UND SPA-Fallback) — beide brauchen
+  // dieselbe Injection. injectSchema ist idempotent, doppelte Calls
+  // produzieren keine zweite Tag.
+  async function readIndexWithSchema(): Promise<{ bytes: ArrayBuffer; mime: string } | null> {
+    const file = await readStaticFile(indexHtml);
+    if (!file) return null;
+    const text = new TextDecoder().decode(file.bytes);
+    const injected = injectSchema(text, appSchemaJson);
+    return { bytes: new TextEncoder().encode(injected).buffer as ArrayBuffer, mime: file.mime };
+  }
 
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
@@ -489,19 +511,32 @@ function buildStaticFallback(
       return honoRes;
     }
 
-    // Try the static file. Default route "/" → index.html.
-    const relPath = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-    const filePath = `${staticDir}/${relPath}`;
-    const file = await readStaticFile(filePath);
-    if (file) {
-      return new Response(file.bytes, {
-        headers: { ...cacheHeadersFor(url.pathname), "content-type": file.mime },
-      });
+    // Try the static file. Default route "/" → index.html (Schema-injected).
+    const isIndexRequest = url.pathname === "/" || url.pathname === "/index.html";
+    if (isIndexRequest) {
+      const indexed = await readIndexWithSchema();
+      if (indexed) {
+        return new Response(indexed.bytes, {
+          headers: { ...cacheHeadersFor("/index.html"), "content-type": indexed.mime },
+        });
+      }
+    } else {
+      const relPath = url.pathname.slice(1);
+      const filePath = `${staticDir}/${relPath}`;
+      const file = await readStaticFile(filePath);
+      if (file) {
+        return new Response(file.bytes, {
+          headers: { ...cacheHeadersFor(url.pathname), "content-type": file.mime },
+        });
+      }
     }
 
     // Fallback to index.html for SPA-style routes that neither Hono
     // (oben schon getestet, gab 404) noch eine Disk-Datei beanspruchen.
-    const index = await readStaticFile(indexHtml);
+    // Schema wird hier auch injiziert — sonst hätte ein deep-link
+    // (/orders/123) initial das Schema, ein refresh auf einer SPA-Route
+    // aber nicht.
+    const index = await readIndexWithSchema();
     if (index) {
       return new Response(index.bytes, {
         headers: { ...cacheHeadersFor("/index.html"), "content-type": index.mime },
