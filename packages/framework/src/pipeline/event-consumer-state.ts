@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import { bigint, index, instant, integer, table as pgTable, primaryKey, text } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
-import { pushTables } from "../testing";
+import { pushTables } from "../stack";
 
 // Reserved sentinel used in the instance_id column for consumers whose
 // delivery is "shared" — i.e. one cursor across all dispatcher instances

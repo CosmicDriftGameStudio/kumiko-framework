@@ -30,7 +30,7 @@ import {
   listProjectionsWithState,
   rebuildProjection,
 } from "../../pipeline";
-import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } from "../../testing";
+import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } from "../../stack";
 
 // --- Test fixtures ---
 

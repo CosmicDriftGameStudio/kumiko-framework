@@ -10,12 +10,12 @@ import {
 import { eventsTable } from "@kumiko/framework/event-store";
 import {
   createTestUser,
-  expectErrorIncludes,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { expectErrorIncludes } from "@kumiko/framework/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";

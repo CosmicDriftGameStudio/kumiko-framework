@@ -34,7 +34,7 @@ import {
   setupTestStack,
   type TestStack,
   testTenantId,
-} from "../../testing";
+} from "../../stack";
 import { createLocalProvider } from "../local-provider";
 
 // Covers ALL four file-field variants: singular (file/image) stores a UUID in

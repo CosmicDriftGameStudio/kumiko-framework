@@ -28,7 +28,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "../../testing";
+} from "../../stack";
 
 // --- Feature ---
 

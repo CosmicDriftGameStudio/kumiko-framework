@@ -4,15 +4,13 @@ import type { TenantId } from "@kumiko/framework/engine";
 import {
   createEntityTable,
   createTestUser,
-  expectErrorIncludes,
-  getSetCookieRaw,
-  getSetCookieValue,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { expectErrorIncludes, getSetCookieRaw, getSetCookieValue } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";

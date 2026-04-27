@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import { createTestUser } from "../../testing/fixtures";
+import { createTestUser } from "../../stack";
 import { createDispatcher } from "../dispatcher";
 
 const echoFeature = defineFeature("echo", (r) => {

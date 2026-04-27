@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { createTestRedis, type TestRedis } from "../../testing";
+import { createTestRedis, type TestRedis } from "../../stack";
 import { createEntityCache } from "../entity-cache";
 import { createEventDedup } from "../event-dedup";
 import { createIdempotencyGuard } from "../idempotency";

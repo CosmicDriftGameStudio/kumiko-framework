@@ -11,7 +11,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { TenantId } from "../../engine/types";
-import { createTestDb, type TestDb } from "../../testing";
+import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
 import { append, createEventsTable, getStreamVersion } from "../index";
 

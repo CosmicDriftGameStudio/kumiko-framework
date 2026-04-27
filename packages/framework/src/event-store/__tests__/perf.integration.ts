@@ -15,7 +15,7 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { TenantId } from "../../engine/types";
-import { createTestDb, type TestDb } from "../../testing";
+import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
 import {
   append,

@@ -5,10 +5,10 @@ import { createEventsTable } from "@kumiko/framework/event-store";
 import {
   createEntityTable,
   createTestUser,
-  expectErrorIncludes,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { expectErrorIncludes } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { articleEntity, articlesFeature, hookLog } from "../feature";
 

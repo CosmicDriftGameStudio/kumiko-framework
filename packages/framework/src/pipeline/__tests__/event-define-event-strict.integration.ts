@@ -20,10 +20,10 @@ import {
   createEntityTable,
   resetEventStore,
   setupTestStack,
-  sharedWidgetEntity,
   type TestStack,
   TestUsers,
-} from "../../testing";
+} from "../../stack";
+import { sharedWidgetEntity } from "../../testing";
 import { generateId } from "../../utils";
 
 // Capture of the qualified event name defineEvent returns so tests can

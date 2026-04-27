@@ -26,7 +26,7 @@ import {
   resetEventStore,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {

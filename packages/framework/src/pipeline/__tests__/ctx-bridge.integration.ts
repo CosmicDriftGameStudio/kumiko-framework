@@ -11,7 +11,7 @@ import {
   defineFeature,
 } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
 
 // Two entities: `bag` (outer) + `secret` (inner). The outer handler calls
 // the inner via ctx.queryAs / ctx.writeAs. We verify:

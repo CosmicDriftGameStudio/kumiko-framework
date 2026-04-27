@@ -17,6 +17,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./build": "./src/build-prod-bundle.ts",
     "./compose-features": "./src/compose-features.ts"
   },
   "bin": {

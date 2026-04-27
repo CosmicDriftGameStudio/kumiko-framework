@@ -9,18 +9,17 @@ import {
 import { createEventsTable } from "@kumiko/framework/event-store";
 import { createJobRunner, type JobRunner } from "@kumiko/framework/jobs";
 import {
-  bridgeStub,
   createEntityTable,
   createTestDb,
   createTestRedis,
   createTestUser,
   pushTables,
-  sleep,
   type TestDb,
   type TestRedis,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { bridgeStub, sleep } from "@kumiko/framework/testing";
 import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config/feature";

@@ -15,7 +15,7 @@
 import { bigint, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { DbConnection, DbRunner } from "../db/connection";
 import { tableExists } from "../db/schema-inspection";
-import { pushTables } from "../testing";
+import { pushTables } from "../stack";
 import type { StoredEvent } from "./event-store";
 
 export const upcasterDeadLetterTable = pgTable(

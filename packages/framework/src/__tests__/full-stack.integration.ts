@@ -7,13 +7,11 @@ import { eventsTable } from "../event-store";
 import {
   createEntityTable,
   createTestUser,
-  expectErrorIncludes,
   setupTestStack,
-  sharedUserEntity,
-  sharedUserTable,
   type TestStack,
   TestUsers,
-} from "../testing";
+} from "../stack";
+import { expectErrorIncludes, sharedUserEntity, sharedUserTable } from "../testing";
 
 // --- Entities ---
 

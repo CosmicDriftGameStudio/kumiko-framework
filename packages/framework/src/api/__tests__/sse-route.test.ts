@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, test } from "vitest";
-import { TestUsers } from "../../testing/fixtures";
+import { TestUsers } from "../../stack";
 import { authMiddleware } from "../auth-middleware";
 import { createJwtHelper } from "../jwt";
 import type { SseBroker, SseEvent } from "../sse-broker";

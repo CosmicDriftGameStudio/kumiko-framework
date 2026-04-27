@@ -9,13 +9,8 @@ import {
   createTextField,
   defineFeature,
 } from "../engine";
-import {
-  createEntityTable,
-  expectErrorIncludes,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-} from "../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../stack";
+import { expectErrorIncludes } from "../testing";
 
 // Two entities, both with a field named `status`, but different transitions.
 // Before the fix, the dispatcher cached the transition map by `fieldName`

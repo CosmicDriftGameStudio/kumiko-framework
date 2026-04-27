@@ -11,14 +11,8 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { createRegistry, defineFeature, type SessionUser } from "../../engine";
-import {
-  createTestDb,
-  createTestRedis,
-  type TestDb,
-  type TestRedis,
-  TestUsers,
-  waitFor,
-} from "../../testing";
+import { createTestDb, createTestRedis, type TestDb, type TestRedis, TestUsers } from "../../stack";
+import { waitFor } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
 const jobExecutions: Array<{ trigger: string; payload: Record<string, unknown> }> = [];

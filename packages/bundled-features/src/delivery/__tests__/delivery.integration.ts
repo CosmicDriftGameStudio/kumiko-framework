@@ -14,7 +14,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -298,7 +298,7 @@ beforeAll(async () => {
   });
 
   // Create tenant entity table + seed memberships for tenant broadcast tests
-  const { createEntityTable } = await import("@kumiko/framework/testing");
+  const { createEntityTable } = await import("@kumiko/framework/stack");
   await createEntityTable(db, tenantEntity, "tenant");
 
   // Create tenant + members via real API

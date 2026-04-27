@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { requestContext } from "../../api/request-context";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, Registry } from "../../engine/types";
-import { createTestRedis, sleep, type TestRedis, waitFor } from "../../testing";
+import { createTestRedis, type TestRedis } from "../../stack";
+import { sleep, waitFor } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
 // --- Shared state ---

@@ -10,7 +10,7 @@ import { Hono as HonoCtor } from "hono";
 import { describe, expect, test } from "vitest";
 import type { SessionUser } from "../../engine/types";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher";
-import { TestUsers } from "../../testing/fixtures";
+import { TestUsers } from "../../stack";
 import { getSetCookieRaw, getSetCookies } from "../../testing/http-cookies";
 import { PUBLIC_API_PATHS } from "../api-constants";
 import { AUTH_COOKIE_NAME, authMiddleware, CSRF_COOKIE_NAME } from "../auth-middleware";

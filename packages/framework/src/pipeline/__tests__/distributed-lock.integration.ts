@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { createTestRedis, type TestRedis } from "../../testing";
+import { createTestRedis, type TestRedis } from "../../stack";
 import { createDistributedLock } from "../distributed-lock";
 
 let testRedis: TestRedis;

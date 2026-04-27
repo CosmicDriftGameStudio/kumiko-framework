@@ -6,12 +6,11 @@ import {
   createEntityTable,
   createTestRedis,
   setupTestStack,
-  sharedItemEntity,
-  sharedItemTable,
   type TestRedis,
   type TestStack,
   TestUsers,
-} from "../../testing";
+} from "../../stack";
+import { sharedItemEntity, sharedItemTable } from "../../testing";
 import { createEventDedup } from "../event-dedup";
 
 // --- Feature ---

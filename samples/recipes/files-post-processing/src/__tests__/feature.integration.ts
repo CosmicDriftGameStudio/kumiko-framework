@@ -14,7 +14,7 @@ import {
   FILE_UPLOADED_EVENT_TYPE,
   type InMemoryFileProvider,
 } from "@kumiko/framework/files";
-import { setupTestStack, type TestStack, TestUsers } from "@kumiko/framework/testing";
+import { setupTestStack, type TestStack, TestUsers } from "@kumiko/framework/stack";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { derivateLog, filesPostProcessingFeature } from "../feature";

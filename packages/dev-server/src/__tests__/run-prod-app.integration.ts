@@ -24,7 +24,7 @@ import {
   createEventConsumerStateTable,
   createProjectionStateTable,
 } from "@kumiko/framework/pipeline";
-import { ensureEntityTable } from "@kumiko/framework/testing";
+import { ensureEntityTable } from "@kumiko/framework/stack";
 import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";

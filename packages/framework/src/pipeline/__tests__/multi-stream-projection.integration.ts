@@ -20,7 +20,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "../../testing";
+} from "../../stack";
 
 // --- Two aggregate types that feed one MSP ---
 

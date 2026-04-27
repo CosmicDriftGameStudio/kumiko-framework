@@ -5,7 +5,7 @@ import { generateToken } from "../../api/tokens";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
 import { generateId } from "../../utils";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.

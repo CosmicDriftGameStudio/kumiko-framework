@@ -17,7 +17,7 @@ import {
   type TestStack,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { AuditQueries } from "../constants";

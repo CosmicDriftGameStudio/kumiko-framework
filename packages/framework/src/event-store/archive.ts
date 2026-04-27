@@ -3,7 +3,7 @@ import type { DbConnection, DbRunner } from "../db/connection";
 import { instant, table as pgTable, text, uniqueIndex, uuid } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
-import { pushTables } from "../testing";
+import { pushTables } from "../stack";
 
 // Marten-aligned stream archival. Archived streams become read-only: fresh
 // appendEvent on an archived aggregate throws, and loadAggregate returns

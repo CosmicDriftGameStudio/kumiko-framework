@@ -7,7 +7,7 @@ import {
   defineFeature,
   type TenantId,
 } from "../../engine";
-import { createTestUser, TestUsers } from "../../testing/fixtures";
+import { createTestUser, TestUsers } from "../../stack";
 import { buildServer } from "../server";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";

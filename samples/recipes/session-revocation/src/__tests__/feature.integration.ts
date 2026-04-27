@@ -31,13 +31,13 @@ import {
 import type { TenantId } from "@kumiko/framework/engine";
 import {
   createEntityTable,
-  createLateBoundHolder,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { createLateBoundHolder } from "@kumiko/framework/testing";
 import * as jose from "jose";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createSessionCallbacks, createSessionsFeature } from "../feature";

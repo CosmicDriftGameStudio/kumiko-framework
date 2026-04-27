@@ -9,7 +9,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { contactEntity } from "../entities/contact";
 import { embeddedFeature } from "../feature";

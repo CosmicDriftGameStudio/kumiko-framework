@@ -43,12 +43,12 @@ import type { SessionUser } from "@kumiko/framework/engine";
 import { createEventsTable } from "@kumiko/framework/event-store";
 import {
   createTestUser,
-  expectErrorIncludes,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { expectErrorIncludes } from "@kumiko/framework/testing";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { supportFeature, ticketTable } from "../feature";

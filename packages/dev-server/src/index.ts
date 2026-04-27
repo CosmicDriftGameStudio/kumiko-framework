@@ -13,14 +13,10 @@
 //     Login-Routes + Error-Map, ruft seedAdmin im onAfterSetup. Default
 //     für Sample-Apps und Showcases — 5-10 Zeilen Bootstrap statt 50.
 
-export {
-  ASSETS_DIR,
-  type BuildManifest,
-  type BuildProdBundleOptions,
-  type BuildResult,
-  buildProdBundle,
-  formatBuildResult,
-} from "./build-prod-bundle";
+// Build-Toolchain (buildProdBundle, Bun.build, Tailwind-Pipeline, ts-morph) lebt
+// im Sub-Path-Export `@kumiko/dev-server/build`. Damit zieht der Main-Barrel
+// kein Bun-Toolchain-Bundle mehr in Production-Reads (z.B. wenn drizzle-kit
+// die App-Config unter Node lädt).
 export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features";
 export {
   type CreateKumikoServerOptions,

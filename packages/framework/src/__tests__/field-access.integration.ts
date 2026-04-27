@@ -19,7 +19,7 @@ import {
   type TestDb,
   type TestRedis,
   TestUsers,
-} from "../testing";
+} from "../stack";
 
 // --- Entity with field-level access ---
 

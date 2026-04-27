@@ -15,14 +15,8 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
-import {
-  createEntityTable,
-  setupTestStack,
-  sharedWidgetEntity,
-  sharedWidgetTable,
-  type TestStack,
-  TestUsers,
-} from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
 // --- Fixture ---
 

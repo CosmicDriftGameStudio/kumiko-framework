@@ -4,13 +4,12 @@ import { createEventsTable } from "@kumiko/framework/event-store";
 import {
   createEntityTable,
   createTestUser,
-  expectErrorIncludes,
   pushTables,
-  rolesOf,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { expectErrorIncludes, rolesOf } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createConfigAccessor, createConfigFeature } from "../../config";
 import { ConfigHandlers, ConfigQueries } from "../../config/constants";

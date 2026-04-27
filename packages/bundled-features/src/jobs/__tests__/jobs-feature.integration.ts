@@ -8,11 +8,11 @@ import {
   createTestRedis,
   createTestUser,
   pushTables,
-  sleep,
   type TestDb,
   type TestRedis,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { sleep } from "@kumiko/framework/testing";
 import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { JobHandlers, JobQueries } from "../constants";

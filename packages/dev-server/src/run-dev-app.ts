@@ -22,7 +22,7 @@ import { createConfigResolver } from "@kumiko/bundled-features/config";
 import { TenantQueries } from "@kumiko/bundled-features/tenant";
 
 import type { FeatureDefinition } from "@kumiko/framework/engine";
-import type { TestStack } from "@kumiko/framework/testing";
+import type { TestStack } from "@kumiko/framework/stack";
 
 import { composeFeatures } from "./compose-features";
 import {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { RateLimitError } from "../../errors";
-import { createTestRedis, type TestRedis } from "../../testing";
+import { createTestRedis, type TestRedis } from "../../stack";
 import { createRateLimitResolver, type RateLimitResolver } from "../resolver";
 
 let testRedis: TestRedis;

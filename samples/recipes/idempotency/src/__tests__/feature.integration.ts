@@ -7,7 +7,7 @@ import {
   createTestUser,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { orderEntity, orderFeature } from "../feature";
 

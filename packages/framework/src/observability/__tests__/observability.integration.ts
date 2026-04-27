@@ -7,14 +7,12 @@ import { createJobRunner } from "../../jobs";
 import { createLogger } from "../../logging/pino-logger";
 import {
   createEntityTable,
-  createRecordingProvider,
   createTestRedis,
-  type RecordingProvider,
   setupTestStack,
   type TestRedis,
   type TestStack,
-  waitFor,
-} from "../../testing";
+} from "../../stack";
+import { createRecordingProvider, type RecordingProvider, waitFor } from "../../testing";
 
 // End-to-end observability integration: wires a full Kumiko stack with a
 // RecordingProvider so we can assert on the span tree and metric events.

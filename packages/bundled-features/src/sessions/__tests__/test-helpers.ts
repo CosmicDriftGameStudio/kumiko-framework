@@ -9,7 +9,7 @@
 //   const res = await h.authedPost("/api/query", token, { type, payload });
 
 import type { TenantId } from "@kumiko/framework/engine";
-import { type TestStack, TestUsers } from "@kumiko/framework/testing";
+import { type TestStack, TestUsers } from "@kumiko/framework/stack";
 import * as jose from "jose";
 import { expect } from "vitest";
 import { hashPassword } from "../../auth-email-password/password-hashing";

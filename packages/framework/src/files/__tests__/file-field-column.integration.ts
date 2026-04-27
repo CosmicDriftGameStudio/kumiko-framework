@@ -10,7 +10,7 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createEntity, createFileField, createImageField } from "../../engine";
-import { createEntityTable, createTestDb, pushTables, type TestDb } from "../../testing";
+import { createEntityTable, createTestDb, pushTables, type TestDb } from "../../stack";
 import { generateId } from "../../utils";
 import { fileRefsTable } from "../file-ref-table";
 

@@ -12,7 +12,7 @@ import {
 } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
-import { pushTables } from "../testing";
+import { pushTables } from "../stack";
 import { isStreamArchived } from "./archive";
 import { loadEventsAfterVersion, type StoredEvent } from "./event-store";
 

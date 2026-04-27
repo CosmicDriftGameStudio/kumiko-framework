@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import { bigint, index, instant, table as pgTable, text } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
-import { pushTables } from "../testing";
+import { pushTables } from "../stack";
 
 // Framework-level state for every registered projection. One row per qualified
 // projection name. Written by the rebuild machinery; read by the CLI + any

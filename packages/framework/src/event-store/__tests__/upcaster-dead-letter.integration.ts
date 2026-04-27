@@ -8,7 +8,7 @@
 
 import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
-import { createTestDb, type TestDb } from "../../testing";
+import { createTestDb, type TestDb } from "../../stack";
 import type { StoredEvent } from "../event-store";
 import { createEventsTable, eventsTable } from "../events-schema";
 import { type EventUpcasters, makeUpcastCtx, upcastStoredEvents } from "../upcaster";

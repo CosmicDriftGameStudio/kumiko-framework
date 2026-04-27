@@ -11,7 +11,7 @@
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { SessionUser } from "../../engine";
-import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
 import {
   createInMemoryFileProvider,
   filesStorageTrackingFeature,

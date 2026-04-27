@@ -8,7 +8,7 @@ import {
   type TestDb,
   TestUsers,
   testTenantId,
-} from "../../testing";
+} from "../../stack";
 import { table as pgTable, serial, text, timestamp } from "../dialect";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb } from "../tenant-db";

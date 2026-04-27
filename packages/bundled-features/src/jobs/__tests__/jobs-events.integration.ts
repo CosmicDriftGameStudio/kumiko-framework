@@ -16,7 +16,7 @@ import {
   pushTables,
   type TestDb,
   type TestRedis,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "../events";

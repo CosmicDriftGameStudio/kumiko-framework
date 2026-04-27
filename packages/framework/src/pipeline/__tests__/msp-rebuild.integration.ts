@@ -33,7 +33,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "../../testing";
+} from "../../stack";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 

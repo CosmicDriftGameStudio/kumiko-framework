@@ -7,7 +7,7 @@
 import type { AuthClaimsContext } from "@kumiko/framework/engine";
 import { defineFeature, readClaim } from "@kumiko/framework/engine";
 import { resolveAuthClaims } from "@kumiko/framework/pipeline";
-import { setupTestStack, type TestStack, testTenantId } from "@kumiko/framework/testing";
+import { setupTestStack, type TestStack, testTenantId } from "@kumiko/framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   type BetaFlagStore,

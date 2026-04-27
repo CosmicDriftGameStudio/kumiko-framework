@@ -9,7 +9,7 @@ import {
   defineFeature,
 } from "../../engine";
 import type { FeatureDefinition } from "../../engine/types";
-import { createTestDb, pushTables, type TestDb } from "../../testing";
+import { createTestDb, pushTables, type TestDb } from "../../stack";
 import { buildDrizzleTable } from "../table-builder";
 
 /**

@@ -16,11 +16,11 @@
 import {
   createEntityTable,
   createTestUser,
-  expectErrorIncludes,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { expectErrorIncludes } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { currencyEntity } from "../entities/currency";
 import { invoiceEntity } from "../entities/invoice";

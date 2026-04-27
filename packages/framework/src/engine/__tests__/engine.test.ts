@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
+import { createTestUser } from "../../stack";
 import { rolesOf } from "../../testing/access-assertions";
-import { createTestUser } from "../../testing/fixtures";
 import { hasAccess } from "../access";
 import { createSystemConfig, createTenantConfig, createUserConfig } from "../config-helpers";
 import { defineQueryHandler, defineWriteHandler } from "../define-handler";

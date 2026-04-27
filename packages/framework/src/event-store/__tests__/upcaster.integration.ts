@@ -18,7 +18,7 @@ import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { StoredEvent } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
-import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } from "../../testing";
+import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } from "../../stack";
 import { append, createEventsTable } from "../index";
 import { upcastStoredEvent } from "../upcaster";
 

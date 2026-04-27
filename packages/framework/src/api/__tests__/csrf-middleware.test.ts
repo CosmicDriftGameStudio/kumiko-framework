@@ -4,7 +4,7 @@
 
 import { Hono } from "hono";
 import { describe, expect, test } from "vitest";
-import { TestUsers } from "../../testing/fixtures";
+import { TestUsers } from "../../stack";
 import {
   AUTH_COOKIE_NAME,
   authMiddleware,

@@ -15,7 +15,7 @@ import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { loadAggregate } from "../../event-store";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
 
 // --- Feature ---
 

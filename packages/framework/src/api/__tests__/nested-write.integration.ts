@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
 
 // Two entities in a 1:N relation. The relation is declared with
 // `nestedWrite: true`, which opts the framework into expanding

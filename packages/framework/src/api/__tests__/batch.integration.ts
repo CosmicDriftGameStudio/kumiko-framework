@@ -12,7 +12,7 @@ import {
   type SaveContext,
 } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({

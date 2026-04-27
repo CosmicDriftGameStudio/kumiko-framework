@@ -16,7 +16,7 @@ import {
   fetchOne,
 } from "@kumiko/framework/db";
 import type { SessionUser } from "@kumiko/framework/engine";
-import { TestUsers } from "@kumiko/framework/testing";
+import { TestUsers } from "@kumiko/framework/stack";
 import { eq } from "drizzle-orm";
 import { userEntity, userTable } from "./schema/user";
 

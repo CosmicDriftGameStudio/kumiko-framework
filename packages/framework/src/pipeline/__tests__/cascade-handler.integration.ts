@@ -11,7 +11,7 @@ import {
   type Registry,
 } from "../../engine";
 import { createEventsTable } from "../../event-store";
-import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../testing";
+import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../stack";
 import { createCascadeDeleteHook } from "../cascade-handler";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables

@@ -3,7 +3,8 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { defineFeature } from "../../engine";
-import { setupTestStack, sharedWidgetEntity, type TestStack } from "../../testing";
+import { setupTestStack, type TestStack } from "../../stack";
+import { sharedWidgetEntity } from "../../testing";
 import { createLifecycle, type Lifecycle } from "../lifecycle";
 
 const widgetFeature = defineFeature("lifecycle-probe", (r) => {

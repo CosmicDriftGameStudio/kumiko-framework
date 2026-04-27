@@ -17,14 +17,8 @@ import { z } from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
-import {
-  createTestDb,
-  createTestRedis,
-  type TestDb,
-  type TestRedis,
-  TestUsers,
-  waitFor,
-} from "../../testing";
+import { createTestDb, createTestRedis, type TestDb, type TestRedis, TestUsers } from "../../stack";
+import { waitFor } from "../../testing";
 import { createAllInOneEntrypoint } from "../index";
 
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];

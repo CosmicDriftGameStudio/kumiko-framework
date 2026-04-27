@@ -6,12 +6,12 @@ import {
 import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
 import {
   createEntityTable,
-  createLateBoundHolder,
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { createLateBoundHolder } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createProductAuditFeature,

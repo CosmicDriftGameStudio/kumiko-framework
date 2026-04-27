@@ -12,7 +12,7 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { createTestDb, type TestDb } from "../../testing";
+import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
 import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api";
 import { VersionConflictError } from "../errors";

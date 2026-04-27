@@ -11,7 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "../db/dialect";
-import { pushTables } from "../testing";
+import { pushTables } from "../stack";
 import { createArchivedStreamsTable } from "./archive";
 import { createSnapshotsTable } from "./snapshot";
 

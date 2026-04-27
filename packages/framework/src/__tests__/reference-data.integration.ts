@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { integer, table as pgTable, serial, text } from "../db/dialect";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
-import { createTestDb, pushTables, type TestDb } from "../testing";
+import { createTestDb, pushTables, type TestDb } from "../stack";
 
 // --- Tables ---
 

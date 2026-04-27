@@ -13,9 +13,11 @@ import type { EventDispatcher } from "../pipeline";
 import { createEntityCache, createEventDedup, createIdempotencyGuard } from "../pipeline";
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
+import { createTestDb } from "./db";
 import { createEventCollector, type EventCollector } from "./event-collector";
-import { createTestDb, createTestRedis, pushTables, type TestRedis } from "./index";
+import { createTestRedis, type TestRedis } from "./redis";
 import { createRequestHelper, type RequestHelper } from "./request-helper";
+import { pushTables } from "./table-helpers";
 
 export type TestStack = {
   app: Hono;
@@ -147,7 +149,6 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // stays off tenant test DBs that never touch files.
   if (options.files) {
     const { fileRefsTable } = await import("../files");
-    const { pushTables } = await import("./index");
     await pushTables(testDb.db, { fileRefsTable });
   }
 

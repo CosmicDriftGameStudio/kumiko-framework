@@ -11,15 +11,14 @@ import {
 import { createArchivedStreamsTable, createEventsTable } from "@kumiko/framework/event-store";
 import { createJobRunner, type JobRunner } from "@kumiko/framework/jobs";
 import {
-  bridgeStub,
   createTestDb,
   createTestRedis,
   pushTables,
-  sleep,
   type TestDb,
   type TestRedis,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { bridgeStub, sleep } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessor, createConfigFeature } from "../../config/feature";

@@ -14,7 +14,7 @@
 
 import type { DbConnection } from "@kumiko/framework/db";
 import type { SessionUser, TenantId } from "@kumiko/framework/engine";
-import { TestUsers } from "@kumiko/framework/testing";
+import { TestUsers } from "@kumiko/framework/stack";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { seedTenant, seedTenantMembership } from "../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers

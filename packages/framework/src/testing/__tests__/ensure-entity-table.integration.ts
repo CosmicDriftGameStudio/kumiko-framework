@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { EntityDefinition } from "../../engine/types";
-import { createEntityTable, createTestDb, ensureEntityTable, type TestDb } from "../index";
+import { createEntityTable, createTestDb, ensureEntityTable, type TestDb } from "../../stack";
 
 // ensureEntityTable ist die idempotente Variante von createEntityTable —
 // existiert wegen des dev-server-Boot-Pfads (persistente DB, Table von

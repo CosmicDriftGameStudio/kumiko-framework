@@ -27,7 +27,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "../testing";
+} from "../stack";
 
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
 

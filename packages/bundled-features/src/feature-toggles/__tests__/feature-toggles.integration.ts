@@ -17,12 +17,12 @@ import {
 import { createEventDispatcher, type EventConsumer } from "@kumiko/framework/pipeline";
 import {
   createEntityTable,
-  createLateBoundHolder,
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { createLateBoundHolder } from "@kumiko/framework/testing";
 import { generateId } from "@kumiko/framework/utils";
 import { sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";

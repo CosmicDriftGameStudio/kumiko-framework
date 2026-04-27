@@ -26,12 +26,14 @@ import { createEventsTable, eventsTable } from "@kumiko/framework/event-store";
 import { createJobRunner, type JobRunner } from "@kumiko/framework/jobs";
 import { createEnvMasterKeyProvider, createSecret } from "@kumiko/framework/secrets";
 import {
-  createMutableMasterKeyProvider,
   createTestUser,
-  type MutableMasterKeyProvider,
   pushTables,
   setupTestStack,
   type TestStack,
+} from "@kumiko/framework/stack";
+import {
+  createMutableMasterKeyProvider,
+  type MutableMasterKeyProvider,
   waitFor,
 } from "@kumiko/framework/testing";
 import { and, eq } from "drizzle-orm";

@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { createTestDb, type TestDb } from "../../testing";
+import { createTestDb, type TestDb } from "../../stack";
 import { detectDrift } from "../schema-drift";
 
 let testDb: TestDb;

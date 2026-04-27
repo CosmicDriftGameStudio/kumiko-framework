@@ -18,11 +18,11 @@ import {
   createEntityTable,
   createTestDb,
   createTestUser,
-  expectErrorIncludes,
   pushTables,
   type TestDb,
   TestUsers,
-} from "../../testing";
+} from "../../stack";
+import { expectErrorIncludes } from "../../testing";
 import { fileRefsTable } from "../file-ref-table";
 import { FILE_UPLOADED_EVENT_TYPE, type FileRoutesOptions } from "../file-routes";
 import { createInMemoryFileProvider } from "../in-memory-provider";

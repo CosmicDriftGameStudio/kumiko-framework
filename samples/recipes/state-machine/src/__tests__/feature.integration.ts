@@ -7,13 +7,8 @@
 //   draft → sent → paid
 //                 → cancelled → draft (reopen)
 
-import {
-  createTestUser,
-  expectErrorIncludes,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-} from "@kumiko/framework/testing";
+import { createTestUser, setupTestStack, type TestStack, TestUsers } from "@kumiko/framework/stack";
+import { expectErrorIncludes } from "@kumiko/framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { stateMachineFeature } from "../feature";
 

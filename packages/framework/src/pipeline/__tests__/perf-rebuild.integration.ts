@@ -24,7 +24,7 @@ import { createEntity, createRegistry, createTextField, defineFeature } from "..
 import type { ProjectionDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
-import { createTestDb, pushTables, type TestDb, TestUsers } from "../../testing";
+import { createTestDb, pushTables, type TestDb, TestUsers } from "../../stack";
 import { generateId as uuid } from "../../utils";
 
 // Counter projection: every task.created bumps a counter, every

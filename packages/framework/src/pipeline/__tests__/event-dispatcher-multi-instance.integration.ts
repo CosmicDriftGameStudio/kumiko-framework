@@ -33,11 +33,10 @@ import {
   createEntityTable,
   resetEventStore,
   setupTestStack,
-  sharedWidgetEntity,
-  sharedWidgetTable,
   type TestStack,
   TestUsers,
-} from "../../testing";
+} from "../../stack";
+import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 import { generateId } from "../../utils";
 
 // --- Fixture ---

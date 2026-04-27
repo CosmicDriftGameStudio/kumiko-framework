@@ -142,7 +142,7 @@ const commands = {
       //   1. Bun.argv[3] (explicit path)        → kumiko build samples/apps/showcase
       //   2. $INIT_CWD (yarn-Workspace-Aufruf)  → cd <app> && yarn build
       //   3. process.cwd() (fallback)
-      const { buildProdBundle, formatBuildResult } = await import("@kumiko/dev-server");
+      const { buildProdBundle, formatBuildResult } = await import("@kumiko/dev-server/build");
       const explicit = Bun.argv[3];
       const cwd = explicit
         ? resolvePath(explicit)

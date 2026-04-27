@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createEntity, createNumberField, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
-import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../testing";
+import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";

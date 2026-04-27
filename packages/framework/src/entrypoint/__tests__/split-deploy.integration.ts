@@ -16,7 +16,7 @@ import { z } from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../../testing";
+import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../../stack";
 import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index";
 
 const splitFeature = defineFeature("split", (r) => {

@@ -24,8 +24,8 @@ import {
   type TestDb,
   type TestRedis,
   TestUsers,
-  waitFor,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { waitFor } from "@kumiko/framework/testing";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createLaneRoutingFeature, renderedReceipts, sentConfirmations } from "../feature";
 

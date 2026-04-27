@@ -11,7 +11,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { itemsFeature } from "../features/items/feature";
 import { itemEntity } from "../features/items/schema";

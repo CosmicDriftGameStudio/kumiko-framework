@@ -28,7 +28,7 @@ import {
   type TestStack,
   type TestStackOptions,
   TestUsers,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
 import { injectSchema } from "./inject-schema";
 import { buildBunServeOptions } from "./run-prod-app";
 

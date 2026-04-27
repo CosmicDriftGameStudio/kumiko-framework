@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
-import { createEntityTable, testTenantId } from "../../testing";
+import { createEntityTable, testTenantId } from "../../stack";
 import { applyCursorQuery, encodeCursor } from "../cursor";
 import { buildDrizzleTable } from "../table-builder";
 

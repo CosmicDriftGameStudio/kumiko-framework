@@ -3,12 +3,12 @@ import { createEncryptionProvider } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";
 import {
   createEntityTable,
-  createLateBoundHolder,
   pushTables,
   setupTestStack,
   type TestStack,
   testTenantId,
-} from "@kumiko/framework/testing";
+} from "@kumiko/framework/stack";
+import { createLateBoundHolder } from "@kumiko/framework/testing";
 import { and, eq } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";

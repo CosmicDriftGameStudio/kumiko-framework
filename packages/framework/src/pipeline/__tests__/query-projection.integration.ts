@@ -20,7 +20,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "../../testing";
+} from "../../stack";
 
 const widgetEntity = createEntity({
   table: "read_qp_widgets",

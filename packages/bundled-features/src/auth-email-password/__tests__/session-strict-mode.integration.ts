@@ -5,7 +5,7 @@
 // keeps pre-upgrade tokens working; this suite flips it on and asserts.
 
 import type { TenantId } from "@kumiko/framework/engine";
-import { setupTestStack, type TestStack, TestUsers, testTenantId } from "@kumiko/framework/testing";
+import { setupTestStack, type TestStack, TestUsers, testTenantId } from "@kumiko/framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";

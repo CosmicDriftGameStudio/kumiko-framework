@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack } from "../../testing";
+import { createEntityTable, setupTestStack, type TestStack } from "../../stack";
 
 const linkEntity = createEntity({
   table: "mri_links",

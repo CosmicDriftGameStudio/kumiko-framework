@@ -15,7 +15,7 @@ import {
   defineFeature,
   type TenantId,
 } from "../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../testing";
+import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../stack";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;

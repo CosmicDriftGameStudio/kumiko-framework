@@ -10,7 +10,7 @@
 // clean. Limits are picked so the 4th/3rd/21st call is the first 429
 // in each layer's test.
 
-import { setupTestStack, type TestStack, TestUsers } from "@kumiko/framework/testing";
+import { setupTestStack, type TestStack, TestUsers } from "@kumiko/framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createRateLimitShowcaseFeature } from "../feature";
 

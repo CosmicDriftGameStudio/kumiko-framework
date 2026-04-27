@@ -22,7 +22,7 @@ import { createRegistry } from "../../engine/registry";
 import { createEventsTable } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
-import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../testing";
+import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";

@@ -6,7 +6,7 @@
 // suites; here we only verify the feature's own surface area.
 
 import { defineFeature } from "@kumiko/framework/engine";
-import { setupTestStack, type TestStack, TestUsers } from "@kumiko/framework/testing";
+import { setupTestStack, type TestStack, TestUsers } from "@kumiko/framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createRateLimitingFeature } from "../feature";

@@ -21,7 +21,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "../../testing";
+} from "../../stack";
 
 const itemEntity = createEntity({
   table: "read_arch_items",
