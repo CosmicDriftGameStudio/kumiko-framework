@@ -28,7 +28,14 @@ export type PlatformComponent = {
 //   - PlatformComponent → platform-specific component from the same feature
 //   - string            → cross-feature QN reference (resolved by the renderer)
 //   - function          → inline value formatter (e.g. `v => `${v} €``)
-export type FieldRenderer = PlatformComponent | string | ((value: unknown) => string);
+// Function-Form bekommt optional die ganze Row als 2. Argument —
+// nützlich für context-aware Renderer (Tier 2.7e-Eagerload nutzt das
+// um aus row._refs den resolved Display-Wert zu lesen). Renderer die
+// nur den value brauchen ignorieren das Argument einfach.
+export type FieldRenderer =
+  | PlatformComponent
+  | string
+  | ((value: unknown, row?: Readonly<Record<string, unknown>>) => string);
 
 // Conditional field-state evaluator. `data` is the current form row and
 // `ctx` carries user / session info — the form-controller in ui-core passes

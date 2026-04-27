@@ -185,9 +185,27 @@ export function RenderList(props: RenderListProps): ReactNode {
       // nur wenn keiner gesetzt ist.
       if (col.renderer !== undefined) return col;
       const map = referenceLookups[col.field];
-      const renderer = (value: unknown): string => {
-        // Multi-Reference: value ist ein UUID-Array — joine die
-        // Display-Strings mit ", ". Bei single ist value String/UUID.
+      const labelField = col.refLabelField ?? "id";
+      const renderer = (value: unknown, row?: Record<string, unknown>): string => {
+        // Tier 2.7e Server-Eagerload: wenn der Server _refs mit-
+        // schickt, lesen wir den Display-Wert direkt aus der
+        // resolved Row — kein Roundtrip durch die Bridge-Map nötig
+        // und keine limit:200-Constraint.
+        const refs = row?.["_refs"] as Record<string, unknown> | undefined;
+        const resolved = refs?.[col.field];
+        if (Array.isArray(resolved) && resolved.length > 0) {
+          return resolved
+            .map((r) => {
+              const obj = r as Record<string, unknown>;
+              return String(obj[labelField] ?? obj["id"] ?? "");
+            })
+            .join(", ");
+        }
+        if (resolved !== undefined && resolved !== null && typeof resolved === "object") {
+          const obj = resolved as Record<string, unknown>;
+          return String(obj[labelField] ?? obj["id"] ?? "");
+        }
+        // Renderer-Side-Fallback (kein Server-Eagerload aktiv).
         if (Array.isArray(value)) {
           if (value.length === 0) return "—";
           return value.map((v) => map?.get(String(v)) ?? String(v)).join(", ");

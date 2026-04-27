@@ -72,6 +72,7 @@ export type {
   MoneyFieldDef,
   MultiSelectFieldDef,
   NumberFieldDef,
+  ReferenceFieldDef,
   SelectFieldDef,
   TextFieldDef,
   TimestampFieldDef,

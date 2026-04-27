@@ -1,6 +1,11 @@
 import { type ZodType, z } from "zod";
 import type { DbRow } from "../db/connection";
 import type { TableColumns } from "../db/dialect";
+import {
+  collectReferenceFields,
+  enrichRowWithReferences,
+  enrichWithReferences,
+} from "../db/eagerload";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import { assertUnreachable } from "../utils";
@@ -170,16 +175,36 @@ export function defineEntityQueryHandler(
   let schema: ZodType;
   let handler: QueryHandlerDef["handler"];
 
+  // Tier 2.7e Server-Eagerload: wenn die entity reference-Felder hat,
+  // resolved der handler nach dem Haupt-Query die UUIDs gegen die
+  // referenced entities. Das `_refs`-Property landet auf jeder Row;
+  // Renderer-Side useReferenceLookup bleibt als Fallback bestehen
+  // (für Apps die manuell Custom-Handler schreiben ohne diesen
+  // Wrapper zu nutzen).
+  const hasRefFields = collectReferenceFields(entity).length > 0;
+
   switch (verb) {
     case "list":
       schema = listSchema;
-      handler = async (query, ctx) =>
-        executor.list(query.payload as ListPayload, query.user, ctx.db);
+      handler = async (query, ctx) => {
+        const result = await executor.list(query.payload as ListPayload, query.user, ctx.db);
+        if (!hasRefFields) return result;
+        const enrichedRows = await enrichWithReferences(
+          result.rows,
+          entity,
+          (name) => ctx.registry.getEntity(name),
+          ctx.db,
+        );
+        return { ...result, rows: enrichedRows };
+      };
       break;
     case "detail":
       schema = idSchema;
-      handler = async (query, ctx) =>
-        executor.detail(query.payload as IdPayload, query.user, ctx.db);
+      handler = async (query, ctx) => {
+        const row = await executor.detail(query.payload as IdPayload, query.user, ctx.db);
+        if (row === null || !hasRefFields) return row;
+        return enrichRowWithReferences(row, entity, (name) => ctx.registry.getEntity(name), ctx.db);
+      };
       break;
     default:
       assertUnreachable(verb, "query verb");

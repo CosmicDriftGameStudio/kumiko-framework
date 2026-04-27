@@ -268,6 +268,103 @@ test("Tier 2.7e-3 Reference-Field: parent + child, child speichert parentId, lis
   expect(detail["parentId"]).toBe(parent.id);
 });
 
+test("Tier 2.7e Server-Eagerload: detail mit reference-Feld liefert _refs.parentId mit resolved Row", async () => {
+  // Pinst dass entity-handlers.detail nach executor.detail eine
+  // enrichRowWithReferences-Stage durchläuft und die referenced
+  // parent-Row als _refs.parentId mitschickt.
+  const parent = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "eagerload-parent",
+      status: "active",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+  const child = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "eagerload-child",
+      status: "draft",
+      isDone: false,
+      priority: 2,
+      dueDate: "2026-05-01",
+      notes: "",
+      parentId: parent.id,
+    },
+    TestUsers.admin,
+  );
+
+  const detail = (await stack.http.queryOk<Record<string, unknown>>(
+    "showcase:query:item:detail",
+    { id: child.id },
+    TestUsers.admin,
+  )) as Record<string, unknown> & { _refs?: Record<string, unknown> };
+  // _refs.parentId ist die resolved Parent-Row (komplettes Object)
+  expect(detail._refs).toBeDefined();
+  const parentRef = detail._refs?.["parentId"] as Record<string, unknown> | undefined;
+  expect(parentRef).toBeDefined();
+  expect(parentRef?.["id"]).toBe(parent.id);
+  expect(parentRef?.["title"]).toBe("eagerload-parent");
+});
+
+test("Tier 2.7e Server-Eagerload: list liefert _refs für relatedIds (multi-reference)", async () => {
+  // Pinst Multi-Reference-Eagerload: list-row hat _refs.relatedIds
+  // als Array der resolved rows (nicht nur UUIDs).
+  const a = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "eager-multi-a",
+      status: "active",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+  const b = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "eager-multi-b",
+      status: "active",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+  const main = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "eager-multi-main",
+      status: "draft",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+      relatedIds: [a.id, b.id],
+    },
+    TestUsers.admin,
+  );
+
+  const list = await stack.http.queryOk<{
+    rows: Array<Record<string, unknown> & { _refs?: Record<string, unknown> }>;
+  }>("showcase:query:item:list", { limit: 500 }, TestUsers.admin);
+  const found = list.rows.find((r) => r["id"] === main.id);
+  expect(found).toBeDefined();
+  const relatedRefs = found?._refs?.["relatedIds"] as Array<Record<string, unknown>> | undefined;
+  expect(Array.isArray(relatedRefs)).toBe(true);
+  // Beide a und b sind im _refs-Array (Reihenfolge ist nicht
+  // garantiert weil DB-WHERE-IN nicht ordering-stable ist).
+  const refIds = (relatedRefs ?? []).map((r) => r["id"]).sort();
+  expect(refIds).toEqual([a.id, b.id].sort());
+});
+
 test("Tier 2.7e-Multi: Multi-Reference (relatedIds) — Array von UUIDs round-trips durch HTTP/Zod/DB", async () => {
   // Pinst dass `multiple: true` auf reference:
   //   1) jsonb-Array<string> in der DB speichert

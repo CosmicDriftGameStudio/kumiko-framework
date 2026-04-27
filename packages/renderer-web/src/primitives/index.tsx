@@ -988,8 +988,10 @@ function DataTableCell({ value, row, field, type, renderer }: DataTableCellProps
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
   if (typeof renderer === "function") {
-    const fn = renderer as (v: unknown) => string;
-    return fn(value);
+    // 2. Argument: ganze Row als read-only — function-Renderer können
+    // context-aware sein (Tier 2.7e-Eagerload nutzt das für _refs).
+    const fn = renderer as (v: unknown, r?: Readonly<Record<string, unknown>>) => string;
+    return fn(value, row);
   }
   if (componentRef !== undefined) {
     if (ResolvedComponent !== undefined) {
