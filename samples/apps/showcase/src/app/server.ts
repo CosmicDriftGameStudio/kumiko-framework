@@ -6,6 +6,7 @@
 import { runDevApp } from "@kumiko/dev-server";
 import { demosFeature } from "../features/demos";
 import { itemsFeature } from "../features/items";
+import { seedShowcaseItems } from "./seed-items";
 
 await runDevApp({
   features: [itemsFeature, demosFeature],
@@ -17,4 +18,7 @@ await runDevApp({
   // existierenden packages/*/src — bei neuen Packages muss man nichts
   // anpassen.
   watchDirs: ["./src", "../../../packages/*/src"],
+  // ~200 Items damit der Pager (pageSize 50) was zum Blättern hat.
+  // Idempotent — re-running den dev-server seedet nicht doppelt.
+  seeds: [seedShowcaseItems],
 });

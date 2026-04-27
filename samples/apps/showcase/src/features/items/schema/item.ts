@@ -71,4 +71,10 @@ export const itemListScreen: EntityListScreenDefinition = {
     },
     "dueDate",
   ],
+  // Server-side Pagination Demo — Showcase seedet ~200 items, der
+  // Pager hat 4 Seiten zum Durchklicken bei pageSize: 50.
+  pagination: "pages",
+  pageSize: 50,
+  defaultSort: { field: "title", dir: "asc" },
+  searchable: true,
 };
