@@ -68,6 +68,31 @@ export const moneyAmount = customType<{ data: number; driverData: string | numbe
  * matches what asOf-queries can compare reliably). Affects only CREATE TABLE
  * DDL via drizzle-kit; runtime parse handles any precision via Temporal.
  */
+// Forgiving overload: payloads from custom write-handlers sometimes
+// arrive as ISO strings rather than Temporal.Instant (Zod insert-
+// schemas use z.iso.datetime, not a Temporal validator). Coerce here
+// at the boundary so the DB always sees a normalised string — and
+// Temporal.Instant.from throws on bad input, which is the right failure
+// mode (vs. the obscure "x.toString is not a function" crash that hit
+// feature authors before this overload existed).
+//
+// Date-only strings (YYYY-MM-DD) coercen wir auf start-of-day UTC.
+// Hintergrund: type:"date" ist heute auf instant() aliased (table-
+// builder.ts TODO Sprint G), aber die Zod-Validation akzeptiert nur
+// YYYY-MM-DD. Ohne diesen Coerce wirft Temporal mit "Cannot parse:
+// 2026-04-10" und der Author bekommt einen internal_error 500 statt
+// einen sauberen DB-Roundtrip.
+//
+// Exportiert für Tests; production-call läuft über instantBuilder.
+export function instantToDriver(value: Temporal.Instant | string): string {
+  if (typeof value === "string") {
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const iso = dateOnly ? `${value}T00:00:00Z` : value;
+    return Temporal.Instant.from(iso).toString();
+  }
+  return value.toString();
+}
+
 const instantBuilder = (config?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }) =>
   customType<{ data: Temporal.Instant; driverData: string }>({
     dataType() {
@@ -77,17 +102,7 @@ const instantBuilder = (config?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }) =>
     fromDriver(value: string): Temporal.Instant {
       return Temporal.Instant.from(value);
     },
-    toDriver(value: Temporal.Instant | string): string {
-      // Forgiving overload: payloads from custom write-handlers sometimes
-      // arrive as ISO strings rather than Temporal.Instant (Zod insert-
-      // schemas use z.iso.datetime, not a Temporal validator). Coerce
-      // here at the boundary so the DB always sees a normalised string —
-      // and Temporal.Instant.from throws on bad input, which is the right
-      // failure mode (vs. the obscure "x.toString is not a function"
-      // crash that hit feature authors before this overload existed).
-      if (typeof value === "string") return Temporal.Instant.from(value).toString();
-      return value.toString();
-    },
+    toDriver: instantToDriver,
   });
 export function instant(name: string, config?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }) {
   return instantBuilder(config)(name);

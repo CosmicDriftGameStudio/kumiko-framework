@@ -78,13 +78,11 @@ export const seedShowcaseItems: SeedFn = async (stack) => {
     const priority = Math.min(5, Math.floor(rng() * rng() * 6) + 1);
     const dueOffsetDays = Math.floor(rng() * 90) - 30;
     const due = new Date(now.getTime() + dueOffsetDays * 86_400_000);
-    // type:"date" ist heute auf instant()/TIMESTAMPTZ aliased (siehe
-    // table-builder.ts:67 TODO Sprint G — echtes PlainDate kommt erst
-    // dann). Wir schicken einen vollständigen ISO-Timestamp damit
-    // Temporal.Instant.from() das parsed; PG cuttet die Zeit-Komponente
-    // beim Lesen nicht ab, der DateInput-Renderer schneidet auf
-    // yyyy-mm-dd.
-    const dueDate = due.toISOString();
+    // Zod-Validation für type:"date" verlangt YYYY-MM-DD (siehe
+    // schema-builder buildInsertSchema). dialect.toDriver() coercd das
+    // zu start-of-day UTC bevor die DB es sieht — Caller-API bleibt
+    // wie der Author sie erwartet.
+    const dueDate = due.toISOString().slice(0, 10);
 
     const res = await stack.http.write(
       "showcase:write:item:create",
