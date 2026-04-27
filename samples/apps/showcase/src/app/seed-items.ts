@@ -33,11 +33,11 @@ export const seedShowcaseItems: SeedFn = async (stack) => {
   const userId = TestUsers.admin.id;
 
   const existing = await stack.db.execute<{ count: number }>(
-    sql`SELECT count(*)::int AS count FROM read_showcase_items WHERE tenant_id = ${tenantId}`,
+    sql`SELECT count(*)::int AS count FROM read_items WHERE tenant_id = ${tenantId}`,
   );
   if ((existing[0]?.count ?? 0) >= 100) {
     // biome-ignore lint/suspicious/noConsole: sample-server diagnostics
-    console.log(`[showcase-seed] read_showcase_items has ${existing[0]?.count} rows — skip`);
+    console.log(`[showcase-seed] read_items has ${existing[0]?.count} rows — skip`);
     return;
   }
 
@@ -95,14 +95,14 @@ export const seedShowcaseItems: SeedFn = async (stack) => {
     };
   });
 
-  // Bulk-INSERT — ein Roundtrip statt N. read_showcase_items hat die
+  // Bulk-INSERT — ein Roundtrip statt N. read_items hat die
   // Standard-Read-Side-Felder (id, tenant_id, version, created_*,
   // updated_*, …), wir füllen nur die Domain-Felder + System-Defaults.
   // Einfacher Loop reicht — 200 Inserts sind ~50ms gesamt.
   for (const r of rows) {
     await stack.db.execute(
       sql`
-        INSERT INTO read_showcase_items
+        INSERT INTO read_items
           (id, tenant_id, title, status, is_done, priority, due_date, notes,
            version, is_deleted, created_at, updated_at, created_by, updated_by)
         VALUES
@@ -115,5 +115,5 @@ export const seedShowcaseItems: SeedFn = async (stack) => {
   }
 
   // biome-ignore lint/suspicious/noConsole: sample-server diagnostics
-  console.log(`[showcase-seed] inserted ${rows.length} items into read_showcase_items`);
+  console.log(`[showcase-seed] inserted ${rows.length} items into read_items`);
 };
