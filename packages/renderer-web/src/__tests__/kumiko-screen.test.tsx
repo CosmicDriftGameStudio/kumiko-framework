@@ -349,6 +349,111 @@ describe("KumikoScreen", () => {
     });
   });
 
+  // Tier 2.7e-1: rowAction kind="navigate" — Click ruft nav.navigate
+  // mit screen-id, ggf. mit URL-Search-Params aus params(row).
+  test("entityList rowActions kind=navigate: Click → nav.navigate + setSearchParams", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const searchParamUpdates: Record<string, string | null>[] = [];
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: (u: Record<string, string | null>) => searchParamUpdates.push(u),
+    };
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const screenWithNav: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "edit",
+          label: "actions.edit",
+          screen: "task-edit",
+          params: (row) => ({ taskId: row["id"], priority: 5 }),
+        },
+      ],
+    };
+
+    const { NavProvider } = await import("@kumiko/renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithNav] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    fireEvent.click(screen.getByTestId("row-r1-action-edit"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
+    // params werden zu Strings serialisiert (URL-Layer kennt nur Strings).
+    expect(searchParamUpdates).toEqual([{ taskId: "r1", priority: "5" }]);
+  });
+
+  test("entityList rowActions kind=navigate ohne params: setSearchParams wird NICHT gerufen", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const searchParamUpdates: Record<string, string | null>[] = [];
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: (u: Record<string, string | null>) => searchParamUpdates.push(u),
+    };
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const screenWithNav: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [{ kind: "navigate", id: "view", label: "actions.view", screen: "task-edit" }],
+    };
+    const { NavProvider } = await import("@kumiko/renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithNav] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    fireEvent.click(screen.getByTestId("row-r1-action-view"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(searchParamUpdates).toEqual([]);
+  });
+
   // toolbarActions: Schema-Form (kind: navigate | writeHandler) →
   // Resolved-Form (onTrigger callback). Pinst beide kinds:
   //  - navigate dispatch ein nav.navigate({ screenId })
@@ -636,6 +741,83 @@ describe("KumikoScreen", () => {
     fireEvent.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
+  });
+
+  // Tier 2.7e-2: URL-Search-Params füllen die actionForm initial values.
+  // Use-case: rowAction kind=navigate setzt `?taskId=r1`, das actionForm
+  // sieht es beim Mount und pre-fillt das title-Feld.
+  test("actionForm initial values: searchParams überschreiben Field-Defaults", async () => {
+    const memoryNav = {
+      route: { screenId: "approve" },
+      navigate: () => undefined,
+      replace: () => undefined,
+      hrefFor: () => "/x",
+      searchParams: { title: "Pre-filled", priority: "9", isDone: "true" },
+      setSearchParams: () => undefined,
+    };
+    const dispatcher = makeDispatcher();
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "approve",
+      type: "actionForm",
+      handler: "tasks:write:task:approve",
+      fields: {
+        title: { type: "text", default: "default-title" },
+        priority: { type: "number", default: 1 },
+        isDone: { type: "boolean", default: false },
+      },
+      layout: {
+        sections: [{ title: "x", fields: ["title", "priority", "isDone"] }],
+      },
+    };
+
+    const { NavProvider } = await import("@kumiko/renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={{ ...schema, screens: [actionScreen] }} qn="tasks:screen:approve" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    expect(titleInput.value).toBe("Pre-filled");
+    // Number-coercion: "9" → 9. Erfolgreiche Coercion bedeutet das
+    // Number-Input zeigt "9" (nicht den default 1).
+    const priorityInput = screen
+      .getByTestId("field-priority")
+      .querySelector("input") as HTMLInputElement;
+    expect(priorityInput.value).toBe("9");
+  });
+
+  test("actionForm initial values: searchParam mit fehlerhafter Number → Default-Fallback", async () => {
+    const memoryNav = {
+      route: { screenId: "approve" },
+      navigate: () => undefined,
+      replace: () => undefined,
+      hrefFor: () => "/x",
+      searchParams: { priority: "not-a-number" },
+      setSearchParams: () => undefined,
+    };
+    const dispatcher = makeDispatcher();
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "approve",
+      type: "actionForm",
+      handler: "tasks:write:task:approve",
+      fields: { priority: { type: "number", default: 7 } },
+      layout: { sections: [{ title: "x", fields: ["priority"] }] },
+    };
+    const { NavProvider } = await import("@kumiko/renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={{ ...schema, screens: [actionScreen] }} qn="tasks:screen:approve" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    const priorityInput = screen
+      .getByTestId("field-priority")
+      .querySelector("input") as HTMLInputElement;
+    expect(priorityInput.value).toBe("7"); // Fallback auf default
   });
 
   test("actionForm submitLabel: i18n-Key landet auf dem Submit-Button (übersteuert default)", () => {

@@ -1324,6 +1324,46 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- Tier 2.7e-1: rowAction kind="navigate" target-existenz ---
+  describe("entityList rowAction kind=navigate (Tier 2.7e-1)", () => {
+    function makeFeature(targetScreen: string, withTarget: boolean) {
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [
+            {
+              kind: "navigate",
+              id: "edit",
+              label: "actions.edit",
+              screen: targetScreen,
+            },
+          ],
+        });
+        if (withTarget) {
+          r.screen({
+            id: targetScreen,
+            type: "custom",
+            renderer: { react: "stub" },
+          });
+        }
+      });
+    }
+
+    test("navigate-target → registered screen → kein Throw", () => {
+      expect(() => validateBoot([makeFeature("product-edit", true)])).not.toThrow();
+    });
+
+    test("navigate-target → unknown screen → Throw mit klarer Message", () => {
+      expect(() => validateBoot([makeFeature("ghost-screen", false)])).toThrow(
+        /rowAction "edit" navigate-target "ghost-screen" does not resolve/,
+      );
+    });
+  });
+
   // --- defaultSort funktioniert für ALLE Field-Types die sortable
   //     unterstützen (Tier 2.6b Field-Erweiterung) ---
   // Vor Tier 2.6b war `sortable` nur auf TextFieldDef. Erweitert auf

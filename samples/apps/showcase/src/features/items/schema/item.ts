@@ -81,7 +81,18 @@ export const itemListScreen: EntityListScreenDefinition = {
   searchable: true,
   // RowActions-Demo. Default-Payload ist `{ id: row.id }` — reicht für
   // delete. Confirm-Dialog wegen style="danger" automatisch.
+  // Tier 2.7e-1 zeigt "navigate"-kind: ein zweiter Action-Button der
+  // statt Server-Call zu einem actionForm springt + die row.id als
+  // URL-Param übergibt (das actionForm liest sie via searchParams als
+  // initial value für ein title-Feld).
   rowActions: [
+    {
+      kind: "navigate",
+      id: "duplicate",
+      label: "showcase:actions.duplicate",
+      screen: "item-quick-add",
+      params: (row) => ({ title: `Copy of ${row["title"]}`, priority: row["priority"] }),
+    },
     {
       id: "delete",
       label: "showcase:actions.delete",

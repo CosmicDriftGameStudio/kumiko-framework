@@ -26,6 +26,7 @@ export const itemsTranslations: TranslationsByLocale = {
     "showcase:actions.delete-confirm":
       "Eintrag wird unwiderruflich entfernt. Diese Aktion lässt sich nicht rückgängig machen.",
     "showcase:actions.quick-add": "Schnell anlegen",
+    "showcase:actions.duplicate": "Duplizieren",
   },
   en: {
     "showcase:nav.list": "Items (Pages)",
@@ -47,5 +48,6 @@ export const itemsTranslations: TranslationsByLocale = {
     "showcase:actions.delete": "Delete",
     "showcase:actions.delete-confirm": "Item will be removed permanently. This cannot be undone.",
     "showcase:actions.quick-add": "Quick add",
+    "showcase:actions.duplicate": "Duplicate",
   },
 };

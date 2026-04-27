@@ -610,28 +610,66 @@ function EntityListBody({
       );
     }
   }, [hasRowActions, dispatcher, screen.id]);
+  // Discriminated Union: writeHandler (default) dispatched einen Server-
+  // Handler, navigate ruft nav.navigate() ggf. mit URL-Search-Params aus
+  // params(row). nav lebt schon weiter unten in EntityListBody-Scope.
   const rowActions = useMemo(() => {
     if (screen.rowActions === undefined) return undefined;
-    if (dispatcher === undefined) return undefined;
-    return screen.rowActions.map((action) => ({
-      id: action.id,
-      label: effectiveTranslate(action.label),
-      ...(action.style !== undefined && { style: action.style }),
-      ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
-      ...(action.confirmLabel !== undefined && {
-        confirmLabel: effectiveTranslate(action.confirmLabel),
-      }),
-      onTrigger: async (row: ListRowViewModel) => {
-        const buildPayload = action.payload;
-        const payload =
-          buildPayload !== undefined ? buildPayload(row.values) : { id: row.values["id"] };
-        await dispatcher.write(action.handler, payload);
-      },
-      ...(action.visible !== undefined && {
-        isVisible: (row: ListRowViewModel) => action.visible?.(row.values, undefined) ?? true,
-      }),
-    }));
-  }, [screen.rowActions, effectiveTranslate, dispatcher]);
+    return screen.rowActions
+      .map((action) => {
+        // navigate-Variante braucht keinen Dispatcher; nav ist
+        // immer da (Provider von createKumikoApp).
+        if (action.kind === "navigate") {
+          return {
+            id: action.id,
+            label: effectiveTranslate(action.label),
+            ...(action.style !== undefined && { style: action.style }),
+            onTrigger: (row: ListRowViewModel) => {
+              const params = action.params?.(row.values);
+              if (params !== undefined) {
+                // setSearchParams nimmt string|null. Komplexe Werte
+                // (number/boolean) wandeln wir zu String — der Reader
+                // (use-list-url-state / actionForm-init) kennt nur
+                // Strings via URL.
+                const stringified: Record<string, string | null> = {};
+                for (const [k, v] of Object.entries(params)) {
+                  stringified[k] = v === null || v === undefined ? null : String(v);
+                }
+                nav.setSearchParams(stringified);
+              }
+              nav.navigate({ screenId: action.screen });
+            },
+            ...(action.visible !== undefined && {
+              isVisible: (row: ListRowViewModel) => action.visible?.(row.values, undefined) ?? true,
+            }),
+          };
+        }
+        // writeHandler-Variante (default kind, Backwards-Compat).
+        // Braucht Dispatcher — null returnen → filter unten dropt es,
+        // damit das useEffect-Warning oben einmal feuert + die Action
+        // einfach nicht rendert (statt Crash).
+        if (dispatcher === undefined) return null;
+        return {
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
+          ...(action.confirmLabel !== undefined && {
+            confirmLabel: effectiveTranslate(action.confirmLabel),
+          }),
+          onTrigger: async (row: ListRowViewModel) => {
+            const buildPayload = action.payload;
+            const payload =
+              buildPayload !== undefined ? buildPayload(row.values) : { id: row.values["id"] };
+            await dispatcher.write(action.handler, payload);
+          },
+          ...(action.visible !== undefined && {
+            isVisible: (row: ListRowViewModel) => action.visible?.(row.values, undefined) ?? true,
+          }),
+        };
+      })
+      .filter((a): a is NonNullable<typeof a> => a !== null);
+  }, [screen.rowActions, effectiveTranslate, dispatcher, nav]);
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
   // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
@@ -777,7 +815,32 @@ function ActionFormBody({
   const nav = useNav();
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
-  const initial = useMemo(() => buildInitialValues(screen.fields) as FormValues, [screen.fields]);
+  // Tier 2.7e-2: URL-Search-Params überschreiben Field-Defaults bei
+  // initial values. Use-case: rowAction kind=navigate setzt
+  // `?customerId=row-uuid` und der actionForm liest das pre-filled.
+  // String-Coercion auf Field-Type: URL kennt nur Strings, aber
+  // ein Field mit type:"number" erwartet eine Zahl. Boolean-Strings
+  // ("true"/"false") und Number-Strings werden hier coerced; sonst
+  // bleibt der String — der Field-Validator beim Submit fängt einen
+  // Type-Mismatch ab.
+  const initial = useMemo(() => {
+    const defaults = buildInitialValues(screen.fields) as Record<string, unknown>;
+    const merged: Record<string, unknown> = { ...defaults };
+    for (const [name, fieldDef] of Object.entries(screen.fields)) {
+      const raw = nav.searchParams[name];
+      if (raw === undefined) continue;
+      const ftype = (fieldDef as { type?: string }).type;
+      if (ftype === "number" || ftype === "money") {
+        const parsed = Number(raw);
+        merged[name] = Number.isNaN(parsed) ? defaults[name] : parsed;
+      } else if (ftype === "boolean") {
+        merged[name] = raw === "true";
+      } else {
+        merged[name] = raw;
+      }
+    }
+    return merged as FormValues;
+  }, [screen.fields, nav.searchParams]);
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
       // Redirect ist optional. Bei isSuccess + redirect → nav.navigate.

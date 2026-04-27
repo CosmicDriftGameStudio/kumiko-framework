@@ -110,19 +110,29 @@ export type ScreenFilter = {
 // complete, Incident resolve, Order ship etc.) — Sachen die in einem
 // CRUD-update kein passendes Verb haben aber als WriteHandler existieren.
 //
-// ⚠️ Function-Props (`payload`, `visible`) leben nur im Monolith-Bundle-
-// Pattern (Server + Client teilen Source-Bundle, wie Showcase mit
-// dev-server). In setups mit JSON-injected window.__KUMIKO_SCHEMA__
-// werden Functions silent gedroppt (`buildAppSchema` whitelist-projeziert
-// + JSON.stringify entfernt sie). Für solche Apps:
-//   - `payload` weglassen → Default `{ id: row.id }` reicht für CRUD-Verbs.
+// ⚠️ Function-Props (`payload`, `params`, `visible`) leben nur im
+// Monolith-Bundle-Pattern (Server + Client teilen Source-Bundle, wie
+// Showcase mit dev-server). In setups mit JSON-injected window.__
+// KUMIKO_SCHEMA__ werden Functions silent gedroppt (`buildAppSchema`
+// whitelist-projeziert + JSON.stringify entfernt sie). Für solche Apps:
+//   - `payload`/`params` weglassen → Default `{ id: row.id }` greift.
 //   - `visible` über server-side Filter im Handler statt Client-side
 //     Visibility lösen.
-// Declarative Alternative für beide kommt wenn ein konkreter Use-Case
-// das fordert — heute reicht Function-Form für die monolith-Apps.
-export type RowAction = {
-  /** Stable id pro Screen — kebab-case, eindeutig im Action-Set. URL-
-   *  Parameter wenn der Confirm-Dialog open ist (zukünftig). */
+// Declarative Alternative kommt wenn ein konkreter Use-Case das fordert.
+//
+// Discriminated Union mit `kind`:
+//   - "writeHandler" (default für Backwards-Compat): dispatched einen
+//     Write-Handler mit Payload pro Row.
+//   - "navigate" (Tier 2.7e): navigiert zu einem anderen Screen,
+//     optional mit URL-Search-Params aus `params(row)`. Use-case:
+//     "Edit", "View Audit-Log", "Open in actionForm" etc.
+export type RowAction = RowActionWriteHandler | RowActionNavigate;
+
+export type RowActionWriteHandler = {
+  /** Default für RowActions ohne explizit gesetzten `kind` —
+   *  Backwards-kompatible Form. Kann auch explizit gesetzt werden. */
+  readonly kind?: "writeHandler";
+  /** Stable id pro Screen — kebab-case, eindeutig im Action-Set. */
   readonly id: string;
   /** Anzeige-Text (i18n-Key). */
   readonly label: string;
@@ -151,6 +161,23 @@ export type RowAction = {
   /** Visual-Style. "danger" rendert rot + erzwingt einen Confirm-
    *  Dialog (auch ohne expliziten `confirm`-Key). */
   readonly style?: "primary" | "secondary" | "danger";
+};
+
+export type RowActionNavigate = {
+  readonly kind: "navigate";
+  readonly id: string;
+  readonly label: string;
+  /** Screen-id (kurz, unqualified) zu dem navigiert wird. Boot-
+   *  Validator prüft Existenz im selben Feature. */
+  readonly screen: string;
+  /** Optional: URL-Search-Params aus row-Context. Wird in actionForm-
+   *  Targets als initial values gelesen ("Edit Customer X" → URL hat
+   *  `?customerId=row-uuid`, actionForm initial values pre-fillen).
+   *  ⚠️ Function-Form nur im Monolith-Bundle-Pattern. */
+  readonly params?: (row: Readonly<Record<string, unknown>>) => Record<string, unknown>;
+  /** Conditional Visibility pro Row — analog zu writeHandler-Variante. */
+  readonly visible?: FieldCondition;
+  readonly style?: "primary" | "secondary";
 };
 
 // ToolbarAction — Button im List-Header. Zwei Varianten: navigate auf

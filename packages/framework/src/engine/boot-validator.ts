@@ -999,6 +999,22 @@ function validateScreens(
           );
         }
       }
+      // Tier 2.7e-1: rowActions mit kind:"navigate" pinst dass das
+      // referenced screen tatsächlich existiert (selbes Feature). Ein
+      // typo'd target landet sonst beim Klick als "Screen not found"-
+      // Banner.
+      if (screen.rowActions !== undefined) {
+        for (const action of screen.rowActions) {
+          if (action.kind !== "navigate") continue;
+          const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
+          if (!allScreenQns.has(candidateQn)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
+                `navigate-target "${action.screen}" does not resolve to a registered screen in this feature.`,
+            );
+          }
+        }
+      }
     } else {
       // Same rationale as the columns check: an entityEdit layout with zero
       // sections (or sections without any fields) renders as nothing — reject
