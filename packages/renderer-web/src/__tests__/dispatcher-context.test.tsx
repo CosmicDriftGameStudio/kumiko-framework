@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import type { Dispatcher, DispatcherStatus } from "@kumiko/headless";
-import { DispatcherProvider, useDispatcher, useDispatcherStatus } from "@kumiko/renderer";
+import {
+  DispatcherProvider,
+  useDispatcher,
+  useDispatcherStatus,
+  useOptionalDispatcher,
+} from "@kumiko/renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";
 import { act, createMockDispatcher, render, renderHook } from "./test-utils";
@@ -70,5 +75,27 @@ describe("DispatcherContext", () => {
     expect(result.current).toBe("offline");
     act(() => setStatus("online"));
     expect(result.current).toBe("online");
+  });
+
+  // useOptionalDispatcher: identisch zu useDispatcher AUSSER beim Missing-
+  // Provider — dort returnt es undefined statt zu throwen. Genau dafür
+  // existiert es: KumikoScreen.EntityListBody braucht den Dispatcher
+  // optional (rowActions silent skipping wenn keiner mounted ist), und
+  // soll nicht throw'en in Tests die kein Mutation-Wiring brauchen.
+  test("useOptionalDispatcher: returns the instance when provider is mounted", () => {
+    const { dispatcher } = makeFakeDispatcher();
+    const { result } = renderHook(() => useOptionalDispatcher(), {
+      wrapper: wrapper(dispatcher),
+    });
+    expect(result.current).toBe(dispatcher);
+  });
+
+  test("useOptionalDispatcher: returns undefined when no provider mounted (no throw)", () => {
+    const Probe = (): ReactNode => {
+      const d = useOptionalDispatcher();
+      return <span data-testid="d">{d === undefined ? "no-provider" : "found"}</span>;
+    };
+    const { getByTestId } = render(<Probe />);
+    expect(getByTestId("d").textContent).toBe("no-provider");
   });
 });

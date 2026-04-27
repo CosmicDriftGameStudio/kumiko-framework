@@ -80,6 +80,17 @@ export type ListSortSpec = {
 // Pattern: row-level Lifecycle-Operations (Maintenance start/cancel/
 // complete, Incident resolve, Order ship etc.) — Sachen die in einem
 // CRUD-update kein passendes Verb haben aber als WriteHandler existieren.
+//
+// ⚠️ Function-Props (`payload`, `visible`) leben nur im Monolith-Bundle-
+// Pattern (Server + Client teilen Source-Bundle, wie Showcase mit
+// dev-server). In setups mit JSON-injected window.__KUMIKO_SCHEMA__
+// werden Functions silent gedroppt (`buildAppSchema` whitelist-projeziert
+// + JSON.stringify entfernt sie). Für solche Apps:
+//   - `payload` weglassen → Default `{ id: row.id }` reicht für CRUD-Verbs.
+//   - `visible` über server-side Filter im Handler statt Client-side
+//     Visibility lösen.
+// Declarative Alternative für beide kommt wenn ein konkreter Use-Case
+// das fordert — heute reicht Function-Form für die monolith-Apps.
 export type RowAction = {
   /** Stable id pro Screen — kebab-case, eindeutig im Action-Set. URL-
    *  Parameter wenn der Confirm-Dialog open ist (zukünftig). */
@@ -90,15 +101,26 @@ export type RowAction = {
    *  "publicstatus:write:maintenance:start". Wird via useDispatcher
    *  dispatcht. */
   readonly handler: string;
-  /** Optional: Payload-Builder pro Row. Default = `{ id: row.id }`. */
+  /** Payload-Builder pro Row. Default = `{ id: row.id }`. ⚠️ Function-
+   *  Form nur im Monolith-Bundle-Pattern — siehe Type-Header. */
   readonly payload?: (row: Readonly<Record<string, unknown>>) => Record<string, unknown>;
-  /** i18n-Key für ein Confirm-Dialog vor der Ausführung. Wenn gesetzt,
-   *  öffnet ein Modal mit Bestätigungs-Frage und Cancel/Confirm-Buttons. */
+  /** i18n-Key für die Confirm-Dialog-Description. Wenn gesetzt, öffnet
+   *  ein Modal vor der Ausführung — der User muss explizit bestätigen.
+   *  Zusammen mit `style: "danger"` ist das die Standard-Sicherheits-
+   *  Garde für destruktive Aktionen. */
   readonly confirm?: string;
-  /** Conditional Visibility — Action erscheint nur wenn die Bedingung
-   *  true returnt. Beispiel: nur "Start" zeigen wenn status === "scheduled". */
+  /** i18n-Key für den Confirm-Button-Text im Dialog. Default = `label`
+   *  (also "Delete" → "Delete"-Button im Confirm). Setzen wenn die
+   *  Action einen langen Namen hat ("Mark Subscription as Cancelled")
+   *  und der Button kürzer sein soll ("Cancel Subscription"). */
+  readonly confirmLabel?: string;
+  /** Conditional Visibility pro Row — Action erscheint nur wenn die
+   *  Bedingung true returnt. Beispiel: nur "Start" zeigen wenn
+   *  status === "scheduled". ⚠️ Function-Form nur im Monolith-Bundle-
+   *  Pattern — siehe Type-Header. */
   readonly visible?: FieldCondition;
-  /** Visual-Style. "danger" rendert rot + meist mit Confirm-Dialog. */
+  /** Visual-Style. "danger" rendert rot + erzwingt einen Confirm-
+   *  Dialog (auch ohne expliziten `confirm`-Key). */
   readonly style?: "primary" | "secondary" | "danger";
 };
 

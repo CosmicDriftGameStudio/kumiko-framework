@@ -222,10 +222,13 @@ export type DataTableRowAction = {
   /** Visual-Style — danger triggert in der Default-Primitive eine rote
    *  Variante UND erzwingt einen Confirm-Dialog wenn keiner gesetzt ist. */
   readonly style?: "primary" | "secondary" | "danger";
-  /** Translated Confirm-Prompt — wenn gesetzt, öffnet ein Modal vor
-   *  der Ausführung. Bei style=danger ohne explizitem confirm sollte
-   *  der Renderer einen generischen Default zeigen. */
+  /** Translated Confirm-Prompt (Description im Dialog) — wenn gesetzt,
+   *  öffnet ein Modal vor der Ausführung. Bei style=danger ohne expliziten
+   *  confirm sollte der Renderer einen generischen Default zeigen. */
   readonly confirm?: string;
+  /** Translated Confirm-Button-Label im Dialog. Default = `label`
+   *  (Action-Label wird wiederverwendet). */
+  readonly confirmLabel?: string;
   /** Wird mit der ListRowViewModel der geklickten Row aufgerufen. Async
    *  erlaubt — der Renderer kann während der Promise-Resolution einen
    *  Loading-State auf dem Button zeigen. */

@@ -499,17 +499,20 @@ function RowActionsCell({
   return <RowActionsKebab row={row} actions={visible} />;
 }
 
-function RowActionButton({
-  row,
-  action,
-}: {
-  readonly row: ListRowViewModel;
-  readonly action: DataTableRowAction;
-}): ReactNode {
-  const [busy, setBusy] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+// Shared trigger-State zwischen Inline-Button + Kebab-Item: busy-Flag
+// (während async onTrigger läuft) + confirm-pending-Action. Beide Sub-
+// Components hatten denselben State-Block dupliziert + parallel zur
+// Confirm-Dialog-Render-Logic — der Hook konsolidiert das.
+//
+// "needsConfirm" Helper kapselt die Regel: explizites confirm ODER
+// style=danger triggert den Dialog, alles andere fired direkt.
+function needsConfirm(action: DataTableRowAction): boolean {
+  return action.confirm !== undefined || action.style === "danger";
+}
 
-  const trigger = async (): Promise<void> => {
+function useRowActionTrigger(row: ListRowViewModel) {
+  const [busy, setBusy] = useState(false);
+  const triggerNow = async (action: DataTableRowAction): Promise<void> => {
     setBusy(true);
     try {
       await action.onTrigger(row);
@@ -517,6 +520,18 @@ function RowActionButton({
       setBusy(false);
     }
   };
+  return { busy, triggerNow };
+}
+
+function RowActionButton({
+  row,
+  action,
+}: {
+  readonly row: ListRowViewModel;
+  readonly action: DataTableRowAction;
+}): ReactNode {
+  const { busy, triggerNow } = useRowActionTrigger(row);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const variantClass =
     action.style === "danger"
@@ -533,10 +548,10 @@ function RowActionButton({
         disabled={busy}
         onClick={(e) => {
           e.stopPropagation();
-          if (action.confirm !== undefined || action.style === "danger") {
+          if (needsConfirm(action)) {
             setConfirmOpen(true);
           } else {
-            void trigger();
+            void triggerNow(action);
           }
         }}
         className={cn(
@@ -553,9 +568,9 @@ function RowActionButton({
         onOpenChange={setConfirmOpen}
         title={action.label}
         {...(action.confirm !== undefined && { description: action.confirm })}
-        confirmLabel={action.label}
+        confirmLabel={action.confirmLabel ?? action.label}
         {...(action.style === "danger" && { variant: "danger" as const })}
-        onConfirm={trigger}
+        onConfirm={() => triggerNow(action)}
         testId={`row-${row.id}-action-${action.id}-dialog`}
       />
     </>
@@ -573,11 +588,8 @@ function RowActionsKebab({
   readonly row: ListRowViewModel;
   readonly actions: readonly DataTableRowAction[];
 }): ReactNode {
+  const { triggerNow } = useRowActionTrigger(row);
   const [pendingConfirm, setPendingConfirm] = useState<DataTableRowAction | null>(null);
-
-  const triggerNow = async (action: DataTableRowAction): Promise<void> => {
-    await action.onTrigger(row);
-  };
 
   return (
     <>
@@ -603,7 +615,7 @@ function RowActionsKebab({
               data-testid={`row-${row.id}-action-${action.id}`}
               onSelect={(e) => {
                 e.preventDefault();
-                if (action.confirm !== undefined || action.style === "danger") {
+                if (needsConfirm(action)) {
                   setPendingConfirm(action);
                 } else {
                   void triggerNow(action);

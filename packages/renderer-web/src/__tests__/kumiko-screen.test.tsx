@@ -285,6 +285,113 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 
+  // RowActions-Mapping (Tier 2.7a Resolution-Layer): pinst dass
+  // EntityListBody die Schema-Form (handler-QN, label-i18nKey, payload-
+  // builder, visible-Function, confirmLabel) zu DataTableRowAction
+  // (translated, dispatcher-resolved) korrekt transformiert. Vorher
+  // nur indirekt über DataTable-Tests + manuelle Inspection abgedeckt.
+  test("entityList rowActions: Schema → translate + dispatch wiring", async () => {
+    const writeCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+      write: (async (type: string, payload: unknown) => {
+        writeCalls.push({ type, payload });
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["write"],
+    });
+
+    const screenWithActions: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        {
+          id: "archive",
+          label: "actions.archive",
+          handler: "tasks:write:task:archive",
+          payload: (row) => ({ id: row["id"], reason: "manual" }),
+        },
+      ],
+    };
+    const schemaWithActions: FeatureSchema = {
+      ...schema,
+      screens: [screenWithActions],
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schemaWithActions} qn="tasks:screen:task-list" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    // Inline-Button mit der ID aus dem Schema. Label kommt durch
+    // translate() — fallback ist der Key wenn kein Bundle (test-utils
+    // mountet eins mit identity-translator).
+    const button = screen.getByTestId("row-r1-action-archive");
+    expect(button).toBeTruthy();
+
+    // Click → dispatcher.write mit handler-QN + custom payload (NICHT
+    // default `{id}`, sondern der schema-payload-builder muss greifen).
+    fireEvent.click(button);
+    await waitFor(() => expect(writeCalls.length).toBe(1));
+    expect(writeCalls[0]).toEqual({
+      type: "tasks:write:task:archive",
+      payload: { id: "r1", reason: "manual" },
+    });
+  });
+
+  test("entityList rowActions visible-filter: hidden Action erscheint nicht im DOM", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [
+            { id: "r1", title: "Open", status: "scheduled", count: 0, done: false },
+            { id: "r2", title: "Done", status: "completed", count: 0, done: true },
+          ],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const screenWithVisible: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        {
+          id: "start",
+          label: "actions.start",
+          handler: "tasks:write:task:start",
+          // Nur sichtbar bei status===scheduled
+          visible: (row: unknown) => (row as Record<string, unknown>)["status"] === "scheduled",
+        },
+      ],
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={{ ...schema, screens: [screenWithVisible] }}
+          qn="tasks:screen:task-list"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    expect(screen.queryByTestId("row-r1-action-start")).not.toBeNull();
+    expect(screen.queryByTestId("row-r2-action-start")).toBeNull();
+  });
+
   test("custom screen type → placeholder (M4 wires r.uiComponent)", () => {
     const customSchema: FeatureSchema = {
       featureName: "tasks",

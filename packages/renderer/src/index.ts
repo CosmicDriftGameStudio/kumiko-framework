@@ -35,6 +35,7 @@ export {
   DispatcherProvider,
   useDispatcher,
   useDispatcherStatus,
+  useOptionalDispatcher,
 } from "./context/dispatcher-context";
 export type { UseFormOptions, UseFormResult } from "./hooks/use-form";
 export { useForm } from "./hooks/use-form";

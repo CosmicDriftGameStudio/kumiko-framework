@@ -575,8 +575,20 @@ function EntityListBody({
   const effectiveTranslate = translate ?? t;
   // Soft-Dispatcher: in Tests die ohne DispatcherProvider mounten,
   // bleibt rowActions undefined statt zu crashen. Echte Apps haben
-  // den Provider via createKumikoApp.
+  // den Provider via createKumikoApp — wenn nicht, ist es vermutlich
+  // ein Setup-Fehler, also einmal warnen damit der Author das findet
+  // (sonst rendert die Action-Spalte still nichts und der "warum sind
+  // meine Buttons weg?"-Debug ist teuer).
   const dispatcher = useOptionalDispatcher();
+  const hasRowActions = screen.rowActions !== undefined && screen.rowActions.length > 0;
+  useEffect(() => {
+    if (hasRowActions && dispatcher === undefined) {
+      // biome-ignore lint/suspicious/noConsole: dev-warning für Setup-Fehler
+      console.warn(
+        `[kumiko] Screen "${screen.id}" deklariert rowActions, aber kein <DispatcherProvider> ist mounted — die Action-Spalte wird nicht gerendert. createKumikoApp() wired den Provider automatisch.`,
+      );
+    }
+  }, [hasRowActions, dispatcher, screen.id]);
   const rowActions = useMemo(() => {
     if (screen.rowActions === undefined) return undefined;
     if (dispatcher === undefined) return undefined;
@@ -585,6 +597,9 @@ function EntityListBody({
       label: effectiveTranslate(action.label),
       ...(action.style !== undefined && { style: action.style }),
       ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
+      ...(action.confirmLabel !== undefined && {
+        confirmLabel: effectiveTranslate(action.confirmLabel),
+      }),
       onTrigger: async (row: ListRowViewModel) => {
         const buildPayload = action.payload;
         const payload =

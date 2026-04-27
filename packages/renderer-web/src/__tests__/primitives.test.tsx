@@ -570,6 +570,97 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("row-r1-action-a")).toBeNull();
     });
 
+    test("Kebab: Click auf Trigger öffnet Dropdown mit allen Items", async () => {
+      const user = userEvent.setup();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            { id: "a", label: "Archive", onTrigger: vi.fn() },
+            { id: "b", label: "Duplicate", onTrigger: vi.fn() },
+            { id: "c", label: "Export", onTrigger: vi.fn() },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      expect(screen.queryByTestId("row-r1-action-a")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1-action-b")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1-action-c")).not.toBeNull();
+    });
+
+    test("Kebab: Click auf Item ohne confirm → onTrigger feuert direkt", async () => {
+      const user = userEvent.setup();
+      const onTrigger = vi.fn();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            { id: "a", label: "Archive", onTrigger },
+            { id: "b", label: "Duplicate", onTrigger: vi.fn() },
+            { id: "c", label: "Export", onTrigger: vi.fn() },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      await user.click(screen.getByTestId("row-r1-action-a"));
+      // micro-task warten (onTrigger ist async im Hook)
+      await new Promise((r) => setTimeout(r, 0));
+      expect(onTrigger).toHaveBeenCalledWith(rows[0]);
+    });
+
+    test("Kebab: Click auf Danger-Item → Confirm-Dialog statt direkt-Trigger", async () => {
+      const user = userEvent.setup();
+      const onTrigger = vi.fn();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            { id: "a", label: "Archive", onTrigger: vi.fn() },
+            { id: "b", label: "Duplicate", onTrigger: vi.fn() },
+            { id: "delete", label: "Delete", style: "danger", onTrigger },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      await user.click(screen.getByTestId("row-r1-action-delete"));
+      // Trigger NICHT direkt — der Dialog muss zuerst öffnen.
+      expect(onTrigger).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("row-r1-action-delete-dialog")).not.toBeNull();
+    });
+
+    test("confirmLabel separat vom label: Dialog-Button zeigt confirmLabel", async () => {
+      const user = userEvent.setup();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            {
+              id: "cancel-sub",
+              label: "Mark Subscription as Cancelled",
+              style: "danger",
+              confirmLabel: "Cancel Subscription",
+              confirm: "This is permanent.",
+              onTrigger: vi.fn(),
+            },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r1-action-cancel-sub"));
+      const dialog = screen.getByTestId("row-r1-action-cancel-sub-dialog");
+      // Confirm-Button im Dialog hat confirmLabel, nicht das volle label
+      const confirmBtn = dialog.querySelector('[data-testid$="confirm"]');
+      expect(confirmBtn?.textContent).toContain("Cancel Subscription");
+      expect(confirmBtn?.textContent).not.toContain("Mark Subscription");
+    });
+
     test("Click auf Action ohne confirm: onTrigger wird mit Row gerufen", async () => {
       const onTrigger = vi.fn();
       render(

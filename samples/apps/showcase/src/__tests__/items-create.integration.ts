@@ -65,3 +65,34 @@ test("item:list mit pagination-payload (limit + totalCount) liefert total", asyn
   expect(list.total).toBeDefined();
   expect(typeof list.total).toBe("number");
 });
+
+test("item:delete via rowAction-Pfad: Default-Payload {id} reicht", async () => {
+  // Pinst Tier-2.7a End-to-End: die Delete-Action im itemListScreen
+  // schickt nur `{ id: row.id }` (kein expliziter payload-Builder im
+  // Schema), und der server-side write-Handler akzeptiert das. Ohne
+  // diesen Test würde ein Schema-Drift (z.B. delete-Handler erwartet
+  // version-Feld) erst beim ersten Browser-Klick auffallen.
+  const created = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "to-delete",
+      status: "draft",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+  // Default-Payload ist exakt `{ id: row.id }` — pinst die Convention
+  // dass der delete-Handler kein zusätzliches version-Feld verlangt.
+  await stack.http.writeOk("showcase:write:item:delete", { id: created.id }, TestUsers.admin);
+  const list = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    { limit: 200 },
+    TestUsers.admin,
+  );
+  // Soft-Delete-Default in createEntity: deleted rows aus list raus,
+  // also ist die id nicht mehr drin.
+  expect(list.rows.find((r) => r["id"] === created.id)).toBeUndefined();
+});
