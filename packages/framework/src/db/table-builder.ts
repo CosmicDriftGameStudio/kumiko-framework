@@ -53,11 +53,12 @@ function fieldToColumns(
     case "number":
       return { [name]: integer(snakeName) };
     case "reference":
-      // Tier 2.7e-3: FK-Style UUID-Spalte. Storage kompatibel zu
-      // entity.id (uuid). NOT-NULL nur wenn required: true gesetzt;
-      // optionale Refs sind die Norm (User-assignment, Category etc.
-      // dürfen leer bleiben). Eagerload-Read kommt im executor.list/
-      // detail (Tier 2.7e-4).
+      // Tier 2.7e-3: FK-Style UUID-Spalte. Multi-Mode (Tier 2.7e-Multi)
+      // speichert UUIDs als jsonb-Array<string>. Single-Mode bleibt
+      // klassische UUID-Spalte (NOT NULL nur bei required).
+      if (field.multiple === true) {
+        return { [name]: jsonb(snakeName).default([]) };
+      }
       return {
         [name]: field.required ? uuid(snakeName).notNull() : uuid(snakeName),
       };

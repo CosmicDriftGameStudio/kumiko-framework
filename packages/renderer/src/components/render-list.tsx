@@ -183,6 +183,12 @@ export function RenderList(props: RenderListProps): ReactNode {
       if (col.renderer !== undefined) return col;
       const map = referenceLookups[col.field];
       const renderer = (value: unknown): string => {
+        // Multi-Reference: value ist ein UUID-Array — joine die
+        // Display-Strings mit ", ". Bei single ist value String/UUID.
+        if (Array.isArray(value)) {
+          if (value.length === 0) return "—";
+          return value.map((v) => map?.get(String(v)) ?? String(v)).join(", ");
+        }
         if (value === null || value === undefined || value === "") return "—";
         const idStr = String(value);
         return map?.get(idStr) ?? idStr;

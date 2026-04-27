@@ -86,6 +86,10 @@ export function computeEditViewModel<
         fieldDef.type === "reference"
           ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
           : undefined;
+      const refMultiple =
+        fieldDef.type === "reference"
+          ? ((fieldDef as unknown as { multiple?: boolean }).multiple ?? false)
+          : undefined;
       const view: EditFieldViewModel = {
         field: normalized.field,
         label,
@@ -100,6 +104,7 @@ export function computeEditViewModel<
         ...(multiline !== undefined && { multiline }),
         ...(refEntity !== undefined && { refEntity }),
         ...(refLabelField !== undefined && { refLabelField }),
+        ...(refMultiple !== undefined && { refMultiple }),
       };
       return view;
     });

@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
+import { ComboboxInput } from "./combobox";
 import { DateInput } from "./date-input";
 import { DefaultDialog } from "./dialog";
 import {
@@ -246,6 +247,27 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.disabled !== undefined && { disabled: props.disabled })}
           {...(props.required !== undefined && { required: props.required })}
           {...(props.hasError !== undefined && { hasError: props.hasError })}
+        />
+      );
+    case "combobox":
+      // Tier 2.1c: cmdk-basiertes Searchable-Select. Multi-Mode via
+      // multiple-Prop (selected items als Tags + offenes Search-Input).
+      return (
+        <ComboboxInput
+          id={props.id}
+          name={props.name}
+          value={props.value}
+          onChange={props.onChange}
+          options={props.options}
+          {...(props.multiple !== undefined && { multiple: props.multiple })}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.required !== undefined && { required: props.required })}
+          {...(props.hasError !== undefined && { hasError: props.hasError })}
+          {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
+          {...(props.searchPlaceholder !== undefined && {
+            searchPlaceholder: props.searchPlaceholder,
+          })}
+          {...(props.emptyText !== undefined && { emptyText: props.emptyText })}
         />
       );
     case "money":

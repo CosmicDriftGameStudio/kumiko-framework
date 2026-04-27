@@ -35,6 +35,18 @@ import type { ReactElement, ReactNode } from "react";
 import { defaultPrimitives } from "../primitives";
 import { defaultTokens } from "../tokens";
 
+// jsdom hat keinen ResizeObserver — cmdk (Combobox-Library) braucht
+// das im Setup. Stub reicht für unsere Tests; wir messen keine
+// Sizes, nur Mount-Lifecycle. Setze als globaler Side-Effect beim
+// Modul-Import damit alle Tests die test-utils laden ihn haben.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  } as unknown as typeof ResizeObserver;
+}
+
 const stubNav: NavApi = {
   route: undefined,
   navigate: () => {},

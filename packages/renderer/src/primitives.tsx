@@ -157,6 +157,27 @@ export type InputProps =
       readonly hasError?: boolean;
     }
   | {
+      // Tier 2.1c: Combobox / Searchable-Select. Single-Mode (multiple
+      // false oder weggelassen): value ist string, onChange string.
+      // Multi-Mode (multiple: true): value ist string[], onChange
+      // string[]. Reference-Felder (Tier 2.7e-3+) nutzen das hier ohne
+      // explizit Combobox zu setzen — der Renderer wählt Combobox
+      // automatisch für reference-Field-Types.
+      readonly kind: "combobox";
+      readonly id: string;
+      readonly name: string;
+      readonly value: string | readonly string[];
+      readonly onChange: (v: string | readonly string[]) => void;
+      readonly options: readonly { readonly value: string; readonly label: string }[];
+      readonly multiple?: boolean;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+      readonly placeholder?: string;
+      readonly searchPlaceholder?: string;
+      readonly emptyText?: string;
+    }
+  | {
       readonly kind: "money";
       readonly id: string;
       readonly name: string;

@@ -1413,6 +1413,29 @@ describe("boot-validator", () => {
       ];
       expect(() => validateBoot(features)).not.toThrow();
     });
+
+    test("reference mit multiple: true → kein Throw (Tier 2.7e-Multi)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity("tag", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "post",
+            createEntity({
+              fields: {
+                title: createTextField(),
+                tagIds: {
+                  type: "reference",
+                  entity: "tag",
+                  labelField: "name",
+                  multiple: true,
+                },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
   });
 
   // --- Tier 2.7e-1: rowAction kind="navigate" target-existenz ---

@@ -57,17 +57,20 @@ export function RenderField({ field, issues, onChange, featureName }: RenderFiel
   );
 }
 
-// Tier 2.7e-3: Reference-Input rendert ein Select-Dropdown gefüllt
-// aus einer Live-Query auf die referenced Entity. MVP-Limits:
-//   - limit: 50 — größere Datasets brauchen Tier 2.7e-5 / 2.1c
-//     (Searchable Combobox).
+// Tier 2.7e-3 + 2.1c: Reference-Input rendert eine Searchable Combobox
+// gefüllt aus einer Live-Query auf die referenced Entity. Default-
+// Limit: 200 — bei größeren Datasets fehlt der Tail im Dropdown
+// (Tier 2.7e-Remote: server-side Search-Query mit debounce kommt später).
 //   - Display = row[refLabelField], Default labelField "id".
 //   - Loading-State: leeres Dropdown bis die rows da sind. Field
-//     ist disabled während useQuery läuft, damit der User nicht
-//     ein leeres Dropdown öffnet und sich wundert.
+//     ist disabled während useQuery läuft.
+//   - Multi-Mode (Tier 2.7e-Multi via field.refMultiple): value ist
+//     ein UUID-Array, Combobox rendert Selected-Tags.
 //
-// Storage: Der UI-Wert ist die UUID (row.id). Das Server-Schema
-// erwartet z.uuid() (siehe schema-builder.ts).
+// Storage: UI-Wert ist UUID (row.id) oder UUID-Array bei multiple.
+// Server-Schema: z.uuid() bzw. z.array(z.uuid()).
+const REFERENCE_LOOKUP_LIMIT = 200;
+
 function ReferenceInput({
   field,
   id,
@@ -85,30 +88,48 @@ function ReferenceInput({
 }): ReactNode {
   const refEntity = field.refEntity ?? "";
   const labelField = field.refLabelField ?? "id";
+  const isMultiple = field.refMultiple === true;
   const queryQn = `${featureName}:query:${refEntity}:list`;
   const queryResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
-    limit: 50,
+    limit: REFERENCE_LOOKUP_LIMIT,
   });
   const options = useMemo(() => {
     const rows = queryResult.data?.rows ?? [];
     return rows.map((row) => {
-      const id = String(row["id"] ?? "");
-      const label = String(row[labelField] ?? id);
-      return { value: id, label };
+      const idVal = String(row["id"] ?? "");
+      const label = String(row[labelField] ?? idVal);
+      return { value: idVal, label };
     });
   }, [queryResult.data, labelField]);
-  const value = field.value === undefined || field.value === null ? "" : String(field.value);
+  // Single: value ist String/null; Multi: Array. Coerce auf das was
+  // der Combobox-Mode erwartet, damit Storage-Drift (Server liefert
+  // alten String wo jetzt Array erwartet wird) keine Crash auslöst.
+  const value: string | readonly string[] = isMultiple
+    ? Array.isArray(field.value)
+      ? (field.value as readonly string[])
+      : []
+    : field.value === undefined || field.value === null
+      ? ""
+      : String(field.value);
   return (
     <Input
-      kind="select"
+      kind="combobox"
       id={id}
       name={field.field}
       disabled={field.readOnly || queryResult.loading}
       required={field.required}
       hasError={hasError}
       value={value}
-      onChange={(v) => onChange(v === "" ? null : v)}
+      onChange={(v) => {
+        if (isMultiple) {
+          onChange(v);
+          return;
+        }
+        const single = typeof v === "string" ? v : "";
+        onChange(single === "" ? null : single);
+      }}
       options={options}
+      {...(isMultiple && { multiple: true })}
     />
   );
 }

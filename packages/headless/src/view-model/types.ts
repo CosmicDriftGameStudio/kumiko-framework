@@ -94,6 +94,9 @@ export type EditFieldViewModel = {
   /** Nur bei `type: "reference"` gesetzt — Welches Feld der referenced
    *  Entity als Display-Label im Dropdown erscheint. Default: "id". */
   readonly refLabelField?: string;
+  /** Nur bei `type: "reference"` — Multi-Mode (Tier 2.7e-Multi):
+   *  Wert ist UUID-Array, Renderer mountet Multi-Combobox mit Tags. */
+  readonly refMultiple?: boolean;
 };
 
 export type EditSectionViewModel = {

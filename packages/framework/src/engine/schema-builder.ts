@@ -121,7 +121,8 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
       // (Row im referenced Table existiert + Tenant-Scope) ist Server-
       // side-Verantwortung im Handler / Foreign-Key-Constraint, nicht
       // im Schema-Validator (würde sonst Round-trip zur DB beim Parse).
-      return z.uuid();
+      // Multi-Mode (Tier 2.7e-Multi): Array von UUIDs.
+      return field.multiple === true ? z.array(z.uuid()) : z.uuid();
     default:
       assertUnreachable(field, "field type");
   }

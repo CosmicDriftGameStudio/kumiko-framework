@@ -133,6 +133,10 @@ export type ReferenceFieldDef = {
    *  Select-Dropdown erscheint. Default: "id". Boot-Validator pinst
    *  dass das Feld auf der referenced Entity existiert. */
   readonly labelField?: string;
+  /** Multi-Reference (Tier 2.7e-Multi): Wert ist ein Array von UUIDs
+   *  statt single UUID. Storage als jsonb-Array<uuid>. UI rendert
+   *  Multi-Select-Combobox mit Tag-Anzeige der gewählten Items. */
+  readonly multiple?: boolean;
 };
 
 // --- Currency ---

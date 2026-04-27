@@ -268,6 +268,58 @@ test("Tier 2.7e-3 Reference-Field: parent + child, child speichert parentId, lis
   expect(detail["parentId"]).toBe(parent.id);
 });
 
+test("Tier 2.7e-Multi: Multi-Reference (relatedIds) — Array von UUIDs round-trips durch HTTP/Zod/DB", async () => {
+  // Pinst dass `multiple: true` auf reference:
+  //   1) jsonb-Array<string> in der DB speichert
+  //   2) z.array(z.uuid()) im Insert-Schema akzeptiert
+  //   3) der Read-Side das Array zurückliefert
+  const a = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "multi-related-a",
+      status: "active",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+  const b = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "multi-related-b",
+      status: "active",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+  const main = await stack.http.writeOk<{ id: string }>(
+    "showcase:write:item:create",
+    {
+      title: "multi-main",
+      status: "draft",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+      relatedIds: [a.id, b.id],
+    },
+    TestUsers.admin,
+  );
+
+  const detail = await stack.http.queryOk<Record<string, unknown>>(
+    "showcase:query:item:detail",
+    { id: main.id },
+    TestUsers.admin,
+  );
+  expect(Array.isArray(detail["relatedIds"])).toBe(true);
+  expect((detail["relatedIds"] as string[]).sort()).toEqual([a.id, b.id].sort());
+});
+
 test("item:delete via rowAction-Pfad: Default-Payload {id} reicht", async () => {
   // Pinst Tier-2.7a End-to-End: die Delete-Action im itemListScreen
   // schickt nur `{ id: row.id }` (kein expliziter payload-Builder im

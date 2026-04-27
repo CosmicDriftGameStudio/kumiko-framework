@@ -31,9 +31,18 @@ export const itemEntity = {
     },
     // Tier 2.7e-3 Demo — Self-Reference: jedes Item kann optional ein
     // anderes Item als "parent task" referenzieren. Renderer zeigt im
-    // Edit-Form ein Dropdown mit allen Items (limit:50), List-Spalte
-    // resolvet die UUID via Bulk-Lookup zum title.
+    // Edit-Form ein Combobox-Dropdown mit Search (Tier 2.1c), List-
+    // Spalte resolvet die UUID via Bulk-Lookup zum title.
     parentId: { type: "reference", entity: "item", labelField: "title" },
+    // Tier 2.7e-Multi Demo — Multi-Reference: ein Item kann mehrere
+    // verwandte Items haben. Storage als jsonb-Array<uuid>. UI rendert
+    // Multi-Combobox mit Tag-Anzeige.
+    relatedIds: {
+      type: "reference",
+      entity: "item",
+      labelField: "title",
+      multiple: true,
+    },
   },
 } as unknown as EntityDefinition;
 
@@ -59,6 +68,7 @@ export const itemEditScreen: EntityEditScreenDefinition = {
           },
           "dueDate",
           "parentId",
+          "relatedIds",
         ],
       },
     ],
