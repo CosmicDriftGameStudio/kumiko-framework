@@ -20,7 +20,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./build": "./src/build-prod-bundle.ts",
+    "./build": "./src/build.ts",
     "./compose-features": "./src/compose-features.ts"
   },
   "bin": {
