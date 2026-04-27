@@ -516,6 +516,13 @@ function EntityListBody({
       payload["sort"] = effectiveSort.field;
       payload["sortDirection"] = effectiveSort.dir;
     }
+    // Screen-Filter (Tier 2.7c) — vom Author am Schema deklariert,
+    // unabhängig vom User-q-Search. Mehrere Buckets derselben Entity
+    // ("Upcoming" / "Active" / "Past") nutzen unterschiedliche filter
+    // bei gleichem Query-Handler.
+    if (screen.filter !== undefined) {
+      payload["filter"] = screen.filter;
+    }
     if (usePager) {
       // page=1 → offset=0, page=2 → offset=limit, etc. Server
       // clampt selbst wenn offset >= total.
@@ -529,7 +536,16 @@ function EntityListBody({
       payload["cursor"] = cursor;
     }
     return payload;
-  }, [limit, urlState.q, effectiveSort, usePager, urlState.page, useInfinite, cursor]);
+  }, [
+    limit,
+    urlState.q,
+    effectiveSort,
+    screen.filter,
+    usePager,
+    urlState.page,
+    useInfinite,
+    cursor,
+  ]);
 
   const rowsQuery = useQuery<PagedRows>(queryType, queryPayload, { live: true });
 

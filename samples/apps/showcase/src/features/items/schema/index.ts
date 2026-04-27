@@ -3,4 +3,10 @@
 // hinzufügen ohne dass feature.ts oder web/index.ts ihre Imports
 // ändern müssen.
 
-export { itemEditScreen, itemEntity, itemFeedScreen, itemListScreen } from "./item";
+export {
+  itemActiveScreen,
+  itemEditScreen,
+  itemEntity,
+  itemFeedScreen,
+  itemListScreen,
+} from "./item";

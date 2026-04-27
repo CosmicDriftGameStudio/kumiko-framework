@@ -1116,6 +1116,69 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- Tier 2.7c: Screen-Filter ---
+  // Filter-Field muss im Schema existieren — sonst läuft die Liste
+  // server-side silent als "no match" (executor: undefined column →
+  // skip filter), was als leerer Bucket auf dem Bildschirm landet.
+  // Boot-Fail ist deutlich besser als das.
+  describe("entityList screen-filter (Tier 2.7c)", () => {
+    function makeFeature(filter: {
+      readonly field: string;
+      readonly op: "eq" | "neq" | "lt" | "gt" | "in";
+      readonly value: unknown;
+    }) {
+      return defineFeature("shop", (r) => {
+        r.entity(
+          "product",
+          createEntity({
+            fields: {
+              name: createTextField({ sortable: true }),
+              status: createTextField(),
+            },
+          }),
+        );
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: [{ field: "name" }],
+          filter,
+        });
+      });
+    }
+
+    test("filter.field existiert → kein Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ field: "status", op: "eq", value: "active" })]),
+      ).not.toThrow();
+    });
+
+    test("filter.field existiert NICHT → Throw mit klarer Message", () => {
+      expect(() => validateBoot([makeFeature({ field: "ghost", op: "eq", value: "x" })])).toThrow(
+        /filter references unknown field "ghost"/,
+      );
+    });
+
+    test('filter.op="in" mit non-array value → Throw', () => {
+      expect(() =>
+        validateBoot([makeFeature({ field: "status", op: "in", value: "active" })]),
+      ).toThrow(/filter\.op "in" requires filter\.value to be a readonly array/);
+    });
+
+    test('filter.op="in" mit array → kein Throw', () => {
+      expect(() =>
+        validateBoot([makeFeature({ field: "status", op: "in", value: ["active", "pending"] })]),
+      ).not.toThrow();
+    });
+
+    test("filter.op=eq mit beliebigem value → kein Throw (Type-Check zur Laufzeit)", () => {
+      // String/number/boolean alle ok, server prüft beim WHERE-Build.
+      expect(() =>
+        validateBoot([makeFeature({ field: "status", op: "eq", value: 42 })]),
+      ).not.toThrow();
+    });
+  });
+
   // --- defaultSort funktioniert für ALLE Field-Types die sortable
   //     unterstützen (Tier 2.6b Field-Erweiterung) ---
   // Vor Tier 2.6b war `sortable` nur auf TextFieldDef. Erweitert auf

@@ -12,7 +12,13 @@ import {
   defineEntityWriteHandler,
   defineFeature,
 } from "@kumiko/framework/engine";
-import { itemEditScreen, itemEntity, itemFeedScreen, itemListScreen } from "./schema";
+import {
+  itemActiveScreen,
+  itemEditScreen,
+  itemEntity,
+  itemFeedScreen,
+  itemListScreen,
+} from "./schema";
 
 const open = { access: { openToAll: true } } as const;
 
@@ -28,6 +34,7 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   r.screen(itemEditScreen);
   r.screen(itemListScreen);
   r.screen(itemFeedScreen);
+  r.screen(itemActiveScreen);
 
   // Section "Data" — clickbar zum Auf/Zuklappen weil parent ohne screen.
   r.nav({ id: "data", label: "Data", order: 100 });
@@ -44,6 +51,13 @@ export const itemsFeature = defineFeature("showcase", (r) => {
     parent: "data",
     screen: "item-feed",
     order: 15,
+  });
+  r.nav({
+    id: "item-active",
+    label: "showcase:nav.active",
+    parent: "data",
+    screen: "item-active",
+    order: 17,
   });
   r.nav({
     id: "item-new",

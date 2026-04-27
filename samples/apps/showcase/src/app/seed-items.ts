@@ -67,7 +67,7 @@ export const seedShowcaseItems: SeedFn = async (stack) => {
   ];
   const verbs = ["fix", "add", "remove", "rename", "improve", "investigate", "polish", "rewrite"];
 
-  const now = new Date();
+  const now = Temporal.Now.instant();
   for (let i = 0; i < COUNT; i++) {
     const subject = subjects[Math.floor(rng() * subjects.length)] ?? "Item";
     const target = targets[Math.floor(rng() * targets.length)] ?? "x";
@@ -77,12 +77,12 @@ export const seedShowcaseItems: SeedFn = async (stack) => {
     const isDone = status === "done";
     const priority = Math.min(5, Math.floor(rng() * rng() * 6) + 1);
     const dueOffsetDays = Math.floor(rng() * 90) - 30;
-    const due = new Date(now.getTime() + dueOffsetDays * 86_400_000);
+    const due = now.add({ hours: dueOffsetDays * 24 });
     // Zod-Validation für type:"date" verlangt YYYY-MM-DD (siehe
     // schema-builder buildInsertSchema). dialect.toDriver() coercd das
     // zu start-of-day UTC bevor die DB es sieht — Caller-API bleibt
     // wie der Author sie erwartet.
-    const dueDate = due.toISOString().slice(0, 10);
+    const dueDate = due.toString().slice(0, 10);
 
     const res = await stack.http.write(
       "showcase:write:item:create",

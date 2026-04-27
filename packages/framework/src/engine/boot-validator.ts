@@ -861,6 +861,29 @@ function validateScreens(
           );
         }
       }
+      // Screen-Filter (Tier 2.7c) — pin field gegen die Entity. Der
+      // Filter wird server-side in der WHERE-Clause appliziert; ein
+      // Tippfehler im Field-Namen würde sonst silent als "no match"
+      // durchfallen (executor liest table[filter.field] → undefined
+      // → kein Filter). Boot-Fail ist deutlich besser als leere Liste.
+      // Op-Spezifika: "in" verlangt readonly Array; "lt"/"gt" sind nur
+      // für vergleichbare Types (Number/Date/Instant) sinnvoll, das
+      // checken wir erstmal nicht — Drizzle wirft bei Type-Mismatch.
+      if (screen.filter !== undefined) {
+        const filterField = screen.filter.field;
+        if (!fieldNames.has(filterField)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityList) filter references unknown ` +
+              `field "${filterField}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+          );
+        }
+        if (screen.filter.op === "in" && !Array.isArray(screen.filter.value)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityList) filter.op "in" requires ` +
+              `filter.value to be a readonly array.`,
+          );
+        }
+      }
     } else {
       // Same rationale as the columns check: an entityEdit layout with zero
       // sections (or sections without any fields) renders as nothing — reject

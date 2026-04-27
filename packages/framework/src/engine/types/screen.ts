@@ -72,6 +72,31 @@ export type ListSortSpec = {
   readonly dir: ListSortDir;
 };
 
+// Screen-Level Filter — Author deklariert pro List-Screen einen festen
+// Filter der bei jedem Query angewendet wird. Use-case: drei Buckets
+// derselben Entity ("Upcoming Maintenance" / "Active Maintenance" /
+// "Past Maintenance") ohne drei Custom-Pages — Filter pro Screen
+// unterscheidet sie.
+//
+// Operatoren:
+//   eq/neq → field = value | field != value
+//   lt/gt  → field < value | field > value (numerisch / temporal)
+//   in     → field IN (...values), value muss readonly array sein
+//
+// Field muss in der Entity existieren (Boot-Validator pinned).
+//
+// Security-Modell: Filter ist UX-Bucketing, KEINE Access-Boundary. Der
+// Server appliziert den filter aus dem Payload — der Client kann ihn
+// weglassen oder durch einen anderen ersetzen. Boundary bleiben
+// access-rule + Tenant-Scope; Felder mit Sicherheits-Bias (encrypted,
+// restricted) müssen dort geschützt werden, nicht über den Screen-Filter.
+export type ScreenFilterOp = "eq" | "neq" | "lt" | "gt" | "in";
+export type ScreenFilter = {
+  readonly field: string;
+  readonly op: ScreenFilterOp;
+  readonly value: unknown;
+};
+
 // RowAction — per-Row Button/Dropdown-Item das einen Write-Handler
 // triggert. Lebt im Schema (Author deklariert pro List-Screen welche
 // Aktionen möglich sind), Caller liefert die handler-QN + optional
@@ -173,6 +198,11 @@ export type EntityListScreenDefinition = {
    *  etc. — neben "+ Neu" wenn vorhanden. Reihenfolge im Array = UI-
    *  Reihenfolge, primary-style links. */
   readonly toolbarActions?: readonly ToolbarAction[];
+  /** Server-side Filter, fest am Screen — drei Buckets derselben
+   *  Entity ohne Custom-Pages (z.B. "Upcoming" / "Active" / "Past"
+   *  Maintenance). User-side q-Search läuft AUF dem gefilterten Set
+   *  oben drauf. Boot-Validator pinst dass field in der Entity existiert. */
+  readonly filter?: ScreenFilter;
   // Pagination-Modus (Default "pages"). Bestimmt UI (Pager vs Scroll-
   // Sentinel) und ob der Server `total` mitliefern muss.
   readonly pagination?: ListPaginationMode;

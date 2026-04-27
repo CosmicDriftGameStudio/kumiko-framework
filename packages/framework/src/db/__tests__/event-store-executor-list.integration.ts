@@ -119,3 +119,136 @@ describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => 
     expect(res.total).toBe(0);
   });
 });
+
+describe("event-store-executor.list — filter (Tier 2.7c)", () => {
+  const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
+
+  async function seed(n: number): Promise<void> {
+    for (let i = 0; i < n; i++) {
+      await exec.create({ title: `item-${String(i).padStart(3, "0")}`, rank: i }, admin, tdb);
+    }
+  }
+
+  test("filter eq: nur die rank=5 row", async () => {
+    await seed(10);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "eq", value: 5 },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([5]);
+  });
+
+  test("filter neq: alle außer rank=5", async () => {
+    await seed(5);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "neq", value: 2 },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([0, 1, 3, 4]);
+  });
+
+  test("filter lt: rank < 3 → 0,1,2", async () => {
+    await seed(6);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "lt", value: 3 },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([0, 1, 2]);
+  });
+
+  test("filter gt: rank > 7 → 8,9", async () => {
+    await seed(10);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "gt", value: 7 },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([8, 9]);
+  });
+
+  test("filter in: rank in [1,3,5]", async () => {
+    await seed(10);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "in", value: [1, 3, 5] },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([1, 3, 5]);
+  });
+
+  test("filter in mit empty-array: leeres Resultat (keine Match-All-Falle)", async () => {
+    await seed(5);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "in", value: [] },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows).toHaveLength(0);
+  });
+
+  test("filter unknown-field: silent skip — kein Crash, alle rows zurück", async () => {
+    // Boot-Validator pinst das normalerweise; Runtime-Defense für den
+    // Fall dass ein Test/Caller direkt am executor vorbei ein bogus-
+    // Field schickt. Lieber alle rows als Crash-Loop.
+    await seed(3);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "doesNotExist", op: "eq", value: 1 },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows).toHaveLength(3);
+  });
+
+  test("filter + totalCount: COUNT respektiert filter", async () => {
+    await seed(10);
+    const res = await exec.list(
+      {
+        limit: 50,
+        totalCount: true,
+        filter: { field: "rank", op: "lt", value: 4 },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows).toHaveLength(4);
+    expect(res.total).toBe(4);
+  });
+});

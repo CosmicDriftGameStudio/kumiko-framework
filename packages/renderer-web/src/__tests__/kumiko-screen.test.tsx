@@ -438,6 +438,46 @@ describe("KumikoScreen", () => {
     expect(writeCalls[0]).toEqual({ type: "tasks:write:task:sync", payload: { all: true } });
   });
 
+  // Tier 2.7c: Screen-Level filter wird vom Schema in den Query-
+  // Payload propagiert. Drei Buckets ("scheduled" / "active" / "done")
+  // teilen sich denselben Query-Handler — der Filter unterscheidet
+  // welche Rows kommen.
+  test("entityList screen-filter: schema.filter landet im query-payload", async () => {
+    const queryCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        queryCalls.push({ type, payload });
+        return {
+          isSuccess: true,
+          data: { rows: [], nextCursor: null },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+
+    const filteredScreen: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      filter: { field: "status", op: "eq", value: "scheduled" },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={{ ...schema, screens: [filteredScreen] }}
+          qn="tasks:screen:task-list"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+
+    const firstCall = queryCalls[0];
+    expect(firstCall?.type).toBe("tasks:query:task:list");
+    const payload = firstCall?.payload as { filter?: unknown };
+    expect(payload.filter).toEqual({ field: "status", op: "eq", value: "scheduled" });
+  });
+
   test("entityList rowActions visible-filter: hidden Action erscheint nicht im DOM", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({

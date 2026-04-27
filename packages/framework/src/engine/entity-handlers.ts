@@ -48,6 +48,15 @@ type ListPayload = {
   // wenn der Pager "Page X of Y" rendern muss. Infinite-Scroll oder
   // unbedingte Lists lassen das weg um die COUNT-Kosten zu sparen.
   totalCount?: boolean;
+  // Screen-Level Filter (Tier 2.7c) — Author-deklarierter, server-side
+  // applizierter WHERE-Clause. Drei Buckets der selben Entity ohne
+  // Custom-Pages: jedes Screen hat sein eigenes filter, alle nutzen
+  // den gleichen Query-Handler.
+  filter?: {
+    readonly field: string;
+    readonly op: "eq" | "neq" | "lt" | "gt" | "in";
+    readonly value: unknown;
+  };
 };
 
 const idSchema = z.object({ id: z.uuid() });
@@ -59,6 +68,16 @@ const listSchema = z.object({
   sortDirection: z.enum(["asc", "desc"]).optional(),
   offset: z.number().int().nonnegative().optional(),
   totalCount: z.boolean().optional(),
+  filter: z
+    .object({
+      field: z.string(),
+      op: z.enum(["eq", "neq", "lt", "gt", "in"]),
+      // Value ist `unknown` zur Compile-Zeit; Server-Side prüft beim
+      // Build der WHERE-Clause ob der Type zum Field passt. z.unknown()
+      // lässt alles durch; Type-Check kommt im executor.list.
+      value: z.unknown(),
+    })
+    .optional(),
 });
 
 function parseHandlerName<TVerb extends string>(

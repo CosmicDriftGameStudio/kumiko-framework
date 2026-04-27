@@ -8,6 +8,7 @@ export const itemsTranslations: TranslationsByLocale = {
   de: {
     "showcase:nav.list": "Items (Pages)",
     "showcase:nav.feed": "Items (Feed)",
+    "showcase:nav.active": "Items (Active)",
     "showcase:nav.new": "Neuer Eintrag",
     "showcase:entity:item:field:title": "Titel",
     "showcase:entity:item:field:priority": "Priorität",
@@ -17,6 +18,7 @@ export const itemsTranslations: TranslationsByLocale = {
     "showcase:entity:item:field:dueDate": "Fällig am",
     "screen:item-list.title": "Items (Pages)",
     "screen:item-feed.title": "Items (Feed)",
+    "screen:item-active.title": "Items (Active)",
     "screen:item-edit.title": "Eintrag bearbeiten",
     "showcase:actions.delete": "Löschen",
     "showcase:actions.delete-confirm":
@@ -25,6 +27,7 @@ export const itemsTranslations: TranslationsByLocale = {
   en: {
     "showcase:nav.list": "Items (Pages)",
     "showcase:nav.feed": "Items (Feed)",
+    "showcase:nav.active": "Items (Active)",
     "showcase:nav.new": "New item",
     "showcase:entity:item:field:title": "Title",
     "showcase:entity:item:field:priority": "Priority",
@@ -34,6 +37,7 @@ export const itemsTranslations: TranslationsByLocale = {
     "showcase:entity:item:field:dueDate": "Due date",
     "screen:item-list.title": "Items (Pages)",
     "screen:item-feed.title": "Items (Feed)",
+    "screen:item-active.title": "Items (Active)",
     "screen:item-edit.title": "Edit item",
     "showcase:actions.delete": "Delete",
     "showcase:actions.delete-confirm": "Item will be removed permanently. This cannot be undone.",

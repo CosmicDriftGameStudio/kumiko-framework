@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, type SQL, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, ne, type SQL, sql } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
@@ -131,6 +131,13 @@ export type EventStoreExecutor = {
       sortDirection?: "asc" | "desc" | undefined;
       offset?: number | undefined;
       totalCount?: boolean | undefined;
+      filter?:
+        | {
+            readonly field: string;
+            readonly op: "eq" | "neq" | "lt" | "gt" | "in";
+            readonly value: unknown;
+          }
+        | undefined;
     },
     user: SessionUser,
     db: TenantDb,
@@ -666,6 +673,45 @@ export function createEventStoreExecutor(
       }
       if (ownership.kind === "sql") {
         conditions.push(ownership.sql);
+      }
+      // Screen-Filter (Tier 2.7c) — vom Author deklariert, hier zu SQL
+      // gebaut. Field muss auf der Drizzle-Tabelle existieren (Boot-
+      // Validator hat das beim Author-Code-Eingang gepinnt; Runtime-
+      // Defense: undefined-column → silent skip statt Crash).
+      //
+      // `as never`-Casts: drizzle-orm typt eq/ne/lt/gt/inArray gegen die
+      // Column-Type-Inferenz; payload.filter.value ist `unknown` (Wire-
+      // Boundary). Wir umgehen den Compile-Time-Check bewusst — der
+      // PostgreSQL-Driver wirft bei Type-Mismatch zur Laufzeit, und der
+      // Author hat über die Schema-Deklaration ohnehin Kontrolle was
+      // reinkommt.
+      if (payload.filter !== undefined) {
+        const col = table[payload.filter.field];
+        if (col !== undefined) {
+          const v = payload.filter.value;
+          switch (payload.filter.op) {
+            case "eq":
+              conditions.push(eq(col, v as never));
+              break;
+            case "neq":
+              conditions.push(ne(col, v as never));
+              break;
+            case "lt":
+              conditions.push(lt(col, v as never));
+              break;
+            case "gt":
+              conditions.push(gt(col, v as never));
+              break;
+            case "in":
+              if (Array.isArray(v) && v.length > 0) {
+                conditions.push(inArray(col, v as never));
+              } else {
+                // Empty-array IN: per Convention "no match" — SQL-true=false.
+                conditions.push(sql`false`);
+              }
+              break;
+          }
+        }
       }
 
       const whereClause = conditions.length > 0 ? (and(...conditions) as SQL) : undefined;

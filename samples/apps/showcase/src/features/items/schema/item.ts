@@ -111,3 +111,19 @@ export const itemFeedScreen: EntityListScreenDefinition = {
   defaultSort: { field: "title", dir: "asc" },
   searchable: true,
 };
+
+// Tier 2.7c Demo — Screen-Level Filter. Selbe Entity, gleicher Query-
+// Handler wie itemListScreen, aber mit fixem WHERE: nur Items mit
+// status="active". Klassisches Bucketing-Pattern (z.B. "Active Tasks"
+// vs "All Tasks") ohne Custom-Page schreiben zu müssen.
+export const itemActiveScreen: EntityListScreenDefinition = {
+  id: "item-active",
+  type: "entityList",
+  entity: "item",
+  columns: ["title", "status", "isDone", "dueDate"],
+  pagination: "pages",
+  pageSize: 50,
+  defaultSort: { field: "title", dir: "asc" },
+  searchable: true,
+  filter: { field: "status", op: "eq", value: "active" },
+};

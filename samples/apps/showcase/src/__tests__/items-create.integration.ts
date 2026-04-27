@@ -66,6 +66,47 @@ test("item:list mit pagination-payload (limit + totalCount) liefert total", asyn
   expect(typeof list.total).toBe("number");
 });
 
+test("item:list mit screen-filter (Tier 2.7c): nur status=active zurück", async () => {
+  // Pinst Tier-2.7c End-to-End: dispatcher payload mit `filter` gelangt
+  // durch den Zod-Validator + executor.list WHERE-Builder. Pre-Tier-2.7c
+  // hätte das Zod den filter rejected und der Server hätte status:400
+  // statt einer gefilterten Liste geantwortet.
+  await stack.http.writeOk(
+    "showcase:write:item:create",
+    {
+      title: "active-1",
+      status: "active",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+  await stack.http.writeOk(
+    "showcase:write:item:create",
+    {
+      title: "draft-1",
+      status: "draft",
+      isDone: false,
+      priority: 1,
+      dueDate: "2026-05-01",
+      notes: "",
+    },
+    TestUsers.admin,
+  );
+
+  const filtered = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    "showcase:query:item:list",
+    { limit: 200, filter: { field: "status", op: "eq", value: "active" } },
+    TestUsers.admin,
+  );
+  // Mindestens das eine "active-1" — andere Tests legen evtl. mehr an.
+  expect(filtered.rows.length).toBeGreaterThan(0);
+  // Aber KEINE drafts unter den results.
+  expect(filtered.rows.every((r) => r["status"] === "active")).toBe(true);
+});
+
 test("item:delete via rowAction-Pfad: Default-Payload {id} reicht", async () => {
   // Pinst Tier-2.7a End-to-End: die Delete-Action im itemListScreen
   // schickt nur `{ id: row.id }` (kein expliziter payload-Builder im
