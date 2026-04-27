@@ -638,6 +638,28 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
   });
 
+  test("actionForm submitLabel: i18n-Key landet auf dem Submit-Button (übersteuert default)", () => {
+    const dispatcher = makeDispatcher();
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "approve",
+      type: "actionForm",
+      handler: "tasks:write:task:approve",
+      fields: { note: { type: "text" } },
+      layout: { sections: [{ title: "x", fields: ["note"] }] },
+      submitLabel: "actions.approve",
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={{ ...schema, screens: [actionScreen] }} qn="tasks:screen:approve" />
+      </DispatcherProvider>,
+    );
+
+    // Test-utils mountet einen identity-translator als Fallback —
+    // unbekannte Keys returnen den Key selbst, also rendert "actions.approve".
+    expect(screen.getByTestId("render-edit-submit").textContent).toBe("actions.approve");
+  });
+
   test("actionForm ohne redirect: nach success bleibt der User auf der Form (kein navigate)", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const writeCalls: { type: string; payload: unknown }[] = [];

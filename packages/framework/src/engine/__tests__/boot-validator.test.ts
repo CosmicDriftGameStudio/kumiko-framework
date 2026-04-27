@@ -1210,9 +1210,10 @@ describe("boot-validator", () => {
   });
 
   // --- Tier 2.7d: actionForm-Screen ---
-  // Non-CRUD Write-Handler-driven Form. Author-Code-Checks am Boot:
-  // handler-Format (":write:"-segment), non-empty fields, layout-
-  // Konsistenz (sections + fields-Refs).
+  // Non-CRUD Write-Handler-driven Form. Sechs Author-Code-Checks am
+  // Boot: handler ist non-empty + registriert, fields non-empty +
+  // jeder mit type, layout konsistent, redirect (wenn gesetzt) zeigt
+  // auf einen registrierten Screen.
   describe("actionForm screen (Tier 2.7d)", () => {
     type ActionFormOverride = {
       readonly handler?: string | undefined;
@@ -1221,8 +1222,14 @@ describe("boot-validator", () => {
         readonly title: string;
         readonly fields: readonly string[];
       }>;
+      readonly redirect?: string;
+      readonly extraScreens?: readonly string[];
     };
 
+    // Hilfs-Schema-Setup: stamps eine Test-Entity + write-handler
+    // damit `r.writeHandler(defineEntityWriteHandler("invoice:approve",...))`
+    // beim Boot ohne Custom-Code registriert werden kann. Plus optional
+    // weitere Screens zum redirect-Test.
     function makeFeature(override: ActionFormOverride = {}) {
       const handler = override.handler ?? "shop:write:invoice:approve";
       const fields = override.fields ?? {
@@ -1231,13 +1238,30 @@ describe("boot-validator", () => {
       };
       const sections = override.sections ?? [{ title: "Approval", fields: ["note", "priority"] }];
       return defineFeature("shop", (r) => {
+        // Registrierter Write-Handler den die actionForm referenzieren
+        // kann. Nicht über defineEntityWriteHandler — das verlangt eine
+        // existente Entity. Direkter Stub reicht für Boot-Validierung.
+        r.writeHandler({
+          name: "invoice:approve",
+          schema: { _type: "stub" } as never,
+          handler: async () => ({ isSuccess: true, data: {} }) as never,
+          access: { openToAll: true },
+        });
         r.screen({
           id: "approve-invoice",
           type: "actionForm",
           handler,
           fields: fields as never,
           layout: { sections: sections as never },
+          ...(override.redirect !== undefined && { redirect: override.redirect }),
         });
+        for (const extra of override.extraScreens ?? []) {
+          r.screen({
+            id: extra,
+            type: "custom",
+            renderer: { react: "stub" },
+          });
+        }
       });
     }
 
@@ -1245,9 +1269,9 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
     });
 
-    test("handler ohne ':write:'-segment → Throw mit Hinweis", () => {
+    test("handler nicht als write-handler registriert → Throw mit Hinweis", () => {
       expect(() => validateBoot([makeFeature({ handler: "shop:query:invoice:list" })])).toThrow(
-        /handler "shop:query:invoice:list" does not look like a write-handler QN/,
+        /handler "shop:query:invoice:list" is not a registered write-handler/,
       );
     });
 
@@ -1260,6 +1284,12 @@ describe("boot-validator", () => {
     test("fields empty-Map → Throw", () => {
       expect(() => validateBoot([makeFeature({ fields: {} })])).toThrow(
         /has empty fields map — declare at least one field/,
+      );
+    });
+
+    test("field ohne type-Discriminator → Throw", () => {
+      expect(() => validateBoot([makeFeature({ fields: { note: { required: true } } })])).toThrow(
+        /field "note" has no `type` set/,
       );
     });
 
@@ -1279,6 +1309,18 @@ describe("boot-validator", () => {
       expect(() =>
         validateBoot([makeFeature({ sections: [{ title: "x", fields: ["ghost"] }] })]),
       ).toThrow(/layout references unknown field "ghost"/);
+    });
+
+    test("redirect → existing screen-id im selben feature → kein Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ redirect: "after-form", extraScreens: ["after-form"] })]),
+      ).not.toThrow();
+    });
+
+    test("redirect → unknown screen-id → Throw", () => {
+      expect(() => validateBoot([makeFeature({ redirect: "ghost-screen" })])).toThrow(
+        /redirect "ghost-screen" does not resolve to a registered screen/,
+      );
     });
   });
 

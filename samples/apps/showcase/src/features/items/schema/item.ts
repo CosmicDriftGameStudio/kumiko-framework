@@ -159,5 +159,6 @@ export const itemQuickAddScreen: ActionFormScreenDefinition = {
       },
     ],
   },
+  submitLabel: "showcase:actions.quick-add",
   redirect: "item-list",
 };

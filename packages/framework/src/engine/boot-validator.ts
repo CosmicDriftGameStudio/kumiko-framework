@@ -63,6 +63,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   const allScreenQns = collectScreenQns(features);
   const allNavQns = collectNavQns(features);
   const allWorkspaceQns = collectWorkspaceQns(features);
+  const allWriteHandlerQns = collectWriteHandlerQns(features);
 
   let hasEncryptedFields = false;
   let hasFileFields = false;
@@ -83,7 +84,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyAllowPerRequest(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
-    validateScreens(feature, featureMap);
+    validateScreens(feature, featureMap, allWriteHandlerQns, allScreenQns);
     validateNavs(feature, allScreenQns, allNavQns, allWorkspaceQns);
     validateWorkspaces(feature, allNavQns);
   }
@@ -773,6 +774,8 @@ function buildUnknownRoleMessage(
 function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
+  allWriteHandlerQns: ReadonlySet<string>,
+  allScreenQns: ReadonlySet<string>,
 ): void {
   for (const [screenId, screen] of Object.entries(feature.screens)) {
     if (screen.type === "custom") {
@@ -787,25 +790,29 @@ function validateScreens(
 
     if (screen.type === "actionForm") {
       // Tier 2.7d: Action-Form-Screens haben keinen entity-Link, nur
-      // einen Write-Handler-QN + Inline-Fields. Drei Author-Code-
+      // einen Write-Handler-QN + Inline-Fields. Sechs Author-Code-
       // Checks am Boot:
-      //   1) handler ist ein non-empty String mit ":write:"-Pattern
-      //      (validiert dass es eine Write-Handler-QN ist und kein
-      //      query-Handler oder Tippfehler).
-      //   2) fields-Map ist non-empty (sonst rendert die Form als
-      //      leerer Submit-Button — Author-Fehler).
-      //   3) layout.sections + jedes referenced field existiert in
-      //      fields. Identisch zu entityEdit, nur fields lebt am
-      //      Screen statt auf einer Entity.
+      //   1) handler ist non-empty String.
+      //   2) handler ist als Write-Handler registriert (cross-feature-
+      //      Lookup gegen die collected QN-Map). Tippfehler/umbenannte
+      //      Handler fallen sonst erst beim ersten Klick als 404 auf.
+      //   3) fields-Map ist non-empty.
+      //   4) Jeder Field-Eintrag hat einen `type`-Discriminator
+      //      (Tippfehler in Schema → Renderer crasht stumm sonst).
+      //   5) layout.sections + jedes referenced field existiert in
+      //      fields.
+      //   6) redirect (wenn gesetzt) verweist auf einen registrierten
+      //      Screen-QN (Cross-Feature ok).
       if (!screen.handler || typeof screen.handler !== "string") {
         throw new Error(
           `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has empty or non-string handler.`,
         );
       }
-      if (!screen.handler.includes(":write:")) {
+      if (!allWriteHandlerQns.has(screen.handler)) {
         throw new Error(
           `[Feature ${feature.name}] Screen "${screenId}" (actionForm) handler "${screen.handler}" ` +
-            `does not look like a write-handler QN (expected ":write:" segment, e.g. "feat:write:thing:do").`,
+            `is not a registered write-handler. Check the QN spelling (expected ` +
+            `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
         );
       }
       const fieldNames = new Set(Object.keys(screen.fields));
@@ -814,6 +821,22 @@ function validateScreens(
           `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has empty fields map — ` +
             `declare at least one field.`,
         );
+      }
+      // Jeder Field-Eintrag muss einen `type`-Discriminator haben.
+      // Author-Tippfehler (`title: { required: true }` ohne type) →
+      // RenderField fällt zur Laufzeit auf den Default-Renderer und
+      // schickt einen leeren String — silent broken. Boot-Fail ist
+      // klarer. `type as unknown` weil FieldDefinition als Union nur
+      // bekannte Strings erlaubt; wir prüfen Author-Code, der ggf.
+      // den Type-Check umgangen hat.
+      for (const [fname, fdef] of Object.entries(screen.fields)) {
+        const ftype = (fdef as { type?: unknown }).type;
+        if (typeof ftype !== "string" || ftype.length === 0) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) field "${fname}" has no ` +
+              `\`type\` set. Each field must declare a type (e.g. "text", "number", "select").`,
+          );
+        }
       }
       if (screen.layout.sections.length === 0) {
         throw new Error(
@@ -836,6 +859,22 @@ function validateScreens(
                 `"${normalized.field}". Known fields: ${[...fieldNames].sort().join(", ")}`,
             );
           }
+        }
+      }
+      if (screen.redirect !== undefined) {
+        // redirect ist die kurze Screen-ID (z.B. "item-list"); der
+        // nav-Router resolved sie beim Mount gegen die Schema-Map.
+        // Cross-Feature-Redirect ist nicht supported — der nav-Router
+        // baut die URL aus screenId direkt, eine voll-QN würde als
+        // `/shop:screen:foo/` landen und nirgendwo greifen.
+        const candidateQn = qualifyEntityName(feature.name, "screen", screen.redirect);
+        if (!allScreenQns.has(candidateQn)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) redirect "${screen.redirect}" ` +
+              `does not resolve to a registered screen in this feature. Known screens: ${
+                [...Object.keys(feature.screens)].sort().join(", ") || "(none)"
+              }.`,
+          );
         }
       }
       continue;
@@ -1071,6 +1110,20 @@ function collectScreenQns(features: readonly FeatureDefinition[]): Set<string> {
   for (const f of features) {
     for (const screenId of Object.keys(f.screens)) {
       set.add(qualifyEntityName(f.name, "screen", screenId));
+    }
+  }
+  return set;
+}
+
+// Sammelt alle qualifizierten Write-Handler-QNs (`<feature>:write:<short>`).
+// Wird vom actionForm-Screen-Validator genutzt um zu prüfen ob der
+// im Schema deklarierte handler tatsächlich registriert ist —
+// Tippfehler/umbenannte Handler fallen sonst erst zur Laufzeit auf.
+function collectWriteHandlerQns(features: readonly FeatureDefinition[]): Set<string> {
+  const set = new Set<string>();
+  for (const f of features) {
+    for (const handlerName of Object.keys(f.writeHandlers)) {
+      set.add(qualifyEntityName(f.name, "write", handlerName));
     }
   }
   return set;

@@ -14,6 +14,7 @@ import { useListUrlState } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
+import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
 import { useCustomScreenComponent } from "./custom-screens";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
@@ -758,20 +759,12 @@ function EntityListBody({
 // ---- actionForm (Tier 2.7d) ----
 
 // Action-Form-Body — non-CRUD Write-Handler-driven Form. Re-uses
-// RenderEdit über synthetische EntityEditScreenDefinition + Entity:
-// die Form-Mechanik (useForm, RenderEdit, DefaultInput, Banner,
-// Submit-Button) ist identisch zu entityEdit, nur der Submit-Pfad
-// wechselt vom CRUD-verb auf den Author-deklarierten handler-QN +
+// RenderEdit über synthetisierte EntityDefinition + EntityEditScreen-
+// Definition (siehe action-form-shim.ts für die Schulden-Doku). Die
+// Form-Mechanik (useForm, RenderEdit, DefaultInput, Banner, Submit-
+// Button) ist identisch zu entityEdit, nur der Submit-Pfad wechselt
+// vom CRUD-verb auf den Author-deklarierten handler-QN +
 // payloadMode="values" (alle Form-Werte schicken statt nur Changes).
-//
-// Synthetic-Cast-Schuld (Audit-flag): RenderEdit verlangt heute
-// `entity: EntityDefinition` + `screen: EntityEditScreenDefinition`,
-// nutzt aber intern nur `entity.fields` und `screen.layout`. Wir
-// shapen das hier ad-hoc um den existing Stack zu reusen. Sobald
-// RenderEdit auf "fields-First"-Signature refactored wird (oder
-// Workflow-Transitions auf entity.transitions zugreifen), bricht
-// der Cast — dann ist es Zeit für eine eigene RenderActionForm-
-// Komponente. Dokumentiert in docs/plans/features (Tier 2.7).
 function ActionFormBody({
   schema,
   screen,
@@ -782,20 +775,8 @@ function ActionFormBody({
   readonly translate?: Translate;
 }): ReactNode {
   const nav = useNav();
-  const synthEntity = useMemo<EntityDefinition>(
-    () => ({ fields: screen.fields }) as EntityDefinition,
-    [screen.fields],
-  );
-  const synthScreen = useMemo<EntityEditScreenDefinition>(
-    () => ({
-      id: screen.id,
-      type: "entityEdit",
-      entity: "__action-form__",
-      layout: screen.layout,
-      ...(screen.access !== undefined && { access: screen.access }),
-    }),
-    [screen.id, screen.layout, screen.access],
-  );
+  const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
+  const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
   const initial = useMemo(() => buildInitialValues(screen.fields) as FormValues, [screen.fields]);
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
@@ -827,6 +808,7 @@ function ActionFormBody({
       payloadMode="values"
       onSubmit={handleSubmitted}
       {...(handleCancel !== undefined && { onCancel: handleCancel })}
+      {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
     />
   );

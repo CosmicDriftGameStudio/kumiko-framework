@@ -38,6 +38,11 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly onDelete?: () => Promise<void> | void;
   readonly onCancel?: () => void;
   readonly onReload?: () => void;
+  /** i18n-key für den Submit-Button. Default: "kumiko.actions.save".
+   *  Action-Forms (Tier 2.7d) übergeben hier ihren screen.submitLabel,
+   *  damit "Speichern" durch domain-spezifischere Strings ersetzt
+   *  werden kann ("Genehmigen" / "Versenden" / etc.). */
+  readonly submitLabel?: string;
 };
 
 function deriveFormFields<TValues extends FormValues, TCtx>(
@@ -81,6 +86,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onDelete,
     onCancel,
     onReload,
+    submitLabel,
   } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
   // konsumieren wir den i18next-Context direkt. Sonst wären Field-
@@ -163,7 +169,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         variant="primary"
         testId="render-edit-submit"
       >
-        {translate("kumiko.actions.save")}
+        {translate(submitLabel ?? "kumiko.actions.save")}
       </Button>
     </>
   );

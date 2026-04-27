@@ -300,8 +300,11 @@ export type ActionFormScreenDefinition = {
   /** i18n-key für den Submit-Button. Default: i18n-Default des
    *  Renderers (typischerweise "actions.submit"). */
   readonly submitLabel?: string;
-  /** Nach erfolgreichem Submit zu diesem Screen-ID navigieren. Wenn
-   *  nicht gesetzt, bleibt der User auf dem Form-Screen. */
+  /** Nach erfolgreichem Submit zu dieser Screen-ID navigieren (kurze
+   *  ID, z.B. "item-list" — gleiche Feature, der nav-Router resolved
+   *  zum vollen Pfad). Cross-Feature-Redirect ist nicht supported.
+   *  Wenn nicht gesetzt, bleibt der User auf dem Form-Screen. Boot-
+   *  Validator prüft dass die ID einen registrierten Screen meint. */
   readonly redirect?: string;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
