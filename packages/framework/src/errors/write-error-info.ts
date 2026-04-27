@@ -67,13 +67,33 @@ export function failTransition(from: string, to: string, allowed: readonly strin
 }
 
 export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
+  // In dev/test surface the cause-snapshot through `details` so the
+  // HTTP response carries something useful. Without this, internal_error
+  // crashes round-trip through WriteErrorInfo (no cause field) and come
+  // back to the client as a bare `{ message: "internal error" }` —
+  // identical user-experience to a misconfigured prod, just slower
+  // because the dev has to add try/catch + console.log to find the
+  // actual stack. Same gating as serializeError: NODE_ENV !== production.
+  const causeDetails =
+    err.details === undefined && err.code === "internal_error" && err.cause instanceof Error
+      ? process.env["NODE_ENV"] !== "production"
+        ? {
+            causeName: err.cause.name,
+            causeMessage: err.cause.message,
+            ...(err.cause.stack && {
+              causeStack: err.cause.stack.split("\n").slice(0, 8).join("\n"),
+            }),
+          }
+        : undefined
+      : undefined;
+  const effectiveDetails = err.details ?? causeDetails;
   return {
     code: err.code,
     httpStatus: err.httpStatus,
     i18nKey: err.i18nKey,
     message: err.message,
     ...(err.i18nParams && { i18nParams: err.i18nParams }),
-    ...(err.details !== undefined && { details: err.details }),
+    ...(effectiveDetails !== undefined && { details: effectiveDetails }),
   };
 }
 
