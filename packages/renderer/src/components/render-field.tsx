@@ -87,9 +87,13 @@ function ReferenceInput({
   readonly featureName: string;
 }): ReactNode {
   const refEntity = field.refEntity ?? "";
+  const refFeature = field.refFeature ?? featureName;
   const labelField = field.refLabelField ?? "id";
   const isMultiple = field.refMultiple === true;
-  const queryQn = `${featureName}:query:${refEntity}:list`;
+  // Tier 2.7e Cross-Feature: refFeature kann ≠ featureName sein
+  // (z.B. items.assignee → users:query:user:list). Default ist
+  // same-feature, kommt aus dem ViewModel (parseRefTarget).
+  const queryQn = `${refFeature}:query:${refEntity}:list`;
   const queryResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
     limit: REFERENCE_LOOKUP_LIMIT,
   });

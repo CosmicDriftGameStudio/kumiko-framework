@@ -160,9 +160,12 @@ export function RenderList(props: RenderListProps): ReactNode {
         .map((c) => ({
           field: c.field,
           refEntity: c.refEntity ?? "",
+          // Tier 2.7e Cross-Feature: refFeature kommt aus parseRefTarget
+          // im ViewModel (default = current featureName).
+          refFeature: c.refFeature ?? featureName,
           labelField: c.refLabelField ?? "id",
         })),
-    [vm.columns],
+    [vm.columns, featureName],
   );
   const [referenceLookups, setReferenceLookups] = useState<Record<string, ReferenceLookupMap>>({});
   const handleLookupMap = useCallback((field: string, map: ReferenceLookupMap) => {
@@ -269,7 +272,7 @@ export function RenderList(props: RenderListProps): ReactNode {
           field={rc.field}
           refEntity={rc.refEntity}
           labelField={rc.labelField}
-          featureName={featureName}
+          featureName={rc.refFeature}
           onMap={handleLookupMap}
         />
       ))}

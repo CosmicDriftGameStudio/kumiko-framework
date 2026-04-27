@@ -110,14 +110,11 @@ export type MoneyFieldDef = {
 // Entity. Gespeichert als UUID-Spalte (uuid type), Read-Side liefert
 // optional die referenced Row mit (Tier 2.7e-4 eagerload).
 //
-// Single-Reference (multiple: false / undefined): ein UUID. Multi-
-// Reference ist BEWUSST nicht in diesem MVP — JSONB-Array-Storage
-// + Multi-Lookup-UI verlangen Searchable-Select (Tier 2.1c) das es
-// noch nicht gibt. Folgt in Tier 2.7e-5 / 2.7f.
-//
-// `entity` ist der kurze Entity-Name (z.B. "customer", "user") im
-// SELBEN Feature wie das referencing Field. Cross-Feature-Refs sind
-// im MVP nicht supported — der Boot-Validator prüft Lokalität.
+// `entity` akzeptiert zwei Formen:
+//   - kurz ("customer") — same-feature reference, Default-Pfad.
+//   - qualifiziert ("users:user") — cross-feature, Format
+//     "<featureName>:<entityName>". Renderer baut die Lookup-Query-QN
+//     gegen das angegebene Feature (`users:query:user:list`).
 //
 // `labelField` (optional) — welches Feld der referenced Entity wird
 // im Select-Dropdown als Label gezeigt. Default: "id". Best practice

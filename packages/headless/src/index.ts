@@ -1,3 +1,7 @@
+export type { ParsedRefTarget } from "@kumiko/framework/ui-types";
+// Re-Export aus framework/ui-types damit Renderer-Code denselben
+// Parser nutzt wie der Server-Boot-Validator (Cross-Feature-Refs).
+export { parseRefTarget } from "@kumiko/framework/ui-types";
 export type {
   AssetResolution,
   AssetResolveContext,

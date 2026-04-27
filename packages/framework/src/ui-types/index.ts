@@ -18,6 +18,8 @@
 // When adding a symbol here, verify it's either a type or a pure
 // helper with no cross-module side-effects.
 
+export type { ParsedRefTarget } from "../engine/parse-ref-target";
+export { parseRefTarget } from "../engine/parse-ref-target";
 // Entity + field types. EntityDefinition is the canonical shape that
 // view-model builders iterate; FieldDefinition is the per-field union
 // (text, number, boolean, ...) they branch on. AccessRule is used by

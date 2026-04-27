@@ -1,4 +1,5 @@
 import type { OwnershipMap, OwnershipRule } from "./ownership";
+import { parseRefTarget } from "./parse-ref-target";
 import { qualifyEntityName } from "./qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "./screen-filter-ops";
 import type {
@@ -74,7 +75,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     if (validateFileFields(feature)) hasFileFields = true;
     validateEmbeddedFields(feature);
     validateMultiSelectFields(feature);
-    validateReferenceFields(feature);
+    validateReferenceFields(feature, featureMap);
     validateTransitions(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
@@ -448,35 +449,51 @@ function validateExtensionUsages(
 
 const VALID_EMBEDDED_SUB_TYPES = new Set(["text", "number", "boolean", "date"]);
 
-// Tier 2.7e-3: ReferenceFieldDef-Validation.
-//   1) referenced entity existiert im selben Feature (cross-feature
-//      Refs sind im MVP nicht supported).
+// Tier 2.7e-3 + Cross-Feature: ReferenceFieldDef-Validation.
+//   1) referenced entity existiert (same-feature OR cross-feature
+//      qualifiziert per "<feature>:<entity>"). Same-feature ist
+//      Default; cross-feature verlangt expliziten ":"-Prefix.
 //   2) labelField (wenn gesetzt) existiert auf der referenced Entity.
-//   3) Self-Reference erlaubt (z.B. category → parent_category) —
-//      kein Sonderfall, da entity-Lookup als nicht-fehlgeschlagen
-//      akzeptiert wird.
-function validateReferenceFields(feature: FeatureDefinition): void {
+//   3) Self-Reference erlaubt (entity → entity).
+function validateReferenceFields(
+  feature: FeatureDefinition,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
   for (const [entityName, entity] of Object.entries(feature.entities)) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       if (field.type !== "reference") continue;
 
-      const target = feature.entities[field.entity];
-      if (!target) {
-        const known = Object.keys(feature.entities).sort().join(", ") || "(none)";
+      const target = parseRefTarget(field.entity, feature.name);
+      const targetFeature = featureMap.get(target.featureName);
+      if (!targetFeature) {
+        const knownFeatures = [...featureMap.keys()].sort().join(", ");
         throw new Error(
           `[Feature ${feature.name}] Reference field "${fieldName}" on entity "${entityName}" ` +
-            `targets unknown entity "${field.entity}". Cross-feature references are not ` +
-            `supported in this MVP. Known entities in this feature: ${known}.`,
+            `targets unknown feature "${target.featureName}" via "${field.entity}". ` +
+            `Known features: ${knownFeatures}.`,
+        );
+      }
+      const targetEntity = targetFeature.entities[target.entityName];
+      if (!targetEntity) {
+        const known = Object.keys(targetFeature.entities).sort().join(", ") || "(none)";
+        const where =
+          target.featureName === feature.name
+            ? `in this feature`
+            : `in feature "${target.featureName}"`;
+        throw new Error(
+          `[Feature ${feature.name}] Reference field "${fieldName}" on entity "${entityName}" ` +
+            `targets unknown entity "${target.entityName}" ${where}. ` +
+            `Known entities: ${known}.`,
         );
       }
       if (field.labelField !== undefined) {
-        const knownFields = Object.keys(target.fields);
+        const knownFields = Object.keys(targetEntity.fields);
         // "id" ist immer da, auch ohne Field-Definition (PK).
         if (field.labelField !== "id" && !knownFields.includes(field.labelField)) {
           throw new Error(
             `[Feature ${feature.name}] Reference field "${fieldName}" on entity "${entityName}" ` +
               `references labelField "${field.labelField}" which does not exist on entity ` +
-              `"${field.entity}". Known fields: ${[...knownFields, "id"].sort().join(", ")}.`,
+              `"${target.entityName}". Known fields: ${[...knownFields, "id"].sort().join(", ")}.`,
           );
         }
       }

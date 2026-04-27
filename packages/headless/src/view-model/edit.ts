@@ -3,7 +3,7 @@ import type {
   EntityEditScreenDefinition,
   FieldCondition,
 } from "@kumiko/framework/ui-types";
-import { normalizeEditField } from "@kumiko/framework/ui-types";
+import { normalizeEditField, parseRefTarget } from "@kumiko/framework/ui-types";
 import { fieldLabelKey } from "./list";
 import type { EditFieldViewModel, EditSectionViewModel, EditViewModel, Translate } from "./types";
 
@@ -78,10 +78,17 @@ export function computeEditViewModel<
       // Tier 2.7e-3: Reference-Field — refEntity + refLabelField in
       // das ViewModel reichen damit der Renderer die Lookup-Query
       // bauen kann ohne noch an EntityDefinition zu greifen.
-      const refEntity =
+      // Tier 2.7e-3: Reference-Field — entity-String kann same-feature
+      // ("user") oder cross-feature ("users:user") sein. parseRefTarget
+      // splittet das, der Renderer baut die Lookup-QN aus
+      // (refFeature, refEntity).
+      const refRaw =
         fieldDef.type === "reference"
           ? (fieldDef as unknown as { entity?: string }).entity
           : undefined;
+      const refTarget = refRaw !== undefined ? parseRefTarget(refRaw, featureName) : undefined;
+      const refEntity = refTarget?.entityName;
+      const refFeature = refTarget?.featureName;
       const refLabelField =
         fieldDef.type === "reference"
           ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
@@ -103,6 +110,7 @@ export function computeEditViewModel<
         ...(options !== undefined && { options }),
         ...(multiline !== undefined && { multiline }),
         ...(refEntity !== undefined && { refEntity }),
+        ...(refFeature !== undefined && { refFeature }),
         ...(refLabelField !== undefined && { refLabelField }),
         ...(refMultiple !== undefined && { refMultiple }),
       };

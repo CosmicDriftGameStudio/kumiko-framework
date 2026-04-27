@@ -36,8 +36,12 @@ export type ListColumnViewModel = {
   readonly renderer?: FieldRenderer;
   readonly sortable: boolean;
   /** Nur bei `type: "reference"` — referenced Entity-Name für Bulk-
-   *  Lookup im Renderer (`<feature>:query:<refEntity>:list`). */
+   *  Lookup im Renderer (`<refFeature>:query:<refEntity>:list`). */
   readonly refEntity?: string;
+  /** Nur bei `type: "reference"` — Feature-Name in dem die referenced
+   *  Entity wohnt. Default = current feature. Cross-Feature über
+   *  qualifizierte Form ("feature:entity") am ReferenceFieldDef. */
+  readonly refFeature?: string;
   /** Nur bei `type: "reference"` — Welches Feld der referenced Entity
    *  als Display-Wert in der Cell erscheint (Default "id"). */
   readonly refLabelField?: string;
@@ -88,9 +92,14 @@ export type EditFieldViewModel = {
    *  `true` = Default-Zeilen, `{ rows }` = explizite Höhe. */
   readonly multiline?: boolean | { readonly rows?: number };
   /** Nur bei `type: "reference"` gesetzt — Tier 2.7e-3.
-   *  Die referenced Entity (kurz, im selben Feature). Der Renderer
-   *  ruft `<featureName>:query:<refEntity>:list` für die Options. */
+   *  Die referenced Entity (kurz, ohne feature-prefix). Der Renderer
+   *  baut die Query-QN als `<refFeature>:query:<refEntity>:list`. */
   readonly refEntity?: string;
+  /** Nur bei `type: "reference"` gesetzt — Feature-Name in dem die
+   *  referenced Entity wohnt. Same-feature default = aktuelles
+   *  Feature. Cross-Feature wird über "feature:entity" am
+   *  ReferenceFieldDef.entity erkannt. */
+  readonly refFeature?: string;
   /** Nur bei `type: "reference"` gesetzt — Welches Feld der referenced
    *  Entity als Display-Label im Dropdown erscheint. Default: "id". */
   readonly refLabelField?: string;

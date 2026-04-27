@@ -3,7 +3,7 @@ import type {
   EntityListScreenDefinition,
   FieldDefinition,
 } from "@kumiko/framework/ui-types";
-import { normalizeListColumn } from "@kumiko/framework/ui-types";
+import { normalizeListColumn, parseRefTarget } from "@kumiko/framework/ui-types";
 import type { ListColumnViewModel, ListRowViewModel, ListViewModel, Translate } from "./types";
 
 export type ComputeListViewModelInput = {
@@ -47,13 +47,18 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       );
     }
     const label = translate(fieldLabelKey(featureName, screen.entity, normalized.field));
-    // Tier 2.7e-3: Reference-Field — refEntity + labelField in das
-    // ViewModel mitnehmen, der Renderer macht damit den Bulk-Lookup
-    // für die Cell-Display-Werte.
-    const refEntity =
+    // Tier 2.7e-3 + Cross-Feature: Reference-Field — entity-String
+    // kann same-feature ("user") oder cross-feature ("users:user")
+    // sein. parseRefTarget gibt (featureName, entityName), der
+    // Renderer baut die Lookup-QN als
+    // `<refFeature>:query:<refEntity>:list`.
+    const refRaw =
       fieldDef.type === "reference"
         ? (fieldDef as unknown as { entity?: string }).entity
         : undefined;
+    const refTarget = refRaw !== undefined ? parseRefTarget(refRaw, featureName) : undefined;
+    const refEntity = refTarget?.entityName;
+    const refFeature = refTarget?.featureName;
     const refLabelField =
       fieldDef.type === "reference"
         ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
@@ -65,6 +70,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       sortable: fieldIsSortable(fieldDef),
       ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
       ...(refEntity !== undefined && { refEntity }),
+      ...(refFeature !== undefined && { refFeature }),
       ...(refLabelField !== undefined && { refLabelField }),
     };
     columns.push(column);

@@ -26,7 +26,11 @@ export type ReferenceLookupMap = ReadonlyMap<string, string>;
 
 /** Bulk-Lookup für eine einzelne Reference-Spalte. Liefert eine Map
  *  von UUID → Display-Value (aus labelField). Während die Query lädt,
- *  ist die Map leer; der Caller fällt dann auf den UUID-Fallback. */
+ *  ist die Map leer; der Caller fällt dann auf den UUID-Fallback.
+ *
+ *  `featureName` ist hier das **target**-Feature (refFeature aus
+ *  ViewModel), nicht das current Feature — Cross-Feature-Refs lookup
+ *  laufen damit gegen `<refFeature>:query:<refEntity>:list`. */
 export function useReferenceLookup(
   featureName: string,
   refEntity: string,

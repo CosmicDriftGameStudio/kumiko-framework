@@ -1436,6 +1436,90 @@ describe("boot-validator", () => {
       ];
       expect(() => validateBoot(features)).not.toThrow();
     });
+
+    // --- Tier 2.7e Cross-Feature: "feature:entity"-Form ---
+    test("cross-feature reference (feature:entity) → kein Throw", () => {
+      const features = [
+        defineFeature("users", (r) => {
+          r.entity("user", createEntity({ fields: { email: createTextField() } }));
+        }),
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: { type: "reference", entity: "users:user", labelField: "email" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("cross-feature reference auf unknown feature → Throw mit klarer Message", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: { type: "reference", entity: "ghost-feature:user" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /targets unknown feature "ghost-feature" via "ghost-feature:user"/,
+      );
+    });
+
+    test("cross-feature reference auf unknown entity → Throw mit feature-context", () => {
+      const features = [
+        defineFeature("users", (r) => {
+          r.entity("user", createEntity({ fields: { email: createTextField() } }));
+        }),
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: { type: "reference", entity: "users:ghost-entity" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /targets unknown entity "ghost-entity" in feature "users"/,
+      );
+    });
+
+    test("cross-feature labelField auf unknown Field → Throw", () => {
+      const features = [
+        defineFeature("users", (r) => {
+          r.entity("user", createEntity({ fields: { email: createTextField() } }));
+        }),
+        defineFeature("shop", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: {
+                  type: "reference",
+                  entity: "users:user",
+                  labelField: "ghost-field",
+                },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /references labelField "ghost-field" which does not exist on entity "user"/,
+      );
+    });
   });
 
   // --- Tier 2.7e-1: rowAction kind="navigate" target-existenz ---
