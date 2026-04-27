@@ -25,6 +25,9 @@
   ],
   "private": true,
   "type": "module",
+  "kumiko": {
+    "runtime": "runtime"
+  },
   "exports": {
     "./engine": "./src/engine/index.ts",
     "./errors": "./src/errors/index.ts",
@@ -45,6 +48,8 @@
     "./secrets": "./src/secrets/index.ts",
     "./stack": "./src/stack/index.ts",
     "./testing": "./src/testing/index.ts",
+    "./testing/handler-context": "./src/testing/handler-context.ts",
+    "./testing/e2e-generator": "./src/testing/e2e-generator.ts",
     "./time": "./src/time/index.ts",
     "./ui-types": "./src/ui-types/index.ts",
     "./utils": "./src/utils/index.ts"

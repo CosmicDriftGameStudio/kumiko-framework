@@ -1,3 +1,5 @@
+// @runtime client
+//
 // Client-safe subset of engine types + the two normalize helpers. Split
 // out into its own subpath (`@kumiko/framework/ui-types`) so ui-core and
 // renderer packages can import without pulling node-only framework

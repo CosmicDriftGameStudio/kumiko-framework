@@ -1,3 +1,10 @@
+// @runtime runtime
+//
+// bridgeStub liefert eine HandlerContext-Shape mit throw-on-use Bridge-Methods
+// (ctx.query/write/loadAggregate/...). Wird von Test-Code UND Production-
+// Services genutzt (delivery-service nutzt es um cross-feature notify-Calls
+// ohne echten Dispatcher zu fahren). Daher runtime-Klassifizierung trotz
+// Wohnsitz unter `testing/` — keine vitest-Imports, keine Test-Side-Effects.
 import type {
   AppendEventArgs,
   FetchForWritingArgs,

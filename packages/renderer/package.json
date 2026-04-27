@@ -6,6 +6,9 @@
   "author": "Marc Frost",
   "private": true,
   "type": "module",
+  "kumiko": {
+    "runtime": "client"
+  },
   "exports": {
     ".": "./src/index.ts"
   },

@@ -1,3 +1,5 @@
+// @runtime dev
+//
 // Dev-server für den workspaces Sample. Auth-Mode aktiv: der Client
 // muss sich über den Login-Screen anmelden. WorkspaceShell filtert dann
 // nach `user.roles` aus der Session — Admin sieht alle drei, andere

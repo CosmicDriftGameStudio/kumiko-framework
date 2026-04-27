@@ -1,3 +1,5 @@
+// @runtime dev
+//
 // Dev-Server für ui-walkthrough. runDevApp mischt die Standard-Features
 // (config/user/tenant/auth) automatisch dazu wenn `auth` gesetzt ist und
 // ruft seedAdmin im onAfterSetup. Schema landet als window.__KUMIKO_

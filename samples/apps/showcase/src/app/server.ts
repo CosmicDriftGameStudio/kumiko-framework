@@ -1,3 +1,5 @@
+// @runtime dev
+//
 // Dev-Server für den Showcase. KEIN Auth — der Showcase ist eine UI-
 // Primitive-Spielwiese, Login-Reibung ist hier kontraproduktiv. Auto-
 // Mint-JWT-Mode aktiv (TestUsers.admin) → direkt im Edit-Screen.

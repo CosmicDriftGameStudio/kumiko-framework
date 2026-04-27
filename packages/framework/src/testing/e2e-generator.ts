@@ -1,3 +1,5 @@
+// @runtime tooling
+//
 // E2E-Generator — leitet strukturierte TestSpecs aus der Registry ab.
 //
 // Grundidee: jede r.screen(...) ist eine testbare Oberfläche. Der Generator

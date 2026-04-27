@@ -15,6 +15,9 @@
   "homepage": "https://github.com/bender0oo0/kumiko#readme",
   "private": true,
   "type": "module",
+  "kumiko": {
+    "runtime": "client"
+  },
   "exports": {
     ".": "./src/index.ts"
   },

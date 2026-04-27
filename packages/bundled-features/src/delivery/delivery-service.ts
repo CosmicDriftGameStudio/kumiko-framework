@@ -5,7 +5,7 @@ import type { NotifyPriority, Registry, TenantId } from "@kumiko/framework/engin
 import { createSystemUser } from "@kumiko/framework/engine";
 import { append } from "@kumiko/framework/event-store";
 import { runProjectionsForEvent } from "@kumiko/framework/pipeline";
-import { bridgeStub } from "@kumiko/framework/testing";
+import { bridgeStub } from "@kumiko/framework/testing/handler-context";
 import { generateId } from "@kumiko/framework/utils";
 import { and, eq, or } from "drizzle-orm";
 import type { Redis } from "ioredis";
