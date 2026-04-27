@@ -1,16 +1,15 @@
 // Seed für die Showcase-Item-Liste — ~200 items damit der Pager 4
-// Seiten hat zum Durchklicken (pageSize: 50). Direct-SQL-Insert in die
-// Read-Tabelle umgeht den Event-Store; für eine pure-UI-Demo ist das
-// okay (kein Audit-Trail, aber Pager/Sort/Search funktionieren wie in
-// Production-Setup mit echten Events).
+// Seiten hat zum Durchklicken (pageSize: 50). Geht durch den normalen
+// Dispatcher (showcase:write:item:create) — das hängt sich an alle
+// Pipeline-Stufen (Validation, Field-Defaults, Read-Side-Update,
+// Search-Index, Audit) genau wie ein echter HTTP-Request, also bricht
+// auch nicht wenn das Schema sich ändert (softDelete, neue Felder).
 //
 // Idempotent: wenn schon ≥100 items existieren, skip — der Server wird
-// bei jedem Restart neu geseeded sonst und die Liste wächst infinit.
+// bei jedem Restart neu geseeded sonst.
 
 import type { SeedFn } from "@kumiko/dev-server";
-import type { TenantId } from "@kumiko/framework/engine";
 import { TestUsers } from "@kumiko/framework/testing";
-import { generateId } from "@kumiko/framework/utils";
 import { sql } from "drizzle-orm";
 
 const STATUSES = ["draft", "active", "blocked", "done"] as const;
@@ -29,11 +28,10 @@ function mulberry32(seed: number): () => number {
 }
 
 export const seedShowcaseItems: SeedFn = async (stack) => {
-  const tenantId = TestUsers.admin.tenantId as TenantId;
-  const userId = TestUsers.admin.id;
-
+  // toTableName("item") → "read_items". Direct-SQL-COUNT für die Skip-
+  // Probe — billiger als ein listOk + Length-Check.
   const existing = await stack.db.execute<{ count: number }>(
-    sql`SELECT count(*)::int AS count FROM read_items WHERE tenant_id = ${tenantId}`,
+    sql`SELECT count(*)::int AS count FROM read_items WHERE tenant_id = ${TestUsers.admin.tenantId}`,
   );
   if ((existing[0]?.count ?? 0) >= 100) {
     // biome-ignore lint/suspicious/noConsole: sample-server diagnostics
@@ -70,50 +68,40 @@ export const seedShowcaseItems: SeedFn = async (stack) => {
   const verbs = ["fix", "add", "remove", "rename", "improve", "investigate", "polish", "rewrite"];
 
   const now = new Date();
-  const rows = Array.from({ length: COUNT }, (_, i) => {
+  for (let i = 0; i < COUNT; i++) {
     const subject = subjects[Math.floor(rng() * subjects.length)] ?? "Item";
     const target = targets[Math.floor(rng() * targets.length)] ?? "x";
     const verb = verbs[Math.floor(rng() * verbs.length)] ?? "do";
     const title = `${subject}: ${verb} ${target} (#${i + 1})`;
     const status = STATUSES[Math.floor(rng() * STATUSES.length)] ?? "draft";
     const isDone = status === "done";
-    // Priority 1–5, leicht skewed auf niedrige Werte (P1 + P2 häufiger).
     const priority = Math.min(5, Math.floor(rng() * rng() * 6) + 1);
-    // Due-Date in [-30, +60] Tagen ab heute, gleichverteilt.
     const dueOffsetDays = Math.floor(rng() * 90) - 30;
     const due = new Date(now.getTime() + dueOffsetDays * 86_400_000);
     const dueDate = due.toISOString().slice(0, 10);
-    return {
-      id: generateId(),
-      tenantId,
-      title,
-      status,
-      isDone,
-      priority,
-      dueDate,
-      notes: isDone ? `Closed ${target} ticket.` : null,
-    };
-  });
 
-  // Bulk-INSERT — ein Roundtrip statt N. read_items hat die
-  // Standard-Read-Side-Felder (id, tenant_id, version, created_*,
-  // updated_*, …), wir füllen nur die Domain-Felder + System-Defaults.
-  // Einfacher Loop reicht — 200 Inserts sind ~50ms gesamt.
-  for (const r of rows) {
-    await stack.db.execute(
-      sql`
-        INSERT INTO read_items
-          (id, tenant_id, title, status, is_done, priority, due_date, notes,
-           version, is_deleted, created_at, updated_at, created_by, updated_by)
-        VALUES
-          (${r.id}, ${r.tenantId}, ${r.title}, ${r.status}, ${r.isDone}, ${r.priority},
-           ${r.dueDate}, ${r.notes},
-           1, false, now(), now(), ${userId}, ${userId})
-        ON CONFLICT (id) DO NOTHING
-      `,
+    const res = await stack.http.write(
+      "showcase:write:item:create",
+      {
+        title,
+        status,
+        isDone,
+        priority,
+        dueDate,
+        notes: isDone ? `Closed ${target} ticket.` : "",
+      },
+      TestUsers.admin,
     );
+    if (!res.ok) {
+      const body = await res.text();
+      // biome-ignore lint/suspicious/noConsole: sample-server diagnostics
+      console.warn(`[showcase-seed] item ${i + 1} failed (${res.status}): ${body}`);
+      // Erste Fehler-Zeile reicht — typisch ist die ganze Schar betroffen
+      // (Schema-Mismatch, Auth-Issue), kein Sinn alle 200 zu probieren.
+      return;
+    }
   }
 
   // biome-ignore lint/suspicious/noConsole: sample-server diagnostics
-  console.log(`[showcase-seed] inserted ${rows.length} items into read_items`);
+  console.log(`[showcase-seed] created ${COUNT} items via dispatch`);
 };
