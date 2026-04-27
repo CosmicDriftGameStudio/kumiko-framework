@@ -31,6 +31,7 @@ import {
 import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
 import { generateId } from "../utils";
+import { applyEntityEvent } from "./apply-entity-event";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 import type { DbRow } from "./connection";
 import { decodeCursor, encodeCursor } from "./cursor";
@@ -323,22 +324,16 @@ export function createEventStoreExecutor(
         metadata: buildEventMetadata(user),
       });
 
-      // 2. Update projection. `version` echoes the event-store version so
-      //    optimistic locking on the projection stays coherent with the event
-      //    stream (a stale update() sees version=N and the stream is at N+1).
-      const [row] = await db
-        .insert(table)
-        .values({
-          ...flatData,
-          id: aggregateId,
-          version: event.version,
-          insertedAt: event.createdAt,
-          insertedById: user.id,
-        })
-        .returning();
-
-      if (!row)
+      // 2. Update projection via applyEntityEvent — derselbe Code-Pfad den
+      //    rebuildProjection für Replay nutzt → Live==Rebuild by-construction.
+      //    Wir bauen ein "live event" mit unstripped flatData (damit sensitive
+      //    Felder in der Read-Tabelle landen, aber nicht im Event-Log).
+      const liveEvent = { ...event, payload: flatData };
+      const result = await applyEntityEvent(liveEvent, table, entity, db.raw);
+      if (result.kind !== "applied" || result.row === null) {
         return writeFailure(new InternalError({ message: "projection insert returned no row" }));
+      }
+      const row = result.row;
       // Read-Side Auto-Convert: DB-Form → API-combined-Form für alle
       // Compound-Types in einem Pass.
       const projection = rehydrateCompoundTypes(row as DbRow, entity) as DbRow;
@@ -460,19 +455,17 @@ export function createEventStoreExecutor(
           metadata: buildEventMetadata(user),
         });
 
-        const [row] = await db
-          .update(table)
-          .set({
-            ...flatChanges,
-            version: event.version,
-            modifiedAt: event.createdAt,
-            modifiedById: user.id,
-          })
-          .where(eq(table["id"], payload.id))
-          .returning();
-
-        if (!row)
+        // Live==Rebuild via applyEntityEvent: live-event mit unstripped
+        // flatChanges damit sensitive Felder in der Read-Tabelle landen.
+        const liveEvent = {
+          ...event,
+          payload: { changes: flatChanges, previous },
+        };
+        const result = await applyEntityEvent(liveEvent, table, entity, db.raw);
+        if (result.kind !== "applied" || result.row === null) {
           return writeFailure(new InternalError({ message: "projection update returned no row" }));
+        }
+        const row = result.row;
         const data = rehydrateCompoundTypes(row as DbRow, entity) as DbRow;
 
         if (entityCache && entityName) {
@@ -550,20 +543,16 @@ export function createEventStoreExecutor(
         metadata: buildEventMetadata(user),
       });
 
-      if (softDelete) {
-        await db
-          .update(table)
-          .set({
-            isDeleted: true,
-            deletedAt: event.createdAt,
-            deletedById: user.id,
-            version: event.version,
-            modifiedAt: event.createdAt,
-            modifiedById: user.id,
-          })
-          .where(eq(table["id"], payload.id));
-      } else {
-        await db.delete(table).where(eq(table["id"], payload.id));
+      // Live==Rebuild via applyEntityEvent. Delete-Operation hat keine
+      // sensitive-Drift weil das Event-Payload nur `previous` ist und das
+      // wird vom soft/hard-delete-Code gar nicht in die Tabelle geschrieben
+      // (nur isDeleted/deletedAt/version-Bump). Live + Replay schreiben
+      // dasselbe — kein payload-override nötig.
+      const deleteResult = await applyEntityEvent(event, table, entity, db.raw);
+      if (deleteResult.kind !== "applied") {
+        return writeFailure(
+          new InternalError({ message: "projection delete: applyEntityEvent skipped" }),
+        );
       }
 
       if (entityCache && entityName) {
@@ -628,21 +617,14 @@ export function createEventStoreExecutor(
         metadata: buildEventMetadata(user),
       });
 
-      const [restored] = await db
-        .update(table)
-        .set({
-          isDeleted: false,
-          deletedAt: null,
-          deletedById: null,
-          version: event.version,
-          modifiedAt: event.createdAt,
-          modifiedById: user.id,
-        })
-        .where(eq(table["id"], payload.id))
-        .returning();
-
-      if (!restored)
+      // Live==Rebuild via applyEntityEvent. Restore schreibt nur isDeleted=
+      // false + version-Bump in die Tabelle — keine sensitive-Drift, daher
+      // kein payload-override nötig.
+      const restoreResult = await applyEntityEvent(event, table, entity, db.raw);
+      if (restoreResult.kind !== "applied" || restoreResult.row === null) {
         return writeFailure(new InternalError({ message: "projection restore returned no row" }));
+      }
+      const restored = restoreResult.row;
 
       if (entityCache && entityName) {
         await entityCache.del(user.tenantId, entityName, payload.id);

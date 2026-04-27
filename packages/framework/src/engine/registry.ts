@@ -62,11 +62,8 @@ function buildImplicitProjection(
 ): ProjectionDefinition {
   const name = qualify(featureName, "projection", `${entityName}${IMPLICIT_PROJECTION_SUFFIX}`);
   const drizzleTable = buildDrizzleTable(entityName, entity);
-  // applyEntityEvent gibt boolean zurück (`true` wenn was geschrieben
-  // wurde — der Live-Pfad nutzt das nicht aktuell, ist aber dort als
-  // Hook drin damit zukünftiger Live-Pfad-Refactor die Information hat).
-  // SingleStreamApplyFn erwartet Promise<void>, also wrappen wir im
-  // async-arrow um den Boolean zu discarden.
+  // applyEntityEvent gibt ApplyResult zurück; SingleStreamApplyFn erwartet
+  // Promise<void>. Im rebuild-Pfad ist die Row irrelevant — wir discarden.
   const handler = async (
     event: Parameters<ProjectionDefinition["apply"][string]>[0],
     tx: Parameters<ProjectionDefinition["apply"][string]>[1],
