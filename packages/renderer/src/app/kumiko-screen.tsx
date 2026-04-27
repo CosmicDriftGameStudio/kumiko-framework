@@ -470,6 +470,7 @@ function EntityListBody({
   const onCreate = useNavigateToCreateFor(schema, screen.entity);
   const { Banner } = usePrimitives();
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
+  const nav = useNav();
 
   // URL-State: sort/dir/q/page leben unter dem screen.id-Namespace
   // (`/orders?orders.sort=createdAt&orders.dir=desc&orders.q=acme`),
@@ -612,6 +613,54 @@ function EntityListBody({
     }));
   }, [screen.rowActions, effectiveTranslate, dispatcher]);
 
+  // ToolbarActions: Schema → Resolved-Form (analog rowActions).
+  // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
+  // → dispatcher.write(handler, payload?()). KumikoScreen kennt schon
+  // useNav (aus dem normalen Routing-Stack).
+  const toolbarActions = useMemo(() => {
+    if (screen.toolbarActions === undefined) return undefined;
+    return screen.toolbarActions
+      .map(
+        (
+          action,
+        ): {
+          id: string;
+          label: string;
+          style?: "primary" | "secondary" | "danger";
+          confirm?: string;
+          confirmLabel?: string;
+          onTrigger: () => Promise<void> | void;
+        } | null => {
+          if (action.kind === "navigate") {
+            return {
+              id: action.id,
+              label: effectiveTranslate(action.label),
+              ...(action.style !== undefined && { style: action.style }),
+              onTrigger: () => nav.navigate({ screenId: action.screen }),
+            };
+          }
+          // writeHandler — braucht Dispatcher. Wenn keiner mounted ist,
+          // skippen wir die Action statt zu crashen (gleiche Logik wie
+          // bei rowActions; einmaliger Warn-Log dort reicht).
+          if (dispatcher === undefined) return null;
+          return {
+            id: action.id,
+            label: effectiveTranslate(action.label),
+            ...(action.style !== undefined && { style: action.style }),
+            ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
+            ...(action.confirmLabel !== undefined && {
+              confirmLabel: effectiveTranslate(action.confirmLabel),
+            }),
+            onTrigger: async () => {
+              const payload = action.payload?.() ?? {};
+              await dispatcher.write(action.handler, payload);
+            },
+          };
+        },
+      )
+      .filter((a): a is NonNullable<typeof a> => a !== null);
+  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher]);
+
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
       <Banner padded variant="loading" testId="kumiko-screen-loading">
@@ -674,6 +723,7 @@ function EntityListBody({
       onSortChange={urlState.setSort}
       {...(pager !== undefined && { pager })}
       {...(rowActions !== undefined && { rowActions })}
+      {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
       {...(useInfinite && {
         onReachEnd: loadMore,
         loadingMore: rowsQuery.loading,

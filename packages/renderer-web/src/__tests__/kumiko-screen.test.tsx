@@ -348,6 +348,96 @@ describe("KumikoScreen", () => {
     });
   });
 
+  // toolbarActions: Schema-Form (kind: navigate | writeHandler) →
+  // Resolved-Form (onTrigger callback). Pinst beide kinds:
+  //  - navigate dispatch ein nav.navigate({ screenId })
+  //  - writeHandler dispatched dispatcher.write(handler, payload?())
+  test("entityList toolbarActions navigate-kind: Click → nav.navigate", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const screenWithToolbar: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      toolbarActions: [
+        { kind: "navigate", id: "open", label: "actions.open", screen: "task-edit" },
+      ],
+    };
+
+    const { NavProvider } = await import("@kumiko/renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithToolbar] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    fireEvent.click(screen.getByTestId("render-list-toolbar-action-open"));
+    expect(navigateCalls).toEqual([{ screenId: "task-edit" }]);
+  });
+
+  test("entityList toolbarActions writeHandler-kind: Click → dispatcher.write", async () => {
+    const writeCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+      write: (async (type: string, payload: unknown) => {
+        writeCalls.push({ type, payload });
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["write"],
+    });
+    const screenWithToolbar: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      toolbarActions: [
+        {
+          kind: "writeHandler",
+          id: "sync",
+          label: "actions.sync",
+          handler: "tasks:write:task:sync",
+          payload: () => ({ all: true }),
+        },
+      ],
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={{ ...schema, screens: [screenWithToolbar] }}
+          qn="tasks:screen:task-list"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    fireEvent.click(screen.getByTestId("render-list-toolbar-action-sync"));
+    await waitFor(() => expect(writeCalls.length).toBe(1));
+    expect(writeCalls[0]).toEqual({ type: "tasks:write:task:sync", payload: { all: true } });
+  });
+
   test("entityList rowActions visible-filter: hidden Action erscheint nicht im DOM", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({

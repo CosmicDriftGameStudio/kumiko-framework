@@ -127,6 +127,11 @@ export type RowAction = {
 // ToolbarAction — Button im List-Header. Zwei Varianten: navigate auf
 // einen anderen Screen (z.B. zu einem actionForm) oder direkt einen
 // Handler dispatchen (z.B. "Sync All" ohne Form).
+//
+// ⚠️ Function-Props (`payload`) leben nur im Monolith-Bundle-Pattern
+// (siehe RowAction-JSDoc) — JSON-injected Schemas droppen sie silent.
+// Für solche Apps payload weglassen oder im writeHandler server-side
+// die Tenant-/Session-Kontext-Werte ableiten.
 export type ToolbarAction =
   | {
       readonly kind: "navigate";
@@ -141,8 +146,13 @@ export type ToolbarAction =
       readonly id: string;
       readonly label: string;
       readonly handler: string;
+      /** Optional: Payload-Builder ohne row-Context. Default = `{}`. */
       readonly payload?: () => Record<string, unknown>;
+      /** i18n-Key für Confirm-Dialog-Description. Wenn gesetzt UND/ODER
+       *  style="danger": Modal vor der Ausführung. */
       readonly confirm?: string;
+      /** i18n-Key für Confirm-Button-Text im Dialog. Default = `label`. */
+      readonly confirmLabel?: string;
       readonly style?: "primary" | "secondary" | "danger";
     };
 

@@ -73,6 +73,24 @@ export type RenderListProps = {
    *  EntityListScreenDefinition.rowActions: handler-QN → dispatcher-Call,
    *  i18n-Keys → translated Strings). */
   readonly rowActions?: readonly DataTableRowAction[];
+  /** Toolbar-Aktionen im List-Header — Resolved-Form (KumikoScreen baut
+   *  das aus EntityListScreenDefinition.toolbarActions: navigate-target
+   *  → useNav, handler-QN → dispatcher-Call). RenderList rendert die
+   *  Buttons rechts in der Toolbar, vor "+ Neu". */
+  readonly toolbarActions?: readonly ToolbarActionButton[];
+};
+
+// Resolved-Form einer Toolbar-Action: KumikoScreen baut das aus dem
+// Schema (entweder navigate- oder writeHandler-kind), RenderList sieht
+// nur einen onTrigger-Callback + Label/Style — keine kind-Discrimination
+// mehr.
+export type ToolbarActionButton = {
+  readonly id: string;
+  readonly label: string;
+  readonly style?: "primary" | "secondary" | "danger";
+  readonly confirm?: string;
+  readonly confirmLabel?: string;
+  readonly onTrigger: () => Promise<void> | void;
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -99,12 +117,13 @@ export function RenderList(props: RenderListProps): ReactNode {
     loadingMore,
     hasMore,
     rowActions,
+    toolbarActions,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
   const t = useTranslation();
   const translate: Translate = translateProp ?? t;
-  const { DataTable, Button, Input, Text } = usePrimitives();
+  const { DataTable, Button, Dialog, Input, Text } = usePrimitives();
 
   // Local Search-Buffer + Debounce. Externe Änderungen (Browser-Back,
   // Cross-Component-Reset) spiegeln wir per Sync-Effect zurück; Tipps
@@ -143,11 +162,24 @@ export function RenderList(props: RenderListProps): ReactNode {
     />
   ) : undefined;
 
+  // Toolbar-End-Slot: Toolbar-Actions (List-Header-Buttons aus dem
+  // Schema) + optional "+ Neu" am rechten Edge. Reihenfolge im Rendering
+  // = Reihenfolge im Array (Schema-deklariert), "+ Neu" kommt zuletzt
+  // weil das die häufigste/auffälligste CTA ist.
+  const hasToolbarActions = toolbarActions !== undefined && toolbarActions.length > 0;
   const toolbarEnd =
-    onCreate !== undefined ? (
-      <Button variant="primary" onClick={onCreate} testId="render-list-create">
-        {`+ ${effectiveCreateLabel}`}
-      </Button>
+    hasToolbarActions || onCreate !== undefined ? (
+      <>
+        {hasToolbarActions &&
+          toolbarActions.map((a) => (
+            <ToolbarActionView key={a.id} action={a} Button={Button} Dialog={Dialog} />
+          ))}
+        {onCreate !== undefined && (
+          <Button variant="primary" onClick={onCreate} testId="render-list-create">
+            {`+ ${effectiveCreateLabel}`}
+          </Button>
+        )}
+      </>
     ) : undefined;
 
   // Empty-State: Default zeigt Heading + Description + optional CTA-
@@ -193,5 +225,63 @@ export function RenderList(props: RenderListProps): ReactNode {
       {...(rowActions !== undefined && { rowActions })}
       testId="render-list-table"
     />
+  );
+}
+
+// ToolbarActionView — pro Toolbar-Action ein Button (+ Confirm-Dialog
+// wenn confirm gesetzt). Same Pattern wie RowAction (Inline-Variante)
+// aber ohne row-Context. busy-State während async onTrigger; Dialog
+// öffnet sich vor dem Trigger wenn confirm/danger gesetzt.
+function ToolbarActionView({
+  action,
+  Button,
+  Dialog,
+}: {
+  readonly action: ToolbarActionButton;
+  readonly Button: ReturnType<typeof usePrimitives>["Button"];
+  readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
+}): ReactNode {
+  const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const trigger = async (): Promise<void> => {
+    setBusy(true);
+    try {
+      await action.onTrigger();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const variant: "primary" | "secondary" | "danger" = action.style ?? "secondary";
+  const needsConfirm = action.confirm !== undefined || action.style === "danger";
+
+  return (
+    <>
+      <Button
+        variant={variant}
+        loading={busy}
+        onClick={() => {
+          if (needsConfirm) {
+            setConfirmOpen(true);
+          } else {
+            void trigger();
+          }
+        }}
+        testId={`render-list-toolbar-action-${action.id}`}
+      >
+        {action.label}
+      </Button>
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={action.label}
+        {...(action.confirm !== undefined && { description: action.confirm })}
+        confirmLabel={action.confirmLabel ?? action.label}
+        {...(action.style === "danger" && { variant: "danger" as const })}
+        onConfirm={trigger}
+        testId={`render-list-toolbar-action-${action.id}-dialog`}
+      />
+    </>
   );
 }
