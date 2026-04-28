@@ -1,43 +1,63 @@
-// FeaturePattern — typisierte Repräsentation eines `r.*`-Calls in einem
-// Feature-File. Der AST-Visitor (parse.ts) walked durch das
-// `defineFeature(name, (r) => { ... })`-Setup-Callback und produziert
-// pro erkanntem Call ein FeaturePattern.
+// FeaturePattern — typed representation of an `r.*` call inside a
+// feature file. The AST visitor (parse.ts) walks the
+// `defineFeature(name, (r) => { ... })` setup callback and yields one
+// FeaturePattern per recognised call.
 //
-// **Design-Prinzip:**
+// **Design principle:**
 //
-//   - Alles was Designer/AI deklarativ editieren können → static-fields
-//     pro Pattern (z.B. EntityPattern.definition als plain Daten).
-//   - Alles was Closures/Code enthält → SourceLocation auf die opaque
-//     Region. Designer rendert das als read-only Code-Block, AI-Patcher
-//     kann den Bereich gezielt überschreiben.
+//   - Whatever the Designer/AI can edit declaratively → typed static
+//     fields, reusing the existing engine/types definitions so the
+//     pattern shape never drifts from the runtime contract.
+//   - Whatever carries closures/code → SourceLocation pointing at the
+//     opaque region. The Designer renders that as a read-only code
+//     block; the AI patcher overwrites the span verbatim.
 //
-// **Coverage:** 100%. Was wir NICHT als Pattern erkennen, fällt durch
-// `UnknownPattern` und behält source — Designer zeigt "unbekannter
-// r.*-Call", AI lässt es in Ruhe. Custom-TypeScript-Code zwischen
-// `r.*`-Calls (Helper-Funktionen, lokale Konstanten, imports) wird
-// vom Visitor *nicht* extrahiert — er bleibt im File-Buffer und
-// überlebt jeden Patch unverändert.
+// **Coverage = 100%.** Calls we don't recognise become UnknownPattern
+// (the Designer shows "custom call", AI leaves them alone). Custom
+// TypeScript code BETWEEN `r.*` calls (helpers, local consts, imports)
+// is not extracted — it stays in the file buffer and survives every
+// patch unchanged.
 //
-// **Erweiterung:** neue r.*-API → neuer Pattern-Type hier hinzufügen +
-// Visitor lernt das neue Token. Die Discriminated Union zwingt den
-// Visitor (und alle Konsumenten — Designer, AI-Patcher) sich auf den
-// neuen Kind zu committen, sonst Compile-Error.
+// **Extension point.** Adding a new r.* API → new pattern type here +
+// new extractor in parse.ts. The discriminated union forces every
+// consumer (Designer, AI patcher, MCP server) to handle the new kind
+// at compile time.
+//
+// **Naming convention.** Pattern `kind` matches the r.* method name
+// 1:1 (e.g. `r.writeHandler` → `kind: "writeHandler"`). No kebab/camel
+// translation layer.
 
+import type { LifecycleHookType } from "../constants";
+import type {
+  ConfigKeyDefinition,
+  ConfigKeyType,
+  JobDefinition,
+  ReferenceDataDef,
+  RunIn,
+  TranslationKeys,
+} from "../types/config";
+import type { MetricOptions, SecretOptions } from "../types/feature";
+import type { EntityDefinition } from "../types/fields";
+import type { AccessRule, ClaimKeyType, RateLimitOption } from "../types/handlers";
+import type { HookPhase } from "../types/hooks";
+import type { HttpRouteMethod } from "../types/http-route";
+import type { NavDefinition } from "../types/nav";
+import type { MspErrorMode } from "../types/projection";
+import type { RelationDefinition } from "../types/relations";
+import type { ScreenDefinition } from "../types/screen";
+import type { WorkspaceDefinition } from "../types/workspace";
 import type { SourceLocation } from "./source-location";
 
 // =============================================================================
-// Static Patterns — vollständig deklarativ, Designer rendert Forms,
-// AI generiert sie als pure JSON. Round-Trip ohne Code-Spans.
+// Static patterns — fully declarative. Designer renders forms, AI
+// generates them as pure data. Round-trip without code spans.
 // =============================================================================
 
 export type EntityPattern = {
   readonly kind: "entity";
   readonly source: SourceLocation;
   readonly entityName: string;
-  // EntityDefinition ist JSON-safe (Whitelist in buildAppSchema beweist
-  // das schon). Function-Defaults / Computed-Fields sind hier opaque und
-  // werden als raw-string in der Field-Definition gehalten.
-  readonly definition: Record<string, unknown>;
+  readonly definition: EntityDefinition;
 };
 
 export type RelationPattern = {
@@ -45,33 +65,31 @@ export type RelationPattern = {
   readonly source: SourceLocation;
   readonly entityName: string;
   readonly relationName: string;
-  readonly definition: Record<string, unknown>;
+  readonly definition: RelationDefinition;
 };
 
 export type NavPattern = {
   readonly kind: "nav";
   readonly source: SourceLocation;
-  readonly definition: Record<string, unknown>;
+  readonly definition: NavDefinition;
 };
 
 export type WorkspacePattern = {
   readonly kind: "workspace";
   readonly source: SourceLocation;
-  readonly definition: Record<string, unknown>;
+  readonly definition: WorkspaceDefinition;
 };
 
 export type ConfigPattern = {
   readonly kind: "config";
   readonly source: SourceLocation;
-  // Map shortName → ConfigKeyDefinition, alles Daten
-  readonly keys: Record<string, unknown>;
+  readonly keys: Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>;
 };
 
 export type TranslationsPattern = {
   readonly kind: "translations";
   readonly source: SourceLocation;
-  // Nested Locale-Tree, plain JSON
-  readonly keys: Record<string, unknown>;
+  readonly keys: TranslationKeys;
 };
 
 export type RequiresPattern = {
@@ -81,13 +99,13 @@ export type RequiresPattern = {
 };
 
 export type OptionalRequiresPattern = {
-  readonly kind: "optional-requires";
+  readonly kind: "optionalRequires";
   readonly source: SourceLocation;
   readonly featureNames: readonly string[];
 };
 
 export type SystemScopePattern = {
-  readonly kind: "system-scope";
+  readonly kind: "systemScope";
   readonly source: SourceLocation;
 };
 
@@ -101,113 +119,122 @@ export type MetricPattern = {
   readonly kind: "metric";
   readonly source: SourceLocation;
   readonly shortName: string;
-  readonly options: Record<string, unknown>;
+  readonly options: MetricOptions;
 };
 
 export type SecretPattern = {
   readonly kind: "secret";
   readonly source: SourceLocation;
   readonly shortName: string;
-  readonly options: Record<string, unknown>;
+  readonly options: SecretOptions;
 };
 
 export type ClaimKeyPattern = {
-  readonly kind: "claim-key";
+  readonly kind: "claimKey";
   readonly source: SourceLocation;
   readonly shortName: string;
-  readonly options: Record<string, unknown>;
+  readonly claimType: ClaimKeyType;
 };
 
 export type ReferenceDataPattern = {
-  readonly kind: "reference-data";
+  readonly kind: "referenceData";
   readonly source: SourceLocation;
   readonly entityName: string;
-  readonly data: readonly Record<string, unknown>[];
+  readonly data: ReferenceDataDef["data"];
   readonly upsertKey?: string;
 };
 
 export type ReadsConfigPattern = {
-  readonly kind: "reads-config";
+  readonly kind: "readsConfig";
   readonly source: SourceLocation;
   readonly qualifiedKeys: readonly string[];
 };
 
 export type UseExtensionPattern = {
-  readonly kind: "use-extension";
+  readonly kind: "useExtension";
   readonly source: SourceLocation;
   readonly extensionName: string;
   readonly entityName: string;
-  readonly options?: Record<string, unknown>;
+  readonly options?: Readonly<Record<string, unknown>>;
 };
 
 // =============================================================================
-// Mixed Patterns — Header (name/schema-shape/access) ist deklarativ,
-// Body (handler-fn / hook-fn / apply-fn / transform-fn) ist opaque.
-// Designer rendert den Header als Form + den Body als Code-Block.
-// AI-Patcher generiert Header als Daten + Body als TypeScript-Source.
+// Mixed patterns — header (name/access/etc.) is declarative, body
+// (handler/hook/apply/transform fn) is opaque. Designer renders the
+// header as a form + the body as a code block. AI patcher generates
+// the header as data + the body as TypeScript source.
 // =============================================================================
+
+// Path-keyed map of source locations for opaque sub-properties of an
+// otherwise declarative definition (e.g. screen.rowActions[0].visible
+// is a closure that lives only in monolith bundles). Keys use JSON-path
+// notation so the Designer can show "this prop is custom code" at the
+// exact form-field that maps to the path.
+export type OpaquePropMap = Readonly<Record<string, SourceLocation>>;
 
 export type ScreenPattern = {
   readonly kind: "screen";
   readonly source: SourceLocation;
-  // Layout-/Column-Daten sind static. Function-Props (FieldCondition,
-  // RowAction.payload, FieldRenderer-Function-Form) liegen als
-  // SourceLocation in `opaqueProps` — Designer rendert sie als
-  // read-only Code-Excerpts, AI weiß dass es dort patchen darf.
-  readonly definition: Record<string, unknown>;
-  readonly opaqueProps: readonly SourceLocation[];
+  readonly definition: ScreenDefinition;
+  // Closure-typed sub-properties (FieldCondition, RowAction.payload,
+  // FieldRenderer function form). Keyed by JSON path inside the
+  // definition (e.g. "rowActions.0.visible", "fields.email.renderer").
+  readonly opaqueProps: OpaquePropMap;
 };
 
 export type WriteHandlerPattern = {
-  readonly kind: "write-handler";
+  readonly kind: "writeHandler";
   readonly source: SourceLocation;
   readonly handlerName: string;
-  // schemaSource: Zod-Aufruf als Source-Text (z.B. "z.object({...})").
-  // Round-Trip via Re-Eval bei Patch — wir parsen Zod nicht zurück nach
-  // JSON-Schema (zu fragil), wir behandeln es als opaken Block.
+  // schemaSource: the Zod call as source text (e.g. "z.object({...})").
+  // We keep it as an opaque block instead of decoding it back to JSON
+  // schema — Zod's full surface is too rich for a faithful round-trip.
   readonly schemaSource: SourceLocation;
-  // handlerBody: Closure-Body als Source-Text. Opaque — AI generiert
-  // TS-Code, kein deklaratives DSL.
+  // handlerBody: the closure body as source text. Always opaque — AI
+  // generates raw TypeScript, no DSL interpretation.
   readonly handlerBody: SourceLocation;
-  readonly access?: Record<string, unknown>;
-  readonly rateLimit?: Record<string, unknown>;
+  readonly access?: AccessRule;
+  readonly rateLimit?: RateLimitOption;
   readonly skipTransitionGuard?: boolean;
 };
 
 export type QueryHandlerPattern = {
-  readonly kind: "query-handler";
+  readonly kind: "queryHandler";
   readonly source: SourceLocation;
   readonly handlerName: string;
   readonly schemaSource: SourceLocation;
   readonly handlerBody: SourceLocation;
-  readonly access?: Record<string, unknown>;
-  readonly rateLimit?: Record<string, unknown>;
+  readonly access?: AccessRule;
+  readonly rateLimit?: RateLimitOption;
 };
 
 export type HookPattern = {
   readonly kind: "hook";
   readonly source: SourceLocation;
-  // type: "preSave" | "postSave" | "preDelete" | "postDelete" | "preQuery" | "validation"
-  readonly hookType: string;
+  readonly hookType: LifecycleHookType | "validation";
+  // r.hook accepts a single target or a list; we keep both shapes so
+  // the Designer can render the original author intent.
   readonly target: string | readonly string[];
   readonly fnBody: SourceLocation;
-  readonly phase?: string;
+  readonly phase?: HookPhase;
 };
 
 export type EntityHookPattern = {
-  readonly kind: "entity-hook";
+  readonly kind: "entityHook";
   readonly source: SourceLocation;
-  readonly hookType: string;
+  readonly hookType: "postSave" | "preDelete" | "postDelete";
   readonly entityName: string;
   readonly fnBody: SourceLocation;
-  readonly phase?: string;
+  readonly phase?: HookPhase;
 };
 
 export type JobPattern = {
   readonly kind: "job";
   readonly source: SourceLocation;
   readonly jobName: string;
-  readonly options: Record<string, unknown>;
+  // JobDefinition without `name` (already on jobName) and without
+  // `handler` (kept separately as handlerBody for opacity).
+  readonly options: Omit<JobDefinition, "name" | "handler">;
   readonly handlerBody: SourceLocation;
 };
 
@@ -215,22 +242,23 @@ export type NotificationPattern = {
   readonly kind: "notification";
   readonly source: SourceLocation;
   readonly notificationName: string;
-  readonly trigger: Record<string, unknown>;
+  readonly trigger: { readonly on: string };
   readonly recipientBody: SourceLocation;
   readonly dataBody: SourceLocation;
-  readonly templates?: Record<string, SourceLocation>;
+  // Each template (e.g. "email", "push") carries its own closure source.
+  readonly templates?: Readonly<Record<string, SourceLocation>>;
 };
 
 export type AuthClaimsPattern = {
-  readonly kind: "auth-claims";
+  readonly kind: "authClaims";
   readonly source: SourceLocation;
   readonly fnBody: SourceLocation;
 };
 
 export type HttpRoutePattern = {
-  readonly kind: "http-route";
+  readonly kind: "httpRoute";
   readonly source: SourceLocation;
-  readonly method: string;
+  readonly method: HttpRouteMethod;
   readonly path: string;
   readonly anonymous?: boolean;
   readonly handlerBody: SourceLocation;
@@ -240,25 +268,25 @@ export type ProjectionPattern = {
   readonly kind: "projection";
   readonly source: SourceLocation;
   readonly name: string;
-  // Entity-Name(s) deren Events diese Projection feedet. Kein Konflikt
-  // mit `source: SourceLocation` weil bewusst andere Bedeutung.
+  // Entity name(s) whose events feed this projection. Disambiguated
+  // from `source: SourceLocation` by the explicit `Entity` suffix.
   readonly sourceEntity: string | readonly string[];
-  // applyBodies: Map event-type → SourceLocation der apply-Closure
-  readonly applyBodies: Record<string, SourceLocation>;
+  // Map event-type → SourceLocation of the apply closure.
+  readonly applyBodies: Readonly<Record<string, SourceLocation>>;
 };
 
 export type MultiStreamProjectionPattern = {
-  readonly kind: "multi-stream-projection";
+  readonly kind: "multiStreamProjection";
   readonly source: SourceLocation;
   readonly name: string;
-  readonly applyBodies: Record<string, SourceLocation>;
-  readonly errorMode?: Record<string, unknown>;
-  readonly runIn?: string;
-  readonly delivery?: string;
+  readonly applyBodies: Readonly<Record<string, SourceLocation>>;
+  readonly errorMode?: MspErrorMode;
+  readonly runIn?: RunIn;
+  readonly delivery?: "shared" | "per-instance";
 };
 
 export type DefineEventPattern = {
-  readonly kind: "define-event";
+  readonly kind: "defineEvent";
   readonly source: SourceLocation;
   readonly eventName: string;
   readonly schemaSource: SourceLocation;
@@ -266,7 +294,7 @@ export type DefineEventPattern = {
 };
 
 export type EventMigrationPattern = {
-  readonly kind: "event-migration";
+  readonly kind: "eventMigration";
   readonly source: SourceLocation;
   readonly eventName: string;
   readonly fromVersion: number;
@@ -275,19 +303,19 @@ export type EventMigrationPattern = {
 };
 
 export type ExtendsRegistrarPattern = {
-  readonly kind: "extends-registrar";
+  readonly kind: "extendsRegistrar";
   readonly source: SourceLocation;
   readonly extensionName: string;
-  // Meta-programming — alles als opaque behandeln im MVP. Designer
-  // zeigt nur "Custom Registrar Extension", AI lässt es in Ruhe.
+  // Meta-programming surface — kept fully opaque in the MVP. The
+  // Designer shows "Custom Registrar Extension"; AI leaves it alone.
   readonly defBody: SourceLocation;
 };
 
 // =============================================================================
-// Catch-all für r.*-Calls die der Visitor nicht kennt. Designer rendert
-// sie als "Unbekannter Call (kann nicht editiert werden)", AI-Patcher
-// lässt sie in Ruhe. Wenn ein UnknownPattern in der Wildnis auftaucht
-// → wahrscheinlich neuer r.*-API, neuen Pattern-Type definieren.
+// Catch-all — r.* calls the visitor doesn't recognise. Designer renders
+// "unknown call (cannot edit)", AI patcher leaves them unchanged. When
+// an UnknownPattern shows up in the wild it's a signal that a new r.*
+// API exists and needs its own pattern type here.
 // =============================================================================
 
 export type UnknownPattern = {
@@ -297,8 +325,8 @@ export type UnknownPattern = {
 };
 
 // =============================================================================
-// Discriminated Union — der Visitor returnt FeaturePattern[],
-// Konsumenten (Designer, AI-Patcher) switchen auf `kind`.
+// Discriminated union — visitors return FeaturePattern[]; consumers
+// switch on `kind`.
 // =============================================================================
 
 export type FeaturePattern =
@@ -337,17 +365,21 @@ export type FeaturePattern =
   // Catch-all
   | UnknownPattern;
 
+// Convenience: the literal union of all kinds, useful for Designer
+// switches that exhaustively cover every pattern.
+export type FeaturePatternKind = FeaturePattern["kind"];
+
 // =============================================================================
-// Editability-Klassifikation — Designer-UI braucht das um zu entscheiden,
-// ob ein Pattern als Form (editable) oder als read-only Code-Block
-// (opaque) gerendert wird. AI-Patcher nutzt das gleiche Signal um zu
-// entscheiden, ob das Pattern als JSON oder als TS-Source patchbar ist.
+// Editability classification — Designer UI uses this to decide whether
+// to render a pattern as a form (editable) or a read-only code block
+// (opaque). The AI patcher uses the same signal to decide JSON-patch
+// vs TS-source-replace.
 // =============================================================================
 
 export type Editability =
-  | "static"   // Vollständig deklarativ — Forms only, kein Code-Slot
-  | "mixed"    // Header deklarativ + Body als TS-Source-Block
-  | "opaque";  // Komplett TS-Code, kein Form-Anteil
+  | "static" // Fully declarative — forms only, no code slot.
+  | "mixed" // Header declarative + body as TS source block.
+  | "opaque"; // Whole pattern is TS code, no form surface.
 
 export function getEditability(pattern: FeaturePattern): Editability {
   switch (pattern.kind) {
@@ -358,32 +390,38 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "config":
     case "translations":
     case "requires":
-    case "optional-requires":
-    case "system-scope":
+    case "optionalRequires":
+    case "systemScope":
     case "toggleable":
     case "metric":
     case "secret":
-    case "claim-key":
-    case "reference-data":
-    case "reads-config":
-    case "use-extension":
+    case "claimKey":
+    case "referenceData":
+    case "readsConfig":
+    case "useExtension":
       return "static";
     case "screen":
-    case "write-handler":
-    case "query-handler":
+    case "writeHandler":
+    case "queryHandler":
     case "hook":
-    case "entity-hook":
+    case "entityHook":
     case "job":
     case "notification":
-    case "http-route":
+    case "httpRoute":
     case "projection":
-    case "multi-stream-projection":
-    case "define-event":
-    case "event-migration":
+    case "multiStreamProjection":
+    case "defineEvent":
+    case "eventMigration":
       return "mixed";
-    case "auth-claims":
-    case "extends-registrar":
+    case "authClaims":
+    case "extendsRegistrar":
     case "unknown":
       return "opaque";
+    default: {
+      // Exhaustiveness guard — adding a new pattern kind without
+      // updating this switch produces a compile error here.
+      const _exhaustive: never = pattern;
+      return _exhaustive;
+    }
   }
 }
