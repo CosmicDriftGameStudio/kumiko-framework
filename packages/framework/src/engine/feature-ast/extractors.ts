@@ -1763,11 +1763,8 @@ function collectScreenOpaqueProps(
   const fn = findFunctionLiteral(node);
   if (fn) {
     out[path] = sourceLocationFromNode(fn, sourceFile);
-    return;
-  }
-  const obj = node.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (obj) {
-    for (const prop of obj.getProperties()) {
+  } else if (node.isKind(SyntaxKind.ObjectLiteralExpression)) {
+    for (const prop of node.getProperties()) {
       const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
       if (!propAssign) continue;
       const init = propAssign.getInitializer();
@@ -1776,11 +1773,8 @@ function collectScreenOpaqueProps(
       const childPath = path ? `${path}.${key}` : key;
       collectScreenOpaqueProps(init, childPath, sourceFile, out);
     }
-    return;
-  }
-  const arr = node.asKind(SyntaxKind.ArrayLiteralExpression);
-  if (arr) {
-    arr.getElements().forEach((el, idx) => {
+  } else if (node.isKind(SyntaxKind.ArrayLiteralExpression)) {
+    node.getElements().forEach((el, idx) => {
       collectScreenOpaqueProps(el, `${path}.${idx}`, sourceFile, out);
     });
   }
