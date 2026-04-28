@@ -235,11 +235,10 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
                     // attribute unter Bedingungen unerwartet setzt (z.B.
                     // bei filter-Score 0 in einigen cmdk-Versions). jsdom
                     // ignoriert Tailwind-CSS, daher der Test-blind-Spot —
-                    // im Browser killte die Class lautlos jeden Click.
-                    // Fix: data-[disabled]-Class komplett raus + explizit
-                    // pointerEvents:auto als zusätzlicher Override.
-                    style={{ pointerEvents: "auto" }}
-                    className="relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground"
+                    // im Browser killte die Class lautlos jeden Click. Fix:
+                    // data-[disabled]-Class komplett raus + explicit
+                    // pointer-events-auto als zusätzlicher Override.
+                    className="pointer-events-auto relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground"
                   >
                     {isSelected && (
                       <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
