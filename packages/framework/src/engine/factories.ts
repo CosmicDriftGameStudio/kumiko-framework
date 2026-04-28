@@ -3,6 +3,7 @@ import type {
   DateFieldDef,
   EmbeddedFieldDef,
   EntityDefinition,
+  FieldsMap,
   FileFieldDef,
   FilesFieldDef,
   ImageFieldDef,
@@ -251,12 +252,12 @@ export function createImagesField(
   return { type: "images", ...overrides };
 }
 
-export function createEntity(
-  def: Omit<EntityDefinition, "softDelete" | "searchWeight"> & {
+export function createEntity<F extends FieldsMap>(
+  def: Omit<EntityDefinition<F>, "softDelete" | "searchWeight"> & {
     softDelete?: boolean;
     searchWeight?: number;
   },
-): EntityDefinition {
+): EntityDefinition<F> {
   return {
     softDelete: false,
     searchWeight: 1,

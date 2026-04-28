@@ -37,6 +37,12 @@ export { flattenMoney, rehydrateMoney } from "./money";
 export { seedReferenceData } from "./reference-data";
 export { fetchOne } from "./row-helpers";
 export { tableExists } from "./schema-inspection";
-export { buildBaseColumns, buildDrizzleTable, toSnakeCase, toTableName } from "./table-builder";
+export {
+  buildBaseColumns,
+  buildDrizzleTable,
+  type DrizzleTable,
+  toSnakeCase,
+  toTableName,
+} from "./table-builder";
 export type { TenantDb, TenantDbMode } from "./tenant-db";
 export { createTenantDb } from "./tenant-db";

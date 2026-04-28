@@ -1,5 +1,10 @@
 import { sql } from "drizzle-orm";
-import type { EntityDefinition, EntityRelations, FieldDefinition } from "../engine/types";
+import type {
+  EntityDefinition,
+  EntityRelations,
+  FieldDefinition,
+  FieldsMap,
+} from "../engine/types";
 import { assertUnreachable } from "../utils";
 import {
   boolean,
@@ -197,8 +202,51 @@ export function toTableName(entityName: string): string {
   return `${READ_MODEL_PREFIX}${plural}`;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables lose column types
-type DrizzleTable = TableColumns<any>;
+// Drizzle's PgTableWithColumns<any> erbt eine `[k: string]: any` Index-
+// Signature die in strict-mode (noUncheckedIndexedAccess + TS4111) jeden
+// konsumierenden Code zwingt auf Bracket-Notation auch für bekannte
+// Spalten. Da wir die Tabelle dynamisch aus EntityDefinition bauen,
+// kann TS Drizzle's volle Spalten-Inferenz nicht liefern — wir narrowen
+// stattdessen den Property-Contract auf die Namen die garantiert da
+// sind: Base-Spalten (id/tenantId/...), SoftDelete-Spalten und ein
+// Mapping über `entity.fields` (inkl. money-Currency-Zwilling).
+//
+// Mit konkret-inferiertem `F` (via createEntity({ fields: { ... } }))
+// ist der Property-Set ein konkretes Union ohne Index-Signature; der
+// alte `EntityDefinition` ohne Generic-Param fällt auf `string` zurück
+// und behält das alte Verhalten — also breaking change frei.
+type FieldColumnNames<F extends FieldsMap> = {
+  [K in keyof F & string]: F[K]["type"] extends "money" ? K | `${K}Currency` : K;
+}[keyof F & string];
+
+type BaseColumnNames =
+  | "id"
+  | "tenantId"
+  | "version"
+  | "insertedAt"
+  | "modifiedAt"
+  | "insertedById"
+  | "modifiedById"
+  | "isDeleted"
+  | "deletedAt"
+  | "deletedById";
+
+// Two layers, intersected:
+//   1. `TableColumns<any>` — keeps Drizzle's runtime methods (.from, .select,
+//      etc.) and the property-bag the ORM emits at runtime.
+//   2. A typed name-set listing exactly the columns this entity declares,
+//      so `table.tenantId` / `table["tenantId"]` type-checks without
+//      TS4111. Property-Werte bleiben `any`, weil Drizzle die echte
+//      Column-Type-Inferenz (.select(...) → row.x) zur Laufzeit aus
+//      der Column-Instance ableitet — unser statischer Cast ist nur ein
+//      Existence-Check, kein Data-Type-Check. Strenger als der alte
+//      `<any>`-Index-Signature-Default (concrete keys statt aller strings)
+//      bei identischer Type-Permissivität auf den Werten.
+//
+// biome-ignore-start lint/suspicious/noExplicitAny: column data-types stay generic — see comment above.
+export type DrizzleTable<E extends EntityDefinition = EntityDefinition> = TableColumns<any> &
+  Readonly<Record<BaseColumnNames | FieldColumnNames<E["fields"]>, any>>;
+// biome-ignore-end lint/suspicious/noExplicitAny: column data-types stay generic — see comment above.
 
 export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "uuid") {
   const idColumn =
@@ -246,11 +294,11 @@ export type BuildDrizzleTableOptions = {
   readonly relations?: EntityRelations;
 };
 
-export function buildDrizzleTable(
+export function buildDrizzleTable<E extends EntityDefinition>(
   entityName: string,
-  entity: EntityDefinition,
+  entity: E,
   options?: BuildDrizzleTableOptions,
-): DrizzleTable {
+): DrizzleTable<E> {
   const baseColumns = buildBaseColumns(entity.softDelete ?? false, entity.idType ?? "uuid");
   const fieldColumns: Record<string, ColumnBuilder> = {};
 
@@ -292,6 +340,11 @@ export function buildDrizzleTable(
     }
   }
 
+  // Cast back to DrizzleTable<E>: drizzle-kit's pgTable returns a fully
+  // inferred PgTableWithColumns over the *exact* column-builder map we
+  // hand in. Our typed signature narrows that to the static names from
+  // EntityDefinition (kept in sync with fieldToColumns + buildBaseColumns).
+  // Drizzle's runtime instance carries every needed method on top.
   return pgTable(
     tableName,
     {
@@ -328,5 +381,5 @@ export function buildDrizzleTable(
       }
       return indexes;
     },
-  );
+  ) as unknown as DrizzleTable<E>;
 }

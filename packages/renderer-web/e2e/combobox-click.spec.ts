@@ -33,9 +33,9 @@ test.describe("ComboboxInput mouse-click in real browser", () => {
     await trigger.click();
     // Item rendert mit text-content "API" als role="option" durch cmdk.
     await page.getByRole("option", { name: "API" }).click();
-    await expect.poll(() => page.locator("body").getAttribute("data-combo-single-local")).toBe(
-      "api",
-    );
+    await expect
+      .poll(() => page.locator("body").getAttribute("data-combo-single-local"))
+      .toBe("api");
   });
 
   test("multi-local: open + mouse-click two items → onChange fires twice", async ({ page }) => {
@@ -43,18 +43,18 @@ test.describe("ComboboxInput mouse-click in real browser", () => {
     await trigger.click();
     await page.getByRole("option", { name: "API" }).click();
     await page.getByRole("option", { name: "Cache" }).click();
-    await expect.poll(() => page.locator("body").getAttribute("data-combo-multi-local")).toBe(
-      "api,cache",
-    );
+    await expect
+      .poll(() => page.locator("body").getAttribute("data-combo-multi-local"))
+      .toBe("api,cache");
   });
 
   test("single-remote: open + mouse-click item → onChange fires", async ({ page }) => {
     const trigger = page.getByTestId("combobox-combo-single-remote");
     await trigger.click();
     await page.getByRole("option", { name: "Backend" }).click();
-    await expect.poll(() => page.locator("body").getAttribute("data-combo-single-remote")).toBe(
-      "backend",
-    );
+    await expect
+      .poll(() => page.locator("body").getAttribute("data-combo-single-remote"))
+      .toBe("backend");
   });
 
   // User-Bug-Repro: Multi-Mode benötigt im Showcase 2 Outside-Clicks bis

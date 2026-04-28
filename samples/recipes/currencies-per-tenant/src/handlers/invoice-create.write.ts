@@ -52,7 +52,7 @@ export const invoiceCreate = defineWriteHandler({
         amount,
         amountCurrency,
         shippingCost: shippingCost ?? null,
-        shippingCostCurrency: shippingCostCurrency ?? null,
+        ...(shippingCostCurrency !== undefined && { shippingCostCurrency }),
         insertedById: event.user.id,
         insertedAt: Temporal.Now.instant(),
       })

@@ -17,7 +17,7 @@ import { REFERENCE_SEARCH_DEBOUNCE_MS, useTranslation } from "@kumiko/renderer";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn";
 
 export type ComboboxOption = { readonly value: string; readonly label: string };
@@ -196,11 +196,7 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
         <ChevronDown className="h-4 w-4 opacity-50" />
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          className={popoverContentClass}
-          align="start"
-          sideOffset={4}
-        >
+        <PopoverPrimitive.Content className={popoverContentClass} align="start" sideOffset={4}>
           <Command shouldFilter={!isRemote} filter={substringFilter}>
             <div className="relative">
               <Command.Input

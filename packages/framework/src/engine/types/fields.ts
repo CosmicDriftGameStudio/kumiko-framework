@@ -347,9 +347,11 @@ export type EntityIndexDef = {
   readonly name?: string;
 };
 
-export type EntityDefinition = {
+export type FieldsMap = Readonly<Record<string, FieldDefinition>>;
+
+export type EntityDefinition<F extends FieldsMap = FieldsMap> = {
   readonly table?: string;
-  readonly fields: Readonly<Record<string, FieldDefinition>>;
+  readonly fields: F;
   readonly softDelete?: boolean;
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;

@@ -95,7 +95,11 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
       )
     `);
     await testDb.db.execute(sql`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
-    // Kein Throw = pass.
-    expect(true).toBe(true);
+
+    // Beweis: information_schema zeigt die Spalte jetzt als NOT NULL.
+    const rows = await testDb.db.execute<{ is_nullable: string }>(
+      sql`SELECT is_nullable FROM information_schema.columns WHERE table_name = 'migration_safety_test' AND column_name = 'key'`,
+    );
+    expect(rows[0]?.is_nullable).toBe("NO");
   });
 });

@@ -65,6 +65,7 @@ export type {
   EntityIndexDef,
   FieldAccess,
   FieldDefinition,
+  FieldsMap,
   FileFieldDef,
   FilesFieldDef,
   ImageFieldDef,
