@@ -96,6 +96,40 @@ function banner(): void {
 
 // --- Commands ---
 
+// Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
+// danach noch Unit + Integration Tests an; `kumiko check:fast` hängt nur
+// `vitest run --changed` an und skipt Integration komplett.
+const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
+  { name: "Biome", cmd: "yarn biome check ." },
+  // tsc -b nutzt .tsbuildinfo-Caches — Re-Runs bei unverändertem Code
+  // sind nahezu instant. Project-References im root tsconfig ziehen alle
+  // Workspaces mit (framework, bundled-features, headless, dispatcher-
+  // live, renderer, renderer-web, app). --noEmit funktioniert nicht mit
+  // composite-projects (TS6310), dist-Output ist via .gitignore ignoriert.
+  { name: "TypeScript", cmd: "yarn tsc -b" },
+  { name: "Silent-Skip Guard", cmd: "bun scripts/guard-silent-skip.ts" },
+  { name: "Admin-API Guard", cmd: "bun scripts/guard-admin-api.ts" },
+  { name: "Unsafe-JSON-Parse Guard", cmd: "bun scripts/guard-unsafe-json-parse.ts" },
+  { name: "No-Date-API Guard", cmd: "bun scripts/guard-no-date-api.ts" },
+  { name: "Pre-ES-Patterns Guard", cmd: "bun scripts/guard-pre-es-patterns.ts" },
+  { name: "Direct-Entity-Writes Guard", cmd: "bun scripts/guard-direct-entity-writes.ts" },
+  { name: "Cross-Feature-Import Guard", cmd: "bun scripts/guard-cross-feature-imports.ts" },
+  { name: "Renderer-Boundaries Guard", cmd: "bun scripts/guard-renderer-boundaries.ts" },
+  { name: "Fake-Test Guard", cmd: "bun scripts/guard-fake-tests.ts" },
+  {
+    name: "Feature-Integration-Test Guard",
+    cmd: "bun scripts/guard-feature-integration-tests.ts",
+  },
+  { name: "i18n-Keys Guard", cmd: "bun scripts/guard-i18n-keys.ts" },
+  { name: "Test-Stack-Drift Guard", cmd: "bun scripts/guard-test-stack-drift.ts" },
+  { name: "Runtime-Isolation Guard", cmd: "bun scripts/check-runtime-isolation.ts" },
+  { name: "Lockfile-Drift Guard", cmd: "bun scripts/guard-lockfile-drift.ts" },
+  { name: "Error-Reasons Guard", cmd: "bun scripts/guard-error-reasons.ts" },
+  { name: "Predicate Extraction Check", cmd: "bun scripts/check-predicates.ts" },
+  { name: "as-Cast Audit", cmd: "bun scripts/check-as-casts.ts" },
+  { name: "License Check", cmd: "bun scripts/check-licenses.ts" },
+];
+
 const commands = {
   dev: {
     description: "Feuer frei! Docker Services hochfahren",
@@ -240,54 +274,8 @@ const commands = {
       logBoth("Checke alles durch...\n", logPath);
       const results: Array<{ name: string; ok: boolean }> = [];
 
-      // Drei Phasen:
-      //   1. fast-parallel: 21 CPU-bound, kurzlaufende Steps (Biome, TS,
-      //      18 Guards, 2 Code-Audits). Alle unabhängig, gepoolt 6-fach.
-      //      Output gepuffert pro Step und am Ende serialisiert
-      //      ausgegeben — sonst würde die Konsole zum Spaghetti.
-      //   2. Unit Tests: vitest mit eigener interner Parallelisierung,
-      //      live output, sequentiell.
-      //   3. Integration Guard + Integration Tests: brauchen Docker und
-      //      shared Postgres — sequentiell, live output.
-      //
-      // Guards laufen unter `bun scripts/...` statt `yarn tsx ...` — bun
-      // bootet ~400ms schneller pro Aufruf, was bei 18+ Skripten direkt
-      // ~7s spart.
-      const fastSteps: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
-        { name: "Biome", cmd: "yarn biome check ." },
-        // tsc -b nutzt .tsbuildinfo-Caches — Re-Runs bei unverändertem
-        // Code sind nahezu instant. Project-References im root tsconfig
-        // ziehen alle Workspaces (framework, bundled-features, headless,
-        // dispatcher-live, renderer, renderer-web, app) mit, breiter als
-        // der vorige 2-Projekt-Check. --noEmit funktioniert nicht mit
-        // composite-projects (TS6310), aber dist-Output ist via .gitignore
-        // ignoriert — kein Repo-Drift.
-        { name: "TypeScript", cmd: "yarn tsc -b" },
-        { name: "Silent-Skip Guard", cmd: "bun scripts/guard-silent-skip.ts" },
-        { name: "Admin-API Guard", cmd: "bun scripts/guard-admin-api.ts" },
-        { name: "Unsafe-JSON-Parse Guard", cmd: "bun scripts/guard-unsafe-json-parse.ts" },
-        { name: "No-Date-API Guard", cmd: "bun scripts/guard-no-date-api.ts" },
-        { name: "Pre-ES-Patterns Guard", cmd: "bun scripts/guard-pre-es-patterns.ts" },
-        { name: "Direct-Entity-Writes Guard", cmd: "bun scripts/guard-direct-entity-writes.ts" },
-        { name: "Cross-Feature-Import Guard", cmd: "bun scripts/guard-cross-feature-imports.ts" },
-        { name: "Renderer-Boundaries Guard", cmd: "bun scripts/guard-renderer-boundaries.ts" },
-        { name: "Fake-Test Guard", cmd: "bun scripts/guard-fake-tests.ts" },
-        {
-          name: "Feature-Integration-Test Guard",
-          cmd: "bun scripts/guard-feature-integration-tests.ts",
-        },
-        { name: "i18n-Keys Guard", cmd: "bun scripts/guard-i18n-keys.ts" },
-        { name: "Test-Stack-Drift Guard", cmd: "bun scripts/guard-test-stack-drift.ts" },
-        { name: "Runtime-Isolation Guard", cmd: "bun scripts/check-runtime-isolation.ts" },
-        { name: "Lockfile-Drift Guard", cmd: "bun scripts/guard-lockfile-drift.ts" },
-        { name: "Error-Reasons Guard", cmd: "bun scripts/guard-error-reasons.ts" },
-        { name: "Predicate Extraction Check", cmd: "bun scripts/check-predicates.ts" },
-        { name: "as-Cast Audit", cmd: "bun scripts/check-as-casts.ts" },
-        { name: "License Check", cmd: "bun scripts/check-licenses.ts" },
-      ];
-
-      logBoth(`--- ${fastSteps.length} fast checks (parallel, pool=6) ---`, logPath);
-      const fastResults = await runPoolBuffered(fastSteps, 6, logPath);
+      logBoth(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=6) ---`, logPath);
+      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, 6, logPath);
       for (const r of fastResults) results.push(r);
       logBoth("", logPath);
 
@@ -317,6 +305,46 @@ const commands = {
       }
 
       writeFileSync(resultPath, allGood ? "0" : "1");
+      if (!allGood) process.exit(1);
+    },
+  },
+
+  "check:fast": {
+    description: "Schneller Check (skip Integration, Unit-Tests nur --changed)",
+    run: async () => {
+      // Bewusst kein Lock und kein Tee-Logfile — check:fast ist für die
+      // schnelle Iteration zwischendurch (5-15s), keine geteilte CI-
+      // Operation. Wenn jemand parallel `kumiko check` laufen lässt,
+      // gibt's IO-Contention auf .tsbuildinfo aber kein realer Konflikt.
+      console.log("Schneller Check — Integration wird geskippt.\n");
+      const results: Array<{ name: string; ok: boolean }> = [];
+
+      console.log(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=6) ---`);
+      // runPoolBuffered braucht einen logPath; wir geben /dev/null —
+      // Output zeigt eh die ✓/✗-Live-Zeile pro Step plus failed-Outputs.
+      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, 6, "/dev/null");
+      for (const r of fastResults) results.push(r);
+      console.log();
+
+      console.log("--- Unit Tests (nur --changed) ---");
+      // vitest --changed nutzt git-diff vs. HEAD: alle Tests die
+      // (transitive) von einem geänderten Source-File abhängen werden
+      // gelaufen. Vitest macht die Resolution selbst.
+      const proc = Bun.spawn(["sh", "-c", "KUMIKO_CHECK=1 yarn vitest run --changed"], {
+        stdout: "inherit",
+        stderr: "inherit",
+        env: process.env,
+      });
+      const code = await proc.exited;
+      results.push({ name: "Unit Tests (changed)", ok: code === 0 });
+      console.log();
+
+      const allGood = results.every((r) => r.ok);
+      console.log(allGood ? "Fast-Check grün." : "Fast-Check rot:");
+      for (const r of results) {
+        console.log(`  ${r.ok ? "PASS" : "FAIL"} ${r.name}`);
+      }
+      console.log("\nVor Commit: `kumiko check` für die volle Suite (inkl. Integration).");
       if (!allGood) process.exit(1);
     },
   },
