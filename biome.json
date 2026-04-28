@@ -7,7 +7,14 @@
     "defaultBranch": "main"
   },
   "files": {
-    "includes": ["packages/**", "samples/**", "app/**"]
+    "includes": [
+      "packages/**",
+      "samples/**",
+      "app/**",
+      "!**/drizzle/migrations/**",
+      "!**/dist/**",
+      "!**/dist-server/**"
+    ]
   },
   "assist": {
     "actions": {
