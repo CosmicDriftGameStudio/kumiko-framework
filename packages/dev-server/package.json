@@ -21,7 +21,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./build": "./src/build.ts",
-    "./compose-features": "./src/compose-features.ts"
+    "./compose-features": "./src/compose-features.ts",
+    "./drizzle-config": "./src/drizzle-config.ts",
+    "./drizzle-tables-auth-mode": "./src/drizzle-tables-auth-mode.ts",
+    "./drizzle-tables-minimal": "./src/drizzle-tables-minimal.ts"
   },
   "bin": {
     "kumiko-build": "./bin/kumiko-build.ts",
