@@ -3,6 +3,11 @@
 // useBrowserNavApi({ basePath }) — Read-Pfad strippt den Prefix vor
 // parsePath, Write-Pfad prepend'd ihn vor pushState/replaceState/hrefFor.
 // URLs außerhalb des basePath liefern route=undefined, kein Auto-Redirect.
+//
+// Diese Datei ist gleichzeitig das gelebte Recipe für basePath: alle
+// Use-Cases die ein App-Autor unter einem Prefix mounten will (Admin-
+// Bereich unter /admin, Embedded-App unter /embed, Workspace-Routing
+// unter Prefix) sind hier mit Beispiel-URLs durchgespielt.
 
 import { NavProvider, useNav } from "@kumiko/renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
@@ -224,5 +229,160 @@ describe("useBrowserNavApi (basePath-Edge-Cases via API)", () => {
       </AdminBrowserNav>,
     );
     expect(screen.getByTestId("route-defined").textContent).toBe("out");
+  });
+});
+
+describe("useBrowserNavApi({ basePath }) — Browser-History-Integration", () => {
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  test("popstate (Browser-Back) re-rendert mit gestrippter Route", () => {
+    render(
+      <AdminBrowserNav>
+        <Probe />
+      </AdminBrowserNav>,
+    );
+    act(() => {
+      fireEvent.click(screen.getByTestId("go-edit"));
+    });
+    expect(screen.getByTestId("screen-id").textContent).toBe("task-edit");
+    expect(window.location.pathname).toBe("/admin/task-edit/xyz");
+
+    // Simulate Browser-Back zur App-Root: URL fällt auf /admin zurück,
+    // popstate feuert. Hook muss erneut strip + parse durchziehen.
+    act(() => {
+      window.history.replaceState(null, "", "/admin");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(screen.getByTestId("screen-id").textContent).toBe("(none)");
+  });
+
+  test("popstate aus dem App-Bereich raus → route wird out-of-app", () => {
+    window.history.replaceState(null, "", "/admin/task-list");
+    render(
+      <AdminBrowserNav>
+        <Probe />
+      </AdminBrowserNav>,
+    );
+    expect(screen.getByTestId("route-defined").textContent).toBe("in");
+
+    act(() => {
+      window.history.replaceState(null, "", "/marketing");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(screen.getByTestId("route-defined").textContent).toBe("out");
+  });
+});
+
+describe("useBrowserNavApi({ basePath }) — searchParams-Orthogonalität", () => {
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  function SearchProbe(): React.ReactElement {
+    const nav = useNav();
+    return (
+      <div>
+        <span data-testid="filter">{nav.searchParams["filter"] ?? "(none)"}</span>
+        <button
+          type="button"
+          data-testid="set-filter"
+          onClick={() => nav.setSearchParams({ filter: "open" })}
+        >
+          set
+        </button>
+      </div>
+    );
+  }
+
+  test("Read: ?filter=open unter '/admin/task-list' wird gelesen, nicht von basePath berührt", () => {
+    window.history.replaceState(null, "", "/admin/task-list?filter=open");
+    render(
+      <AdminBrowserNav>
+        <SearchProbe />
+      </AdminBrowserNav>,
+    );
+    expect(screen.getByTestId("filter").textContent).toBe("open");
+  });
+
+  test("Write: setSearchParams behält basePath im URL-Pfad", () => {
+    window.history.replaceState(null, "", "/admin/task-list");
+    render(
+      <AdminBrowserNav>
+        <SearchProbe />
+      </AdminBrowserNav>,
+    );
+    act(() => {
+      fireEvent.click(screen.getByTestId("set-filter"));
+    });
+    // Pfad bleibt mit basePath-Prefix, ?filter wird angehängt.
+    expect(window.location.pathname).toBe("/admin/task-list");
+    expect(window.location.search).toBe("?filter=open");
+  });
+});
+
+describe("useBrowserNavApi({ basePath, hasWorkspaces })", () => {
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  function WorkspaceAdminNav({ children }: { readonly children: ReactNode }): ReactNode {
+    const api = useBrowserNavApi({ basePath: "/admin", hasWorkspaces: true });
+    return <NavProvider value={api}>{children}</NavProvider>;
+  }
+
+  function WorkspaceProbe(): React.ReactElement {
+    const nav = useNav();
+    return (
+      <div>
+        <span data-testid="workspace-id">{nav.route?.workspaceId ?? "(none)"}</span>
+        <span data-testid="screen-id">{nav.route?.screenId ?? "(none)"}</span>
+        <span data-testid="href-dispatch">
+          {nav.hrefFor({ workspaceId: "dispatch", screenId: "task-list" })}
+        </span>
+        <button
+          type="button"
+          data-testid="go-dispatch"
+          onClick={() => nav.navigate({ workspaceId: "dispatch", screenId: "task-list" })}
+        >
+          go
+        </button>
+      </div>
+    );
+  }
+
+  test("Read: '/admin/dispatch/task-list' → workspaceId='dispatch', screenId='task-list'", () => {
+    window.history.replaceState(null, "", "/admin/dispatch/task-list");
+    render(
+      <WorkspaceAdminNav>
+        <WorkspaceProbe />
+      </WorkspaceAdminNav>,
+    );
+    expect(screen.getByTestId("workspace-id").textContent).toBe("dispatch");
+    expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
+  });
+
+  test("Write: hrefFor mit Workspace-Target prepend'd basePath VOR die Workspace-id", () => {
+    render(
+      <WorkspaceAdminNav>
+        <WorkspaceProbe />
+      </WorkspaceAdminNav>,
+    );
+    expect(screen.getByTestId("href-dispatch").textContent).toBe("/admin/dispatch/task-list");
+  });
+
+  test("Write: navigate mit Workspace-Target landet auf '/admin/dispatch/task-list'", () => {
+    render(
+      <WorkspaceAdminNav>
+        <WorkspaceProbe />
+      </WorkspaceAdminNav>,
+    );
+    act(() => {
+      fireEvent.click(screen.getByTestId("go-dispatch"));
+    });
+    expect(window.location.pathname).toBe("/admin/dispatch/task-list");
+    expect(screen.getByTestId("workspace-id").textContent).toBe("dispatch");
+    expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
   });
 });

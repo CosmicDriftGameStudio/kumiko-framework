@@ -35,6 +35,10 @@ function normalizeBasePath(raw: string | undefined): string {
   return withLeading.endsWith("/") ? withLeading.slice(0, -1) : withLeading;
 }
 
+// Returns the in-app path (basePath-relativ) wenn `path` im basePath liegt,
+// sonst `undefined`. Strict-segment-Boundary: "/administrator" matcht
+// nicht "/admin" — sonst würde der Prefix-Check auf String-Ebene falsche
+// Treffer liefern.
 function stripBasePath(path: string, basePath: string): string | undefined {
   if (basePath === "") return path;
   if (path === basePath) return "/";
@@ -145,7 +149,22 @@ function replacePath(path: string): void {
  *
  *  basePath mounted die App unter einem URL-Prefix (z.B. "/admin"). Read-
  *  Pfad strippt vor parsePath, Write-Pfad prepend'd vor pushState/href.
- *  URLs außerhalb des basePath liefern route=undefined, ohne Auto-Redirect. */
+ *  URLs außerhalb des basePath liefern route=undefined, ohne Auto-Redirect.
+ *
+ *  Achtung — Ambiguität bei route=undefined mit basePath:
+ *  Sowohl die App-Root (URL === basePath, z.B. "/admin") als auch URLs
+ *  außerhalb des basePath (z.B. "/marketing") liefern route=undefined. Eine
+ *  App die zwischen "render Default-Screen" und "render Not-Found"
+ *  unterscheiden muss, muss zusätzlich `window.location.pathname` prüfen:
+ *
+ *    if (window.location.pathname.startsWith("/admin")) {
+ *      // in-app, aber an der Root → Default-Screen
+ *    } else {
+ *      // out-of-app → Not-Found / Marketing-Layer
+ *    }
+ *
+ *  Im non-basePath-Modus ergibt sich diese Ambiguität nicht — out-of-app
+ *  ist dort kein Konzept. */
 export function useBrowserNavApi(options?: {
   readonly hasWorkspaces?: boolean;
   readonly basePath?: string;
