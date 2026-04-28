@@ -356,7 +356,7 @@ function DefaultDataTable({
         {emptyState ?? <span>No entries.</span>}
       </div>
     ) : (
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <table data-testid={testId} className="w-full caption-bottom text-sm">
           {tableInner(columns, rows, onRowClick, sort, onSortChange, rowActions)}
         </table>
@@ -447,7 +447,10 @@ function tableInner(
           {hasActions && (
             <th
               data-testid="column-actions"
-              className="h-10 px-4 text-right align-middle font-medium text-muted-foreground w-px whitespace-nowrap"
+              // sticky right-0 + bg-background damit die Action-Spalte
+              // beim horizontalen Scroll am rechten Rand bleibt und
+              // nicht vom Inhalt überdeckt wird (Linear-Pattern).
+              className="h-10 px-4 text-right align-middle font-medium text-muted-foreground w-px whitespace-nowrap sticky right-0 bg-background z-10 border-l"
               aria-label="Actions"
             />
           )}
@@ -468,7 +471,14 @@ function tableInner(
               <td
                 key={col.field}
                 data-testid={`cell-${row.id}-${col.field}`}
-                className="p-4 align-middle"
+                // Cells truncaten lange Werte mit ellipsis statt umzu-
+                // brechen — Lists bleiben einzeilig + scannbar (Linear-
+                // Pattern). max-w-xs gibt eine vernünftige Default-
+                // Obergrenze; die <table>-Wrapper hat overflow-x für
+                // horizontalen Scroll falls die Summe der Spalten zu
+                // breit wird.
+                className="p-4 align-middle max-w-xs truncate"
+                title={cellTitle(row.values[col.field])}
               >
                 <DataTableCell
                   value={row.values[col.field]}
@@ -482,7 +492,10 @@ function tableInner(
             {hasActions && (
               <td
                 data-testid={`cell-${row.id}-actions`}
-                className="p-2 align-middle text-right whitespace-nowrap"
+                // Sticky-right damit beim horizontalen Scroll die Actions
+                // am rechten Rand sichtbar bleiben. bg-background +
+                // border-l für den visuellen Abschluss.
+                className="p-2 align-middle text-right whitespace-nowrap sticky right-0 bg-background z-10 border-l"
                 // Action-Cell-Events dürfen nicht den Row-Click/Activation
                 // triggern (typisch "Open Detail" — der User wollte ja die
                 // Action, nicht navigieren). Wir stopPropagation für Mouse
@@ -910,7 +923,7 @@ function SortableHeader({
       <th
         data-testid={`column-${field}`}
         data-sortable={sortable === true ? true : undefined}
-        className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+        className="h-10 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap"
       >
         {label}
       </th>
@@ -966,10 +979,60 @@ function isComponentRendererRef(renderer: unknown): { readonly name: string } | 
   return { name: component };
 }
 
+// Type-spezifische Default-Cell-Renderer. Author kann pro Spalte einen
+// expliziten renderer setzen (Function oder PlatformComponent); ohne
+// expliziten renderer fällt DataTableCell hier durch.
+//
+//   - boolean → ✓ / leer
+//   - timestamp/date → locale-formatiert (kein roher ISO-String)
+//   - select → human-lesbar (kebab-case → Title Case)
+//   - text/number/sonst → toString
 function defaultCellRender(value: unknown, type: string): string {
-  if (value === null || value === undefined) return "";
+  if (value === null || value === undefined || value === "") return "";
   if (type === "boolean") return value === true ? "✓" : "";
+  if (type === "timestamp" || type === "date") return formatDateCell(value, type);
+  if (type === "select") return humanizeSlug(String(value));
   return typeof value === "string" ? value : String(value);
+}
+
+function formatDateCell(value: unknown, type: string): string {
+  // Server liefert ISO-String oder Temporal.Instant.toJSON() (gleicher
+  // ISO-shape). Für `type:"date"` zeigen wir nur das Datum, für
+  // `type:"timestamp"` Datum + Uhrzeit. Locale-Default = Browser.
+  try {
+    const raw = typeof value === "string" ? value : String(value);
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return raw;
+    if (type === "date") {
+      return date.toLocaleDateString();
+    }
+    return date.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return String(value);
+  }
+}
+
+function humanizeSlug(slug: string): string {
+  // "degraded-performance" → "Degraded performance"
+  if (slug.length === 0) return slug;
+  const spaced = slug.replace(/[-_]/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+// Tooltip-Text für truncated Cells — bei Hover zeigt der Browser den
+// vollen Text. Skipping für Object/Array (das ist nicht user-readable);
+// Number/Boolean stringifyt der Browser ohnehin korrekt.
+function cellTitle(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string") return value.length > 0 ? value : undefined;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return undefined;
 }
 
 type DataTableCellProps = {

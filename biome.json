@@ -11,9 +11,9 @@
       "packages/**",
       "samples/**",
       "app/**",
-      "!**/drizzle/migrations/**",
-      "!**/dist/**",
-      "!**/dist-server/**"
+      "!**/drizzle/migrations",
+      "!**/dist",
+      "!**/dist-server"
     ]
   },
   "assist": {

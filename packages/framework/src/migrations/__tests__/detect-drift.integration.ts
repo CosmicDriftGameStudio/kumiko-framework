@@ -179,9 +179,7 @@ describe("detectDrift", () => {
         },
       ]);
       // DB hat email NULLABLE — drift.
-      await testDb.db.execute(
-        sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, email text)`,
-      );
+      await testDb.db.execute(sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, email text)`);
       await ensureDrizzleMigrationsTable();
       await insertAppliedMigration("hash-0000");
 
