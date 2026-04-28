@@ -28,7 +28,7 @@ export function Sidebar({ header, actions, children, footer, testId }: SidebarPr
     <aside
       data-testid={testId}
       data-kumiko-layout="sidebar"
-      className="w-60 flex-shrink-0 border-r bg-muted/40 flex flex-col text-sm"
+      className="w-60 flex-shrink-0 border-r bg-muted/30 flex flex-col text-sm"
     >
       {header !== undefined && (
         <div

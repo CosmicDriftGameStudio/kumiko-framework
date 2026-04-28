@@ -33,30 +33,36 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-background: hsl(240 10% 4%);
-  --color-foreground: hsl(0 0% 98%);
-  --color-card: hsl(240 10% 4%);
-  --color-card-foreground: hsl(0 0% 98%);
-  --color-popover: hsl(240 10% 4%);
-  --color-popover-foreground: hsl(0 0% 98%);
-  --color-primary: hsl(0 0% 98%);
-  --color-primary-foreground: hsl(240 6% 10%);
-  --color-secondary: hsl(240 4% 16%);
-  --color-secondary-foreground: hsl(0 0% 98%);
-  --color-muted: hsl(240 4% 16%);
-  --color-muted-foreground: hsl(240 5% 65%);
-  --color-accent: hsl(240 4% 16%);
-  --color-accent-foreground: hsl(0 0% 98%);
-  --color-destructive: hsl(0 63% 31%);
-  --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(240 4% 16%);
-  --color-input: hsl(240 4% 16%);
-  --color-ring: hsl(240 5% 64%);
+  /* Dark-Mode (Default) — Linear-Style: blau-graues Background statt
+     pures Schwarz. background <-> card haben minimal-Distinction
+     (1-2% lightness shift) damit Cards subtle "schweben" ohne harte
+     Borders. Primary ist das Linear-Brand-Purple (~#5e6ad2). */
+  --color-background: hsl(220 13% 9%);
+  --color-foreground: hsl(220 14% 96%);
+  --color-card: hsl(220 13% 11%);
+  --color-card-foreground: hsl(220 14% 96%);
+  --color-popover: hsl(220 13% 11%);
+  --color-popover-foreground: hsl(220 14% 96%);
+  --color-primary: hsl(232 60% 64%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(220 13% 16%);
+  --color-secondary-foreground: hsl(220 14% 96%);
+  --color-muted: hsl(220 13% 14%);
+  --color-muted-foreground: hsl(220 8% 56%);
+  --color-accent: hsl(220 13% 16%);
+  --color-accent-foreground: hsl(220 14% 96%);
+  --color-destructive: hsl(0 75% 58%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(220 13% 18%);
+  --color-input: hsl(220 13% 16%);
+  --color-ring: hsl(232 60% 64%);
 
-  --radius-sm: calc(0.5rem - 4px);
-  --radius-md: calc(0.5rem - 2px);
+  /* Radius-Skala: Linear hat größere Radii — Cards/Modals 10-12px,
+     Buttons/Inputs 6-8px, Pills voll. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
-  --radius-xl: calc(0.5rem + 4px);
+  --radius-xl: 0.75rem;
 }
 
 /* Light-Mode-Overrides — aktiv wenn `<html>` KEINE `.dark` Klasse
@@ -64,25 +70,29 @@
    auf light, greifen diese Werte. */
 @layer base {
   :root:not(.dark) {
+    /* Light-Mode — Linear-Style: warmes weiß-grau Background, Cards
+       leicht heller. Primary bleibt Brand-Purple (gleicher hue wie
+       dark, höhere saturation für Kontrast auf weiß). Borders sehr
+       dezent (rgba-style alpha statt full grey-200). */
     --color-background: hsl(0 0% 100%);
-    --color-foreground: hsl(240 10% 4%);
+    --color-foreground: hsl(220 14% 14%);
     --color-card: hsl(0 0% 100%);
-    --color-card-foreground: hsl(240 10% 4%);
+    --color-card-foreground: hsl(220 14% 14%);
     --color-popover: hsl(0 0% 100%);
-    --color-popover-foreground: hsl(240 10% 4%);
-    --color-primary: hsl(240 6% 10%);
-    --color-primary-foreground: hsl(0 0% 98%);
-    --color-secondary: hsl(240 5% 96%);
-    --color-secondary-foreground: hsl(240 6% 10%);
-    --color-muted: hsl(240 5% 96%);
-    --color-muted-foreground: hsl(240 4% 46%);
-    --color-accent: hsl(240 5% 96%);
-    --color-accent-foreground: hsl(240 6% 10%);
-    --color-destructive: hsl(0 84% 60%);
-    --color-destructive-foreground: hsl(0 0% 98%);
-    --color-border: hsl(240 6% 90%);
-    --color-input: hsl(240 6% 90%);
-    --color-ring: hsl(240 10% 4%);
+    --color-popover-foreground: hsl(220 14% 14%);
+    --color-primary: hsl(232 60% 58%);
+    --color-primary-foreground: hsl(0 0% 100%);
+    --color-secondary: hsl(220 14% 96%);
+    --color-secondary-foreground: hsl(220 14% 14%);
+    --color-muted: hsl(220 14% 97%);
+    --color-muted-foreground: hsl(220 8% 46%);
+    --color-accent: hsl(220 14% 96%);
+    --color-accent-foreground: hsl(220 14% 14%);
+    --color-destructive: hsl(0 72% 51%);
+    --color-destructive-foreground: hsl(0 0% 100%);
+    --color-border: hsl(220 14% 92%);
+    --color-input: hsl(220 14% 92%);
+    --color-ring: hsl(232 60% 58%);
   }
 
   * {

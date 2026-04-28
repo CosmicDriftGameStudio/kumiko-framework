@@ -409,7 +409,7 @@ function DefaultDataTable({
         className="h-12 px-6 bg-muted/30 border-b flex items-center gap-3"
       >
         {toolbarTitle !== undefined && (
-          <div className="text-base font-semibold tracking-tight truncate">{toolbarTitle}</div>
+          <div className="text-lg font-semibold tracking-tight truncate">{toolbarTitle}</div>
         )}
         {toolbarStart !== undefined && <div className="flex-1 max-w-sm">{toolbarStart}</div>}
         {toolbarEnd !== undefined && (
@@ -1099,7 +1099,7 @@ function DefaultForm({ onSubmit, children, title, actions, testId }: FormProps):
           className="sticky top-0 z-10 h-12 px-6 bg-muted/30 border-b flex items-center gap-3"
         >
           {title !== undefined && (
-            <div className="text-base font-semibold tracking-tight truncate">{title}</div>
+            <div className="text-lg font-semibold tracking-tight truncate">{title}</div>
           )}
           {actions !== undefined && (
             <div className="flex items-center gap-2 ml-auto">{actions}</div>

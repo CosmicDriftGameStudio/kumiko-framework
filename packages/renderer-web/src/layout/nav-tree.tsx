@@ -139,11 +139,11 @@ function NavNodeItem({ node, depth, collapsed, onToggle }: NavNodeItemProps): Re
   if (node.screen !== undefined) {
     const screenId = lastSegment(node.screen);
     const rowClass = cn(
-      "flex h-7 items-center gap-2 rounded-md text-sm transition-colors",
-      "hover:bg-accent hover:text-accent-foreground",
+      "flex h-7 items-center gap-2 rounded-md text-[13px] transition-colors",
+      "hover:bg-accent/60 hover:text-foreground",
       active
-        ? "bg-accent text-accent-foreground font-medium"
-        : "text-muted-foreground hover:text-accent-foreground",
+        ? "bg-accent text-foreground font-medium"
+        : "text-muted-foreground hover:text-foreground",
     );
     return (
       <>
