@@ -2,7 +2,7 @@
 // CLI) import exclusively from here.
 
 export type { ParseError, ParseResult } from "./parse";
-export { parseFeatureFile, parseSourceFile, sourceLocationFromNode } from "./parse";
+export { parseFeatureFile, parseSourceFile } from "./parse";
 export type {
   AuthClaimsPattern,
   ClaimKeyPattern,
@@ -43,3 +43,4 @@ export type {
 } from "./patterns";
 export { getEditability } from "./patterns";
 export type { SourceLocation, SourcePosition } from "./source-location";
+export { sourceLocationFromNode } from "./source-location";

@@ -24,14 +24,21 @@
 import type {
   ArrowFunction,
   CallExpression,
-  Node,
   ParameterDeclaration,
   SourceFile,
 } from "ts-morph";
 import { Project, SyntaxKind } from "ts-morph";
 
+import {
+  type ExtractOutput,
+  extractOptionalRequires,
+  extractReadsConfig,
+  extractRequires,
+  extractSystemScope,
+  extractToggleable,
+} from "./extractors";
 import type { FeaturePattern, UnknownPattern } from "./patterns";
-import type { SourceLocation } from "./source-location";
+import { type SourceLocation, sourceLocationFromNode } from "./source-location";
 
 // =============================================================================
 // Public API
@@ -205,9 +212,11 @@ function walkSetupCallback(
     const methodName = extractRegistrarMethodName(call, registrarParamName);
     if (!methodName) continue; // Not a registrar call — ignore.
     const result = dispatchExtractor(methodName, call, sourceFile);
-    if (result) patterns.push(result);
-    // (errors path: filled in once concrete extractors land in C1.5)
-    void errors;
+    if (result.kind === "pattern") {
+      patterns.push(result.pattern);
+    } else {
+      errors.push(result.error);
+    }
   }
 }
 
@@ -250,26 +259,33 @@ function dispatchExtractor(
   methodName: string,
   call: CallExpression,
   sourceFile: SourceFile,
-): FeaturePattern | undefined {
+): ExtractOutput<FeaturePattern> {
   switch (methodName) {
-    // Static patterns — implementation order: simplest first
+    // Round 1 — simplest static patterns
+    case "requires":
+      return extractRequires(call, sourceFile);
+    case "optionalRequires":
+      return extractOptionalRequires(call, sourceFile);
+    case "readsConfig":
+      return extractReadsConfig(call, sourceFile);
+    case "systemScope":
+      return extractSystemScope(call, sourceFile);
+    case "toggleable":
+      return extractToggleable(call, sourceFile);
+    // Recognised but extractor not yet implemented — fall through to
+    // UnknownPattern so the Designer/AI know the call exists. Replaced
+    // by concrete extractors as C1.5 progresses.
     case "entity":
     case "relation":
     case "nav":
     case "workspace":
     case "config":
     case "translations":
-    case "requires":
-    case "optionalRequires":
-    case "systemScope":
-    case "toggleable":
     case "metric":
     case "secret":
     case "claimKey":
     case "referenceData":
-    case "readsConfig":
     case "useExtension":
-    // Mixed patterns
     case "screen":
     case "writeHandler":
     case "queryHandler":
@@ -282,13 +298,13 @@ function dispatchExtractor(
     case "multiStreamProjection":
     case "defineEvent":
     case "eventMigration":
-    // Opaque patterns
     case "authClaims":
     case "extendsRegistrar":
-      // TODO C1.5: replace with concrete extractor per case.
-      return makeUnknownPattern(methodName, call, sourceFile);
     default:
-      return makeUnknownPattern(methodName, call, sourceFile);
+      return {
+        kind: "pattern",
+        pattern: makeUnknownPattern(methodName, call, sourceFile),
+      };
   }
 }
 
@@ -301,25 +317,5 @@ function makeUnknownPattern(
     kind: "unknown",
     methodName,
     source: sourceLocationFromNode(call, sourceFile),
-  };
-}
-
-// =============================================================================
-// Internal — SourceLocation from ts-morph node
-// =============================================================================
-
-/**
- * Produce a SourceLocation from a ts-morph Node. ts-morph reports
- * 0-based positions; we convert to 1-based to match LSP / Monaco /
- * CodeMirror conventions.
- */
-export function sourceLocationFromNode(node: Node, sourceFile: SourceFile): SourceLocation {
-  const start = sourceFile.getLineAndColumnAtPos(node.getStart());
-  const end = sourceFile.getLineAndColumnAtPos(node.getEnd());
-  return {
-    file: sourceFile.getFilePath(),
-    start: { line: start.line, column: start.column },
-    end: { line: end.line, column: end.column },
-    raw: node.getText(),
   };
 }
