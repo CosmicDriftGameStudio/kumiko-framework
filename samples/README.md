@@ -59,11 +59,35 @@ yarn kumiko test all          # Unit + Integration
 
 ## Production-Build
 
-`yarn build` im App-Workspace produziert `dist/` (deploybar). Voraussetzung:
+`yarn build` im App-Workspace produziert deploybare Artefakte. Voraussetzung:
 `"scripts": { "build": "kumiko-build" }` in der `package.json`. Convention-
-driven Discovery: `src/client.tsx`, `src/styles.css`, `public/`, `index.html`
-— Details + Container-Deploy-Pattern in der Repo-`CLAUDE.md` unter
-"Production Build".
+driven Discovery — `kumiko-build` baut das, was vorhanden ist:
+
+| Convention                      | Output                | Inhalt                                        |
+|---------------------------------|----------------------|-----------------------------------------------|
+| `src/client.tsx`, `public/`, `index.html`, `src/styles.css` | `dist/`         | Client-Bundle: hashed Assets, Tailwind, Static-Files |
+| `bin/main.ts`                   | `dist-server/`        | Server-Bundle: `server.js` + `kumiko.js` + `migration-hooks.js` (optional) + minimales `package.json` mit native externals |
+
+Workspaces ohne `bin/main.ts` bekommen nur den Client, Headless-Apps ohne
+Browser nur den Server. Beide werden parallel gebaut wenn vorhanden.
+
+**Server-Bundle**: bündelt Framework + bundled-features + App-Source in eine
+~1 MB JS-Datei. 7 native externals (argon2, bullmq, drizzle-kit, drizzle-orm,
+ioredis, postgres, temporal-polyfill) bleiben als prod-deps in einem
+generierten `dist-server/package.json`. Versionspin aus dem Repo-
+`packages/framework/package.json`. Für App-spezifische externals siehe
+`buildServerBundle({ extraRuntimeExternals })` in
+`@kumiko/dev-server/build`.
+
+**Container-Deploy**: `samples/showcases/publicstatus/deploy/` ist die
+Reference — Multi-Stage Dockerfile baut beide Bundles, Runtime-Image kennt
+nur `dist/`, `dist-server/`, `drizzle/`. Das `dist-server/`-package.json
+wird im Runtime-Stage via `bun install --production` gefüllt (~30 MB
+node_modules + 100 MB bun-alpine-Base = ~270 MB Image). Migrate-Step im
+Pre-Deploy: `bun /app/kumiko.js migrate apply` läuft via gebundelter
+kumiko-CLI gegen die DB. Details + GHA-Workflow-Pattern siehe
+`samples/showcases/publicstatus/deploy/Dockerfile` und
+`.github/workflows/deploy-publicstatus.yml`.
 
 ## Neues Recipe erstellen
 
