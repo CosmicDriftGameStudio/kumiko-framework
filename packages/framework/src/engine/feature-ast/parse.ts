@@ -26,22 +26,36 @@ import { Project, SyntaxKind } from "ts-morph";
 
 import {
   type ExtractOutput,
+  extractAuthClaims,
   extractClaimKey,
   extractConfig,
+  extractDefineEvent,
   extractEntity,
+  extractEntityHook,
+  extractEventMigration,
+  extractExtendsRegistrar,
+  extractHook,
+  extractHttpRoute,
+  extractJob,
   extractMetric,
+  extractMultiStreamProjection,
   extractNav,
+  extractNotification,
   extractOptionalRequires,
+  extractProjection,
+  extractQueryHandler,
   extractReadsConfig,
   extractReferenceData,
   extractRelation,
   extractRequires,
+  extractScreen,
   extractSecret,
   extractSystemScope,
   extractToggleable,
   extractTranslations,
   extractUseExtension,
   extractWorkspace,
+  extractWriteHandler,
 } from "./extractors";
 import type { FeaturePattern, UnknownPattern } from "./patterns";
 import { type SourceLocation, sourceLocationFromNode } from "./source-location";
@@ -302,12 +316,38 @@ function dispatchExtractor(
       return extractReferenceData(call, sourceFile);
     case "useExtension":
       return extractUseExtension(call, sourceFile);
-    // Recognised but extractor not yet implemented — fall through to
-    // UnknownPattern so the Designer/AI know the call exists. Replaced
-    // by concrete extractors as C1.5 progresses. Recognised method-
-    // names: screen, writeHandler, queryHandler, hook, entityHook,
-    // job, notification, httpRoute, projection, multiStreamProjection,
-    // defineEvent, eventMigration, authClaims, extendsRegistrar.
+    // Round 4 — mixed (header + body) patterns
+    case "hook":
+      return extractHook(call, sourceFile);
+    case "entityHook":
+      return extractEntityHook(call, sourceFile);
+    case "authClaims":
+      return extractAuthClaims(call, sourceFile);
+    case "writeHandler":
+      return extractWriteHandler(call, sourceFile);
+    case "queryHandler":
+      return extractQueryHandler(call, sourceFile);
+    case "job":
+      return extractJob(call, sourceFile);
+    case "httpRoute":
+      return extractHttpRoute(call, sourceFile);
+    case "defineEvent":
+      return extractDefineEvent(call, sourceFile);
+    case "eventMigration":
+      return extractEventMigration(call, sourceFile);
+    case "notification":
+      return extractNotification(call, sourceFile);
+    case "projection":
+      return extractProjection(call, sourceFile);
+    case "multiStreamProjection":
+      return extractMultiStreamProjection(call, sourceFile);
+    case "screen":
+      return extractScreen(call, sourceFile);
+    // Round 5 — opaque patterns
+    case "extendsRegistrar":
+      return extractExtendsRegistrar(call, sourceFile);
+    // Unknown method — UnknownPattern signal so Designer/AI surface it
+    // as "custom call" without losing the source location.
     default:
       return {
         kind: "pattern",

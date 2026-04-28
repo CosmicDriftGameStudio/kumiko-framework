@@ -565,3 +565,323 @@ defineFeature("f", (r) => {
     });
   });
 });
+
+// =============================================================================
+// Round 4 extractors — mixed patterns (header data + opaque body source)
+// =============================================================================
+
+describe("extractHook", () => {
+  test("captures hookType, target and the function body", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postSave", "task", (event, ctx) => { console.log(event); });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "hook",
+      hookType: "postSave",
+      target: "task",
+    });
+    const fnBody = (result.patterns[0] as { fnBody?: { raw: string } } | undefined)?.fnBody;
+    expect(fnBody?.raw).toContain("(event, ctx)");
+  });
+
+  test("captures the optional phase from the options object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postSave", "task", (event, ctx) => {}, { phase: "afterCommit" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({ kind: "hook", phase: "afterCommit" });
+  });
+
+  test("rejects an unknown hook type", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postCommit", "task", () => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
+  });
+});
+
+describe("extractEntityHook", () => {
+  test("captures hookType, entity and the function body", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entityHook("postSave", "task", (event, ctx) => {});
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "entityHook",
+      hookType: "postSave",
+      entityName: "task",
+    });
+  });
+
+  test("rejects validation as entity-hook type (only postSave/preDelete/postDelete allowed)", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entityHook("validation", "task", () => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("entityHook");
+  });
+});
+
+describe("extractAuthClaims", () => {
+  test("captures the function body as a SourceLocation", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.authClaims(async (user, ctx) => ({ teamId: "t1" }));
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({ kind: "authClaims" });
+  });
+});
+
+describe("extractWriteHandler", () => {
+  test("inline form: name, schema, handler, options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.writeHandler("task:create", z.object({ title: z.string() }), async (event, ctx) => {
+    return { isSuccess: true, data: {} };
+  }, { access: { roles: ["admin"] } });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: "task:create",
+      access: { roles: ["admin"] },
+    });
+  });
+
+  test("object form: defineWriteHandler shape", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "task:approve",
+    schema: z.object({ id: z.string() }),
+    handler: async (event, ctx) => ({ isSuccess: true, data: {} }),
+    access: { openToAll: true },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: "task:approve",
+      access: { openToAll: true },
+    });
+  });
+});
+
+describe("extractQueryHandler", () => {
+  test("inline form returns kind=queryHandler", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.queryHandler("task:list", z.object({}), async (q, ctx) => []);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "queryHandler",
+      handlerName: "task:list",
+    });
+  });
+});
+
+describe("extractJob", () => {
+  test("captures jobName, options and handler body", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.job("daily-cleanup", { trigger: { cron: "0 3 * * *" } }, async (ctx) => {});
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "job",
+      jobName: "daily-cleanup",
+    });
+  });
+});
+
+describe("extractHttpRoute", () => {
+  test("captures method, path, anonymous, handler", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.httpRoute({
+    method: "GET",
+    path: "/feed.xml",
+    anonymous: true,
+    handler: async (c) => new Response("ok"),
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "httpRoute",
+      method: "GET",
+      path: "/feed.xml",
+      anonymous: true,
+    });
+  });
+});
+
+describe("extractDefineEvent", () => {
+  test("captures eventName + version", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent("incidentOpened", z.object({ id: z.string() }), { version: 2 });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "defineEvent",
+      eventName: "incidentOpened",
+      version: 2,
+    });
+  });
+});
+
+describe("extractEventMigration", () => {
+  test("captures fromVersion / toVersion / transform body", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.eventMigration("incidentOpened", 1, 2, (payload) => ({ ...payload, severity: "low" }));
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "eventMigration",
+      eventName: "incidentOpened",
+      fromVersion: 1,
+      toVersion: 2,
+    });
+  });
+});
+
+describe("extractNotification", () => {
+  test("captures trigger + recipient + data bodies", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.notification("incidentOpened", {
+    trigger: { on: "incident:create" },
+    recipient: (event) => ({ tenant: event.tenantId }),
+    data: (event) => ({ id: event.id }),
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "notification",
+      notificationName: "incidentOpened",
+      trigger: { on: "incident:create" },
+    });
+  });
+});
+
+describe("extractProjection", () => {
+  test("captures name, sourceEntity, applyBodies map", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.projection({
+    name: "task-counter",
+    source: "task",
+    table: taskCounter,
+    apply: {
+      "task.created": async (event, tx) => {},
+      "task.updated": async (event, tx) => {},
+    },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "projection",
+      name: "task-counter",
+      sourceEntity: "task",
+    });
+    const applyBodies = (result.patterns[0] as { applyBodies?: Record<string, unknown> } | undefined)
+      ?.applyBodies;
+    expect(Object.keys(applyBodies ?? {})).toEqual(["task.created", "task.updated"]);
+  });
+});
+
+describe("extractMultiStreamProjection", () => {
+  test("captures name + applyBodies + delivery", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.multiStreamProjection({
+    name: "audit-log",
+    apply: {
+      "task.created": async (event, tx, ctx) => {},
+    },
+    delivery: "shared",
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "multiStreamProjection",
+      name: "audit-log",
+      delivery: "shared",
+    });
+  });
+});
+
+describe("extractScreen", () => {
+  test("captures static layout and reports closure props as opaque", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.screen({
+    id: "task-list",
+    type: "entityList",
+    entity: "task",
+    columns: ["title", "status"],
+    rowActions: [
+      {
+        id: "edit",
+        label: "Edit",
+        handler: "task:update",
+        visible: (row) => row.status !== "done",
+      },
+    ],
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "screen",
+    });
+    const opaque = (result.patterns[0] as { opaqueProps?: Record<string, unknown> } | undefined)
+      ?.opaqueProps;
+    expect(Object.keys(opaque ?? {})).toContain("rowActions.0.visible");
+  });
+});
+
+// =============================================================================
+// Round 5 extractors — opaque patterns
+// =============================================================================
+
+describe("extractExtendsRegistrar", () => {
+  test("captures extension name + opaque def body", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.extendsRegistrar("audit", { hooks: { postSave: () => {} } });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "extendsRegistrar",
+      extensionName: "audit",
+    });
+  });
+});

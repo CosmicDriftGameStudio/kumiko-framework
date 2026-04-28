@@ -23,32 +23,59 @@
 
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { ConfigKeyDefinition, ConfigKeyType, TranslationKeys } from "../types/config";
+import type { LifecycleHookType } from "../constants";
+import type {
+  ConfigKeyDefinition,
+  ConfigKeyType,
+  JobDefinition,
+  RunIn,
+  TranslationKeys,
+} from "../types/config";
 import type { MetricOptions, SecretOptions } from "../types/feature";
 import type { EntityDefinition } from "../types/fields";
-import type { ClaimKeyType } from "../types/handlers";
+import type { AccessRule, ClaimKeyType, RateLimitOption } from "../types/handlers";
+import type { HookPhase } from "../types/hooks";
+import type { HttpRouteMethod } from "../types/http-route";
 import type { NavDefinition } from "../types/nav";
+import type { MspErrorMode } from "../types/projection";
 import type { RelationDefinition } from "../types/relations";
+import type { ScreenDefinition } from "../types/screen";
 import type { WorkspaceDefinition } from "../types/workspace";
 import type { ParseError } from "./parse";
 import type {
+  AuthClaimsPattern,
   ClaimKeyPattern,
   ConfigPattern,
+  DefineEventPattern,
+  EntityHookPattern,
   EntityPattern,
+  EventMigrationPattern,
+  ExtendsRegistrarPattern,
+  HookPattern,
+  HttpRoutePattern,
+  JobPattern,
   MetricPattern,
+  MultiStreamProjectionPattern,
   NavPattern,
+  NotificationPattern,
+  OpaquePropMap,
   OptionalRequiresPattern,
+  ProjectionPattern,
+  QueryHandlerPattern,
   ReadsConfigPattern,
   ReferenceDataPattern,
   RelationPattern,
   RequiresPattern,
+  ScreenPattern,
   SecretPattern,
   SystemScopePattern,
   ToggleablePattern,
   TranslationsPattern,
   UseExtensionPattern,
   WorkspacePattern,
+  WriteHandlerPattern,
 } from "./patterns";
+import type { SourceLocation } from "./source-location";
 import { sourceLocationFromNode } from "./source-location";
 
 // =============================================================================
@@ -170,7 +197,7 @@ function readJsonLikeNode(node: Node): unknown {
         if (!initializer) return undefined;
         const value = readJsonLikeNode(initializer);
         if (value === undefined) return undefined;
-        out[propAssign.getName()] = value;
+        out[readPropertyKey(propAssign)] = value;
       }
       return out;
     }
@@ -189,6 +216,21 @@ function readJsonLikeNode(node: Node): unknown {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Read a PropertyAssignment's key as the unquoted string. ts-morph's
+ * getName() returns the source text including quote chars for keys like
+ * `"task.created"`; we strip them so consumers see the same literal
+ * value whether the author used identifier or string-key form.
+ */
+function readPropertyKey(
+  propAssign: import("ts-morph").PropertyAssignment,
+): string {
+  const nameNode = propAssign.getNameNode();
+  const literal = nameNode.asKind(SyntaxKind.StringLiteral);
+  if (literal) return literal.getLiteralValue();
+  return propAssign.getName();
 }
 
 /**
@@ -211,11 +253,11 @@ function readNameOrRef(node: Node): string | undefined {
  * registered by passing a const reference, for example, won't be
  * resolved statically).
  */
-function _findFunctionLiteral(node: Node): Node | undefined {
+function findFunctionLiteral(node: Node): Node | undefined {
   if (node.getKind() === SyntaxKind.ArrowFunction) return node;
   if (node.getKind() === SyntaxKind.FunctionExpression) return node;
   const paren = node.asKind(SyntaxKind.ParenthesizedExpression);
-  if (paren) return _findFunctionLiteral(paren.getExpression());
+  if (paren) return findFunctionLiteral(paren.getExpression());
   return undefined;
 }
 
@@ -223,7 +265,7 @@ function _findFunctionLiteral(node: Node): Node | undefined {
  * Read a NameOrRef argument or an array of them. Returns either the
  * single string or the list. undefined when neither shape matches.
  */
-function _readNameOrRefOrList(node: Node): string | readonly string[] | undefined {
+function readNameOrRefOrList(node: Node): string | readonly string[] | undefined {
   const single = readNameOrRef(node);
   if (single) return single;
   const arr = node.asKind(SyntaxKind.ArrayLiteralExpression);
@@ -822,5 +864,971 @@ export function extractUseExtension(
     extensionName: nameArg.getLiteralValue(),
     entityName,
     ...(options !== undefined && { options }),
+  });
+}
+
+// =============================================================================
+// Round 4 — mixed patterns (header data + opaque body source)
+//
+// Each extractor reads the static parts (name, type, target) declaratively
+// and captures any closure / Zod-schema as a SourceLocation pointing at
+// the raw source span. Designer renders the body as a read-only block;
+// the AI patcher overwrites the span verbatim.
+//
+// Closure detection: findFunctionLiteral matches an inline arrow function
+// or function expression. A captured-const reference (e.g. r.hook(...,
+// myHandler)) is rejected with a ParseError — those need to be inlined.
+// =============================================================================
+
+function isHookType(value: string): value is LifecycleHookType | "validation" {
+  return (
+    value === "preSave" ||
+    value === "postSave" ||
+    value === "preDelete" ||
+    value === "postDelete" ||
+    value === "preQuery" ||
+    value === "validation"
+  );
+}
+
+function readOptionalPhase(node: Node | undefined): HookPhase | undefined {
+  if (!node) return undefined;
+  const obj = readJsonLikeNode(node);
+  if (!isPlainObject(obj)) return undefined;
+  const phase = obj["phase"];
+  if (phase === "inTransaction" || phase === "afterCommit") return phase as HookPhase;
+  return undefined;
+}
+
+function readOptionalAccessRule(value: unknown): AccessRule | undefined {
+  if (!isPlainObject(value)) return undefined;
+  if (Array.isArray(value["roles"]) && value["roles"].every((r) => typeof r === "string")) {
+    return { roles: value["roles"] as readonly string[] };
+  }
+  if (value["openToAll"] === true) {
+    return { openToAll: true };
+  }
+  return undefined;
+}
+
+function readOptionalRateLimit(value: unknown): RateLimitOption | undefined {
+  if (!isPlainObject(value)) return undefined;
+  if (typeof value["per"] !== "string") return undefined;
+  if (typeof value["limit"] !== "number") return undefined;
+  if (typeof value["windowSeconds"] !== "number") return undefined;
+  return value as unknown as RateLimitOption;
+}
+
+export function extractHook(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<HookPattern> {
+  const args = call.getArguments();
+  const typeArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!typeArg) {
+    return fail(
+      "hook",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal hook type",
+    );
+  }
+  const hookType = typeArg.getLiteralValue();
+  if (!isHookType(hookType)) {
+    return fail(
+      "hook",
+      sourceLocationFromNode(call, sourceFile),
+      `hook type "${hookType}" is not one of the lifecycle types or "validation"`,
+    );
+  }
+  const targetArg = args[1];
+  if (!targetArg) {
+    return fail(
+      "hook",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a target (NameOrRef or array) as second argument",
+    );
+  }
+  const target = readNameOrRefOrList(targetArg);
+  if (!target) {
+    return fail(
+      "hook",
+      sourceLocationFromNode(call, sourceFile),
+      "target must be a string literal, an inline { name } object, or an array",
+    );
+  }
+  const fnArg = args[2];
+  if (!fnArg) {
+    return fail(
+      "hook",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a hook function as third argument",
+    );
+  }
+  const fn = findFunctionLiteral(fnArg);
+  if (!fn) {
+    return fail(
+      "hook",
+      sourceLocationFromNode(call, sourceFile),
+      "third argument must be an inline arrow function or function expression",
+    );
+  }
+  const phase = readOptionalPhase(args[3]);
+  return ok({
+    kind: "hook",
+    source: sourceLocationFromNode(call, sourceFile),
+    hookType,
+    target,
+    fnBody: sourceLocationFromNode(fn, sourceFile),
+    ...(phase !== undefined && { phase }),
+  });
+}
+
+export function extractEntityHook(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<EntityHookPattern> {
+  const args = call.getArguments();
+  const typeArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!typeArg) {
+    return fail(
+      "entityHook",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal hook type",
+    );
+  }
+  const hookType = typeArg.getLiteralValue();
+  if (hookType !== "postSave" && hookType !== "preDelete" && hookType !== "postDelete") {
+    return fail(
+      "entityHook",
+      sourceLocationFromNode(call, sourceFile),
+      `entity hook type must be postSave, preDelete, or postDelete (got "${hookType}")`,
+    );
+  }
+  const entityArg = args[1];
+  if (!entityArg) {
+    return fail(
+      "entityHook",
+      sourceLocationFromNode(call, sourceFile),
+      "expected an entity reference as second argument",
+    );
+  }
+  const entityName = readNameOrRef(entityArg);
+  if (!entityName) {
+    return fail(
+      "entityHook",
+      sourceLocationFromNode(call, sourceFile),
+      "second argument must be a string literal or inline { name } object",
+    );
+  }
+  const fnArg = args[2];
+  if (!fnArg) {
+    return fail(
+      "entityHook",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a hook function as third argument",
+    );
+  }
+  const fn = findFunctionLiteral(fnArg);
+  if (!fn) {
+    return fail(
+      "entityHook",
+      sourceLocationFromNode(call, sourceFile),
+      "third argument must be an inline arrow function or function expression",
+    );
+  }
+  const phase = readOptionalPhase(args[3]);
+  return ok({
+    kind: "entityHook",
+    source: sourceLocationFromNode(call, sourceFile),
+    hookType,
+    entityName,
+    fnBody: sourceLocationFromNode(fn, sourceFile),
+    ...(phase !== undefined && { phase }),
+  });
+}
+
+export function extractAuthClaims(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<AuthClaimsPattern> {
+  const arg = call.getArguments()[0];
+  if (!arg) {
+    return fail(
+      "authClaims",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a function as first argument",
+    );
+  }
+  const fn = findFunctionLiteral(arg);
+  if (!fn) {
+    return fail(
+      "authClaims",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be an inline arrow function or function expression",
+    );
+  }
+  return ok({
+    kind: "authClaims",
+    source: sourceLocationFromNode(call, sourceFile),
+    fnBody: sourceLocationFromNode(fn, sourceFile),
+  });
+}
+
+// Shared inline form: r.<method>(name, schema, handler, options?). We
+// also accept the object form r.<method>({ name, schema, handler, ... })
+// (defineWriteHandler / defineQueryHandler shape) — common in samples.
+function extractHandlerLike(
+  call: CallExpression,
+  sourceFile: SourceFile,
+  methodName: "writeHandler" | "queryHandler",
+): ExtractOutput<WriteHandlerPattern> {
+  const args = call.getArguments();
+  const first = args[0];
+  if (!first) {
+    return fail(
+      methodName,
+      sourceLocationFromNode(call, sourceFile),
+      "expected at least one argument",
+    );
+  }
+
+  // Object form: a single { name, schema, handler, ... } literal.
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const nameLiteral = obj
+      .getProperty("name")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!nameLiteral) {
+      return fail(
+        methodName,
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `name` property",
+      );
+    }
+    const schemaInit = obj
+      .getProperty("schema")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!schemaInit) {
+      return fail(
+        methodName,
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a `schema` property",
+      );
+    }
+    const handlerInit = obj
+      .getProperty("handler")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!handlerInit) {
+      return fail(
+        methodName,
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a `handler` property",
+      );
+    }
+    const fn = findFunctionLiteral(handlerInit);
+    if (!fn) {
+      return fail(
+        methodName,
+        sourceLocationFromNode(call, sourceFile),
+        "handler must be an inline arrow function or function expression",
+      );
+    }
+    const accessInit = obj
+      .getProperty("access")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    const access = accessInit
+      ? readOptionalAccessRule(readJsonLikeNode(accessInit))
+      : undefined;
+    const rateLimitInit = obj
+      .getProperty("rateLimit")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    const rateLimit = rateLimitInit
+      ? readOptionalRateLimit(readJsonLikeNode(rateLimitInit))
+      : undefined;
+    const skip = readBooleanProperty(obj, "skipTransitionGuard");
+    return ok({
+      kind: "writeHandler",
+      source: sourceLocationFromNode(call, sourceFile),
+      handlerName: nameLiteral.getLiteralValue(),
+      schemaSource: sourceLocationFromNode(schemaInit, sourceFile),
+      handlerBody: sourceLocationFromNode(fn, sourceFile),
+      ...(access !== undefined && { access }),
+      ...(rateLimit !== undefined && { rateLimit }),
+      ...(skip === true && { skipTransitionGuard: true }),
+    });
+  }
+
+  // Inline form: (name, schema, handler, options?).
+  const nameLiteral = first.asKind(SyntaxKind.StringLiteral);
+  if (!nameLiteral) {
+    return fail(
+      methodName,
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal handler name (or use the object form)",
+    );
+  }
+  const schemaArg = args[1];
+  if (!schemaArg) {
+    return fail(
+      methodName,
+      sourceLocationFromNode(call, sourceFile),
+      "expected a Zod schema as second argument",
+    );
+  }
+  const handlerArg = args[2];
+  if (!handlerArg) {
+    return fail(
+      methodName,
+      sourceLocationFromNode(call, sourceFile),
+      "expected a handler function as third argument",
+    );
+  }
+  const fn = findFunctionLiteral(handlerArg);
+  if (!fn) {
+    return fail(
+      methodName,
+      sourceLocationFromNode(call, sourceFile),
+      "third argument must be an inline arrow function or function expression",
+    );
+  }
+  const optionsArg = args[3];
+  let access: AccessRule | undefined;
+  let rateLimit: RateLimitOption | undefined;
+  if (optionsArg) {
+    const options = readJsonLikeNode(optionsArg);
+    if (isPlainObject(options)) {
+      access = readOptionalAccessRule(options["access"]);
+      rateLimit = readOptionalRateLimit(options["rateLimit"]);
+    }
+  }
+  return ok({
+    kind: "writeHandler",
+    source: sourceLocationFromNode(call, sourceFile),
+    handlerName: nameLiteral.getLiteralValue(),
+    schemaSource: sourceLocationFromNode(schemaArg, sourceFile),
+    handlerBody: sourceLocationFromNode(fn, sourceFile),
+    ...(access !== undefined && { access }),
+    ...(rateLimit !== undefined && { rateLimit }),
+  });
+}
+
+export function extractWriteHandler(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<WriteHandlerPattern> {
+  return extractHandlerLike(call, sourceFile, "writeHandler");
+}
+
+export function extractQueryHandler(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<QueryHandlerPattern> {
+  const result = extractHandlerLike(call, sourceFile, "queryHandler");
+  if (result.kind === "error") return result;
+  // QueryHandler has no skipTransitionGuard — drop it from the shared shape.
+  const { skipTransitionGuard: _skip, ...rest } = result.pattern;
+  void _skip;
+  return ok({ ...rest, kind: "queryHandler" });
+}
+
+export function extractJob(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<JobPattern> {
+  const args = call.getArguments();
+  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!nameArg) {
+    return fail(
+      "job",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal job name",
+    );
+  }
+  const optionsArg = args[1];
+  if (!optionsArg) {
+    return fail(
+      "job",
+      sourceLocationFromNode(call, sourceFile),
+      "expected an options object as second argument",
+    );
+  }
+  const options = readJsonLikeNode(optionsArg);
+  if (!isPlainObject(options)) {
+    return fail(
+      "job",
+      sourceLocationFromNode(call, sourceFile),
+      "options could not be read as a plain object",
+    );
+  }
+  const handlerArg = args[2];
+  if (!handlerArg) {
+    return fail(
+      "job",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a handler function as third argument",
+    );
+  }
+  const fn = findFunctionLiteral(handlerArg);
+  if (!fn) {
+    return fail(
+      "job",
+      sourceLocationFromNode(call, sourceFile),
+      "third argument must be an inline arrow function or function expression",
+    );
+  }
+  return ok({
+    kind: "job",
+    source: sourceLocationFromNode(call, sourceFile),
+    jobName: nameArg.getLiteralValue(),
+    options: options as Omit<JobDefinition, "name" | "handler">,
+    handlerBody: sourceLocationFromNode(fn, sourceFile),
+  });
+}
+
+export function extractHttpRoute(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<HttpRoutePattern> {
+  const arg = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!arg) {
+    return fail(
+      "httpRoute",
+      sourceLocationFromNode(call, sourceFile),
+      "argument must be an inline HttpRouteDefinition object",
+    );
+  }
+  const methodLiteral = arg
+    .getProperty("method")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  if (!methodLiteral) {
+    return fail(
+      "httpRoute",
+      sourceLocationFromNode(call, sourceFile),
+      "method must be a string literal",
+    );
+  }
+  const pathLiteral = arg
+    .getProperty("path")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  if (!pathLiteral) {
+    return fail(
+      "httpRoute",
+      sourceLocationFromNode(call, sourceFile),
+      "path must be a string literal",
+    );
+  }
+  const handlerInit = arg
+    .getProperty("handler")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  if (!handlerInit) {
+    return fail(
+      "httpRoute",
+      sourceLocationFromNode(call, sourceFile),
+      "missing `handler` property",
+    );
+  }
+  const fn = findFunctionLiteral(handlerInit);
+  if (!fn) {
+    return fail(
+      "httpRoute",
+      sourceLocationFromNode(call, sourceFile),
+      "handler must be an inline arrow function or function expression",
+    );
+  }
+  const anonymous = readBooleanProperty(arg, "anonymous");
+  return ok({
+    kind: "httpRoute",
+    source: sourceLocationFromNode(call, sourceFile),
+    method: methodLiteral.getLiteralValue() as HttpRouteMethod,
+    path: pathLiteral.getLiteralValue(),
+    handlerBody: sourceLocationFromNode(fn, sourceFile),
+    ...(anonymous === true && { anonymous: true }),
+  });
+}
+
+export function extractDefineEvent(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<DefineEventPattern> {
+  const args = call.getArguments();
+  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!nameArg) {
+    return fail(
+      "defineEvent",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal event name",
+    );
+  }
+  const schemaArg = args[1];
+  if (!schemaArg) {
+    return fail(
+      "defineEvent",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a Zod schema as second argument",
+    );
+  }
+  let version: number | undefined;
+  const optionsArg = args[2];
+  if (optionsArg) {
+    const options = readJsonLikeNode(optionsArg);
+    if (isPlainObject(options) && typeof options["version"] === "number") {
+      version = options["version"];
+    }
+  }
+  return ok({
+    kind: "defineEvent",
+    source: sourceLocationFromNode(call, sourceFile),
+    eventName: nameArg.getLiteralValue(),
+    schemaSource: sourceLocationFromNode(schemaArg, sourceFile),
+    ...(version !== undefined && { version }),
+  });
+}
+
+export function extractEventMigration(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<EventMigrationPattern> {
+  const args = call.getArguments();
+  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!nameArg) {
+    return fail(
+      "eventMigration",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal event name",
+    );
+  }
+  const fromArg = args[1];
+  const fromVersion = fromArg ? readJsonLikeNode(fromArg) : undefined;
+  if (typeof fromVersion !== "number") {
+    return fail(
+      "eventMigration",
+      sourceLocationFromNode(call, sourceFile),
+      "fromVersion must be a numeric literal",
+    );
+  }
+  const toArg = args[2];
+  const toVersion = toArg ? readJsonLikeNode(toArg) : undefined;
+  if (typeof toVersion !== "number") {
+    return fail(
+      "eventMigration",
+      sourceLocationFromNode(call, sourceFile),
+      "toVersion must be a numeric literal",
+    );
+  }
+  const transformArg = args[3];
+  if (!transformArg) {
+    return fail(
+      "eventMigration",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a transform function as fourth argument",
+    );
+  }
+  const fn = findFunctionLiteral(transformArg);
+  if (!fn) {
+    return fail(
+      "eventMigration",
+      sourceLocationFromNode(call, sourceFile),
+      "transform must be an inline arrow function or function expression",
+    );
+  }
+  return ok({
+    kind: "eventMigration",
+    source: sourceLocationFromNode(call, sourceFile),
+    eventName: nameArg.getLiteralValue(),
+    fromVersion,
+    toVersion,
+    transformBody: sourceLocationFromNode(fn, sourceFile),
+  });
+}
+
+export function extractNotification(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<NotificationPattern> {
+  const args = call.getArguments();
+  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!nameArg) {
+    return fail(
+      "notification",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal notification name",
+    );
+  }
+  const defObj = args[1]?.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!defObj) {
+    return fail(
+      "notification",
+      sourceLocationFromNode(call, sourceFile),
+      "second argument must be an inline definition object",
+    );
+  }
+  const triggerObj = defObj
+    .getProperty("trigger")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!triggerObj) {
+    return fail(
+      "notification",
+      sourceLocationFromNode(call, sourceFile),
+      "missing or non-object `trigger` property",
+    );
+  }
+  const onInit = triggerObj
+    .getProperty("on")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  const onName = onInit ? readNameOrRef(onInit) : undefined;
+  if (!onName) {
+    return fail(
+      "notification",
+      sourceLocationFromNode(call, sourceFile),
+      "trigger.on must be a string literal or inline { name } object",
+    );
+  }
+  const recipientInit = defObj
+    .getProperty("recipient")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  const recipientFn = recipientInit ? findFunctionLiteral(recipientInit) : undefined;
+  if (!recipientFn) {
+    return fail(
+      "notification",
+      sourceLocationFromNode(call, sourceFile),
+      "recipient must be an inline arrow function or function expression",
+    );
+  }
+  const dataInit = defObj
+    .getProperty("data")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  const dataFn = dataInit ? findFunctionLiteral(dataInit) : undefined;
+  if (!dataFn) {
+    return fail(
+      "notification",
+      sourceLocationFromNode(call, sourceFile),
+      "data must be an inline arrow function or function expression",
+    );
+  }
+  let templates: Record<string, SourceLocation> | undefined;
+  const templatesObj = defObj
+    .getProperty("templates")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (templatesObj) {
+    templates = {};
+    for (const prop of templatesObj.getProperties()) {
+      const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
+      if (!propAssign) continue;
+      const init = propAssign.getInitializer();
+      if (!init) continue;
+      const tfn = findFunctionLiteral(init);
+      if (!tfn) continue;
+      templates[readPropertyKey(propAssign)] = sourceLocationFromNode(tfn, sourceFile);
+    }
+  }
+  return ok({
+    kind: "notification",
+    source: sourceLocationFromNode(call, sourceFile),
+    notificationName: nameArg.getLiteralValue(),
+    trigger: { on: onName },
+    recipientBody: sourceLocationFromNode(recipientFn, sourceFile),
+    dataBody: sourceLocationFromNode(dataFn, sourceFile),
+    ...(templates !== undefined && { templates }),
+  });
+}
+
+// Read an `apply: { eventType: fn }` map from a projection-definition object.
+function readApplyBodies(
+  defObj: ReturnType<Node["asKind"]>,
+  sourceFile: SourceFile,
+): Record<string, SourceLocation> | undefined {
+  if (!defObj) return undefined;
+  const obj = defObj.asKind?.(SyntaxKind.ObjectLiteralExpression);
+  if (!obj) return undefined;
+  const applyObj = obj
+    .getProperty("apply")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!applyObj) return undefined;
+  const out: Record<string, SourceLocation> = {};
+  for (const prop of applyObj.getProperties()) {
+    const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
+    if (!propAssign) return undefined;
+    const init = propAssign.getInitializer();
+    if (!init) return undefined;
+    const fn = findFunctionLiteral(init);
+    if (!fn) return undefined;
+    out[readPropertyKey(propAssign)] = sourceLocationFromNode(fn, sourceFile);
+  }
+  return out;
+}
+
+export function extractProjection(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<ProjectionPattern> {
+  const arg = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!arg) {
+    return fail(
+      "projection",
+      sourceLocationFromNode(call, sourceFile),
+      "argument must be an inline ProjectionDefinition object",
+    );
+  }
+  const nameLit = arg
+    .getProperty("name")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  if (!nameLit) {
+    return fail(
+      "projection",
+      sourceLocationFromNode(call, sourceFile),
+      "name must be a string literal",
+    );
+  }
+  const sourceInit = arg
+    .getProperty("source")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  if (!sourceInit) {
+    return fail(
+      "projection",
+      sourceLocationFromNode(call, sourceFile),
+      "missing `source` property",
+    );
+  }
+  const sourceEntity = readNameOrRefOrList(sourceInit);
+  if (!sourceEntity) {
+    return fail(
+      "projection",
+      sourceLocationFromNode(call, sourceFile),
+      "source must be a string literal or array of string literals",
+    );
+  }
+  const applyBodies = readApplyBodies(arg, sourceFile);
+  if (!applyBodies) {
+    return fail(
+      "projection",
+      sourceLocationFromNode(call, sourceFile),
+      "apply must be an inline object map of event-type → function",
+    );
+  }
+  return ok({
+    kind: "projection",
+    source: sourceLocationFromNode(call, sourceFile),
+    name: nameLit.getLiteralValue(),
+    sourceEntity,
+    applyBodies,
+  });
+}
+
+export function extractMultiStreamProjection(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<MultiStreamProjectionPattern> {
+  const arg = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!arg) {
+    return fail(
+      "multiStreamProjection",
+      sourceLocationFromNode(call, sourceFile),
+      "argument must be an inline MultiStreamProjectionDefinition object",
+    );
+  }
+  const nameLit = arg
+    .getProperty("name")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  if (!nameLit) {
+    return fail(
+      "multiStreamProjection",
+      sourceLocationFromNode(call, sourceFile),
+      "name must be a string literal",
+    );
+  }
+  const applyBodies = readApplyBodies(arg, sourceFile);
+  if (!applyBodies) {
+    return fail(
+      "multiStreamProjection",
+      sourceLocationFromNode(call, sourceFile),
+      "apply must be an inline object map of event-type → function",
+    );
+  }
+  const errorModeInit = arg
+    .getProperty("errorMode")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  const errorMode = errorModeInit ? readJsonLikeNode(errorModeInit) : undefined;
+  const runInLit = arg
+    .getProperty("runIn")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  const runIn = runInLit ? (runInLit.getLiteralValue() as RunIn) : undefined;
+  const deliveryLit = arg
+    .getProperty("delivery")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  const delivery = deliveryLit
+    ? (deliveryLit.getLiteralValue() as "shared" | "per-instance")
+    : undefined;
+  return ok({
+    kind: "multiStreamProjection",
+    source: sourceLocationFromNode(call, sourceFile),
+    name: nameLit.getLiteralValue(),
+    applyBodies,
+    ...(isPlainObject(errorMode) && { errorMode: errorMode as MspErrorMode }),
+    ...(runIn !== undefined && { runIn }),
+    ...(delivery !== undefined && { delivery }),
+  });
+}
+
+// Walk the screen definition and collect every closure-typed property
+// as a JSON-path → SourceLocation entry. The Designer renders forms for
+// the rest of the definition; the AI patcher knows it can replace the
+// span at the listed paths without touching surrounding fields.
+function collectScreenOpaqueProps(
+  node: Node,
+  path: string,
+  sourceFile: SourceFile,
+  out: Record<string, SourceLocation>,
+): void {
+  if (findFunctionLiteral(node)) {
+    out[path] = sourceLocationFromNode(findFunctionLiteral(node) as Node, sourceFile);
+    return;
+  }
+  const obj = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj) {
+    for (const prop of obj.getProperties()) {
+      const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
+      if (!propAssign) continue;
+      const init = propAssign.getInitializer();
+      if (!init) continue;
+      const key = readPropertyKey(propAssign);
+      const childPath = path ? `${path}.${key}` : key;
+      collectScreenOpaqueProps(init, childPath, sourceFile, out);
+    }
+    return;
+  }
+  const arr = node.asKind(SyntaxKind.ArrayLiteralExpression);
+  if (arr) {
+    arr.getElements().forEach((el, idx) => {
+      collectScreenOpaqueProps(el, `${path}.${idx}`, sourceFile, out);
+    });
+  }
+}
+
+// Walk a screen-definition object and produce a JSON view, replacing any
+// closure-typed property with the marker `"<opaque>"`. Identifiers and
+// other non-readable nodes also become `"<opaque>"` so the static tree
+// stays serialisable while pointing the Designer at opaqueProps for the
+// real source span.
+function readScreenStatic(node: Node): unknown {
+  if (findFunctionLiteral(node)) return "<opaque>";
+  const obj = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj) {
+    const out: Record<string, unknown> = {};
+    for (const prop of obj.getProperties()) {
+      const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
+      if (!propAssign) continue;
+      const init = propAssign.getInitializer();
+      if (!init) continue;
+      out[readPropertyKey(propAssign)] = readScreenStatic(init);
+    }
+    return out;
+  }
+  const arr = node.asKind(SyntaxKind.ArrayLiteralExpression);
+  if (arr) {
+    return arr.getElements().map(readScreenStatic);
+  }
+  const value = readJsonLikeNode(node);
+  if (value === undefined) return "<opaque>";
+  return value;
+}
+
+export function extractScreen(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<ScreenPattern> {
+  const arg = call.getArguments()[0];
+  if (!arg) {
+    return fail(
+      "screen",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a ScreenDefinition object as first argument",
+    );
+  }
+  const obj = arg.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!obj) {
+    return fail(
+      "screen",
+      sourceLocationFromNode(call, sourceFile),
+      "argument must be an inline object literal",
+    );
+  }
+  const opaqueProps: Record<string, SourceLocation> = {};
+  collectScreenOpaqueProps(obj, "", sourceFile, opaqueProps);
+  const definition = readScreenStatic(obj);
+  if (!isPlainObject(definition)) {
+    return fail(
+      "screen",
+      sourceLocationFromNode(call, sourceFile),
+      "definition could not be read structurally",
+    );
+  }
+  return ok({
+    kind: "screen",
+    source: sourceLocationFromNode(call, sourceFile),
+    definition: definition as ScreenDefinition,
+    opaqueProps: opaqueProps as OpaquePropMap,
+  });
+}
+
+// =============================================================================
+// Round 5 — opaque patterns (no static header beyond a name)
+// =============================================================================
+
+export function extractExtendsRegistrar(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<ExtendsRegistrarPattern> {
+  const args = call.getArguments();
+  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!nameArg) {
+    return fail(
+      "extendsRegistrar",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal extension name",
+    );
+  }
+  const defArg = args[1];
+  if (!defArg) {
+    return fail(
+      "extendsRegistrar",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a definition argument",
+    );
+  }
+  return ok({
+    kind: "extendsRegistrar",
+    source: sourceLocationFromNode(call, sourceFile),
+    extensionName: nameArg.getLiteralValue(),
+    defBody: sourceLocationFromNode(defArg, sourceFile),
   });
 }
