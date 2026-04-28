@@ -18,6 +18,7 @@ import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action
 import { useCustomScreenComponent } from "./custom-screens";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
+import { lastSegment } from "./qn";
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
 // routes it to the right renderer based on `screen.type`. Command
@@ -154,16 +155,9 @@ function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () =
 // Returns undefined wenn kein Edit-Screen registriert ist — RenderList
 // rendert dann keinen + Neu Button.
 //
-// Schema-Screens kommen mit qualifizierten ids
-// ("publicstatus:screen:component-edit") aus der Registry — buildAppSchema
-// reicht sie 1:1 durch. Für nav.navigate brauchen wir die Short-Form
-// ("component-edit"), sonst landet die URL bei /admin/publicstatus:screen:
-// component-edit und der Re-Lookup qualifiziert das ein zweites Mal.
-function lastSegment(qn: string): string {
-  const idx = qn.lastIndexOf(":");
-  return idx < 0 ? qn : qn.slice(idx + 1);
-}
-
+// Schema-Screens kommen mit qualifizierten ids ("publicstatus:screen:
+// component-edit") aus der Registry; lastSegment strippt den Prefix
+// für nav.navigate (siehe ./qn.ts für Doku).
 function useNavigateToCreateFor(
   schema: FeatureSchema,
   entityName: string,

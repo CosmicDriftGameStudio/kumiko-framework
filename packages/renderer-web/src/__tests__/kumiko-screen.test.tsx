@@ -910,4 +910,101 @@ describe("KumikoScreen", () => {
     );
     expect(screen.getByTestId("kumiko-screen-custom-placeholder")).toBeTruthy();
   });
+
+  // ------------------------------------------------------------------
+  // Auto-Navigate Targets — die drei Hooks im kumiko-screen-Renderer
+  // (useNavigateToCreateFor, useNavigateToListAfter, default
+  // onRowClick in create-app) ziehen `screenId` aus `schema.screens[].id`
+  // und reichen sie an `nav.navigate({ screenId })` durch. Heute hält
+  // die Registry SHORT-form-ids in `feature.screens` (siehe
+  // packages/framework/src/engine/registry.ts: feature.screens[shortId]
+  // = def). Falls dieser Vertrag jemals kippt (Registry stempelt QN-
+  // form ein), strippt `lastSegment` defensiv den Prefix — die Tests
+  // pinnen beide Pfade.
+  // ------------------------------------------------------------------
+
+  test("entityList + Neu-Button → navigiert mit screenId aus Schema", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const { NavProvider } = await import("@kumiko/renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={schema} qn="tasks:screen:task-list" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    fireEvent.click(screen.getByTestId("render-list-create"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    // Short-Form-id, nicht QN — sonst würde der Browser auf
+    // "/tasks:screen:task-edit" landen und der Re-Lookup würde
+    // doppelt-qualifizieren.
+    expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
+  });
+
+  test("Auto-Navigate ist defensiv: schema.screens.id mit Doppel-Punkt-Prefix wird gestrippt", async () => {
+    // Defense-in-Depth: falls die Registry irgendwann QN-form-ids in
+    // schema.screens stamped, würde useNavigateToCreateFor ohne
+    // lastSegment einen QN als screenId weiterreichen → URL doppelt-
+    // qualifiziert. Test simuliert diesen hypothetischen Fall.
+    const navigateCalls: { screenId: string }[] = [];
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    // Hypothetische QN-form Edit-id; List bleibt short, sonst findet
+    // KumikoScreen seine eigene List-Sicht nicht (qualifyScreenId
+    // arbeitet immer feature-prefix-style).
+    const editScreenQn: EntityEditScreenDefinition = {
+      ...editScreen,
+      id: "tasks:screen:task-edit",
+    };
+    const mixedSchema: FeatureSchema = {
+      ...schema,
+      screens: [editScreenQn, listScreen],
+    };
+
+    const { NavProvider } = await import("@kumiko/renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={mixedSchema} qn="tasks:screen:task-list" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    fireEvent.click(screen.getByTestId("render-list-create"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    // lastSegment hat den QN-Prefix gestrippt — ohne den Fix würde
+    // hier "tasks:screen:task-edit" stehen.
+    expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
+  });
 });

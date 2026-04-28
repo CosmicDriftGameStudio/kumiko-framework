@@ -15,7 +15,7 @@ import type { NavDefinition } from "@kumiko/framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@kumiko/headless";
 import { resolveNavigation } from "@kumiko/headless";
 import type { AppSchema, FeatureSchema } from "@kumiko/renderer";
-import { toAppSchema, useNav, useTranslation } from "@kumiko/renderer";
+import { lastSegment, toAppSchema, useNav, useTranslation } from "@kumiko/renderer";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { KumikoLink } from "../app/nav";
@@ -276,10 +276,6 @@ function qualifyScreenId(feature: string, id: string): string {
   return id.includes(":screen:") ? id : `${feature}:screen:${id}`;
 }
 
-// Strip qualifying prefix off a QN ("feature:nav:my-screen" → "my-screen").
-// Exported because workspace-shell builds nav targets from the same QN
-// shape and a duplicate copy would drift.
-export function lastSegment(qn: string): string {
-  const idx = qn.lastIndexOf(":");
-  return idx < 0 ? qn : qn.slice(idx + 1);
-}
+// `lastSegment` lebt jetzt in @kumiko/renderer (./app/qn) — eine
+// Quelle, beide Pakete teilen sie.
+export { lastSegment };

@@ -23,6 +23,7 @@ export { isAppSchema, toAppSchema } from "./app/feature-schema";
 export type { KumikoScreenProps } from "./app/kumiko-screen";
 export { KumikoScreen, qualifyScreenId } from "./app/kumiko-screen";
 export type { NavApi, NavProviderProps, NavRoute, NavTarget } from "./app/nav";
+export { lastSegment } from "./app/qn";
 export { formatPath, NavProvider, parsePath, useNav } from "./app/nav";
 export type { RenderEditProps } from "./components/render-edit";
 export { RenderEdit } from "./components/render-edit";
