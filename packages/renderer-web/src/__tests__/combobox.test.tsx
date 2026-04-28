@@ -140,6 +140,37 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect((screen.getByTestId("combobox-combo") as HTMLButtonElement).disabled).toBe(true);
   });
 
+  // Regression aus PublicStatus-Live-Debug: Multi-Mode + Remote-Search
+  // (= Reference-Field mit `multiple: true`) — Click auf Item hat im
+  // Browser nur Focus gesetzt, nicht onChange ausgelöst. Non-Remote
+  // Multi-Mode (Test oben) funktionierte, jeder andere Pfad auch — nur
+  // diese Kombination war kaputt.
+  test("multi-mode + remote-mode: Click auf Item → onChange mit erweitertem Array", async () => {
+    const user = userEvent.setup();
+    const changes: (readonly string[])[] = [];
+    render(
+      <ComboboxInput
+        id="combo"
+        name="combo"
+        value={[]}
+        onChange={(v) => changes.push(v as readonly string[])}
+        options={[
+          { value: "a", label: "Alpha" },
+          { value: "b", label: "Beta" },
+        ]}
+        multiple
+        // Remote-Mode: onSearchChange-Prop signalisiert "server-side
+        // filter", also das Pattern aus Reference-Inputs in Forms.
+        onSearchChange={() => {}}
+      />,
+    );
+    await user.click(screen.getByTestId("combobox-combo"));
+    const items = await screen.findAllByText("Beta");
+    await user.click(items[items.length - 1] as HTMLElement);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toEqual(["b"]);
+  });
+
   // Tier 2.7e Remote-Mode: typed-search-API.
   test("remote-mode: render mit onSearchChange + loading mountet ohne crash", () => {
     render(

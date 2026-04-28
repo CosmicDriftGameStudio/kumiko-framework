@@ -186,7 +186,22 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
         <ChevronDown className="h-4 w-4 opacity-50" />
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content className={popoverContentClass} align="start" sideOffset={4}>
+        <PopoverPrimitive.Content
+          className={popoverContentClass}
+          align="start"
+          sideOffset={4}
+          // Bug-Fix für Multi-Mode + Remote-Search (Reference-Field):
+          // ohne diesen Override kassierte Radix den pointer-down-outside-
+          // Handler beim Click auf cmdk-Items, der Popover schloss vor
+          // cmdk's onSelect → Click hat nur Focus gesetzt (sichtbar als
+          // data-selected="true"), aber keinen Toggle ausgelöst. Items
+          // sind technisch INSIDE der Content; die "outside"-Detection
+          // muss sie explizit ausschließen.
+          onPointerDownOutside={(e) => {
+            const target = e.target as HTMLElement | null;
+            if (target?.closest("[cmdk-item]") !== null) e.preventDefault();
+          }}
+        >
           <Command shouldFilter={!isRemote}>
             <div className="relative">
               <Command.Input
