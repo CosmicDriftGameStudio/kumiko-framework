@@ -12,6 +12,7 @@ import {
   serial,
   type TableColumns,
   text,
+  uniqueIndex,
   uuid,
 } from "./dialect";
 
@@ -27,6 +28,14 @@ type ColumnBuilder =
 
 // Returns column(s) for a field. Most fields return a single entry,
 // money returns two (amount + currency), files/images return none.
+//
+// `required: true` auf einem FieldDefinition mappt **immer** auf .notNull()
+// in der DB-Spalte. Die alte Implementation hat das nur für reference-
+// fields gemacht — text/select/number/etc. waren stillschweigend nullable
+// in der DB, auch wenn der API-Validator required erzwungen hat. Folge:
+// hand-written PgTable-Definitionen mussten daneben mit .notNull() pflegen,
+// was zu Doppel-Definitionen + Schema-Drift führte. Jetzt ist r.entity
+// die einzige Wahrheit.
 function fieldToColumns(
   name: string,
   field: FieldDefinition,
@@ -35,29 +44,38 @@ function fieldToColumns(
   const snakeName = toSnakeCase(name);
 
   switch (field.type) {
-    case "text":
-      return { [name]: text(snakeName) };
+    case "text": {
+      const col = text(snakeName);
+      return { [name]: field.required ? col.notNull() : col };
+    }
     case "boolean":
       return {
         [name]:
           field.default !== undefined
             ? boolean(snakeName).default(field.default).notNull()
-            : boolean(snakeName),
+            : field.required
+              ? boolean(snakeName).notNull()
+              : boolean(snakeName),
       };
-    case "select":
-      return { [name]: text(snakeName) };
+    case "select": {
+      const col = text(snakeName);
+      return { [name]: field.required ? col.notNull() : col };
+    }
     case "multiSelect":
       // jsonb-Array<string>. Default `[]` damit Selects ohne Wert nicht
       // NULL produzieren — vereinfacht Read-Side-Code (kein null-check).
-      return { [name]: jsonb(snakeName).default([]) };
-    case "number":
-      return { [name]: integer(snakeName) };
+      // .notNull() ist hier konsistent: Default + required-Default.
+      return { [name]: jsonb(snakeName).default([]).notNull() };
+    case "number": {
+      const col = integer(snakeName);
+      return { [name]: field.required ? col.notNull() : col };
+    }
     case "reference":
       // Tier 2.7e-3: FK-Style UUID-Spalte. Multi-Mode (Tier 2.7e-Multi)
       // speichert UUIDs als jsonb-Array<string>. Single-Mode bleibt
       // klassische UUID-Spalte (NOT NULL nur bei required).
       if (field.multiple === true) {
-        return { [name]: jsonb(snakeName).default([]) };
+        return { [name]: jsonb(snakeName).default([]).notNull() };
       }
       return {
         [name]: field.required ? uuid(snakeName).notNull() : uuid(snakeName),
@@ -67,45 +85,61 @@ function fieldToColumns(
       // the currency column tells you which). INTEGER would cap at ~21 M EUR
       // which is too tight for B2B invoices, property values or balance
       // aggregates. BIGINT handles up to ~90 trillion EUR safely in JS.
+      // Currency hat immer einen Default, ist also strukturell .notNull().
       return {
-        [name]: moneyAmount(snakeName),
-        [`${name}Currency`]: text(`${snakeName}_currency`).default(entity.defaultCurrency ?? "EUR"),
+        [name]: field.required ? moneyAmount(snakeName).notNull() : moneyAmount(snakeName),
+        [`${name}Currency`]: text(`${snakeName}_currency`)
+          .default(entity.defaultCurrency ?? "EUR")
+          .notNull(),
       };
     case "embedded":
-      return { [name]: jsonb(snakeName).default({}) };
-    case "date":
+      // jsonb mit default `{}` — analog zu multiSelect ist der default-Fall
+      // strukturell never-null.
+      return { [name]: jsonb(snakeName).default({}).notNull() };
+    case "date": {
       // TODO(Sprint G): semantisch falsch — `type:"date"` sollte
       // Temporal.PlainDate sein (PG `date` Spalte, kein TZ). Heute aliased auf
       // instant() = TIMESTAMPTZ damit Caller die gleiche API nutzen wie für
       // type:"timestamp". Echte PlainDate-Migration kommt nach Sprint F.
-      return { [name]: instant(snakeName) };
-    case "timestamp":
+      const col = instant(snakeName);
+      return { [name]: field.required ? col.notNull() : col };
+    }
+    case "timestamp": {
       // UTC-Instant — gespeichert als TIMESTAMPTZ in PG, gelesen/geschrieben
       // als Temporal.Instant via instant() customType (siehe dialect.ts).
       // Sprint F: Single-Mode-Welt — Caller-Code kennt nur Temporal.Instant,
       // nie JS-Date. Auch Vergleiche (lte/gt/orderBy) akzeptieren Instants
       // direkt, kein .toString()-Cast nötig.
-      return { [name]: instant(snakeName) };
-    case "tz":
+      const col = instant(snakeName);
+      return { [name]: field.required ? col.notNull() : col };
+    }
+    case "tz": {
       // IANA-Zonenname als TEXT — Validierung über Zod-Schema (kommt im
       // Validator-Schritt). Snake-Convention: `pickup_tz`.
-      return { [name]: text(snakeName) };
-    case "locatedTimestamp":
+      const col = text(snakeName);
+      return { [name]: field.required ? col.notNull() : col };
+    }
+    case "locatedTimestamp": {
       // ZWEI Spalten als atomares Pair: <name>_utc TIMESTAMPTZ + <name>_tz TEXT.
       // _utc ist instant() (Temporal.Instant), _tz ist text (IANA-Name).
       // Auto-Convert (at+tz → utc beim Insert; utc+tz → at beim Read) wird
-      // im Executor verdrahtet (Phase C). Phase B liefert die Spalten.
+      // im Executor verdrahtet (Phase C). required propagiert auf beide.
+      const utc = instant(`${snakeName}_utc`);
+      const tz = text(`${snakeName}_tz`);
       return {
-        [`${name}Utc`]: instant(`${snakeName}_utc`),
-        [`${name}Tz`]: text(`${snakeName}_tz`),
+        [`${name}Utc`]: field.required ? utc.notNull() : utc,
+        [`${name}Tz`]: field.required ? tz.notNull() : tz,
       };
+    }
     case "file":
-    case "image":
+    case "image": {
       // Single file: stores fileRefId as UUID — must match fileRefsTable.id
       // (uuid column). Anything narrower (integer, text length-limited) would
       // silently truncate or type-coerce at INSERT time and the FK reference
       // would be unusable.
-      return { [name]: uuid(snakeName) };
+      const col = uuid(snakeName);
+      return { [name]: field.required ? col.notNull() : col };
+    }
     case "files":
     case "images":
       // Multi file: no column in entity table, resolved via FileRef table
@@ -266,6 +300,22 @@ export function buildDrizzleTable(
         if (column) {
           indexes.push(index(`${tableName}_${toSnakeCase(fieldName)}_idx`).on(column));
         }
+      }
+      // entity.indexes = composite/unique-Indices die der Author explizit
+      // deklariert hat. Spalten werden via field-name (camelCase) angesprochen,
+      // der Index-Name folgt der Convention <table>_<col1>_<col2>_<unique|idx>
+      // — Override via index.name möglich.
+      for (const def of entity.indexes ?? []) {
+        const cols = def.columns
+          .map((fieldName) => table[fieldName])
+          .filter((col): col is unknown => col !== undefined);
+        if (cols.length !== def.columns.length) continue; // Boot-Validator catched das
+        const suffix = def.unique === true ? "unique" : "idx";
+        const indexName =
+          def.name ?? `${tableName}_${def.columns.map((c) => toSnakeCase(c)).join("_")}_${suffix}`;
+        const builder = def.unique === true ? uniqueIndex(indexName) : index(indexName);
+        // biome-ignore lint/suspicious/noExplicitAny: drizzle's .on(...cols) is variadic generic
+        indexes.push((builder.on as any)(...cols));
       }
       return indexes;
     },

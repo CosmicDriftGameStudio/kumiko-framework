@@ -1,4 +1,4 @@
-import { buildBaseColumns, table as pgTable, text, uniqueIndex } from "@kumiko/framework/db";
+import { buildDrizzleTable } from "@kumiko/framework/db";
 import { createEntity, createTextField } from "@kumiko/framework/engine";
 
 // Membership is event-sourced. Each (userId, tenantId) pair is its own
@@ -11,6 +11,11 @@ import { createEntity, createTextField } from "@kumiko/framework/engine";
 // unique index on (userId, tenantId) stays — it was the effective PK under
 // the old serial-id design and keeps duplicate-write protection at the
 // database level independent of the handler lookup.
+//
+// Single-Source-of-Truth: nur `tenantMembershipEntity`. Die hand-written
+// pgTable-Variante hat zu Schema-Drift geführt (parallel parted ways
+// gegen die r.entity-buildDrizzleTable-Variante); jetzt ist das Entity die
+// einzige Quelle, der unique-Index deklariert via entity.indexes.
 export const tenantMembershipEntity = createEntity({
   table: "read_tenant_memberships",
   fields: {
@@ -20,14 +25,12 @@ export const tenantMembershipEntity = createEntity({
     // read-side stays byte-compatible and no MSP/consumer needs rewrites.
     roles: createTextField({ required: true }),
   },
+  indexes: [
+    { unique: true, columns: ["userId", "tenantId"], name: "read_tenant_memberships_unique" },
+  ],
 });
 
-export const tenantMembershipsTable = pgTable(
-  "read_tenant_memberships",
-  {
-    ...buildBaseColumns(false, "uuid"),
-    userId: text("user_id").notNull(),
-    roles: text("roles").notNull(),
-  },
-  (table) => [uniqueIndex("read_tenant_memberships_unique").on(table.userId, table.tenantId)],
+export const tenantMembershipsTable = buildDrizzleTable(
+  "tenant-membership",
+  tenantMembershipEntity,
 );

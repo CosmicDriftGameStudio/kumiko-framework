@@ -1,9 +1,7 @@
 // Drizzle-Schema-Barrel: Standard-Auth-Mode.
 //
 // Apps die das Standard-Auth-Setup nutzen (Config + Tenant + User +
-// Auth-Email-Password) bekommen die Framework-Infra-Tables und die
-// Custom-Bundle-Tables (NICHT-Entity-Tables wie configValuesTable und
-// tenantMembershipsTable) in einer Zeile:
+// Auth-Email-Password) bekommen die Framework-Infra-Tables in einer Zeile:
 //
 //   // drizzle/schema.ts
 //   export * from "@kumiko/dev-server/drizzle-tables-auth-mode";
@@ -14,21 +12,18 @@
 //
 // WICHTIG — was NICHT hier exportiert wird:
 //
-//   Entity-Tables aus Bundle-Features (tenantTable, userTable,
-//   userSessionTable etc.) kommen über schema.generated.ts via
-//   buildDrizzleTable aus den r.entity()-Definitionen. Würden sie hier
-//   doppelt re-exportiert, ergäben sich ESM-Namens-Kollisionen + drizzle-
-//   kit-Drift-Warnungen.
+//   Bundle-Entity-Tables (configValuesTable, tenantTable, userTable,
+//   userSessionTable, tenantMembershipsTable etc.) kommen über
+//   schema.generated.ts via buildDrizzleTable aus den r.entity()-
+//   Definitionen — die sind die Single-Source-of-Truth seit Welle 2 +
+//   entity.indexes-API. Würden sie hier doppelt re-exportiert, ergäben
+//   sich entweder ESM-Namens-Kollisionen oder duplicate-Index-Warnungen
+//   im drizzle-kit (zwei pgTable-Instances mit identischem Index-Namen).
 //
-//   Wer NICHT alle Bundle-Custom-Tables in der DB will, nutzt
-//   drizzle-tables-minimal (nur Framework-Infra) und re-exportiert
-//   gezielt das was er wirklich braucht.
+//   Auth-Mode bedeutet damit heute: Framework-Infra-Tables. Apps deren
+//   Feature-Liste die entsprechenden Bundles enthält, bekommen die
+//   Bundle-Tables automatisch über schema.generated.ts.
 
-// Bundle-Custom-Tables für Standard-Auth-Mode
-//
-// (KEINE Entity-Tables — die kommen über r.entity() in schema.generated.ts)
-export { configValuesTable } from "@kumiko/bundled-features/config";
-export { tenantMembershipsTable } from "@kumiko/bundled-features/tenant";
 // Framework-Infra (immer da, unabhängig von Features)
 export { archivedStreamsTable, eventsTable, snapshotsTable } from "@kumiko/framework/event-store";
 export { eventConsumerStateTable, projectionStateTable } from "@kumiko/framework/pipeline";

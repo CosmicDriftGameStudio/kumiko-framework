@@ -327,6 +327,24 @@ export function isFileField(field: FieldDefinition | undefined): field is AnyFil
 
 export type TransitionMap = Readonly<Record<string, readonly string[]>>;
 
+/** Composite-Index auf einer Entity. Spalten werden via field-Name
+ *  referenziert (camelCase). buildDrizzleTable mapped sie auf snake_case-
+ *  Spaltennamen und benennt den Index nach Convention:
+ *
+ *    <table>_<col1>_<col2>_idx          (non-unique)
+ *    <table>_<col1>_<col2>_unique       (unique)
+ *
+ *  Eine `name`-Override ist erlaubt — Convention-Bruch in Bestandscode
+ *  vermeidet Migration-Churn beim Refactor.
+ *
+ *  Single-column indices über `tenantId` sind redundant (buildDrizzleTable
+ *  legt die immer automatisch an); die Boot-Validation warnt. */
+export type EntityIndexDef = {
+  readonly columns: readonly [string, ...string[]];
+  readonly unique?: boolean;
+  readonly name?: string;
+};
+
 export type EntityDefinition = {
   readonly table?: string;
   readonly fields: Readonly<Record<string, FieldDefinition>>;
@@ -335,6 +353,11 @@ export type EntityDefinition = {
   readonly defaultCurrency?: string;
   /** Allowed state transitions per field. Boot validates against select options. */
   readonly transitions?: Readonly<Record<string, TransitionMap>>;
+  /** Composite-Indices über mehrere Felder. Single-column FK-Indices und
+   *  der tenant_id-Index werden weiterhin automatisch von buildDrizzleTable
+   *  angelegt — diese Liste ist nur für Custom-Indices die der Author
+   *  explizit deklariert (z.B. `{ unique: true, columns: ["key", "tenantId", "userId"] }`). */
+  readonly indexes?: readonly EntityIndexDef[];
   /**
    * PK-Typ der Entity.
    * - `"serial"` (default): bigserial integer — schneller, kompakter, perfekt für klassische CRUD-Entities.

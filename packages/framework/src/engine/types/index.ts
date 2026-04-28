@@ -62,6 +62,7 @@ export type {
   EmbeddedFieldDef,
   EmbeddedSubFieldDef,
   EntityDefinition,
+  EntityIndexDef,
   FieldAccess,
   FieldDefinition,
   FileFieldDef,

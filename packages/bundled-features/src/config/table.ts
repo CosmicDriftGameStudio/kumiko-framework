@@ -1,4 +1,4 @@
-import { buildBaseColumns, table as pgTable, text, uniqueIndex } from "@kumiko/framework/db";
+import { buildDrizzleTable } from "@kumiko/framework/db";
 import { createEntity, createTextField } from "@kumiko/framework/engine";
 
 // Config values are event-sourced. Each (key, scope) is its own aggregate
@@ -7,9 +7,16 @@ import { createEntity, createTextField } from "@kumiko/framework/engine";
 // projection in one TX. Reads stay O(1) against the projection.
 //
 // System-scope rows use SYSTEM_TENANT_ID (not null) — buildBaseColumns
-// forces tenant_id NOT NULL, so the pre-ES "NULL means system" convention
-// is replaced with a fixed sentinel. The unique index stays on
-// (key, tenant_id, user_id) to prevent duplicate writes at the DB level.
+// (via buildDrizzleTable) forces tenant_id NOT NULL, so die pre-ES "NULL
+// means system" convention is replaced with a fixed sentinel. Der unique
+// index über (key, tenant_id, user_id) prevent duplicate writes at the DB
+// level — deklariert via entity.indexes.
+//
+// Single-Source-of-Truth: nur `configValueEntity`. Frühere parallele
+// hand-written `configValuesTable` ist eliminiert (drift-prone). Die
+// Drizzle-Table wird zur Laufzeit/Migration über buildDrizzleTable
+// generiert und als named export `configValuesTable` (plural) für
+// rückwärtskompatible Imports aus App-Code re-exportiert.
 export const configValueEntity = createEntity({
   table: "read_config_values",
   fields: {
@@ -21,15 +28,9 @@ export const configValueEntity = createEntity({
     // user-scope row: userId populated. tenant- / system-scope: null.
     userId: createTextField({}),
   },
+  indexes: [
+    { unique: true, columns: ["key", "tenantId", "userId"], name: "read_config_values_unique" },
+  ],
 });
 
-export const configValuesTable = pgTable(
-  "read_config_values",
-  {
-    ...buildBaseColumns(false, "uuid"),
-    key: text("key").notNull(),
-    value: text("value"),
-    userId: text("user_id"),
-  },
-  (table) => [uniqueIndex("read_config_values_unique").on(table.key, table.tenantId, table.userId)],
-);
+export const configValuesTable = buildDrizzleTable("config-value", configValueEntity);

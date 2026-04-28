@@ -81,6 +81,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateExtendSchemaCollisions(feature);
     validateHandlerAccess(feature);
     validateLocatedTimestamps(feature);
+    validateEntityIndexes(feature);
     validateConfigKeyBounds(feature);
     validateConfigKeyComputed(feature);
     validateConfigKeyAllowPerRequest(feature);
@@ -380,6 +381,58 @@ function validateLocatedTimestamps(feature: FeatureDefinition): void {
           `Feature "${feature.name}", entity "${entityName}": field "${fieldName}" has ` +
             `locatedBy: "${field.locatedBy}" but that field is type "${referenced.type}", ` +
             `expected "tz". The locatedBy marker must point to a tz-field (IANA-zone slot).`,
+        );
+      }
+    }
+  }
+}
+
+// --- Entity-Index validation ---
+//
+// entity.indexes deklariert Composite-/Unique-Indices über mehrere Feld-
+// Spalten. Häufige Fehler: Tippfehler im Feld-Namen, leere column-Liste,
+// Index auf einem Field das die DB-Spalte gar nicht existiert (file/image
+// in der multi-Variante). Catched at boot, lange bevor drizzle-kit beim
+// generate-Run zickt.
+//
+// `tenantId` als einzige Spalte ist redundant — buildDrizzleTable legt
+// den Index sowieso automatisch an. Wir lassen die Composite-Form erlaubt
+// (`["tenantId", "key"]` ist sinnvoll), nur die rein-tenantId-Single-
+// column-Form blockieren wir.
+function validateEntityIndexes(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities)) {
+    if (!entity.indexes) continue;
+    const fieldNames = new Set(Object.keys(entity.fields));
+    for (const [idx, def] of entity.indexes.entries()) {
+      const where = `Feature "${feature.name}", entity "${entityName}", indexes[${idx}]`;
+      if (def.columns.length === 0) {
+        throw new Error(`${where}: empty columns list. An index needs at least one column.`);
+      }
+      for (const col of def.columns) {
+        if (col === "tenantId" || col === "id" || col === "version") continue; // base columns
+        if (!fieldNames.has(col)) {
+          throw new Error(
+            `${where}: column "${col}" does not match any field in the entity. ` +
+              `Available fields: ${[...fieldNames].join(", ")}.`,
+          );
+        }
+        const field = entity.fields[col];
+        if (
+          field &&
+          (field.type === "files" ||
+            field.type === "images" ||
+            (field.type === "reference" && field.multiple === true))
+        ) {
+          throw new Error(
+            `${where}: column "${col}" is a multi-value field (${field.type}) — ` +
+              `these have no DB column to index on. Use a single-value field or remove from the index.`,
+          );
+        }
+      }
+      if (def.columns.length === 1 && def.columns[0] === "tenantId") {
+        throw new Error(
+          `${where}: single-column index on "tenantId" is redundant — ` +
+            `buildDrizzleTable always creates one automatically. Remove this entry.`,
         );
       }
     }

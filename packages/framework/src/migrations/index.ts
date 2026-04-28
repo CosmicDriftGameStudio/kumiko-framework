@@ -10,6 +10,7 @@ export { type RebuildMarker, readRebuildMarker, writeRebuildMarker } from "./reb
 export {
   type AppliedMigration,
   assertSchemaCurrent,
+  type ColumnIssue,
   type ColumnSpec,
   type DriftReport,
   detectDrift,
