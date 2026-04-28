@@ -1,6 +1,15 @@
 import { usePrimitives } from "@kumiko/renderer";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { DemoPage, DemoSection } from "../components/page";
+
+// Combobox-Demo-Daten: 3 Items mit unterschiedlichen Anfangsbuchstaben.
+// Tippt der User "A", muss "API" als einzige übrig bleiben — Regression-
+// Surface für den Bug "Suche filtert alles weg".
+const COMBOBOX_OPTIONS = [
+  { value: "api", label: "API" },
+  { value: "backend", label: "Backend" },
+  { value: "cache", label: "Cache" },
+] as const;
 
 export function InputsDemo(): ReactNode {
   const { Input, Field } = usePrimitives();
@@ -14,11 +23,26 @@ export function InputsDemo(): ReactNode {
   const [moneyUsd, setMoneyUsd] = useState<number | "">(2599);
   const [moneyJpy, setMoneyJpy] = useState<number | "">(150000);
   const [timestamp, setTimestamp] = useState("2026-04-25T13:45");
+  const [comboSingleLocal, setComboSingleLocal] = useState("");
+  const [comboMultiLocal, setComboMultiLocal] = useState<readonly string[]>([]);
+  const [comboSingleRemote, setComboSingleRemote] = useState("");
+  const [comboMultiRemote, setComboMultiRemote] = useState<readonly string[]>([]);
+  // Remote-Mode-Simulation: Caller erhält den Suchbegriff via
+  // onSearchChange und filtert die options selbst — Combobox bekommt
+  // "shouldFilter=false"-Mode (cmdk filtert nicht client-side, Caller
+  // ist authoritative für Sichtbarkeit). Production-Setup würde den
+  // Suchbegriff an den Server schicken, hier filtern wir im Memory.
+  const [remoteQ, setRemoteQ] = useState("");
+  const remoteOptions = useMemo(() => {
+    if (remoteQ === "") return COMBOBOX_OPTIONS;
+    const needle = remoteQ.toLowerCase();
+    return COMBOBOX_OPTIONS.filter((o) => o.label.toLowerCase().includes(needle));
+  }, [remoteQ]);
 
   return (
     <DemoPage
       title="Inputs"
-      description="Alle Input-Kinds aus dem Primitives-Contract — text, number, money, boolean, date, timestamp, select, textarea."
+      description="Alle Input-Kinds aus dem Primitives-Contract — text, number, money, boolean, date, timestamp, select, textarea, combobox."
     >
       <DemoSection title="Text">
         <Field id="demo-text" label="Title">
@@ -136,6 +160,62 @@ export function InputsDemo(): ReactNode {
             value={textarea}
             onChange={setTextarea}
             rows={4}
+          />
+        </Field>
+      </DemoSection>
+      <DemoSection title="Combobox Single (Local-Filter — cmdk filtert client-side)">
+        <Field id="demo-combo-single-local" label="Service">
+          <Input
+            kind="combobox"
+            id="demo-combo-single-local"
+            name="comboSingleLocal"
+            value={comboSingleLocal}
+            onChange={setComboSingleLocal}
+            options={[...COMBOBOX_OPTIONS]}
+            placeholder="Service wählen…"
+          />
+        </Field>
+      </DemoSection>
+      <DemoSection title="Combobox Multi (Local-Filter)">
+        <Field id="demo-combo-multi-local" label="Services">
+          <Input
+            kind="combobox"
+            id="demo-combo-multi-local"
+            name="comboMultiLocal"
+            multiple
+            value={comboMultiLocal}
+            onChange={setComboMultiLocal}
+            options={[...COMBOBOX_OPTIONS]}
+            placeholder="Services wählen…"
+          />
+        </Field>
+      </DemoSection>
+      <DemoSection title="Combobox Single (Remote-Filter — Caller filtert via onSearchChange)">
+        <Field id="demo-combo-single-remote" label="Service">
+          <Input
+            kind="combobox"
+            id="demo-combo-single-remote"
+            name="comboSingleRemote"
+            value={comboSingleRemote}
+            onChange={setComboSingleRemote}
+            options={[...remoteOptions]}
+            onSearchChange={setRemoteQ}
+            placeholder="Service wählen…"
+          />
+        </Field>
+      </DemoSection>
+      <DemoSection title="Combobox Multi (Remote-Filter)">
+        <Field id="demo-combo-multi-remote" label="Services">
+          <Input
+            kind="combobox"
+            id="demo-combo-multi-remote"
+            name="comboMultiRemote"
+            multiple
+            value={comboMultiRemote}
+            onChange={setComboMultiRemote}
+            options={[...remoteOptions]}
+            onSearchChange={setRemoteQ}
+            placeholder="Services wählen…"
           />
         </Field>
       </DemoSection>

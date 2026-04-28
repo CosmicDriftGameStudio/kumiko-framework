@@ -58,6 +58,18 @@ export const itemEditScreen: EntityEditScreenDefinition = {
         fields: [{ field: "title", span: 2 }, "priority", "isDone", { field: "status", span: 2 }],
       },
       {
+        title: "References (Tier 2.7e Remote-Combobox-Demo)",
+        columns: 1,
+        fields: [
+          // Single + Remote — Bug-Test-Surface 1: Click auf Dropdown-Item
+          // muss onChange feuern (selektiert das Item, schließt das Popup).
+          "parentId",
+          // Multi + Remote — Bug-Test-Surface 2: Tippen filtert die Liste
+          // serverseitig. Mit ~200 seed-Items echte Search-Last.
+          "relatedIds",
+        ],
+      },
+      {
         title: "Details",
         columns: 1,
         fields: [
@@ -67,8 +79,6 @@ export const itemEditScreen: EntityEditScreenDefinition = {
             required: (d) => (d as { isDone?: boolean }).isDone === true,
           },
           "dueDate",
-          "parentId",
-          "relatedIds",
         ],
       },
     ],

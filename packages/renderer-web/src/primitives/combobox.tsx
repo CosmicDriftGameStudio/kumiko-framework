@@ -17,7 +17,7 @@ import { REFERENCE_SEARCH_DEBOUNCE_MS, useTranslation } from "@kumiko/renderer";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 
 export type ComboboxOption = { readonly value: string; readonly label: string };
@@ -84,6 +84,16 @@ const tagClass =
 
 // Debounce-Default lebt zentral (hooks/reference-limits.ts) damit
 // app-weit ein consistentes Tipp-Window gilt.
+
+// Substring-Filter für cmdk's Local-Mode. cmdk's Default ist
+// `command-score` (fuzzy), das matcht "Ad" auch gegen "Backend" weil 'a'
+// und 'd' irgendwo enthalten sind — für Reference-Lookups irreführend
+// (User erwartet Prefix/Substring-Verhalten, nicht Subsequence-Match).
+// Returns 1 wenn search im value enthalten, 0 sonst — cmdk hidet Items
+// mit Score 0.
+function substringFilter(value: string, search: string): number {
+  return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+}
 
 export function ComboboxInput(props: ComboboxInputProps): ReactNode {
   const {
@@ -190,19 +200,8 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
           className={popoverContentClass}
           align="start"
           sideOffset={4}
-          // Bug-Fix für Multi-Mode + Remote-Search (Reference-Field):
-          // ohne diesen Override kassierte Radix den pointer-down-outside-
-          // Handler beim Click auf cmdk-Items, der Popover schloss vor
-          // cmdk's onSelect → Click hat nur Focus gesetzt (sichtbar als
-          // data-selected="true"), aber keinen Toggle ausgelöst. Items
-          // sind technisch INSIDE der Content; die "outside"-Detection
-          // muss sie explizit ausschließen.
-          onPointerDownOutside={(e) => {
-            const target = e.target as HTMLElement | null;
-            if (target?.closest("[cmdk-item]") !== null) e.preventDefault();
-          }}
         >
-          <Command shouldFilter={!isRemote}>
+          <Command shouldFilter={!isRemote} filter={substringFilter}>
             <div className="relative">
               <Command.Input
                 placeholder={effectiveSearchPlaceholder}
@@ -234,7 +233,17 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
                         setOpen(false);
                       }
                     }}
-                    className="relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                    // Browser-Click-Bug Wurzel: `data-[disabled]:pointer-
+                    // events-none` (vorher in der className) hat alle
+                    // Mouse-Events absorbiert, weil cmdk das `data-disabled`
+                    // attribute unter Bedingungen unerwartet setzt (z.B.
+                    // bei filter-Score 0 in einigen cmdk-Versions). jsdom
+                    // ignoriert Tailwind-CSS, daher der Test-blind-Spot —
+                    // im Browser killte die Class lautlos jeden Click.
+                    // Fix: data-[disabled]-Class komplett raus + explizit
+                    // pointerEvents:auto als zusätzlicher Override.
+                    style={{ pointerEvents: "auto" }}
+                    className="relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground"
                   >
                     {isSelected && (
                       <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">

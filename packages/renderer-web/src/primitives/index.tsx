@@ -49,7 +49,6 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { MoneyInput } from "./money-input";
-import { SelectInput } from "./select";
 
 // ---- Button ----
 
@@ -232,23 +231,31 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.hasError !== undefined && { hasError: props.hasError })}
         />
       );
-    case "select":
-      // shadcn-Style Select via @radix-ui/react-select. Trigger-Button
-      // mit Chevron, Portal'd Popover-Content, Items mit Check-
-      // Indicator. SelectInput kapselt das Radix-Setup damit
-      // DefaultInput nicht mit Sub-Component-Imports zugemüllt wird.
+    case "select": {
+      // Visual-Konsolidierung: alle Selects laufen über ComboboxInput
+      // (cmdk + Radix-Popover). Vorher hatten wir zwei Pfade — Radix-
+      // Select für `kind:"select"` und cmdk für `kind:"combobox"`. Drei
+      // visuell unterschiedliche Variants (Single-Select, Combobox-
+      // Single, Combobox-Multi) wurden unhandbar. Mit dem Merge ist die
+      // Combobox die einzige Implementation: Search-Input ist auch bei
+      // 4-Item-Status-Selects vorhanden, das ist eine bewusst akzeptierte
+      // UX-Konsequenz für Style-Konsistenz.
+      const comboOptions = props.options.map((o) =>
+        typeof o === "string" ? { value: o, label: o } : o,
+      );
       return (
-        <SelectInput
+        <ComboboxInput
           id={props.id}
           name={props.name}
           value={props.value}
           onChange={props.onChange}
-          options={props.options}
+          options={comboOptions}
           {...(props.disabled !== undefined && { disabled: props.disabled })}
           {...(props.required !== undefined && { required: props.required })}
           {...(props.hasError !== undefined && { hasError: props.hasError })}
         />
       );
+    }
     case "combobox": {
       // Tier 2.1c + Tier 2.7e: Discriminated-Union per `multiple` —
       // wir splittan TS-side in zwei Branches damit ComboboxInput's
