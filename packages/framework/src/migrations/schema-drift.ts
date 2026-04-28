@@ -252,7 +252,7 @@ async function detectColumnIssues(
     const dbCols = await loadDbColumns(db, t.name);
     const snapCols = t.columns;
     // Spalten die im Snapshot stehen, aber nicht in der DB sind.
-    for (const [colName, snapCol] of Object.entries(snapCols)) {
+    for (const snapCol of Object.values(snapCols)) {
       const dbCol = dbCols.get(snapCol.name);
       if (!dbCol) {
         issues.push({ kind: "missing-column", table: t.name, column: snapCol.name });
@@ -280,8 +280,6 @@ async function detectColumnIssues(
           actualNotNull: dbCol.notNull,
         });
       }
-      // mark column as seen via prop name access — JS-prop reference
-      void colName;
     }
     // Spalten die in der DB sind, aber nicht im Snapshot — vermutlich
     // manueller ALTER TABLE in Prod. Reportet als extra-column.

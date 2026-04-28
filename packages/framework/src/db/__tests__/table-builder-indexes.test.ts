@@ -6,6 +6,7 @@
 // Constraint deklarativ in der EntityDefinition; buildDrizzleTable rendert
 // sie via uniqueIndex/index.
 
+import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vitest";
 import {
   createBooleanField,
@@ -17,13 +18,7 @@ import {
 import { buildDrizzleTable } from "../table-builder";
 
 describe("buildDrizzleTable — entity.indexes", () => {
-  test("composite unique-index baut ohne Throw — keine Spalten-Misses", () => {
-    // Drizzle's PgTable enthält den Index im internal _config-State der
-    // nicht stabil über Versionen exposed ist; statt darauf zu prüfen
-    // verifizieren wir, dass der buildDrizzleTable-Aufruf alle 3 Spalten
-    // resolvet (sonst wäre Boot-Validator eh durchgegangen). Ein realer
-    // SQL-Diff kommt im publicstatus-bundle-cleanup-Test (drizzle-kit
-    // generate gegen aktuelle DB).
+  test("composite unique-index landet als unique=true in Drizzle table-config", () => {
     const entity = createEntity({
       fields: {
         key: createTextField({ required: true }),
@@ -31,10 +26,21 @@ describe("buildDrizzleTable — entity.indexes", () => {
       },
       indexes: [{ unique: true, columns: ["key", "tenantId", "userId"] }],
     });
-    expect(() => buildDrizzleTable("config-value", entity)).not.toThrow();
+    const tbl = buildDrizzleTable("config-value", entity);
+    const { indexes } = getTableConfig(tbl);
+    const composite = indexes.find(
+      (i) => i.config.name === "read_config_values_key_tenant_id_user_id_unique",
+    );
+    expect(composite).toBeDefined();
+    expect(composite?.config.unique).toBe(true);
+    expect(composite?.config.columns.map((c) => (c as { name: string }).name)).toEqual([
+      "key",
+      "tenant_id",
+      "user_id",
+    ]);
   });
 
-  test("composite non-unique-index landet im DDL-Output", () => {
+  test("composite non-unique-index landet als unique=false in Drizzle table-config", () => {
     const entity = createEntity({
       fields: {
         startedAt: createTextField({}),
@@ -42,17 +48,25 @@ describe("buildDrizzleTable — entity.indexes", () => {
       },
       indexes: [{ columns: ["startedAt", "endedAt"] }],
     });
-    expect(() => buildDrizzleTable("session", entity)).not.toThrow();
+    const tbl = buildDrizzleTable("session", entity);
+    const { indexes } = getTableConfig(tbl);
+    const composite = indexes.find(
+      (i) => i.config.name === "read_sessions_started_at_ended_at_idx",
+    );
+    expect(composite).toBeDefined();
+    expect(composite?.config.unique).toBe(false);
   });
 
   test("custom name override wird respektiert", () => {
     const entity = createEntity({
-      fields: {
-        slug: createTextField({ required: true }),
-      },
+      fields: { slug: createTextField({ required: true }) },
       indexes: [{ unique: true, columns: ["slug"], name: "my_custom_idx" }],
     });
-    expect(() => buildDrizzleTable("page", entity)).not.toThrow();
+    const tbl = buildDrizzleTable("page", entity);
+    const { indexes } = getTableConfig(tbl);
+    const idx = indexes.find((i) => i.config.name === "my_custom_idx");
+    expect(idx).toBeDefined();
+    expect(idx?.config.unique).toBe(true);
   });
 
   test("ohne indexes — keine zusätzlichen Indices, kein Error", () => {

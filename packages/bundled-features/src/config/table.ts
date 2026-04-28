@@ -12,11 +12,10 @@ import { createEntity, createTextField } from "@kumiko/framework/engine";
 // index über (key, tenant_id, user_id) prevent duplicate writes at the DB
 // level — deklariert via entity.indexes.
 //
-// Single-Source-of-Truth: nur `configValueEntity`. Frühere parallele
-// hand-written `configValuesTable` ist eliminiert (drift-prone). Die
-// Drizzle-Table wird zur Laufzeit/Migration über buildDrizzleTable
-// generiert und als named export `configValuesTable` (plural) für
-// rückwärtskompatible Imports aus App-Code re-exportiert.
+// Single-Source-of-Truth: `configValueEntity`. Die DB-Tabelle wird über
+// buildDrizzleTable aus der EntityDefinition abgeleitet, der unique-Index
+// ist via entity.indexes deklariert. Plural-Re-Export `configValuesTable`
+// dient handlers (`reset.write.ts` etc.) als typisierte Drizzle-Table-Ref.
 export const configValueEntity = createEntity({
   table: "read_config_values",
   fields: {

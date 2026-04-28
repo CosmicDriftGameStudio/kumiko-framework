@@ -11,6 +11,7 @@ import { describe, expect, test } from "vitest";
 import {
   createBooleanField,
   createDateField,
+  createEmbeddedField,
   createEntity,
   createImageField,
   createLocatedTimestampField,
@@ -137,24 +138,54 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
     expect(colByName(tbl, "dropoff_tz").notNull).toBe(false);
   });
 
-  test("multiSelect — always NOT NULL (default [] semantics)", () => {
+  test("multiSelect — always NOT NULL, required:false wird absichtlich ignoriert", () => {
+    // multiSelect hat default `[]` — DB-Spalte ist strukturell never-null.
+    // `required:false` würde semantisch "kann fehlen" bedeuten, aber das
+    // ist mit dem Array-default unvereinbar. Behavior dokumentiert in
+    // table-builder.ts: required wird ignoriert.
     const entity = createEntity({
       fields: {
-        roles: createMultiSelectField({ options: ["admin", "user"] as const }),
+        rolesDefault: createMultiSelectField({ options: ["admin", "user"] as const }),
+        rolesOptional: createMultiSelectField({
+          options: ["admin", "user"] as const,
+          required: false,
+        }),
+        rolesRequired: createMultiSelectField({
+          options: ["admin", "user"] as const,
+          required: true,
+        }),
       },
     });
     const tbl = buildDrizzleTable("acl", entity);
-    expect(colByName(tbl, "roles").notNull).toBe(true);
+    expect(colByName(tbl, "roles_default").notNull).toBe(true);
+    expect(colByName(tbl, "roles_optional").notNull).toBe(true);
+    expect(colByName(tbl, "roles_required").notNull).toBe(true);
   });
 
-  test("embedded — always NOT NULL (default {} semantics)", () => {
+  test("embedded — always NOT NULL, required wird absichtlich ignoriert", () => {
+    // embedded hat default `{}` — Symmetrie zum multiSelect-Behavior.
     const entity = createEntity({
       fields: {
-        meta: { type: "embedded", fields: {} } as never,
+        meta: createEmbeddedField({ note: { type: "text" } }),
+        metaOptional: createEmbeddedField({ note: { type: "text" } }, { required: false }),
       },
     });
     const tbl = buildDrizzleTable("widget", entity);
     expect(colByName(tbl, "meta").notNull).toBe(true);
+    expect(colByName(tbl, "meta_optional").notNull).toBe(true);
+  });
+
+  test("reference multi — always NOT NULL, required wird absichtlich ignoriert", () => {
+    // jsonb-Array von uuids mit default `[]` — gleiche Logik wie multiSelect.
+    const entity = createEntity({
+      fields: {
+        tags: refField({ entity: "tag", multiple: true }),
+        tagsOptional: refField({ entity: "tag", multiple: true, required: false }),
+      },
+    });
+    const tbl = buildDrizzleTable("post", entity);
+    expect(colByName(tbl, "tags").notNull).toBe(true);
+    expect(colByName(tbl, "tags_optional").notNull).toBe(true);
   });
 
   test("money — required true → amount NOT NULL, currency always NOT NULL", () => {
@@ -181,15 +212,5 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
     const tbl = buildDrizzleTable("profile", entity);
     expect(colByName(tbl, "avatar").notNull).toBe(true);
     expect(colByName(tbl, "cover").notNull).toBe(false);
-  });
-
-  test("reference multi — always NOT NULL (default [] semantics)", () => {
-    const entity = createEntity({
-      fields: {
-        tags: refField({ entity: "tag", multiple: true }),
-      },
-    });
-    const tbl = buildDrizzleTable("post", entity);
-    expect(colByName(tbl, "tags").notNull).toBe(true);
   });
 });

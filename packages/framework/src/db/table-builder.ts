@@ -62,9 +62,15 @@ function fieldToColumns(
       return { [name]: field.required ? col.notNull() : col };
     }
     case "multiSelect":
-      // jsonb-Array<string>. Default `[]` damit Selects ohne Wert nicht
-      // NULL produzieren — vereinfacht Read-Side-Code (kein null-check).
-      // .notNull() ist hier konsistent: Default + required-Default.
+      // jsonb-Array<string> mit Default `[]` und immer NOT NULL.
+      //
+      // Der `required`-Flag auf MultiSelectFieldDef wird hier bewusst
+      // ignoriert: Mit Default `[]` ist das Feld strukturell never-null
+      // (Insert ohne Wert → leeres Array, nicht NULL). Read-Side-Code
+      // braucht keinen null-check, das ist API-Garantie. Wer "wirklich
+      // null" will (= "Feld noch nie gesetzt") nutzt einen separaten
+      // Status-Field oder ein optional-typed reference statt eines
+      // multi-select.
       return { [name]: jsonb(snakeName).default([]).notNull() };
     case "number": {
       const col = integer(snakeName);
@@ -93,8 +99,11 @@ function fieldToColumns(
           .notNull(),
       };
     case "embedded":
-      // jsonb mit default `{}` — analog zu multiSelect ist der default-Fall
-      // strukturell never-null.
+      // jsonb mit default `{}` und immer NOT NULL — analog zu multiSelect.
+      // `required` wird bewusst ignoriert weil der Default das Feld
+      // strukturell never-null macht. Wer optional-embedded möchte (=
+      // "Feld komplett weglassen können") modelliert das über ein
+      // wrapper-feld mit boolean-flag oder discriminierte-union.
       return { [name]: jsonb(snakeName).default({}).notNull() };
     case "date": {
       // TODO(Sprint G): semantisch falsch — `type:"date"` sollte

@@ -12,10 +12,9 @@ import { createEntity, createTextField } from "@kumiko/framework/engine";
 // the old serial-id design and keeps duplicate-write protection at the
 // database level independent of the handler lookup.
 //
-// Single-Source-of-Truth: nur `tenantMembershipEntity`. Die hand-written
-// pgTable-Variante hat zu Schema-Drift geführt (parallel parted ways
-// gegen die r.entity-buildDrizzleTable-Variante); jetzt ist das Entity die
-// einzige Quelle, der unique-Index deklariert via entity.indexes.
+// Single-Source-of-Truth: `tenantMembershipEntity`. Die DB-Tabelle wird
+// aus der EntityDefinition über buildDrizzleTable abgeleitet, der
+// unique-Index ist via entity.indexes deklariert.
 export const tenantMembershipEntity = createEntity({
   table: "read_tenant_memberships",
   fields: {
