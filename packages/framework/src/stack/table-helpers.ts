@@ -1,3 +1,4 @@
+import { generateDrizzleJson, generateMigration } from "drizzle-kit/api";
 import { getTableName, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import type { drizzle } from "drizzle-orm/postgres-js";
@@ -53,7 +54,6 @@ export async function pushTables(
   tables: Record<string, unknown>,
   prevTables?: Record<string, unknown>,
 ): Promise<void> {
-  const { generateDrizzleJson, generateMigration } = await import("drizzle-kit/api");
   const prevJson = generateDrizzleJson(prevTables ?? {});
   const targetJson = generateDrizzleJson(tables);
   const statements = await generateMigration(prevJson, targetJson);

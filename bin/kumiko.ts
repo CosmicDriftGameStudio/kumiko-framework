@@ -259,8 +259,10 @@ const commands = {
         // Code sind nahezu instant. Project-References im root tsconfig
         // ziehen alle Workspaces (framework, bundled-features, headless,
         // dispatcher-live, renderer, renderer-web, app) mit, breiter als
-        // der vorige 2-Projekt-Check.
-        { name: "TypeScript", cmd: "yarn tsc -b --noEmit" },
+        // der vorige 2-Projekt-Check. --noEmit funktioniert nicht mit
+        // composite-projects (TS6310), aber dist-Output ist via .gitignore
+        // ignoriert — kein Repo-Drift.
+        { name: "TypeScript", cmd: "yarn tsc -b" },
         { name: "Silent-Skip Guard", cmd: "bun scripts/guard-silent-skip.ts" },
         { name: "Admin-API Guard", cmd: "bun scripts/guard-admin-api.ts" },
         { name: "Unsafe-JSON-Parse Guard", cmd: "bun scripts/guard-unsafe-json-parse.ts" },
