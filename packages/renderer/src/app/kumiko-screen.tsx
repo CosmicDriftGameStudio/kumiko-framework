@@ -143,7 +143,9 @@ function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () =
   return useCallback(() => {
     const list = schema.screens.find((s) => s.type === "entityList" && s.entity === entityName);
     if (!list) return;
-    nav.navigate({ screenId: list.id });
+    // schema.screens.id ist QN-form (registry-stamped); nav.navigate
+    // erwartet Short-Form. Sonst landet die URL doppelt-qualifiziert.
+    nav.navigate({ screenId: lastSegment(list.id) });
   }, [nav, schema.screens, entityName]);
 }
 
@@ -151,6 +153,17 @@ function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () =
 // entityEdit-Screen ohne entityId-Anhang und navigiert dorthin.
 // Returns undefined wenn kein Edit-Screen registriert ist — RenderList
 // rendert dann keinen + Neu Button.
+//
+// Schema-Screens kommen mit qualifizierten ids
+// ("publicstatus:screen:component-edit") aus der Registry — buildAppSchema
+// reicht sie 1:1 durch. Für nav.navigate brauchen wir die Short-Form
+// ("component-edit"), sonst landet die URL bei /admin/publicstatus:screen:
+// component-edit und der Re-Lookup qualifiziert das ein zweites Mal.
+function lastSegment(qn: string): string {
+  const idx = qn.lastIndexOf(":");
+  return idx < 0 ? qn : qn.slice(idx + 1);
+}
+
 function useNavigateToCreateFor(
   schema: FeatureSchema,
   entityName: string,
@@ -158,7 +171,7 @@ function useNavigateToCreateFor(
   const nav = useNav();
   const editScreenId = useMemo(() => {
     const edit = schema.screens.find((s) => s.type === "entityEdit" && s.entity === entityName);
-    return edit?.id;
+    return edit !== undefined ? lastSegment(edit.id) : undefined;
   }, [schema.screens, entityName]);
   const navigate = useCallback(() => {
     if (editScreenId !== undefined) nav.navigate({ screenId: editScreenId });

@@ -22,6 +22,7 @@ import {
 } from "@kumiko/renderer";
 import { type ComponentType, type ReactNode, useMemo } from "react";
 import { createRoot } from "react-dom/client";
+import { lastSegment } from "../layout/nav-tree";
 import { defaultPrimitives } from "../primitives";
 import { ToastProvider } from "../primitives/toast";
 import { createEventSourceLiveEvents } from "../sse/live-events";
@@ -341,7 +342,9 @@ function RoutedScreen({
           (s) => s.type === "entityEdit" && s.entity === entityName,
         );
         if (editScreen) {
-          nav.navigate({ screenId: editScreen.id, entityId: row.id });
+          // editScreen.id ist QN-Form (registry-stamped); nav.navigate
+          // erwartet Short-Form. Sonst wird die URL doppelt-qualifiziert.
+          nav.navigate({ screenId: lastSegment(editScreen.id), entityId: row.id });
           return;
         }
       }
