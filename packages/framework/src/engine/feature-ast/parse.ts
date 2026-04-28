@@ -21,21 +21,20 @@
 // Per-pattern extractors fill in iteratively (C1.5) — each round adds
 // one extractor + a focused test.
 
-import type {
-  ArrowFunction,
-  CallExpression,
-  ParameterDeclaration,
-  SourceFile,
-} from "ts-morph";
+import type { ArrowFunction, CallExpression, ParameterDeclaration, SourceFile } from "ts-morph";
 import { Project, SyntaxKind } from "ts-morph";
 
 import {
   type ExtractOutput,
+  extractEntity,
+  extractNav,
   extractOptionalRequires,
   extractReadsConfig,
+  extractRelation,
   extractRequires,
   extractSystemScope,
   extractToggleable,
+  extractWorkspace,
 } from "./extractors";
 import type { FeaturePattern, UnknownPattern } from "./patterns";
 import { type SourceLocation, sourceLocationFromNode } from "./source-location";
@@ -272,13 +271,18 @@ function dispatchExtractor(
       return extractSystemScope(call, sourceFile);
     case "toggleable":
       return extractToggleable(call, sourceFile);
+    // Round 2 — object-literal-based static patterns
+    case "entity":
+      return extractEntity(call, sourceFile);
+    case "relation":
+      return extractRelation(call, sourceFile);
+    case "nav":
+      return extractNav(call, sourceFile);
+    case "workspace":
+      return extractWorkspace(call, sourceFile);
     // Recognised but extractor not yet implemented — fall through to
     // UnknownPattern so the Designer/AI know the call exists. Replaced
     // by concrete extractors as C1.5 progresses.
-    case "entity":
-    case "relation":
-    case "nav":
-    case "workspace":
     case "config":
     case "translations":
     case "metric":

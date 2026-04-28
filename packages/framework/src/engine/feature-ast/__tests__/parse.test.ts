@@ -59,9 +59,7 @@ defineFeature("foo", (r) => {
 `);
 
     expect(result.patterns).toHaveLength(3);
-    // entity has no extractor yet — falls through to UnknownPattern.
-    expect(result.patterns[0]).toMatchObject({ kind: "unknown", methodName: "entity" });
-    // requires + systemScope have concrete extractors (Round 1).
+    expect(result.patterns[0]?.kind).toBe("entity");
     expect(result.patterns[1]?.kind).toBe("requires");
     expect(result.patterns[2]?.kind).toBe("systemScope");
   });
@@ -75,7 +73,7 @@ defineFeature("alt", (registrar) => {
 `);
 
     expect(result.patterns).toHaveLength(2);
-    expect(result.patterns[0]?.kind).toBe("unknown"); // entity, no extractor yet
+    expect(result.patterns[0]?.kind).toBe("entity");
     expect(result.patterns[1]?.kind).toBe("requires");
   });
 
@@ -92,7 +90,7 @@ defineFeature("isolated", (r) => {
     // Only the actual r.entity call shows up — helper.entity and
     // console.log are filtered out by extractRegistrarMethodName.
     expect(result.patterns).toHaveLength(1);
-    expect(result.patterns[0]).toMatchObject({ kind: "unknown", methodName: "entity" });
+    expect(result.patterns[0]).toMatchObject({ kind: "entity", entityName: "task" });
   });
 
   test("returns empty result when no defineFeature is present", () => {
@@ -238,5 +236,147 @@ defineFeature("f", (r) => {
     expect(result.patterns).toEqual([]);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]?.methodName).toBe("toggleable");
+  });
+});
+
+// =============================================================================
+// Round 2 extractors — object-literal-based statics
+// =============================================================================
+
+describe("extractEntity", () => {
+  test("captures entityName + plain-data definition", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entity("task", {
+    fields: {
+      title: { type: "text", required: true },
+      done: { type: "boolean", default: false },
+    },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "entity",
+      entityName: "task",
+      definition: {
+        fields: {
+          title: { type: "text", required: true },
+          done: { type: "boolean", default: false },
+        },
+      },
+    });
+    expect(result.errors).toEqual([]);
+  });
+
+  test("walks through `as const` and `satisfies` wrappers", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entity("task", { fields: { name: { type: "text" as const } } });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "entity",
+      definition: { fields: { name: { type: "text" } } },
+    });
+  });
+
+  test("emits a ParseError when the definition contains a function value", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.entity("task", {
+    fields: {
+      title: { type: "text", default: () => "untitled" },
+    },
+  });
+});
+`);
+
+    expect(result.patterns).toEqual([]);
+    expect(result.errors[0]?.methodName).toBe("entity");
+  });
+
+  test("emits a ParseError when the name is not a string literal", () => {
+    const result = parseInline(`
+const ENTITY = "task";
+defineFeature("f", (r) => {
+  r.entity(ENTITY, { fields: {} });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("entity");
+  });
+});
+
+describe("extractRelation", () => {
+  test("reads entity ref + relation name + plain-data definition", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.relation("task", "owner", { kind: "belongsTo", to: "user" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "relation",
+      entityName: "task",
+      relationName: "owner",
+      definition: { kind: "belongsTo", to: "user" },
+    });
+  });
+
+  test("accepts inline { name: '...' } literal as entity ref", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.relation({ name: "task" }, "owner", { kind: "belongsTo", to: "user" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "relation",
+      entityName: "task",
+      relationName: "owner",
+    });
+  });
+
+  test("emits a ParseError when entity ref is an unresolvable identifier", () => {
+    const result = parseInline(`
+const taskRef = { name: "task" };
+defineFeature("f", (r) => {
+  r.relation(taskRef, "owner", { kind: "belongsTo", to: "user" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("relation");
+  });
+});
+
+describe("extractNav", () => {
+  test("captures the NavDefinition", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.nav({ id: "tasks", label: "Tasks", screen: "tasks:screen:list" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "nav",
+      definition: { id: "tasks", label: "Tasks", screen: "tasks:screen:list" },
+    });
+  });
+});
+
+describe("extractWorkspace", () => {
+  test("captures the WorkspaceDefinition", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.workspace({ id: "admin", label: "Admin" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "workspace",
+      definition: { id: "admin", label: "Admin" },
+    });
   });
 });
