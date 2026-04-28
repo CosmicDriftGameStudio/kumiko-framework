@@ -26,14 +26,21 @@ import { Project, SyntaxKind } from "ts-morph";
 
 import {
   type ExtractOutput,
+  extractClaimKey,
+  extractConfig,
   extractEntity,
+  extractMetric,
   extractNav,
   extractOptionalRequires,
   extractReadsConfig,
+  extractReferenceData,
   extractRelation,
   extractRequires,
+  extractSecret,
   extractSystemScope,
   extractToggleable,
+  extractTranslations,
+  extractUseExtension,
   extractWorkspace,
 } from "./extractors";
 import type { FeaturePattern, UnknownPattern } from "./patterns";
@@ -280,16 +287,24 @@ function dispatchExtractor(
       return extractNav(call, sourceFile);
     case "workspace":
       return extractWorkspace(call, sourceFile);
+    // Round 3 — complex static patterns
+    case "config":
+      return extractConfig(call, sourceFile);
+    case "translations":
+      return extractTranslations(call, sourceFile);
+    case "metric":
+      return extractMetric(call, sourceFile);
+    case "secret":
+      return extractSecret(call, sourceFile);
+    case "claimKey":
+      return extractClaimKey(call, sourceFile);
+    case "referenceData":
+      return extractReferenceData(call, sourceFile);
+    case "useExtension":
+      return extractUseExtension(call, sourceFile);
     // Recognised but extractor not yet implemented — fall through to
     // UnknownPattern so the Designer/AI know the call exists. Replaced
     // by concrete extractors as C1.5 progresses.
-    case "config":
-    case "translations":
-    case "metric":
-    case "secret":
-    case "claimKey":
-    case "referenceData":
-    case "useExtension":
     case "screen":
     case "writeHandler":
     case "queryHandler":

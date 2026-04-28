@@ -24,20 +24,30 @@
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 
+import type { ConfigKeyDefinition, ConfigKeyType, TranslationKeys } from "../types/config";
+import type { MetricOptions, SecretOptions } from "../types/feature";
 import type { EntityDefinition } from "../types/fields";
+import type { ClaimKeyType } from "../types/handlers";
 import type { NavDefinition } from "../types/nav";
 import type { RelationDefinition } from "../types/relations";
 import type { WorkspaceDefinition } from "../types/workspace";
 import type { ParseError } from "./parse";
 import type {
+  ClaimKeyPattern,
+  ConfigPattern,
   EntityPattern,
+  MetricPattern,
   NavPattern,
   OptionalRequiresPattern,
   ReadsConfigPattern,
+  ReferenceDataPattern,
   RelationPattern,
   RequiresPattern,
+  SecretPattern,
   SystemScopePattern,
   ToggleablePattern,
+  TranslationsPattern,
+  UseExtensionPattern,
   WorkspacePattern,
 } from "./patterns";
 import { sourceLocationFromNode } from "./source-location";
@@ -451,5 +461,334 @@ export function extractWorkspace(
     kind: "workspace",
     source: sourceLocationFromNode(call, sourceFile),
     definition: definition as WorkspaceDefinition,
+  });
+}
+
+// =============================================================================
+// Round 3 — complex static patterns
+//
+// Two-argument extractors (metric, secret, claimKey) take a string-literal
+// short name plus an options object. The options-object extractors
+// (config, translations) wrap a `keys` map. referenceData/useExtension
+// take an entity reference plus payload.
+// =============================================================================
+
+export function extractConfig(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<ConfigPattern> {
+  const arg = call.getArguments()[0];
+  if (!arg) {
+    return fail(
+      "config",
+      sourceLocationFromNode(call, sourceFile),
+      "expected `{ keys: { ... } }` as first argument",
+    );
+  }
+  const obj = readJsonLikeNode(arg);
+  if (!isPlainObject(obj)) {
+    return fail(
+      "config",
+      sourceLocationFromNode(call, sourceFile),
+      "argument could not be read as a plain object",
+    );
+  }
+  const keys = obj["keys"];
+  if (!isPlainObject(keys)) {
+    return fail(
+      "config",
+      sourceLocationFromNode(call, sourceFile),
+      "missing or non-object `keys` property",
+    );
+  }
+  return ok({
+    kind: "config",
+    source: sourceLocationFromNode(call, sourceFile),
+    keys: keys as Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>,
+  });
+}
+
+export function extractTranslations(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<TranslationsPattern> {
+  const arg = call.getArguments()[0];
+  if (!arg) {
+    return fail(
+      "translations",
+      sourceLocationFromNode(call, sourceFile),
+      "expected `{ keys: { ... } }` as first argument",
+    );
+  }
+  const obj = readJsonLikeNode(arg);
+  if (!isPlainObject(obj)) {
+    return fail(
+      "translations",
+      sourceLocationFromNode(call, sourceFile),
+      "argument could not be read as a plain object",
+    );
+  }
+  const keys = obj["keys"];
+  if (!isPlainObject(keys)) {
+    return fail(
+      "translations",
+      sourceLocationFromNode(call, sourceFile),
+      "missing or non-object `keys` property",
+    );
+  }
+  return ok({
+    kind: "translations",
+    source: sourceLocationFromNode(call, sourceFile),
+    keys: keys as TranslationKeys,
+  });
+}
+
+export function extractMetric(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<MetricPattern> {
+  const args = call.getArguments();
+  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!nameArg) {
+    return fail(
+      "metric",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal short name",
+    );
+  }
+  const optionsArg = args[1];
+  if (!optionsArg) {
+    return fail(
+      "metric",
+      sourceLocationFromNode(call, sourceFile),
+      "expected an options object as second argument",
+    );
+  }
+  const options = readJsonLikeNode(optionsArg);
+  if (!isPlainObject(options)) {
+    return fail(
+      "metric",
+      sourceLocationFromNode(call, sourceFile),
+      "options could not be read as a plain object",
+    );
+  }
+  return ok({
+    kind: "metric",
+    source: sourceLocationFromNode(call, sourceFile),
+    shortName: nameArg.getLiteralValue(),
+    options: options as MetricOptions,
+  });
+}
+
+export function extractSecret(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<SecretPattern> {
+  const args = call.getArguments();
+  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!nameArg) {
+    return fail(
+      "secret",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal short name",
+    );
+  }
+  const optionsArg = args[1];
+  if (!optionsArg) {
+    return fail(
+      "secret",
+      sourceLocationFromNode(call, sourceFile),
+      "expected an options object as second argument",
+    );
+  }
+  const options = readJsonLikeNode(optionsArg);
+  if (!isPlainObject(options)) {
+    return fail(
+      "secret",
+      sourceLocationFromNode(call, sourceFile),
+      "options could not be read as a plain object",
+    );
+  }
+  return ok({
+    kind: "secret",
+    source: sourceLocationFromNode(call, sourceFile),
+    shortName: nameArg.getLiteralValue(),
+    options: options as SecretOptions,
+  });
+}
+
+export function extractClaimKey(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<ClaimKeyPattern> {
+  const args = call.getArguments();
+  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!nameArg) {
+    return fail(
+      "claimKey",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal short name",
+    );
+  }
+  const optionsArg = args[1];
+  if (!optionsArg) {
+    return fail(
+      "claimKey",
+      sourceLocationFromNode(call, sourceFile),
+      "expected `{ type: ClaimKeyType }` as second argument",
+    );
+  }
+  const options = readJsonLikeNode(optionsArg);
+  if (!isPlainObject(options)) {
+    return fail(
+      "claimKey",
+      sourceLocationFromNode(call, sourceFile),
+      "options could not be read as a plain object",
+    );
+  }
+  const claimType = options["type"];
+  if (!isClaimKeyType(claimType)) {
+    return fail(
+      "claimKey",
+      sourceLocationFromNode(call, sourceFile),
+      'type must be one of "string" | "number" | "boolean" | "string[]" | "object"',
+    );
+  }
+  return ok({
+    kind: "claimKey",
+    source: sourceLocationFromNode(call, sourceFile),
+    shortName: nameArg.getLiteralValue(),
+    claimType,
+  });
+}
+
+function isClaimKeyType(value: unknown): value is ClaimKeyType {
+  return (
+    value === "string" ||
+    value === "number" ||
+    value === "boolean" ||
+    value === "string[]" ||
+    value === "object"
+  );
+}
+
+export function extractReferenceData(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<ReferenceDataPattern> {
+  const args = call.getArguments();
+  const entityRefArg = args[0];
+  if (!entityRefArg) {
+    return fail(
+      "referenceData",
+      sourceLocationFromNode(call, sourceFile),
+      "expected an entity reference as first argument",
+    );
+  }
+  const entityName = readNameOrRef(entityRefArg);
+  if (!entityName) {
+    return fail(
+      "referenceData",
+      sourceLocationFromNode(call, sourceFile),
+      'first argument must be a string literal or an inline { name: "..." } object',
+    );
+  }
+  const dataArg = args[1];
+  if (!dataArg) {
+    return fail(
+      "referenceData",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a data array as second argument",
+    );
+  }
+  const data = readJsonLikeNode(dataArg);
+  if (!Array.isArray(data) || !data.every(isPlainObject)) {
+    return fail(
+      "referenceData",
+      sourceLocationFromNode(call, sourceFile),
+      "data must be an array of plain objects",
+    );
+  }
+  // Optional third argument: { upsertKey?: string }.
+  let upsertKey: string | undefined;
+  const optionsArg = args[2];
+  if (optionsArg) {
+    const options = readJsonLikeNode(optionsArg);
+    if (!isPlainObject(options)) {
+      return fail(
+        "referenceData",
+        sourceLocationFromNode(call, sourceFile),
+        "options could not be read as a plain object",
+      );
+    }
+    if (options["upsertKey"] !== undefined) {
+      if (typeof options["upsertKey"] !== "string") {
+        return fail(
+          "referenceData",
+          sourceLocationFromNode(call, sourceFile),
+          "upsertKey must be a string when provided",
+        );
+      }
+      upsertKey = options["upsertKey"];
+    }
+  }
+  return ok({
+    kind: "referenceData",
+    source: sourceLocationFromNode(call, sourceFile),
+    entityName,
+    data: data as readonly Record<string, unknown>[],
+    ...(upsertKey !== undefined && { upsertKey }),
+  });
+}
+
+export function extractUseExtension(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<UseExtensionPattern> {
+  const args = call.getArguments();
+  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!nameArg) {
+    return fail(
+      "useExtension",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal extension name",
+    );
+  }
+  const entityRefArg = args[1];
+  if (!entityRefArg) {
+    return fail(
+      "useExtension",
+      sourceLocationFromNode(call, sourceFile),
+      "expected an entity reference as second argument",
+    );
+  }
+  const entityName = readNameOrRef(entityRefArg);
+  if (!entityName) {
+    return fail(
+      "useExtension",
+      sourceLocationFromNode(call, sourceFile),
+      'second argument must be a string literal or an inline { name: "..." } object',
+    );
+  }
+  // Optional third argument: options object.
+  const optionsArg = args[2];
+  let options: Readonly<Record<string, unknown>> | undefined;
+  if (optionsArg) {
+    const parsed = readJsonLikeNode(optionsArg);
+    if (!isPlainObject(parsed)) {
+      return fail(
+        "useExtension",
+        sourceLocationFromNode(call, sourceFile),
+        "options could not be read as a plain object",
+      );
+    }
+    options = parsed;
+  }
+  return ok({
+    kind: "useExtension",
+    source: sourceLocationFromNode(call, sourceFile),
+    extensionName: nameArg.getLiteralValue(),
+    entityName,
+    ...(options !== undefined && { options }),
   });
 }

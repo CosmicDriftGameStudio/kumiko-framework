@@ -380,3 +380,188 @@ defineFeature("f", (r) => {
     });
   });
 });
+
+// =============================================================================
+// Round 3 extractors — complex static patterns
+// =============================================================================
+
+describe("extractConfig", () => {
+  test("captures keys map", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.config({
+    keys: {
+      jwtTtl: { type: "number", default: 3600 },
+      locale: { type: "string", default: "en" },
+    },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "config",
+      keys: {
+        jwtTtl: { type: "number", default: 3600 },
+        locale: { type: "string", default: "en" },
+      },
+    });
+  });
+
+  test("emits ParseError when keys property is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.config({});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("config");
+  });
+});
+
+describe("extractTranslations", () => {
+  test("captures the locale tree", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.translations({
+    keys: {
+      en: { greeting: "hello" },
+      de: { greeting: "hallo" },
+    },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "translations",
+      keys: {
+        en: { greeting: "hello" },
+        de: { greeting: "hallo" },
+      },
+    });
+  });
+});
+
+describe("extractMetric", () => {
+  test("captures shortName + options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.metric("requests", { type: "counter", description: "API requests" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "metric",
+      shortName: "requests",
+      options: { type: "counter", description: "API requests" },
+    });
+  });
+});
+
+describe("extractSecret", () => {
+  test("captures shortName + options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.secret("apiKey", { description: "Stripe API key" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "secret",
+      shortName: "apiKey",
+      options: { description: "Stripe API key" },
+    });
+  });
+});
+
+describe("extractClaimKey", () => {
+  test("captures shortName + claim type", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.claimKey("teamId", { type: "string" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "claimKey",
+      shortName: "teamId",
+      claimType: "string",
+    });
+  });
+
+  test("emits ParseError on invalid claim type", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.claimKey("teamId", { type: "bigint" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("claimKey");
+  });
+});
+
+describe("extractReferenceData", () => {
+  test("captures entity name + data array", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData("status", [
+    { id: "open", label: "Open" },
+    { id: "closed", label: "Closed" },
+  ]);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "referenceData",
+      entityName: "status",
+      data: [
+        { id: "open", label: "Open" },
+        { id: "closed", label: "Closed" },
+      ],
+    });
+  });
+
+  test("captures the optional upsertKey", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData("status", [{ id: "open" }], { upsertKey: "id" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "referenceData",
+      entityName: "status",
+      upsertKey: "id",
+    });
+  });
+});
+
+describe("extractUseExtension", () => {
+  test("captures extension name + entity ref", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension("audit", "task");
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "useExtension",
+      extensionName: "audit",
+      entityName: "task",
+    });
+  });
+
+  test("captures optional options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension("audit", "task", { mode: "verbose" });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "useExtension",
+      extensionName: "audit",
+      entityName: "task",
+      options: { mode: "verbose" },
+    });
+  });
+});
