@@ -25,8 +25,8 @@
 
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
-import type { FeaturePattern } from "../patterns";
 import { parseFeatureFile } from "../parse";
+import type { FeaturePattern } from "../patterns";
 
 const REPO_ROOT = resolve(__dirname, "../../../../../..");
 

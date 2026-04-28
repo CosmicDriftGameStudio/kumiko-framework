@@ -809,8 +809,9 @@ defineFeature("f", (r) => {
       name: "task-counter",
       sourceEntity: "task",
     });
-    const applyBodies = (result.patterns[0] as { applyBodies?: Record<string, unknown> } | undefined)
-      ?.applyBodies;
+    const applyBodies = (
+      result.patterns[0] as { applyBodies?: Record<string, unknown> } | undefined
+    )?.applyBodies;
     expect(Object.keys(applyBodies ?? {})).toEqual(["task.created", "task.updated"]);
   });
 });

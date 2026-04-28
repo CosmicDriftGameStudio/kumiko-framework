@@ -75,6 +75,7 @@ import type {
   WorkspacePattern,
   WriteHandlerPattern,
 } from "./patterns";
+import { SCREEN_OPAQUE_MARKER } from "./patterns";
 import type { SourceLocation } from "./source-location";
 import { sourceLocationFromNode } from "./source-location";
 
@@ -154,7 +155,7 @@ function readBooleanProperty(objectLiteral: Node, propertyName: string): boolean
  * functions, template literals with substitutions, spread props,
  * shorthand props, methods, computed keys.
  */
-function readJsonLikeNode(node: Node): unknown {
+function readDataLiteralNode(node: Node): unknown {
   const kind = node.getKind();
   switch (kind) {
     case SyntaxKind.StringLiteral:
@@ -173,7 +174,7 @@ function readJsonLikeNode(node: Node): unknown {
       // Negative number literals: -1, -2.5
       const expr = node.asKindOrThrow(SyntaxKind.PrefixUnaryExpression);
       if (expr.getOperatorToken() !== SyntaxKind.MinusToken) return undefined;
-      const inner = readJsonLikeNode(expr.getOperand());
+      const inner = readDataLiteralNode(expr.getOperand());
       if (typeof inner !== "number") return undefined;
       return -inner;
     }
@@ -181,7 +182,7 @@ function readJsonLikeNode(node: Node): unknown {
       const arr = node.asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
       const out: unknown[] = [];
       for (const el of arr.getElements()) {
-        const value = readJsonLikeNode(el);
+        const value = readDataLiteralNode(el);
         if (value === undefined) return undefined;
         out.push(value);
       }
@@ -195,18 +196,20 @@ function readJsonLikeNode(node: Node): unknown {
         if (!propAssign) return undefined; // shorthand / spread / method
         const initializer = propAssign.getInitializer();
         if (!initializer) return undefined;
-        const value = readJsonLikeNode(initializer);
+        const value = readDataLiteralNode(initializer);
         if (value === undefined) return undefined;
         out[readPropertyKey(propAssign)] = value;
       }
       return out;
     }
     case SyntaxKind.AsExpression:
-      return readJsonLikeNode(node.asKindOrThrow(SyntaxKind.AsExpression).getExpression());
+      return readDataLiteralNode(node.asKindOrThrow(SyntaxKind.AsExpression).getExpression());
     case SyntaxKind.SatisfiesExpression:
-      return readJsonLikeNode(node.asKindOrThrow(SyntaxKind.SatisfiesExpression).getExpression());
+      return readDataLiteralNode(
+        node.asKindOrThrow(SyntaxKind.SatisfiesExpression).getExpression(),
+      );
     case SyntaxKind.ParenthesizedExpression:
-      return readJsonLikeNode(
+      return readDataLiteralNode(
         node.asKindOrThrow(SyntaxKind.ParenthesizedExpression).getExpression(),
       );
     default:
@@ -224,9 +227,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * `"task.created"`; we strip them so consumers see the same literal
  * value whether the author used identifier or string-key form.
  */
-function readPropertyKey(
-  propAssign: import("ts-morph").PropertyAssignment,
-): string {
+function readPropertyKey(propAssign: import("ts-morph").PropertyAssignment): string {
   const nameNode = propAssign.getNameNode();
   const literal = nameNode.asKind(SyntaxKind.StringLiteral);
   if (literal) return literal.getLiteralValue();
@@ -241,7 +242,7 @@ function readPropertyKey(
 function readNameOrRef(node: Node): string | undefined {
   const literal = node.asKind(SyntaxKind.StringLiteral);
   if (literal) return literal.getLiteralValue();
-  const obj = readJsonLikeNode(node);
+  const obj = readDataLiteralNode(node);
   if (isPlainObject(obj) && typeof obj["name"] === "string") return obj["name"];
   return undefined;
 }
@@ -383,7 +384,7 @@ export function extractToggleable(
 // =============================================================================
 // Round 2 — object-literal-based static patterns
 //
-// These read a definition object via readJsonLikeNode. The reader is
+// These read a definition object via readDataLiteralNode. The reader is
 // best-effort: function-typed properties (e.g. EntityDefinition with a
 // computed `default`) make the extractor fail with a ParseError that
 // the Designer/AI surface as "this entity has custom code, can't edit".
@@ -411,7 +412,7 @@ export function extractEntity(
       "expected a definition object as second argument",
     );
   }
-  const definition = readJsonLikeNode(defArg);
+  const definition = readDataLiteralNode(defArg);
   if (!isPlainObject(definition)) {
     return fail(
       "entity",
@@ -467,7 +468,7 @@ export function extractRelation(
       "expected a definition object as third argument",
     );
   }
-  const definition = readJsonLikeNode(defArg);
+  const definition = readDataLiteralNode(defArg);
   if (!isPlainObject(definition)) {
     return fail(
       "relation",
@@ -496,7 +497,7 @@ export function extractNav(
       "expected a NavDefinition object as first argument",
     );
   }
-  const definition = readJsonLikeNode(arg);
+  const definition = readDataLiteralNode(arg);
   if (!isPlainObject(definition)) {
     return fail(
       "nav",
@@ -523,7 +524,7 @@ export function extractWorkspace(
       "expected a WorkspaceDefinition object as first argument",
     );
   }
-  const definition = readJsonLikeNode(arg);
+  const definition = readDataLiteralNode(arg);
   if (!isPlainObject(definition)) {
     return fail(
       "workspace",
@@ -559,7 +560,7 @@ export function extractConfig(
       "expected `{ keys: { ... } }` as first argument",
     );
   }
-  const obj = readJsonLikeNode(arg);
+  const obj = readDataLiteralNode(arg);
   if (!isPlainObject(obj)) {
     return fail(
       "config",
@@ -594,7 +595,7 @@ export function extractTranslations(
       "expected `{ keys: { ... } }` as first argument",
     );
   }
-  const obj = readJsonLikeNode(arg);
+  const obj = readDataLiteralNode(arg);
   if (!isPlainObject(obj)) {
     return fail(
       "translations",
@@ -638,7 +639,7 @@ export function extractMetric(
       "expected an options object as second argument",
     );
   }
-  const options = readJsonLikeNode(optionsArg);
+  const options = readDataLiteralNode(optionsArg);
   if (!isPlainObject(options)) {
     return fail(
       "metric",
@@ -675,7 +676,7 @@ export function extractSecret(
       "expected an options object as second argument",
     );
   }
-  const options = readJsonLikeNode(optionsArg);
+  const options = readDataLiteralNode(optionsArg);
   if (!isPlainObject(options)) {
     return fail(
       "secret",
@@ -712,7 +713,7 @@ export function extractClaimKey(
       "expected `{ type: ClaimKeyType }` as second argument",
     );
   }
-  const options = readJsonLikeNode(optionsArg);
+  const options = readDataLiteralNode(optionsArg);
   if (!isPlainObject(options)) {
     return fail(
       "claimKey",
@@ -775,7 +776,7 @@ export function extractReferenceData(
       "expected a data array as second argument",
     );
   }
-  const data = readJsonLikeNode(dataArg);
+  const data = readDataLiteralNode(dataArg);
   if (!Array.isArray(data) || !data.every(isPlainObject)) {
     return fail(
       "referenceData",
@@ -787,7 +788,7 @@ export function extractReferenceData(
   let upsertKey: string | undefined;
   const optionsArg = args[2];
   if (optionsArg) {
-    const options = readJsonLikeNode(optionsArg);
+    const options = readDataLiteralNode(optionsArg);
     if (!isPlainObject(options)) {
       return fail(
         "referenceData",
@@ -848,7 +849,7 @@ export function extractUseExtension(
   const optionsArg = args[2];
   let options: Readonly<Record<string, unknown>> | undefined;
   if (optionsArg) {
-    const parsed = readJsonLikeNode(optionsArg);
+    const parsed = readDataLiteralNode(optionsArg);
     if (!isPlainObject(parsed)) {
       return fail(
         "useExtension",
@@ -891,9 +892,21 @@ function isHookType(value: string): value is LifecycleHookType | "validation" {
   );
 }
 
+function isHttpRouteMethod(value: string): value is HttpRouteMethod {
+  return (
+    value === "GET" ||
+    value === "POST" ||
+    value === "PUT" ||
+    value === "PATCH" ||
+    value === "DELETE" ||
+    value === "HEAD" ||
+    value === "OPTIONS"
+  );
+}
+
 function readOptionalPhase(node: Node | undefined): HookPhase | undefined {
   if (!node) return undefined;
-  const obj = readJsonLikeNode(node);
+  const obj = readDataLiteralNode(node);
   if (!isPlainObject(obj)) return undefined;
   const phase = obj["phase"];
   if (phase === "inTransaction" || phase === "afterCommit") return phase as HookPhase;
@@ -1074,14 +1087,29 @@ export function extractAuthClaims(
   });
 }
 
-// Shared inline form: r.<method>(name, schema, handler, options?). We
-// also accept the object form r.<method>({ name, schema, handler, ... })
-// (defineWriteHandler / defineQueryHandler shape) — common in samples.
-function extractHandlerLike(
+// Common fields produced by parseHandlerCall — both write- and query-
+// handler patterns share them. The wrapper functions below add the
+// kind-discriminator and the write-only skipTransitionGuard so the
+// shared helper stays unbiased.
+type ParsedHandlerCall = {
+  readonly source: SourceLocation;
+  readonly handlerName: string;
+  readonly schemaSource: SourceLocation;
+  readonly handlerBody: SourceLocation;
+  readonly access?: AccessRule;
+  readonly rateLimit?: RateLimitOption;
+  readonly skipTransitionGuard?: boolean;
+};
+
+// Shared parser for r.writeHandler / r.queryHandler. Accepts both
+// inline form r.<method>(name, schema, handler, options?) and the
+// single-arg object form r.<method>({ name, schema, handler, ... })
+// (the defineWriteHandler / defineQueryHandler shape).
+function parseHandlerCall(
   call: CallExpression,
   sourceFile: SourceFile,
   methodName: "writeHandler" | "queryHandler",
-): ExtractOutput<WriteHandlerPattern> {
+): ExtractOutput<ParsedHandlerCall> {
   const args = call.getArguments();
   const first = args[0];
   if (!first) {
@@ -1141,19 +1169,16 @@ function extractHandlerLike(
       .getProperty("access")
       ?.asKind(SyntaxKind.PropertyAssignment)
       ?.getInitializer();
-    const access = accessInit
-      ? readOptionalAccessRule(readJsonLikeNode(accessInit))
-      : undefined;
+    const access = accessInit ? readOptionalAccessRule(readDataLiteralNode(accessInit)) : undefined;
     const rateLimitInit = obj
       .getProperty("rateLimit")
       ?.asKind(SyntaxKind.PropertyAssignment)
       ?.getInitializer();
     const rateLimit = rateLimitInit
-      ? readOptionalRateLimit(readJsonLikeNode(rateLimitInit))
+      ? readOptionalRateLimit(readDataLiteralNode(rateLimitInit))
       : undefined;
     const skip = readBooleanProperty(obj, "skipTransitionGuard");
     return ok({
-      kind: "writeHandler",
       source: sourceLocationFromNode(call, sourceFile),
       handlerName: nameLiteral.getLiteralValue(),
       schemaSource: sourceLocationFromNode(schemaInit, sourceFile),
@@ -1201,14 +1226,13 @@ function extractHandlerLike(
   let access: AccessRule | undefined;
   let rateLimit: RateLimitOption | undefined;
   if (optionsArg) {
-    const options = readJsonLikeNode(optionsArg);
+    const options = readDataLiteralNode(optionsArg);
     if (isPlainObject(options)) {
       access = readOptionalAccessRule(options["access"]);
       rateLimit = readOptionalRateLimit(options["rateLimit"]);
     }
   }
   return ok({
-    kind: "writeHandler",
     source: sourceLocationFromNode(call, sourceFile),
     handlerName: nameLiteral.getLiteralValue(),
     schemaSource: sourceLocationFromNode(schemaArg, sourceFile),
@@ -1222,19 +1246,38 @@ export function extractWriteHandler(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<WriteHandlerPattern> {
-  return extractHandlerLike(call, sourceFile, "writeHandler");
+  const parsed = parseHandlerCall(call, sourceFile, "writeHandler");
+  if (parsed.kind === "error") return parsed;
+  return ok({
+    kind: "writeHandler",
+    source: parsed.pattern.source,
+    handlerName: parsed.pattern.handlerName,
+    schemaSource: parsed.pattern.schemaSource,
+    handlerBody: parsed.pattern.handlerBody,
+    ...(parsed.pattern.access !== undefined && { access: parsed.pattern.access }),
+    ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
+    ...(parsed.pattern.skipTransitionGuard === true && { skipTransitionGuard: true }),
+  });
 }
 
 export function extractQueryHandler(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<QueryHandlerPattern> {
-  const result = extractHandlerLike(call, sourceFile, "queryHandler");
-  if (result.kind === "error") return result;
-  // QueryHandler has no skipTransitionGuard — drop it from the shared shape.
-  const { skipTransitionGuard: _skip, ...rest } = result.pattern;
-  void _skip;
-  return ok({ ...rest, kind: "queryHandler" });
+  const parsed = parseHandlerCall(call, sourceFile, "queryHandler");
+  if (parsed.kind === "error") return parsed;
+  // QueryHandler has no skipTransitionGuard — the field is silently
+  // ignored if the parser reads one (won't happen in practice because
+  // queryHandlers don't carry that option).
+  return ok({
+    kind: "queryHandler",
+    source: parsed.pattern.source,
+    handlerName: parsed.pattern.handlerName,
+    schemaSource: parsed.pattern.schemaSource,
+    handlerBody: parsed.pattern.handlerBody,
+    ...(parsed.pattern.access !== undefined && { access: parsed.pattern.access }),
+    ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
+  });
 }
 
 export function extractJob(
@@ -1258,7 +1301,7 @@ export function extractJob(
       "expected an options object as second argument",
     );
   }
-  const options = readJsonLikeNode(optionsArg);
+  const options = readDataLiteralNode(optionsArg);
   if (!isPlainObject(options)) {
     return fail(
       "job",
@@ -1315,6 +1358,14 @@ export function extractHttpRoute(
       "method must be a string literal",
     );
   }
+  const methodValue = methodLiteral.getLiteralValue();
+  if (!isHttpRouteMethod(methodValue)) {
+    return fail(
+      "httpRoute",
+      sourceLocationFromNode(call, sourceFile),
+      `method must be one of GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS (got "${methodValue}")`,
+    );
+  }
   const pathLiteral = arg
     .getProperty("path")
     ?.asKind(SyntaxKind.PropertyAssignment)
@@ -1350,7 +1401,7 @@ export function extractHttpRoute(
   return ok({
     kind: "httpRoute",
     source: sourceLocationFromNode(call, sourceFile),
-    method: methodLiteral.getLiteralValue() as HttpRouteMethod,
+    method: methodValue,
     path: pathLiteral.getLiteralValue(),
     handlerBody: sourceLocationFromNode(fn, sourceFile),
     ...(anonymous === true && { anonymous: true }),
@@ -1381,7 +1432,7 @@ export function extractDefineEvent(
   let version: number | undefined;
   const optionsArg = args[2];
   if (optionsArg) {
-    const options = readJsonLikeNode(optionsArg);
+    const options = readDataLiteralNode(optionsArg);
     if (isPlainObject(options) && typeof options["version"] === "number") {
       version = options["version"];
     }
@@ -1409,7 +1460,7 @@ export function extractEventMigration(
     );
   }
   const fromArg = args[1];
-  const fromVersion = fromArg ? readJsonLikeNode(fromArg) : undefined;
+  const fromVersion = fromArg ? readDataLiteralNode(fromArg) : undefined;
   if (typeof fromVersion !== "number") {
     return fail(
       "eventMigration",
@@ -1418,7 +1469,7 @@ export function extractEventMigration(
     );
   }
   const toArg = args[2];
-  const toVersion = toArg ? readJsonLikeNode(toArg) : undefined;
+  const toVersion = toArg ? readDataLiteralNode(toArg) : undefined;
   if (typeof toVersion !== "number") {
     return fail(
       "eventMigration",
@@ -1673,7 +1724,7 @@ export function extractMultiStreamProjection(
     .getProperty("errorMode")
     ?.asKind(SyntaxKind.PropertyAssignment)
     ?.getInitializer();
-  const errorMode = errorModeInit ? readJsonLikeNode(errorModeInit) : undefined;
+  const errorMode = errorModeInit ? readDataLiteralNode(errorModeInit) : undefined;
   const runInLit = arg
     .getProperty("runIn")
     ?.asKind(SyntaxKind.PropertyAssignment)
@@ -1709,8 +1760,9 @@ function collectScreenOpaqueProps(
   sourceFile: SourceFile,
   out: Record<string, SourceLocation>,
 ): void {
-  if (findFunctionLiteral(node)) {
-    out[path] = sourceLocationFromNode(findFunctionLiteral(node) as Node, sourceFile);
+  const fn = findFunctionLiteral(node);
+  if (fn) {
+    out[path] = sourceLocationFromNode(fn, sourceFile);
     return;
   }
   const obj = node.asKind(SyntaxKind.ObjectLiteralExpression);
@@ -1735,12 +1787,12 @@ function collectScreenOpaqueProps(
 }
 
 // Walk a screen-definition object and produce a JSON view, replacing any
-// closure-typed property with the marker `"<opaque>"`. Identifiers and
-// other non-readable nodes also become `"<opaque>"` so the static tree
+// closure-typed property with SCREEN_OPAQUE_MARKER. Identifiers and
+// other non-readable nodes also become the marker so the static tree
 // stays serialisable while pointing the Designer at opaqueProps for the
 // real source span.
 function readScreenStatic(node: Node): unknown {
-  if (findFunctionLiteral(node)) return "<opaque>";
+  if (findFunctionLiteral(node)) return SCREEN_OPAQUE_MARKER;
   const obj = node.asKind(SyntaxKind.ObjectLiteralExpression);
   if (obj) {
     const out: Record<string, unknown> = {};
@@ -1757,8 +1809,8 @@ function readScreenStatic(node: Node): unknown {
   if (arr) {
     return arr.getElements().map(readScreenStatic);
   }
-  const value = readJsonLikeNode(node);
-  if (value === undefined) return "<opaque>";
+  const value = readDataLiteralNode(node);
+  if (value === undefined) return SCREEN_OPAQUE_MARKER;
   return value;
 }
 

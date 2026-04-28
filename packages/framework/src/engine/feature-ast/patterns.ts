@@ -172,6 +172,13 @@ export type UseExtensionPattern = {
 // exact form-field that maps to the path.
 export type OpaquePropMap = Readonly<Record<string, SourceLocation>>;
 
+// Marker emitted in `ScreenPattern.definition` wherever a closure or
+// unresolvable identifier sat in the source. Designer renderers compare
+// against this constant to decide "form vs read-only span" — the actual
+// SourceLocation lives at the matching path in `opaqueProps`.
+export const SCREEN_OPAQUE_MARKER = "$opaque" as const;
+export type ScreenOpaqueMarker = typeof SCREEN_OPAQUE_MARKER;
+
 export type ScreenPattern = {
   readonly kind: "screen";
   readonly source: SourceLocation;
