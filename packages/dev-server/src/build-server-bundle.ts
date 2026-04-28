@@ -15,6 +15,12 @@
 //                                       (optional — Projection-Rebuild-Marker-
 //                                        Reader, wird via KUMIKO_MIGRATION_HOOKS
 //                                        env-var von der CLI gefunden)
+//   drizzle.config.ts                →  dist-server/drizzle.config.ts
+//                                       (drizzle-kit lädt's per Convention.
+//                                        kumikoDrizzleConfig-Helper-Imports
+//                                        werden inlined damit der Container
+//                                        kein @kumiko/dev-server-Paket
+//                                        installiert haben muss.)
 //   dist-server/package.json         →  generiert mit Versionen aus framework +
 //                                       bundled-features package.json
 //
@@ -24,6 +30,7 @@
 //     server.js                      ← App-Boot-Entry (~1 MB)
 //     kumiko.js                      ← Migrate-CLI (~1 MB)
 //     migration-hooks.js             ← Rebuild-Marker-Reader (optional, ~1 MB)
+//     drizzle.config.ts              ← gebundelter drizzle-kit-Config (~10 KB)
 //     package.json                   ← runtime-deps mit gepinnten Versionen
 //
 // Externals — Pakete die NICHT ins Bundle gebakt werden, sondern via
@@ -127,6 +134,7 @@ export async function buildServerBundle(
     );
   }
   const migrationHooks = discoverMigrationHooks(cwd);
+  const drizzleConfig = discoverDrizzleConfig(cwd);
 
   const externals = [
     ...RUNTIME_EXTERNALS,
@@ -152,6 +160,14 @@ export async function buildServerBundle(
       externals,
     );
     entries.push(migrationHooksEntry);
+  }
+  // drizzle.config.ts wird mit-bundelt damit drizzle-kit migrate im
+  // Runtime-Container den kumikoDrizzleConfig-Helper nicht via
+  // @kumiko/dev-server resolven muss (das Paket ist nicht installiert).
+  // Output behält die .ts-Endung — drizzle-kit's TS-Loader akzeptiert
+  // bundled JavaScript.
+  if (drizzleConfig) {
+    entries.push(await bundleEntry(drizzleConfig, outDir, "drizzle.config.ts", externals));
   }
 
   const runtimeDeps = await resolveRuntimeDepsVersions(repoRoot, [
@@ -202,6 +218,11 @@ export function discoverServerEntry(cwd: string): string | undefined {
   const jsEntry = join(cwd, "bin/main.js");
   if (existsSync(jsEntry)) return jsEntry;
   return undefined;
+}
+
+export function discoverDrizzleConfig(cwd: string): string | undefined {
+  const path = join(cwd, "drizzle.config.ts");
+  return existsSync(path) ? path : undefined;
 }
 
 export function discoverMigrationHooks(cwd: string): string | undefined {
