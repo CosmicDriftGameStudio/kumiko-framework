@@ -229,16 +229,19 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
                         setOpen(false);
                       }
                     }}
-                    // Browser-Click-Bug Wurzel: `data-[disabled]:pointer-
-                    // events-none` (vorher in der className) hat alle
-                    // Mouse-Events absorbiert, weil cmdk das `data-disabled`
-                    // attribute unter Bedingungen unerwartet setzt (z.B.
-                    // bei filter-Score 0 in einigen cmdk-Versions). jsdom
-                    // ignoriert Tailwind-CSS, daher der Test-blind-Spot —
-                    // im Browser killte die Class lautlos jeden Click. Fix:
-                    // data-[disabled]-Class komplett raus + explicit
-                    // pointer-events-auto als zusätzlicher Override.
-                    className="pointer-events-auto relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground"
+                    // Browser-Click-Bug-Fix: Item-className enthielt vorher
+                    // `data-[disabled]:pointer-events-none`. Im Showcase
+                    // (mit Tailwind-CSS aktiv) waren Mouse-Clicks lautlos
+                    // tot — Keyboard-Select via Pfeiltasten funktionierte.
+                    // jsdom-Tests grün, weil dort kein Tailwind-CSS greift.
+                    // Genauer Trigger-Mechanismus (welches state setzt
+                    // `data-disabled` auf das Item?) wurde nicht weiter
+                    // untersucht — Class-Removal war ausreichend, um den
+                    // Click zu reaktivieren. Defensiv: keine pointer-events-
+                    // Schalter-Klassen mehr auf dem Item, sodass auch ein
+                    // zukünftig wieder gesetztes `data-disabled` keinen
+                    // stillen Click-Verlust mehr produzieren kann.
+                    className="relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground"
                   >
                     {isSelected && (
                       <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
