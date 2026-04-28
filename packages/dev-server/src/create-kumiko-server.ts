@@ -30,6 +30,7 @@ import {
   TestUsers,
 } from "@kumiko/framework/stack";
 import { injectSchema } from "./inject-schema";
+import { resolveTailwindCli } from "./resolve-tailwind-cli";
 import { buildBunServeOptions } from "./run-prod-app";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
@@ -332,40 +333,17 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
   }
 }
 
-// Resolved den lokal installierten @tailwindcss/cli-Bin. Wir vermeiden
-// `bunx`, weil das auch bei lokal installiertem Package noch das
-// Registry-Manifest fragt und ohne Netz mit `FailedToOpenSocket`
-// stirbt. `Bun.resolveSync` auf die package.json funktioniert sowohl
-// im Monorepo als auch in einer installierten Fremd-App.
-function resolveTailwindCliPath(): string | undefined {
-  if (!hasBun) return undefined;
-  try {
-    const pkgJsonPath = (
-      globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
-    ).Bun.resolveSync("@tailwindcss/cli/package.json", process.cwd());
-    // bin: { tailwindcss: "./dist/index.mjs" } → absoluter Pfad
-    return resolve(pkgJsonPath, "..", "dist", "index.mjs");
-  } catch {
-    return undefined;
-  }
-}
-
-// Startet den Tailwind-CLI als watch-Prozess. Rückgabe: der Output-
-// Path (temp-file) den der dev-server als /styles.css serviert.
-// Beim ersten Aufruf blockiert die Funktion bis Tailwind den initialen
-// Build fertig hat — sonst würde der Browser 404 auf das Stylesheet
-// bekommen solange Tailwind noch arbeitet.
-//
-// Failure-Mode: Tailwind ist NICHT-FATAL. Wenn der CLI nicht resolved
-// werden kann oder der initiale Build fehlschlägt (z.B. flakiges Netz
-// während eines Schema-Restarts), loggen wir und liefern `undefined`
-// zurück. Der dev-server bootet ohne CSS — der User sieht ungestylte
-// UI, kann aber weiterarbeiten und nach `bun install` einen sauberen
-// Restart machen, ohne dass die ganze Session stirbt.
+// Startet den Tailwind-CLI als watch-Prozess. Failure-Mode ist
+// non-fatal (return undefined): kann der CLI nicht resolved werden
+// oder failt der initial-Build (z.B. flakiges Netz, fehlende
+// Dependency), bootet der Server ohne CSS statt zu sterben.
 async function startTailwindWatcher(
   entryCss: string,
 ): Promise<{ outPath: string; kill: () => void } | undefined> {
-  const cliPath = resolveTailwindCliPath();
+  const bunResolver = hasBun
+    ? (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun
+    : undefined;
+  const cliPath = resolveTailwindCli({ bun: bunResolver, cwd: process.cwd() });
   if (cliPath === undefined) {
     logError(
       "[kumiko-server] @tailwindcss/cli nicht auflösbar — booting ohne CSS-Pipeline. " +
@@ -377,9 +355,9 @@ async function startTailwindWatcher(
   const outPath = join(outDir, "styles.css");
   logInfo(`[kumiko-server] tailwind watcher → ${outPath}`);
   const bunPath = process.argv[0] ?? "bun";
-  // --watch lässt den Prozess laufen; spawn direkt ohne await auf
-  // exit. Den initialen Build warten wir mit einem ersten one-shot-
-  // Build ab — schneller als den --watch-output zu parsen.
+  // Initial-Build blockend, damit der erste /styles.css-Request kein
+  // 404 bekommt. Dann den watcher im Hintergrund mit unref() — sonst
+  // hing er beim Parent-Crash als orphan-process.
   try {
     await new Promise<void>((resolvePromise, rejectPromise) => {
       const child = spawn(bunPath, ["run", cliPath, "-i", entryCss, "-o", outPath], {
@@ -395,11 +373,6 @@ async function startTailwindWatcher(
     logError("[kumiko-server] tailwind one-shot-build fehlgeschlagen — booting ohne CSS:", err);
     return undefined;
   }
-  // Dann der Watcher im Hintergrund. Caller kriegt einen kill-Handle —
-  // der dev-server räumt damit auf wenn der Prozess endet (SIGINT,
-  // uncaughtException, regulärer stop()). Vorher: watcher.unref()
-  // entkoppelt vom Parent und blieb beim Crash als orphan-process
-  // hängen.
   const watcher = spawn(bunPath, ["run", cliPath, "-i", entryCss, "-o", outPath, "--watch"], {
     stdio: "inherit",
   });
