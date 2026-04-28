@@ -67,7 +67,7 @@
     "pino": "^10.3.1",
     "postgres": "^3.4.9",
     "temporal-polyfill": "^0.3.2",
-    "uuid": "^13.0.0",
+    "uuid": "^14.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
