@@ -259,6 +259,7 @@ export type LocatedTimestampFieldDef = {
 
 export type FileFieldDef = {
   readonly type: "file";
+  readonly required?: boolean;
   readonly maxSize?: string;
   readonly accept?: readonly string[];
   readonly access?: FieldAccess;
@@ -266,6 +267,7 @@ export type FileFieldDef = {
 
 export type ImageFieldDef = {
   readonly type: "image";
+  readonly required?: boolean;
   readonly maxSize?: string;
   readonly accept?: readonly string[];
   readonly thumbnails?: boolean;
