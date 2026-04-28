@@ -69,7 +69,8 @@ const spawnServer = (): void => {
     }
     // Non-zero exit ohne Schema-Change: Code-Fehler oder transienter
     // Crash. Respawn mit Backoff + Crash-Loop-Schutz.
-    const allowed = crashTracker.noteCrash(Date.now());
+    const now = Date.now();
+    const allowed = crashTracker.noteCrash(now);
     if (!allowed) {
       process.stderr.write(
         `[kumiko-dev] ${MAX_CRASHES} Crashes in ${CRASH_WINDOW_MS / 1000}s — aufgeben (exit ${code}). ` +
@@ -80,7 +81,7 @@ const spawnServer = (): void => {
     }
     process.stderr.write(
       `[kumiko-dev] server exited with code ${code} — respawn in ${CRASH_BACKOFF_MS}ms ` +
-        `(${crashTracker.crashCountInWindow()}/${MAX_CRASHES} in window)\n`,
+        `(${crashTracker.crashCountInWindow(now)}/${MAX_CRASHES} in window)\n`,
     );
     setTimeout(spawnServer, CRASH_BACKOFF_MS);
   });

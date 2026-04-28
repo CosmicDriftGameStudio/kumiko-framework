@@ -17,10 +17,15 @@ export type CrashTrackerOptions = {
 
 export type CrashTracker = {
   /** Crash bei `now` registrieren. Returns `true` wenn der Wrapper
-   *  noch respawnen darf, `false` wenn das Limit überschritten ist. */
+   *  noch respawnen darf, `false` wenn das Limit überschritten ist.
+   *
+   *  Der Crash wird IMMER aufgenommen, auch wenn `false` zurückkommt —
+   *  der Caller terminiert in dem Fall normalerweise eh. Reuse mit
+   *  "rejected → state unchanged"-Semantik wird nicht unterstützt. */
   readonly noteCrash: (now: number) => boolean;
-  /** Anzahl Crashes aktuell im Fenster (für Log-Output). */
-  readonly crashCountInWindow: () => number;
+  /** Anzahl Crashes im Fenster relativ zu `now` — prunt lazy, damit
+   *  der Aufruf auch ohne vorheriges noteCrash konsistent ist. */
+  readonly crashCountInWindow: (now: number) => number;
 };
 
 export function createCrashTracker(options: CrashTrackerOptions): CrashTracker {
@@ -43,6 +48,9 @@ export function createCrashTracker(options: CrashTrackerOptions): CrashTracker {
       timestamps.push(now);
       return timestamps.length <= options.maxCrashes;
     },
-    crashCountInWindow: () => timestamps.length,
+    crashCountInWindow: (now) => {
+      pruneBefore(now - options.windowMs);
+      return timestamps.length;
+    },
   };
 }

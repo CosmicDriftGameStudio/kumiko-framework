@@ -24,7 +24,7 @@ describe("createCrashTracker", () => {
     // im Fenster bleibt nur t=500. Mit dem neuen Crash bei 1500 sind
     // wir bei 2 → noch im Limit.
     expect(t.noteCrash(1500)).toBe(true);
-    expect(t.crashCountInWindow()).toBe(2);
+    expect(t.crashCountInWindow(1500)).toBe(2);
   });
 
   test("crashCountInWindow zählt nur, was im Fenster liegt", () => {
@@ -32,7 +32,19 @@ describe("createCrashTracker", () => {
     t.noteCrash(0);
     t.noteCrash(0);
     t.noteCrash(2000); // pruned beide alten weg
-    expect(t.crashCountInWindow()).toBe(1);
+    expect(t.crashCountInWindow(2000)).toBe(1);
+  });
+
+  test("crashCountInWindow prunt lazy auch ohne vorheriges noteCrash", () => {
+    // Wichtig: crashCountInWindow muss eigenständig korrekt sein, nicht
+    // nur als Folge eines vorangegangenen noteCrash. Sonst lügt der Name.
+    const t = createCrashTracker({ maxCrashes: 5, windowMs: 1000 });
+    t.noteCrash(0);
+    t.noteCrash(100);
+    // Direkter Aufruf bei now=2000 — alle alten Crashes sind raus.
+    expect(t.crashCountInWindow(2000)).toBe(0);
+    // Idempotent: zweiter Aufruf liefert dasselbe.
+    expect(t.crashCountInWindow(2000)).toBe(0);
   });
 
   test("Boundary: Crash genau am Fenster-Endpoint bleibt im Fenster", () => {
@@ -42,7 +54,7 @@ describe("createCrashTracker", () => {
     const t = createCrashTracker({ maxCrashes: 2, windowMs: 1000 });
     t.noteCrash(0);
     expect(t.noteCrash(1000)).toBe(true);
-    expect(t.crashCountInWindow()).toBe(2);
+    expect(t.crashCountInWindow(1000)).toBe(2);
     // Dritter Crash bei 1000 → 3 im Fenster, über Limit
     expect(t.noteCrash(1000)).toBe(false);
   });
@@ -61,7 +73,7 @@ describe("createCrashTracker", () => {
     expect(t.noteCrash(200)).toBe(false); // über Limit
     // Wartezeit, alte Crashes raus
     expect(t.noteCrash(2000)).toBe(true);
-    expect(t.crashCountInWindow()).toBe(1);
+    expect(t.crashCountInWindow(2000)).toBe(1);
   });
 
   test("maxCrashes=1 erlaubt genau einen Crash pro Fenster", () => {
@@ -72,6 +84,6 @@ describe("createCrashTracker", () => {
     // (cutoff = 600, 0 < 600 und 500 < 600), Tracker ist leer
     // bevor der neue gepusht wird.
     expect(t.noteCrash(1600)).toBe(true);
-    expect(t.crashCountInWindow()).toBe(1);
+    expect(t.crashCountInWindow(1600)).toBe(1);
   });
 });
