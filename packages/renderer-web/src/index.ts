@@ -113,6 +113,8 @@ export type { WorkspaceSwitcherProps } from "./layout/workspace-switcher";
 export { WorkspaceSwitcher } from "./layout/workspace-switcher";
 export { cn } from "./lib/cn";
 export { defaultPrimitives } from "./primitives";
+export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu";
+export { ActionMenu } from "./primitives/action-menu";
 export {
   DropdownMenu,
   DropdownMenuCheckboxItem,
