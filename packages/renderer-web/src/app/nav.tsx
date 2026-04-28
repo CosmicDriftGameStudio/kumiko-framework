@@ -20,6 +20,36 @@ import {
   useSyncExternalStore,
 } from "react";
 
+// basePath erlaubt es, die App unter einem URL-Prefix zu mounten
+// (z.B. `/admin`). Read-Pfad strippt den Prefix vor dem parsePath,
+// Write-Pfad prepend'd ihn vor dem pushState/replaceState/href.
+//
+// Wenn die URL nicht im basePath liegt (z.B. /marketing/foo bei
+// basePath="/admin"), liefert stripBasePath `undefined` — useBrowserNavApi
+// gibt dann route=undefined zurück, die App rendert ihren "outside"-State
+// (Not-Found, Marketing-Layer, Server-Routing-Pickup, …). Es gibt KEIN
+// Auto-Redirect zur App-Root — die Host-App entscheidet selbst.
+function normalizeBasePath(raw: string | undefined): string {
+  if (raw === undefined || raw === "" || raw === "/") return "";
+  const withLeading = raw.startsWith("/") ? raw : `/${raw}`;
+  return withLeading.endsWith("/") ? withLeading.slice(0, -1) : withLeading;
+}
+
+function stripBasePath(path: string, basePath: string): string | undefined {
+  if (basePath === "") return path;
+  if (path === basePath) return "/";
+  if (path.startsWith(`${basePath}/`)) return path.slice(basePath.length);
+  return undefined;
+}
+
+function prependBasePath(path: string, basePath: string): string {
+  if (basePath === "") return path;
+  // formatPath liefert immer absoluten in-app-Pfad: "/" oder "/screen-id"
+  // oder "/screen-id/entity-id". "/" → einfach basePath, sonst concat.
+  if (path === "/" || path === "") return basePath;
+  return `${basePath}${path}`;
+}
+
 // pushState feuert keinen popstate — wir halten einen eigenen
 // Listener-Set, den navigate() notifiziert. popstate (Back/Forward)
 // läuft über einen window-Listener, den wir einmalig verdrahten.
@@ -111,8 +141,15 @@ function replacePath(path: string): void {
  *
  *  hasWorkspaces aus dem Schema (schema.workspaces non-empty) entscheidet,
  *  ob das erste URL-Segment als Workspace-id parsed wird. Pure Pass-
- *  through an parsePath; formatPath checkt selbst auf target.workspaceId. */
-export function useBrowserNavApi(options?: { readonly hasWorkspaces?: boolean }): NavApi {
+ *  through an parsePath; formatPath checkt selbst auf target.workspaceId.
+ *
+ *  basePath mounted die App unter einem URL-Prefix (z.B. "/admin"). Read-
+ *  Pfad strippt vor parsePath, Write-Pfad prepend'd vor pushState/href.
+ *  URLs außerhalb des basePath liefern route=undefined, ohne Auto-Redirect. */
+export function useBrowserNavApi(options?: {
+  readonly hasWorkspaces?: boolean;
+  readonly basePath?: string;
+}): NavApi {
   const path = useSyncExternalStore(subscribe, readPath, () => "/");
   // Search wird über denselben Listener-Set notifiziert (popstate +
   // unsere replaceState-Calls), also reichen wir denselben subscribe
@@ -120,17 +157,19 @@ export function useBrowserNavApi(options?: { readonly hasWorkspaces?: boolean })
   // zwischen Pfad und Query.
   const search = useSyncExternalStore(subscribe, readSearch, () => "");
   const hasWorkspaces = options?.hasWorkspaces === true;
+  const basePath = useMemo(() => normalizeBasePath(options?.basePath), [options?.basePath]);
   const searchParams = useMemo(() => parseSearchParams(search), [search]);
+  const inAppPath = useMemo(() => stripBasePath(path, basePath), [path, basePath]);
   return useMemo<NavApi>(
     () => ({
-      route: parsePath(path, hasWorkspaces),
-      navigate: (target) => pushPath(formatPath(target)),
-      replace: (target) => replacePath(formatPath(target)),
-      hrefFor: (target) => formatPath(target),
+      route: inAppPath === undefined ? undefined : parsePath(inAppPath, hasWorkspaces),
+      navigate: (target) => pushPath(prependBasePath(formatPath(target), basePath)),
+      replace: (target) => replacePath(prependBasePath(formatPath(target), basePath)),
+      hrefFor: (target) => prependBasePath(formatPath(target), basePath),
       searchParams,
       setSearchParams: applySearchParamUpdates,
     }),
-    [path, hasWorkspaces, searchParams],
+    [inAppPath, hasWorkspaces, basePath, searchParams],
   );
 }
 
