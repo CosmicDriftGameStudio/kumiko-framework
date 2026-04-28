@@ -23,7 +23,6 @@
 
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-
 import type { ConfigKeyDefinition, ConfigKeyType, TranslationKeys } from "../types/config";
 import type { MetricOptions, SecretOptions } from "../types/feature";
 import type { EntityDefinition } from "../types/fields";
@@ -203,6 +202,39 @@ function readNameOrRef(node: Node): string | undefined {
   const obj = readJsonLikeNode(node);
   if (isPlainObject(obj) && typeof obj["name"] === "string") return obj["name"];
   return undefined;
+}
+
+/**
+ * Match a node that looks like a function literal — arrow function,
+ * function expression, or one of those wrapped in parentheses. Returns
+ * undefined for identifiers / call expressions / other shapes (a hook
+ * registered by passing a const reference, for example, won't be
+ * resolved statically).
+ */
+function _findFunctionLiteral(node: Node): Node | undefined {
+  if (node.getKind() === SyntaxKind.ArrowFunction) return node;
+  if (node.getKind() === SyntaxKind.FunctionExpression) return node;
+  const paren = node.asKind(SyntaxKind.ParenthesizedExpression);
+  if (paren) return _findFunctionLiteral(paren.getExpression());
+  return undefined;
+}
+
+/**
+ * Read a NameOrRef argument or an array of them. Returns either the
+ * single string or the list. undefined when neither shape matches.
+ */
+function _readNameOrRefOrList(node: Node): string | readonly string[] | undefined {
+  const single = readNameOrRef(node);
+  if (single) return single;
+  const arr = node.asKind(SyntaxKind.ArrayLiteralExpression);
+  if (!arr) return undefined;
+  const out: string[] = [];
+  for (const el of arr.getElements()) {
+    const name = readNameOrRef(el);
+    if (!name) return undefined;
+    out.push(name);
+  }
+  return out;
 }
 
 // =============================================================================

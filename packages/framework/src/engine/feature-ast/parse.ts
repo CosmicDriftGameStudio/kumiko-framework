@@ -304,21 +304,10 @@ function dispatchExtractor(
       return extractUseExtension(call, sourceFile);
     // Recognised but extractor not yet implemented — fall through to
     // UnknownPattern so the Designer/AI know the call exists. Replaced
-    // by concrete extractors as C1.5 progresses.
-    case "screen":
-    case "writeHandler":
-    case "queryHandler":
-    case "hook":
-    case "entityHook":
-    case "job":
-    case "notification":
-    case "httpRoute":
-    case "projection":
-    case "multiStreamProjection":
-    case "defineEvent":
-    case "eventMigration":
-    case "authClaims":
-    case "extendsRegistrar":
+    // by concrete extractors as C1.5 progresses. Recognised method-
+    // names: screen, writeHandler, queryHandler, hook, entityHook,
+    // job, notification, httpRoute, projection, multiStreamProjection,
+    // defineEvent, eventMigration, authClaims, extendsRegistrar.
     default:
       return {
         kind: "pattern",
