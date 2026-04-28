@@ -21,12 +21,17 @@ export default defineConfig({
       include: ["packages/framework/src/**", "samples/*/*/src/**"],
     },
   },
-  // Cap worker threads to keep Load Avg reasonable on high-core machines.
-  // Default = ncpu (12 on this workstation), which saturated the box during
-  // `kumiko check`. Unit tests are CPU-bound but short — 4 threads keeps
-  // wall-time close to default while leaving headroom for IDE/Docker.
-  // (Top-level in Vitest 4; `test.poolOptions` is deprecated.)
+  // Worker-Threads je nach Kontext. KUMIKO_CHECK=1 (gesetzt von
+  // `kumiko check`) cranked auf 8 — dort soll die Box eh gesättigt sein
+  // und Wall-Time zählt. Default 4: Vitest läuft auch interaktiv im
+  // Watch-Mode, da soll IDE/Docker Headroom haben — der frühere Vorfall
+  // war "12 Threads × bun-hot saturierten alles". 8 trifft die Mitte;
+  // Box hat 12 Cores. (Top-level in Vitest 4; `test.poolOptions` ist
+  // deprecated.)
   poolOptions: {
-    threads: { maxThreads: 4, minThreads: 1 },
+    threads: {
+      maxThreads: process.env["KUMIKO_CHECK"] === "1" ? 8 : 4,
+      minThreads: 1,
+    },
   },
 });

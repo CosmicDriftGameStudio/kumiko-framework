@@ -240,34 +240,71 @@ const commands = {
       logBoth("Checke alles durch...\n", logPath);
       const results: Array<{ name: string; ok: boolean }> = [];
 
-      for (const [name, cmd] of [
-        ["Biome", "yarn biome check ."],
-        ["TypeScript", "yarn tsc --noEmit -p packages/framework/tsconfig.json && yarn tsc --noEmit -p packages/bundled-features/tsconfig.json"],
-        ["Silent-Skip Guard", "yarn tsx scripts/guard-silent-skip.ts"],
-        ["Admin-API Guard", "yarn tsx scripts/guard-admin-api.ts"],
-        ["Unsafe-JSON-Parse Guard", "yarn tsx scripts/guard-unsafe-json-parse.ts"],
-        ["No-Date-API Guard", "yarn tsx scripts/guard-no-date-api.ts"],
-        ["Pre-ES-Patterns Guard", "yarn tsx scripts/guard-pre-es-patterns.ts"],
-        ["Direct-Entity-Writes Guard", "yarn tsx scripts/guard-direct-entity-writes.ts"],
-        ["Cross-Feature-Import Guard", "yarn tsx scripts/guard-cross-feature-imports.ts"],
-        ["Renderer-Boundaries Guard", "yarn tsx scripts/guard-renderer-boundaries.ts"],
-        ["Fake-Test Guard", "yarn tsx scripts/guard-fake-tests.ts"],
-        ["Feature-Integration-Test Guard", "yarn tsx scripts/guard-feature-integration-tests.ts"],
-        ["i18n-Keys Guard", "yarn tsx scripts/guard-i18n-keys.ts"],
-        ["Test-Stack-Drift Guard", "yarn tsx scripts/guard-test-stack-drift.ts"],
-        ["Runtime-Isolation Guard", "bun scripts/check-runtime-isolation.ts"],
-        ["Lockfile-Drift Guard", "yarn tsx scripts/guard-lockfile-drift.ts"],
-        ["Error-Reasons Guard", "yarn tsx scripts/guard-error-reasons.ts"],
-        ["Predicate Extraction Check", "yarn tsx scripts/check-predicates.ts"],
-        ["as-Cast Audit", "yarn tsx scripts/check-as-casts.ts"],
-        ["License Check", "yarn tsx scripts/check-licenses.ts"],
-        ["Unit Tests", "yarn vitest run"],
-        ["Integration Guard", "node vitest.integration.guard.js"],
-        ["Integration Tests", "yarn vitest run --config vitest.integration.config.ts"],
-      ] as const) {
-        logBoth(`--- ${name} ---`, logPath);
-        const code = await runWithTee(cmd, logPath);
-        results.push({ name, ok: code === 0 });
+      // Drei Phasen:
+      //   1. fast-parallel: 21 CPU-bound, kurzlaufende Steps (Biome, TS,
+      //      18 Guards, 2 Code-Audits). Alle unabhängig, gepoolt 6-fach.
+      //      Output gepuffert pro Step und am Ende serialisiert
+      //      ausgegeben — sonst würde die Konsole zum Spaghetti.
+      //   2. Unit Tests: vitest mit eigener interner Parallelisierung,
+      //      live output, sequentiell.
+      //   3. Integration Guard + Integration Tests: brauchen Docker und
+      //      shared Postgres — sequentiell, live output.
+      //
+      // Guards laufen unter `bun scripts/...` statt `yarn tsx ...` — bun
+      // bootet ~400ms schneller pro Aufruf, was bei 18+ Skripten direkt
+      // ~7s spart.
+      const fastSteps: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
+        { name: "Biome", cmd: "yarn biome check ." },
+        // tsc -b nutzt .tsbuildinfo-Caches — Re-Runs bei unverändertem
+        // Code sind nahezu instant. Project-References im root tsconfig
+        // ziehen alle Workspaces (framework, bundled-features, headless,
+        // dispatcher-live, renderer, renderer-web, app) mit, breiter als
+        // der vorige 2-Projekt-Check.
+        { name: "TypeScript", cmd: "yarn tsc -b --noEmit" },
+        { name: "Silent-Skip Guard", cmd: "bun scripts/guard-silent-skip.ts" },
+        { name: "Admin-API Guard", cmd: "bun scripts/guard-admin-api.ts" },
+        { name: "Unsafe-JSON-Parse Guard", cmd: "bun scripts/guard-unsafe-json-parse.ts" },
+        { name: "No-Date-API Guard", cmd: "bun scripts/guard-no-date-api.ts" },
+        { name: "Pre-ES-Patterns Guard", cmd: "bun scripts/guard-pre-es-patterns.ts" },
+        { name: "Direct-Entity-Writes Guard", cmd: "bun scripts/guard-direct-entity-writes.ts" },
+        { name: "Cross-Feature-Import Guard", cmd: "bun scripts/guard-cross-feature-imports.ts" },
+        { name: "Renderer-Boundaries Guard", cmd: "bun scripts/guard-renderer-boundaries.ts" },
+        { name: "Fake-Test Guard", cmd: "bun scripts/guard-fake-tests.ts" },
+        {
+          name: "Feature-Integration-Test Guard",
+          cmd: "bun scripts/guard-feature-integration-tests.ts",
+        },
+        { name: "i18n-Keys Guard", cmd: "bun scripts/guard-i18n-keys.ts" },
+        { name: "Test-Stack-Drift Guard", cmd: "bun scripts/guard-test-stack-drift.ts" },
+        { name: "Runtime-Isolation Guard", cmd: "bun scripts/check-runtime-isolation.ts" },
+        { name: "Lockfile-Drift Guard", cmd: "bun scripts/guard-lockfile-drift.ts" },
+        { name: "Error-Reasons Guard", cmd: "bun scripts/guard-error-reasons.ts" },
+        { name: "Predicate Extraction Check", cmd: "bun scripts/check-predicates.ts" },
+        { name: "as-Cast Audit", cmd: "bun scripts/check-as-casts.ts" },
+        { name: "License Check", cmd: "bun scripts/check-licenses.ts" },
+      ];
+
+      logBoth(`--- ${fastSteps.length} fast checks (parallel, pool=6) ---`, logPath);
+      const fastResults = await runPoolBuffered(fastSteps, 6, logPath);
+      for (const r of fastResults) results.push(r);
+      logBoth("", logPath);
+
+      // KUMIKO_CHECK=1 weckt den höheren Vitest-Thread-Cap (8 statt 4)
+      // in vitest.config.ts auf — die Box ist eh gesättigt während eines
+      // check-Laufs, da soll Wall-Time zählen. Im Watch-Mode/IDE bleibt
+      // der konservative Default aktiv.
+      const slowSteps: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
+        { name: "Unit Tests", cmd: "KUMIKO_CHECK=1 yarn vitest run" },
+        { name: "Integration Guard", cmd: "node vitest.integration.guard.js" },
+        {
+          name: "Integration Tests",
+          cmd: "KUMIKO_CHECK=1 yarn vitest run --config vitest.integration.config.ts",
+        },
+      ];
+      for (const step of slowSteps) {
+        logBoth(`--- ${step.name} ---`, logPath);
+        const code = await runWithTee(step.cmd, logPath);
+        results.push({ name: step.name, ok: code === 0 });
         logBoth("", logPath);
       }
 
@@ -1101,6 +1138,82 @@ function logBoth(line: string, logPath: string): void {
   } catch {
     // ignore — log is best effort
   }
+}
+
+// Worker-Pool für CPU-bound, kurzlaufende Steps. Jeder Step kriegt einen
+// In-Memory-Output-Buffer; das Ergebnis wird in Original-Reihenfolge auf
+// stdout und in die Log-Datei serialisiert. Live-Output geht damit
+// verloren — das ist OK für Guards/Lints (Sekunden-Range, Output ist
+// klein), aber für Unit/Integration Tests bewusst NICHT (siehe runWithTee).
+//
+// poolSize 6 auf 12-Core-Box: lässt Headroom für IDE/Docker/etc. und ist
+// in den Messungen nahe am Sweet-Spot zwischen Wall-Time und Kontext-
+// Switch-Overhead.
+async function runPoolBuffered(
+  steps: ReadonlyArray<{ readonly name: string; readonly cmd: string }>,
+  poolSize: number,
+  logPath: string,
+): Promise<Array<{ name: string; ok: boolean }>> {
+  type Result = { name: string; ok: boolean; output: string; durationMs: number };
+  const results: Array<Result | undefined> = new Array(steps.length);
+  let next = 0;
+
+  const runOne = async (idx: number): Promise<void> => {
+    const step = steps[idx];
+    if (step === undefined) return;
+    const start = performance.now();
+    const proc = Bun.spawn(["sh", "-c", step.cmd], {
+      stdout: "pipe",
+      stderr: "pipe",
+      env: process.env,
+    });
+    const [stdoutBuf, stderrBuf, code] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+    const durationMs = Math.round(performance.now() - start);
+    results[idx] = {
+      name: step.name,
+      ok: code === 0,
+      output: stdoutBuf + stderrBuf,
+      durationMs,
+    };
+    process.stdout.write(`  ${code === 0 ? "✓" : "✗"} ${step.name} (${durationMs}ms)\n`);
+  };
+
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const idx = next++;
+      if (idx >= steps.length) return;
+      await runOne(idx);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(poolSize, steps.length) }, worker));
+
+  // Serialisierte Ausgabe: nur Failed-Steps zeigen ihren Output (bei
+  // Erfolg ist Guard-Output meist nur "n Dateien geprüft, 0 Verstöße").
+  // Logfile bekommt alles für post-hoc-Debugging.
+  const final: Array<{ name: string; ok: boolean }> = [];
+  for (let i = 0; i < steps.length; i++) {
+    const r = results[i];
+    if (r === undefined) continue;
+    final.push({ name: r.name, ok: r.ok });
+    try {
+      writeFileSync(
+        logPath,
+        `\n--- ${r.name} (${r.durationMs}ms, exit ${r.ok ? 0 : 1}) ---\n${r.output}`,
+        { flag: "a" },
+      );
+    } catch {
+      // log is best effort
+    }
+    if (!r.ok) {
+      process.stdout.write(`\n--- ${r.name} (FAILED, ${r.durationMs}ms) ---\n${r.output}\n`);
+    }
+  }
+  return final;
 }
 
 async function runWithTee(cmd: string, logPath: string): Promise<number> {
