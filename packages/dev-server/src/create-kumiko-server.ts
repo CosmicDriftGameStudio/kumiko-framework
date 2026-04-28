@@ -332,36 +332,75 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
   }
 }
 
+// Resolved den lokal installierten @tailwindcss/cli-Bin. Wir vermeiden
+// `bunx`, weil das auch bei lokal installiertem Package noch das
+// Registry-Manifest fragt und ohne Netz mit `FailedToOpenSocket`
+// stirbt. `Bun.resolveSync` auf die package.json funktioniert sowohl
+// im Monorepo als auch in einer installierten Fremd-App.
+function resolveTailwindCliPath(): string | undefined {
+  if (!hasBun) return undefined;
+  try {
+    const pkgJsonPath = (
+      globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
+    ).Bun.resolveSync("@tailwindcss/cli/package.json", process.cwd());
+    // bin: { tailwindcss: "./dist/index.mjs" } → absoluter Pfad
+    return resolve(pkgJsonPath, "..", "dist", "index.mjs");
+  } catch {
+    return undefined;
+  }
+}
+
 // Startet den Tailwind-CLI als watch-Prozess. Rückgabe: der Output-
 // Path (temp-file) den der dev-server als /styles.css serviert.
 // Beim ersten Aufruf blockiert die Funktion bis Tailwind den initialen
 // Build fertig hat — sonst würde der Browser 404 auf das Stylesheet
 // bekommen solange Tailwind noch arbeitet.
+//
+// Failure-Mode: Tailwind ist NICHT-FATAL. Wenn der CLI nicht resolved
+// werden kann oder der initiale Build fehlschlägt (z.B. flakiges Netz
+// während eines Schema-Restarts), loggen wir und liefern `undefined`
+// zurück. Der dev-server bootet ohne CSS — der User sieht ungestylte
+// UI, kann aber weiterarbeiten und nach `bun install` einen sauberen
+// Restart machen, ohne dass die ganze Session stirbt.
 async function startTailwindWatcher(
   entryCss: string,
-): Promise<{ outPath: string; kill: () => void }> {
+): Promise<{ outPath: string; kill: () => void } | undefined> {
+  const cliPath = resolveTailwindCliPath();
+  if (cliPath === undefined) {
+    logError(
+      "[kumiko-server] @tailwindcss/cli nicht auflösbar — booting ohne CSS-Pipeline. " +
+        "`bun install` und Restart, um Styles zu aktivieren.",
+    );
+    return undefined;
+  }
   const outDir = mkdtempSync(join(tmpdir(), "kumiko-tw-"));
   const outPath = join(outDir, "styles.css");
   logInfo(`[kumiko-server] tailwind watcher → ${outPath}`);
+  const bunPath = process.argv[0] ?? "bun";
   // --watch lässt den Prozess laufen; spawn direkt ohne await auf
   // exit. Den initialen Build warten wir mit einem ersten one-shot-
   // Build ab — schneller als den --watch-output zu parsen.
-  await new Promise<void>((resolvePromise, rejectPromise) => {
-    const child = spawn("bunx", ["@tailwindcss/cli", "-i", entryCss, "-o", outPath], {
-      stdio: "inherit",
+  try {
+    await new Promise<void>((resolvePromise, rejectPromise) => {
+      const child = spawn(bunPath, ["run", cliPath, "-i", entryCss, "-o", outPath], {
+        stdio: "inherit",
+      });
+      child.on("exit", (code) => {
+        if (code === 0) resolvePromise();
+        else rejectPromise(new Error(`tailwind one-shot-build exit ${code}`));
+      });
+      child.on("error", rejectPromise);
     });
-    child.on("exit", (code) => {
-      if (code === 0) resolvePromise();
-      else rejectPromise(new Error(`tailwind one-shot-build exit ${code}`));
-    });
-    child.on("error", rejectPromise);
-  });
+  } catch (err) {
+    logError("[kumiko-server] tailwind one-shot-build fehlgeschlagen — booting ohne CSS:", err);
+    return undefined;
+  }
   // Dann der Watcher im Hintergrund. Caller kriegt einen kill-Handle —
   // der dev-server räumt damit auf wenn der Prozess endet (SIGINT,
   // uncaughtException, regulärer stop()). Vorher: watcher.unref()
   // entkoppelt vom Parent und blieb beim Crash als orphan-process
   // hängen.
-  const watcher = spawn("bunx", ["@tailwindcss/cli", "-i", entryCss, "-o", outPath, "--watch"], {
+  const watcher = spawn(bunPath, ["run", cliPath, "-i", entryCss, "-o", outPath, "--watch"], {
     stdio: "inherit",
   });
   watcher.unref();
@@ -431,8 +470,10 @@ export async function createKumikoServer(
   const resolvedStylesheet = resolveStylesheet(options);
   if (resolvedStylesheet !== undefined) {
     const handle = await startTailwindWatcher(resolvedStylesheet);
-    stylesheetPath = handle.outPath;
-    killTailwind = handle.kill;
+    if (handle !== undefined) {
+      stylesheetPath = handle.outPath;
+      killTailwind = handle.kill;
+    }
   }
 
   // --- HTML template ---
