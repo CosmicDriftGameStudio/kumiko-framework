@@ -13,10 +13,12 @@ export type PgErrorInfo = {
 export function extractPgError(e: unknown): PgErrorInfo | null {
   if (typeof e !== "object" || e === null) return null;
   const layers: unknown[] = [e];
+  // @cast-boundary error-details — DrizzleQueryError wraps PG-error in .cause
   const cause = (e as { cause?: unknown }).cause;
   if (typeof cause === "object" && cause !== null) layers.push(cause);
 
   for (const layer of layers) {
+    // @cast-boundary error-details — postgres-js error shape (code, constraint_name)
     const code = (layer as { code?: string }).code;
     const constraintName = (layer as { constraint_name?: string }).constraint_name;
     if (code !== undefined || constraintName !== undefined) {

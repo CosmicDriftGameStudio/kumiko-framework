@@ -56,6 +56,7 @@ export async function login(
   if (res.status === 429) {
     return { ok: false, error: { reason: "rate_limited" } };
   }
+  // @cast-boundary engine-payload — HTTP-API contract, server-side schema-validated
   const body = (await res.json().catch(() => ({}))) as {
     isSuccess?: boolean;
     token?: string;
@@ -113,6 +114,7 @@ export async function fetchTenants(): Promise<{
   });
   if (res.status === 401) return null;
   if (!res.ok) throw new Error(`auth/tenants failed: ${res.status}`);
+  // @cast-boundary engine-payload — HTTP-API contract, server-side schema-validated
   return (await res.json()) as {
     tenants: readonly TenantSummary[];
     activeTenantId: string;
@@ -154,6 +156,7 @@ export async function fetchCurrentUser(): Promise<CurrentUserProfile | null> {
   });
   if (res.status === 401) return null;
   if (!res.ok) throw new Error(`user:me failed: ${res.status}`);
+  // @cast-boundary engine-payload — HTTP-API contract, server-side schema-validated
   const body = (await res.json()) as {
     data?: {
       id: string;

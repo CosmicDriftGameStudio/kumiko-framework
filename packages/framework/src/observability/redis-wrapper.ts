@@ -94,6 +94,7 @@ export function wrapRedisClient(client: Redis, tracer: Tracer): Redis {
       if (prop === "duplicate") {
         // Preserve wrapping on duplicated connections.
         return (...args: unknown[]) => {
+          // @cast-boundary engine-bridge — Reflect.get returns unknown, narrow to ioredis-method
           const dup = (original as (...args: unknown[]) => Redis).apply(target, args);
           return wrapRedisClient(dup, tracer);
         };
@@ -103,6 +104,7 @@ export function wrapRedisClient(client: Redis, tracer: Tracer): Redis {
         // Pass-through for non-command methods. Bind to target so `this`
         // inside ioredis internals still works.
         if (typeof original === "function") {
+          // @cast-boundary engine-bridge — Reflect.get returns unknown, narrow to ioredis-method
           return (original as (...args: unknown[]) => unknown).bind(target);
         }
         return original;
@@ -120,6 +122,7 @@ export function wrapRedisClient(client: Redis, tracer: Tracer): Redis {
             },
           },
           async () => {
+            // @cast-boundary engine-bridge — Reflect.get returns unknown, narrow to ioredis-method
             return (original as (...args: unknown[]) => unknown).apply(target, args);
           },
         );

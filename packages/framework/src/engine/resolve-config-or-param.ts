@@ -114,13 +114,13 @@ export async function resolveConfigOrParam<T extends ConfigKeyType>(
         };
         options.onClamp(info);
       }
-      return clamped as ConfigValue<T>;
+      return clamped as ConfigValue<T>; // @cast-boundary engine-bridge
     }
 
     case "boolean": {
-      if (typeof paramValue === "boolean") return paramValue as ConfigValue<T>;
+      if (typeof paramValue === "boolean") return paramValue as ConfigValue<T>; // @cast-boundary engine-bridge
       const str = String(paramValue).toLowerCase();
-      return (str === "true" || str === "1") as ConfigValue<T>;
+      return (str === "true" || str === "1") as ConfigValue<T>; // @cast-boundary engine-bridge
     }
 
     case "text": {
@@ -136,7 +136,7 @@ export async function resolveConfigOrParam<T extends ConfigKeyType>(
 
     case "select": {
       const str = String(paramValue);
-      if (keyDef.options?.includes(str)) return str as ConfigValue<T>;
+      if (keyDef.options?.includes(str)) return str as ConfigValue<T>; // @cast-boundary engine-bridge
       // Invalid option → fall back to the configured value rather than 400.
       // The caller is signalling intent; we honour the constraint instead.
       return ctx.config(handle);

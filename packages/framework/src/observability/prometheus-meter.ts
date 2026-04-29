@@ -248,6 +248,7 @@ export function serializeOpenMetrics(meter: PrometheusMeter): string {
     if (def.description) lines.push(`# HELP ${name} ${def.description}`);
     lines.push(`# TYPE ${name} ${def.type}`);
 
+    // @cast-boundary engine-bridge — slots union narrows by def.type
     if (def.type === "counter") {
       for (const s of slots as CounterState[]) {
         lines.push(`${name}${renderLabels(s.labels)} ${s.value}`);
