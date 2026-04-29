@@ -305,6 +305,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    wie im dev-server, damit der Client-Code keine Sonderfall-
   //    Branch zwischen dev/prod braucht. Boot-once weil Features
   //    nach dem Start nicht mehr ändern.
+  // TODO: Sobald per-Tenant- oder per-User-Schema kommt (Feature-Toggles
+  // pro Tenant, Auth-Rolle gated Screens), muss die Injection pro
+  // Request rendern — staticDir-Fallback einen render(req)-Hook bekommen
+  // statt eines fixed JSON-Strings. Heute: registry-static, also OK.
   const appSchemaJson = JSON.stringify(buildAppSchema(registry));
 
   // 9. Seeds: admin first, then app-specific. Both expected to be

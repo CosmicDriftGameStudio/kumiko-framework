@@ -106,6 +106,34 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     expect(row?.["tenantId"]).not.toBe(TENANT_OPERATOR);
   });
 
+  test("payload.tenantId === '' (empty string) → wirft (fail-loud, kein silent fallback)", async () => {
+    // Tenant-isolation-kritisch: silent fallback auf event.tenantId
+    // würde eine Bug-payload (Form-Input ohne Trim-Check, defekter
+    // Hook etc.) in den Operator-Tenant schreiben, obwohl der
+    // Caller-Code die Row in irgendeinen Ziel-Tenant routen wollte.
+    // Cross-Tenant-Drift. Fail-loud ist die einzige Wahl.
+    const event = syntheticCreateEvent({
+      name: "empty-tenantId",
+      tenantId: "",
+    });
+    await expect(applyEntityEvent(event, table, entity, testDb.db)).rejects.toThrow(
+      /payload\.tenantId set but invalid/,
+    );
+  });
+
+  test("payload.tenantId === null → wirft (fail-loud)", async () => {
+    // Spiegel-Case. JSON-Payload kann literal null tragen (Hook der
+    // einen Wert auf null gesetzt hat statt zu unsetten). Auch hier
+    // kein silent fallback — tenant-isolation-kritisch.
+    const event = syntheticCreateEvent({
+      name: "null-tenantId",
+      tenantId: null,
+    });
+    await expect(applyEntityEvent(event, table, entity, testDb.db)).rejects.toThrow(
+      /payload\.tenantId set but invalid/,
+    );
+  });
+
   test("Spread-Reihenfolge: payload-Felder bleiben erhalten, framework-Defaults nicht überschrieben", async () => {
     // Negative-Anchor: id/version/insertedAt/insertedById dürfen NICHT
     // aus dem payload kommen (kommen vom event). Wenn jemand die

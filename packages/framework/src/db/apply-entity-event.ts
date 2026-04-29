@@ -8,7 +8,9 @@
 //   - rebuildProjection via ImplicitProjection (replay, im Rebuild-TX) —
 //     übergibt das StoredEvent direkt; payload ist dort ohne sensitive,
 //     was bei Rebuild akzeptiert wird (sensitive-Drift durch GDPR-Strip
-//     ist dokumentierte Roadmap-Lücke).
+//     ist als load-bearing Backlog-Item gepinnt — siehe
+//     docs/plans/architecture/migrations.md Sektion "Backlog (Welle 3+)"
+//     → "Sensitive-Field-Persistenz im Rebuild" für Optionen a/b/c).
 //
 // Live==Rebuild-Equivalence ist damit by-construction für alle Felder
 // die NICHT als sensitive markiert sind — eine geänderte Schreib-Logik
@@ -47,6 +49,7 @@
 
 import { eq } from "drizzle-orm";
 import type { EntityDefinition } from "../engine/types";
+import { InternalError } from "../errors";
 import type { StoredEvent } from "../event-store";
 import type { DbRow, DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
@@ -87,17 +90,33 @@ export async function applyEntityEvent(
 
   switch (verb) {
     case "created": {
-      // event.payload-Defaults: TenantId-Auto-Inject im Live-Pfad fällt
-      // weg (wir nutzen tx=db.raw), beim Replay gibt's keinen Wrapper.
-      // Default = event.tenantId; payload überschreibt wenn explicit
-      // gesetzt (z.B. seedTenantMembership schreibt mit by.tenantId !=
-      // options.tenantId — die Membership-Row landet im Ziel-Tenant,
-      // das Event im Operator-Tenant).
+      // tenantId-Resolution explizit, nicht via Spread-Reihenfolge:
+      // Live-Pfad nutzt tx=db.raw (kein TenantDb-Wrapper-Auto-Inject),
+      // beim Replay erst recht keiner. Default = event.tenantId; payload
+      // gewinnt NUR wenn gültig string mit length > 0 (seedTenantMembership-
+      // Pfad: Operator schreibt im Ziel-Tenant, Event im Operator-Tenant).
+      // Pinst durch db/__tests__/apply-entity-event-tenant.integration.ts.
+      //
+      // Fail-loud wenn payload.tenantId gesetzt aber invalid (leer/null/
+      // non-string): das ist tenant-isolation-kritisch — silent fallback
+      // auf event.tenantId würde eine Bug-payload in den Operator-Tenant
+      // schreiben statt zu failen, was Cross-Tenant-Datendrift erzeugt.
+      const payloadTenantId = event.payload["tenantId"];
+      let tenantId: string;
+      if (payloadTenantId === undefined) {
+        tenantId = event.tenantId;
+      } else if (typeof payloadTenantId === "string" && payloadTenantId.length > 0) {
+        tenantId = payloadTenantId;
+      } else {
+        throw new InternalError({
+          message: `applyEntityEvent: payload.tenantId set but invalid (${JSON.stringify(payloadTenantId)}). Tenant-isolation-kritisch: silent fallback auf event.tenantId würde Cross-Tenant-Drift erzeugen.`,
+        });
+      }
       const [row] = await tx
         .insert(table)
         .values({
-          tenantId: event.tenantId,
           ...event.payload,
+          tenantId,
           id: event.aggregateId,
           version: event.version,
           insertedAt: event.createdAt,
