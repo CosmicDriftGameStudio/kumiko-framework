@@ -11,22 +11,22 @@ import type { MultiStreamApplyFn, ProjectionTable, SingleStreamApplyFn } from ".
 // Der Helper ist ein purer Type-Vehikel — zur Laufzeit identitäts-fn:
 //
 //   apply: {
-//     "user.created": apply<UserCreatedPayload>(async (event, tx) => {
+//     "user.created": defineApply<UserCreatedPayload>(async (event, tx) => {
 //       // event.payload ist UserCreatedPayload, nicht Record<string, unknown>
 //       await tx.insert(usersTable).values({ id: event.aggregateId, ...event.payload });
 //     }),
 //   }
 //
 // Default-Generic = Record<string, unknown> behält rückwärtskompatibles
-// Verhalten für apply-Handler die ohne Type-Argument geschrieben sind.
-export function apply<TPayload = Record<string, unknown>>(
+// Verhalten für Apply-Handler die ohne Type-Argument geschrieben sind.
+export function defineApply<TPayload = Record<string, unknown>>(
   fn: (event: StoredEvent<TPayload>, tx: DbRunner) => Promise<void>,
 ): SingleStreamApplyFn {
   return fn as SingleStreamApplyFn;
 }
 
 // Pendant für r.multiStreamProjection.apply — bekommt zusätzlich ctx.
-export function applyMsp<TPayload = Record<string, unknown>>(
+export function defineMspApply<TPayload = Record<string, unknown>>(
   fn: (event: StoredEvent<TPayload>, tx: DbRunner, ctx: MultiStreamApplyContext) => Promise<void>,
 ): MultiStreamApplyFn {
   return fn as MultiStreamApplyFn;

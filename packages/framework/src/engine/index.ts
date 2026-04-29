@@ -57,7 +57,7 @@ export {
 } from "./field-access";
 export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
 export { from } from "./ownership";
-export { apply, applyMsp, setFields } from "./projection-helpers";
+export { defineApply, defineMspApply, setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";
 export { readClaim } from "./read-claim";

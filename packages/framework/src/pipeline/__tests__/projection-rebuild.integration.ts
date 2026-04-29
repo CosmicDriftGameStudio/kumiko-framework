@@ -20,7 +20,13 @@ import {
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { apply, createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineApply,
+  defineFeature,
+} from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
 import {
@@ -69,13 +75,13 @@ const itemsPerGroupProjection: ProjectionDefinition = {
   source: "rebuild-item",
   table: itemsPerGroupTable,
   apply: {
-    "rebuild-item.created": apply<ItemCreated>(async (event, tx) => {
+    "rebuild-item.created": defineApply<ItemCreated>(async (event, tx) => {
       await bump(tx, event.payload.groupId, event.tenantId, 1);
     }),
-    "rebuild-item.deleted": apply<ItemRestoreOrDelete>(async (event, tx) => {
+    "rebuild-item.deleted": defineApply<ItemRestoreOrDelete>(async (event, tx) => {
       await bump(tx, event.payload.previous.groupId, event.tenantId, -1);
     }),
-    "rebuild-item.restored": apply<ItemRestoreOrDelete>(async (event, tx) => {
+    "rebuild-item.restored": defineApply<ItemRestoreOrDelete>(async (event, tx) => {
       await bump(tx, event.payload.previous.groupId, event.tenantId, 1);
     }),
   },
