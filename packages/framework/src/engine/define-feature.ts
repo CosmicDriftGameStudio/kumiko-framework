@@ -184,8 +184,7 @@ export function defineFeature<TExports = undefined>(
       writeHandlers[nameOrDef] = {
         name: nameOrDef,
         schema,
-        // @cast-boundary engine-bridge — typed Dev-API → erased Map<string, WriteHandlerFn>
-        handler: handler as WriteHandlerFn,
+        handler: handler as WriteHandlerFn, // @cast-boundary engine-bridge
         ...(options?.access && { access: options.access }),
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
       };
@@ -217,8 +216,7 @@ export function defineFeature<TExports = undefined>(
       queryHandlers[nameOrDef] = {
         name: nameOrDef,
         schema,
-        // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
-        handler: handler as QueryHandlerFn,
+        handler: handler as QueryHandlerFn, // @cast-boundary engine-bridge
         ...(options?.access && { access: options.access }),
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
       };
@@ -287,9 +285,8 @@ export function defineFeature<TExports = undefined>(
         entityPostSave[entityName].push({ fn: fn as PostSaveHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
       } else if (type === LifecycleHookTypes.preDelete) {
         if (!entityPreDelete[entityName]) entityPreDelete[entityName] = [];
-        // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
         entityPreDelete[entityName].push({
-          fn: fn as PreDeleteHookFn,
+          fn: fn as PreDeleteHookFn, // @cast-boundary engine-bridge
           phase: HookPhases.inTransaction,
           featureName: name,
         });
@@ -314,7 +311,9 @@ export function defineFeature<TExports = undefined>(
           type: keyDef.type,
         };
       }
-      return handles as { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
+      return handles as {
+        readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]>;
+      }; // @cast-boundary engine-bridge — Mapped-Type-Inference at config()-callsite
     },
 
     job(

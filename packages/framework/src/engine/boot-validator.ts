@@ -833,6 +833,7 @@ function checkOwnershipMap(args: {
       );
     }
 
+    // @cast-boundary schema-walk — extracted from feature-config inspection
     const rule = rawRule as OwnershipRule;
     if (rule === "all") continue;
     if (rule.kind === "where") continue; // escape hatch — feature author owns the SQL
@@ -955,6 +956,7 @@ function validateScreens(
       // bekannte Strings erlaubt; wir prüfen Author-Code, der ggf.
       // den Type-Check umgangen hat.
       for (const [fname, fdef] of Object.entries(screen.fields)) {
+        // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
         const ftype = (fdef as { type?: unknown }).type;
         if (typeof ftype !== "string" || ftype.length === 0) {
           throw new Error(
@@ -1192,6 +1194,7 @@ function validateColumnRendererForm(
   // wird strukturell validiert. Funktions-, String-QN- und null/undefined-
   // Renderer sind alle gültige andere Formen — kein Form-Fehler.
   if (renderer === null || typeof renderer !== "object") return;
+  // @cast-boundary schema-walk — feature-config renderer-shape introspection
   const react = (renderer as { react?: unknown }).react;
   // skip: kein react-Branch → entweder native-only oder kein
   // PlatformComponent — beides außerhalb dieses Checks.
@@ -1202,6 +1205,7 @@ function validateColumnRendererForm(
         `a non-object \`react\` branch — expected \`{ react: { __component: "Name" } }\`.`,
     );
   }
+  // @cast-boundary schema-walk — feature-config react-branch introspection
   const component = (react as { __component?: unknown }).__component;
   // skip: ohne __component-Schlüssel ist das keine String-Key-Form
   // (z.B. ein zukünftiger direkter Component-Ref); nicht unsere Domäne.

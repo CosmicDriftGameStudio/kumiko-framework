@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineApply, defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
 import { eq } from "drizzle-orm";
 import type { z } from "zod";
 // Event-payload schemas live in a sibling module so the logger can import
@@ -37,39 +37,43 @@ export function createJobsFeature(): FeatureDefinition {
       source: "jobRun",
       table: jobRunsTable,
       apply: {
-        [JOB_RUN_STARTED_EVENT]: async (event, tx) => {
-          const p = event.payload as z.infer<typeof runStartedSchema>;
-          await tx.insert(jobRunsTable).values({
-            id: event.aggregateId,
-            tenantId: event.tenantId,
-            version: event.version,
-            insertedAt: event.createdAt,
-            insertedById: event.metadata?.userId ?? "system",
-            jobName: p.jobName,
-            bullJobId: p.bullJobId,
-            status: p.status,
-            payload: p.payload,
-            attempt: p.attempt,
-            startedAt: Temporal.Instant.from(p.startedAt),
-            triggeredById: p.triggeredById,
-          });
-        },
-        [JOB_RUN_COMPLETED_EVENT]: async (event, tx) => {
-          const p = event.payload as z.infer<typeof runCompletedSchema>;
-          await tx
-            .update(jobRunsTable)
-            .set({
-              status: "completed",
-              duration: p.duration,
-              finishedAt: Temporal.Instant.from(p.finishedAt),
+        [JOB_RUN_STARTED_EVENT]: defineApply<z.infer<typeof runStartedSchema>>(
+          async (event, tx) => {
+            const p = event.payload;
+            await tx.insert(jobRunsTable).values({
+              id: event.aggregateId,
+              tenantId: event.tenantId,
               version: event.version,
-              modifiedAt: event.createdAt,
-              modifiedById: event.metadata?.userId ?? "system",
-            })
-            .where(eq(jobRunsTable.id, event.aggregateId));
-        },
-        [JOB_RUN_FAILED_EVENT]: async (event, tx) => {
-          const p = event.payload as z.infer<typeof runFailedSchema>;
+              insertedAt: event.createdAt,
+              insertedById: event.metadata?.userId ?? "system",
+              jobName: p.jobName,
+              bullJobId: p.bullJobId,
+              status: p.status,
+              payload: p.payload,
+              attempt: p.attempt,
+              startedAt: Temporal.Instant.from(p.startedAt),
+              triggeredById: p.triggeredById,
+            });
+          },
+        ),
+        [JOB_RUN_COMPLETED_EVENT]: defineApply<z.infer<typeof runCompletedSchema>>(
+          async (event, tx) => {
+            const p = event.payload;
+            await tx
+              .update(jobRunsTable)
+              .set({
+                status: "completed",
+                duration: p.duration,
+                finishedAt: Temporal.Instant.from(p.finishedAt),
+                version: event.version,
+                modifiedAt: event.createdAt,
+                modifiedById: event.metadata?.userId ?? "system",
+              })
+              .where(eq(jobRunsTable.id, event.aggregateId));
+          },
+        ),
+        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx) => {
+          const p = event.payload;
           await tx
             .update(jobRunsTable)
             .set({
@@ -82,7 +86,7 @@ export function createJobsFeature(): FeatureDefinition {
               modifiedById: event.metadata?.userId ?? "system",
             })
             .where(eq(jobRunsTable.id, event.aggregateId));
-        },
+        }),
       },
     });
 
@@ -94,11 +98,26 @@ export function createJobsFeature(): FeatureDefinition {
       source: "jobRun",
       table: jobRunLogsTable,
       apply: {
-        [JOB_RUN_COMPLETED_EVENT]: async (event, tx) => {
-          const p = event.payload as z.infer<typeof runCompletedSchema>;
-          // skip: empty log batch — the worker ran silent. No child rows
-          // to insert; the completed-event alone already updated the run's
-          // status via the sibling job-runs projection.
+        [JOB_RUN_COMPLETED_EVENT]: defineApply<z.infer<typeof runCompletedSchema>>(
+          async (event, tx) => {
+            const p = event.payload;
+            // skip: empty log batch — the worker ran silent. No child rows
+            // to insert; the completed-event alone already updated the run's
+            // status via the sibling job-runs projection.
+            if (p.logs.length === 0) return;
+            await tx.insert(jobRunLogsTable).values(
+              p.logs.map((log) => ({
+                runId: event.aggregateId,
+                level: log.level,
+                message: log.message,
+                timestamp: Temporal.Instant.from(log.timestamp),
+              })),
+            );
+          },
+        ),
+        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx) => {
+          const p = event.payload;
+          // skip: empty log batch — the worker ran silent (mirror of completed)
           if (p.logs.length === 0) return;
           await tx.insert(jobRunLogsTable).values(
             p.logs.map((log) => ({
@@ -108,22 +127,7 @@ export function createJobsFeature(): FeatureDefinition {
               timestamp: Temporal.Instant.from(log.timestamp),
             })),
           );
-        },
-        [JOB_RUN_FAILED_EVENT]: async (event, tx) => {
-          const p = event.payload as z.infer<typeof runFailedSchema>;
-          // skip: empty log batch — the worker ran silent. No child rows
-          // to insert; the completed-event alone already updated the run's
-          // status via the sibling job-runs projection.
-          if (p.logs.length === 0) return;
-          await tx.insert(jobRunLogsTable).values(
-            p.logs.map((log) => ({
-              runId: event.aggregateId,
-              level: log.level,
-              message: log.message,
-              timestamp: Temporal.Instant.from(log.timestamp),
-            })),
-          );
-        },
+        }),
       },
     });
 

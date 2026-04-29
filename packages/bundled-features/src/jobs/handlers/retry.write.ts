@@ -1,4 +1,4 @@
-import { type DbRow, fetchOne } from "@kumiko/framework/db";
+import { fetchOne } from "@kumiko/framework/db";
 import { defineWriteHandler } from "@kumiko/framework/engine";
 import { NotFoundError, UnprocessableError, writeFailure } from "@kumiko/framework/errors";
 import type { JobRunner } from "@kumiko/framework/jobs";
@@ -8,6 +8,12 @@ import { z } from "zod";
 import { JobErrors } from "../constants";
 import { jobRunsTable } from "../job-run-table";
 
+type JobRunRow = {
+  readonly status: string;
+  readonly jobName: string;
+  readonly payload: string | null;
+};
+
 export const retryWrite = defineWriteHandler({
   name: "retry",
   // Post-ES: runId is the uuid aggregate-id. See detail.query for the
@@ -16,9 +22,14 @@ export const retryWrite = defineWriteHandler({
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;
+    // @cast-boundary engine-payload — JobRunner attached by app-boot via ctx-extension
     const jobRunner = ctx["jobRunner"] as JobRunner;
 
-    const run = await fetchOne(db, jobRunsTable, eq(jobRunsTable.id, event.payload.runId));
+    const run = await fetchOne<JobRunRow>(
+      db,
+      jobRunsTable,
+      eq(jobRunsTable.id, event.payload.runId),
+    );
 
     if (!run) {
       return writeFailure(
@@ -28,29 +39,27 @@ export const retryWrite = defineWriteHandler({
       );
     }
 
-    const runData = run as DbRow;
-    if (runData["status"] !== "failed") {
+    if (run.status !== "failed") {
       return writeFailure(
         new UnprocessableError(JobErrors.onlyFailedCanRetry, {
           i18nKey: "jobs.errors.onlyFailedCanRetry",
-          details: { status: runData["status"] },
+          details: { status: run.status },
         }),
       );
     }
 
-    const jobName = runData["jobName"] as string;
-    const payload = runData["payload"]
+    const payload = run.payload
       ? parseJsonOrThrow<Record<string, unknown>>(
-          runData["payload"] as string,
+          run.payload,
           `job run ${event.payload.runId} payload`,
         )
       : {};
 
-    const bullJobId = await jobRunner.dispatch(jobName, payload);
+    const bullJobId = await jobRunner.dispatch(run.jobName, payload);
 
     return {
       isSuccess: true,
-      data: { jobName, bullJobId, retriedFromRunId: event.payload.runId },
+      data: { jobName: run.jobName, bullJobId, retriedFromRunId: event.payload.runId },
     };
   },
 });

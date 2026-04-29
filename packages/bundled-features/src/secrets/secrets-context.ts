@@ -16,7 +16,6 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
-  type DbRow,
   fetchOne,
 } from "@kumiko/framework/db";
 import type { SessionUser } from "@kumiko/framework/engine";
@@ -112,22 +111,19 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
   const { db, masterKeyProvider } = opts;
   const provider = cachedProvider(masterKeyProvider, opts.dekCache ?? createDekCache());
 
-  async function lookup(
-    tenantId: string,
-    key: string,
-  ): Promise<{ id: string; version: number; envelope: StoredEnvelope } | undefined> {
-    const row = await fetchOne<DbRow>(
+  type SecretLookupRow = {
+    readonly id: string;
+    readonly version: number;
+    readonly envelope: StoredEnvelope;
+  };
+
+  async function lookup(tenantId: string, key: string): Promise<SecretLookupRow | undefined> {
+    return fetchOne<SecretLookupRow>(
       db,
       tenantSecretsTable,
       eq(tenantSecretsTable.tenantId, tenantId),
       eq(tenantSecretsTable.key, key),
     );
-    if (!row) return undefined;
-    return {
-      id: row["id"] as string,
-      version: row["version"] as number,
-      envelope: row["envelope"] as StoredEnvelope,
-    };
   }
 
   return {
