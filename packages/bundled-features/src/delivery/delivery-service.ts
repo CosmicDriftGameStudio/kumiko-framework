@@ -47,6 +47,7 @@ export type DeliveryServiceOptions = {
 export function collectChannels(registry: Registry): DeliveryChannel[] {
   const usages = registry.getExtensionUsages("deliveryChannel");
   return usages.map((usage) => {
+    // @cast-boundary engine-payload — extension-usage carries unknown options
     const opts = usage.options as {
       resolve: DeliveryChannel["resolve"];
       send: DeliveryChannel["send"];
@@ -60,6 +61,7 @@ export function collectRenderers(registry: Registry): Map<string, NotificationRe
   const usages = registry.getExtensionUsages("notificationRenderer");
   const map = new Map<string, NotificationRenderer>();
   for (const usage of usages) {
+    // @cast-boundary engine-payload — extension-usage carries unknown options
     const opts = usage.options as { render: NotificationRenderer["render"] };
     map.set(usage.entityName, { name: usage.entityName, render: opts.render });
   }
@@ -96,22 +98,27 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     return 1
   `;
 
+  type RedisWithLua = Redis & {
+    deliveryRateLimitCheck: (key: string, ttl: string, max: string) => Promise<number>;
+  };
+
   if (rateLimit) {
     // Register the Lua script once per Redis client. Noop if already defined.
-    const r = rateLimit.redis as Redis & {
-      deliveryRateLimitCheck?: (key: string, ttl: string, max: string) => Promise<number>;
-    };
+    // @cast-boundary engine-bridge — defineCommand attaches the Lua method post-boot
+    const r = rateLimit.redis as Partial<Pick<RedisWithLua, "deliveryRateLimitCheck">> & Redis;
     if (!r.deliveryRateLimitCheck) {
       r.defineCommand("deliveryRateLimitCheck", { numberOfKeys: 1, lua: RATE_LIMIT_LUA });
     }
   }
 
-  async function checkRateLimit(tenantId: TenantId, channelName: string): Promise<boolean> {
-    const rl = rateLimit as RateLimitConfig;
+  async function checkRateLimit(
+    rl: RateLimitConfig,
+    tenantId: TenantId,
+    channelName: string,
+  ): Promise<boolean> {
     const key = `${rl.keyPrefix ?? "delivery:rate"}:${tenantId}:${channelName}`;
-    const r = rl.redis as Redis & {
-      deliveryRateLimitCheck: (key: string, ttl: string, max: string) => Promise<number>;
-    };
+    // @cast-boundary engine-bridge — defineCommand attaches the Lua method shape at boot
+    const r = rl.redis as RedisWithLua;
     const allowed = await r.deliveryRateLimitCheck(key, "3600", String(rl.maxPerHour));
     return Number(allowed) === 1;
   }
@@ -147,6 +154,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     }
     const systemUser = createSystemUser(tenantId);
     const tenantDb = createTenantDb(db, tenantId, "system");
+    // @cast-boundary engine-payload — generic query-handler return for typed convention
     return (await handler.handler(
       { type: tenantUserIdsQuery, payload: { tenantId }, user: systemUser },
       { db: tenantDb, registry, ...bridgeStub() },
@@ -194,6 +202,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
     if (templateFn && data) {
       const channelData = templateFn(data as DbRow);
+      // @cast-boundary engine-payload — generic notification.data + channel-template result
       return {
         notificationType,
         title: (channelData["title"] as string) ?? (data["title"] as string) ?? notificationType,
@@ -202,6 +211,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       };
     }
 
+    // @cast-boundary engine-payload — generic notification.data shape
     return {
       notificationType,
       title: (data?.["title"] as string) ?? notificationType,
@@ -225,7 +235,14 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     notificationType: string,
     channelName: string,
   ): Promise<boolean> {
-    const prefs = await db
+    type PrefRow = {
+      readonly notificationType: string;
+      readonly channel: string;
+      readonly enabled: boolean;
+    };
+    // Drizzle's dynamic-table select() loses column types; assert once at
+    // the boundary so the rest of this function works against a typed shape.
+    const prefs = (await db
       .select({
         notificationType: notificationPreferencesTable.notificationType,
         channel: notificationPreferencesTable.channel,
@@ -251,19 +268,19 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             ),
           ),
         ),
-      );
+      )) as readonly PrefRow[]; // @cast-boundary db-row
 
     if (prefs.length === 0) return true;
 
     // Exact match (both specific) wins over any wildcard
     const exact = prefs.find(
-      (p) => p["notificationType"] === notificationType && p["channel"] === channelName,
+      (p) => p.notificationType === notificationType && p.channel === channelName,
     );
-    if (exact) return exact["enabled"] as boolean;
+    if (exact) return exact.enabled;
 
     // Only wildcards matched: any disabled entry disables delivery (deterministic
     // and conservative — DB ordering no longer decides the outcome).
-    return !prefs.some((p) => p["enabled"] === false);
+    return !prefs.some((p) => p.enabled === false);
   }
 
   async function deliverToUser(
@@ -314,7 +331,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
       // Rate limiting
       if (rateLimit) {
-        const allowed = await checkRateLimit(tenantId, channel.name);
+        const allowed = await checkRateLimit(rateLimit, tenantId, channel.name);
         if (!allowed) {
           await logDelivery({
             tenantId,
@@ -384,7 +401,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       if (!address) continue;
 
       if (rateLimit) {
-        const allowed = await checkRateLimit(tenantId, channel.name);
+        const allowed = await checkRateLimit(rateLimit, tenantId, channel.name);
         if (!allowed) {
           await logDelivery({
             tenantId,
@@ -427,7 +444,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   return {
     async notify(notificationType, options, _user, tenantId) {
       const { to, route, data, idempotencyKey } = options;
-      const priority = (options.priority ?? "normal") as NotifyPriority;
+      const priority: NotifyPriority = options.priority ?? "normal";
 
       if (idempotencyKey) {
         const first = await claimIdempotency(tenantId, idempotencyKey);
@@ -455,10 +472,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       if (to !== undefined) {
         let userIds: readonly string[];
 
-        if (typeof to === "object" && !Array.isArray(to) && "tenant" in to) {
+        if (typeof to === "string") {
+          userIds = [to];
+        } else if ("tenant" in to) {
           userIds = await resolveUserIdsForTenant(to.tenant);
         } else {
-          userIds = Array.isArray(to) ? to : [to as string];
+          userIds = to;
         }
 
         for (const userId of userIds) {
