@@ -85,6 +85,7 @@ const VerifyEmailBody = z.object({
 // propagate — otherwise we'd silently paper over outages.
 function isUnknownHandlerError(e: unknown): boolean {
   if (!(e instanceof NotFoundError)) return false;
+  // @cast-boundary error-details — KumikoError.details shape is per-error
   const details = e.details as { entity?: string } | undefined;
   return details?.entity === "handler";
 }
@@ -359,12 +360,15 @@ export function createAuthRoutes(
         // Feature-specific auth reason codes arrive via UnprocessableError.details.reason
         // (e.g. "invalid_credentials", "user_locked"). Fall back to the KumikoError code
         // so unmapped cases still get a sensible status.
+        // @cast-boundary error-details — KumikoError.details shape is per-error
         const reason =
           (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
+        // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
         const status = (statusMap[reason] ?? result.error.httpStatus) as 400 | 401 | 403 | 500;
         return c.json({ isSuccess: false, error: result.error }, status);
       }
 
+      // @cast-boundary engine-payload — generic dispatcher.write result for auth-session handler
       const data = result.data as { kind: "auth-session"; session: SessionUser };
 
       // Session creation (optional). Creating the session BEFORE signing the
@@ -466,6 +470,7 @@ export function createAuthRoutes(
 
     try {
       // System-scoped: membershipQuery is access-locked to system-role.
+      // @cast-boundary engine-payload — generic dispatcher.query result
       const memberships = (await dispatcher.query(
         config.membershipQuery,
         { userId: user.id },
@@ -507,6 +512,7 @@ export function createAuthRoutes(
     // asks the question on the user's behalf, not as the user.
     let memberships: MembershipRow[];
     try {
+      // @cast-boundary engine-payload — generic dispatcher.query result
       memberships = (await dispatcher.query(
         config.membershipQuery,
         { userId: user.id },
@@ -620,9 +626,12 @@ function registerTokenRequestRoute(opts: {
     // Handler-level failures (only legitimate reason: misconfiguration) are
     // silently swallowed — observability logs capture them for ops.
     if (result.isSuccess) {
+      // @cast-boundary engine-payload — generic dispatcher.write result narrowed by handler-emitted kind
       const data = result.data as TokenRequestData | TokenNoOp;
       if (data.kind === opts.successKind) {
-        const requested = data as TokenRequestData;
+        // TS narrowt nicht durch generic successKind (string, kein literal) —
+        // die kind-Gleichheit garantiert den TokenRequestData-Branch hier.
+        const requested = data as TokenRequestData; // @cast-boundary engine-payload
         const sep = opts.appBaseUrl.includes("?") ? "&" : "?";
         const url = `${opts.appBaseUrl}${sep}token=${encodeURIComponent(requested.token)}`;
         await opts.sendEmail({
