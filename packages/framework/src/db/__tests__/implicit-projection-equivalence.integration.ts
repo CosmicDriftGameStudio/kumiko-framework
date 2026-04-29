@@ -272,7 +272,7 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
     const [liveRow] = await testDb.db
       .select()
       .from(sensitiveDrizzleTable)
-      .where(eq(sensitiveDrizzleTable["id"], created.data.id));
+      .where(eq(sensitiveDrizzleTable["id"], created.data.id as string));
     expect(liveRow?.["apiKey"]).toBe("secret-token-abc");
     expect(liveRow?.["email"]).toBe("x@test.de");
 
@@ -296,7 +296,7 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
     const [rebuiltRow] = await testDb.db
       .select()
       .from(sensitiveDrizzleTable)
-      .where(eq(sensitiveDrizzleTable["id"], created.data.id));
+      .where(eq(sensitiveDrizzleTable["id"], created.data.id as string));
     expect(rebuiltRow?.["email"]).toBe("x@test.de");
     // DAS ist die Drift: sensitive Feld ist nach Rebuild weg.
     expect(rebuiltRow?.["apiKey"]).toBeNull();

@@ -67,18 +67,18 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       await db
         .update(userSessionTable)
         .set({ revokedAt: Temporal.Now.instant() })
-        .where(and(eq(userSessionTable["id"], sid), isNull(userSessionTable["revokedAt"])));
+        .where(and(eq(userSessionTable.id, sid), isNull(userSessionTable.revokedAt)));
     },
 
     async sessionChecker(sid: string, expectedUserId: string): Promise<AuthSessionStatus> {
       const rows = await db
         .select({
-          userId: userSessionTable["userId"],
-          revokedAt: userSessionTable["revokedAt"],
-          expiresAt: userSessionTable["expiresAt"],
+          userId: userSessionTable.userId,
+          revokedAt: userSessionTable.revokedAt,
+          expiresAt: userSessionTable.expiresAt,
         })
         .from(userSessionTable)
-        .where(eq(userSessionTable["id"], sid))
+        .where(eq(userSessionTable.id, sid))
         .limit(1);
       const row = rows[0];
       if (!row) return "missing";
@@ -102,8 +102,8 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       const result = await db
         .update(userSessionTable)
         .set({ revokedAt: Temporal.Now.instant() })
-        .where(and(eq(userSessionTable["userId"], userId), isNull(userSessionTable["revokedAt"])))
-        .returning({ id: userSessionTable["id"] });
+        .where(and(eq(userSessionTable.userId, userId), isNull(userSessionTable.revokedAt)))
+        .returning({ id: userSessionTable.id });
       return result.length;
     },
   };

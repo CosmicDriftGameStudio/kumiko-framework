@@ -149,7 +149,7 @@ describe("scoped mode (default)", () => {
       const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
 
       const [row] = await tdb1.insert(table).values({ name: "T1 Update" }).returning();
-      const id = (row as Record<string, unknown>)["id"] as number;
+      const id = (row as Record<string, unknown>)["id"] as string;
 
       const result = await tdb2
         .update(table)
@@ -172,7 +172,7 @@ describe("scoped mode (default)", () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
       const [row] = await tdb.insert(table).values({ name: "NoReturn" }).returning();
-      const id = (row as Record<string, unknown>)["id"] as number;
+      const id = (row as Record<string, unknown>)["id"] as string;
 
       await tdb.update(table).set({ name: "NoReturnUpdated" }).where(eq(table["id"], id));
 
@@ -187,7 +187,7 @@ describe("scoped mode (default)", () => {
       const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
 
       const [row] = await tdb1.insert(table).values({ name: "T1 Delete" }).returning();
-      const id = (row as Record<string, unknown>)["id"] as number;
+      const id = (row as Record<string, unknown>)["id"] as string;
 
       await tdb2.delete(table).where(eq(table["id"], id));
 
@@ -202,7 +202,7 @@ describe("scoped mode (default)", () => {
       const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
 
       const [created] = await tdb1.insert(table).values({ name: "Secret" }).returning();
-      const id = (created as Record<string, unknown>)["id"] as number;
+      const id = (created as Record<string, unknown>)["id"] as string;
 
       const seen = await tdb2.select().from(table).where(eq(table["id"], id));
       expect(seen).toHaveLength(0);
@@ -351,7 +351,7 @@ describe("system mode (r.systemScope())", () => {
   test("update affects rows from any tenant", async () => {
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
     const [row] = await scoped2.insert(table).values({ name: "T2-System-Upd" }).returning();
-    const id = (row as Record<string, unknown>)["id"] as number;
+    const id = (row as Record<string, unknown>)["id"] as string;
 
     // Scoped tenant 1 cannot update tenant 2's row
     const scoped1 = createTenantDb(testDb.db, tenant1.tenantId);
@@ -375,7 +375,7 @@ describe("system mode (r.systemScope())", () => {
   test("delete affects rows from any tenant", async () => {
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
     const [row] = await scoped2.insert(table).values({ name: "T2-System-Del" }).returning();
-    const id = (row as Record<string, unknown>)["id"] as number;
+    const id = (row as Record<string, unknown>)["id"] as string;
 
     // Unscoped can delete tenant 2's row from tenant 1 context
     const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
@@ -498,7 +498,7 @@ describe("mass-update guard", () => {
   test(".set().where(...).returning() still works (guard only triggers on missing where)", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
     const [row] = await tdb.insert(table).values({ name: "HappyPath" }).returning();
-    const id = (row as Record<string, unknown>)["id"] as number;
+    const id = (row as Record<string, unknown>)["id"] as string;
 
     const updated = await tdb
       .update(table)
@@ -553,7 +553,10 @@ describe("pre-flight signal cancellation", () => {
 
     let updateThrown: unknown;
     try {
-      await tdb.update(table).set({ name: "y" }).where(eq(table["id"], 1));
+      await tdb
+        .update(table)
+        .set({ name: "y" })
+        .where(eq(table["id"], "00000000-0000-0000-0000-000000000001"));
     } catch (e) {
       updateThrown = e;
     }
@@ -561,7 +564,7 @@ describe("pre-flight signal cancellation", () => {
 
     let deleteThrown: unknown;
     try {
-      await tdb.delete(table).where(eq(table["id"], 1));
+      await tdb.delete(table).where(eq(table["id"], "00000000-0000-0000-0000-000000000001"));
     } catch (e) {
       deleteThrown = e;
     }

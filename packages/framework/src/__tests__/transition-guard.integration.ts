@@ -258,7 +258,7 @@ describe("auto transition guard: per-entity transition map (cache key includes e
   });
 
   test("soft-deleted rows bypass the guard (no state-machine enforcement on zombies)", async () => {
-    const ticket = await stack.http.writeOk<{ id: number }>(
+    const ticket = await stack.http.writeOk<{ id: string }>(
       "txguard:write:ticket:create",
       { title: "T-1" },
       admin,

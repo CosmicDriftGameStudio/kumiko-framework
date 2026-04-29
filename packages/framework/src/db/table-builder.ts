@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type {
   EntityDefinition,
   EntityRelations,
@@ -206,47 +207,126 @@ export function toTableName(entityName: string): string {
 // Signature die in strict-mode (noUncheckedIndexedAccess + TS4111) jeden
 // konsumierenden Code zwingt auf Bracket-Notation auch für bekannte
 // Spalten. Da wir die Tabelle dynamisch aus EntityDefinition bauen,
-// kann TS Drizzle's volle Spalten-Inferenz nicht liefern — wir narrowen
-// stattdessen den Property-Contract auf die Namen die garantiert da
-// sind: Base-Spalten (id/tenantId/...), SoftDelete-Spalten und ein
-// Mapping über `entity.fields` (inkl. money-Currency-Zwilling).
+// kann TS Drizzle's volle Spalten-Inferenz nicht liefern — wir spiegeln
+// stattdessen die `fieldToColumns`-Logik im Type-System: jeder Field-Type
+// mappt auf einen konkreten data-Type, ColumnsForEntity baut daraus den
+// vollständigen Property-Bag.
 //
 // Mit konkret-inferiertem `F` (via createEntity({ fields: { ... } }))
-// ist der Property-Set ein konkretes Union ohne Index-Signature; der
-// alte `EntityDefinition` ohne Generic-Param fällt auf `string` zurück
-// und behält das alte Verhalten — also breaking change frei.
-type FieldColumnNames<F extends FieldsMap> = {
-  [K in keyof F & string]: F[K]["type"] extends "money" ? K | `${K}Currency` : K;
-}[keyof F & string];
-
-type BaseColumnNames =
-  | "id"
-  | "tenantId"
-  | "version"
-  | "insertedAt"
-  | "modifiedAt"
-  | "insertedById"
-  | "modifiedById"
-  | "isDeleted"
-  | "deletedAt"
-  | "deletedById";
-
-// Two layers, intersected:
-//   1. `TableColumns<any>` — keeps Drizzle's runtime methods (.from, .select,
-//      etc.) and the property-bag the ORM emits at runtime.
-//   2. A typed name-set listing exactly the columns this entity declares,
-//      so `table.tenantId` / `table["tenantId"]` type-checks without
-//      TS4111. Property-Werte bleiben `any`, weil Drizzle die echte
-//      Column-Type-Inferenz (.select(...) → row.x) zur Laufzeit aus
-//      der Column-Instance ableitet — unser statischer Cast ist nur ein
-//      Existence-Check, kein Data-Type-Check. Strenger als der alte
-//      `<any>`-Index-Signature-Default (concrete keys statt aller strings)
-//      bei identischer Type-Permissivität auf den Werten.
+// kommt das volle data-typing durch Drizzle's `eq()`/`select()`/`row.x`
+// am Call-Site an. Der alte `EntityDefinition` ohne Generic-Param fällt
+// auf `FieldsMap` zurück (= breaking-change-frei) — dort kennt TS die
+// Field-Types nicht, das Mapping kollabiert auf `AnyPgColumn`.
 //
-// biome-ignore-start lint/suspicious/noExplicitAny: column data-types stay generic — see comment above.
-export type DrizzleTable<E extends EntityDefinition = EntityDefinition> = TableColumns<any> &
-  Readonly<Record<BaseColumnNames | FieldColumnNames<E["fields"]>, any>>;
-// biome-ignore-end lint/suspicious/noExplicitAny: column data-types stay generic — see comment above.
+// Lock-step-Vertrag: jeder Branch hier muss zur Runtime-Entscheidung in
+// fieldToColumns passen. Type-Tests gegen repräsentative Entities (siehe
+// db/__tests__/drizzle-table-types.test.ts) catchen Drift.
+
+// Single drizzle column with concrete data + nullability — preserves
+// Drizzle's `.select`/`eq`/`lt`-Inferenz für T.
+type Col<T> = AnyPgColumn<{ data: T; notNull: true }>;
+type NullCol<T> = AnyPgColumn<{ data: T; notNull: false }>;
+
+// Per-field column shape — matches `fieldToColumns`. Money +
+// locatedTimestamp produce two-column pairs; files/images contribute no
+// columns (resolved via FileRef table). `notNull` propagiert von
+// `field.required` (literal preserved by createXField generics).
+type ColumnsForField<K extends string, F extends FieldDefinition> = F extends {
+  type: "text" | "select" | "tz";
+}
+  ? F extends { required: true }
+    ? { readonly [P in K]: Col<string> }
+    : { readonly [P in K]: NullCol<string> }
+  : F extends { type: "boolean" }
+    ? // boolean default OR required → notNull (DB has DEFAULT, structurally never-null)
+      F extends { default: boolean } | { required: true }
+      ? { readonly [P in K]: Col<boolean> }
+      : { readonly [P in K]: NullCol<boolean> }
+    : F extends { type: "multiSelect" }
+      ? // jsonb default `[]`, immer notNull
+        { readonly [P in K]: Col<readonly string[]> }
+      : F extends { type: "number" }
+        ? F extends { required: true }
+          ? { readonly [P in K]: Col<number> }
+          : { readonly [P in K]: NullCol<number> }
+        : F extends { type: "money" }
+          ? F extends { required: true }
+            ? { readonly [P in K]: Col<number> } & {
+                readonly [P in `${K}Currency`]: Col<string>;
+              }
+            : { readonly [P in K]: NullCol<number> } & {
+                readonly [P in `${K}Currency`]: Col<string>;
+              }
+          : F extends { type: "reference"; multiple: true }
+            ? { readonly [P in K]: Col<readonly string[]> }
+            : F extends { type: "reference" }
+              ? F extends { required: true }
+                ? { readonly [P in K]: Col<string> }
+                : { readonly [P in K]: NullCol<string> }
+              : F extends { type: "embedded" }
+                ? // jsonb default `{}`, immer notNull
+                  { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
+                : F extends { type: "date" | "timestamp" }
+                  ? F extends { required: true }
+                    ? { readonly [P in K]: Col<Temporal.Instant> }
+                    : { readonly [P in K]: NullCol<Temporal.Instant> }
+                  : F extends { type: "locatedTimestamp" }
+                    ? F extends { required: true }
+                      ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
+                          readonly [P in `${K}Tz`]: Col<string>;
+                        }
+                      : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
+                          readonly [P in `${K}Tz`]: NullCol<string>;
+                        }
+                    : F extends { type: "file" | "image" }
+                      ? F extends { required: true }
+                        ? { readonly [P in K]: Col<string> }
+                        : { readonly [P in K]: NullCol<string> }
+                      : F extends { type: "files" | "images" }
+                        ? Record<never, never>
+                        : never;
+
+type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
+  k: infer I,
+) => void
+  ? I
+  : never;
+
+type ColumnsForEntity<F extends FieldsMap> = UnionToIntersection<
+  {
+    [K in keyof F & string]: ColumnsForField<K, F[K]>;
+  }[keyof F & string]
+>;
+
+// Base-Spalten von buildBaseColumns — `idType: "serial"` returnt number,
+// sonst uuid-as-string. `insertedAt` hat `default(now())`, ist also
+// strukturell non-null (Drizzle's `notNull` flag matcht das).
+type BaseColumnsType<E extends EntityDefinition> = {
+  readonly id: E extends { idType: "serial" } ? Col<number> : Col<string>;
+  readonly tenantId: Col<string>;
+  readonly version: Col<number>;
+  readonly insertedAt: Col<Temporal.Instant>;
+  readonly modifiedAt: NullCol<Temporal.Instant>;
+  readonly insertedById: NullCol<string>;
+  readonly modifiedById: NullCol<string>;
+};
+
+// SoftDelete-Spalten existieren nur wenn entity.softDelete === true. Das
+// Type-Level kann das nicht klein narrowen ohne Generic auf softDelete,
+// also unionen wir beide Sets — Lean-Entities sehen die never-präsenten
+// Spalten als typed-existierend, was dem alten `<any>`-Verhalten matcht.
+type SoftDeleteColumnsType = {
+  readonly isDeleted: Col<boolean>;
+  readonly deletedAt: NullCol<Temporal.Instant>;
+  readonly deletedById: NullCol<string>;
+};
+
+export type DrizzleTable<E extends EntityDefinition = EntityDefinition> =
+  TableColumns<// biome-ignore lint/suspicious/noExplicitAny: drizzle's internal table-config stays generic; we layer typed columns on top via the intersection below.
+  any> &
+    BaseColumnsType<E> &
+    SoftDeleteColumnsType &
+    ColumnsForEntity<E["fields"]>;
 
 export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "uuid") {
   const idColumn =

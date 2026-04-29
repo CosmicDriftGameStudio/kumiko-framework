@@ -18,7 +18,16 @@ import type {
   TzFieldDef,
 } from "./types";
 
-export function createTextField(overrides?: Partial<Omit<TextFieldDef, "type">>): TextFieldDef {
+// Generic über `R extends true | false` (statt `boolean`) damit
+// `createTextField({ required: true })` literal `required: true` im
+// Return-Type behält. `boolean` würde widenen — DrizzleTable<E>'s
+// Mapped-Type könnte dann nicht zwischen `required: true` und
+// `required: false` dispatchen, jede Column würde zu nullable
+// degradieren. Default `R = false` matcht den runtime-default. Pattern
+// in jeder required-bearing factory unten.
+export function createTextField<R extends true | false = false>(
+  overrides?: Partial<Omit<TextFieldDef, "type" | "required">> & { required?: R },
+): TextFieldDef & { required: R } {
   return {
     type: "text",
     maxLength: 200,
@@ -26,28 +35,33 @@ export function createTextField(overrides?: Partial<Omit<TextFieldDef, "type">>)
     searchable: false,
     sortable: false,
     ...overrides,
-  };
+  } as TextFieldDef & { required: R };
 }
 
-export function createBooleanField(
-  overrides?: Partial<Omit<BooleanFieldDef, "type">>,
-): BooleanFieldDef {
+export function createBooleanField<R extends true | false = false>(
+  overrides?: Partial<Omit<BooleanFieldDef, "type" | "required">> & { required?: R },
+): BooleanFieldDef & { required: R } {
   return {
     type: "boolean",
     required: false,
     default: false,
     ...overrides,
-  };
+  } as BooleanFieldDef & { required: R };
 }
 
-export function createSelectField<const TOptions extends readonly string[]>(
-  opts: { options: TOptions } & Partial<Omit<SelectFieldDef<TOptions>, "type" | "options">>,
-): SelectFieldDef<TOptions> {
+export function createSelectField<
+  const TOptions extends readonly string[],
+  R extends true | false = false,
+>(
+  opts: { options: TOptions } & Partial<
+    Omit<SelectFieldDef<TOptions>, "type" | "options" | "required">
+  > & { required?: R },
+): SelectFieldDef<TOptions> & { required: R } {
   return {
     type: "select",
     required: false,
     ...opts,
-  };
+  } as SelectFieldDef<TOptions> & { required: R };
 }
 
 /**
@@ -81,21 +95,23 @@ export function createMultiSelectField<const TOptions extends readonly string[]>
   };
 }
 
-export function createNumberField(
-  overrides?: Partial<Omit<NumberFieldDef, "type">>,
-): NumberFieldDef {
+export function createNumberField<R extends true | false = false>(
+  overrides?: Partial<Omit<NumberFieldDef, "type" | "required">> & { required?: R },
+): NumberFieldDef & { required: R } {
   return {
     type: "number",
     required: false,
     ...overrides,
-  };
+  } as NumberFieldDef & { required: R };
 }
 
-export function createMoneyField(overrides?: Partial<Omit<MoneyFieldDef, "type">>): MoneyFieldDef {
+export function createMoneyField<R extends true | false = false>(
+  overrides?: Partial<Omit<MoneyFieldDef, "type" | "required">> & { required?: R },
+): MoneyFieldDef & { required: R } {
   return {
     type: "money",
     ...overrides,
-  };
+  } as MoneyFieldDef & { required: R };
 }
 
 export function createEmbeddedField(
@@ -109,12 +125,14 @@ export function createEmbeddedField(
   };
 }
 
-export function createDateField(overrides?: Partial<Omit<DateFieldDef, "type">>): DateFieldDef {
+export function createDateField<R extends true | false = false>(
+  overrides?: Partial<Omit<DateFieldDef, "type" | "required">> & { required?: R },
+): DateFieldDef & { required: R } {
   return {
     type: "date",
     required: false,
     ...overrides,
-  };
+  } as DateFieldDef & { required: R };
 }
 
 /**
@@ -125,13 +143,16 @@ export function createDateField(overrides?: Partial<Omit<DateFieldDef, "type">>)
  * Termins an einem Ort — bevorzuge dafür den `locatedTimestamp(name)`
  * Helper, der Pair + Marker atomar erzeugt.
  */
-export function createTimestampField(
-  overrides?: Partial<Omit<TimestampFieldDef, "type">>,
-): TimestampFieldDef {
+export function createTimestampField<R extends true | false = false>(
+  overrides?: Partial<Omit<TimestampFieldDef, "type" | "required">> & { required?: R },
+): TimestampFieldDef & { required: R } {
+  // Object-Build vermeidet hartcodiertes `required: false` im literal —
+  // das würde TS dazu bringen, R auf `boolean` zu widenen statt das
+  // literal `true`/`false` aus dem overrides-Argument zu inferieren.
   return {
-    type: "timestamp",
-    required: false,
     ...overrides,
+    type: "timestamp",
+    required: (overrides?.required ?? false) as R,
   };
 }
 
@@ -139,12 +160,14 @@ export function createTimestampField(
  * IANA-Zonenname (z.B. "Europe/Berlin"). Wird im Boot/Schema-Validator
  * via `Intl.supportedValuesOf("timeZone")` geprüft (kommt im Zod-Schritt).
  */
-export function createTzField(overrides?: Partial<Omit<TzFieldDef, "type">>): TzFieldDef {
+export function createTzField<R extends true | false = false>(
+  overrides?: Partial<Omit<TzFieldDef, "type" | "required">> & { required?: R },
+): TzFieldDef & { required: R } {
   return {
     type: "tz",
     required: false,
     ...overrides,
-  };
+  } as TzFieldDef & { required: R };
 }
 
 /**
@@ -177,14 +200,14 @@ export function createTzField(overrides?: Partial<Omit<TzFieldDef, "type">>): Tz
  * mit demselben Tag zurück). User-lokale Sicht kommt aus `utc` per
  * separater Berechnung.
  */
-export function createLocatedTimestampField(
-  overrides?: Partial<Omit<LocatedTimestampFieldDef, "type">>,
-): LocatedTimestampFieldDef {
+export function createLocatedTimestampField<R extends true | false = false>(
+  overrides?: Partial<Omit<LocatedTimestampFieldDef, "type" | "required">> & { required?: R },
+): LocatedTimestampFieldDef & { required: R } {
   return {
     type: "locatedTimestamp",
     required: false,
     ...overrides,
-  };
+  } as LocatedTimestampFieldDef & { required: R };
 }
 
 /**
@@ -252,12 +275,27 @@ export function createImagesField(
   return { type: "images", ...overrides };
 }
 
-export function createEntity<F extends FieldsMap>(
-  def: Omit<EntityDefinition<F>, "softDelete" | "searchWeight"> & {
-    softDelete?: boolean;
-    searchWeight?: number;
-  },
-): EntityDefinition<F> {
+// `F` läuft OHNE Constraint im Generic-Param damit TS die literal-types
+// einzelner Field-Defs durchzieht (required: true bleibt true, nicht
+// boolean). Constraint-Match gegen FieldsMap würde widenen — siehe TS-
+// Issue um Constraint-Inferenz auf strukturellen Records. Stattdessen
+// validieren wir die Conformance via conditional return type: wenn F
+// nicht FieldsMap-compat ist, kollabiert der Return zu `never`.
+export function createEntity<F>(def: {
+  readonly table?: string;
+  readonly fields: F;
+  readonly softDelete?: boolean;
+  readonly searchWeight?: number;
+  readonly defaultCurrency?: string;
+  readonly transitions?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
+  readonly indexes?: readonly {
+    readonly columns: readonly [string, ...string[]];
+    readonly unique?: boolean;
+    readonly name?: string;
+  }[];
+  readonly idType?: "serial" | "uuid";
+  readonly access?: EntityDefinition["access"];
+}): F extends FieldsMap ? EntityDefinition<F> : never {
   return {
     softDelete: false,
     searchWeight: 1,
@@ -265,5 +303,5 @@ export function createEntity<F extends FieldsMap>(
     // aggregate-ids are UUID. Opt-out with `idType: "serial"` for pre-ES
     // legacy tables (should be rare).
     ...def,
-  };
+  } as F extends FieldsMap ? EntityDefinition<F> : never;
 }

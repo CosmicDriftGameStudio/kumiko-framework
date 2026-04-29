@@ -703,7 +703,7 @@ describe("full stack: entity cache", () => {
       { email: "stale@test.de", firstName: "Before" },
       adminUser,
     );
-    const id = created["id"] as number;
+    const id = created["id"] as string;
 
     // First detail populates cache
     await stack.http.queryOk("users:query:user:detail", { id }, adminUser);
@@ -745,7 +745,7 @@ describe("full stack: entity cache", () => {
       { email: "delcache@test.de" },
       adminUser,
     );
-    const id = created["id"] as number;
+    const id = created["id"] as string;
 
     // Populate cache
     await stack.http.queryOk("users:query:user:detail", { id }, adminUser);
