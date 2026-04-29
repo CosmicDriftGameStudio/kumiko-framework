@@ -184,7 +184,7 @@ describe("createFormController — core state machine", () => {
   test("deleted field via setValues({ key: undefined }) still counts as a change", () => {
     // Covers the both-sides iteration in valuesDiff — a field cleared from
     // the current values still diverges from initial and shows up in changes.
-    const form = createFormController({ initial: { title: "hello" } as Record<string, unknown> });
+    const form = createFormController({ initial: { title: "hello" } });
     form.setValues({ title: undefined });
 
     const snap = form.getSnapshot();

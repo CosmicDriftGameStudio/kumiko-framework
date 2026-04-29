@@ -90,7 +90,7 @@ function widgetAuditFeature(): FeatureDefinition {
     r.entityHook("postSave", "widget", async (result, ctx) => {
       if (result.kind !== "save" || !result.isNew) return;
       if (!ctx.db) return;
-      const name = (result.changes as Record<string, unknown>)["name"] as string | undefined;
+      const name = result.changes!["name"] as string | undefined;
       if (!name) return;
       await ctx.db.insert(widgetAuditTable).values({
         id: generateId(),

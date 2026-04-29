@@ -27,7 +27,7 @@ describe("writeRebuildMarker / readRebuildMarker round-trip", () => {
       "publicstatus:projection:component-entity",
     ]);
     const raw = readFileSync(join(tmpDir, "0042_brave_taskmaster__rebuild.json"), "utf-8");
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const parsed = JSON.parse(raw);
     expect(parsed).toEqual({
       schemaVersion: 1,
       migrationTag: "0042_brave_taskmaster",

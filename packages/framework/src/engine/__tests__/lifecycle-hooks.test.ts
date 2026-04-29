@@ -215,7 +215,7 @@ describe("preDelete hook behavior", () => {
   test("preDelete receives full entity data before deletion", async () => {
     let receivedData: Record<string, unknown> | undefined;
     const hook: PreDeleteHookFn = async (payload) => {
-      receivedData = payload.data as Record<string, unknown>;
+      receivedData = payload.data;
     };
 
     await hook(

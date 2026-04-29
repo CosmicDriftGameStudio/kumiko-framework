@@ -386,7 +386,7 @@ describe("Observability (integration) — Pino trace bridge", () => {
     const parsed = capturedLines
       .flatMap((c) => c.split("\n"))
       .filter((l) => l.trim().length > 0)
-      .map((l) => JSON.parse(l) as Record<string, unknown>);
+      .map((l) => JSON.parse(l));
     const entry = parsed.find((p) => p["msg"] === "hello");
     expect(entry).toBeDefined();
     expect(entry?.["custom"]).toBe("field");
@@ -415,7 +415,7 @@ describe("Observability (integration) — Pino trace bridge", () => {
     const parsed = lines
       .flatMap((c) => c.split("\n"))
       .filter((l) => l.trim().length > 0)
-      .map((l) => JSON.parse(l) as Record<string, unknown>);
+      .map((l) => JSON.parse(l));
     const entry = parsed.find((p) => p["msg"] === "standalone");
     expect(entry).toBeDefined();
     expect(entry?.["traceId"]).toBeUndefined();

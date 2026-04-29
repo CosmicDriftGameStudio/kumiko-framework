@@ -87,7 +87,7 @@ describe("SSE broadcast on update", () => {
 
     const updateEvent = stack.events.sse.find((e) => e.type === "message.updated");
     expect(updateEvent).toBeDefined();
-    const payload = updateEvent?.data["payload"] as Record<string, unknown>;
+    const payload = updateEvent?.data["payload"];
     expect(payload?.["changes"]).toEqual({ text: "Edited" });
   });
 });

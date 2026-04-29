@@ -70,7 +70,7 @@ describe("create and read embedded objects", () => {
       admin,
     );
     expect(detail["name"]).toBe("Detail Test");
-    const addr = detail["address"] as Record<string, unknown>;
+    const addr = detail["address"];
     expect(addr["street"]).toBe("Musterweg 5");
     expect(addr["city"]).toBe("München");
   });
@@ -91,7 +91,7 @@ describe("create and read embedded objects", () => {
       admin,
     );
     expect(data.isNew).toBe(true);
-    const billing = data.data["billingAddress"] as Record<string, unknown>;
+    const billing = data.data["billingAddress"];
     expect(billing["vatId"]).toBe("DE123456789");
   });
 
@@ -157,7 +157,7 @@ describe("field access on embedded sub-fields", () => {
       { id: contactWithBillingId },
       admin,
     );
-    const billing = detail["billingAddress"] as Record<string, unknown>;
+    const billing = detail["billingAddress"];
     expect(billing["vatId"]).toBe("DE999");
     expect(billing["street"]).toBe("B");
   });
@@ -168,7 +168,7 @@ describe("field access on embedded sub-fields", () => {
       { id: contactWithBillingId },
       viewer,
     );
-    const billing = detail["billingAddress"] as Record<string, unknown>;
+    const billing = detail["billingAddress"];
     expect(billing["vatId"]).toBeUndefined();
     expect(billing["street"]).toBe("B"); // other fields still visible
   });

@@ -62,12 +62,12 @@ describe("scenario 1: tenant.create", () => {
       { id: systemAdmin.tenantId, key: "acme", name: "ACME Corp" },
       systemAdmin,
     );
-    expect((data as Record<string, unknown>)["data"]).toMatchObject({
+    expect(data!["data"]).toMatchObject({
       key: "acme",
       name: "ACME Corp",
       isEnabled: true,
     });
-    expect((data as Record<string, unknown>)["isNew"]).toBe(true);
+    expect(data!["isNew"]).toBe(true);
   });
 
   test("normal User cannot create a tenant", async () => {
@@ -112,11 +112,11 @@ describe("scenario 3: tenant.update", () => {
       { id: tenantId, changes: { name: "ACME Corporation" }, version: 1 },
       tenantAdmin,
     );
-    expect((data as Record<string, unknown>)["data"]).toMatchObject({
+    expect(data!["data"]).toMatchObject({
       name: "ACME Corporation",
     });
-    expect((data as Record<string, unknown>)["changes"]).toEqual({ name: "ACME Corporation" });
-    expect((data as Record<string, unknown>)["isNew"]).toBe(false);
+    expect(data!["changes"]).toEqual({ name: "ACME Corporation" });
+    expect(data!["isNew"]).toBe(false);
   });
 
   test("update handler requires Admin or SystemAdmin role", async () => {
@@ -135,7 +135,7 @@ describe("scenario 4: tenant.disable", () => {
     const tenantId = me["id"] as string;
 
     const data = await stack.http.writeOk(TenantHandlers.disable, { id: tenantId }, systemAdmin);
-    expect((data as Record<string, unknown>)["data"]).toMatchObject({
+    expect(data!["data"]).toMatchObject({
       isEnabled: false,
     });
   });

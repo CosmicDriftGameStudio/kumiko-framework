@@ -135,7 +135,7 @@ describe("event emission contract", () => {
       sql`SELECT type, payload FROM kumiko_events WHERE type = ${FILE_UPLOADED_EVENT_TYPE}`,
     );
     expect(rows.length).toBe(1);
-    const payload = rows[0]?.["payload"] as Record<string, unknown>;
+    const payload = rows[0]?.["payload"];
     expect(typeof payload["storageKey"]).toBe("string");
     expect(payload["mimeType"]).toBe("image/png");
     expect(payload["data"]).toBeUndefined();

@@ -131,7 +131,7 @@ describe("createEntityExecutor", () => {
     const { table, executor } = createEntityExecutor("note", noteEntity);
     // Table: drizzle-built — has the id column the event-store executor keys on.
     expect(table).toBeDefined();
-    expect((table as Record<string, unknown>)["id"]).toBeDefined();
+    expect(table!["id"]).toBeDefined();
     // Executor: the standard CRUD/verb surface is present.
     expect(typeof executor.create).toBe("function");
     expect(typeof executor.update).toBe("function");

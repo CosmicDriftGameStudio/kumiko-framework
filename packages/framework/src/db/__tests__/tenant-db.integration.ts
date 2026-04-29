@@ -85,12 +85,8 @@ describe("scoped mode (default)", () => {
       const rows1 = await tdb1.select().from(table);
       const rows2 = await tdb2.select().from(table);
 
-      expect(
-        rows1.every((r) => (r as Record<string, unknown>)["tenantId"] === testTenantId(1)),
-      ).toBe(true);
-      expect(
-        rows2.every((r) => (r as Record<string, unknown>)["tenantId"] === testTenantId(2)),
-      ).toBe(true);
+      expect(rows1.every((r) => r!["tenantId"] === testTenantId(1))).toBe(true);
+      expect(rows2.every((r) => r!["tenantId"] === testTenantId(2))).toBe(true);
     });
 
     test("additional where conditions combine with tenant filter", async () => {
@@ -103,11 +99,7 @@ describe("scoped mode (default)", () => {
 
       expect(rows.length).toBeGreaterThanOrEqual(1);
       expect(
-        rows.every(
-          (r) =>
-            (r as Record<string, unknown>)["tenantId"] === testTenantId(1) &&
-            (r as Record<string, unknown>)["status"] === "active",
-        ),
+        rows.every((r) => r!["tenantId"] === testTenantId(1) && r!["status"] === "active"),
       ).toBe(true);
     });
 
@@ -122,7 +114,7 @@ describe("scoped mode (default)", () => {
         .where(eq(table["name"], "ColSelect"));
 
       expect(rows.length).toBeGreaterThanOrEqual(1);
-      const row = rows[0] as Record<string, unknown>;
+      const row = rows[0]!;
       expect(row["name"]).toBe("ColSelect");
       expect(row["id"]).toBeDefined();
       expect(row["status"]).toBeUndefined();
@@ -149,7 +141,7 @@ describe("scoped mode (default)", () => {
       const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
 
       const [row] = await tdb1.insert(table).values({ name: "T1 Update" }).returning();
-      const id = (row as Record<string, unknown>)["id"] as string;
+      const id = row!["id"] as string;
 
       const result = await tdb2
         .update(table)
@@ -165,19 +157,19 @@ describe("scoped mode (default)", () => {
         .where(eq(table["id"], id))
         .returning();
 
-      expect((updated as Record<string, unknown>)["name"]).toBe("Updated");
+      expect(updated!["name"]).toBe("Updated");
     });
 
     test("update without returning", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
       const [row] = await tdb.insert(table).values({ name: "NoReturn" }).returning();
-      const id = (row as Record<string, unknown>)["id"] as string;
+      const id = row!["id"] as string;
 
       await tdb.update(table).set({ name: "NoReturnUpdated" }).where(eq(table["id"], id));
 
       const [updated] = await tdb.select().from(table).where(eq(table["id"], id));
-      expect((updated as Record<string, unknown>)["name"]).toBe("NoReturnUpdated");
+      expect(updated!["name"]).toBe("NoReturnUpdated");
     });
   });
 
@@ -187,7 +179,7 @@ describe("scoped mode (default)", () => {
       const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
 
       const [row] = await tdb1.insert(table).values({ name: "T1 Delete" }).returning();
-      const id = (row as Record<string, unknown>)["id"] as string;
+      const id = row!["id"] as string;
 
       await tdb2.delete(table).where(eq(table["id"], id));
 
@@ -202,7 +194,7 @@ describe("scoped mode (default)", () => {
       const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
 
       const [created] = await tdb1.insert(table).values({ name: "Secret" }).returning();
-      const id = (created as Record<string, unknown>)["id"] as string;
+      const id = created!["id"] as string;
 
       const seen = await tdb2.select().from(table).where(eq(table["id"], id));
       expect(seen).toHaveLength(0);
@@ -267,7 +259,7 @@ describe("scoped mode (default)", () => {
         .select()
         .from(table)
         .where(eq(table["name"], "RefNoUpdate"));
-      expect((untouched as Record<string, unknown>)["name"]).toBe("RefNoUpdate");
+      expect(untouched!["name"]).toBe("RefNoUpdate");
     });
 
     test("scoped delete does NOT affect tenantId = 0 rows", async () => {
@@ -306,7 +298,7 @@ describe("system mode (r.systemScope())", () => {
     const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
     const rows = await systemDb.select().from(table);
 
-    const tenantIds = new Set(rows.map((r) => (r as Record<string, unknown>)["tenantId"]));
+    const tenantIds = new Set(rows.map((r) => r!["tenantId"]));
     // Must see rows from at least 2 different tenants
     expect(tenantIds.size).toBeGreaterThanOrEqual(2);
   });
@@ -316,14 +308,14 @@ describe("system mode (r.systemScope())", () => {
 
     // Without explicit tenantId — uses the default (tenant1)
     const [defaultRow] = await systemDb.insert(table).values({ name: "SystemDefault" }).returning();
-    expect((defaultRow as Record<string, unknown>)["tenantId"]).toBe(testTenantId(1));
+    expect(defaultRow!["tenantId"]).toBe(testTenantId(1));
 
     // With explicit tenantId — handler's value wins
     const [overrideRow] = await systemDb
       .insert(table)
       .values({ name: "SystemOverride", tenantId: testTenantId(99) })
       .returning();
-    expect((overrideRow as Record<string, unknown>)["tenantId"]).toBe(testTenantId(99));
+    expect(overrideRow!["tenantId"]).toBe(testTenantId(99));
   });
 
   test("insert with tenantId null (system config pattern)", async () => {
@@ -338,20 +330,20 @@ describe("system mode (r.systemScope())", () => {
       .insert(table)
       .values({ name: "ScopedForce", tenantId: testTenantId(77) })
       .returning();
-    expect((scopedRow as Record<string, unknown>)["tenantId"]).toBe(testTenantId(1)); // forced
+    expect(scopedRow!["tenantId"]).toBe(testTenantId(1)); // forced
 
     // In unscoped mode, explicit tenantId wins
     const [unscopedRow] = await systemDb
       .insert(table)
       .values({ name: "SystemExplicit", tenantId: testTenantId(77) })
       .returning();
-    expect((unscopedRow as Record<string, unknown>)["tenantId"]).toBe(testTenantId(77)); // handler wins
+    expect(unscopedRow!["tenantId"]).toBe(testTenantId(77)); // handler wins
   });
 
   test("update affects rows from any tenant", async () => {
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
     const [row] = await scoped2.insert(table).values({ name: "T2-System-Upd" }).returning();
-    const id = (row as Record<string, unknown>)["id"] as string;
+    const id = row!["id"] as string;
 
     // Scoped tenant 1 cannot update tenant 2's row
     const scoped1 = createTenantDb(testDb.db, tenant1.tenantId);
@@ -369,13 +361,13 @@ describe("system mode (r.systemScope())", () => {
       .set({ name: "SystemWin" })
       .where(eq(table["id"], id))
       .returning();
-    expect((updated as Record<string, unknown>)["name"]).toBe("SystemWin");
+    expect(updated!["name"]).toBe("SystemWin");
   });
 
   test("delete affects rows from any tenant", async () => {
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
     const [row] = await scoped2.insert(table).values({ name: "T2-System-Del" }).returning();
-    const id = (row as Record<string, unknown>)["id"] as string;
+    const id = row!["id"] as string;
 
     // Unscoped can delete tenant 2's row from tenant 1 context
     const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
@@ -406,7 +398,7 @@ describe("tables without tenantId column", () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
     const [row] = await tdb.insert(systemTable).values({ label: "NoTenantInjection" }).returning();
-    const data = row as Record<string, unknown>;
+    const data = row!;
     expect(data["label"]).toBe("NoTenantInjection");
     // No tenantId column at all — should not be in the result
     expect(data["tenantId"]).toBeUndefined();
@@ -425,19 +417,19 @@ describe("tables without tenantId column", () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
     const [row] = await tdb.insert(systemTable).values({ label: "BeforeUpd" }).returning();
-    const id = (row as Record<string, unknown>)["id"] as number;
+    const id = row!["id"] as number;
 
     await tdb.update(systemTable).set({ label: "AfterUpd" }).where(eq(systemTable["id"], id));
 
     const [updated] = await tdb.select().from(systemTable).where(eq(systemTable["id"], id));
-    expect((updated as Record<string, unknown>)["label"]).toBe("AfterUpd");
+    expect(updated!["label"]).toBe("AfterUpd");
   });
 
   test("delete works without tenant filter", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
     const [row] = await tdb.insert(systemTable).values({ label: "ToDelete" }).returning();
-    const id = (row as Record<string, unknown>)["id"] as number;
+    const id = row!["id"] as number;
 
     await tdb.delete(systemTable).where(eq(systemTable["id"], id));
 
@@ -477,7 +469,7 @@ describe("mass-update guard", () => {
 
     // Rows must be untouched — the rejection happened before any SQL ran.
     const untouched = await tdb.select().from(table);
-    const touched = (untouched as Record<string, unknown>[]).filter((r) => r["name"] === "Wiped");
+    const touched = untouched.filter((r) => r["name"] === "Wiped");
     expect(touched).toHaveLength(0);
   });
 
@@ -489,23 +481,21 @@ describe("mass-update guard", () => {
     await expect(promise).rejects.toThrow(/awaited without \.where\(\) would mass-update/);
 
     const untouched = await tdb.select().from(table);
-    const touched = (untouched as Record<string, unknown>[]).filter(
-      (r) => r["name"] === "WipedByAwait",
-    );
+    const touched = untouched.filter((r) => r["name"] === "WipedByAwait");
     expect(touched).toHaveLength(0);
   });
 
   test(".set().where(...).returning() still works (guard only triggers on missing where)", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
     const [row] = await tdb.insert(table).values({ name: "HappyPath" }).returning();
-    const id = (row as Record<string, unknown>)["id"] as string;
+    const id = row!["id"] as string;
 
     const updated = await tdb
       .update(table)
       .set({ name: "HappyPathUpdated" })
       .where(eq(table["id"], id))
       .returning();
-    expect((updated[0] as Record<string, unknown>)["name"]).toBe("HappyPathUpdated");
+    expect(updated[0]!["name"]).toBe("HappyPathUpdated");
   });
 });
 
@@ -603,7 +593,7 @@ describe("pre-flight signal cancellation", () => {
     // made it — the abort prevented future work, didn't roll back done
     // work.
     const rows = await testDb.db.select().from(table);
-    const names = (rows as Record<string, unknown>[]).map((r) => r["name"] as string);
+    const names = rows.map((r) => r["name"] as string);
     expect(names).toContain("preflight-first");
     expect(names).not.toContain("preflight-second");
   });
