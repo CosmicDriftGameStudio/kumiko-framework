@@ -204,21 +204,21 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // Invoice: draft → sent is ALLOWED by invoice transitions.
     // If the cache collided with order's map (open→shipped), the dispatcher
     // would reject "sent" as not a valid target from any known state.
-    const invoiceResult = await stack.http.writeOk<Record<string, unknown>>(
+    const invoiceResult = await stack.http.writeOk<{ data: { status: string } }>(
       "txguard:write:invoice:update",
       { id: invoice["id"], changes: { status: "sent" }, version: 1 },
       admin,
     );
-    expect((invoiceResult["data"] as Record<string, unknown>)["status"]).toBe("sent");
+    expect(invoiceResult.data.status).toBe("sent");
 
     // Order: open → shipped is ALLOWED by order transitions.
     // If the cache now holds invoice's map, this would be rejected.
-    const orderResult = await stack.http.writeOk<Record<string, unknown>>(
+    const orderResult = await stack.http.writeOk<{ data: { status: string } }>(
       "txguard:write:order:update",
       { id: order["id"], changes: { status: "shipped" }, version: 1 },
       admin,
     );
-    expect((orderResult["data"] as Record<string, unknown>)["status"]).toBe("shipped");
+    expect(orderResult.data.status).toBe("shipped");
   });
 
   test("invalid transition on entity A still rejects (guard actually fires)", async () => {

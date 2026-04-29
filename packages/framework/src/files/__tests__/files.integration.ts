@@ -249,17 +249,28 @@ describe("file upload flow via API", () => {
     expect(event?.type).toBe(FILE_UPLOADED_EVENT_TYPE);
     expect(event?.version).toBe(1);
 
-    const payload = event?.payload as Record<string, unknown>;
-    expect(payload["fileRefId"]).toBe(uploadedFileId);
-    expect(payload["fileName"]).toBe("logo.png");
-    expect(payload["mimeType"]).toBe("image/png");
-    expect(payload["size"]).toBe(testPngContent.length);
-    expect(payload["entityType"]).toBe("tenant");
-    expect(payload["fieldName"]).toBe("logo");
+    type UploadedPayload = {
+      fileRefId: string;
+      fileName: string;
+      mimeType: string;
+      size: number;
+      entityType: string;
+      fieldName: string;
+      storageKey: string;
+      data?: unknown;
+      binary?: unknown;
+    };
+    const payload = event!.payload as UploadedPayload;
+    expect(payload.fileRefId).toBe(uploadedFileId);
+    expect(payload.fileName).toBe("logo.png");
+    expect(payload.mimeType).toBe("image/png");
+    expect(payload.size).toBe(testPngContent.length);
+    expect(payload.entityType).toBe("tenant");
+    expect(payload.fieldName).toBe("logo");
     // The binary never hits the event — payload carries a pointer only.
-    expect(payload["data"]).toBeUndefined();
-    expect(payload["binary"]).toBeUndefined();
-    expect(typeof payload["storageKey"]).toBe("string");
+    expect(payload.data).toBeUndefined();
+    expect(payload.binary).toBeUndefined();
+    expect(typeof payload.storageKey).toBe("string");
   });
 
   test("get file metadata", async () => {

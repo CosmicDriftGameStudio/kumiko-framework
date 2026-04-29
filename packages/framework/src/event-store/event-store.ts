@@ -41,7 +41,12 @@ export type EventToAppend = {
   readonly metadata: EventMetadata;
 };
 
-export type StoredEvent = {
+// Generic über payload-shape. Default = Record<string, unknown> macht
+// alle existierenden Konsumenten backwards-compatible. Konkrete Apply-
+// Handler / Tests können `StoredEvent<MyEventPayload>` annotieren um
+// payload typed zu lesen. Type-Propagation kommt durch r.defineEvent +
+// SingleStreamApplyFn<T> in apply-Maps.
+export type StoredEvent<TPayload = Record<string, unknown>> = {
   readonly id: string;
   readonly aggregateId: string;
   readonly aggregateType: string;
@@ -49,7 +54,7 @@ export type StoredEvent = {
   readonly version: number;
   readonly type: string;
   readonly eventVersion: number;
-  readonly payload: Record<string, unknown>;
+  readonly payload: TPayload;
   readonly metadata: EventMetadata;
   readonly createdAt: Temporal.Instant;
   readonly createdBy: string;

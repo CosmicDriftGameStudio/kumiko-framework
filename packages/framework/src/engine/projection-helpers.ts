@@ -1,5 +1,36 @@
 import { eq } from "drizzle-orm";
-import type { ProjectionTable, SingleStreamApplyFn } from "./types/projection";
+import type { DbRunner } from "../db/connection";
+import type { StoredEvent } from "../event-store/event-store";
+import type { MultiStreamApplyContext } from "../pipeline/multi-stream-apply-context";
+import type { MultiStreamApplyFn, ProjectionTable, SingleStreamApplyFn } from "./types/projection";
+
+// Typed-Apply-Helper für r.projection.apply: erlaubt per-event-type
+// typed event.payload-Access ohne SingleStreamApplyFn-Generic durch die
+// ganze ProjectionDefinition propagieren zu müssen.
+//
+// Der Helper ist ein purer Type-Vehikel — zur Laufzeit identitäts-fn:
+//
+//   apply: {
+//     "user.created": apply<UserCreatedPayload>(async (event, tx) => {
+//       // event.payload ist UserCreatedPayload, nicht Record<string, unknown>
+//       await tx.insert(usersTable).values({ id: event.aggregateId, ...event.payload });
+//     }),
+//   }
+//
+// Default-Generic = Record<string, unknown> behält rückwärtskompatibles
+// Verhalten für apply-Handler die ohne Type-Argument geschrieben sind.
+export function apply<TPayload = Record<string, unknown>>(
+  fn: (event: StoredEvent<TPayload>, tx: DbRunner) => Promise<void>,
+): SingleStreamApplyFn {
+  return fn as SingleStreamApplyFn;
+}
+
+// Pendant für r.multiStreamProjection.apply — bekommt zusätzlich ctx.
+export function applyMsp<TPayload = Record<string, unknown>>(
+  fn: (event: StoredEvent<TPayload>, tx: DbRunner, ctx: MultiStreamApplyContext) => Promise<void>,
+): MultiStreamApplyFn {
+  return fn as MultiStreamApplyFn;
+}
 
 // UPDATE <projection-table> SET <fields> WHERE id = event.aggregateId.
 // The "event drives one row by aggregate id" shape is what 90 % of state-

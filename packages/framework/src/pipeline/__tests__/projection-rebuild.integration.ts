@@ -20,7 +20,7 @@ import {
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import { apply, createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
 import {
@@ -61,22 +61,23 @@ async function bump(tx: unknown, groupId: string, tenantId: string, delta: numbe
     });
 }
 
+type ItemCreated = { groupId: string };
+type ItemRestoreOrDelete = { previous: { groupId: string } };
+
 const itemsPerGroupProjection: ProjectionDefinition = {
   name: "items-per-group",
   source: "rebuild-item",
   table: itemsPerGroupTable,
   apply: {
-    "rebuild-item.created": async (event, tx) => {
-      await bump(tx, event.payload["groupId"] as string, event.tenantId, 1);
-    },
-    "rebuild-item.deleted": async (event, tx) => {
-      const prev = event.payload["previous"] as Record<string, unknown>;
-      await bump(tx, prev["groupId"] as string, event.tenantId, -1);
-    },
-    "rebuild-item.restored": async (event, tx) => {
-      const prev = event.payload["previous"] as Record<string, unknown>;
-      await bump(tx, prev["groupId"] as string, event.tenantId, 1);
-    },
+    "rebuild-item.created": apply<ItemCreated>(async (event, tx) => {
+      await bump(tx, event.payload.groupId, event.tenantId, 1);
+    }),
+    "rebuild-item.deleted": apply<ItemRestoreOrDelete>(async (event, tx) => {
+      await bump(tx, event.payload.previous.groupId, event.tenantId, -1);
+    }),
+    "rebuild-item.restored": apply<ItemRestoreOrDelete>(async (event, tx) => {
+      await bump(tx, event.payload.previous.groupId, event.tenantId, 1);
+    }),
   },
 };
 

@@ -128,8 +128,11 @@ describe("event-store-executor — sensitive fields", () => {
     );
   });
 
-  async function lastEvent(): Promise<{ type: string; payload: Record<string, unknown> }> {
-    const rows = await testDb.db.execute<{ type: string; payload: Record<string, unknown> }>(
+  async function lastEvent<TPayload = Record<string, unknown>>(): Promise<{
+    type: string;
+    payload: TPayload;
+  }> {
+    const rows = await testDb.db.execute<{ type: string; payload: TPayload }>(
       sql`SELECT type, payload FROM kumiko_events ORDER BY id DESC LIMIT 1`,
     );
     const row = rows[0];
@@ -175,17 +178,18 @@ describe("event-store-executor — sensitive fields", () => {
     );
     if (!result.isSuccess) throw new Error("update failed");
 
-    const event = await lastEvent();
+    const event = await lastEvent<{
+      changes: { email?: string; passwordHash?: string };
+      previous: { email?: string; passwordHash?: string; apiToken?: string };
+    }>();
     expect(event.type).toBe("esExecSensitive.updated");
-    const changes = event.payload["changes"] as Record<string, unknown>;
-    const previous = event.payload["previous"] as Record<string, unknown>;
     // Changes: email retained (public), passwordHash stripped.
-    expect(changes["email"]).toBe("u2@test.de");
-    expect(changes["passwordHash"]).toBeUndefined();
+    expect(event.payload.changes.email).toBe("u2@test.de");
+    expect(event.payload.changes.passwordHash).toBeUndefined();
     // Previous: email retained, passwordHash + apiToken stripped.
-    expect(previous["email"]).toBe("u@test.de");
-    expect(previous["passwordHash"]).toBeUndefined();
-    expect(previous["apiToken"]).toBeUndefined();
+    expect(event.payload.previous.email).toBe("u@test.de");
+    expect(event.payload.previous.passwordHash).toBeUndefined();
+    expect(event.payload.previous.apiToken).toBeUndefined();
   });
 
   test("delete event strips sensitive from previous", async () => {
@@ -198,12 +202,14 @@ describe("event-store-executor — sensitive fields", () => {
 
     await crud.delete({ id: created.data.id }, adminUser, tdb);
 
-    const event = await lastEvent();
+    type SensitivePrevious = {
+      previous: { email?: string; passwordHash?: string; apiToken?: string };
+    };
+    const event = await lastEvent<SensitivePrevious>();
     expect(event.type).toBe("esExecSensitive.deleted");
-    const previous = event.payload["previous"] as Record<string, unknown>;
-    expect(previous["email"]).toBe("d@test.de");
-    expect(previous["passwordHash"]).toBeUndefined();
-    expect(previous["apiToken"]).toBeUndefined();
+    expect(event.payload.previous.email).toBe("d@test.de");
+    expect(event.payload.previous.passwordHash).toBeUndefined();
+    expect(event.payload.previous.apiToken).toBeUndefined();
   });
 
   test("restore event strips sensitive from previous", async () => {
@@ -217,11 +223,13 @@ describe("event-store-executor — sensitive fields", () => {
 
     await crud.restore({ id: created.data.id }, adminUser, tdb);
 
-    const event = await lastEvent();
+    type SensitivePrevious = {
+      previous: { email?: string; passwordHash?: string; apiToken?: string };
+    };
+    const event = await lastEvent<SensitivePrevious>();
     expect(event.type).toBe("esExecSensitive.restored");
-    const previous = event.payload["previous"] as Record<string, unknown>;
-    expect(previous["email"]).toBe("r@test.de");
-    expect(previous["passwordHash"]).toBeUndefined();
-    expect(previous["apiToken"]).toBeUndefined();
+    expect(event.payload.previous.email).toBe("r@test.de");
+    expect(event.payload.previous.passwordHash).toBeUndefined();
+    expect(event.payload.previous.apiToken).toBeUndefined();
   });
 });

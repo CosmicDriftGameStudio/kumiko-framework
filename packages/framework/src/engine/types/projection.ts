@@ -18,15 +18,22 @@ export type ProjectionTable = TableColumns<any>;
 // projections must not spawn further events (no ctx) because they run
 // inside the command's transaction and the framework guarantees a single
 // commit boundary per command.
-export type SingleStreamApplyFn = (event: StoredEvent, tx: DbRunner) => Promise<void>;
+//
+// Generic über payload-shape. Default = Record<string, unknown> behält
+// rückwärtskompatibles Verhalten; Konkrete Apply-Handler annotieren
+// `SingleStreamApplyFn<MyPayload>` für typed event.payload-Access.
+export type SingleStreamApplyFn<TPayload = Record<string, unknown>> = (
+  event: StoredEvent<TPayload>,
+  tx: DbRunner,
+) => Promise<void>;
 
 // Multi-stream projection apply: runs asynchronously via the event-dispatcher
 // with its own cursor. Gets the event, tx, and a ctx surface for emitting
 // follow-up events (saga / process-manager pattern). ctx.appendEvent +
 // ctx.loadAggregate are the Marten-equivalent of IProjectionSession — write
 // cross-aggregate reactions here, not in single-stream projections.
-export type MultiStreamApplyFn = (
-  event: StoredEvent,
+export type MultiStreamApplyFn<TPayload = Record<string, unknown>> = (
+  event: StoredEvent<TPayload>,
   tx: DbRunner,
   ctx: MultiStreamApplyContext,
 ) => Promise<void>;

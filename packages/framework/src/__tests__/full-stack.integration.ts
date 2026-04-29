@@ -290,7 +290,12 @@ describe("full stack: SaveContext changes + previous", () => {
       adminUser,
     );
 
-    const updated = await stack.http.writeOk(
+    const updated = await stack.http.writeOk<{
+      isNew: boolean;
+      changes: { firstName: string };
+      previous: { firstName: string; lastName: string };
+      data: { firstName: string };
+    }>(
       "users:write:user:update",
       {
         id: created["id"],
@@ -300,11 +305,11 @@ describe("full stack: SaveContext changes + previous", () => {
       adminUser,
     );
 
-    expect(updated["isNew"]).toBe(false);
-    expect(updated["changes"]).toEqual({ firstName: "After" });
-    expect((updated["previous"] as Record<string, unknown>)["firstName"]).toBe("Before");
-    expect((updated["previous"] as Record<string, unknown>)["lastName"]).toBe("Keep");
-    expect((updated["data"] as Record<string, unknown>)["firstName"]).toBe("After");
+    expect(updated.isNew).toBe(false);
+    expect(updated.changes).toEqual({ firstName: "After" });
+    expect(updated.previous.firstName).toBe("Before");
+    expect(updated.previous.lastName).toBe("Keep");
+    expect(updated.data.firstName).toBe("After");
   });
 });
 
@@ -412,8 +417,8 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
     const updateEvent = stack.events.sse.find((e) => e.type === "user.updated");
     expect(updateEvent).toBeDefined();
     // Shape carries the full event.payload (changes + previous) under data.payload.
-    const payload = updateEvent?.data["payload"] as Record<string, unknown>;
-    expect(payload?.["changes"]).toEqual({ firstName: "SSE" });
+    const payload = updateEvent!.data["payload"] as { changes: { firstName: string } };
+    expect(payload.changes).toEqual({ firstName: "SSE" });
   });
 
   test("search index updated via async event-dispatcher after create", async () => {
@@ -794,7 +799,7 @@ describe("full stack: ctx.appendEvent via event-dispatcher", () => {
           (await import("drizzle-orm")).eq(eventsTable.type, USER_CREATED_EVENT),
         ),
       );
-    return rows.filter((r) => (r.payload as Record<string, unknown>)?.["email"] === email);
+    return rows.filter((r) => (r.payload as { email?: string }).email === email);
   }
 
   test("commit path: user row, domain event, feature postSave, SSE, search, subscriber — all consistent", async () => {
