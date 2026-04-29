@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { type AnyColumn, eq } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
 import { buildDrizzleTable } from "../db/table-builder";
@@ -90,10 +90,7 @@ type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
 // handlers return arbitrary shapes, so `result` is typed as `unknown` here.
 function isFailedWriteResult(result: unknown): result is FailedWriteResult {
   return (
-    !!result &&
-    typeof result === "object" &&
-    "isSuccess" in result &&
-    (result as { isSuccess: unknown }).isSuccess === false
+    !!result && typeof result === "object" && "isSuccess" in result && result.isSuccess === false
   );
 }
 
@@ -113,7 +110,7 @@ function isWriteResultShape(result: unknown): boolean {
     !!result &&
     typeof result === "object" &&
     "isSuccess" in result &&
-    typeof (result as { isSuccess: unknown }).isSuccess === "boolean"
+    typeof result.isSuccess === "boolean"
   );
 }
 
@@ -124,9 +121,7 @@ function describeShape(result: unknown): string {
   if (result === null) return "null";
   if (result === undefined) return "undefined";
   if (typeof result !== "object") return typeof result;
-  return `object with keys [${Object.keys(result as object)
-    .slice(0, 6)
-    .join(", ")}]`;
+  return `object with keys [${Object.keys(result).slice(0, 6).join(", ")}]`;
 }
 
 // Standard span attributes for a dispatcher call. Feature may be undefined
@@ -706,17 +701,18 @@ export function createDispatcher(
         // filter keeps cross-tenant leaks out unless the handler explicitly
         // opts in. Works with any drizzle-table whose tenant column is named
         // tenantId on the JS side.
-        // biome-ignore lint/suspicious/noExplicitAny: drizzle's PgTable columns are schema-dependent
-        const tenantCol = (projTable as any).tenantId;
+        // @cast-boundary dynamic-key — drizzle's PgTable columns are schema-dependent
+        const tenantCol = (projTable as Record<string, AnyColumn | undefined>)["tenantId"];
         let rows: readonly Record<string, unknown>[];
         if (tenantCol && !queryOptions?.allTenants) {
           rows = (await dbSource
             .select()
             .from(projTable)
-            .where(eq(tenantCol, user.tenantId))) as readonly Record<string, unknown>[];
+            .where(eq(tenantCol, user.tenantId))) as readonly Record<string, unknown>[]; // @cast-boundary db-row
         } else {
-          rows = (await dbSource.select().from(projTable)) as readonly Record<string, unknown>[];
+          rows = (await dbSource.select().from(projTable)) as readonly Record<string, unknown>[]; // @cast-boundary db-row
         }
+        // @cast-boundary engine-payload — generic queryProjection<T> return
         return rows as readonly T[];
       },
       // Thin pass-through: one resolve impl lives on the dispatcher, the
@@ -973,6 +969,7 @@ export function createDispatcher(
             filterReadFields(entity, row, user),
           );
         } else if ("rows" in (result as DbRow)) {
+          // @cast-boundary engine-payload — generic handler-result shape narrow
           const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null };
           result = {
             ...r,

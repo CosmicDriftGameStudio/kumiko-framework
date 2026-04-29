@@ -405,6 +405,7 @@ async function emitLagFromTx(
   const result = await tx.execute(
     sql`SELECT COALESCE(MAX(id), 0)::bigint AS head FROM kumiko_events`,
   );
+  // @cast-boundary db-row — raw drizzle.execute() COALESCE-aggregate row
   const rows = Array.isArray(result) ? (result as Array<{ head?: bigint | string | null }>) : [];
   const raw = rows[0]?.head;
   const head = typeof raw === "bigint" ? raw : BigInt(raw ?? 0);
