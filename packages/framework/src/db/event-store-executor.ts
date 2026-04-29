@@ -55,16 +55,16 @@ type Table = TableColumns<any>;
 function buildFilterCondition(col: any, op: "eq" | "ne" | "lt" | "gt" | "in", value: unknown): SQL {
   switch (op) {
     case "eq":
-      return eq(col, value as never);
+      return eq(col, value as never); // @cast-boundary db-operator
     case "ne":
-      return ne(col, value as never);
+      return ne(col, value as never); // @cast-boundary db-operator
     case "lt":
-      return lt(col, value as never);
+      return lt(col, value as never); // @cast-boundary db-operator
     case "gt":
-      return gt(col, value as never);
+      return gt(col, value as never); // @cast-boundary db-operator
     case "in":
       if (Array.isArray(value) && value.length > 0) {
-        return inArray(col, value as never);
+        return inArray(col, value as never); // @cast-boundary db-operator
       }
       return sql`false`;
   }

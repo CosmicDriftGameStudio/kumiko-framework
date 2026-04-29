@@ -16,12 +16,10 @@ test.describe("ComboboxInput mouse-click in real browser", () => {
     page.on("console", (msg) => {
       const t = msg.type();
       if (t === "error" || t === "warning") {
-        // biome-ignore lint/suspicious/noConsole: e2e debug
         console.log(`[browser ${t}]`, msg.text());
       }
     });
     page.on("pageerror", (err) => {
-      // biome-ignore lint/suspicious/noConsole: e2e debug
       console.log("[browser pageerror]", err.message);
     });
     await page.goto("/combobox");

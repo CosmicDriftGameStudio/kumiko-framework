@@ -41,6 +41,7 @@ export function createDeliveryTestContext(
     _notifyFactory:
       (user: { id: number; tenantId: TenantId }, tenantId: TenantId) =>
       (notificationType: string, notifyOptions: Record<string, unknown>) =>
+        // @cast-boundary engine-bridge — generic test-helper → typed entity-specific notify()
         deliveryService.notify(notificationType, notifyOptions as never, user as never, tenantId),
   };
 }

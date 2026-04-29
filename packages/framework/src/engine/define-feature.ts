@@ -170,6 +170,7 @@ export function defineFeature<TExports = undefined>(
         writeHandlers[def.name] = {
           name: def.name,
           schema: def.schema,
+          // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
           handler: def.handler as WriteHandlerFn,
           ...(def.access && { access: def.access }),
           ...(def.skipTransitionGuard && { skipTransitionGuard: true }),
@@ -183,6 +184,7 @@ export function defineFeature<TExports = undefined>(
       writeHandlers[nameOrDef] = {
         name: nameOrDef,
         schema,
+        // @cast-boundary engine-bridge — typed Dev-API → erased Map<string, WriteHandlerFn>
         handler: handler as WriteHandlerFn,
         ...(options?.access && { access: options.access }),
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
@@ -202,6 +204,7 @@ export function defineFeature<TExports = undefined>(
         queryHandlers[def.name] = {
           name: def.name,
           schema: def.schema,
+          // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
           handler: def.handler as QueryHandlerFn,
           ...(def.access && { access: def.access }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
@@ -214,6 +217,7 @@ export function defineFeature<TExports = undefined>(
       queryHandlers[nameOrDef] = {
         name: nameOrDef,
         schema,
+        // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
         handler: handler as QueryHandlerFn,
         ...(options?.access && { access: options.access }),
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
@@ -237,9 +241,11 @@ export function defineFeature<TExports = undefined>(
       const targets = Array.isArray(target) ? target : [target];
       const names = targets.map(resolveName);
 
+      // Hook-fn casts unten alle: @cast-boundary engine-bridge
+      // — typed Dev-API (LifecycleHookFn|ValidationHookFn) → erased Map<name, fn>.
       if (type === "validation") {
         for (const n of names) {
-          validationHooks[n] = fn as ValidationHookFn;
+          validationHooks[n] = fn as ValidationHookFn; // @cast-boundary engine-bridge
         }
         // skip: validation hooks have no phase, stored and done
         return;
@@ -249,7 +255,7 @@ export function defineFeature<TExports = undefined>(
         if (!lifecycleHooks[type]) lifecycleHooks[type] = {};
         for (const n of names) {
           if (!lifecycleHooks[type][n]) lifecycleHooks[type][n] = [];
-          lifecycleHooks[type][n].push({ fn: fn as LifecycleHookFn, featureName: name });
+          lifecycleHooks[type][n].push({ fn: fn as LifecycleHookFn, featureName: name }); // @cast-boundary engine-bridge
         }
         // skip: pre-hooks have no phase, stored and done
         return;
@@ -264,7 +270,7 @@ export function defineFeature<TExports = undefined>(
       const bucket = phasedLifecycleHooks[type];
       for (const n of names) {
         if (!bucket[n]) bucket[n] = [];
-        bucket[n].push({ fn: fn as LifecycleHookFn, phase, featureName: name });
+        bucket[n].push({ fn: fn as LifecycleHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
       }
     },
 
@@ -278,9 +284,10 @@ export function defineFeature<TExports = undefined>(
       if (type === LifecycleHookTypes.postSave) {
         const phase = options?.phase ?? HookPhases.afterCommit;
         if (!entityPostSave[entityName]) entityPostSave[entityName] = [];
-        entityPostSave[entityName].push({ fn: fn as PostSaveHookFn, phase, featureName: name });
+        entityPostSave[entityName].push({ fn: fn as PostSaveHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
       } else if (type === LifecycleHookTypes.preDelete) {
         if (!entityPreDelete[entityName]) entityPreDelete[entityName] = [];
+        // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
         entityPreDelete[entityName].push({
           fn: fn as PreDeleteHookFn,
           phase: HookPhases.inTransaction,
@@ -289,7 +296,7 @@ export function defineFeature<TExports = undefined>(
       } else if (type === LifecycleHookTypes.postDelete) {
         const phase = options?.phase ?? HookPhases.afterCommit;
         if (!entityPostDelete[entityName]) entityPostDelete[entityName] = [];
-        entityPostDelete[entityName].push({ fn: fn as PostDeleteHookFn, phase, featureName: name });
+        entityPostDelete[entityName].push({ fn: fn as PostDeleteHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
       }
     },
 

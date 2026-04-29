@@ -130,7 +130,9 @@ export async function enrichWithReferences(
       const refRows = (await db
         .select()
         .from(refTable)
-        .where(inArray(idCol, idArray as never))) as Array<Record<string, unknown>>;
+        .where(inArray(idCol, idArray as never /* @cast-boundary db-operator */))) as Array<
+        Record<string, unknown>
+      >; // @cast-boundary db-row
       const map = new Map<string, Record<string, unknown>>();
       for (const r of refRows) {
         const id = r["id"];

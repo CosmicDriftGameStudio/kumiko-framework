@@ -22,6 +22,7 @@ import type { MultiStreamApplyFn, ProjectionTable, SingleStreamApplyFn } from ".
 export function defineApply<TPayload = Record<string, unknown>>(
   fn: (event: StoredEvent<TPayload>, tx: DbRunner) => Promise<void>,
 ): SingleStreamApplyFn {
+  // @cast-boundary engine-bridge — typed user-fn → erased internal storage
   return fn as SingleStreamApplyFn;
 }
 
@@ -29,6 +30,7 @@ export function defineApply<TPayload = Record<string, unknown>>(
 export function defineMspApply<TPayload = Record<string, unknown>>(
   fn: (event: StoredEvent<TPayload>, tx: DbRunner, ctx: MultiStreamApplyContext) => Promise<void>,
 ): MultiStreamApplyFn {
+  // @cast-boundary engine-bridge — typed user-fn → erased internal storage
   return fn as MultiStreamApplyFn;
 }
 
@@ -78,6 +80,6 @@ export function setFields(
     await tx
       .update(table)
       .set(set)
-      .where(eq(idCol as never, event.aggregateId));
+      .where(eq(idCol as never, event.aggregateId)); // @cast-boundary db-operator
   };
 }
