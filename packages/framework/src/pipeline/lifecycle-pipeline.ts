@@ -403,7 +403,7 @@ export function buildEventId(handlerName: string, payload: unknown, phase: strin
   if (rawId === undefined || rawId === null) return null;
   if (typeof rawId !== "string" && typeof rawId !== "number") return null;
   if (rawId === 0 || rawId === "") return null;
-  const data = p["data"] as Record<string, unknown> | undefined;
+  const data = p["data"] as Record<string, unknown> | undefined; // @cast-boundary engine-payload
   const version = data?.["version"] as number | undefined;
   return `${handlerName}:${rawId}:${version ?? 0}:${phase}`;
 }

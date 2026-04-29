@@ -263,7 +263,7 @@ function isAbortError(e: unknown): boolean {
   return (
     !!e &&
     typeof e === "object" &&
-    "name" in (e as Record<string, unknown>) &&
+    "name" in (e as Record<string, unknown>) && // @cast-boundary error-details
     (e as { name?: unknown }).name === "AbortError"
   );
 }

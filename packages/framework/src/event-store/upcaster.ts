@@ -120,7 +120,7 @@ async function upcastStoredEventWithPolicy(
   }
   return {
     ...event,
-    payload: payload as Record<string, unknown>,
+    payload: payload as Record<string, unknown>, // @cast-boundary engine-payload
     eventVersion: v,
   };
 }

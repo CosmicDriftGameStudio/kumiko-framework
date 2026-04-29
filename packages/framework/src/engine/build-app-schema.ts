@@ -107,7 +107,7 @@ function projectEntity(entity: EntityDefinition): EntityDefinition {
 // der Cast bridged die Variant-Inferenz, die TS aus einem Generic
 // Record nicht zurückrechnet.
 function projectField(fieldDef: FieldDefinition): FieldDefinition {
-  const def = fieldDef as Record<string, unknown>;
+  const def = fieldDef as Record<string, unknown>; // @cast-boundary schema-walk
   const out: Record<string, unknown> = {};
   if (typeof def["type"] === "string") out["type"] = def["type"];
   if (typeof def["required"] === "boolean") out["required"] = def["required"];

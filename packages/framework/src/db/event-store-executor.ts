@@ -728,7 +728,7 @@ export function createEventStoreExecutor(
             : query.orderBy(asc(column));
       }
 
-      const rawRows = (await query) as Record<string, unknown>[];
+      const rawRows = (await query) as Record<string, unknown>[]; // @cast-boundary engine-payload
       // Read-Side rehydrate pro Row. Cache speichert die hydrated Form,
       // damit Cache-Hits dieselbe API-Form liefern.
       const rows = rawRows.map((r) => rehydrateCompoundTypes(r, entity));

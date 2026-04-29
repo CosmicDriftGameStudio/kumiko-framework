@@ -211,7 +211,7 @@ function extractNestedSpecs(
   if (!entityName) return null;
 
   const relations = registry.getRelations(entityName);
-  const source = payload as Record<string, unknown>;
+  const source = payload as Record<string, unknown>; // @cast-boundary engine-payload — generic dispatch über alle Entity-Types
   const clean: Record<string, unknown> = { ...source };
   const specs: NestedSpec[] = [];
   const typeIssues: NestedTypeIssue[] = [];
@@ -1120,8 +1120,10 @@ export function createDispatcher(
     // enumerates columns generically WOULD see `tasks`; no such subscriber
     // exists today. If you add one that iterates `Object.keys(save.data)`,
     // filter by `entity.fields` membership to stay correct.
-    const parentWrapper = parentResult.data as Record<string, unknown>;
-    const parentRow = (parentWrapper["data"] ?? parentWrapper) as Record<string, unknown>;
+    // handler-Result.data ist generic über alle Entity-Handler; nested-
+    // write inspiziert die shape strukturell.
+    const parentWrapper = parentResult.data as Record<string, unknown>; // @cast-boundary engine-payload
+    const parentRow = (parentWrapper["data"] ?? parentWrapper) as Record<string, unknown>; // @cast-boundary engine-payload
     const parentId = parentRow["id"];
     if (typeof parentId !== "string") {
       return writeFailure(
@@ -1135,7 +1137,7 @@ export function createDispatcher(
       const subRows: Record<string, unknown>[] = [];
       for (let i = 0; i < spec.items.length; i++) {
         const rawItem = spec.items[i];
-        const itemObj = (rawItem ?? {}) as Record<string, unknown>;
+        const itemObj = (rawItem ?? {}) as Record<string, unknown>; // @cast-boundary engine-payload
         const subPayload = { ...itemObj, [spec.foreignKey]: parentId };
         const subResult = await executeWrite(spec.subType, subPayload, user, tx, afterCommitHooks);
         if (!subResult.isSuccess) {
@@ -1144,8 +1146,8 @@ export function createDispatcher(
             error: prefixValidationPath(subResult.error, `${spec.key}.${i}`),
           };
         }
-        const subWrapper = subResult.data as Record<string, unknown>;
-        const subRow = (subWrapper["data"] ?? subWrapper) as Record<string, unknown>;
+        const subWrapper = subResult.data as Record<string, unknown>; // @cast-boundary engine-payload
+        const subRow = (subWrapper["data"] ?? subWrapper) as Record<string, unknown>; // @cast-boundary engine-payload
         subRows.push(subRow);
       }
       parentRow[spec.key] = subRows;

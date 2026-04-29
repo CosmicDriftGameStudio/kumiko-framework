@@ -41,7 +41,7 @@ export function mapServerError(serverError: ServerErrorInfo): DispatcherError {
 
 function normalizeDetails(details: unknown): DispatcherError["details"] {
   if (!details || typeof details !== "object") return undefined;
-  const d = details as Record<string, unknown>;
+  const d = details as Record<string, unknown>; // @cast-boundary error-details — generic über alle DispatcherError-shapes
   const fields = d["fields"];
   if (!Array.isArray(fields)) {
     // Details without fields still pass through — non-validation errors
@@ -59,7 +59,7 @@ function normalizeDetails(details: unknown): DispatcherError["details"] {
       console.warn("[dispatcher-live] dropping malformed field issue (not an object):", f);
       continue;
     }
-    const r = f as Record<string, unknown>;
+    const r = f as Record<string, unknown>; // @cast-boundary error-details
     if (
       typeof r["path"] !== "string" ||
       typeof r["code"] !== "string" ||

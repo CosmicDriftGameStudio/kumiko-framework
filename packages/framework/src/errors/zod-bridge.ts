@@ -41,7 +41,7 @@ function extractIssueParams(issue: ZodIssue): Readonly<Record<string, unknown>> 
   // maximum, expected, …); reading them generically requires widening since
   // the union members don't share an index signature.
   const out: Record<string, unknown> = {};
-  const bag = issue as unknown as Record<string, unknown>;
+  const bag = issue as unknown as Record<string, unknown>; // @cast-boundary zod-issue
   for (const key of ISSUE_PARAM_KEYS) {
     if (bag[key] !== undefined) out[key] = bag[key];
   }

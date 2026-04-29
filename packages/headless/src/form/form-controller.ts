@@ -58,12 +58,17 @@ function valuesDiff<TValues extends FormValues>(
   // Iterate over BOTH sides — a field that existed on initial but was
   // deleted from current (via `setValues({ foo: undefined })`) still
   // counts as a change.
-  const keys = new Set<string>([...Object.keys(current), ...Object.keys(initial)]);
+  // FormValues<T> erlaubt kein keyof-T-Iteration (T ist generic). Cast
+  // zu Record<string, unknown> für dynamic-key-Inspection.
+  const cur = current as Record<string, unknown>; // @cast-boundary form-values
+  const ini = initial as Record<string, unknown>; // @cast-boundary form-values
+  const o = out as Record<string, unknown>; // @cast-boundary form-values
+  const keys = new Set<string>([...Object.keys(cur), ...Object.keys(ini)]);
   for (const key of keys) {
-    const a = (current as Record<string, unknown>)[key];
-    const b = (initial as Record<string, unknown>)[key];
+    const a = cur[key];
+    const b = ini[key];
     if (!Object.is(a, b)) {
-      (out as Record<string, unknown>)[key] = a;
+      o[key] = a;
     }
   }
   return out;
@@ -204,13 +209,10 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // Detect any effective change before rebuilding — setValues with a
       // partial that matches current values shouldn't fire listeners.
       let changed = false;
-      for (const k of Object.keys(partial)) {
-        if (
-          !Object.is(
-            (values as Record<string, unknown>)[k],
-            (partial as Record<string, unknown>)[k],
-          )
-        ) {
+      const v = values as Record<string, unknown>; // @cast-boundary form-values
+      const p = partial as Record<string, unknown>; // @cast-boundary form-values
+      for (const k of Object.keys(p)) {
+        if (!Object.is(v[k], p[k])) {
           changed = true;
           break;
         }

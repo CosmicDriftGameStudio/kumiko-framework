@@ -72,7 +72,7 @@ export async function appendDomainEventCore(
   }
   const parsed = eventDef.schema.safeParse(args.payload ?? {});
   if (!parsed.success) throw validationErrorFromZod(parsed.error);
-  const validatedPayload = parsed.data as Record<string, unknown>;
+  const validatedPayload = parsed.data as Record<string, unknown>; // @cast-boundary engine-payload
 
   // Archive guard: block writes on archived streams. Without this an append
   // would produce an "invisible" row that loadAggregate filters out by default

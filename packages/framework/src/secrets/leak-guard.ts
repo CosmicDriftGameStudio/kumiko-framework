@@ -81,6 +81,7 @@ export function assertNoSecretLeak(value: unknown, path = "$", depth = 0): void 
   }
 
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    // @cast-boundary recursive-walk
     assertNoSecretLeak(v, `${path}.${k}`, depth + 1);
   }
 }

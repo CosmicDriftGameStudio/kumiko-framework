@@ -831,7 +831,7 @@ function ActionFormBody({
   // bleibt der String — der Field-Validator beim Submit fängt einen
   // Type-Mismatch ab.
   const initial = useMemo(() => {
-    const defaults = buildInitialValues(screen.fields) as Record<string, unknown>;
+    const defaults = buildInitialValues(screen.fields) as Record<string, unknown>; // @cast-boundary render-helper
     const merged: Record<string, unknown> = { ...defaults };
     for (const [name, fieldDef] of Object.entries(screen.fields)) {
       const raw = nav.searchParams[name];

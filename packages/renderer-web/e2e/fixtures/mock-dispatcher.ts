@@ -98,7 +98,7 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
   ): Promise<WriteResult<TData>> {
     const { entity, verb } = parseQn(type);
     const table = getTable(entity);
-    const data = (payload ?? {}) as Record<string, unknown>;
+    const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary render-helper
 
     switch (verb) {
       case "create": {
@@ -149,7 +149,7 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
         };
       }
       case "detail": {
-        const data = (payload ?? {}) as Record<string, unknown>;
+        const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary render-helper
         const id = data["id"] as string | undefined;
         if (id === undefined) throw new Error(`MockDispatcher: detail without id (qn=${type})`);
         const row = table.get(id);

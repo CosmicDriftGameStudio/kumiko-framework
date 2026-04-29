@@ -206,7 +206,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         // EventToAppend wants a Record — payload is typed through the
         // EventDef so the cast collapses to a single boundary, not a
         // double-`as unknown as` at the call site.
-        payload: payload as Record<string, unknown>,
+        payload: payload as Record<string, unknown>, // @cast-boundary engine-payload
         metadata: { userId: user.id },
       });
     });

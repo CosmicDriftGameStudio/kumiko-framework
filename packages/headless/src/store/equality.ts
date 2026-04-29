@@ -26,6 +26,7 @@ export function shallowEqual(a: unknown, b: unknown): boolean {
   for (const key of keysA) {
     if (!Object.hasOwn(b, key)) return false;
     if (!Object.is((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) {
+      // @cast-boundary generic-record
       return false;
     }
   }

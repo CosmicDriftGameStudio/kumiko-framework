@@ -26,7 +26,7 @@ export type AuthUserRow = {
 export function parseAuthUserRow(raw: unknown): AuthUserRow | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw !== "object") return null;
-  const obj = raw as Record<string, unknown>;
+  const obj = raw as Record<string, unknown>; // @cast-boundary db-row
   if (typeof obj["id"] !== "string") return null;
   // Deliberate boundary-cast: id is verified; the remaining optional
   // fields (email, version, isDeleted, …) are declared optional on

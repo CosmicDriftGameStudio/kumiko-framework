@@ -128,7 +128,7 @@ export async function applyEntityEvent(
 
     case "updated": {
       // payload-Shape: { changes, previous } — siehe event-store-executor.ts.
-      const changes = (event.payload["changes"] ?? {}) as Record<string, unknown>;
+      const changes = (event.payload["changes"] ?? {}) as Record<string, unknown>; // @cast-boundary engine-payload
       const [row] = await tx
         .update(table)
         .set({

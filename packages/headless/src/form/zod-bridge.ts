@@ -51,7 +51,7 @@ export function zodErrorToFieldIssues(error: ZodError): FieldIssue[] {
 
 function extractIssueParams(issue: ZodIssue): Readonly<Record<string, unknown>> | undefined {
   const out: Record<string, unknown> = {};
-  const bag = issue as unknown as Record<string, unknown>;
+  const bag = issue as unknown as Record<string, unknown>; // @cast-boundary zod-issue
   for (const key of ISSUE_PARAM_KEYS) {
     if (bag[key] !== undefined) out[key] = bag[key];
   }

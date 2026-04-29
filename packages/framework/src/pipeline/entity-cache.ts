@@ -17,7 +17,7 @@ function dateReviver(_key: string, value: unknown): unknown {
 
 function parseCached(raw: string): Record<string, unknown> | null {
   try {
-    return JSON.parse(raw, dateReviver) as Record<string, unknown> | null;
+    return JSON.parse(raw, dateReviver) as Record<string, unknown> | null; // @cast-boundary engine-payload
   } catch {
     return null;
   }

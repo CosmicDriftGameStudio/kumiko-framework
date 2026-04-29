@@ -30,7 +30,7 @@ export function setFields(
     | Record<string, unknown>
     | ((event: Parameters<SingleStreamApplyFn>[0]) => Record<string, unknown>),
 ): SingleStreamApplyFn {
-  const idCol = (table as Record<string, unknown>)["id"];
+  const idCol = (table as Record<string, unknown>)["id"]; // @cast-boundary dynamic-key
   if (!idCol) {
     throw new Error(
       "setFields: projection table has no 'id' column — pass a custom apply function for tables keyed on another column.",

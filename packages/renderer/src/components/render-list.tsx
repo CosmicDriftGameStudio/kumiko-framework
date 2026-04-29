@@ -199,7 +199,7 @@ export function RenderList(props: RenderListProps): ReactNode {
           return resolved.map((r) => String(r[labelField] ?? r["id"] ?? "")).join(", ");
         }
         if (resolved !== undefined && !Array.isArray(resolved)) {
-          const single = resolved as Record<string, unknown>;
+          const single = resolved as Record<string, unknown>; // @cast-boundary render-helper
           return String(single[labelField] ?? single["id"] ?? "");
         }
         // Renderer-Side-Fallback (kein Server-Eagerload aktiv).

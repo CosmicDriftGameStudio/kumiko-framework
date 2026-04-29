@@ -86,13 +86,13 @@ function reconstructStateForSearch(
   if (verb === "updated") {
     // update: payload = { changes, previous }. Merge to get the new state
     // the index should reflect. Sensitive fields already filtered out.
-    const previous = (payload["previous"] as Record<string, unknown> | undefined) ?? {};
-    const changes = (payload["changes"] as Record<string, unknown> | undefined) ?? {};
+    const previous = (payload["previous"] as Record<string, unknown> | undefined) ?? {}; // @cast-boundary engine-payload
+    const changes = (payload["changes"] as Record<string, unknown> | undefined) ?? {}; // @cast-boundary engine-payload
     return { ...previous, ...changes };
   }
   // restored: payload = { previous }. The restored entity is whatever the
   // field-values were at delete time — restore copies them back verbatim.
-  return (payload["previous"] as Record<string, unknown> | undefined) ?? {};
+  return (payload["previous"] as Record<string, unknown> | undefined) ?? {}; // @cast-boundary engine-payload
 }
 
 // Build a SearchDocument from raw field-state. Parallel to the old
