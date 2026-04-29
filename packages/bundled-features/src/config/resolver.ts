@@ -239,27 +239,40 @@ export function validateAppOverrides(
       );
     }
 
-    const expectedType = typeForKey(keyDef.type);
-    if (typeof value !== expectedType) {
-      throw new Error(
-        `App-Boot-Override for "${key}": expected ${expectedType}, got ${typeof value}`,
-      );
-    }
-
-    if (keyDef.type === "select" && keyDef.options && !keyDef.options.includes(value as string)) {
-      throw new Error(
-        `App-Boot-Override for "${key}": value "${String(value)}" is not in options [${keyDef.options.join(", ")}]`,
-      );
-    }
-
-    if (keyDef.type === "number" && keyDef.bounds) {
-      const n = value as number;
-      const { min, max } = keyDef.bounds;
-      if (min !== undefined && n < min) {
-        throw new Error(`App-Boot-Override for "${key}": value ${n} is below bounds.min (${min})`);
+    // Per keyDef.type narrow value inline — TS narrowt nicht durch
+    // `typeof value !== typeForKey(...)` (typeForKey returnt string,
+    // kein discriminator). Das vermeidet `value as string|number` casts
+    // unten, weil value innerhalb des Branches schon typed ist.
+    if (keyDef.type === "number") {
+      if (typeof value !== "number") {
+        throw new Error(`App-Boot-Override for "${key}": expected number, got ${typeof value}`);
       }
-      if (max !== undefined && n > max) {
-        throw new Error(`App-Boot-Override for "${key}": value ${n} is above bounds.max (${max})`);
+      if (keyDef.bounds) {
+        const { min, max } = keyDef.bounds;
+        if (min !== undefined && value < min) {
+          throw new Error(
+            `App-Boot-Override for "${key}": value ${value} is below bounds.min (${min})`,
+          );
+        }
+        if (max !== undefined && value > max) {
+          throw new Error(
+            `App-Boot-Override for "${key}": value ${value} is above bounds.max (${max})`,
+          );
+        }
+      }
+    } else if (keyDef.type === "boolean") {
+      if (typeof value !== "boolean") {
+        throw new Error(`App-Boot-Override for "${key}": expected boolean, got ${typeof value}`);
+      }
+    } else {
+      // text or select
+      if (typeof value !== "string") {
+        throw new Error(`App-Boot-Override for "${key}": expected string, got ${typeof value}`);
+      }
+      if (keyDef.type === "select" && keyDef.options && !keyDef.options.includes(value)) {
+        throw new Error(
+          `App-Boot-Override for "${key}": value "${value}" is not in options [${keyDef.options.join(", ")}]`,
+        );
       }
     }
 
@@ -267,8 +280,4 @@ export function validateAppOverrides(
   }
 
   return validated;
-}
-
-function typeForKey(type: "text" | "number" | "boolean" | "select"): string {
-  return type === "number" ? "number" : type === "boolean" ? "boolean" : "string";
 }

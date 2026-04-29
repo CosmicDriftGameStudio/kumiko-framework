@@ -10,12 +10,7 @@
 // through to update. Worst case: one extra roundtrip for the loser of
 // the race. Happy path: same number of queries as the pre-ES upsert.
 
-import {
-  createEventStoreExecutor,
-  type DbRow,
-  fetchOne,
-  type TenantDb,
-} from "@kumiko/framework/db";
+import { createEventStoreExecutor, fetchOne, type TenantDb } from "@kumiko/framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@kumiko/framework/engine";
 import { eq } from "drizzle-orm";
 import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables";
@@ -26,14 +21,20 @@ const executor = createEventStoreExecutor(
   { entityName: "notification-preference" },
 );
 
+// Konkretes Lookup-Result-Shape — nur die zwei Felder die der upsert
+// tatsächlich für den Update-Path braucht. Vermeidet `row["x"] as T` index-
+// access casts; der Generic-Param am fetchOne macht den Cast zentralisiert
+// im Helper (db-row-boundary), nicht 4× pro Callsite.
+type PreferenceLookupRow = { readonly id: string; readonly version: number };
+
 async function lookup(
   db: TenantDb,
   tenantId: TenantId,
   userId: string,
   notificationType: string,
   channel: string,
-) {
-  return fetchOne(
+): Promise<PreferenceLookupRow | undefined> {
+  return fetchOne<PreferenceLookupRow>(
     db,
     notificationPreferencesTable,
     eq(notificationPreferencesTable.tenantId, tenantId),
@@ -71,11 +72,10 @@ export async function upsertPreference(
   );
 
   if (existing) {
-    const row = existing as DbRow;
     const result = await executor.update(
       {
-        id: row["id"] as string,
-        version: row["version"] as number,
+        id: existing.id,
+        version: existing.version,
         changes: { enabled: input.enabled },
       },
       actor,
@@ -113,11 +113,10 @@ export async function upsertPreference(
       input.channel,
     );
     if (!afterRace) throw err;
-    const row = afterRace as DbRow;
     const result = await executor.update(
       {
-        id: row["id"] as string,
-        version: row["version"] as number,
+        id: afterRace.id,
+        version: afterRace.version,
         changes: { enabled: input.enabled },
       },
       actor,

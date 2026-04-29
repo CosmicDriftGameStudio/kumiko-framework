@@ -2,7 +2,7 @@
 // Extracted from set.write.ts so reset.write.ts + values.query.ts don't
 // have to cross-import from another handler file.
 
-import { type DbConnection, type DbRow, fetchOne, type TenantDb } from "@kumiko/framework/db";
+import { type DbConnection, fetchOne, type TenantDb } from "@kumiko/framework/db";
 import {
   type ConfigKeyDefinition,
   type ConfigScope,
@@ -46,7 +46,7 @@ export async function findConfigRow(
 ): Promise<ConfigRowLookup | null> {
   const userCond =
     userId !== null ? eq(configValuesTable.userId, userId) : isNull(configValuesTable.userId);
-  const row = await fetchOne<DbRow>(
+  const row = await fetchOne<ConfigRowLookup>(
     db,
     configValuesTable,
     eq(configValuesTable.key, key),
@@ -55,9 +55,9 @@ export async function findConfigRow(
   );
   if (!row) return null;
   return {
-    id: row["id"] as string,
-    version: row["version"] as number,
-    value: (row["value"] as string | null) ?? null,
+    id: row.id,
+    version: row.version,
+    value: row.value ?? null,
   };
 }
 
