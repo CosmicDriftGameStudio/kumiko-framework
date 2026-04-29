@@ -113,26 +113,33 @@ describe("assertTransition / guardTransition", () => {
     // parsen den 422-Body uniform und dürfen kein "validTargets vs.
     // allowed"-Branch fühlen.
     const { failTransition } = await import("../../errors");
-    let assertDetails: Record<string, unknown> | undefined;
+    type TransitionDetails = {
+      from?: string;
+      to?: string;
+      allowed?: readonly string[];
+      message?: string;
+      reason?: string;
+    };
+    let assertDetails: TransitionDetails | undefined;
     try {
       transitions.assertTransition("draft", "paid");
     } catch (e) {
-      assertDetails = (e as UnprocessableError).details as Record<string, unknown>;
+      assertDetails = (e as UnprocessableError).details as TransitionDetails;
     }
     // Wenn assertTransition nicht wirft (zukünftiger Bug), bleibt
     // assertDetails undefined → Diagnose unklar. Frühzeitiger Check macht
     // den Fehlerpfad eindeutig.
     expect(assertDetails).toBeDefined();
     const failResult = failTransition("draft", "paid", ["sent"]);
-    const failDetails = failResult.error.details as Record<string, unknown>;
+    const failDetails = failResult.error.details as TransitionDetails;
     // assertTransition wirft via UnprocessableError → details bekommt
     // automatisch `reason` injiziert; failTransition geht denselben
     // Pfad. Strukturelle Felder müssen 1:1 matchen.
-    expect(assertDetails?.["from"]).toEqual(failDetails["from"]);
-    expect(assertDetails?.["to"]).toEqual(failDetails["to"]);
-    expect(assertDetails?.["allowed"]).toEqual(failDetails["allowed"]);
-    expect(assertDetails?.["message"]).toEqual(failDetails["message"]);
-    expect(assertDetails?.["reason"]).toEqual(failDetails["reason"]);
+    expect(assertDetails?.from).toEqual(failDetails.from);
+    expect(assertDetails?.to).toEqual(failDetails.to);
+    expect(assertDetails?.allowed).toEqual(failDetails.allowed);
+    expect(assertDetails?.message).toEqual(failDetails.message);
+    expect(assertDetails?.reason).toEqual(failDetails.reason);
   });
 
   test("rejects transition from terminal state", () => {

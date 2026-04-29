@@ -313,17 +313,15 @@ test("Tier 2.7e Server-Eagerload: detail mit reference-Feld liefert _refs.parent
     TestUsers.admin,
   );
 
-  const detail = (await stack.http.queryOk<Record<string, unknown>>(
-    "showcase:query:item:detail",
-    { id: child.id },
-    TestUsers.admin,
-  )) as Record<string, unknown> & { _refs?: Record<string, unknown> };
+  const detail = await stack.http.queryOk<{
+    _refs?: { parentId?: { id: string; title: string } };
+  }>("showcase:query:item:detail", { id: child.id }, TestUsers.admin);
   // _refs.parentId ist die resolved Parent-Row (komplettes Object)
   expect(detail._refs).toBeDefined();
-  const parentRef = detail._refs?.["parentId"] as Record<string, unknown> | undefined;
+  const parentRef = detail._refs?.parentId;
   expect(parentRef).toBeDefined();
-  expect(parentRef?.["id"]).toBe(parent.id);
-  expect(parentRef?.["title"]).toBe("eagerload-parent");
+  expect(parentRef?.id).toBe(parent.id);
+  expect(parentRef?.title).toBe("eagerload-parent");
 });
 
 test("Tier 2.7e Audit-Fix #8: detail mit multi-reference liefert _refs.relatedIds als Array", async () => {
@@ -367,14 +365,12 @@ test("Tier 2.7e Audit-Fix #8: detail mit multi-reference liefert _refs.relatedId
     TestUsers.admin,
   );
 
-  const detail = (await stack.http.queryOk<Record<string, unknown>>(
-    "showcase:query:item:detail",
-    { id: main.id },
-    TestUsers.admin,
-  )) as Record<string, unknown> & { _refs?: Record<string, unknown> };
-  const relatedRefs = detail._refs?.["relatedIds"] as Array<Record<string, unknown>> | undefined;
+  const detail = await stack.http.queryOk<{
+    _refs?: { relatedIds?: Array<{ id: string }> };
+  }>("showcase:query:item:detail", { id: main.id }, TestUsers.admin);
+  const relatedRefs = detail._refs?.relatedIds;
   expect(Array.isArray(relatedRefs)).toBe(true);
-  const refIds = (relatedRefs ?? []).map((r) => r["id"]).sort();
+  const refIds = (relatedRefs ?? []).map((r) => r.id).sort();
   expect(refIds).toEqual([tag1.id, tag2.id].sort());
 });
 
@@ -407,15 +403,21 @@ test("Tier 2.7e Audit-Fix #8: list mit single-reference liefert _refs.parentId r
     TestUsers.admin,
   );
 
-  const list = await stack.http.queryOk<{
-    rows: Array<Record<string, unknown> & { _refs?: Record<string, unknown> }>;
-  }>("showcase:query:item:list", { limit: 500 }, TestUsers.admin);
-  const found = list.rows.find((r) => r["id"] === child.id);
+  type ItemRow = {
+    id: string;
+    _refs?: { parentId?: { id: string; title: string } };
+  };
+  const list = await stack.http.queryOk<{ rows: ItemRow[] }>(
+    "showcase:query:item:list",
+    { limit: 500 },
+    TestUsers.admin,
+  );
+  const found = list.rows.find((r) => r.id === child.id);
   expect(found).toBeDefined();
-  const parentRef = found?._refs?.["parentId"] as Record<string, unknown> | undefined;
+  const parentRef = found?._refs?.parentId;
   expect(parentRef).toBeDefined();
-  expect(parentRef?.["id"]).toBe(parent.id);
-  expect(parentRef?.["title"]).toBe("list-single-parent");
+  expect(parentRef?.id).toBe(parent.id);
+  expect(parentRef?.title).toBe("list-single-parent");
 });
 
 test("Tier 2.7e Server-Eagerload: list liefert _refs für relatedIds (multi-reference)", async () => {

@@ -87,9 +87,9 @@ describe("seedTenant", () => {
     // Aggregate-id steht im event-row (aggregateId), nicht im payload —
     // payload trägt die Aggregat-Felder ohne PK.
     expect(createdEvents[0]?.aggregateId).toBe(TENANT_A);
-    const payload = createdEvents[0]?.payload as Record<string, unknown>;
-    expect(payload["key"]).toBe("tenant-a");
-    expect(payload["name"]).toBe("Tenant A");
+    const payload = createdEvents[0]?.payload as { key: string; name: string };
+    expect(payload.key).toBe("tenant-a");
+    expect(payload.name).toBe("Tenant A");
   });
 
   test("zweiter Aufruf für dieselbe id: no-op (kein zweites Event, kein Crash)", async () => {
@@ -153,10 +153,14 @@ describe("seedTenantMembership", () => {
     const createdEvents = events.filter((e) => e.type === "tenant-membership.created");
     expect(createdEvents).toHaveLength(1);
     // Payload should carry the seeded data — MSPs/audit rely on this.
-    const payload = createdEvents[0]?.payload as Record<string, unknown>;
-    expect(payload["userId"]).toBe(ALICE_ID);
-    expect(payload["tenantId"]).toBe(TENANT_A);
-    expect(payload["roles"]).toBe(JSON.stringify(["User"]));
+    const payload = createdEvents[0]?.payload as {
+      userId: string;
+      tenantId: string;
+      roles: string;
+    };
+    expect(payload.userId).toBe(ALICE_ID);
+    expect(payload.tenantId).toBe(TENANT_A);
+    expect(payload.roles).toBe(JSON.stringify(["User"]));
   });
 
   test("calling twice for the same (userId, tenantId) is idempotent — no second event, no crash", async () => {

@@ -65,7 +65,13 @@ const passthroughUpcasters: EventUpcasters = new Map([
     {
       currentVersion: 2,
       chain: new Map([
-        [1, async (payload) => ({ ...(payload as Record<string, unknown>), migrated: true })],
+        [
+          1,
+          async (payload) => ({
+            ...(payload as Record<string, unknown>),
+            migrated: true,
+          }),
+        ],
       ]),
     },
   ],

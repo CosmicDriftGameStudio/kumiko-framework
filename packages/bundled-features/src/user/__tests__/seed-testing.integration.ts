@@ -76,9 +76,9 @@ describe("seedUser", () => {
     const created = events.filter((e) => e.type === "user.created");
     expect(created).toHaveLength(1);
     expect(created[0]?.aggregateId).toBe(userId);
-    const payload = created[0]?.payload as Record<string, unknown>;
-    expect(payload["email"]).toBe("bob@example.com");
-    expect(payload["displayName"]).toBe("Bob");
+    const payload = created[0]?.payload as { email: string; displayName: string };
+    expect(payload.email).toBe("bob@example.com");
+    expect(payload.displayName).toBe("Bob");
   });
 
   test("idempotent über email — zweiter Call liefert dieselbe userId, kein zweites Event", async () => {

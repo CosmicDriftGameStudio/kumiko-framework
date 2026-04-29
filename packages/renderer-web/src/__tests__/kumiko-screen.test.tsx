@@ -607,7 +607,7 @@ describe("KumikoScreen", () => {
     );
     await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
 
-    const payload = queryCalls[0]?.payload as Record<string, unknown>;
+    const payload = queryCalls[0]?.payload as { filter?: unknown };
     expect("filter" in payload).toBe(false);
   });
 
@@ -636,7 +636,7 @@ describe("KumikoScreen", () => {
           label: "actions.start",
           handler: "tasks:write:task:start",
           // Nur sichtbar bei status===scheduled
-          visible: (row: unknown) => (row as Record<string, unknown>)["status"] === "scheduled",
+          visible: (row: unknown) => (row as { status?: string }).status === "scheduled",
         },
       ],
     };

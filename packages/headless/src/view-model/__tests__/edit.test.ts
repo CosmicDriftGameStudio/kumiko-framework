@@ -92,8 +92,8 @@ describe("computeEditViewModel", () => {
             {
               field: "vatReason",
               // Only visible when VAT is exempt.
-              visible: (data) => (data as Record<string, unknown>)["vatExempt"] === true,
-              required: (data) => (data as Record<string, unknown>)["vatExempt"] === true,
+              visible: (data) => (data as { vatExempt?: boolean }).vatExempt === true,
+              required: (data) => (data as { vatExempt?: boolean }).vatExempt === true,
             },
           ],
         },

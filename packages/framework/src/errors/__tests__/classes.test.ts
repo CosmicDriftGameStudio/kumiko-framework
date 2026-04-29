@@ -145,13 +145,17 @@ describe("ValidationError", () => {
         continue;
       }
       const err = validationErrorFromZod(result.error);
-      const fields = (err.details as { fields: Array<Record<string, unknown>> }).fields;
+      type FieldShape = {
+        code?: string;
+        params?: Record<string, unknown>;
+      };
+      const fields = (err.details as { fields: FieldShape[] }).fields;
       const field = fields[0];
 
-      if (field?.["code"] !== c.expectedCode) {
-        drift.push(`${c.label}: code was "${field?.["code"]}", expected "${c.expectedCode}"`);
+      if (field?.code !== c.expectedCode) {
+        drift.push(`${c.label}: code was "${field?.code}", expected "${c.expectedCode}"`);
       }
-      const params = field?.["params"] as Record<string, unknown> | undefined;
+      const params = field?.params;
       for (const [key, val] of Object.entries(c.expectedParams)) {
         if (params?.[key] === undefined) {
           drift.push(`${c.label}: param "${key}" missing (expected ${JSON.stringify(val)})`);
