@@ -2,7 +2,17 @@ import { createTenantDb, type DbConnection } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";
 import { Hono } from "hono";
 import * as jose from "jose";
+import { z } from "zod";
 import { upsertPreference } from "./upsert-preference";
+
+// Shape des verified-JWT-payloads. tenantId kommt als string aus jose und
+// wird NACH erfolgreichem parse() zur Branded TenantId — kein blind-cast.
+const unsubscribeJwtPayloadSchema = z.object({
+  sub: z.string().min(1),
+  tenantId: z.string().min(1),
+  notificationType: z.string().min(1),
+  channel: z.string().min(1),
+});
 
 export type UnsubscribeTokenPayload = {
   readonly userId: string;
@@ -60,10 +70,12 @@ export function createUnsubscribeRoute(options: UnsubscribeRouteOptions): Hono {
       const { payload } = await jose.jwtVerify(token, encodedSecret, {
         issuer: "kumiko:unsubscribe",
       });
-      userId = String(payload.sub);
-      tenantId = payload["tenantId"] as TenantId;
-      notificationType = payload["notificationType"] as string;
-      channel = payload["channel"] as string;
+      const parsed = unsubscribeJwtPayloadSchema.parse(payload);
+      userId = parsed.sub;
+      // @cast-boundary engine-bridge — string post-zod → branded TenantId
+      tenantId = parsed.tenantId as TenantId;
+      notificationType = parsed.notificationType;
+      channel = parsed.channel;
     } catch {
       return c.text("Invalid or expired token", 400);
     }
