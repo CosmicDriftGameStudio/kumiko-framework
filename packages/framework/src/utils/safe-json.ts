@@ -12,6 +12,7 @@
 
 export function parseJsonSafe<T>(raw: string, fallback: T): T {
   try {
+    // @cast-boundary engine-bridge — generic parser-helper centralizes the cast
     return JSON.parse(raw) as T;
   } catch {
     return fallback;
@@ -20,6 +21,7 @@ export function parseJsonSafe<T>(raw: string, fallback: T): T {
 
 export function parseJsonOrThrow<T>(raw: string, context: string): T {
   try {
+    // @cast-boundary engine-bridge — generic parser-helper centralizes the cast
     return JSON.parse(raw) as T;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

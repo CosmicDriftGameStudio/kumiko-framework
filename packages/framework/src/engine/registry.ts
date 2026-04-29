@@ -348,6 +348,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       // past the type system. Fail loud — "both" for jobs would mean "fan
       // out to both lane-queues", which over-delivers; the routing assumes
       // exactly one target queue per dispatch.
+      // @cast-boundary schema-walk — defensive runtime-check against bypassed type-system
       const runIn = (jobDef as { runIn?: unknown }).runIn;
       if (runIn !== undefined && runIn !== "api" && runIn !== "worker") {
         throw new Error(
@@ -467,6 +468,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       // runIn runtime-check. TS's RunIn union already enforces the three
       // values at compile time; this guards dynamically-constructed MSPs
       // (config-driven, plugin authors) that could slip a typo through.
+      // @cast-boundary schema-walk — defensive runtime-check against bypassed type-system
       const mspRunIn = (mspDef as { runIn?: unknown }).runIn;
       if (
         mspRunIn !== undefined &&

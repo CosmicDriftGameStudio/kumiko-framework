@@ -216,7 +216,7 @@ export function normalizeAccessEntry(
     }
     return map;
   }
-  return entry as OwnershipMap;
+  return entry as OwnershipMap; // @cast-boundary schema-walk
 }
 
 // Create-case: only the new row exists. Same Straddle protection not
@@ -298,7 +298,8 @@ export function buildOwnershipClause(
     if (!only) return EMPTY_CLAUSE;
     return { kind: "sql", sql: only };
   }
-  // biome-ignore lint/suspicious/noExplicitAny: drizzle or() widened signature
+  // @cast-boundary db-operator — drizzle or() widened signature
+  // biome-ignore lint/suspicious/noExplicitAny: same reason as above
   const combined = or(...(clauses as any)) as SQL;
   return { kind: "sql", sql: combined };
 }

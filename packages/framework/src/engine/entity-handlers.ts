@@ -100,12 +100,13 @@ function parseHandlerName<TVerb extends string>(
   if (!entityName) {
     throw new Error(`Handler name "${name}" is missing the entity part before the colon.`);
   }
+  // @cast-boundary engine-bridge — verbCandidate validated against validVerbs union
   if (!(validVerbs as readonly string[]).includes(verbCandidate)) {
     throw new Error(
       `Unknown verb "${verbCandidate}" in handler name "${name}". Standard verbs: ${validVerbs.join("/")}. For custom verbs use the explicit r.writeHandler / r.queryHandler form.`,
     );
   }
-  return { entityName, verb: verbCandidate as TVerb };
+  return { entityName, verb: verbCandidate as TVerb }; // @cast-boundary engine-bridge
 }
 
 export function defineEntityWriteHandler(

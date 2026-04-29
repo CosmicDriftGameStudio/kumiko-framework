@@ -248,10 +248,12 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
 }
 
 export function getUser(c: Context): SessionUser {
+  // @cast-boundary engine-bridge — Hono context.get returns unknown
   return c.get(USER_KEY) as SessionUser;
 }
 
 export function getAuthTransport(c: Context): AuthTransport | undefined {
+  // @cast-boundary engine-bridge — Hono context.get returns unknown
   return c.get(AUTH_TRANSPORT_KEY) as AuthTransport | undefined;
 }
 

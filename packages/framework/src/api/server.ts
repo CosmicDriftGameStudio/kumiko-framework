@@ -343,7 +343,9 @@ export function buildServer(options: ServerOptions): KumikoServer {
   //
   // The dispatcher is built but NOT started here. Production boot code
   // must call `.start()`; test code typically calls `.runOnce()`.
+  // @cast-boundary engine-bridge — context.db union narrows to DbConnection here
   const baseDb = contextWithObservability.db as DbConnection | undefined;
+  // @cast-boundary engine-bridge — searchAdapter is an optional context-extension
   const searchAdapter = (contextWithObservability as { searchAdapter?: SearchAdapter })
     .searchAdapter;
 
@@ -406,7 +408,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
       // Hand the raw DbRunner to apply(): MSPs write to their projection
       // table directly, they don't go through the TenantDb wrapper.
       const rawRunner =
-        event.tenantId === SYSTEM_TENANT_ID ? baseDb : (scopedDb as { raw: typeof baseDb }).raw;
+        event.tenantId === SYSTEM_TENANT_ID
+          ? baseDb
+          : // @cast-boundary engine-bridge — TenantDb exposes its raw DbRunner via .raw
+            (scopedDb as { raw: typeof baseDb }).raw;
       // Saga/process-manager ctx: apply can call ctx.appendEvent to cascade
       // a follow-up event onto another aggregate. Uses the triggering event's
       // tenantId + userId so the causal chain stays tenant-consistent.
