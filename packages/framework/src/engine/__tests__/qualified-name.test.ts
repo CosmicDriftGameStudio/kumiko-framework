@@ -8,6 +8,7 @@ import {
   qn,
   toKebab,
 } from "../qualified-name";
+import type { CamelToKebab } from "../types/handlers";
 
 describe("qn()", () => {
   test("builds scope:type:name string", () => {
@@ -134,6 +135,92 @@ describe("toKebab()", () => {
     expect(toKebab("parseJSON")).toBe("parse-json");
     expect(toKebab("SSEBroadcast")).toBe("sse-broadcast");
     expect(toKebab("getHTTPResponse")).toBe("get-http-response");
+  });
+});
+
+describe("CamelToKebab type === toKebab() runtime", () => {
+  // Each test cross-checks the compile-time type and the runtime function
+  // for the same input. Two layers of guarantee:
+  //
+  //   1. `expect(toKebab(X)).toBe(Y)` — runtime equality.
+  //   2. `const _: Equals<CamelToKebab<X>, Y> = true` — compile-time
+  //      equality. If the type doesn't reduce to exactly `Y`, the
+  //      assignment fails to type-check (`true` doesn't fit `false`).
+  //
+  // Both must agree — otherwise apps with such names get inconsistent
+  // augmentation keys. The Equals helper uses the function-bivariance
+  // trick to catch `never` divergence (a one-way `extends` check would
+  // silently pass `never extends X`).
+  type Equals<A, B> =
+    (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+  test("plain camelCase", () => {
+    expect(toKebab("orders")).toBe("orders");
+    expect(toKebab("driverOrders")).toBe("driver-orders");
+    expect(toKebab("monthlyReport")).toBe("monthly-report");
+    const _t1: Equals<CamelToKebab<"orders">, "orders"> = true;
+    const _t2: Equals<CamelToKebab<"driverOrders">, "driver-orders"> = true;
+    const _t3: Equals<CamelToKebab<"monthlyReport">, "monthly-report"> = true;
+    void _t1;
+    void _t2;
+    void _t3;
+  });
+
+  test("consecutive uppercase before camel-hump (the SSEFoo case)", () => {
+    expect(toKebab("SSEBroadcast")).toBe("sse-broadcast");
+    expect(toKebab("XMLId")).toBe("xml-id");
+    expect(toKebab("IOPort")).toBe("io-port");
+    expect(toKebab("getHTTPResponse")).toBe("get-http-response");
+    expect(toKebab("parseJSON")).toBe("parse-json");
+    const _t1: Equals<CamelToKebab<"SSEBroadcast">, "sse-broadcast"> = true;
+    const _t2: Equals<CamelToKebab<"XMLId">, "xml-id"> = true;
+    const _t3: Equals<CamelToKebab<"IOPort">, "io-port"> = true;
+    const _t4: Equals<CamelToKebab<"getHTTPResponse">, "get-http-response"> = true;
+    const _t5: Equals<CamelToKebab<"parseJSON">, "parse-json"> = true;
+    void _t1;
+    void _t2;
+    void _t3;
+    void _t4;
+    void _t5;
+  });
+
+  test("trailing uppercase run (no camel-hump)", () => {
+    expect(toKebab("IO")).toBe("io");
+    expect(toKebab("URL")).toBe("url");
+    expect(toKebab("userID")).toBe("user-id");
+    const _t1: Equals<CamelToKebab<"IO">, "io"> = true;
+    const _t2: Equals<CamelToKebab<"URL">, "url"> = true;
+    const _t3: Equals<CamelToKebab<"userID">, "user-id"> = true;
+    void _t1;
+    void _t2;
+    void _t3;
+  });
+
+  test("dot-separated", () => {
+    expect(toKebab("billing.period")).toBe("billing-period");
+    expect(toKebab("billing.PeriodCreate")).toBe("billing-period-create");
+    const _t1: Equals<CamelToKebab<"billing.period">, "billing-period"> = true;
+    const _t2: Equals<CamelToKebab<"billing.PeriodCreate">, "billing-period-create"> = true;
+    void _t1;
+    void _t2;
+  });
+
+  test("digits in name", () => {
+    expect(toKebab("MD5Hash")).toBe("md5-hash");
+    expect(toKebab("oauth2Provider")).toBe("oauth2-provider");
+    const _t1: Equals<CamelToKebab<"MD5Hash">, "md5-hash"> = true;
+    const _t2: Equals<CamelToKebab<"oauth2Provider">, "oauth2-provider"> = true;
+    void _t1;
+    void _t2;
+  });
+
+  test("already kebab-case (idempotent)", () => {
+    expect(toKebab("task-create")).toBe("task-create");
+    expect(toKebab("audit-trail")).toBe("audit-trail");
+    const _t1: Equals<CamelToKebab<"task-create">, "task-create"> = true;
+    const _t2: Equals<CamelToKebab<"audit-trail">, "audit-trail"> = true;
+    void _t1;
+    void _t2;
   });
 });
 

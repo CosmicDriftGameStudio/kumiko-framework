@@ -125,19 +125,12 @@ function collectFiles(dir: string): string[] {
   return out;
 }
 
+// Default-shape feature: setup callback registers `placed` and returns
+// nothing. Used by tests that exercise the standard `ctx.appendEvent({
+// type: "orders:event:placed", ... })` literal-string path.
 function setupApp(): string {
   const appRoot = makeAppDir();
-  write(
-    appRoot,
-    "src/feature/events.ts",
-    `import { z } from "zod";
-export const orderPlacedSchema = z.object({
-  orderId: z.string(),
-  customerId: z.string(),
-  amount: z.number(),
-});
-`,
-  );
+  writeOrderPlacedSchema(appRoot);
   write(
     appRoot,
     "src/feature/feature.ts",
@@ -150,6 +143,40 @@ export const ordersFeature = defineFeature("orders", (r) => {
 `,
   );
   return appRoot;
+}
+
+// Exports-shape feature: setup callback returns `{ placed }` so handler
+// modules can do `ordersFeature.exports.placed.name` and pick up the
+// literal type. Used by the eventDef.name pattern test.
+function setupAppWithExports(): string {
+  const appRoot = makeAppDir();
+  writeOrderPlacedSchema(appRoot);
+  write(
+    appRoot,
+    "src/feature/feature.ts",
+    `import { defineFeature } from "@kumiko/framework/engine";
+import { orderPlacedSchema } from "./events";
+
+export const ordersFeature = defineFeature("orders", (r) => ({
+  placed: r.defineEvent("placed", orderPlacedSchema),
+}));
+`,
+  );
+  return appRoot;
+}
+
+function writeOrderPlacedSchema(appRoot: string): void {
+  write(
+    appRoot,
+    "src/feature/events.ts",
+    `import { z } from "zod";
+export const orderPlacedSchema = z.object({
+  orderId: z.string(),
+  customerId: z.string(),
+  amount: z.number(),
+});
+`,
+  );
 }
 
 describe("strict-mode diagnostics — the actual contract of the codegen", () => {
@@ -324,46 +351,21 @@ export const placeOrder = defineWriteHandler({
   });
 
   test("eventDef.name pattern: literal-typed name resolves to correct payload-shape", () => {
-    // Marten-Pattern: `const placed = r.defineEvent(...)` und dann
-    // `type: placed.name` im appendEvent. Das setzt voraus, dass
-    // `EventDef.name` LITERAL-typed ist (`"orders:event:placed"`, NICHT
-    // `string`) — ansonsten kollabiert der Lookup zu `string` und der
-    // strict-check verschwindet schweigend.
+    // Marten pattern: `const placed = r.defineEvent(...)`, then
+    // `type: placed.name` in appendEvent. This requires `EventDef.name`
+    // to be LITERAL-typed (`"orders:event:placed"`, NOT `string`) —
+    // otherwise the lookup collapses to `string` and the strict check
+    // silently disappears.
     //
-    // Dieser Test fängt eine Regression in `EventDef<TPayload, TName>`
-    // (bzw. der `<const TInner>`-Inferenz in `defineFeature`/
-    // `defineEvent`) — beide müssen kooperieren, damit `placed.name`
-    // sich als Literal in den `KumikoEventTypeMap`-Schlüssel auflöst.
+    // This test catches regressions in `EventDef<TPayload, TName>` and
+    // the `<const TInner>` inference in `defineFeature`/`defineEvent`
+    // — both have to cooperate so that `placed.name` resolves as a
+    // literal into the `KumikoEventTypeMap` key.
     //
-    // Setup: feature.ts exportiert `placed` als const aus dem
-    // defineFeature-Setup — der Handler nutzt `placed.name` direkt.
-    const appRoot = makeAppDir();
-    write(
-      appRoot,
-      "src/feature/events.ts",
-      `import { z } from "zod";
-export const orderPlacedSchema = z.object({
-  orderId: z.string(),
-  customerId: z.string(),
-  amount: z.number(),
-});
-`,
-    );
-    write(
-      appRoot,
-      "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
-import { orderPlacedSchema } from "./events";
-
-// Exports the EventDef OUT of the setup-callback so handler files
-// can reference its literal-typed .name. The defineFeature builder
-// returns { exports } when the setup callback returns a value.
-export const ordersFeature = defineFeature("orders", (r) => ({
-  placed: r.defineEvent("placed", orderPlacedSchema),
-}));
-`,
-    );
-
+    // Setup: `setupAppWithExports` returns `{ placed }` from the
+    // defineFeature callback so handler modules can read it as
+    // `ordersFeature.exports.placed.name`.
+    const appRoot = setupAppWithExports();
     runCodegen({ appRoot });
 
     write(

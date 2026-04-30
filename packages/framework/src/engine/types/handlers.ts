@@ -479,26 +479,59 @@ export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
  * carries `name: "driver-orders:event:foo"` as a literal — strict-mode
  * for `ctx.appendEvent({ type: eventDef.name, ... })` lights up.
  *
- * Limitations vs the runtime helper:
- *   - Consecutive uppercase (`SSEBroadcast`) → `s-s-e-broadcast` here,
- *     but `sse-broadcast` at runtime. Edge-case; a warning at codegen
- *     would be the cleanest signal. For now: feature-names should be
- *     camelCase OR kebab-case, never adjacent-caps.
- *   - Dots (`foo.bar`) and other separators stay as-is.
+ * Algorithm mirrors the runtime regex pipeline:
+ *   1. `.` → `-` (dot acts as word-boundary)
+ *   2. Insert `-` between `[A-Z]+` and `[A-Z][a-z]` (so `SSEFoo` →
+ *      `SSE-Foo`, splitting an uppercase run before a camel-hump)
+ *   3. Insert `-` between `[a-z0-9]` and `[A-Z]` (camelCase boundary,
+ *      so `ticketAssigned` → `ticket-Assigned`)
+ *   4. lowercase everything
  *
- * Apps that absolutely need exotic feature-names can fall back to
- * `ctx.appendEventUnsafe` for those handlers.
+ * Implemented as a state machine with one-char lookahead. State:
+ *   - "start"        — at start of string, or right after a dot-boundary
+ *   - "upper"        — last emitted char came from an uppercase letter
+ *   - "post-letter"  — last emitted char was a lowercase letter or digit
+ *
+ * Sync vs runtime is verified by `engine/__tests__/camel-to-kebab.test-d.ts`
+ * — the type-tests cross-check identical inputs against `toKebab()`.
  */
-export type CamelToKebab<
+export type CamelToKebab<S extends string> = CamelToKebabImpl<S, "start", "">;
+
+type CamelToKebabImpl<
   S extends string,
-  Acc extends string = "",
+  Prev extends "start" | "upper" | "post-letter",
+  Acc extends string,
 > = S extends `${infer C}${infer Rest}`
-  ? C extends Lowercase<C>
-    ? CamelToKebab<Rest, `${Acc}${C}`>
-    : Acc extends ""
-      ? CamelToKebab<Rest, Lowercase<C>>
-      : CamelToKebab<Rest, `${Acc}-${Lowercase<C>}`>
+  ? CharKind<C> extends "upper"
+    ? Prev extends "start"
+      ? CamelToKebabImpl<Rest, "upper", `${Acc}${Lowercase<C>}`>
+      : Prev extends "post-letter"
+        ? CamelToKebabImpl<Rest, "upper", `${Acc}-${Lowercase<C>}`>
+        : // Prev = "upper" — peek next char to decide between
+          // continuing-the-run and splitting-before-camel-hump.
+          Rest extends `${infer Next}${string}`
+          ? CharKind<Next> extends "lower"
+            ? CamelToKebabImpl<Rest, "upper", `${Acc}-${Lowercase<C>}`>
+            : CamelToKebabImpl<Rest, "upper", `${Acc}${Lowercase<C>}`>
+          : `${Acc}${Lowercase<C>}`
+    : CharKind<C> extends "lower"
+      ? CamelToKebabImpl<Rest, "post-letter", `${Acc}${C}`>
+      : // Non-letter: dots become word-boundaries (state resets to "start"
+        // so the next uppercase letter doesn't pick up a redundant dash).
+        // Other non-letters (digits etc.) act like lowercase for transitions.
+        C extends "."
+        ? CamelToKebabImpl<Rest, "start", `${Acc}-`>
+        : CamelToKebabImpl<Rest, "post-letter", `${Acc}${C}`>
   : Acc;
+
+/**
+ * Three-way classification used by `CamelToKebab`:
+ *   - "lower"      — a lowercase letter (a-z and Unicode lowercase)
+ *   - "upper"      — an uppercase letter (A-Z and Unicode uppercase)
+ *   - "non-letter" — digit, dot, dash, etc. (Lowercase==Uppercase for them)
+ */
+type CharKind<C extends string> =
+  C extends Lowercase<C> ? (C extends Uppercase<C> ? "non-letter" : "lower") : "upper";
 
 /**
  * Builds the qualified event-name from feature + inner-name in the same

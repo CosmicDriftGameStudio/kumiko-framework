@@ -41,6 +41,28 @@ afterAll(() => {
   }
 });
 
+/**
+ * Polls a predicate at `interval` ms until it returns true, or rejects
+ * after `timeout`. Replaces fixed `setTimeout(...)` waits — those
+ * implicitly assume "this many ms is enough", which is brittle on
+ * loaded CI runners. The polling form converges as fast as the system
+ * allows AND fails loudly with a useful message if the event never lands.
+ */
+async function waitFor(
+  predicate: () => boolean,
+  opts: { timeout?: number; interval?: number; label?: string } = {},
+): Promise<void> {
+  const timeout = opts.timeout ?? 2000;
+  const interval = opts.interval ?? 25;
+  const deadline = Date.now() + timeout;
+  while (!predicate()) {
+    if (Date.now() > deadline) {
+      throw new Error(`waitFor: ${opts.label ?? "predicate"} not satisfied within ${timeout}ms`);
+    }
+    await new Promise((r) => setTimeout(r, interval));
+  }
+}
+
 const FEATURE_TEMPLATE = (featureName: string, eventName: string) => `
 import { defineFeature } from "@kumiko/framework/engine";
 import { z } from "zod";
@@ -95,11 +117,15 @@ export default defineFeature("orders", (r) => {
 `,
     );
 
-    // Wait for debounce + a small slack — fs.watch-events on macOS land
-    // within 1-5ms, but the OS scheduler can stretch this under load.
-    await new Promise((r) => setTimeout(r, 200));
+    // Poll until the watcher's debounced re-run has landed. fs.watch
+    // events on macOS arrive in 1-5ms; CI runners can stretch that —
+    // polling adapts to the actual schedule instead of guessing a fixed
+    // sleep.
+    await waitFor(() => results.length >= 2, {
+      timeout: 2000,
+      label: "second codegen result",
+    });
 
-    expect(results.length).toBeGreaterThanOrEqual(2);
     expect(results.at(-1)?.eventCount).toBe(2);
     handle.close();
   });
@@ -114,6 +140,13 @@ export default defineFeature("orders", (r) => {
   });
 
   test("non-ts file changes do not trigger codegen", async () => {
+    // Negative-assertion shape: prove that .css/.md changes do NOT add
+    // a codegen result. Naïve "sleep N ms then assert length stayed"
+    // is racy on macOS, where fs.watch can deliver stale events from
+    // pre-watcher writes after the watcher is attached. We sidestep
+    // that by anchoring on a POSITIVE control: a known-triggering .ts
+    // change at the end. waitFor proves the watcher is alive — so the
+    // pre-trigger count is trustworthy.
     const appRoot = makeAppDir();
     writeFile(appRoot, "src/feature.ts", FEATURE_TEMPLATE("ignore-css", "evt"));
 
@@ -125,11 +158,29 @@ export default defineFeature("orders", (r) => {
     });
     expect(results).toHaveLength(1);
 
+    // Drain any stale events from the pre-watcher feature.ts write —
+    // some platforms deliver these to a watcher attached after the
+    // write. Long enough to outlast debounce + scheduler jitter.
+    await new Promise((r) => setTimeout(r, 200));
+    const baseline = results.length;
+
+    // Non-ts writes — the regression we want to catch.
     writeFile(appRoot, "src/styles.css", `body { color: red; }`);
     writeFile(appRoot, "src/README.md", `# hi`);
+    await new Promise((r) => setTimeout(r, 200));
+    const afterNonTs = results.length;
 
-    await new Promise((r) => setTimeout(r, 150));
-    expect(results).toHaveLength(1); // no extra codegen
+    // Positive control: a .ts change MUST trigger. waitFor exits as
+    // soon as the new result lands, confirming the watcher is alive.
+    writeFile(appRoot, "src/feature.ts", FEATURE_TEMPLATE("ignore-css", "after"));
+    await waitFor(() => results.length > afterNonTs, {
+      timeout: 2000,
+      label: "ts-change result after non-ts noise",
+    });
+
+    // The non-ts writes should not have advanced the count past the
+    // baseline. If they did, the watcher's filter is broken.
+    expect(afterNonTs).toBe(baseline);
     handle.close();
   });
 });
