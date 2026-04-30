@@ -45,4 +45,4 @@ export {
   toTableName,
 } from "./table-builder";
 export type { TenantDb, TenantDbMode } from "./tenant-db";
-export { createTenantDb } from "./tenant-db";
+export { castTenantRows, createTenantDb } from "./tenant-db";

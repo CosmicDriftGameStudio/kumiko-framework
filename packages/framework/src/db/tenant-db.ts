@@ -90,6 +90,34 @@ type TenantDelete = {
   where(condition: WhereCondition): PromiseLike<void>;
 };
 
+/**
+ * Cast helper for the `Record<string, unknown>[]` rows that
+ * `TenantDb.select()` returns.
+ *
+ * Usage:
+ *   const rows = castTenantRows<MyRow>(
+ *     await ctx.db.select({...}).from(myTable),
+ *   );
+ *
+ * Why this exists: drizzle's `.select({col1: t.col1, ...})` natively
+ * returns `Array<{col1: T1, ...}>`, but our TenantDb wrapper erases
+ * that shape to `Record<string, unknown>[]` so it can centralize tenant-
+ * scoping. Until the wrapper preserves the typed-row shape (see memory:
+ * project_tenant_db_typed_rows), call sites need to assert the column
+ * shape they just selected. This helper:
+ *   - centralises the cast (single grep target for the future refactor)
+ *   - tags it with `@cast-boundary tenant-db-row` for the as-cast audit
+ *   - documents the trade-off once instead of N times
+ *
+ * Removal plan: when TenantSelectQuery becomes generic over the
+ * column-shape, every `castTenantRows<T>(...)` call is just `await ...`
+ * and this helper goes away.
+ */
+// @cast-boundary tenant-db-row
+export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): readonly T[] {
+  return rows as unknown as readonly T[];
+}
+
 export function createTenantDb(
   db: DbRunner,
   tenantId: TenantId,

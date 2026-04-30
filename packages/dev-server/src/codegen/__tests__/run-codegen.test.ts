@@ -449,4 +449,46 @@ export default defineFeature("evolve", (r) => {
     expect(second.didWriteSchemas).toBe(true); // means: removed
     expect(existsSync(join(appRoot, ".kumiko", "schemas.generated.ts"))).toBe(false);
   });
+
+  test(".kumiko/package.json has the shape that yarn 4 link: needs", () => {
+    // The generated package.json turns `.kumiko/` into an installable
+    // file-link package (`"@app/define": "link:./.kumiko"` in app's
+    // package.json). The shape here is load-bearing:
+    //   - name=@app/define matches what handlers import
+    //   - exports."."=./define.ts gives the wrapper as the default
+    //   - exports."./*"=./* lets apps reach types.generated etc.
+    //   - license=MIT keeps License-Check happy (UNLICENSED would deny)
+    //   - main+types pin TypeScript + Node resolution targets
+    // Regressions in any field break either runtime resolution or the
+    // kumiko-check License-Check gate — the test fails fast.
+    const appRoot = makeAppDir();
+    write(
+      appRoot,
+      "src/feature.ts",
+      `import { defineFeature } from "@kumiko/framework/engine";
+import { z } from "zod";
+export default defineFeature("pkgjson", (r) => {
+  r.defineEvent("evt", z.object({ id: z.string() }));
+});
+`,
+    );
+
+    runCodegen({ appRoot });
+
+    const pkgPath = join(appRoot, ".kumiko", "package.json");
+    expect(existsSync(pkgPath)).toBe(true);
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as Record<string, unknown>;
+    expect(pkg).toMatchObject({
+      name: "@app/define",
+      private: true,
+      license: "MIT",
+      type: "module",
+      main: "./define.ts",
+      types: "./define.ts",
+      exports: {
+        ".": "./define.ts",
+        "./*": "./*",
+      },
+    });
+  });
 });
