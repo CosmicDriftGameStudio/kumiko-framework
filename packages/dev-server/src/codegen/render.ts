@@ -1,27 +1,26 @@
-// Renderer für die drei generierten Files unter `<appRoot>/.kumiko/`:
+// Renders the three generated files under `<appRoot>/.kumiko/`:
 //
-//   1. `types.generated.d.ts` — augmentet `KumikoEventTypeMap` mit allen
-//      `r.defineEvent`-Einträgen. Pure declarations, kein runtime code.
+//   1. `types.generated.d.ts` — augments `KumikoEventTypeMap` with every
+//      `r.defineEvent` entry. Pure declarations, no runtime code.
 //
-//   2. `schemas.generated.ts` — re-exports der inline-zod-schemas, einer
-//      pro `r.defineEvent("name", z.object({...}))`-Aufruf der nicht
-//      schon ein imported named-export war. Diese Datei wird AUSSCHLIESSLICH
-//      via `import type` referenziert (in types.generated.d.ts) — der
-//      ts-typescript-strip elidiert sie zur Build-Zeit, kein Runtime-Dup.
-//      Existiert nur wenn es mindestens ein inline-Schema gibt.
+//   2. `schemas.generated.ts` — re-exports of inline zod schemas, one
+//      per `r.defineEvent("name", z.object({...}))` call that wasn't
+//      already an imported named export. This file is referenced
+//      EXCLUSIVELY via `import type` (in types.generated.d.ts) — the
+//      ts-typescript-strip pass elides it at build time, no runtime
+//      duplication. Only emitted when at least one inline schema exists.
 //
-//   3. `define.ts` — die lokalen `defineWriteHandler` /
-//      `defineQueryHandler` Wrapper, die die TMap explizit fixieren.
-//      DAS ist der Punkt an dem der strict-mode aktiv wird (siehe
-//      project_x1_typemap_findings memory): cross-package generic-fns
-//      mit default-TMap erkennen die Augmentation NICHT — nur ein
-//      lokaler Wrapper mit explicit-TMap kriegt es hin.
+//   3. `define.ts` — the local `defineWriteHandler` /
+//      `defineQueryHandler` wrappers that pin TMap explicitly. THIS is
+//      where strict mode actually takes effect (see project_x1_typemap_
+//      findings memory): cross-package generic functions with the
+//      default TMap do NOT see the augmentation — only a local wrapper
+//      with an explicit TMap gets it.
 //
-// Alle drei Files werden idempotent geschrieben — gleiche Inputs ⇒
-// gleicher String. Der Codegen-Run vergleicht den neuen Inhalt mit dem
-// existierenden und schreibt nur bei tatsächlicher Änderung. Damit
-// tickt das mtime nicht durch und der TS-Sprachserver muss nicht alle
-// 100ms neu laden.
+// All three files are written idempotently — same inputs ⇒ same string.
+// The codegen run compares new vs existing content and only writes on
+// actual change, so mtime doesn't tick and the TS language server
+// doesn't reload every 100ms.
 
 import type { ScannedEvent } from "./scan-events";
 import { rewriteImportPath } from "./scan-events";
@@ -123,11 +122,11 @@ export function renderInlineSchemasFile(events: readonly ScannedEvent[]): string
   const lines: string[] = [
     HEADER,
     "",
-    "// Schema-extracts ausschliesslich für Type-Inferenz: dieses File wird in",
-    "// types.generated.d.ts via `import type` referenziert. ts-strip elidiert",
-    "// das beim Build, daher KEIN runtime-Dup mit den inline-Schemas in den",
-    "// feature-Files. Wenn ein Event-Schema sich ändert: `yarn kumiko codegen`",
-    "// neu laufen lassen — sonst driftet der z.infer-Type vom Runtime-Schema.",
+    "// Schema extracts purely for type inference: this file is referenced",
+    "// from types.generated.d.ts via `import type`. ts-strip elides it at",
+    "// build time, so there is NO runtime duplication of the inline schemas",
+    "// in feature files. When an event schema changes: re-run `yarn kumiko",
+    "// codegen` — otherwise the z.infer type drifts from the runtime schema.",
     "",
     `import { z } from "zod";`,
     "",
@@ -165,11 +164,18 @@ export function renderDefineFile(): string {
   const body = [
     HEADER,
     "",
-    "// Type-only triple-slash reference to the augmentation. KEINE side-",
-    '// effect-import-Anweisung wie `import "./types.generated"` — die Datei',
-    "// ist .d.ts (Deklaration only) und Node/Vitest können sie zur Runtime",
-    "// nicht laden. Triple-slash reference reicht TS aus + ist runtime-",
-    "// transparent (komplett aus dem JS-Output elidiert).",
+    "// Triple-slash reference pulls the augmentation into this compile-",
+    "// unit. Belt-and-suspenders against include-glob variations:",
+    "//   - Apps that include `.kumiko/` in tsconfig pick up the .d.ts",
+    "//     transitively; the reference is redundant but harmless.",
+    "//   - Tooling that compiles a narrow file-set (probes, isolated",
+    "//     test programs) typically ignores .d.ts unless explicitly",
+    "//     referenced — without this line, the augmentation is invisible",
+    "//     and `keyof KumikoEventTypeMap` collapses to `never`. Verified",
+    "//     empirically; see strict-mode-diagnostics.test.ts.",
+    '// NOT a `import "./types.generated"` side-effect — the file is .d.ts',
+    "// (declarations only), runtime tools (Vitest, Bun, Node) can't load",
+    "// it. Triple-slash is type-only, fully elided from JS output.",
     `/// <reference path="./types.generated.d.ts" />`,
     "",
     "// Re-export the entire engine surface — apps can switch their imports",
