@@ -10,8 +10,11 @@
 //                            nach Membership.
 
 import {
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
 } from "@kumiko/framework/engine";
@@ -23,11 +26,11 @@ const open = { access: { openToAll: true } } as const;
 
 export const demoFeature: FeatureDefinition = defineFeature("demo", (r) => {
   r.entity("order", orderEntity);
-  r.writeHandler(defineEntityWriteHandler("order:create", orderEntity, open));
-  r.writeHandler(defineEntityWriteHandler("order:update", orderEntity, open));
-  r.writeHandler(defineEntityWriteHandler("order:delete", orderEntity, open));
-  r.queryHandler(defineEntityQueryHandler("order:list", orderEntity, open));
-  r.queryHandler(defineEntityQueryHandler("order:detail", orderEntity, open));
+  r.writeHandler(defineEntityCreateHandler("order", orderEntity, open));
+  r.writeHandler(defineEntityUpdateHandler("order", orderEntity, open));
+  r.writeHandler(defineEntityDeleteHandler("order", orderEntity, open));
+  r.queryHandler(defineEntityListHandler("order", orderEntity, open));
+  r.queryHandler(defineEntityDetailHandler("order", orderEntity, open));
   r.screen(orderListScreen);
   r.screen(orderEditScreen);
 

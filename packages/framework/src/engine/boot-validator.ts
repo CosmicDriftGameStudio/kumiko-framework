@@ -563,7 +563,7 @@ function validateReferenceFields(
         throw new Error(
           `[Feature ${feature.name}] Reference field "${fieldName}" on entity "${entityName}" ` +
             `targets entity "${target.entityName}" but no list-query-handler is registered ` +
-            `there. Add r.queryHandler(defineEntityQueryHandler("${target.entityName}:list", ` +
+            `there. Add r.queryHandler(defineEntityListHandler("${target.entityName}", ` +
             `${target.entityName}Entity)) to feature "${target.featureName}", or pick a ` +
             `different label/entity.`,
         );

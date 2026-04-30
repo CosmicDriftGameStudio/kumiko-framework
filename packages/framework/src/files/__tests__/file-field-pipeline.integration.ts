@@ -24,7 +24,6 @@ import {
   createImageField,
   createImagesField,
   createTextField,
-  defineEntityQueryHandler,
   defineEntityWriteHandler,
   defineFeature,
 } from "../../engine";
@@ -59,7 +58,7 @@ const documentFeature = defineFeature("pipeline-documents", (r) => {
   for (const verb of ["create", "update"] as const) {
     r.writeHandler(defineEntityWriteHandler(`document:${verb}`, documentEntity, ROLES));
   }
-  r.queryHandler(defineEntityQueryHandler("document:detail", documentEntity, ROLES));
+  r.queryHandler(defineEntityDetailHandler("document", documentEntity, ROLES));
 });
 
 let stack: TestStack;

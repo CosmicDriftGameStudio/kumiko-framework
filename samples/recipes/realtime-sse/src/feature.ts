@@ -4,7 +4,9 @@
 import {
   createEntity,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityUpdateHandler,
   defineFeature,
 } from "@kumiko/framework/engine";
 
@@ -24,7 +26,7 @@ const adminWrite = { access: { roles: ["Admin"] } } as const;
 export const chatFeature = defineFeature("chat", (r) => {
   r.entity("message", messageEntity);
 
-  r.writeHandler(defineEntityWriteHandler("message:create", messageEntity, userWrite));
-  r.writeHandler(defineEntityWriteHandler("message:update", messageEntity, userWrite));
-  r.writeHandler(defineEntityWriteHandler("message:delete", messageEntity, adminWrite));
+  r.writeHandler(defineEntityCreateHandler("message", messageEntity, userWrite));
+  r.writeHandler(defineEntityUpdateHandler("message", messageEntity, userWrite));
+  r.writeHandler(defineEntityDeleteHandler("message", messageEntity, adminWrite));
 });

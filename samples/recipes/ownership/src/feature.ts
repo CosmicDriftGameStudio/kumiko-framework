@@ -22,8 +22,12 @@
 import {
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityRestoreHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   from,
 } from "@kumiko/framework/engine";
@@ -91,32 +95,32 @@ export const contractsFeature = defineFeature("contracts", (r) => {
   r.entity("contract", contractEntity);
 
   r.writeHandler(
-    defineEntityWriteHandler("contract:create", contractEntity, {
+    defineEntityCreateHandler("contract", contractEntity, {
       access: { roles: ["Admin", "TeamMember", "Driver"] },
     }),
   );
   r.writeHandler(
-    defineEntityWriteHandler("contract:update", contractEntity, {
+    defineEntityUpdateHandler("contract", contractEntity, {
       access: { roles: ["Admin", "TeamMember", "Driver"] },
     }),
   );
   r.writeHandler(
-    defineEntityWriteHandler("contract:delete", contractEntity, {
+    defineEntityDeleteHandler("contract", contractEntity, {
       access: { roles: ["Admin", "TeamMember", "Driver"] },
     }),
   );
   r.writeHandler(
-    defineEntityWriteHandler("contract:restore", contractEntity, {
+    defineEntityRestoreHandler("contract", contractEntity, {
       access: { roles: ["Admin", "TeamMember", "Driver"] },
     }),
   );
   r.queryHandler(
-    defineEntityQueryHandler("contract:list", contractEntity, {
+    defineEntityListHandler("contract", contractEntity, {
       access: { roles: ["Admin", "TeamMember", "Driver"] },
     }),
   );
   r.queryHandler(
-    defineEntityQueryHandler("contract:detail", contractEntity, {
+    defineEntityDetailHandler("contract", contractEntity, {
       access: { roles: ["Admin", "TeamMember", "Driver"] },
     }),
   );

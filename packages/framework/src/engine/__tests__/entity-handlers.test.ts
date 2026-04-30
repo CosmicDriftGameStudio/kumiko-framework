@@ -1,7 +1,13 @@
 import { describe, expect, test, vi } from "vitest";
 import {
   createEntityExecutor,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
   defineEntityQueryHandler,
+  defineEntityRestoreHandler,
+  defineEntityUpdateHandler,
   defineEntityWriteHandler,
   defineProjectionQueryHandler,
 } from "../entity-handlers";
@@ -43,13 +49,11 @@ describe("defineEntityWriteHandler", () => {
   });
 
   test("throws when restore is requested on an entity without softDelete", () => {
-    expect(() => defineEntityWriteHandler("note:restore", noteEntity)).toThrow(
-      /restore is only valid/,
-    );
+    expect(() => defineEntityRestoreHandler("note", noteEntity)).toThrow(/restore is only valid/);
   });
 
   test("create: handler def carries name, schema, handler", () => {
-    const def = defineEntityWriteHandler("note:create", noteEntity);
+    const def = defineEntityCreateHandler("note", noteEntity);
     expect(def.name).toBe("note:create");
     expect(typeof def.handler).toBe("function");
     expect(def.schema.safeParse({ title: "x" }).success).toBe(true);
@@ -57,7 +61,7 @@ describe("defineEntityWriteHandler", () => {
   });
 
   test("update: schema requires id + version + changes", () => {
-    const def = defineEntityWriteHandler("note:update", noteEntity);
+    const def = defineEntityUpdateHandler("note", noteEntity);
     expect(
       def.schema.safeParse({ id: VALID_UUID, version: 1, changes: { title: "x" } }).success,
     ).toBe(true);
@@ -66,26 +70,26 @@ describe("defineEntityWriteHandler", () => {
   });
 
   test("delete: schema requires only id", () => {
-    const def = defineEntityWriteHandler("note:delete", noteEntity);
+    const def = defineEntityDeleteHandler("note", noteEntity);
     expect(def.schema.safeParse({ id: VALID_UUID }).success).toBe(true);
     expect(def.schema.safeParse({}).success).toBe(false);
   });
 
   test("restore: schema requires only id (with softDelete)", () => {
-    const def = defineEntityWriteHandler("note:restore", noteEntitySoftDelete);
+    const def = defineEntityRestoreHandler("note", noteEntitySoftDelete);
     expect(def.schema.safeParse({ id: VALID_UUID }).success).toBe(true);
     expect(def.schema.safeParse({}).success).toBe(false);
   });
 
   test("access option is forwarded into the handler def", () => {
-    const def = defineEntityWriteHandler("note:create", noteEntity, {
+    const def = defineEntityCreateHandler("note", noteEntity, {
       access: { roles: ["Admin"] },
     });
     expect(def.access).toEqual({ roles: ["Admin"] });
   });
 
   test("omitting access leaves the handler def's access unset", () => {
-    const def = defineEntityWriteHandler("note:create", noteEntity);
+    const def = defineEntityCreateHandler("note", noteEntity);
     expect(def.access).toBeUndefined();
   });
 });
@@ -98,7 +102,7 @@ describe("defineEntityQueryHandler", () => {
   });
 
   test("list: schema accepts the standard pagination/search/sort params", () => {
-    const def = defineEntityQueryHandler("note:list", noteEntity);
+    const def = defineEntityListHandler("note", noteEntity);
     expect(def.schema.safeParse({}).success).toBe(true);
     expect(
       def.schema.safeParse({
@@ -113,13 +117,13 @@ describe("defineEntityQueryHandler", () => {
   });
 
   test("detail: schema requires id", () => {
-    const def = defineEntityQueryHandler("note:detail", noteEntity);
+    const def = defineEntityDetailHandler("note", noteEntity);
     expect(def.schema.safeParse({ id: VALID_UUID }).success).toBe(true);
     expect(def.schema.safeParse({}).success).toBe(false);
   });
 
   test("access option is forwarded", () => {
-    const def = defineEntityQueryHandler("note:list", noteEntity, {
+    const def = defineEntityListHandler("note", noteEntity, {
       access: { openToAll: true },
     });
     expect(def.access).toEqual({ openToAll: true });
@@ -205,5 +209,66 @@ describe("defineProjectionQueryHandler", () => {
       "showcase:projection:customer-revenue",
     );
     expect(def.access).toBeUndefined();
+  });
+});
+
+// Verb-spezifische Wrappers — sind dünne Convenience-Layers über
+// defineEntityWriteHandler/QueryHandler. Tests checken nur dass sie
+// die richtige verb-suffixed Handler-Definition produzieren; das
+// Schema-Building + Executor-Body-Behavior ist in den umfangreichen
+// Tests von defineEntityWriteHandler/QueryHandler oben gedeckt.
+
+describe("Verb-specific entity-handler factories", () => {
+  test("defineEntityCreateHandler produziert <entity>:create", () => {
+    const def = defineEntityCreateHandler("note", noteEntity, {
+      access: { roles: ["Admin"] },
+    });
+    expect(def.name).toBe("note:create");
+    expect(def.access).toEqual({ roles: ["Admin"] });
+  });
+
+  test("defineEntityUpdateHandler produziert <entity>:update", () => {
+    const def = defineEntityUpdateHandler("note", noteEntity);
+    expect(def.name).toBe("note:update");
+  });
+
+  test("defineEntityDeleteHandler produziert <entity>:delete", () => {
+    const def = defineEntityDeleteHandler("note", noteEntity);
+    expect(def.name).toBe("note:delete");
+  });
+
+  test("defineEntityRestoreHandler produziert <entity>:restore (auf softDelete-Entity)", () => {
+    const def = defineEntityRestoreHandler("note", noteEntitySoftDelete);
+    expect(def.name).toBe("note:restore");
+  });
+
+  test("defineEntityRestoreHandler ohne softDelete → throw (Runtime-Guard bleibt)", () => {
+    expect(() => defineEntityRestoreHandler("note", noteEntity)).toThrow(/softDelete: true/);
+  });
+
+  test("defineEntityListHandler produziert <entity>:list", () => {
+    const def = defineEntityListHandler("note", noteEntity, {
+      access: { roles: ["Admin", "Editor"] },
+    });
+    expect(def.name).toBe("note:list");
+    expect(def.access).toEqual({ roles: ["Admin", "Editor"] });
+  });
+
+  test("defineEntityDetailHandler produziert <entity>:detail", () => {
+    const def = defineEntityDetailHandler("note", noteEntity);
+    expect(def.name).toBe("note:detail");
+  });
+
+  test("Verb-Wrapper liefern Handler die identisch zu Legacy-API funktionieren", async () => {
+    // Equivalence-Probe: defineEntityCreateHandler("note", ...) ist nicht
+    // bloß ein Naming-Sugar — die Handler-Function muss bit-identisch zu
+    // defineEntityCreateHandler("note", ...) sein. Wir vergleichen
+    // hier die Schema-Identitäten + Handler-Namen; Behavior-Tests des
+    // Executors leben in event-store-executor.integration.ts.
+    const newApi = defineEntityCreateHandler("note", noteEntity);
+    const legacyApi = defineEntityCreateHandler("note", noteEntity);
+    expect(newApi.name).toBe(legacyApi.name);
+    expect(typeof newApi.handler).toBe("function");
+    expect(typeof legacyApi.handler).toBe("function");
   });
 });

@@ -5,8 +5,8 @@ import { buildDrizzleTable } from "@kumiko/framework/db";
 import {
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
   defineFeature,
 } from "@kumiko/framework/engine";
 
@@ -64,8 +64,8 @@ export const relationsFeature = defineFeature("org", (r) => {
     onDelete: "cascade",
   });
 
-  r.writeHandler(defineEntityWriteHandler("team:create", teamEntity, adminWrite));
-  r.writeHandler(defineEntityWriteHandler("member:create", memberEntity, adminWrite));
-  r.writeHandler(defineEntityWriteHandler("task:create", taskEntity, adminWrite));
-  r.queryHandler(defineEntityQueryHandler("task:detail", taskEntity, openRead));
+  r.writeHandler(defineEntityCreateHandler("team", teamEntity, adminWrite));
+  r.writeHandler(defineEntityCreateHandler("member", memberEntity, adminWrite));
+  r.writeHandler(defineEntityCreateHandler("task", taskEntity, adminWrite));
+  r.queryHandler(defineEntityDetailHandler("task", taskEntity, openRead));
 });

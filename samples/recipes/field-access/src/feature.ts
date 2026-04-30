@@ -5,8 +5,9 @@ import {
   createEntity,
   createNumberField,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
+  defineEntityUpdateHandler,
   defineFeature,
 } from "@kumiko/framework/engine";
 
@@ -31,7 +32,7 @@ const allRoles = { access: { roles: ["Admin", "Accounting", "Employee"] } } as c
 export const employeeFeature = defineFeature("hr", (r) => {
   r.entity("employee", employeeEntity);
 
-  r.writeHandler(defineEntityWriteHandler("employee:create", employeeEntity, allRoles));
-  r.writeHandler(defineEntityWriteHandler("employee:update", employeeEntity, allRoles));
-  r.queryHandler(defineEntityQueryHandler("employee:detail", employeeEntity, allRoles));
+  r.writeHandler(defineEntityCreateHandler("employee", employeeEntity, allRoles));
+  r.writeHandler(defineEntityUpdateHandler("employee", employeeEntity, allRoles));
+  r.queryHandler(defineEntityDetailHandler("employee", employeeEntity, allRoles));
 });

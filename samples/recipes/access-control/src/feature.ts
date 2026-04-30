@@ -15,8 +15,8 @@ import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/d
 import {
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityListHandler,
   defineFeature,
   defineRoles,
 } from "@kumiko/framework/engine";
@@ -71,7 +71,7 @@ export const accessControlFeature = defineFeature("access-control", (r) => {
   // Admin-only: standard create — no business logic, helper handles schema +
   // executor + handler-body.
   r.writeHandler(
-    defineEntityWriteHandler("project:create", projectEntity, {
+    defineEntityCreateHandler("project", projectEntity, {
       access: { roles: [AccessControlRoles.Admin] },
     }),
   );
@@ -117,7 +117,5 @@ export const accessControlFeature = defineFeature("access-control", (r) => {
   );
 
   // Self-service list — no custom logic.
-  r.queryHandler(
-    defineEntityQueryHandler("task:list", taskEntity, { access: { openToAll: true } }),
-  );
+  r.queryHandler(defineEntityListHandler("task", taskEntity, { access: { openToAll: true } }));
 });

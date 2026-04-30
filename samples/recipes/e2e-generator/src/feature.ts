@@ -17,7 +17,9 @@ import {
   createNumberField,
   createSelectField,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
 } from "@kumiko/framework/engine";
@@ -51,9 +53,9 @@ export function createShopFeature(): FeatureDefinition {
 
     // Create-Handler ist Pflicht für list-has-fixture-row + edit-save-persists.
     // Ohne Handler skippt der Generator sauber — siehe Sample-Test.
-    r.writeHandler(defineEntityWriteHandler("product:create", productEntity, editorWrite));
-    r.writeHandler(defineEntityWriteHandler("product:update", productEntity, editorWrite));
-    r.writeHandler(defineEntityWriteHandler("product:delete", productEntity, editorWrite));
+    r.writeHandler(defineEntityCreateHandler("product", productEntity, editorWrite));
+    r.writeHandler(defineEntityUpdateHandler("product", productEntity, editorWrite));
+    r.writeHandler(defineEntityDeleteHandler("product", productEntity, editorWrite));
 
     r.screen({
       id: "product-list",

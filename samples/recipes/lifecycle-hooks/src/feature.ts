@@ -7,7 +7,9 @@ import {
   createBooleanField,
   createEntity,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type SaveContext,
 } from "@kumiko/framework/engine";
@@ -34,12 +36,12 @@ export const articlesFeature = defineFeature("blog", (r) => {
   const article = r.entity("article", articleEntity);
 
   const articleCreate = r.writeHandler(
-    defineEntityWriteHandler("article:create", articleEntity, editorWrite),
+    defineEntityCreateHandler("article", articleEntity, editorWrite),
   );
   const articleUpdate = r.writeHandler(
-    defineEntityWriteHandler("article:update", articleEntity, editorWrite),
+    defineEntityUpdateHandler("article", articleEntity, editorWrite),
   );
-  r.writeHandler(defineEntityWriteHandler("article:delete", articleEntity, editorWrite));
+  r.writeHandler(defineEntityDeleteHandler("article", articleEntity, editorWrite));
 
   // --- Validation hook on create: reject banned words + length ---
   r.hook("validation", articleCreate, (data) => {

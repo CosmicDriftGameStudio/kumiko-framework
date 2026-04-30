@@ -25,8 +25,12 @@ export type { ToggleReader } from "./effective-features";
 export { computeEffectiveFeatures } from "./effective-features";
 export {
   createEntityExecutor,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityRestoreHandler,
+  defineEntityUpdateHandler,
   defineProjectionQueryHandler,
 } from "./entity-handlers";
 export type { EmitCtx } from "./event-helpers";

@@ -4,8 +4,9 @@
 import {
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
   defineFeature,
 } from "@kumiko/framework/engine";
 
@@ -23,7 +24,7 @@ const openRead = { access: { openToAll: true } } as const;
 export const noteFeature = defineFeature("notes", (r) => {
   r.entity("note", noteEntity);
 
-  r.writeHandler(defineEntityWriteHandler("note:create", noteEntity, adminWrite));
-  r.queryHandler(defineEntityQueryHandler("note:list", noteEntity, openRead));
-  r.queryHandler(defineEntityQueryHandler("note:detail", noteEntity, openRead));
+  r.writeHandler(defineEntityCreateHandler("note", noteEntity, adminWrite));
+  r.queryHandler(defineEntityListHandler("note", noteEntity, openRead));
+  r.queryHandler(defineEntityDetailHandler("note", noteEntity, openRead));
 });

@@ -9,8 +9,12 @@ import {
   createBooleanField,
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityRestoreHandler,
+  defineEntityUpdateHandler,
   defineFeature,
 } from "@kumiko/framework/engine";
 
@@ -37,12 +41,12 @@ export const taskFeature = defineFeature("tasks", (r) => {
   // projection row in the same TX (the executor inside the helper takes care
   // of both). Custom logic? Replace any single line with an explicit
   // r.writeHandler.
-  r.writeHandler(defineEntityWriteHandler("task:create", taskEntity, editorWrite));
-  r.writeHandler(defineEntityWriteHandler("task:update", taskEntity, editorWrite));
-  r.writeHandler(defineEntityWriteHandler("task:delete", taskEntity, adminWrite));
-  r.writeHandler(defineEntityWriteHandler("task:restore", taskEntity, adminWrite));
+  r.writeHandler(defineEntityCreateHandler("task", taskEntity, editorWrite));
+  r.writeHandler(defineEntityUpdateHandler("task", taskEntity, editorWrite));
+  r.writeHandler(defineEntityDeleteHandler("task", taskEntity, adminWrite));
+  r.writeHandler(defineEntityRestoreHandler("task", taskEntity, adminWrite));
 
   // Reads served from the projection table.
-  r.queryHandler(defineEntityQueryHandler("task:list", taskEntity, openRead));
-  r.queryHandler(defineEntityQueryHandler("task:detail", taskEntity, openRead));
+  r.queryHandler(defineEntityListHandler("task", taskEntity, openRead));
+  r.queryHandler(defineEntityDetailHandler("task", taskEntity, openRead));
 });

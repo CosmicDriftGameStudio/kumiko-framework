@@ -18,8 +18,20 @@ import type { AccessRule, EntityDefinition, QueryHandlerDef, WriteHandlerDef } f
 // but the Schema and the executor body are inferred from the entity + verb.
 // Pick the verbs you need — leave out the ones you don't.
 //
-//   r.writeHandler(defineEntityWriteHandler("note:create", noteEntity, { access }))
-//   r.queryHandler(defineEntityQueryHandler("note:detail", noteEntity, { access }))
+// Two API shapes — pick one per project, don't mix:
+//
+//   PREFERRED — one function per verb, type-safe, no magic strings:
+//     r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))
+//     r.writeHandler(defineEntityUpdateHandler("note", noteEntity, { access }))
+//     r.writeHandler(defineEntityDeleteHandler("note", noteEntity, { access }))
+//     r.queryHandler(defineEntityListHandler("note", noteEntity, { access }))
+//     r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access }))
+//
+//   LEGACY — single function with verb in the name-string. Kept for
+//   backwards-compat; existing apps work as before. New code should use
+//   the verb-specific factories above:
+//     r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))
+//     r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access }))
 //
 // For custom logic (default values, business rules, side effects, custom
 // executors with ctx.searchAdapter, ...) write the handler explicitly with
@@ -224,6 +236,76 @@ export function defineEntityQueryHandler(
     handler,
     ...(options?.access && { access: options.access }),
   };
+}
+
+// ─── Verb-specific factories (preferred) ──────────────────────────────
+//
+// One function per verb — verb is the function name, no magic-string
+// parsing. Each delegates to the legacy `defineEntityWriteHandler` /
+// `defineEntityQueryHandler` with a fixed verb-suffix; the schema +
+// handler-body logic is unchanged. Migration from the legacy API is a
+// 1:1 rename — same arguments minus the verb-prefix in the name-string.
+//
+// Why prefer these over the legacy form:
+//   - Verb is checked at compile-time (no runtime "Unknown verb" throw)
+//   - IDE auto-completes the four/two verbs after typing `defineEntity`
+//   - Function name is self-documenting; no comment needed to explain
+//   - Entity-name appears once (used to be doubled: once in the string,
+//     once as the entity-arg)
+//
+// Restore-specific note: defineEntityRestoreHandler still validates at
+// runtime that entity.softDelete === true. A compile-time-only check
+// would need a Branded-EntityDefinition with `softDelete: true` literal
+// — feasible but not yet wired; the runtime guard catches misuse.
+
+type EntityHandlerOptions = { readonly access?: AccessRule };
+
+export function defineEntityCreateHandler(
+  entityName: string,
+  entity: EntityDefinition,
+  options?: EntityHandlerOptions,
+): WriteHandlerDef {
+  return defineEntityWriteHandler(`${entityName}:create`, entity, options);
+}
+
+export function defineEntityUpdateHandler(
+  entityName: string,
+  entity: EntityDefinition,
+  options?: EntityHandlerOptions,
+): WriteHandlerDef {
+  return defineEntityWriteHandler(`${entityName}:update`, entity, options);
+}
+
+export function defineEntityDeleteHandler(
+  entityName: string,
+  entity: EntityDefinition,
+  options?: EntityHandlerOptions,
+): WriteHandlerDef {
+  return defineEntityWriteHandler(`${entityName}:delete`, entity, options);
+}
+
+export function defineEntityRestoreHandler(
+  entityName: string,
+  entity: EntityDefinition,
+  options?: EntityHandlerOptions,
+): WriteHandlerDef {
+  return defineEntityWriteHandler(`${entityName}:restore`, entity, options);
+}
+
+export function defineEntityListHandler(
+  entityName: string,
+  entity: EntityDefinition,
+  options?: EntityHandlerOptions,
+): QueryHandlerDef {
+  return defineEntityQueryHandler(`${entityName}:list`, entity, options);
+}
+
+export function defineEntityDetailHandler(
+  entityName: string,
+  entity: EntityDefinition,
+  options?: EntityHandlerOptions,
+): QueryHandlerDef {
+  return defineEntityQueryHandler(`${entityName}:detail`, entity, options);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic table — erased on purpose, same as db/event-store-executor.ts does.

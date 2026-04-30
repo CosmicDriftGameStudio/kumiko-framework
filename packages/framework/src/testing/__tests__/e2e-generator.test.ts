@@ -6,7 +6,7 @@ import {
   createRegistry,
   createSelectField,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
   defineFeature,
 } from "../../engine";
 import { generateE2ESpec, generateZodFixture } from "../e2e-generator";
@@ -27,7 +27,7 @@ function createTasksFeature() {
   return defineFeature("tasks", (r) => {
     r.systemScope();
     r.entity("task", taskEntity);
-    r.writeHandler(defineEntityWriteHandler("task:create", taskEntity));
+    r.writeHandler(defineEntityCreateHandler("task", taskEntity));
     r.screen({
       id: "task-list",
       type: "entityList",
@@ -127,7 +127,7 @@ describe("generateE2ESpec", () => {
     const editOnly = defineFeature("edit-only", (r) => {
       r.systemScope();
       r.entity("task", taskEntity);
-      r.writeHandler(defineEntityWriteHandler("task:create", taskEntity));
+      r.writeHandler(defineEntityCreateHandler("task", taskEntity));
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -156,7 +156,7 @@ describe("generateE2ESpec", () => {
     const feature = defineFeature("contacts", (r) => {
       r.systemScope();
       r.entity("contact", contactEntity);
-      r.writeHandler(defineEntityWriteHandler("contact:create", contactEntity));
+      r.writeHandler(defineEntityCreateHandler("contact", contactEntity));
       r.screen({
         id: "list",
         type: "entityList",
@@ -178,7 +178,7 @@ describe("generateE2ESpec", () => {
     const mixed = defineFeature("mixed", (r) => {
       r.systemScope();
       r.entity("task", taskEntity);
-      r.writeHandler(defineEntityWriteHandler("task:create", taskEntity));
+      r.writeHandler(defineEntityCreateHandler("task", taskEntity));
       r.screen({ id: "list", type: "entityList", entity: "task", columns: ["title"] });
       r.screen({
         id: "edit",

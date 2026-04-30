@@ -8,8 +8,11 @@
 // hängt hier die Handler dran und ruft r.entity/r.screen/r.nav.
 
 import {
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityUpdateHandler,
   defineFeature,
 } from "@kumiko/framework/engine";
 import {
@@ -26,11 +29,11 @@ const open = { access: { openToAll: true } } as const;
 export const itemsFeature = defineFeature("showcase", (r) => {
   r.entity("item", itemEntity);
 
-  r.writeHandler(defineEntityWriteHandler("item:create", itemEntity, open));
-  r.writeHandler(defineEntityWriteHandler("item:update", itemEntity, open));
-  r.writeHandler(defineEntityWriteHandler("item:delete", itemEntity, open));
-  r.queryHandler(defineEntityQueryHandler("item:list", itemEntity, open));
-  r.queryHandler(defineEntityQueryHandler("item:detail", itemEntity, open));
+  r.writeHandler(defineEntityCreateHandler("item", itemEntity, open));
+  r.writeHandler(defineEntityUpdateHandler("item", itemEntity, open));
+  r.writeHandler(defineEntityDeleteHandler("item", itemEntity, open));
+  r.queryHandler(defineEntityListHandler("item", itemEntity, open));
+  r.queryHandler(defineEntityDetailHandler("item", itemEntity, open));
 
   r.screen(itemEditScreen);
   r.screen(itemListScreen);

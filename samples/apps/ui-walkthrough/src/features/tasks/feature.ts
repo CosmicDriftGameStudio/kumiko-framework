@@ -5,8 +5,11 @@
 // defineEntityWriteHandler) out of the browser bundle.
 
 import {
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityUpdateHandler,
   defineFeature,
 } from "@kumiko/framework/engine";
 import { editScreen, listScreen, taskEntity } from "./schema";
@@ -20,11 +23,11 @@ const open = { access: { openToAll: true } } as const;
 
 export const taskFeature = defineFeature("tasks", (r) => {
   r.entity("task", taskEntity);
-  r.writeHandler(defineEntityWriteHandler("task:create", taskEntity, open));
-  r.writeHandler(defineEntityWriteHandler("task:update", taskEntity, open));
-  r.writeHandler(defineEntityWriteHandler("task:delete", taskEntity, open));
-  r.queryHandler(defineEntityQueryHandler("task:list", taskEntity, open));
-  r.queryHandler(defineEntityQueryHandler("task:detail", taskEntity, open));
+  r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
+  r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
+  r.writeHandler(defineEntityDeleteHandler("task", taskEntity, open));
+  r.queryHandler(defineEntityListHandler("task", taskEntity, open));
+  r.queryHandler(defineEntityDetailHandler("task", taskEntity, open));
   r.screen(editScreen);
   r.screen(listScreen);
   // Navs auf der Server-Seite registriert damit buildAppSchema sie ins

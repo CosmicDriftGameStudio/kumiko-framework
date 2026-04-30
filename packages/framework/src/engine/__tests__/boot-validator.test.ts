@@ -1496,7 +1496,7 @@ describe("boot-validator", () => {
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
-        /no list-query-handler is registered there\. Add r\.queryHandler\(defineEntityQueryHandler\("user:list"/,
+        /no list-query-handler is registered there\. Add r\.queryHandler\(defineEntityListHandler\("user"/,
       );
     });
 
