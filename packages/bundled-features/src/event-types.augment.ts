@@ -14,11 +14,7 @@
 import type { z } from "zod";
 import type { deliveryAttemptSchema } from "./delivery/events";
 import type { featureToggleSetSchema } from "./feature-toggles/events";
-import type {
-  runCompletedSchema,
-  runFailedSchema,
-  runStartedSchema,
-} from "./jobs/events";
+import type { runCompletedSchema, runFailedSchema, runStartedSchema } from "./jobs/events";
 import type { secretReadSchema } from "./secrets/secrets-context";
 
 declare module "@kumiko/framework/engine" {
@@ -31,5 +27,3 @@ declare module "@kumiko/framework/engine" {
     "secrets:event:read": z.infer<typeof secretReadSchema>;
   }
 }
-
-export {};

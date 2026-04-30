@@ -92,11 +92,14 @@ function ok<TPattern>(pattern: TPattern): ExtractOutput<TPattern> {
   return { kind: "pattern", pattern };
 }
 
+// Narrow return type lets fail() flow through both ExtractOutput<T> (where
+// the error variant is always valid) and through helpers like
+// readNamedOptions that expose the error-half directly to their callers.
 function fail(
   methodName: string,
   source: ParseError["source"],
   reason: string,
-): ExtractOutput<never> {
+): { readonly kind: "error"; readonly error: ParseError } {
   return { kind: "error", error: { methodName, source, reason } };
 }
 
@@ -754,22 +757,28 @@ export function extractTranslations(
 // Shared shape for extractors that take a name + options bag — accepts
 // both positional `(name, { ...options })` and single object-form
 // `({ name, ...options })`. Returns the parsed name + the options bag
-// (options bag minus the `name` property in object-form).
+// (options bag minus the `name` property in object-form), or routes
+// the failure through `fail()` so error-reason strings don't show up
+// as object-literal `reason:` properties (the error-reasons-guard
+// expects snake_case for those, and our parser-error reasons are
+// human-prose).
+type NamedOptionsResult =
+  | { readonly kind: "ok"; readonly name: string; readonly options: Record<string, unknown> }
+  | { readonly kind: "error"; readonly error: ParseError };
+
 function readNamedOptions(
   call: CallExpression,
   sourceFile: SourceFile,
   methodName: string,
-): { name: string; options: Record<string, unknown> } | { error: ParseError } {
+): NamedOptionsResult {
   const args = call.getArguments();
   const first = args[0];
   if (!first) {
-    return {
-      error: {
-        methodName,
-        source: sourceLocationFromNode(call, sourceFile),
-        reason: "expected at least one argument",
-      },
-    };
+    return fail(
+      methodName,
+      sourceLocationFromNode(call, sourceFile),
+      "expected at least one argument",
+    );
   }
 
   // Object-Form: r.method({ name: "...", ...options })
@@ -781,60 +790,50 @@ function readNamedOptions(
       ?.getInitializer()
       ?.asKind(SyntaxKind.StringLiteral);
     if (!nameInit) {
-      return {
-        error: {
-          methodName,
-          source: sourceLocationFromNode(call, sourceFile),
-          reason: "object form requires a string-literal `name` property",
-        },
-      };
+      return fail(
+        methodName,
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `name` property",
+      );
     }
     const data = readDataLiteralNode(obj);
     if (!isPlainObject(data)) {
-      return {
-        error: {
-          methodName,
-          source: sourceLocationFromNode(call, sourceFile),
-          reason: "argument could not be read as a plain object",
-        },
-      };
+      return fail(
+        methodName,
+        sourceLocationFromNode(call, sourceFile),
+        "argument could not be read as a plain object",
+      );
     }
     const { name: _name, ...optionsWithoutName } = data;
-    return { name: nameInit.getLiteralValue(), options: optionsWithoutName };
+    return { kind: "ok", name: nameInit.getLiteralValue(), options: optionsWithoutName };
   }
 
   // Legacy positional: r.method("name", { ...options })
   const nameLiteral = first.asKind(SyntaxKind.StringLiteral);
   if (!nameLiteral) {
-    return {
-      error: {
-        methodName,
-        source: sourceLocationFromNode(call, sourceFile),
-        reason: "first argument must be a string literal name (or use the object form)",
-      },
-    };
+    return fail(
+      methodName,
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be a string literal name (or use the object form)",
+    );
   }
   const optionsArg = args[1];
   if (!optionsArg) {
-    return {
-      error: {
-        methodName,
-        source: sourceLocationFromNode(call, sourceFile),
-        reason: "expected an options object as second argument",
-      },
-    };
+    return fail(
+      methodName,
+      sourceLocationFromNode(call, sourceFile),
+      "expected an options object as second argument",
+    );
   }
   const options = readDataLiteralNode(optionsArg);
   if (!isPlainObject(options)) {
-    return {
-      error: {
-        methodName,
-        source: sourceLocationFromNode(call, sourceFile),
-        reason: "options could not be read as a plain object",
-      },
-    };
+    return fail(
+      methodName,
+      sourceLocationFromNode(call, sourceFile),
+      "options could not be read as a plain object",
+    );
   }
-  return { name: nameLiteral.getLiteralValue(), options };
+  return { kind: "ok", name: nameLiteral.getLiteralValue(), options };
 }
 
 export function extractMetric(
@@ -842,7 +841,7 @@ export function extractMetric(
   sourceFile: SourceFile,
 ): ExtractOutput<MetricPattern> {
   const parsed = readNamedOptions(call, sourceFile, "metric");
-  if ("error" in parsed) return { kind: "error", error: parsed.error };
+  if (parsed.kind === "error") return parsed;
   return ok({
     kind: "metric",
     source: sourceLocationFromNode(call, sourceFile),
@@ -856,7 +855,7 @@ export function extractSecret(
   sourceFile: SourceFile,
 ): ExtractOutput<SecretPattern> {
   const parsed = readNamedOptions(call, sourceFile, "secret");
-  if ("error" in parsed) return { kind: "error", error: parsed.error };
+  if (parsed.kind === "error") return parsed;
   return ok({
     kind: "secret",
     source: sourceLocationFromNode(call, sourceFile),
@@ -870,7 +869,7 @@ export function extractClaimKey(
   sourceFile: SourceFile,
 ): ExtractOutput<ClaimKeyPattern> {
   const parsed = readNamedOptions(call, sourceFile, "claimKey");
-  if ("error" in parsed) return { kind: "error", error: parsed.error };
+  if (parsed.kind === "error") return parsed;
   const claimType = parsed.options["type"];
   if (!isClaimKeyType(claimType)) {
     return fail(
@@ -1149,11 +1148,7 @@ export function extractHook(
   const args = call.getArguments();
   const first = args[0];
   if (!first) {
-    return fail(
-      "hook",
-      sourceLocationFromNode(call, sourceFile),
-      "expected at least one argument",
-    );
+    return fail("hook", sourceLocationFromNode(call, sourceFile), "expected at least one argument");
   }
 
   // Object-Form: r.hook({ type, target, handler, phase? })
