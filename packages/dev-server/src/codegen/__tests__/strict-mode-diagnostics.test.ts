@@ -179,8 +179,14 @@ export const orderPlacedSchema = z.object({
   );
 }
 
+// Each test compiles a tmp-app via ts.createProgram, which traverses
+// the framework-source via paths-alias (~700 files). Lokal ~1.7s pro
+// test; CI-Hardware ist 2-3× langsamer, also default 5s reicht nicht.
+// 15s gibt Puffer für noisy runners ohne real-broken-tests zu maskieren.
+const STRICT_MODE_TIMEOUT_MS = 15_000;
+
 describe("strict-mode diagnostics — the actual contract of the codegen", () => {
-  test("good ctx.appendEvent compiles cleanly", () => {
+  test("good ctx.appendEvent compiles cleanly", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
     const appRoot = setupApp();
     runCodegen({ appRoot });
 
@@ -214,7 +220,7 @@ export const placeOrder = defineWriteHandler({
     expect(handlerErrors).toHaveLength(0);
   });
 
-  test("unknown event-type triggers TS2322 with augmented map in error message", () => {
+  test("unknown event-type triggers TS2322 with augmented map in error message", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
     const appRoot = setupApp();
     runCodegen({ appRoot });
 
@@ -256,7 +262,7 @@ export const placeOrder = defineWriteHandler({
     expect(flattened).toMatch(/keyof KumikoEventTypeMap|"orders:event:placed"/);
   });
 
-  test("payload-shape mismatch triggers a property-error", () => {
+  test("payload-shape mismatch triggers a property-error", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
     const appRoot = setupApp();
     runCodegen({ appRoot });
 
@@ -298,7 +304,7 @@ export const placeOrder = defineWriteHandler({
     expect(flattened).toMatch(/'bogus'/);
   });
 
-  test("direct framework-import + augmentation-included compiles strict too", () => {
+  test("direct framework-import + augmentation-included compiles strict too", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
     // Sanity-Check: in einem isolated app-tsc (tmp-fixture mit paths-
     // mapping zur framework-source UND .kumiko/types.generated.d.ts im
     // include-Glob) greift strict-mode auch beim direct framework-import.
@@ -350,7 +356,7 @@ export const placeOrder = defineWriteHandler({
     expect(handlerErrors).toHaveLength(0);
   });
 
-  test("eventDef.name pattern: literal-typed name resolves to correct payload-shape", () => {
+  test("eventDef.name pattern: literal-typed name resolves to correct payload-shape", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
     // Marten pattern: `const placed = r.defineEvent(...)`, then
     // `type: placed.name` in appendEvent. This requires `EventDef.name`
     // to be LITERAL-typed (`"orders:event:placed"`, NOT `string`) —
