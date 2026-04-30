@@ -46,11 +46,11 @@ let USER_CREATED_EVENT: string;
 const domainEventSubscriberCalls: Array<{ type: string; payload: unknown }> = [];
 
 async function emitUserCreated(
-  ctx: Pick<HandlerContext, "appendEvent">,
+  ctx: Pick<HandlerContext, "appendEventUnsafe">,
   id: EntityId,
   email: string,
 ): Promise<void> {
-  await ctx.appendEvent({
+  await ctx.appendEventUnsafe({
     aggregateId: String(id),
     aggregateType: "user",
     type: USER_CREATED_EVENT,

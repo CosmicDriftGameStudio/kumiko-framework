@@ -59,12 +59,15 @@ function createRebuildCtx(
   db: DbRunner,
   tenantId: TenantId,
 ): MultiStreamApplyContext {
+  // Both surfaces throw — rebuild MUST NOT emit. We share one impl.
+  const refuseAppend = async (args: { readonly type: string }) => {
+    throw new InternalError({
+      message: `rebuildMultiStreamProjection: ctx.appendEvent("${args.type}") is not supported during rebuild. The events your saga would emit already live in the event log — rebuild only derives read-model state. If you need to retroactively emit events, do so via a dedicated write-handler, not via the apply path.`,
+    });
+  };
   return {
-    appendEvent: async (args) => {
-      throw new InternalError({
-        message: `rebuildMultiStreamProjection: ctx.appendEvent("${args.type}") is not supported during rebuild. The events your saga would emit already live in the event log — rebuild only derives read-model state. If you need to retroactively emit events, do so via a dedicated write-handler, not via the apply path.`,
-      });
-    },
+    appendEvent: refuseAppend as MultiStreamApplyContext["appendEvent"], // @cast-boundary engine-bridge
+    appendEventUnsafe: refuseAppend,
     loadAggregate: async (aggregateId, options) => {
       const events = options?.asOf
         ? await loadAggregateAsOf(db, aggregateId, tenantId, options.asOf)

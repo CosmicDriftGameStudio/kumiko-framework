@@ -11,13 +11,13 @@ describe("emitEvent", () => {
   };
 
   test("delegates to ctx.appendEvent with eventDef.name as the type", async () => {
-    const ctx = { appendEvent: vi.fn().mockResolvedValue(undefined) };
+    const ctx = { appendEventUnsafe: vi.fn().mockResolvedValue(undefined) };
     await emitEvent(ctx, orderPlaced, {
       aggregateId: "agg-1",
       aggregateType: "pubsub-order",
       payload: { id: "agg-1", customer: "alice" },
     });
-    expect(ctx.appendEvent).toHaveBeenCalledWith({
+    expect(ctx.appendEventUnsafe).toHaveBeenCalledWith({
       aggregateId: "agg-1",
       aggregateType: "pubsub-order",
       type: "pubsub-orders:event:order-placed",
@@ -26,7 +26,7 @@ describe("emitEvent", () => {
   });
 
   test("payload type is inferred from the eventDef — wrong shape is a compile error", async () => {
-    const ctx = { appendEvent: vi.fn().mockResolvedValue(undefined) };
+    const ctx = { appendEventUnsafe: vi.fn().mockResolvedValue(undefined) };
     // Runtime check: compile-time narrowing is the real win, but we also
     // make sure the value flows through unchanged.
     await emitEvent(ctx, orderPlaced, {
@@ -34,7 +34,7 @@ describe("emitEvent", () => {
       aggregateType: "pubsub-order",
       payload: { id: "a", customer: "bob" },
     });
-    const call = ctx.appendEvent.mock.calls[0]?.[0] as { payload: unknown };
+    const call = ctx.appendEventUnsafe.mock.calls[0]?.[0] as { payload: unknown };
     expect(call.payload).toEqual({ id: "a", customer: "bob" });
   });
 });

@@ -66,7 +66,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     "invoice:approve",
     z.object({ id: z.uuid(), amount: z.number().int(), approvedBy: z.string() }),
     async (event, ctx) => {
-      await ctx.appendEvent({
+      await ctx.appendEventUnsafe({
         aggregateId: event.payload.id,
         aggregateType: "asof-invoice",
         type: approved.name,

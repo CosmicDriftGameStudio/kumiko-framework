@@ -105,7 +105,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     "shipment:bill",
     z.object({ id: z.uuid(), cost: z.number() }),
     async (event, ctx) => {
-      await ctx.appendEvent({
+      await ctx.appendEventUnsafe({
         aggregateId: event.payload.id,
         aggregateType: "domain-shipment",
         type: shipmentBilled.name,
@@ -137,7 +137,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     "shipment:bill-unregistered",
     z.object({ id: z.uuid() }),
     async (event, ctx) => {
-      await ctx.appendEvent({
+      await ctx.appendEventUnsafe({
         aggregateId: event.payload.id,
         aggregateType: "domain-shipment",
         type: "shipping:event:ghost", // never defined via r.defineEvent
@@ -152,7 +152,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     "shipment:bill-bad-payload",
     z.object({ id: z.uuid() }),
     async (event, ctx) => {
-      await ctx.appendEvent({
+      await ctx.appendEventUnsafe({
         aggregateId: event.payload.id,
         aggregateType: "domain-shipment",
         type: shipmentBilled.name,

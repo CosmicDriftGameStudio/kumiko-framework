@@ -49,7 +49,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
     "emit:valid",
     z.object({ userId: z.uuid(), email: z.email() }),
     async (cmd, ctx) => {
-      await ctx.appendEvent({
+      await ctx.appendEventUnsafe({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
         type: welcome.name,
@@ -66,7 +66,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
     async (cmd, ctx) => {
       // Deliberately NOT passing welcome.name — "emitter:event:not-registered"
       // was never registered. ctx.appendEvent must reject at the append site.
-      await ctx.appendEvent({
+      await ctx.appendEventUnsafe({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
         type: "emitter:event:not-registered",
@@ -82,7 +82,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
     z.object({ userId: z.uuid() }),
     async (cmd, ctx) => {
       // userId is correct but email is missing / not an email string.
-      await ctx.appendEvent({
+      await ctx.appendEventUnsafe({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
         type: welcome.name,
@@ -100,7 +100,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // "neighbor:event:neighbor-signal" is owned by the neighbor feature.
       // The ownership guard in appendDomainEventCore must reject this append
       // at emit-site — cross-feature emission silently breaks encapsulation.
-      await ctx.appendEvent({
+      await ctx.appendEventUnsafe({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
         type: foreignEventName,

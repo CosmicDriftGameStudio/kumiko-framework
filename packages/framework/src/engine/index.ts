@@ -80,6 +80,8 @@ export type {
   AccessRule,
   AppContext,
   AppendEventArgs,
+  AppendEventFn,
+  AppendEventUnsafeFn,
   AuthClaimsContext,
   AuthClaimsFn,
   AuthClaimsHookDef,

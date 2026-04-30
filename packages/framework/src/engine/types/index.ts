@@ -43,6 +43,13 @@ export type {
   TranslationsDef,
   UiExtensionDef,
 } from "./config";
+// Cross-Feature Compile-Time-Type-Map — features extend per declare-module.
+export type {
+  KumikoEntityTypeMap,
+  KumikoEventTypeMap,
+  KumikoHandlerPayloadMap,
+  KumikoHandlerResultMap,
+} from "./event-type-map";
 export type {
   FeatureDefinition,
   FeatureMetricDef,
@@ -87,6 +94,8 @@ export type {
   AggregateStreamHandle,
   AppContext,
   AppendEventArgs,
+  AppendEventFn,
+  AppendEventUnsafeFn,
   AuthClaimsContext,
   AuthClaimsFn,
   AuthClaimsHookDef,

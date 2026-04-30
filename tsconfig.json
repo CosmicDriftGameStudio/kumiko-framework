@@ -20,7 +20,6 @@
     "types": ["bun-types"]
   },
   "references": [
-    { "path": "packages/framework" },
     { "path": "packages/bundled-features" },
     { "path": "packages/headless" },
     { "path": "packages/dispatcher-live" },

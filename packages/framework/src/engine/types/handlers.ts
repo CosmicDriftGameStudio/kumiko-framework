@@ -9,6 +9,7 @@ import type { EntityCache } from "../../pipeline/entity-cache";
 import type { SearchAdapter } from "../../search/types";
 import type { TzContext } from "../../time";
 import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config";
+import type { KumikoEventTypeMap } from "./event-type-map";
 
 // --- Access ---
 
@@ -336,7 +337,14 @@ export type HandlerContext = SharedContextFields & {
   // wants to record a domain event alongside the auto-generated CRUD events
   // (e.g. "invoice.approved" on the same invoice stream that already carries
   // "invoice.created" + "invoice.updated").
-  readonly appendEvent: (args: AppendEventArgs) => Promise<void>;
+  readonly appendEvent: AppendEventFn;
+
+  // Escape-hatch for runtime-pluggable features without a compile-time
+  // augmentation. See AppendEventUnsafeFn — same runtime as appendEvent,
+  // but the type-surface is `payload: unknown`. Use only when the event-
+  // type is not knowable at compile-time; otherwise the strict path
+  // (appendEvent) is the contract Designer/AI rely on.
+  readonly appendEventUnsafe: AppendEventUnsafeFn;
 
   // Marten FetchForWriting equivalent: load the current stream, optionally
   // enforce expectedVersion, and get a handle that appends further events
@@ -485,6 +493,39 @@ export type AppendEventArgs = {
   readonly payload: unknown;
   readonly headers?: Readonly<Record<string, string | number | boolean>>;
 };
+
+// Typed-payload variant — used by the strict ctx.appendEvent. Keyed via
+// the discriminator type-arg so payload inference flows from `type`-literal
+// to the matching schema-payload.
+export type TypedAppendEventArgs<K extends keyof KumikoEventTypeMap> = {
+  readonly aggregateId: string;
+  readonly aggregateType: string;
+  readonly type: K;
+  readonly payload: KumikoEventTypeMap[K];
+  readonly headers?: Readonly<Record<string, string | number | boolean>>;
+};
+
+// Two-overload form: typed first, runtime-pluggable fallback second.
+// CAVEAT — generic-constraints `<K extends keyof KumikoEventTypeMap>` are
+// resolved at DEFINITION SITE (framework's compile), where the augmentation
+// from consumer-packages isn't visible. K collapses to `never`. Strict
+// cross-package payload-checking via this overload is NOT achievable in
+// composite OR non-composite TS-projects without architecture changes.
+//
+// What works cross-package:
+//   - Direct lookup `KumikoEventTypeMap["foo"]` (use-site-resolved) ✓
+//   - Augmentation interface-merge in declared-module form ✓
+//
+// What's deferred to a follow-up sprint:
+//   - Strict ctx.appendEvent payload-check via type-map
+//   - Designer/AI-Layer can use KumikoEventTypeMap[K] for shape lookups
+//     without strict ctx.appendEvent — sufficient for read-mode + code-gen.
+export type AppendEventFn = {
+  <K extends keyof KumikoEventTypeMap>(args: TypedAppendEventArgs<K>): Promise<void>;
+  (args: AppendEventArgs): Promise<void>;
+};
+
+export type AppendEventUnsafeFn = (args: AppendEventArgs) => Promise<void>;
 
 // Args for ctx.fetchForWriting — Marten FetchForWriting equivalent. Returns
 // the current stream state + a handle that appends without re-specifying

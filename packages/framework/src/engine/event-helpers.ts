@@ -3,7 +3,12 @@ import type { AppendEventArgs, EventDef, HandlerContext } from "./types/handlers
 // The ctx-surface emitEvent needs. Accepting the narrow shape lets tests or
 // MultiStreamApplyContext-style callers pass their own appendEvent without
 // a full HandlerContext. Real handlers just pass `ctx`.
-export type EmitCtx = Pick<HandlerContext, "appendEvent">;
+//
+// Uses appendEventUnsafe internally because EventDef's TPayload comes from
+// a runtime-defined zod-schema — emitEvent does the type-check itself via
+// the EventDef generic, so it doesn't need the strict KumikoEventTypeMap
+// path. The strict appendEvent is for direct in-handler callsites.
+export type EmitCtx = Pick<HandlerContext, "appendEventUnsafe">;
 
 // Typed wrapper around ctx.appendEvent. Two wins over the raw call:
 //
@@ -37,7 +42,7 @@ export async function emitEvent<TPayload>(
     type: eventDef.name,
     payload: args.payload,
   };
-  await ctx.appendEvent(appendArgs);
+  await ctx.appendEventUnsafe(appendArgs);
 }
 
 // Read-side counterpart: narrow a StoredEvent's `payload` (declared as

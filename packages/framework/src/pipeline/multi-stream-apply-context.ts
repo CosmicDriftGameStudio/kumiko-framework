@@ -1,5 +1,11 @@
 import type { DbRunner } from "../db/connection";
-import type { AppendEventArgs, Registry, TenantId } from "../engine/types";
+import type {
+  AppendEventArgs,
+  AppendEventFn,
+  AppendEventUnsafeFn,
+  Registry,
+  TenantId,
+} from "../engine/types";
 import { loadAggregate, loadAggregateAsOf, type StoredEvent } from "../event-store/event-store";
 import { upcastStoredEvents } from "../event-store/upcaster";
 import type { FileContext } from "../files/file-handle";
@@ -15,8 +21,12 @@ export type MultiStreamApplyContext = {
   // Schema-validated, archive-guarded, stream-version derived. Metadata
   // inherits from the triggering event (correlationId) + requestContext
   // (causationId is already set to the triggering event.id by the
-  // dispatcher wrap).
-  readonly appendEvent: (args: AppendEventArgs) => Promise<void>;
+  // dispatcher wrap). Strict against KumikoEventTypeMap — same contract
+  // as HandlerContext.appendEvent (compile-time-validated payload).
+  readonly appendEvent: AppendEventFn;
+  // Escape hatch for runtime-pluggable events without compile-time
+  // augmentation. Same runtime semantics; type-surface is `payload: unknown`.
+  readonly appendEventUnsafe: AppendEventUnsafeFn;
   // Read an aggregate stream — useful when a saga needs to inspect the
   // current state of a different aggregate before deciding what to emit.
   readonly loadAggregate: (
@@ -59,7 +69,8 @@ export function createMultiStreamApplyContext(
 ): MultiStreamApplyContext {
   return {
     ...(deps.files ? { files: deps.files } : {}),
-    appendEvent: async (args) => {
+    // @cast-boundary engine-bridge — concrete impl conforms to AppendEventFn overload
+    appendEvent: (async (args: AppendEventArgs) => {
       await appendDomainEventCore(
         {
           registry: deps.registry,
@@ -67,6 +78,19 @@ export function createMultiStreamApplyContext(
           tenantId: deps.tenantId,
           userId: deps.userId,
           callSiteLabel: "MSP-apply ctx.appendEvent",
+          ...(deps.callerFeature && { callerFeature: deps.callerFeature }),
+        },
+        args,
+      );
+    }) as AppendEventFn,
+    appendEventUnsafe: async (args) => {
+      await appendDomainEventCore(
+        {
+          registry: deps.registry,
+          db: deps.db,
+          tenantId: deps.tenantId,
+          userId: deps.userId,
+          callSiteLabel: "MSP-apply ctx.appendEventUnsafe",
           ...(deps.callerFeature && { callerFeature: deps.callerFeature }),
         },
         args,

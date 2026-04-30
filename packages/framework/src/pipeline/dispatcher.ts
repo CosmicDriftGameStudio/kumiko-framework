@@ -11,6 +11,7 @@ import type {
   AggregateStreamHandle,
   AppContext,
   AppendEventArgs,
+  AppendEventFn,
   AuthClaimsContext,
   DeleteContext,
   FetchForWritingArgs,
@@ -497,7 +498,14 @@ export function createDispatcher(
         const res = await executeWrite(targetType, payload, asUser, tx, bridgeSink);
         return res;
       },
-      appendEvent: async (args: AppendEventArgs) => {
+      // Strict + unsafe share the same runtime — only the type-surface
+      // differs. The strict signature is what's exposed to typed callers;
+      // unsafe is the explicit escape-hatch for runtime-pluggable events.
+      // @cast-boundary engine-bridge — concrete impl conforms to AppendEventFn overload
+      appendEvent: (async (args: AppendEventArgs) => {
+        await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
+      }) as AppendEventFn,
+      appendEventUnsafe: async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
       },
       fetchForWriting: async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {
