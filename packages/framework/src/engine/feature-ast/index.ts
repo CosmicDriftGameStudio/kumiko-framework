@@ -42,5 +42,15 @@ export type {
   WriteHandlerPattern,
 } from "./patterns";
 export { getEditability } from "./patterns";
+export type { PatternChange, PatternId } from "./patch";
+export { addPattern, applyChanges, removePattern, replacePattern } from "./patch";
+export type { RenderFeatureFileInput } from "./render";
+export {
+  FEATURE_FILE_VERSION,
+  renderFeatureFile,
+  renderPattern,
+  renderValue,
+  VERSION_HEADER,
+} from "./render";
 export type { SourceLocation, SourcePosition } from "./source-location";
 export { sourceLocationFromNode } from "./source-location";
