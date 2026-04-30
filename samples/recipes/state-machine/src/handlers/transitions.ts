@@ -54,7 +54,7 @@ export const invoiceMarkPaid = defineWriteHandler({
       return failUnprocessable("cannot_pay_zero_amount");
     }
 
-    await ctx.appendEvent({
+    await ctx.appendEventUnsafe({
       aggregateId: event.payload.id,
       aggregateType: ENTITY_NAME,
       type: eventName(INVOICE_EVENTS.markedPaid),
@@ -92,7 +92,7 @@ export const invoiceUpdateStatus = defineWriteHandler({
     if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
     const target = event.payload.changes.status;
-    await ctx.appendEvent({
+    await ctx.appendEventUnsafe({
       aggregateId: event.payload.id,
       aggregateType: ENTITY_NAME,
       type: VERB_TO_EVENT[target],
@@ -119,7 +119,7 @@ export const invoiceForceStatus = defineWriteHandler({
     const state = await loadInvoiceState(ctx, event.payload.id);
     if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
-    await ctx.appendEvent({
+    await ctx.appendEventUnsafe({
       aggregateId: event.payload.id,
       aggregateType: ENTITY_NAME,
       type: eventName(INVOICE_EVENTS.statusForced),

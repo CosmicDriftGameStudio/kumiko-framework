@@ -29,7 +29,7 @@ export function transitionHandler(opts: {
         guardTransition(INVOICE_TRANSITIONS, state.status, opts.toStatus);
       }
 
-      await ctx.appendEvent({
+      await ctx.appendEventUnsafe({
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
         type: opts.eventType,
