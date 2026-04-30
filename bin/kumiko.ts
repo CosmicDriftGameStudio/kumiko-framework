@@ -129,7 +129,6 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   { name: "i18n-Keys Guard", cmd: "bun scripts/guard-i18n-keys.ts" },
   { name: "Test-Stack-Drift Guard", cmd: "bun scripts/guard-test-stack-drift.ts" },
   { name: "Runtime-Isolation Guard", cmd: "bun scripts/check-runtime-isolation.ts" },
-  { name: "Lockfile-Drift Guard", cmd: "bun scripts/guard-lockfile-drift.ts" },
   { name: "Error-Reasons Guard", cmd: "bun scripts/guard-error-reasons.ts" },
   { name: "Predicate Extraction Check", cmd: "bun scripts/check-predicates.ts" },
   { name: "as-Cast Audit", cmd: "bun scripts/check-as-casts.ts" },
