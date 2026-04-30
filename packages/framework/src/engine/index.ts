@@ -29,8 +29,14 @@ export {
   defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineEntityListHandler,
+  // Legacy single-fn-with-verb-string API. Backwards-compat — neue
+  // Apps nehmen die verb-spezifischen Wrapper oben. Existierende
+  // Caller (Integration-Tests, alte bundled-features) bleiben so
+  // unverändert lauffähig.
+  defineEntityQueryHandler,
   defineEntityRestoreHandler,
   defineEntityUpdateHandler,
+  defineEntityWriteHandler,
   defineProjectionQueryHandler,
 } from "./entity-handlers";
 export type { EmitCtx } from "./event-helpers";
