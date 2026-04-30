@@ -24,3 +24,6 @@ playwright-report/
 # Migration-Runtime-State (sample-spezifisch, pro Run regeneriert)
 .beammycar-checkpoint.json
 .beammycar-checkpoint.json.tmp
+
+# Codegen-test fixtures (created+removed per test run)
+.tmp-fixtures/

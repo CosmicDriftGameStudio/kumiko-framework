@@ -2,8 +2,8 @@
 // optionally guardTransition, append the domain event, return a WriteResult
 // that reflects the post-write status.
 
-import type { AccessRule } from "@kumiko/framework/engine";
-import { defineWriteHandler, guardTransition } from "@kumiko/framework/engine";
+import type { AccessRule } from "../../.kumiko/define";
+import { defineWriteHandler, guardTransition } from "../../.kumiko/define";
 import { failNotFound } from "@kumiko/framework/errors";
 import { z } from "zod";
 import { INVOICE_TRANSITIONS } from "../entities/invoice";

@@ -7,7 +7,7 @@
 // and update the relevant `case` in `reduceInvoice` — that's the whole
 // contract.
 
-import type { HandlerContext } from "@kumiko/framework/engine";
+import type { HandlerContext } from "../.kumiko/define";
 import { eventName, INVOICE_CREATED_EVENT, INVOICE_EVENTS } from "./events";
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "cancelled";

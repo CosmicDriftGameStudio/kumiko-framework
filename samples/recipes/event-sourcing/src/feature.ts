@@ -24,7 +24,7 @@ import {
   defineFeature,
   defineProjectionQueryHandler,
   typedPayload,
-} from "@kumiko/framework/engine";
+} from "../.kumiko/define";
 import { eq, sql } from "drizzle-orm";
 import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { z } from "zod";

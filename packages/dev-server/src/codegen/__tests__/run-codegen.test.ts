@@ -1,17 +1,22 @@
-// Codegen — End-to-End-Test mit einem realistischen Feature-File.
+// Codegen — End-to-End-Test mit realistischen Feature-Files.
 //
-// Schreibt ein feature + sein events.ts in ein tmp-Verzeichnis, ruft
-// runCodegen auf, und prüft beide Output-Files.
+// Schreibt Features + events.ts in ein tmp-Verzeichnis, ruft runCodegen
+// auf, und prüft die generierten Files.
 //
-// Wichtige Garantien die hier verifiziert werden:
-//   - Position-Form `r.defineEvent("name", schema)` wird erkannt
-//   - Object-Form `r.defineEvent({ name, schema })` wird erkannt
+// Was hier verifiziert wird:
+//   - Position-Form `r.defineEvent("name", schema)` → "imported"
+//   - Object-Form `r.defineEvent({ name, schema })` → "imported"
+//   - Inline-Form `r.defineEvent("name", z.object({...}))`  → "inline"
+//   - Computed-Name `r.defineEvent(NAME_CONST.member, schema)` → "imported"
+//     mit string-resolved Name aus dem `as const`-Object
 //   - Mehrere Features in unterschiedlichen Files werden zusammengeführt
 //   - Doppelte qualifiedName erzeugen Warning + werden dedupliziert
 //   - Idempotent: 2× run schreibt beim 2. Mal nicht (didWrite=false)
-//   - Schemas in derselben Datei (kein import) → Warning, übersprungen
+//   - Locally-declared schema (kein import, kein inline-z.*) → Warning, skip
+//   - skipped-Flag wenn 0 Events UND kein .kumiko/ schon existiert
+//   - schemas.generated.ts wird erzeugt wenn inline-Schemas, sonst nicht
 
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
@@ -58,6 +63,7 @@ export const myFeature = defineFeature("myFeat", (r) => {
     expect(result.warnings).toEqual([]);
     expect(result.didWriteTypes).toBe(true);
     expect(result.didWriteDefine).toBe(true);
+    expect(result.didWriteSchemas).toBe(false);
 
     const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
     expect(types).toContain(`"myFeat:event:foo-happened": z.infer<typeof fooSchema>;`);
@@ -69,6 +75,8 @@ export const myFeature = defineFeature("myFeat", (r) => {
     expect(define).toContain(`export function defineWriteHandler<`);
     expect(define).toContain(`fwDefineWriteHandler<TName, TSchema, TData, KumikoEventTypeMap>(def)`);
     expect(define).toContain(`export function defineQueryHandler<`);
+
+    expect(existsSync(join(appRoot, ".kumiko", "schemas.generated.ts"))).toBe(false);
   });
 
   test("scans object-form r.defineEvent", () => {
@@ -96,6 +104,108 @@ export const myFeature = defineFeature("objForm", (r) => {
     expect(result.eventCount).toBe(1);
     const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
     expect(types).toContain(`"objForm:event:bar-occurred": z.infer<typeof barSchema>;`);
+  });
+
+  test("inline-schema becomes a generated const in schemas.generated.ts", () => {
+    const appRoot = makeAppDir();
+    write(
+      appRoot,
+      "src/feature/feature.ts",
+      `import { defineFeature } from "@kumiko/framework/engine";
+import { z } from "zod";
+
+export const myFeature = defineFeature("inlineFeat", (r) => {
+  r.defineEvent("inline-evt", z.object({ id: z.string(), count: z.number() }));
+});
+`,
+    );
+
+    const result = runCodegen({ appRoot });
+    expect(result.eventCount).toBe(1);
+    expect(result.warnings).toEqual([]);
+    expect(result.didWriteSchemas).toBe(true);
+
+    const schemas = readFileSync(join(appRoot, ".kumiko", "schemas.generated.ts"), "utf-8");
+    expect(schemas).toContain(`import { z } from "zod";`);
+    // Generated const-name is stable + qualifiedName-derived; the exact
+    // string is part of the contract because types.generated.d.ts
+    // imports it under that name.
+    expect(schemas).toMatch(/export const _kg_inlineFeat__inlineEvt = z\.object/);
+    expect(schemas).toContain(`z.object({ id: z.string(), count: z.number() })`);
+
+    const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
+    expect(types).toContain(`"inlineFeat:event:inline-evt": z.infer<typeof _kg_inlineFeat__inlineEvt>;`);
+    expect(types).toContain(`from "./schemas.generated"`);
+  });
+
+  test("computed name via const-member resolves to string literal", () => {
+    const appRoot = makeAppDir();
+    write(
+      appRoot,
+      "src/feature/events.ts",
+      `import { z } from "zod";
+export const EVT = {
+  sent: "invoice-sent",
+  paid: "invoice-paid",
+} as const;
+export const sentSchema = z.object({});
+export const paidSchema = z.object({ amount: z.number() });
+`,
+    );
+    write(
+      appRoot,
+      "src/feature/feature.ts",
+      `import { defineFeature } from "@kumiko/framework/engine";
+import { EVT, sentSchema, paidSchema } from "./events";
+
+export const myFeature = defineFeature("billing", (r) => {
+  r.defineEvent(EVT.sent, sentSchema);
+  r.defineEvent(EVT.paid, paidSchema);
+});
+`,
+    );
+
+    const result = runCodegen({ appRoot });
+    expect(result.eventCount).toBe(2);
+    expect(result.warnings).toEqual([]);
+
+    const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
+    expect(types).toContain(`"billing:event:invoice-sent": z.infer<typeof sentSchema>;`);
+    expect(types).toContain(`"billing:event:invoice-paid": z.infer<typeof paidSchema>;`);
+  });
+
+  test("computed name + inline schema (recipes pattern)", () => {
+    const appRoot = makeAppDir();
+    write(
+      appRoot,
+      "src/feature/events.ts",
+      `export const EVT = {
+  forced: "force-applied",
+} as const;
+`,
+    );
+    write(
+      appRoot,
+      "src/feature/feature.ts",
+      `import { defineFeature } from "@kumiko/framework/engine";
+import { z } from "zod";
+import { EVT } from "./events";
+
+export const myFeature = defineFeature("billing", (r) => {
+  r.defineEvent(EVT.forced, z.object({ reason: z.string() }));
+});
+`,
+    );
+
+    const result = runCodegen({ appRoot });
+    expect(result.eventCount).toBe(1);
+    expect(result.warnings).toEqual([]);
+    expect(result.didWriteSchemas).toBe(true);
+
+    const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
+    expect(types).toContain(
+      `"billing:event:force-applied": z.infer<typeof _kg_billing__forceApplied>;`,
+    );
   });
 
   test("merges events from multiple feature files", () => {
@@ -200,8 +310,12 @@ export default defineFeature("idem", (r) => {
     expect(second.didWriteDefine).toBe(false);
   });
 
-  test("warns when schema is locally declared (no import)", () => {
+  test("warns when schema is locally declared (not imported, not inline z.*)", () => {
     const appRoot = makeAppDir();
+    // Schema is declared as a local const but referenced by a name that's
+    // neither an imported identifier nor an inline z.* call (it's an
+    // identifier-reference to the local const). Scanner can't reach it
+    // without a separate scan of the file's local symbols → warn + skip.
     write(
       appRoot,
       "src/inline/feature.ts",
@@ -219,7 +333,7 @@ export default defineFeature("inline", (r) => {
     const result = runCodegen({ appRoot });
     expect(result.eventCount).toBe(0);
     expect(result.warnings.length).toBe(1);
-    expect(result.warnings[0]?.reason).toMatch(/not found via named import/);
+    expect(result.warnings[0]?.reason).toMatch(/not a named import nor an inline z\.\* call/);
   });
 
   test("skips test files, node_modules, .kumiko, dist", () => {
@@ -269,5 +383,66 @@ defineFeature("old-codegen-output", (r) => {
     expect(types).toContain(`"real:event:ok"`);
     expect(types).not.toContain(`"fake-from-test`);
     expect(types).not.toContain(`"old-codegen-output`);
+  });
+
+  test("0 events + no existing .kumiko/ → bails with skipped=true", () => {
+    const appRoot = makeAppDir();
+    // App with NO r.defineEvent at all. Codegen should not create an
+    // empty `.kumiko/` directory.
+    write(
+      appRoot,
+      "src/feature/feature.ts",
+      `import { defineFeature } from "@kumiko/framework/engine";
+export default defineFeature("nothing", (r) => {
+  r.requires("auth");
+});
+`,
+    );
+
+    const result = runCodegen({ appRoot });
+    expect(result.eventCount).toBe(0);
+    expect(result.skipped).toBe(true);
+    expect(result.didWriteTypes).toBe(false);
+    expect(result.didWriteDefine).toBe(false);
+    expect(existsSync(join(appRoot, ".kumiko"))).toBe(false);
+  });
+
+  test("schemas.generated.ts gets removed when last inline-schema disappears", () => {
+    const appRoot = makeAppDir();
+    write(
+      appRoot,
+      "src/feature/feature.ts",
+      `import { defineFeature } from "@kumiko/framework/engine";
+import { z } from "zod";
+export default defineFeature("evolve", (r) => {
+  r.defineEvent("inline-once", z.object({ x: z.string() }));
+});
+`,
+    );
+
+    const first = runCodegen({ appRoot });
+    expect(first.didWriteSchemas).toBe(true);
+    expect(existsSync(join(appRoot, ".kumiko", "schemas.generated.ts"))).toBe(true);
+
+    // Refactor: schema moves out of the call-site into a named export.
+    write(
+      appRoot,
+      "src/feature/events.ts",
+      `import { z } from "zod";\nexport const onceSchema = z.object({ x: z.string() });\n`,
+    );
+    write(
+      appRoot,
+      "src/feature/feature.ts",
+      `import { defineFeature } from "@kumiko/framework/engine";
+import { onceSchema } from "./events";
+export default defineFeature("evolve", (r) => {
+  r.defineEvent("inline-once", onceSchema);
+});
+`,
+    );
+
+    const second = runCodegen({ appRoot });
+    expect(second.didWriteSchemas).toBe(true); // means: removed
+    expect(existsSync(join(appRoot, ".kumiko", "schemas.generated.ts"))).toBe(false);
   });
 });

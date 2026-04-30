@@ -1,28 +1,27 @@
-// runCodegen — Top-Level Entry-Point. Wird vom Dev-Server (per
-// File-Watcher), vom Build-Step (vor Bundle) und von der CLI
-// (`yarn kumiko codegen`) aufgerufen.
+// runCodegen — Top-Level Entry-Point. Wird vom Dev-Server (auf Boot),
+// vom Build-Step (vor Bundle) und von der CLI (`yarn kumiko codegen`)
+// aufgerufen.
 //
 // Lifecycle:
-//   1. Scan `<appRoot>/src/**` (+ extra paths) nach r.defineEvent.
-//   2. Render types.generated.d.ts + define.ts (Idempotent).
+//   1. Scan `<appRoot>/src/**` nach r.defineEvent.
+//   2. Render bis zu drei Files unter `<appRoot>/.kumiko/`:
+//        - types.generated.d.ts  (immer wenn Events oder bestehende Datei)
+//        - schemas.generated.ts  (nur wenn ≥1 inline-Schema)
+//        - define.ts             (immer)
 //   3. Schreibe nur bei tatsächlicher Änderung — sonst kein touch
 //      (TS-Sprachserver bleibt cached, Watcher feuert nicht).
-//
-// Output: ein Result mit Counts + Warnings, sodass Dev-Server / Build /
-// CLI je eigene Reports rendern können (stderr, log, JSON).
+//   4. Wenn 0 Events UND noch kein .kumiko/ existiert: bail. Apps die
+//      `r.defineEvent` nicht nutzen brauchen keinen Wrapper-Pfad und
+//      kein leeres Verzeichnis.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { renderDefineFile, renderTypesAugmentation } from "./render";
+import { renderDefineFile, renderInlineSchemasFile, renderTypesAugmentation } from "./render";
 import { type ScanWarning, scanEvents } from "./scan-events";
 
 export type CodegenOptions = {
   /** App-Root — `<appRoot>/.kumiko/` ist der Output-Ordner. */
   readonly appRoot: string;
-  /** Zusätzlich zu `<appRoot>/src` zu scannende Verzeichnisse. Nützlich
-   *  für Monorepo-Setups: z.B. eine Demo-App will die Events aus den
-   *  bundled-features mit augmentieren. Pfade absolut. */
-  readonly extraScanPaths?: readonly string[];
 };
 
 export type CodegenResult = {
@@ -30,33 +29,61 @@ export type CodegenResult = {
   readonly eventCount: number;
   readonly warnings: readonly ScanWarning[];
   readonly didWriteTypes: boolean;
+  readonly didWriteSchemas: boolean;
   readonly didWriteDefine: boolean;
+  readonly skipped: boolean;
 };
 
 export function runCodegen(opts: CodegenOptions): CodegenResult {
   const outputDir = join(opts.appRoot, ".kumiko");
-  mkdirSync(outputDir, { recursive: true });
+  const outputExists = existsSync(outputDir);
 
-  const scan = scanEvents({
-    appRoot: opts.appRoot,
-    ...(opts.extraScanPaths ? { extraScanPaths: opts.extraScanPaths } : {}),
-  });
+  const scan = scanEvents({ appRoot: opts.appRoot });
 
   const typesPath = join(outputDir, "types.generated.d.ts");
   const definePath = join(outputDir, "define.ts");
+  const schemasPath = join(outputDir, "schemas.generated.ts");
+
+  // Skip-Pfad: keine Events gefunden + keine bestehende Output-Dir
+  // bedeutet die App nutzt r.defineEvent nicht (oder noch nicht). Kein
+  // leeres `.kumiko/` zurücklassen — das hilft niemandem und produziert
+  // false-positives in CI ("eh, was ist denn das hier"). Wenn die Dir
+  // schon existiert (alter Run), generieren wir trotzdem — ein Refactor
+  // der den letzten r.defineEvent löscht soll das Output dann auch
+  // bereinigen, statt eine stale Augmentation liegen zu lassen.
+  if (scan.events.length === 0 && !outputExists) {
+    return {
+      outputDir,
+      eventCount: 0,
+      warnings: scan.warnings,
+      didWriteTypes: false,
+      didWriteSchemas: false,
+      didWriteDefine: false,
+      skipped: true,
+    };
+  }
+
+  mkdirSync(outputDir, { recursive: true });
 
   const typesContent = renderTypesAugmentation(scan.events, outputDir);
   const defineContent = renderDefineFile();
+  const schemasContent = renderInlineSchemasFile(scan.events);
 
   const didWriteTypes = writeIfChanged(typesPath, typesContent);
   const didWriteDefine = writeIfChanged(definePath, defineContent);
+  const didWriteSchemas =
+    schemasContent !== undefined
+      ? writeIfChanged(schemasPath, schemasContent)
+      : removeIfExists(schemasPath);
 
   return {
     outputDir,
     eventCount: scan.events.length,
     warnings: scan.warnings,
     didWriteTypes,
+    didWriteSchemas,
     didWriteDefine,
+    skipped: false,
   };
 }
 
@@ -75,5 +102,16 @@ function writeIfChanged(path: string, content: string): boolean {
   }
   if (existing === content) return false;
   writeFileSync(path, content, "utf-8");
+  return true;
+}
+
+/**
+ * Remove a previously-generated file when the latest scan no longer
+ * produces it (e.g. the last inline-schema was refactored to a named
+ * export). Returns true when an actual unlink happened.
+ */
+function removeIfExists(path: string): boolean {
+  if (!existsSync(path)) return false;
+  rmSync(path, { force: true });
   return true;
 }

@@ -1,24 +1,27 @@
-// Renderer für die zwei generierten Files unter `<appRoot>/.kumiko/`:
+// Renderer für die drei generierten Files unter `<appRoot>/.kumiko/`:
 //
 //   1. `types.generated.d.ts` — augmentet `KumikoEventTypeMap` mit allen
 //      `r.defineEvent`-Einträgen. Pure declarations, kein runtime code.
 //
-//   2. `define.ts` — die lokalen `defineWriteHandler` /
+//   2. `schemas.generated.ts` — re-exports der inline-zod-schemas, einer
+//      pro `r.defineEvent("name", z.object({...}))`-Aufruf der nicht
+//      schon ein imported named-export war. Diese Datei wird AUSSCHLIESSLICH
+//      via `import type` referenziert (in types.generated.d.ts) — der
+//      ts-typescript-strip elidiert sie zur Build-Zeit, kein Runtime-Dup.
+//      Existiert nur wenn es mindestens ein inline-Schema gibt.
+//
+//   3. `define.ts` — die lokalen `defineWriteHandler` /
 //      `defineQueryHandler` Wrapper, die die TMap explizit fixieren.
 //      DAS ist der Punkt an dem der strict-mode aktiv wird (siehe
 //      project_x1_typemap_findings memory): cross-package generic-fns
 //      mit default-TMap erkennen die Augmentation NICHT — nur ein
 //      lokaler Wrapper mit explicit-TMap kriegt es hin.
 //
-// Beide Files werden idempotent geschrieben — gleiche Inputs ⇒ gleicher
-// String. Der Codegen-Run vergleicht den neuen Inhalt mit dem
+// Alle drei Files werden idempotent geschrieben — gleiche Inputs ⇒
+// gleicher String. Der Codegen-Run vergleicht den neuen Inhalt mit dem
 // existierenden und schreibt nur bei tatsächlicher Änderung. Damit
 // tickt das mtime nicht durch und der TS-Sprachserver muss nicht alle
 // 100ms neu laden.
-//
-// Header-Kommentar mit Marker-Zeile macht klar dass es ein generiertes
-// File ist — die User-CLAUDE-Memory + die Lint-Pipeline sollen es
-// niemals manuell editieren.
 
 import type { ScannedEvent } from "./scan-events";
 import { rewriteImportPath } from "./scan-events";
@@ -33,22 +36,36 @@ const HEADER = [
 
 /**
  * Render `types.generated.d.ts`. Imports the schema-identifiers as
- * type-only and wires them via `z.infer<typeof X>` into the augmentation.
- * Empty events list → minimal but valid file (still augmentable, just
- * no entries yet — useful first-time scaffold).
+ * type-only — sources can be either named exports of feature-events
+ * files (kind: "imported") or extracted const-exports of the
+ * co-generated schemas.generated.ts (kind: "inline"). Result is wired
+ * via `z.infer<typeof X>` into the augmentation. Empty events list →
+ * minimal but valid file (still augmentable, just no entries yet —
+ * useful first-time scaffold).
  */
 export function renderTypesAugmentation(
   events: readonly ScannedEvent[],
   outputDirAbs: string,
 ): string {
-  // Group entries by their resolved (rewritten) module path so each
-  // schema file only imports once. Multiple events sharing the same
-  // events.ts file is the common case.
+  // Group identifiers by their resolved (rewritten) module path so each
+  // schema file imports once. Multiple events sharing the same events.ts
+  // file is the common case for the "imported" kind. Inline-events all
+  // share the same module path: "./schemas.generated".
   const importsByPath = new Map<string, Set<string>>();
   for (const ev of events) {
-    const rewritten = rewriteImportPath(ev.schemaModulePath, ev.featureFilePath, outputDirAbs);
-    if (!importsByPath.has(rewritten)) importsByPath.set(rewritten, new Set());
-    importsByPath.get(rewritten)?.add(ev.schemaIdentifier);
+    if (ev.schemaSource.kind === "imported") {
+      const rewritten = rewriteImportPath(
+        ev.schemaSource.schemaModulePath,
+        ev.featureFilePath,
+        outputDirAbs,
+      );
+      if (!importsByPath.has(rewritten)) importsByPath.set(rewritten, new Set());
+      importsByPath.get(rewritten)?.add(ev.schemaSource.schemaIdentifier);
+    } else {
+      const path = "./schemas.generated";
+      if (!importsByPath.has(path)) importsByPath.set(path, new Set());
+      importsByPath.get(path)?.add(ev.schemaSource.generatedConstName);
+    }
   }
 
   const importLines: string[] = [];
@@ -65,10 +82,13 @@ export function renderTypesAugmentation(
 
   const mapEntries = [...events]
     .sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName))
-    .map(
-      (ev) =>
-        `    "${ev.qualifiedName}": z.infer<typeof ${ev.schemaIdentifier}>;`,
-    );
+    .map((ev) => {
+      const refName =
+        ev.schemaSource.kind === "imported"
+          ? ev.schemaSource.schemaIdentifier
+          : ev.schemaSource.generatedConstName;
+      return `    "${ev.qualifiedName}": z.infer<typeof ${refName}>;`;
+    });
 
   // Body block — `declare module` in module-form (because we have an
   // `export {}` at the end). Module-form makes the augmentation merge
@@ -91,10 +111,52 @@ export function renderTypesAugmentation(
 }
 
 /**
+ * Render `schemas.generated.ts`. One `export const` per inline-schema
+ * event, named via the qualifiedName-derived stable identifier. The
+ * source-text of the original `z.*(...)` expression is replayed — we
+ * don't try to be cleverer than the zod compiler about reconstructing
+ * the schema. Returns undefined when no inline-schemas exist (so the
+ * runner can skip writing the file entirely).
+ */
+export function renderInlineSchemasFile(events: readonly ScannedEvent[]): string | undefined {
+  const inlines = events.filter((ev) => ev.schemaSource.kind === "inline");
+  if (inlines.length === 0) return undefined;
+
+  const lines: string[] = [
+    HEADER,
+    "",
+    "// Schema-extracts ausschliesslich für Type-Inferenz: dieses File wird in",
+    "// types.generated.d.ts via `import type` referenziert. ts-strip elidiert",
+    "// das beim Build, daher KEIN runtime-Dup mit den inline-Schemas in den",
+    "// feature-Files. Wenn ein Event-Schema sich ändert: `yarn kumiko codegen`",
+    "// neu laufen lassen — sonst driftet der z.infer-Type vom Runtime-Schema.",
+    "",
+    `import { z } from "zod";`,
+    "",
+  ];
+  // Sort by const-name for stable output.
+  const sorted = [...inlines].sort((a, b) => {
+    const aName = a.schemaSource.kind === "inline" ? a.schemaSource.generatedConstName : "";
+    const bName = b.schemaSource.kind === "inline" ? b.schemaSource.generatedConstName : "";
+    return aName.localeCompare(bName);
+  });
+  for (const ev of sorted) {
+    if (ev.schemaSource.kind !== "inline") continue;
+    lines.push(
+      `// ${ev.qualifiedName} — from ${ev.featureFilePath}:${ev.source.line}`,
+      `export const ${ev.schemaSource.generatedConstName} = ${ev.schemaSource.schemaSource};`,
+      "",
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
  * Render `define.ts` — local thin wrappers that fix TMap to
- * KumikoEventTypeMap. Apps import `defineWriteHandler` / `defineQueryHandler`
- * from this file; framework's strict-overload becomes the only matching
- * overload because TMap is no longer the eager-resolved default.
+ * KumikoEventTypeMap. Apps import `defineWriteHandler` /
+ * `defineQueryHandler` from this file; framework's strict-overload
+ * becomes the only matching overload because TMap is no longer the
+ * eager-resolved default.
  *
  * The wrappers are intentionally *thin* — same signature as the
  * framework's, just with TMap pre-bound. Apps stay portable: switch

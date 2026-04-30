@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@kumiko/framework/*": ["../../../packages/framework/src/*/index.ts"],
+      "@kumiko/bundled-features/*": ["../../../packages/bundled-features/src/*/index.ts"],
+      "@kumiko/dev-server": ["../../../packages/dev-server/src/index.ts"],
+      "@kumiko/dev-server/*": ["../../../packages/dev-server/src/*"]
+    },
+    "noEmit": true,
+    "rootDir": "../../..",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["bun-types"]
+  },
+  "include": ["src", ".kumiko"]
+}

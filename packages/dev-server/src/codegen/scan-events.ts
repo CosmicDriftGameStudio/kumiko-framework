@@ -1,57 +1,93 @@
 // scanEvents — finds every `r.defineEvent(...)` call across the app's
-// feature files and resolves the schema's import-path. The codegen
-// pipeline turns these into a `KumikoEventTypeMap` augmentation, the
-// "single source of truth" the local defineWriteHandler-wrapper binds
-// against for cross-package strict-checking.
+// feature files and resolves both the event-name (string literal) AND
+// the schema source needed to derive a TS-Type. The codegen pipeline
+// turns these into a `KumikoEventTypeMap` augmentation, the "single
+// source of truth" the local defineWriteHandler-wrapper binds against
+// for cross-package strict-checking.
 //
-// Output is a flat list of "event entries" — qualified-name + how to
-// reach the schema-type from the generated `.kumiko/` directory.
+// Output is a flat list of "event entries" — qualified-name + everything
+// needed to emit a `z.infer<typeof Schema>` line in the augmentation.
 //
-// What this scanner DOES handle:
-//   - Position-form:  r.defineEvent("toggle-set", featureToggleSetSchema);
-//   - Object-form:    r.defineEvent({ name: "toggle-set", schema: featureToggleSetSchema });
-//   - Schema-identifier resolved through *named* imports of the file
-//     where the defineEvent lives (covers ~all real-world cases).
+// Patterns we resolve to a strict-checked type:
+//   1. r.defineEvent("name", schemaIdentifier)
+//      Position-form, named import. The cleanest case — Schema lives
+//      in events.ts, gets re-imported by the augmentation as `import
+//      type` and threaded through `z.infer<typeof Schema>`.
 //
-// What it does NOT handle (intentionally, with a soft-skip):
-//   - Schemas defined inline (no identifier to import) — we'd have to
-//     reconstruct the literal at codegen-time. Rare in practice; skip
-//     with a warning lets the user keep coding.
-//   - Schemas from default-imports / namespace-imports / dynamic imports.
-//   - Computed/dynamic event names. The qualified name must be a
-//     literal — both r.defineEvent and the runtime registry require it.
+//   2. r.defineEvent({ name, schema })
+//      Object-form, otherwise identical to (1).
+//
+//   3. r.defineEvent(NAME_CONST.member, schema...)
+//      Computed name via `as const` object. We follow the property-
+//      access through ts-morph's symbol-resolver, find the literal
+//      member, treat it as the string from (1)/(2). Keeps recipes that
+//      centralise event-names in a constants module strict-able.
+//
+//   4. r.defineEvent(name..., z.object({ ... }))
+//      Inline schema (call-expression instead of an identifier). We
+//      extract the call-source-text and emit it into a co-generated
+//      `schemas.generated.ts` as a named `export const`, then point
+//      the augmentation at that named export. The original feature
+//      file keeps its inline schema for runtime validation; the
+//      generated schemas-file exists ONLY for type-inference (consumed
+//      via `import type`, erased at build).
+//
+// What we still skip with a warning:
+//   - Default- or namespace-imports of the schema identifier
+//     (`import S from "..."`, `import * as M from "..."`). Rare in
+//     real apps; signal-to-noise of supporting them isn't worth it.
+//   - Computed names whose const cannot be statically resolved
+//     (cross-package re-exports, dynamic property access).
 
 import { readdirSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import {
-  type ArrowFunction,
   type CallExpression,
   type ImportDeclaration,
+  type Node,
   Project,
+  type PropertyAccessExpression,
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
 
 export type ScannedEvent = {
-  /** Vollqualifizierter Event-Name wie er im events-table als `type`
-   *  steht: `<feature>:event:<inner>`. Direkter Map-Key in der
-   *  generierten KumikoEventTypeMap-Augmentation. */
+  /** Qualified event-name as it appears in the events table:
+   *  `<feature>:event:<inner>`. The KumikoEventTypeMap key. */
   readonly qualifiedName: string;
-  /** Variablen-Identifier des Zod-Schemas (das im r.defineEvent als 2.
-   *  Argument bzw. `schema:`-Property steht). Wird so im Augmentation-
-   *  File importiert + via `z.infer<typeof X>` gemappt. */
-  readonly schemaIdentifier: string;
-  /** Module-Specifier des Schema-Identifiers, AUS SICHT DES SCANNENDEN
-   *  FEATURE-FILES. Wir resolven ihn unten zur absoluten Disk-Position
-   *  und rendern relativ zum Output-Verzeichnis (.kumiko/). */
-  readonly schemaModulePath: string;
-  /** Absoluter Disk-Pfad des feature-Files, in dem dieser
-   *  r.defineEvent steht. Brauchen wir um schemaModulePath relativ
-   *  aufzulösen. */
+  /** Where the type for this event's payload comes from. Two flavours:
+   *
+   *    { kind: "imported", schemaIdentifier, schemaModulePath }
+   *      Schema is a named export of another file. Augmentation
+   *      `import type`-s it from there.
+   *
+   *    { kind: "inline", schemaSource, generatedConstName }
+   *      Schema was inlined at the call-site. We extract the source
+   *      text into `schemas.generated.ts` under `generatedConstName`
+   *      and import-type from there. */
+  readonly schemaSource: SchemaSource;
+  /** Absolute disk-path of the feature file (for relative-path
+   *  resolution + diagnostics). */
   readonly featureFilePath: string;
-  /** Source-File-Extension-stripped path (für rendering). */
+  /** For diagnostics + dedup logging. */
   readonly source: { readonly file: string; readonly line: number };
 };
+
+export type SchemaSource =
+  | {
+      readonly kind: "imported";
+      readonly schemaIdentifier: string;
+      readonly schemaModulePath: string;
+    }
+  | {
+      readonly kind: "inline";
+      /** zod source text — `z.object({ id: z.string() })` etc. */
+      readonly schemaSource: string;
+      /** Name we'll generate inside `schemas.generated.ts`. Stable
+       *  + qualified-name-derived so reorder of features doesn't
+       *  rename them. */
+      readonly generatedConstName: string;
+    };
 
 export type ScanWarning = {
   readonly file: string;
@@ -66,21 +102,15 @@ export type ScanResult = {
 
 export type ScanOptions = {
   /** App-Wurzel — alles unter `<root>/src` wird gescannt. Tests +
-   *  generated-files (`.kumiko`, `dist*`, `node_modules`) werden
-   *  ausgeschlossen. */
+   *  generated-files (`.kumiko`, `dist*`, `node_modules`) sind raus. */
   readonly appRoot: string;
-  /** Zusätzliche Pfade die ZUSÄTZLICH gescannt werden. Damit kann der
-   *  Codegen z.B. die bundled-features mitziehen, ohne dass die App
-   *  sie unter src/ haben muss. Pfade absolut. */
-  readonly extraScanPaths?: readonly string[];
 };
 
 /**
- * Scant `appRoot/src/**` (und `extraScanPaths/**`) nach
- * `r.defineEvent(...)` Aufrufen und liefert eine deduplizierte Liste
- * aus ScannedEvent. Doppelte qualifiedName landen mit einer Warnung in
- * der Result — Codegen schreibt nur den ERSTEN, sodass das generated
- * File compile-stabil bleibt.
+ * Scant `appRoot/src/**` nach `r.defineEvent(...)`-Aufrufen und liefert
+ * eine deduplizierte Liste aus ScannedEvent. Doppelte qualifiedName
+ * landen mit einer Warnung in der Result — Codegen schreibt nur den
+ * ERSTEN, sodass das generated File compile-stabil bleibt.
  */
 export function scanEvents(opts: ScanOptions): ScanResult {
   const project = new Project({
@@ -88,18 +118,22 @@ export function scanEvents(opts: ScanOptions): ScanResult {
     skipFileDependencyResolution: true,
   });
 
+  const filesToScan: string[] = [];
+  collectTsFiles(join(opts.appRoot, "src"), filesToScan);
+
+  // Add ALL files to the project up-front. ts-morph's symbol-resolver
+  // needs to see the file that declares the const-object before it can
+  // follow `INVOICE_EVENTS.sent` to its string literal.
+  for (const filePath of filesToScan) {
+    project.addSourceFileAtPath(filePath);
+  }
+
   const events: ScannedEvent[] = [];
   const warnings: ScanWarning[] = [];
 
-  const filesToScan: string[] = [];
-  const srcDir = join(opts.appRoot, "src");
-  collectTsFiles(srcDir, filesToScan);
-  for (const extra of opts.extraScanPaths ?? []) {
-    collectTsFiles(extra, filesToScan);
-  }
-
   for (const filePath of filesToScan) {
-    const sourceFile = project.addSourceFileAtPath(filePath);
+    const sourceFile = project.getSourceFile(filePath);
+    if (!sourceFile) continue;
     scanFile(sourceFile, filePath, events, warnings);
   }
 
@@ -127,7 +161,7 @@ function collectTsFiles(dir: string, out: string[]): void {
     return;
   }
   for (const entry of entries) {
-    if (entry.startsWith(".") && entry !== ".") continue;
+    if (entry.startsWith(".")) continue;
     if (SKIP_SEGMENTS.has(entry)) continue;
     const full = join(dir, entry);
     let stat: ReturnType<typeof statSync>;
@@ -169,67 +203,71 @@ function scanFile(
     if (!featureName) continue;
     const setup = call.getArguments()[1]?.asKind(SyntaxKind.ArrowFunction);
     if (!setup) continue;
-    scanSetupCallback(setup, featureName, sourceFile, filePath, events, warnings);
+    const registrarParam = setup.getParameters()[0]?.getName();
+    if (!registrarParam) continue;
+    for (const defCall of setup.getBody().getDescendantsOfKind(SyntaxKind.CallExpression)) {
+      const expr = defCall.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
+      if (!expr) continue;
+      if (expr.getExpression().getText() !== registrarParam) continue;
+      if (expr.getName() !== "defineEvent") continue;
+
+      collectFromDefineEvent(defCall, sourceFile, featureName, filePath, events, warnings);
+    }
   }
 }
 
-function scanSetupCallback(
-  setup: ArrowFunction,
-  featureName: string,
+function collectFromDefineEvent(
+  call: CallExpression,
   sourceFile: SourceFile,
+  featureName: string,
   filePath: string,
   events: ScannedEvent[],
   warnings: ScanWarning[],
 ): void {
-  const registrarParam = setup.getParameters()[0]?.getName();
-  if (!registrarParam) return;
-  for (const call of setup.getBody().getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    const expr = call.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
-    if (!expr) continue;
-    if (expr.getExpression().getText() !== registrarParam) continue;
-    if (expr.getName() !== "defineEvent") continue;
-
-    const parsed = parseDefineEventCall(call);
-    if (!parsed) {
-      warnings.push({
-        file: filePath,
-        line: call.getStartLineNumber(),
-        reason: "r.defineEvent: cannot read event-name + schema statically",
-      });
-      continue;
-    }
-
-    const importInfo = resolveSchemaImport(sourceFile, parsed.schemaIdentifier);
-    if (!importInfo) {
-      // Schema lives in the same file (no import needed) OR is from
-      // default/namespace import. Same-file is supportable but rare; we
-      // skip both with a warning so the user can move the schema into
-      // its own file if they want strict-checking for it.
-      warnings.push({
-        file: filePath,
-        line: call.getStartLineNumber(),
-        reason: `r.defineEvent("${parsed.eventName}"): schema "${parsed.schemaIdentifier}" not found via named import — skipped`,
-      });
-      continue;
-    }
-
-    events.push({
-      qualifiedName: `${featureName}:event:${parsed.eventName}`,
-      schemaIdentifier: parsed.schemaIdentifier,
-      schemaModulePath: importInfo.moduleSpecifier,
-      featureFilePath: filePath,
-      source: { file: filePath, line: call.getStartLineNumber() },
+  const parsed = parseDefineEventCall(call);
+  if (!parsed) {
+    warnings.push({
+      file: filePath,
+      line: call.getStartLineNumber(),
+      reason: "r.defineEvent: cannot read event-name + schema statically",
     });
+    return;
   }
+
+  const qualifiedName = `${featureName}:event:${parsed.eventName}`;
+  const schema = resolveSchemaSource(
+    parsed.schemaNode,
+    sourceFile,
+    qualifiedName,
+  );
+  if (!schema) {
+    warnings.push({
+      file: filePath,
+      line: call.getStartLineNumber(),
+      reason: `r.defineEvent("${parsed.eventName}"): schema "${parsed.schemaNode.getText()}" — not a named import nor an inline z.* call, skipped`,
+    });
+    return;
+  }
+
+  events.push({
+    qualifiedName,
+    schemaSource: schema,
+    featureFilePath: filePath,
+    source: { file: filePath, line: call.getStartLineNumber() },
+  });
 }
 
 // ============================================================================
-// Internal — extract event-name + schema-identifier
+// Internal — extract event-name + schema-node
 // ============================================================================
 
 type ParsedDefineEvent = {
+  /** Final `<inner>` part of the qualified name. Always a string-literal
+   *  AFTER resolution (we follow PropertyAccess → const-member). */
   readonly eventName: string;
-  readonly schemaIdentifier: string;
+  /** AST node for the schema argument — left to be resolved by
+   *  resolveSchemaSource into either an imported-named or inline-call. */
+  readonly schemaNode: Node;
 };
 
 function parseDefineEventCall(call: CallExpression): ParsedDefineEvent | undefined {
@@ -240,45 +278,211 @@ function parseDefineEventCall(call: CallExpression): ParsedDefineEvent | undefin
   // Object-form: r.defineEvent({ name, schema, version? })
   const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
   if (obj && args.length === 1) {
-    const nameLit = obj
+    const nameProp = obj
       .getProperty("name")
       ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.StringLiteral);
-    if (!nameLit) return undefined;
-    const schemaInit = obj
+      ?.getInitializer();
+    const eventName = nameProp ? resolveStringLiteralOrConst(nameProp) : undefined;
+    if (!eventName) return undefined;
+    const schemaNode = obj
       .getProperty("schema")
       ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.Identifier);
-    if (!schemaInit) return undefined;
+      ?.getInitializer();
+    if (!schemaNode) return undefined;
+    return { eventName, schemaNode };
+  }
+
+  // Position-form: r.defineEvent(<name-source>, <schema-node>, ...)
+  const eventName = resolveStringLiteralOrConst(first);
+  const schemaNode = args[1];
+  if (!eventName || !schemaNode) return undefined;
+  return { eventName, schemaNode };
+}
+
+/**
+ * Resolves a node to a string literal — either it IS a string-literal,
+ * or it's a property-access on a `const X = { ... } as const` object
+ * whose member resolves to one. Returns undefined for anything else
+ * (template literals, dynamic property access, function calls).
+ *
+ * Cross-file resolution: we follow the named import that brings the
+ * receiver-identifier into scope, load the target file from the same
+ * ts-morph project, and look up the const-declaration there. This
+ * works WITHOUT a TypeChecker — the import-graph + AST is enough for
+ * the patterns the recipes/showcases use (`as const` objects with
+ * string-literal members).
+ */
+function resolveStringLiteralOrConst(node: Node): string | undefined {
+  // Direct string-literal — fast path.
+  const direct = node.asKind(SyntaxKind.StringLiteral);
+  if (direct) return direct.getLiteralValue();
+
+  // PropertyAccessExpression: `INVOICE_EVENTS.sent` form.
+  const propAccess = node.asKind(SyntaxKind.PropertyAccessExpression);
+  if (propAccess) return resolvePropertyAccessLiteral(propAccess);
+
+  return undefined;
+}
+
+function resolvePropertyAccessLiteral(
+  propAccess: PropertyAccessExpression,
+): string | undefined {
+  const receiver = propAccess.getExpression().asKind(SyntaxKind.Identifier);
+  if (!receiver) return undefined;
+  const memberName = propAccess.getName();
+  const callerFile = propAccess.getSourceFile();
+
+  // Two paths to find the const-declaration:
+  //   1. Local: declared in the same file before the call.
+  //   2. Imported: a named import points at another file in the project;
+  //      the const lives there as an `export const`.
+  const local = findConstObject(callerFile, receiver.getText());
+  if (local) return readMemberLiteral(local, memberName);
+
+  for (const importDecl of callerFile.getImportDeclarations()) {
+    if (!matchesNamedImport(importDecl, receiver.getText())) continue;
+    const targetFile = resolveImportedSourceFile(importDecl, callerFile);
+    if (!targetFile) continue;
+    const remote = findConstObject(targetFile, receiver.getText());
+    if (remote) {
+      const literal = readMemberLiteral(remote, memberName);
+      if (literal !== undefined) return literal;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Walk top-level statements for `const RECEIVER = { ... } [as const]`.
+ * Returns the inner object-literal if found.
+ */
+function findConstObject(
+  sourceFile: SourceFile,
+  receiverName: string,
+): Node | undefined {
+  for (const stmt of sourceFile.getVariableStatements()) {
+    for (const decl of stmt.getDeclarations()) {
+      if (decl.getName() !== receiverName) continue;
+      const init = unwrapAsConst(decl.getInitializer());
+      const objLit = init?.asKind(SyntaxKind.ObjectLiteralExpression);
+      if (objLit) return objLit;
+    }
+  }
+  return undefined;
+}
+
+function readMemberLiteral(
+  objLitNode: Node,
+  memberName: string,
+): string | undefined {
+  const objLit = objLitNode.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!objLit) return undefined;
+  const prop = objLit.getProperty(memberName)?.asKind(SyntaxKind.PropertyAssignment);
+  const initLit = prop?.getInitializer()?.asKind(SyntaxKind.StringLiteral);
+  return initLit?.getLiteralValue();
+}
+
+/**
+ * Resolve a relative import-specifier to a SourceFile already loaded
+ * in the project. Tries `<base>.ts` and `<base>/index.ts`. Returns
+ * undefined for npm-package specifiers (no local resolution needed —
+ * we don't follow anything beyond the app's own files).
+ */
+function resolveImportedSourceFile(
+  importDecl: ImportDeclaration,
+  fromFile: SourceFile,
+): SourceFile | undefined {
+  const spec = importDecl.getModuleSpecifierValue();
+  if (!spec.startsWith(".")) return undefined;
+  const fromDir = fromFile.getDirectoryPath();
+  const project = fromFile.getProject();
+  const candidates = [
+    `${spec}.ts`,
+    `${spec}.tsx`,
+    `${spec}/index.ts`,
+    `${spec}/index.tsx`,
+  ];
+  for (const cand of candidates) {
+    const abs = resolve(fromDir, cand);
+    const sf = project.getSourceFile(abs);
+    if (sf) return sf;
+  }
+  return undefined;
+}
+
+/**
+ * `{ x: 1 } as const` parses as `AsExpression > ObjectLiteralExpression`.
+ * Strip the AsExpression so the caller can hit the inner literal directly.
+ */
+function unwrapAsConst(node: Node | undefined): Node | undefined {
+  if (!node) return undefined;
+  const asExpr = node.asKind(SyntaxKind.AsExpression);
+  return asExpr ? asExpr.getExpression() : node;
+}
+
+function readStringLiteral(node: Node | undefined): string | undefined {
+  return node?.asKind(SyntaxKind.StringLiteral)?.getLiteralValue();
+}
+
+// ============================================================================
+// Internal — resolve schema node to its source kind
+// ============================================================================
+
+function resolveSchemaSource(
+  schemaNode: Node,
+  sourceFile: SourceFile,
+  qualifiedName: string,
+): SchemaSource | undefined {
+  // Named identifier: schema lives in another file as a named export.
+  const ident = schemaNode.asKind(SyntaxKind.Identifier);
+  if (ident) {
+    const importInfo = resolveSchemaImport(sourceFile, ident.getText());
+    if (!importInfo) return undefined;
     return {
-      eventName: nameLit.getLiteralValue(),
-      schemaIdentifier: schemaInit.getText(),
+      kind: "imported",
+      schemaIdentifier: ident.getText(),
+      schemaModulePath: importInfo.moduleSpecifier,
     };
   }
 
-  // Position-form: r.defineEvent("name", schemaIdentifier)
-  const nameLit = first.asKind(SyntaxKind.StringLiteral);
-  const schemaIdent = args[1]?.asKind(SyntaxKind.Identifier);
-  if (!nameLit || !schemaIdent) return undefined;
-  return {
-    eventName: nameLit.getLiteralValue(),
-    schemaIdentifier: schemaIdent.getText(),
-  };
+  // Inline call: r.defineEvent("name", z.object({...})).
+  // We accept any call-expression that LOOKS like a zod schema (cheap
+  // structural check on the `z.*` head). The exact ".object/.string/etc"
+  // doesn't matter — the codegen will replay the source text in the
+  // schemas-file, where TS resolves z.infer correctly.
+  const callExpr = schemaNode.asKind(SyntaxKind.CallExpression);
+  if (callExpr && looksLikeZodCall(callExpr)) {
+    return {
+      kind: "inline",
+      schemaSource: callExpr.getText(),
+      generatedConstName: qualifiedNameToConstName(qualifiedName),
+    };
+  }
+
+  return undefined;
 }
 
-function readStringLiteral(node: { getText: () => string } | undefined): string | undefined {
-  if (!node) return undefined;
-  const lit = (node as unknown as { asKind?: (k: SyntaxKind) => unknown }).asKind?.(
-    SyntaxKind.StringLiteral,
-  ) as { getLiteralValue?: () => string } | undefined;
-  return lit?.getLiteralValue?.();
+function looksLikeZodCall(call: CallExpression): boolean {
+  // Walk the callee head — `z.something(...)` or `z.something.foo(...)`,
+  // anything that traces back to an Identifier `z`. Conservative: we
+  // don't try to verify it's the actual zod-import (the runtime check
+  // happens through the schemas-file's `import { z } from "zod"` anyway,
+  // which fails loudly if the user's `z` is something else).
+  let cur: Node = call.getExpression();
+  while (cur.asKind(SyntaxKind.PropertyAccessExpression) || cur.asKind(SyntaxKind.CallExpression)) {
+    const prop = cur.asKind(SyntaxKind.PropertyAccessExpression);
+    if (prop) {
+      cur = prop.getExpression();
+      continue;
+    }
+    const innerCall = cur.asKind(SyntaxKind.CallExpression);
+    if (innerCall) {
+      cur = innerCall.getExpression();
+      continue;
+    }
+  }
+  return cur.asKind(SyntaxKind.Identifier)?.getText() === "z";
 }
-
-// ============================================================================
-// Internal — resolve schema identifier to its import statement
-// ============================================================================
 
 function resolveSchemaImport(
   sourceFile: SourceFile,
@@ -301,6 +505,22 @@ function matchesNamedImport(importDecl: ImportDeclaration, identifier: string): 
     if (localName === identifier) return true;
   }
   return false;
+}
+
+/**
+ * Stable identifier-safe rewrite of a qualifiedName like
+ * `pubsubOrders:event:order-placed` → `_kg_pubsubOrders__orderPlaced`.
+ * Used for the `export const` name in `schemas.generated.ts`. Same
+ * transform in scan + render keeps the two sides in sync.
+ */
+export function qualifiedNameToConstName(qualifiedName: string): string {
+  // Drop the ":event:" infix — every entry has it, no information.
+  const withoutEventInfix = qualifiedName.replace(/:event:/g, "__");
+  // Replace remaining colons + dashes with `_` and camel-case after `_`
+  // so the output is identifier-legal AND visually parseable.
+  const sanitised = withoutEventInfix
+    .replace(/[^A-Za-z0-9_]+(.?)/g, (_match, next: string) => next.toUpperCase());
+  return `_kg_${sanitised}`;
 }
 
 // ============================================================================
@@ -327,9 +547,8 @@ export function rewriteImportPath(
   const fromOutput = relative(outputDirAbs, absoluteSchemaPath);
   // POSIX-Slash für TS-imports (auch auf Windows).
   const normalised = fromOutput.split(sep).join("/");
-  // TS module-specifiers haben keine .ts-Endung; das resolve hat sie
-  // sowieso nicht angefügt, aber wenn jemand ".ts" im import schrieb →
-  // weg damit.
+  // Strip .ts/.tsx — TS module specifiers don't carry the extension;
+  // resolve() didn't add one but a hand-written ".ts" should be removed.
   return normalised.replace(/\.tsx?$/, "");
 }
 
