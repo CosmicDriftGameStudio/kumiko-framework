@@ -43,6 +43,7 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   const typesPath = join(outputDir, "types.generated.d.ts");
   const definePath = join(outputDir, "define.ts");
   const schemasPath = join(outputDir, "schemas.generated.ts");
+  const packageJsonPath = join(outputDir, "package.json");
 
   // Skip-Pfad: keine Events gefunden + keine bestehende Output-Dir
   // bedeutet die App nutzt r.defineEvent nicht (oder noch nicht). Kein
@@ -68,9 +69,17 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   const typesContent = renderTypesAugmentation(scan.events, outputDir);
   const defineContent = renderDefineFile();
   const schemasContent = renderInlineSchemasFile(scan.events);
+  // package.json — turns `.kumiko/` into a real installable package
+  // named `@app/define`. Apps that declare
+  //   "@app/define": "link:./.kumiko"
+  // in their package.json get a node_modules symlink that the runtime
+  // (Node, Vitest, Bun) all resolve via standard module-lookup. Yarn 4
+  // is required — yarn classic v1 ignored deps in versionless workspaces.
+  const packageJsonContent = renderKumikoPackageJson();
 
   const didWriteTypes = writeIfChanged(typesPath, typesContent);
   const didWriteDefine = writeIfChanged(definePath, defineContent);
+  writeIfChanged(packageJsonPath, packageJsonContent);
   const didWriteSchemas =
     schemasContent !== undefined
       ? writeIfChanged(schemasPath, schemasContent)
@@ -85,6 +94,37 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
     didWriteDefine,
     skipped: false,
   };
+}
+
+/**
+ * Static package.json content — turns `.kumiko/` into an installable
+ * package called `@app/define`. The shape never depends on event-scans,
+ * so we don't bother passing the events in.
+ *
+ * Two things to keep stable:
+ *   - `name: "@app/define"` matches what handler imports use.
+ *   - `exports."."` points at the wrapper, `exports."./*"` lets apps
+ *     reach into types.generated etc. via `@app/types.generated`.
+ */
+function renderKumikoPackageJson(): string {
+  const pkg = {
+    name: "@app/define",
+    private: true,
+    // license: keep the generated package out of unknown-license territory
+    // for the License-Check guard. The repo is MIT-licensed, the generated
+    // wrapper inherits that — the file just re-exports framework code,
+    // there's no original IP in `.kumiko/` worth a different license.
+    license: "MIT",
+    version: "0.0.0",
+    type: "module",
+    main: "./define.ts",
+    types: "./define.ts",
+    exports: {
+      ".": "./define.ts",
+      "./*": "./*",
+    },
+  };
+  return `${JSON.stringify(pkg, null, 2)}\n`;
 }
 
 /**

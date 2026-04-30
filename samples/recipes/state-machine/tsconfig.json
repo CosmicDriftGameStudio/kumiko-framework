@@ -7,7 +7,9 @@
         "../../../packages/bundled-features/src/*/index.ts"
       ],
       "@kumiko/dev-server": ["../../../packages/dev-server/src/index.ts"],
-      "@kumiko/dev-server/*": ["../../../packages/dev-server/src/*"]
+      "@kumiko/dev-server/*": ["../../../packages/dev-server/src/*"],
+      "@app/define": ["./.kumiko/define.ts"],
+      "@app/*": ["./.kumiko/*"]
     },
     "noEmit": true,
     "rootDir": "../../..",

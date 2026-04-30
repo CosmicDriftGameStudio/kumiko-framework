@@ -17,17 +17,17 @@
 //   - streamAllEventsByType — memory-bounded iteration for ops/export jobs
 //   - getAllProjectionProgress — projection lag for ops dashboards
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
-import { eq, sql } from "drizzle-orm";
-import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
-import { z } from "zod";
 import {
   createEntity,
   createTextField,
   defineFeature,
   defineProjectionQueryHandler,
   typedPayload,
-} from "../.kumiko/define";
+} from "@app/define";
+import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
+import { eq, sql } from "drizzle-orm";
+import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { z } from "zod";
 
 // --- Reducer: shared by live + snapshot-aware query handlers ---
 

@@ -6,9 +6,9 @@
 // keeps amount + amountCurrency flat, while the entity stores them as a
 // money pair.
 
+import { defineWriteHandler } from "@app/define";
 import { createEventStoreExecutor } from "@kumiko/framework/db";
 import { z } from "zod";
-import { defineWriteHandler } from "../../.kumiko/define";
 import { invoiceEntity, invoiceTable } from "../entities/invoice";
 
 const invoiceExecutor = createEventStoreExecutor(invoiceTable, invoiceEntity, {

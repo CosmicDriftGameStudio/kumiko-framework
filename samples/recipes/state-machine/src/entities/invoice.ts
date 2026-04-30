@@ -1,11 +1,11 @@
-import { buildDrizzleTable } from "@kumiko/framework/db";
 import {
   createEntity,
   createMoneyField,
   createSelectField,
   createTextField,
   defineTransitions,
-} from "../../.kumiko/define";
+} from "@app/define";
+import { buildDrizzleTable } from "@kumiko/framework/db";
 
 export const INVOICE_STATES = ["draft", "sent", "paid", "cancelled"] as const;
 
