@@ -520,13 +520,29 @@ export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
   readonly headers?: Readonly<Record<string, string | number | boolean>>;
 };
 
-// Strict payload-checking. No fallback overload — runtime-pluggable callers
-// (where the event-type is not knowable at compile-time) use
-// AppendEventUnsafeFn instead. A two-overload form would silently accept
-// any args via the loose overload, defeating the strict-mode goal.
-export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends keyof TMap>(
-  args: TypedAppendEventArgs<TMap, K>,
-) => Promise<void>;
+// Two-overload form: typed (strict) first, fallback second.
+//
+// EMPIRICAL CAVEAT — cross-package imported generic-fn semantics:
+// Default-TMap (`<TMap = KumikoEventTypeMap>`) collapses K to `never` when
+// the function is imported across package boundaries (the augmentation is
+// invisible at definition-site; default-substitution is eager). Strict-mode
+// only fires when an app provides a *local wrapper* that fixes TMap to its
+// own EventMap explicitly (codegen-based, planned for B.5). Until then, the
+// fallback overload silently accepts any args — keeping cross-package callers
+// (bundled-features, samples) compiling without strict-checking. The
+// strict-overload is wired and ready for the wrapper to bind.
+//
+// What's strict-checked TODAY:
+//   - Local wrappers that call defineWriteHandler<…, KumikoEventTypeMap>(…)
+//     explicitly (B.5 codegen output).
+//
+// What's NOT strict-checked yet:
+//   - Direct cross-package calls: ctx.appendEvent({ … }) in apps/bundled-
+//     features that haven't switched to the local wrapper.
+export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = {
+  <K extends keyof TMap>(args: TypedAppendEventArgs<TMap, K>): Promise<void>;
+  (args: AppendEventArgs): Promise<void>;
+};
 
 export type AppendEventUnsafeFn = (args: AppendEventArgs) => Promise<void>;
 
