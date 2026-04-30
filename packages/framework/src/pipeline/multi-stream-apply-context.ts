@@ -3,6 +3,7 @@ import type {
   AppendEventArgs,
   AppendEventFn,
   AppendEventUnsafeFn,
+  KumikoEventTypeMap,
   Registry,
   TenantId,
 } from "../engine/types";
@@ -16,14 +17,18 @@ import { appendDomainEventCore } from "./append-event-core";
 // pattern). Keeps the MSP feature-decoupled: applies don't reach into
 // handler-bridge (no query/write/writeAs), they just read the aggregate
 // stream and append new events — Marten's session scope for projections.
-export type MultiStreamApplyContext = {
+//
+// TMap propagates the strict event-type-map (see HandlerContext). Default
+// matches the global KumikoEventTypeMap; runtime-pluggable callers route
+// through appendEventUnsafe.
+export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = {
   // Append a domain event onto an aggregate stream in the CURRENT tx.
   // Schema-validated, archive-guarded, stream-version derived. Metadata
   // inherits from the triggering event (correlationId) + requestContext
   // (causationId is already set to the triggering event.id by the
   // dispatcher wrap). Strict against KumikoEventTypeMap — same contract
   // as HandlerContext.appendEvent (compile-time-validated payload).
-  readonly appendEvent: AppendEventFn;
+  readonly appendEvent: AppendEventFn<TMap>;
   // Escape hatch for runtime-pluggable events without compile-time
   // augmentation. Same runtime semantics; type-surface is `payload: unknown`.
   readonly appendEventUnsafe: AppendEventUnsafeFn;

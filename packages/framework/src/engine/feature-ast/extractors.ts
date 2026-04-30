@@ -284,16 +284,50 @@ function readNameOrRefOrList(node: Node): string | readonly string[] | undefined
 // Round 1 — simplest static patterns
 // =============================================================================
 
+// Reads either varargs string literals, or a single { features: string[] } /
+// { keys: string[] } object — covers both the legacy positional form and
+// the canonical Object-Form. `arrayPropName` controls which property name
+// the object form uses (`features` for requires, `keys` for readsConfig).
+function readVarargsOrArrayProp(
+  call: CallExpression,
+  arrayPropName: "features" | "keys",
+): readonly string[] | undefined {
+  const args = call.getArguments();
+  // Object-Form: single object-literal arg with the named array property.
+  if (args.length === 1) {
+    const obj = args[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+    if (obj) {
+      const propInit = obj
+        .getProperty(arrayPropName)
+        ?.asKind(SyntaxKind.PropertyAssignment)
+        ?.getInitializer();
+      if (propInit) {
+        const arr = propInit.asKind(SyntaxKind.ArrayLiteralExpression);
+        if (!arr) return undefined;
+        const out: string[] = [];
+        for (const el of arr.getElements()) {
+          const lit = el.asKind(SyntaxKind.StringLiteral);
+          if (!lit) return undefined;
+          out.push(lit.getLiteralValue());
+        }
+        return out;
+      }
+    }
+  }
+  // Legacy positional form: every arg must be a string literal.
+  return readStringLiteralArgs(call);
+}
+
 export function extractRequires(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<RequiresPattern> {
-  const names = readStringLiteralArgs(call);
+  const names = readVarargsOrArrayProp(call, "features");
   if (!names) {
     return fail(
       "requires",
       sourceLocationFromNode(call, sourceFile),
-      "every argument must be a string literal",
+      "expected positional string literals or { features: string[] }",
     );
   }
   return ok({
@@ -307,12 +341,12 @@ export function extractOptionalRequires(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<OptionalRequiresPattern> {
-  const names = readStringLiteralArgs(call);
+  const names = readVarargsOrArrayProp(call, "features");
   if (!names) {
     return fail(
       "optionalRequires",
       sourceLocationFromNode(call, sourceFile),
-      "every argument must be a string literal",
+      "expected positional string literals or { features: string[] }",
     );
   }
   return ok({
@@ -326,12 +360,12 @@ export function extractReadsConfig(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<ReadsConfigPattern> {
-  const keys = readStringLiteralArgs(call);
+  const keys = readVarargsOrArrayProp(call, "keys");
   if (!keys) {
     return fail(
       "readsConfig",
       sourceLocationFromNode(call, sourceFile),
-      "every argument must be a string literal",
+      "expected positional string literals or { keys: string[] }",
     );
   }
   return ok({
@@ -396,12 +430,55 @@ export function extractEntity(
   sourceFile: SourceFile,
 ): ExtractOutput<EntityPattern> {
   const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  const first = args[0];
+  if (!first) {
+    return fail(
+      "entity",
+      sourceLocationFromNode(call, sourceFile),
+      "expected at least one argument",
+    );
+  }
+
+  // Object-Form: r.entity({ name, fields, ...rest })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const nameInit = obj
+      .getProperty("name")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!nameInit) {
+      return fail(
+        "entity",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `name` property",
+      );
+    }
+    const definition = readDataLiteralNode(obj);
+    if (!isPlainObject(definition)) {
+      return fail(
+        "entity",
+        sourceLocationFromNode(call, sourceFile),
+        "definition could not be read as a plain object (contains functions or identifiers)",
+      );
+    }
+    // Strip the `name` property — it lives on EntityPattern.entityName.
+    const { name: _name, ...defWithoutName } = definition;
+    return ok({
+      kind: "entity",
+      source: sourceLocationFromNode(call, sourceFile),
+      entityName: nameInit.getLiteralValue(),
+      definition: defWithoutName as EntityDefinition,
+    });
+  }
+
+  // Legacy positional form: r.entity("name", { fields, ... })
+  const nameArg = first.asKind(SyntaxKind.StringLiteral);
   if (!nameArg) {
     return fail(
       "entity",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal name",
+      "first argument must be a string literal name (or use the object form)",
     );
   }
   const defArg = args[1];
@@ -436,20 +513,76 @@ export function extractRelation(
   sourceFile: SourceFile,
 ): ExtractOutput<RelationPattern> {
   const args = call.getArguments();
-  const entityRefArg = args[0];
-  if (!entityRefArg) {
+  const first = args[0];
+  if (!first) {
     return fail(
       "relation",
       sourceLocationFromNode(call, sourceFile),
-      "expected an entity reference as first argument",
+      "expected at least one argument",
     );
   }
-  const entityName = readNameOrRef(entityRefArg);
+
+  // Object-Form: r.relation({ entity, name, kind, to, ...rest })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const entityInit = obj
+      .getProperty("entity")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!entityInit) {
+      return fail(
+        "relation",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires an `entity` property",
+      );
+    }
+    const entityName = readNameOrRef(entityInit);
+    if (!entityName) {
+      return fail(
+        "relation",
+        sourceLocationFromNode(call, sourceFile),
+        '`entity` must be a string literal or `{ name: "..." }` ref',
+      );
+    }
+    const nameInit = obj
+      .getProperty("name")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!nameInit) {
+      return fail(
+        "relation",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `name` property",
+      );
+    }
+    const definition = readDataLiteralNode(obj);
+    if (!isPlainObject(definition)) {
+      return fail(
+        "relation",
+        sourceLocationFromNode(call, sourceFile),
+        "definition could not be read as a plain object",
+      );
+    }
+    // Strip the carrier-properties — `entity` and `name` live separately
+    // on the pattern, the rest stays in `definition`.
+    const { entity: _e, name: _n, ...defWithoutCarriers } = definition;
+    return ok({
+      kind: "relation",
+      source: sourceLocationFromNode(call, sourceFile),
+      entityName,
+      relationName: nameInit.getLiteralValue(),
+      definition: defWithoutCarriers as RelationDefinition,
+    });
+  }
+
+  // Legacy positional: r.relation(entity, name, def)
+  const entityName = readNameOrRef(first);
   if (!entityName) {
     return fail(
       "relation",
       sourceLocationFromNode(call, sourceFile),
-      'first argument must be a string literal or an inline { name: "..." } object',
+      'first argument must be a string literal or an inline { name: "..." } object (or use the object form)',
     );
   }
   const nameArg = args[1]?.asKind(SyntaxKind.StringLiteral);
@@ -618,40 +751,103 @@ export function extractTranslations(
   });
 }
 
+// Shared shape for extractors that take a name + options bag — accepts
+// both positional `(name, { ...options })` and single object-form
+// `({ name, ...options })`. Returns the parsed name + the options bag
+// (options bag minus the `name` property in object-form).
+function readNamedOptions(
+  call: CallExpression,
+  sourceFile: SourceFile,
+  methodName: string,
+): { name: string; options: Record<string, unknown> } | { error: ParseError } {
+  const args = call.getArguments();
+  const first = args[0];
+  if (!first) {
+    return {
+      error: {
+        methodName,
+        source: sourceLocationFromNode(call, sourceFile),
+        reason: "expected at least one argument",
+      },
+    };
+  }
+
+  // Object-Form: r.method({ name: "...", ...options })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const nameInit = obj
+      .getProperty("name")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!nameInit) {
+      return {
+        error: {
+          methodName,
+          source: sourceLocationFromNode(call, sourceFile),
+          reason: "object form requires a string-literal `name` property",
+        },
+      };
+    }
+    const data = readDataLiteralNode(obj);
+    if (!isPlainObject(data)) {
+      return {
+        error: {
+          methodName,
+          source: sourceLocationFromNode(call, sourceFile),
+          reason: "argument could not be read as a plain object",
+        },
+      };
+    }
+    const { name: _name, ...optionsWithoutName } = data;
+    return { name: nameInit.getLiteralValue(), options: optionsWithoutName };
+  }
+
+  // Legacy positional: r.method("name", { ...options })
+  const nameLiteral = first.asKind(SyntaxKind.StringLiteral);
+  if (!nameLiteral) {
+    return {
+      error: {
+        methodName,
+        source: sourceLocationFromNode(call, sourceFile),
+        reason: "first argument must be a string literal name (or use the object form)",
+      },
+    };
+  }
+  const optionsArg = args[1];
+  if (!optionsArg) {
+    return {
+      error: {
+        methodName,
+        source: sourceLocationFromNode(call, sourceFile),
+        reason: "expected an options object as second argument",
+      },
+    };
+  }
+  const options = readDataLiteralNode(optionsArg);
+  if (!isPlainObject(options)) {
+    return {
+      error: {
+        methodName,
+        source: sourceLocationFromNode(call, sourceFile),
+        reason: "options could not be read as a plain object",
+      },
+    };
+  }
+  return { name: nameLiteral.getLiteralValue(), options };
+}
+
 export function extractMetric(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<MetricPattern> {
-  const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
-    return fail(
-      "metric",
-      sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal short name",
-    );
-  }
-  const optionsArg = args[1];
-  if (!optionsArg) {
-    return fail(
-      "metric",
-      sourceLocationFromNode(call, sourceFile),
-      "expected an options object as second argument",
-    );
-  }
-  const options = readDataLiteralNode(optionsArg);
-  if (!isPlainObject(options)) {
-    return fail(
-      "metric",
-      sourceLocationFromNode(call, sourceFile),
-      "options could not be read as a plain object",
-    );
-  }
+  const parsed = readNamedOptions(call, sourceFile, "metric");
+  if ("error" in parsed) return { kind: "error", error: parsed.error };
   return ok({
     kind: "metric",
     source: sourceLocationFromNode(call, sourceFile),
-    shortName: nameArg.getLiteralValue(),
-    options: options as MetricOptions,
+    shortName: parsed.name,
+    options: parsed.options as MetricOptions,
   });
 }
 
@@ -659,36 +855,13 @@ export function extractSecret(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<SecretPattern> {
-  const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
-    return fail(
-      "secret",
-      sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal short name",
-    );
-  }
-  const optionsArg = args[1];
-  if (!optionsArg) {
-    return fail(
-      "secret",
-      sourceLocationFromNode(call, sourceFile),
-      "expected an options object as second argument",
-    );
-  }
-  const options = readDataLiteralNode(optionsArg);
-  if (!isPlainObject(options)) {
-    return fail(
-      "secret",
-      sourceLocationFromNode(call, sourceFile),
-      "options could not be read as a plain object",
-    );
-  }
+  const parsed = readNamedOptions(call, sourceFile, "secret");
+  if ("error" in parsed) return { kind: "error", error: parsed.error };
   return ok({
     kind: "secret",
     source: sourceLocationFromNode(call, sourceFile),
-    shortName: nameArg.getLiteralValue(),
-    options: options as SecretOptions,
+    shortName: parsed.name,
+    options: parsed.options as SecretOptions,
   });
 }
 
@@ -696,32 +869,9 @@ export function extractClaimKey(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<ClaimKeyPattern> {
-  const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
-    return fail(
-      "claimKey",
-      sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal short name",
-    );
-  }
-  const optionsArg = args[1];
-  if (!optionsArg) {
-    return fail(
-      "claimKey",
-      sourceLocationFromNode(call, sourceFile),
-      "expected `{ type: ClaimKeyType }` as second argument",
-    );
-  }
-  const options = readDataLiteralNode(optionsArg);
-  if (!isPlainObject(options)) {
-    return fail(
-      "claimKey",
-      sourceLocationFromNode(call, sourceFile),
-      "options could not be read as a plain object",
-    );
-  }
-  const claimType = options["type"];
+  const parsed = readNamedOptions(call, sourceFile, "claimKey");
+  if ("error" in parsed) return { kind: "error", error: parsed.error };
+  const claimType = parsed.options["type"];
   if (!isClaimKeyType(claimType)) {
     return fail(
       "claimKey",
@@ -732,7 +882,7 @@ export function extractClaimKey(
   return ok({
     kind: "claimKey",
     source: sourceLocationFromNode(call, sourceFile),
-    shortName: nameArg.getLiteralValue(),
+    shortName: parsed.name,
     claimType,
   });
 }
@@ -752,20 +902,81 @@ export function extractReferenceData(
   sourceFile: SourceFile,
 ): ExtractOutput<ReferenceDataPattern> {
   const args = call.getArguments();
-  const entityRefArg = args[0];
-  if (!entityRefArg) {
+  const first = args[0];
+  if (!first) {
     return fail(
       "referenceData",
       sourceLocationFromNode(call, sourceFile),
-      "expected an entity reference as first argument",
+      "expected at least one argument",
     );
   }
-  const entityName = readNameOrRef(entityRefArg);
+
+  // Object-Form: r.referenceData({ entity, data, upsertKey? })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const entityInit = obj
+      .getProperty("entity")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!entityInit) {
+      return fail(
+        "referenceData",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires an `entity` property",
+      );
+    }
+    const entityName = readNameOrRef(entityInit);
+    if (!entityName) {
+      return fail(
+        "referenceData",
+        sourceLocationFromNode(call, sourceFile),
+        '`entity` must be a string literal or `{ name: "..." }` ref',
+      );
+    }
+    const dataInit = obj
+      .getProperty("data")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!dataInit) {
+      return fail(
+        "referenceData",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a `data` property",
+      );
+    }
+    const data = readDataLiteralNode(dataInit);
+    if (!Array.isArray(data) || !data.every(isPlainObject)) {
+      return fail(
+        "referenceData",
+        sourceLocationFromNode(call, sourceFile),
+        "data must be an array of plain objects",
+      );
+    }
+    let upsertKey: string | undefined;
+    const upsertKeyInit = obj
+      .getProperty("upsertKey")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (upsertKeyInit) {
+      upsertKey = upsertKeyInit.getLiteralValue();
+    }
+    return ok({
+      kind: "referenceData",
+      source: sourceLocationFromNode(call, sourceFile),
+      entityName,
+      data: data as readonly Record<string, unknown>[],
+      ...(upsertKey !== undefined && { upsertKey }),
+    });
+  }
+
+  // Legacy positional: r.referenceData(entity, data, options?)
+  const entityName = readNameOrRef(first);
   if (!entityName) {
     return fail(
       "referenceData",
       sourceLocationFromNode(call, sourceFile),
-      'first argument must be a string literal or an inline { name: "..." } object',
+      'first argument must be a string literal or an inline { name: "..." } object (or use the object form)',
     );
   }
   const dataArg = args[1];
@@ -784,7 +995,6 @@ export function extractReferenceData(
       "data must be an array of plain objects",
     );
   }
-  // Optional third argument: { upsertKey?: string }.
   let upsertKey: string | undefined;
   const optionsArg = args[2];
   if (optionsArg) {
@@ -937,12 +1147,94 @@ export function extractHook(
   sourceFile: SourceFile,
 ): ExtractOutput<HookPattern> {
   const args = call.getArguments();
-  const typeArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  const first = args[0];
+  if (!first) {
+    return fail(
+      "hook",
+      sourceLocationFromNode(call, sourceFile),
+      "expected at least one argument",
+    );
+  }
+
+  // Object-Form: r.hook({ type, target, handler, phase? })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const typeInit = obj
+      .getProperty("type")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!typeInit) {
+      return fail(
+        "hook",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `type` property",
+      );
+    }
+    const hookType = typeInit.getLiteralValue();
+    if (!isHookType(hookType)) {
+      return fail(
+        "hook",
+        sourceLocationFromNode(call, sourceFile),
+        `hook type "${hookType}" is not one of the lifecycle types or "validation"`,
+      );
+    }
+    const targetInit = obj
+      .getProperty("target")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!targetInit) {
+      return fail(
+        "hook",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a `target` property",
+      );
+    }
+    const target = readNameOrRefOrList(targetInit);
+    if (!target) {
+      return fail(
+        "hook",
+        sourceLocationFromNode(call, sourceFile),
+        "target must be a string literal, an inline { name } object, or an array",
+      );
+    }
+    const handlerInit = obj
+      .getProperty("handler")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!handlerInit) {
+      return fail(
+        "hook",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a `handler` property",
+      );
+    }
+    const fn = findFunctionLiteral(handlerInit);
+    if (!fn) {
+      return fail(
+        "hook",
+        sourceLocationFromNode(call, sourceFile),
+        "handler must be an inline arrow function or function expression",
+      );
+    }
+    const phase = readOptionalPhase(obj);
+    return ok({
+      kind: "hook",
+      source: sourceLocationFromNode(call, sourceFile),
+      hookType,
+      target,
+      fnBody: sourceLocationFromNode(fn, sourceFile),
+      ...(phase !== undefined && { phase }),
+    });
+  }
+
+  // Legacy positional: r.hook(type, target, fn, options?)
+  const typeArg = first.asKind(SyntaxKind.StringLiteral);
   if (!typeArg) {
     return fail(
       "hook",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal hook type",
+      "first argument must be a string literal hook type (or use the object form)",
     );
   }
   const hookType = typeArg.getLiteralValue();
@@ -996,21 +1288,107 @@ export function extractHook(
   });
 }
 
+function isEntityHookType(value: string): value is "postSave" | "preDelete" | "postDelete" {
+  return value === "postSave" || value === "preDelete" || value === "postDelete";
+}
+
 export function extractEntityHook(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<EntityHookPattern> {
   const args = call.getArguments();
-  const typeArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  const first = args[0];
+  if (!first) {
+    return fail(
+      "entityHook",
+      sourceLocationFromNode(call, sourceFile),
+      "expected at least one argument",
+    );
+  }
+
+  // Object-Form: r.entityHook({ type, entity, handler, phase? })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const typeInit = obj
+      .getProperty("type")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!typeInit) {
+      return fail(
+        "entityHook",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `type` property",
+      );
+    }
+    const hookType = typeInit.getLiteralValue();
+    if (!isEntityHookType(hookType)) {
+      return fail(
+        "entityHook",
+        sourceLocationFromNode(call, sourceFile),
+        `entity hook type must be postSave, preDelete, or postDelete (got "${hookType}")`,
+      );
+    }
+    const entityInit = obj
+      .getProperty("entity")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!entityInit) {
+      return fail(
+        "entityHook",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires an `entity` property",
+      );
+    }
+    const entityName = readNameOrRef(entityInit);
+    if (!entityName) {
+      return fail(
+        "entityHook",
+        sourceLocationFromNode(call, sourceFile),
+        "`entity` must be a string literal or inline { name } object",
+      );
+    }
+    const handlerInit = obj
+      .getProperty("handler")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!handlerInit) {
+      return fail(
+        "entityHook",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a `handler` property",
+      );
+    }
+    const fn = findFunctionLiteral(handlerInit);
+    if (!fn) {
+      return fail(
+        "entityHook",
+        sourceLocationFromNode(call, sourceFile),
+        "handler must be an inline arrow function or function expression",
+      );
+    }
+    const phase = readOptionalPhase(obj);
+    return ok({
+      kind: "entityHook",
+      source: sourceLocationFromNode(call, sourceFile),
+      hookType,
+      entityName,
+      fnBody: sourceLocationFromNode(fn, sourceFile),
+      ...(phase !== undefined && { phase }),
+    });
+  }
+
+  // Legacy positional: r.entityHook(type, entity, fn, options?)
+  const typeArg = first.asKind(SyntaxKind.StringLiteral);
   if (!typeArg) {
     return fail(
       "entityHook",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal hook type",
+      "first argument must be a string literal hook type (or use the object form)",
     );
   }
   const hookType = typeArg.getLiteralValue();
-  if (hookType !== "postSave" && hookType !== "preDelete" && hookType !== "postDelete") {
+  if (!isEntityHookType(hookType)) {
     return fail(
       "entityHook",
       sourceLocationFromNode(call, sourceFile),
@@ -1413,12 +1791,66 @@ export function extractDefineEvent(
   sourceFile: SourceFile,
 ): ExtractOutput<DefineEventPattern> {
   const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  const first = args[0];
+  if (!first) {
+    return fail(
+      "defineEvent",
+      sourceLocationFromNode(call, sourceFile),
+      "expected at least one argument",
+    );
+  }
+
+  // Object-Form: r.defineEvent({ name, schema, version? })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const nameInit = obj
+      .getProperty("name")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!nameInit) {
+      return fail(
+        "defineEvent",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `name` property",
+      );
+    }
+    const schemaInit = obj
+      .getProperty("schema")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!schemaInit) {
+      return fail(
+        "defineEvent",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a `schema` property",
+      );
+    }
+    let version: number | undefined;
+    const versionInit = obj
+      .getProperty("version")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (versionInit) {
+      const v = readDataLiteralNode(versionInit);
+      if (typeof v === "number") version = v;
+    }
+    return ok({
+      kind: "defineEvent",
+      source: sourceLocationFromNode(call, sourceFile),
+      eventName: nameInit.getLiteralValue(),
+      schemaSource: sourceLocationFromNode(schemaInit, sourceFile),
+      ...(version !== undefined && { version }),
+    });
+  }
+
+  // Legacy positional: r.defineEvent(name, schema, options?)
+  const nameArg = first.asKind(SyntaxKind.StringLiteral);
   if (!nameArg) {
     return fail(
       "defineEvent",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal event name",
+      "first argument must be a string literal event name (or use the object form)",
     );
   }
   const schemaArg = args[1];

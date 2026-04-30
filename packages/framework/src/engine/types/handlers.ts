@@ -300,7 +300,12 @@ export type AppContext = SharedContextFields & {
 // The design: handlers are the contract between features. Feature A requires
 // Feature B and talks to it through B's registered handlers — never through
 // direct imports of B's tables or internal types.
-export type HandlerContext = SharedContextFields & {
+//
+// TMap propagates the strict event-type-map through `appendEvent`. Defaults
+// to the global KumikoEventTypeMap (augmented per app via
+// `declare module "@kumiko/framework/engine"`). Code that bypasses the
+// type-map (runtime-pluggable events) uses `appendEventUnsafe`.
+export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedContextFields & {
   readonly db: TenantDb;
   readonly registry: Registry;
   /** Aktiver SessionUser des Handler-Aufrufs — Convenience-Alias zu
@@ -337,7 +342,7 @@ export type HandlerContext = SharedContextFields & {
   // wants to record a domain event alongside the auto-generated CRUD events
   // (e.g. "invoice.approved" on the same invoice stream that already carries
   // "invoice.created" + "invoice.updated").
-  readonly appendEvent: AppendEventFn;
+  readonly appendEvent: AppendEventFn<TMap>;
 
   // Escape-hatch for runtime-pluggable features without a compile-time
   // augmentation. See AppendEventUnsafeFn — same runtime as appendEvent,
@@ -497,33 +502,31 @@ export type AppendEventArgs = {
 // Typed-payload variant — used by the strict ctx.appendEvent. Keyed via
 // the discriminator type-arg so payload inference flows from `type`-literal
 // to the matching schema-payload.
-export type TypedAppendEventArgs<K extends keyof KumikoEventTypeMap> = {
+//
+// TMap is propagated as a generic parameter (not hard-coded to
+// KumikoEventTypeMap) so the constraint `K extends keyof TMap` resolves at
+// USE-site instead of definition-site. Cross-package augmentation only
+// becomes visible at use-site — the App's tsc compiles the augmentation
+// alongside its own code, so `keyof TMap` widens to include all augmented
+// event names. Hard-coding `keyof KumikoEventTypeMap` here would resolve
+// at definition-site (framework's compile) where the augmentation is
+// invisible → K = never, no strict-checking. The default = KumikoEventTypeMap
+// keeps existing call-sites zero-config.
+export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
   readonly aggregateId: string;
   readonly aggregateType: string;
   readonly type: K;
-  readonly payload: KumikoEventTypeMap[K];
+  readonly payload: TMap[K];
   readonly headers?: Readonly<Record<string, string | number | boolean>>;
 };
 
-// Two-overload form: typed first, runtime-pluggable fallback second.
-// CAVEAT — generic-constraints `<K extends keyof KumikoEventTypeMap>` are
-// resolved at DEFINITION SITE (framework's compile), where the augmentation
-// from consumer-packages isn't visible. K collapses to `never`. Strict
-// cross-package payload-checking via this overload is NOT achievable in
-// composite OR non-composite TS-projects without architecture changes.
-//
-// What works cross-package:
-//   - Direct lookup `KumikoEventTypeMap["foo"]` (use-site-resolved) ✓
-//   - Augmentation interface-merge in declared-module form ✓
-//
-// What's deferred to a follow-up sprint:
-//   - Strict ctx.appendEvent payload-check via type-map
-//   - Designer/AI-Layer can use KumikoEventTypeMap[K] for shape lookups
-//     without strict ctx.appendEvent — sufficient for read-mode + code-gen.
-export type AppendEventFn = {
-  <K extends keyof KumikoEventTypeMap>(args: TypedAppendEventArgs<K>): Promise<void>;
-  (args: AppendEventArgs): Promise<void>;
-};
+// Strict payload-checking. No fallback overload — runtime-pluggable callers
+// (where the event-type is not knowable at compile-time) use
+// AppendEventUnsafeFn instead. A two-overload form would silently accept
+// any args via the loose overload, defeating the strict-mode goal.
+export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends keyof TMap>(
+  args: TypedAppendEventArgs<TMap, K>,
+) => Promise<void>;
 
 export type AppendEventUnsafeFn = (args: AppendEventArgs) => Promise<void>;
 

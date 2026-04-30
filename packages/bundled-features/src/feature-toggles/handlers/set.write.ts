@@ -1,4 +1,15 @@
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
+
+declare module "@kumiko/framework/engine" {
+  interface KumikoEventTypeMap {
+    "feature-toggles:event:toggle-set": {
+      featureName: string;
+      enabled: boolean;
+      previousEnabled: boolean | null;
+      updatedBy: string;
+    };
+  }
+}
 import { UnprocessableError, VersionConflictError, writeFailure } from "@kumiko/framework/errors";
 import { and, eq, sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
