@@ -1878,12 +1878,90 @@ export function extractEventMigration(
   sourceFile: SourceFile,
 ): ExtractOutput<EventMigrationPattern> {
   const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  const first = args[0];
+  if (!first) {
+    return fail(
+      "eventMigration",
+      sourceLocationFromNode(call, sourceFile),
+      "expected at least one argument",
+    );
+  }
+
+  // Object-Form: r.eventMigration({ event, fromVersion, toVersion, transform })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const eventInit = obj
+      .getProperty("event")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!eventInit) {
+      return fail(
+        "eventMigration",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `event` property",
+      );
+    }
+    const fromInit = obj
+      .getProperty("fromVersion")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    const fromVersion = fromInit ? readDataLiteralNode(fromInit) : undefined;
+    if (typeof fromVersion !== "number") {
+      return fail(
+        "eventMigration",
+        sourceLocationFromNode(call, sourceFile),
+        "fromVersion must be a numeric literal",
+      );
+    }
+    const toInit = obj
+      .getProperty("toVersion")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    const toVersion = toInit ? readDataLiteralNode(toInit) : undefined;
+    if (typeof toVersion !== "number") {
+      return fail(
+        "eventMigration",
+        sourceLocationFromNode(call, sourceFile),
+        "toVersion must be a numeric literal",
+      );
+    }
+    const transformInit = obj
+      .getProperty("transform")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!transformInit) {
+      return fail(
+        "eventMigration",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a `transform` property",
+      );
+    }
+    const fn = findFunctionLiteral(transformInit);
+    if (!fn) {
+      return fail(
+        "eventMigration",
+        sourceLocationFromNode(call, sourceFile),
+        "transform must be an inline arrow function or function expression",
+      );
+    }
+    return ok({
+      kind: "eventMigration",
+      source: sourceLocationFromNode(call, sourceFile),
+      eventName: eventInit.getLiteralValue(),
+      fromVersion,
+      toVersion,
+      transformBody: sourceLocationFromNode(fn, sourceFile),
+    });
+  }
+
+  // Legacy positional: r.eventMigration(name, from, to, transform)
+  const nameArg = first.asKind(SyntaxKind.StringLiteral);
   if (!nameArg) {
     return fail(
       "eventMigration",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal event name",
+      "first argument must be a string literal event name (or use the object form)",
     );
   }
   const fromArg = args[1];
