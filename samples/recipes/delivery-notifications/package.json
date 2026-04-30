@@ -3,7 +3,7 @@
   "description": "Delivery flows plus notifications. Package tracking, minus the tracking.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*",
-    "@kumiko/bundled-features": "workspace:*"
+    "@kumiko/bundled-features": "workspace:*",
+    "@kumiko/framework": "workspace:*"
   }
 }

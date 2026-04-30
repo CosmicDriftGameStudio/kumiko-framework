@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "PORT=4175 bun --env-file=../../../.env run kumiko-dev src/app/server.ts",
-    "build": "kumiko-build"
+    "build": "bun kumiko-build"
   },
   "dependencies": {
     "@kumiko/bundled-features": "workspace:*",

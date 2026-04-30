@@ -27,3 +27,11 @@ playwright-report/
 
 # Codegen-test fixtures (created+removed per test run)
 .tmp-fixtures/
+
+# Yarn 4 (berry) — commit only the bundled yarn binary + plugins, ignore
+# install-state and the cache. Zero-installs (committing .yarn/cache)
+# deferred per docs/plans/yarn4-migration.md.
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+.pnp.*
