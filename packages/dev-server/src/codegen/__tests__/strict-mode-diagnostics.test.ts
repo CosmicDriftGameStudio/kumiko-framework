@@ -116,11 +116,7 @@ function collectFiles(dir: string): string[] {
       const full = join(d, e);
       const stat = fs.statSync(full);
       if (stat.isDirectory()) walk(full);
-      else if (
-        stat.isFile() &&
-        (e.endsWith(".ts") || e.endsWith(".tsx")) &&
-        !e.endsWith(".d.ts")
-      )
+      else if (stat.isFile() && (e.endsWith(".ts") || e.endsWith(".tsx")) && !e.endsWith(".d.ts"))
         out.push(full);
     }
   };
@@ -325,5 +321,128 @@ export const placeOrder = defineWriteHandler({
     // Good call should compile — augmentation is visible via include of
     // `.kumiko/types.generated.d.ts`.
     expect(handlerErrors).toHaveLength(0);
+  });
+
+  test("eventDef.name pattern: literal-typed name resolves to correct payload-shape", () => {
+    // Marten-Pattern: `const placed = r.defineEvent(...)` und dann
+    // `type: placed.name` im appendEvent. Das setzt voraus, dass
+    // `EventDef.name` LITERAL-typed ist (`"orders:event:placed"`, NICHT
+    // `string`) — ansonsten kollabiert der Lookup zu `string` und der
+    // strict-check verschwindet schweigend.
+    //
+    // Dieser Test fängt eine Regression in `EventDef<TPayload, TName>`
+    // (bzw. der `<const TInner>`-Inferenz in `defineFeature`/
+    // `defineEvent`) — beide müssen kooperieren, damit `placed.name`
+    // sich als Literal in den `KumikoEventTypeMap`-Schlüssel auflöst.
+    //
+    // Setup: feature.ts exportiert `placed` als const aus dem
+    // defineFeature-Setup — der Handler nutzt `placed.name` direkt.
+    const appRoot = makeAppDir();
+    write(
+      appRoot,
+      "src/feature/events.ts",
+      `import { z } from "zod";
+export const orderPlacedSchema = z.object({
+  orderId: z.string(),
+  customerId: z.string(),
+  amount: z.number(),
+});
+`,
+    );
+    write(
+      appRoot,
+      "src/feature/feature.ts",
+      `import { defineFeature } from "@kumiko/framework/engine";
+import { orderPlacedSchema } from "./events";
+
+// Exports the EventDef OUT of the setup-callback so handler files
+// can reference its literal-typed .name. The defineFeature builder
+// returns { exports } when the setup callback returns a value.
+export const ordersFeature = defineFeature("orders", (r) => ({
+  placed: r.defineEvent("placed", orderPlacedSchema),
+}));
+`,
+    );
+
+    runCodegen({ appRoot });
+
+    write(
+      appRoot,
+      "src/feature/handler-byname.ts",
+      `import { defineWriteHandler } from "../../.kumiko/define";
+import { z } from "zod";
+import { ordersFeature } from "./feature";
+
+const { placed } = ordersFeature.exports;
+
+export const placeOrder = defineWriteHandler({
+  name: "orders.placeOrder",
+  schema: z.object({}),
+  access: { roles: ["Admin"] },
+  handler: async (_event, ctx) => {
+    await ctx.appendEvent({
+      aggregateId: "x",
+      aggregateType: "order",
+      type: placed.name,
+      payload: { orderId: "o1", customerId: "c1", amount: 99 },
+    });
+    return { isSuccess: true as const, data: { id: "o1" } };
+  },
+});
+`,
+    );
+
+    const goodDiagnostics = compileApp(appRoot);
+    const goodErrors = goodDiagnostics.filter((d) =>
+      d.file?.fileName.endsWith("/feature/handler-byname.ts"),
+    );
+    if (goodErrors.length > 0) {
+      const msgs = goodErrors
+        .map((d) => `  TS${d.code}: ${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`)
+        .join("\n");
+      throw new Error(`expected handler-byname.ts to compile cleanly, got:\n${msgs}`);
+    }
+
+    // Negative-Case: bad payload (extra property) → TS2353. Der
+    // entscheidende Punkt — wenn `placed.name` zu `string` kollabiert
+    // wäre, würde TS hier eine `Record<string, unknown>` annehmen und
+    // die extra property NICHT melden. TS2353 hier beweist die
+    // literal-typed Auflösung über `.name`.
+    write(
+      appRoot,
+      "src/feature/handler-byname.ts",
+      `import { defineWriteHandler } from "../../.kumiko/define";
+import { z } from "zod";
+import { ordersFeature } from "./feature";
+
+const { placed } = ordersFeature.exports;
+
+export const placeOrder = defineWriteHandler({
+  name: "orders.placeOrder",
+  schema: z.object({}),
+  access: { roles: ["Admin"] },
+  handler: async (_event, ctx) => {
+    await ctx.appendEvent({
+      aggregateId: "x",
+      aggregateType: "order",
+      type: placed.name,
+      payload: { orderId: "o1", customerId: "c1", amount: 99, bogus: "extra" },
+    });
+    return { isSuccess: true as const, data: { id: "o1" } };
+  },
+});
+`,
+    );
+
+    const badDiagnostics = compileApp(appRoot);
+    const badErrors = badDiagnostics.filter((d) =>
+      d.file?.fileName.endsWith("/feature/handler-byname.ts"),
+    );
+    const propErrors = badErrors.filter((d) => d.code === 2353);
+    expect(propErrors.length).toBeGreaterThan(0);
+    const flattened = propErrors
+      .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"))
+      .join("\n");
+    expect(flattened).toMatch(/'bogus'/);
   });
 });

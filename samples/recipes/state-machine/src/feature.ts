@@ -21,8 +21,8 @@
 //   handlers/create.ts        — invoice:create (uses executor)
 //   handlers/transitions.ts   — the six state-change handlers
 
-import { defineFeature, setFields } from "@app/define";
 import { z } from "zod";
+import { defineFeature, setFields } from "../.kumiko/define";
 import { invoiceEntity, invoiceTable } from "./entities/invoice";
 import { eventName, INVOICE_EVENTS } from "./events";
 import { invoiceCreate } from "./handlers/create";

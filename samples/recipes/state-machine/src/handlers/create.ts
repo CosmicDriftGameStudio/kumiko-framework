@@ -7,8 +7,8 @@
 // money pair.
 
 import { createEventStoreExecutor } from "@kumiko/framework/db";
-import { defineWriteHandler } from "@app/define";
 import { z } from "zod";
+import { defineWriteHandler } from "../../.kumiko/define";
 import { invoiceEntity, invoiceTable } from "../entities/invoice";
 
 const invoiceExecutor = createEventStoreExecutor(invoiceTable, invoiceEntity, {

@@ -165,13 +165,7 @@ export function scanEvents(opts: ScanOptions): ScanResult {
 // Internal — directory walk
 // ============================================================================
 
-const SKIP_SEGMENTS = new Set([
-  "node_modules",
-  ".kumiko",
-  "dist",
-  "dist-server",
-  "__tests__",
-]);
+const SKIP_SEGMENTS = new Set(["node_modules", ".kumiko", "dist", "dist-server", "__tests__"]);
 
 function collectTsFiles(dir: string, out: string[]): void {
   let entries: string[];
@@ -262,11 +256,7 @@ function collectFromDefineEvent(
   // carries `driver-orders:event:*`, and strict-mode would reject every
   // correct call.
   const qualifiedName = `${toKebab(featureName)}:event:${toKebab(parsed.eventName)}`;
-  const schema = resolveSchemaSource(
-    parsed.schemaNode,
-    sourceFile,
-    qualifiedName,
-  );
+  const schema = resolveSchemaSource(parsed.schemaNode, sourceFile, qualifiedName);
   if (!schema) {
     warnings.push({
       file: filePath,
@@ -351,9 +341,7 @@ function resolveStringLiteralOrConst(node: Node): string | undefined {
   return undefined;
 }
 
-function resolvePropertyAccessLiteral(
-  propAccess: PropertyAccessExpression,
-): string | undefined {
+function resolvePropertyAccessLiteral(propAccess: PropertyAccessExpression): string | undefined {
   const receiver = propAccess.getExpression().asKind(SyntaxKind.Identifier);
   if (!receiver) return undefined;
   const memberName = propAccess.getName();
@@ -383,10 +371,7 @@ function resolvePropertyAccessLiteral(
  * Walk top-level statements for `const RECEIVER = { ... } [as const]`.
  * Returns the inner object-literal if found.
  */
-function findConstObject(
-  sourceFile: SourceFile,
-  receiverName: string,
-): Node | undefined {
+function findConstObject(sourceFile: SourceFile, receiverName: string): Node | undefined {
   for (const stmt of sourceFile.getVariableStatements()) {
     for (const decl of stmt.getDeclarations()) {
       if (decl.getName() !== receiverName) continue;
@@ -398,10 +383,7 @@ function findConstObject(
   return undefined;
 }
 
-function readMemberLiteral(
-  objLitNode: Node,
-  memberName: string,
-): string | undefined {
+function readMemberLiteral(objLitNode: Node, memberName: string): string | undefined {
   const objLit = objLitNode.asKind(SyntaxKind.ObjectLiteralExpression);
   if (!objLit) return undefined;
   const prop = objLit.getProperty(memberName)?.asKind(SyntaxKind.PropertyAssignment);
@@ -423,12 +405,7 @@ function resolveImportedSourceFile(
   if (!spec.startsWith(".")) return undefined;
   const fromDir = fromFile.getDirectoryPath();
   const project = fromFile.getProject();
-  const candidates = [
-    `${spec}.ts`,
-    `${spec}.tsx`,
-    `${spec}/index.ts`,
-    `${spec}/index.tsx`,
-  ];
+  const candidates = [`${spec}.ts`, `${spec}.tsx`, `${spec}/index.ts`, `${spec}/index.tsx`];
   for (const cand of candidates) {
     const abs = resolve(fromDir, cand);
     const sf = project.getSourceFile(abs);
@@ -505,7 +482,6 @@ function looksLikeZodCall(call: CallExpression): boolean {
     const innerCall = cur.asKind(SyntaxKind.CallExpression);
     if (innerCall) {
       cur = innerCall.getExpression();
-      continue;
     }
   }
   return cur.asKind(SyntaxKind.Identifier)?.getText() === "z";
@@ -545,8 +521,9 @@ export function qualifiedNameToConstName(qualifiedName: string): string {
   const withoutEventInfix = qualifiedName.replace(/:event:/g, "__");
   // Replace remaining colons + dashes with `_` and camel-case after `_`
   // so the output is identifier-legal AND visually parseable.
-  const sanitised = withoutEventInfix
-    .replace(/[^A-Za-z0-9_]+(.?)/g, (_match, next: string) => next.toUpperCase());
+  const sanitised = withoutEventInfix.replace(/[^A-Za-z0-9_]+(.?)/g, (_match, next: string) =>
+    next.toUpperCase(),
+  );
   return `_kg_${sanitised}`;
 }
 

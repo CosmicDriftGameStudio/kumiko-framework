@@ -71,9 +71,11 @@ export const myFeature = defineFeature("myFeat", (r) => {
     expect(types).toContain(`export {};`);
 
     const define = readFileSync(join(appRoot, ".kumiko", "define.ts"), "utf-8");
-    expect(define).toContain(`import "./types.generated";`);
+    expect(define).toContain(`/// <reference path="./types.generated.d.ts" />`);
     expect(define).toContain(`export function defineWriteHandler<`);
-    expect(define).toContain(`fwDefineWriteHandler<TName, TSchema, TData, KumikoEventTypeMap>(def)`);
+    expect(define).toContain(
+      `fwDefineWriteHandler<TName, TSchema, TData, KumikoEventTypeMap>(def)`,
+    );
     expect(define).toContain(`export function defineQueryHandler<`);
 
     expect(existsSync(join(appRoot, ".kumiko", "schemas.generated.ts"))).toBe(false);
@@ -134,7 +136,9 @@ export const myFeature = defineFeature("inlineFeat", (r) => {
     expect(schemas).toContain(`z.object({ id: z.string(), count: z.number() })`);
 
     const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
-    expect(types).toContain(`"inline-feat:event:inline-evt": z.infer<typeof _kg_inlineFeat__inlineEvt>;`);
+    expect(types).toContain(
+      `"inline-feat:event:inline-evt": z.infer<typeof _kg_inlineFeat__inlineEvt>;`,
+    );
     expect(types).toContain(`from "./schemas.generated"`);
   });
 

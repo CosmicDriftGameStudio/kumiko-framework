@@ -28,6 +28,7 @@
 // send notifications, post webhooks, sync external systems. The tx
 // argument is still live for the apply() if you need it.
 
+import { z } from "zod";
 import {
   createEntity,
   createEntityExecutor,
@@ -35,8 +36,7 @@ import {
   defineFeature,
   emitEvent,
   typedPayload,
-} from "@app/define";
-import { z } from "zod";
+} from "../.kumiko/define";
 
 // --- Entity ---
 

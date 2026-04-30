@@ -2,10 +2,10 @@
 // optionally guardTransition, append the domain event, return a WriteResult
 // that reflects the post-write status.
 
-import type { AccessRule, KumikoEventTypeMap } from "@app/define";
-import { defineWriteHandler, guardTransition } from "@app/define";
 import { failNotFound } from "@kumiko/framework/errors";
 import { z } from "zod";
+import type { AccessRule, KumikoEventTypeMap } from "../../.kumiko/define";
+import { defineWriteHandler, guardTransition } from "../../.kumiko/define";
 import { INVOICE_TRANSITIONS } from "../entities/invoice";
 import { ENTITY_NAME } from "../events";
 import { type InvoiceStatus, loadInvoiceState } from "../reducer";
@@ -14,9 +14,7 @@ import { type InvoiceStatus, loadInvoiceState } from "../reducer";
 // always emits an empty payload. Anyone trying to use it with a non-
 // empty-payload event-type gets caught at the call-site, not at runtime.
 type EmptyPayloadEvent = {
-  [K in keyof KumikoEventTypeMap]: KumikoEventTypeMap[K] extends Record<string, never>
-    ? K
-    : never;
+  [K in keyof KumikoEventTypeMap]: KumikoEventTypeMap[K] extends Record<string, never> ? K : never;
 }[keyof KumikoEventTypeMap];
 
 export function transitionHandler<const TEvent extends EmptyPayloadEvent>(opts: {

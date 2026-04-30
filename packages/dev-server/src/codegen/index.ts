@@ -3,15 +3,15 @@ export {
   renderInlineSchemasFile,
   renderTypesAugmentation,
 } from "./render";
-export { runCodegen, type CodegenOptions, type CodegenResult } from "./run-codegen";
+export { type CodegenOptions, type CodegenResult, runCodegen } from "./run-codegen";
 export {
   qualifiedNameToConstName,
   rewriteImportPath,
-  scanEvents,
   type ScannedEvent,
   type ScanOptions,
   type ScanResult,
   type ScanWarning,
   type SchemaSource,
+  scanEvents,
 } from "./scan-events";
 export { type WatchHandle, type WatchOptions, watchAndRegenerate } from "./watch";

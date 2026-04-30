@@ -3,9 +3,9 @@
 // little extra logic (amount-check, verb routing, dedicated forced-event)
 // and stay inline so the variation is visible at the call site.
 
-import { defineWriteHandler, guardTransition } from "@app/define";
 import { failNotFound, failUnprocessable } from "@kumiko/framework/errors";
 import { z } from "zod";
+import { defineWriteHandler, guardTransition } from "../../.kumiko/define";
 import { INVOICE_STATES, INVOICE_TRANSITIONS } from "../entities/invoice";
 import { ENTITY_NAME, eventName, INVOICE_EVENTS } from "../events";
 import { type InvoiceStatus, loadInvoiceState } from "../reducer";

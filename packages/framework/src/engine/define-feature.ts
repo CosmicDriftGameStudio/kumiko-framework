@@ -39,8 +39,8 @@ import type {
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
-  QualifiedEventName,
   ProjectionDefinition,
+  QualifiedEventName,
   QueryHandlerDef,
   QueryHandlerFn,
   RateLimitOption,
@@ -381,10 +381,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       // The runtime kebab-step (`qn(toKebab(feature), …)`) is mirrored at
       // the type-level by `QualifiedEventName<TName, TInner>` so the
       // returned `name` carries the literal qualified shape that the
-      // augmented `KumikoEventTypeMap` keys against. Cast at the type-
-      // boundary — the runtime helper is the source of truth, the generic
-      // just keeps the literal alive for downstream `eventDef.name` →
-      // ctx.appendEvent strict-checks. @cast-boundary engine-bridge
+      // augmented `KumikoEventTypeMap` keys against.
       const qualified = qn(toKebab(name), "event", toKebab(eventName));
       const version = options?.version ?? 1;
       if (!Number.isInteger(version) || version < 1) {
@@ -392,6 +389,10 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           `[Feature ${name}] defineEvent("${eventName}"): version must be a positive integer, got ${String(version)}`,
         );
       }
+      // @cast-boundary engine-bridge — runtime-string mirrors the
+      // template-literal-type via QualifiedEventName + toKebab. Both
+      // sides are tested (CamelToKebab type-tests + scan-events kebab
+      // tests), so the cast is a contract, not a typing-loss.
       const def: EventDef<TPayload, QualifiedEventName<TName, TInner>> = {
         name: qualified as QualifiedEventName<TName, TInner>,
         schema,

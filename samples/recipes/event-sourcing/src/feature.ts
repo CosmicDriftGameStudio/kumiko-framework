@@ -18,16 +18,16 @@
 //   - getAllProjectionProgress — projection lag for ops dashboards
 
 import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
+import { eq, sql } from "drizzle-orm";
+import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { z } from "zod";
 import {
   createEntity,
   createTextField,
   defineFeature,
   defineProjectionQueryHandler,
   typedPayload,
-} from "@app/define";
-import { eq, sql } from "drizzle-orm";
-import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
-import { z } from "zod";
+} from "../.kumiko/define";
 
 // --- Reducer: shared by live + snapshot-aware query handlers ---
 
