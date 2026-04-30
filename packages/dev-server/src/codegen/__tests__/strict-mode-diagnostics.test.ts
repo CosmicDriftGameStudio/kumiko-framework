@@ -220,7 +220,9 @@ export const placeOrder = defineWriteHandler({
     expect(handlerErrors).toHaveLength(0);
   });
 
-  test("unknown event-type triggers TS2322 with augmented map in error message", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
+  test("unknown event-type triggers TS2322 with augmented map in error message", {
+    timeout: STRICT_MODE_TIMEOUT_MS,
+  }, () => {
     const appRoot = setupApp();
     runCodegen({ appRoot });
 
@@ -262,7 +264,9 @@ export const placeOrder = defineWriteHandler({
     expect(flattened).toMatch(/keyof KumikoEventTypeMap|"orders:event:placed"/);
   });
 
-  test("payload-shape mismatch triggers a property-error", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
+  test("payload-shape mismatch triggers a property-error", {
+    timeout: STRICT_MODE_TIMEOUT_MS,
+  }, () => {
     const appRoot = setupApp();
     runCodegen({ appRoot });
 
@@ -304,7 +308,9 @@ export const placeOrder = defineWriteHandler({
     expect(flattened).toMatch(/'bogus'/);
   });
 
-  test("direct framework-import + augmentation-included compiles strict too", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
+  test("direct framework-import + augmentation-included compiles strict too", {
+    timeout: STRICT_MODE_TIMEOUT_MS,
+  }, () => {
     // Sanity-Check: in einem isolated app-tsc (tmp-fixture mit paths-
     // mapping zur framework-source UND .kumiko/types.generated.d.ts im
     // include-Glob) greift strict-mode auch beim direct framework-import.
@@ -356,7 +362,9 @@ export const placeOrder = defineWriteHandler({
     expect(handlerErrors).toHaveLength(0);
   });
 
-  test("eventDef.name pattern: literal-typed name resolves to correct payload-shape", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
+  test("eventDef.name pattern: literal-typed name resolves to correct payload-shape", {
+    timeout: STRICT_MODE_TIMEOUT_MS,
+  }, () => {
     // Marten pattern: `const placed = r.defineEvent(...)`, then
     // `type: placed.name` in appendEvent. This requires `EventDef.name`
     // to be LITERAL-typed (`"orders:event:placed"`, NOT `string`) —
