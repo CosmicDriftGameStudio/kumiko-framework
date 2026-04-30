@@ -16,6 +16,11 @@ playwright-report/
 .kumiko-check.log
 .kumiko-check.result
 
+# Codegen-Output (pro app generiert via `yarn kumiko codegen`).
+# Wrapper + Type-Map-Augmentation, aus den r.defineEvent-Aufrufen
+# der App synthetisiert.
+.kumiko/
+
 # Migration-Runtime-State (sample-spezifisch, pro Run regeneriert)
 .beammycar-checkpoint.json
 .beammycar-checkpoint.json.tmp

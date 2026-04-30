@@ -25,6 +25,7 @@ import {
   formatBuildResult,
   formatServerBuildResult,
 } from "../src/build";
+import { runCodegen } from "../src/codegen";
 
 const explicit = process.argv[2];
 const cwd = explicit ? resolve(process.cwd(), explicit) : process.cwd();
@@ -50,6 +51,19 @@ if (!hasClient && !hasServer) {
 }
 
 try {
+  // Codegen-Pass vor dem Build — sicherstellt dass `.kumiko/define.ts`
+  // und `types.generated.d.ts` synchron mit den r.defineEvent-Aufrufen
+  // sind. Ohne diesen Pass würde ein veraltetes Wrapper-File ein
+  // Build-Error oder schlimmer: einen Build mit stale Augmentation
+  // erzeugen, der zur Laufzeit die falschen Events erlaubt.
+  const cgResult = runCodegen({ appRoot: cwd });
+  if (cgResult.warnings.length > 0) {
+    for (const w of cgResult.warnings) {
+      // biome-ignore lint/suspicious/noConsole: CLI-Output
+      console.warn(`${yellow}!${reset} [codegen] ${w.file}:${w.line} — ${w.reason}`);
+    }
+  }
+
   if (hasClient) {
     const t0 = performance.now();
     const result = await buildProdBundle({ cwd });

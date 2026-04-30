@@ -164,6 +164,43 @@ const commands = {
     },
   },
 
+  codegen: {
+    description: "App-Codegen — schreibt .kumiko/define.ts + types.generated.d.ts aus r.defineEvent",
+    run: async () => {
+      // Schreibt den lokalen `defineWriteHandler`-Wrapper + die Augmentation
+      // der globalen `KumikoEventTypeMap`. Dev-Server + kumiko-build rufen
+      // dasselbe runCodegen() automatisch auf — diese CLI-Variante ist für
+      // CI-Checks ("ist der generated-state synchron mit den Sources?")
+      // und manuelles Debug.
+      //
+      // CWD-Resolution analog zu `build`:
+      //   1. Bun.argv[3] (explicit path)
+      //   2. $INIT_CWD (yarn-Workspace)
+      //   3. process.cwd()
+      const { runCodegen } = await import("@kumiko/dev-server");
+      const explicit = Bun.argv[3];
+      const cwd = explicit
+        ? resolvePath(explicit)
+        : (Bun.env["INIT_CWD"] ?? process.cwd());
+      const t0 = performance.now();
+      const result = runCodegen({ appRoot: cwd });
+      const ms = Math.round(performance.now() - t0);
+      console.log(
+        `\n  ✓ codegen done — ${result.eventCount} events, ${ms}ms\n` +
+          `    output: ${result.outputDir}\n` +
+          `    types: ${result.didWriteTypes ? "rewritten" : "unchanged"}\n` +
+          `    define: ${result.didWriteDefine ? "rewritten" : "unchanged"}`,
+      );
+      if (result.warnings.length > 0) {
+        console.log(`\n  ${result.warnings.length} warning(s):`);
+        for (const w of result.warnings) {
+          console.log(`    ${w.file}:${w.line} — ${w.reason}`);
+        }
+      }
+      console.log();
+    },
+  },
+
   build: {
     description: "Production-Build für eine App (dist/) — nimmt path oder $INIT_CWD",
     run: async () => {

@@ -520,29 +520,32 @@ export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
   readonly headers?: Readonly<Record<string, string | number | boolean>>;
 };
 
-// Two-overload form: typed (strict) first, fallback second.
+// Strict-only form. Single overload — `<K extends keyof TMap>` against the
+// app's pre-bound TMap. No fallback overload: apps that need runtime-pluggable
+// events (where the type-string isn't known at compile-time) reach for
+// `appendEventUnsafe`.
 //
-// EMPIRICAL CAVEAT — cross-package imported generic-fn semantics:
-// Default-TMap (`<TMap = KumikoEventTypeMap>`) collapses K to `never` when
-// the function is imported across package boundaries (the augmentation is
-// invisible at definition-site; default-substitution is eager). Strict-mode
-// only fires when an app provides a *local wrapper* that fixes TMap to its
-// own EventMap explicitly (codegen-based, planned for B.5). Until then, the
-// fallback overload silently accepts any args — keeping cross-package callers
-// (bundled-features, samples) compiling without strict-checking. The
-// strict-overload is wired and ready for the wrapper to bind.
+// Why no fallback overload:
+//   A two-overload form (`(args: AppendEventArgs)` as the second sig)
+//   silently accepts any args via the loose overload as soon as TS can't
+//   prove the strict one matches. Cross-package, the strict overload's
+//   `K = keyof TMap` collapses to `never` when called WITHOUT a local
+//   wrapper (default-substitution is eager at definition-site → augmentation
+//   invisible). Either every caller binds TMap via wrapper → strict fires;
+//   or they don't, and the fallback would silently swallow every typo.
+//   We pick the first option and force the wrong path to fail visibly.
 //
-// What's strict-checked TODAY:
-//   - Local wrappers that call defineWriteHandler<…, KumikoEventTypeMap>(…)
-//     explicitly (B.5 codegen output).
-//
-// What's NOT strict-checked yet:
-//   - Direct cross-package calls: ctx.appendEvent({ … }) in apps/bundled-
-//     features that haven't switched to the local wrapper.
-export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = {
-  <K extends keyof TMap>(args: TypedAppendEventArgs<TMap, K>): Promise<void>;
-  (args: AppendEventArgs): Promise<void>;
-};
+// How this is wired in practice:
+//   - Apps run `yarn kumiko codegen`, which writes `.kumiko/define.ts`
+//     with locally-bound `defineWriteHandler<TName, TSchema, TData,
+//     KumikoEventTypeMap>(...)` wrappers. Handlers inside those wrappers
+//     get a strict ctx.appendEvent.
+//   - Cross-package callers (e.g. bundled-features's set.write.ts) that
+//     can't afford a local wrapper reach for `ctx.appendEventUnsafe`
+//     instead — same runtime, looser type-surface.
+export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends keyof TMap>(
+  args: TypedAppendEventArgs<TMap, K>,
+) => Promise<void>;
 
 export type AppendEventUnsafeFn = (args: AppendEventArgs) => Promise<void>;
 

@@ -1,16 +1,5 @@
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
 
-declare module "@kumiko/framework/engine" {
-  interface KumikoEventTypeMap {
-    "feature-toggles:event:toggle-set": {
-      featureName: string;
-      enabled: boolean;
-      previousEnabled: boolean | null;
-      updatedBy: string;
-    };
-  }
-}
-
 import { UnprocessableError, VersionConflictError, writeFailure } from "@kumiko/framework/errors";
 import { and, eq, sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
@@ -130,7 +119,11 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
       // and filtering by payload.featureName is trivial at query time.
       // This mirrors how `config` handles the same constraint for
       // its config-changed events.
-      await ctx.appendEvent({
+      // appendEventUnsafe — bundled-features ohne lokalen Wrapper. Apps
+      // mit `yarn kumiko codegen` kriegen `.kumiko/define.ts` als strict-
+      // path; bundled-features bleibt bei der unsafe-Variante. Schema-
+      // Validation läuft trotzdem via r.defineEvent("toggle-set", ...).
+      await ctx.appendEventUnsafe({
         aggregateId: SYSTEM_TENANT_ID,
         aggregateType: FEATURE_TOGGLE_AGGREGATE_TYPE,
         type: FEATURE_TOGGLE_SET_EVENT_NAME,
