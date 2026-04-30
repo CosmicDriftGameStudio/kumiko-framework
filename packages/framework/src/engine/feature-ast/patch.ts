@@ -20,7 +20,7 @@
 // positional form get converted on replace; new patterns start
 // canonical. Schema-Version-Header is the renderer's responsibility.
 
-import { type CallExpression, Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import type { FeaturePattern, FeaturePatternKind } from "./patterns";
 import { renderPattern } from "./render";
 
@@ -91,10 +91,7 @@ export type PatternChange =
  * The function does NOT save the file — `sourceFile.saveSync()` (or the
  * caller's persistence layer) is expected to follow.
  */
-export function applyChanges(
-  sourceFile: SourceFile,
-  changes: readonly PatternChange[],
-): void {
+export function applyChanges(sourceFile: SourceFile, changes: readonly PatternChange[]): void {
   for (const change of changes) {
     switch (change.op) {
       case "add":
@@ -276,7 +273,9 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
       return true;
 
     case "entity":
-      return matchFirstArgString(call, id.entityName) || matchObjectProperty(call, "name", id.entityName);
+      return (
+        matchFirstArgString(call, id.entityName) || matchObjectProperty(call, "name", id.entityName)
+      );
     case "relation":
       // Positional: r.relation(entity, name, def) | Object: { entity, name, ... }
       if (matchFirstArgString(call, id.entityName)) {
@@ -293,7 +292,10 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
       return matchObjectProperty(call, "id", id.id);
     case "writeHandler":
     case "queryHandler":
-      return matchFirstArgString(call, id.handlerName) || matchObjectProperty(call, "name", id.handlerName);
+      return (
+        matchFirstArgString(call, id.handlerName) ||
+        matchObjectProperty(call, "name", id.handlerName)
+      );
     case "hook":
       // Positional: r.hook(type, target, fn) | Object: { type, target }
       if (matchFirstArgString(call, id.hookType)) {
@@ -316,9 +318,14 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
     case "metric":
     case "secret":
     case "claimKey":
-      return matchFirstArgString(call, id.shortName) || matchObjectProperty(call, "name", id.shortName);
+      return (
+        matchFirstArgString(call, id.shortName) || matchObjectProperty(call, "name", id.shortName)
+      );
     case "referenceData":
-      return matchFirstArgString(call, id.entityName) || matchObjectProperty(call, "entity", id.entityName);
+      return (
+        matchFirstArgString(call, id.entityName) ||
+        matchObjectProperty(call, "entity", id.entityName)
+      );
     case "useExtension":
       // Positional: r.useExtension(name, entity) | Object: { name, entity }
       if (matchFirstArgString(call, id.extensionName)) {
@@ -339,14 +346,15 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
     case "httpRoute":
       // Object form only; positional doesn't apply.
       return (
-        matchObjectProperty(call, "method", id.method) &&
-        matchObjectProperty(call, "path", id.path)
+        matchObjectProperty(call, "method", id.method) && matchObjectProperty(call, "path", id.path)
       );
     case "projection":
     case "multiStreamProjection":
       return matchObjectProperty(call, "name", id.name);
     case "defineEvent":
-      return matchFirstArgString(call, id.eventName) || matchObjectProperty(call, "name", id.eventName);
+      return (
+        matchFirstArgString(call, id.eventName) || matchObjectProperty(call, "name", id.eventName)
+      );
     case "eventMigration": {
       // Positional: r.eventMigration(name, from, to, fn)
       if (matchFirstArgString(call, id.eventName)) {
@@ -447,7 +455,7 @@ function collapsePrecedingBlankLine(sourceFile: SourceFile, startPos: number): n
   // it in the deletion range so add → remove leaves a clean file.
   const text = sourceFile.getFullText();
   if (startPos < 2) return startPos;
-  let i = startPos - 1; // \n at end of previous line
+  const i = startPos - 1; // \n at end of previous line
   if (text[i] !== "\n") return startPos;
   let j = i - 1;
   while (j >= 0 && text[j] !== "\n" && (text[j] === " " || text[j] === "\t")) j--;

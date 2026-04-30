@@ -3,6 +3,8 @@
 
 export type { ParseError, ParseResult } from "./parse";
 export { parseFeatureFile, parseSourceFile } from "./parse";
+export type { PatternChange, PatternId } from "./patch";
+export { addPattern, applyChanges, removePattern, replacePattern } from "./patch";
 export type {
   AuthClaimsPattern,
   ClaimKeyPattern,
@@ -42,8 +44,6 @@ export type {
   WriteHandlerPattern,
 } from "./patterns";
 export { getEditability } from "./patterns";
-export type { PatternChange, PatternId } from "./patch";
-export { addPattern, applyChanges, removePattern, replacePattern } from "./patch";
 export type { RenderFeatureFileInput } from "./render";
 export {
   FEATURE_FILE_VERSION,
