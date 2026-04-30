@@ -472,8 +472,45 @@ export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
 
 // --- Event Definitions ---
 
-export type EventDef<TPayload = unknown> = {
-  readonly name: string;
+/**
+ * Compile-time mirror of `engine/qualified-name.ts:toKebab` for camelCase
+ * → kebab-case. Drives the literal-type of `EventDef.name`, so that
+ * `r.defineEvent("foo", schema)` inside `defineFeature("driverOrders")`
+ * carries `name: "driver-orders:event:foo"` as a literal — strict-mode
+ * for `ctx.appendEvent({ type: eventDef.name, ... })` lights up.
+ *
+ * Limitations vs the runtime helper:
+ *   - Consecutive uppercase (`SSEBroadcast`) → `s-s-e-broadcast` here,
+ *     but `sse-broadcast` at runtime. Edge-case; a warning at codegen
+ *     would be the cleanest signal. For now: feature-names should be
+ *     camelCase OR kebab-case, never adjacent-caps.
+ *   - Dots (`foo.bar`) and other separators stay as-is.
+ *
+ * Apps that absolutely need exotic feature-names can fall back to
+ * `ctx.appendEventUnsafe` for those handlers.
+ */
+export type CamelToKebab<
+  S extends string,
+  Acc extends string = "",
+> = S extends `${infer C}${infer Rest}`
+  ? C extends Lowercase<C>
+    ? CamelToKebab<Rest, `${Acc}${C}`>
+    : Acc extends ""
+      ? CamelToKebab<Rest, Lowercase<C>>
+      : CamelToKebab<Rest, `${Acc}-${Lowercase<C>}`>
+  : Acc;
+
+/**
+ * Builds the qualified event-name from feature + inner-name in the same
+ * shape the runtime emits via `qn(toKebab(feature), "event", toKebab(inner))`.
+ */
+export type QualifiedEventName<
+  TFeature extends string,
+  TInner extends string,
+> = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`;
+
+export type EventDef<TPayload = unknown, TName extends string = string> = {
+  readonly name: TName;
   readonly schema: ZodType<TPayload>;
   // Schema generation number. Starts at 1; bumped whenever a breaking change
   // to the payload shape lands together with a matching r.eventMigration that

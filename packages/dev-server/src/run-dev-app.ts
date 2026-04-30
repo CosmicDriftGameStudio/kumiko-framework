@@ -24,7 +24,7 @@ import { TenantQueries } from "@kumiko/bundled-features/tenant";
 import type { FeatureDefinition } from "@kumiko/framework/engine";
 import type { TestStack } from "@kumiko/framework/stack";
 
-import { runCodegen } from "./codegen";
+import { watchAndRegenerate } from "./codegen";
 import { composeFeatures } from "./compose-features";
 import {
   type CreateKumikoServerOptions,
@@ -85,35 +85,17 @@ export type RunDevAppOptions = {
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
-  // Codegen-Pass am Boot — schreibt `<appRoot>/.kumiko/define.ts` +
-  // `types.generated.d.ts` aus den r.defineEvent-Aufrufen der App. Der
-  // TS-Sprachserver in der IDE merkt das beim nächsten file-touch und
-  // bietet sofort strict-checked ctx.appendEvent-Completions. Idempotent
-  // — wenn nichts geändert hat, wird kein File neu geschrieben (kein
-  // mtime-touch, kein TS-language-server-Reload).
+  // Codegen + File-Watcher — schreibt `<appRoot>/.kumiko/types.generated.d.ts`
+  // + `define.ts` aus den r.defineEvent-Aufrufen der App, einmal beim
+  // Boot UND danach bei jeder relevanten Änderung unter `<appRoot>/src/`.
+  // Idempotent (writeIfChanged) — der TS-Sprachserver kriegt nur einen
+  // Reload-Tick wenn sich tatsächlich was geändert hat.
   //
-  // App-Root ist process.cwd() (yarn-dev läuft vom App-Workspace). Wer
-  // einen anderen Root will, kann aktuell den Codegen separat über die
-  // CLI antreiben (`yarn kumiko codegen <path>`) — File-Watch-Auto-
-  // codegen läuft hier auf process.cwd(). Weil die meisten Apps das
-  // Standard-Layout nutzen, reicht das.
-  try {
-    const cgResult = runCodegen({ appRoot: process.cwd() });
-    if (cgResult.warnings.length > 0) {
-      for (const w of cgResult.warnings) {
-        console.warn(`[codegen] ${w.file}:${w.line} — ${w.reason}`);
-      }
-    }
-  } catch (err) {
-    // Codegen-Fehler dürfen den Dev-Server NICHT killen — der Dev-Mode
-    // ist tolerant gegenüber halb-fertigen Files (User editiert gerade
-    // ein r.defineEvent-Aufruf, Datei hat eine Sekunde lang invaliden
-    // Syntax). Wir loggen + machen weiter; der Watcher-Pass auf der
-    // nächsten gültigen Speicherung gleicht das aus.
-    console.warn(
-      `[codegen] failed to generate .kumiko/* — continuing with stale files: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
+  // App-Root ist process.cwd() (yarn-dev läuft vom App-Workspace). Der
+  // Watcher läuft solange der Dev-Server lebt; close() bei Shutdown
+  // wird über das createKumikoServer-Handle implizit erledigt (Bun's
+  // process-exit räumt fs.watch-handles auf).
+  watchAndRegenerate({ appRoot: process.cwd() });
 
   // Auto-mix Standard-Features im auth-mode via composeFeatures (single
   // source of truth — auch runProdApp und der per-app drizzle-Schema-

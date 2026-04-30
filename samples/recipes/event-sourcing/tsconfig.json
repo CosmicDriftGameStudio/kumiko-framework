@@ -2,15 +2,38 @@
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "paths": {
-      "@kumiko/framework/*": ["../../../packages/framework/src/*/index.ts"],
-      "@kumiko/bundled-features/*": ["../../../packages/bundled-features/src/*/index.ts"],
-      "@kumiko/dev-server": ["../../../packages/dev-server/src/index.ts"],
-      "@kumiko/dev-server/*": ["../../../packages/dev-server/src/*"]
+      "@kumiko/framework/*": [
+        "../../../packages/framework/src/*/index.ts"
+      ],
+      "@kumiko/bundled-features/*": [
+        "../../../packages/bundled-features/src/*/index.ts"
+      ],
+      "@kumiko/dev-server": [
+        "../../../packages/dev-server/src/index.ts"
+      ],
+      "@kumiko/dev-server/*": [
+        "../../../packages/dev-server/src/*"
+      ],
+      "@app/define": [
+        "./.kumiko/define.ts"
+      ],
+      "@app/*": [
+        "./.kumiko/*"
+      ]
     },
     "noEmit": true,
     "rootDir": "../../..",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["bun-types"]
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "bun-types"
+    ]
   },
-  "include": ["src", ".kumiko"]
+  "include": [
+    "src",
+    ".kumiko"
+  ]
 }

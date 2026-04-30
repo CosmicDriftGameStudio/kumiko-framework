@@ -35,7 +35,7 @@ import {
   defineFeature,
   emitEvent,
   typedPayload,
-} from "../.kumiko/define";
+} from "@app/define";
 import { z } from "zod";
 
 // --- Entity ---

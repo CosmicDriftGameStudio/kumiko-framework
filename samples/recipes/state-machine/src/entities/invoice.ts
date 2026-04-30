@@ -5,7 +5,7 @@ import {
   createSelectField,
   createTextField,
   defineTransitions,
-} from "../../.kumiko/define";
+} from "@app/define";
 
 export const INVOICE_STATES = ["draft", "sent", "paid", "cancelled"] as const;
 

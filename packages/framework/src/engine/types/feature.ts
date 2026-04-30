@@ -28,6 +28,7 @@ import type {
   EventDef,
   EventMigrationDef,
   EventUpcastFn,
+  QualifiedEventName,
   HandlerRef,
   NameOrRef,
   QueryHandlerDef,
@@ -189,7 +190,17 @@ export type FeatureDefinition = {
 
 type RefOrRefs = NameOrRef | readonly NameOrRef[];
 
-export type FeatureRegistrar = {
+/**
+ * `TFeature` is the literal feature-name from `defineFeature("foo", ...)` —
+ * default-`string` keeps every existing usage zero-config. Strict-typed
+ * features (apps that opt into the literal-name flavour) get propagated
+ * through to `defineEvent` so the returned `EventDef.name` is a literal
+ * `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`. That literal
+ * threads through `ctx.appendEvent({ type: eventDef.name, ... })`,
+ * keeping strict-mode alive even when handlers route via `eventDef.name`
+ * instead of hand-typed string literals.
+ */
+export type FeatureRegistrar<TFeature extends string = string> = {
   systemScope(): void;
   requires(...featureNames: string[]): void;
   optionalRequires(...featureNames: string[]): void;
@@ -284,11 +295,11 @@ export type FeatureRegistrar = {
   // on first registration. When you bump the payload shape, raise version
   // AND register r.eventMigration(shortName, N, N+1, transform) — the
   // framework refuses to boot if the chain from 1 → version has gaps.
-  defineEvent<TPayload>(
-    name: string,
+  defineEvent<const TInner extends string, TPayload>(
+    name: TInner,
     schema: ZodType<TPayload>,
     options?: { readonly version?: number },
-  ): EventDef<TPayload>;
+  ): EventDef<TPayload, QualifiedEventName<TFeature, TInner>>;
 
   // Register a step-wise payload transform for event-schema evolution.
   // `eventName` is the SHORT name (same as defineEvent). `toVersion` must

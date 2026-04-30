@@ -66,7 +66,7 @@ export const myFeature = defineFeature("myFeat", (r) => {
     expect(result.didWriteSchemas).toBe(false);
 
     const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
-    expect(types).toContain(`"myFeat:event:foo-happened": z.infer<typeof fooSchema>;`);
+    expect(types).toContain(`"my-feat:event:foo-happened": z.infer<typeof fooSchema>;`);
     expect(types).toContain(`import type { fooSchema }`);
     expect(types).toContain(`export {};`);
 
@@ -103,7 +103,7 @@ export const myFeature = defineFeature("objForm", (r) => {
     const result = runCodegen({ appRoot });
     expect(result.eventCount).toBe(1);
     const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
-    expect(types).toContain(`"objForm:event:bar-occurred": z.infer<typeof barSchema>;`);
+    expect(types).toContain(`"obj-form:event:bar-occurred": z.infer<typeof barSchema>;`);
   });
 
   test("inline-schema becomes a generated const in schemas.generated.ts", () => {
@@ -134,7 +134,7 @@ export const myFeature = defineFeature("inlineFeat", (r) => {
     expect(schemas).toContain(`z.object({ id: z.string(), count: z.number() })`);
 
     const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
-    expect(types).toContain(`"inlineFeat:event:inline-evt": z.infer<typeof _kg_inlineFeat__inlineEvt>;`);
+    expect(types).toContain(`"inline-feat:event:inline-evt": z.infer<typeof _kg_inlineFeat__inlineEvt>;`);
     expect(types).toContain(`from "./schemas.generated"`);
   });
 
@@ -244,8 +244,8 @@ export default defineFeature("featB", (r) => {
     const result = runCodegen({ appRoot });
     expect(result.eventCount).toBe(2);
     const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
-    expect(types).toContain(`"featA:event:evt"`);
-    expect(types).toContain(`"featB:event:evt"`);
+    expect(types).toContain(`"feat-a:event:evt"`);
+    expect(types).toContain(`"feat-b:event:evt"`);
   });
 
   test("warns + dedupes on duplicate qualifiedName", () => {

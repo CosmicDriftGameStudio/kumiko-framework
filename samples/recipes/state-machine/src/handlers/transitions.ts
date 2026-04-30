@@ -3,7 +3,7 @@
 // little extra logic (amount-check, verb routing, dedicated forced-event)
 // and stay inline so the variation is visible at the call site.
 
-import { defineWriteHandler, guardTransition } from "../../.kumiko/define";
+import { defineWriteHandler, guardTransition } from "@app/define";
 import { failNotFound, failUnprocessable } from "@kumiko/framework/errors";
 import { z } from "zod";
 import { INVOICE_STATES, INVOICE_TRANSITIONS } from "../entities/invoice";
@@ -54,7 +54,7 @@ export const invoiceMarkPaid = defineWriteHandler({
       return failUnprocessable("cannot_pay_zero_amount");
     }
 
-    await ctx.appendEventUnsafe({
+    await ctx.appendEvent({
       aggregateId: event.payload.id,
       aggregateType: ENTITY_NAME,
       type: eventName(INVOICE_EVENTS.markedPaid),
@@ -70,12 +70,18 @@ export const invoiceMarkPaid = defineWriteHandler({
 //     log still reads as a workflow step ("invoice-sent"), not a generic
 //     "status set to ...".
 
-const VERB_TO_EVENT: Record<InvoiceStatus, string> = {
+// `as const satisfies` keeps the literal-strings alive (so each value is
+// `"billing:event:invoice-..."` literally typed, not just `string`) AND
+// type-checks the shape against `Record<InvoiceStatus, string>` —
+// missing-status entries fail at compile-time. Strict-mode for
+// ctx.appendEvent kicks in because `VERB_TO_EVENT[target]` resolves to
+// a union of literal event-names, all of which are augmented keys.
+const VERB_TO_EVENT = {
   draft: eventName(INVOICE_EVENTS.reopened),
   sent: eventName(INVOICE_EVENTS.sent),
   paid: eventName(INVOICE_EVENTS.markedPaid),
   cancelled: eventName(INVOICE_EVENTS.cancelled),
-};
+} as const satisfies Record<InvoiceStatus, string>;
 
 export const invoiceUpdateStatus = defineWriteHandler({
   name: "invoice:update-status",
@@ -92,7 +98,7 @@ export const invoiceUpdateStatus = defineWriteHandler({
     if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
     const target = event.payload.changes.status;
-    await ctx.appendEventUnsafe({
+    await ctx.appendEvent({
       aggregateId: event.payload.id,
       aggregateType: ENTITY_NAME,
       type: VERB_TO_EVENT[target],
@@ -119,7 +125,7 @@ export const invoiceForceStatus = defineWriteHandler({
     const state = await loadInvoiceState(ctx, event.payload.id);
     if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
-    await ctx.appendEventUnsafe({
+    await ctx.appendEvent({
       aggregateId: event.payload.id,
       aggregateType: ENTITY_NAME,
       type: eventName(INVOICE_EVENTS.statusForced),

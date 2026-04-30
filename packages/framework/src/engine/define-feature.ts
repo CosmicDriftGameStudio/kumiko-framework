@@ -14,6 +14,7 @@ import type {
   ConfigKeyType,
   EntityDefinition,
   EntityRef,
+  EventDef,
   EventMigrationDef,
   EventUpcastFn,
   FeatureDefinition,
@@ -38,6 +39,7 @@ import type {
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
+  QualifiedEventName,
   ProjectionDefinition,
   QueryHandlerDef,
   QueryHandlerFn,
@@ -68,9 +70,17 @@ const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
 // downstream features can import (e.g. `tenantFeature.exports.config`). The
 // runtime always packs whatever setup returns into `featureDef.exports` —
 // `void` returns become `undefined` and stay invisible at the call site.
-export function defineFeature<TExports = undefined>(
-  name: string,
-  setup: (r: FeatureRegistrar) => TExports,
+//
+// `TName` (with `const` inference) captures the literal feature-name from
+// the call-site (`defineFeature("driverOrders", ...)` → TName="driverOrders").
+// The literal threads into the FeatureRegistrar so r.defineEvent's return
+// carries `name: "driver-orders:event:foo"` as a literal — strict-mode
+// for `ctx.appendEvent({ type: eventDef.name, ... })` lights up. Apps
+// that don't care can keep the default-string and use the wrapper-based
+// strict-mode (string-literal types per call-site) like before.
+export function defineFeature<const TName extends string, TExports = undefined>(
+  name: TName,
+  setup: (r: FeatureRegistrar<TName>) => TExports,
 ): FeatureDefinition & { readonly exports: TExports } {
   const requires: string[] = [];
   const optionalRequires: string[] = [];
@@ -132,7 +142,7 @@ export function defineFeature<TExports = undefined>(
     }
   }
 
-  const registrar: FeatureRegistrar = {
+  const registrar: FeatureRegistrar<TName> = {
     systemScope(): void {
       isSystemScoped = true;
     },
@@ -357,16 +367,24 @@ export function defineFeature<TExports = undefined>(
       translations = { ...translations, ...def.keys };
     },
 
-    defineEvent<TPayload>(
-      eventName: string,
+    defineEvent: <const TInner extends string, TPayload>(
+      eventName: TInner,
       schema: ZodType<TPayload>,
       options?: { readonly version?: number },
-    ) {
+    ): EventDef<TPayload, QualifiedEventName<TName, TInner>> => {
       // Return the fully-qualified event name so callers can pass it
       // straight to ctx.appendEvent without hand-building the
       // "<feature>:event:<name>" shape. Registry keeps events keyed by
       // short name — qualification is the framework's job, not the feature
       // author's.
+      //
+      // The runtime kebab-step (`qn(toKebab(feature), …)`) is mirrored at
+      // the type-level by `QualifiedEventName<TName, TInner>` so the
+      // returned `name` carries the literal qualified shape that the
+      // augmented `KumikoEventTypeMap` keys against. Cast at the type-
+      // boundary — the runtime helper is the source of truth, the generic
+      // just keeps the literal alive for downstream `eventDef.name` →
+      // ctx.appendEvent strict-checks. @cast-boundary engine-bridge
       const qualified = qn(toKebab(name), "event", toKebab(eventName));
       const version = options?.version ?? 1;
       if (!Number.isInteger(version) || version < 1) {
@@ -374,7 +392,11 @@ export function defineFeature<TExports = undefined>(
           `[Feature ${name}] defineEvent("${eventName}"): version must be a positive integer, got ${String(version)}`,
         );
       }
-      const def = { name: qualified, schema, version };
+      const def: EventDef<TPayload, QualifiedEventName<TName, TInner>> = {
+        name: qualified as QualifiedEventName<TName, TInner>,
+        schema,
+        version,
+      };
       events[eventName] = def;
       return def;
     },

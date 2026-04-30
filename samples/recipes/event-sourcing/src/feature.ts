@@ -24,7 +24,7 @@ import {
   defineFeature,
   defineProjectionQueryHandler,
   typedPayload,
-} from "../.kumiko/define";
+} from "@app/define";
 import { eq, sql } from "drizzle-orm";
 import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { z } from "zod";
@@ -257,7 +257,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       const headers: Record<string, string> = {};
       if (event.payload.geoRegion) headers.geoRegion = event.payload.geoRegion;
       if (event.payload.abTestBucket) headers.abTestBucket = event.payload.abTestBucket;
-      await ctx.appendEventUnsafe({
+      await ctx.appendEvent({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
         type: approved.name,
@@ -277,8 +277,9 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         .select()
         .from(approverDirectoryTable)
         .where(eq(approverDirectoryTable.approverId, event.payload.approverId));
-      const approverDisplayName = row?.displayName ?? `unknown:${event.payload.approverId}`;
-      await ctx.appendEventUnsafe({
+      const approverDisplayName: string =
+        (row?.displayName as string | undefined) ?? `unknown:${event.payload.approverId}`;
+      await ctx.appendEvent({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
         type: acknowledged.name,
@@ -293,7 +294,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     "invoice:pay",
     z.object({ id: z.uuid(), amountCents: z.number().int() }),
     async (event, ctx) => {
-      await ctx.appendEventUnsafe({
+      await ctx.appendEvent({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
         type: paid.name,

@@ -14,3 +14,4 @@ export {
   type ScanWarning,
   type SchemaSource,
 } from "./scan-events";
+export { type WatchHandle, type WatchOptions, watchAndRegenerate } from "./watch";

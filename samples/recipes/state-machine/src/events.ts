@@ -17,8 +17,14 @@ export const INVOICE_EVENTS = {
 } as const;
 
 // Qualifier used by the reducer to match events from the stream.
-export function eventName(short: string): string {
-  return `${FEATURE_NAME}:event:${short}`;
+// `<const TShort>` preserves the literal-string at the call-site, so
+// `eventName(INVOICE_EVENTS.sent)` carries `"billing:event:invoice-sent"`
+// as a literal type. That literal is what `ctx.appendEvent({ type, ... })`
+// strict-checks against the augmented `KumikoEventTypeMap`.
+export function eventName<const TShort extends string>(
+  short: TShort,
+): `${typeof FEATURE_NAME}:event:${TShort}` {
+  return `${FEATURE_NAME}:event:${short}` as `${typeof FEATURE_NAME}:event:${TShort}`;
 }
 
 // The auto-generated event the executor emits on create — entity name dot
