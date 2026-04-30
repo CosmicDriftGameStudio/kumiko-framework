@@ -32,8 +32,13 @@ export function transitionHandler<const TEvent extends EmptyPayloadEvent>(opts: 
       const state = await loadInvoiceState(ctx, event.payload.id);
       if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
+      // state.status carries the "missing" virtual-state for aggregates
+      // that haven't been seen yet; loadInvoiceState already filters
+      // null, so at this point we know we're past existence. Cast to
+      // InvoiceStatus for the guard — "missing" can never appear after
+      // the !state check above.
       if (!opts.skipGuard) {
-        guardTransition(INVOICE_TRANSITIONS, state.status, opts.toStatus);
+        guardTransition(INVOICE_TRANSITIONS, state.status as InvoiceStatus, opts.toStatus);
       }
 
       await ctx.appendEvent({

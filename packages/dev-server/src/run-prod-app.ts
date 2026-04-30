@@ -532,7 +532,11 @@ function buildStaticFallback(
       const filePath = `${staticDir}/${relPath}`;
       const file = await readStaticFile(filePath);
       if (file) {
-        return new Response(file.bytes, {
+        // file.bytes is Uint8Array<ArrayBufferLike>; bun-types' Response
+        // ctor narrows BodyInit to Uint8Array<ArrayBuffer>. The runtime
+        // accepts both — we cast to BodyInit here at the bun-API
+        // boundary. @cast-boundary bun-types
+        return new Response(file.bytes as unknown as BodyInit, {
           headers: { ...cacheHeadersFor(url.pathname), "content-type": file.mime },
         });
       }

@@ -48,7 +48,7 @@ export const invoiceMarkPaid = defineWriteHandler({
     const state = await loadInvoiceState(ctx, event.payload.id);
     if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
-    guardTransition(INVOICE_TRANSITIONS, state.status, "paid");
+    guardTransition(INVOICE_TRANSITIONS, state.status as InvoiceStatus, "paid");
 
     if (state.amount === 0) {
       return failUnprocessable("cannot_pay_zero_amount");
@@ -129,7 +129,7 @@ export const invoiceForceStatus = defineWriteHandler({
       aggregateId: event.payload.id,
       aggregateType: ENTITY_NAME,
       type: eventName(INVOICE_EVENTS.statusForced),
-      payload: { newStatus: event.payload.status, fromStatus: state.status },
+      payload: { newStatus: event.payload.status, fromStatus: state.status as InvoiceStatus },
     });
 
     return successResult(event.payload.id, event.payload.status, state.status);

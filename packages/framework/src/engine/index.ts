@@ -66,6 +66,7 @@ export type { ClampInfo, ResolveOptions } from "./resolve-config-or-param";
 export { resolveConfigOrParam } from "./resolve-config-or-param";
 export { runsInLane } from "./run-in";
 export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
+export type { TransitionGraph } from "./state-machine";
 export { defineTransitions, guardTransition } from "./state-machine";
 export {
   ANONYMOUS_ROLE,
@@ -78,6 +79,7 @@ export {
 // Types
 export type {
   AccessRule,
+  ActionFormScreenDefinition,
   AppContext,
   AppendEventArgs,
   AppendEventFn,
@@ -144,7 +146,11 @@ export type {
   LifecycleHookType,
   ListColumnSpec,
   ManyToManyRelation,
+  MspErrorMode,
+  MspErrorPolicy,
   MultiSelectFieldDef,
+  MultiStreamApplyFn,
+  MultiStreamProjectionDefinition,
   NameOrRef,
   NavDefinition,
   NotificationDataFn,
@@ -163,12 +169,15 @@ export type {
   PreDeleteHookFn,
   PreQueryHookFn,
   PreSaveHookFn,
+  ProjectionDefinition,
+  ProjectionTable,
   QualifiedEventName,
   QueryEvent,
   QueryHandlerDef,
   QueryHandlerFn,
   Registry,
   RelationDefinition,
+  RowAction,
   SaveContext,
   ScreenDefinition,
   ScreenSlots,
@@ -176,6 +185,7 @@ export type {
   SessionUser,
   TenantId,
   TextFieldDef,
+  ToolbarAction,
   TranslationKeys,
   TranslationsDef,
   ValidationError,

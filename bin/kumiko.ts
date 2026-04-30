@@ -107,6 +107,12 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // live, renderer, renderer-web, app). --noEmit funktioniert nicht mit
   // composite-projects (TS6310), dist-Output ist via .gitignore ignoriert.
   { name: "TypeScript", cmd: "yarn tsc -b" },
+  // Sample-Apps werden NICHT von tsc -b erfasst (sind nicht in
+  // root.references) — eigener Check pro sample workspace damit IDE-
+  // sichtbare Errors auch im check rot werden. Auto-discovery über
+  // samples/<category>/<app>/tsconfig.json: neue Apps werden ohne
+  // Konfig-Pflege gefunden.
+  { name: "TypeScript (Samples)", cmd: "bun scripts/check-app-tsc.ts" },
   { name: "Silent-Skip Guard", cmd: "bun scripts/guard-silent-skip.ts" },
   { name: "Admin-API Guard", cmd: "bun scripts/guard-admin-api.ts" },
   { name: "Unsafe-JSON-Parse Guard", cmd: "bun scripts/guard-unsafe-json-parse.ts" },

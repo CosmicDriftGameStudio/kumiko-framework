@@ -255,8 +255,8 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     }),
     async (event, ctx) => {
       const headers: Record<string, string> = {};
-      if (event.payload.geoRegion) headers.geoRegion = event.payload.geoRegion;
-      if (event.payload.abTestBucket) headers.abTestBucket = event.payload.abTestBucket;
+      if (event.payload.geoRegion) headers["geoRegion"] = event.payload.geoRegion;
+      if (event.payload.abTestBucket) headers["abTestBucket"] = event.payload.abTestBucket;
       await ctx.appendEvent({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
@@ -278,7 +278,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         .from(approverDirectoryTable)
         .where(eq(approverDirectoryTable.approverId, event.payload.approverId));
       const approverDisplayName: string =
-        (row?.displayName as string | undefined) ?? `unknown:${event.payload.approverId}`;
+        (row?.["displayName"] as string | undefined) ?? `unknown:${event.payload.approverId}`;
       await ctx.appendEvent({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
