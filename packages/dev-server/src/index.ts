@@ -32,6 +32,13 @@ export {
   type KumikoServerHandle,
   resolveStylesheet,
 } from "./create-kumiko-server";
+export type {
+  AuthoringStyle,
+  BuildFewShotCorpusOptions,
+  FewShotCorpus,
+  FewShotEntry,
+} from "./few-shot-corpus";
+export { buildFewShotCorpus } from "./few-shot-corpus";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app";
 export { runDevApp } from "./run-dev-app";
 export type {
