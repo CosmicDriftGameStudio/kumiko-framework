@@ -20,6 +20,15 @@
 //     like in the wild (Factory-style, identifier-refs) and is useful
 //     for understanding intent — but the LLM should NOT replicate
 //     this style. L2 marks legacy entries as "do not generate".
+//
+// **Why the corpus includes legacy entries but the Designer does not:**
+//   The two consumers want different slices of the same data. L2 needs
+//   counter-examples (showing the LLM what *not* to emit raises the
+//   chance of clean output), so legacy entries are kept and tagged.
+//   The Designer can only round-trip canonical-form patterns through
+//   the AST-Patcher — legacy entries would render as read-only with
+//   no edit affordance, which is worse than hiding them. So the corpus
+//   builder is permissive, and the Designer filters at read-time.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -36,6 +45,15 @@ import {
 // =============================================================================
 
 export type AuthoringStyle = "canonical" | "legacy";
+
+export type CorpusWarning = {
+  /** Repo-relative path to the file that triggered the warning. */
+  readonly sourcePath: string;
+  /** Human-readable explanation. Currently only "parser-throw" but
+   *  kept open-ended so future builders can add more (e.g.
+   *  "duplicate-id", "no-feature-name"). */
+  readonly reason: string;
+};
 
 export type FewShotEntry = {
   /** Stable id derived from the path (`samples/recipes/basic-entity`). */
@@ -80,6 +98,11 @@ export type FewShotCorpus = {
     readonly legacy: number;
   };
   readonly entries: readonly FewShotEntry[];
+  /** Files that were discovered but couldn't be turned into entries.
+   *  Surfaces parser crashes + duplicate-id collisions instead of
+   *  swallowing them — the regenerate-script reports these to the user
+   *  and the drift-test asserts the count stays constant. */
+  readonly warnings: readonly CorpusWarning[];
 };
 
 export type BuildFewShotCorpusOptions = {
@@ -95,16 +118,22 @@ export type BuildFewShotCorpusOptions = {
 
 const FEATURE_FILE_PATTERN = /(?:^|\/)(feature|.*\.feature)\.ts$/;
 
-const DEFAULT_SCAN_ROOTS_REL: readonly string[] = [
+const DEFAULT_SCAN_ROOTS: readonly string[] = [
   "samples/recipes",
   "samples/apps",
   "samples/showcases",
   "packages/bundled-features/src",
 ];
 
+// Static timestamp keeps the JSON output deterministic across CI runs —
+// the regenerate-script could overwrite this with a real timestamp,
+// but drift-tests compare structural data, not timestamps. Centralized
+// here so the build path and any future inspector use the same value.
+const STATIC_GENERATED_AT = "1970-01-01T00:00:00Z";
+
 export function buildFewShotCorpus(options: BuildFewShotCorpusOptions): FewShotCorpus {
   const repoRoot = resolve(options.repoRoot);
-  const scanRoots = (options.scanRoots ?? DEFAULT_SCAN_ROOTS_REL).map((r) => resolve(repoRoot, r));
+  const scanRoots = (options.scanRoots ?? DEFAULT_SCAN_ROOTS).map((r) => resolve(repoRoot, r));
 
   const featureFiles: string[] = [];
   for (const root of scanRoots) {
@@ -114,38 +143,66 @@ export function buildFewShotCorpus(options: BuildFewShotCorpusOptions): FewShotC
   featureFiles.sort();
 
   const entries: FewShotEntry[] = [];
+  const warnings: CorpusWarning[] = [];
+  const seenIds = new Map<string, string>();
+
   for (const filePath of featureFiles) {
-    const entry = buildEntry(filePath, repoRoot);
-    if (entry) entries.push(entry);
+    const result = buildEntry(filePath, repoRoot);
+    if (result.warning) {
+      warnings.push(result.warning);
+      continue;
+    }
+    const entry = result.entry;
+    const previousPath = seenIds.get(entry.id);
+    if (previousPath) {
+      // Two feature-files mapped to the same id. The corpus uses ids
+      // for retrieval — duplicates would silently overwrite each other
+      // in any consumer that built a Map<id, entry>. Surface as a
+      // warning, drop the second occurrence.
+      warnings.push({
+        sourcePath: entry.sourcePath,
+        reason: `duplicate-id: collides with ${previousPath}`,
+      });
+      continue;
+    }
+    seenIds.set(entry.id, entry.sourcePath);
+    entries.push(entry);
   }
 
   const canonical = entries.filter((e) => e.authoringStyle === "canonical").length;
   return {
-    // Static timestamp keeps the JSON output deterministic across CI
-    // runs — the regenerate-script overwrites this when a real refresh
-    // is intended. Drift-tests compare structural data, not timestamps.
-    generatedAt: "1970-01-01T00:00:00Z",
+    generatedAt: STATIC_GENERATED_AT,
     totals: {
       all: entries.length,
       canonical,
       legacy: entries.length - canonical,
     },
     entries,
+    warnings,
   };
 }
 
-function buildEntry(filePath: string, repoRoot: string): FewShotEntry | undefined {
+type BuildEntryResult =
+  | { readonly entry: FewShotEntry; readonly warning?: never }
+  | { readonly entry?: never; readonly warning: CorpusWarning };
+
+function buildEntry(filePath: string, repoRoot: string): BuildEntryResult {
+  const sourcePath = relative(repoRoot, filePath);
+
   let parsed: ReturnType<typeof parseFeatureFile>;
   try {
     parsed = parseFeatureFile(filePath);
-  } catch {
-    // Files that confuse ts-morph (syntax errors, IO problems) are
-    // skipped silently — they're never valid feature-files anyway.
-    return undefined;
+  } catch (err) {
+    // ts-morph couldn't read the file (syntax-error, IO problem, weird
+    // encoding). Skip the entry but record *why* — silent skip used to
+    // hide newly broken feature-files until L2 hit them.
+    const detail = err instanceof Error ? err.message : String(err);
+    return {
+      warning: { sourcePath, reason: `parser-throw: ${detail}` },
+    };
   }
 
   const rawSource = readFileSync(filePath, "utf8");
-  const sourcePath = relative(repoRoot, filePath);
   const id = pathToId(sourcePath);
 
   const pkgInfo = findPackageJson(filePath, repoRoot);
@@ -158,38 +215,44 @@ function buildEntry(filePath: string, repoRoot: string): FewShotEntry | undefine
   // SourceLocation.file is an absolute path coming out of the parser —
   // strip it to repo-relative so the corpus diff stays stable across
   // machines / CI runners. Same for ParseError.source.file.
-  const patterns = parsed.patterns.map((p) => relativizeSources(p, repoRoot));
+  const patterns = parsed.patterns.map((p) => relativizeSources(p, repoRoot) as FeaturePattern);
   const parseErrors = parsed.errors.map((e) => ({
     ...e,
     source: { ...e.source, file: relative(repoRoot, e.source.file) },
   }));
 
   return {
-    id,
-    sourcePath,
-    packageJsonPath: pkgInfo?.relPath,
-    packageName: pkgInfo?.name,
-    description: pkgInfo?.description,
-    featureName: parsed.featureName,
-    tags,
-    patternsByKind,
-    patterns,
-    parseErrors,
-    authoringStyle,
-    rawSource,
+    entry: {
+      id,
+      sourcePath,
+      packageJsonPath: pkgInfo?.relPath,
+      packageName: pkgInfo?.name,
+      description: pkgInfo?.description,
+      featureName: parsed.featureName,
+      tags,
+      patternsByKind,
+      patterns,
+      parseErrors,
+      authoringStyle,
+      rawSource,
+    },
   };
 }
 
 /**
- * Recursively walk a parsed pattern and rewrite every nested
- * SourceLocation's `file` field to be repo-relative. Identifies
- * SourceLocation by structural shape (`{ file, start, end, raw }`)
- * rather than by type-tag — the parsed objects are plain JSON-ish at
- * this point and a discriminator would complicate the renderer.
+ * Recursively walk a value and rewrite every nested SourceLocation's
+ * `file` field to be repo-relative. Identifies SourceLocation by
+ * structural shape (`{ file, start, end, raw }`) rather than by
+ * type-tag — the parsed objects are plain JSON-ish at this point and
+ * a discriminator would complicate the renderer.
+ *
+ * Typed `unknown → unknown` so the walker stays honest about what it
+ * sees. The single boundary cast lives at the call site
+ * (`as FeaturePattern`) where the input contract is known.
  */
-function relativizeSources<T>(value: T, repoRoot: string): T {
+function relativizeSources(value: unknown, repoRoot: string): unknown {
   if (Array.isArray(value)) {
-    return value.map((v) => relativizeSources(v, repoRoot)) as unknown as T;
+    return value.map((v) => relativizeSources(v, repoRoot));
   }
   if (value && typeof value === "object") {
     const obj = value as Record<string, unknown>;
@@ -199,13 +262,13 @@ function relativizeSources<T>(value: T, repoRoot: string): T {
       typeof obj["start"] === "object" &&
       typeof obj["end"] === "object"
     ) {
-      return { ...obj, file: relative(repoRoot, obj["file"]) } as unknown as T;
+      return { ...obj, file: relative(repoRoot, obj["file"]) };
     }
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj)) {
       out[k] = relativizeSources(v, repoRoot);
     }
-    return out as unknown as T;
+    return out;
   }
   return value;
 }
@@ -220,7 +283,7 @@ function relativizeSources<T>(value: T, repoRoot: string): T {
  * id reads like the canonical short name (`basic-entity`,
  * `bundled-features/auth-email-password`).
  */
-function pathToId(sourcePath: string): string {
+export function pathToId(sourcePath: string): string {
   return sourcePath
     .replace(/^(samples|packages)\//, "")
     .replace(/\/src\/feature\.ts$/, "")

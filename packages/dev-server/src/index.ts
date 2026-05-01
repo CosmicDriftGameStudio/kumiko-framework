@@ -35,10 +35,11 @@ export {
 export type {
   AuthoringStyle,
   BuildFewShotCorpusOptions,
+  CorpusWarning,
   FewShotCorpus,
   FewShotEntry,
 } from "./few-shot-corpus";
-export { buildFewShotCorpus } from "./few-shot-corpus";
+export { buildFewShotCorpus, pathToId } from "./few-shot-corpus";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app";
 export { runDevApp } from "./run-dev-app";
 export type {
