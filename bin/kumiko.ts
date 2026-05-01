@@ -391,6 +391,34 @@ const commands = {
     },
   },
 
+  // CI-only Subcommands — splitten FAST_CHECK_STEPS auf parallele
+  // GitHub-Actions-Jobs. Trade-off zur Single-`kumiko check`-CLI: in CI
+  // wall-time-halbieren via Job-Parallelismus, lokal bleibt `kumiko
+  // check` weiter der single-call-aggregator.
+  //
+  // Drift-Schutz: ci:guards rennt FAST_CHECK_STEPS minus der explizit
+  // benannten Lint/TSC-Steps. Neue Guards in FAST_CHECK_STEPS landen
+  // automatisch im CI-guards-Job, ohne dass man ci.yml anfassen muss.
+  "ci:guards": {
+    description: "CI-only — alle Guards/Audits aus FAST_CHECK_STEPS außer Lint/TSC (parallel)",
+    run: async () => {
+      // Lint und TSC laufen in eigenen CI-Jobs — hier raus, sonst
+      // doppelter Aufwand. Diese drei Namen sind die einzige Stelle
+      // an der die Aufteilung manuell definiert wird; alles andere
+      // wird automatisch erfasst.
+      const SPLIT_OUT = new Set(["Biome", "TypeScript", "TypeScript (Samples)"]);
+      const guards = FAST_CHECK_STEPS.filter((s) => !SPLIT_OUT.has(s.name));
+      console.log(`--- ${guards.length} guards (parallel, pool=6) ---`);
+      const results = await runPoolBuffered(guards, 6, "/dev/null");
+      const allGood = results.every((r) => r.ok);
+      console.log(allGood ? "\nGuards grün." : "\nGuards rot:");
+      for (const r of results) {
+        console.log(`  ${r.ok ? "PASS" : "FAIL"} ${r.name}`);
+      }
+      if (!allGood) process.exit(1);
+    },
+  },
+
   migrate: {
     description:
       "DB-Schema (per-app) migrieren — generate-schema | generate | apply | validate | status | drop",
