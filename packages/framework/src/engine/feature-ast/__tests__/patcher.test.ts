@@ -273,6 +273,151 @@ describe("FeaturePatcher — symmetric ops (replace / remove / apply)", () => {
   });
 });
 
+describe("FeaturePatcher — coverage for the remaining typed adds", () => {
+  test("addOptionalRequires + addReadsConfig: object-form like addRequires", () => {
+    const sf = makeSourceFile(STARTER);
+    const p = createFeaturePatcher(sf);
+    p.addOptionalRequires({ features: ["analytics"] });
+    p.addReadsConfig({ keys: ["billing:plan"] });
+    const result = parseSourceFile(sf);
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toMatchObject([
+      { kind: "optionalRequires", featureNames: ["analytics"] },
+      { kind: "readsConfig", qualifiedKeys: ["billing:plan"] },
+    ]);
+  });
+
+  test("addNav + addWorkspace + addScreen pass definition through", () => {
+    const sf = makeSourceFile(STARTER);
+    const p = createFeaturePatcher(sf);
+    p.addNav({ definition: { id: "tasks", label: "Tasks", screen: "feat:screen:list" } });
+    p.addWorkspace({ definition: { id: "personal", label: "Personal" } });
+    p.addScreen({
+      definition: {
+        id: "list",
+        type: "entityList",
+        entity: "task",
+        columns: ["title"],
+      } as never,
+    });
+    const result = parseSourceFile(sf);
+    expect(result.errors).toEqual([]);
+    expect(result.patterns.map((pp) => pp.kind)).toEqual(["nav", "workspace", "screen"]);
+  });
+
+  test("addConfig + addTranslations: keys-bearing objects", () => {
+    const sf = makeSourceFile(STARTER);
+    const p = createFeaturePatcher(sf);
+    p.addConfig({
+      keys: { maxItems: { type: "number", default: 100 } as never },
+    });
+    p.addTranslations({ keys: { en: { hello: "Hi" } } });
+    const result = parseSourceFile(sf);
+    expect(result.errors).toEqual([]);
+    expect(result.patterns.map((pp) => pp.kind)).toEqual(["config", "translations"]);
+  });
+
+  test("addAuthClaims wraps the handler-source as a closure", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addAuthClaims({
+      handlerSource: 'async (user, ctx) => ({ teamId: "t1" })',
+    });
+    const result = parseSourceFile(sf);
+    expect(result.errors).toEqual([]);
+    const ac = result.patterns.find((pp) => pp.kind === "authClaims");
+    expect(ac).toMatchObject({ kind: "authClaims" });
+    if (ac?.kind === "authClaims") {
+      expect(ac.fnBody.raw).toContain("teamId");
+    }
+  });
+
+  test("addHttpRoute: method + path + handler", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addHttpRoute({
+      method: "GET",
+      path: "/health",
+      handlerSource: "async (c) => c.json({ ok: true })",
+    });
+    const result = parseSourceFile(sf);
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "httpRoute",
+      method: "GET",
+      path: "/health",
+    });
+  });
+
+  test("addProjection + addMultiStreamProjection: name + applyBodies-Map", () => {
+    const sf = makeSourceFile(STARTER);
+    const p = createFeaturePatcher(sf);
+    p.addProjection({
+      name: "taskSummary",
+      sourceEntity: "task",
+      applySources: { "todo:event:created": "async (event, ctx) => {}" },
+    });
+    p.addMultiStreamProjection({
+      name: "tenantTaskCount",
+      applySources: { "todo:event:created": "async (event, ctx) => {}" },
+    });
+    const result = parseSourceFile(sf);
+    expect(result.errors).toEqual([]);
+    expect(result.patterns.map((pp) => pp.kind)).toEqual(["projection", "multiStreamProjection"]);
+  });
+
+  test("addJob: name + options + handler routed correctly", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addJob({
+      name: "cleanupExpired",
+      options: { schedule: { cron: "0 3 * * *" } } as never,
+      handlerSource: 'async (ctx) => { console.log("cleanup"); }',
+    });
+    const result = parseSourceFile(sf);
+    expect(result.errors).toEqual([]);
+    const job = result.patterns.find((pp) => pp.kind === "job");
+    expect(job).toMatchObject({ kind: "job", jobName: "cleanupExpired" });
+  });
+
+  test("addNotification: trigger + recipient + data + templates", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addNotification({
+      name: "taskAssigned",
+      trigger: { on: "task" },
+      recipientSource: "async (event, ctx) => []",
+      dataSource: 'async (event, ctx) => ({ title: "x" })',
+      templates: {
+        email: 'async (event, ctx, data) => ({ subject: "x", body: "y" })',
+      },
+    });
+    const result = parseSourceFile(sf);
+    expect(result.errors).toEqual([]);
+    const n = result.patterns.find((pp) => pp.kind === "notification");
+    expect(n).toMatchObject({
+      kind: "notification",
+      notificationName: "taskAssigned",
+      trigger: { on: "task" },
+    });
+    if (n?.kind === "notification") {
+      expect(n.templates?.["email"]?.raw).toContain("subject");
+    }
+  });
+
+  test("addUseExtension: name + entity + optional options", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addUseExtension({
+      extension: "auditLog",
+      entity: "task",
+      options: { level: "verbose" },
+    });
+    const result = parseSourceFile(sf);
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "useExtension",
+      extensionName: "auditLog",
+      entityName: "task",
+    });
+  });
+});
+
 describe("FeaturePatcher — AI workflow simulation", () => {
   // Mimics what the AI-Builder would emit as a sequence of method calls
   // for "Create a task feature with title + done field, a list query, and

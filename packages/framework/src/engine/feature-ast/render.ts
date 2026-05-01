@@ -421,8 +421,10 @@ function renderHttpRoute(p: HttpRoutePattern): string {
 function renderProjection(p: ProjectionPattern): string {
   const lines: string[] = ["r.projection({"];
   lines.push(`  name: ${JSON.stringify(p.name)},`);
+  // ProjectionPattern.sourceEntity is the typed field; the runtime
+  // r.projection({...}) call uses `source` (matches ProjectionDefinition).
   lines.push(
-    `  sourceEntity: ${renderValue(typeof p.sourceEntity === "string" ? p.sourceEntity : [...p.sourceEntity])},`,
+    `  source: ${renderValue(typeof p.sourceEntity === "string" ? p.sourceEntity : [...p.sourceEntity])},`,
   );
   lines.push("  apply: {");
   for (const [eventType, loc] of Object.entries(p.applyBodies)) {

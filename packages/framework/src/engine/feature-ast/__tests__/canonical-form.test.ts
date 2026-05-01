@@ -116,6 +116,64 @@ defineFeature("todoList", (r) => {
     entity: "task",
     columns: ["title", "priority", "done"],
   });
+
+  // --- The remaining 12 pattern-kinds — ensures full canonical-form coverage. ---
+
+  r.optionalRequires({ features: ["analytics"] });
+
+  r.readsConfig({ keys: ["billing:plan"] });
+
+  r.systemScope();
+
+  r.useExtension({ name: "auditLog", entity: "task" });
+
+  r.eventMigration({
+    event: "taskCompleted",
+    fromVersion: 1,
+    toVersion: 2,
+    transform: (old) => ({ ...old, done: true }),
+  });
+
+  r.job({
+    name: "cleanupExpired",
+    schedule: { cron: "0 3 * * *" },
+    handler: async (ctx) => {
+      console.log("cleanup");
+    },
+  });
+
+  r.notification({
+    name: "taskAssigned",
+    trigger: { on: "task" },
+    recipient: async (event, ctx) => [],
+    data: async (event, ctx) => ({ title: "x" }),
+    templates: {
+      email: async (event, ctx, data) => ({ subject: "x", body: "y" }),
+    },
+  });
+
+  r.authClaims(async (user, ctx) => ({ teamId: "t1" }));
+
+  r.httpRoute({
+    method: "GET",
+    path: "/health",
+    handler: async (c) => c.json({ ok: true }),
+  });
+
+  r.projection({
+    name: "taskSummary",
+    source: "task",
+    apply: {
+      "todo:event:created": async (event, ctx) => {},
+    },
+  });
+
+  r.multiStreamProjection({
+    name: "tenantTaskCount",
+    apply: {
+      "todo:event:created": async (event, ctx) => {},
+    },
+  });
 });
 `;
 
@@ -141,27 +199,40 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     expect(unknowns).toEqual([]);
   });
 
-  test("alle 18 Pattern-Kinds sind erfasst", () => {
+  test("alle 28 Pattern-Kinds sind erfasst", () => {
     const kinds: ReadonlySet<string> = new Set(result.patterns.map((p) => p.kind));
     const expected = [
+      // Static
       "requires",
+      "optionalRequires",
+      "readsConfig",
+      "systemScope",
       "toggleable",
       "entity",
       "relation",
       "config",
       "translations",
-      "defineEvent",
-      "writeHandler",
-      "queryHandler",
-      "hook",
-      "entityHook",
       "metric",
       "secret",
       "claimKey",
       "referenceData",
+      "useExtension",
       "nav",
       "workspace",
+      // Mixed
       "screen",
+      "writeHandler",
+      "queryHandler",
+      "hook",
+      "entityHook",
+      "job",
+      "notification",
+      "authClaims",
+      "httpRoute",
+      "projection",
+      "multiStreamProjection",
+      "defineEvent",
+      "eventMigration",
     ];
     for (const e of expected) {
       expect(kinds.has(e), `expected kind "${e}"`).toBe(true);
@@ -236,5 +307,110 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
       kind: "requires",
       featureNames: ["auth", "tenant"],
     });
+  });
+
+  test("optionalRequires: featureNames aus features-Array", () => {
+    const opt = result.patterns.find((p) => p.kind === "optionalRequires");
+    expect(opt).toMatchObject({
+      kind: "optionalRequires",
+      featureNames: ["analytics"],
+    });
+  });
+
+  test("readsConfig: qualifiedKeys aus keys-Array", () => {
+    const rc = result.patterns.find((p) => p.kind === "readsConfig");
+    expect(rc).toMatchObject({
+      kind: "readsConfig",
+      qualifiedKeys: ["billing:plan"],
+    });
+  });
+
+  test("useExtension: name + entity aus Object-Form", () => {
+    const ue = result.patterns.find((p) => p.kind === "useExtension");
+    expect(ue).toMatchObject({
+      kind: "useExtension",
+      extensionName: "auditLog",
+      entityName: "task",
+    });
+  });
+
+  test("eventMigration: event + fromVersion + toVersion aus Object-Form", () => {
+    const em = result.patterns.find((p) => p.kind === "eventMigration");
+    expect(em).toMatchObject({
+      kind: "eventMigration",
+      eventName: "taskCompleted",
+      fromVersion: 1,
+      toVersion: 2,
+    });
+  });
+
+  test("job: name + handlerBody.raw enthält den Closure-Body", () => {
+    const job = result.patterns.find((p) => p.kind === "job");
+    expect(job).toMatchObject({ kind: "job", jobName: "cleanupExpired" });
+    if (job?.kind === "job") {
+      expect(job.handlerBody.raw).toContain("cleanup");
+    }
+  });
+
+  test("notification: name + trigger.on + body-spans", () => {
+    const n = result.patterns.find((p) => p.kind === "notification");
+    expect(n).toMatchObject({
+      kind: "notification",
+      notificationName: "taskAssigned",
+      trigger: { on: "task" },
+    });
+    if (n?.kind === "notification") {
+      expect(n.recipientBody.raw).toContain("event");
+      expect(n.dataBody.raw).toContain("title");
+      expect(n.templates?.["email"]?.raw).toContain("subject");
+    }
+  });
+
+  test("authClaims: fnBody.raw enthält den Handler-Body", () => {
+    const ac = result.patterns.find((p) => p.kind === "authClaims");
+    expect(ac).toMatchObject({ kind: "authClaims" });
+    if (ac?.kind === "authClaims") {
+      expect(ac.fnBody.raw).toContain("teamId");
+    }
+  });
+
+  test("httpRoute: method + path + handlerBody-Span", () => {
+    const route = result.patterns.find((p) => p.kind === "httpRoute");
+    expect(route).toMatchObject({
+      kind: "httpRoute",
+      method: "GET",
+      path: "/health",
+    });
+    if (route?.kind === "httpRoute") {
+      expect(route.handlerBody.raw).toContain("ok: true");
+    }
+  });
+
+  test("projection: name + sourceEntity + applyBodies-Map", () => {
+    const proj = result.patterns.find((p) => p.kind === "projection");
+    expect(proj).toMatchObject({
+      kind: "projection",
+      name: "taskSummary",
+      sourceEntity: "task",
+    });
+    if (proj?.kind === "projection") {
+      expect(Object.keys(proj.applyBodies)).toContain("todo:event:created");
+    }
+  });
+
+  test("multiStreamProjection: name + applyBodies", () => {
+    const msp = result.patterns.find((p) => p.kind === "multiStreamProjection");
+    expect(msp).toMatchObject({
+      kind: "multiStreamProjection",
+      name: "tenantTaskCount",
+    });
+    if (msp?.kind === "multiStreamProjection") {
+      expect(Object.keys(msp.applyBodies)).toContain("todo:event:created");
+    }
+  });
+
+  test("systemScope: kind-only marker", () => {
+    const ss = result.patterns.find((p) => p.kind === "systemScope");
+    expect(ss).toMatchObject({ kind: "systemScope" });
   });
 });

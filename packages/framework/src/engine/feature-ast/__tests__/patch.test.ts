@@ -9,6 +9,7 @@ import { Project, type SourceFile } from "ts-morph";
 import { describe, expect, test } from "vitest";
 import { parseSourceFile } from "../parse";
 import { addPattern, applyChanges, type PatternId, removePattern, replacePattern } from "../patch";
+import { createFeaturePatcher } from "../patcher";
 import type { FeaturePattern } from "../patterns";
 
 const STARTER = `
@@ -226,6 +227,109 @@ function unrelatedHelper() {
     expect(text).toContain("// Comment between entity and metric");
     expect(text).toContain("function unrelatedHelper()");
     expect(text).toContain('SHARED_HELPER = "computed-at-module-init"');
+  });
+});
+
+describe("patch coverage for the remaining pattern-kinds", () => {
+  test("add + remove via PatternId for httpRoute (method+path key)", () => {
+    const sf = makeSourceFile(STARTER);
+    const patcher = createFeaturePatcher(sf);
+    patcher.addHttpRoute({
+      method: "GET",
+      path: "/health",
+      handlerSource: "async (c) => c.json({ ok: true })",
+    });
+    expect(parseSourceFile(sf).patterns).toHaveLength(3);
+    removePattern(sf, { kind: "httpRoute", method: "GET", path: "/health" });
+    const after = parseSourceFile(sf);
+    expect(after.patterns.find((p) => p.kind === "httpRoute")).toBeUndefined();
+  });
+
+  test("add + remove via PatternId for projection (name key)", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addProjection({
+      name: "summary",
+      sourceEntity: "item",
+      applySources: { "todo:event:created": "async (event, ctx) => {}" },
+    });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "projection")).toBeDefined();
+    removePattern(sf, { kind: "projection", name: "summary" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "projection")).toBeUndefined();
+  });
+
+  test("add + remove via PatternId for multiStreamProjection", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addMultiStreamProjection({
+      name: "tenantSummary",
+      applySources: { "todo:event:created": "async (event, ctx) => {}" },
+    });
+    removePattern(sf, { kind: "multiStreamProjection", name: "tenantSummary" });
+    expect(
+      parseSourceFile(sf).patterns.find((p) => p.kind === "multiStreamProjection"),
+    ).toBeUndefined();
+  });
+
+  test("add + remove via PatternId for useExtension (name+entity key)", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addUseExtension({ extension: "auditLog", entity: "item" });
+    removePattern(sf, {
+      kind: "useExtension",
+      extensionName: "auditLog",
+      entityName: "item",
+    });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "useExtension")).toBeUndefined();
+  });
+
+  test("add + remove via PatternId for notification (name key)", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addNotification({
+      name: "itemCreated",
+      trigger: { on: "item" },
+      recipientSource: "async (event, ctx) => []",
+      dataSource: "async (event, ctx) => ({})",
+    });
+    removePattern(sf, { kind: "notification", notificationName: "itemCreated" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "notification")).toBeUndefined();
+  });
+
+  test("add + remove via PatternId for authClaims (singleton key)", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addAuthClaims({
+      handlerSource: 'async (user, ctx) => ({ teamId: "t1" })',
+    });
+    removePattern(sf, { kind: "authClaims" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "authClaims")).toBeUndefined();
+  });
+
+  test("add + remove via PatternId for eventMigration (event+versions key)", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addEventMigration({
+      event: "itemCreated",
+      fromVersion: 1,
+      toVersion: 2,
+      transformSource: "(old) => old",
+    });
+    removePattern(sf, {
+      kind: "eventMigration",
+      eventName: "itemCreated",
+      fromVersion: 1,
+      toVersion: 2,
+    });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "eventMigration")).toBeUndefined();
+  });
+});
+
+describe("singleton-pattern guards", () => {
+  test("findCallForId throws when a singleton-kind appears twice", () => {
+    const file = `
+import { defineFeature } from "@kumiko/framework/engine";
+defineFeature("dup", (r) => {
+  r.systemScope();
+  r.systemScope();
+});
+`;
+    const sf = makeSourceFile(file);
+    expect(() => removePattern(sf, { kind: "systemScope" })).toThrow(/singleton/);
   });
 });
 

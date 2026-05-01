@@ -1030,12 +1030,81 @@ export function extractUseExtension(
   sourceFile: SourceFile,
 ): ExtractOutput<UseExtensionPattern> {
   const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  const first = args[0];
+  if (!first) {
+    return fail(
+      "useExtension",
+      sourceLocationFromNode(call, sourceFile),
+      "expected at least one argument",
+    );
+  }
+
+  // Object-Form: r.useExtension({ name, entity, options? })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const nameInit = obj
+      .getProperty("name")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!nameInit) {
+      return fail(
+        "useExtension",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `name` property",
+      );
+    }
+    const entityInit = obj
+      .getProperty("entity")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!entityInit) {
+      return fail(
+        "useExtension",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires an `entity` property",
+      );
+    }
+    const entityName = readNameOrRef(entityInit);
+    if (!entityName) {
+      return fail(
+        "useExtension",
+        sourceLocationFromNode(call, sourceFile),
+        '`entity` must be a string literal or `{ name: "..." }` ref',
+      );
+    }
+    let options: Readonly<Record<string, unknown>> | undefined;
+    const optionsInit = obj
+      .getProperty("options")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (optionsInit) {
+      const parsed = readDataLiteralNode(optionsInit);
+      if (!isPlainObject(parsed)) {
+        return fail(
+          "useExtension",
+          sourceLocationFromNode(call, sourceFile),
+          "options could not be read as a plain object",
+        );
+      }
+      options = parsed;
+    }
+    return ok({
+      kind: "useExtension",
+      source: sourceLocationFromNode(call, sourceFile),
+      extensionName: nameInit.getLiteralValue(),
+      entityName,
+      ...(options !== undefined && { options }),
+    });
+  }
+
+  // Legacy positional: r.useExtension(name, entity, options?)
+  const nameArg = first.asKind(SyntaxKind.StringLiteral);
   if (!nameArg) {
     return fail(
       "useExtension",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal extension name",
+      "first argument must be a string literal extension name (or use the object form)",
     );
   }
   const entityRefArg = args[1];
@@ -1054,7 +1123,6 @@ export function extractUseExtension(
       'second argument must be a string literal or an inline { name: "..." } object',
     );
   }
-  // Optional third argument: options object.
   const optionsArg = args[2];
   let options: Readonly<Record<string, unknown>> | undefined;
   if (optionsArg) {
@@ -1658,12 +1726,83 @@ export function extractJob(
   sourceFile: SourceFile,
 ): ExtractOutput<JobPattern> {
   const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
+  const first = args[0];
+  if (!first) {
+    return fail("job", sourceLocationFromNode(call, sourceFile), "expected at least one argument");
+  }
+
+  // Object-Form: r.job({ name, ...options, handler })
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj && args.length === 1) {
+    const nameInit = obj
+      .getProperty("name")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!nameInit) {
+      return fail(
+        "job",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `name` property",
+      );
+    }
+    const handlerInit = obj
+      .getProperty("handler")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!handlerInit) {
+      return fail(
+        "job",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a `handler` property",
+      );
+    }
+    const fn = findFunctionLiteral(handlerInit);
+    if (!fn) {
+      return fail(
+        "job",
+        sourceLocationFromNode(call, sourceFile),
+        "handler must be an inline arrow function or function expression",
+      );
+    }
+    // Read every property except `name` and `handler` as the options
+    // bag — `handler` is a closure (not JSON-readable) and `name` lives
+    // separately on the pattern. Walk properties one-by-one so handler
+    // doesn't crash readDataLiteralNode.
+    const optionsBag: Record<string, unknown> = {};
+    for (const prop of obj.getProperties()) {
+      const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
+      if (!propAssign) continue;
+      const key = readPropertyKey(propAssign);
+      if (key === "name" || key === "handler") continue;
+      const init = propAssign.getInitializer();
+      if (!init) continue;
+      const value = readDataLiteralNode(init);
+      if (value === undefined) {
+        return fail(
+          "job",
+          sourceLocationFromNode(call, sourceFile),
+          `option "${key}" could not be read as a plain value`,
+        );
+      }
+      optionsBag[key] = value;
+    }
+    return ok({
+      kind: "job",
+      source: sourceLocationFromNode(call, sourceFile),
+      jobName: nameInit.getLiteralValue(),
+      options: optionsBag as Omit<JobDefinition, "name" | "handler">,
+      handlerBody: sourceLocationFromNode(fn, sourceFile),
+    });
+  }
+
+  // Legacy positional: r.job(name, options, handler)
+  const nameArg = first.asKind(SyntaxKind.StringLiteral);
   if (!nameArg) {
     return fail(
       "job",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal job name",
+      "first argument must be a string literal job name (or use the object form)",
     );
   }
   const optionsArg = args[1];
@@ -2013,22 +2152,60 @@ export function extractNotification(
   sourceFile: SourceFile,
 ): ExtractOutput<NotificationPattern> {
   const args = call.getArguments();
-  const nameArg = args[0]?.asKind(SyntaxKind.StringLiteral);
-  if (!nameArg) {
+  const first = args[0];
+  if (!first) {
     return fail(
       "notification",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal notification name",
+      "expected at least one argument",
     );
   }
-  const defObj = args[1]?.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (!defObj) {
-    return fail(
-      "notification",
-      sourceLocationFromNode(call, sourceFile),
-      "second argument must be an inline definition object",
-    );
+
+  // Two argument shapes accepted:
+  //   (a) Legacy positional: r.notification("name", { trigger, recipient, data, templates? })
+  //   (b) Canonical Object-Form: r.notification({ name, trigger, recipient, data, templates? })
+  // The body code below is shape-agnostic — `nameLiteral` carries the
+  // notification's name, `defObj` is the object literal that holds the
+  // trigger/recipient/data/templates.
+  let nameLiteral: ReturnType<typeof first.asKind<SyntaxKind.StringLiteral>>;
+  let defObj: ReturnType<typeof first.asKind<SyntaxKind.ObjectLiteralExpression>>;
+
+  const firstObj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (firstObj && args.length === 1) {
+    // Object-Form
+    nameLiteral = firstObj
+      .getProperty("name")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
+    if (!nameLiteral) {
+      return fail(
+        "notification",
+        sourceLocationFromNode(call, sourceFile),
+        "object form requires a string-literal `name` property",
+      );
+    }
+    defObj = firstObj;
+  } else {
+    // Legacy positional
+    nameLiteral = first.asKind(SyntaxKind.StringLiteral);
+    if (!nameLiteral) {
+      return fail(
+        "notification",
+        sourceLocationFromNode(call, sourceFile),
+        "first argument must be a string literal notification name (or use the object form)",
+      );
+    }
+    defObj = args[1]?.asKind(SyntaxKind.ObjectLiteralExpression);
+    if (!defObj) {
+      return fail(
+        "notification",
+        sourceLocationFromNode(call, sourceFile),
+        "second argument must be an inline definition object",
+      );
+    }
   }
+  const nameArg = nameLiteral;
   const triggerObj = defObj
     .getProperty("trigger")
     ?.asKind(SyntaxKind.PropertyAssignment)
