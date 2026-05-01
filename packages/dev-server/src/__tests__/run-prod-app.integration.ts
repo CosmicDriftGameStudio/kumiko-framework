@@ -9,9 +9,9 @@
 // fetch direkt. Bun.serve-Wiring ist in Production-Coolify selbst
 // getestet wenn der Container hochfährt.
 
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createDbConnection } from "@kumiko/framework/db";
 import {
   createBooleanField,
@@ -39,7 +39,9 @@ async function createTempStaticDir(files: Record<string, string>): Promise<strin
   const dir = await mkdtemp(join(tmpdir(), "kumiko-prod-static-"));
   tempDirs.push(dir);
   for (const [name, content] of Object.entries(files)) {
-    await writeFile(join(dir, name), content);
+    const fullPath = join(dir, name);
+    await mkdir(dirname(fullPath), { recursive: true });
+    await writeFile(fullPath, content);
   }
   return dir;
 }
@@ -260,6 +262,113 @@ describe("runProdApp", () => {
     expect(await res.text()).toContain("SPA shell");
   });
 
+  test("hostDispatch: per-host html-Datei + Schema-Gating", async () => {
+    // Multi-App-Deployment: zwei HTML-Dateien für unterschiedliche
+    // Hosts. Schema wird NUR für admin-Host injected — Public-Host
+    // bekommt das pure HTML ohne __KUMIKO_SCHEMA__ Tag (Sicherheit).
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html><body>PUBLIC</body><script src=/client.js></script></html>",
+      "admin.html": "<html><body>ADMIN</body><script src=/client.js></script></html>",
+    });
+
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      hostDispatch: ({ host }) => {
+        if (host.startsWith("admin.")) {
+          return { kind: "html", file: "admin.html", injectSchema: true };
+        }
+        return { kind: "html", file: "index.html", injectSchema: false };
+      },
+    });
+
+    // Public host: index.html, KEIN schema-Tag.
+    const pubRes = await handle.fetch(
+      new Request("http://demo.example.test/", { headers: { host: "demo.example.test" } }),
+    );
+    expect(pubRes.status).toBe(200);
+    const pubBody = await pubRes.text();
+    expect(pubBody).toContain("PUBLIC");
+    expect(pubBody).not.toContain("__KUMIKO_SCHEMA__");
+
+    // Admin host: admin.html MIT schema-Tag.
+    const adminRes = await handle.fetch(
+      new Request("http://admin.example.test/", { headers: { host: "admin.example.test" } }),
+    );
+    expect(adminRes.status).toBe(200);
+    const adminBody = await adminRes.text();
+    expect(adminBody).toContain("ADMIN");
+    expect(adminBody).toContain("__KUMIKO_SCHEMA__");
+  });
+
+  test("hostDispatch: redirect-Modus", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>fallback</html>",
+    });
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      hostDispatch: ({ host }) =>
+        host === "apex.example.test"
+          ? { kind: "redirect", to: "https://target.example", status: 302 }
+          : { kind: "html", file: "index.html", injectSchema: false },
+    });
+
+    const res = await handle.fetch(
+      new Request("http://apex.example.test/", { headers: { host: "apex.example.test" } }),
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toBe("https://target.example");
+  });
+
+  test("hostDispatch: 404-Modus für unbekannte Hosts", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>fallback</html>",
+    });
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      hostDispatch: ({ host }) =>
+        host === "known.example.test"
+          ? { kind: "html", file: "index.html", injectSchema: false }
+          : { kind: "404" },
+    });
+
+    const res = await handle.fetch(
+      new Request("http://unknown.example.test/", { headers: { host: "unknown.example.test" } }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  test("hostDispatch: CSP-Header-Passthrough pro Host", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>x</html>",
+    });
+    const csp = "default-src 'self'; script-src 'self'";
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      hostDispatch: () => ({ kind: "html", file: "index.html", injectSchema: false, csp }),
+    });
+
+    const res = await handle.fetch(new Request("http://x.example.test/"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-security-policy")).toBe(csp);
+  });
+
+  test("hostDispatch: assets bleiben host-unabhängig erreichbar", async () => {
+    // /assets/* darf NICHT durch hostDispatch laufen — Bundles werden
+    // vom client per absoluter URL nachgeladen, host-Sniffing wäre falsch.
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>x</html>",
+      "assets/app-abc.js": "console.log('app');",
+    });
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      hostDispatch: () => ({ kind: "404" }),
+    });
+
+    const res = await handle.fetch(new Request("http://x.example.test/assets/app-abc.js"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("console.log('app')");
+  });
+
   test("anonymousAccess flows from runProdApp through entrypoint into the auth-middleware", async () => {
     // Regression for the silent-drop bug: ApiEntrypointOptions had no
     // anonymousAccess field, so runProdApp's option went into createApi
@@ -282,6 +391,63 @@ describe("runProdApp", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data?: { pong?: boolean } };
     expect(body.data?.pong).toBe(true);
+  });
+
+  test("anonymousAccess as factory: receives {db, redis, registry}, resolver closures over db", async () => {
+    // Use case: tenantResolver looks up subdomain → tenantId in the DB
+    // at request time. The factory is called once at boot with db
+    // wired, the resolver inside captures it.
+    const seenDeps: { db: boolean; redis: boolean; registry: boolean } = {
+      db: false,
+      redis: false,
+      registry: false,
+    };
+
+    const handle = await boot(undefined, {
+      anonymousAccess: ({ db, redis, registry }) => {
+        seenDeps.db = db !== undefined;
+        seenDeps.redis = redis !== undefined;
+        seenDeps.registry = registry !== undefined;
+        return { defaultTenantId: TENANT_ID };
+      },
+    });
+
+    expect(seenDeps).toEqual({ db: true, redis: true, registry: true });
+
+    const res = await handle.entrypoint.app.fetch(
+      new Request("http://test/api/query", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "prod-probe:query:ping", payload: {} }),
+      }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  test("extraContext as factory: factory called with {db, redis, registry} at boot", async () => {
+    // Factory-form for extraContext closes over db like anonymousAccess.
+    // In auth-mode the framework auto-sets configResolver; Factory-Result
+    // wird drauf gemerged. Wichtig: Factory wird genau einmal aufgerufen
+    // beim Boot, NACHDEM db/redis/registry konstruiert sind.
+    let invocations = 0;
+    let factoryDeps: { db: boolean; redis: boolean; registry: boolean } | null = null;
+
+    const handle = await boot(undefined, {
+      extraContext: ({ db, redis, registry }) => {
+        invocations++;
+        factoryDeps = {
+          db: db !== undefined,
+          redis: redis !== undefined,
+          registry: registry !== undefined,
+        };
+        return { _appCustomKey: "from-factory" };
+      },
+    });
+
+    expect(invocations).toBe(1);
+    expect(factoryDeps).toEqual({ db: true, redis: true, registry: true });
+    // Smoke: handle is functional (boot completed without error).
+    expect(handle.entrypoint).toBeDefined();
   });
 
   test("seed runs once on first boot, but the seed's own idempotence prevents duplication on reboot", async () => {
