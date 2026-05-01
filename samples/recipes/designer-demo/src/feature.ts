@@ -24,7 +24,7 @@ defineFeature("designerDemo", (r) => {
   r.writeHandler({
     name: "task:create",
     schema: z.object({ title: z.string(), priority: z.string().optional() }),
-    handler: async (event, ctx) => {
+    handler: async (_event, _ctx) => {
       return { isSuccess: true, data: { id: "x" } };
     },
     access: { roles: ["user", "admin"] },
@@ -33,7 +33,7 @@ defineFeature("designerDemo", (r) => {
   r.writeHandler({
     name: "task:complete",
     schema: z.object({ id: z.string() }),
-    handler: async (event, ctx) => {
+    handler: async (_event, _ctx) => {
       return { isSuccess: true, data: {} };
     },
     access: { openToAll: true },
