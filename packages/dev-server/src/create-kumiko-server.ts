@@ -295,10 +295,26 @@ function injectStylesheet(html: string): string {
 // injectSchema lebt in `./inject-schema.ts` damit dev-server + prod-
 // server denselben Inject-Pfad nutzen.
 
-async function watchDir(dir: string, onChange: (filename: string) => void): Promise<void> {
-  const watcher = watch(dir, { recursive: true });
-  for await (const ev of watcher) {
-    if (ev.filename) onChange(ev.filename);
+async function watchDir(
+  dir: string,
+  onChange: (filename: string) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  // AbortSignal wird vom Server-stop() ausgelöst: ohne den Abort liefe
+  // die for-await-Schleife bis zum Process-Exit weiter. Im Test-Setup
+  // (afterEach räumt tmpdir mit rmSync auf) sähe der Watcher dann das
+  // rmSync, klassifizierte's als "restart" und riefe process.exit(75) —
+  // bubbles als unhandled error in vitest hoch.
+  const watcher = watch(dir, { recursive: true, signal });
+  try {
+    for await (const ev of watcher) {
+      if (ev.filename) onChange(ev.filename);
+    }
+  } catch (err) {
+    // signal.abort() wirft AbortError aus dem async-iterator; das ist
+    // gewollt und kein Fehler. Andere Errors weiterreichen.
+    if ((err as { name?: string }).name === "AbortError") return;
+    throw err;
   }
 }
 
@@ -855,6 +871,11 @@ export async function createKumikoServer(
   // Schema-Change in feature.ts nicht durchschlagen ohne process-restart.
   // Wir exiten dann mit Code 75 (EX_TEMPFAIL) — `kumiko-dev` Wrapper
   // detected das und respawnt.
+  //
+  // watcherAbort wird beim stop() ausgelöst → fs.watch beendet die
+  // async-iteration → kein Watcher überlebt einen Test-Teardown und
+  // klassifiziert ein rmSync(tmpdir) als "restart needed".
+  const watcherAbort = new AbortController();
   if (entries.length > 0) {
     // Watch-Dirs: alle entry-Verzeichnisse (deduped) plus die explizit
     // angegebenen watchDirs. In Multi-Entry-Setups liegen die Entries
@@ -865,36 +886,44 @@ export async function createKumikoServer(
     for (const e of entries) entryDirs.add(resolve(e.sourceFile, ".."));
     const dirs = [...entryDirs, ...expandWatchPatterns(options.watchDirs ?? [])];
     for (const dir of dirs) {
-      void watchDir(dir, async (filename) => {
-        const action = classifyChange(filename);
-        if (action === "ignore") return;
-        if (action === "restart") {
-          logInfo(
-            `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht)`,
-          );
-          await stop();
-          process.exit(75);
-        }
-        try {
-          // Alle Entries rebuilden — auch wenn nur eine Datei sich
-          // ändert, wir wissen nicht welche Entries sie importieren.
-          // Bei zwei Entries mit shared Code triggert ein Edit der
-          // gemeinsamen Datei beide Bundles neu, das ist gewollt.
-          for (const e of entries) {
-            const rebuilt = await buildBundle(e.sourceFile);
-            clientBundles.set(e.name, rebuilt);
+      void watchDir(
+        dir,
+        async (filename) => {
+          const action = classifyChange(filename);
+          if (action === "ignore") return;
+          if (action === "restart") {
+            logInfo(
+              `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht)`,
+            );
+            await stop();
+            process.exit(75);
           }
-          logInfo(`[kumiko-server] rebuilt on ${filename}, broadcasting reload`);
-          broadcastReload();
-        } catch {
-          // buildClient already logged the failure; keep serving the
-          // last good bundle until the next successful rebuild.
-        }
-      });
+          try {
+            // Alle Entries rebuilden — auch wenn nur eine Datei sich
+            // ändert, wir wissen nicht welche Entries sie importieren.
+            // Bei zwei Entries mit shared Code triggert ein Edit der
+            // gemeinsamen Datei beide Bundles neu, das ist gewollt.
+            for (const e of entries) {
+              const rebuilt = await buildBundle(e.sourceFile);
+              clientBundles.set(e.name, rebuilt);
+            }
+            logInfo(`[kumiko-server] rebuilt on ${filename}, broadcasting reload`);
+            broadcastReload();
+          } catch {
+            // buildClient already logged the failure; keep serving the
+            // last good bundle until the next successful rebuild.
+          }
+        },
+        watcherAbort.signal,
+      );
     }
   }
 
   const stop = async (): Promise<void> => {
+    // Watcher zuerst stoppen damit kein onChange während des Teardowns
+    // mehr feuert (sonst können tmpdir-rmSync ein process.exit(75)
+    // auslösen).
+    watcherAbort.abort();
     if (killTailwind) killTailwind();
     if (server !== undefined) {
       (server as { stop: (closeActive?: boolean) => void }).stop(true);
