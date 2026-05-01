@@ -32,6 +32,7 @@ import {
 } from "@kumiko/bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@kumiko/bundled-features/config";
 import { TenantQueries } from "@kumiko/bundled-features/tenant";
+import { UserQueries } from "@kumiko/bundled-features/user";
 import { createSseBroker, type SseBroker } from "@kumiko/framework/api";
 import { createDbConnection } from "@kumiko/framework/db";
 import {
@@ -375,6 +376,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(options.auth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
+        userQuery: UserQueries.findForAuth,
         loginHandler: AuthHandlers.login,
         loginErrorStatusMap: options.auth.loginErrorStatusMap ?? {
           [AuthErrors.invalidCredentials]: 401,

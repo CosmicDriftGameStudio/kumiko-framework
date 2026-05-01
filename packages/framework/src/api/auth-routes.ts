@@ -148,6 +148,14 @@ export type { AuthSessionStatus };
 
 export type AuthRoutesConfig = {
   membershipQuery: string; // qualified query handler name, e.g. config.membershipQuery
+  // Optional: qualified query handler that returns the user-row inkl.
+  // globaler Rollen (`roles` als JSON-encoded string[]). Wenn gesetzt,
+  // ruft switch-tenant diese Query und mergt die globalen Rollen mit den
+  // tenant-membership-Rollen — so überlebt SystemAdmin (oder ähnliche
+  // tenant-unabhängige Rollen) den Tenant-Switch. Erwartete Shape:
+  // `{id, roles?: string|null}`. Default nicht gesetzt = kein merge
+  // (backwards-compat für Apps ohne globale Rollen).
+  userQuery?: string;
   // Optional: qualified write handler for login. When set, POST /auth/login
   // dispatches to this handler with a guest identity and issues a JWT on
   // success. Handler must return { kind: "auth-session", session: SessionUser }.
@@ -531,16 +539,47 @@ export function createAuthRoutes(
       return c.json({ error: "not_a_member" }, 403);
     }
 
+    // Globale Rollen aus user-feature lesen wenn userQuery wired —
+    // tenant-unabhängige Rollen (SystemAdmin etc.) überleben so den
+    // tenant-switch. `parseRoles` liegt utils-side, hier inline-deserialize
+    // damit das Framework keine bundled-features-Imports kriegt.
+    let globalRoles: readonly string[] = [];
+    if (config.userQuery) {
+      try {
+        const userRow = (await dispatcher.query(
+          config.userQuery,
+          { id: user.id },
+          createSystemUser(user.tenantId),
+        )) as { roles?: string | null } | null;
+        const raw = userRow?.roles;
+        if (typeof raw === "string" && raw.length > 0) {
+          // @cast-boundary user-row.roles is JSON-encoded string[] per AuthUserRow contract
+          const parsed = JSON.parse(raw) as unknown;
+          if (Array.isArray(parsed) && parsed.every((r) => typeof r === "string")) {
+            globalRoles = parsed;
+          }
+        }
+      } catch (e) {
+        // Non-fatal: globale Rollen kann nicht aufgelöst werden → switch
+        // läuft weiter mit nur tenant-rollen. Server-error mit nur dem
+        // Cause ohne Stack hochwerfen wäre für die UX schlimmer als ein
+        // Tenant-Switch ohne SystemAdmin (User merkt's und meldet's). Log
+        // it via the dispatcher so Ops sieht's.
+        if (!isUnknownHandlerError(e)) throw e;
+      }
+    }
+
     // Issue new JWT with the target tenant and its roles. Claims MUST be
     // recomputed for the new tenant — stale claims from the previous
     // tenant would leak identity facts across tenancies (e.g. teamId from
     // tenant A accidentally surviving into tenant B's session). The
     // resolver runs each feature's r.authClaims() hook under the new
     // TenantDb scope.
+    const mergedRoles = Array.from(new Set([...globalRoles, ...membership.roles]));
     const targetSession: SessionUser = {
       id: user.id,
       tenantId: targetTenantId,
-      roles: membership.roles,
+      roles: mergedRoles,
     };
     const claims = await dispatcher.resolveAuthClaims(targetSession);
     let sessionForJwt: SessionUser =
@@ -570,7 +609,7 @@ export function createAuthRoutes(
     const csrfToken = generateToken();
     setAuthCookies(c, { token: newToken, csrfToken, sameSite: cookieSameSite });
 
-    return c.json({ token: newToken, tenantId: targetTenantId, roles: membership.roles });
+    return c.json({ token: newToken, tenantId: targetTenantId, roles: mergedRoles });
   });
 
   return api;

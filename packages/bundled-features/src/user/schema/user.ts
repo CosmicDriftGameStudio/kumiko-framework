@@ -50,6 +50,19 @@ export const userEntity = createEntity({
       default: false,
       access: { write: access.privileged },
     }),
+
+    // Globale Rollen — parallel zu tenantMemberships.roles. JSON-encoded
+    // string[]; parseRoles() deserialisiert beim Read. Login-Handler mergt
+    // diese Rollen mit den tenant-membership-roles in die Session — so
+    // sind sie tenant-unabhängig (z.B. SystemAdmin, BillingAdmin). Default
+    // "[]" damit die Session-Roles-Merge keinen NULL-Branch braucht.
+    // Schreibrecht privileged: ein User darf sich nicht selbst zum
+    // SystemAdmin machen.
+    roles: createTextField({
+      required: true,
+      default: "[]",
+      access: { write: access.privileged },
+    }),
   },
 });
 
