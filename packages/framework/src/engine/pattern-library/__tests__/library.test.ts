@@ -8,7 +8,12 @@
 //      `definition.fields`, not `fields`).
 
 import { describe, expect, expectTypeOf, test } from "vitest";
-import { type FeaturePattern, type FeaturePatternKind, getEditability } from "../../feature-ast";
+import {
+  type FeaturePattern,
+  type FeaturePatternKind,
+  getEditability,
+  SINGLETON_KINDS,
+} from "../../feature-ast";
 import {
   getPatternSchema,
   groupByCategory,
@@ -97,24 +102,19 @@ describe("pattern-library — editability matches parser classification", () => 
 });
 
 describe("pattern-library — singleton flags match patcher contract", () => {
-  // Mirror of patch.ts SINGLETON_KINDS — duplicated here on purpose.
-  // If patch.ts adds/removes a singleton kind, this test catches the
-  // library drifting from the patcher's expectations.
-  const PATCHER_SINGLETONS: ReadonlySet<FeaturePatternKind> = new Set([
-    "requires",
-    "optionalRequires",
-    "readsConfig",
-    "systemScope",
-    "toggleable",
-    "config",
-    "translations",
-    "authClaims",
-  ]);
-
+  // Imported (not duplicated) from patch.ts — the patcher is the
+  // source-of-truth, the library's `singleton: true` flag must follow.
+  // If both drifted simultaneously a hand-mirrored set would silently
+  // pass; the import enforces a single source.
   test.each(ALL_KINDS)("%s singleton flag matches patcher set", (kind) => {
     const schema = PATTERN_LIBRARY[kind];
     if (!schema) throw new Error(`missing schema for ${kind}`);
-    const isPatcherSingleton = PATCHER_SINGLETONS.has(kind);
+    // SINGLETON_KINDS is typed as PatternId["kind"] — the full
+    // FeaturePatternKind minus "unknown" (UnknownPattern has no
+    // PatternId variant). The cast widens the Set's `has` parameter
+    // back to FeaturePatternKind so we can ask about every kind
+    // (including "unknown", which always returns false).
+    const isPatcherSingleton = (SINGLETON_KINDS as ReadonlySet<FeaturePatternKind>).has(kind);
     const isLibrarySingleton = schema.singleton === true;
     expect(isLibrarySingleton).toBe(isPatcherSingleton);
   });

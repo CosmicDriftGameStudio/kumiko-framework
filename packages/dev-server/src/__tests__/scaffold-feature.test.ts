@@ -27,15 +27,29 @@ afterEach(() => {
 });
 
 describe("scaffoldFeature — output shape", () => {
-  test("creates package.json + src/feature.ts at the resolved destination", () => {
+  test("creates package.json + tsconfig.json + src/feature.ts at the resolved destination", () => {
     const result = scaffoldFeature({
       name: "todoList",
       destination: join(workdir, "todoList"),
     });
     expect(existsSync(result.packageJsonFile)).toBe(true);
+    expect(existsSync(result.tsconfigFile)).toBe(true);
     expect(existsSync(result.featureFile)).toBe(true);
     expect(result.featureName).toBe("todoList");
     expect(result.packageName).toBe("@kumiko/sample-todo-list");
+  });
+
+  test("tsconfig.json is strict + bundler-resolution + no-emit", () => {
+    const result = scaffoldFeature({
+      name: "todoList",
+      destination: join(workdir, "todoList"),
+    });
+    const tsconfig = JSON.parse(readFileSync(result.tsconfigFile, "utf8"));
+    expect(tsconfig.compilerOptions.strict).toBe(true);
+    expect(tsconfig.compilerOptions.noUncheckedIndexedAccess).toBe(true);
+    expect(tsconfig.compilerOptions.moduleResolution).toBe("bundler");
+    expect(tsconfig.compilerOptions.noEmit).toBe(true);
+    expect(tsconfig.include).toEqual(["src/**/*"]);
   });
 
   test("package.json has workspace name + framework dep", () => {

@@ -251,11 +251,18 @@ function findSetupCallback(
   return undefined;
 }
 
-// Singleton kinds: a feature has at most one of each. The Boot-Validator
-// rejects features that declare two `r.requires(...)` etc. — the patcher
-// asserts the same invariant so a corrupt source file produces an
-// explicit error here, not a silent first-match win.
-const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
+/**
+ * Singleton kinds: a feature has at most one of each. The Boot-Validator
+ * rejects features that declare two `r.requires(...)` etc. — the patcher
+ * asserts the same invariant so a corrupt source file produces an
+ * explicit error here, not a silent first-match win.
+ *
+ * Exported so the pattern-library tests + downstream consumers
+ * (Designer, AI-Builder) share one source-of-truth — duplicating this
+ * set would let the library's `singleton: true` flags drift silently
+ * from the patcher's enforcement.
+ */
+export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
   "requires",
   "optionalRequires",
   "readsConfig",

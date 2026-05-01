@@ -14,7 +14,13 @@ export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "../pattern-l
 export type { ParseError, ParseResult } from "./parse";
 export { parseFeatureFile, parseSourceFile } from "./parse";
 export type { PatternChange, PatternId } from "./patch";
-export { addPattern, applyChanges, removePattern, replacePattern } from "./patch";
+export {
+  addPattern,
+  applyChanges,
+  removePattern,
+  replacePattern,
+  SINGLETON_KINDS,
+} from "./patch";
 export type {
   AddAuthClaimsArgs,
   AddClaimKeyArgs,

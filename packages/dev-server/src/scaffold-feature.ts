@@ -40,6 +40,7 @@ export type ScaffoldFeatureResult = {
   readonly destination: string;
   readonly featureFile: string;
   readonly packageJsonFile: string;
+  readonly tsconfigFile: string;
   readonly featureName: string;
   readonly packageName: string;
 };
@@ -72,6 +73,9 @@ export function scaffoldFeature(options: ScaffoldFeatureOptions): ScaffoldFeatur
   const packageJsonFile = join(destination, "package.json");
   writeFileSync(packageJsonFile, packageJson);
 
+  const tsconfigFile = join(destination, "tsconfig.json");
+  writeFileSync(tsconfigFile, renderTsconfig());
+
   const featureFile = join(destination, "src", "feature.ts");
   const featureSource = renderFeatureFile({
     featureName,
@@ -83,6 +87,7 @@ export function scaffoldFeature(options: ScaffoldFeatureOptions): ScaffoldFeatur
     destination,
     featureFile,
     packageJsonFile,
+    tsconfigFile,
     featureName,
     packageName,
   };
@@ -156,6 +161,37 @@ function renderPackageJson(packageName: string): string {
       dependencies: {
         "@kumiko/framework": "workspace:*",
       },
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+/**
+ * Standard tsconfig matching the rest of the sample workspaces:
+ * strict, ESNext, bundler-resolution, no-emit. Without this file
+ * `yarn install + tsc` immediately complains about missing config —
+ * scaffolded features should compile cleanly out of the box.
+ */
+function renderTsconfig(): string {
+  return `${JSON.stringify(
+    {
+      compilerOptions: {
+        strict: true,
+        noUncheckedIndexedAccess: true,
+        noPropertyAccessFromIndexSignature: true,
+        forceConsistentCasingInFileNames: true,
+        verbatimModuleSyntax: true,
+        target: "ESNext",
+        module: "ESNext",
+        moduleResolution: "bundler",
+        esModuleInterop: true,
+        skipLibCheck: true,
+        lib: ["ESNext"],
+        types: ["bun-types"],
+        noEmit: true,
+      },
+      include: ["src/**/*"],
     },
     null,
     2,
