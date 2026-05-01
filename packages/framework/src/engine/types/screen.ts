@@ -372,9 +372,18 @@ export type CustomScreenDefinition = {
 //     `values[qualifiedKey].value`
 //   - Submit feuert pro geändertem Feld einen `config:write:set` mit
 //     {key, value, scope}; das config-feature behandelt jeden Key als
-//     eigenes Aggregate (configValue.<keyHash>) — atomic + parallel-safe
+//     eigenes Aggregate (configValue.<keyHash>) und alle N Writes laufen
+//     parallel (Promise.all). Per-Key idempotent → Retry safe.
 //   - kein Singleton-Hack nötig: pro (key+tenantId) gibt's by-design
 //     genau eine Row, der Bridge-Pattern aus dem Branding-MVP fällt weg
+//
+// Partial-Failure-Semantik: wenn von N parallelen Writes einer scheitert,
+// bleiben die anderen committed (pro-Aggregate, kein Multi-Stream-Rollback).
+// Das Form bleibt dirty bis der User retried — die schon erfolgreichen
+// Writes feuern dann nochmal mit demselben Wert. Für `text` / `number` /
+// `boolean` Keys ist das idempotent. Wer einen ConfigKey mit nicht-
+// idempotentem Setter baut (Counter, append-only-list o.ä.) muss die
+// Idempotenz im Setter sicherstellen.
 //
 // Field-Shape: inline am Screen wie bei `actionForm`. Author hat damit
 // explizite Kontrolle über Input-Type (text/number/select/...) ohne

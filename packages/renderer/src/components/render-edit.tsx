@@ -157,6 +157,16 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // weil controller.submit() das normalerweise selbst macht und
         // ohne customSubmit's Hilfe weiß der Controller nichts vom
         // erfolgreichen Submit (isUnchanged blieb sonst false).
+        //
+        // WICHTIG: snapshot direkt vom Controller holen statt aus
+        // React-State. Bei rapid fill→click kann React-Batching die
+        // Input-State-Updates noch nicht commited haben, wenn der
+        // submit-Click fire'd. handleSubmit's Closure würde dann mit
+        // stale snapshot.changes={} laufen, customSubmit fired keine
+        // Writes, returnt success, Form rebase → User glaubt "saved"
+        // aber gar nichts ist passiert. controller.getSnapshot() ist
+        // immer aktuell — der Controller ist die Source-of-Truth, die
+        // React-State ist nur ein Mirror für's Rendering.
         const valid = controller.validate();
         if (!valid) {
           // Field-Order matters: validationBlocked-true ist eine eigene
@@ -168,7 +178,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           };
           result = blocked;
         } else {
-          result = await customSubmit(snapshot);
+          result = await customSubmit(controller.getSnapshot());
           if (result.isSuccess) controller.rebase();
         }
       } else {

@@ -7,6 +7,7 @@ import type {
   ScreenDefinition,
 } from "@kumiko/framework/ui-types";
 import type {
+  Command,
   FormSnapshot,
   FormValues,
   ListRowViewModel,
@@ -968,36 +969,33 @@ function ConfigEditBody({
     return out as FormValues;
   }, [valuesQuery.data, screen.fields, screen.configKeys]);
 
-  // Multi-Write Submit: pro geändertem Feld ein config:write:set Call.
-  // Parallel via Promise.all — jeder Config-Key ist sein eigenes Aggregate
-  // im config-feature, die Writes haben keine Ordering-Abhängigkeit, und
-  // sequentielle POSTs gegen Bun.serve haben in Tests sporadische
-  // Connection-Reset-Flakes gezeigt (zweite Request "Failed to fetch").
-  // Bei einem Fail surfacen wir den ersten Fehler — die anderen Writes
-  // sind eventuell durchgegangen, aber das Form bleibt dirty solange der
-  // Caller den Fehler sieht und retried.
+  // Multi-Write Submit: ein einzelner /api/batch Call mit N
+  // config:write:set Commands. Server-side ist batch atomic
+  // (transaktional: alle Writes in einer DB-TX, all-or-nothing) und
+  // browser-side ist es genau eine HTTP-Roundtrip — kein Race zwischen
+  // mehreren in-flight fetches die der Browser bei page.reload mid-
+  // submit aborten könnte. Promise.all von N separaten dispatcher.write-
+  // Calls war fragil: server bekommt + commited alle N, aber das
+  // Browser-Connection-Pool gibt sporadisch "Failed to fetch" für
+  // einzelne Responses zurück, customSubmit returnt failure obwohl der
+  // Write durch ist, das Form bleibt dirty.
   const customSubmit = useCallback(
     async (snapshot: FormSnapshot<FormValues>): Promise<SubmitResult<unknown>> => {
-      const writes: Array<Promise<{ readonly isSuccess: boolean; readonly error?: unknown }>> = [];
+      const commands: Command[] = [];
       for (const [shortName, value] of Object.entries(snapshot.changes)) {
         const qualified = screen.configKeys[shortName];
         if (qualified === undefined) continue;
-        writes.push(
-          dispatcher.write("config:write:set", {
-            key: qualified,
-            value,
-            scope: screen.scope,
-          }),
-        );
+        commands.push({
+          type: "config:write:set",
+          payload: { key: qualified, value, scope: screen.scope },
+        });
       }
-      const results = await Promise.all(writes);
-      const failed = results.find((r) => !r.isSuccess);
-      if (failed && !failed.isSuccess) {
-        return {
-          validationBlocked: false,
-          isSuccess: false,
-          error: failed.error as never,
-        };
+      if (commands.length === 0) {
+        return { validationBlocked: false, isSuccess: true, data: undefined };
+      }
+      const result = await dispatcher.batch(commands);
+      if (!result.isSuccess) {
+        return { validationBlocked: false, isSuccess: false, error: result.error };
       }
       return { validationBlocked: false, isSuccess: true, data: undefined };
     },
