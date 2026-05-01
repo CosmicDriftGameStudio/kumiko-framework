@@ -159,7 +159,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // erfolgreichen Submit (isUnchanged blieb sonst false).
         const valid = controller.validate();
         if (!valid) {
-          result = { isSuccess: false, validationBlocked: true } as SubmitResult<unknown>;
+          // Field-Order matters: validationBlocked-true ist eine eigene
+          // Variante in der SubmitResult-Union (NICHT mit data/error
+          // gemixt), TS narrowt das nur ohne den Discriminator-Fight.
+          const blocked: SubmitResult<unknown> = {
+            validationBlocked: true,
+            isSuccess: false,
+          };
+          result = blocked;
         } else {
           result = await customSubmit(snapshot);
           if (result.isSuccess) controller.rebase();

@@ -1,0 +1,163 @@
+// @vitest-environment jsdom
+//
+// Unit-Tests für den configEdit-Screen-Type. Decken die Pfade ab die
+// Integration + E2E nur indirekt sehen:
+//   - Initial-Load via config:query:values + Pre-Fill aus values[qn]
+//   - customSubmit dispatcht pro geändertem Field einen separaten
+//     config:write:set Call mit dem qualifizierten Key + scope
+//   - Save-Button Greying via controller.rebase nach Success
+//   - Loading-State während config:query:values noch läuft
+
+import type { ConfigEditScreenDefinition } from "@kumiko/framework/ui-types";
+import type { Dispatcher } from "@kumiko/headless";
+import type { FeatureSchema } from "@kumiko/renderer";
+import { DispatcherProvider, KumikoScreen } from "@kumiko/renderer";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, test, vi } from "vitest";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils";
+
+const settingsScreen: ConfigEditScreenDefinition = {
+  id: "settings",
+  type: "configEdit",
+  scope: "tenant",
+  configKeys: {
+    siteName: "demo:config:site-name",
+    maxUploadMb: "demo:config:max-upload-mb",
+  },
+  fields: {
+    siteName: { type: "text", required: true },
+    maxUploadMb: { type: "number" },
+    // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+  } as ConfigEditScreenDefinition["fields"],
+  layout: {
+    sections: [{ title: "Basics", fields: ["siteName", "maxUploadMb"] }],
+  },
+};
+
+const schema: FeatureSchema = {
+  featureName: "demo",
+  entities: {},
+  screens: [settingsScreen],
+};
+
+describe("KumikoScreen / configEdit", () => {
+  test("loading state while config:query:values is pending", async () => {
+    let resolveQuery: (value: unknown) => void = () => {};
+    const queryPending = new Promise((resolve) => {
+      resolveQuery = resolve;
+    });
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (() => queryPending) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:settings" />
+      </DispatcherProvider>,
+    );
+
+    // Solange die query pending ist, rendert ConfigEditBody den
+    // Loading-Banner (kein Form, kein vorzeitiges leeres Feld).
+    expect(screen.getByTestId("kumiko-screen-loading")).toBeTruthy();
+
+    // Cleanup: Query auflösen damit der useEffect-Subscriber sauber
+    // unmounten kann ohne open-handle-Warning.
+    resolveQuery({ isSuccess: true, data: {} });
+    await waitFor(() => screen.queryByTestId("render-edit-form"));
+  });
+
+  test("loaded values pre-fill the form (string + numeric coercion)", async () => {
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          "demo:config:site-name": { value: "Acme", scope: "tenant" },
+          "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:settings" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const siteInput = screen.getByTestId("field-siteName").querySelector("input");
+    const maxInput = screen.getByTestId("field-maxUploadMb").querySelector("input");
+    expect(siteInput?.value).toBe("Acme");
+    expect(maxInput?.value).toBe("25");
+  });
+
+  test("submit dispatches one config:write:set per changed field, with mapped qn + scope", async () => {
+    const writeSpy = vi.fn(async () => ({ isSuccess: true, data: {} }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          "demo:config:site-name": { value: "Acme", scope: "tenant" },
+          "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
+        },
+      })) as unknown as Dispatcher["query"],
+      write: writeSpy as unknown as Dispatcher["write"],
+    });
+
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:settings" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const siteInput = screen.getByTestId("field-siteName").querySelector("input");
+    if (!siteInput) throw new Error("expected siteName input");
+
+    // Ändert NUR siteName — der Submit darf nur EINEN write feuern,
+    // nicht beide (unchanged-Field bleibt aus).
+    await user.clear(siteInput);
+    await user.type(siteInput, "Globex");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(writeSpy).toHaveBeenCalled());
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+    expect(writeSpy.mock.calls[0]?.[0]).toBe("config:write:set");
+    expect(writeSpy.mock.calls[0]?.[1]).toEqual({
+      key: "demo:config:site-name",
+      value: "Globex",
+      scope: "tenant",
+    });
+  });
+
+  test("save-button disabled after successful submit (rebase fired)", async () => {
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { "demo:config:site-name": { value: "Acme", scope: "tenant" } },
+      })) as unknown as Dispatcher["query"],
+      write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+    });
+
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:settings" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const siteInput = screen.getByTestId("field-siteName").querySelector("input");
+    if (!siteInput) throw new Error("expected siteName input");
+
+    await user.clear(siteInput);
+    await user.type(siteInput, "Globex");
+    const submit = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
+    await user.click(submit);
+
+    // After rebase, draft == server-snapshot, isUnchanged=true,
+    // Button wird disabled. Ohne customSubmit-rebase-Wiring blieb
+    // dieser State stale (regression-guard).
+    await waitFor(() => expect(submit.disabled).toBe(true));
+  });
+});

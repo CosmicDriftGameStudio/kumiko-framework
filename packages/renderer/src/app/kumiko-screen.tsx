@@ -969,24 +969,35 @@ function ConfigEditBody({
   }, [valuesQuery.data, screen.fields, screen.configKeys]);
 
   // Multi-Write Submit: pro geändertem Feld ein config:write:set Call.
-  // Reihenfolge: über configKeys-Map iterieren, snapshot.changes-Eintrag
-  // checken, ggf. dispatchen. First-Failure stoppt — Caller sieht den
-  // Error-Banner; bereits gewordene Writes bleiben (jede config-Row ist
-  // ein eigenes Aggregate, kein "rollback" möglich).
+  // Parallel via Promise.all — jeder Config-Key ist sein eigenes Aggregate
+  // im config-feature, die Writes haben keine Ordering-Abhängigkeit, und
+  // sequentielle POSTs gegen Bun.serve haben in Tests sporadische
+  // Connection-Reset-Flakes gezeigt (zweite Request "Failed to fetch").
+  // Bei einem Fail surfacen wir den ersten Fehler — die anderen Writes
+  // sind eventuell durchgegangen, aber das Form bleibt dirty solange der
+  // Caller den Fehler sieht und retried.
   const customSubmit = useCallback(
     async (snapshot: FormSnapshot<FormValues>): Promise<SubmitResult<unknown>> => {
-      const changes = snapshot.changes;
-      for (const [shortName, value] of Object.entries(changes)) {
+      const writes: Array<Promise<{ readonly isSuccess: boolean; readonly error?: unknown }>> = [];
+      for (const [shortName, value] of Object.entries(snapshot.changes)) {
         const qualified = screen.configKeys[shortName];
-        if (qualified === undefined) continue; // sollte Boot-Validator fangen
-        const res = await dispatcher.write("config:write:set", {
-          key: qualified,
-          value,
-          scope: screen.scope,
-        });
-        if (!res.isSuccess) {
-          return { validationBlocked: false, isSuccess: false, error: res.error };
-        }
+        if (qualified === undefined) continue;
+        writes.push(
+          dispatcher.write("config:write:set", {
+            key: qualified,
+            value,
+            scope: screen.scope,
+          }),
+        );
+      }
+      const results = await Promise.all(writes);
+      const failed = results.find((r) => !r.isSuccess);
+      if (failed && !failed.isSuccess) {
+        return {
+          validationBlocked: false,
+          isSuccess: false,
+          error: failed.error as never,
+        };
       }
       return { validationBlocked: false, isSuccess: true, data: undefined };
     },

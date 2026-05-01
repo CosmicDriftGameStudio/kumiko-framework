@@ -1324,6 +1324,108 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- configEdit-Screen ---
+  // Form gegen das bundled config-feature. Boot-Validator prüft:
+  //   1) fields non-empty + jeder mit type-Discriminator
+  //   2) layout konsistent (Sections non-empty, Field-Refs existieren)
+  //   3) jedes Field hat einen Eintrag in configKeys
+  //   4) jeder qualifizierte Config-Key in configKeys ist tatsächlich
+  //      via r.config(...) registriert
+  describe("configEdit screen", () => {
+    type ConfigEditOverride = {
+      readonly fields?: Record<string, unknown>;
+      readonly sections?: ReadonlyArray<{
+        readonly title: string;
+        readonly fields: readonly string[];
+      }>;
+      readonly configKeys?: Readonly<Record<string, string>>;
+    };
+
+    function makeFeature(override: ConfigEditOverride = {}) {
+      const fields = override.fields ?? {
+        siteName: { type: "text" },
+        maxUploadMb: { type: "number" },
+      };
+      const sections = override.sections ?? [
+        { title: "Basics", fields: ["siteName", "maxUploadMb"] },
+      ];
+      const configKeys = override.configKeys ?? {
+        siteName: "shop:config:site-name",
+        maxUploadMb: "shop:config:max-upload-mb",
+      };
+      return defineFeature("shop", (r) => {
+        r.config({
+          keys: {
+            "site-name": createTenantConfig("text", { default: "" }),
+            "max-upload-mb": createTenantConfig("number", { default: 10 }),
+          },
+        });
+        r.screen({
+          id: "settings",
+          type: "configEdit",
+          scope: "tenant",
+          configKeys,
+          fields: fields as never,
+          layout: { sections: sections as never },
+        });
+      });
+    }
+
+    test("happy path: alle 4 Checks bestanden → kein Throw", () => {
+      expect(() => validateBoot([makeFeature()])).not.toThrow();
+    });
+
+    test("fields empty-Map → Throw", () => {
+      expect(() => validateBoot([makeFeature({ fields: {} })])).toThrow(
+        /has empty fields map — declare at least one field/,
+      );
+    });
+
+    test("field ohne type-Discriminator → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ fields: { siteName: { required: true } } })]),
+      ).toThrow(/field "siteName" has no `type` set/);
+    });
+
+    test("layout.sections leer → Throw", () => {
+      expect(() => validateBoot([makeFeature({ sections: [] })])).toThrow(
+        /has an empty sections list/,
+      );
+    });
+
+    test("layout referenziert unknown field → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ sections: [{ title: "x", fields: ["ghost"] }] })]),
+      ).toThrow(/layout references unknown field "ghost"/);
+    });
+
+    test("Field ohne configKeys-Eintrag → Throw mit Hinweis auf Mapping", () => {
+      // siteName ist im fields-Map, aber configKeys mappt es nicht.
+      // Boot soll fehlschlagen weil zur Laufzeit kein Wert geladen
+      // werden könnte.
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            configKeys: { maxUploadMb: "shop:config:max-upload-mb" },
+          }),
+        ]),
+      ).toThrow(/field "siteName" hat keinen Eintrag in configKeys-Map/);
+    });
+
+    test("configKeys referenziert unbekannten qualifizierten Key → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            configKeys: {
+              siteName: "shop:config:typo-here",
+              maxUploadMb: "shop:config:max-upload-mb",
+            },
+          }),
+        ]),
+      ).toThrow(/Config-Key "shop:config:typo-here" ist in keiner Feature-Registry deklariert/);
+    });
+  });
+
   // --- Tier 2.7e-3: ReferenceFieldDef ---
   describe("reference field (Tier 2.7e-3)", () => {
     // Helper: registriert einen Stub-Query-Handler `<entity>:list`
