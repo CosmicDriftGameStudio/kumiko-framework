@@ -68,4 +68,20 @@ describe("classifyChange", () => {
       "hot-reload",
     );
   });
+
+  // Sample-Conventions: publicstatus splittet `/admin/` (Admin-Bundle)
+  // und `/public/` (Public-Bundle). Beide sind client-side, müssen
+  // hot-reload sein — sonst kostet jeder Bridge-Edit einen Restart +
+  // DB-Reset. Andere Samples machen das eventuell auch so.
+  test("admin/-Subdir → hot-reload", () => {
+    expect(classifyChange("/abs/samples/foo/src/admin/branding-settings.tsx")).toBe("hot-reload");
+  });
+
+  test("public/-Subdir → hot-reload", () => {
+    expect(classifyChange("/abs/samples/foo/src/public/StatusPage.tsx")).toBe("hot-reload");
+  });
+
+  test("client/-Subdir → hot-reload", () => {
+    expect(classifyChange("/abs/samples/foo/src/client/widgets.tsx")).toBe("hot-reload");
+  });
 });

@@ -135,10 +135,27 @@ const AUTH_COOKIE = "kumiko_auth";
 
 // Reload snippet injected into every page-load so the browser
 // subscribes to /_reload without the HTML needing to hard-code it.
+//
+// Zwei reload-Trigger:
+//   - explizites `reload`-Event vom Server beim hot-reload (rebuild + send)
+//   - implizites: jede SSE-Connection bekommt beim Connect ein `boot`-Event
+//     mit der bootId des aktuellen Server-Process. Das Snippet merkt sich
+//     die erste bootId; wenn nach einem Reconnect (Server-Restart!) eine
+//     ANDERE bootId kommt, refresh — sonst bleibt der Browser ewig auf
+//     dem alten Bundle hängen wenn der Watcher classifyChange="restart"
+//     gewählt hat oder der User Ctrl-C/yarn dev gemacht hat.
 const RELOAD_SNIPPET = `
 <script>
   (() => {
     const es = new EventSource("/_reload");
+    let firstBootId = null;
+    es.addEventListener("boot", (e) => {
+      if (firstBootId === null) {
+        firstBootId = e.data;
+      } else if (firstBootId !== e.data) {
+        location.reload();
+      }
+    });
     es.addEventListener("reload", () => location.reload());
   })();
 </script>
@@ -232,9 +249,19 @@ async function watchDir(dir: string, onChange: (filename: string) => void): Prom
 // Heuristik:
 //   - Tests (`__tests__/` oder `*.test.ts(x)`) → ignore
 //   - `.ts` / `.tsx` außer Tests:
-//       - in `/web/` oder `/client/` Subdir → hot-reload (Client-Bundle)
+//       - Client-side-Dirs (`/web/`, `/admin/`, `/public/`, `/client/`)
+//         oder die client-entry-Datei selbst → hot-reload
 //       - sonst → restart (könnte Schema/Feature-Definition sein)
 //   - andere Dateitypen → ignore (kein TS rebuild nötig)
+//
+// Warum mehrere Dirs für client-side: in Kumiko-Samples gibt's keine
+// Convention. publicstatus splittet `/admin/` (Admin-Bundle) und
+// `/public/` (Anonymous-Bundle); beammycar nutzt `/web/` für seine
+// Feature-Web-Code; ältere Samples haben einfach `/client.tsx` neben
+// dem Server. Der Watcher muss alle drei verstehen, sonst löst ein
+// Edit der Bridge-Component einen kompletten Server-Restart aus —
+// kostet 2-3s, droppt die Test-DB im ephemeral-Modus, reseed läuft
+// erneut. Ineffektiv und für der User verwirrend.
 //
 // Exportiert für Tests; intern wird's von der Watcher-Loop gerufen.
 export function classifyChange(filename: string): "restart" | "hot-reload" | "ignore" {
@@ -243,12 +270,20 @@ export function classifyChange(filename: string): "restart" | "hot-reload" | "ig
   if (filename.endsWith(".test.ts") || filename.endsWith(".test.tsx")) return "ignore";
   if (filename.endsWith(".integration.ts") || filename.endsWith(".e2e.ts")) return "ignore";
   // Plattformpfad-agnostisch: prüfen auf POSIX und Windows-Trenner.
-  if (
-    filename.includes("/web/") ||
-    filename.includes("\\web\\") ||
-    filename.endsWith("/client.tsx") ||
-    filename.endsWith("/client.ts")
-  ) {
+  // Wir matchen sowohl `<sep><dir><sep>` als auch trailing-`<sep><dir>`
+  // (für Watcher-Filenames die als relativer Pfad ankommen).
+  const clientSubdirs = ["web", "admin", "public", "client"];
+  for (const dir of clientSubdirs) {
+    if (
+      filename.includes(`/${dir}/`) ||
+      filename.includes(`\\${dir}\\`) ||
+      filename.startsWith(`${dir}/`) ||
+      filename.startsWith(`${dir}\\`)
+    ) {
+      return "hot-reload";
+    }
+  }
+  if (filename.endsWith("/client.tsx") || filename.endsWith("/client.ts")) {
     return "hot-reload";
   }
   return "restart";
@@ -521,6 +556,12 @@ export async function createKumikoServer(
   const appSchemaJson = JSON.stringify(buildAppSchema(stack.registry));
 
   // --- SSE reload ---
+  // bootId identifiziert diese spezifische Server-Process-Instanz. Wird
+  // beim Connect an jeden Browser geschickt; Browser merkt sich den
+  // ersten Wert und refresht wenn beim Reconnect ein anderer kommt
+  // (= Server wurde restartet, alter JS-Bundle ist stale). Siehe
+  // RELOAD_SNIPPET oben.
+  const bootId = String(Date.now());
   const reloadClients = new Set<ReloadClient>();
   const broadcastReload = (): void => {
     const payload = "event: reload\ndata: now\n\n";
@@ -587,6 +628,10 @@ export async function createKumikoServer(
           const entry: ReloadClient = { controller, encoder, closed: false };
           reloadClients.add(entry);
           controller.enqueue(encoder.encode(": connected\n\n"));
+          // boot-Event: Browser-Snippet vergleicht das mit der ersten
+          // bootId. Verschiedener Wert nach Reconnect = Server wurde
+          // restartet → location.reload().
+          controller.enqueue(encoder.encode(`event: boot\ndata: ${bootId}\n\n`));
         },
         cancel() {
           for (const c of reloadClients) {
