@@ -206,6 +206,36 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "./types";
+// AST inspection + patching pipeline — used by the CLI scaffolder, the
+// Designer (C5/C6), and the AI-Builder (L2). See feature-ast/index.ts
+// for the full surface area; we re-export the most-used types/functions
+// here so consumers can import everything from a single barrel.
+export type {
+  AddEntityArgs,
+  AddHookArgs,
+  AddRelationArgs,
+  AddWriteHandlerArgs,
+  FeaturePattern,
+  FeaturePatcher,
+  ParseError,
+  ParseResult,
+  PatternChange,
+  PatternId,
+  RenderFeatureFileInput,
+  SourceLocation,
+} from "./feature-ast";
+export {
+  addPattern,
+  applyChanges,
+  createFeaturePatcher,
+  parseFeatureFile,
+  parseSourceFile,
+  removePattern,
+  renderFeatureFile,
+  renderPattern,
+  replacePattern,
+  VERSION_HEADER,
+} from "./feature-ast";
 export { DEFAULT_CURRENCIES, HookPhases } from "./types";
 export { resolveName, withResponseData } from "./types/handlers";
 export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";

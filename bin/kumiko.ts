@@ -230,6 +230,48 @@ const commands = {
     },
   },
 
+  create: {
+    description: "Scaffold eine leere Feature-Workspace — kumiko create <camelCaseName> [--path <dir>]",
+    run: async () => {
+      // CLI: yarn kumiko create <name> [--path <destination>]
+      //   <name>: required, camelCase feature-Identifier (validiert)
+      //   --path: optional Override; default samples/recipes/<kebab-name>/
+      //
+      // Output: minimal-Workspace mit package.json + src/feature.ts.
+      // feature.ts ist canonical Object-Form (// kumiko-feature-version: 1)
+      // mit einem Starter-Entity — direkt durch parser/patcher
+      // weiterbearbeitbar. yarn install nach create für Workspace-Wiring.
+      const { scaffoldFeature } = await import("@kumiko/dev-server");
+      const args = Bun.argv.slice(3);
+      const name = args.find((a) => !a.startsWith("--"));
+      if (!name) {
+        console.error("\n  Usage: yarn kumiko create <camelCaseName> [--path <dir>]\n");
+        process.exit(1);
+      }
+      const pathIdx = args.indexOf("--path");
+      const destination = pathIdx >= 0 ? args[pathIdx + 1] : undefined;
+      try {
+        const result = scaffoldFeature({
+          name,
+          ...(destination !== undefined && { destination }),
+        });
+        const relDest = result.destination.startsWith(process.cwd())
+          ? result.destination.slice(process.cwd().length + 1)
+          : result.destination;
+        console.log(
+          `\n  ✓ Feature scaffolded — ${result.featureName}\n` +
+            `    package: ${result.packageName}\n` +
+            `    path:    ${relDest}\n\n` +
+            "  Next: run yarn install, then edit src/feature.ts.\n",
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`\n  ${msg}\n`);
+        process.exit(1);
+      }
+    },
+  },
+
   "clean-test-dbs": {
     description: "Verwaiste kumiko_test_* DBs loeschen (SIGKILLed Tests, abgebrochene Runs)",
     run: async () => {

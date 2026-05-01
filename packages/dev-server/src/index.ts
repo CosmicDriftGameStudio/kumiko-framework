@@ -41,3 +41,5 @@ export type {
   RunProdAppOptions,
 } from "./run-prod-app";
 export { runProdApp } from "./run-prod-app";
+export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature";
+export { scaffoldFeature } from "./scaffold-feature";
