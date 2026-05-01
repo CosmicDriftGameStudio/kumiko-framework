@@ -325,7 +325,11 @@ const commands = {
         console.log(`E2E via Playwright — ${targets.length} Target(s): ${labels}\n`);
         for (const target of targets) {
           console.log(`\n=== ${target.root}/${target.name} ===`);
-          await $`yarn playwright test`.cwd(`${target.root}/${target.name}`);
+          // Yarn 4 sucht `yarn <bin>` nur in den direct-deps des Workspace.
+          // `@playwright/test` ist nur in root-package.json → wir invocieren
+          // den hoisted-bin direkt aus root-node_modules/.bin/.
+          const playwrightBin = `${process.cwd()}/node_modules/.bin/playwright`;
+          await $`${playwrightBin} test`.cwd(`${target.root}/${target.name}`);
         }
       } else if (scope) {
         await $`yarn vitest run ${scope}`;
