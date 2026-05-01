@@ -328,7 +328,7 @@ describe("runProdApp", () => {
       hostDispatch: ({ host }) =>
         host === "known.example.test"
           ? { kind: "html", file: "index.html", injectSchema: false }
-          : { kind: "404" },
+          : { kind: "not-found" },
     });
 
     const res = await handle.fetch(
@@ -361,7 +361,7 @@ describe("runProdApp", () => {
     });
     const handle = await boot(undefined, {
       staticDir: tmpStaticDir,
-      hostDispatch: () => ({ kind: "404" }),
+      hostDispatch: () => ({ kind: "not-found" }),
     });
 
     const res = await handle.fetch(new Request("http://x.example.test/assets/app-abc.js"));

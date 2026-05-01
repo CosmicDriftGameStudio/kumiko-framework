@@ -139,7 +139,7 @@ export type ExtraContextOption =
  *      explizit eingeschaltet werden (default false) — Public-Domain-
  *      Antworten leaken sonst die volle Admin-UI-Schema-Topologie.
  *    - "redirect": 301/302 an die angegebene Location.
- *    - "404": klar abweisen (z.B. unbekannte Subdomain).
+ *    - "not-found": klar abweisen (z.B. unbekannte Subdomain).
  *
  *  Wird NUR konsultiert wenn der Pfad sonst auf den HTML-Fallback gehen
  *  würde — also für "/", "/index.html", oder SPA-Routen die weder Hono
@@ -153,7 +153,7 @@ export type HostDispatchResult =
       readonly csp?: string;
     }
   | { readonly kind: "redirect"; readonly to: string; readonly status?: 301 | 302 }
-  | { readonly kind: "404" };
+  | { readonly kind: "not-found" };
 
 export type HostDispatchFn = (req: {
   readonly host: string;
@@ -613,7 +613,7 @@ function buildStaticFallback(
     const url = new URL(req.url);
     const host = req.headers.get("host") ?? url.host;
     const result = hostDispatch({ host, path: url.pathname });
-    if (result.kind === "404") {
+    if (result.kind === "not-found") {
       return new Response("Not Found", { status: 404 });
     }
     if (result.kind === "redirect") {

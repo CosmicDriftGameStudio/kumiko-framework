@@ -91,7 +91,12 @@ describe("KumikoScreen / configEdit", () => {
   });
 
   test("submit dispatches one /api/batch with one command per changed field", async () => {
-    const batchSpy = vi.fn(async () => ({ isSuccess: true, results: [] }));
+    const batchSpy = vi.fn(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async () => ({
         isSuccess: true,
@@ -122,7 +127,8 @@ describe("KumikoScreen / configEdit", () => {
 
     await waitFor(() => expect(batchSpy).toHaveBeenCalled());
     expect(batchSpy).toHaveBeenCalledTimes(1);
-    const commands = batchSpy.mock.calls[0]?.[0] as Array<{ type: string; payload: unknown }>;
+    const commands = batchSpy.mock.calls[0]?.[0];
+    if (!commands) throw new Error("batchSpy not called");
     expect(commands).toHaveLength(1);
     expect(commands[0]).toEqual({
       type: "config:write:set",
