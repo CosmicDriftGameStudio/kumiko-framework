@@ -51,8 +51,12 @@ function fieldToColumns(
 
   switch (field.type) {
     case "text": {
-      const col = text(snakeName);
-      return { [name]: field.required ? col.notNull() : col };
+      // Reihenfolge: default() VOR notNull() — drizzle's column-builder
+      // chained beides; ohne default() hat die generierte SQL keinen
+      // DEFAULT-clause (bricht ALTER TABLE ADD COLUMN auf existing rows).
+      const base = text(snakeName);
+      const withDefault = field.default !== undefined ? base.default(field.default) : base;
+      return { [name]: field.required ? withDefault.notNull() : withDefault };
     }
     case "boolean":
       return {
