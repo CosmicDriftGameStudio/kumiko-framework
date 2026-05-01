@@ -2,6 +2,11 @@ import type { KumikoError } from "./kumiko-error";
 
 // Wire format every 4xx/5xx response must match. The API routes use this
 // verbatim; keep it stable — the client SDK keys off these field names.
+//
+// `docsUrl` is the deep-link for self-service: default web/mobile renderers
+// show a "Mehr erfahren →" link pointing here. Computed from `details.reason`
+// (when set) or fallback to `code`. Always present, even when `details` is
+// stripped from the response (e.g. internal_error in production).
 export type ErrorResponseBody = {
   readonly error: {
     readonly code: string;
@@ -9,6 +14,7 @@ export type ErrorResponseBody = {
     readonly i18nParams?: Readonly<Record<string, unknown>>;
     readonly message: string;
     readonly details?: unknown;
+    readonly docsUrl: string;
     readonly requestId?: string;
     readonly timestamp: string;
   };
@@ -68,6 +74,7 @@ export function serializeError(err: KumikoError, requestId?: string): ErrorRespo
       ...(err.i18nParams && { i18nParams: err.i18nParams }),
       message: err.message,
       ...(detailsForResponse !== undefined && { details: detailsForResponse }),
+      docsUrl: err.docsUrl,
       ...(requestId && { requestId }),
       timestamp: new Date().toISOString(),
     },
