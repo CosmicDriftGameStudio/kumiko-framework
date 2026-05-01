@@ -90,6 +90,10 @@ export function DateInput({
           <DayPicker
             mode="single"
             selected={selected}
+            // Ohne defaultMonth zeigt DayPicker today statt selected —
+            // unintuitiv wenn der User schon ein Datum gewählt hat und
+            // den Calendar nochmal öffnet.
+            defaultMonth={selected}
             onSelect={(d) => {
               onChange(d !== undefined ? toIso(d) : undefined);
               setOpen(false);
