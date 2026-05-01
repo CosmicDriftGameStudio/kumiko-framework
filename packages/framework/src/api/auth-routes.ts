@@ -546,6 +546,8 @@ export function createAuthRoutes(
     let globalRoles: readonly string[] = [];
     if (config.userQuery) {
       try {
+        // @cast-boundary engine-payload — dispatcher.query returnt unknown,
+        // userQuery liefert per AuthUserRow-Contract eine row mit roles-spalte.
         const userRow = (await dispatcher.query(
           config.userQuery,
           { id: user.id },
@@ -553,7 +555,7 @@ export function createAuthRoutes(
         )) as { roles?: string | null } | null;
         const raw = userRow?.roles;
         if (typeof raw === "string" && raw.length > 0) {
-          // @cast-boundary user-row.roles is JSON-encoded string[] per AuthUserRow contract
+          // @cast-boundary db-row — userTable.roles is JSON-encoded string[] per AuthUserRow contract
           const parsed = JSON.parse(raw) as unknown;
           if (Array.isArray(parsed) && parsed.every((r) => typeof r === "string")) {
             globalRoles = parsed;

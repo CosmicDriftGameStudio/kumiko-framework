@@ -53,6 +53,8 @@ export abstract class KumikoError extends Error {
 
   private get reasonSlug(): string {
     if (this.details && typeof this.details === "object") {
+      // @cast-boundary error-details — KumikoError.details ist per-error
+      // typed, hier reines reflection-shape für reasonSlug-Lookup.
       const r = (this.details as Record<string, unknown>)["reason"];
       if (typeof r === "string") return r;
     }
