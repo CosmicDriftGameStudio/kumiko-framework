@@ -33,6 +33,7 @@
     "packages/dispatcher-live",
     "packages/renderer",
     "packages/renderer-web",
+    "packages/ai-foundation",
     "samples/recipes/*",
     "samples/apps/*",
     "samples/showcases/*",
