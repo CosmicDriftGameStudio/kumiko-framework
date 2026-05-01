@@ -15,7 +15,7 @@
 // with a different options shape (clientDist, auth config, db url).
 
 import { spawn } from "node:child_process";
-import { mkdtempSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, statSync } from "node:fs";
 import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -391,11 +391,19 @@ function expandWatchPatterns(patterns: readonly string[]): string[] {
   return out;
 }
 
-// Resolve den Pfad zur Tailwind-Entry-CSS. Drei Fälle:
+// Resolve den Pfad zur Tailwind-Entry-CSS. Mehrere Fälle:
 //   - Explicit string  → den resolved'en absoluten Pfad verwenden
 //   - false            → CSS-Pipeline aus (undefined zurück)
-//   - undefined + client(s): Default `@kumiko/renderer-web/styles.css` auflösen
+//   - undefined + client(s):
+//       1. App-eigenes src/styles.css (App-Theme-Override) wenn vorhanden
+//       2. Sonst Default `@kumiko/renderer-web/styles.css` über Package-Exports
 //   - undefined + kein clientEntry/clientEntries: undefined (keine CSS nötig)
+//
+// Auto-Detection von src/styles.css spiegelt die Logik aus
+// build-prod-bundle:resolveStylesheetEntry — damit dev und prod identisch
+// resolven. Ohne diesen Check müsste jede App `stylesheet: "./src/styles.css"`
+// setzen, sonst greift in dev der renderer-web-Default und Brand-Tokens
+// werden ignoriert (DX-Falle).
 //
 // @internal — exportiert nur für Unit-Tests, nicht aus dem Package-Index
 //   re-exportiert. Konsumenten gehen ausschließlich über die `stylesheet`-
@@ -407,6 +415,11 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
     options.clientEntry !== undefined ||
     (options.clientEntries !== undefined && options.clientEntries.length > 0);
   if (!hasAnyEntry) return undefined;
+
+  // App-eigenes src/styles.css schlägt den renderer-web-Default — gleiche
+  // Logik wie kumiko-build, damit lokal/prod identisch bauen.
+  const local = resolve(process.cwd(), "src/styles.css");
+  if (existsSync(local)) return local;
 
   // Bun.resolveSync folgt Package-Exports — "./styles.css" in renderer-web's
   // package.json. Das Monorepo auflöst direkt auf den Workspace-File, eine

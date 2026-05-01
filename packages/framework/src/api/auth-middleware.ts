@@ -180,7 +180,23 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       }
       // No JWT → either fall through as anonymous (when the server opts in)
       // or reject with 401 (preserving the pre-anonymous default).
+      //
+      // Auth-routes-Sonderfall: `/api/auth/*`-Pfade die NICHT in
+      // PUBLIC_API_PATHS sind (tenants, switch-tenant, logout) brauchen
+      // einen JWT — aber keinen Tenant-Resolve. Würden sie durch
+      // handleAnonymous laufen, wirft resolveTenant 400 tenant_required
+      // wenn kein Tenant declared ist. Falsche Diagnose: das Problem ist
+      // missing authentication, nicht missing tenant. Daher hier direkt
+      // 401, ohne den anonymous-Tenant-Flow zu durchlaufen.
       if (anonymousAccess) {
+        if (c.req.path.startsWith("/api/auth/")) {
+          return middlewareReject(c, {
+            code: "missing_token",
+            status: 401,
+            message: "no auth cookie or bearer token",
+            i18nKey: "auth.errors.missingToken",
+          });
+        }
         return await handleAnonymous(c, anonymousAccess, next);
       }
       return middlewareReject(c, {

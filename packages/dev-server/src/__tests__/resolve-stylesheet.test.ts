@@ -1,4 +1,4 @@
-// Unit-Tests für resolveStylesheet — die vier Verzweigungen aus
+// Unit-Tests für resolveStylesheet — die Verzweigungen aus
 // createKumikoServer's CSS-Setup. Läuft unter vitest auf Node, also
 // ohne Bun.serve und ohne Bun.resolveSync; der Default-Resolution-
 // Pfad (Bun-only) ist hier explizit als "skip silent" abgedeckt.
@@ -7,6 +7,9 @@
 // die anderen Tests dort booten ein TestStack (DB + Redis), das brauchen
 // wir für reine Resolver-Logik nicht.
 
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { resolveStylesheet } from "../create-kumiko-server";
 
@@ -55,5 +58,33 @@ describe("resolveStylesheet", () => {
       clientEntry: "./entry.tsx",
     });
     expect(out).toBeUndefined();
+  });
+
+  test("undefined + clientEntry + src/styles.css existiert → returns App-Theme-Override", () => {
+    // Auto-Detection greift VOR dem renderer-web-Fallback: Wenn die App
+    // ein eigenes src/styles.css hat (App-Theme-Pattern), wird das
+    // automatisch als Tailwind-Entry genommen — symmetrisch zum prod-
+    // Build (kumiko-build:resolveStylesheetEntry). Ohne diesen Check
+    // müsste jede App `stylesheet:` explizit setzen.
+    // realpath aufgelöst, weil macOS' /var → /private/var Symlink sonst
+    // einen anderen Pfad rauswirft als process.cwd() nach chdir.
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-resolve-styles-")));
+    const srcDir = join(tmpDir, "src");
+    mkdirSync(srcDir);
+    const stylesheet = join(srcDir, "styles.css");
+    writeFileSync(stylesheet, "/* app theme */");
+
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      const out = resolveStylesheet({
+        features: [],
+        clientEntry: "./entry.tsx",
+      });
+      expect(out).toBe(stylesheet);
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

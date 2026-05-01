@@ -30,9 +30,7 @@ describe("KumikoError: abstract base", () => {
   describe("docsUrl getter — Self-Service-Link", () => {
     test("uses details.reason when set (NotFoundError sets entity-specific reason)", () => {
       const err = new NotFoundError("order", 42);
-      expect(err.docsUrl).toBe(
-        "https://docs.kumiko.so/errors/order_not_found",
-      );
+      expect(err.docsUrl).toBe("https://docs.kumiko.so/errors/order_not_found");
     });
 
     test("uses details.reason when explicitly set (ConflictError-style)", () => {
@@ -55,9 +53,7 @@ describe("KumikoError: abstract base", () => {
       process.env["KUMIKO_DOCS_URL"] = "https://docs.acme.example";
       try {
         const err = new ConflictError({ details: { reason: "stale_state" } });
-        expect(err.docsUrl).toBe(
-          "https://docs.acme.example/errors/stale_state",
-        );
+        expect(err.docsUrl).toBe("https://docs.acme.example/errors/stale_state");
       } finally {
         if (original === undefined) delete process.env["KUMIKO_DOCS_URL"];
         else process.env["KUMIKO_DOCS_URL"] = original;
@@ -67,9 +63,7 @@ describe("KumikoError: abstract base", () => {
     test("serializeError exposes docsUrl in the wire response", () => {
       const err = new ConflictError({ details: { reason: "stale_state" } });
       const body = serializeError(err);
-      expect(body.error.docsUrl).toBe(
-        "https://docs.kumiko.so/errors/stale_state",
-      );
+      expect(body.error.docsUrl).toBe("https://docs.kumiko.so/errors/stale_state");
     });
   });
 });
