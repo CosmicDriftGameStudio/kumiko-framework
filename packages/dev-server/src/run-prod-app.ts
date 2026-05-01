@@ -146,7 +146,12 @@ export type ExtraContextOption =
  *  matched noch eine konkrete Disk-Datei treffen. Asset-Pfade (/assets/*)
  *  und API-Pfade laufen unabhängig vom Host. */
 export type HostDispatchResult =
-  | { readonly kind: "html"; readonly file: string; readonly injectSchema?: boolean; readonly csp?: string }
+  | {
+      readonly kind: "html";
+      readonly file: string;
+      readonly injectSchema?: boolean;
+      readonly csp?: string;
+    }
   | { readonly kind: "redirect"; readonly to: string; readonly status?: 301 | 302 }
   | { readonly kind: "404" };
 
