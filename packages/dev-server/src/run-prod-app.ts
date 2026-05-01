@@ -32,6 +32,7 @@ import {
 } from "@kumiko/bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@kumiko/bundled-features/config";
 import { TenantQueries } from "@kumiko/bundled-features/tenant";
+import { createSseBroker, type SseBroker } from "@kumiko/framework/api";
 import { createDbConnection } from "@kumiko/framework/db";
 import {
   buildAppSchema,
@@ -115,13 +116,15 @@ export type ProdSeedFn = (deps: {
 
 /** Boot-Time-Deps die `extraContext` + `anonymousAccess` Factories als
  *  Argument bekommen. Closure dann in der returned Config (z.B. ein
- *  TenantResolver der gegen `db` queriet). Single-source: identisch zu
+ *  TenantResolver der gegen `db` queriet, oder ein extraContext-Provider
+ *  der direkt SSE-Events publishen will). Single-source: identisch zu
  *  setupTestStack's extraContext-Factory-Shape damit Test/Prod gleich
- *  aussehen — minus sseBroker, das im Prod intern bleibt. */
+ *  aussehen. */
 export type RunProdAppDeps = {
   readonly db: import("@kumiko/framework/db").DbConnection;
   readonly redis: import("ioredis").default;
   readonly registry: import("@kumiko/framework/engine").Registry;
+  readonly sseBroker: SseBroker;
 };
 
 export type AnonymousAccessOption =
@@ -334,7 +337,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // gegen die DB resolven müssen (z.B. Subdomain-Tenant-Lookup im
   // tenantResolver) — die Factory closure'd `db` und der Resolver kann
   // sie zur Request-Zeit aufrufen.
-  const deps: RunProdAppDeps = { db, redis, registry };
+  // sseBroker hier bauen (statt's createApiEntrypoint intern machen zu
+  // lassen) damit extraContext-Factories ihn schon zur Boot-Zeit closure'n
+  // können — z.B. ein extraContext-Provider der direkt SSE-Events
+  // publisht. Wir reichen denselben Broker dann an createApiEntrypoint
+  // durch (sseBroker?-option), damit der Server-internal-Broadcast und
+  // App-spezifische Publishes über genau einen Broker laufen.
+  const sseBroker = createSseBroker();
+  const deps: RunProdAppDeps = { db, redis, registry, sseBroker };
   const resolvedExtraContext =
     typeof options.extraContext === "function"
       ? options.extraContext(deps)
@@ -356,6 +366,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       registry,
       ...extraContext,
     },
+    sseBroker,
     jwtSecret,
     ...(jwtIssuer && { jwtIssuer }),
     ...(instanceId && { instanceId }),

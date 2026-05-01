@@ -34,6 +34,13 @@ export type {
 export { createEventStoreExecutor, entityEventName } from "./event-store-executor";
 export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp";
 export { flattenMoney, rehydrateMoney } from "./money";
+export {
+  constraintOf,
+  extractPgError,
+  isTableAlreadyExists,
+  isUniqueViolation,
+  type PgErrorInfo,
+} from "./pg-error";
 export { seedReferenceData } from "./reference-data";
 export { fetchOne } from "./row-helpers";
 export { tableExists } from "./schema-inspection";
