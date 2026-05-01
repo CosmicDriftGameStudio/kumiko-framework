@@ -28,7 +28,16 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly entity: EntityDefinition;
   readonly featureName: string;
   readonly initial: TValues;
-  readonly writeCommand: string;
+  /** Standard single-write Submit-Pfad. Ignoriert wenn `customSubmit`
+   *  gesetzt ist (configEdit-Screens dispatchen mehrere Writes pro
+   *  Submit, da macht writeCommand keinen Sinn). */
+  readonly writeCommand?: string;
+  /** Override für die Submit-Pipeline. Wenn gesetzt, läuft erst
+   *  controller.validate() und dann customSubmit(snapshot) statt
+   *  controller.submit(). On-success rebased der Form-State so dass
+   *  isUnchanged/isDirty wieder false werden — ohne das blieben
+   *  Save-Button und Banner stale. */
+  readonly customSubmit?: (snapshot: FormSnapshot<TValues>) => Promise<SubmitResult<unknown>>;
   readonly translate?: Translate;
   readonly ctx?: TCtx;
   readonly schema?: z.ZodType;
@@ -88,6 +97,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onReload,
     submitLabel,
   } = props;
+  const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
   // konsumieren wir den i18next-Context direkt. Sonst wären Field-
   // Labels ohne Caller-Wiring raw-Keys (`feature:entity:foo:field:title`).
@@ -103,16 +113,24 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
+  // Submit-Config nur wenn der Caller einen writeCommand mitgibt; bei
+  // customSubmit-Pfad kommt der Form-Controller ohne Submit-Wiring,
+  // weil wir controller.submit() eh nicht rufen.
+  const submitConfig =
+    writeCommand !== undefined
+      ? {
+          type: writeCommand,
+          payloadMode,
+          ...(buildPayload !== undefined && { buildPayload }),
+        }
+      : undefined;
+
   const { controller, snapshot } = useForm<TValues, TCtx>({
     initial,
     fields,
     ...(schema !== undefined && { schema }),
     ...(ctx !== undefined && { ctx }),
-    submit: {
-      type: writeCommand,
-      payloadMode,
-      ...(buildPayload !== undefined && { buildPayload }),
-    },
+    ...(submitConfig !== undefined && { submit: submitConfig }),
   });
 
   const vm = useMemo(
@@ -131,7 +149,24 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   async function handleSubmit(): Promise<void> {
     setIsSubmitting(true);
     try {
-      const result = await controller.submit();
+      let result: SubmitResult<unknown>;
+      if (customSubmit !== undefined) {
+        // customSubmit-Pfad (z.B. configEdit, das pro Field einen
+        // separaten Write feuert). Erst client-side Validation, dann
+        // an den Caller; on-success rebased der Form-State explizit
+        // weil controller.submit() das normalerweise selbst macht und
+        // ohne customSubmit's Hilfe weiß der Controller nichts vom
+        // erfolgreichen Submit (isUnchanged blieb sonst false).
+        const valid = controller.validate();
+        if (!valid) {
+          result = { isSuccess: false, validationBlocked: true } as SubmitResult<unknown>;
+        } else {
+          result = await customSubmit(snapshot);
+          if (result.isSuccess) controller.rebase();
+        }
+      } else {
+        result = await controller.submit();
+      }
       // Form-level Errors (ohne field-level details) landen im Banner.
       // Field-Errors fließen über snapshot.errors in die einzelnen Fields.
       if (result.isSuccess) {

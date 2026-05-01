@@ -43,6 +43,7 @@ export type { AccessRule } from "../engine/types/handlers";
 export type { NavDefinition } from "../engine/types/nav";
 export type {
   ActionFormScreenDefinition,
+  ConfigEditScreenDefinition,
   CustomScreenDefinition,
   CustomScreenRoute,
   EditFieldSpec,

@@ -362,6 +362,55 @@ export type CustomScreenDefinition = {
   readonly access?: AccessRule;
 };
 
+// --- configEdit ---
+
+// Form-Screen der Tenant-/User-/System-Settings aus dem bundled
+// config-Feature liest und schreibt. Wird gerendert wie ein
+// EntityEditScreen (sections + fields), aber:
+//   - Detail-Load via `config:query:values` (statt `<entity>:detail`)
+//   - Pre-Fill nutzt `configKeys[shortName]` → qualifizierter Key, dann
+//     `values[qualifiedKey].value`
+//   - Submit feuert pro geändertem Feld einen `config:write:set` mit
+//     {key, value, scope}; das config-feature behandelt jeden Key als
+//     eigenes Aggregate (configValue.<keyHash>) — atomic + parallel-safe
+//   - kein Singleton-Hack nötig: pro (key+tenantId) gibt's by-design
+//     genau eine Row, der Bridge-Pattern aus dem Branding-MVP fällt weg
+//
+// Field-Shape: inline am Screen wie bei `actionForm`. Author hat damit
+// explizite Kontrolle über Input-Type (text/number/select/...) ohne
+// Resolve-Ceremony — die FieldDefinitions sind dieselben wie auf
+// Entities, alle DefaultInput-Renderer greifen unverändert. Field-
+// Labels gehen über bestehende i18n-Konventionen (`<feature>:entity:
+// <namespace>:field:<name>` o.ä. — der Author wählt den Namespace).
+//
+// scope MUSS mit der `createTenantConfig`/`createSystemConfig`/
+// `createUserConfig`-Deklaration der referenzierten Keys
+// übereinstimmen — der Boot-Validator pinnt das.
+export type ConfigEditScreenDefinition = {
+  readonly id: string;
+  readonly type: "configEdit";
+  /** scope für config:write:set Calls. Muss zur Scope-Deklaration der
+   *  in `configKeys` referenzierten Keys passen — Boot-Validator
+   *  prüft das gegen die Registry. */
+  readonly scope: "tenant" | "system" | "user";
+  /** Map: form-field-name (kurz, wie im Layout referenziert) → voll-
+   *  qualifizierter Config-Key (`<feature>:config:<short>`). Boot-
+   *  Validator prüft dass jeder qualifizierte Key in der Registry
+   *  bekannt ist. */
+  readonly configKeys: Readonly<Record<string, string>>;
+  /** Form-Shape pro Field-Name. Selbe FieldDefinitions wie auf
+   *  Entities/ActionForm. Field-Names matchen die Keys in `configKeys`
+   *  — Boot-Validator pinnt das. */
+  readonly fields: Readonly<Record<string, FieldDefinition>>;
+  /** Layout: Sections mit Field-Refs. Identisch zu entityEdit/
+   *  actionForm. */
+  readonly layout: EditLayout;
+  /** i18n-key für den Submit-Button. Default: "kumiko.actions.save". */
+  readonly submitLabel?: string;
+  readonly slots?: ScreenSlots;
+  readonly access?: AccessRule;
+};
+
 // --- shared slots (Level 4 from ui-architecture.md) ---
 
 export type ScreenSlots = {
@@ -379,6 +428,7 @@ export type ScreenDefinition =
   | EntityListScreenDefinition
   | EntityEditScreenDefinition
   | ActionFormScreenDefinition
+  | ConfigEditScreenDefinition
   | CustomScreenDefinition;
 
 // Collapse the string-shorthand into the object form. Both the boot-validator
