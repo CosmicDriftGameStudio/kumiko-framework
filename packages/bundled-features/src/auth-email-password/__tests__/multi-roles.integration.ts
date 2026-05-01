@@ -126,6 +126,16 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
     const userId = await seedUser("syadmin@example.com", "pw-long-enough", ["SystemAdmin"]);
     await addMembership(userId, tenantA, ["Admin"]);
 
+    // Pin write-path: roles MUSS in DB landen, sonst ist der session-merge
+    // nur Zufall (z.B. wenn login-handler hardcoded SystemAdmin reinpacken
+    // würde). Direct DB-read schließt das aus.
+    const { eq } = await import("drizzle-orm");
+    const dbRow = await stack.db
+      .select({ roles: userTable["roles"] })
+      .from(userTable)
+      .where(eq(userTable["id"], userId));
+    expect(dbRow[0]?.roles).toBe(JSON.stringify(["SystemAdmin"]));
+
     const { user } = await login("syadmin@example.com", "pw-long-enough");
     expect(user.tenantId).toBe(tenantA);
     expect(user.roles.sort()).toEqual(["Admin", "SystemAdmin"]);
@@ -145,6 +155,64 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
 
     const { user } = await login("dup@example.com", "pw-long-enough");
     expect(user.roles.sort()).toEqual(["Admin", "SystemAdmin", "User"]);
+  });
+});
+
+describe("multi-roles: privilege-escalation blocked via field-level write-access", () => {
+  test("Tenant-Admin (ohne SystemAdmin) kann user.roles NICHT setzen via update", async () => {
+    // Setup: User mit ["Admin"] auf tenantA (Tenant-Admin) + ein Target-User
+    // mit leeren globalRoles. Tenant-Admin versucht den Target via
+    // user:write:user:update auf SystemAdmin zu eskalieren.
+    const adminId = await seedUser("ta@example.com", "pw-long-enough");
+    await addMembership(adminId, tenantA, ["Admin"]);
+    const tenantAdminSession = { id: adminId, tenantId: tenantA, roles: ["Admin"] };
+
+    // Target user mit version 1 (frisch erstellt).
+    const targetId = await seedUser("victim@example.com", "pw-long-enough");
+
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: targetId,
+        version: 1,
+        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+      },
+      tenantAdminSession,
+    );
+    // Field-level guard greift VOR dem handler — AccessDeniedError mit
+    // field=roles. Das pinst: kein "silent drop", sondern hard-fail.
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+    const body = (await res.json()) as {
+      error?: { details?: { field?: string; reason?: string } };
+    };
+    expect(body.error?.details?.field).toBe("roles");
+    expect(body.error?.details?.reason).toBe("field_access_denied");
+  });
+
+  test("Self-update mit roles → blocked (kein Privilege-Selbst-Erteilung)", async () => {
+    // Auch wenn isSelf-check im handler den ownership-guard umgeht,
+    // greift der field-level write-access auf roles unabhängig: User
+    // kann sich nicht selbst zum SystemAdmin machen.
+    const userId = await seedUser("selfescalate@example.com", "pw-long-enough");
+    await addMembership(userId, tenantA, ["User"]);
+    const userSession = { id: userId, tenantId: tenantA, roles: ["User"] };
+
+    const res = await stack.http.write(
+      UserHandlers.update,
+      {
+        id: userId,
+        version: 1,
+        changes: { roles: JSON.stringify(["SystemAdmin"]) },
+      },
+      userSession,
+    );
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+    const body = (await res.json()) as {
+      error?: { details?: { field?: string } };
+    };
+    expect(body.error?.details?.field).toBe("roles");
   });
 });
 

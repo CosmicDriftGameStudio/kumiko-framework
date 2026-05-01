@@ -26,6 +26,14 @@ export const updateWrite = defineWriteHandler({
       passwordHash: z.string().optional(),
       lastActiveTenantId: z.string().optional(),
       emailVerified: z.boolean().optional(),
+      // Globale Rollen — JSON-encoded string[]. Field-level write-access
+      // ist privileged (siehe userEntity.roles), d.h. ein non-privileged
+      // Caller sieht hier zwar einen 200, aber das Field-Guard im
+      // executor blockt die Spalte vorm Schreiben (silent strip). Schema
+      // akzeptiert das field damit der SystemAdmin-Pfad explizit
+      // existiert; der Privilege-Escalation-Schutz greift im
+      // FieldAccessFilter, nicht im Schema.
+      roles: z.string().optional(),
     }),
   }),
   access: { openToAll: true },
