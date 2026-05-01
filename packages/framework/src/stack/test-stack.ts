@@ -100,8 +100,20 @@ export type TestStackOptions = {
    *  dev-server wiring to survive hot-reloads. */
   persistentDb?: boolean;
   /** Forwarded to buildServer — when set, requests without a JWT pass
-   *  through as anonymous instead of 401. See AnonymousAccessConfig. */
-  anonymousAccess?: import("../api/server").ServerOptions["anonymousAccess"];
+   *  through as anonymous instead of 401. See AnonymousAccessConfig.
+   *  Akzeptiert entweder einen statischen Config-Object ODER eine Factory
+   *  `({registry, db, sseBroker, redis}) => Config` — gleiches Pattern wie
+   *  `extraContext`. Die Factory wird einmal beim Boot aufgerufen, der
+   *  TenantResolver darin closure'd typischerweise `db` für Subdomain-
+   *  Lookups. */
+  anonymousAccess?:
+    | import("../api/server").ServerOptions["anonymousAccess"]
+    | ((deps: {
+        registry: Registry;
+        db: import("../db/connection").DbConnection;
+        sseBroker: import("../api/sse-broker").SseBroker;
+        redis: import("ioredis").default;
+      }) => import("../api/server").ServerOptions["anonymousAccess"]);
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -293,7 +305,19 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     ...(options.observability ? { observability: options.observability } : {}),
     ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
     ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}),
-    ...(options.anonymousAccess ? { anonymousAccess: options.anonymousAccess } : {}),
+    ...(options.anonymousAccess
+      ? {
+          anonymousAccess:
+            typeof options.anonymousAccess === "function"
+              ? options.anonymousAccess({
+                  registry,
+                  db: testDb.db,
+                  sseBroker,
+                  redis: testRedis.redis,
+                })
+              : options.anonymousAccess,
+        }
+      : {}),
     // Wire the upload routes + ctx.files only when the caller registered a
     // provider. Tests that don't touch files skip both without extra setup.
     ...(options.files

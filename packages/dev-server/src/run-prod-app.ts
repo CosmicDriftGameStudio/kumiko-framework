@@ -32,6 +32,7 @@ import {
 } from "@kumiko/bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@kumiko/bundled-features/config";
 import { TenantQueries } from "@kumiko/bundled-features/tenant";
+import { createSseBroker, type SseBroker } from "@kumiko/framework/api";
 import { createDbConnection } from "@kumiko/framework/db";
 import {
   buildAppSchema,
@@ -113,6 +114,55 @@ export type ProdSeedFn = (deps: {
   db: import("@kumiko/framework/db").DbConnection;
 }) => Promise<void>;
 
+/** Boot-Time-Deps die `extraContext` + `anonymousAccess` Factories als
+ *  Argument bekommen. Closure dann in der returned Config (z.B. ein
+ *  TenantResolver der gegen `db` queriet, oder ein extraContext-Provider
+ *  der direkt SSE-Events publishen will). Single-source: identisch zu
+ *  setupTestStack's extraContext-Factory-Shape damit Test/Prod gleich
+ *  aussehen. */
+export type RunProdAppDeps = {
+  readonly db: import("@kumiko/framework/db").DbConnection;
+  readonly redis: import("ioredis").default;
+  readonly registry: import("@kumiko/framework/engine").Registry;
+  readonly sseBroker: SseBroker;
+};
+
+export type AnonymousAccessOption =
+  | import("@kumiko/framework/api").ServerOptions["anonymousAccess"]
+  | ((deps: RunProdAppDeps) => import("@kumiko/framework/api").ServerOptions["anonymousAccess"]);
+
+export type ExtraContextOption =
+  | Record<string, unknown>
+  | ((deps: RunProdAppDeps) => Record<string, unknown>);
+
+/** Per-Host Routing-Entscheidung für den staticDir-Fallback. Wird aus
+ *  hostDispatch returned. Drei Modi:
+ *    - "html": eine bestimmte HTML-Datei (relativ zu staticDir) servieren,
+ *      mit optionaler Schema-Injection und CSP. Schema-Injection MUSS
+ *      explizit eingeschaltet werden (default false) — Public-Domain-
+ *      Antworten leaken sonst die volle Admin-UI-Schema-Topologie.
+ *    - "redirect": 301/302 an die angegebene Location.
+ *    - "not-found": klar abweisen (z.B. unbekannte Subdomain).
+ *
+ *  Wird NUR konsultiert wenn der Pfad sonst auf den HTML-Fallback gehen
+ *  würde — also für "/", "/index.html", oder SPA-Routen die weder Hono
+ *  matched noch eine konkrete Disk-Datei treffen. Asset-Pfade (/assets/*)
+ *  und API-Pfade laufen unabhängig vom Host. */
+export type HostDispatchResult =
+  | {
+      readonly kind: "html";
+      readonly file: string;
+      readonly injectSchema?: boolean;
+      readonly csp?: string;
+    }
+  | { readonly kind: "redirect"; readonly to: string; readonly status?: 301 | 302 }
+  | { readonly kind: "not-found" };
+
+export type HostDispatchFn = (req: {
+  readonly host: string;
+  readonly path: string;
+}) => HostDispatchResult;
+
 export type RunProdAppOptions = {
   /** App-specific features. config/user/tenant/auth-email-password are
    *  auto-mixed when `auth:` is set — don't add them yourself. */
@@ -123,14 +173,35 @@ export type RunProdAppOptions = {
   readonly auth?: RunProdAppAuthOptions;
   /** Custom seed functions, run after the admin seed (when auth-mode). */
   readonly seeds?: readonly ProdSeedFn[];
-  /** Anonymous-access for public endpoints (same shape as runDevApp). */
-  readonly anonymousAccess?: ApiEntrypointOptions["context"] extends infer _
-    ? import("@kumiko/framework/api").ServerOptions["anonymousAccess"]
-    : never;
+  /** Anonymous-access for public endpoints (same shape as runDevApp).
+   *  Akzeptiert entweder einen statischen Config-Object ODER eine
+   *  Factory `({db, redis, registry}) => Config` — die Factory wird
+   *  einmal zur Boot-Zeit aufgerufen, NACHDEM db/redis/registry konstruiert
+   *  sind. Der Caller closure'd typischerweise db/redis/registry in den
+   *  TenantResolver damit z.B. ein Subdomain → Tenant-Lookup gegen die
+   *  DB möglich ist (siehe samples/showcases/publicstatus für das
+   *  Multi-Tenant-Pattern). */
+  readonly anonymousAccess?: AnonymousAccessOption;
   /** Static-file root for HTML / assets. Served on the catch-all route
    *  for any path that doesn't match an /api/ handler. Use this for the
    *  public status page HTML, embed widget JS, etc. */
   readonly staticDir?: string;
+  /** Host-aware Routing-Hook für Multi-Tenant + Multi-App-Deployments
+   *  (z.B. publicstatus's `<sub>.publicstatus.eu` (Public-Page) +
+   *  `admin.publicstatus.eu` (Admin-UI) + `publicstatus.eu` (Apex/
+   *  Marketing) im SELBEN Container).
+   *
+   *  Wird aufgerufen wenn der staticDir-Fallback einen HTML-Response
+   *  generieren würde (Root oder SPA-Route). Default-Verhalten ohne
+   *  hostDispatch: index.html mit Schema-Injection (Single-App).
+   *
+   *  Sicherheitshinweis: Schema-Injection (`__KUMIKO_SCHEMA__`) leakt
+   *  die Admin-UI-Topologie (alle Screens, Felder, Layouts) ans HTML.
+   *  Public-Domain-Antworten sollen das NIEMALS — `injectSchema` ist
+   *  daher default false und MUSS pro Host explizit eingeschaltet
+   *  werden. CSP-Header pro Host können zusätzlich Asset-Pfade
+   *  einschränken. */
+  readonly hostDispatch?: HostDispatchFn;
   /** Pfad zu drizzle/migrations für den Boot-Gate. Default "./drizzle/
    *  migrations" relativ zum process-cwd (wo die App gestartet wird —
    *  bei Container-Deploys typischerweise der App-Workspace-Root, weil
@@ -140,8 +211,13 @@ export type RunProdAppOptions = {
    *  Setups die ihren eigenen Schema-Check fahren (z.B. bring-your-own-
    *  ORM). Standard-Apps lassen das default. */
   readonly migrations?: { readonly dir: string } | false;
-  /** Extra AppContext keys. configResolver is auto-set in auth-mode. */
-  readonly extraContext?: Record<string, unknown>;
+  /** Extra AppContext keys. configResolver is auto-set in auth-mode.
+   *  Akzeptiert entweder einen statischen Object ODER eine Factory
+   *  `({db, redis, registry}) => Record<string, unknown>` — gleiches
+   *  Pattern wie `anonymousAccess`. Im Auth-Mode wird `configResolver`
+   *  weiterhin automatisch ergänzt; Factory-Result + auto-resolver
+   *  werden gemerged (Factory-Werte überschreiben). */
+  readonly extraContext?: ExtraContextOption;
   /** Job-Block. Wenn das Feature `r.job(...)` registriert, MUSS dieser
    *  Block gesetzt sein — sonst wirft createApiEntrypoint mit dem
    *  expliziten "registry declares N job(s)..."-Fehler. Default-Pattern
@@ -254,9 +330,32 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // 7. Lifecycle is built by createApiEntrypoint when not supplied —
   //    we let the entrypoint own it and read it back through the handle
   //    for SIGTERM.
+  //
+  // extraContext + anonymousAccess sind factory-union: entweder direktes
+  // Object oder Function die {db, redis, registry} bekommt und das Object
+  // returned. Factory-Form gilt als bevorzugt für Cases die zur Boot-Zeit
+  // gegen die DB resolven müssen (z.B. Subdomain-Tenant-Lookup im
+  // tenantResolver) — die Factory closure'd `db` und der Resolver kann
+  // sie zur Request-Zeit aufrufen.
+  // sseBroker hier bauen (statt's createApiEntrypoint intern machen zu
+  // lassen) damit extraContext-Factories ihn schon zur Boot-Zeit closure'n
+  // können — z.B. ein extraContext-Provider der direkt SSE-Events
+  // publisht. Wir reichen denselben Broker dann an createApiEntrypoint
+  // durch (sseBroker?-option), damit der Server-internal-Broadcast und
+  // App-spezifische Publishes über genau einen Broker laufen.
+  const sseBroker = createSseBroker();
+  const deps: RunProdAppDeps = { db, redis, registry, sseBroker };
+  const resolvedExtraContext =
+    typeof options.extraContext === "function"
+      ? options.extraContext(deps)
+      : (options.extraContext ?? {});
   const extraContext = options.auth
-    ? { configResolver: createConfigResolver(), ...(options.extraContext ?? {}) }
-    : (options.extraContext ?? {});
+    ? { configResolver: createConfigResolver(), ...resolvedExtraContext }
+    : resolvedExtraContext;
+  const resolvedAnonymousAccess =
+    typeof options.anonymousAccess === "function"
+      ? options.anonymousAccess(deps)
+      : options.anonymousAccess;
 
   const entrypoint = createApiEntrypoint({
     registry,
@@ -267,6 +366,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       registry,
       ...extraContext,
     },
+    sseBroker,
     jwtSecret,
     ...(jwtIssuer && { jwtIssuer }),
     ...(instanceId && { instanceId }),
@@ -282,7 +382,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         },
       },
     }),
-    ...(options.anonymousAccess && { anonymousAccess: options.anonymousAccess }),
+    ...(resolvedAnonymousAccess && { anonymousAccess: resolvedAnonymousAccess }),
     // Auto-Pass-Through für r.job-Wiring: wenn das Registry Jobs
     // deklariert, MUSS der jobs-Block gesetzt sein — sonst stoppt
     // createApiEntrypoint mit explizitem Fehler. Default für Single-
@@ -343,6 +443,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         entrypoint.app.fetch.bind(entrypoint.app),
         options.staticDir,
         appSchemaJson,
+        options.hostDispatch,
       )
     : entrypoint.app.fetch.bind(entrypoint.app);
 
@@ -485,20 +586,67 @@ function buildStaticFallback(
   apiHandler: (req: Request) => Response | Promise<Response>,
   staticDir: string,
   appSchemaJson: string,
+  hostDispatch?: HostDispatchFn,
 ): (req: Request) => Promise<Response> {
   const indexHtml = `${staticDir}/index.html`;
 
-  // Helper: liest index.html von der Disk + injiziert das pre-serialized
-  // AppSchema vor dem client.js-Tag. Mehrere Code-Pfade unten servieren
-  // index.html (Disk-Match auf "/" UND SPA-Fallback) — beide brauchen
-  // dieselbe Injection. injectSchema ist idempotent, doppelte Calls
-  // produzieren keine zweite Tag.
-  async function readIndexWithSchema(): Promise<{ bytes: ArrayBuffer; mime: string } | null> {
-    const file = await readStaticFile(indexHtml);
+  // Helper: liest eine HTML-Datei von der Disk + (optional) injiziert
+  // das pre-serialized AppSchema vor dem client.js-Tag. Schema-Injection
+  // ist explicit-opt-in damit Public-Domain-Antworten die Admin-UI-
+  // Topologie nicht leaken. injectSchema ist idempotent, doppelte Calls
+  // produzieren keinen doppelten Tag.
+  async function readHtmlFile(
+    path: string,
+    injectSchemaInto: boolean,
+  ): Promise<{ bytes: ArrayBuffer; mime: string } | null> {
+    const file = await readStaticFile(path);
     if (!file) return null;
+    if (!injectSchemaInto) {
+      return {
+        bytes: file.bytes.buffer.slice(
+          file.bytes.byteOffset,
+          file.bytes.byteOffset + file.bytes.byteLength,
+        ) as ArrayBuffer,
+        mime: file.mime,
+      };
+    }
     const text = new TextDecoder().decode(file.bytes);
     const injected = injectSchema(text, appSchemaJson);
     return { bytes: new TextEncoder().encode(injected).buffer as ArrayBuffer, mime: file.mime };
+  }
+
+  // hostDispatch konsultieren wenn gesetzt UND der Request auf den
+  // HTML-Fallback fällt (Root oder SPA-Route). Returnt entweder die
+  // resolved Response (redirect/404/html) oder null wenn der Default-
+  // Pfad weiterlaufen soll.
+  async function tryHostDispatch(req: Request): Promise<Response | null> {
+    if (!hostDispatch) return null;
+    const url = new URL(req.url);
+    const host = req.headers.get("host") ?? url.host;
+    const result = hostDispatch({ host, path: url.pathname });
+    if (result.kind === "not-found") {
+      return new Response("Not Found", { status: 404 });
+    }
+    if (result.kind === "redirect") {
+      return new Response(null, {
+        status: result.status ?? 302,
+        headers: { Location: result.to },
+      });
+    }
+    // result.kind === "html"
+    const filePath = `${staticDir}/${result.file}`;
+    const html = await readHtmlFile(filePath, result.injectSchema === true);
+    if (!html) {
+      // Author-Fehler: hostDispatch verweist auf nicht-existente Datei.
+      // Liefer 500 statt silent-404 damit der Bug schnell auffällt.
+      return new Response(`hostDispatch: file not found: ${result.file}`, { status: 500 });
+    }
+    const headers: Record<string, string> = {
+      ...cacheHeadersFor("/index.html"),
+      "content-type": html.mime,
+    };
+    if (result.csp) headers["content-security-policy"] = result.csp;
+    return new Response(html.bytes, { headers });
   }
 
   return async (req: Request): Promise<Response> => {
@@ -511,43 +659,34 @@ function buildStaticFallback(
     // Hono-First für andere Pfade: extraRoutes (z.B. /feed.xml,
     // /sitemap.xml) müssen vor dem Disk-Lookup greifen, sonst
     // schluckt der SPA-Fallback unten unbekannte Pfade als index.html.
-    // Wenn Hono "matched" (= status !== 404), wir liefern die Antwort
-    // durch. Bei 404 fallen wir auf den Static/SPA-Pfad zurück.
     const honoRes = await apiHandler(req);
     if (honoRes.status !== 404) {
       return honoRes;
     }
 
-    // Try the static file. Default route "/" → index.html (Schema-injected).
+    // Disk-Datei (Asset oder konkrete File). Asset-Pfade laufen
+    // host-unabhängig — die Bundles in /assets/* werden vom client
+    // aktiv geladen, kein Server-side Routing nötig.
     const isIndexRequest = url.pathname === "/" || url.pathname === "/index.html";
-    if (isIndexRequest) {
-      const indexed = await readIndexWithSchema();
-      if (indexed) {
-        return new Response(indexed.bytes, {
-          headers: { ...cacheHeadersFor("/index.html"), "content-type": indexed.mime },
-        });
-      }
-    } else {
+    if (!isIndexRequest) {
       const relPath = url.pathname.slice(1);
       const filePath = `${staticDir}/${relPath}`;
       const file = await readStaticFile(filePath);
       if (file) {
-        // file.bytes is Uint8Array<ArrayBufferLike>; bun-types' Response
-        // ctor narrows BodyInit to Uint8Array<ArrayBuffer>. The runtime
-        // accepts both — we cast to BodyInit here at the bun-API
-        // boundary. @cast-boundary bun-types
+        // @cast-boundary bun-types — Response BodyInit narrowing
         return new Response(file.bytes as unknown as BodyInit, {
           headers: { ...cacheHeadersFor(url.pathname), "content-type": file.mime },
         });
       }
     }
 
-    // Fallback to index.html for SPA-style routes that neither Hono
-    // (oben schon getestet, gab 404) noch eine Disk-Datei beanspruchen.
-    // Schema wird hier auch injiziert — sonst hätte ein deep-link
-    // (/orders/123) initial das Schema, ein refresh auf einer SPA-Route
-    // aber nicht.
-    const index = await readIndexWithSchema();
+    // Root oder SPA-Route — hier greift hostDispatch wenn gesetzt.
+    // Ohne hostDispatch: alter Single-App-Pfad (index.html mit Schema).
+    const dispatched = await tryHostDispatch(req);
+    if (dispatched) return dispatched;
+
+    // Default Single-App-Pfad: index.html, schema injected.
+    const index = await readHtmlFile(indexHtml, true);
     if (index) {
       return new Response(index.bytes, {
         headers: { ...cacheHeadersFor("/index.html"), "content-type": index.mime },
