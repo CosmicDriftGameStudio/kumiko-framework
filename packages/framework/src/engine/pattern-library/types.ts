@@ -1,7 +1,14 @@
-// Forms-Schema DSL — describes how a FeaturePattern is rendered as a
-// Designer form, fed to an LLM as a JSON-Schema, or surfaced in the
-// MCP-Server tool list. One DSL, three consumers — that's the whole
+// Forms-Schema metadata — describes how a FeaturePattern is rendered as
+// a Designer form, fed to an LLM as a JSON-Schema, or surfaced in the
+// MCP-Server tool list. One schema, three consumers — that's the whole
 // point of factoring this out of the hand-rolled C5 skeleton.
+//
+// **NOT a DSL.** The Source-of-Truth for a feature stays
+// `defineFeature.ts` — the AST-visitor (feature-ast/parse.ts) reads it
+// and the renderer (feature-ast/render.ts) writes it. This file is
+// pure metadata for UI / LLM-prompt rendering: how to display the
+// already-parsed FeaturePattern in a form. No alternative parser, no
+// alternative syntax, no second canonical representation.
 //
 // **Vokabular** (12 input-types):
 //
