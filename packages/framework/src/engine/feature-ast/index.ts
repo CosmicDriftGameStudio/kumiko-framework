@@ -1,6 +1,16 @@
 // Public API of the feature-ast module. Consumers (Designer, AI patcher,
 // CLI) import exclusively from here.
 
+// Forwarded barrel — keeps the pattern-library reachable through
+// @kumiko/framework/engine without forcing a separate sub-path import.
+export type {
+  FormFieldLabel,
+  FormFieldSpec,
+  FormInputType,
+  PatternCategory,
+  PatternFormSchema,
+} from "../pattern-library";
+export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "../pattern-library";
 export type { ParseError, ParseResult } from "./parse";
 export { parseFeatureFile, parseSourceFile } from "./parse";
 export type { PatternChange, PatternId } from "./patch";
@@ -87,14 +97,3 @@ export {
 } from "./render";
 export type { SourceLocation, SourcePosition } from "./source-location";
 export { sourceLocationFromNode } from "./source-location";
-
-// Forwarded barrel — keeps the pattern-library reachable through
-// @kumiko/framework/engine without forcing a separate sub-path import.
-export type {
-  FormFieldLabel,
-  FormFieldSpec,
-  FormInputType,
-  PatternCategory,
-  PatternFormSchema,
-} from "../pattern-library";
-export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "../pattern-library";

@@ -60,6 +60,45 @@ export {
   createTzField,
   locatedTimestamp,
 } from "./factories";
+// AST inspection + patching pipeline — used by the CLI scaffolder, the
+// Designer (C5/C6), and the AI-Builder (L2). See feature-ast/index.ts
+// for the full surface area; we re-export the most-used types/functions
+// here so consumers can import everything from a single barrel.
+export type {
+  AddEntityArgs,
+  AddHookArgs,
+  AddRelationArgs,
+  AddWriteHandlerArgs,
+  FeaturePatcher,
+  FeaturePattern,
+  FeaturePatternKind,
+  FormFieldLabel,
+  FormFieldSpec,
+  FormInputType,
+  ParseError,
+  ParseResult,
+  PatternCategory,
+  PatternChange,
+  PatternFormSchema,
+  PatternId,
+  RenderFeatureFileInput,
+  SourceLocation,
+} from "./feature-ast";
+export {
+  addPattern,
+  applyChanges,
+  createFeaturePatcher,
+  getPatternSchema,
+  groupByCategory,
+  PATTERN_LIBRARY,
+  parseFeatureFile,
+  parseSourceFile,
+  removePattern,
+  renderFeatureFile,
+  renderPattern,
+  replacePattern,
+  VERSION_HEADER,
+} from "./feature-ast";
 export {
   checkWriteFieldOwnership,
   checkWriteFieldRoles,
@@ -206,45 +245,6 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "./types";
-// AST inspection + patching pipeline — used by the CLI scaffolder, the
-// Designer (C5/C6), and the AI-Builder (L2). See feature-ast/index.ts
-// for the full surface area; we re-export the most-used types/functions
-// here so consumers can import everything from a single barrel.
-export type {
-  AddEntityArgs,
-  AddHookArgs,
-  AddRelationArgs,
-  AddWriteHandlerArgs,
-  FeaturePattern,
-  FeaturePatcher,
-  FeaturePatternKind,
-  FormFieldLabel,
-  FormFieldSpec,
-  FormInputType,
-  ParseError,
-  ParseResult,
-  PatternCategory,
-  PatternChange,
-  PatternFormSchema,
-  PatternId,
-  RenderFeatureFileInput,
-  SourceLocation,
-} from "./feature-ast";
-export {
-  addPattern,
-  applyChanges,
-  createFeaturePatcher,
-  getPatternSchema,
-  groupByCategory,
-  parseFeatureFile,
-  parseSourceFile,
-  PATTERN_LIBRARY,
-  removePattern,
-  renderFeatureFile,
-  renderPattern,
-  replacePattern,
-  VERSION_HEADER,
-} from "./feature-ast";
 export { DEFAULT_CURRENCIES, HookPhases } from "./types";
 export { resolveName, withResponseData } from "./types/handlers";
 export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
