@@ -54,7 +54,9 @@ export function scaffoldFeature(options: ScaffoldFeatureOptions): ScaffoldFeatur
   const repoRoot = options.repoRoot ?? process.cwd();
   const kebab = camelToKebab(featureName);
   const destination = resolve(
-    options.destination ? resolveDestination(options.destination, repoRoot) : join(repoRoot, "samples", "recipes", kebab),
+    options.destination
+      ? resolveDestination(options.destination, repoRoot)
+      : join(repoRoot, "samples", "recipes", kebab),
   );
 
   if (existsSync(destination)) {
