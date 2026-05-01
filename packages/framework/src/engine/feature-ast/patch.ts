@@ -22,7 +22,7 @@
 
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import type { FeaturePattern, FeaturePatternKind } from "./patterns";
-import { renderPattern } from "./render";
+import { indent, PATTERN_INDENT, renderPattern } from "./render";
 
 // =============================================================================
 // PatternId — natural-key per pattern kind
@@ -116,10 +116,19 @@ export function applyChanges(sourceFile: SourceFile, changes: readonly PatternCh
 // =============================================================================
 
 /**
- * Append a new r.*-call at the end of the setup callback's body. The
- * pattern is rendered (canonical Object-Form) and inserted as the last
- * statement, separated from the previous one by a blank line — biome-
- * stable formatting that matches the renderFeatureFile output.
+ * Low-level escape hatch: append a hand-built FeaturePattern at the end
+ * of the setup callback's body. **Prefer the typed `add{Kind}` methods
+ * on `createFeaturePatcher(sf)`** — they take natural args, build the
+ * FeaturePattern internally, and avoid SourceLocation boilerplate.
+ *
+ * Use this directly when:
+ *   - Migrating a parsed pattern from another file (already-built
+ *     FeaturePattern object on hand)
+ *   - The pattern kind isn't yet covered by a typed `add{Kind}`
+ *
+ * The pattern is rendered (canonical Object-Form) and inserted as the
+ * last statement, separated from the previous one by a blank line —
+ * biome-stable formatting that matches the renderFeatureFile output.
  */
 export function addPattern(sourceFile: SourceFile, pattern: FeaturePattern): void {
   const setup = findSetupCallback(sourceFile);
@@ -127,8 +136,7 @@ export function addPattern(sourceFile: SourceFile, pattern: FeaturePattern): voi
     throw new Error("addPattern: no defineFeature(name, (r) => { ... }) call found");
   }
   const body = setup.body;
-  const indent = "  "; // Inside `defineFeature((r) => {…})`, statements live at one-level indent.
-  const rendered = indentBlock(renderPattern(pattern), indent);
+  const rendered = indent(renderPattern(pattern), PATTERN_INDENT);
 
   // Find the closing brace of the body to insert just before it. The body
   // is a Block; its last child is the close-brace, so the safe insertion
@@ -177,7 +185,7 @@ export function replacePattern(
   // the rendered pattern starts at column 0 and gets indented to match.
   const startLineCol = sourceFile.getLineAndColumnAtPos(startPos);
   const originalIndent = " ".repeat(Math.max(0, startLineCol.column - 1));
-  const rendered = indentBlock(renderPattern(pattern), originalIndent).trimStart();
+  const rendered = indent(renderPattern(pattern), originalIndent).trimStart();
 
   sourceFile.replaceText([startPos, endPos], rendered);
 }
@@ -233,11 +241,32 @@ function findSetupCallback(
   return undefined;
 }
 
+// Singleton kinds: a feature has at most one of each. The Boot-Validator
+// rejects features that declare two `r.requires(...)` etc. — the patcher
+// asserts the same invariant so a corrupt source file produces an
+// explicit error here, not a silent first-match win.
+const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
+  "requires",
+  "optionalRequires",
+  "readsConfig",
+  "systemScope",
+  "toggleable",
+  "config",
+  "translations",
+  "authClaims",
+]);
+
 /**
  * Return the CallExpression in the setup callback whose call shape
  * matches the given id. Reads the call arguments structurally — same
  * paths the parser walks, no re-parsing through extractors.ts (would
  * be redundant work).
+ *
+ * For singleton kinds (requires, toggleable, etc.) the patcher
+ * additionally asserts that the file contains AT MOST one matching
+ * call. Two calls of the same singleton kind would let the first-match
+ * silently win; we'd rather throw so Designer/AI surfacing the corrupt
+ * feature can fix it explicitly.
  */
 function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
   const setup = findSetupCallback(sourceFile);
@@ -249,14 +278,21 @@ function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | 
     ?.getName();
   if (!registrarParam) return undefined;
 
+  const matches: CallExpression[] = [];
   for (const call of setup.body.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const propAccess = call.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
     if (!propAccess) continue;
     if (propAccess.getExpression().getText() !== registrarParam) continue;
     if (propAccess.getName() !== id.kind) continue;
-    if (callMatchesId(call, id)) return call;
+    if (callMatchesId(call, id)) matches.push(call);
   }
-  return undefined;
+
+  if (SINGLETON_KINDS.has(id.kind) && matches.length > 1) {
+    throw new Error(
+      `findCallForId: ${id.kind} is a singleton but ${matches.length} calls were found — feature file is corrupt`,
+    );
+  }
+  return matches[0];
 }
 
 function callMatchesId(call: CallExpression, id: PatternId): boolean {
@@ -417,15 +453,9 @@ function numericArg(call: CallExpression, idx: number): number | undefined {
 }
 
 // =============================================================================
-// Format helpers — indent / line boundaries / blank-line collapse
+// Format helpers — line boundaries / blank-line collapse
+// (indent / PATTERN_INDENT live in render.ts and are imported above.)
 // =============================================================================
-
-function indentBlock(text: string, prefix: string): string {
-  return text
-    .split("\n")
-    .map((line) => (line.length === 0 ? line : prefix + line))
-    .join("\n");
-}
 
 function lastNonTriviaChild(body: Node): Node | undefined {
   // Block nodes have child[0] = `{`, last = `}`. Find the last
@@ -467,12 +497,12 @@ function collapsePrecedingBlankLine(sourceFile: SourceFile, startPos: number): n
   return startPos;
 }
 
+// Used only in error messages — stringifies kind + identifying fields
+// in a `kind(field=value, ...)` shape for at-a-glance debugging.
 function describeId(id: PatternId): string {
-  const k = id.kind as FeaturePatternKind;
-  // Stringify the discriminator + identifying fields. Used only for
-  // error messages, so cheap JSON is fine.
-  const { kind: _, ...rest } = id as Record<string, unknown> & { kind: string };
-  return `${k}(${Object.entries(rest)
+  const fields = Object.entries(id as Readonly<Record<string, unknown>>)
+    .filter(([key]) => key !== "kind")
     .map(([key, value]) => `${key}=${String(value)}`)
-    .join(", ")})`;
+    .join(", ");
+  return `${id.kind as FeaturePatternKind}(${fields})`;
 }

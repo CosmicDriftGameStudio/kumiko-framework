@@ -254,13 +254,13 @@ describe("render idempotence", () => {
 });
 
 describe("renderPattern — single-pattern shape", () => {
-  test("requires pattern emits canonical features-array", () => {
+  test("requires pattern emits canonical features-array (single-line for short input)", () => {
     const out = renderPattern({
       kind: "requires",
       source: { file: "x", start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, raw: "" },
       featureNames: ["a", "b"],
     });
-    expect(out).toMatch(/r\.requires\(\{ features: \[\s+"a",\s+"b",\s+\] \}\);/);
+    expect(out).toBe('r.requires({ features: ["a", "b"] });');
   });
 
   test("entity pattern flattens name into the object", () => {
@@ -275,13 +275,13 @@ describe("renderPattern — single-pattern shape", () => {
     expect(out).toMatch(/r\.entity\(\{\s+name: "task",\s+fields:/);
   });
 
-  test("metric pattern flattens shortName into the object", () => {
+  test("metric pattern flattens shortName into the object (single-line)", () => {
     const out = renderPattern({
       kind: "metric",
       source: { file: "x", start: { line: 1, column: 1 }, end: { line: 1, column: 1 }, raw: "" },
       shortName: "requests",
       options: { type: "counter" } as never,
     });
-    expect(out).toMatch(/r\.metric\(\{\s+name: "requests",\s+type: "counter",\s+\}\);/);
+    expect(out).toBe('r.metric({ name: "requests", type: "counter" });');
   });
 });

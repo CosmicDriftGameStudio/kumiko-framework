@@ -6,7 +6,9 @@ export { parseFeatureFile, parseSourceFile } from "./parse";
 export type { PatternChange, PatternId } from "./patch";
 export { addPattern, applyChanges, removePattern, replacePattern } from "./patch";
 export type {
+  AddAuthClaimsArgs,
   AddClaimKeyArgs,
+  AddConfigArgs,
   AddDefineEventArgs,
   AddEntityArgs,
   AddEntityHookArgs,
@@ -16,14 +18,21 @@ export type {
   AddJobArgs,
   AddMetricArgs,
   AddMultiStreamProjectionArgs,
+  AddNavArgs,
   AddNotificationArgs,
+  AddOptionalRequiresArgs,
   AddProjectionArgs,
   AddQueryHandlerArgs,
+  AddReadsConfigArgs,
   AddReferenceDataArgs,
   AddRelationArgs,
+  AddRequiresArgs,
   AddScreenArgs,
   AddSecretArgs,
+  AddToggleableArgs,
+  AddTranslationsArgs,
   AddUseExtensionArgs,
+  AddWorkspaceArgs,
   AddWriteHandlerArgs,
   FeaturePatcher,
 } from "./patcher";

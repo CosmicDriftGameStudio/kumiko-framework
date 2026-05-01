@@ -137,14 +137,23 @@ export function renderPattern(pattern: FeaturePattern): string {
 // =============================================================================
 
 /**
+ * Threshold above which a single-line array/object renders multi-line.
+ * Biome's default print-width is 100 columns; we leave a margin so a
+ * pattern at indent=4 still fits before wrapping. Short arrays/objects
+ * stay on one line, long ones go multi-line — biome-stable in both.
+ */
+const SINGLE_LINE_WIDTH = 80;
+
+/**
  * Render a JSON-compatible value as TypeScript source. Matches what
  * `readDataLiteralNode` accepts on the parser side: strings, numbers,
  * booleans, null, arrays, plain objects. Unsupported values (functions,
  * undefined) throw — they should never reach here for a static pattern.
  *
  * Keys are quoted only when they are not valid JS identifiers. The
- * formatting (newlines / indentation) is biome-stable so the output
- * doesn't churn through the formatter on save.
+ * renderer prefers single-line output for short arrays/objects (≤80
+ * chars including indent and no nested newlines) and falls back to
+ * multi-line otherwise — biome-stable in both branches.
  */
 export function renderValue(value: unknown, indent = 0): string {
   if (value === null) return "null";
@@ -152,17 +161,23 @@ export function renderValue(value: unknown, indent = 0): string {
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) {
     if (value.length === 0) return "[]";
-    const inner = value
-      .map((v) => `${spaces(indent + 2)}${renderValue(v, indent + 2)}`)
-      .join(",\n");
+    const items = value.map((v) => renderValue(v, indent + 2));
+    const singleLine = `[${items.join(", ")}]`;
+    if (singleLine.length + indent <= SINGLE_LINE_WIDTH && !singleLine.includes("\n")) {
+      return singleLine;
+    }
+    const inner = items.map((item) => `${spaces(indent + 2)}${item}`).join(",\n");
     return `[\n${inner},\n${spaces(indent)}]`;
   }
   if (typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>);
     if (entries.length === 0) return "{}";
-    const inner = entries
-      .map(([k, v]) => `${spaces(indent + 2)}${renderKey(k)}: ${renderValue(v, indent + 2)}`)
-      .join(",\n");
+    const items = entries.map(([k, v]) => `${renderKey(k)}: ${renderValue(v, indent + 2)}`);
+    const singleLine = `{ ${items.join(", ")} }`;
+    if (singleLine.length + indent <= SINGLE_LINE_WIDTH && !singleLine.includes("\n")) {
+      return singleLine;
+    }
+    const inner = items.map((item) => `${spaces(indent + 2)}${item}`).join(",\n");
     return `{\n${inner},\n${spaces(indent)}}`;
   }
   throw new Error(`renderValue: unsupported type for value ${String(value)}`);
@@ -321,8 +336,8 @@ function reindentBody(raw: string, newIndent: string): string {
 function renderWriteHandler(p: WriteHandlerPattern): string {
   const lines: string[] = ["r.writeHandler({"];
   lines.push(`  name: ${JSON.stringify(p.handlerName)},`);
-  lines.push(`  schema: ${reindentBody(p.schemaSource.raw, "  ")},`);
-  lines.push(`  handler: ${reindentBody(p.handlerBody.raw, "  ")},`);
+  lines.push(`  schema: ${reindentBody(p.schemaSource.raw, PATTERN_INDENT)},`);
+  lines.push(`  handler: ${reindentBody(p.handlerBody.raw, PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
   if (p.skipTransitionGuard === true) lines.push("  skipTransitionGuard: true,");
@@ -333,8 +348,8 @@ function renderWriteHandler(p: WriteHandlerPattern): string {
 function renderQueryHandler(p: QueryHandlerPattern): string {
   const lines: string[] = ["r.queryHandler({"];
   lines.push(`  name: ${JSON.stringify(p.handlerName)},`);
-  lines.push(`  schema: ${reindentBody(p.schemaSource.raw, "  ")},`);
-  lines.push(`  handler: ${reindentBody(p.handlerBody.raw, "  ")},`);
+  lines.push(`  schema: ${reindentBody(p.schemaSource.raw, PATTERN_INDENT)},`);
+  lines.push(`  handler: ${reindentBody(p.handlerBody.raw, PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
   lines.push("});");
@@ -345,7 +360,7 @@ function renderHook(p: HookPattern): string {
   const lines: string[] = ["r.hook({"];
   lines.push(`  type: ${JSON.stringify(p.hookType)},`);
   lines.push(`  target: ${renderValue(typeof p.target === "string" ? p.target : [...p.target])},`);
-  lines.push(`  handler: ${reindentBody(p.fnBody.raw, "  ")},`);
+  lines.push(`  handler: ${reindentBody(p.fnBody.raw, PATTERN_INDENT)},`);
   if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
   lines.push("});");
   return lines.join("\n");
@@ -355,7 +370,7 @@ function renderEntityHook(p: EntityHookPattern): string {
   const lines: string[] = ["r.entityHook({"];
   lines.push(`  type: ${JSON.stringify(p.hookType)},`);
   lines.push(`  entity: ${JSON.stringify(p.entityName)},`);
-  lines.push(`  handler: ${reindentBody(p.fnBody.raw, "  ")},`);
+  lines.push(`  handler: ${reindentBody(p.fnBody.raw, PATTERN_INDENT)},`);
   if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
   lines.push("});");
   return lines.join("\n");
@@ -541,7 +556,7 @@ const DEFAULT_IMPORTS = [
  */
 export function renderFeatureFile(input: RenderFeatureFileInput): string {
   const imports = input.imports ?? DEFAULT_IMPORTS;
-  const body = input.patterns.map((p) => indent(renderPattern(p), "  ")).join("\n\n");
+  const body = input.patterns.map((p) => indent(renderPattern(p), PATTERN_INDENT)).join("\n\n");
   return [
     VERSION_HEADER,
     "",
@@ -554,9 +569,22 @@ export function renderFeatureFile(input: RenderFeatureFileInput): string {
   ].join("\n");
 }
 
-function indent(text: string, prefix: string): string {
+/**
+ * Prefix every non-empty line of `text` with `prefix`. Re-used from the
+ * patcher (patch.ts imports this) so indent helpers stay in one place
+ * — when canonical-form indentation conventions ever change, only this
+ * function needs to follow.
+ */
+export function indent(text: string, prefix: string): string {
   return text
     .split("\n")
     .map((line) => (line.length === 0 ? line : prefix + line))
     .join("\n");
 }
+
+/**
+ * Indentation prefix used inside `defineFeature((r) => { ... })` for
+ * every top-level r.* statement. Two-space convention matches biome's
+ * default and the parse-happy-path test fixture.
+ */
+export const PATTERN_INDENT = "  ";

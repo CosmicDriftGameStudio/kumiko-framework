@@ -62,11 +62,11 @@ describe("FeaturePatcher — typed add helpers for static patterns", () => {
     });
   });
 
-  test("addRequires + addToggleable + addSystemScope: singletons", () => {
+  test("addRequires + addToggleable + addSystemScope: singletons (object-form)", () => {
     const sf = makeSourceFile(STARTER);
     const p = createFeaturePatcher(sf);
-    p.addRequires(["auth", "tenant"]);
-    p.addToggleable(true);
+    p.addRequires({ features: ["auth", "tenant"] });
+    p.addToggleable({ default: true });
     p.addSystemScope();
     const result = parseSourceFile(sf);
     const kinds = result.patterns.map((pp) => pp.kind);

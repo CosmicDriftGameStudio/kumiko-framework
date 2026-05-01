@@ -20,7 +20,7 @@
 //   - `apply(changes)` — bulk operations, friendlier when the AI emits a
 //     change-list as a single JSON array.
 
-import type { CallExpression, SourceFile } from "ts-morph";
+import type { SourceFile } from "ts-morph";
 import type { LifecycleHookType } from "../constants";
 import type {
   ConfigKeyDefinition,
@@ -190,23 +190,45 @@ export type AddScreenArgs = {
   readonly opaqueSources?: Readonly<Record<string, string>>;
 };
 
+// Object-Form args for the previously-positional methods. Every typed
+// `add{Kind}` now takes a single object argument so the AI sees one
+// uniform method-call shape.
+export type AddRequiresArgs = { readonly features: readonly string[] };
+export type AddOptionalRequiresArgs = { readonly features: readonly string[] };
+export type AddReadsConfigArgs = { readonly keys: readonly string[] };
+export type AddToggleableArgs = { readonly default: boolean };
+export type AddNavArgs = { readonly definition: NavDefinition };
+export type AddWorkspaceArgs = { readonly definition: WorkspaceDefinition };
+export type AddConfigArgs = {
+  readonly keys: Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>;
+};
+export type AddTranslationsArgs = { readonly keys: TranslationKeys };
+export type AddAuthClaimsArgs = {
+  /** Source text of the claims handler closure. */
+  readonly handlerSource: string;
+};
+
 // =============================================================================
 // FeaturePatcher — the public surface
 // =============================================================================
 
+// Every typed `add{Kind}` takes a single object argument — uniform shape
+// across the API so AI tool-use learns ONE method-call form. The few
+// methods that conceptually take "no args" (addSystemScope) still take
+// none, but everything that carries data is object-form.
 export type FeaturePatcher = {
   // --- Static patterns (no closures) ---
-  readonly addRequires: (features: readonly string[]) => void;
-  readonly addOptionalRequires: (features: readonly string[]) => void;
-  readonly addReadsConfig: (keys: readonly string[]) => void;
+  readonly addRequires: (args: AddRequiresArgs) => void;
+  readonly addOptionalRequires: (args: AddOptionalRequiresArgs) => void;
+  readonly addReadsConfig: (args: AddReadsConfigArgs) => void;
   readonly addSystemScope: () => void;
-  readonly addToggleable: (defaultOn: boolean) => void;
+  readonly addToggleable: (args: AddToggleableArgs) => void;
   readonly addEntity: (args: AddEntityArgs) => void;
   readonly addRelation: (args: AddRelationArgs) => void;
-  readonly addNav: (definition: NavDefinition) => void;
-  readonly addWorkspace: (definition: WorkspaceDefinition) => void;
-  readonly addConfig: (keys: Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>) => void;
-  readonly addTranslations: (keys: TranslationKeys) => void;
+  readonly addNav: (args: AddNavArgs) => void;
+  readonly addWorkspace: (args: AddWorkspaceArgs) => void;
+  readonly addConfig: (args: AddConfigArgs) => void;
+  readonly addTranslations: (args: AddTranslationsArgs) => void;
   readonly addMetric: (args: AddMetricArgs) => void;
   readonly addSecret: (args: AddSecretArgs) => void;
   readonly addClaimKey: (args: AddClaimKeyArgs) => void;
@@ -220,7 +242,7 @@ export type FeaturePatcher = {
   readonly addEntityHook: (args: AddEntityHookArgs) => void;
   readonly addJob: (args: AddJobArgs) => void;
   readonly addNotification: (args: AddNotificationArgs) => void;
-  readonly addAuthClaims: (handlerSource: string) => void;
+  readonly addAuthClaims: (args: AddAuthClaimsArgs) => void;
   readonly addHttpRoute: (args: AddHttpRouteArgs) => void;
   readonly addProjection: (args: AddProjectionArgs) => void;
   readonly addMultiStreamProjection: (args: AddMultiStreamProjectionArgs) => void;
@@ -230,8 +252,13 @@ export type FeaturePatcher = {
   readonly replace: (id: PatternId, pattern: FeaturePattern) => void;
   readonly remove: (id: PatternId) => void;
   readonly apply: (changes: readonly PatternChange[]) => void;
-  /** Escape hatch — directly add a hand-built pattern. Useful for
-   *  unknown / extendsRegistrar / anything the typed methods don't cover. */
+  /**
+   * Escape hatch — directly add a hand-built pattern. The typed `add{Kind}`
+   * methods above cover every pattern in the catalogue and should be the
+   * default path; this method exists for migration tools, AST-replay
+   * scenarios, and the rare case where a future pattern-kind isn't yet
+   * exposed via a typed method.
+   */
   readonly addPattern: (pattern: FeaturePattern) => void;
 };
 
@@ -246,21 +273,21 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
   }
 
   return {
-    addRequires(features) {
+    addRequires({ features }) {
       add({
         kind: "requires",
         source: SYNTHETIC_LOC,
         featureNames: features,
       });
     },
-    addOptionalRequires(features) {
+    addOptionalRequires({ features }) {
       add({
         kind: "optionalRequires",
         source: SYNTHETIC_LOC,
         featureNames: features,
       });
     },
-    addReadsConfig(keys) {
+    addReadsConfig({ keys }) {
       add({
         kind: "readsConfig",
         source: SYNTHETIC_LOC,
@@ -270,7 +297,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
     addSystemScope() {
       add({ kind: "systemScope", source: SYNTHETIC_LOC });
     },
-    addToggleable(defaultOn) {
+    addToggleable({ default: defaultOn }) {
       add({ kind: "toggleable", source: SYNTHETIC_LOC, default: defaultOn });
     },
     addEntity({ name, definition }) {
@@ -290,16 +317,16 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         definition,
       });
     },
-    addNav(definition) {
+    addNav({ definition }) {
       add({ kind: "nav", source: SYNTHETIC_LOC, definition });
     },
-    addWorkspace(definition) {
+    addWorkspace({ definition }) {
       add({ kind: "workspace", source: SYNTHETIC_LOC, definition });
     },
-    addConfig(keys) {
+    addConfig({ keys }) {
       add({ kind: "config", source: SYNTHETIC_LOC, keys });
     },
-    addTranslations(keys) {
+    addTranslations({ keys }) {
       add({ kind: "translations", source: SYNTHETIC_LOC, keys });
     },
     addMetric({ name, options }) {
@@ -409,7 +436,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       });
     },
 
-    addAuthClaims(handlerSource) {
+    addAuthClaims({ handlerSource }) {
       add({
         kind: "authClaims",
         source: SYNTHETIC_LOC,
@@ -489,9 +516,3 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
     addPattern: add,
   };
 }
-
-// Re-export the underlying call-finder type so consumer-side helpers can
-// inspect the file without going through patch.ts directly. (Kept as a
-// local type-export rather than re-exporting from the barrel; the barrel
-// stays stable for the public API.)
-export type CallExpr = CallExpression;
