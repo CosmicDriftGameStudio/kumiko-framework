@@ -19,6 +19,16 @@
 // Form (single-arg literal, see render.ts). Existing patterns in legacy
 // positional form get converted on replace; new patterns start
 // canonical. Schema-Version-Header is the renderer's responsibility.
+//
+// **Comment-Preservation — known limitation.** Inline comments INSIDE a
+// pattern (e.g. `// reason: legacy field` on an entity field property)
+// are LOST on replace, because the renderer regenerates the call from
+// the parsed FeaturePattern, which doesn't carry comment-trivia.
+// Comments BETWEEN patterns (helper-functions, top-of-feature notes,
+// imports) survive every patch — only comments authored on lines the
+// patcher rewrites are dropped. Tracked as a future-work item: see
+// roadmap C-Notes for the canonical-comment-attach Pattern that would
+// preserve prefixed `// kumiko-comment:` markers across roundtrips.
 
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import type { FeaturePattern, FeaturePatternKind } from "./patterns";

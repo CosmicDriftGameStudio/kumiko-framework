@@ -474,8 +474,18 @@ function renderExtendsRegistrar(p: ExtendsRegistrarPattern): string {
 }
 
 function renderUnknown(p: UnknownPattern): string {
-  // Caller-side warning territory: we emit the raw call text from the
-  // SourceLocation. Round-trip preserves the original byte-for-byte.
+  // Round-trip preservation only: emit the raw call text from the
+  // SourceLocation so the rendered file stays semantically identical
+  // to the input.
+  //
+  // **Patch-Surprise warning:** an UnknownPattern cannot be added via
+  // FeaturePatcher (no typed `addUnknown` exists, by design — typed
+  // adds force the caller to commit to a known pattern-kind). It also
+  // cannot be replaced/removed cleanly, because no PatternId variant
+  // matches an UnknownPattern's free-form shape. Treat UnknownPattern
+  // as read-only in the patcher pipeline; the only way to "edit" one
+  // is to convert it to a known pattern-kind first (i.e. add a typed
+  // extractor + pattern type).
   return p.source.raw;
 }
 
