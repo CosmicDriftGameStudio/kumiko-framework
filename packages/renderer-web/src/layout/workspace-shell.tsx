@@ -31,7 +31,7 @@
 
 import type { AccessRule } from "@kumiko/framework/ui-types";
 import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@kumiko/renderer";
-import { toAppSchema, useNav } from "@kumiko/renderer";
+import { qualifyNavId, toAppSchema, useNav } from "@kumiko/renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
 import { AppLayout } from "./app-layout";
 import { lastSegment, NavTree } from "./nav-tree";
@@ -104,16 +104,11 @@ export function WorkspaceShell({
 
   const handleSelect = useCallback(
     (id: string) => {
-      // Pick a default screen for the target workspace so the URL lands
-      // on something renderable instead of `/<workspace>` (workspace-only).
-      // navMembers[0] is a NAV-QN — we have to look up the nav and use
-      // its `screen`-property, NOT the nav's own id. Apps that follow the
-      // workspaces-sample convention (nav.id === screen.id) accidentally
-      // worked under the old code; apps with distinct ids (e.g. nav
-      // "components" → screen "component-list") got "Screen not found".
+      // Pick the first nav-member that actually points at a screen so
+      // the URL lands on something renderable instead of `/<workspace>`.
+      // Section-headers (nav-Einträge ohne `screen`) werden übersprungen.
       const target = visible.find((ws) => ws.definition.id === id);
-      const firstNavQn = target?.navMembers[0];
-      const screenId = firstScreenIdInWorkspace(app, firstNavQn);
+      const screenId = firstNavScreenId(app, target?.navMembers);
       nav.navigate({ workspaceId: id, screenId });
     },
     [nav, app, visible],
@@ -145,18 +140,22 @@ export function WorkspaceShell({
     const workspaceMatches = routeWorkspaceId === activeId;
     if (workspaceMatches && !routeScreenEmpty) return; // URL is fine
     const target = visible.find((ws) => ws.definition.id === activeId);
-    const firstNavQn = target?.navMembers[0];
-    if (firstNavQn === undefined && !routeScreenEmpty) {
+    const navMembers = target?.navMembers;
+    if ((navMembers === undefined || navMembers.length === 0) && !routeScreenEmpty) {
       // Workspace exists but no nav members — keep whatever screen the
       // user typed, just lock the workspace prefix.
       nav.replace({ workspaceId: activeId, screenId: nav.route?.screenId ?? "" });
       return;
     }
-    if (firstNavQn === undefined) return; // nothing sane to default to
-    nav.replace({
-      workspaceId: activeId,
-      screenId: firstScreenIdInWorkspace(app, firstNavQn),
-    });
+    const screenId = firstNavScreenId(app, navMembers);
+    // Loop-guard: wenn keiner der nav-members eine screen-property hat
+    // (alle section-headers oder unbekannte QNs), würde nav.replace mit
+    // screenId="" den Effect bei jedem Re-Render erneut feuern und den
+    // User auf "/<workspace>/" pinnen. Lieber gar nicht replacen — der
+    // Workspace-Selector kann den User dann manuell auf einen leaf-nav
+    // schicken.
+    if (screenId === "") return;
+    nav.replace({ workspaceId: activeId, screenId });
   }, [activeId, routeWorkspaceId, visible, nav, app]);
 
   const activeWorkspace = useMemo(
@@ -226,29 +225,41 @@ function byOrderThenInsertion(a: WorkspaceSchema, b: WorkspaceSchema): number {
   return ao - bo;
 }
 
-/** Resolves the FIRST nav-QN of a workspace into a navigable short
- *  screen-id. Walks all features.navs to find the matching NavDefinition,
- *  then strips the qualifying prefix from its `screen` property.
+/** Returns the short screen-id of the first nav-member that points at
+ *  a screen. Walks the workspace's nav-list in order and skips section-
+ *  headers (NavDefinitions ohne `screen`) so ein workspace dessen erstes
+ *  Member ein Header ist trotzdem auf einen renderbaren Screen auflöst.
  *
- *  Returns "" (empty) when:
- *    - the nav-QN is undefined (no nav members)
- *    - the nav exists but has no `screen` (section-header, kein link)
- *    - the nav-QN is unknown to the schema (drift between r.workspace.nav
- *      and the registered navs — the boot validator catches this server-
- *      side, but we fall back gracefully here)
+ *  Returns "" when:
+ *    - navMembers is undefined or empty
+ *    - all members are section-headers (no `screen` property)
+ *    - all members are unknown to the schema (drift zwischen
+ *      r.workspace.nav und den registrierten navs — boot-validator fängt
+ *      das server-side, hier nur graceful fallback)
+ *
+ *  The caller MUST loop-guard on "": rendering with screenId="" macht
+ *  KumikoScreen den not-found-banner zeigen — und ein nav.replace mit
+ *  leerem screenId würde den useLayoutEffect in WorkspaceShell bei
+ *  jedem Re-Render erneut feuern (siehe matching guard dort).
  *
  *  Earlier code used `lastSegment(navQn)` which only worked when the
  *  feature followed the convention nav.id === screen.id (samples/apps/
  *  workspaces does this). Apps with distinct ids (publicstatus: nav
- *  "components" → screen "component-list") got "Screen not found". */
-function firstScreenIdInWorkspace(app: AppSchema, navQn: string | undefined): string {
-  if (navQn === undefined) return "";
-  for (const feature of app.features) {
-    for (const nav of feature.navs ?? []) {
-      const fullNavQn = `${feature.featureName}:nav:${nav.id}`;
-      if (fullNavQn !== navQn) continue;
-      if (nav.screen === undefined) return "";
-      return lastSegment(nav.screen);
+ *  "components" → screen "component-list") got "Screen not found".
+ *
+ *  Exported für Edge-Case-Tests. */
+export function firstNavScreenId(
+  app: AppSchema,
+  navMembers: readonly string[] | undefined,
+): string {
+  if (navMembers === undefined || navMembers.length === 0) return "";
+  for (const navQn of navMembers) {
+    for (const feature of app.features) {
+      for (const nav of feature.navs ?? []) {
+        if (qualifyNavId(feature.featureName, nav.id) !== navQn) continue;
+        if (nav.screen === undefined) break; // section-header → nächstes member
+        return lastSegment(nav.screen);
+      }
     }
   }
   return "";

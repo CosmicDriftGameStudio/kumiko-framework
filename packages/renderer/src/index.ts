@@ -21,7 +21,7 @@ export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-sc
 export type { AppSchema, FeatureSchema, WorkspaceSchema } from "./app/feature-schema";
 export { isAppSchema, toAppSchema } from "./app/feature-schema";
 export type { KumikoScreenProps } from "./app/kumiko-screen";
-export { KumikoScreen, qualifyScreenId } from "./app/kumiko-screen";
+export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen";
 export type { NavApi, NavProviderProps, NavRoute, NavTarget } from "./app/nav";
 export { formatPath, NavProvider, parsePath, useNav } from "./app/nav";
 export { lastSegment } from "./app/qn";
