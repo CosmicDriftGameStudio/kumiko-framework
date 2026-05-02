@@ -130,9 +130,27 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
 
   // configResolver braucht das config-feature — im auth-mode immer
   // hinzufügen, im no-auth-mode dem Caller überlassen.
-  const extraContext = options.auth
-    ? { configResolver: createConfigResolver(), ...(options.extraContext ?? {}) }
-    : options.extraContext;
+  //
+  // Factory-aware: wenn options.extraContext eine function ist (analog
+  // publicstatus' bin/server.ts pattern), gibt's einen wrapper der die
+  // factory aufruft + den config-default mergt. Vorher wurde {...factory}
+  // gespread — das ist no-op weil functions keine eigenen enumerable
+  // properties haben. Symptom: factory-extraContext wurde silent verloren
+  // (mailSender, secrets, custom configResolver). Jetzt wird die factory
+  // erst bei deps-resolution time aufgerufen + ihr Result zusammen-
+  // gemerged.
+  const extraContext = (() => {
+    const ctx = options.extraContext;
+    if (!options.auth) return ctx;
+    if (ctx === undefined) return { configResolver: createConfigResolver() };
+    if (typeof ctx === "function") {
+      return (deps: Parameters<typeof ctx>[0]) => ({
+        configResolver: createConfigResolver(),
+        ...ctx(deps),
+      });
+    }
+    return { configResolver: createConfigResolver(), ...ctx };
+  })();
 
   // Sessions opt-in: Holder lebt im closure, `createSessionCallbacks`
   // kennt erst nach setupTestStack die echte db-connection. Inline
