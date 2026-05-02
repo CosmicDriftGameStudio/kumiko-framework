@@ -42,6 +42,40 @@ export type TextFieldDef = {
   readonly multiline?: boolean | { readonly rows?: number };
 };
 
+/**
+ * Long-form text content — source-code, markdown, blog-posts, email-
+ * templates, anything that can be megabytes large. Bewusst MINIMALE
+ * Surface gegen `text`:
+ *
+ *   - **Kein `sortable`**: ORDER BY auf 100 KB-Strings kostet I/O ohne
+ *     sinnvolles UX-Outcome (lex-Sortierung von Code ist Nonsense).
+ *   - **Kein `searchable`**: ILIKE/Substring-Suche auf langen Texten
+ *     skaliert nicht. Wer wirklich Volltextsuche will, nimmt den
+ *     SearchAdapter (Meilisearch) — der hat eine eigene Pipeline mit
+ *     Tokenizer + Index, NICHT diesen field-flag.
+ *   - **Kein `filterable`**: WHERE auf langen Strings same Story wie
+ *     sortable.
+ *   - **Kein `format`**: email/url/phone sind kurz definierte Inputs,
+ *     longText ist per Definition unstrukturiert.
+ *
+ * Type-level enforcement statt convention: wer sortable/searchable
+ * braucht, nimmt `text` (mit den entsprechenden Skalierungs-Trade-offs).
+ * DB-mapping ist identisch zu text (Postgres `text` ist unbounded).
+ */
+export type LongTextFieldDef = {
+  readonly type: "longText";
+  /** Optionale soft-Cap. Default unbounded (= Postgres-text-limit, 1 GB).
+   *  Nützlich für defensive Caps wie 1 MB damit ein verirrter Browser-
+   *  Paste nicht die DB sprengt. */
+  readonly maxLength?: number;
+  readonly required?: boolean;
+  readonly encrypted?: boolean;
+  readonly sensitive?: boolean;
+  readonly default?: string;
+  readonly access?: FieldAccess;
+  readonly multiline?: boolean | { readonly rows?: number };
+};
+
 export type BooleanFieldDef = {
   readonly type: "boolean";
   readonly required?: boolean;
@@ -293,6 +327,7 @@ export type ImagesFieldDef = {
 
 export type FieldDefinition =
   | TextFieldDef
+  | LongTextFieldDef
   | BooleanFieldDef
   | SelectFieldDef
   | MultiSelectFieldDef

@@ -51,6 +51,7 @@ export {
   createImageField,
   createImagesField,
   createLocatedTimestampField,
+  createLongTextField,
   createMoneyField,
   createMultiSelectField,
   createNumberField,

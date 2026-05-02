@@ -28,6 +28,14 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
       if (field.required) schema = schema.min(1);
       return field.default !== undefined ? schema.default(field.default) : schema;
     }
+    case "longText": {
+      // longText hat keine `format`-Variante (per type-design). Nur
+      // optional maxLength + required, sonst ein offener z.string().
+      let schema = z.string();
+      if (field.maxLength) schema = schema.max(field.maxLength);
+      if (field.required) schema = schema.min(1);
+      return field.default !== undefined ? schema.default(field.default) : schema;
+    }
     case "boolean": {
       const schema = z.boolean();
       return field.default !== undefined ? schema.default(field.default) : schema;

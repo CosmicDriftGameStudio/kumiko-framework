@@ -77,6 +77,7 @@ function buildFilterCondition(col: any, op: "eq" | "ne" | "lt" | "gt" | "in", va
 function scalarDefault(field: FieldDefinition): unknown {
   switch (field.type) {
     case "text":
+    case "longText":
     case "number":
     case "boolean":
     case "select":

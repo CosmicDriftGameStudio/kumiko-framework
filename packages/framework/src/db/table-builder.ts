@@ -50,7 +50,10 @@ function fieldToColumns(
   const snakeName = toSnakeCase(name);
 
   switch (field.type) {
-    case "text": {
+    case "text":
+    case "longText": {
+      // Beide mappen auf PG `text` (unbounded). Unterschied lebt nur
+      // im Type-Layer: longText hat kein sortable/searchable/filterable.
       const col = text(snakeName);
       return { [name]: field.required ? col.notNull() : col };
     }

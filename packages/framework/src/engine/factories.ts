@@ -12,6 +12,7 @@ import type {
   MoneyFieldDef,
   MultiSelectFieldDef,
   NumberFieldDef,
+  LongTextFieldDef,
   SelectFieldDef,
   TextFieldDef,
   TimestampFieldDef,
@@ -36,6 +37,26 @@ export function createTextField<R extends true | false = false>(
     sortable: false,
     ...overrides,
   } as TextFieldDef & { required: R };
+}
+
+/**
+ * Long-form text field for source-code, markdown, blog-posts, email-
+ * templates — anything that can be megabytes large. Type-level differs
+ * from `text`: keine sortable/searchable/filterable/format options.
+ * DB-mapping ist identisch zu text (PG text ist unbounded).
+ *
+ * Soft-cap default: kein maxLength (PG text ist 1 GB hart begrenzt).
+ * Setze einen explicit `maxLength` wenn du ein verirrtes Browser-Paste
+ * früh ablehnen willst (z.B. 1_000_000 = 1 MB).
+ */
+export function createLongTextField<R extends true | false = false>(
+  overrides?: Partial<Omit<LongTextFieldDef, "type" | "required">> & { required?: R },
+): LongTextFieldDef & { required: R } {
+  return {
+    type: "longText",
+    required: false,
+    ...overrides,
+  } as LongTextFieldDef & { required: R };
 }
 
 export function createBooleanField<R extends true | false = false>(

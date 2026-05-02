@@ -282,6 +282,7 @@ function buildEditFillOps(
           if (typeof v === "string") ops.push({ kind: "select", field, value: v });
           break;
         case "text":
+        case "longText":
         case "number":
         case "date":
         case "timestamp":
@@ -408,6 +409,9 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
       if (field.format === "url") return "https://example.com";
       return `e2e ${name}`;
     }
+    case "longText":
+      // longText hat keine format-Optionen — generic placeholder reicht.
+      return `e2e ${name} (long-form content)`;
     case "boolean":
       return true;
     case "select":
