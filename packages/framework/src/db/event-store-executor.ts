@@ -19,6 +19,7 @@ import {
   VersionConflictError as FrameworkVersionConflict,
   InternalError,
   NotFoundError,
+  UniqueViolationError,
   UnprocessableError,
   writeFailure,
 } from "../errors";
@@ -37,6 +38,7 @@ import type { DbRow } from "./connection";
 import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
 import type { CursorResult } from "./index";
+import { constraintOf, isUniqueViolation } from "./pg-error";
 import type { TenantDb } from "./tenant-db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -363,8 +365,31 @@ export function createEventStoreExecutor(
       //    rebuildProjection für Replay nutzt → Live==Rebuild by-construction.
       //    Wir bauen ein "live event" mit unstripped flatData (damit sensitive
       //    Felder in der Read-Tabelle landen, aber nicht im Event-Log).
+      //
+      //    F8-Patch: app-level unique-violations (z.B. (tenantId, email)
+      //    auf User-Entity, (tenantId, slug) auf Article) werfen pg-23505
+      //    aus der projection-INSERT. Ohne den catch propagiert das als
+      //    unhandled exception → 500 internal_error. Map auf
+      //    UniqueViolationError 409 damit Designer/Frontend einen sauberen
+      //    "duplicate" zeigen können statt cryptic "internal server error".
       const liveEvent = { ...event, payload: flatData };
-      const result = await applyEntityEvent(liveEvent, table, entity, db.raw);
+      let result: Awaited<ReturnType<typeof applyEntityEvent>>;
+      try {
+        result = await applyEntityEvent(liveEvent, table, entity, db.raw);
+      } catch (e) {
+        if (isUniqueViolation(e)) {
+          return writeFailure(
+            new UniqueViolationError(
+              {
+                entityName: entityName ?? "<unknown>",
+                ...(constraintOf(e) !== undefined && { constraintName: constraintOf(e) }),
+              },
+              { cause: e instanceof Error ? e : undefined },
+            ),
+          );
+        }
+        throw e;
+      }
       if (result.kind !== "applied" || result.row === null) {
         return writeFailure(new InternalError({ message: "projection insert returned no row" }));
       }
@@ -492,11 +517,32 @@ export function createEventStoreExecutor(
 
         // Live==Rebuild via applyEntityEvent: live-event mit unstripped
         // flatChanges damit sensitive Felder in der Read-Tabelle landen.
+        //
+        // F8-Patch: dasselbe unique-violation-handling wie im create-Pfad
+        // — ein update das einen unique-Index verletzt (z.B. email-update
+        // auf einen schon-existierenden Wert) wird mit 409 unique_violation
+        // statt 500 internal_error rückgemeldet.
         const liveEvent = {
           ...event,
           payload: { changes: flatChanges, previous },
         };
-        const result = await applyEntityEvent(liveEvent, table, entity, db.raw);
+        let result: Awaited<ReturnType<typeof applyEntityEvent>>;
+        try {
+          result = await applyEntityEvent(liveEvent, table, entity, db.raw);
+        } catch (e) {
+          if (isUniqueViolation(e)) {
+            return writeFailure(
+              new UniqueViolationError(
+                {
+                  entityName: entityName ?? "<unknown>",
+                  ...(constraintOf(e) !== undefined && { constraintName: constraintOf(e) }),
+                },
+                { cause: e instanceof Error ? e : undefined },
+              ),
+            );
+          }
+          throw e;
+        }
         if (result.kind !== "applied" || result.row === null) {
           return writeFailure(new InternalError({ message: "projection update returned no row" }));
         }

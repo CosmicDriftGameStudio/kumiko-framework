@@ -150,6 +150,37 @@ export class VersionConflictError extends ConflictError {
   }
 }
 
+// Entity-level unique-index violation. Distinct from VersionConflictError:
+// version_conflict means "two writers raced on the events_aggregate_version
+// _uq index" (optimistic-concurrency); unique_violation means "you tried to
+// insert a row that violates an app-declared unique-index" (e.g. duplicate
+// email on a User entity, duplicate (tenantId, slug) on Article). Same 409
+// because both are conflicts the client can resolve by retrying with
+// different data, but distinct codes so UI can show the right message.
+//
+// constraintName comes from the PG error and is the *physical* DB constraint
+// (e.g. "users_tenant_email_uniq"). Apps that want to map it to a friendly
+// field name should do so in their own error-handler, not here.
+export type UniqueViolationDetails = {
+  readonly entityName: string;
+  readonly constraintName?: string;
+};
+
+export class UniqueViolationError extends ConflictError {
+  override readonly code: string = "unique_violation";
+
+  constructor(details: UniqueViolationDetails, opts?: Pick<ErrorOpts, "i18nKey" | "cause">) {
+    super({
+      message: `unique constraint violated on entity ${details.entityName}${
+        details.constraintName ? ` (${details.constraintName})` : ""
+      }`,
+      i18nKey: opts?.i18nKey ?? "errors.uniqueViolation",
+      details,
+      ...(opts?.cause && { cause: opts.cause }),
+    });
+  }
+}
+
 // Business-rule violation. The human-readable reason lives in details.reason
 // so the client can key off it without overloading the top-level code.
 export type UnprocessableOpts = Pick<ErrorOpts, "i18nKey" | "i18nParams" | "cause"> & {
