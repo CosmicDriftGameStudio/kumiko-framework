@@ -26,14 +26,11 @@ import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessorFactory } from "../../config/feature";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../../file-provider-s3";
 import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantEntity } from "../../tenant/schema/tenant";
-import {
-  createFileProviderForTenant,
-  fileFoundationFeature,
-  S3_SECRET_ACCESS_KEY,
-} from "../feature";
+import { createFileProviderForTenant, fileFoundationFeature } from "../feature";
 
 // --- Test-Handler that exercises the factory end-to-end ---
 
@@ -92,6 +89,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createSecretsFeature(),
       fileFoundationFeature,
+      fileProviderS3Feature,
       testProbeFeature,
     ],
     masterKeyProvider: providerRef,
@@ -125,24 +123,30 @@ async function setConfig(admin: ReturnType<typeof adminFor>, key: string, value:
   await stack.http.writeOk(ConfigHandlers.set, { key, value }, admin);
 }
 
+/** Set the file-foundation provider-selector to "s3". */
+async function selectS3Provider(admin: ReturnType<typeof adminFor>) {
+  await setConfig(admin, "file-foundation:config:provider", "s3");
+}
+
 // --- Scenario 1: full happy-path roundtrip (Hetzner Object Storage shape) ---
 
 describe("scenario 1: happy path", () => {
   test("admin sets config + secret → factory builds working file-storage provider", async () => {
     const admin = adminFor(501);
 
+    await selectS3Provider(admin);
     // Hetzner Object Storage typical config — covers MinIO/R2/S3 too via
     // endpoint + forcePathStyle. AccessKeyId is public-ish, secret goes
     // into the encrypted secrets store.
-    await setConfig(admin, "file-foundation:config:bucket", "test-bucket");
-    await setConfig(admin, "file-foundation:config:region", "fsn1");
+    await setConfig(admin, "file-provider-s3:config:bucket", "test-bucket");
+    await setConfig(admin, "file-provider-s3:config:region", "fsn1");
     await setConfig(
       admin,
-      "file-foundation:config:endpoint",
+      "file-provider-s3:config:endpoint",
       "https://fsn1.your-objectstorage.com",
     );
-    await setConfig(admin, "file-foundation:config:force-path-style", true);
-    await setConfig(admin, "file-foundation:config:access-key-id", "AKIATEST123");
+    await setConfig(admin, "file-provider-s3:config:force-path-style", true);
+    await setConfig(admin, "file-provider-s3:config:access-key-id", "AKIATEST123");
 
     await stack.http.writeOk(
       "secrets:write:set",
@@ -166,10 +170,11 @@ describe("scenario 2: validation errors", () => {
   test("missing bucket → factory throws with hint instead of cryptic SDK error", async () => {
     const admin = adminFor(502);
 
+    await selectS3Provider(admin);
     // Set everything except bucket. requireNonEmpty rejects with a clear
     // message naming `bucket`.
-    await setConfig(admin, "file-foundation:config:region", "us-east-1");
-    await setConfig(admin, "file-foundation:config:access-key-id", "AKIATEST");
+    await setConfig(admin, "file-provider-s3:config:region", "us-east-1");
+    await setConfig(admin, "file-provider-s3:config:access-key-id", "AKIATEST");
     await stack.http.writeOk(
       "secrets:write:set",
       { key: S3_SECRET_ACCESS_KEY.name, value: "secret" },
@@ -183,9 +188,10 @@ describe("scenario 2: validation errors", () => {
   test("missing secret-access-key → factory throws naming the secret", async () => {
     const admin = adminFor(503);
 
-    await setConfig(admin, "file-foundation:config:bucket", "b");
-    await setConfig(admin, "file-foundation:config:region", "us-east-1");
-    await setConfig(admin, "file-foundation:config:access-key-id", "AKIATEST");
+    await selectS3Provider(admin);
+    await setConfig(admin, "file-provider-s3:config:bucket", "b");
+    await setConfig(admin, "file-provider-s3:config:region", "us-east-1");
+    await setConfig(admin, "file-provider-s3:config:access-key-id", "AKIATEST");
     // Skip the secret. Factory throws referencing S3_SECRET_ACCESS_KEY.name.
 
     const error = await stack.http.writeErr(TEST_HANDLER_QN, {}, admin);
@@ -200,18 +206,21 @@ describe("scenario 3: tenant isolation", () => {
     const adminA = adminFor(504);
     const adminB = adminFor(505);
 
-    await setConfig(adminA, "file-foundation:config:bucket", "tenant-a-bucket");
-    await setConfig(adminA, "file-foundation:config:region", "fsn1");
-    await setConfig(adminA, "file-foundation:config:access-key-id", "A-KEY");
+    await selectS3Provider(adminA);
+    await selectS3Provider(adminB);
+
+    await setConfig(adminA, "file-provider-s3:config:bucket", "tenant-a-bucket");
+    await setConfig(adminA, "file-provider-s3:config:region", "fsn1");
+    await setConfig(adminA, "file-provider-s3:config:access-key-id", "A-KEY");
     await stack.http.writeOk(
       "secrets:write:set",
       { key: S3_SECRET_ACCESS_KEY.name, value: "secret-a" },
       adminA,
     );
 
-    await setConfig(adminB, "file-foundation:config:bucket", "tenant-b-bucket");
-    await setConfig(adminB, "file-foundation:config:region", "us-east-1");
-    await setConfig(adminB, "file-foundation:config:access-key-id", "B-KEY");
+    await setConfig(adminB, "file-provider-s3:config:bucket", "tenant-b-bucket");
+    await setConfig(adminB, "file-provider-s3:config:region", "us-east-1");
+    await setConfig(adminB, "file-provider-s3:config:access-key-id", "B-KEY");
     await stack.http.writeOk(
       "secrets:write:set",
       { key: S3_SECRET_ACCESS_KEY.name, value: "secret-b" },

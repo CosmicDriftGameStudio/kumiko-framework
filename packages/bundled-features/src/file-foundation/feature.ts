@@ -1,39 +1,27 @@
 // kumiko-feature-version: 1
 //
-// file-foundation as a Kumiko bundled feature.
+// file-foundation as a Kumiko bundled feature — plugin-API shape.
 //
-// **What this file gives you:**
-//   1. **Tenant-scoped config** — provider, bucket, region, endpoint,
-//      forcePathStyle, accessKeyId. Tenant-Admin can set these in the
-//      Designer; downstream handlers read via ctx.config.
-//   2. **Tenant-scoped secret** — the S3 secret access key. BYOK is the
-//      default model: each tenant's file storage runs in their own S3
-//      account (Hetzner Object Storage, AWS S3, R2, MinIO, DigitalOcean
-//      Spaces — anything S3-compatible). Cost + retention + compliance
-//      stay with the tenant.
-//   3. **createFileProviderForTenant(ctx, tenantId)** — bridges the
-//      registry-config + secret into a ready-to-use `FileStorageProvider`
-//      compatible with the framework's files-API.
+// **Pattern-Vorbild:** identisch zu `mail-foundation`. Foundation
+// deklariert extension-point `fileProvider`, Provider-Features (file-
+// provider-s3, später file-provider-azure-blob, file-provider-gcs)
+// registrieren sich namentlich. Tenant wählt zur Runtime via config-
+// key `provider`.
 //
-// **Pattern-Vorbild:** mirrors `ai-foundation` and `mail-foundation` —
-// public-config (host/region/bucket sichtbar) vs encrypted-secret
-// (secretAccessKey).
+// **Was diese Foundation NICHT mehr macht:**
+//   - Keine S3-spezifischen Config-Keys mehr (bucket/region/endpoint/
+//     forcePathStyle/accessKeyId) — die leben im Provider-Plugin.
+//   - Kein direkter Import von `createS3Provider`. Foundation kennt
+//     nur das `FileStorageProvider`-Interface (Type-Import, kein
+//     runtime-coupling).
 //
-// **Provider-agnostisch heute = nur S3-compat.** S3-API is the lingua
-// franca: AWS S3, Cloudflare R2, Hetzner Object Storage, MinIO, Spaces
-// all speak it. Native Azure Blob / GCS would land via the same provider-
-// switch in `createFileProviderForTenant`.
+// **Standalone:** Foundation ist ohne tier-engine nutzbar. Existing
+// `files-provider-s3` (App-wide-Library) bleibt unangetastet.
 //
-// **Standalone:** Feature ist NICHT von tier-engine abhängig. Existing
-// `files-provider-s3` bleibt unangetastet als App-wide-Library; wer per-
-// tenant-config will mountet `file-foundation`.
-//
-// **Boot-Dependencies:** config + secrets, analog ai-foundation /
-// mail-foundation.
+// **Boot-Dependencies:** config (für provider-selector). Kein secrets,
+// weil Foundation selbst keine Secrets hält.
 
-import { createS3Provider } from "@kumiko/bundled-features/files-provider-s3";
-import { requireDefined, requireNonEmpty } from "@kumiko/bundled-features/foundation-shared";
-import { requireSecretsContext } from "@kumiko/bundled-features/secrets";
+import { requireDefined } from "@kumiko/bundled-features/foundation-shared";
 import {
   access,
   createTenantConfig,
@@ -45,118 +33,49 @@ import type { FileStorageProvider } from "@kumiko/framework/files";
 const FEATURE_NAME = "file-foundation";
 
 // =============================================================================
+// Plugin-Interface — what a Provider-Plugin must implement
+// =============================================================================
+
+/**
+ * File-Storage-Plugin contract. Each provider-feature (file-provider-s3,
+ * file-provider-azure-blob, ...) registers an implementation via
+ * `r.useExtension("fileProvider", "<name>", { build })`.
+ */
+export type FileProviderPlugin = {
+  readonly build: (ctx: HandlerContext, tenantId: string) => Promise<FileStorageProvider>;
+};
+
+// =============================================================================
 // Feature-definition
 // =============================================================================
 
-export const fileFoundationFeature = defineFeature("file-foundation", (r) => {
+export const fileFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("config");
-  r.requires("secrets");
 
-  const secretAccessKey = r.secret("s3.secretAccessKey", {
-    label: { de: "S3 Secret Access Key", en: "S3 Secret Access Key" },
-    hint: {
-      de: "Privater Teil des S3-Schlüsselpaares. Bei Hetzner Object Storage 'Secret Key', bei AWS S3 'Secret Access Key'.",
-      en: "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'.",
+  r.extendsRegistrar("fileProvider", {
+    onRegister: () => {
+      // No side-effects at register-time — registry stores the usage,
+      // factory looks it up at request-time.
     },
-    // S3 secret keys are typically 40 chars (AWS) or similar opaque
-    // strings — generic short-prefix redaction.
-    redact: (plaintext) => {
-      if (plaintext.length < 8) return "•".repeat(plaintext.length);
-      return `${plaintext.slice(0, 4)}...${plaintext.slice(-4)}`;
-    },
-    scope: "tenant",
   });
 
   const configKeys = r.config({
     keys: {
-      // Provider-selector. Sprint 2 = "s3" only (covers all S3-compat
-      // backends — AWS, R2, Hetzner, MinIO, Spaces). Native Azure Blob /
-      // GCS would land via the same FileStorageProvider interface.
-      provider: createTenantConfig("select", {
-        default: "s3",
-        options: ["s3"],
+      provider: createTenantConfig("text", {
+        default: "",
         write: access.roles("TenantAdmin", "SystemAdmin"),
         read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-      }),
-      // Bucket name.
-      bucket: createTenantConfig("text", {
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      // Region. AWS uses "eu-central-1" / "us-east-1" / etc. Hetzner
-      // Object Storage uses "fsn1" / "nbg1" / "hel1". R2 uses "auto".
-      region: createTenantConfig("text", {
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      // Custom endpoint URL — required for non-AWS providers. AWS S3 leaves
-      // this empty (default endpoint inferred from region).
-      endpoint: createTenantConfig("text", {
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      // forcePathStyle: true = path-style URLs (endpoint/bucket/key —
-      // required for MinIO + most non-AWS), false = virtual-host-style
-      // (bucket.endpoint — AWS default). When endpoint is set we default
-      // path-style; explicit override via this key.
-      forcePathStyle: createTenantConfig("boolean", {
-        default: false,
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      // Access-key id (public part of the credentials pair). Sensitive
-      // enough to keep behind admin-only access, but not encrypted —
-      // it's the user-facing identifier in cloud-provider consoles.
-      accessKeyId: createTenantConfig("text", {
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
       }),
     },
   });
 
-  return {
-    /** Config-key-handles — typed reads via `ctx.config(...)` in
-     *  consumer handlers. */
-    configKeys,
-    /** Secret-handle for the S3 secret access key. Use with
-     *  `requireSecretsContext(ctx, ...).get(tenantId, secretAccessKey)`. */
-    secretAccessKey,
-  };
+  return { configKeys };
 });
 
 // =============================================================================
-// Public re-export (typed handle for the S3 secret-access-key secret)
+// Provider-factory — looks up the registered plugin + delegates
 // =============================================================================
 
-/** Typed handle for the S3 secret-access-key. */
-export const S3_SECRET_ACCESS_KEY = fileFoundationFeature.exports.secretAccessKey;
-
-// =============================================================================
-// Provider-factory — the actual reason this file exists
-// =============================================================================
-
-/**
- * Async constructor: read tenant S3 config + secret-access-key from `ctx`,
- * build a `FileStorageProvider` matching the tenant's selected provider.
- *
- * **Pattern-Vorbild:** mirrors `createProviderForTenant` from
- * `ai-foundation` and `createTransportForTenant` from `mail-foundation`.
- * Re-reads config + secret per call so config edits are immediately
- * effective. Caching the provider per-tenant would require an
- * invalidation hook; per-call construction is cheap (S3Client is just
- * object-allocation, no network).
- *
- * **Returns the `FileStorageProvider` interface** — compatible with the
- * framework's files API. A handler can hand the result straight into
- * any code that already takes a FileStorageProvider.
- *
- * **Caller pattern:**
- *   const storage = await createFileProviderForTenant(ctx, event.user.tenantId);
- *   await storage.write(key, data, mimeType);
- */
 export async function createFileProviderForTenant(
   ctx: HandlerContext,
   tenantId: string,
@@ -165,7 +84,12 @@ export async function createFileProviderForTenant(
   const ctxConfig = ctx.config;
   if (!ctxConfig) {
     throw new Error(
-      "file-foundation: ctx.config is missing — feature requires the config-feature mounted in the registry",
+      `${handlerName}: ctx.config is missing — feature requires the config-feature mounted in the registry`,
+    );
+  }
+  if (!ctx.registry) {
+    throw new Error(
+      `${handlerName}: ctx.registry is missing — required to look up registered file-provider plugins`,
     );
   }
 
@@ -174,69 +98,26 @@ export async function createFileProviderForTenant(
     FEATURE_NAME,
     "provider",
   ) as string;
-  const FILE_HINT = "Set via tenant-admin UI or seed-handler before reading or writing files.";
-  const bucket = requireNonEmpty(
-    await ctxConfig(fileFoundationFeature.exports.configKeys.bucket),
-    FEATURE_NAME,
-    "bucket",
-    FILE_HINT,
-  );
-  const region = requireNonEmpty(
-    await ctxConfig(fileFoundationFeature.exports.configKeys.region),
-    FEATURE_NAME,
-    "region",
-    FILE_HINT,
-  );
-  const endpointRaw = requireDefined(
-    await ctxConfig(fileFoundationFeature.exports.configKeys.endpoint),
-    FEATURE_NAME,
-    "endpoint",
-  ) as string;
-  const endpoint = endpointRaw.length > 0 ? endpointRaw : undefined;
-  const forcePathStyle = requireDefined(
-    await ctxConfig(fileFoundationFeature.exports.configKeys.forcePathStyle),
-    FEATURE_NAME,
-    "forcePathStyle",
-  ) as boolean;
-  const accessKeyId = requireNonEmpty(
-    await ctxConfig(fileFoundationFeature.exports.configKeys.accessKeyId),
-    FEATURE_NAME,
-    "accessKeyId",
-    FILE_HINT,
-  );
-
-  const secretAccessKey = await readSecretAccessKey(ctx, tenantId, handlerName);
-
-  switch (provider) {
-    case "s3":
-      return createS3Provider({
-        bucket,
-        region,
-        accessKeyId,
-        secretAccessKey,
-        ...(endpoint !== undefined && { endpoint }),
-        forcePathStyle,
-      });
-    default:
-      throw new Error(`file-foundation: provider "${provider}" not implemented (only "s3" today)`);
-  }
-}
-
-// =============================================================================
-// Internal helpers
-// =============================================================================
-
-async function readSecretAccessKey(
-  ctx: HandlerContext,
-  tenantId: string,
-  handlerName: string,
-): Promise<string> {
-  const secrets = requireSecretsContext(ctx, handlerName);
-  const branded = await secrets.get(tenantId, S3_SECRET_ACCESS_KEY);
-  if (!branded) {
+  if (provider.length === 0) {
+    const usages = ctx.registry.getExtensionUsages("fileProvider");
+    const known = usages.map((u) => u.entityName).join(", ") || "<none>";
     throw new Error(
-      `file-foundation: ${S3_SECRET_ACCESS_KEY.name} not set for tenant ${tenantId} — Tenant-Admin must set it via /api/write/secrets:write:set`,
+      `${FEATURE_NAME}: no provider selected — set the 'provider' config-key to one of: ${known}. ` +
+        `Mount a file-provider-* feature first if no plugins are registered.`,
     );
   }
-  return branded.reveal();
+
+  const usages = ctx.registry.getExtensionUsages("fileProvider");
+  const usage = usages.find((u) => u.entityName === provider);
+  if (!usage) {
+    const known = usages.map((u) => u.entityName).join(", ") || "<none>";
+    throw new Error(
+      `${FEATURE_NAME}: provider "${provider}" not registered. Known: ${known}. ` +
+        `Mount the matching file-provider-${provider} feature.`,
+    );
+  }
+
+  // @cast-boundary engine-payload — extension-usage carries unknown options
+  const plugin = usage.options as FileProviderPlugin;
+  return plugin.build(ctx, tenantId);
 }
