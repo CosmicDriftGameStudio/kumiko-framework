@@ -32,6 +32,7 @@
 // **Boot-Dependencies:** config + secrets, analog ai-foundation.
 
 import { createSmtpTransport, type EmailTransport } from "@kumiko/bundled-features/channel-email";
+import { requireDefined, requireNonEmpty } from "@kumiko/bundled-features/foundation-shared";
 import { requireSecretsContext } from "@kumiko/bundled-features/secrets";
 import {
   access,
@@ -39,6 +40,8 @@ import {
   defineFeature,
   type HandlerContext,
 } from "@kumiko/framework/engine";
+
+const FEATURE_NAME = "mail-foundation";
 
 // =============================================================================
 // Feature-definition
@@ -166,27 +169,36 @@ export async function createTransportForTenant(
 
   const provider = requireDefined(
     await ctxConfig(mailFoundationFeature.exports.configKeys.provider),
+    FEATURE_NAME,
     "provider",
   ) as string;
   const host = requireNonEmpty(
     await ctxConfig(mailFoundationFeature.exports.configKeys.host),
+    FEATURE_NAME,
     "host",
+    "Set host via tenant-admin UI or seed-handler before sending mail.",
   );
   const port = requireDefined(
     await ctxConfig(mailFoundationFeature.exports.configKeys.port),
+    FEATURE_NAME,
     "port",
   ) as number;
   const secure = requireDefined(
     await ctxConfig(mailFoundationFeature.exports.configKeys.secure),
+    FEATURE_NAME,
     "secure",
   ) as boolean;
   const from = requireNonEmpty(
     await ctxConfig(mailFoundationFeature.exports.configKeys.from),
+    FEATURE_NAME,
     "from",
+    "Set from via tenant-admin UI or seed-handler before sending mail.",
   );
   const authUser = requireNonEmpty(
     await ctxConfig(mailFoundationFeature.exports.configKeys.authUser),
+    FEATURE_NAME,
     "authUser",
+    "Set authUser via tenant-admin UI or seed-handler before sending mail.",
   );
 
   const password = await readPassword(ctx, tenantId, handlerName);
@@ -210,25 +222,6 @@ export async function createTransportForTenant(
 // =============================================================================
 // Internal helpers
 // =============================================================================
-
-function requireDefined<T>(value: T | undefined, label: string): T {
-  if (value === undefined) {
-    throw new Error(
-      `mail-foundation: '${label}' config key resolved to undefined — registry misconfigured (no value + no default)`,
-    );
-  }
-  return value;
-}
-
-function requireNonEmpty(value: string | undefined, label: string): string {
-  const defined = requireDefined(value, label) as string;
-  if (defined.length === 0) {
-    throw new Error(
-      `mail-foundation: '${label}' is empty — tenant must configure SMTP before sending mail. Set via tenant-admin UI or seed-handler.`,
-    );
-  }
-  return defined;
-}
 
 async function readPassword(
   ctx: HandlerContext,

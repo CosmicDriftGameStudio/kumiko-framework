@@ -32,6 +32,7 @@
 // mail-foundation.
 
 import { createS3Provider } from "@kumiko/bundled-features/files-provider-s3";
+import { requireDefined, requireNonEmpty } from "@kumiko/bundled-features/foundation-shared";
 import { requireSecretsContext } from "@kumiko/bundled-features/secrets";
 import {
   access,
@@ -40,6 +41,8 @@ import {
   type HandlerContext,
 } from "@kumiko/framework/engine";
 import type { FileStorageProvider } from "@kumiko/framework/files";
+
+const FEATURE_NAME = "file-foundation";
 
 // =============================================================================
 // Feature-definition
@@ -168,28 +171,38 @@ export async function createFileProviderForTenant(
 
   const provider = requireDefined(
     await ctxConfig(fileFoundationFeature.exports.configKeys.provider),
+    FEATURE_NAME,
     "provider",
   ) as string;
+  const FILE_HINT = "Set via tenant-admin UI or seed-handler before reading or writing files.";
   const bucket = requireNonEmpty(
     await ctxConfig(fileFoundationFeature.exports.configKeys.bucket),
+    FEATURE_NAME,
     "bucket",
+    FILE_HINT,
   );
   const region = requireNonEmpty(
     await ctxConfig(fileFoundationFeature.exports.configKeys.region),
+    FEATURE_NAME,
     "region",
+    FILE_HINT,
   );
   const endpointRaw = requireDefined(
     await ctxConfig(fileFoundationFeature.exports.configKeys.endpoint),
+    FEATURE_NAME,
     "endpoint",
   ) as string;
   const endpoint = endpointRaw.length > 0 ? endpointRaw : undefined;
   const forcePathStyle = requireDefined(
     await ctxConfig(fileFoundationFeature.exports.configKeys.forcePathStyle),
+    FEATURE_NAME,
     "forcePathStyle",
   ) as boolean;
   const accessKeyId = requireNonEmpty(
     await ctxConfig(fileFoundationFeature.exports.configKeys.accessKeyId),
+    FEATURE_NAME,
     "accessKeyId",
+    FILE_HINT,
   );
 
   const secretAccessKey = await readSecretAccessKey(ctx, tenantId, handlerName);
@@ -212,25 +225,6 @@ export async function createFileProviderForTenant(
 // =============================================================================
 // Internal helpers
 // =============================================================================
-
-function requireDefined<T>(value: T | undefined, label: string): T {
-  if (value === undefined) {
-    throw new Error(
-      `file-foundation: '${label}' config key resolved to undefined — registry misconfigured (no value + no default)`,
-    );
-  }
-  return value;
-}
-
-function requireNonEmpty(value: string | undefined, label: string): string {
-  const defined = requireDefined(value, label) as string;
-  if (defined.length === 0) {
-    throw new Error(
-      `file-foundation: '${label}' is empty — tenant must configure storage before reading or writing files. Set via tenant-admin UI or seed-handler.`,
-    );
-  }
-  return defined;
-}
 
 async function readSecretAccessKey(
   ctx: HandlerContext,
