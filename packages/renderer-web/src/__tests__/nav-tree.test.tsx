@@ -49,6 +49,86 @@ function makeSchema(): FeatureSchema {
   } as FeatureSchema;
 }
 
+function makeRoleGatedSchema(): FeatureSchema {
+  return {
+    featureName: "showcase",
+    entities: {},
+    screens: [
+      { id: "public-screen", type: "entityList", entity: "x", columns: [] },
+      { id: "admin-screen", type: "entityList", entity: "x", columns: [] },
+      { id: "sysadmin-screen", type: "entityList", entity: "x", columns: [] },
+    ],
+    navs: [
+      // Public — keine access-rule, sichtbar für alle (auch anonymous)
+      { id: "public", label: "Public", screen: "public-screen", order: 10 },
+      // Admin — nur User mit "Admin"-Rolle
+      {
+        id: "admin",
+        label: "Admin",
+        screen: "admin-screen",
+        order: 20,
+        access: { roles: ["Admin"] },
+      },
+      // Sysadmin — nur User mit "SystemAdmin"-Rolle
+      {
+        id: "sysadmin",
+        label: "Sysadmin",
+        screen: "sysadmin-screen",
+        order: 30,
+        access: { roles: ["SystemAdmin"] },
+      },
+    ],
+  } as FeatureSchema;
+}
+
+describe("NavTree role-gating", () => {
+  // Pinnt den prod-bug aus 2026-05-02: DefaultAppShell hat user-prop
+  // nicht durchgereicht → resolveNavigation sieht user=undefined →
+  // ALLE role-gated nav-einträge werden ausgeblendet (auch wenn der
+  // user de-facto die Rolle hat).
+
+  test("user mit ['SystemAdmin','User'] sieht public + sysadmin, NICHT admin", () => {
+    render(
+      <NavTree
+        schema={makeRoleGatedSchema()}
+        user={{ id: "u1", roles: ["SystemAdmin", "User"] }}
+      />,
+    );
+    expect(screen.getByText("Public")).toBeTruthy();
+    expect(screen.getByText("Sysadmin")).toBeTruthy();
+    expect(screen.queryByText("Admin")).toBeNull();
+  });
+
+  test("user mit ['Admin'] sieht public + admin, NICHT sysadmin", () => {
+    render(<NavTree schema={makeRoleGatedSchema()} user={{ id: "u1", roles: ["Admin"] }} />);
+    expect(screen.getByText("Public")).toBeTruthy();
+    expect(screen.getByText("Admin")).toBeTruthy();
+    expect(screen.queryByText("Sysadmin")).toBeNull();
+  });
+
+  test("OHNE user-prop (anonymous) → role-gated navs ausgeblendet, nur public sichtbar", () => {
+    // Genau das Verhalten das den prod-bug verursacht hat: wenn
+    // DefaultAppShell user nicht weiterreicht, sieht resolveNavigation
+    // anonymous → alle role-gated navs verschwinden.
+    render(<NavTree schema={makeRoleGatedSchema()} />);
+    expect(screen.getByText("Public")).toBeTruthy();
+    expect(screen.queryByText("Admin")).toBeNull();
+    expect(screen.queryByText("Sysadmin")).toBeNull();
+  });
+
+  test("multi-role-merge: user mit überlappenden rollen sieht beide", () => {
+    render(
+      <NavTree
+        schema={makeRoleGatedSchema()}
+        user={{ id: "u1", roles: ["Admin", "SystemAdmin", "User"] }}
+      />,
+    );
+    expect(screen.getByText("Public")).toBeTruthy();
+    expect(screen.getByText("Admin")).toBeTruthy();
+    expect(screen.getByText("Sysadmin")).toBeTruthy();
+  });
+});
+
 describe("NavTree", () => {
   test("Section-Header (parent ohne screen) rendert children eingerückt — default expanded", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);

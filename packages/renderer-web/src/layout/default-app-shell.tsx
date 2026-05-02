@@ -19,6 +19,11 @@ import { AppLayout } from "./app-layout";
 import { NavTree } from "./nav-tree";
 import { Sidebar } from "./sidebar";
 
+export type DefaultAppShellUser = {
+  readonly id: string;
+  readonly roles: readonly string[];
+};
+
 export type DefaultAppShellProps = {
   /** Header-Slot oben in der Sidebar — Workspace-Identity (Logo,
    *  Name, Plan-Tag). Caller liefert frei. */
@@ -27,6 +32,11 @@ export type DefaultAppShellProps = {
    *  durchgereicht; Sidebar-Einträge bauen sich automatisch aus
    *  schema.navs (per-Feature) auf. */
   readonly schema: AppSchema | FeatureSchema;
+  /** Current user — drives nav role-gating. Ohne user-prop werden
+   *  role-gated nav-einträge (`access: { roles: [...] }`) komplett
+   *  ausgeblendet (resolveNavigation behandelt undefined-user als
+   *  anonymous). Symmetrisch zu WorkspaceShell.user. */
+  readonly user?: DefaultAppShellUser;
   /** Icon-Row zwischen Brand und NavTree — typisch Search-Trigger,
    *  ThemeToggle, TenantSwitcher. Linear hat hier ~3 Icons in einer
    *  horizontalen Reihe. */
@@ -41,6 +51,7 @@ export type DefaultAppShellProps = {
 export function DefaultAppShell({
   brand,
   schema,
+  user,
   sidebarActions,
   sidebarFooter,
   children,
@@ -53,7 +64,7 @@ export function DefaultAppShell({
           {...(sidebarActions !== undefined && { actions: sidebarActions })}
           {...(sidebarFooter !== undefined && { footer: sidebarFooter })}
         >
-          <NavTree schema={schema} />
+          <NavTree schema={schema} {...(user !== undefined && { user })} />
         </Sidebar>
       }
     >

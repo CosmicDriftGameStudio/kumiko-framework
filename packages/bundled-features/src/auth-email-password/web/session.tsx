@@ -28,6 +28,12 @@ export type SessionState = {
   readonly user: CurrentUserProfile | null;
   readonly activeTenantId: string | null;
   readonly tenants: readonly TenantSummary[];
+  /** Merged session-roles für den active tenant: globalRoles (z.B.
+   *  SystemAdmin) + membership-roles des activeTenant. Server hat sie
+   *  schon im JWT gemerged, aber das JWT ist HttpOnly + nicht JS-lesbar;
+   *  Client computed dieselbe merge-Logik aus user.globalRoles +
+   *  tenants[active].roles damit nav-filtering greift. Dedupliziert. */
+  readonly roles: readonly string[];
 };
 
 export type SessionApi = SessionState & {
@@ -41,7 +47,27 @@ const INITIAL: SessionState = {
   user: null,
   activeTenantId: null,
   tenants: [],
+  roles: [],
 };
+
+// Exported damit tests den merge-pfad direkt pinnen können — der hier
+// muss byte-identisch zum server-side merge in auth-routes.ts +
+// login.write.ts sein, sonst sieht der Client andere session-rollen
+// als der Server.
+export function computeActiveRoles(
+  user: CurrentUserProfile | null,
+  activeTenantId: string | null,
+  tenants: readonly TenantSummary[],
+): readonly string[] {
+  if (user === null) return [];
+  const membership = activeTenantId !== null
+    ? tenants.find((t) => t.tenantId === activeTenantId)
+    : undefined;
+  const membershipRoles = membership?.roles ?? [];
+  // Set-Dedupe spiegelt server-side merge (auth-routes.ts switch-tenant +
+  // login.write.ts).
+  return Array.from(new Set([...user.globalRoles, ...membershipRoles]));
+}
 
 /** Internal — exposed for tests die einen Mock-SessionApi-Wert reinreichen
  *  wollen, ohne durch SessionProvider's refresh-Lifecycle zu müssen. App-
@@ -54,17 +80,30 @@ export const SessionContext = createContext<SessionApi | undefined>(undefined);
 async function refresh(): Promise<SessionState> {
   const tenants = await fetchTenants();
   if (tenants === null) {
-    return { status: "unauthenticated", user: null, activeTenantId: null, tenants: [] };
+    return {
+      status: "unauthenticated",
+      user: null,
+      activeTenantId: null,
+      tenants: [],
+      roles: [],
+    };
   }
   const user = await fetchCurrentUser();
   if (user === null) {
-    return { status: "unauthenticated", user: null, activeTenantId: null, tenants: [] };
+    return {
+      status: "unauthenticated",
+      user: null,
+      activeTenantId: null,
+      tenants: [],
+      roles: [],
+    };
   }
   return {
     status: "authenticated",
     user,
     activeTenantId: tenants.activeTenantId,
     tenants: tenants.tenants,
+    roles: computeActiveRoles(user, tenants.activeTenantId, tenants.tenants),
   };
 }
 
@@ -92,7 +131,13 @@ export function SessionProvider({ children }: { readonly children: ReactNode }):
 
   const logout = useCallback<SessionApi["logout"]>(async () => {
     await logoutApi();
-    setState({ status: "unauthenticated", user: null, activeTenantId: null, tenants: [] });
+    setState({
+      status: "unauthenticated",
+      user: null,
+      activeTenantId: null,
+      tenants: [],
+      roles: [],
+    });
     // Hard-Reload: React-Tree, dispatcher-live-Caches, EventSource —
     // alles fliegt auf Null. Nach Logout ist das der billigste Weg zu
     // sauberer Ausgangslage, ohne dass wir jeden einzelnen Consumer

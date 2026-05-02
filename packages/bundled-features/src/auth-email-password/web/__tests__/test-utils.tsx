@@ -33,9 +33,11 @@ export function makeSessionApi(overrides: MakeSessionApiOptions = {}): SessionAp
       id: "test-user",
       email: "user@example.com",
       displayName: "Test User",
+      globalRoles: [],
     },
     activeTenantId: "tenant-1",
     tenants: [{ tenantId: "tenant-1", roles: ["Admin"] }],
+    roles: ["Admin"],
     ...stateOverrides,
   };
   return {
