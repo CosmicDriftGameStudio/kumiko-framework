@@ -40,6 +40,7 @@ Getestete Beispiele fuer Framework-Features. Drei Buckets:
 |--------|--------------|
 | [apps/ui-walkthrough](apps/ui-walkthrough/) | DefaultAppShell + LanguageSwitcher + ThemeToggle + emailPasswordClient + TenantSwitcher + Tasks-Demo. Mit Playwright-E2E. |
 | [apps/workspaces](apps/workspaces/) | WorkspaceShell + persona-/role-gated Workspaces + Cross-Feature-Nav-Members + Server-injiziertes AppSchema. |
+| [apps/marketing-demo](apps/marketing-demo/) | Asset-Tracker + Helpdesk auf einer Kumiko-Instanz — Internal-Tools-Showcase mit translated Select-Options, deterministisch geseedet. Liefert die Screenshots für kumiko.so via Playwright-E2E. |
 
 ## Showcases — Komplette Domains
 
