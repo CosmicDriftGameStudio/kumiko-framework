@@ -34,6 +34,8 @@
     "packages/renderer",
     "packages/renderer-web",
     "packages/ai-foundation",
+    "packages/ai-provider-anthropic",
+    "packages/ai-provider-openai-compat",
     "packages/enterprise-features",
     "samples/recipes/*",
     "samples/apps/*",
