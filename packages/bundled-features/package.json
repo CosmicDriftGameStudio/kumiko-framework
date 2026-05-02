@@ -21,6 +21,7 @@
   "exports": {
     "./config": "./src/config/index.ts",
     "./jobs": "./src/jobs/index.ts",
+    "./tier-engine": "./src/tier-engine/index.ts",
     "./tenant": "./src/tenant/index.ts",
     "./tenant/seeding": "./src/tenant/seeding.ts",
     "./tenant/testing": "./src/tenant/testing.ts",
