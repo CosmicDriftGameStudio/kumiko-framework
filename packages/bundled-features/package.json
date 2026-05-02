@@ -19,6 +19,7 @@
     "runtime": "runtime"
   },
   "exports": {
+    "./audit": "./src/audit/index.ts",
     "./config": "./src/config/index.ts",
     "./jobs": "./src/jobs/index.ts",
     "./tenant": "./src/tenant/index.ts",
