@@ -21,6 +21,7 @@ import {
   NotFoundError,
   UniqueViolationError,
   UnprocessableError,
+  type WriteFailure,
   writeFailure,
 } from "../errors";
 import {
@@ -104,6 +105,27 @@ export type EventStoreExecutorOptions = {
   entityName: string; // required — the aggregateType marker on every event
   entityCache?: EntityCache;
 };
+
+// F8 helper: PG-23505 (unique-violation) catched aus applyEntityEvent
+// (create + update Pfade) → WriteFailure(UniqueViolationError 409).
+// Andere Errors propagieren via re-throw. Lokal extrahiert weil das
+// Pattern an zwei Stellen im executor lebt — der Caller wrap't den
+// applyEntityEvent-call in try-catch und delegiert das Mapping hierher.
+//
+// Returns WriteFailure on match, null otherwise (caller re-throws).
+function tryMapUniqueViolation(e: unknown, entityName: string): WriteFailure | null {
+  if (!isUniqueViolation(e)) return null;
+  const constraintName = constraintOf(e);
+  return writeFailure(
+    new UniqueViolationError(
+      {
+        entityName,
+        ...(constraintName !== undefined && { constraintName }),
+      },
+      { cause: e instanceof Error ? e : undefined },
+    ),
+  );
+}
 
 // Build the metadata envelope for an append. userId always set; requestId +
 // correlation + causation come from the AsyncLocalStorage request-context
@@ -377,17 +399,8 @@ export function createEventStoreExecutor(
       try {
         result = await applyEntityEvent(liveEvent, table, entity, db.raw);
       } catch (e) {
-        if (isUniqueViolation(e)) {
-          return writeFailure(
-            new UniqueViolationError(
-              {
-                entityName: entityName ?? "<unknown>",
-                ...(constraintOf(e) !== undefined && { constraintName: constraintOf(e) }),
-              },
-              { cause: e instanceof Error ? e : undefined },
-            ),
-          );
-        }
+        const mapped = tryMapUniqueViolation(e, entityName);
+        if (mapped) return mapped;
         throw e;
       }
       if (result.kind !== "applied" || result.row === null) {
@@ -530,17 +543,8 @@ export function createEventStoreExecutor(
         try {
           result = await applyEntityEvent(liveEvent, table, entity, db.raw);
         } catch (e) {
-          if (isUniqueViolation(e)) {
-            return writeFailure(
-              new UniqueViolationError(
-                {
-                  entityName: entityName ?? "<unknown>",
-                  ...(constraintOf(e) !== undefined && { constraintName: constraintOf(e) }),
-                },
-                { cause: e instanceof Error ? e : undefined },
-              ),
-            );
-          }
+          const mapped = tryMapUniqueViolation(e, entityName);
+          if (mapped) return mapped;
           throw e;
         }
         if (result.kind !== "applied" || result.row === null) {

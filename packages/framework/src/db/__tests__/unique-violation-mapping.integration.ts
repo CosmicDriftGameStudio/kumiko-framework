@@ -28,6 +28,9 @@ const userEntity = createEntity({
     email: createTextField({ required: true }),
     displayName: createTextField({ required: true }),
   },
+  // softDelete=true damit wir den restore-Pfad pinnen können (siehe
+  // restore-Test unten — "kein 23505 möglich" claim).
+  softDelete: true,
   // Composite-unique auf (tenantId, email) — typisches User-Pattern.
   // Der unique-Index lebt auf der Projection, NICHT auf der events-
   // Tabelle. Daher fängt der existing event-store-23505-catch (Sprint
@@ -127,5 +130,37 @@ describe("F8 — entity-level unique-violation auf update", () => {
     if (conflict.isSuccess) return;
     expect(conflict.error.code).toBe("unique_violation");
     expect(conflict.error.httpStatus).toBe(409);
+  });
+});
+
+// =============================================================================
+// restore — kein try-catch nötig (drift-pin: dokumentiert die Annahme)
+// =============================================================================
+
+describe("F8 — restore touch'd nur isDeleted, kein 23505-Pfad", () => {
+  test("restore einer soft-gedeleteten row mit unique-field läuft konfliktfrei durch", async () => {
+    // Audit-Annahme (advisor-Punkt verifiziert): restore mutiert nur
+    // isDeleted=false, kein unique-field-Touch. Der unique-Index ist
+    // global (kein partial-WHERE-NOT-isDeleted in framework's table-
+    // builder), also würde EIN paralleler create mit derselben email
+    // schon am unique-Index scheitern (F8-create-Pfad), bevor er den
+    // soft-deleted restore-Pfad konfliktfrei machen könnte.
+    //
+    // Dieser Test pinnt: restore allein wirft kein 23505. Wenn jemand
+    // morgen einen Pfad einbaut der restore mit field-changes
+    // kombiniert, fällt's hier auf — der Test war "soll konfliktfrei
+    // sein", die Annahme wird laut.
+    const alice = await exec.create(
+      { email: "carol@example.com", displayName: "Carol" },
+      admin,
+      tdb,
+    );
+    if (!alice.isSuccess) throw new Error("create failed in setup");
+
+    const deleted = await exec.delete({ id: alice.data.id }, admin, tdb);
+    expect(deleted.isSuccess).toBe(true);
+
+    const restored = await exec.restore({ id: alice.data.id }, admin, tdb);
+    expect(restored.isSuccess).toBe(true);
   });
 });
