@@ -144,6 +144,55 @@ describe("boot-validator", () => {
     expect(() => validateBoot(features)).toThrow(/ENCRYPTION_KEY.*required/i);
   });
 
+  test("throws when longText encrypted field exists but ENCRYPTION_KEY not set", () => {
+    // Drift-pin Sprint-5b-vorab-Audit Issue 1: validateEncryptedFields
+    // hatte `if (field.type !== "text") continue;` und ignorierte
+    // longText-encrypted-fields silently — ENCRYPTION_KEY-check wurde
+    // nie getriggert, encryption silent broken. Jetzt: beide string-
+    // typed fields werden gechecked.
+    delete process.env["ENCRYPTION_KEY"];
+    const features = [
+      defineFeature("a", (r) => {
+        r.entity(
+          "doc",
+          createEntity({
+            table: "Docs",
+            fields: {
+              body: { type: "longText", encrypted: true },
+            },
+          }),
+        );
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/ENCRYPTION_KEY.*required/i);
+  });
+
+  // --- index-validator longText block ---
+
+  test("rejects longText field in entity.indexes (longText is not indexable)", () => {
+    // Drift-pin Sprint-5b-vorab-Audit Issue 2: ohne den Check würde
+    // ein BTREE-Index auf einer 1-MB-text-Spalte gebaut werden
+    // (Performance-Disaster mit TOAST-page-Dereferenzierung). longText
+    // ist semantisch non-indexierbar, konsistent zum type-level
+    // sortable=false.
+    const features = [
+      defineFeature("a", (r) => {
+        r.entity(
+          "doc",
+          createEntity({
+            table: "Docs",
+            fields: {
+              body: { type: "longText" },
+              title: { type: "text" },
+            },
+            indexes: [{ columns: ["title", "body"] }],
+          }),
+        );
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/body.*longText.*cannot be indexed/i);
+  });
+
   // --- Extension usage without requires ---
 
   test("warns when extension used without requires", () => {

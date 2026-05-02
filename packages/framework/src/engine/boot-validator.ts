@@ -428,6 +428,19 @@ function validateEntityIndexes(feature: FeatureDefinition): void {
               `these have no DB column to index on. Use a single-value field or remove from the index.`,
           );
         }
+        if (field && field.type === "longText") {
+          // longText ist semantisch "potentially-megabytes content" — ein
+          // BTREE-Index auf einer 1-MB-Spalte ist Performance-Disaster
+          // (PG würde in TOAST-pages dereferenzieren müssen für jeden
+          // Index-Lookup). Konsistent mit der type-level-decision dass
+          // longText kein sortable/searchable/filterable hat. Wer
+          // wirklich indexieren will, nimmt `text` mit den
+          // entsprechenden Skalierungs-Trade-offs.
+          throw new Error(
+            `${where}: column "${col}" is a longText field — these cannot be indexed. ` +
+              `Use \`text\` if you need indexing, or rely on the SearchAdapter (Meilisearch) for full-text search on long content.`,
+          );
+        }
       }
       if (def.columns.length === 1 && def.columns[0] === "tenantId") {
         throw new Error(
@@ -445,19 +458,24 @@ function validateEncryptedFields(feature: FeatureDefinition): boolean {
   let found = false;
   for (const [entityName, entity] of Object.entries(feature.entities)) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
-      if (field.type !== "text") continue;
+      // Beide string-typed fields können encrypted sein. Die
+      // searchable/sortable-Konflikt-Checks gelten nur für `text`
+      // (longText hat diese flags type-level nicht).
+      if (field.type !== "text" && field.type !== "longText") continue;
       if (!field.encrypted) continue;
       found = true;
 
-      if (field.searchable) {
-        throw new Error(
-          `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and searchable`,
-        );
-      }
-      if (field.sortable) {
-        throw new Error(
-          `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and sortable`,
-        );
+      if (field.type === "text") {
+        if (field.searchable) {
+          throw new Error(
+            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and searchable`,
+          );
+        }
+        if (field.sortable) {
+          throw new Error(
+            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and sortable`,
+          );
+        }
       }
     }
   }
