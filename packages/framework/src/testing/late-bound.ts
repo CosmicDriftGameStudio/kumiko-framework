@@ -6,9 +6,10 @@
 // inverts the dependency: the test passes the trampolines into setupTestStack
 // first, then injects the concrete impl once db is available.
 //
-// Production wiring doesn't need this — there you already have `db` in hand
-// before calling `buildServer(...)`, so the callbacks can be concrete from
-// the start.
+// Production wiring (runDevApp / runProdApp) doesn't reuse this — those
+// wrappers inline an equivalent let-closure-throw pattern to avoid the
+// runtime-isolation cross from dev → test packages. Same idea, different
+// file.
 
 export type LateBoundHolder<T> = {
   /** Store the concrete value. Must be called before any trampoline fires. */

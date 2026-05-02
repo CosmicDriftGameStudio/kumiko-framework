@@ -31,6 +31,7 @@ import {
   seedAdmin,
 } from "@kumiko/bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@kumiko/bundled-features/config";
+import { createSessionCallbacks } from "@kumiko/bundled-features/sessions";
 import { TenantQueries } from "@kumiko/bundled-features/tenant";
 import { UserQueries } from "@kumiko/bundled-features/user";
 import { createSseBroker, type SseBroker } from "@kumiko/framework/api";
@@ -106,6 +107,16 @@ export type RunProdAppAuthOptions = {
   readonly admin: SeedAdminOptions;
   /** Optional override of the login error → HTTP status map. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
+  /** Opt-in: revocable server-side sessions. Caller MUSS
+   *  `createSessionsFeature()` zu `features` adden — runProdApp wired
+   *  hier nur die Auth-Callbacks (creator/revoker/checker) gegen die
+   *  echte db-connection, plus sessionStrictMode=true.
+   *
+   *  Standardverhalten ohne diese Option: stateless JWTs ohne sid
+   *  (legacy-Verhalten, Karten­haus existing-Apps unangefasst). */
+  readonly sessions?: {
+    readonly expiresInMs?: number;
+  };
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -358,6 +369,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ? options.anonymousAccess(deps)
       : options.anonymousAccess;
 
+  // Sessions opt-in: db ist hier schon konkret (createDbConnection oben),
+  // also direkt verdrahten — kein late-bound nötig wie bei runDevApp.
+  // sessionStrictMode=true: Prod-Sessions sollen nicht stillschweigend
+  // von einem JWT-ohne-sid umgangen werden können. sessionMassRevoker
+  // (4. callback aus createSessionCallbacks) ist nicht Teil der
+  // AuthRoutesConfig-Surface — der wird vom sessions-Feature selbst über
+  // die `autoRevokeOnPasswordChange`-Option konsumiert, nicht über die
+  // auth-routes.
+  const sessionAuthFragment = options.auth?.sessions
+    ? buildProdSessionAuth(db, options.auth.sessions)
+    : undefined;
+
   const entrypoint = createApiEntrypoint({
     registry,
     context: {
@@ -382,6 +405,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
+        ...sessionAuthFragment,
       },
     }),
     ...(resolvedAnonymousAccess && { anonymousAccess: resolvedAnonymousAccess }),
@@ -716,4 +740,25 @@ export function cacheHeadersFor(pathname: string): Record<string, string> {
     return { "cache-control": "no-cache" };
   }
   return {};
+}
+
+function buildProdSessionAuth(
+  db: import("@kumiko/framework/db").DbConnection,
+  opts: NonNullable<RunProdAppAuthOptions["sessions"]>,
+): {
+  readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];
+  readonly sessionRevoker: ReturnType<typeof createSessionCallbacks>["sessionRevoker"];
+  readonly sessionChecker: ReturnType<typeof createSessionCallbacks>["sessionChecker"];
+  readonly sessionStrictMode: true;
+} {
+  const cbs = createSessionCallbacks({
+    db,
+    ...(opts.expiresInMs !== undefined && { expiresInMs: opts.expiresInMs }),
+  });
+  return {
+    sessionCreator: cbs.sessionCreator,
+    sessionRevoker: cbs.sessionRevoker,
+    sessionChecker: cbs.sessionChecker,
+    sessionStrictMode: true,
+  };
 }
