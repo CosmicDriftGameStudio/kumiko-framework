@@ -98,6 +98,28 @@ export function registerMetricsRoute(app: Hono, meter: Meter, options: MetricsRo
   });
 }
 
+// --- /version ---------------------------------------------------------------
+
+// Anonymous endpoint that returns build-identity. Used by ops-tooling
+// (prod-version.sh) und Telegram-deploy-Notification damit man nicht
+// kubectl + crictl auf den Master braucht um die deployed-Version zu
+// sehen.
+//
+// BUILD_VERSION + BUILD_TIME werden vom Dockerfile (ARG → ENV)
+// durchgereicht — fallen zurück auf "dev" / "unknown" wenn lokal ohne
+// Build-args gebaut.
+export function registerVersionRoute(app: Hono): void {
+  const version = process.env["BUILD_VERSION"] ?? "dev";
+  const buildTime = process.env["BUILD_TIME"] ?? "unknown";
+  app.get(Routes.version, (c) =>
+    c.json({
+      version,
+      buildTime,
+      node: process.env["NODE_ENV"] ?? "development",
+    }),
+  );
+}
+
 // --- /health + /health/ready ----------------------------------------------
 
 // Readiness is one concept — what to check (db/redis/consumers) AND how

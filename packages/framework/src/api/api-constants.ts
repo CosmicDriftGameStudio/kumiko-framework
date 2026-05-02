@@ -4,6 +4,7 @@
 export const Routes = {
   health: "/health",
   healthReady: "/health/ready",
+  version: "/version",
   write: "/write",
   batch: "/batch",
   query: "/query",
@@ -31,6 +32,7 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authVerifyEmail}`,
   `/api${Routes.health}`,
   `/api${Routes.healthReady}`,
+  `/api${Routes.version}`,
 ]);
 
 // Tenant transports for unauthenticated callers on public endpoints. JWT

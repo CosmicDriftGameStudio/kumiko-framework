@@ -55,6 +55,7 @@ import {
   registerBodyLimit,
   registerHealthRoutes,
   registerMetricsRoute,
+  registerVersionRoute,
 } from "./route-registrars";
 import { createApiRoutes } from "./routes";
 import { createSseBroker, type SseBroker } from "./sse-broker";
@@ -607,6 +608,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
       }
     }
   }
+
+  // /version-Default registriert NACH feature-routes — Hono "first match
+  // wins", also gewinnt feature-deklariertes /version (z.B. App-spezifisches
+  // version-format mit Tenant-Stats) wenn vorhanden, sonst greift der
+  // Default-Handler aus BUILD_VERSION/BUILD_TIME-env-vars.
+  registerVersionRoute(app);
 
   return {
     app,
