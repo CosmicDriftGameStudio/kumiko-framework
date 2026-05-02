@@ -16,8 +16,25 @@
 set -euo pipefail
 
 APP="${1:-publicstatus}"
-WORKFLOW="deploy-${APP}.yml"
 MASTER_HOST="${MASTER_HOST:-root@10.10.0.1}"
+
+# Per-App workflow + repo mapping. Marketing+docs leben im
+# kumiko-platform-Repo unter build-image.yml (matrix-build), publicstatus
+# im kumiko-Repo unter deploy-publicstatus.yml.
+case "$APP" in
+  publicstatus)
+    WORKFLOW="deploy-publicstatus.yml"
+    REPO="CosmicDriftGameStudio/kumiko"
+    ;;
+  marketing | docs)
+    WORKFLOW="build-image.yml"
+    REPO="CosmicDriftGameStudio/kumiko-platform"
+    ;;
+  *)
+    echo "Unbekannte App: $APP (publicstatus | marketing | docs)" >&2
+    exit 1
+    ;;
+esac
 
 # Farben (no-op wenn nicht-tty)
 if [[ -t 1 ]]; then
@@ -53,7 +70,7 @@ RUNNING_BUILD_TIME=$(kubectl --kubeconfig ~/.kube/kumiko.yaml get deployment "$A
 
 # 3) Letzter erfolgreicher CI-Build — SHA aus gh, Subject aus git-log
 echo "${DIM}→ Reading latest successful CI build…${RESET}"
-LATEST_RAW=$(gh run list --workflow="$WORKFLOW" --status=success --limit=1 \
+LATEST_RAW=$(gh -R "$REPO" run list --workflow="$WORKFLOW" --status=success --limit=1 \
   --json headSha,createdAt 2>/dev/null \
   | python3 -c "
 import json, sys
