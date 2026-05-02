@@ -1,0 +1,83 @@
+# i18n-Texte für FrameworkReasons (deutsch).
+#
+# Schema pro Reason-Key (snake_case, identisch mit Wert in reasons.ts
+# FrameworkReasons):
+#
+#   <reason_key>:
+#     endUser: |
+#       Was der End-User in der App-UI sieht.
+#       Verständliche Sprache, Handlungs-Aufforderung wenn anwendbar.
+#     developer: |
+#       Technischer Hintergrund + Hinweise zum Konfigurieren / Verhindern.
+#       Für App-Owner und Designer-Nutzer.
+
+stale_state:
+  endUser: |
+    Jemand anderes hat dieses Element zwischenzeitlich geändert.
+    Bitte Seite neu laden und nochmal speichern.
+  developer: |
+    `ConflictError` tritt auf wenn ein atomic UPDATE den Optimistic-Locking-
+    Race verloren hat — ein anderer Writer hat die Row zwischen Snapshot
+    und WHERE-Clause bewegt.
+
+    Standard-Verhalten im Client-SDK: Toast mit "Bitte neu laden" anzeigen
+    und Entity neu fetchen.
+
+    Wenn du Conflict-Handling pro Entity anpassen willst, siehe
+    [Optimistic-Locking-Konfiguration](/de/architecture/optimistic-locking/).
+
+invalid_transition:
+  endUser: |
+    Diese Aktion ist im aktuellen Status nicht möglich.
+    Der Datensatz muss sich in einem bestimmten Zustand befinden,
+    damit dieser Schritt erlaubt ist.
+  developer: |
+    `UnprocessableError` beim `guardTransition`: ein State-Machine-Übergang
+    wurde abgelehnt weil der aktuelle Zustand nicht zu den erlaubten
+    Quell-Zuständen gehört.
+
+    `details.from`, `details.to` und `details.validTargets` enthalten die
+    Diagnose. Definiere erlaubte Übergänge in
+    [`r.entity({ stateMachine: ... })`](/de/architecture/state-machine/),
+    oder prüfe vor dem Aufruf den aktuellen Zustand.
+
+field_access_denied:
+  endUser: |
+    Du darfst dieses Feld nicht ändern.
+    Wende dich an einen Administrator wenn du diese Berechtigung brauchst.
+  developer: |
+    `AccessDeniedError` beim Field-Level-Write-Check des Dispatchers: ein
+    Schreibversuch auf ein Feld wurde abgelehnt weil die aktuelle Rolle
+    keinen Zugriff hat.
+
+    `details.field` und `details.handler` enthalten die Diagnose.
+    Konfiguriere Field-Access in der Entity-Definition
+    (siehe [Permissions](/de/architecture/permissions/)) oder fordere die
+    nötige Rolle an.
+
+delete_restricted:
+  endUser: |
+    Dieser Eintrag kann nicht gelöscht werden weil andere Datensätze noch
+    darauf verweisen.
+    Lösche zuerst die abhängigen Einträge.
+  developer: |
+    `ConflictError` beim Cascade-Delete-Guard: das Löschen wurde verhindert
+    weil dependent Rows existieren.
+
+    `details.blockingEntity`, `details.entity` und `details.entityId` zeigen
+    welche Relation blockiert. Setze `relation.onDelete` auf `"cascade"`
+    oder `"setNull"` wenn automatisches Aufräumen gewünscht ist, oder lösche
+    die abhängigen Rows zuerst.
+
+feature_disabled:
+  endUser: |
+    Diese Funktion ist aktuell nicht verfügbar.
+    Versuche es später noch einmal oder kontaktiere den Administrator.
+  developer: |
+    `FeatureDisabledError`: das Feature des aufgerufenen Handlers wurde
+    global deaktiviert. Distinct von `access_denied` — Clients sollten
+    "Funktion gerade nicht verfügbar" zeigen, nicht "keine Berechtigung".
+
+    `details.feature` und `details.handler` zeigen welches Feature/Handler.
+    Aktiviere das Feature via Feature-Toggle oder Routing-Config (siehe
+    [Feature-Toggles](/de/features/feature-toggles/)).
