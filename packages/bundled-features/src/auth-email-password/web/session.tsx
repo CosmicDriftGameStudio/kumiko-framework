@@ -60,9 +60,8 @@ export function computeActiveRoles(
   tenants: readonly TenantSummary[],
 ): readonly string[] {
   if (user === null) return [];
-  const membership = activeTenantId !== null
-    ? tenants.find((t) => t.tenantId === activeTenantId)
-    : undefined;
+  const membership =
+    activeTenantId !== null ? tenants.find((t) => t.tenantId === activeTenantId) : undefined;
   const membershipRoles = membership?.roles ?? [];
   // Set-Dedupe spiegelt server-side merge (auth-routes.ts switch-tenant +
   // login.write.ts).

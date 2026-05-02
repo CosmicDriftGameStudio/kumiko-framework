@@ -57,9 +57,7 @@ describe("ToastProvider + useToast", () => {
       </ToastProvider>,
     );
     const link = screen.getByRole("link", { name: /Mehr erfahren/i });
-    expect(link.getAttribute("href")).toBe(
-      "https://docs.kumiko.so/errors/stale_state",
-    );
+    expect(link.getAttribute("href")).toBe("https://docs.kumiko.so/errors/stale_state");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   });

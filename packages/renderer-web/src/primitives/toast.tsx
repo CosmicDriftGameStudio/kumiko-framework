@@ -135,10 +135,7 @@ function ToastItem({
           </Primitive.Description>
         )}
         {entry.docsUrl !== undefined && (
-          <Primitive.Action
-            altText={entry.docsLinkLabel ?? "Mehr erfahren"}
-            asChild
-          >
+          <Primitive.Action altText={entry.docsLinkLabel ?? "Mehr erfahren"} asChild>
             <a
               href={entry.docsUrl}
               target="_blank"

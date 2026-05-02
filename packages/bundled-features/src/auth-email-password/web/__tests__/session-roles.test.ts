@@ -36,9 +36,7 @@ describe("computeActiveRoles", () => {
   });
 
   test("kein activeTenantId → nur globalRoles", () => {
-    const result = computeActiveRoles(user(["SystemAdmin"]), null, [
-      t("tenant-1", ["Admin"]),
-    ]);
+    const result = computeActiveRoles(user(["SystemAdmin"]), null, [t("tenant-1", ["Admin"])]);
     expect(result).toEqual(["SystemAdmin"]);
   });
 
