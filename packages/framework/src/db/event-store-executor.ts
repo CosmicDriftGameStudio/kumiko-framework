@@ -333,11 +333,25 @@ export function createEventStoreExecutor(
         });
       } catch (e) {
         if (e instanceof EventStoreVersionConflict) {
+          // Try to look up the real stream-version for the diagnostic — but
+          // wrap defensively: when `append` raised the unique-violation, the
+          // current TX is already aborted, and a second query on the same
+          // runner would re-throw "current transaction is aborted". Update-
+          // path doesn't have this problem (it queries getStreamVersion
+          // BEFORE the try-block). Falling back to a sentinel keeps the
+          // version_conflict mapping reliable; the actual current version
+          // is recoverable client-side via a fresh detail-query if needed.
+          let currentVersion = -1;
+          try {
+            currentVersion = await getStreamVersion(db.raw, aggregateId, user.tenantId);
+          } catch {
+            // Aborted TX or any lookup failure — keep the sentinel.
+          }
           return writeFailure(
             new FrameworkVersionConflict({
               entityId: aggregateId,
               expectedVersion: 0,
-              currentVersion: -1,
+              currentVersion,
             }),
           );
         }
