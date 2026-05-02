@@ -1,3 +1,4 @@
+// @runtime client
 // TenantSwitcher — kleines Dropdown, zeigt den aktiven Tenant und
 // erlaubt Wechsel zu anderen Memberships. Auf Radix-DropdownMenu für
 // konsistentes Verhalten (Click-outside/Escape/Keyboard-Nav).

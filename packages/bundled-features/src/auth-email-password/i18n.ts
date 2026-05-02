@@ -1,3 +1,4 @@
+// @runtime client
 // Default-Bundles für die Feature-UI. Werden vom emailPasswordClient()
 // als Fallback-Bundle in den LocaleProvider gehängt — Apps können
 // einzelne Keys via `emailPasswordClient({ translations: { de: { ... } } })`

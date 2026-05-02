@@ -1,3 +1,4 @@
+// @runtime client
 // Standard-Topbar-Actions Komposition für Apps mit Auth + Workspaces.
 // Bündelt das Pattern das jeder App-Sample sonst hand-ausschreibt:
 // TenantSwitcher (links) → optional Extras (z.B. LanguageSwitcher) →

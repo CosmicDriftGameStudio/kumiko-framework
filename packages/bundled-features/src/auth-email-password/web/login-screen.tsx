@@ -1,3 +1,4 @@
+// @runtime client
 // Default-LoginScreen. Reine E-Mail-+-Passwort-Form, zentriert, Card-
 // Layout. Texte kommen aus `useTranslation()` — die Default-Bundles
 // (de+en) liefert das Feature selber mit (translations.ts); Apps die

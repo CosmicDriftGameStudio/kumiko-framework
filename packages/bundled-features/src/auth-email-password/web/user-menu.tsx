@@ -1,3 +1,4 @@
+// @runtime client
 // UserMenu — Avatar-Dropdown in der Topbar/Sidebar. Zeigt Name/Email
 // des aktuellen Users + Logout-Button. Auf Radix-DropdownMenu, damit
 // Click-outside, Escape, Focus-Management, Keyboard-Nav (↑↓/Home/End)

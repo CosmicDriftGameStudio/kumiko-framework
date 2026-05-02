@@ -1,3 +1,4 @@
+// @runtime client
 // Liest den eingeloggten User + die Rollen aus dem aktiven Tenant aus
 // der Session. Der Hook ist die Standard-Brücke zwischen Session-State
 // und Layout-Komponenten (WorkspaceShell.user, DefaultAppShell-Gates,

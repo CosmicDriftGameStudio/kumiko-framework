@@ -1,3 +1,4 @@
+// @runtime client
 // Auth-Gate: rendert den LoginScreen solange der Session-Status
 // "unauthenticated" ist, sonst die Kinder. "loading" zeigt einen
 // minimalen Placeholder — die initiale Refresh-Runde liefert in der

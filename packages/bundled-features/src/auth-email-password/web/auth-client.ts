@@ -1,3 +1,4 @@
+// @runtime client
 // Browser-Seite der Auth-Routes. Dünne fetch-Wrapper um /api/auth/*
 // mit Cookie-Transport: JWT lebt im HttpOnly kumiko_auth-Cookie,
 // Double-Submit-CSRF-Token im JS-lesbaren kumiko_csrf-Cookie. Alle

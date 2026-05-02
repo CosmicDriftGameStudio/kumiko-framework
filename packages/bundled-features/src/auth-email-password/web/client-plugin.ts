@@ -1,3 +1,4 @@
+// @runtime client
 // Client-Feature-Factory für auth-email-password. Wird vom App-Code
 // in createKumikoApp({ clientFeatures: [emailPasswordClient()] })
 // eingehängt und bringt Session-Context + AuthGate + Default-UI-

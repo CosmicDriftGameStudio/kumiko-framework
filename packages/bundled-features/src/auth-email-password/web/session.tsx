@@ -1,3 +1,4 @@
+// @runtime client
 // Session-State für den Browser-Renderer. Hält den aktuell eingeloggten
 // User (Profile + aktive Tenant-Zuordnung + Memberships), reagiert auf
 // Login/Logout/Switch-Tenant und refresh't die Daten automatisch.
