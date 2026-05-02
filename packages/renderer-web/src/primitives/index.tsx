@@ -493,6 +493,7 @@ function tableInner(
                   field={col.field}
                   type={col.type}
                   renderer={col.renderer}
+                  {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
                 />
               </td>
             ))}
@@ -994,11 +995,24 @@ function isComponentRendererRef(renderer: unknown): { readonly name: string } | 
 //   - timestamp/date → locale-formatiert (kein roher ISO-String)
 //   - select → human-lesbar (kebab-case → Title Case)
 //   - text/number/sonst → toString
-function defaultCellRender(value: unknown, type: string): string {
+function defaultCellRender(
+  value: unknown,
+  type: string,
+  optionLabels?: Readonly<Record<string, string>>,
+): string {
   if (value === null || value === undefined || value === "") return "";
   if (type === "boolean") return value === true ? "✓" : "";
   if (type === "timestamp" || type === "date") return formatDateCell(value, type);
-  if (type === "select") return humanizeSlug(String(value));
+  if (type === "select") {
+    const raw = String(value);
+    // Translated Label aus dem ViewModel-Builder (Convention-Key
+    // `<feature>:entity:<entity>:field:<field>:option:<value>`).
+    // Fallback humanizeSlug wenn kein Label registriert — gleiches
+    // Verhalten wie vor dem optionLabels-Patch.
+    const translated = optionLabels?.[raw];
+    if (translated !== undefined && translated !== raw) return translated;
+    return humanizeSlug(raw);
+  }
   return typeof value === "string" ? value : String(value);
 }
 
@@ -1048,6 +1062,7 @@ type DataTableCellProps = {
   readonly field: string;
   readonly type: string;
   readonly renderer?: unknown;
+  readonly optionLabels?: Readonly<Record<string, string>>;
 };
 
 // Cell-Renderer als Component (statt reiner Funktion) damit der
@@ -1059,7 +1074,14 @@ type DataTableCellProps = {
 //      "X" über useColumnRenderer auf und rendert `<X value row column/>`.
 //      Nicht registriert → einmalige Warnung + Default-Fallback.
 //   3. Sonst → defaultCellRender (Type-basierter String-Renderer).
-function DataTableCell({ value, row, field, type, renderer }: DataTableCellProps): ReactNode {
+function DataTableCell({
+  value,
+  row,
+  field,
+  type,
+  renderer,
+  optionLabels,
+}: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
   if (typeof renderer === "function") {
@@ -1079,7 +1101,7 @@ function DataTableCell({ value, row, field, type, renderer }: DataTableCellProps
     // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
     console.warn(`[kumiko] columnRenderer "${componentRef.name}" not registered`);
   }
-  return defaultCellRender(value, type);
+  return defaultCellRender(value, type, optionLabels);
 }
 
 // ---- Form + Section + Grid + Text ----

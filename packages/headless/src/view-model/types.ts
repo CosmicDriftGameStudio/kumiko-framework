@@ -35,6 +35,10 @@ export type ListColumnViewModel = {
   readonly type: string; // field-type ("text", "number", "money", ...)
   readonly renderer?: FieldRenderer;
   readonly sortable: boolean;
+  /** Nur bei `type: "select"` — translated Option-Labels keyed nach raw
+   *  value. Renderer rendert `optionLabels[value]` statt humanizeSlug
+   *  wenn vorhanden. Convention-Key: `<feature>:entity:<entity>:field:<field>:option:<value>`. */
+  readonly optionLabels?: Readonly<Record<string, string>>;
   /** Nur bei `type: "reference"` — referenced Entity-Name für Bulk-
    *  Lookup im Renderer (`<refFeature>:query:<refEntity>:list`). */
   readonly refEntity?: string;
@@ -87,6 +91,11 @@ export type EditFieldViewModel = {
    *  vom Renderer als Dropdown-Optionen genutzt. Quelle ist
    *  SelectFieldDef.options aus der EntityDefinition. */
   readonly options?: readonly string[];
+  /** Nur bei `type: "select"` gesetzt — translated Labels pro Option,
+   *  keyed nach raw value. Renderer zeigt `optionLabels[value]` als
+   *  Dropdown-Label statt raw value. Convention-Key:
+   *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
+  readonly optionLabels?: Readonly<Record<string, string>>;
   /** Nur bei `type: "text"` gesetzt wenn TextFieldDef.multiline true
    *  ist — dann rendert der Renderer textarea statt single-line input.
    *  `true` = Default-Zeilen, `{ rows }` = explizite Höhe. */

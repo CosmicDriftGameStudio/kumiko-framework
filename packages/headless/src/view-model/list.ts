@@ -63,12 +63,27 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       fieldDef.type === "reference"
         ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
         : undefined;
+    // Bei select-Feldern: translated Option-Labels einbacken. Convention
+    // matcht den Form-Path → eine Translation-Quelle für List + Form.
+    // Missing-Key returnt convention-gemäß den Key zurück; Renderer hat
+    // dann humanizeSlug-Fallback.
+    const optionLabels =
+      fieldDef.type === "select"
+        ? buildOptionLabels(
+            translate,
+            featureName,
+            screen.entity,
+            normalized.field,
+            (fieldDef as unknown as { options?: readonly string[] }).options ?? [],
+          )
+        : undefined;
     const column: ListColumnViewModel = {
       field: normalized.field,
       label,
       type: fieldDef.type,
       sortable: fieldIsSortable(fieldDef),
       ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+      ...(optionLabels !== undefined && { optionLabels }),
       ...(refEntity !== undefined && { refEntity }),
       ...(refFeature !== undefined && { refFeature }),
       ...(refLabelField !== undefined && { refLabelField }),
@@ -97,6 +112,40 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
 // the i18n module directly.
 export function fieldLabelKey(featureName: string, entityName: string, fieldName: string): string {
   return `${featureName}:entity:${entityName}:field:${fieldName}`;
+}
+
+export function fieldOptionLabelKey(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  value: string,
+): string {
+  return `${featureName}:entity:${entityName}:field:${fieldName}:option:${value}`;
+}
+
+// Build a value→label map for a select-field's options. Convention:
+// translate() returns the input key when the lookup misses (i18next
+// default + LocaleResolver convention) — we surface the *raw value* in
+// that case so the renderer's humanizeSlug fallback can take over.
+// Without that fallback, an unlabeled option would render as the full
+// `feature:entity:field:option:value`-key.
+//
+// Shared between list-VM and edit-VM so both builders produce
+// identical option-translations.
+export function buildOptionLabels(
+  translate: (key: string, params?: Readonly<Record<string, unknown>>) => string,
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  options: readonly string[],
+): Readonly<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const value of options) {
+    const key = fieldOptionLabelKey(featureName, entityName, fieldName, value);
+    const translated = translate(key);
+    out[value] = translated === key ? value : translated;
+  }
+  return out;
 }
 
 // A field can declare `sortable: true` on the FieldDefinition. This is

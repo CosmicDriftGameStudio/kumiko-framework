@@ -4,7 +4,7 @@ import type {
   FieldCondition,
 } from "@kumiko/framework/ui-types";
 import { normalizeEditField, parseRefTarget } from "@kumiko/framework/ui-types";
-import { fieldLabelKey } from "./list";
+import { buildOptionLabels, fieldLabelKey } from "./list";
 import type { EditFieldViewModel, EditSectionViewModel, EditViewModel, Translate } from "./types";
 
 export type ComputeEditViewModelInput<
@@ -63,10 +63,16 @@ export function computeEditViewModel<
       );
       // Select-Optionen bei `type: "select"` mitnehmen — der Renderer
       // braucht sie für das Dropdown ohne nochmal die EntityDefinition
-      // zu reichen.
+      // zu reichen. Plus translated Labels (gleiche Convention wie der
+      // List-Builder), damit Form-Selects und List-Cells dieselbe
+      // i18n-Quelle teilen.
       const options =
         fieldDef.type === "select"
           ? ((fieldDef as unknown as { options?: readonly string[] }).options ?? [])
+          : undefined;
+      const optionLabels =
+        options !== undefined
+          ? buildOptionLabels(translate, featureName, screen.entity, normalized.field, options)
           : undefined;
       // Multiline-Hint bei `type: "text"` — der Renderer wechselt
       // dann auf textarea. ViewModel hält die Form-Render-Decision
@@ -108,6 +114,7 @@ export function computeEditViewModel<
         ...(normalized.span !== undefined && { span: normalized.span }),
         ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
         ...(options !== undefined && { options }),
+        ...(optionLabels !== undefined && { optionLabels }),
         ...(multiline !== undefined && { multiline }),
         ...(refEntity !== undefined && { refEntity }),
         ...(refFeature !== undefined && { refFeature }),
