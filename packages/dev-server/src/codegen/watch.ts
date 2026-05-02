@@ -64,12 +64,14 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
       } else {
         if (result.warnings.length > 0) {
           for (const w of result.warnings) {
+            // biome-ignore lint/suspicious/noConsole: codegen-watcher logs to terminal
             console.warn(`[codegen] ${w.file}:${w.line} — ${w.reason}`);
           }
         }
       }
     } catch (err) {
       if (opts.onError) opts.onError(err);
+      // biome-ignore lint/suspicious/noConsole: codegen-watcher logs to terminal
       else
         console.warn(
           `[codegen] regenerate failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -105,6 +107,7 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
     // patches) — degraded mode: codegen läuft nur beim initial-call.
     // User kriegt keine live-updates, aber das ist nicht fatal.
     if (opts.onError) opts.onError(err);
+    // biome-ignore lint/suspicious/noConsole: codegen-watcher logs to terminal
     else
       console.warn(
         `[codegen] watcher failed to start (live-updates disabled): ${err instanceof Error ? err.message : String(err)}`,

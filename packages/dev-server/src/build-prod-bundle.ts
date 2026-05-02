@@ -249,8 +249,8 @@ function discoverMultiClientEntries(cwd: string): readonly ClientEntry[] {
   const out: ClientEntry[] = [];
   for (const file of files) {
     const match = /^client-([a-z][a-z0-9-]*)\.tsx?$/.exec(file);
-    if (!match) continue;
-    const suffix = match[1]!;
+    const suffix = match?.[1];
+    if (!suffix) continue;
     const sourceFile = resolve(srcDir, file);
     out.push({
       name: suffix,
@@ -278,7 +278,9 @@ function discoverHtmlTemplateFor(cwd: string, basename: string): string | undefi
 /** @deprecated single-entry-Variante. Nutze discoverClientEntries. */
 export function discoverClientEntry(cwd: string): string | undefined {
   const entries = discoverClientEntries(cwd);
-  return entries.length === 1 && entries[0]!.name === "client" ? entries[0]!.sourceFile : undefined;
+  if (entries.length !== 1) return undefined;
+  const only = entries[0];
+  return only?.name === "client" ? only.sourceFile : undefined;
 }
 
 function resolveStylesheetEntry(
@@ -390,10 +392,7 @@ async function buildClientBundles(
   // entry-output zurück auf seinen ClientEntry via Basename-match.
   const result: Record<string, string> = {};
   for (const entry of entries) {
-    const baseName = entry.sourceFile
-      .split("/")
-      .pop()!
-      .replace(/\.tsx?$/, "");
+    const baseName = (entry.sourceFile.split("/").pop() ?? "").replace(/\.tsx?$/, "");
     const match = entryOutputs.find((o) => {
       const outName = o.path.split("/").pop() ?? "";
       return outName.startsWith(`${baseName}-`);
