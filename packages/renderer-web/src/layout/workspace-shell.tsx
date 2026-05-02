@@ -106,13 +106,17 @@ export function WorkspaceShell({
     (id: string) => {
       // Pick a default screen for the target workspace so the URL lands
       // on something renderable instead of `/<workspace>` (workspace-only).
-      // First nav-member after qualifying-prefix-strip is a safe pick.
+      // navMembers[0] is a NAV-QN — we have to look up the nav and use
+      // its `screen`-property, NOT the nav's own id. Apps that follow the
+      // workspaces-sample convention (nav.id === screen.id) accidentally
+      // worked under the old code; apps with distinct ids (e.g. nav
+      // "components" → screen "component-list") got "Screen not found".
       const target = visible.find((ws) => ws.definition.id === id);
       const firstNavQn = target?.navMembers[0];
-      const screenId = firstNavQn !== undefined ? lastSegment(firstNavQn) : "";
+      const screenId = firstScreenIdInWorkspace(app, firstNavQn);
       nav.navigate({ workspaceId: id, screenId });
     },
-    [nav, visible],
+    [nav, app, visible],
   );
 
   // Initial sync: covers two URL states that need a default-fill so
@@ -149,8 +153,11 @@ export function WorkspaceShell({
       return;
     }
     if (firstNavQn === undefined) return; // nothing sane to default to
-    nav.replace({ workspaceId: activeId, screenId: lastSegment(firstNavQn) });
-  }, [activeId, routeWorkspaceId, visible, nav]);
+    nav.replace({
+      workspaceId: activeId,
+      screenId: firstScreenIdInWorkspace(app, firstNavQn),
+    });
+  }, [activeId, routeWorkspaceId, visible, nav, app]);
 
   const activeWorkspace = useMemo(
     () => visible.find((ws) => ws.definition.id === activeId),
@@ -217,6 +224,34 @@ function byOrderThenInsertion(a: WorkspaceSchema, b: WorkspaceSchema): number {
   const ao = a.definition.order ?? Number.POSITIVE_INFINITY;
   const bo = b.definition.order ?? Number.POSITIVE_INFINITY;
   return ao - bo;
+}
+
+/** Resolves the FIRST nav-QN of a workspace into a navigable short
+ *  screen-id. Walks all features.navs to find the matching NavDefinition,
+ *  then strips the qualifying prefix from its `screen` property.
+ *
+ *  Returns "" (empty) when:
+ *    - the nav-QN is undefined (no nav members)
+ *    - the nav exists but has no `screen` (section-header, kein link)
+ *    - the nav-QN is unknown to the schema (drift between r.workspace.nav
+ *      and the registered navs — the boot validator catches this server-
+ *      side, but we fall back gracefully here)
+ *
+ *  Earlier code used `lastSegment(navQn)` which only worked when the
+ *  feature followed the convention nav.id === screen.id (samples/apps/
+ *  workspaces does this). Apps with distinct ids (publicstatus: nav
+ *  "components" → screen "component-list") got "Screen not found". */
+function firstScreenIdInWorkspace(app: AppSchema, navQn: string | undefined): string {
+  if (navQn === undefined) return "";
+  for (const feature of app.features) {
+    for (const nav of feature.navs ?? []) {
+      const fullNavQn = `${feature.featureName}:nav:${nav.id}`;
+      if (fullNavQn !== navQn) continue;
+      if (nav.screen === undefined) return "";
+      return lastSegment(nav.screen);
+    }
+  }
+  return "";
 }
 
 export function resolveDefaultId(

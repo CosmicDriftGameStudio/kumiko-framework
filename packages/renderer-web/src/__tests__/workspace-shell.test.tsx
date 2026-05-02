@@ -201,10 +201,13 @@ describe("WorkspaceShell", () => {
     featureName: "bmc",
     entities: {},
     screens: [],
+    // navs müssen `screen` haben damit firstScreenIdInWorkspace die
+    // screen-id auflösen kann. Resolver nimmt explizit nav.screen,
+    // nicht nav.id (siehe workspace-shell.tsx Comment).
     navs: [
-      { id: "system", label: "System" },
-      { id: "orders", label: "Orders" },
-      { id: "tours", label: "Tours" },
+      { id: "system", label: "System", screen: "bmc:screen:system" },
+      { id: "orders", label: "Orders", screen: "bmc:screen:orders" },
+      { id: "tours", label: "Tours", screen: "bmc:screen:tours" },
     ],
     workspaces: [
       ws("admin", {
@@ -402,10 +405,13 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
     featureName: "bmc",
     entities: {},
     screens: [],
+    // navs müssen `screen` haben damit firstScreenIdInWorkspace die
+    // screen-id auflösen kann. Resolver nimmt explizit nav.screen,
+    // nicht nav.id (siehe workspace-shell.tsx Comment).
     navs: [
-      { id: "system", label: "System" },
-      { id: "orders", label: "Orders" },
-      { id: "tours", label: "Tours" },
+      { id: "system", label: "System", screen: "bmc:screen:system" },
+      { id: "orders", label: "Orders", screen: "bmc:screen:orders" },
+      { id: "tours", label: "Tours", screen: "bmc:screen:tours" },
     ],
     workspaces: [
       ws("admin", {
