@@ -128,29 +128,13 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // auseinanderdriften können).
   const features = composeFeatures(options.features, { includeBundled: !!options.auth });
 
-  // configResolver braucht das config-feature — im auth-mode immer
-  // hinzufügen, im no-auth-mode dem Caller überlassen.
-  //
-  // Factory-aware: wenn options.extraContext eine function ist (analog
-  // publicstatus' bin/server.ts pattern), gibt's einen wrapper der die
-  // factory aufruft + den config-default mergt. Vorher wurde {...factory}
-  // gespread — das ist no-op weil functions keine eigenen enumerable
-  // properties haben. Symptom: factory-extraContext wurde silent verloren
-  // (mailSender, secrets, custom configResolver). Jetzt wird die factory
-  // erst bei deps-resolution time aufgerufen + ihr Result zusammen-
-  // gemerged.
-  const extraContext = (() => {
-    const ctx = options.extraContext;
-    if (!options.auth) return ctx;
-    if (ctx === undefined) return { configResolver: createConfigResolver() };
-    if (typeof ctx === "function") {
-      return (deps: Parameters<typeof ctx>[0]) => ({
-        configResolver: createConfigResolver(),
-        ...ctx(deps),
-      });
-    }
-    return { configResolver: createConfigResolver(), ...ctx };
-  })();
+  // configResolver-default fürs config-feature — im auth-mode immer
+  // hinzufügen, im no-auth-mode dem Caller überlassen. Factory-form
+  // wird gewrap't damit der spread auf das aufgerufene Result greift,
+  // nicht auf die function selbst (no-op).
+  const extraContext = options.auth
+    ? mergeConfigResolverDefault(options.extraContext)
+    : options.extraContext;
 
   // Sessions opt-in: Holder lebt im closure, `createSessionCallbacks`
   // kennt erst nach setupTestStack die echte db-connection. Inline
@@ -224,4 +208,15 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       }
     },
   });
+}
+
+function mergeConfigResolverDefault(
+  ctx: CreateKumikoServerOptions["extraContext"],
+): CreateKumikoServerOptions["extraContext"] {
+  const defaults = { configResolver: createConfigResolver() };
+  if (ctx === undefined) return defaults;
+  if (typeof ctx === "function") {
+    return (deps) => ({ ...defaults, ...ctx(deps) });
+  }
+  return { ...defaults, ...ctx };
 }
