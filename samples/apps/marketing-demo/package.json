@@ -1,0 +1,22 @@
+{
+  "name": "@kumiko/marketing-demo",
+  "description": "Marketing-Showcase — zwei kleine Demo-Apps (Asset-Tracker + Helpdesk) auf einer Kumiko-Instanz. Liefert die Screenshots für kumiko.so. Cream/Light-Branding wie die echte Marketing-Site.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "PORT=4178 bun --env-file=../../../.env run kumiko-dev src/app/server.ts",
+    "build": "bun kumiko-build",
+    "screenshots": "bun x playwright test --config=playwright.config.ts"
+  },
+  "dependencies": {
+    "@kumiko/bundled-features": "workspace:*",
+    "@kumiko/dev-server": "workspace:*",
+    "@kumiko/dispatcher-live": "workspace:*",
+    "@kumiko/framework": "workspace:*",
+    "@kumiko/headless": "workspace:*",
+    "@kumiko/renderer-web": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}
