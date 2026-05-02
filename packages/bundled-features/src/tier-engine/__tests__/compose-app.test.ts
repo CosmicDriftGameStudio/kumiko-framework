@@ -2,6 +2,13 @@ import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine"
 import { describe, expect, test } from "vitest";
 import { type AddOnMap, composeApp, type TierMap } from "../compose-app";
 
+// --- App-spezifischer Cap-Shape (typed, kein Record<string, unknown>) ---
+
+type AppCaps = {
+  readonly apps: number;
+  readonly mailsPerMonth: number;
+};
+
 // --- Test fixtures ---
 
 const baseFeature = defineFeature("auth", () => {});
@@ -20,7 +27,7 @@ const featureRegistry: Record<string, FeatureDefinition> = {
   "dedicated-stack": dedicatedF,
 };
 
-const tierMap: TierMap = {
+const tierMap: TierMap<AppCaps> = {
   free: { features: [], caps: { apps: 1, mailsPerMonth: 1000 } },
   pro: { features: ["designer", "ai-patch"], caps: { apps: 5, mailsPerMonth: 10_000 } },
   business: {
@@ -29,7 +36,7 @@ const tierMap: TierMap = {
   },
 };
 
-const addOnMap: AddOnMap = {
+const addOnMap: AddOnMap<AppCaps> = {
   "byok-encryption": { features: ["byok-encryption"] },
   "dedicated-stack": {
     features: ["dedicated-stack"],
@@ -41,7 +48,7 @@ const addOnMap: AddOnMap = {
 
 describe("composeApp", () => {
   test("Free tier mounts only base features", () => {
-    const result = composeApp({
+    const result = composeApp<AppCaps>({
       base: [baseFeature, tenantF],
       featureRegistry,
       tierMap,
@@ -51,11 +58,13 @@ describe("composeApp", () => {
     });
 
     expect(result.features.map((f) => f.name)).toEqual(["auth", "tenant"]);
-    expect(result.caps).toEqual({ apps: 1, mailsPerMonth: 1000 });
+    // Typed caps — `result.caps.apps` is `number`, not `unknown`.
+    expect(result.caps.apps).toBe(1);
+    expect(result.caps.mailsPerMonth).toBe(1000);
   });
 
   test("Pro tier adds Designer + ai-patch", () => {
-    const result = composeApp({
+    const result = composeApp<AppCaps>({
       base: [baseFeature, tenantF],
       featureRegistry,
       tierMap,
@@ -69,7 +78,7 @@ describe("composeApp", () => {
   });
 
   test("Add-On adds its features on top of tier", () => {
-    const result = composeApp({
+    const result = composeApp<AppCaps>({
       base: [baseFeature],
       featureRegistry,
       tierMap,
@@ -87,7 +96,7 @@ describe("composeApp", () => {
   });
 
   test("Add-On capOverrides win over tier caps", () => {
-    const result = composeApp({
+    const result = composeApp<AppCaps>({
       base: [baseFeature],
       featureRegistry,
       tierMap,
@@ -104,12 +113,12 @@ describe("composeApp", () => {
 
   test("dedupe — feature listed in tier and add-on mounts only once", () => {
     // Set up an add-on that re-lists ai-patch (which Pro already has).
-    const overlapAddOnMap: AddOnMap = {
+    const overlapAddOnMap: AddOnMap<AppCaps> = {
       ...addOnMap,
       "ai-power-pack": { features: ["ai-patch", "ai-conversation"] },
     };
 
-    const result = composeApp({
+    const result = composeApp<AppCaps>({
       base: [],
       featureRegistry,
       tierMap,
@@ -126,7 +135,7 @@ describe("composeApp", () => {
 
   test("unknown tier throws with helpful message", () => {
     expect(() =>
-      composeApp({
+      composeApp<AppCaps>({
         base: [],
         featureRegistry,
         tierMap,
@@ -139,7 +148,7 @@ describe("composeApp", () => {
 
   test("unknown add-on throws with helpful message", () => {
     expect(() =>
-      composeApp({
+      composeApp<AppCaps>({
         base: [],
         featureRegistry,
         tierMap,
@@ -151,13 +160,16 @@ describe("composeApp", () => {
   });
 
   test("tier referencing unknown feature throws", () => {
-    const brokenTierMap: TierMap = {
+    const brokenTierMap: TierMap<AppCaps> = {
       ...tierMap,
-      "broken-tier": { features: ["does-not-exist"], caps: {} },
+      "broken-tier": {
+        features: ["does-not-exist"],
+        caps: { apps: 0, mailsPerMonth: 0 },
+      },
     };
 
     expect(() =>
-      composeApp({
+      composeApp<AppCaps>({
         base: [],
         featureRegistry,
         tierMap: brokenTierMap,

@@ -11,6 +11,5 @@ export const TierEngineHandlers = {
 // Qualified query handler names.
 export const TierEngineQueries = {
   list: "tier-engine:query:tier-assignment:list",
-  detail: "tier-engine:query:tier-assignment:detail",
   getActiveTier: "tier-engine:query:get-active-tier",
 } as const;

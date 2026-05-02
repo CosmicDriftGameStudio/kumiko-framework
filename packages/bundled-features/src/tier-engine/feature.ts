@@ -37,18 +37,18 @@
 
 import {
   defineEntityCreateHandler,
-  defineEntityDetailHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
 } from "@kumiko/framework/engine";
+import { TIER_ENGINE_FEATURE } from "./constants";
 import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
 
 const adminAccess = { access: { roles: ["TenantAdmin", "SystemAdmin"] } } as const;
 
-export const tierEngineFeature: FeatureDefinition = defineFeature("tier-engine", (r) => {
+export const tierEngineFeature: FeatureDefinition = defineFeature(TIER_ENGINE_FEATURE, (r) => {
   r.requires("config");
   r.requires("tenant");
 
@@ -59,11 +59,14 @@ export const tierEngineFeature: FeatureDefinition = defineFeature("tier-engine",
   r.writeHandler(defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, adminAccess));
   r.writeHandler(defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, adminAccess));
 
-  // Reads. list returns all tier-assignments for the calling tenant
-  // (in practice 0 or 1, since one tenant has one tier-assignment).
-  // get-active-tier is the convenience-wrapper that returns the single row
-  // or null — the shape every consumer of the engine wants.
+  // Reads.
+  //   - list: cross-tenant view for SystemAdmin (debug/migration-tooling)
+  //     and per-tenant 0-or-1-row view for TenantAdmin (auto-tenant-scoped)
+  //   - get-active-tier: convenience-wrapper for the only sensible per-tenant
+  //     query — returns the single row or null. composeApp consumes this.
+  //
+  // Detail-by-id-handler bewusst weggelassen — kein Use-Case, weil pro Tenant
+  // genau eine Row existiert; get-active-tier ist die richtige Lookup-Form.
   r.queryHandler(defineEntityListHandler("tier-assignment", tierAssignmentEntity, adminAccess));
-  r.queryHandler(defineEntityDetailHandler("tier-assignment", tierAssignmentEntity, adminAccess));
   r.queryHandler(getActiveTierQuery);
 });

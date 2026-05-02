@@ -3,53 +3,67 @@ import type { FeatureDefinition } from "@kumiko/framework/engine";
 /**
  * Tier definition — a named bundle of features + caps.
  *
- * The Tier-Engine itself is **agnostic** to which tiers exist. Each app
- * defines its own TierMap: kumiko.so has free/pro/business/enterprise/
- * self-host, PublicStatus has free/starter/team/agency. The engine just
- * stores the tier name as a string and trusts the app's TierMap to know
- * what that means at boot time.
+ * **Generic über `TCaps`:** die App definiert ihren Cap-Shape als konkreten
+ * Type (z.B. `{ apps: number, mailsPerMonth: number, aiTokens: number }`)
+ * und der composeApp-Aufruf liefert exakt diesen Shape zurück. Keine
+ * `as Record<string, unknown>`-Casts in App-Code, alle Cap-Reads sind
+ * compile-time-checked.
+ *
+ * Die Tier-Engine selbst ist **agnostisch** zu konkreten Tier-Werten und
+ * Cap-Dimensionen. Jede App definiert ihre TierMap: kumiko.so hat
+ * free/pro/business/enterprise/self-host, PublicStatus hat
+ * free/starter/team/agency. Die Engine speichert nur den Tier-Namen als
+ * String und vertraut der App's TierMap, was das beim Boot bedeutet.
  */
-export type TierDefinition = {
+export type TierDefinition<TCaps extends Readonly<Record<string, unknown>>> = {
   /** Feature names to mount on top of the base set (no add-ons applied). */
   readonly features: readonly string[];
-  /** Cap-Definitions als app-spezifischer Type. Engine speichert nicht, leitet weiter. */
-  readonly caps: Readonly<Record<string, unknown>>;
+  /** Cap-Definition als app-spezifischer typed shape. */
+  readonly caps: TCaps;
 };
 
 /**
- * Add-On definition — a tier-orthogonal feature bundle that can be
- * added to any tier (BYOK-Encryption, Dedicated-Stack, Custom-SLA, ...).
+ * Add-On definition — a tier-orthogonal feature bundle that can be added
+ * to any tier (BYOK-Encryption, Dedicated-Stack, Custom-SLA, ...).
+ *
+ * `capOverrides` ist `Partial<TCaps>` weil ein Add-On nur einzelne Cap-
+ * Werte überschreibt (z.B. „Dedicated-Stack erhöht mailsPerMonth auf
+ * 100k"), nicht den ganzen Shape neu definiert.
  */
-export type AddOnDefinition = {
+export type AddOnDefinition<TCaps extends Readonly<Record<string, unknown>>> = {
   /** Feature names to mount additionally when this add-on is active. */
   readonly features: readonly string[];
   /** Cap-Overrides (replaces matching keys in the tier's cap set). */
-  readonly capOverrides?: Readonly<Record<string, unknown>>;
+  readonly capOverrides?: Partial<TCaps>;
 };
 
-export type TierMap = Readonly<Record<string, TierDefinition>>;
-export type AddOnMap = Readonly<Record<string, AddOnDefinition>>;
+export type TierMap<TCaps extends Readonly<Record<string, unknown>>> = Readonly<
+  Record<string, TierDefinition<TCaps>>
+>;
+export type AddOnMap<TCaps extends Readonly<Record<string, unknown>>> = Readonly<
+  Record<string, AddOnDefinition<TCaps>>
+>;
 
-export type ComposeAppInput = {
+export type ComposeAppInput<TCaps extends Readonly<Record<string, unknown>>> = {
   /** Features that mount unconditionally — auth, tenant, secrets, tier-engine itself. */
   readonly base: readonly FeatureDefinition[];
   /** All app-specific features keyed by their feature-name. */
   readonly featureRegistry: Readonly<Record<string, FeatureDefinition>>;
   /** App's tier definitions. */
-  readonly tierMap: TierMap;
+  readonly tierMap: TierMap<TCaps>;
   /** App's add-on definitions. */
-  readonly addOnMap: AddOnMap;
+  readonly addOnMap: AddOnMap<TCaps>;
   /** Active tier name for the current platform-tenant. */
   readonly tier: string;
   /** Active add-on names for the current platform-tenant. */
   readonly addOns: readonly string[];
 };
 
-export type ComposedApp = {
+export type ComposedApp<TCaps extends Readonly<Record<string, unknown>>> = {
   /** Final feature list to pass to runProdApp / setupTestStack. */
   readonly features: readonly FeatureDefinition[];
-  /** Effective caps after tier + add-on overrides. */
-  readonly caps: Readonly<Record<string, unknown>>;
+  /** Effective caps after tier + add-on overrides — same shape as input.tierMap[*].caps. */
+  readonly caps: TCaps;
 };
 
 /**
@@ -71,7 +85,9 @@ export type ComposedApp = {
  * is safer than silently mounting the wrong feature-set and hoping nobody
  * notices when "Pro" turns out to mean "Free".
  */
-export function composeApp(input: ComposeAppInput): ComposedApp {
+export function composeApp<TCaps extends Readonly<Record<string, unknown>>>(
+  input: ComposeAppInput<TCaps>,
+): ComposedApp<TCaps> {
   const tierDef = input.tierMap[input.tier];
   if (!tierDef) {
     throw new Error(
@@ -117,12 +133,12 @@ export function composeApp(input: ComposeAppInput): ComposedApp {
 
   // Caps merge: tier.caps as base, each add-on's overrides applied on top.
   // Later add-ons win — order in input.addOns matters for conflicting overrides.
-  const effectiveCaps: Record<string, unknown> = { ...tierDef.caps };
-  for (const def of addOnDefs) {
-    if (def.capOverrides) {
-      Object.assign(effectiveCaps, def.capOverrides);
-    }
-  }
+  // reduce<TCaps> with the typed accumulator avoids any cast: spread of
+  // T plus Partial<T> structurally narrows back to T.
+  const effectiveCaps = addOnDefs.reduce<TCaps>(
+    (acc, def) => (def.capOverrides ? { ...acc, ...def.capOverrides } : acc),
+    tierDef.caps,
+  );
 
   return {
     features: [...input.base, ...dedupedFeatures],

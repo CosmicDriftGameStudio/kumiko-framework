@@ -7,6 +7,7 @@
 //   - `tierAssignmentEntity` — for migrations + drizzle-schema-generation
 //   - `TierEngineHandlers` / `TierEngineQueries` — qualified handler names
 
+export { tierAssignmentAggregateId } from "./aggregate-id";
 export {
   type AddOnDefinition,
   type AddOnMap,
