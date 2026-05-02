@@ -314,15 +314,35 @@ export function createEventStoreExecutor(
       //    or both roll back; the dispatcher wraps both in one transaction).
       //    Sensitive fields are stripped from the event payload; the entity
       //    row below still receives the full data.
-      const event = await append(db.raw, {
-        aggregateId,
-        aggregateType: entityName,
-        tenantId: user.tenantId,
-        expectedVersion: 0,
-        type: entityEventName(entityName, "created"),
-        payload: stripSensitive(flatData),
-        metadata: buildEventMetadata(user),
-      });
+      //
+      //    `expectedVersion: 0` heißt: stream existiert noch nicht. Bei
+      //    deterministic-aggregate-id-Patterns (z.B. uuidv5(tenantId|naturalKey))
+      //    ist es legitim dass create kollidiert — selbe id, schon vorhandener
+      //    stream → version_conflict statt internal_error. Update hat den
+      //    selben catch (siehe line 493+).
+      let event: Awaited<ReturnType<typeof append>>;
+      try {
+        event = await append(db.raw, {
+          aggregateId,
+          aggregateType: entityName,
+          tenantId: user.tenantId,
+          expectedVersion: 0,
+          type: entityEventName(entityName, "created"),
+          payload: stripSensitive(flatData),
+          metadata: buildEventMetadata(user),
+        });
+      } catch (e) {
+        if (e instanceof EventStoreVersionConflict) {
+          return writeFailure(
+            new FrameworkVersionConflict({
+              entityId: aggregateId,
+              expectedVersion: 0,
+              currentVersion: -1,
+            }),
+          );
+        }
+        throw e;
+      }
 
       // 2. Update projection via applyEntityEvent — derselbe Code-Pfad den
       //    rebuildProjection für Replay nutzt → Live==Rebuild by-construction.
