@@ -34,6 +34,7 @@
     "packages/renderer",
     "packages/renderer-web",
     "packages/ai-foundation",
+    "packages/enterprise-features",
     "samples/recipes/*",
     "samples/apps/*",
     "samples/showcases/*",
