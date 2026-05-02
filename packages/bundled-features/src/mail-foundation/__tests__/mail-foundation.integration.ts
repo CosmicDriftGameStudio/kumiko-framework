@@ -32,10 +32,11 @@ import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessorFactory } from "../../config/feature";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { mailTransportSmtpFeature, SMTP_PASSWORD } from "../../mail-transport-smtp";
 import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTransportForTenant, mailFoundationFeature, SMTP_PASSWORD } from "../feature";
+import { createTransportForTenant, mailFoundationFeature } from "../feature";
 
 // --- Test-Handler that exercises the factory end-to-end ---
 
@@ -89,6 +90,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createSecretsFeature(),
       mailFoundationFeature,
+      mailTransportSmtpFeature,
       testProbeFeature,
     ],
     masterKeyProvider: providerRef,
@@ -125,17 +127,27 @@ async function setConfig(admin: ReturnType<typeof adminFor>, key: string, value:
   await stack.http.writeOk(ConfigHandlers.set, { key, value }, admin);
 }
 
+/** Set the mail-foundation provider-selector to "smtp". Plugin-API
+ *  needs this — without it the foundation-factory doesn't know which
+ *  registered transport to use. */
+async function selectSmtpProvider(admin: ReturnType<typeof adminFor>) {
+  await setConfig(admin, "mail-foundation:config:provider", "smtp");
+}
+
 // --- Scenario 1: full happy-path roundtrip ---
 
 describe("scenario 1: happy path", () => {
   test("admin sets config + secret → factory builds working transport", async () => {
     const admin = adminFor(401);
 
+    // Plugin-API: select "smtp" — foundation looks it up in the registry.
+    await selectSmtpProvider(admin);
+
     // Tenant configures their SMTP — Mailhog-style local test server.
-    await setConfig(admin, "mail-foundation:config:host", "localhost");
-    await setConfig(admin, "mail-foundation:config:port", 1025);
-    await setConfig(admin, "mail-foundation:config:from", "noreply@test.local");
-    await setConfig(admin, "mail-foundation:config:auth-user", "admin@test.local");
+    await setConfig(admin, "mail-transport-smtp:config:host", "localhost");
+    await setConfig(admin, "mail-transport-smtp:config:port", 1025);
+    await setConfig(admin, "mail-transport-smtp:config:from", "noreply@test.local");
+    await setConfig(admin, "mail-transport-smtp:config:auth-user", "admin@test.local");
 
     // Sensitive: SMTP password via the secrets-write handler.
     await stack.http.writeOk(
@@ -163,11 +175,12 @@ describe("scenario 2: validation errors", () => {
   test("missing host → factory throws with hint instead of a cryptic SMTP error", async () => {
     const admin = adminFor(402);
 
-    // Set everything EXCEPT host. The factory should fail before
-    // touching nodemailer with a message naming the missing key.
-    await setConfig(admin, "mail-foundation:config:port", 587);
-    await setConfig(admin, "mail-foundation:config:from", "noreply@test.local");
-    await setConfig(admin, "mail-foundation:config:auth-user", "admin@test.local");
+    await selectSmtpProvider(admin);
+    // Set everything EXCEPT host. The plugin should fail with a
+    // message naming the missing key before touching nodemailer.
+    await setConfig(admin, "mail-transport-smtp:config:port", 587);
+    await setConfig(admin, "mail-transport-smtp:config:from", "noreply@test.local");
+    await setConfig(admin, "mail-transport-smtp:config:auth-user", "admin@test.local");
     await stack.http.writeOk("secrets:write:set", { key: SMTP_PASSWORD.name, value: "pw" }, admin);
 
     // writeOk would throw an assertion-error; use writeRaw + check status.
@@ -178,10 +191,11 @@ describe("scenario 2: validation errors", () => {
   test("missing password secret → factory throws naming the secret", async () => {
     const admin = adminFor(403);
 
-    await setConfig(admin, "mail-foundation:config:host", "localhost");
-    await setConfig(admin, "mail-foundation:config:port", 587);
-    await setConfig(admin, "mail-foundation:config:from", "noreply@test.local");
-    await setConfig(admin, "mail-foundation:config:auth-user", "admin@test.local");
+    await selectSmtpProvider(admin);
+    await setConfig(admin, "mail-transport-smtp:config:host", "localhost");
+    await setConfig(admin, "mail-transport-smtp:config:port", 587);
+    await setConfig(admin, "mail-transport-smtp:config:from", "noreply@test.local");
+    await setConfig(admin, "mail-transport-smtp:config:auth-user", "admin@test.local");
     // Skip the secret. requireSecretsContext.get returns undefined,
     // factory throws referencing SMTP_PASSWORD.name.
 
@@ -197,11 +211,14 @@ describe("scenario 3: tenant isolation", () => {
     const adminA = adminFor(404);
     const adminB = adminFor(405);
 
+    await selectSmtpProvider(adminA);
+    await selectSmtpProvider(adminB);
+
     // Tenant A configures their SMTP.
-    await setConfig(adminA, "mail-foundation:config:host", "smtp.tenant-a.test");
-    await setConfig(adminA, "mail-foundation:config:port", 587);
-    await setConfig(adminA, "mail-foundation:config:from", "a@tenant-a.test");
-    await setConfig(adminA, "mail-foundation:config:auth-user", "a-user");
+    await setConfig(adminA, "mail-transport-smtp:config:host", "smtp.tenant-a.test");
+    await setConfig(adminA, "mail-transport-smtp:config:port", 587);
+    await setConfig(adminA, "mail-transport-smtp:config:from", "a@tenant-a.test");
+    await setConfig(adminA, "mail-transport-smtp:config:auth-user", "a-user");
     await stack.http.writeOk(
       "secrets:write:set",
       { key: SMTP_PASSWORD.name, value: "pw-a" },
@@ -209,10 +226,10 @@ describe("scenario 3: tenant isolation", () => {
     );
 
     // Tenant B has their OWN SMTP — different host on purpose.
-    await setConfig(adminB, "mail-foundation:config:host", "smtp.tenant-b.test");
-    await setConfig(adminB, "mail-foundation:config:port", 465);
-    await setConfig(adminB, "mail-foundation:config:from", "b@tenant-b.test");
-    await setConfig(adminB, "mail-foundation:config:auth-user", "b-user");
+    await setConfig(adminB, "mail-transport-smtp:config:host", "smtp.tenant-b.test");
+    await setConfig(adminB, "mail-transport-smtp:config:port", 465);
+    await setConfig(adminB, "mail-transport-smtp:config:from", "b@tenant-b.test");
+    await setConfig(adminB, "mail-transport-smtp:config:auth-user", "b-user");
     await stack.http.writeOk(
       "secrets:write:set",
       { key: SMTP_PASSWORD.name, value: "pw-b" },

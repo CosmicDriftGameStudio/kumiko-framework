@@ -2,12 +2,13 @@
 //
 // **What downstream apps import:**
 //   - `mailFoundationFeature` — register at app boot
-//   - `createTransportForTenant(ctx, tenantId)` — async factory for
-//     a per-tenant `EmailTransport`
-//   - `SMTP_PASSWORD` — typed secret-handle for direct secret-context use
+//   - `createTransportForTenant(ctx, tenantId)` — async factory: looks
+//     up the registered transport-plugin, returns its EmailTransport
+//   - `MailTransportPlugin` — type that provider-features implement
+//     when registering via `r.useExtension("mailTransport", ...)`
 
 export {
   createTransportForTenant,
+  type MailTransportPlugin,
   mailFoundationFeature,
-  SMTP_PASSWORD,
 } from "./feature";

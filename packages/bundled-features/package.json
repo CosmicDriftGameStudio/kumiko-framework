@@ -25,6 +25,7 @@
     "./cap-counter": "./src/cap-counter/index.ts",
     "./foundation-shared": "./src/foundation-shared/index.ts",
     "./mail-foundation": "./src/mail-foundation/index.ts",
+    "./mail-transport-smtp": "./src/mail-transport-smtp/index.ts",
     "./file-foundation": "./src/file-foundation/index.ts",
     "./tenant": "./src/tenant/index.ts",
     "./tenant/seeding": "./src/tenant/seeding.ts",

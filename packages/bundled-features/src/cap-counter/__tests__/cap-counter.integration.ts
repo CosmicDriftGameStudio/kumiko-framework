@@ -7,7 +7,7 @@
 // test pattern.
 
 import type { DbConnection } from "@kumiko/framework/db";
-import { defineFeature, defineWriteHandler } from "@kumiko/framework/engine";
+import { defineFeature, type WriteHandlerDef } from "@kumiko/framework/engine";
 import { createEventsTable } from "@kumiko/framework/event-store";
 import {
   createEntityTable,
@@ -32,33 +32,37 @@ import { capCounterFeature } from "../feature";
 // --- Test-Probe-Feature: drives enforceCap from inside a real handler ---
 
 const ENFORCE_PROBE_QN = "cap-test:write:enforce";
+
+// Direct WriteHandlerDef — bypasses the defineWriteHandler factory whose
+// type-parameter inference clashes with the cross-package HandlerContext
+// generic in this test file. Same runtime contract.
+const enforceHandler: WriteHandlerDef = {
+  name: "enforce",
+  schema: z.object({
+    capName: z.string(),
+    periodStartIso: z.string(),
+    limit: z.number(),
+    profile: z.enum(["burstable", "storage", "hardSlot", "egress"]),
+  }),
+  access: { roles: ["TenantAdmin", "SystemAdmin"] },
+  handler: async (event, ctx) => {
+    try {
+      const result = await enforceCap(ctx, event.payload as Parameters<typeof enforceCap>[1]);
+      return { isSuccess: true as const, data: { ok: true, ...result } };
+    } catch (e) {
+      if (e instanceof CapExceededError) {
+        return {
+          isSuccess: true as const,
+          data: { ok: false, code: e.code, currentValue: e.currentValue, limit: e.limit },
+        };
+      }
+      throw e;
+    }
+  },
+};
+
 const enforceProbeFeature = defineFeature("cap-test", (r) => {
-  r.writeHandler(
-    defineWriteHandler({
-      name: "enforce",
-      schema: z.object({
-        capName: z.string(),
-        periodStartIso: z.string(),
-        limit: z.number(),
-        profile: z.enum(["burstable", "storage", "hardSlot", "egress"]),
-      }),
-      access: { roles: ["TenantAdmin", "SystemAdmin"] },
-      handler: async (event, ctx) => {
-        try {
-          const result = await enforceCap(ctx, event.payload as Parameters<typeof enforceCap>[1]);
-          return { isSuccess: true as const, data: { ok: true, ...result } };
-        } catch (e) {
-          if (e instanceof CapExceededError) {
-            return {
-              isSuccess: true as const,
-              data: { ok: false, code: e.code, currentValue: e.currentValue, limit: e.limit },
-            };
-          }
-          throw e;
-        }
-      },
-    }),
-  );
+  r.writeHandler(enforceHandler);
 });
 
 // --- Setup ---
@@ -95,7 +99,7 @@ async function increment(
   user: ReturnType<typeof adminFor>,
   capName: string,
   amount: number,
-  periodStartIso = ROLLING,
+  periodStartIso: string = ROLLING,
 ) {
   await stack.http.writeOk(CapCounterHandlers.increment, { capName, amount, periodStartIso }, user);
 }
@@ -103,7 +107,7 @@ async function increment(
 async function readCounter(
   user: ReturnType<typeof adminFor>,
   capName: string,
-  periodStartIso = ROLLING,
+  periodStartIso: string = ROLLING,
 ) {
   return (await stack.http.queryOk(
     CapCounterQueries.getCounter,

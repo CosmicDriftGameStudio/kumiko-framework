@@ -2,38 +2,37 @@
 //
 // mail-foundation as a Kumiko bundled feature.
 //
-// **What this file gives you:**
-//   1. **Tenant-scoped config** — provider, host, port, secure, from,
-//      authUser. Tenant-Admin can set these in the Designer; downstream
-//      handlers read via ctx.config.
-//   2. **Tenant-scoped secret** — the SMTP password. BYOK is the default
-//      model: each tenant's outbound mail goes through their own SMTP
-//      account (Brevo, Postmark, SES, internal Postfix), so spam impacts
-//      their reputation, not the platform's.
-//   3. **createTransportForTenant(ctx, tenantId)** — bridges the
-//      registry-config + secret into a ready-to-use `EmailTransport`
-//      that a handler can hand to the existing channel-email transport
-//      shape (auth-email-password reset/verification, custom
-//      notification-flows). Per-call construction means a tenant editing
-//      their config sees the change on the very next mail.
+// **Was diese Feature liefert:**
+//   1. **Plugin-API** für Mail-Transport-Provider via `r.extendsRegistrar
+//      ("mailTransport", ...)`. Provider-Features (mail-transport-smtp,
+//      mail-transport-brevo-api, ...) registrieren sich namentlich.
+//   2. **Tenant-Config-key** `provider`: select-Wert der zur Runtime
+//      bestimmt welcher registrierte Plugin verwendet wird.
+//   3. **createTransportForTenant(ctx, tenantId)** Factory die den
+//      gewählten Plugin im Registry sucht und seine `build`-Methode
+//      aufruft.
 //
-// **Pattern-Vorbild:** `ai-foundation` — selber Aufbau, selbe Trennung
-// public-config (host/port/from sichtbar) vs encrypted-secret (password).
-// Wer beide vergleicht: provider-agnostisch heute = nur SMTP, Brevo-/SES-
-// API-Provider würden den `provider`-Switch in `createTransportForTenant`
-// erweitern — config-options und secret-shape können stable bleiben.
+// **Was diese Foundation NICHT mehr macht (im Vergleich zur ersten
+// Iteration):**
+//   - Keine SMTP/Brevo/Postmark-spezifischen Config-Keys mehr in
+//     mail-foundation. Provider-spezifische Config (host/port/from/
+//     authUser für SMTP, apiUrl/accountId für Brevo etc.) lebt im
+//     jeweiligen Provider-Plugin-Feature.
+//   - Kein direkter Import von `createSmtpTransport`. Die Foundation
+//     kennt nur das `EmailTransport`-Interface (Type-Import, kein
+//     runtime-coupling), nicht die konkrete Implementation.
 //
-// **Standalone:** Feature ist NICHT von tier-engine abhängig. Eine App
-// die per-tenant-Mail-Versand will mountet mail-foundation auch ohne
-// Pricing-/Tier-System. Existing `channel-email` (App-wide-Config)
-// bleibt unangetastet — additive Feature, kein Refactor an bestehenden
-// Apps.
+// **Pattern-Vorbild:** identisch zu `delivery` + `channel-email`. Die
+// delivery-feature deklariert `r.extendsRegistrar("deliveryChannel")`,
+// channel-email registriert sich via `r.useExtension("deliveryChannel",
+// "email", {...})`. Selbe Trennung Foundation ↔ Provider.
 //
-// **Boot-Dependencies:** config + secrets, analog ai-foundation.
+// **Standalone:** Foundation ist ohne tier-engine nutzbar. Existing
+// `channel-email` (App-wide-Mail-Sender via delivery) bleibt unangetastet
+// — additive Feature.
 
-import { createSmtpTransport, type EmailTransport } from "@kumiko/bundled-features/channel-email";
-import { requireDefined, requireNonEmpty } from "@kumiko/bundled-features/foundation-shared";
-import { requireSecretsContext } from "@kumiko/bundled-features/secrets";
+import type { EmailTransport } from "@kumiko/bundled-features/channel-email";
+import { requireDefined } from "@kumiko/bundled-features/foundation-shared";
 import {
   access,
   createTenantConfig,
@@ -44,112 +43,71 @@ import {
 const FEATURE_NAME = "mail-foundation";
 
 // =============================================================================
+// Plugin-Interface — what a Provider-Plugin must implement
+// =============================================================================
+
+/**
+ * Mail-Transport-Plugin contract. Each provider-feature (mail-transport-
+ * smtp, mail-transport-brevo-api, ...) registers an implementation via
+ * `r.useExtension("mailTransport", "<name>", { build })`.
+ *
+ * `build(ctx, tenantId)` reads the plugin's own config-keys + secrets
+ * (the plugin owns its provider-specific config schema) and constructs
+ * an EmailTransport. Per-call construction so a tenant editing config
+ * sees the change on the next mail.
+ */
+export type MailTransportPlugin = {
+  readonly build: (ctx: HandlerContext, tenantId: string) => Promise<EmailTransport>;
+};
+
+// =============================================================================
 // Feature-definition
 // =============================================================================
 
-export const mailFoundationFeature = defineFeature("mail-foundation", (r) => {
+export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("config");
-  r.requires("secrets");
 
-  // Sensitive part — SMTP password. Login/auth credentials at every SMTP
-  // server. Same redact-helper-shape as ai-foundation's API key.
-  const password = r.secret("smtp.password", {
-    label: { de: "SMTP-Passwort", en: "SMTP password" },
-    hint: {
-      de: "Login-Passwort am SMTP-Server. Bei Brevo/Postmark/SES heißt es 'API key' bzw. 'SMTP credentials'.",
-      en: "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'.",
+  // Plugin extension-point. Provider-features register here. The
+  // entityName at registration time becomes the value tenants pick in
+  // `provider` config-key (e.g. "smtp", "brevo-api").
+  r.extendsRegistrar("mailTransport", {
+    onRegister: () => {
+      // No side-effects at register-time — the registry stores the
+      // usage, factory looks it up at request-time. Same shape as
+      // delivery's extendsRegistrar.
     },
-    // Generic redaction: most SMTP-passwords are random-looking strings
-    // 20-60 chars long, no documented prefix to surface like sk-ant-...
-    redact: (plaintext) => {
-      if (plaintext.length < 8) return "•".repeat(plaintext.length);
-      return `${plaintext.slice(0, 3)}...${plaintext.slice(-2)}`;
-    },
-    scope: "tenant",
   });
 
   const configKeys = r.config({
     keys: {
-      // Provider-selector. Sprint 2 = "smtp" only; Brevo-API, Postmark-API,
-      // SES-API land later via the same EmailTransport interface.
-      provider: createTenantConfig("select", {
-        default: "smtp",
-        options: ["smtp"],
+      // Provider-selector. Default empty so the boot-validator throws
+      // if a tenant tries to send mail without first picking + setting
+      // up a provider — better than a silent fallback.
+      // The actual list of valid values lives in the registered plugins,
+      // not here — Designer-UI can render `getExtensionUsages
+      // ("mailTransport").map(u => u.entityName)` as the option-list.
+      provider: createTenantConfig("text", {
+        default: "",
         write: access.roles("TenantAdmin", "SystemAdmin"),
         read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-      }),
-      // SMTP-server hostname.
-      host: createTenantConfig("text", {
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      // SMTP-server port. 587 is STARTTLS-default, 465 is implicit-TLS,
-      // 25 is unencrypted (only for internal relays).
-      port: createTenantConfig("number", {
-        default: 587,
-        bounds: { min: 1, max: 65535 },
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      // TLS-mode: true = implicit TLS (port 465), false = STARTTLS (587).
-      // The createSmtpTransport defaults match.
-      secure: createTenantConfig("boolean", {
-        default: false,
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      // Default sender address. nodemailer-format: "user@dom.tld" or
-      // "Display Name <user@dom.tld>".
-      from: createTenantConfig("text", {
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      // SMTP login username. Often the same as the from-address but can
-      // diverge (Postmark uses a server-API-token-id as username).
-      authUser: createTenantConfig("text", {
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
       }),
     },
   });
 
   return {
-    /** Config-key-handles — typed reads via `ctx.config(...)` in
-     *  consumer handlers. */
+    /** Config-key-handle for the provider-selector. */
     configKeys,
-    /** Secret-handle for the SMTP password. Use with
-     *  `requireSecretsContext(ctx, ...).get(tenantId, password)`. */
-    password,
   };
 });
 
 // =============================================================================
-// Public re-export (typed handle for the SMTP password secret)
-// =============================================================================
-
-/** Typed handle for the SMTP password. */
-export const SMTP_PASSWORD = mailFoundationFeature.exports.password;
-
-// =============================================================================
-// Transport-factory — the actual reason this file exists
+// Transport-factory — looks up the registered plugin + delegates
 // =============================================================================
 
 /**
- * Async constructor: read tenant SMTP config + password from `ctx`, build
- * an `EmailTransport` matching the tenant's selected provider.
- *
- * **Pattern-Vorbild:** mirrors `createProviderForTenant` from
- * `ai-foundation`. Re-reads config + secret per call — a tenant editing
- * their SMTP config sees the change on the very next send. Caching the
- * transport per-tenant would require an invalidation hook; per-call
- * construction is cheap (nodemailer SMTP transport is just object-
- * allocation + first-send opens the connection-pool lazily).
- *
- * **Returns the `EmailTransport` interface from `channel-email`** —
- * compatible with the existing send-helpers (delivery channels, auth
- * email-password reset). A handler can hand the result straight into
- * any code that already takes an EmailTransport.
+ * Resolves the tenant's mail-transport. Reads the `provider` config-key,
+ * looks up the matching plugin in the registry, calls its `build(ctx,
+ * tenantId)`-method.
  *
  * **Caller pattern:**
  *   const transport = await createTransportForTenant(ctx, event.user.tenantId);
@@ -163,7 +121,12 @@ export async function createTransportForTenant(
   const ctxConfig = ctx.config;
   if (!ctxConfig) {
     throw new Error(
-      "mail-foundation: ctx.config is missing — feature requires the config-feature mounted in the registry",
+      `${handlerName}: ctx.config is missing — feature requires the config-feature mounted in the registry`,
+    );
+  }
+  if (!ctx.registry) {
+    throw new Error(
+      `${handlerName}: ctx.registry is missing — required to look up registered mail-transport plugins`,
     );
   }
 
@@ -172,68 +135,26 @@ export async function createTransportForTenant(
     FEATURE_NAME,
     "provider",
   ) as string;
-  const host = requireNonEmpty(
-    await ctxConfig(mailFoundationFeature.exports.configKeys.host),
-    FEATURE_NAME,
-    "host",
-    "Set host via tenant-admin UI or seed-handler before sending mail.",
-  );
-  const port = requireDefined(
-    await ctxConfig(mailFoundationFeature.exports.configKeys.port),
-    FEATURE_NAME,
-    "port",
-  ) as number;
-  const secure = requireDefined(
-    await ctxConfig(mailFoundationFeature.exports.configKeys.secure),
-    FEATURE_NAME,
-    "secure",
-  ) as boolean;
-  const from = requireNonEmpty(
-    await ctxConfig(mailFoundationFeature.exports.configKeys.from),
-    FEATURE_NAME,
-    "from",
-    "Set from via tenant-admin UI or seed-handler before sending mail.",
-  );
-  const authUser = requireNonEmpty(
-    await ctxConfig(mailFoundationFeature.exports.configKeys.authUser),
-    FEATURE_NAME,
-    "authUser",
-    "Set authUser via tenant-admin UI or seed-handler before sending mail.",
-  );
-
-  const password = await readPassword(ctx, tenantId, handlerName);
-
-  switch (provider) {
-    case "smtp":
-      return createSmtpTransport({
-        host,
-        port,
-        secure,
-        from,
-        auth: { user: authUser, pass: password },
-      });
-    default:
-      throw new Error(
-        `mail-foundation: provider "${provider}" not implemented (only "smtp" today)`,
-      );
-  }
-}
-
-// =============================================================================
-// Internal helpers
-// =============================================================================
-
-async function readPassword(
-  ctx: HandlerContext,
-  tenantId: string,
-  handlerName: string,
-): Promise<string> {
-  const secrets = requireSecretsContext(ctx, handlerName);
-  const branded = await secrets.get(tenantId, SMTP_PASSWORD);
-  if (!branded) {
+  if (provider.length === 0) {
+    const usages = ctx.registry.getExtensionUsages("mailTransport");
+    const known = usages.map((u) => u.entityName).join(", ") || "<none>";
     throw new Error(
-      `mail-foundation: ${SMTP_PASSWORD.name} not set for tenant ${tenantId} — Tenant-Admin must set it via /api/write/secrets:write:set`,
+      `${FEATURE_NAME}: no provider selected — set the 'provider' config-key to one of: ${known}. ` +
+        `Mount a mail-transport-* feature first if no plugins are registered.`,
     );
   }
-  return branded.reveal();
+
+  const usages = ctx.registry.getExtensionUsages("mailTransport");
+  const usage = usages.find((u) => u.entityName === provider);
+  if (!usage) {
+    const known = usages.map((u) => u.entityName).join(", ") || "<none>";
+    throw new Error(
+      `${FEATURE_NAME}: provider "${provider}" not registered. Known: ${known}. ` +
+        `Mount the matching mail-transport-${provider} feature.`,
+    );
+  }
+
+  // @cast-boundary engine-payload — extension-usage carries unknown options
+  const plugin = usage.options as MailTransportPlugin;
+  return plugin.build(ctx, tenantId);
 }

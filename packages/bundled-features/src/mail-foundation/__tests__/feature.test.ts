@@ -1,72 +1,46 @@
-// feature.ts contract tests — pin the public surface that consumers
-// (auth-email-password reset flows, custom notification-handlers, future
-// delivery-channel-switch via tier-engine) will rely on:
-//   - mailFoundationFeature is a valid FeatureDefinition with the
-//     expected name, requires, config-keys, secret declaration.
-//   - exports.configKeys carries typed handles (provider, host, port,
-//     secure, from, authUser).
-//   - exports.password is the SMTP_PASSWORD secret-handle.
+// feature.ts contract tests — pin the public surface of the
+// Plugin-API-shaped mail-foundation. Provider-specific configs/secrets
+// are tested in their own provider-feature (mail-transport-smtp/__tests__).
 //
-// **Pattern-Vorbild:** mirrors ai-foundation/__tests__/feature.test.ts.
+// **Pattern-Vorbild:** mirrors delivery-feature shape — the foundation
+// declares an extension-point + a single selector config-key, nothing
+// provider-concrete.
 
 import { describe, expect, test } from "vitest";
-import { mailFoundationFeature, SMTP_PASSWORD } from "../feature";
-
-// =============================================================================
-// Feature shape
-// =============================================================================
+import { mailFoundationFeature } from "../feature";
 
 describe("mailFoundationFeature — shape", () => {
   test("has the expected name", () => {
     expect(mailFoundationFeature.name).toBe("mail-foundation");
   });
 
-  test("declares config + secrets as hard requirements", () => {
+  test("declares config as a hard requirement (provider-selector lives there)", () => {
     expect(mailFoundationFeature.requires).toContain("config");
-    expect(mailFoundationFeature.requires).toContain("secrets");
+  });
+
+  test("does NOT require secrets — provider-plugins own their own secrets", () => {
+    // The foundation knows nothing about SMTP-passwords; only the SMTP
+    // plugin-feature requires secrets. This separation lets a Brevo-
+    // API-only deployment skip the secrets-feature if Brevo's provider
+    // uses tenant-config text-keys instead.
+    expect(mailFoundationFeature.requires).not.toContain("secrets");
   });
 });
-
-// =============================================================================
-// Exports — typed handles surface
-// =============================================================================
 
 describe("mailFoundationFeature.exports — typed handles", () => {
-  test("exports.configKeys covers the SMTP-config knobs", () => {
+  test("exposes only the provider-selector config-key", () => {
     const keys = mailFoundationFeature.exports.configKeys;
-    // Spell each one out — if a future refactor accidentally drops a key,
-    // the test fails by name not by count.
     expect(keys.provider).toBeDefined();
-    expect(keys.host).toBeDefined();
-    expect(keys.port).toBeDefined();
-    expect(keys.secure).toBeDefined();
-    expect(keys.from).toBeDefined();
-    expect(keys.authUser).toBeDefined();
-  });
-
-  test("exports.password is the SMTP_PASSWORD secret-handle (drift-pin)", () => {
-    expect(mailFoundationFeature.exports.password).toBe(SMTP_PASSWORD);
-    // Pin the EXACT qualified-name — framework builds as
-    // `<feature-kebab>:secret:<short-name-kebab>` via toKebab, so
-    // "smtp.password" → "smtp-password". A rename of either half breaks
-    // every tenant-stored secret.
-    expect(SMTP_PASSWORD.name).toBe("mail-foundation:secret:smtp-password");
+    // No host/port/from/authUser — those live in the provider-plugin.
+    expect((keys as Record<string, unknown>)["host"]).toBeUndefined();
+    expect((keys as Record<string, unknown>)["port"]).toBeUndefined();
   });
 });
 
-// =============================================================================
-// Secret redaction
-// =============================================================================
-
-describe("SMTP_PASSWORD — generic redaction", () => {
-  const secretDef = mailFoundationFeature.secretKeys["smtp.password"];
-
-  test("redact preserves first 3 + last 2 chars for verifiability on long keys", () => {
-    expect(secretDef?.redact).toBeDefined();
-    expect(secretDef?.redact?.("brevoXKEY01abc")).toMatch(/^bre\.\.\.bc$/);
-  });
-
-  test("redact masks short keys completely (no leak on under-8-char input)", () => {
-    expect(secretDef?.redact?.("shortpw")).toBe("•".repeat(7));
+describe("mailFoundationFeature — registers extension-point", () => {
+  test("declares the 'mailTransport' extension-point that providers register against", () => {
+    // r.extendsRegistrar("mailTransport", ...) lands in
+    // feature.registrarExtensions keyed by extension-name.
+    expect(mailFoundationFeature.registrarExtensions["mailTransport"]).toBeDefined();
   });
 });
