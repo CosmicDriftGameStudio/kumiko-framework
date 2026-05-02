@@ -35,6 +35,8 @@ export type SeedUserWithPasswordOptions = {
   readonly password: string;
   readonly displayName: string;
   readonly locale?: string;
+  /** Globale Rollen — siehe SeedUserOptions.roles. */
+  readonly roles?: readonly string[];
   readonly by?: SessionUser;
 };
 
@@ -52,6 +54,7 @@ export async function seedUserWithPassword(
     displayName: options.displayName,
     passwordHash,
     ...(options.locale !== undefined && { locale: options.locale }),
+    ...(options.roles !== undefined && { roles: options.roles }),
     ...(options.by !== undefined && { by: options.by }),
   });
 }
@@ -70,6 +73,11 @@ export type SeedAdminOptions = {
     readonly tenantName: string;
     readonly roles: readonly string[];
   }>;
+  /** Globale Rollen die in users.roles landen — tenant-unabhängig.
+   *  Login-Handler mergt sie in jede Session parallel zu den tenant-
+   *  membership-Rollen. Typischer use-case: `["SystemAdmin"]` für
+   *  einen Plattform-Operator. Default: leer. */
+  readonly globalRoles?: readonly string[];
   readonly by?: SessionUser;
 };
 
@@ -89,6 +97,7 @@ export async function seedAdmin(db: DbConnection, options: SeedAdminOptions): Pr
     email: options.email,
     password: options.password,
     displayName: options.displayName,
+    ...(options.globalRoles !== undefined && { roles: options.globalRoles }),
     by,
   });
 

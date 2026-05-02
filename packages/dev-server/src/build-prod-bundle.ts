@@ -40,7 +40,7 @@
 //   alles andere (public/)  →  default (auto-cache)
 
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -114,16 +114,16 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   const assetsDir = join(outDir, ASSETS_DIR);
 
   // 1. Discovery: was ist da?
-  const clientEntry = discoverClientEntry(cwd);
-  const stylesheet = resolveStylesheetEntry(cwd, clientEntry, options.stylesheet);
+  const clientEntries = discoverClientEntries(cwd);
+  const firstClientSource = clientEntries[0]?.sourceFile;
+  const stylesheet = resolveStylesheetEntry(cwd, firstClientSource, options.stylesheet);
   const publicDir = resolve(cwd, "public");
   const hasPublicDir = existsSync(publicDir);
-  const htmlTemplatePath = discoverHtmlTemplate(cwd);
 
-  if (!clientEntry && !hasPublicDir && !htmlTemplatePath) {
+  if (clientEntries.length === 0 && !hasPublicDir) {
     throw new Error(
       `[kumiko build] nothing to build in ${cwd} — expected at least one of: ` +
-        `src/client.tsx, public/, index.html`,
+        `src/client.tsx, src/client-*.tsx, public/`,
     );
   }
 
@@ -145,23 +145,40 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
     manifest["styles.css"] = `/${ASSETS_DIR}/${filename}`;
   }
 
-  // 4. Bun.build mit splitting + hash + asset-loader
-  if (clientEntry) {
-    const entryFilename = await buildClientBundle(clientEntry, assetsDir);
-    manifest["client.js"] = `/${ASSETS_DIR}/${entryFilename}`;
+  // 4. Bun.build pro Entry (multi-entry produces N bundles + shared chunks).
+  //    Ein einzelner Bun.build-Call mit allen entrypoints würde shared
+  //    chunks deduplizieren, hashes deterministisch halten — passt zu
+  //    dem split-tree-Pattern von publicstatus (admin + public teilen
+  //    sich den renderer-web-core).
+  if (clientEntries.length > 0) {
+    const built = await buildClientBundles(clientEntries, assetsDir);
+    for (const [manifestKey, filename] of Object.entries(built)) {
+      manifest[manifestKey] = `/${ASSETS_DIR}/${filename}`;
+    }
   }
 
-  // 5. Public-Folder rsync (ohne index.html — das wird separat gerendert)
+  // 5. Public-Folder rsync (ohne index.html / *.html-templates — werden
+  //    separat gerendert). Filter-list = template-basenames der entries.
+  const templateBasenames = new Set<string>(clientEntries.map((e) => basenameOf(e.htmlPath)));
   if (hasPublicDir) {
-    await copyPublicFolder(publicDir, outDir);
+    await copyPublicFolder(publicDir, outDir, templateBasenames);
   }
 
-  // 6. HTML rendern. Template-Reihenfolge:
-  //    1. index.html im cwd (App-Author-Override)
-  //    2. public/index.html (häufigster Fall)
-  //    3. Default-HTML (für Apps ohne eigenes Template)
-  const html = await renderHtml(htmlTemplatePath, manifest);
-  await writeFile(join(outDir, "index.html"), html);
+  // 6. HTML pro Entry rendern. Convention: ein HTML-File pro Client-Entry,
+  //    jede mit ihrem eigenen Script-Tag. Server (runProdApp.hostDispatch)
+  //    serviert je nach Host das passende File.
+  if (clientEntries.length === 0) {
+    // Vanilla-public-only-app: keine HTML-Files zu rendern, public-Folder
+    // wurde schon kopiert.
+  } else {
+    for (const entry of clientEntries) {
+      const templatePath = resolve(cwd, entry.htmlPath);
+      const templateExists = existsSync(templatePath);
+      const html = await renderHtml(templateExists ? templatePath : undefined, manifest, entry);
+      const outFile = basenameOf(entry.htmlPath);
+      await writeFile(join(outDir, outFile), html);
+    }
+  }
 
   // 7. Manifest.
   await writeFile(join(outDir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
@@ -173,14 +190,97 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
 // Discovery
 // ---------------------------------------------------------------------------
 
+// Single client-entry shape — one bundle, one html-template.
+export type ClientEntry = {
+  /** Logical name. "client" für single-mode; sonst der Suffix von
+   *  src/client-<suffix>.tsx (z.B. "public", "admin"). */
+  readonly name: string;
+  /** TypeScript-Source. */
+  readonly sourceFile: string;
+  /** Manifest-key & logical-asset-path. "client.js" für single, sonst
+   *  "client-<name>.js". */
+  readonly manifestKey: string;
+  /** HTML-template-Pfad relativ zum cwd. "index.html" für single oder
+   *  "public"-entry; sonst "<name>.html". Naming bewusst symmetrisch
+   *  zu `runDevApp.clientEntries[].htmlPath` damit Build und Dev-Server
+   *  dieselbe Konvention verwenden. */
+  readonly htmlPath: string;
+};
+
 // @internal — exported nur für Unit-Tests. Konsumenten gehen über
 // buildProdBundle.
-export function discoverClientEntry(cwd: string): string | undefined {
+//
+// Discovery-Pattern:
+//   - Falls `src/client-<suffix>.tsx` files existieren → multi-entry-mode,
+//     ein Bundle pro Datei. "public" mapped auf index.html (default),
+//     andere Suffixe auf "<suffix>.html".
+//   - Sonst falls `src/client.tsx` oder `src/client.ts` existiert →
+//     single-entry-mode mit name "client" + index.html.
+//   - Sonst leeres Array (keine Client-Bundles).
+export function discoverClientEntries(cwd: string): readonly ClientEntry[] {
+  const multi = discoverMultiClientEntries(cwd);
+  if (multi.length > 0) return multi;
+
   for (const candidate of ["src/client.tsx", "src/client.ts"]) {
+    const sourceFile = resolve(cwd, candidate);
+    if (existsSync(sourceFile)) {
+      return [
+        {
+          name: "client",
+          sourceFile,
+          manifestKey: "client.js",
+          htmlPath: discoverHtmlTemplateFor(cwd, "index") ?? "index.html",
+        },
+      ];
+    }
+  }
+  return [];
+}
+
+function discoverMultiClientEntries(cwd: string): readonly ClientEntry[] {
+  const srcDir = resolve(cwd, "src");
+  if (!existsSync(srcDir)) return [];
+  let files: readonly string[];
+  try {
+    files = readdirSync(srcDir);
+  } catch {
+    return [];
+  }
+  const out: ClientEntry[] = [];
+  for (const file of files) {
+    const match = /^client-([a-z][a-z0-9-]*)\.tsx?$/.exec(file);
+    const suffix = match?.[1];
+    if (!suffix) continue;
+    const sourceFile = resolve(srcDir, file);
+    out.push({
+      name: suffix,
+      sourceFile,
+      manifestKey: `client-${suffix}.js`,
+      // "public"-entry serviert die default-page (index.html), sonst pro
+      // Suffix ein eigenes Template.
+      htmlPath:
+        suffix === "public"
+          ? (discoverHtmlTemplateFor(cwd, "index") ?? "index.html")
+          : (discoverHtmlTemplateFor(cwd, suffix) ?? `${suffix}.html`),
+    });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function discoverHtmlTemplateFor(cwd: string, basename: string): string | undefined {
+  for (const candidate of [`${basename}.html`, `public/${basename}.html`]) {
     const path = resolve(cwd, candidate);
     if (existsSync(path)) return path;
   }
   return undefined;
+}
+
+/** @deprecated single-entry-Variante. Nutze discoverClientEntries. */
+export function discoverClientEntry(cwd: string): string | undefined {
+  const entries = discoverClientEntries(cwd);
+  if (entries.length !== 1) return undefined;
+  const only = entries[0];
+  return only?.name === "client" ? only.sourceFile : undefined;
 }
 
 function resolveStylesheetEntry(
@@ -247,12 +347,18 @@ async function runTailwindOnce(entry: string): Promise<string> {
   return css;
 }
 
-async function buildClientBundle(entry: string, outDir: string): Promise<string> {
+/** Multi-entry-build: ein Bun.build-Call mit allen entrypoints — shared
+ *  chunks werden dedupliziert, hashes deterministisch. Returns map
+ *  manifestKey → hashed-filename (basename, ohne /assets/-Prefix). */
+async function buildClientBundles(
+  entries: readonly ClientEntry[],
+  outDir: string,
+): Promise<Record<string, string>> {
   if (!hasBun) {
     throw new Error("[kumiko build] requires Bun — run via `bun run …` or `yarn kumiko build`.");
   }
   const built = await Bun.build({
-    entrypoints: [entry],
+    entrypoints: entries.map((e) => e.sourceFile),
     outdir: outDir,
     target: "browser",
     splitting: true,
@@ -275,22 +381,53 @@ async function buildClientBundle(entry: string, outDir: string): Promise<string>
     const errs = built.logs.map((log) => String(log)).join("\n");
     throw new Error(`[kumiko build] Bun.build failed:\n${errs}`);
   }
-  const entryOut = built.outputs.find((o) => o.kind === "entry-point");
-  if (!entryOut) {
-    throw new Error("[kumiko build] Bun.build produced no entry-point output");
+  const entryOutputs = built.outputs.filter((o) => o.kind === "entry-point");
+  if (entryOutputs.length !== entries.length) {
+    throw new Error(
+      `[kumiko build] expected ${entries.length} entry-point outputs, got ${entryOutputs.length}`,
+    );
   }
-  return entryOut.path.split("/").pop() ?? entryOut.path;
+  // Bun.build benennt entry-files nach Source-Basename (ohne extension):
+  // `src/client-admin.tsx` → `client-admin-<hash>.js`. Wir mappen jedes
+  // entry-output zurück auf seinen ClientEntry via Basename-match.
+  const result: Record<string, string> = {};
+  for (const entry of entries) {
+    const baseName = (entry.sourceFile.split("/").pop() ?? "").replace(/\.tsx?$/, "");
+    const match = entryOutputs.find((o) => {
+      const outName = o.path.split("/").pop() ?? "";
+      return outName.startsWith(`${baseName}-`);
+    });
+    if (!match) {
+      throw new Error(
+        `[kumiko build] no entry-point output for "${entry.sourceFile}" (looked for "${baseName}-*.js")`,
+      );
+    }
+    result[entry.manifestKey] = match.path.split("/").pop() ?? match.path;
+  }
+  return result;
 }
 
-async function copyPublicFolder(src: string, dst: string): Promise<void> {
-  // index.html wird separat gerendert — nicht blind kopieren, sonst
-  // überschreibt das die injizierte Version.
+function basenameOf(p: string): string {
+  return p.split("/").pop() ?? p;
+}
+
+async function copyPublicFolder(
+  src: string,
+  dst: string,
+  templateBasenames: ReadonlySet<string>,
+): Promise<void> {
+  // HTML-templates werden separat gerendert — nicht blind kopieren, sonst
+  // überschreibt das die injizierte Version. (z.B. index.html, admin.html
+  // bei multi-entry).
   await cp(src, dst, {
     recursive: true,
     filter: (source) => {
       const normalized = source.replace(/\\/g, "/");
       const srcNormalized = src.replace(/\\/g, "/");
-      return normalized !== `${srcNormalized}/index.html`;
+      const base = normalized.startsWith(`${srcNormalized}/`)
+        ? normalized.slice(srcNormalized.length + 1)
+        : "";
+      return !templateBasenames.has(base);
     },
   });
 }
@@ -302,28 +439,29 @@ async function copyPublicFolder(src: string, dst: string): Promise<void> {
 async function renderHtml(
   templatePath: string | undefined,
   manifest: BuildManifest,
+  entry: ClientEntry,
 ): Promise<string> {
   // Edge-Case: kein eigenes HTML-Template + Bun.build oder Tailwind hat
   // Output produziert. DEFAULT_HTML hat keine Placeholder (vanilla
   // template), also würde injectAssetTags eh fehlschlagen. Klarer Fehler
   // mit Vorschlag-Snippet zum Reinkopieren.
   if (!templatePath && Object.keys(manifest).length > 0) {
-    throw new Error(buildMissingTemplateError(manifest));
+    throw new Error(buildMissingTemplateError(manifest, entry));
   }
   const template = templatePath ? await readFile(templatePath, "utf8") : DEFAULT_HTML;
-  return injectAssetTags(template, manifest);
+  return injectAssetTags(template, manifest, entry);
 }
 
-function buildMissingTemplateError(manifest: BuildManifest): string {
+function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry): string {
   const cssLine = manifest["styles.css"]
     ? `    <link rel="stylesheet" href="/styles.css" />\n`
     : "";
-  const jsLine = manifest["client.js"]
-    ? `    <script type="module" src="/client.js"></script>\n`
+  const jsLine = manifest[entry.manifestKey]
+    ? `    <script type="module" src="/${entry.manifestKey}"></script>\n`
     : "";
   return (
-    `[kumiko build] kein index.html gefunden, aber es gibt JS/CSS-Output.\n` +
-    `Leg ein public/index.html oder index.html im App-Root an, z. B.:\n` +
+    `[kumiko build] kein ${entry.htmlPath} gefunden, aber es gibt JS/CSS-Output.\n` +
+    `Leg ein public/${basenameOf(entry.htmlPath)} oder ${basenameOf(entry.htmlPath)} im App-Root an, z. B.:\n` +
     `\n` +
     `<!doctype html>\n` +
     `<html>\n` +
@@ -338,37 +476,60 @@ function buildMissingTemplateError(manifest: BuildManifest): string {
     `  </body>\n` +
     `</html>\n` +
     `\n` +
-    `Der Build ersetzt /styles.css und /client.js durch die gehashten URLs.`
+    `Der Build ersetzt /styles.css und /${entry.manifestKey} durch die gehashten URLs.`
   );
 }
 
 // @internal — exported nur für Unit-Tests.
 //
 // Convention: das HTML-Template MUSS Placeholder-Tags für jedes Asset
-// im Manifest enthalten — `<script src="/client.js">` für client.js,
-// `<link href="/styles.css">` für styles.css. Der Build ersetzt sie
-// durch die gehashten URLs.
+// dieses Entries enthalten:
+//   - `<script src="/client.js">` für single-mode entry "client"
+//   - `<script src="/client-<name>.js">` für multi-mode entry "<name>"
+//   - `<link href="/styles.css">` für styles (gemeinsam über alle entries)
+// Der Build ersetzt sie durch die gehashten URLs.
 //
 // Fehlt ein erwarteter Tag, wirft der Build einen Fehler mit dem exakten
 // Snippet zum Reinkopieren — kein silent injection mehr, weil das den
 // Diff zwischen Dev- und Prod-HTML unsichtbar macht.
-export function injectAssetTags(html: string, manifest: BuildManifest): string {
+export function injectAssetTags(html: string, manifest: BuildManifest, entry: ClientEntry): string {
   let result = html;
 
   const cssUrl = manifest["styles.css"];
   if (cssUrl && !result.includes(cssUrl)) {
     const placeholder = /<link\s+rel="stylesheet"\s+href="\/styles\.css"\s*\/?>/.exec(result);
     if (!placeholder) {
-      throw new Error(buildMissingTagError("styles.css"));
+      throw new Error(
+        buildMissingTagError({
+          htmlPath: entry.htmlPath,
+          assetKey: "styles.css",
+          tagSnippet: `<link rel="stylesheet" href="/styles.css" />`,
+          insertHint: "ins <head>",
+          hashedAssetHint: "/assets/styles-<hash>.css",
+        }),
+      );
     }
     result = result.replace(placeholder[0], `<link rel="stylesheet" href="${cssUrl}" />`);
   }
 
-  const jsUrl = manifest["client.js"];
+  const jsUrl = manifest[entry.manifestKey];
   if (jsUrl && !result.includes(jsUrl)) {
-    const placeholder = /<script\b[^>]*src="\/client\.js"[^>]*><\/script>/.exec(result);
+    // Placeholder-pattern: src="/client.js" oder src="/client-<name>.js"
+    const placeholderRx = new RegExp(
+      `<script\\b[^>]*src="\\/${entry.manifestKey.replace(/\./g, "\\.")}"[^>]*><\\/script>`,
+    );
+    const placeholder = placeholderRx.exec(result);
     if (!placeholder) {
-      throw new Error(buildMissingTagError("client.js"));
+      const baseAssetName = entry.manifestKey.replace(/\.js$/, "");
+      throw new Error(
+        buildMissingTagError({
+          htmlPath: entry.htmlPath,
+          assetKey: entry.manifestKey,
+          tagSnippet: `<script type="module" src="/${entry.manifestKey}"></script>`,
+          insertHint: "vor </body>",
+          hashedAssetHint: `/assets/${baseAssetName}-<hash>.js`,
+        }),
+      );
     }
     result = result.replace(placeholder[0], `<script type="module" src="${jsUrl}"></script>`);
   }
@@ -376,22 +537,22 @@ export function injectAssetTags(html: string, manifest: BuildManifest): string {
   return result;
 }
 
-function buildMissingTagError(asset: "client.js" | "styles.css"): string {
-  if (asset === "client.js") {
-    return (
-      `[kumiko build] index.html hat keinen Entry-Tag für /client.js — füg vor </body> ein:\n` +
-      `\n` +
-      `    <script type="module" src="/client.js"></script>\n` +
-      `\n` +
-      `Der Build ersetzt das durch /assets/client-<hash>.js. Im Dev-Server liefert er die Datei direkt.`
-    );
-  }
+/** Einheitliche Error-Form für fehlende Asset-Tags im HTML-Template
+ *  (script-tag fürs JS-Bundle ODER stylesheet-link für Tailwind). */
+function buildMissingTagError(args: {
+  readonly htmlPath: string;
+  readonly assetKey: string;
+  readonly tagSnippet: string;
+  readonly insertHint: string;
+  readonly hashedAssetHint: string;
+}): string {
+  const tpl = basenameOf(args.htmlPath);
   return (
-    `[kumiko build] index.html hat keinen Entry-Tag für /styles.css — füg ins <head> ein:\n` +
+    `[kumiko build] ${tpl} hat keinen Entry-Tag für /${args.assetKey} — füg ${args.insertHint} ein:\n` +
     `\n` +
-    `    <link rel="stylesheet" href="/styles.css" />\n` +
+    `    ${args.tagSnippet}\n` +
     `\n` +
-    `Der Build ersetzt das durch /assets/styles-<hash>.css. Im Dev-Server liefert er die Datei direkt.`
+    `Der Build ersetzt das durch ${args.hashedAssetHint}. Im Dev-Server liefert er die Datei direkt.`
   );
 }
 

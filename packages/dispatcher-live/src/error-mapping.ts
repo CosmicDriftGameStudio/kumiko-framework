@@ -17,6 +17,7 @@ type ServerErrorInfo = {
   readonly i18nParams?: Readonly<Record<string, unknown>>;
   readonly message: string;
   readonly details?: unknown;
+  readonly docsUrl?: string;
   readonly requestId?: string;
   readonly timestamp?: string;
 };
@@ -35,6 +36,7 @@ export function mapServerError(serverError: ServerErrorInfo): DispatcherError {
     message: serverError.message,
     ...(serverError.i18nParams && { i18nParams: serverError.i18nParams }),
     ...(normalizedDetails && { details: normalizedDetails }),
+    ...(serverError.docsUrl && { docsUrl: serverError.docsUrl }),
     ...(serverError.requestId && { requestId: serverError.requestId }),
   };
 }

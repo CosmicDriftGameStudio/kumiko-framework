@@ -18,7 +18,7 @@ describe("UserMenu", () => {
 
   test("shows displayName + initials when authenticated", () => {
     const session = makeSessionApi({
-      user: { id: "u1", email: "alice@example.com", displayName: "Alice Wonder" },
+      user: { id: "u1", email: "alice@example.com", displayName: "Alice Wonder", globalRoles: [] },
     });
     renderWithProviders(<UserMenu />, { session });
     // Avatar = "AW", Display-Name "Alice Wonder"
@@ -28,7 +28,7 @@ describe("UserMenu", () => {
 
   test("falls back to email-based initials when displayName empty", () => {
     const session = makeSessionApi({
-      user: { id: "u1", email: "bob@example.com", displayName: "" },
+      user: { id: "u1", email: "bob@example.com", displayName: "", globalRoles: [] },
     });
     renderWithProviders(<UserMenu />, { session });
     // Trim "" → leerer displayName → fallback auf email → erste 2 Chars

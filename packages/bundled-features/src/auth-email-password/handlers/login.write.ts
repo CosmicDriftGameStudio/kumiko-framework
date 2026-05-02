@@ -5,6 +5,7 @@ import {
   type TenantId,
 } from "@kumiko/framework/engine";
 import { UnprocessableError, writeFailure } from "@kumiko/framework/errors";
+import { parseRoles } from "@kumiko/framework/utils";
 import { z } from "zod";
 import { UserQueries } from "../../user";
 import { parseAuthUserRow } from "../auth-user-row";
@@ -172,10 +173,17 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
         await clearLockoutState(ctx.redis, found.id);
       }
 
+      // Globale Rollen aus user.roles + tenant-membership-roles mergen.
+      // Globale Rollen (SystemAdmin etc.) bleiben so über alle tenants
+      // gleich; tenant-spezifische Rollen (Admin, User) kommen aus der
+      // membership. Dedupe via Set damit eine Rolle die in beiden Quellen
+      // steht nicht doppelt im Session-Roles landet.
+      const globalRoles = parseRoles(found.roles ?? null);
+      const mergedRoles = Array.from(new Set([...globalRoles, ...chosen.roles]));
       const baseSession: SessionUser = {
         id: found.id,
         tenantId: chosen.tenantId,
-        roles: chosen.roles,
+        roles: mergedRoles,
       };
 
       // Features can contribute identity facts (team IDs, feature flags, ...)

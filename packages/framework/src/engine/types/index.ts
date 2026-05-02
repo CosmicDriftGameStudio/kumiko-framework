@@ -183,6 +183,7 @@ export type {
 } from "./relations";
 export type {
   ActionFormScreenDefinition,
+  ConfigEditScreenDefinition,
   CustomScreenDefinition,
   CustomScreenRoute,
   EditFieldSpec,

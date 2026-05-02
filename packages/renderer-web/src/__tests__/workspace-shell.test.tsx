@@ -612,6 +612,67 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
     expect(screen.queryByText("Vehicles")).toBeNull();
   });
 
+  // sidebarFooter-Slot — symmetrisch zu DefaultAppShell.sidebarFooter.
+  // Apps nutzen das für Build-Info / Version-SHA / Help-Link am unteren
+  // Sidebar-Rand. Ohne den Slot mussten Apps den Footer als bottom-fixed
+  // div neben der Shell mounten — sieht aus, ist aber außerhalb der
+  // Layout-Hierarchie und überlappt bei kleinen Viewports den Content.
+  // Regression-Anker: Wenn jemand den Slot wegrefactoriert, fällt das
+  // hier auf, nicht erst beim nächsten Workspace-Sample.
+  test("sidebarFooter-Slot rendert unten in der Sidebar", () => {
+    const legacy = {
+      featureName: "demo",
+      entities: {},
+      screens: [],
+      navs: [{ id: "list", label: "List" }],
+      workspaces: [
+        ws("admin", {
+          label: "Admin",
+          openToAll: true,
+          isDefault: true,
+          navMembers: ["demo:nav:list"],
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell
+        brand={<div>Brand</div>}
+        schema={legacy}
+        user={{ id: "u1", roles: [] }}
+        sidebarFooter={<div data-testid="sidebar-footer">v1.2.3</div>}
+      >
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    expect(screen.getByTestId("sidebar-footer")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-footer").textContent).toBe("v1.2.3");
+  });
+
+  test("ohne sidebarFooter-Prop rendert die Sidebar ohne Footer-Slot (default)", () => {
+    const legacy = {
+      featureName: "demo",
+      entities: {},
+      screens: [],
+      navs: [{ id: "list", label: "List" }],
+      workspaces: [
+        ws("admin", {
+          label: "Admin",
+          openToAll: true,
+          isDefault: true,
+          navMembers: ["demo:nav:list"],
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell brand={<div>Brand</div>} schema={legacy} user={{ id: "u1", roles: [] }}>
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    expect(screen.queryByTestId("sidebar-footer")).toBeNull();
+  });
+
   test("toAppSchema hebt FeatureSchema.workspaces auf App-Ebene (Backwards-Compat)", () => {
     // Legacy single-feature shape mit inline workspaces — der Wrapper
     // soll exakt das gleiche Rendering liefern wie ein expliziter

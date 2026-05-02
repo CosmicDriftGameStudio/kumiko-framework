@@ -1,11 +1,19 @@
 import type {
   ActionFormScreenDefinition,
+  ConfigEditScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   ScreenDefinition,
 } from "@kumiko/framework/ui-types";
-import type { FormValues, ListRowViewModel, SubmitResult, Translate } from "@kumiko/headless";
+import type {
+  Command,
+  FormSnapshot,
+  FormValues,
+  ListRowViewModel,
+  SubmitResult,
+  Translate,
+} from "@kumiko/headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit";
 import { RenderList } from "../components/render-list";
@@ -15,6 +23,7 @@ import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
+import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
 import { useCustomScreenComponent } from "./custom-screens";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
@@ -97,6 +106,8 @@ export function KumikoScreen({
       );
     case "actionForm":
       return <ActionFormBody schema={schema} screen={screen} translate={translate} />;
+    case "configEdit":
+      return <ConfigEditBody schema={schema} screen={screen} translate={translate} />;
     case "custom":
       return <CustomScreenBody screenId={screen.id} />;
   }
@@ -878,6 +889,147 @@ function ActionFormBody({
       payloadMode="values"
       onSubmit={handleSubmitted}
       {...(handleCancel !== undefined && { onCancel: handleCancel })}
+      {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
+      {...(translate !== undefined && { translate })}
+    />
+  );
+}
+
+// ---- config-edit ----
+//
+// Settings-Form gegen das bundled config-Feature. Liest beim Mount
+// `config:query:values` (returned ALLE Keys die der User lesen darf
+// als `{ [qualifiedKey]: { value, scope } }`); schreibt beim Save
+// pro geändertem Feld einen `config:write:set` Call. Singleton-pro-
+// Tenant kommt by-design vom config-feature (key+tenantId Unique-
+// Constraint) — kein Bridge-Hack, keine extra Aggregate.
+//
+// Parallel-Aufbau zu ActionFormBody: synthesisierte Entity + EntityEdit-
+// Screen damit RenderEdit reused werden kann; Layout/Field-Rendering/
+// Banner/Submit-Button-State sind identisch zu entityEdit. Der einzige
+// Pfad-Unterschied ist customSubmit das mehrere config:write:set-Calls
+// orchestriert.
+type ConfigValueResponse = Readonly<
+  Record<string, { value: string | number | boolean | undefined; scope: string }>
+>;
+
+function ConfigEditBody({
+  schema,
+  screen,
+  translate,
+}: {
+  readonly schema: FeatureSchema;
+  readonly screen: ConfigEditScreenDefinition;
+  readonly translate?: Translate;
+}): ReactNode {
+  const { Banner } = usePrimitives();
+  const dispatcher = useDispatcher();
+
+  // Detail-Load: config:query:values returnt ALLE Keys des Tenants.
+  // Wir mappen via screen.configKeys von short → qualified-name auf
+  // unsere Form-Field-Werte.
+  const valuesQuery = useQuery<ConfigValueResponse>("config:query:values", {});
+
+  const synthEntity = useMemo(() => synthesizeConfigEditEntity(screen.fields), [screen.fields]);
+  const synthScreen = useMemo(() => synthesizeConfigEditScreen(screen), [screen]);
+
+  // Initial-Values: pro Field-Name den Wert aus `values[qualifiedKey]`
+  // abholen. Fehlt der Key auf dem Server (= noch nie gesetzt), nutzen
+  // wir den Field-Default (createTextField/createNumberField/...).
+  // String-coerce nur für Text-Fields; andere Types sollten in der
+  // Response bereits Native-Type sein.
+  const initial = useMemo<FormValues | null>(() => {
+    if (valuesQuery.data === null) return null;
+    const out: Record<string, unknown> = {};
+    const defaults = buildInitialValues(screen.fields) as Record<string, unknown>; // @cast-boundary render-helper
+    for (const [shortName, fieldDef] of Object.entries(screen.fields)) {
+      const qualified = screen.configKeys[shortName];
+      if (qualified === undefined) {
+        // Author hat ein Field deklariert ohne Mapping — nimm Default.
+        // Boot-Validator pinnt das, sollte nie zur Runtime greifen.
+        out[shortName] = defaults[shortName];
+        continue;
+      }
+      const stored = valuesQuery.data[qualified]?.value;
+      if (stored === undefined) {
+        out[shortName] = defaults[shortName];
+        continue;
+      }
+      const ftype = (fieldDef as { type?: string }).type;
+      // Field-Type-Coercion: config-Werte sind string|number|boolean,
+      // aber der Form-State erwartet das passende Field-Native-Type.
+      if (ftype === "number" || ftype === "money") {
+        out[shortName] = typeof stored === "number" ? stored : Number(stored);
+      } else if (ftype === "boolean") {
+        out[shortName] = typeof stored === "boolean" ? stored : stored === "true";
+      } else {
+        out[shortName] = typeof stored === "string" ? stored : String(stored);
+      }
+    }
+    return out as FormValues;
+  }, [valuesQuery.data, screen.fields, screen.configKeys]);
+
+  // Multi-Write Submit: ein einzelner /api/batch Call mit N
+  // config:write:set Commands. Server-side ist batch atomic
+  // (transaktional: alle Writes in einer DB-TX, all-or-nothing) und
+  // browser-side ist es genau eine HTTP-Roundtrip — kein Race zwischen
+  // mehreren in-flight fetches die der Browser bei page.reload mid-
+  // submit aborten könnte. Promise.all von N separaten dispatcher.write-
+  // Calls war fragil: server bekommt + commited alle N, aber das
+  // Browser-Connection-Pool gibt sporadisch "Failed to fetch" für
+  // einzelne Responses zurück, customSubmit returnt failure obwohl der
+  // Write durch ist, das Form bleibt dirty.
+  const customSubmit = useCallback(
+    async (snapshot: FormSnapshot<FormValues>): Promise<SubmitResult<unknown>> => {
+      const commands: Command[] = [];
+      for (const [shortName, value] of Object.entries(snapshot.changes)) {
+        const qualified = screen.configKeys[shortName];
+        if (qualified === undefined) continue;
+        commands.push({
+          type: "config:write:set",
+          payload: { key: qualified, value, scope: screen.scope },
+        });
+      }
+      if (commands.length === 0) {
+        return { validationBlocked: false, isSuccess: true, data: undefined };
+      }
+      const result = await dispatcher.batch(commands);
+      if (!result.isSuccess) {
+        return { validationBlocked: false, isSuccess: false, error: result.error };
+      }
+      return { validationBlocked: false, isSuccess: true, data: undefined };
+    },
+    [dispatcher, screen.configKeys, screen.scope],
+  );
+
+  if (valuesQuery.loading && valuesQuery.data === null) {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
+  if (valuesQuery.error) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-error">
+        {valuesQuery.error.i18nKey}
+      </Banner>
+    );
+  }
+  if (initial === null) {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
+  return (
+    <RenderEdit
+      screen={synthScreen}
+      entity={synthEntity}
+      featureName={schema.featureName}
+      initial={initial}
+      customSubmit={customSubmit}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
     />

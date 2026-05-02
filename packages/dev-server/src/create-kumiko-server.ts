@@ -15,7 +15,7 @@
 // with a different options shape (clientDist, auth config, db url).
 
 import { spawn } from "node:child_process";
-import { mkdtempSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, statSync } from "node:fs";
 import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -51,14 +51,75 @@ const logInfo = (msg: string): void => console.log(msg);
 // biome-ignore lint/suspicious/noConsole: dev-server error logging
 const logError = (...args: unknown[]): void => console.error(...args);
 
+/** Multi-Entry-Mode für Apps die mehrere getrennte Bundles ausliefern
+ *  (z.B. publicstatus: `admin.<base>` lädt Admin-UI, sonst Public-Page).
+ *
+ *  Spiegelt die Convention von kumiko-build (`src/client-<name>.tsx`) und
+ *  serviert `/client-<name>.js` per HTTP. Multi-Entry ist mutually
+ *  exclusive mit `clientEntry`. Wer Multi-Entry nutzt MUSS auch
+ *  `hostDispatch` setzen — sonst weiß der Server nicht welches HTML
+ *  er rausgeben soll. */
+export type DevClientEntry = {
+  /** Logical Name. Frei wählbar; Convention: gleicher Suffix wie
+   *  `src/client-<name>.tsx` damit der Build identische Asset-URLs
+   *  liefert (`/client-<name>.js`). */
+  readonly name: string;
+  /** Absoluter Pfad zur Browser-Entry-Datei. */
+  readonly sourceFile: string;
+  /** Optional eigenes HTML-Template für diesen Entry. Wenn nicht gesetzt,
+   *  wird `htmlPath` (das default-Template) für alle Entries genutzt. */
+  readonly htmlPath?: string;
+};
+
+/** Discriminated-Union, identisch zur Form von `runProdApp.hostDispatch`.
+ *  Damit kann Dev/Prod-Routing 1:1 gespiegelt werden — ein Apex-404 in
+ *  Prod ist ein Apex-404 in Dev (mit `/etc/hosts`-Eintrag für die
+ *  betroffene Domain). Schema-Inject ist pro Response steuerbar — ein
+ *  Public-Bundle leakt das Admin-Schema nicht, auch nicht in Dev. */
+export type DevHostDispatchResult =
+  | {
+      readonly kind: "html";
+      readonly entryName: string;
+      /** Default: true. Setze `false` für Public-Routes — analog zu
+       *  prod-`injectSchema:false` für Anonymous-Visitors. */
+      readonly injectSchema?: boolean;
+    }
+  | { readonly kind: "redirect"; readonly to: string; readonly status?: 301 | 302 }
+  | { readonly kind: "not-found" };
+
+/** Picks an entry by inspecting the incoming request. Wird von
+ *  Multi-Entry-Apps gesetzt; im Single-Entry-Mode irrelevant. */
+export type DevHostDispatch = (req: Request) => DevHostDispatchResult;
+
 export type CreateKumikoServerOptions = {
   /** Features whose entities, handlers, and screens get wired into the
    *  dev stack. Pass every feature the app is supposed to run. */
   readonly features: readonly FeatureDefinition[];
   /** Absolute path to the browser entry module. The dev-server runs
    *  `Bun.build` on it and serves the output at `/client.js`. Omit to
-   *  run a headless API-only dev-stack (rare — every sample has one). */
+   *  run a headless API-only dev-stack (rare — every sample has one).
+   *  Mutually exclusive mit `clientEntries`. */
   readonly clientEntry?: string;
+  /** Multi-Entry-Mode: mehrere getrennte Bundles, jeweils unter
+   *  `/client-<name>.js`. Mutually exclusive mit `clientEntry`. Setze
+   *  `hostDispatch` mit, sonst bleibt unklar welches Template zurück-
+   *  geht. */
+  readonly clientEntries?: readonly DevClientEntry[];
+  /** Multi-Entry-Mode: Routing pro Request. Inspiziert `Host` (oder
+   *  was auch immer) und liefert eine Discriminated-Union zurück
+   *  (html → entry-bundle, redirect → 30x, not-found → 404).
+   *  Symmetric zu `runProdApp.hostDispatch` damit dev/prod-Drift
+   *  beim Routing unmöglich ist. */
+  readonly hostDispatch?: DevHostDispatch;
+  /** @internal — ersetzt `Bun.build` für Tests. Default ruft die echte
+   *  Bun-Toolchain. Tests unter Node injizieren einen Stub damit der
+   *  Routing-Pfad treibbar bleibt ohne Bun.build aufzurufen.
+   *  KEIN Public-API-Surface — präfixiert mit `_` damit Konsumenten
+   *  wissen dass das ein Test-Seam ist. */
+  readonly _buildBundle?: (sourceFile: string) => Promise<{
+    readonly js: string;
+    readonly map: string;
+  }>;
   /** Absolute path to the CSS entry (typischerweise styles.css mit
    *  @import "tailwindcss"). Der dev-server startet dann den
    *  Tailwind-CLI als watcher und servt das kompilierte CSS unter
@@ -234,10 +295,26 @@ function injectStylesheet(html: string): string {
 // injectSchema lebt in `./inject-schema.ts` damit dev-server + prod-
 // server denselben Inject-Pfad nutzen.
 
-async function watchDir(dir: string, onChange: (filename: string) => void): Promise<void> {
-  const watcher = watch(dir, { recursive: true });
-  for await (const ev of watcher) {
-    if (ev.filename) onChange(ev.filename);
+async function watchDir(
+  dir: string,
+  onChange: (filename: string) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  // AbortSignal wird vom Server-stop() ausgelöst: ohne den Abort liefe
+  // die for-await-Schleife bis zum Process-Exit weiter. Im Test-Setup
+  // (afterEach räumt tmpdir mit rmSync auf) sähe der Watcher dann das
+  // rmSync, klassifizierte's als "restart" und riefe process.exit(75) —
+  // bubbles als unhandled error in vitest hoch.
+  const watcher = watch(dir, { recursive: true, signal });
+  try {
+    for await (const ev of watcher) {
+      if (ev.filename) onChange(ev.filename);
+    }
+  } catch (err) {
+    // signal.abort() wirft AbortError aus dem async-iterator; das ist
+    // gewollt und kein Fehler. Andere Errors weiterreichen.
+    if ((err as { name?: string }).name === "AbortError") return;
+    throw err;
   }
 }
 
@@ -330,11 +407,19 @@ function expandWatchPatterns(patterns: readonly string[]): string[] {
   return out;
 }
 
-// Resolve den Pfad zur Tailwind-Entry-CSS. Drei Fälle:
+// Resolve den Pfad zur Tailwind-Entry-CSS. Mehrere Fälle:
 //   - Explicit string  → den resolved'en absoluten Pfad verwenden
 //   - false            → CSS-Pipeline aus (undefined zurück)
-//   - undefined + client: Default `@kumiko/renderer-web/styles.css` auflösen
-//   - undefined + kein clientEntry: undefined (keine CSS nötig)
+//   - undefined + client(s):
+//       1. App-eigenes src/styles.css (App-Theme-Override) wenn vorhanden
+//       2. Sonst Default `@kumiko/renderer-web/styles.css` über Package-Exports
+//   - undefined + kein clientEntry/clientEntries: undefined (keine CSS nötig)
+//
+// Auto-Detection von src/styles.css spiegelt die Logik aus
+// build-prod-bundle:resolveStylesheetEntry — damit dev und prod identisch
+// resolven. Ohne diesen Check müsste jede App `stylesheet: "./src/styles.css"`
+// setzen, sonst greift in dev der renderer-web-Default und Brand-Tokens
+// werden ignoriert (DX-Falle).
 //
 // @internal — exportiert nur für Unit-Tests, nicht aus dem Package-Index
 //   re-exportiert. Konsumenten gehen ausschließlich über die `stylesheet`-
@@ -342,7 +427,15 @@ function expandWatchPatterns(patterns: readonly string[]): string[] {
 export function resolveStylesheet(options: CreateKumikoServerOptions): string | undefined {
   if (options.stylesheet === false) return undefined;
   if (typeof options.stylesheet === "string") return resolve(options.stylesheet);
-  if (options.clientEntry === undefined) return undefined;
+  const hasAnyEntry =
+    options.clientEntry !== undefined ||
+    (options.clientEntries !== undefined && options.clientEntries.length > 0);
+  if (!hasAnyEntry) return undefined;
+
+  // App-eigenes src/styles.css schlägt den renderer-web-Default — gleiche
+  // Logik wie kumiko-build, damit lokal/prod identisch bauen.
+  const local = resolve(process.cwd(), "src/styles.css");
+  if (existsSync(local)) return local;
 
   // Bun.resolveSync folgt Package-Exports — "./styles.css" in renderer-web's
   // package.json. Das Monorepo auflöst direkt auf den Workspace-File, eine
@@ -444,21 +537,60 @@ async function createEntityTablesForFeatures(
   }
 }
 
+/** @internal — normalisierte Client-Entry-Form, einheitlich über
+ *  Single-Mode (`clientEntry`) und Multi-Mode (`clientEntries`). */
+type NormalizedEntry = {
+  readonly name: string;
+  readonly sourceFile: string;
+  readonly htmlPath: string | undefined;
+};
+
+/** URL-Pfad unter dem ein Entry ausgeliefert wird. "client" → /client.js
+ *  (Single-Mode-Default), sonst "/client-<name>.js". Single-Source-of-Truth
+ *  damit Routing + Logging dieselbe Konvention nutzen. */
+function assetPathFor(entryName: string): string {
+  return entryName === "client" ? "/client.js" : `/client-${entryName}.js`;
+}
+
+function normalizeEntries(options: CreateKumikoServerOptions): readonly NormalizedEntry[] {
+  if (options.clientEntries !== undefined && options.clientEntry !== undefined) {
+    throw new Error(
+      "[kumiko-server] clientEntry und clientEntries sind mutually exclusive — wähle eins",
+    );
+  }
+  if (options.clientEntries !== undefined && options.clientEntries.length > 0) {
+    if (options.hostDispatch === undefined) {
+      throw new Error(
+        "[kumiko-server] clientEntries braucht hostDispatch — sonst weiß der Server nicht welches Template er liefern soll",
+      );
+    }
+    return options.clientEntries.map((e) => ({
+      name: e.name,
+      sourceFile: resolve(e.sourceFile),
+      htmlPath: e.htmlPath,
+    }));
+  }
+  if (options.clientEntry !== undefined) {
+    return [{ name: "client", sourceFile: resolve(options.clientEntry), htmlPath: undefined }];
+  }
+  return [];
+}
+
 export async function createKumikoServer(
   options: CreateKumikoServerOptions,
 ): Promise<KumikoServerHandle> {
   const port = options.port ?? Number(process.env["PORT"] ?? 4173);
 
-  // --- client bundle (optional) ---
-  let clientBundle: ClientBundle = { js: "", map: "" };
-  if (options.clientEntry !== undefined) {
-    const entry = resolve(options.clientEntry);
-    clientBundle = await buildClient(entry);
+  // --- client bundles (single-entry oder multi-entry über dieselbe Map) ---
+  const entries = normalizeEntries(options);
+  const buildBundle = options._buildBundle ?? buildClient;
+  const clientBundles = new Map<string, ClientBundle>();
+  for (const e of entries) {
+    const bundle = await buildBundle(e.sourceFile);
+    clientBundles.set(e.name, bundle);
     logInfo(
-      `[kumiko-server] client bundle: ${clientBundle.js.length.toLocaleString()} bytes` +
-        (clientBundle.map
-          ? ` (+ ${clientBundle.map.length.toLocaleString()} bytes sourcemap)`
-          : ""),
+      `[kumiko-server] client bundle ${e.name}: ${bundle.js.length.toLocaleString()} bytes` +
+        (bundle.map ? ` (+ ${bundle.map.length.toLocaleString()} bytes sourcemap)` : ""),
     );
   }
 
@@ -484,11 +616,21 @@ export async function createKumikoServer(
     }
   }
 
-  // --- HTML template ---
-  const htmlTemplate =
+  // --- HTML templates ---
+  // Single-Entry: ein Template (htmlPath oder DEFAULT_HTML) für alles.
+  // Multi-Entry: pro Entry ein Template (entry.htmlPath ?? options.htmlPath
+  // ?? DEFAULT_HTML). Der hostDispatch wählt zur Request-Zeit.
+  const defaultTemplate =
     options.htmlPath !== undefined
       ? await readFile(resolve(options.htmlPath), "utf-8")
       : DEFAULT_HTML;
+  const htmlTemplates = new Map<string, string>();
+  for (const e of entries) {
+    htmlTemplates.set(
+      e.name,
+      e.htmlPath !== undefined ? await readFile(resolve(e.htmlPath), "utf-8") : defaultTemplate,
+    );
+  }
 
   // --- Kumiko stack ---
   // KUMIKO_DEV_DB_NAME switches the underlying testDb from ephemeral
@@ -580,7 +722,13 @@ export async function createKumikoServer(
   // funktionieren sofort ohne Login. Im Auth-Modus serven wir nur die
   // nackte HTML; der Client geht dann durch /auth/login und bekommt die
   // Cookies von dort.
-  const htmlResponse = async (): Promise<Response> => {
+  //
+  // entryName + injectSchemaForEntry werden vom Caller (handleFetch)
+  // bestimmt nachdem er hostDispatch evaluiert hat. Ohne hostDispatch
+  // ist es immer "client" mit Schema-Inject true (Single-Entry-Default
+  // damit der Client TypeScript-Schemas findet).
+  const htmlResponse = async (entryName: string, doInjectSchema: boolean): Promise<Response> => {
+    const template = htmlTemplates.get(entryName) ?? defaultTemplate;
     const headers = new Headers();
     headers.set("Content-Type", "text/html; charset=utf-8");
     if (autoMintJwt) {
@@ -589,28 +737,47 @@ export async function createKumikoServer(
       headers.append("Set-Cookie", `${AUTH_COOKIE}=${jwt}; Path=/; HttpOnly; SameSite=Lax`);
       headers.append("Set-Cookie", `${CSRF_COOKIE}=${csrf}; Path=/; SameSite=Lax`);
     }
-    let html = injectReload(htmlTemplate);
+    let html = injectReload(template);
     if (stylesheetPath !== undefined) html = injectStylesheet(html);
-    html = injectSchema(html, appSchemaJson);
+    if (doInjectSchema) html = injectSchema(html, appSchemaJson);
     return new Response(html, { headers });
   };
 
   // --- Fetch handler (runtime-neutral) ---
+  // Bundle-Pfad-Lookup: für jede Entry serven wir
+  //   GET /client[-name].js      → JS-Bundle
+  //   GET /client[-name].js.map  → Sourcemap
+  // assetPathFor() ist die Single-Source-of-Truth für die URL-Form.
+  const bundleByAssetPath = new Map<string, string>();
+  for (const e of entries) bundleByAssetPath.set(assetPathFor(e.name), e.name);
+
   const handleFetch = async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
 
     // Specific routes first — assets, reload-SSE, API.
-    if (url.pathname === "/client.js" && req.method === "GET") {
-      return new Response(clientBundle.js, {
-        headers: { "Content-Type": "application/javascript; charset=utf-8" },
-      });
-    }
-
-    if (url.pathname === "/client.js.map" && req.method === "GET") {
-      if (!clientBundle.map) return new Response("no map", { status: 404 });
-      return new Response(clientBundle.map, {
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-      });
+    if (req.method === "GET") {
+      const bundleName = bundleByAssetPath.get(url.pathname);
+      if (bundleName !== undefined) {
+        const bundle = clientBundles.get(bundleName);
+        if (bundle === undefined) return new Response("no bundle", { status: 404 });
+        return new Response(bundle.js, {
+          headers: { "Content-Type": "application/javascript; charset=utf-8" },
+        });
+      }
+      // .js.map-Variante: gleicher Lookup mit /.map abgeschnitten.
+      if (url.pathname.endsWith(".js.map")) {
+        const jsPath = url.pathname.slice(0, -".map".length);
+        const mapName = bundleByAssetPath.get(jsPath);
+        if (mapName !== undefined) {
+          const bundle = clientBundles.get(mapName);
+          if (bundle === undefined || !bundle.map) {
+            return new Response("no map", { status: 404 });
+          }
+          return new Response(bundle.map, {
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+          });
+        }
+      }
     }
 
     if (url.pathname === "/styles.css" && req.method === "GET") {
@@ -663,7 +830,22 @@ export async function createKumikoServer(
       !url.pathname.startsWith("/sse") &&
       !url.pathname.includes(".")
     ) {
-      return htmlResponse();
+      // Discriminated-Dispatch — symmetric zu prod. Ohne hostDispatch
+      // landet das im Single-Entry-Default ("client" + Schema-Inject).
+      if (options.hostDispatch !== undefined) {
+        const dispatch = options.hostDispatch(req);
+        if (dispatch.kind === "redirect") {
+          return new Response(null, {
+            status: dispatch.status ?? 302,
+            headers: { Location: dispatch.to },
+          });
+        }
+        if (dispatch.kind === "not-found") {
+          return new Response("Not Found", { status: 404 });
+        }
+        return htmlResponse(dispatch.entryName, dispatch.injectSchema ?? true);
+      }
+      return htmlResponse("client", true);
     }
 
     return stack.app.fetch(req);
@@ -689,34 +871,59 @@ export async function createKumikoServer(
   // Schema-Change in feature.ts nicht durchschlagen ohne process-restart.
   // Wir exiten dann mit Code 75 (EX_TEMPFAIL) — `kumiko-dev` Wrapper
   // detected das und respawnt.
-  if (options.clientEntry !== undefined) {
-    const entry = resolve(options.clientEntry);
-    const entryDir = resolve(entry, "..");
-    const dirs = [entryDir, ...expandWatchPatterns(options.watchDirs ?? [])];
+  //
+  // watcherAbort wird beim stop() ausgelöst → fs.watch beendet die
+  // async-iteration → kein Watcher überlebt einen Test-Teardown und
+  // klassifiziert ein rmSync(tmpdir) als "restart needed".
+  const watcherAbort = new AbortController();
+  if (entries.length > 0) {
+    // Watch-Dirs: alle entry-Verzeichnisse (deduped) plus die explizit
+    // angegebenen watchDirs. In Multi-Entry-Setups liegen die Entries
+    // oft im selben src/-Verzeichnis (`src/client-admin.tsx` +
+    // `src/client-public.tsx`) — der Set kollabiert das auf einen
+    // Watcher pro Verzeichnis.
+    const entryDirs = new Set<string>();
+    for (const e of entries) entryDirs.add(resolve(e.sourceFile, ".."));
+    const dirs = [...entryDirs, ...expandWatchPatterns(options.watchDirs ?? [])];
     for (const dir of dirs) {
-      void watchDir(dir, async (filename) => {
-        const action = classifyChange(filename);
-        if (action === "ignore") return;
-        if (action === "restart") {
-          logInfo(
-            `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht)`,
-          );
-          await stop();
-          process.exit(75);
-        }
-        try {
-          clientBundle = await buildClient(entry);
-          logInfo(`[kumiko-server] rebuilt on ${filename}, broadcasting reload`);
-          broadcastReload();
-        } catch {
-          // buildClient already logged the failure; keep serving the
-          // last good bundle until the next successful rebuild.
-        }
-      });
+      void watchDir(
+        dir,
+        async (filename) => {
+          const action = classifyChange(filename);
+          if (action === "ignore") return;
+          if (action === "restart") {
+            logInfo(
+              `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht)`,
+            );
+            await stop();
+            process.exit(75);
+          }
+          try {
+            // Alle Entries rebuilden — auch wenn nur eine Datei sich
+            // ändert, wir wissen nicht welche Entries sie importieren.
+            // Bei zwei Entries mit shared Code triggert ein Edit der
+            // gemeinsamen Datei beide Bundles neu, das ist gewollt.
+            for (const e of entries) {
+              const rebuilt = await buildBundle(e.sourceFile);
+              clientBundles.set(e.name, rebuilt);
+            }
+            logInfo(`[kumiko-server] rebuilt on ${filename}, broadcasting reload`);
+            broadcastReload();
+          } catch {
+            // buildClient already logged the failure; keep serving the
+            // last good bundle until the next successful rebuild.
+          }
+        },
+        watcherAbort.signal,
+      );
     }
   }
 
   const stop = async (): Promise<void> => {
+    // Watcher zuerst stoppen damit kein onChange während des Teardowns
+    // mehr feuert (sonst können tmpdir-rmSync ein process.exit(75)
+    // auslösen).
+    watcherAbort.abort();
     if (killTailwind) killTailwind();
     if (server !== undefined) {
       (server as { stop: (closeActive?: boolean) => void }).stop(true);
@@ -764,7 +971,9 @@ export async function createKumikoServer(
   if (server !== undefined) {
     logInfo(
       `[kumiko-server] listening on http://localhost:${port}` +
-        (options.clientEntry !== undefined ? " (hot reload on client entry dir)" : ""),
+        (entries.length > 0
+          ? ` (hot reload on ${entries.length === 1 ? "client entry" : `${entries.length} entries`})`
+          : ""),
     );
   }
 

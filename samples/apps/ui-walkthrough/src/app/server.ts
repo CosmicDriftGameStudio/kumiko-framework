@@ -22,7 +22,9 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./au
 
 await runDevApp({
   features: [taskFeature],
-  port: 4173,
+  // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4174);
+  // sonst lokal-Default 4173.
+  port: Number.parseInt(process.env["PORT"] ?? "4173", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],

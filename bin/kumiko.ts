@@ -100,7 +100,12 @@ function banner(): void {
 // danach noch Unit + Integration Tests an; `kumiko check:fast` hängt nur
 // `vitest run --changed` an und skipt Integration komplett.
 const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
-  { name: "Biome", cmd: "yarn biome check ." },
+  // Biome explizit auf packages/samples/app — `.` triggert FS-walk durch
+  // docs/plans/marketing/* die im local-dev als symlinks auf kumiko-
+  // platform zeigen. CI hat den Nachbar-Repo nicht → broken-symlink-
+  // error im scan-Pfad. Die biome.json `files.includes` filtert nur
+  // Lint-Targets, nicht den Discovery-Walk.
+  { name: "Biome", cmd: "yarn biome check packages samples app" },
   // tsc -b nutzt .tsbuildinfo-Caches — Re-Runs bei unverändertem Code
   // sind nahezu instant. Project-References im root tsconfig ziehen alle
   // Workspaces mit (framework, bundled-features, headless, dispatcher-
@@ -325,7 +330,11 @@ const commands = {
         console.log(`E2E via Playwright — ${targets.length} Target(s): ${labels}\n`);
         for (const target of targets) {
           console.log(`\n=== ${target.root}/${target.name} ===`);
-          await $`yarn playwright test`.cwd(`${target.root}/${target.name}`);
+          // Yarn 4 sucht `yarn <bin>` nur in den direct-deps des Workspace.
+          // `@playwright/test` ist nur in root-package.json → wir invocieren
+          // den hoisted-bin direkt aus root-node_modules/.bin/.
+          const playwrightBin = `${process.cwd()}/node_modules/.bin/playwright`;
+          await $`${playwrightBin} test`.cwd(`${target.root}/${target.name}`);
         }
       } else if (scope) {
         await $`yarn vitest run ${scope}`;

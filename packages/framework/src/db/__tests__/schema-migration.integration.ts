@@ -188,6 +188,38 @@ describe("schema migration workflows", () => {
     expect(rows[0]).toMatchObject({ name: "Test Project", isArchived: false });
   });
 
+  test("workflow 3b: text field with default → DEFAULT-clause backfills existing rows", async () => {
+    // Pinned der text-default-bug: `createTextField({ default: "..." })`
+    // muss die DEFAULT-Klausel ins generierte SQL durchreichen, sonst
+    // bricht ALTER TABLE ADD COLUMN auf existing data (NOT NULL ohne
+    // DEFAULT failt). Vorher hat der text-Branch in table-builder das
+    // `field.default` ignoriert; dieser Test pinst dass es jetzt
+    // greift.
+    const initialEntity = createEntity({
+      table: "wf3b_users",
+      fields: { email: createTextField({ required: true }) },
+    });
+    const initialTable = buildDrizzleTable("user", initialEntity);
+    await pushTables(testDb.db, { user: initialTable });
+
+    await testDb.db
+      .insert(initialTable)
+      .values({ tenantId: "00000000-0000-4000-8000-000000000001", email: "x@y.z" });
+
+    const updatedEntity = createEntity({
+      table: "wf3b_users",
+      fields: {
+        email: createTextField({ required: true }),
+        roles: createTextField({ required: true, default: "[]" }),
+      },
+    });
+    const updatedTable = buildDrizzleTable("user", updatedEntity);
+    await pushTables(testDb.db, { user: updatedTable }, { user: initialTable });
+
+    const rows = await testDb.db.select().from(updatedTable);
+    expect(rows[0]).toMatchObject({ email: "x@y.z", roles: "[]" });
+  });
+
   test("workflow 4: activate soft delete → adds 3 columns", async () => {
     const feature = defineFeature("tasks", (r) => {
       r.entity(

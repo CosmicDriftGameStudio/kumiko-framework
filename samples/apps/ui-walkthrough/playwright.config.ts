@@ -53,7 +53,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "bun --env-file=../../../.env run src/server.ts",
+    command: "bun --env-file=../../../.env run src/app/server.ts",
     url: BASE_URL,
     // KUMIKO_DEV_DB_NAME="" zwingt setupTestStack in den ephemeral-
     // Mode (fresh kumiko_test_<random> DB pro Playwright-Run, im

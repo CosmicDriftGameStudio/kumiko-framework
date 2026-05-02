@@ -61,6 +61,10 @@ export type WorkspaceShellProps = {
    *  workspace from schema, otherwise first accessible. Useful for SSR
    *  and tests to pre-seed without hitting the URL. */
   readonly initialWorkspaceId?: string;
+  /** Footer-Slot unten in der Sidebar — Profile-Row, Help-Link, Build-
+   *  Info. Klebt am unteren Rand via `mt-auto` (siehe Sidebar.footer).
+   *  Symmetrisch zu DefaultAppShell.sidebarFooter. */
+  readonly sidebarFooter?: ReactNode;
   /** Screen content. */
   readonly children: ReactNode;
 };
@@ -71,6 +75,7 @@ export function WorkspaceShell({
   topbarActions,
   user,
   initialWorkspaceId,
+  sidebarFooter,
   children,
 }: WorkspaceShellProps): ReactNode {
   const app = useMemo(() => toAppSchema(schema), [schema]);
@@ -175,7 +180,7 @@ export function WorkspaceShell({
     <AppLayout
       topbar={<Topbar start={brand} center={switcher || undefined} end={topbarActions} />}
       sidebar={
-        <Sidebar>
+        <Sidebar {...(sidebarFooter !== undefined && { footer: sidebarFooter })}>
           <NavTree
             schema={app}
             {...(user !== undefined && { user })}

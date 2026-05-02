@@ -12,7 +12,8 @@ import { seedShowcaseItems } from "./seed-items";
 
 await runDevApp({
   features: [itemsFeature, demosFeature],
-  port: 4175,
+  // PORT-env überschreibbar — konsistent zu publicstatus / ui-walkthrough.
+  port: Number.parseInt(process.env["PORT"] ?? "4175", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
   // Watch-Paths inklusive Glob: ein Edit in einem beliebigen Workspace-

@@ -31,6 +31,11 @@ export type SeedUserOptions = {
    *  der argon2-Hashing übernimmt. */
   readonly passwordHash?: string;
   readonly locale?: string;
+  /** Globale Rollen — landen in users.roles als JSON-encoded string[].
+   *  Werden vom login-handler in die Session-Roles parallel zu tenant-
+   *  membership-roles gemerged. Default: leer-array. Typisches Beispiel:
+   *  `["SystemAdmin"]` für den Plattform-Operator. */
+  readonly roles?: readonly string[];
   readonly by?: SessionUser;
 };
 
@@ -55,6 +60,7 @@ export async function seedUser(db: DbConnection, options: SeedUserOptions): Prom
       displayName: options.displayName,
       ...(options.passwordHash !== undefined && { passwordHash: options.passwordHash }),
       ...(options.locale !== undefined && { locale: options.locale }),
+      ...(options.roles !== undefined && { roles: JSON.stringify(options.roles) }),
     },
     by,
     tdb,

@@ -141,11 +141,17 @@ export async function switchTenant(tenantId: string): Promise<void> {
 // POST /api/query → user:query:user:me. Profil-Daten (email, displayName)
 // für das UserMenu im Topbar. 401 → kein Cookie / abgelaufen, wird
 // vom SessionProvider als "ausgeloggt" interpretiert.
+//
+// globalRoles: tenant-unabhängige user-rollen (z.B. SystemAdmin) aus
+// users.roles. Im JWT schon mit tenant-membership-roles gemerged, aber
+// das JWT ist HttpOnly + nicht JS-lesbar — der Client muss die globalen
+// Rollen separat aus dem user-row holen damit nav-filtering greift.
 export type CurrentUserProfile = {
   readonly id: string;
   readonly email: string;
   readonly displayName: string;
   readonly locale?: string;
+  readonly globalRoles: readonly string[];
 };
 
 export async function fetchCurrentUser(): Promise<CurrentUserProfile | null> {
@@ -164,7 +170,34 @@ export async function fetchCurrentUser(): Promise<CurrentUserProfile | null> {
       email: string;
       displayName: string;
       locale?: string;
+      // JSON-encoded string[] — siehe userEntity.roles. Default "[]" wenn
+      // keine globalen Rollen.
+      roles?: string;
     };
   };
-  return body.data ?? null;
+  if (!body.data) return null;
+  return {
+    id: body.data.id,
+    email: body.data.email,
+    displayName: body.data.displayName,
+    ...(body.data.locale !== undefined && { locale: body.data.locale }),
+    globalRoles: parseGlobalRoles(body.data.roles),
+  };
+}
+
+// Defensive parse — server-side ist die Spalte JSON-encoded string[],
+// aber bei migration-drift oder corrupted-row liefern wir [] statt einen
+// runtime-throw der die ganze SessionProvider-mount blockt.
+function parseGlobalRoles(raw: string | undefined): readonly string[] {
+  if (typeof raw !== "string" || raw.length === 0) return [];
+  try {
+    // @cast-boundary user-row.roles is JSON-encoded string[] per server contract
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed) && parsed.every((r) => typeof r === "string")) {
+      return parsed;
+    }
+  } catch {
+    // malformed JSON → behave as empty
+  }
+  return [];
 }

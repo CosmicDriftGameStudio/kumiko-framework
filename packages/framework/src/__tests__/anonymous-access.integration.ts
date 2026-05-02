@@ -261,6 +261,19 @@ describe("anonymous access — header-supplied tenant", () => {
     expect(body.error.i18nKey).toBe("auth.errors.tenantRequired");
   });
 
+  test("/api/auth/* without JWT → 401 missing_token (not 400 tenant_required)", async () => {
+    // Auth-routes (tenants, switch-tenant, logout) brauchen einen JWT,
+    // aber keinen Tenant-Resolve. Vor dem Fix fielen sie in handleAnonymous,
+    // das beim resolveTenant ohne X-Tenant 400 tenant_required wirft —
+    // falsche Diagnose, der Caller ist unauthenticated, nicht ohne Tenant.
+    // Login bleibt davon unberührt (in PUBLIC_API_PATHS, skipped vor auth).
+    const res = await stack.http.raw("GET", "/api/auth/tenants");
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string; i18nKey: string } };
+    expect(body.error.code).toBe("missing_token");
+    expect(body.error.i18nKey).toBe("auth.errors.missingToken");
+  });
+
   test("authenticated request with conflicting X-Tenant header → 400 tenant_mismatch", async () => {
     // JWT carries tenantId=TENANT_ID, but the client sends X-Tenant for a
     // different tenant. Silent ignore would let the client think it's

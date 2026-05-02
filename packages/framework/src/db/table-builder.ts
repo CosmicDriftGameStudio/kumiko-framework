@@ -53,9 +53,16 @@ function fieldToColumns(
     case "text":
     case "longText": {
       // Beide mappen auf PG `text` (unbounded). Unterschied lebt nur
-      // im Type-Layer: longText hat kein sortable/searchable/filterable.
-      const col = text(snakeName);
-      return { [name]: field.required ? col.notNull() : col };
+      // im Type-Layer: longText hat kein sortable/searchable/filterable
+      // (Sprint 5b vorab). Reihenfolge default() VOR notNull(): drizzle's
+      // column-builder chained beides; ohne default() hat die generierte
+      // SQL keinen DEFAULT-clause (bricht ALTER TABLE ADD COLUMN auf
+      // existing rows). longText hat heute kein default-feld im type,
+      // aber der check `field.default !== undefined` ist defensive.
+      const base = text(snakeName);
+      const withDefault =
+        "default" in field && field.default !== undefined ? base.default(field.default) : base;
+      return { [name]: field.required ? withDefault.notNull() : withDefault };
     }
     case "boolean":
       return {

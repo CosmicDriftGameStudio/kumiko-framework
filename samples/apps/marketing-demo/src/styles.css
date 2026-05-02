@@ -1,0 +1,124 @@
+/* PublicStatus Theme — App-level Override des Renderer-Web-Defaults.
+
+   Das Pattern: erst @import des Renderer-CSS (bringt shadcn-Token-Schema
+   + @source für renderer + renderer-web + samples mit), dann unsere
+   Brand-Tokens als App-Theme-Override.
+
+   Light/Cream als Default — passt zum Marketing-Look (kumiko.so +
+   publicstatus.eu Familienzugehörigkeit). Components in public/ und
+   admin/ nutzen ausschließlich shadcn-Token-Refs (bg-card,
+   text-foreground, …), daher reicht das Token-Override hier ohne
+   Component-Anpassung.
+
+   Status-Brand-Tokens (--color-status-ok/warn/bad/critical) werden von
+   der Public-Page direkt referenziert via text-[var(--color-status-ok)]
+   — die bleiben unabhängig vom Light/Dark-Mode. */
+
+@import "@kumiko/renderer-web/styles.css";
+
+/* Inter + JetBrains Mono — Marketing-Familie. Google Fonts CDN ist
+   für DACH-on-prem-Kunden suboptimal (DSGVO-Scoring); Self-Host-
+   Variante via @fontsource kommt wenn der erste Pilot-Kunde fragt. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  /* Light-Cream Surface — warmes Off-White statt purem #FFFFFF;
+     Cards leicht heller (reines Weiß) damit sie auf Cream "schweben". */
+  --color-background: #faf7f0;
+  --color-foreground: #1a1814;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1814;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1a1814;
+  --color-border: #e8e2d5;
+  --color-input: #e8e2d5;
+  --color-muted: #f5f2ea;
+  --color-muted-foreground: #6b6259;
+  --color-secondary: #f0ede5;
+  --color-secondary-foreground: #1a1814;
+  --color-accent: #f0ede5;
+  --color-accent-foreground: #1a1814;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-ring: #d97706;
+
+  /* Bernstein als Brand-Primary — Action-Buttons (Sign in, Save, Submit).
+     Status-Grün bleibt für operational indicators (--color-status-ok),
+     so dass Brand und Semantik visuell getrennt sind. */
+  --color-primary: #d97706;
+  --color-primary-foreground: #ffffff;
+
+  /* Publicstatus-Brand-Tokens — von Components direkt via
+     text-[var(--color-status-ok)] etc. referenziert. Light-Mode-
+     adjustiert (etwas dunkler/sättiger als Dark-Variante für
+     Lesbarkeit auf cream BG). */
+  --color-status-ok: #16a34a;
+  --color-status-warn: #f59e0b;
+  --color-status-bad: #dc2626;
+  --color-status-critical: #991b1b;
+
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* App-Theme-Override: Renderer-Web definiert in @layer base einen
+   `:root:not(.dark)`-Block mit pure-white Light-Mode-Tokens. Dessen
+   Spezifität (eine Klasse mehr) schlägt unseren @theme-Default oben
+   — daher hier explizit auf gleicher Selektor-Ebene überschreiben.
+   `:root:not(.dark)` greift solange <html> keine `.dark`-Klasse hat
+   (siehe theme-toggle.tsx). Wenn der Operator später Dark wählt,
+   fällt die App auf den Renderer-Dark-Default zurück. */
+@layer base {
+  :root:not(.dark) {
+    --color-background: #faf7f0;
+    --color-foreground: #1a1814;
+    --color-card: #ffffff;
+    --color-card-foreground: #1a1814;
+    --color-popover: #ffffff;
+    --color-popover-foreground: #1a1814;
+    --color-border: #e8e2d5;
+    --color-input: #e8e2d5;
+    --color-muted: #f5f2ea;
+    --color-muted-foreground: #6b6259;
+    --color-secondary: #f0ede5;
+    --color-secondary-foreground: #1a1814;
+    --color-accent: #f0ede5;
+    --color-accent-foreground: #1a1814;
+    --color-destructive: #dc2626;
+    --color-destructive-foreground: #ffffff;
+    --color-primary: #d97706;
+    --color-primary-foreground: #ffffff;
+    --color-ring: #d97706;
+  }
+}
+
+/* Tints für Badge-Hintergründe — Tailwind v4 kann arbitrary opacity
+   nicht ohne weiteres aus einem Custom-Token derivieren, daher
+   direkt als Var auf :root. Light-Mode: schwächere Opacity (0.10)
+   damit Tints auf cream BG nicht überstrahlen. */
+:root {
+  --tint-ok: rgba(22, 163, 74, 0.1);
+  --tint-warn: rgba(217, 119, 6, 0.1);
+  --tint-bad: rgba(220, 38, 38, 0.1);
+  --tint-critical: rgba(153, 27, 27, 0.15);
+  --tint-muted: rgba(107, 98, 89, 0.12);
+}
+
+/* Public-Page-Live-Banner-Pulse — handgerollt weil Tailwind-eigene
+   animate-pulse-Klasse zu schnell ist und der Status-Page-Look ein
+   ruhiges 2-Sekunden-Heartbeat will. */
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.status-pulse {
+  animation: status-pulse 2s infinite;
+}

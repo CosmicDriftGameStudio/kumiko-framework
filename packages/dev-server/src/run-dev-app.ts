@@ -50,12 +50,24 @@ export type RunDevAppOptions = {
    *  auth-email-password automatisch dazu gemischt — KEIN doppeltes
    *  manuelles Hinzufügen nötig. */
   readonly features: readonly FeatureDefinition[];
-  /** Pfad zum Browser-Entry-Modul. Bun.build bündelt es zu /client.js. */
+  /** Pfad zum Browser-Entry-Modul. Bun.build bündelt es zu /client.js.
+   *  Mutually exclusive mit `clientEntries`. */
   readonly clientEntry?: string;
+  /** Multi-Entry-Mode: pro Entry ein eigenes Bundle (`/client-<name>.js`)
+   *  + ein eigenes HTML-Template. `hostDispatch` wählt zur Request-Zeit
+   *  welcher Entry kommt. Symmetric zur kumiko-build-Convention
+   *  `src/client-<name>.tsx`. Mutually exclusive mit `clientEntry`. */
+  readonly clientEntries?: CreateKumikoServerOptions["clientEntries"];
+  /** Multi-Entry-Mode: Routing per Request. Wird für Multi-Entry mit
+   *  geforderten — sonst weiß der Server nicht welche HTML er liefern
+   *  soll. */
+  readonly hostDispatch?: CreateKumikoServerOptions["hostDispatch"];
   /** CSS-Entry. Default: package-export `@kumiko/renderer-web/styles.css`
-   *  wenn clientEntry gesetzt. `false` deaktiviert die CSS-Pipeline. */
+   *  wenn ein client-Entry gesetzt ist. `false` deaktiviert die CSS-Pipeline. */
   readonly stylesheet?: string | false;
-  /** Eigenes HTML-Template; sonst minimal-Default (#root + client.js). */
+  /** Eigenes HTML-Template; sonst minimal-Default (#root + client.js).
+   *  Im Multi-Entry-Mode ist es das Fallback-Template, wenn ein einzelner
+   *  Entry kein eigenes htmlPath setzt. */
   readonly htmlPath?: string;
   /** Listen-Port. Default 4173 (oder $PORT). */
   readonly port?: number;
@@ -112,6 +124,8 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   return createKumikoServer({
     features,
     ...(options.clientEntry !== undefined && { clientEntry: options.clientEntry }),
+    ...(options.clientEntries !== undefined && { clientEntries: options.clientEntries }),
+    ...(options.hostDispatch !== undefined && { hostDispatch: options.hostDispatch }),
     ...(options.stylesheet !== undefined && { stylesheet: options.stylesheet }),
     ...(options.htmlPath !== undefined && { htmlPath: options.htmlPath }),
     ...(options.port !== undefined && { port: options.port }),

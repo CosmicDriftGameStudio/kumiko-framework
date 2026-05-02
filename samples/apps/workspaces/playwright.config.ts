@@ -37,7 +37,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "bun --env-file=../../../.env run src/server.ts",
+    command: "bun --env-file=../../../.env run src/app/server.ts",
     url: BASE_URL,
     // KUMIKO_DEV_DB_NAME="" → ephemeral DB pro Playwright-Run.
     env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },

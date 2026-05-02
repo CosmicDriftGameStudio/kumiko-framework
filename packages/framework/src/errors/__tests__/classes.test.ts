@@ -26,6 +26,46 @@ describe("KumikoError: abstract base", () => {
     expect(isKumikoError(err)).toBe(true);
     expect(isKumikoError(inner)).toBe(false);
   });
+
+  describe("docsUrl getter — Self-Service-Link", () => {
+    test("uses details.reason when set (NotFoundError sets entity-specific reason)", () => {
+      const err = new NotFoundError("order", 42);
+      expect(err.docsUrl).toBe("https://docs.kumiko.so/errors/order_not_found");
+    });
+
+    test("uses details.reason when explicitly set (ConflictError-style)", () => {
+      const err = new ConflictError({ details: { reason: "stale_state" } });
+      expect(err.docsUrl).toBe("https://docs.kumiko.so/errors/stale_state");
+    });
+
+    test("falls back to code when details has no reason field", () => {
+      const err = new ConflictError({ details: { foo: "bar" } });
+      expect(err.docsUrl).toBe("https://docs.kumiko.so/errors/conflict");
+    });
+
+    test("falls back to code when details is undefined", () => {
+      const err = new ConflictError();
+      expect(err.docsUrl).toBe("https://docs.kumiko.so/errors/conflict");
+    });
+
+    test("respects KUMIKO_DOCS_URL env override (Self-Hosted-Kunden)", () => {
+      const original = process.env["KUMIKO_DOCS_URL"];
+      process.env["KUMIKO_DOCS_URL"] = "https://docs.acme.example";
+      try {
+        const err = new ConflictError({ details: { reason: "stale_state" } });
+        expect(err.docsUrl).toBe("https://docs.acme.example/errors/stale_state");
+      } finally {
+        if (original === undefined) delete process.env["KUMIKO_DOCS_URL"];
+        else process.env["KUMIKO_DOCS_URL"] = original;
+      }
+    });
+
+    test("serializeError exposes docsUrl in the wire response", () => {
+      const err = new ConflictError({ details: { reason: "stale_state" } });
+      const body = serializeError(err);
+      expect(body.error.docsUrl).toBe("https://docs.kumiko.so/errors/stale_state");
+    });
+  });
 });
 
 describe("ValidationError", () => {

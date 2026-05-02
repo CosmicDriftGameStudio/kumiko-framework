@@ -8,6 +8,8 @@ export {
   type BuildProdBundleOptions,
   type BuildResult,
   buildProdBundle,
+  type ClientEntry,
+  discoverClientEntries,
   discoverClientEntry,
   discoverHtmlTemplate,
   formatBuildResult,

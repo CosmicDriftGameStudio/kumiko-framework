@@ -32,9 +32,14 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
 
   // Collect all config keys across features (for cross-feature reference validation)
   const allConfigKeys = new Set<string>();
+  // Qualified config-key set für ConfigEditScreen-Validation. Format
+  // wie in registry.ts: `<feature>:config:<short>`. allConfigKeys oben
+  // nutzt das ältere `feature.short`-Format für validateConfigReads.
+  const allConfigKeyQns = new Set<string>();
   for (const f of features) {
     for (const key of Object.keys(f.configKeys)) {
       allConfigKeys.add(`${f.name}.${key}`);
+      allConfigKeyQns.add(`${f.name}:config:${key}`);
     }
   }
 
@@ -87,7 +92,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyAllowPerRequest(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
-    validateScreens(feature, featureMap, allWriteHandlerQns, allScreenQns);
+    validateScreens(feature, featureMap, allWriteHandlerQns, allScreenQns, allConfigKeyQns);
     validateNavs(feature, allScreenQns, allNavQns, allWorkspaceQns);
     validateWorkspaces(feature, allNavQns);
   }
@@ -920,6 +925,7 @@ function validateScreens(
   featureMap: ReadonlyMap<string, FeatureDefinition>,
   allWriteHandlerQns: ReadonlySet<string>,
   allScreenQns: ReadonlySet<string>,
+  allConfigKeyQns: ReadonlySet<string>,
 ): void {
   for (const [screenId, screen] of Object.entries(feature.screens)) {
     if (screen.type === "custom") {
@@ -928,6 +934,74 @@ function validateScreens(
           `[Feature ${feature.name}] Screen "${screenId}" has type="custom" but the renderer ` +
             `declares neither a react nor a native component — at least one platform must be set.`,
         );
+      }
+      continue;
+    }
+
+    if (screen.type === "configEdit") {
+      // configEdit: layout/fields wie actionForm validieren, plus
+      // Cross-Check dass jeder qualifizierte Config-Key registriert
+      // ist und der scope mit dem Key matcht.
+      const fieldNames = new Set(Object.keys(screen.fields));
+      if (fieldNames.size === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (configEdit) has empty fields map — ` +
+            `declare at least one field.`,
+        );
+      }
+      for (const [fname, fdef] of Object.entries(screen.fields)) {
+        // @cast-boundary schema-walk — feature-config inspection
+        const ftype = (fdef as { type?: unknown }).type;
+        if (typeof ftype !== "string" || ftype.length === 0) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) field "${fname}" has no ` +
+              `\`type\` set. Each field must declare a type (e.g. "text", "number", "select").`,
+          );
+        }
+      }
+      if (screen.layout.sections.length === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (configEdit) has an empty sections list — ` +
+            `declare at least one section.`,
+        );
+      }
+      for (const section of screen.layout.sections) {
+        if (section.fields.length === 0) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) has a section "${section.title}" ` +
+              `with zero fields — drop the section or add fields to it.`,
+          );
+        }
+        for (const fieldSpec of section.fields) {
+          const normalized = normalizeEditField(fieldSpec);
+          if (!fieldNames.has(normalized.field)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (configEdit) layout references unknown ` +
+                `field "${normalized.field}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+            );
+          }
+        }
+      }
+      // configKeys: jeder fieldName muss einen Mapping-Eintrag haben,
+      // jeder qualifizierte Key muss in der Registry existieren.
+      for (const fname of fieldNames) {
+        const qualified = screen.configKeys[fname];
+        if (qualified === undefined) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) field "${fname}" hat ` +
+              `keinen Eintrag in configKeys-Map. Jedes deklarierte Field braucht ein Mapping zu ` +
+              `einem qualifizierten Config-Key (\`<feature>:config:<short>\`).`,
+          );
+        }
+        if (!allConfigKeyQns.has(qualified)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) field "${fname}" → ` +
+              `Config-Key "${qualified}" ist in keiner Feature-Registry deklariert. Tippfehler? ` +
+              `Erwartetes Format: "<feature>:config:<short>". Bekannte Keys: ${
+                [...allConfigKeyQns].sort().join(", ") || "(keine)"
+              }`,
+          );
+        }
       }
       continue;
     }

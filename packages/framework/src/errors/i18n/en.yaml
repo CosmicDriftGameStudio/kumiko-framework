@@ -1,0 +1,80 @@
+# i18n texts for FrameworkReasons (english).
+#
+# Schema per reason key (snake_case, matches the value in
+# reasons.ts FrameworkReasons):
+#
+#   <reason_key>:
+#     endUser: |
+#       What the end-user sees in the app UI.
+#       Plain language, call-to-action where applicable.
+#     developer: |
+#       Technical background + hints on how to configure / prevent.
+#       For app owners and designer users.
+
+stale_state:
+  endUser: |
+    Someone else modified this item in the meantime.
+    Please reload the page and try saving again.
+  developer: |
+    `ConflictError` fires when an atomic UPDATE lost the optimistic-
+    locking race — another writer moved the row between our snapshot and
+    our WHERE clause.
+
+    Default client SDK behavior: toast a "please reload" message and
+    re-fetch the entity.
+
+    To customize conflict handling per entity, see
+    [optimistic locking configuration](/en/architecture/optimistic-locking/).
+
+invalid_transition:
+  endUser: |
+    This action isn't allowed in the current state.
+    The record needs to be in a specific status before this step can happen.
+  developer: |
+    `UnprocessableError` from `guardTransition`: a state-machine transition
+    was rejected because the current state isn't in the allowed source
+    states.
+
+    `details.from`, `details.to` and `details.validTargets` carry the
+    diagnostics. Define allowed transitions in
+    [`r.entity({ stateMachine: ... })`](/en/architecture/state-machine/),
+    or check the current state before calling.
+
+field_access_denied:
+  endUser: |
+    You don't have permission to edit this field.
+    Please contact an administrator if you need this access.
+  developer: |
+    `AccessDeniedError` from the dispatcher's field-level write check: a
+    write to a field was rejected because the current role lacks access.
+
+    `details.field` and `details.handler` contain the diagnostics.
+    Configure field-level access in the entity definition (see
+    [Permissions](/en/architecture/permissions/)) or request the required
+    role.
+
+delete_restricted:
+  endUser: |
+    This entry can't be deleted because other records still reference it.
+    Delete the dependent entries first.
+  developer: |
+    `ConflictError` from the cascade-delete guard: the delete was prevented
+    because dependent rows exist.
+
+    `details.blockingEntity`, `details.entity` and `details.entityId` show
+    which relation is blocking. Set `relation.onDelete` to `"cascade"` or
+    `"setNull"` if automatic cleanup is desired, or delete the dependent
+    rows first.
+
+feature_disabled:
+  endUser: |
+    This feature is currently unavailable.
+    Please try again later or contact an administrator.
+  developer: |
+    `FeatureDisabledError`: the feature owning the called handler is
+    globally disabled. Distinct from `access_denied` — clients should show
+    "feature currently unavailable" rather than "no permission".
+
+    `details.feature` and `details.handler` indicate which feature and
+    handler. Enable the feature via feature toggle or routing config (see
+    [Feature Toggles](/en/features/feature-toggles/)).

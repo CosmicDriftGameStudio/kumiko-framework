@@ -23,6 +23,13 @@ export const createWrite = defineWriteHandler({
     passwordHash: z.string().optional(),
     displayName: z.string().min(1).max(100),
     locale: z.string().min(2).max(10).optional(),
+    // Globale Rollen — JSON-encoded string[]. Optional weil der Default
+    // im Entity-Schema "[]" ist; setzen wenn man einen SystemAdmin (oder
+    // andere globale Rollen) anlegt. Field-Access (write: privileged) auf
+    // der Entity ist die letzte Hand: wer auch immer create dispatcht ist
+    // schon privileged (system/SystemAdmin), aber das Field-Guard läuft
+    // trotzdem als defense-in-depth.
+    roles: z.string().optional(),
   }),
   access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {

@@ -239,16 +239,28 @@ function renderInput({
           onChange={(v) => onChange(v)}
         />
       );
-    case "select":
+    case "select": {
+      // Translated Option-Labels kommen aus dem ViewModel-Builder
+      // (computeEditViewModel, Convention-Key
+      // `<feature>:entity:<entity>:field:<field>:option:<value>`).
+      // Wenn keine Translations registriert sind, fallback auf raw
+      // value als Label — der ComboboxInput zeigt dann unverändert.
+      const rawOptions = field.options ?? [];
+      const labels = field.optionLabels;
+      const selectOptions =
+        labels !== undefined
+          ? rawOptions.map((value) => ({ value, label: labels[value] ?? value }))
+          : rawOptions;
       return (
         <Input
           kind="select"
           {...common}
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
-          options={field.options ?? []}
+          options={selectOptions}
         />
       );
+    }
     default: {
       // text + unknown → text input. Wenn TextFieldDef.multiline gesetzt
       // ist (das ViewModel hält's), wechselt der Renderer auf textarea.

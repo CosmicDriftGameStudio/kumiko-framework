@@ -20,7 +20,7 @@ import { join, resolve } from "node:path";
 import {
   buildProdBundle,
   buildServerBundle,
-  discoverClientEntry,
+  discoverClientEntries,
   discoverServerEntry,
   formatBuildResult,
   formatServerBuildResult,
@@ -35,7 +35,7 @@ const yellow = "\x1b[33m";
 const reset = "\x1b[0m";
 
 const hasClient =
-  discoverClientEntry(cwd) !== undefined ||
+  discoverClientEntries(cwd).length > 0 ||
   existsSync(join(cwd, "src/styles.css")) ||
   existsSync(join(cwd, "public")) ||
   existsSync(join(cwd, "index.html"));

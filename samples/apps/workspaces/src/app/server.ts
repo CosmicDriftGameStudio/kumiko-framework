@@ -23,7 +23,9 @@ const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000010" as TenantId;
 
 await runDevApp({
   features: [demoFeature, driverFeature],
-  port: 4174,
+  // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4175);
+  // sonst lokal-Default 4174.
+  port: Number.parseInt(process.env["PORT"] ?? "4174", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],

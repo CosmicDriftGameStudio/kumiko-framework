@@ -148,6 +148,7 @@ export type {
   ConfigAccessor,
   ConfigAccessorFactory,
   ConfigDefinition,
+  ConfigEditScreenDefinition,
   ConfigKeyAccess,
   ConfigKeyDefinition,
   ConfigKeyHandle,
