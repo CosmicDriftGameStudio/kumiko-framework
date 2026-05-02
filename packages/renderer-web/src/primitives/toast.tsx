@@ -27,6 +27,11 @@ export type ToastOptions = {
   readonly title: string;
   readonly description?: string;
   readonly variant?: ToastVariant;
+  // Self-service deep-link (z.B. KumikoError.docsUrl). Wenn gesetzt
+  // rendert der Toast einen "Mehr erfahren →" Link der in neuem Tab
+  // öffnet. Label override via `docsLinkLabel` (Default: deutsch).
+  readonly docsUrl?: string;
+  readonly docsLinkLabel?: string;
 };
 
 type ToastEntry = ToastOptions & {
@@ -128,6 +133,24 @@ function ToastItem({
           <Primitive.Description className="text-sm opacity-90">
             {entry.description}
           </Primitive.Description>
+        )}
+        {entry.docsUrl !== undefined && (
+          <Primitive.Action
+            altText={entry.docsLinkLabel ?? "Mehr erfahren"}
+            asChild
+          >
+            <a
+              href={entry.docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "text-xs underline opacity-90 hover:opacity-100",
+                "focus:outline-none focus:ring-1 focus:ring-current rounded",
+              )}
+            >
+              {entry.docsLinkLabel ?? "Mehr erfahren"} →
+            </a>
+          </Primitive.Action>
         )}
       </div>
       <Primitive.Close

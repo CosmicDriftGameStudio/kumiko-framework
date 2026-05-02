@@ -42,6 +42,54 @@ describe("ToastProvider + useToast", () => {
     expect(screen.getByText("Copied")).toBeTruthy();
   });
 
+  test("docsUrl: rendert 'Mehr erfahren →' Link mit target=_blank", () => {
+    render(
+      <ToastProvider>
+        <ToastTrigger
+          options={[
+            {
+              title: "Konflikt",
+              variant: "destructive",
+              docsUrl: "https://docs.kumiko.so/errors/stale_state",
+            },
+          ]}
+        />
+      </ToastProvider>,
+    );
+    const link = screen.getByRole("link", { name: /Mehr erfahren/i });
+    expect(link.getAttribute("href")).toBe(
+      "https://docs.kumiko.so/errors/stale_state",
+    );
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  test("docsLinkLabel override: nutzt vom Caller gegebenen Text", () => {
+    render(
+      <ToastProvider>
+        <ToastTrigger
+          options={[
+            {
+              title: "Conflict",
+              docsUrl: "https://docs.kumiko.so/errors/stale_state",
+              docsLinkLabel: "Learn more",
+            },
+          ]}
+        />
+      </ToastProvider>,
+    );
+    expect(screen.getByRole("link", { name: /Learn more/i })).toBeTruthy();
+  });
+
+  test("ohne docsUrl: kein Link gerendert", () => {
+    render(
+      <ToastProvider>
+        <ToastTrigger options={[{ title: "Saved", description: "ok" }]} />
+      </ToastProvider>,
+    );
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
   test("variant=destructive: setzt die destructive-Klasse auf den Root", () => {
     render(
       <ToastProvider>
