@@ -2,15 +2,16 @@
 # prod-version.sh — zeigt welche Version aktuell auf prod läuft.
 #
 # Drei Quellen:
-#   1) OCI-Image-Label (org.opencontainers.image.revision) vom Master-
-#      Node — das ist die SHA des Commits aus dem das Image gebaut wurde
+#   1) Deployment-Annotation kumiko.io/git-sha — vom CI nach jedem
+#      rollout via `kubectl patch` gesetzt. SHA des Commits aus dem
+#      das aktuell laufende Image gebaut wurde.
 #   2) Letzter erfolgreicher CI-Build (gh run list) — die SHA die
 #      AKTUELL als :latest in GHCR sein SOLLTE
 #   3) Diff zwischen beiden — wenn !=, ist der neuste Build noch nicht
-#      ausgerollt (keel-Polling-Window oder Auto-Update broken)
+#      ausgerollt (CI hängt oder failed im rollout-step)
 #
-# Voraussetzungen: ssh-key-Access zu root@10.10.0.1 (via Wireguard),
-# gh-CLI authenticated, jq oder python3 für JSON-parse.
+# Voraussetzungen: kubeconfig auf ~/.kube/kumiko.yaml (via Wireguard
+# erreichbar), gh-CLI authenticated, python3 für JSON-parse.
 
 set -euo pipefail
 
@@ -39,21 +40,16 @@ if [[ -z "$IMAGE" ]]; then
   exit 1
 fi
 
-# 2) OCI-Label aus dem Image — crictl auf master indexiert nach repo:tag,
-#    nicht nach registry-digest. Wir nutzen das Image-Reference + parsen
-#    das revision-Label aus dem Manifest.
-echo "${DIM}→ Reading OCI revision-label via SSH master…${RESET}"
-RUNNING_SHA=$(ssh -o ConnectTimeout=10 "$MASTER_HOST" \
-  "crictl inspecti '$IMAGE' 2>/dev/null" \
-  | python3 -c "
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    labels = d.get('info', {}).get('imageSpec', {}).get('config', {}).get('Labels', {}) or {}
-    print(labels.get('org.opencontainers.image.revision', ''))
-except Exception:
-    pass
-")
+# 2) git-sha aus deployment-annotation — vom CI nach jedem rollout
+#    via `kubectl patch` gesetzt (siehe build-image.yml und
+#    deploy-publicstatus.yml). Eine kubectl-call statt ssh+crictl.
+echo "${DIM}→ Reading kumiko.io/git-sha annotation…${RESET}"
+RUNNING_SHA=$(kubectl --kubeconfig ~/.kube/kumiko.yaml get deployment "$APP" \
+  -n "$APP" \
+  -o jsonpath='{.spec.template.metadata.annotations.kumiko\.io/git-sha}' 2>/dev/null || echo "")
+RUNNING_BUILD_TIME=$(kubectl --kubeconfig ~/.kube/kumiko.yaml get deployment "$APP" \
+  -n "$APP" \
+  -o jsonpath='{.spec.template.metadata.annotations.kumiko\.io/build-time}' 2>/dev/null || echo "")
 
 # 3) Letzter erfolgreicher CI-Build — SHA aus gh, Subject aus git-log
 echo "${DIM}→ Reading latest successful CI build…${RESET}"
@@ -81,9 +77,9 @@ echo
 echo "${DIM}════════════════════════════════════════${RESET}"
 printf "  Running:    "
 if [[ -z "$RUNNING_SHA" ]]; then
-  echo "${YELLOW}? (kein Label)${RESET}"
+  echo "${YELLOW}? (keine kumiko.io/git-sha Annotation — vor Sprint-D-lite deployed?)${RESET}"
 else
-  printf "%s  ${DIM}(${DIGEST:7:12}…)${RESET}\n" "${RUNNING_SHA:0:8}"
+  printf "%s  ${DIM}(${DIGEST:7:12}… built ${RUNNING_BUILD_TIME})${RESET}\n" "${RUNNING_SHA:0:8}"
 fi
 
 printf "  Latest CI:  "
