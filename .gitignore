@@ -4,9 +4,10 @@ dist-server/
 .expo/
 .turbo/
 
-# platform/ ist Symlink zu ~/code/kumiko-platform (eigenes Repo).
-# Im Hauptrepo nur for-eyes sichtbar, nicht versioned.
-platform
+# /platform ist Symlink zu ~/code/kumiko-platform (eigenes Repo).
+# Im Hauptrepo nur for-eyes sichtbar, nicht versioned. Anchor zu root,
+# damit `samples/apps/platform/` (echter In-Repo-Code) NICHT matched.
+/platform
 *.tsbuildinfo
 .env
 .env.*

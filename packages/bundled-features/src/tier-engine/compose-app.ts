@@ -133,12 +133,15 @@ export function composeApp<TCaps extends Readonly<Record<string, unknown>>>(
 
   // Caps merge: tier.caps as base, each add-on's overrides applied on top.
   // Later add-ons win — order in input.addOns matters for conflicting overrides.
-  // reduce<TCaps> with the typed accumulator avoids any cast: spread of
-  // T plus Partial<T> structurally narrows back to T.
-  const effectiveCaps = addOnDefs.reduce<TCaps>(
-    (acc, def) => (def.capOverrides ? { ...acc, ...def.capOverrides } : acc),
-    tierDef.caps,
-  );
+  // Object.assign mutates the local `merged` (allocated once, not in
+  // an accumulating-spread loop — Biome's noAccumulatingSpread is happy
+  // and we still avoid an `as TCaps` cast: TS narrows the assign-result
+  // back to TCaps when source is Partial<TCaps>.
+  const merged: TCaps = { ...tierDef.caps };
+  for (const def of addOnDefs) {
+    if (def.capOverrides) Object.assign(merged, def.capOverrides);
+  }
+  const effectiveCaps = merged;
 
   return {
     features: [...input.base, ...dedupedFeatures],
