@@ -1,0 +1,102 @@
+// kumiko-feature-version: 1
+//
+// subscription-stripe — Stripe-Plugin für die subscription-foundation
+// Plugin-API.
+//
+// **Factory-Pattern (= createSubscriptionStripeFeature(options)):**
+// Im Gegensatz zu mail-transport-smtp / file-provider-s3 (die ihre
+// secrets aus tenant-secrets lesen) ist Stripe's webhook-secret
+// **app-wide** — App-Owner hat einen Stripe-account, alle Webhooks
+// gehen dorthin. Plugin braucht den secret beim webhook-sig-verify-
+// Zeitpunkt, der ist PRE-tenant-resolution (kein ctx).
+//
+// Lösung: factory-Funktion `createSubscriptionStripeFeature(options)`
+// liest webhook-secret + apiKey beim mount-time aus dem Caller (= App-
+// Builder's bin/server.ts der's aus process.env zieht). Closure
+// hält's für den verifyAndParseWebhook-call.
+//
+// Beispiel-Verwendung in run-config.ts:
+//
+//   import { createSubscriptionStripeFeature } from "@kumiko/bundled-features/subscription-stripe";
+//
+//   const features = [
+//     subscriptionFoundationFeature,
+//     createSubscriptionStripeFeature({
+//       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+//       apiKey: process.env.STRIPE_API_KEY ?? "",
+//       priceToTier: {
+//         "price_1ABC": "pro",
+//         "price_1XYZ": "business",
+//       },
+//     }),
+//   ];
+//
+// **Pattern-Vorbild:** mirrors createFeatureTogglesFeature(options) —
+// gleiche factory-Form für features die module-load-time-Konfiguration
+// haben (analog zum FeatureToggle-runtime-holder).
+
+import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/subscription-foundation";
+import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { STRIPE_PROVIDER_NAME, SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
+import { verifyAndParseStripeWebhook } from "./verify-webhook";
+
+export type SubscriptionStripeOptions = {
+  /** Webhook-secret aus dem Stripe-Dashboard. App-wide. Plugin throws
+   *  beim runtime wenn empty (= App-Owner hat sub-stripe gemountet
+   *  aber Stripe-Account nicht konfiguriert). */
+  readonly webhookSecret: string;
+  /** Stripe-API-key (sk_live_... / sk_test_...). Heute nur für
+   *  constructEvent-API-Version-Pin gebraucht; Phase 5.2b nutzt's
+   *  für outgoing-API-calls (createPortalSession etc.). */
+  readonly apiKey: string;
+  /** Price-to-tier-Mapping. Plugin liest die price-id aus Stripe-event
+   *  (subscription.items.data[0].price.id) und mappt auf einen tier-
+   *  name. Fehlt die price-id im Mapping → null (foundation 200
+   *  ignored — App-Owner-Bug, hat den Stripe-price angelegt aber
+   *  nicht zur tier zugeordnet). */
+  readonly priceToTier: Readonly<Record<string, string>>;
+};
+
+/**
+ * Factory für das subscription-stripe-feature. Wird mit den App-Owner-
+ * eigenen Stripe-Credentials gemountet. Der returnte FeatureDefinition
+ * registriert den Plugin gegen subscription-foundation's
+ * "subscriptionProvider"-extension-point unter entityName "stripe".
+ */
+export function createSubscriptionStripeFeature(
+  options: SubscriptionStripeOptions,
+): FeatureDefinition {
+  // Module-load-Validation: ohne webhook-secret kann der Plugin keinen
+  // single Webhook verifizieren. Throw vor dem mount damit der App-
+  // Owner nicht zur Laufzeit Mystery-401s sieht.
+  if (options.webhookSecret.length === 0) {
+    throw new Error(
+      "subscription-stripe: webhookSecret is empty. Set STRIPE_WEBHOOK_SECRET (or system-config) before mounting.",
+    );
+  }
+  if (options.apiKey.length === 0) {
+    throw new Error(
+      "subscription-stripe: apiKey is empty. Set STRIPE_API_KEY (or system-config) before mounting.",
+    );
+  }
+
+  const verifyAndParse = verifyAndParseStripeWebhook(options);
+
+  return defineFeature(SUBSCRIPTION_STRIPE_FEATURE, (r) => {
+    // Hard-deps: subscription-foundation als plugin-host. KEIN
+    // `r.requires("config", "secrets")` — der Plugin nutzt weder
+    // tenant-config noch tenant-secrets (alles app-wide via factory-
+    // options).
+    r.requires("subscription-foundation");
+
+    // Plugin: register against subscription-foundation's
+    // "subscriptionProvider" extension. entityName "stripe" matcht den
+    // path-segment in der webhook-URL (`/api/subscription/webhook/stripe`).
+    const plugin: SubscriptionProviderPlugin = {
+      verifyAndParseWebhook: verifyAndParse,
+      // createPortalSession + cancelSubscription kommen Phase 5.2b
+      // (zusammen mit dem create-checkout-session-write-handler).
+    };
+    r.useExtension("subscriptionProvider", STRIPE_PROVIDER_NAME, plugin);
+  });
+}
