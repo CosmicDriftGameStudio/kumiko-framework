@@ -26,6 +26,10 @@ export type LoginScreenProps = {
    *  Link. Apps die den Reset-Flow NICHT anbieten (z.B. nur Magic-Link),
    *  setzen das einfach nicht — Login bleibt minimalistisch. */
   readonly forgotPasswordHref?: string;
+  /** Optional href zum SignupScreen. Wenn gesetzt rendert die LoginScreen
+   *  einen "Account erstellen"-Link. Apps die kein Self-Signup wollen
+   *  (closed-invite-only) setzen das einfach nicht. */
+  readonly signupHref?: string;
 };
 
 // Map vom Reason-Code des Login-Handlers auf einen i18n-Key plus
@@ -64,6 +68,7 @@ export function LoginScreen({
   subtitle,
   submitLabel,
   forgotPasswordHref,
+  signupHref,
 }: LoginScreenProps): ReactNode {
   const t = useTranslation();
   const session = useSession();
@@ -159,6 +164,14 @@ export function LoginScreen({
               className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline self-center"
             >
               {t("auth.login.forgotPassword")}
+            </a>
+          )}
+          {signupHref !== undefined && (
+            <a
+              href={signupHref}
+              className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline self-center"
+            >
+              {t("auth.signup.title")}
             </a>
           )}
         </form>

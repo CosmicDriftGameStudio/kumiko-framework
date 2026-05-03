@@ -11,6 +11,13 @@ export const tenantEntity = createEntity({
     name: createTextField({ required: true, maxLength: 200, searchable: true }),
     isEnabled: createBooleanField({ default: true }),
   },
+  // tenant.key wird in Admin-URLs verwendet (`admin.<host>/<key>/...`) und
+  // muss eindeutig sein. Ohne unique-constraint hätte ein konkurrenter
+  // Self-Signup-Confirm einen TOCTOU-Race zwischen generateUniqueName-
+  // isAvailable-check und insert: zwei Tabs könnten sequentiell denselben
+  // Slug claimen, beide commits durch, der dritte User landet auf einem
+  // shared admin-URL-prefix.
+  indexes: [{ unique: true, columns: ["key"] }],
 });
 
 export const tenantTable = buildDrizzleTable("tenant", tenantEntity);

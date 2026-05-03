@@ -12,12 +12,15 @@ export type {
   LoginFailure,
   LoginRequest,
   ResetPasswordFailure,
+  SignupConfirmSuccess,
   TenantSummary,
   VerifyEmailFailure,
 } from "./auth-client";
 export {
+  confirmSignup,
   requestEmailVerification,
   requestPasswordReset,
+  requestSignup,
   resetPassword,
   verifyEmail,
 } from "./auth-client";
@@ -37,6 +40,10 @@ export type { ResetPasswordScreenProps } from "./reset-password-screen";
 export { ResetPasswordScreen } from "./reset-password-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";
 export { SessionContext, SessionProvider, useSession } from "./session";
+export type { SignupCompleteScreenProps } from "./signup-complete-screen";
+export { SignupCompleteScreen } from "./signup-complete-screen";
+export type { SignupScreenProps } from "./signup-screen";
+export { SignupScreen } from "./signup-screen";
 export type { TenantSwitcherProps } from "./tenant-switcher";
 export { TenantSwitcher } from "./tenant-switcher";
 export type { ShellUser } from "./use-shell-user";

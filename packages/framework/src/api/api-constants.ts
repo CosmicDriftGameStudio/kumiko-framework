@@ -19,6 +19,8 @@ export const Routes = {
   authResetPassword: "/auth/reset-password",
   authRequestEmailVerification: "/auth/request-email-verification",
   authVerifyEmail: "/auth/verify-email",
+  authSignupRequest: "/auth/signup-request",
+  authSignupConfirm: "/auth/signup-confirm",
   files: "/files",
 } as const;
 
@@ -30,6 +32,8 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authResetPassword}`,
   `/api${Routes.authRequestEmailVerification}`,
   `/api${Routes.authVerifyEmail}`,
+  `/api${Routes.authSignupRequest}`,
+  `/api${Routes.authSignupConfirm}`,
   `/api${Routes.health}`,
   `/api${Routes.healthReady}`,
   `/api${Routes.version}`,

@@ -37,6 +37,10 @@ export type SeedUserWithPasswordOptions = {
   readonly locale?: string;
   /** Globale Rollen — siehe SeedUserOptions.roles. */
   readonly roles?: readonly string[];
+  /** Initial-emailVerified-Flag. Default false (Verify-Flow läuft).
+   *  Magic-Link-Signup setzt true weil der Mail-Klick die Email-
+   *  Ownership beweist. Siehe SeedUserOptions.emailVerified. */
+  readonly emailVerified?: boolean;
   readonly by?: SessionUser;
 };
 
@@ -55,8 +59,73 @@ export async function seedUserWithPassword(
     passwordHash,
     ...(options.locale !== undefined && { locale: options.locale }),
     ...(options.roles !== undefined && { roles: options.roles }),
+    ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
     ...(options.by !== undefined && { by: options.by }),
   });
+}
+
+/** Provisioning-Helper für Self-Signup-Confirm. Legt einen frischen
+ *  Tenant + Admin-User + Membership in einem Rutsch an — verwendet die
+ *  bestehende Event-Store-Pipeline (wie seedAdmin) und ist daher
+ *  konsistent mit dem regulären create-Pfad: events werden geschrieben,
+ *  Projections sind populated, MSPs/Audit sehen die neuen Rows.
+ *
+ *  Naming-Hinweis: nutzt intern `seedTenant` / `seedUser*` —
+ *  diese Helpers sind production-grade (event-store-pipeline), das "seed"
+ *  im Namen ist historisch (zuerst für Tests + Bootstrap gebaut, dann
+ *  als General-Purpose-Helper exportiert). Rename `seed*` → `provision*`
+ *  ist als dedizierter Cleanup-PR geplant — disproportional zum Wert
+ *  innerhalb dieses Sprints, weil alle existing tests berührt würden.
+ *
+ *  Atomicity: läuft inside einer Drizzle-Tx wenn der Caller das angibt
+ *  (db.transaction(tx => provisionSignupAccount(tx, ...)) — die seed-
+ *  helpers nehmen DbConnection|DbTx strukturell. Bei pure DbConnection
+ *  sind die 3 writes nicht atomic; bei Failure zwischen Schritten kann
+ *  ein orphan-Tenant zurückbleiben (Tenant ohne User → unused row;
+ *  User ohne Membership → "no_membership" beim ersten Login).
+ *
+ *  Nicht idempotent: ein zweiter Aufruf für dieselbe Email wirft (über
+ *  seedTenant + seedUser deren idempotenz-Check sich an key/email
+ *  orientiert; bei collidierenden tenantKey ist der Caller
+ *  verantwortlich, einen freien zu finden — siehe generateUniqueName). */
+/** Default-Roles für den Self-Signup-Admin. Geteilt zwischen
+ *  provisionSignupAccount (DB-write) und signup-confirm-handler
+ *  (SessionUser-Konstruktion für JWT-Mint) — sonst hätten zwei
+ *  Stellen unabhängig "Admin" hardcoded und würden bei einem
+ *  Refactor zu role-mismatch zwischen DB und Session leiden. */
+export const INITIAL_SIGNUP_ROLES = ["Admin"] as const;
+
+export type ProvisionSignupAccountOptions = {
+  readonly email: string;
+  readonly password: string;
+  readonly displayName: string;
+  readonly tenantKey: string;
+  readonly tenantName: string;
+  readonly tenantId: TenantId;
+  readonly memberRoles?: readonly string[];
+};
+
+export async function provisionSignupAccount(
+  db: DbConnection,
+  options: ProvisionSignupAccountOptions,
+): Promise<{ readonly userId: string; readonly tenantId: TenantId }> {
+  await seedTenant(db, {
+    id: options.tenantId,
+    key: options.tenantKey,
+    name: options.tenantName,
+  });
+  const userId = await seedUserWithPassword(db, {
+    email: options.email,
+    password: options.password,
+    displayName: options.displayName,
+    emailVerified: true,
+  });
+  await seedTenantMembership(db, {
+    userId,
+    tenantId: options.tenantId,
+    roles: options.memberRoles ?? INITIAL_SIGNUP_ROLES,
+  });
+  return { userId, tenantId: options.tenantId };
 }
 
 export type SeedAdminOptions = {

@@ -42,6 +42,7 @@
     "./jobs": "./src/jobs/index.ts",
     "./migrations": "./src/migrations/index.ts",
     "./entrypoint": "./src/entrypoint/index.ts",
+    "./random": "./src/random/index.ts",
     "./redis": "./src/redis/index.ts",
     "./search": "./src/search/index.ts",
     "./search/meilisearch": "./src/search/meilisearch-adapter.ts",

@@ -207,6 +207,49 @@ export async function verifyEmail(
   return { ok: false, error: await parseTokenFailure(res) };
 }
 
+// POST /api/auth/signup-request. Always-200 (anti-enumeration; wir
+// sagen nicht ob die Email schon registriert ist). Server schickt
+// Activation-Mail an die Adresse — beim Klick auf den Link landet der
+// User auf /signup/complete?token=… wo er sein Password setzt.
+export async function requestSignup(
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
+  const res = await fetch("/api/auth/signup-request", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...csrfHeader() },
+    body: JSON.stringify({ email }),
+  });
+  if (res.ok) return { ok: true };
+  return { ok: false, error: await parseTokenFailure(res) };
+}
+
+// POST /api/auth/signup-confirm. Token aus URL + Password. Erfolgreich:
+// Cookies (kumiko_auth + kumiko_csrf) werden gesetzt — User ist sofort
+// eingeloggt. Response liefert tenantKey für den Post-Signup-Redirect.
+// 422 invalid_signup_token bei abgelaufenem/unbekanntem Token.
+export type SignupConfirmSuccess = {
+  readonly user: { readonly id: string; readonly tenantId: string; readonly roles: string[] };
+  readonly tenantKey: string;
+};
+
+export async function confirmSignup(
+  token: string,
+  password: string,
+): Promise<{ ok: true; data: SignupConfirmSuccess } | { ok: false; error: AuthTokenFailure }> {
+  const res = await fetch("/api/auth/signup-confirm", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...csrfHeader() },
+    body: JSON.stringify({ token, password }),
+  });
+  if (res.ok) {
+    const body = (await res.json()) as SignupConfirmSuccess;
+    return { ok: true, data: body };
+  }
+  return { ok: false, error: await parseTokenFailure(res) };
+}
+
 // GET /api/auth/tenants. Liefert die Memberships des aktuellen Users;
 // der Server liefert 401 wenn das Cookie fehlt oder abgelaufen ist.
 export async function fetchTenants(): Promise<{

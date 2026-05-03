@@ -5,6 +5,11 @@ import { logoutWrite } from "./handlers/logout.write";
 import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write";
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write";
 import { createResetPasswordHandler } from "./handlers/reset-password.write";
+import { createSignupConfirmHandler } from "./handlers/signup-confirm.write";
+import {
+  createSignupRequestHandler,
+  type SignupRequestOptions,
+} from "./handlers/signup-request.write";
 import { createVerifyEmailHandler } from "./handlers/verify-email.write";
 
 // Opt-in configuration for the password-reset flow. When omitted the
@@ -43,10 +48,20 @@ export type AccountLockoutOptions = {
   readonly lockoutDurationMinutes?: number;
 };
 
+// Magic-Link Self-Signup. Wenn gesetzt, registriert das Feature die
+// signup-request + signup-confirm-Handler. Der Token-Store (Redis)
+// kommt aus ctx.redis — tokenTtlMinutes ist der einzige Knopf
+// (Token-Material ist generateToken() = 256 Bit randomBytes, fest;
+// Memory feedback_no_options_without_need: keine Knöpfe ohne Bedarf).
+// Anders als reset/verify gibt's kein hmacSecret hier, weil der Token
+// opaque random ist (Redis ist Source of Truth).
+export type SignupOptions = SignupRequestOptions;
+
 export type AuthEmailPasswordOptions = {
   readonly passwordReset?: PasswordResetOptions;
   readonly emailVerification?: EmailVerificationOptions;
   readonly accountLockout?: AccountLockoutOptions;
+  readonly signup?: SignupOptions;
 };
 
 // Auth feature — email+password login. Depends on the user feature for
@@ -92,6 +107,11 @@ export function createAuthEmailPasswordFeature(
     if (opts.emailVerification) {
       r.writeHandler(createRequestEmailVerificationHandler(opts.emailVerification));
       r.writeHandler(createVerifyEmailHandler(opts.emailVerification));
+    }
+
+    if (opts.signup) {
+      r.writeHandler(createSignupRequestHandler(opts.signup));
+      r.writeHandler(createSignupConfirmHandler());
     }
 
     return { handlers };

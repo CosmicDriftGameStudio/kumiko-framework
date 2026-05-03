@@ -14,6 +14,9 @@
 import {
   type AuthEmailPasswordOptions,
   createAuthEmailPasswordFeature,
+  type EmailVerificationOptions,
+  type PasswordResetOptions,
+  type SignupOptions,
 } from "@kumiko/bundled-features/auth-email-password";
 import { createConfigFeature } from "@kumiko/bundled-features/config";
 import { createTenantFeature } from "@kumiko/bundled-features/tenant";
@@ -46,4 +49,68 @@ export function composeFeatures(
         ...appFeatures,
       ]
     : [...appFeatures];
+}
+
+/** Shape eines beliebigen run{Prod,Dev}App-Auth-Blocks der eine
+ *  PasswordReset/EmailVerification-Konfiguration tragen kann. Die
+ *  Wrapper-API (PasswordResetSetup) extends die Feature-API
+ *  (PasswordResetOptions), darum reicht ein structural-typed
+ *  Lookup auf den auth-only-Subset. Erlaubt buildComposeAuthOptions
+ *  mit RunProd- UND RunDev-AuthOptions zu callen ohne den Helper
+ *  doppelt zu bauen. */
+export type AuthOptionsCarrier = {
+  readonly passwordReset?: PasswordResetOptions;
+  readonly emailVerification?: EmailVerificationOptions;
+  readonly signup?: SignupOptions;
+};
+
+/** Baut den authOptions-Block für composeFeatures aus einem
+ *  Wrapper-Auth-Block. Reicht NUR die feature-side-Felder
+ *  (hmacSecret, tokenTtlMinutes, mode) durch — die mail-side
+ *  (sendResetEmail/appResetUrl) gehört in die auth-routes-config
+ *  und wird vom Wrapper separat verdrahtet.
+ *
+ *  Returnt undefined wenn weder passwordReset noch emailVerification
+ *  gesetzt sind (composeFeatures default-deny: KEINE handler in der
+ *  Registry registriert, /api/auth/request-password-reset etc. bleiben
+ *  401/404). */
+export function buildComposeAuthOptions(
+  auth: AuthOptionsCarrier | undefined,
+): AuthEmailPasswordOptions | undefined {
+  if (!auth) return undefined;
+  const opts: { -readonly [K in keyof AuthEmailPasswordOptions]: AuthEmailPasswordOptions[K] } = {};
+  if (auth.passwordReset) {
+    const reset: { -readonly [K in keyof PasswordResetOptions]: PasswordResetOptions[K] } = {
+      hmacSecret: auth.passwordReset.hmacSecret,
+    };
+    if (auth.passwordReset.tokenTtlMinutes !== undefined) {
+      reset.tokenTtlMinutes = auth.passwordReset.tokenTtlMinutes;
+    }
+    opts.passwordReset = reset;
+  }
+  if (auth.emailVerification) {
+    const verify: { -readonly [K in keyof EmailVerificationOptions]: EmailVerificationOptions[K] } =
+      {
+        hmacSecret: auth.emailVerification.hmacSecret,
+      };
+    if (auth.emailVerification.tokenTtlMinutes !== undefined) {
+      verify.tokenTtlMinutes = auth.emailVerification.tokenTtlMinutes;
+    }
+    if (auth.emailVerification.mode !== undefined) {
+      verify.mode = auth.emailVerification.mode;
+    }
+    opts.emailVerification = verify;
+  }
+  if (auth.signup) {
+    // Plain object statt mapped-type — SignupOptions ist type-alias auf
+    // SignupRequestOptions, der TS-mapped-type-Pfad löst's als
+    // index-signature auf (TS noPropertyAccessFromIndexSignature klagt
+    // dann beim Property-write). Plain shape ist klar UND funktioniert.
+    const signup: { tokenTtlMinutes?: number } = {};
+    if (auth.signup.tokenTtlMinutes !== undefined) {
+      signup.tokenTtlMinutes = auth.signup.tokenTtlMinutes;
+    }
+    opts.signup = signup;
+  }
+  return opts.passwordReset || opts.emailVerification || opts.signup ? opts : undefined;
 }

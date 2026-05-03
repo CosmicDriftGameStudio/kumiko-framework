@@ -5,16 +5,22 @@ export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers } from "./constan
 // werden, oder die App schreibt einen eigenen Renderer für Branding.
 export type {
   AuthMailLocale,
+  RenderActivationEmailArgs,
   RenderedEmail,
   RenderResetPasswordEmailArgs,
   RenderVerifyEmailArgs,
 } from "./email-templates";
-export { renderResetPasswordEmail, renderVerifyEmail } from "./email-templates";
+export {
+  renderActivationEmail,
+  renderResetPasswordEmail,
+  renderVerifyEmail,
+} from "./email-templates";
 export type {
   AccountLockoutOptions,
   AuthEmailPasswordOptions,
   EmailVerificationOptions,
   PasswordResetOptions,
+  SignupOptions,
 } from "./feature";
 export { createAuthEmailPasswordFeature } from "./feature";
 export { hashPassword, verifyPassword } from "./password-hashing";
