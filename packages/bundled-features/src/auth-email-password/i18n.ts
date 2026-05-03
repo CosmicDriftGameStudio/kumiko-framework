@@ -97,8 +97,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.inviteAccept.useOtherAccount": "Mit anderem Account anmelden",
     "auth.inviteAccept.toggleNew": "Ich habe noch keinen Account",
     "auth.inviteAccept.toggleExisting": "Ich habe schon einen Account",
-    "auth.inviteAccept.missingToken":
-      "Der Einladungs-Link enthält keinen Token oder ist ungültig.",
+    "auth.inviteAccept.missingToken": "Der Einladungs-Link enthält keinen Token oder ist ungültig.",
     "auth.inviteAccept.goToLogin": "Zum Login",
     "auth.user.menu.label": "Konto",
     "auth.user.menu.logout": "Abmelden",

@@ -15,18 +15,17 @@
 //   5. DB-State + Membership + Cookies/JWT verifizieren
 
 import {
-  createEntityTable,
-  pushTables,
-  setupTestStack,
-  type TestStack,
-  TestUsers,
-} from "@kumiko/framework/stack";
-import {
   createSystemUser,
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@kumiko/framework/engine";
+import {
+  createEntityTable,
+  pushTables,
+  setupTestStack,
+  type TestStack,
+} from "@kumiko/framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
@@ -66,7 +65,7 @@ let bobId: string;
 let TENANT_A_ID: TenantId;
 let TENANT_B_ID: TenantId;
 
-function newTenantId(suffix: string): TenantId {
+function newTenantId(_suffix: string): TenantId {
   // UUIDv4 + suffix für Lesbarkeit in Logs.
   const rand = crypto.randomUUID();
   return rand as TenantId;
@@ -270,12 +269,7 @@ describe("invite-accept (Branch 1: logged-in)", () => {
   test("Email-Mismatch: Bob klickt Carol's Invite-Link → inviteEmailMismatch", async () => {
     const token = await inviteEmail(CAROL_EMAIL, "Admin");
 
-    const res = await authedRaw(
-      "POST",
-      "/api/auth/invite-accept",
-      { token },
-      bobSession(),
-    );
+    const res = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
     expect(res.status).toBe(422);
     const body = (await res.json()) as { error?: { details?: { reason?: string } } };
     expect(body.error?.details?.reason).toBe(AuthErrors.inviteEmailMismatch);
@@ -407,12 +401,7 @@ describe("Single-Use-Burn (alle Branches)", () => {
     const token = await inviteEmail(BOB_EMAIL, "Admin");
     await stack.http.writeOk(AuthHandlers.inviteAccept, { token }, bobSession());
 
-    const res = await authedRaw(
-      "POST",
-      "/api/auth/invite-accept",
-      { token },
-      bobSession(),
-    );
+    const res = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
     expect(res.status).toBe(422);
   });
 });
@@ -428,11 +417,7 @@ describe("cancel-invitation", () => {
       .where(eq(tenantInvitationsTable.email, BOB_EMAIL));
     const invitationId = rows[0]?.["id"] as string;
 
-    await stack.http.writeOk(
-      "tenant:write:cancel-invitation",
-      { invitationId },
-      aliceSession(),
-    );
+    await stack.http.writeOk("tenant:write:cancel-invitation", { invitationId }, aliceSession());
 
     const updated = await stack.db
       .select()
@@ -441,12 +426,7 @@ describe("cancel-invitation", () => {
     expect(updated[0]?.["status"]).toBe("cancelled");
 
     // Accept mit dem gecancelten Token → invalid
-    const res = await authedRaw(
-      "POST",
-      "/api/auth/invite-accept",
-      { token },
-      bobSession(),
-    );
+    const res = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
     expect(res.status).toBe(422);
   });
 });

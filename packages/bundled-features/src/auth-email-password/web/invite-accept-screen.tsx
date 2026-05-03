@@ -73,7 +73,9 @@ export function InviteAcceptScreen({
     if (res.ok) {
       const data = (await res.json()) as { tenantId: string };
       const target =
-        typeof loggedInHref === "function" ? loggedInHref({ tenantId: data.tenantId }) : loggedInHref;
+        typeof loggedInHref === "function"
+          ? loggedInHref({ tenantId: data.tenantId })
+          : loggedInHref;
       window.location.assign(target);
       return;
     }
@@ -93,7 +95,9 @@ export function InviteAcceptScreen({
     if (res.ok) {
       const data = (await res.json()) as { tenantId: string };
       const target =
-        typeof loggedInHref === "function" ? loggedInHref({ tenantId: data.tenantId }) : loggedInHref;
+        typeof loggedInHref === "function"
+          ? loggedInHref({ tenantId: data.tenantId })
+          : loggedInHref;
       window.location.assign(target);
       return;
     }
@@ -113,7 +117,9 @@ export function InviteAcceptScreen({
     if (res.ok) {
       const data = (await res.json()) as { tenantId: string };
       const target =
-        typeof loggedInHref === "function" ? loggedInHref({ tenantId: data.tenantId }) : loggedInHref;
+        typeof loggedInHref === "function"
+          ? loggedInHref({ tenantId: data.tenantId })
+          : loggedInHref;
       window.location.assign(target);
       return;
     }

@@ -53,10 +53,7 @@ export async function storeInviteToken(
 
 /** Lookup: invitationId für Token. Null wenn Token nicht (mehr) existiert
  *  (abgelaufen, schon konsumiert, oder ungültig). */
-export async function getInvitationIdForToken(
-  redis: Redis,
-  token: string,
-): Promise<string | null> {
+export async function getInvitationIdForToken(redis: Redis, token: string): Promise<string | null> {
   return redis.get(tokenKey(token));
 }
 
