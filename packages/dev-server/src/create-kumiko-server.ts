@@ -32,6 +32,7 @@ import {
 import { injectSchema } from "./inject-schema";
 import { resolveTailwindCli } from "./resolve-tailwind-cli";
 import { buildBunServeOptions } from "./run-prod-app";
+import { tryHonoFirst } from "./try-hono-first";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
 // target runtime), but the test-suite runs under vitest on Node — we
@@ -824,12 +825,24 @@ export async function createKumikoServer(
     // to be excluded explicitly, otherwise the catch-all would shadow
     // the real Hono route with HTML and EventSource would never
     // connect.
+    //
+    // Plus: r.httpRoute-deklarierte Feature-Routes (z.B. /legal/*) liegen
+    // ebenfalls außerhalb /api und matchen sonst diesen catch-all. Wir
+    // probieren daher ZUERST stack.app.fetch — wenn Hono eine matchende
+    // Route hat, gewinnt sie. 404 vom Hono-stack → SPA-fallback wie
+    // bisher. Das spiegelt runProdApp's doc-intent ("Hono matched VOR
+    // staticDir-fallback") und macht r.httpRoute mit non-/api paths im
+    // dev-server symmetrisch zu prod.
     if (
       req.method === "GET" &&
       !url.pathname.startsWith("/api/") &&
       !url.pathname.startsWith("/sse") &&
       !url.pathname.includes(".")
     ) {
+      const honoTry = await tryHonoFirst(stack.app, req);
+      if (honoTry.matched) {
+        return honoTry.response;
+      }
       // Discriminated-Dispatch — symmetric zu prod. Ohne hostDispatch
       // landet das im Single-Entry-Default ("client" + Schema-Inject).
       if (options.hostDispatch !== undefined) {

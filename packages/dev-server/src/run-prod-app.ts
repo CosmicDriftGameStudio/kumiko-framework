@@ -63,6 +63,7 @@ import Redis from "ioredis";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { injectSchema } from "./inject-schema";
+import { tryHonoFirst } from "./try-hono-first";
 
 /**
  * Bun.serve-Options für Production.
@@ -774,12 +775,17 @@ function buildStaticFallback(
     }
 
     // Hono-First für andere Pfade: extraRoutes (z.B. /feed.xml,
-    // /sitemap.xml) müssen vor dem Disk-Lookup greifen, sonst
-    // schluckt der SPA-Fallback unten unbekannte Pfade als index.html.
-    const honoRes = await apiHandler(req);
-    if (honoRes.status !== 404) {
-      return honoRes;
+    // /sitemap.xml) UND r.httpRoute-Features (z.B. legal-pages /legal/*)
+    // müssen vor dem Disk-Lookup greifen, sonst schluckt der SPA-Fallback
+    // unten unbekannte Pfade als index.html. Shared helper mit dev-server
+    // (createKumikoServer.handleFetch) damit beide Pfade IDENTISCHE
+    // Semantik haben — Drift hier hat genau einen Bug verursacht
+    // (legal-pages funktionierten in prod, aber dev shadowed sie als SPA).
+    const honoTry = await tryHonoFirst({ fetch: apiHandler }, req);
+    if (honoTry.matched) {
+      return honoTry.response;
     }
+    const honoRes = honoTry.response;
 
     // Disk-Datei (Asset oder konkrete File). Asset-Pfade laufen
     // host-unabhängig — die Bundles in /assets/* werden vom client
