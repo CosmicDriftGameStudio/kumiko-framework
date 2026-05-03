@@ -16,11 +16,14 @@ export type {
   VerifyEmailFailure,
 } from "./auth-client";
 export {
+  confirmSignup,
   requestEmailVerification,
   requestPasswordReset,
+  requestSignup,
   resetPassword,
   verifyEmail,
 } from "./auth-client";
+export type { SignupConfirmSuccess } from "./auth-client";
 export { makeAuthGate } from "./auth-gate";
 export type {
   EmailPasswordClientFeature,
@@ -36,6 +39,10 @@ export { LoginScreen } from "./login-screen";
 export type { ResetPasswordScreenProps } from "./reset-password-screen";
 export { ResetPasswordScreen } from "./reset-password-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";
+export type { SignupCompleteScreenProps } from "./signup-complete-screen";
+export { SignupCompleteScreen } from "./signup-complete-screen";
+export type { SignupScreenProps } from "./signup-screen";
+export { SignupScreen } from "./signup-screen";
 export { SessionContext, SessionProvider, useSession } from "./session";
 export type { TenantSwitcherProps } from "./tenant-switcher";
 export { TenantSwitcher } from "./tenant-switcher";
