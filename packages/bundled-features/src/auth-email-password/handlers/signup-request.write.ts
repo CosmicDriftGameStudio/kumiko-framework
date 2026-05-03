@@ -26,11 +26,7 @@ import { InternalError, writeFailure } from "@kumiko/framework/errors";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
-import {
-  getTokenForSignupEmail,
-  normalizeEmail,
-  storeSignupToken,
-} from "../signup-token-store";
+import { getTokenForSignupEmail, normalizeEmail, storeSignupToken } from "../signup-token-store";
 
 const SignupRequestSchema = z.object({
   email: z.email(),
