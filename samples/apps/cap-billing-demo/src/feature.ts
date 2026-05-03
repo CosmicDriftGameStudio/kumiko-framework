@@ -37,12 +37,10 @@ import {
   mailFoundationFeature,
 } from "@kumiko/bundled-features/mail-foundation";
 import {
+  getSubscriptionForTenant,
   SUBSCRIPTION_FOUNDATION_FEATURE,
   SubscriptionStatuses,
-  subscriptionAggregateId,
-  subscriptionEntity,
 } from "@kumiko/bundled-features/subscription-foundation";
-import { buildDrizzleTable } from "@kumiko/framework/db";
 import {
   access,
   createTenantConfig,
@@ -50,11 +48,8 @@ import {
   type HandlerContext,
   type WriteHandlerDef,
 } from "@kumiko/framework/engine";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { DEMO_TIER_MAP, TIER_NAMES, type TierName } from "./tier-map";
-
-const subscriptionTable = buildDrizzleTable("subscription", subscriptionEntity);
 
 const FEATURE_NAME = "newsletter";
 const NEWSLETTER_CAP = "newsletters-per-month";
@@ -96,42 +91,40 @@ const innerSendHandler: WriteHandlerDef = {
 /**
  * Tenant-Tier auflösen.
  *
- * **Primary:** subscription-row mit status=active für den Tenant. Das
- * ist der produktive Pfad — Provider-Webhook schreibt subscription via
- * subscription-foundation, dieser Resolver liest sie hier.
- *
- * **Fallback:** config-key "newsletter:config:tier". Demo-Story nutzt
- * den für manuelles Switchen ohne Provider; auch der tier-engine-only-
- * Pfad der existing-Tests bleibt so grün.
- *
- * **Default:** "free" — neue Tenants ohne Subscription + ohne Override.
+ * **Reihenfolge:**
+ *   1. subscription-row aus subscription-foundation (= produktiver
+ *      Pfad). Wenn die row existiert, trumpft sie den config-fallback —
+ *      auch im canceled-Status (= Tenant fällt auf free zurück, NICHT
+ *      auf einen verwaisten config="pro"-override).
+ *   2. config-key "newsletter:config:tier" (= Demo-README-Pfad ohne
+ *      Provider; auch der tier-engine-only-Pfad der ursprünglichen
+ *      Tests bleibt so grün).
+ *   3. Default "free".
  *
  * Whitelist-Filter via TIER_NAMES verhindert Tippos ("Pro" / "Premium"),
  * die sonst silent zu free fallen würden.
  */
+function isValidTierName(value: string): value is TierName {
+  return (TIER_NAMES as readonly string[]).includes(value);
+}
+
 async function resolveTier(ctx: HandlerContext): Promise<TierName> {
   const tenantId = ctx.user?.tenantId;
   if (tenantId) {
-    const aggregateId = subscriptionAggregateId(tenantId);
-    const [subRow] = await ctx.db
-      .select()
-      .from(subscriptionTable)
-      .where(eq(subscriptionTable["id"], aggregateId))
-      .limit(1);
-    const subTier = subRow?.["tier"] as string | undefined;
-    const subStatus = subRow?.["status"] as string | undefined;
-    if (
-      subStatus === SubscriptionStatuses.active &&
-      subTier &&
-      (TIER_NAMES as readonly string[]).includes(subTier)
-    ) {
-      return subTier as TierName;
+    const sub = await getSubscriptionForTenant(ctx, tenantId);
+    if (sub) {
+      // Subscription existiert → trumpft config. Bei active+valid-tier
+      // → der subscription-tier; sonst free (canceled/past_due/etc).
+      if (sub.status === SubscriptionStatuses.active && isValidTierName(sub.tier)) {
+        return sub.tier;
+      }
+      return "free";
     }
   }
 
   const raw = (await ctx.config?.("newsletter:config:tier")) as string | undefined;
-  if (raw && (TIER_NAMES as readonly string[]).includes(raw)) {
-    return raw as TierName;
+  if (raw && isValidTierName(raw)) {
+    return raw;
   }
   return "free";
 }

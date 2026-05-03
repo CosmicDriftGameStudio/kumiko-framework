@@ -16,6 +16,7 @@ export {
 } from "./constants";
 export { subscriptionEntity, subscriptionEventEntity } from "./entities";
 export { subscriptionFoundationFeature } from "./feature";
+export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant";
 export type {
   SubscriptionEvent,
   SubscriptionProviderPlugin,

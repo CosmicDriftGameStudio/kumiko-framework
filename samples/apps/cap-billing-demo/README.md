@@ -30,12 +30,15 @@ Mails landen in einem **In-Memory-Transport** (`mail-transport-inmemory`). Es gi
 ┌──────────────────────────────────────────────────────────────┐
 │ src/tier-map.ts                                              │
 │   DEMO_TIER_MAP: Record<TierName, {features, caps}>          │
-│   resolveTier(ctx) → liest "newsletter:config:tier"          │
+│   resolveTier(ctx) → 1. subscription-row (Provider-Webhook)  │
+│                      2. config "newsletter:config:tier"      │
+│                      3. default "free"                       │
 └──────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────┐
 │ src/run-config.ts                                            │
 │   APP_FEATURES = [secrets, cap-counter, mail-foundation,     │
-│                   mail-transport-inmemory, newsletter]       │
+│                   mail-transport-inmemory,                   │
+│                   subscription-foundation, newsletter]       │
 └──────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────┐
 │ bundled-features (kein Code in der App)                      │
@@ -43,6 +46,11 @@ Mails landen in einem **In-Memory-Transport** (`mail-transport-inmemory`). Es gi
 │   cap-counter: enforceCap + withCapEnforcement + counter-ES  │
 │   mail-foundation: Plugin-API für Transports                 │
 │   mail-transport-inmemory: per-tenant in-memory Inbox        │
+│   subscription-foundation: Provider-Plugin-Host (Stripe/     │
+│                            Mollie). Demo mountet keine       │
+│                            Provider — Tests rufen process-   │
+│                            event direkt; eigene App ergänzt  │
+│                            createSubscriptionStripeFeature() │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -104,7 +112,8 @@ Das Sample ist absichtlich minimal. Für eine Production-App tausche:
 | Demo-Komponente | Production-Ersatz |
 |-----------------|-------------------|
 | `mail-transport-inmemory` | `mail-transport-smtp` (BYOK) oder ein selbst gebautes Plugin |
-| Hardcoded `DEMO_TIER_MAP` | Stripe-Webhook setzt einen `tenant.tier`-Wert (z.B. via `r.entity` oder `r.config`) |
+| Hardcoded `DEMO_TIER_MAP` | bleibt — Tier-Definitionen sind statisch, der subscription-row schreibt nur den `tier`-Schlüssel |
+| Tier-Switch via Webhook (test-only) | Mount eines echten Plugins: `createSubscriptionStripeFeature(...)` und/oder `createSubscriptionMollieFeature(...)` in der run-config |
 | 2 Tiers (free/pro) | beliebige Anzahl, siehe `samples/apps/platform/src/tier-map.ts` für 4-Tier-Beispiel |
 | Newsletter-domain | dein eigenes Feature mit `withCapEnforcement(handler, capResolver)` |
 
@@ -122,5 +131,5 @@ Der **Plugin-API-Switch** zwischen demo + production ist ein einziges Konfig-Wer
 Das Sample ist als Doku-Test gedacht. Konkrete Schwächen die wir hier sehen:
 
 - **Notifier-Adresse hardcoded.** `buildSoftHitNotifier` in `feature.ts` schickt an `admin@tenant-${id.slice(-4)}.demo`. Echte App würde tenant-config oder users-Tabelle abfragen.
-- **Tier-Lookup pro send-call.** Die `resolveTier(ctx)`-Funktion liest den config-key bei jedem Send — bei busy Tenants wäre Caching sinnvoll. Demo lässt das raus weil's vom Cap-Pattern ablenkt.
-- **Kein Stripe-Wiring.** Tier wird per `config:write:set` direkt gesetzt; in Production ist das ein Stripe-Webhook-Trigger.
+- **Tier-Lookup pro send-call.** Die `resolveTier(ctx)`-Funktion macht eine DB-Query auf die subscription-row bei jedem Send — bei busy Tenants wäre Caching sinnvoll. Demo lässt das raus weil's vom Cap-Pattern ablenkt.
+- **Kein Provider-Mount in der Demo selbst.** Die Tests rufen `subscription-foundation:write:process-event` direkt; in Production mountet die App `createSubscriptionStripeFeature(...)` oder `createSubscriptionMollieFeature(...)` und Mollie/Stripe-Webhooks treffen `/api/subscription/webhook/:providerName`.

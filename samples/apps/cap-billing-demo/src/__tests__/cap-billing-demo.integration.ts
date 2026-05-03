@@ -492,6 +492,50 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
     expect(replayResult.duplicate).toBe(true);
   });
 
+  test("Override-Semantik: subscription-row trumpft config — canceled-sub + config=pro → free", async () => {
+    // Drift-Pin: würde resolveTier den config-fallback nehmen sobald
+    // subscription nicht active ist, käme der Tenant trotz canceled-sub
+    // mit config="pro" weiter durch — das wäre ein Billing-Loophole.
+    const tenant = adminFor(2405);
+    clearInbox(tenant.tenantId);
+    await selectInMemoryMail(tenant);
+
+    // Manueller config-override (Demo-Pattern oder Reste eines früheren
+    // Tests).
+    await setTier(tenant, "pro");
+
+    // Provider-Webhook: subscription created + canceled (= Endkunde hat
+    // gestartet und sofort canceled).
+    await processSubscriptionEvent(tenant, {
+      providerEventId: "evt_2405_create",
+      providerName: "stripe",
+      type: SubscriptionEventTypes.created,
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+    });
+    await processSubscriptionEvent(tenant, {
+      providerEventId: "evt_2405_cancel",
+      providerName: "stripe",
+      type: SubscriptionEventTypes.canceled,
+      status: SubscriptionStatuses.canceled,
+      tier: "free",
+    });
+
+    // 13. send würde bei pro durchgehen, bei free hard-blockt (counter=0,
+    // free.hard=12, brauchen 13 sends → 13. blockiert). Wir schicken
+    // 12 → ok bei free, der 13. sollte blocken weil tier ist nun free
+    // (subscription trumpft config="pro").
+    for (let i = 1; i <= 12; i++) {
+      await sendNewsletter(tenant, `r${i}@x.de`, i);
+    }
+    const error = await stack.http.writeErr(
+      NEWSLETTER_SEND_QN,
+      { to: "r13@x.de", subject: "X", html: "<p>n/a</p>" },
+      tenant,
+    );
+    expect(JSON.stringify(error)).toMatch(/CapExceededError/);
+  });
+
   test("Multi-Provider: zweiter event von ANDEREM provider überschreibt subscription-row (Disney+-Wechsel)", async () => {
     const tenant = adminFor(2404);
     clearInbox(tenant.tenantId);
