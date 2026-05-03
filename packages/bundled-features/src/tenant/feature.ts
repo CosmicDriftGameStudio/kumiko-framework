@@ -17,6 +17,7 @@ import { removeMemberWrite } from "./handlers/remove-member.write";
 import { resolveUserIdsQuery } from "./handlers/resolve-user-ids.query";
 import { updateWrite } from "./handlers/update.write";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
+import { tenantInvitationEntity } from "./invitation-table";
 import { tenantMembershipEntity } from "./membership-table";
 import { tenantEntity } from "./schema/tenant";
 
@@ -30,6 +31,7 @@ export function createTenantFeature(): FeatureDefinition {
     r.requires("config");
     r.entity("tenant", tenantEntity);
     r.entity("tenant-membership", tenantMembershipEntity);
+    r.entity("tenant-invitation", tenantInvitationEntity);
 
     r.config({
       keys: {

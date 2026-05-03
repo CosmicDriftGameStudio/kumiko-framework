@@ -16,6 +16,18 @@ export const AuthHandlers = {
   // Sekunde 0 — der Klick auf den Mail-Link IST der Beweis.
   signupRequest: "auth-email-password:write:signup-request",
   signupConfirm: "auth-email-password:write:signup-confirm",
+  // Tenant-Invite Magic-Link (Admin lädt User in existing Tenant ein).
+  // Drei separate accept-Endpoints für klare Branch-Separation:
+  //   inviteCreate: Admin → POST email + role
+  //   inviteAccept: logged-in User → POST token (membership-add)
+  //   inviteAcceptWithLogin: anon User mit existing email → POST token + email + password
+  //   inviteSignupComplete: anon User mit neuer email → POST token + password
+  //   inviteCancel: Admin cancelt pending invite
+  inviteCreate: "auth-email-password:write:invite-create",
+  inviteAccept: "auth-email-password:write:invite-accept",
+  inviteAcceptWithLogin: "auth-email-password:write:invite-accept-with-login",
+  inviteSignupComplete: "auth-email-password:write:invite-signup-complete",
+  inviteCancel: "auth-email-password:write:invite-cancel",
 } as const;
 
 // Error codes — kept intentionally generic so clients can't distinguish
@@ -42,6 +54,12 @@ export const AuthErrors = {
   // anti-enumeration-Trade-off wie reset/verify.
   invalidSignupToken: "invalid_signup_token",
   signupNotConfigured: "signup_not_configured",
+  // Invite-Flow: alle Token-Failures collapsen auf invalidInviteToken
+  // (anti-enumeration). emailMismatch wenn der invitee versucht den
+  // Link mit einer anderen Email zu accepten als die eingeladene.
+  invalidInviteToken: "invalid_invite_token",
+  inviteEmailMismatch: "invite_email_mismatch",
+  inviteAlreadyMember: "invite_already_member",
   // Account-lockout: login refuses with this code when the user's streak of
   // failed attempts has crossed the configured threshold. The error detail
   // carries `retryAfterSeconds` so the UI can show a countdown. Returning a
@@ -70,3 +88,8 @@ export const AUTH_VERIFY_DEFAULT_TTL_MINUTES = 24 * 60;
 // "schnell aktivieren" — ein Mail-Link der morgen früh noch geht ist
 // User-Friendly. Kürzere TTLs werfen Resend-Spam weil User vergessen.
 export const AUTH_SIGNUP_DEFAULT_TTL_MINUTES = 24 * 60;
+
+// Tenant-Invite: 7 Tage Default. Industry-Standard (GitHub, Linear,
+// Slack); invitees brauchen oft länger zum Reagieren als bei Self-
+// Signup wo die User-Intention frisch ist.
+export const AUTH_INVITE_DEFAULT_TTL_MINUTES = 7 * 24 * 60;
