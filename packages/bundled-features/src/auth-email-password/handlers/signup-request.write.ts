@@ -1,0 +1,99 @@
+// Magic-Link-Signup, Step 1 (request).
+//
+// User gibt Email ein → wir minten einen opaken Random-Token, speichern
+// ihn bidirektional in Redis (token↔email), und der Route-Layer schickt
+// die Activation-Mail. Anders als reset/verify-Flows existiert der User
+// HIER NOCH NICHT — daher kein userId-lookup, kein HMAC-signing (wofür
+// gäbe es kein Subject), kein "skip if user already exists in DB"-pattern.
+//
+// Resend-Idempotenz: wenn für die Email bereits ein lebender Token in
+// Redis liegt, geben wir denselben Token zurück (und refreshen TTL auf
+// beiden Keys). Der User bekommt dann eine zweite Mail mit dem GLEICHEN
+// Activation-Link. Erste Mail bleibt gültig — kein "old link broken"-
+// annoyance.
+//
+// Always-200 (enumeration-safe): das Response sieht für jede Email
+// gleich aus, egal ob sie schon registriert ist oder nicht. Anders als
+// reset (das ein "no-op" zurückgibt wenn User nicht existiert) gibt's
+// hier nichts zu enumerieren — eine Email kann nicht "schon registriert
+// sein" weil bei Magic-Link der User-Row erst beim Confirm entsteht.
+// Was es geben könnte: dieselbe Email versucht es zum N-ten Mal —
+// Resend-Pfad ist by-design idempotent.
+
+import { defineWriteHandler } from "@kumiko/framework/engine";
+import { InternalError, writeFailure } from "@kumiko/framework/errors";
+import { generateNoConfusableId } from "@kumiko/framework/random";
+import { Temporal } from "temporal-polyfill";
+import { z } from "zod";
+import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
+import {
+  getTokenForSignupEmail,
+  storeSignupToken,
+} from "../signup-token-store";
+
+const SignupRequestSchema = z.object({
+  email: z.email(),
+});
+
+export type SignupRequestData =
+  | {
+      readonly kind: "signup-requested";
+      readonly email: string;
+      readonly token: string;
+      readonly expiresAt: string;
+    }
+  | { readonly kind: "no-op" };
+
+export type SignupRequestOptions = {
+  /** TTL für den Activation-Token. Default 24 h — lang genug damit User
+   *  "morgen aktivieren" können ohne Resend-Spam. */
+  readonly tokenTtlMinutes?: number;
+  /** Token-Länge in no-confusable Zeichen. Default 32 (= 32^32 = ~10^48
+   *  Combinations, deutlich mehr als für ein 24h-Single-Use-Token nötig
+   *  ist; aber lang genug dass auch ein Brute-Force über die TTL keine
+   *  Chance hat). */
+  readonly tokenLength?: number;
+};
+
+export function createSignupRequestHandler(opts: SignupRequestOptions = {}) {
+  const ttlMinutes = opts.tokenTtlMinutes ?? AUTH_SIGNUP_DEFAULT_TTL_MINUTES;
+  const tokenLength = opts.tokenLength ?? 32;
+  const ttlSeconds = ttlMinutes * 60;
+
+  return defineWriteHandler<"signup-request", typeof SignupRequestSchema, SignupRequestData>({
+    name: "signup-request",
+    schema: SignupRequestSchema,
+    access: { roles: ["all"] },
+    handler: async (event, ctx) => {
+      if (!ctx.redis) {
+        return writeFailure(
+          new InternalError({
+            message: "signup-request requires ctx.redis for the activation-token store",
+          }),
+        );
+      }
+
+      const email = event.payload.email.toLowerCase();
+
+      // Resend-Idempotenz: wenn ein Token für diese Email noch lebt,
+      // re-use ihn und refreshe beide Keys. Der User kriegt eine zweite
+      // Mail mit dem GLEICHEN Link.
+      const existingToken = await getTokenForSignupEmail(ctx.redis, email);
+      const token = existingToken ?? generateNoConfusableId(tokenLength);
+
+      const expiresAt = Temporal.Now.instant().add({ seconds: ttlSeconds });
+
+      await storeSignupToken(ctx.redis, { email, token, ttlSeconds });
+
+      return {
+        isSuccess: true,
+        data: {
+          kind: "signup-requested",
+          email,
+          token,
+          expiresAt: expiresAt.toString(),
+        },
+      };
+    },
+  });
+}

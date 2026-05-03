@@ -37,6 +37,10 @@ export type SeedUserWithPasswordOptions = {
   readonly locale?: string;
   /** Globale Rollen — siehe SeedUserOptions.roles. */
   readonly roles?: readonly string[];
+  /** Initial-emailVerified-Flag. Default false (Verify-Flow läuft).
+   *  Magic-Link-Signup setzt true weil der Mail-Klick die Email-
+   *  Ownership beweist. Siehe SeedUserOptions.emailVerified. */
+  readonly emailVerified?: boolean;
   readonly by?: SessionUser;
 };
 
@@ -55,8 +59,52 @@ export async function seedUserWithPassword(
     passwordHash,
     ...(options.locale !== undefined && { locale: options.locale }),
     ...(options.roles !== undefined && { roles: options.roles }),
+    ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
     ...(options.by !== undefined && { by: options.by }),
   });
+}
+
+/** Provisioning-Helper für Self-Signup-Confirm. Legt einen frischen
+ *  Tenant + Admin-User + Membership in einem Rutsch an — verwendet die
+ *  bestehende Event-Store-Pipeline (wie seedAdmin) und ist daher
+ *  konsistent mit dem regulären create-Pfad: events werden geschrieben,
+ *  Projections sind populated, MSPs/Audit sehen die neuen Rows.
+ *
+ *  Nicht idempotent: ein zweiter Aufruf für dieselbe Email wirft (über
+ *  seedTenant + seedUser deren idempotenz-Check sich an key/email
+ *  orientiert; bei collidierenden tenantKey ist der Caller
+ *  verantwortlich, einen freien zu finden — siehe generateUniqueName). */
+export type ProvisionSignupAccountOptions = {
+  readonly email: string;
+  readonly password: string;
+  readonly displayName: string;
+  readonly tenantKey: string;
+  readonly tenantName: string;
+  readonly tenantId: TenantId;
+  readonly memberRoles?: readonly string[];
+};
+
+export async function provisionSignupAccount(
+  db: DbConnection,
+  options: ProvisionSignupAccountOptions,
+): Promise<{ readonly userId: string; readonly tenantId: TenantId }> {
+  await seedTenant(db, {
+    id: options.tenantId,
+    key: options.tenantKey,
+    name: options.tenantName,
+  });
+  const userId = await seedUserWithPassword(db, {
+    email: options.email,
+    password: options.password,
+    displayName: options.displayName,
+    emailVerified: true,
+  });
+  await seedTenantMembership(db, {
+    userId,
+    tenantId: options.tenantId,
+    roles: options.memberRoles ?? ["Admin"],
+  });
+  return { userId, tenantId: options.tenantId };
 }
 
 export type SeedAdminOptions = {

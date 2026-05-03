@@ -36,6 +36,11 @@ export type SeedUserOptions = {
    *  membership-roles gemerged. Default: leer-array. Typisches Beispiel:
    *  `["SystemAdmin"]` für den Plattform-Operator. */
   readonly roles?: readonly string[];
+  /** Initial-State für emailVerified. Default false (Pflicht-Verify-Flow
+   *  muss explizit "true" setzen wenn Email-Ownership schon bewiesen ist —
+   *  z.B. Magic-Link-Signup, wo der User den Mail-Link klicken musste
+   *  bevor sein Account überhaupt entsteht). */
+  readonly emailVerified?: boolean;
   readonly by?: SessionUser;
 };
 
@@ -61,6 +66,7 @@ export async function seedUser(db: DbConnection, options: SeedUserOptions): Prom
       ...(options.passwordHash !== undefined && { passwordHash: options.passwordHash }),
       ...(options.locale !== undefined && { locale: options.locale }),
       ...(options.roles !== undefined && { roles: JSON.stringify(options.roles) }),
+      ...(options.emailVerified !== undefined && { emailVerified: options.emailVerified }),
     },
     by,
     tdb,

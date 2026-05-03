@@ -9,6 +9,13 @@ export const AuthHandlers = {
   resetPassword: "auth-email-password:write:reset-password",
   requestEmailVerification: "auth-email-password:write:request-email-verification",
   verifyEmail: "auth-email-password:write:verify-email",
+  // Magic-Link Self-Signup (Pre-Activation-Token-Pattern). request mintet
+  // einen opaken Random-Token, speichert ihn bidirektional in Redis und
+  // sendet eine Aktivierungs-Mail. confirm löst den Token ein und legt
+  // user + tenant + Admin-Membership atomar an. emailVerified=true ab
+  // Sekunde 0 — der Klick auf den Mail-Link IST der Beweis.
+  signupRequest: "auth-email-password:write:signup-request",
+  signupConfirm: "auth-email-password:write:signup-confirm",
 } as const;
 
 // Error codes — kept intentionally generic so clients can't distinguish
@@ -30,6 +37,11 @@ export const AuthErrors = {
   invalidVerificationToken: "invalid_verification_token",
   verificationNotConfigured: "email_verification_not_configured",
   emailNotVerified: "email_not_verified",
+  // Self-Signup: alle confirm-Failures (unbekannter Token, schon
+  // konsumiert, abgelaufen) collapsen auf diesen Code — gleicher
+  // anti-enumeration-Trade-off wie reset/verify.
+  invalidSignupToken: "invalid_signup_token",
+  signupNotConfigured: "signup_not_configured",
   // Account-lockout: login refuses with this code when the user's streak of
   // failed attempts has crossed the configured threshold. The error detail
   // carries `retryAfterSeconds` so the UI can show a countdown. Returning a
@@ -53,3 +65,8 @@ export const AUTH_RESET_DEFAULT_TTL_MINUTES = 15;
 // because flipping emailVerified=true is an idempotent state change:
 // replaying the same token re-sets the same flag.
 export const AUTH_VERIFY_DEFAULT_TTL_MINUTES = 24 * 60;
+
+// Self-Signup: 24h Default. Lang genug damit User nicht denken muss
+// "schnell aktivieren" — ein Mail-Link der morgen früh noch geht ist
+// User-Friendly. Kürzere TTLs werfen Resend-Spam weil User vergessen.
+export const AUTH_SIGNUP_DEFAULT_TTL_MINUTES = 24 * 60;
