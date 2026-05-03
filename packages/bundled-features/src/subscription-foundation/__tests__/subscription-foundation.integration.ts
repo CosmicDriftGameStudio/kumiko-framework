@@ -363,7 +363,42 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
   });
 });
 
-describe("scenario 6: cancel-event setzt status auf canceled, behält subscription-row", () => {
+// =============================================================================
+// Scenarios 6+7 — Phase-5.2b write-handlers (create-checkout-session +
+// create-portal-session). Foundation-routing-tests; provider-spezifisches
+// Verhalten (echte Stripe-checkout-URL) wird in subscription-stripe getestet.
+// =============================================================================
+
+describe("scenario 6: create-checkout-session — Plugin-routing", () => {
+  test("provider not registered → klarer error mit known-list", async () => {
+    const admin = adminFor(3010);
+    const error = await stack.http.writeErr(
+      "subscription-foundation:write:create-checkout-session",
+      {
+        providerName: "non-existent-provider",
+        priceId: "price_test",
+        successUrl: "https://example.com/success",
+        cancelUrl: "https://example.com/cancel",
+      },
+      admin,
+    );
+    expect(JSON.stringify(error)).toMatch(/not registered/);
+  });
+});
+
+describe("scenario 7: create-portal-session ohne subscription-row → klarer error", () => {
+  test("Tenant ohne subscription → 'no active subscription'-error", async () => {
+    const admin = adminFor(3011);
+    const error = await stack.http.writeErr(
+      "subscription-foundation:write:create-portal-session",
+      { returnUrl: "https://example.com/return" },
+      admin,
+    );
+    expect(JSON.stringify(error)).toMatch(/no active subscription/);
+  });
+});
+
+describe("scenario 8: cancel-event setzt status auf canceled, behält subscription-row", () => {
   test("subscription.canceled event flippt status, subscription-row bleibt", async () => {
     const admin = adminFor(3008);
 

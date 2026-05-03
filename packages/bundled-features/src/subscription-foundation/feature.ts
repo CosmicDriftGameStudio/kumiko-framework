@@ -50,6 +50,8 @@ import {
 } from "@kumiko/framework/engine";
 import { SUBSCRIPTION_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
 import { subscriptionEntity, subscriptionEventEntity } from "./entities";
+import { createCheckoutSessionHandler } from "./handlers/create-checkout-session.write";
+import { createPortalSessionHandler } from "./handlers/create-portal-session.write";
 import { processEventHandler } from "./handlers/process-event.write";
 
 const sysadminAccess = { access: { roles: ["SystemAdmin"] } } as const;
@@ -76,8 +78,13 @@ export const subscriptionFoundationFeature: FeatureDefinition = defineFeature(
       },
     });
 
-    // Custom write-handler — programmatic entry-point für webhook-handler.
+    // Custom write-handlers:
+    //   - process-event: programmatic entry-point vom webhook-handler
+    //   - create-checkout-session: Tenant-Admin "Upgrade to Pro"-flow
+    //   - create-portal-session: Tenant-Admin "Manage Subscription"-flow
     r.writeHandler(processEventHandler);
+    r.writeHandler(createCheckoutSessionHandler);
+    r.writeHandler(createPortalSessionHandler);
 
     // Standard reads — sysadmin-cross-tenant via list. Tenant-self-service-
     // queries (current subscription, available providers, ...) kommen mit

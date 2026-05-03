@@ -93,6 +93,37 @@ export type SubscriptionProviderPlugin = {
   ) => Promise<SubscriptionEvent | null>;
 
   /**
+   * **Post-tenant-resolution** — wird aus dem
+   * `create-checkout-session`-write-handler gerufen. Plugin baut
+   * eine provider-eigene checkout-session und returnt die hosted-
+   * page-URL — Tenant-Admin wird dorthin redirected, schließt den
+   * Bezahl-Flow ab, Provider sendet `subscription.created`-webhook
+   * mit `metadata.tenantId` zurück.
+   *
+   * Optional: Apple-IAP hat keinen Web-Checkout (alles in der App).
+   * Apps die ausschließlich Apple-IAP nutzen lassen das weg.
+   */
+  readonly createCheckoutSession?: (
+    ctx: HandlerContext,
+    options: {
+      /** Provider-eigene price/plan-ID die der Endkunde abonniert. */
+      readonly priceId: string;
+      /** Plattform-Tenant-ID — landet als metadata im checkout-session
+       *  damit der subsequent webhook den tenant resolved (siehe
+       *  `verifyAndParseWebhook`'s metadata.tenantId-lookup). */
+      readonly tenantId: string;
+      /** Wo der Endkunde nach erfolgreichem checkout landed. */
+      readonly successUrl: string;
+      /** Wo der Endkunde landed wenn er abbricht. */
+      readonly cancelUrl: string;
+      /** Optional: existierende provider-customer-id wenn der Tenant
+       *  schon einen Account beim Provider hat. Sonst legt der Provider
+       *  beim checkout einen neuen customer an. */
+      readonly providerCustomerId?: string;
+    },
+  ) => Promise<{ readonly url: string }>;
+
+  /**
    * **Post-tenant-resolution** — wird aus einem write-handler gerufen
    * mit voll-aufgelöstem ctx. Erstellt einen self-service Portal-Link.
    * Stripe: customer-portal-session, Mollie: hosted-management-page.

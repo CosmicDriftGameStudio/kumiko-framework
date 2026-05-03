@@ -58,17 +58,26 @@ describe("subscription-stripe — plugin-registration", () => {
     ).toBe(true);
   });
 
-  test("plugin-options have a valid SubscriptionProviderPlugin shape (drift-pin)", () => {
-    // Stärker als nur "extension-usage existiert": wenn jemand
-    // verifyAndParseWebhook aus dem plugin-build entfernt würde der
-    // Multi-Provider-Webhook-Pfad zur Laufzeit als 401/Mystery-error
-    // brechen — type-check würde es nicht fangen weil die useExtension-
-    // options als `unknown` durchgereicht werden.
+  test("plugin-options have a valid SubscriptionProviderPlugin shape (drift-pin alle 4 methods)", () => {
+    // Stärker als nur "extension-usage existiert": wenn jemand eine der
+    // plugin-methods aus dem plugin-build entfernt, würde der
+    // entsprechende Foundation-write-handler zur Laufzeit als
+    // "method not supported"-error brechen — type-check würde es nicht
+    // fangen weil die useExtension-options als `unknown` durchgereicht
+    // werden.
     const feature = createSubscriptionStripeFeature(VALID_OPTIONS);
     const usage = feature.extensionUsages.find((u) => u.entityName === STRIPE_PROVIDER_NAME);
     expect(usage).toBeDefined();
-    const options = usage?.options as { verifyAndParseWebhook?: unknown };
+    const options = usage?.options as {
+      verifyAndParseWebhook?: unknown;
+      createCheckoutSession?: unknown;
+      createPortalSession?: unknown;
+      cancelSubscription?: unknown;
+    };
     expect(typeof options?.verifyAndParseWebhook).toBe("function");
+    expect(typeof options?.createCheckoutSession).toBe("function");
+    expect(typeof options?.createPortalSession).toBe("function");
+    expect(typeof options?.cancelSubscription).toBe("function");
   });
 });
 

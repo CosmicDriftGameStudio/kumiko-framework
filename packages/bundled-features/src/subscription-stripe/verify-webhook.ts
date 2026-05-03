@@ -12,23 +12,15 @@
 //   3. Stripe-payload → SubscriptionEvent normalisieren
 //      (status-mapping, tenant-id aus metadata, price-to-tier-Lookup).
 //
-// **PHASE-5.2a-LIMITATION — invoice-events kommen heute NICHT durch:**
-// `customer.subscription.created/updated/deleted` werden verarbeitet,
-// aber `invoice.paid` und `invoice.payment_failed` returnen heute null
-// (= silent ignored). Reason: Stripe-Webhooks senden bei invoice-events
-// nur die `subscription`-id als string, nicht das full subscription-
-// Object. Für die foundation brauchen wir das full sub-object (status,
-// tier, currentPeriodEnd). Phase 5.2b wird das via
-// `stripe.subscriptions.retrieve(...)` lazy-fetchen.
-//
-// **Konsequenz für App-Builder im Phase-5.2a-Mode:**
-// Renewals (= monatlicher Stripe-charge) updaten den `currentPeriodEnd`
-// in der DB nicht via invoice-events. Stripe sendet bei jedem renewal
-// aber auch `customer.subscription.updated` mit dem neuen period-end —
-// das reicht für tier-decisions. Wer auf invoice.paid als
-// "grace-period-cleared"-Signal angewiesen ist (= bei past_due tier
-// erst beim erfolgreichen invoice-payment zurück auf active flippen),
-// muss bis Phase 5.2b warten.
+// **Invoice-event lazy-fetch (Phase 5.2b):**
+// Bei `invoice.paid` und `invoice.payment_failed` enthält der webhook-
+// payload nur die subscription-id (Stripe-Webhooks expanden subscription
+// nicht automatisch). Plugin macht einen lazy-fetch via
+// `stripe.subscriptions.retrieve(subId)` um an das full subscription-
+// Object für status/tier/period-end-mapping zu kommen. Bei Stripe-API-
+// failure (= subscription gelöscht zwischen webhook + retrieve)
+// returnt der Plugin defensiv null — der nächste subscription-event
+// wird den state korrekt handhaben.
 
 import type { SubscriptionEvent } from "@kumiko/bundled-features/subscription-foundation";
 import {
@@ -97,8 +89,8 @@ export function verifyAndParseStripeWebhook(
     // 3. Payload-extraction. Stripe liefert je nach event.type
     //    verschiedene data.object-shapes. Wir extrahieren die
     //    Subscription-Daten — entweder direkt (subscription-events)
-    //    oder via .subscription-Reference (invoice-events).
-    const sub = extractSubscriptionFromEvent(event);
+    //    oder via lazy-fetch (invoice-events, Phase 5.2b).
+    const sub = await extractSubscriptionFromEvent(event, stripe);
     if (!sub) {
       // event-type war unter den 5 (oben gefiltert), aber payload-shape
       // matched nicht — Stripe-SDK-Schema-Drift, defensive null.
@@ -202,8 +194,13 @@ export function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): Subsc
 }
 
 /** Holt die Subscription aus dem Event. Subscription-events haben sie
- *  direkt im data.object; invoice-events haben sie in .subscription. */
-function extractSubscriptionFromEvent(event: Stripe.Event): Stripe.Subscription | null {
+ *  direkt im data.object; invoice-events haben nur die subscription-id
+ *  und brauchen einen lazy-fetch via stripe.subscriptions.retrieve
+ *  (Phase 5.2b). */
+async function extractSubscriptionFromEvent(
+  event: Stripe.Event,
+  stripe: Stripe,
+): Promise<Stripe.Subscription | null> {
   switch (event.type) {
     case StripeEventTypes.customerSubscriptionCreated:
     case StripeEventTypes.customerSubscriptionUpdated:
@@ -211,15 +208,28 @@ function extractSubscriptionFromEvent(event: Stripe.Event): Stripe.Subscription 
       return event.data.object as Stripe.Subscription;
     case StripeEventTypes.invoicePaid:
     case StripeEventTypes.invoicePaymentFailed: {
-      // invoice.subscription kann string-id, expanded object oder null
-      // sein. Für den webhook-flow brauchen wir das full subscription-
-      // object. Stripe-Webhooks expanden subscription nicht automatisch
-      // (= invoice.subscription ist string-id). In Phase 5.2b: lazy-
-      // fetch via stripe.subscriptions.retrieve. Heute returnen wir
-      // null und filtern damit alle invoice-events raus solange das
-      // nicht implementiert ist — das ist OK, subscription.created/
-      // updated/deleted decken den state-update-Pfad ab.
-      return null;
+      // Lazy-fetch der subscription. invoice.subscription ist eine
+      // string-id (Stripe-Webhooks expanden nicht auto). Wir holen das
+      // full subscription-Object damit der downstream-mapping
+      // (status, tier via priceId, period-end) konsistent funktioniert.
+      const invoice = event.data.object as Stripe.Invoice;
+      const subRef = (invoice as { subscription?: string | Stripe.Subscription | null })
+        .subscription;
+      if (!subRef) {
+        // Invoice ohne subscription-reference (= one-shot-invoice, nicht
+        // recurring). Nicht unsere Domain — ignorieren.
+        return null;
+      }
+      const subId = typeof subRef === "string" ? subRef : subRef.id;
+      try {
+        return await stripe.subscriptions.retrieve(subId);
+      } catch {
+        // Stripe-API-failure beim retrieve (z.B. subscription gelöscht
+        // zwischen webhook + retrieve). Defensive: null returnen, damit
+        // foundation 200 ignored returnt — der nächste subscription-
+        // event wird's korrekt handhaben.
+        return null;
+      }
     }
     default:
       return null;

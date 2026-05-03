@@ -37,7 +37,13 @@
 
 import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/subscription-foundation";
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import Stripe from "stripe";
 import { STRIPE_PROVIDER_NAME, SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
+import {
+  createStripeCancelSubscription,
+  createStripeCheckoutSession,
+  createStripePortalSession,
+} from "./plugin-methods";
 import { verifyAndParseStripeWebhook } from "./verify-webhook";
 
 export type SubscriptionStripeOptions = {
@@ -80,7 +86,15 @@ export function createSubscriptionStripeFeature(
     );
   }
 
+  // Ein Stripe-Client für alle plugin-methods (sig-verify nutzt einen
+  // eigenen, weil verify-webhook.ts sein eigenes Closure baut). Multiple
+  // Clients sind harmlos — kein hot-path-cost beim Plugin-build.
+  const stripe = new Stripe(options.apiKey, { apiVersion: "2026-04-22.dahlia" });
+
   const verifyAndParse = verifyAndParseStripeWebhook(options);
+  const checkoutSession = createStripeCheckoutSession(stripe);
+  const portalSession = createStripePortalSession(stripe);
+  const cancel = createStripeCancelSubscription(stripe);
 
   return defineFeature(SUBSCRIPTION_STRIPE_FEATURE, (r) => {
     // Hard-deps: subscription-foundation als plugin-host. KEIN
@@ -94,8 +108,9 @@ export function createSubscriptionStripeFeature(
     // path-segment in der webhook-URL (`/api/subscription/webhook/stripe`).
     const plugin: SubscriptionProviderPlugin = {
       verifyAndParseWebhook: verifyAndParse,
-      // createPortalSession + cancelSubscription kommen Phase 5.2b
-      // (zusammen mit dem create-checkout-session-write-handler).
+      createCheckoutSession: checkoutSession,
+      createPortalSession: portalSession,
+      cancelSubscription: cancel,
     };
     r.useExtension("subscriptionProvider", STRIPE_PROVIDER_NAME, plugin);
   });

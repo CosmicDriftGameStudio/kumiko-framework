@@ -11,6 +11,16 @@ export const SubscriptionFoundationHandlers = {
    *  parsed SubscriptionEvent (vom Plugin schon verifiziert) + macht
    *  insert-event + upsert-subscription + tier-sync atomic. */
   processEvent: "subscription-foundation:write:process-event",
+  /** Tenant-Admin klickt "Upgrade to Pro" → handler findet den
+   *  gewählten provider-plugin + ruft seine createCheckoutSession-
+   *  Methode + returnt die hosted-page-URL. Tenant-Admin wird dorthin
+   *  redirected, der subsequent provider-webhook erstellt die
+   *  subscription. */
+  createCheckoutSession: "subscription-foundation:write:create-checkout-session",
+  /** Tenant-Admin klickt "Manage Subscription" → handler findet
+   *  current subscription, ruft plugin.createPortalSession, returnt
+   *  hosted-portal-URL. */
+  createPortalSession: "subscription-foundation:write:create-portal-session",
 } as const;
 
 // Qualified query handler names. Standard-list-handler werden vom

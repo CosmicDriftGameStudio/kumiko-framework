@@ -180,13 +180,28 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
     expect(event?.status).toBe(SubscriptionStatuses.canceled);
   });
 
-  test("invoice.paid → null heute (wird Phase 5.2b nachgeliefert)", async () => {
-    // Drift-Pin: invoice-events brauchen lazy-fetch der subscription via
-    // stripe.subscriptions.retrieve. Heute nicht implementiert →
-    // extractSubscriptionFromEvent returnt null. Wenn jemand das einbaut
-    // ohne den Test anzupassen, würde der test failen + zwingt zur
-    // bewussten Phase-5.2b-Migration.
-    const payload = JSON.stringify(buildSubscriptionEvent({ eventType: "invoice.paid" }));
+  test("invoice-event ohne subscription-reference → null (one-shot-invoice)", async () => {
+    // Drift-Pin: Stripe one-shot-invoice (nicht recurring). Plugin
+    // versucht NICHT zu lazy-fetchen weil's keine sub-id zum fetchen
+    // gibt. Foundation 200 ignored.
+    const ev = {
+      id: "evt_invoice_oneshot",
+      object: "event",
+      api_version: "2026-04-22.dahlia",
+      created: 1_770_000_000,
+      type: "invoice.paid",
+      livemode: false,
+      pending_webhooks: 1,
+      request: { id: null, idempotency_key: null },
+      data: {
+        object: {
+          id: "in_001",
+          object: "invoice",
+          subscription: null,
+        },
+      },
+    };
+    const payload = JSON.stringify(ev);
     const sig = signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event).toBeNull();
