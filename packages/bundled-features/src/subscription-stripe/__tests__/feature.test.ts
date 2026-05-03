@@ -57,6 +57,19 @@ describe("subscription-stripe — plugin-registration", () => {
       ),
     ).toBe(true);
   });
+
+  test("plugin-options have a valid SubscriptionProviderPlugin shape (drift-pin)", () => {
+    // Stärker als nur "extension-usage existiert": wenn jemand
+    // verifyAndParseWebhook aus dem plugin-build entfernt würde der
+    // Multi-Provider-Webhook-Pfad zur Laufzeit als 401/Mystery-error
+    // brechen — type-check würde es nicht fangen weil die useExtension-
+    // options als `unknown` durchgereicht werden.
+    const feature = createSubscriptionStripeFeature(VALID_OPTIONS);
+    const usage = feature.extensionUsages.find((u) => u.entityName === STRIPE_PROVIDER_NAME);
+    expect(usage).toBeDefined();
+    const options = usage?.options as { verifyAndParseWebhook?: unknown };
+    expect(typeof options?.verifyAndParseWebhook).toBe("function");
+  });
 });
 
 describe("constants — Stripe-event-types die wir mappen", () => {

@@ -11,6 +11,24 @@
 //      returnt null (foundation antwortet 200 ignored).
 //   3. Stripe-payload → SubscriptionEvent normalisieren
 //      (status-mapping, tenant-id aus metadata, price-to-tier-Lookup).
+//
+// **PHASE-5.2a-LIMITATION — invoice-events kommen heute NICHT durch:**
+// `customer.subscription.created/updated/deleted` werden verarbeitet,
+// aber `invoice.paid` und `invoice.payment_failed` returnen heute null
+// (= silent ignored). Reason: Stripe-Webhooks senden bei invoice-events
+// nur die `subscription`-id als string, nicht das full subscription-
+// Object. Für die foundation brauchen wir das full sub-object (status,
+// tier, currentPeriodEnd). Phase 5.2b wird das via
+// `stripe.subscriptions.retrieve(...)` lazy-fetchen.
+//
+// **Konsequenz für App-Builder im Phase-5.2a-Mode:**
+// Renewals (= monatlicher Stripe-charge) updaten den `currentPeriodEnd`
+// in der DB nicht via invoice-events. Stripe sendet bei jedem renewal
+// aber auch `customer.subscription.updated` mit dem neuen period-end —
+// das reicht für tier-decisions. Wer auf invoice.paid als
+// "grace-period-cleared"-Signal angewiesen ist (= bei past_due tier
+// erst beim erfolgreichen invoice-payment zurück auf active flippen),
+// muss bis Phase 5.2b warten.
 
 import type { SubscriptionEvent } from "@kumiko/bundled-features/subscription-foundation";
 import {
