@@ -6,7 +6,20 @@
 // React-/DOM-Deps. Trennung bleibt sauber so wie renderer vs renderer-web.
 
 export { defaultTranslations } from "../i18n";
-export type { CurrentUserProfile, LoginFailure, LoginRequest, TenantSummary } from "./auth-client";
+export type {
+  CurrentUserProfile,
+  LoginFailure,
+  LoginRequest,
+  ResetPasswordFailure,
+  TenantSummary,
+  VerifyEmailFailure,
+} from "./auth-client";
+export {
+  requestEmailVerification,
+  requestPasswordReset,
+  resetPassword,
+  verifyEmail,
+} from "./auth-client";
 export { makeAuthGate } from "./auth-gate";
 export type {
   EmailPasswordClientFeature,
