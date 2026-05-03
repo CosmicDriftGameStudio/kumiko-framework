@@ -7,8 +7,10 @@ import {
 } from "@kumiko/framework/engine";
 import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query";
 import { addMemberWrite } from "./handlers/add-member.write";
+import { cancelInvitationWrite } from "./handlers/cancel-invitation.write";
 import { createWrite } from "./handlers/create.write";
 import { disableWrite } from "./handlers/disable.write";
+import { invitationsQuery } from "./handlers/invitations.query";
 import { listQuery } from "./handlers/list.query";
 import { meQuery } from "./handlers/me.query";
 import { membersQuery } from "./handlers/members.query";
@@ -17,6 +19,7 @@ import { removeMemberWrite } from "./handlers/remove-member.write";
 import { resolveUserIdsQuery } from "./handlers/resolve-user-ids.query";
 import { updateWrite } from "./handlers/update.write";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
+import { tenantInvitationEntity } from "./invitation-table";
 import { tenantMembershipEntity } from "./membership-table";
 import { tenantEntity } from "./schema/tenant";
 
@@ -30,6 +33,7 @@ export function createTenantFeature(): FeatureDefinition {
     r.requires("config");
     r.entity("tenant", tenantEntity);
     r.entity("tenant-membership", tenantMembershipEntity);
+    r.entity("tenant-invitation", tenantInvitationEntity);
 
     r.config({
       keys: {
@@ -86,6 +90,7 @@ export function createTenantFeature(): FeatureDefinition {
       addMember: r.writeHandler(addMemberWrite),
       removeMember: r.writeHandler(removeMemberWrite),
       updateMemberRoles: r.writeHandler(updateMemberRolesWrite),
+      cancelInvitation: r.writeHandler(cancelInvitationWrite),
     };
 
     // Queries
@@ -96,6 +101,7 @@ export function createTenantFeature(): FeatureDefinition {
       members: r.queryHandler(membersQuery),
       activeTenantIds: r.queryHandler(activeTenantIdsQuery),
       resolveUserIds: r.queryHandler(resolveUserIdsQuery),
+      invitations: r.queryHandler(invitationsQuery),
     };
 
     return { handlers, queries };

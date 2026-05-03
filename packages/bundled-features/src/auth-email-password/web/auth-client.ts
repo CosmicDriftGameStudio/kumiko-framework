@@ -36,7 +36,7 @@ export type LoginFailure = {
   readonly retryAfterSeconds?: number;
 };
 
-function csrfHeader(): Record<string, string> {
+export function csrfHeader(): Record<string, string> {
   const token = readCsrfToken();
   return token !== undefined ? { [CSRF_HEADER_NAME]: token } : {};
 }

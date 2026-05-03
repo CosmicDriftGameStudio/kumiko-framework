@@ -9,6 +9,7 @@ export const TenantHandlers = {
   addMember: "tenant:write:add-member",
   removeMember: "tenant:write:remove-member",
   updateMemberRoles: "tenant:write:update-member-roles",
+  cancelInvitation: "tenant:write:cancel-invitation",
 } as const;
 
 // Qualified query handler names (QN format: scope:type:name)
@@ -19,6 +20,8 @@ export const TenantQueries = {
   members: "tenant:query:members",
   activeTenantIds: "tenant:query:active-tenant-ids",
   resolveUserIds: "tenant:query:resolve-user-ids",
+  // Pending Invitations für den aktuellen Tenant (Admin-UI-Liste).
+  invitations: "tenant:query:invitations",
 } as const;
 
 // Error codes

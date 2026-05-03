@@ -7,11 +7,13 @@ export type {
   AuthMailLocale,
   RenderActivationEmailArgs,
   RenderedEmail,
+  RenderInviteEmailArgs,
   RenderResetPasswordEmailArgs,
   RenderVerifyEmailArgs,
 } from "./email-templates";
 export {
   renderActivationEmail,
+  renderInviteEmail,
   renderResetPasswordEmail,
   renderVerifyEmail,
 } from "./email-templates";
@@ -19,6 +21,7 @@ export type {
   AccountLockoutOptions,
   AuthEmailPasswordOptions,
   EmailVerificationOptions,
+  InviteOptions,
   PasswordResetOptions,
   SignupOptions,
 } from "./feature";

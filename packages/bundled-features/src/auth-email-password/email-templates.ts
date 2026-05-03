@@ -46,6 +46,14 @@ export type RenderActivationEmailArgs = {
   readonly appName?: string;
 };
 
+export type RenderInviteEmailArgs = {
+  readonly inviteUrl: string;
+  readonly expiresAt: string;
+  readonly role: string;
+  readonly locale?: AuthMailLocale;
+  readonly appName?: string;
+};
+
 export type RenderedEmail = {
   readonly subject: string;
   readonly html: string;
@@ -76,6 +84,14 @@ const STRINGS = {
     activationExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
     activationIgnore:
       "Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren — es wird kein Account erstellt, solange du den Link nicht öffnest.",
+    inviteSubject: (app: string) => `${app} — Einladung zum Workspace`,
+    inviteGreeting: "Hallo,",
+    inviteIntro: (app: string, role: string) =>
+      `du wurdest zu einem ${app}-Workspace als ${role} eingeladen. Klicke auf den folgenden Link, um die Einladung anzunehmen:`,
+    inviteButton: "Einladung annehmen",
+    inviteExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
+    inviteIgnore:
+      "Falls du diese Einladung nicht erwartet hast, kannst du diese E-Mail ignorieren.",
     fallbackUrl: "Falls der Button nicht funktioniert, kopiere diesen Link in den Browser:",
   },
   en: {
@@ -102,6 +118,13 @@ const STRINGS = {
     activationExpiry: (when: string) => `The link expires on ${when}.`,
     activationIgnore:
       "If you didn't sign up, you can ignore this email — no account is created until you open the link.",
+    inviteSubject: (app: string) => `${app} — Workspace invitation`,
+    inviteGreeting: "Hi,",
+    inviteIntro: (app: string, role: string) =>
+      `you've been invited to a ${app} workspace as ${role}. Click the link below to accept:`,
+    inviteButton: "Accept invitation",
+    inviteExpiry: (when: string) => `The link expires on ${when}.`,
+    inviteIgnore: "If you weren't expecting this invitation, you can ignore this email.",
     fallbackUrl: "If the button doesn't work, copy this link into your browser:",
   },
 } as const;
@@ -210,6 +233,22 @@ export function renderActivationEmail(args: RenderActivationEmailArgs): Rendered
     buttonUrl: args.activationUrl,
     expiry: t.activationExpiry(formatExpiry(args.expiresAt)),
     ignore: t.activationIgnore,
+    fallbackUrlLabel: t.fallbackUrl,
+  });
+}
+
+export function renderInviteEmail(args: RenderInviteEmailArgs): RenderedEmail {
+  const locale = args.locale ?? "en";
+  const appName = args.appName ?? (locale === "de" ? "Workspace" : "Workspace");
+  const t = STRINGS[locale];
+  return renderTokenEmail({
+    subject: t.inviteSubject(appName),
+    greeting: t.inviteGreeting,
+    intro: t.inviteIntro(appName, args.role),
+    buttonLabel: t.inviteButton,
+    buttonUrl: args.inviteUrl,
+    expiry: t.inviteExpiry(formatExpiry(args.expiresAt)),
+    ignore: t.inviteIgnore,
     fallbackUrlLabel: t.fallbackUrl,
   });
 }

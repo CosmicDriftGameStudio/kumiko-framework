@@ -29,6 +29,7 @@ import {
   AuthErrors,
   AuthHandlers,
   type EmailVerificationOptions,
+  type InviteOptions,
   type PasswordResetOptions,
   type SignupOptions,
 } from "@kumiko/bundled-features/auth-email-password";
@@ -153,6 +154,20 @@ export type SignupSetup = SignupOptions & {
   readonly appActivationUrl: string;
 };
 
+/** Wrapper-API für Tenant-Invite Magic-Link. Drei accept-Branches im
+ *  framework, der Wrapper reicht NUR die Mail-Side + appAcceptUrl
+ *  durch — handler-names sind hardcoded in run-prod-app aus
+ *  AuthHandlers (analog signup). */
+export type InviteSetup = InviteOptions & {
+  readonly sendInviteEmail: (args: {
+    email: string;
+    inviteUrl: string;
+    expiresAt: string;
+    role: string;
+  }) => Promise<void>;
+  readonly appAcceptUrl: string;
+};
+
 export type RunProdAppAuthOptions = {
   /** Initial admin user. Seeded once (idempotent — re-boots check first
    *  whether the email is already in the users table). */
@@ -181,6 +196,10 @@ export type RunProdAppAuthOptions = {
    *  Cookies wie ein erfolgreicher login (Auto-Login direkt nach
    *  Activation). */
   readonly signup?: SignupSetup;
+  /** Tenant-Invite flow (Magic-Link). When set, /api/auth/invite-accept,
+   *  /api/auth/invite-accept-with-login, /api/auth/invite-signup-complete
+   *  are mounted. */
+  readonly invite?: InviteSetup;
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -496,6 +515,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
             confirmHandler: AuthHandlers.signupConfirm,
             sendActivationEmail: options.auth.signup.sendActivationEmail,
             appActivationUrl: options.auth.signup.appActivationUrl,
+          },
+        }),
+        ...(options.auth.invite && {
+          invite: {
+            acceptHandler: AuthHandlers.inviteAccept,
+            acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
+            signupCompleteHandler: AuthHandlers.inviteSignupComplete,
+            sendInviteEmail: options.auth.invite.sendInviteEmail,
+            appAcceptUrl: options.auth.invite.appAcceptUrl,
           },
         }),
       },

@@ -34,6 +34,8 @@ export type { DefaultTopbarActionsProps } from "./default-topbar-actions";
 export { DefaultTopbarActions } from "./default-topbar-actions";
 export type { ForgotPasswordScreenProps } from "./forgot-password-screen";
 export { ForgotPasswordScreen } from "./forgot-password-screen";
+export type { InviteAcceptScreenProps } from "./invite-accept-screen";
+export { InviteAcceptScreen } from "./invite-accept-screen";
 export type { LoginScreenProps } from "./login-screen";
 export { LoginScreen } from "./login-screen";
 export type { ResetPasswordScreenProps } from "./reset-password-screen";
