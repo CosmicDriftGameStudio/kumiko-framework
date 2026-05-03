@@ -80,6 +80,20 @@ export function createSubscriptionMollieFeature(
     );
   }
 
+  // Drift-Guard: priceToTier + priceToConfig müssen identische Keys
+  // haben — sonst silent-null-returns aus verifyAndParseWebhook.
+  const tierKeys = new Set(Object.keys(options.priceToTier));
+  const configKeys = new Set(Object.keys(options.priceToConfig));
+  const missingInConfig = [...tierKeys].filter((k) => !configKeys.has(k));
+  const missingInTier = [...configKeys].filter((k) => !tierKeys.has(k));
+  if (missingInConfig.length > 0 || missingInTier.length > 0) {
+    throw new Error(
+      `subscription-mollie: priceToTier ↔ priceToConfig drift — ` +
+        `priceIds in tier but missing config: [${missingInConfig.join(", ")}]; ` +
+        `priceIds in config but missing tier: [${missingInTier.join(", ")}]`,
+    );
+  }
+
   const client = createMollieClient({ apiKey: options.apiKey });
 
   // Adapter um den Plugin's verify-fetch-client an den vollen Mollie-

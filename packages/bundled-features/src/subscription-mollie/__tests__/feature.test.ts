@@ -45,6 +45,34 @@ describe("createSubscriptionMollieFeature — module-load validation", () => {
       /webhookUrl is empty/,
     );
   });
+
+  test("throws bei priceToTier ↔ priceToConfig drift (priceId nur in tier)", () => {
+    expect(() =>
+      createSubscriptionMollieFeature({
+        ...VALID_OPTIONS,
+        priceToTier: { plan_pro: "pro", plan_business: "business" },
+        // plan_business fehlt in config
+      }),
+    ).toThrow(/missing config:.*plan_business/);
+  });
+
+  test("throws bei priceToTier ↔ priceToConfig drift (priceId nur in config)", () => {
+    expect(() =>
+      createSubscriptionMollieFeature({
+        ...VALID_OPTIONS,
+        priceToConfig: {
+          ...VALID_OPTIONS.priceToConfig,
+          plan_extra: {
+            amountValue: "29.99",
+            amountCurrency: "EUR",
+            interval: "1 month",
+            description: "Extra",
+          },
+        },
+        // plan_extra fehlt in tier
+      }),
+    ).toThrow(/missing tier:.*plan_extra/);
+  });
 });
 
 describe("subscription-mollie — plugin-registration", () => {

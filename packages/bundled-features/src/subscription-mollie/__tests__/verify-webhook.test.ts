@@ -327,6 +327,23 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
     const client = buildClient();
     expect(await verify(client)("id=sub_direct_evt", {})).toBeNull();
   });
+
+  test("subscription ohne nextPaymentDate UND ohne startDate → throws (Mollie-API-Drift)", async () => {
+    const client = buildClient({
+      subResolve: buildMockSubscription({ nextPaymentDate: null, startDate: null }),
+    });
+    await expect(verify(client)("id=tr_no_dates", {})).rejects.toThrow(
+      /has neither nextPaymentDate nor startDate/,
+    );
+  });
+
+  test("malformed nextPaymentDate (z.B. 'invalid') → throws (Mollie-API-Drift)", async () => {
+    const client = buildClient({
+      subResolve: buildMockSubscription({ nextPaymentDate: "garbage-date" }),
+    });
+    // Temporal.Instant.from wirft RangeError bei malformed input.
+    await expect(verify(client)("id=tr_bad_date", {})).rejects.toThrow();
+  });
 });
 
 // =============================================================================
