@@ -30,7 +30,28 @@ import {
   createTimestampField,
 } from "@kumiko/framework/engine";
 
-export const INVITATION_STATUSES = ["pending", "accepted", "cancelled", "expired"] as const;
+// Status-const-Object damit Handler-Code keine Magic-Strings nutzt.
+// Bei rename (z.B. "cancelled" → "revoked") fällt jeder caller auf
+// einmal auf statt verstreut über 5 Stellen.
+export const INVITATION_STATUS = {
+  pending: "pending",
+  accepted: "accepted",
+  cancelled: "cancelled",
+  expired: "expired",
+} as const;
+export type InvitationStatus = (typeof INVITATION_STATUS)[keyof typeof INVITATION_STATUS];
+
+// Order MUSS bit-identisch zur DB-Migration sein. Object.values
+// bewahrt insertion-order (JS-spec-stable für string-keys). Wenn
+// jemand INVITATION_STATUS reordnet, generiert drizzle-kit eine
+// neue Migration. Hardcoded-Tuple zur Sicherheit gegen versehentliches
+// Refactoring der Object-Keys.
+export const INVITATION_STATUSES = [
+  INVITATION_STATUS.pending,
+  INVITATION_STATUS.accepted,
+  INVITATION_STATUS.cancelled,
+  INVITATION_STATUS.expired,
+] as const;
 
 export const tenantInvitationEntity = createEntity({
   table: "read_tenant_invitations",

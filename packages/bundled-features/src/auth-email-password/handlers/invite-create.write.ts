@@ -22,7 +22,11 @@ import { eq } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link-Pattern), DB-row-owner ist tenant-feature
-import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
+import {
+  INVITATION_STATUS,
+  tenantInvitationEntity,
+  tenantInvitationsTable,
+} from "../../tenant/invitation-table";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants";
 import { getTokenForInvitation, storeInviteToken } from "../invite-token-store";
 
@@ -96,9 +100,9 @@ export function createInviteCreateHandler(opts: InviteCreateOptions = {}) {
             version: existingVersion,
             changes: {
               role: event.payload.role,
-              status: "pending",
+              status: INVITATION_STATUS.pending,
               invitedBy: event.user.id,
-              expiresAt: expiresAt.epochMilliseconds,
+              expiresAt,
             },
           },
           event.user,
@@ -110,9 +114,9 @@ export function createInviteCreateHandler(opts: InviteCreateOptions = {}) {
           {
             email,
             role: event.payload.role,
-            status: "pending",
+            status: INVITATION_STATUS.pending,
             invitedBy: event.user.id,
-            expiresAt: expiresAt.epochMilliseconds,
+            expiresAt,
           },
           event.user,
           ctx.db,

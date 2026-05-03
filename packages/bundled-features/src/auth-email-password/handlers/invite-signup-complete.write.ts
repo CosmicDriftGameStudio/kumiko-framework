@@ -33,7 +33,11 @@ import { InternalError, UnprocessableError, writeFailure } from "@kumiko/framewo
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow
-import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
+import {
+  INVITATION_STATUS,
+  tenantInvitationEntity,
+  tenantInvitationsTable,
+} from "../../tenant/invitation-table";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { seedUserWithPassword } from "../seeding";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add
@@ -103,7 +107,8 @@ export function createInviteSignupCompleteHandler() {
           tenantInvitationsTable,
           eq(tenantInvitationsTable.id, invitationId),
         );
-        if (!invitation || invitation["status"] !== "pending") return invalidInviteToken();
+        if (!invitation || invitation["status"] !== INVITATION_STATUS.pending)
+          return invalidInviteToken();
 
         const invitationTenantId = invitation["tenantId"] as TenantId;
         const invitationEmail = invitation["email"] as string;
@@ -148,7 +153,7 @@ export function createInviteSignupCompleteHandler() {
           {
             id: invitationId,
             version: invitationVersion,
-            changes: { status: "accepted" },
+            changes: { status: INVITATION_STATUS.accepted },
           },
           createSystemUser(invitationTenantId),
           invitationTdb,

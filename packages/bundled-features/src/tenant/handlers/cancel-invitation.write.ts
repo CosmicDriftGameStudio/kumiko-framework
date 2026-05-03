@@ -20,7 +20,11 @@ import {
   deleteInviteToken,
   getTokenForInvitation,
 } from "../../auth-email-password/invite-token-store";
-import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table";
+import {
+  INVITATION_STATUS,
+  tenantInvitationEntity,
+  tenantInvitationsTable,
+} from "../invitation-table";
 
 const CancelInvitationSchema = z.object({
   invitationId: z.string(),
@@ -49,7 +53,7 @@ export const cancelInvitationWrite = defineWriteHandler({
     }
 
     // Idempotent: schon !pending → no-op success.
-    if (invitation["status"] !== "pending") {
+    if (invitation["status"] !== INVITATION_STATUS.pending) {
       return { isSuccess: true, data: { id: event.payload.invitationId, alreadyDone: true } };
     }
 
@@ -58,7 +62,7 @@ export const cancelInvitationWrite = defineWriteHandler({
       {
         id: event.payload.invitationId,
         version: invitation["version"] as number,
-        changes: { status: "cancelled" },
+        changes: { status: INVITATION_STATUS.cancelled },
       },
       event.user,
       ctx.db,
