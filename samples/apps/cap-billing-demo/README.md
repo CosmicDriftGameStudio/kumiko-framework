@@ -46,23 +46,29 @@ Mails landen in einem **In-Memory-Transport** (`mail-transport-inmemory`). Es gi
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Try it (ohne dev-server)
+## Demo-Story als Test
 
-Das Sample hat einen Integration-Test der die Demo-Story durchspielt:
+Die kompletteste Doku der Demo ist der Integration-Test selbst:
 
 ```bash
 yarn vitest run --config vitest.integration.config.ts samples/apps/cap-billing-demo
 ```
 
-Der Test fährt den vollen Dispatcher + DB hoch, bootstrapped einen free-Tenant und einen pro-Tenant, sendet Newsletter bis zum Cap-Hit und prüft dass:
+`src/__tests__/cap-billing-demo.integration.ts` fährt den vollen
+Dispatcher + DB hoch und beweist Schritt-für-Schritt:
+
 - 10 Newsletter senden ohne Warning
 - 12. Newsletter triggered einmalig die Soft-Hit-Notification
-- 13. Newsletter wird hart geblockt (CapExceededError → 5xx)
-- Pro-Tenant nicht von Free-Tenant's Cap betroffen ist
+- 13. Newsletter wird hart geblockt (CapExceededError)
+- Pro-Tenant nicht von Free-Tenant's Cap betroffen
+- **Tier-Wechsel mid-period:** free→pro upgrade lässt counter
+  intakt + nutzt sofort den höheren Cap (= echter Stripe-Webhook-
+  Pfad). pro→free downgrade blockiert sofort wenn counter über dem
+  neuen hard-limit liegt.
 
-Lies die Test-Datei `src/__tests__/cap-billing-demo.integration.ts` — sie ist die kompletteste Doku der Demo-Story.
+Lies die Test-Datei oben-nach-unten — sie ist als living-doc geschrieben.
 
-## Try it (mit dev-server, optional)
+## Lokal laufen lassen
 
 ```bash
 yarn kumiko dev      # Postgres + Redis hochfahren
@@ -71,22 +77,25 @@ cd samples/apps/cap-billing-demo
 yarn dev             # → http://localhost:4290
 ```
 
-Login: `admin@cap-demo.local` / `changeme`. Dann via curl:
+| Login | Wert |
+|-------|------|
+| URL | `http://localhost:4290` |
+| Email | `admin@cap-demo.local` |
+| Passwort | `changeme` |
+| Tenant | "Cap-Billing-Demo" |
 
-```bash
-# Provider auswählen + Tier setzen (admin-Token aus dem Browser)
-curl -X POST localhost:4290/api/write -H 'Content-Type: application/json' \
-  -d '{"type":"config:write:set","payload":{"key":"mail-foundation:config:provider","value":"inmemory"}}'
+Im Browser kannst du via Designer/Admin-UI den config-key
+`newsletter:config:tier` auf `"free"` oder `"pro"` setzen und den
+`newsletter:write:send`-Handler triggern. Die "versendeten" Mails
+landen in `getInbox(tenantId)` aus
+`@kumiko/bundled-features/mail-transport-inmemory` — es gibt keinen
+HTTP-Endpoint dafür, weil das Sample die Architektur zeigt, nicht
+ein Inbox-UI.
 
-curl -X POST localhost:4290/api/write -H 'Content-Type: application/json' \
-  -d '{"type":"config:write:set","payload":{"key":"newsletter:config:tier","value":"free"}}'
-
-# Newsletter senden — bis zum Cap
-curl -X POST localhost:4290/api/write -H 'Content-Type: application/json' \
-  -d '{"type":"newsletter:write:send","payload":{"to":"a@x.de","subject":"Hi","html":"<p>Test</p>"}}'
-```
-
-Inbox abrufen: gibt's keinen HTTP-Endpoint dafür im Demo. Der Test-Code zeigt das Pattern (`getInbox(tenantId)` aus `@kumiko/bundled-features/mail-transport-inmemory`).
+Wer's klick-bar will: schreib einen kleinen `r.queryHandler("inbox:
+list")` der `getInbox(ctx.user.tenantId)` returnt. ~20 LOC,
+absichtlich nicht im Sample drin um den Fokus auf cap+tier zu
+halten.
 
 ## Wie übertrage ich das auf eine echte App?
 

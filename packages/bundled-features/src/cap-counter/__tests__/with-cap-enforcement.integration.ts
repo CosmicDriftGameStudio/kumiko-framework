@@ -223,4 +223,43 @@ describe("withRollingCapEnforcement — rolling", () => {
     expect(JSON.stringify(error)).toMatch(/CapExceededError/);
     expect(sendCallCount).toBe(6); // handler wurde NICHT erneut aufgerufen
   });
+
+  test("failed handler: kein increment-rolling-event hinzugefügt (cap-quota nicht verbrannt)", async () => {
+    // Symmetrisch zum calendar-Test "failed handler: counter NICHT
+    // inkrementiert". Beweist dass der rolling-Wrapper denselben
+    // Atomicity-Vertrag erfüllt: nur erfolgreiche handler verbrennen
+    // quota.
+    resetState();
+    const admin = adminFor(1303);
+
+    // 1. send: success → increment-rolling-event #1
+    await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "first@x.de" }, admin);
+    expect(sendCallCount).toBe(1);
+
+    // 2. send: handler wirft → kein increment-rolling-event
+    failNextSend = true;
+    await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "fail@x.de" }, admin);
+    expect(sendCallCount).toBe(2);
+
+    // 3. send: success → increment-rolling-event #2 (Drift-Pin: counter
+    // steht bei 2, NICHT bei 3 — der gescheiterte send #2 hat keine
+    // quota verbrannt). Wir treiben den counter bis genau hard-1, das
+    // funktioniert NUR wenn #2 nicht gezählt wurde.
+    for (let i = 0; i < 4; i++) {
+      await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: `s-${i}@x.de` }, admin);
+    }
+    expect(sendCallCount).toBe(6);
+
+    // 7. send (= hard@6): blockiert. counter steht bei 5 (1 + 4),
+    // pre-call sieht 5 < hard@6 → handler läuft + increment, counter
+    // steigt auf 6. Direkt danach blockiert der nächste send.
+    // Wenn der gescheiterte send fälschlich gezählt hätte, wäre der
+    // counter schon bei 6 und der jetzt-erlaubte send würde blockieren.
+    await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "last-allowed@x.de" }, admin);
+    expect(sendCallCount).toBe(7);
+
+    const blocked = await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "blocked@x.de" }, admin);
+    expect(JSON.stringify(blocked)).toMatch(/CapExceededError/);
+    expect(sendCallCount).toBe(7); // wrapper hat den blockierten handler NICHT gerufen
+  });
 });

@@ -24,7 +24,6 @@
 // Demo macht's der TenantAdmin per config:write:set-Handler.
 
 import {
-  CapCounterHandlers,
   currentCalendarMonthStartIso,
   type SoftHitNotifier,
   withCapEnforcement,
@@ -172,6 +171,3 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
  *  Hand-Ableitung zugreifen. */
 export const NEWSLETTER_SEND_QN = "newsletter:write:send";
 export const NEWSLETTER_TIER_CONFIG_KEY = "newsletter:config:tier";
-
-/** Re-export der Cap-Konstante für Tests die direkt incrementen. */
-export { CapCounterHandlers, NEWSLETTER_CAP };

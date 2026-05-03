@@ -260,3 +260,81 @@ describe("cap-billing-demo: tenant-isolation", () => {
     expect(inboxOf(pro)).toHaveLength(1);
   });
 });
+
+// =============================================================================
+// Tier-Wechsel mid-period (= eigentliche Value-Prop von tier-engine)
+// =============================================================================
+//
+// Hier passiert genau das was Stripe-Webhook später triggert: ein
+// Tenant ist auf free, hit den soft-Cap (11 mails), upgraded zu pro,
+// kann sofort weitersenden — der counter-state bleibt erhalten (gleiche
+// period, gleiche aggregate-id) aber das limit wird neu aufgelöst.
+
+describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
+  test("free→pro upgrade: counter bleibt, neuer cap greift sofort", async () => {
+    const tenant = adminFor(2301);
+    clearInbox(tenant.tenantId);
+    await selectInMemoryMail(tenant);
+    await setTier(tenant, "free");
+
+    // 11 sends bei free: counter steigt auf 11, beim 12. send wird's
+    // soft-hit-fired (= counter at soft@11 + 1 für den 12. send selbst).
+    for (let i = 1; i <= 11; i++) {
+      await sendNewsletter(tenant, `recipient-${i}@x.de`, i);
+    }
+    // 12. send → soft-hit-Warning feuert (counter pre-call=11 ≥ soft@11)
+    await sendNewsletter(tenant, "recipient-12@x.de", 12);
+
+    let inbox = inboxOf(tenant);
+    let warnings = inbox.filter((m) => m.subject.startsWith("[Cap Warning]"));
+    expect(warnings).toHaveLength(1);
+
+    // *** Tier-Wechsel ***
+    await setTier(tenant, "pro");
+
+    // counter steht bei 12. Bei pro: limit=100, soft=110, hard=120.
+    // 12 < soft@110 → ok-Bereich. KEINE neue Warning beim nächsten send.
+    // (Drift-Pin: hätte ein Refactor versehentlich den counter beim
+    // Tier-Wechsel resettet, würde der Tenant unvermutet 100+12 mails
+    // senden können — diese Wahrheit pin'd der Test.)
+    await sendNewsletter(tenant, "recipient-13@x.de", 13);
+
+    inbox = inboxOf(tenant);
+    warnings = inbox.filter((m) => m.subject.startsWith("[Cap Warning]"));
+    expect(warnings).toHaveLength(1); // unverändert — kein neuer warn
+
+    // Drift-Pin: 12 newsletter (1-12) + 1 warning + 1 newsletter (13)
+    // = 14 mails total. Tier-Wechsel hat NICHT die period zurückgesetzt.
+    expect(inbox).toHaveLength(14);
+  });
+
+  test("pro→free downgrade: existing counter kann sofort hard-hit auslösen", async () => {
+    const tenant = adminFor(2302);
+    clearInbox(tenant.tenantId);
+    await selectInMemoryMail(tenant);
+    await setTier(tenant, "pro");
+
+    // 15 sends bei pro: counter steigt auf 15, weit unter pro-soft@110.
+    for (let i = 1; i <= 15; i++) {
+      await sendNewsletter(tenant, `recipient-${i}@x.de`, i);
+    }
+    expect(inboxOf(tenant)).toHaveLength(15);
+
+    // *** Downgrade zu free ***
+    await setTier(tenant, "free");
+
+    // counter=15, free.hard=12 → 15 ≥ 12 = SOFORT hard-blocked beim
+    // nächsten send. Edge-case der zeigt: tier kann nach unten resettet
+    // werden ohne den counter zu touchen — User merkt sofort dass er
+    // über dem neuen cap ist.
+    const error = await stack.http.writeErr(
+      NEWSLETTER_SEND_QN,
+      { to: "after-downgrade@x.de", subject: "X", html: "<p>n/a</p>" },
+      tenant,
+    );
+    expect(JSON.stringify(error)).toMatch(/CapExceededError/);
+
+    // Inbox unverändert: blockierter send hat nichts hinzugefügt.
+    expect(inboxOf(tenant)).toHaveLength(15);
+  });
+});
