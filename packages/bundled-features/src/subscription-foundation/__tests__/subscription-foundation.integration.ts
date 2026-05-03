@@ -12,6 +12,7 @@
 // einem separaten Test mit Hono-mock geprüft.
 
 import type { DbConnection } from "@kumiko/framework/db";
+import { defineFeature } from "@kumiko/framework/engine";
 import { createEventsTable } from "@kumiko/framework/event-store";
 import {
   createEntityTable,
@@ -29,6 +30,48 @@ import {
 } from "../constants";
 import { subscriptionEntity, subscriptionEventEntity } from "../entities";
 import { subscriptionFoundationFeature } from "../feature";
+import type { SubscriptionProviderPlugin } from "../types";
+
+// =============================================================================
+// Mock-plugin für create-checkout-session + create-portal-session-Tests.
+// **Pattern-Vorbild:** ai-foundation.integration.ts mit zwei inline-mock-
+// plugins. Vermeidet zweiten beforeAll/setupTestStack — selber stack,
+// einfach extra-feature im features-array.
+// =============================================================================
+
+const mockCheckoutCalls: Array<{
+  priceId: string;
+  tenantId: string;
+  successUrl: string;
+  cancelUrl: string;
+  providerCustomerId?: string;
+}> = [];
+const mockPortalCalls: Array<{ providerCustomerId: string; returnUrl: string }> = [];
+
+const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
+  r.requires("subscription-foundation");
+  const plugin: SubscriptionProviderPlugin = {
+    verifyAndParseWebhook: async () => null,
+    createCheckoutSession: async (_ctx, options) => {
+      mockCheckoutCalls.push({
+        priceId: options.priceId,
+        tenantId: options.tenantId,
+        successUrl: options.successUrl,
+        cancelUrl: options.cancelUrl,
+        ...(options.providerCustomerId && { providerCustomerId: options.providerCustomerId }),
+      });
+      return { url: `https://mock.example/checkout/${options.priceId}` };
+    },
+    createPortalSession: async (_ctx, options) => {
+      mockPortalCalls.push({
+        providerCustomerId: options.providerCustomerId,
+        returnUrl: options.returnUrl,
+      });
+      return { url: `https://mock.example/portal/${options.providerCustomerId}` };
+    },
+  };
+  r.useExtension("subscriptionProvider", "mock", plugin);
+});
 
 // =============================================================================
 // Setup
@@ -39,7 +82,7 @@ let db: DbConnection;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [subscriptionFoundationFeature],
+    features: [subscriptionFoundationFeature, mockProviderFeature],
   });
   db = stack.db;
   await createEntityTable(db, subscriptionEntity);
@@ -370,6 +413,36 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
 // =============================================================================
 
 describe("scenario 6: create-checkout-session — Plugin-routing", () => {
+  test("happy-path: valid provider → URL durchgereicht + plugin mit korrekten args aufgerufen", async () => {
+    mockCheckoutCalls.length = 0;
+    const admin = adminFor(3009);
+    const result = (await stack.http.writeOk(
+      "subscription-foundation:write:create-checkout-session",
+      {
+        providerName: "mock",
+        priceId: "price_pro_test",
+        successUrl: "https://example.com/success",
+        cancelUrl: "https://example.com/cancel",
+      },
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(result["url"]).toBe("https://mock.example/checkout/price_pro_test");
+    expect(result["providerName"]).toBe("mock");
+
+    // Drift-pin: foundation-handler reicht alle payload-Felder + die
+    // resolved tenantId an den Plugin durch. Wenn jemand silent
+    // umbenennt (z.B. successUrl → success_url im handler), würde
+    // mockCheckoutCalls die alten Felder vermissen.
+    expect(mockCheckoutCalls).toHaveLength(1);
+    expect(mockCheckoutCalls[0]).toEqual({
+      priceId: "price_pro_test",
+      tenantId: admin.tenantId,
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+    });
+  });
+
   test("provider not registered → klarer error mit known-list", async () => {
     const admin = adminFor(3010);
     const error = await stack.http.writeErr(
@@ -384,9 +457,65 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     );
     expect(JSON.stringify(error)).toMatch(/not registered/);
   });
+
+  test("optional providerCustomerId wird durchgereicht (Plan-Wechsel-Flow)", async () => {
+    mockCheckoutCalls.length = 0;
+    const admin = adminFor(3012);
+    await stack.http.writeOk(
+      "subscription-foundation:write:create-checkout-session",
+      {
+        providerName: "mock",
+        priceId: "price_business_test",
+        successUrl: "https://example.com/s",
+        cancelUrl: "https://example.com/c",
+        providerCustomerId: "cus_existing_xyz",
+      },
+      admin,
+    );
+    expect(mockCheckoutCalls[0]?.providerCustomerId).toBe("cus_existing_xyz");
+  });
 });
 
-describe("scenario 7: create-portal-session ohne subscription-row → klarer error", () => {
+describe("scenario 7: create-portal-session — Plugin-routing", () => {
+  test("happy-path: tenant hat subscription → portal-URL durchgereicht", async () => {
+    mockPortalCalls.length = 0;
+    const admin = adminFor(3013);
+
+    // Erst: subscription via process-event erzeugen — providerName "mock"
+    // damit Foundation-handler den Plugin via lookup findet.
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      {
+        ...buildEvent({
+          providerEventId: "evt_3013_create",
+          providerCustomerId: "cus_3013",
+          providerSubscriptionId: "sub_3013",
+        }),
+        providerName: "mock",
+      },
+      admin,
+    );
+
+    const result = (await stack.http.writeOk(
+      "subscription-foundation:write:create-portal-session",
+      { returnUrl: "https://example.com/return" },
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(result["url"]).toBe("https://mock.example/portal/cus_3013");
+    expect(result["providerName"]).toBe("mock");
+
+    // Drift-pin: portal-handler liest providerCustomerId AUS DER DB
+    // (subscription-row), nicht aus der payload. Wenn ein Refactor das
+    // umstellt (= Tenant könnte fremde portal-sessions öffnen), würde
+    // mockPortalCalls den falschen customer-id sehen.
+    expect(mockPortalCalls).toHaveLength(1);
+    expect(mockPortalCalls[0]).toEqual({
+      providerCustomerId: "cus_3013",
+      returnUrl: "https://example.com/return",
+    });
+  });
+
   test("Tenant ohne subscription → 'no active subscription'-error", async () => {
     const admin = adminFor(3011);
     const error = await stack.http.writeErr(

@@ -5,7 +5,14 @@
 // SubscriptionProviderPlugin registriert. Anders als
 // verifyAndParseWebhook (= pre-tenant) bekommen diese den vollen
 // HandlerContext (für ggf. tenant-spezifische Lookups).
+//
+// **Type-Ableitung:** die options-shapes der drei methods werden
+// **direkt vom Plugin-Contract** abgeleitet (`Parameters<NonNullable
+// <SubscriptionProviderPlugin["...method"]>>[1]`). Wenn Foundation den
+// Contract erweitert (z.B. neuer optionaler Field), bemerkt der
+// Stripe-Plugin das beim TS-Compile, nicht erst zur Laufzeit.
 
+import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/subscription-foundation";
 import type { HandlerContext } from "@kumiko/framework/engine";
 import type Stripe from "stripe";
 
@@ -19,13 +26,9 @@ import type Stripe from "stripe";
 // `metadata.tenantId` zurück — das ist wie der subsequent webhook den
 // Tenant resolved.
 
-export type StripeCheckoutOptions = {
-  readonly priceId: string;
-  readonly tenantId: string;
-  readonly successUrl: string;
-  readonly cancelUrl: string;
-  readonly providerCustomerId?: string;
-};
+export type StripeCheckoutOptions = Parameters<
+  NonNullable<SubscriptionProviderPlugin["createCheckoutSession"]>
+>[1];
 
 export function createStripeCheckoutSession(stripe: Stripe) {
   return async (_ctx: HandlerContext, options: StripeCheckoutOptions): Promise<{ url: string }> => {
@@ -59,10 +62,9 @@ export function createStripeCheckoutSession(stripe: Stripe) {
 // Stripe Customer-Portal-Session — Tenant verwaltet seine subscription
 // selbst (cancel, payment-method, invoice-history).
 
-export type StripePortalOptions = {
-  readonly providerCustomerId: string;
-  readonly returnUrl: string;
-};
+export type StripePortalOptions = Parameters<
+  NonNullable<SubscriptionProviderPlugin["createPortalSession"]>
+>[1];
 
 export function createStripePortalSession(stripe: Stripe) {
   return async (_ctx: HandlerContext, options: StripePortalOptions): Promise<{ url: string }> => {

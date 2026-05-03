@@ -92,6 +92,27 @@ describe("createStripeCheckoutSession", () => {
       }),
     ).rejects.toThrow(/returned no url/);
   });
+
+  test("Stripe-API-failure (z.B. 500 / network) → propagated zum Caller (Foundation mapped auf 500)", async () => {
+    // Drift-Pin: Plugin schluckt KEINE Stripe-Errors. Foundation
+    // verlässt sich darauf dass create-checkout-session-handler einen
+    // throw kriegt + zur HTTP 500 mapped (transient — Provider/Stripe
+    // soll retried werden statt silent-success-mit-leerer-URL).
+    const stripe = buildStripe();
+    vi.spyOn(stripe.checkout.sessions, "create").mockRejectedValue(
+      new Error("Stripe API: Internal server error"),
+    );
+
+    const checkout = createStripeCheckoutSession(stripe);
+    await expect(
+      checkout(stubCtx, {
+        priceId: "p",
+        tenantId: "t",
+        successUrl: "https://x/s",
+        cancelUrl: "https://x/c",
+      }),
+    ).rejects.toThrow(/Internal server error/);
+  });
 });
 
 // =============================================================================

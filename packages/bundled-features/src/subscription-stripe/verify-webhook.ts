@@ -29,7 +29,7 @@ import {
   type SubscriptionStatus,
   SubscriptionStatuses,
 } from "@kumiko/bundled-features/subscription-foundation";
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import { STRIPE_PROVIDER_NAME, StripeEventTypes } from "./constants";
 
 // =============================================================================
@@ -41,10 +41,6 @@ export type StripeWebhookOptions = {
    *  per-tenant. Liest aus ENV-VAR oder system-config beim Plugin-
    *  build. */
   readonly webhookSecret: string;
-  /** Stripe-API-key (sk_live_... / sk_test_...). Wird hier nicht für
-   *  sig-verify gebraucht aber weitergereicht für Phase 5.2b
-   *  (createPortalSession etc). */
-  readonly apiKey: string;
   /** Price-to-tier-Map. Plugin liest die price-id aus dem event und
    *  mapped auf tier-name. Fehlt die price-id im Mapping → null. */
   readonly priceToTier: Readonly<Record<string, string>>;
@@ -52,17 +48,19 @@ export type StripeWebhookOptions = {
 
 /**
  * Stripe-webhook-handler. Implementiert den Plugin-Contract
- * `verifyAndParseWebhook`. Closure über die `options` (kein ctx-arg —
- * das ist die Pre-tenant-resolution-Phase).
+ * `verifyAndParseWebhook`. Closure über die `options` + den shared
+ * Stripe-Client (kein ctx-arg — das ist die Pre-tenant-resolution-Phase).
+ *
+ * **Shared Stripe-Client:** Der Caller (feature.ts) baut EINEN Stripe-
+ * Client beim mount und gibt ihn an alle vier plugin-methods weiter.
+ * Konstruktor-API-version-pin ist damit zentral; verify-webhook nutzt
+ * den client für `webhooks.constructEvent` (sig-verify) + lazy-fetch
+ * der invoice-events.
  */
 export function verifyAndParseStripeWebhook(
+  stripe: Stripe,
   options: StripeWebhookOptions,
 ): (rawBody: string, headers: Record<string, string>) => Promise<SubscriptionEvent | null> {
-  // Stripe-client für constructEvent. apiVersion explizit pinnen damit
-  // der Plugin nicht silent breaks wenn Stripe-SDK ihre default-version
-  // bumpt.
-  const stripe = new Stripe(options.apiKey, { apiVersion: "2026-04-22.dahlia" });
-
   return async (rawBody, headers) => {
     const sigHeader = headers["stripe-signature"];
     if (!sigHeader) {

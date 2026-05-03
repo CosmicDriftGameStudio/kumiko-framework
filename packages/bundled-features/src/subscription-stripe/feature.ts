@@ -86,12 +86,15 @@ export function createSubscriptionStripeFeature(
     );
   }
 
-  // Ein Stripe-Client für alle plugin-methods (sig-verify nutzt einen
-  // eigenen, weil verify-webhook.ts sein eigenes Closure baut). Multiple
-  // Clients sind harmlos — kein hot-path-cost beim Plugin-build.
+  // EIN Stripe-Client für alle vier plugin-methods (verify-webhook +
+  // checkout + portal + cancel). API-version-pin zentral, kein
+  // Connection-Duplikat.
   const stripe = new Stripe(options.apiKey, { apiVersion: "2026-04-22.dahlia" });
 
-  const verifyAndParse = verifyAndParseStripeWebhook(options);
+  const verifyAndParse = verifyAndParseStripeWebhook(stripe, {
+    webhookSecret: options.webhookSecret,
+    priceToTier: options.priceToTier,
+  });
   const checkoutSession = createStripeCheckoutSession(stripe);
   const portalSession = createStripePortalSession(stripe);
   const cancel = createStripeCancelSubscription(stripe);

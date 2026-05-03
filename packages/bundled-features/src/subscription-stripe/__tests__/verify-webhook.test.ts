@@ -95,9 +95,8 @@ function signEvent(payload: string, secret = TEST_SECRET): string {
 // =============================================================================
 
 describe("verifyAndParseStripeWebhook — sig-verify", () => {
-  const verify = verifyAndParseStripeWebhook({
+  const verify = verifyAndParseStripeWebhook(stripeForFixtures, {
     webhookSecret: TEST_SECRET,
-    apiKey: TEST_API_KEY,
     priceToTier: { price_pro_monthly: "pro" },
   });
 
@@ -143,9 +142,8 @@ describe("verifyAndParseStripeWebhook — sig-verify", () => {
 // =============================================================================
 
 describe("verifyAndParseStripeWebhook — event-filter", () => {
-  const verify = verifyAndParseStripeWebhook({
+  const verify = verifyAndParseStripeWebhook(stripeForFixtures, {
     webhookSecret: TEST_SECRET,
-    apiKey: TEST_API_KEY,
     priceToTier: { price_pro_monthly: "pro" },
   });
 
@@ -213,9 +211,8 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
 // =============================================================================
 
 describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", () => {
-  const verify = verifyAndParseStripeWebhook({
+  const verify = verifyAndParseStripeWebhook(stripeForFixtures, {
     webhookSecret: TEST_SECRET,
-    apiKey: TEST_API_KEY,
     priceToTier: { price_pro_monthly: "pro", price_business_yearly: "business" },
   });
 
