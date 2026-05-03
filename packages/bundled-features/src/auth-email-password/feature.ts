@@ -5,6 +5,11 @@ import { logoutWrite } from "./handlers/logout.write";
 import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write";
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write";
 import { createResetPasswordHandler } from "./handlers/reset-password.write";
+import { createInviteAcceptHandler } from "./handlers/invite-accept.write";
+import {
+  createInviteCreateHandler,
+  type InviteCreateOptions,
+} from "./handlers/invite-create.write";
 import { createSignupConfirmHandler } from "./handlers/signup-confirm.write";
 import {
   createSignupRequestHandler,
@@ -57,11 +62,18 @@ export type AccountLockoutOptions = {
 // opaque random ist (Redis ist Source of Truth).
 export type SignupOptions = SignupRequestOptions;
 
+// Tenant-Invite Magic-Link. Wenn gesetzt, registriert das Feature die
+// invite-create + invite-accept-Handler. Branch 2+3 (anon-flows) kommen
+// als separate Handler in einem Folge-Schritt. tokenTtlMinutes Default
+// 7 Tage (industry standard).
+export type InviteOptions = InviteCreateOptions;
+
 export type AuthEmailPasswordOptions = {
   readonly passwordReset?: PasswordResetOptions;
   readonly emailVerification?: EmailVerificationOptions;
   readonly accountLockout?: AccountLockoutOptions;
   readonly signup?: SignupOptions;
+  readonly invite?: InviteOptions;
 };
 
 // Auth feature — email+password login. Depends on the user feature for
@@ -112,6 +124,13 @@ export function createAuthEmailPasswordFeature(
     if (opts.signup) {
       r.writeHandler(createSignupRequestHandler(opts.signup));
       r.writeHandler(createSignupConfirmHandler());
+    }
+
+    if (opts.invite) {
+      r.writeHandler(createInviteCreateHandler(opts.invite));
+      r.writeHandler(createInviteAcceptHandler());
+      // Branch 2 (acceptWithLogin) + Branch 3 (signupComplete) +
+      // Cancel + Pending-List-Query kommen in U.3-D/E/F.
     }
 
     return { handlers };
