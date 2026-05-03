@@ -18,7 +18,8 @@ describe("renderResetPasswordEmail", () => {
     expect(out.subject).toBe("Account — Reset your password");
     expect(out.html).toContain("Reset password");
     expect(out.html).toContain(baseArgs.resetUrl);
-    expect(out.html).toContain(baseArgs.expiresAt);
+    // expiresAt wird zu human-readable-Format formatiert (UTC-pinned).
+    expect(out.html).toContain("2026-05-04 13:45 UTC");
   });
 
   test("locale 'de' liefert deutsche Subjects + Body", () => {
@@ -64,7 +65,7 @@ describe("renderVerifyEmail", () => {
     expect(out.subject).toBe("Account — Verify your email");
     expect(out.html).toContain("Verify email");
     expect(out.html).toContain(baseArgs.verificationUrl);
-    expect(out.html).toContain(baseArgs.expiresAt);
+    expect(out.html).toContain("2026-05-04 13:45 UTC");
   });
 
   test("locale 'de' liefert deutsche Subjects + Body", () => {

@@ -20,6 +20,8 @@
 //
 // Locale: de + en. Apps mit anderen Sprachen rendern selbst.
 
+import { Temporal } from "temporal-polyfill";
+
 export type AuthMailLocale = "de" | "en";
 
 export type RenderResetPasswordEmailArgs = {
@@ -81,6 +83,34 @@ const STRINGS = {
   },
 } as const;
 
+// Shared shape für beide Token-Mails — heading/intro/button/expiry/ignore
+// + button-Url + fallback-Url. renderResetPasswordEmail und renderVerifyEmail
+// bauen den Spec aus den lokalisierten STRINGS und delegieren ans
+// renderTokenEmail. Damit ist die Layout-Logik genau einmal definiert.
+type TokenEmailSpec = {
+  readonly subject: string;
+  readonly greeting: string;
+  readonly intro: string;
+  readonly buttonLabel: string;
+  readonly buttonUrl: string;
+  readonly expiry: string;
+  readonly ignore: string;
+  readonly fallbackUrlLabel: string;
+};
+
+function renderTokenEmail(spec: TokenEmailSpec): RenderedEmail {
+  const bodyHtml = `
+    <tr><td>
+      <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(spec.greeting)}</p>
+      <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.5;">${escapeHtml(spec.intro)}</p>
+      <p style="margin: 0 0 24px;">${renderButton({ url: spec.buttonUrl, label: spec.buttonLabel })}</p>
+      <p style="margin: 0 0 8px; font-size: 13px; color: #555;">${escapeHtml(spec.expiry)}</p>
+      <p style="margin: 0; font-size: 13px; color: #555;">${escapeHtml(spec.ignore)}</p>
+      ${renderFallbackUrl({ url: spec.buttonUrl, label: spec.fallbackUrlLabel })}
+    </td></tr>`;
+  return { subject: spec.subject, html: renderShell({ title: spec.subject, bodyHtml }) };
+}
+
 // Plain inline-styled HTML — funktioniert in Gmail/Outlook/Apple-Mail
 // ohne dass wir Tailwind oder eine HTML-mail-Lib reinziehen müssen.
 function renderShell(args: { title: string; bodyHtml: string }): string {
@@ -117,42 +147,50 @@ export function renderResetPasswordEmail(args: RenderResetPasswordEmailArgs): Re
   const locale = args.locale ?? "en";
   const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
   const t = STRINGS[locale];
-  const subject = t.resetSubject(appName);
-  const bodyHtml = `
-    <tr><td>
-      <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t.resetGreeting)}</p>
-      <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.5;">${escapeHtml(t.resetIntro(appName))}</p>
-      <p style="margin: 0 0 24px;">${renderButton({ url: args.resetUrl, label: t.resetButton })}</p>
-      <p style="margin: 0 0 8px; font-size: 13px; color: #555;">${escapeHtml(t.resetExpiry(formatExpiry(args.expiresAt, locale)))}</p>
-      <p style="margin: 0; font-size: 13px; color: #555;">${escapeHtml(t.resetIgnore)}</p>
-      ${renderFallbackUrl({ url: args.resetUrl, label: t.fallbackUrl })}
-    </td></tr>`;
-  return { subject, html: renderShell({ title: subject, bodyHtml }) };
+  return renderTokenEmail({
+    subject: t.resetSubject(appName),
+    greeting: t.resetGreeting,
+    intro: t.resetIntro(appName),
+    buttonLabel: t.resetButton,
+    buttonUrl: args.resetUrl,
+    expiry: t.resetExpiry(formatExpiry(args.expiresAt)),
+    ignore: t.resetIgnore,
+    fallbackUrlLabel: t.fallbackUrl,
+  });
 }
 
 export function renderVerifyEmail(args: RenderVerifyEmailArgs): RenderedEmail {
   const locale = args.locale ?? "en";
   const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
   const t = STRINGS[locale];
-  const subject = t.verifySubject(appName);
-  const bodyHtml = `
-    <tr><td>
-      <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t.verifyGreeting)}</p>
-      <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.5;">${escapeHtml(t.verifyIntro(appName))}</p>
-      <p style="margin: 0 0 24px;">${renderButton({ url: args.verificationUrl, label: t.verifyButton })}</p>
-      <p style="margin: 0 0 8px; font-size: 13px; color: #555;">${escapeHtml(t.verifyExpiry(formatExpiry(args.expiresAt, locale)))}</p>
-      <p style="margin: 0; font-size: 13px; color: #555;">${escapeHtml(t.verifyIgnore)}</p>
-      ${renderFallbackUrl({ url: args.verificationUrl, label: t.fallbackUrl })}
-    </td></tr>`;
-  return { subject, html: renderShell({ title: subject, bodyHtml }) };
+  return renderTokenEmail({
+    subject: t.verifySubject(appName),
+    greeting: t.verifyGreeting,
+    intro: t.verifyIntro(appName),
+    buttonLabel: t.verifyButton,
+    buttonUrl: args.verificationUrl,
+    expiry: t.verifyExpiry(formatExpiry(args.expiresAt)),
+    ignore: t.verifyIgnore,
+    fallbackUrlLabel: t.fallbackUrl,
+  });
 }
 
-// expiresAt wird als raw ISO-String ausgegeben (z.B. "2026-05-04T13:45:00Z").
-// Mail-Clients zeigen das verständlich genug; eine date-API hier wäre
-// Temporal-Boilerplate für einen einmal-pro-Mail-Path. Apps die
-// schöneres Format wollen, schreiben einen eigenen renderer.
-function formatExpiry(iso: string, _locale: AuthMailLocale): string {
-  return iso;
+// ISO-Timestamp aus dem Token-Handler ("2026-05-04T13:45:00.000Z") in
+// "2026-05-04 13:45 UTC" rendern. Locale-unabhängig damit der Mail-
+// Renderer keine locale-spezifischen Number-Formatter mitschleppt; UTC-
+// Suffix damit der User unabhängig von seiner Tz sieht wann der Link
+// abläuft. Bei un-parsbarem Input fällt's auf den raw-string zurück.
+function formatExpiry(iso: string): string {
+  try {
+    const z = Temporal.Instant.from(iso).toZonedDateTimeISO("UTC");
+    return `${z.year}-${pad2(z.month)}-${pad2(z.day)} ${pad2(z.hour)}:${pad2(z.minute)} UTC`;
+  } catch {
+    return iso;
+  }
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
 }
 
 function escapeHtml(s: string): string {

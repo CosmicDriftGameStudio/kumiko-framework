@@ -10,9 +10,15 @@
 // "Passwort vergessen?"-Link auf die App-Route setzen.
 
 import { useTranslation } from "@kumiko/renderer";
-import { cn } from "@kumiko/renderer-web";
 import { type ReactNode, useState } from "react";
 import { requestPasswordReset } from "./auth-client";
+import {
+  AuthBanner,
+  AuthCard,
+  AuthInput,
+  authButtonClass,
+  authMutedLinkClass,
+} from "./auth-form-primitives";
 
 export type ForgotPasswordScreenProps = {
   readonly title?: string;
@@ -38,8 +44,22 @@ export function ForgotPasswordScreen({
     setSubmitting(true);
     setError(null);
     try {
-      await requestPasswordReset(email);
-      setDone(true);
+      const res = await requestPasswordReset(email);
+      if (res.ok) {
+        setDone(true);
+      } else if (res.error.reason === "rate_limited") {
+        const minutes =
+          res.error.retryAfterSeconds !== undefined
+            ? Math.ceil(res.error.retryAfterSeconds / 60)
+            : undefined;
+        setError(
+          minutes !== undefined
+            ? t("auth.errors.accountLockedRetry", { minutes })
+            : t("auth.errors.rateLimited"),
+        );
+      } else {
+        setError(t("auth.errors.unknownError"));
+      }
     } catch {
       setError(t("auth.errors.unknownError"));
     } finally {
@@ -47,86 +67,42 @@ export function ForgotPasswordScreen({
     }
   };
 
-  const inputClass =
-    "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm " +
-    "transition-colors placeholder:text-muted-foreground focus-visible:outline-none " +
-    "focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
-
   const effectiveTitle = title ?? t("auth.forgotPassword.title");
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-lg border bg-card text-card-foreground shadow-sm">
-        <div className="flex flex-col space-y-1.5 p-6 pb-4">
-          <h1 className="text-xl font-semibold tracking-tight">{effectiveTitle}</h1>
-          {subtitle !== undefined && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+    <AuthCard title={effectiveTitle} subtitle={subtitle}>
+      {done ? (
+        <div className="p-6 pt-0 flex flex-col gap-4">
+          <AuthBanner tone="status">
+            <p className="font-medium text-foreground">{t("auth.forgotPassword.successTitle")}</p>
+            <p className="mt-1">{t("auth.forgotPassword.successBody")}</p>
+          </AuthBanner>
+          <a href={loginHref} className={authMutedLinkClass}>
+            {t("auth.forgotPassword.backToLogin")}
+          </a>
         </div>
-        {done ? (
-          <div className="p-6 pt-0 flex flex-col gap-4">
-            <div
-              role="status"
-              className="rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground"
-            >
-              <p className="font-medium text-foreground">{t("auth.forgotPassword.successTitle")}</p>
-              <p className="mt-1">{t("auth.forgotPassword.successBody")}</p>
-            </div>
-            <a
-              href={loginHref}
-              className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
-            >
-              {t("auth.forgotPassword.backToLogin")}
-            </a>
-          </div>
-        ) : (
-          <form onSubmit={onSubmit} className="flex flex-col gap-4 p-6 pt-0">
-            <p className="text-sm text-muted-foreground">{t("auth.forgotPassword.intro")}</p>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="forgot-email" className="text-sm font-medium leading-none">
-                {t("auth.forgotPassword.email")}
-              </label>
-              <input
-                id="forgot-email"
-                type="email"
-                autoComplete="email"
-                required
-                disabled={submitting}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            {error !== null && (
-              <div
-                role="alert"
-                className={cn(
-                  "relative w-full rounded-md border px-4 py-3 text-sm",
-                  "border-destructive/50 text-destructive bg-destructive/10 dark:border-destructive",
-                )}
-              >
-                {error}
-              </div>
-            )}
-            <button
-              type="submit"
-              disabled={submitting}
-              className={cn(
-                "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                "disabled:pointer-events-none disabled:opacity-50",
-                "bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2",
-              )}
-            >
-              {submitting ? t("auth.forgotPassword.submitting") : t("auth.forgotPassword.submit")}
-            </button>
-            <a
-              href={loginHref}
-              className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline self-center"
-            >
-              {t("auth.forgotPassword.backToLogin")}
-            </a>
-          </form>
-        )}
-      </div>
-    </div>
+      ) : (
+        <form onSubmit={onSubmit} className="flex flex-col gap-4 p-6 pt-0">
+          <p className="text-sm text-muted-foreground">{t("auth.forgotPassword.intro")}</p>
+          <AuthInput
+            id="forgot-email"
+            label={t("auth.forgotPassword.email")}
+            type="email"
+            autoComplete="email"
+            required
+            disabled={submitting}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          {error !== null && <AuthBanner tone="error">{error}</AuthBanner>}
+          <button type="submit" disabled={submitting} className={authButtonClass}>
+            {submitting ? t("auth.forgotPassword.submitting") : t("auth.forgotPassword.submit")}
+          </button>
+          <a href={loginHref} className={`${authMutedLinkClass} self-center`}>
+            {t("auth.forgotPassword.backToLogin")}
+          </a>
+        </form>
+      )}
+    </AuthCard>
   );
 }

@@ -7,6 +7,7 @@
 
 export { defaultTranslations } from "../i18n";
 export type {
+  AuthTokenFailure,
   CurrentUserProfile,
   LoginFailure,
   LoginRequest,

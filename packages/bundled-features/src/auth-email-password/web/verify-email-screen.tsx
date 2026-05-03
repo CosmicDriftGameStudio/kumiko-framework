@@ -13,6 +13,12 @@
 import { useTranslation } from "@kumiko/renderer";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { verifyEmail } from "./auth-client";
+import {
+  AuthCard,
+  authButtonClass,
+  authMutedLinkClass,
+  parseUrlToken,
+} from "./auth-form-primitives";
 
 export type VerifyEmailScreenProps = {
   readonly title?: string;
@@ -24,19 +30,13 @@ export type VerifyEmailScreenProps = {
 
 type Status = "verifying" | "success" | "error" | "missing-token";
 
-function readTokenFromUrl(): string {
-  if (typeof window === "undefined") return "";
-  const params = new URLSearchParams(window.location.search);
-  return params.get("token") ?? "";
-}
-
 export function VerifyEmailScreen({
   title,
   token: tokenProp,
   loginHref = "/login",
 }: VerifyEmailScreenProps): ReactNode {
   const t = useTranslation();
-  const [token] = useState(() => tokenProp ?? readTokenFromUrl());
+  const [token] = useState(() => tokenProp ?? parseUrlToken());
   const [status, setStatus] = useState<Status>(token === "" ? "missing-token" : "verifying");
   const startedRef = useRef(false);
 
@@ -50,74 +50,53 @@ export function VerifyEmailScreen({
     })();
   }, [status, token]);
 
-  const cardWrapper = "min-h-screen flex items-center justify-center bg-background px-4";
-  const card = "w-full max-w-sm rounded-lg border bg-card text-card-foreground shadow-sm p-6";
-
   if (status === "missing-token") {
     return (
-      <div className={cardWrapper}>
-        <div className={card}>
-          <h1 className="text-xl font-semibold tracking-tight mb-4">
-            {title ?? t("auth.verifyEmail.errorTitle")}
-          </h1>
-          <p className="text-sm text-muted-foreground mb-4">{t("auth.verifyEmail.missingToken")}</p>
-          <a
-            href={loginHref}
-            className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
-          >
+      <AuthCard title={title ?? t("auth.verifyEmail.errorTitle")}>
+        <div className="p-6 pt-0 flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.missingToken")}</p>
+          <a href={loginHref} className={authMutedLinkClass}>
             {t("auth.verifyEmail.goToLogin")}
           </a>
         </div>
-      </div>
+      </AuthCard>
     );
   }
 
   if (status === "verifying") {
     return (
-      <div className={cardWrapper}>
-        <div className={card}>
+      <AuthCard>
+        <div className="p-6">
           <p className="text-sm text-muted-foreground" role="status">
             {t("auth.verifyEmail.verifying")}
           </p>
         </div>
-      </div>
+      </AuthCard>
     );
   }
 
   if (status === "success") {
     return (
-      <div className={cardWrapper}>
-        <div className={card}>
-          <h1 className="text-xl font-semibold tracking-tight mb-4">
-            {title ?? t("auth.verifyEmail.successTitle")}
-          </h1>
-          <p className="text-sm text-muted-foreground mb-4">{t("auth.verifyEmail.successBody")}</p>
-          <a
-            href={loginHref}
-            className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
-          >
+      <AuthCard title={title ?? t("auth.verifyEmail.successTitle")}>
+        <div className="p-6 pt-0 flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.successBody")}</p>
+          <a href={loginHref} className={authButtonClass}>
             {t("auth.verifyEmail.goToLogin")}
           </a>
         </div>
-      </div>
+      </AuthCard>
     );
   }
 
   // status === "error"
   return (
-    <div className={cardWrapper}>
-      <div className={card}>
-        <h1 className="text-xl font-semibold tracking-tight mb-4">
-          {title ?? t("auth.verifyEmail.errorTitle")}
-        </h1>
-        <p className="text-sm text-muted-foreground mb-4">{t("auth.verifyEmail.errorBody")}</p>
-        <a
-          href={loginHref}
-          className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
-        >
+    <AuthCard title={title ?? t("auth.verifyEmail.errorTitle")}>
+      <div className="p-6 pt-0 flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.errorBody")}</p>
+        <a href={loginHref} className={authMutedLinkClass}>
           {t("auth.verifyEmail.goToLogin")}
         </a>
       </div>
-    </div>
+    </AuthCard>
   );
 }
