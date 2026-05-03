@@ -248,6 +248,54 @@ describe("composeFeatures wiring — emailVerification", () => {
   });
 });
 
+describe("composeFeatures wiring — asymmetric activation", () => {
+  // Pinst dass passwordReset und emailVerification UNABHÄNGIG durchgereicht
+  // werden. Bug-Pattern: ein Refactor des Helpers könnte einen Block
+  // versehentlich an den anderen koppeln (z.B. emailVerification nur
+  // durchreichen wenn passwordReset auch gesetzt ist) — dann würde eine
+  // App die NUR Reset-Flow will plötzlich keine Reset-Mails mehr kriegen,
+  // oder eine die NUR Verify-Flow will keine Verify-Mails. Asymmetric-
+  // activation ist also ein eigenständiger Wrapper-Vertrag.
+
+  let suite: Awaited<ReturnType<typeof bootStack>>;
+
+  beforeAll(async () => {
+    suite = await bootStack("with-reset-only");
+  });
+
+  afterAll(async () => {
+    await suite.stack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await suite.stack.db.delete(userTable);
+    await suite.stack.db.delete(tenantMembershipsTable);
+    suite.resetEmails.length = 0;
+    suite.verifyEmails.length = 0;
+  });
+
+  test("nur passwordReset gesetzt → reset-flow live, verify-flow fail-closed", async () => {
+    await seedUser(suite.stack, { email: "alice@example.com", password: "any-pw-1234" });
+
+    // Reset-flow funktioniert: Mail wird produziert.
+    const resetRes = await suite.stack.http.raw("POST", "/api/auth/request-password-reset", {
+      email: "alice@example.com",
+    });
+    expect(resetRes.status).toBe(200);
+    expect(suite.resetEmails).toHaveLength(1);
+
+    // Verify-Routes sind in dieser bootStack-Variante NICHT gemounted
+    // (authConfig.emailVerification fehlt). Der Endpoint existiert also
+    // gar nicht — Hono returnt 404. Unterscheidet sich vom 200-silent-
+    // success-Pfad: hier ist die ROUTE selbst nicht da.
+    const verifyRes = await suite.stack.http.raw("POST", "/api/auth/request-email-verification", {
+      email: "alice@example.com",
+    });
+    expect(verifyRes.status).toBe(404);
+    expect(suite.verifyEmails).toHaveLength(0);
+  });
+});
+
 describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
   // Der Bug den der Review-Agent gefangen hat. Whitebox-Variante in
   // compose-features.test.ts checkt nur Object.keys(writeHandlers); hier
