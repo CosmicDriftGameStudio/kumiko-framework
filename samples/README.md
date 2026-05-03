@@ -46,8 +46,8 @@ Getestete Beispiele fuer Framework-Features. Drei Buckets:
 
 | Sample | Domaene | Status |
 |--------|---------|--------|
-| [showcases/mietnomade](showcases/mietnomade/) | Hausverwaltung SaaS | Geplant |
-| [showcases/beammycar](showcases/beammycar/) | Fahrzeugtransport | Geplant |
+| [showcases/acme-rental](showcases/acme-rental/) | Hausverwaltung SaaS | Geplant |
+| [showcases/acme-fleet](showcases/acme-fleet/) | Fahrzeugtransport | Geplant |
 
 ## Tests ausfuehren
 
