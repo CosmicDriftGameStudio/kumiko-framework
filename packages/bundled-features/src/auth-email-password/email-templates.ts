@@ -39,6 +39,13 @@ export type RenderVerifyEmailArgs = {
   readonly appName?: string;
 };
 
+export type RenderActivationEmailArgs = {
+  readonly activationUrl: string;
+  readonly expiresAt: string;
+  readonly locale?: AuthMailLocale;
+  readonly appName?: string;
+};
+
 export type RenderedEmail = {
   readonly subject: string;
   readonly html: string;
@@ -61,6 +68,14 @@ const STRINGS = {
     verifyButton: "E-Mail bestätigen",
     verifyExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
     verifyIgnore: "Falls du dieses Konto nicht angelegt hast, kannst du diese E-Mail ignorieren.",
+    activationSubject: (app: string) => `${app} — Account aktivieren`,
+    activationGreeting: "Willkommen,",
+    activationIntro: (app: string) =>
+      `klicke auf den folgenden Link, um deinen ${app}-Account zu aktivieren. Im nächsten Schritt setzt du dein Passwort:`,
+    activationButton: "Account aktivieren",
+    activationExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
+    activationIgnore:
+      "Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren — es wird kein Account erstellt, solange du den Link nicht öffnest.",
     fallbackUrl: "Falls der Button nicht funktioniert, kopiere diesen Link in den Browser:",
   },
   en: {
@@ -79,6 +94,14 @@ const STRINGS = {
     verifyButton: "Verify email",
     verifyExpiry: (when: string) => `The link expires on ${when}.`,
     verifyIgnore: "If you didn't create this account, you can ignore this email.",
+    activationSubject: (app: string) => `${app} — Activate your account`,
+    activationGreeting: "Welcome,",
+    activationIntro: (app: string) =>
+      `click the link below to activate your ${app} account. The next step is choosing your password:`,
+    activationButton: "Activate account",
+    activationExpiry: (when: string) => `The link expires on ${when}.`,
+    activationIgnore:
+      "If you didn't sign up, you can ignore this email — no account is created until you open the link.",
     fallbackUrl: "If the button doesn't work, copy this link into your browser:",
   },
 } as const;
@@ -171,6 +194,22 @@ export function renderVerifyEmail(args: RenderVerifyEmailArgs): RenderedEmail {
     buttonUrl: args.verificationUrl,
     expiry: t.verifyExpiry(formatExpiry(args.expiresAt)),
     ignore: t.verifyIgnore,
+    fallbackUrlLabel: t.fallbackUrl,
+  });
+}
+
+export function renderActivationEmail(args: RenderActivationEmailArgs): RenderedEmail {
+  const locale = args.locale ?? "en";
+  const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
+  const t = STRINGS[locale];
+  return renderTokenEmail({
+    subject: t.activationSubject(appName),
+    greeting: t.activationGreeting,
+    intro: t.activationIntro(appName),
+    buttonLabel: t.activationButton,
+    buttonUrl: args.activationUrl,
+    expiry: t.activationExpiry(formatExpiry(args.expiresAt)),
+    ignore: t.activationIgnore,
     fallbackUrlLabel: t.fallbackUrl,
   });
 }
