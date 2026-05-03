@@ -183,6 +183,122 @@ describe("text-content :: query (openToAll)", () => {
   });
 });
 
+describe("text-content :: edge-cases", () => {
+  test("body=null roundtrip — set + query liefert null body zurück", async () => {
+    // Sinnvoller Use-Case: Tenant-Admin legt einen leeren Block als
+    // Stub an (z.B. während Onboarding) und befüllt ihn später.
+    await stack.http.writeOk<Record<string, unknown>>(
+      TextContentHandlers.set,
+      { slug: "stub-page", lang: "de", title: "Wird noch gefüllt", body: null },
+      tenantAdmin,
+    );
+    const fetched = await stack.http.queryOk<Record<string, unknown>>(
+      TextContentQueries.bySlug,
+      { slug: "stub-page", lang: "de" },
+      tenantAdmin,
+    );
+    expect(fetched).toMatchObject({ title: "Wird noch gefüllt", body: null });
+  });
+
+  test("body=null kann via update auf string gesetzt werden", async () => {
+    await stack.http.writeOk(
+      TextContentHandlers.set,
+      { slug: "later-filled", lang: "de", title: "Stub", body: null },
+      tenantAdmin,
+    );
+    await stack.http.writeOk(
+      TextContentHandlers.set,
+      { slug: "later-filled", lang: "de", title: "Stub", body: "Inhalt" },
+      tenantAdmin,
+    );
+    const fetched = await stack.http.queryOk<Record<string, unknown>>(
+      TextContentQueries.bySlug,
+      { slug: "later-filled", lang: "de" },
+      tenantAdmin,
+    );
+    expect(fetched!["body"]).toBe("Inhalt");
+  });
+
+  test("body knapp unter max-length (100k Zeichen) wird akzeptiert", async () => {
+    const justBelowMax = "a".repeat(100_000);
+    const result = await stack.http.writeOk<Record<string, unknown>>(
+      TextContentHandlers.set,
+      { slug: "max-length-ok", lang: "de", title: "Max", body: justBelowMax },
+      tenantAdmin,
+    );
+    expect(result).toMatchObject({ slug: "max-length-ok", isNew: true });
+  });
+
+  test("body über max-length (100k+1 Zeichen) → validation_error", async () => {
+    const overLimit = "a".repeat(100_001);
+    const error = await stack.http.writeErr(
+      TextContentHandlers.set,
+      { slug: "max-length-fail", lang: "de", title: "Over", body: overLimit },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "validation_error");
+  });
+
+  test("body mit XSS-Payload wird unverändert gespeichert (Markdown-Renderer ist verantwortlich für Escaping)", async () => {
+    // Dokumentiertes Verhalten: text-content speichert Markdown 1:1.
+    // Konsumenten (z.B. legal-pages mit `marked`) müssen entscheiden ob
+    // sie sanitizen — siehe legal-pages/README.md XSS-Sektion.
+    const xssPayload = "## Title\n\n<script>alert('xss')</script>\n\nText.";
+    await stack.http.writeOk(
+      TextContentHandlers.set,
+      { slug: "xss-test", lang: "de", title: "XSS", body: xssPayload },
+      tenantAdmin,
+    );
+    const fetched = await stack.http.queryOk<Record<string, unknown>>(
+      TextContentQueries.bySlug,
+      { slug: "xss-test", lang: "de" },
+      tenantAdmin,
+    );
+    // Roundtrip: Body bleibt exakt was reingeschrieben wurde
+    expect(fetched!["body"]).toBe(xssPayload);
+  });
+
+  test("concurrent set auf gleichen (tenantId, slug, lang) — mindestens einer succeed", async () => {
+    // Race-Test: Zwei TenantAdmins (oder selber Admin von zwei Tabs)
+    // setzen gleichzeitig. fetchOne+update ist nicht atomar — wenn
+    // beide das selbe `existing` finden und beide updaten wollen,
+    // greift Optimistic-Locking via version-check im Executor.
+    // Erwartung: einer succeed, einer kann version_conflict werfen
+    // (oder beide succeed wenn sequenziell genug). Mindestens einer
+    // muss durchlaufen, sonst ist der Race-Pfad kaputt.
+    await stack.http.writeOk(
+      TextContentHandlers.set,
+      { slug: "race-test", lang: "de", title: "Initial", body: "v1" },
+      tenantAdmin,
+    );
+
+    const results = await Promise.allSettled([
+      stack.http.writeOk(
+        TextContentHandlers.set,
+        { slug: "race-test", lang: "de", title: "A", body: "from-a" },
+        tenantAdmin,
+      ),
+      stack.http.writeOk(
+        TextContentHandlers.set,
+        { slug: "race-test", lang: "de", title: "B", body: "from-b" },
+        tenantAdmin,
+      ),
+    ]);
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    expect(succeeded).toBeGreaterThanOrEqual(1);
+
+    // Egal welcher gewinnt — die Row ist nach beiden Aufrufen konsistent
+    // mit einem der beiden Werte (kein partial state).
+    const fetched = await stack.http.queryOk<Record<string, unknown>>(
+      TextContentQueries.bySlug,
+      { slug: "race-test", lang: "de" },
+      tenantAdmin,
+    );
+    const finalBody = fetched!["body"];
+    expect(["from-a", "from-b", "v1"]).toContain(finalBody);
+  });
+});
+
 describe("text-content :: seedTextBlock", () => {
   test("seedTextBlock is idempotent", async () => {
     const a = await seedTextBlock(db, {

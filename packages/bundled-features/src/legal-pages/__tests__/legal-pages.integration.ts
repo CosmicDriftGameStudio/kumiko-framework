@@ -107,6 +107,57 @@ describe("legal-pages :: GET /legal/privacy (EN, not seeded)", () => {
   });
 });
 
+describe("legal-pages :: edge-cases", () => {
+  test("Block existiert mit body=null → Route returnt 404 statt leerer HTML", async () => {
+    // seedTextBlock erlaubt body=null als legitimer Stub-State.
+    // Routes sollen das als "not configured" behandeln, NICHT als
+    // valides leeres Page rendern (würde DSGVO-pflichtige Page als
+    // existent vortäuschen).
+    await seedTextBlock(db, {
+      tenantId: SYSTEM_TENANT_ID,
+      slug: "imprint",
+      lang: "fr",
+      title: "Mentions légales",
+      body: null,
+    });
+    // Keine /legal/imprint-fr-Route registriert (LEGAL_ROUTES ist
+    // de+en) — wir adden nicht extra. Stattdessen testen wir das
+    // Verhalten via direct getBlock-Lookup gegen einen leeren
+    // privacy-en Block (existiert noch nicht im stack-setup).
+    await seedTextBlock(db, {
+      tenantId: SYSTEM_TENANT_ID,
+      slug: "privacy",
+      lang: "en",
+      title: "Privacy Policy",
+      body: null,
+    });
+    const res = await stack.app.request("/legal/privacy");
+    expect(res.status).toBe(404);
+    const body = await res.text();
+    expect(body).toContain("Tenant-Admin");
+  });
+
+  test("Markdown-Body mit <script> wird NICHT escaped (dokumentiertes XSS-Verhalten, siehe README)", async () => {
+    // Bewusstes Verhalten: marked.parse rendered HTML 1:1, kein
+    // DOMPurify-Layer aktuell. Dokumentiert in legal-pages/README.md
+    // ('XSS — bewusst aktuell nicht gesichert'). Test pinnt das
+    // Verhalten — wenn es sich ändert (z.B. DOMPurify dazu), schlägt
+    // dieser Test fehl und der Wechsel ist dokumentiert.
+    await seedTextBlock(db, {
+      tenantId: SYSTEM_TENANT_ID,
+      slug: "imprint",
+      lang: "de",
+      title: "Impressum",
+      body: "## XSS-Test\n\n<script>window.x=1</script>\n\nDanach.",
+    });
+    const res = await stack.app.request("/legal/impressum");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    // Aktuelles Verhalten: script-tag bleibt unescaped im Output
+    expect(html).toContain("<script>window.x=1</script>");
+  });
+});
+
 describe("legal-pages :: cache-control", () => {
   test("sets public cache header for 5min", async () => {
     const res = await stack.app.request("/legal/impressum");

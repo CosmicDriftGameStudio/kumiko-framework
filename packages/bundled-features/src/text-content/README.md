@@ -20,9 +20,50 @@ runProdApp({
 });
 ```
 
-Tabelle wird in Production via Drizzle-Migration angelegt
-(`yarn kumiko migrate generate` + `migrate apply`). In Tests:
-`createEntityTable(db, textBlockEntity)`.
+### Production-Tabellen-Setup
+
+Pro App wird die `read_text_blocks`-Tabelle via Drizzle-Migration
+angelegt:
+
+```bash
+# Im App-Workspace (z.B. samples/showcases/myapp):
+yarn kumiko migrate generate    # erkennt das neue r.entity("text-block")
+                                # → drizzle-Migration im drizzle/-Ordner
+yarn kumiko migrate apply       # führt aus (Pre-Deploy-Step in Prod)
+```
+
+Boot-Gate (`runProdApp`) prüft hart: fehlende Tabelle = `SchemaDriftError`,
+Container exit. Kein Auto-Heal in Production. Siehe
+[docs/plans/architecture/migrations.md](../../../../docs/plans/architecture/migrations.md).
+
+In Integration-Tests (vitest) genügt:
+
+```typescript
+import { createEntityTable } from "@kumiko/framework/stack";
+import { textBlockEntity } from "@kumiko/bundled-features/text-content";
+
+await createEntityTable(stack.db, textBlockEntity);
+```
+
+## Use-Cases
+
+text-content ist generisch — alles was statischer Markdown-Text
+pro `(tenantId, slug, lang)` ist passt. Beispiele aus der Praxis:
+
+| Slug-Beispiel | Use-Case | Tenant-Scope |
+|---|---|---|
+| `imprint`, `privacy` | Impressum, Datenschutz (DACH) | SYSTEM_TENANT_ID (app-weit) |
+| `terms-of-service`, `eula` | Nutzungsbedingungen | SYSTEM_TENANT_ID oder tenant-eigen |
+| `faq-billing`, `faq-onboarding`, `faq-troubleshooting` | FAQ-Sektionen | SYSTEM_TENANT_ID |
+| `about-team`, `about-mission` | About-Pages | SYSTEM_TENANT_ID |
+| `help-shortcuts`, `help-search` | In-App Help-Texte | SYSTEM_TENANT_ID |
+| `welcome-email-body`, `password-reset-body` | Email-Templates (Markdown-Body) | SYSTEM_TENANT_ID oder tenant-Branding |
+| `marketing-pricing-cta`, `marketing-feature-list` | Marketing-Snippets für Landing-Pages | SYSTEM_TENANT_ID |
+| `tenant-welcome-message` | Tenant-spezifischer Text | TenantId (jeder Tenant pflegt seinen) |
+
+Konvention für Slugs: `kebab-case`, Hierarchie via `bereich-thema`
+(z.B. `faq-billing` statt `billing-faq` damit Listen-Aggregation
+nach Präfix einfach ist).
 
 ---
 

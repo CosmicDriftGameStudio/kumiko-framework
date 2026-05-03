@@ -42,6 +42,19 @@ runProdApp({
 
 ---
 
+### Production-Tabellen-Setup
+
+legal-pages selbst hat keine eigene Tabelle — es nutzt
+`text-content`'s `read_text_blocks`. Tabellen-Setup geht also
+über text-content:
+
+```bash
+yarn kumiko migrate generate    # text-block-Entity wird erkannt
+yarn kumiko migrate apply
+```
+
+Siehe [text-content/README.md](../text-content/README.md#production-tabellen-setup).
+
 ## Routen
 
 | Pfad | Slug + Lang | Title-Fallback (wenn Block leer) |
@@ -80,6 +93,36 @@ beiden DE-Blocks seeden — entweder via Bootstrap-Script
 (`seedTextBlock`) oder manuell via TenantAdmin-API.
 
 ---
+
+## TenantAdmin-Pflege via API
+
+Tenant-Admins (oder Plattform-SystemAdmin für SYSTEM_TENANT-Texte)
+können Inhalte jederzeit per Standard-write-Handler aktualisieren:
+
+```typescript
+// Aus dem Tenant-Admin-Frontend (oder admin-curl):
+await fetch("/api/write", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+  body: JSON.stringify({
+    type: "text-content:write:set",
+    payload: {
+      slug: "imprint",
+      lang: "de",
+      title: "Impressum",
+      body: "## Angaben gemäß § 5 TMG\n\n...",
+    },
+  }),
+});
+```
+
+→ Idempotent: zweiter Call mit gleichem `(slug, lang)` updated den Block.
+ACL: `roles: ["TenantAdmin", "SystemAdmin"]` — SystemAdmin (globale Rolle)
+darf SYSTEM_TENANT-Texte setzen, TenantAdmin nur Tenant-eigene.
+
+→ Cache-Header der Routes ist `public, max-age=300` — nach Update
+sehen Visitors die neuen Inhalte spätestens nach 5 Minuten. Wer
+sofortige Sichtbarkeit braucht, kann via CDN-Purge nachhelfen.
 
 ## Seeding
 
