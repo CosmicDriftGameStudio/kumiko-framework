@@ -1,4 +1,15 @@
 export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers } from "./constants";
+// Default-HTML-Renderer für die Reset-Password + Verify-Email Mails.
+// Apps wiren die `sendResetEmail` / `sendVerificationEmail` callbacks
+// im framework-config — diese Renderer können als one-liner genutzt
+// werden, oder die App schreibt einen eigenen Renderer für Branding.
+export type {
+  AuthMailLocale,
+  RenderedEmail,
+  RenderResetPasswordEmailArgs,
+  RenderVerifyEmailArgs,
+} from "./email-templates";
+export { renderResetPasswordEmail, renderVerifyEmail } from "./email-templates";
 export { createAuthEmailPasswordFeature } from "./feature";
 export { hashPassword, verifyPassword } from "./password-hashing";
 // Generic HMAC-signed single-purpose token helpers. Re-exported damit

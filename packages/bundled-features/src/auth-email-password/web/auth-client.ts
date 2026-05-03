@@ -103,6 +103,110 @@ export async function logout(): Promise<void> {
   });
 }
 
+// Gemeinsamer Failure-Type für die vier Token-Flow-Endpoints (request-
+// password-reset, reset-password, request-email-verification, verify-
+// email). Server collapses alle Token-Verify-Fehler (malformed / bad-
+// signature / expired) auf einen einzigen Code pro Flow (anti-
+// enumeration); UI mappt reason → i18n-Key. Plus rate-limit (429) wird
+// als reason "rate_limited" + retryAfterSeconds durchgereicht — gleiche
+// Shape wie LoginFailure damit Apps die Errors uniform mappen können.
+export type AuthTokenFailure = {
+  readonly reason: string;
+  readonly retryAfterSeconds?: number;
+};
+
+// Backward-compat-Aliase für die alten Type-Namen — damit Code, der
+// `ResetPasswordFailure` / `VerifyEmailFailure` importiert hat, ohne
+// Änderung weiterläuft. Für neuen Code direkt `AuthTokenFailure` nutzen.
+export type ResetPasswordFailure = AuthTokenFailure;
+export type VerifyEmailFailure = AuthTokenFailure;
+
+// 4xx/5xx → typed AuthTokenFailure parsen. 429 (Rate-Limit) hat einen
+// dedizierten reason damit das UI einen Retry-Hinweis zeigen kann.
+async function parseTokenFailure(res: Response): Promise<AuthTokenFailure> {
+  if (res.status === 429) {
+    // @cast-boundary engine-payload — server schickt details.retryAfterSeconds bei 429
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: { details?: { retryAfterSeconds?: number } };
+    };
+    const retry = body.error?.details?.retryAfterSeconds;
+    return { reason: "rate_limited", ...(retry !== undefined && { retryAfterSeconds: retry }) };
+  }
+  // @cast-boundary engine-payload — server-side schema-validated body
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: { code?: string; details?: { reason?: string } };
+  };
+  const reason = body.error?.details?.reason ?? body.error?.code ?? "unknown";
+  return { reason };
+}
+
+// POST /api/auth/request-password-reset. 200 silent-success: auch wenn
+// die Email nicht existiert, sieht der caller `{ ok: true }` — kein
+// account-enumeration. Server triggert Mail nur intern wenn user
+// gefunden. 429 → typed rate-limit-Failure. 5xx → unknown-error.
+export async function requestPasswordReset(
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
+  const res = await fetch("/api/auth/request-password-reset", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...csrfHeader() },
+    body: JSON.stringify({ email }),
+  });
+  if (res.ok) return { ok: true };
+  return { ok: false, error: await parseTokenFailure(res) };
+}
+
+// POST /api/auth/reset-password. Token aus URL + neues Passwort. Auf
+// 422 collapses der Server alle Token-Verify-Fehler (malformed / bad-
+// signature / expired) auf den einzigen Code `invalid_reset_token` —
+// anti-enumeration. Plus zod-validation-failures (newPassword < 8) als
+// eigene 4xx mit code "validation_failed". UI mappt reason → i18n-Key.
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
+  const res = await fetch("/api/auth/reset-password", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...csrfHeader() },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  if (res.ok) return { ok: true };
+  return { ok: false, error: await parseTokenFailure(res) };
+}
+
+// POST /api/auth/request-email-verification. Same silent-success
+// semantik wie request-password-reset. 429 → rate-limit-Failure.
+export async function requestEmailVerification(
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
+  const res = await fetch("/api/auth/request-email-verification", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...csrfHeader() },
+    body: JSON.stringify({ email }),
+  });
+  if (res.ok) return { ok: true };
+  return { ok: false, error: await parseTokenFailure(res) };
+}
+
+// POST /api/auth/verify-email. Auto-submitted vom VerifyEmailScreen
+// nach `?token=...`-parse. Server collapses alle Verify-Failures auf
+// `invalid_verification_token` (anti-enumeration, parallel zu reset).
+export async function verifyEmail(
+  token: string,
+): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
+  const res = await fetch("/api/auth/verify-email", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...csrfHeader() },
+    body: JSON.stringify({ token }),
+  });
+  if (res.ok) return { ok: true };
+  return { ok: false, error: await parseTokenFailure(res) };
+}
+
 // GET /api/auth/tenants. Liefert die Memberships des aktuellen Users;
 // der Server liefert 401 wenn das Cookie fehlt oder abgelaufen ist.
 export async function fetchTenants(): Promise<{

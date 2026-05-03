@@ -11,7 +11,12 @@ import { render as _render, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { useBrowserNavApi } from "../app/nav";
-import { filterByAccess, resolveDefaultId, WorkspaceShell } from "../layout/workspace-shell";
+import {
+  filterByAccess,
+  firstNavScreenId,
+  resolveDefaultId,
+  WorkspaceShell,
+} from "../layout/workspace-shell";
 import { WorkspaceSwitcher } from "../layout/workspace-switcher";
 import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
@@ -143,6 +148,60 @@ describe("resolveDefaultId", () => {
 });
 
 // ---------------------------------------------------------------------------
+// firstNavScreenId — Resolver für den default-screen eines Workspaces.
+// Pinst die Kontrakte gegen den prod-Bug 2026-05-02 (workspace-Tab-Klick
+// landete auf nav.id statt nav.screen) PLUS die Fallback-Branches.
+// ---------------------------------------------------------------------------
+
+describe("firstNavScreenId", () => {
+  function appWithNavs(navs: ReadonlyArray<{ readonly id: string; readonly screen?: string }>) {
+    return {
+      features: [
+        {
+          featureName: "demo",
+          entities: {},
+          screens: [],
+          navs: navs.map((n) => ({ id: n.id, label: n.id, ...(n.screen && { screen: n.screen }) })),
+        },
+      ],
+    };
+  }
+
+  test("nimmt nav.screen, NICHT nav.id (der prod-Bug)", () => {
+    const app = appWithNavs([{ id: "components", screen: "demo:screen:component-list" }]);
+    expect(firstNavScreenId(app, ["demo:nav:components"])).toBe("component-list");
+  });
+
+  test("überspringt section-headers (nav ohne screen) zum nächsten member", () => {
+    const app = appWithNavs([
+      { id: "settings" }, // section-header, kein screen
+      { id: "settings-branding", screen: "demo:screen:branding-settings" },
+    ]);
+    expect(firstNavScreenId(app, ["demo:nav:settings", "demo:nav:settings-branding"])).toBe(
+      "branding-settings",
+    );
+  });
+
+  test("returnt '' wenn alle members section-headers sind (caller MUSS guarden)", () => {
+    const app = appWithNavs([{ id: "settings" }, { id: "more-headers" }]);
+    expect(firstNavScreenId(app, ["demo:nav:settings", "demo:nav:more-headers"])).toBe("");
+  });
+
+  test("returnt '' bei unbekannter nav-QN (drift zwischen workspace.nav und registered navs)", () => {
+    const app = appWithNavs([{ id: "real", screen: "demo:screen:real" }]);
+    expect(firstNavScreenId(app, ["demo:nav:ghost"])).toBe("");
+  });
+
+  test("returnt '' bei undefined navMembers", () => {
+    expect(firstNavScreenId(appWithNavs([]), undefined)).toBe("");
+  });
+
+  test("returnt '' bei leerem navMembers-array", () => {
+    expect(firstNavScreenId(appWithNavs([]), [])).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // WorkspaceSwitcher (presentational)
 // ---------------------------------------------------------------------------
 
@@ -201,10 +260,13 @@ describe("WorkspaceShell", () => {
     featureName: "bmc",
     entities: {},
     screens: [],
+    // navs müssen `screen` haben damit firstScreenIdInWorkspace die
+    // screen-id auflösen kann. Resolver nimmt explizit nav.screen,
+    // nicht nav.id (siehe workspace-shell.tsx Comment).
     navs: [
-      { id: "system", label: "System" },
-      { id: "orders", label: "Orders" },
-      { id: "tours", label: "Tours" },
+      { id: "system", label: "System", screen: "bmc:screen:system" },
+      { id: "orders", label: "Orders", screen: "bmc:screen:orders" },
+      { id: "tours", label: "Tours", screen: "bmc:screen:tours" },
     ],
     workspaces: [
       ws("admin", {
@@ -402,10 +464,13 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
     featureName: "bmc",
     entities: {},
     screens: [],
+    // navs müssen `screen` haben damit firstScreenIdInWorkspace die
+    // screen-id auflösen kann. Resolver nimmt explizit nav.screen,
+    // nicht nav.id (siehe workspace-shell.tsx Comment).
     navs: [
-      { id: "system", label: "System" },
-      { id: "orders", label: "Orders" },
-      { id: "tours", label: "Tours" },
+      { id: "system", label: "System", screen: "bmc:screen:system" },
+      { id: "orders", label: "Orders", screen: "bmc:screen:orders" },
+      { id: "tours", label: "Tours", screen: "bmc:screen:tours" },
     ],
     workspaces: [
       ws("admin", {

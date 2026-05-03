@@ -64,6 +64,15 @@ export function qualifyScreenId(featureName: string, screenId: string): string {
   return `${featureName}:screen:${screenId}`;
 }
 
+/** Symmetrisch zu qualifyScreenId für Nav-QNs. NavDefinition-IDs in der
+ *  Registry haben die Form `<feature>:nav:<short-id>`; Code der QNs
+ *  baut (z.B. WorkspaceShell-Resolver) sollte das hier durchreichen statt
+ *  String-Concat damit ein zukünftiger QN-Schema-Wechsel an einer Stelle
+ *  greift. */
+export function qualifyNavId(featureName: string, navId: string): string {
+  return `${featureName}:nav:${navId}`;
+}
+
 export function KumikoScreen({
   schema,
   qn,
