@@ -6,10 +6,7 @@ import { createRequestEmailVerificationHandler } from "./handlers/request-email-
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write";
 import { createResetPasswordHandler } from "./handlers/reset-password.write";
 import { createSignupConfirmHandler } from "./handlers/signup-confirm.write";
-import {
-  createSignupRequestHandler,
-  type SignupRequestOptions,
-} from "./handlers/signup-request.write";
+import { createSignupRequestHandler } from "./handlers/signup-request.write";
 import { createVerifyEmailHandler } from "./handlers/verify-email.write";
 
 // Opt-in configuration for the password-reset flow. When omitted the

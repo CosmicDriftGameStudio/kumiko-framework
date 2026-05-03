@@ -75,7 +75,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.signup.resend": "Mail erneut senden",
     "auth.signup.haveAccount": "Bereits einen Account? Anmelden",
     "auth.signupComplete.title": "Passwort setzen",
-    "auth.signupComplete.intro": "Wähle ein Passwort (mindestens 8 Zeichen) für deinen neuen Account.",
+    "auth.signupComplete.intro":
+      "Wähle ein Passwort (mindestens 8 Zeichen) für deinen neuen Account.",
     "auth.signupComplete.password": "Passwort",
     "auth.signupComplete.confirmPassword": "Passwort bestätigen",
     "auth.signupComplete.tooShort": "Passwort muss mindestens 8 Zeichen lang sein.",
@@ -106,7 +107,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.loginFailed": "Login failed.",
     "auth.errors.invalidResetToken": "Link is invalid or expired. Please request a new one.",
     "auth.errors.invalidVerificationToken": "Verification link is invalid or expired.",
-    "auth.errors.invalidSignupToken": "Activation link is invalid or expired. Please request a new one.",
+    "auth.errors.invalidSignupToken":
+      "Activation link is invalid or expired. Please request a new one.",
     "auth.errors.unknownError": "Something went wrong. Please try again.",
     "auth.forgotPassword.title": "Reset password",
     "auth.forgotPassword.intro":
@@ -157,7 +159,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.signupComplete.mismatch": "Passwords do not match.",
     "auth.signupComplete.submit": "Activate account",
     "auth.signupComplete.submitting": "…",
-    "auth.signupComplete.missingToken": "Activation link is missing a token. Please request a new one.",
+    "auth.signupComplete.missingToken":
+      "Activation link is missing a token. Please request a new one.",
     "auth.user.menu.label": "Account",
     "auth.user.menu.logout": "Sign out",
     "auth.tenant.switcher.label": "Tenant",

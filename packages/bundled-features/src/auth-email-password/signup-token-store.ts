@@ -50,19 +50,13 @@ export async function storeSignupToken(
 
 /** Lookup: Email für einen Token. Null wenn Token nicht (mehr) existiert
  *  (abgelaufen, schon konsumiert, oder ungültig). */
-export async function getEmailForSignupToken(
-  redis: Redis,
-  token: string,
-): Promise<string | null> {
+export async function getEmailForSignupToken(redis: Redis, token: string): Promise<string | null> {
   return redis.get(tokenKey(token));
 }
 
 /** Lookup: Existierenden Token für eine Email — falls noch valid und
  *  noch nicht konsumiert. Für Resend-Idempotenz im signup-request-Handler. */
-export async function getTokenForSignupEmail(
-  redis: Redis,
-  email: string,
-): Promise<string | null> {
+export async function getTokenForSignupEmail(redis: Redis, email: string): Promise<string | null> {
   return redis.get(emailKey(email));
 }
 

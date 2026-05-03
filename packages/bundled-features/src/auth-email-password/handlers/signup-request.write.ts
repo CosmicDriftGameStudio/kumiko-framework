@@ -26,10 +26,7 @@ import { generateNoConfusableId } from "@kumiko/framework/random";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
-import {
-  getTokenForSignupEmail,
-  storeSignupToken,
-} from "../signup-token-store";
+import { getTokenForSignupEmail, storeSignupToken } from "../signup-token-store";
 
 const SignupRequestSchema = z.object({
   email: z.email(),

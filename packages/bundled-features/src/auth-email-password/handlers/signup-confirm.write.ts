@@ -20,16 +20,13 @@
 // nicht durch einen stale Marker geblockt wird (wie reset/verify).
 
 import type { DbConnection } from "@kumiko/framework/db";
-import {
-  defineWriteHandler,
-  type SessionUser,
-  type TenantId,
-} from "@kumiko/framework/engine";
+import { defineWriteHandler, type SessionUser, type TenantId } from "@kumiko/framework/engine";
 import { InternalError, UnprocessableError, writeFailure } from "@kumiko/framework/errors";
 import { generateUniqueName } from "@kumiko/framework/random";
 import { generateId } from "@kumiko/framework/utils";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+// kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)
 import { tenantTable } from "../../tenant/schema/tenant";
 import { AuthErrors } from "../constants";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers

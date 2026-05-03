@@ -1,8 +1,8 @@
-export { ADJECTIVES, NOUNS } from "./words";
 export {
   type AdjNounNameOptions,
+  type GenerateUniqueNameOptions,
   generateAdjNounName,
   generateNoConfusableId,
-  type GenerateUniqueNameOptions,
   generateUniqueName,
 } from "./generate";
+export { ADJECTIVES, NOUNS } from "./words";

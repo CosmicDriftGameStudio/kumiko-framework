@@ -204,7 +204,7 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(memberships).toHaveLength(1);
     const rolesRaw = memberships[0]?.["roles"];
     if (typeof rolesRaw === "string") {
-      expect((JSON.parse(rolesRaw) as string[])).toContain("Admin");
+      expect(JSON.parse(rolesRaw) as string[]).toContain("Admin");
     }
 
     // Authority-Beweis: Login mit dem gesetzten Password funktioniert.
@@ -257,4 +257,3 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(new Set(keys).size).toBe(3);
   });
 });
-

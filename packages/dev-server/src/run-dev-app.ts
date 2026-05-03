@@ -41,11 +41,7 @@ export type {
   SignupSetup,
 } from "./run-prod-app";
 
-import type {
-  EmailVerificationSetup,
-  PasswordResetSetup,
-  SignupSetup,
-} from "./run-prod-app";
+import type { EmailVerificationSetup, PasswordResetSetup, SignupSetup } from "./run-prod-app";
 
 export type RunDevAppAuthOptions = {
   /** Admin user to seed at boot. Idempotent — re-runs in persistent-DB

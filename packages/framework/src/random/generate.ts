@@ -21,9 +21,7 @@ import { ADJECTIVES, NOUNS } from "./words";
 // Resultat: 32 Zeichen, sicher beim Telefon-Buchstabieren UND beim
 // Mailtext-Copy-Paste in fremde Schriftarten.
 const NO_CONFUSABLE_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
-const NO_CONFUSABLE_CHARS: readonly string[] = Object.freeze(
-  NO_CONFUSABLE_ALPHABET.split(""),
-);
+const NO_CONFUSABLE_CHARS: readonly string[] = Object.freeze(NO_CONFUSABLE_ALPHABET.split(""));
 
 function pickRandom<T>(arr: readonly T[]): T {
   if (arr.length === 0) {
