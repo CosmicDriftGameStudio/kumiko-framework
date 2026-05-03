@@ -1,6 +1,6 @@
 // Unit-Tests für verifyAndParseMollieWebhook — Mollie's classic
 // webhook-pattern (lazy-fetch, ohne sig-verify). Mollie-Client wird
-// als minimal-mock-shape (`MollieFetchClient`) injiziert; Plugin-
+// als minimal-mock-shape (`MollieClientShape`) injiziert; Plugin-
 // Verhalten ist vom konkreten Mollie-SDK entkoppelt.
 
 import {
@@ -10,7 +10,7 @@ import {
 import { describe, expect, test, vi } from "vitest";
 import {
   extractMollieId,
-  type MollieFetchClient,
+  type MollieClientShape,
   mapMollieEventType,
   mapMollieStatus,
   verifyAndParseMollieWebhook,
@@ -58,7 +58,7 @@ function buildClient(
      *  neu-erstellte sub mit metadata vom payment. */
     createResolve?: ReturnType<typeof buildMockSubscription>;
   } = {},
-): MollieFetchClient {
+): MollieClientShape {
   return {
     payments: {
       get: vi.fn(async () => {
@@ -123,7 +123,7 @@ describe("extractMollieId", () => {
 // =============================================================================
 
 describe("verifyAndParseMollieWebhook — payment-event happy path", () => {
-  const verify = (client: MollieFetchClient) =>
+  const verify = (client: MollieClientShape) =>
     verifyAndParseMollieWebhook(client, {
       priceToTier: { plan_pro: "pro" },
       priceToConfig: TEST_PRICE_CONFIG,
@@ -170,7 +170,7 @@ describe("verifyAndParseMollieWebhook — payment-event happy path", () => {
 });
 
 describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-paid OHNE existierende sub)", () => {
-  const verify = (client: MollieFetchClient) =>
+  const verify = (client: MollieClientShape) =>
     verifyAndParseMollieWebhook(client, {
       priceToTier: { plan_pro: "pro" },
       priceToConfig: TEST_PRICE_CONFIG,
@@ -255,7 +255,7 @@ describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-pa
 });
 
 describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
-  const verify = (client: MollieFetchClient) =>
+  const verify = (client: MollieClientShape) =>
     verifyAndParseMollieWebhook(client, {
       priceToTier: { plan_pro: "pro" },
       priceToConfig: TEST_PRICE_CONFIG,

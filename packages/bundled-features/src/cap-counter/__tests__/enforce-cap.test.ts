@@ -258,7 +258,6 @@ describe("enforceRollingCap — input validation", () => {
 
   test("missing ctx.user.tenantId → throws clear error", async () => {
     const ctx = stubRollingCtx([]);
-    // biome-ignore lint/performance/noDelete: test-only mutation
     delete (ctx as { user?: unknown }).user;
     await expect(
       enforceRollingCap(ctx, {
