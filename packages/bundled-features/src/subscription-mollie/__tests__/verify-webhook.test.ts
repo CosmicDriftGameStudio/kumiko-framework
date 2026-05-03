@@ -51,6 +51,12 @@ function buildClient(
     paymentReject?: Error;
     subResolve?: ReturnType<typeof buildMockSubscription>;
     subReject?: Error;
+    /** Bestehende subs die `customerSubscriptions.list` zurückgibt (für
+     *  mandate-setup-idempotency-tests). */
+    listResolve?: ReturnType<typeof buildMockSubscription>[];
+    /** Was `customerSubscriptions.create` zurückgibt. Default: eine
+     *  neu-erstellte sub mit metadata vom payment. */
+    createResolve?: ReturnType<typeof buildMockSubscription>;
   } = {},
 ): MollieFetchClient {
   return {
@@ -65,9 +71,22 @@ function buildClient(
         if (overrides.subReject) throw overrides.subReject;
         return overrides.subResolve ?? buildMockSubscription();
       }),
+      list: vi.fn(async () => overrides.listResolve ?? []),
+      create: vi.fn(
+        async () => overrides.createResolve ?? buildMockSubscription({ id: "sub_just_created" }),
+      ),
     },
   };
 }
+
+const TEST_PRICE_CONFIG = {
+  plan_pro: {
+    amountValue: "9.99",
+    amountCurrency: "EUR",
+    interval: "1 month",
+    description: "Pro-Abo monatlich",
+  },
+};
 
 // =============================================================================
 // extractMollieId — body-parsing
@@ -105,7 +124,10 @@ describe("extractMollieId", () => {
 
 describe("verifyAndParseMollieWebhook — payment-event happy path", () => {
   const verify = (client: MollieFetchClient) =>
-    verifyAndParseMollieWebhook(client, { priceToTier: { plan_pro: "pro" } });
+    verifyAndParseMollieWebhook(client, {
+      priceToTier: { plan_pro: "pro" },
+      priceToConfig: TEST_PRICE_CONFIG,
+    });
 
   test("tr_xxx → fetch payment + subscription → SubscriptionEvent.created (first-payment paid)", async () => {
     const client = buildClient();
@@ -147,9 +169,97 @@ describe("verifyAndParseMollieWebhook — payment-event happy path", () => {
   });
 });
 
+describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-paid OHNE existierende sub)", () => {
+  const verify = (client: MollieFetchClient) =>
+    verifyAndParseMollieWebhook(client, {
+      priceToTier: { plan_pro: "pro" },
+      priceToConfig: TEST_PRICE_CONFIG,
+    });
+
+  test("first-payment paid, subscriptionId=null → list ist leer → ensureSubscription erstellt neue Sub → Created-Event mit der neuen sub-id", async () => {
+    const newlyCreatedSub = buildMockSubscription({
+      id: "sub_just_created",
+      metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
+    });
+    const client = buildClient({
+      paymentResolve: buildMockPayment({
+        subscriptionId: null,
+        sequenceType: "first",
+        status: "paid",
+        metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
+      }),
+      listResolve: [],
+      createResolve: newlyCreatedSub,
+    });
+
+    const event = await verify(client)("id=tr_first_paid_001", {});
+
+    expect(event).not.toBeNull();
+    expect(event?.type).toBe(SubscriptionEventTypes.created);
+    expect(event?.providerSubscriptionId).toBe("sub_just_created");
+    expect(client.customerSubscriptions.create).toHaveBeenCalledExactlyOnceWith("cst_test_001", {
+      amount: { currency: "EUR", value: "9.99" },
+      interval: "1 month",
+      description: "Pro-Abo monatlich",
+      metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
+    });
+  });
+
+  test("Replay (Mollie sendet webhook nochmal) → list findet existing-active-sub für priceId → kein zweiter create", async () => {
+    const existingSub = buildMockSubscription({
+      id: "sub_already_there",
+      status: "active",
+      metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
+    });
+    const client = buildClient({
+      paymentResolve: buildMockPayment({
+        subscriptionId: null,
+        sequenceType: "first",
+        status: "paid",
+        metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
+      }),
+      listResolve: [existingSub],
+    });
+
+    const event = await verify(client)("id=tr_first_paid_replay", {});
+
+    expect(event?.providerSubscriptionId).toBe("sub_already_there");
+    expect(client.customerSubscriptions.create).not.toHaveBeenCalled();
+  });
+
+  test("List hat sub für ANDEREN priceId (= App-Builder bietet Plan-Wechsel) → trotzdem create für neuen priceId", async () => {
+    const otherPlanSub = buildMockSubscription({
+      id: "sub_basic_old",
+      status: "active",
+      metadata: { tenantId: "tenant-test", priceId: "plan_basic" },
+    });
+    const client = buildClient({
+      paymentResolve: buildMockPayment({
+        subscriptionId: null,
+        sequenceType: "first",
+        status: "paid",
+        metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
+      }),
+      listResolve: [otherPlanSub],
+      createResolve: buildMockSubscription({
+        id: "sub_pro_new",
+        metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
+      }),
+    });
+
+    const event = await verify(client)("id=tr_upgrade", {});
+
+    expect(event?.providerSubscriptionId).toBe("sub_pro_new");
+    expect(client.customerSubscriptions.create).toHaveBeenCalledOnce();
+  });
+});
+
 describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
   const verify = (client: MollieFetchClient) =>
-    verifyAndParseMollieWebhook(client, { priceToTier: { plan_pro: "pro" } });
+    verifyAndParseMollieWebhook(client, {
+      priceToTier: { plan_pro: "pro" },
+      priceToConfig: TEST_PRICE_CONFIG,
+    });
 
   test("body ohne id → throws", async () => {
     const client = buildClient();
@@ -166,11 +276,35 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
     expect(await verify(client)("id=tr_garbage", {})).toBeNull();
   });
 
-  test("payment ohne subscriptionId (= one-shot) → null", async () => {
+  test("payment ohne subscriptionId UND nicht first-payment-paid → null (= one-shot, nicht unsere domain)", async () => {
     const client = buildClient({
-      paymentResolve: buildMockPayment({ subscriptionId: null }),
+      paymentResolve: buildMockPayment({ subscriptionId: null, sequenceType: "oneoff" }),
     });
     expect(await verify(client)("id=tr_oneshot", {})).toBeNull();
+  });
+
+  test("first-payment-paid OHNE payment.metadata → null (App-Builder hat tenantId/priceId nicht gesetzt)", async () => {
+    const client = buildClient({
+      paymentResolve: buildMockPayment({
+        subscriptionId: null,
+        sequenceType: "first",
+        status: "paid",
+        metadata: null,
+      }),
+    });
+    expect(await verify(client)("id=tr_no_metadata", {})).toBeNull();
+  });
+
+  test("first-payment-paid mit unbekanntem priceId → null (priceToConfig-Drift)", async () => {
+    const client = buildClient({
+      paymentResolve: buildMockPayment({
+        subscriptionId: null,
+        sequenceType: "first",
+        status: "paid",
+        metadata: { tenantId: "tenant-test", priceId: "plan_unknown" },
+      }),
+    });
+    expect(await verify(client)("id=tr_unknown_price", {})).toBeNull();
   });
 
   test("subscription ohne metadata.tenantId → null", async () => {

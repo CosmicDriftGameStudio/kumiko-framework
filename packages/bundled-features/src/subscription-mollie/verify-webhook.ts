@@ -27,6 +27,7 @@ import type {
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
 import { MOLLIE_PROVIDER_NAME } from "./constants";
+import type { MolliePriceConfig } from "./plugin-methods";
 
 // Minimal-Type-Subset, das wir vom Mollie-Client brauchen — testbar via
 // vi.spyOn ohne den vollen MollieClient zu mocken.
@@ -34,6 +35,16 @@ export type MollieFetchClient = {
   readonly payments: { readonly get: (id: string) => Promise<MolliePayment> };
   readonly customerSubscriptions: {
     readonly get: (subId: string, customerId: string) => Promise<MollieSubscription>;
+    readonly list: (customerId: string) => Promise<readonly MollieSubscription[]>;
+    readonly create: (
+      customerId: string,
+      params: {
+        amount: { currency: string; value: string };
+        interval: string;
+        description: string;
+        metadata: Record<string, string>;
+      },
+    ) => Promise<MollieSubscription>;
   };
 };
 
@@ -48,6 +59,13 @@ export type MollieWebhookOptions = {
    *  daher konvention: App-Builder setzt beim createCheckoutSession
    *  `metadata.priceId` als virtuellen Schlüssel. */
   readonly priceToTier: Readonly<Record<string, string>>;
+  /** Price-to-config-Map. Wird gebraucht für den mandate-setup-Flow:
+   *  bei first-payment-paid (mandate confirmed) erstellt der Plugin
+   *  selbst die Mollie-Subscription, dafür braucht's amount/interval/
+   *  description pro priceId. Identische Map die auch plugin-methods
+   *  beim `createCheckoutSession` verwendet — App-Builder pflegt sie
+   *  einmal in den factory-options. */
+  readonly priceToConfig: Readonly<Record<string, MolliePriceConfig>>;
 };
 
 export function verifyAndParseMollieWebhook(
@@ -78,16 +96,35 @@ export function verifyAndParseMollieWebhook(
         return null;
       }
       triggerPayment = payment;
-      const subscriptionId = payment.subscriptionId;
       const customerId = payment.customerId;
-      if (!subscriptionId || !customerId) {
-        // Payment ohne subscription-context (= one-shot-payment, nicht
-        // unsere Domain).
+      if (!customerId) {
         return null;
       }
-      try {
-        subscription = await client.customerSubscriptions.get(subscriptionId, customerId);
-      } catch {
+
+      if (payment.subscriptionId) {
+        // Recurring payment (sequenceType=recurring) ODER manueller
+        // sub-link → fetch existierende subscription.
+        try {
+          subscription = await client.customerSubscriptions.get(payment.subscriptionId, customerId);
+        } catch {
+          return null;
+        }
+      } else if (payment.sequenceType === "first" && payment.status === "paid") {
+        // Mandate-setup: first-payment paid, aber noch keine
+        // subscription. Mollie's Pattern braucht hier einen
+        // expliziten `customerSubscriptions.create`-Call. Wir machen
+        // den im Plugin selbst (idempotent via list-check), damit der
+        // App-Builder keine eigene post-success-Logik bauen muss und
+        // der Foundation-Flow durchläuft (Created-Event → DB-Row).
+        subscription = await ensureSubscriptionForMandate(client, options, payment);
+        if (!subscription) {
+          return null;
+        }
+      } else {
+        // Payment ohne subscription-context (= one-shot-payment, nicht
+        // unsere Domain) ODER mandate-setup mit non-paid-status (z.B.
+        // first-payment failed → kein recurring, App-Builder erfährt's
+        // über separate UI).
         return null;
       }
     } else if (id.startsWith("sub_")) {
@@ -148,6 +185,55 @@ export function verifyAndParseMollieWebhook(
       rawPayload: JSON.stringify({ webhookId: id, subscription, triggerPayment }),
     };
   };
+}
+
+// =============================================================================
+// Mandate-setup: subscription on-the-fly erstellen
+// =============================================================================
+
+/** Bei first-payment-paid (sequenceType=first, status=paid, kein
+ *  subscriptionId) muss eine Mollie-Subscription erstellt werden — das
+ *  ist Mollie's Pattern für recurring-flows. Wir machen's idempotent
+ *  via `customerSubscriptions.list` (= replay-safe falls Mollie den
+ *  webhook retried). priceToConfig liefert amount/interval; tenantId +
+ *  priceId kommen aus payment.metadata (= das was plugin-methods bei
+ *  payments.create gesetzt hat).
+ *
+ *  Returns null wenn:
+ *  - payment.metadata fehlt oder unvollständig ist
+ *  - priceId nicht in priceToConfig (App-Owner-Bug → 200 ignored)
+ *  - Mollie-create wirft (= API down, Foundation 500 retry-able) */
+async function ensureSubscriptionForMandate(
+  client: MollieFetchClient,
+  options: MollieWebhookOptions,
+  payment: MolliePayment,
+): Promise<MollieSubscription | null> {
+  const customerId = payment.customerId;
+  if (!customerId) return null;
+  const paymentMetadata = (payment.metadata as Record<string, string> | null) ?? {};
+  const tenantId = paymentMetadata["tenantId"];
+  const priceId = paymentMetadata["priceId"];
+  if (!tenantId || !priceId) return null;
+  const priceCfg = options.priceToConfig[priceId];
+  if (!priceCfg) return null;
+
+  // Idempotency: replay-safe via list.
+  const existing = await client.customerSubscriptions.list(customerId);
+  const matchingExisting = existing.find(
+    (sub) =>
+      ((sub.metadata as Record<string, string> | null) ?? {})["priceId"] === priceId &&
+      (sub.status === "active" || sub.status === "pending"),
+  );
+  if (matchingExisting) {
+    return matchingExisting;
+  }
+
+  return await client.customerSubscriptions.create(customerId, {
+    amount: { currency: priceCfg.amountCurrency, value: priceCfg.amountValue },
+    interval: priceCfg.interval,
+    description: priceCfg.description,
+    metadata: { tenantId, priceId },
+  });
 }
 
 // =============================================================================

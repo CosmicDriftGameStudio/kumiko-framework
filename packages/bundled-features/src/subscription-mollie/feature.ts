@@ -90,11 +90,25 @@ export function createSubscriptionMollieFeature(
     customerSubscriptions: {
       get: (subId: string, customerId: string) =>
         client.customerSubscriptions.get(subId, { customerId }),
+      list: async (customerId: string) => {
+        const page = await client.customerSubscriptions.page({ customerId });
+        return [...page];
+      },
+      create: (
+        customerId: string,
+        params: {
+          amount: { currency: string; value: string };
+          interval: string;
+          description: string;
+          metadata: Record<string, string>;
+        },
+      ) => client.customerSubscriptions.create({ customerId, ...params }),
     },
   };
 
   const verifyAndParse = verifyAndParseMollieWebhook(fetchAdapter, {
     priceToTier: options.priceToTier,
+    priceToConfig: options.priceToConfig,
   });
   const checkoutSession = createMollieCheckoutSession(
     client,
