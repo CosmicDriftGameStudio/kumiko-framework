@@ -20,7 +20,11 @@
 // nicht durch einen stale Marker geblockt wird (wie reset/verify).
 
 import type { DbConnection } from "@kumiko/framework/db";
-import { defineWriteHandler, type TenantId } from "@kumiko/framework/engine";
+import {
+  defineWriteHandler,
+  type SessionUser,
+  type TenantId,
+} from "@kumiko/framework/engine";
 import { InternalError, UnprocessableError, writeFailure } from "@kumiko/framework/errors";
 import { generateUniqueName } from "@kumiko/framework/random";
 import { generateId } from "@kumiko/framework/utils";
@@ -42,12 +46,16 @@ const SignupConfirmSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
+// Mirror der login-handler-Shape (kind: "auth-session", session: SessionUser)
+// damit die Route-Layer den signup-confirm-success genauso behandeln kann
+// wie einen erfolgreichen login: JWT-Mint, Cookies setzen, Session-Body
+// returnen. Der zusätzliche tenantKey landet als sibling am data-objekt
+// (NICHT in SessionUser — der ist generic, tenantKey ist signup-spezifisch
+// für den Post-Signup-Redirect zu /<tenantKey>/).
 export type SignupConfirmData = {
-  readonly kind: "signup-completed";
-  readonly userId: string;
-  readonly tenantId: TenantId;
+  readonly kind: "auth-session";
+  readonly session: SessionUser;
   readonly tenantKey: string;
-  readonly email: string;
 };
 
 function invalidSignupToken() {
@@ -124,15 +132,23 @@ export function createSignupConfirmHandler() {
         // restliche Burn-TTL als Replay-Schutz.
         await deleteSignupToken(ctx.redis, { email, token: event.payload.token });
 
+        // SessionUser für JWT-Mint. Roles aus dem provisioning ("Admin"
+        // war der initial-membership-role); der Login-Handler würde
+        // sonst dasselbe Pattern fahren — wir bauen es direkt damit der
+        // Route-Layer einen einfachen Mirror der login-route sein kann.
+        const session: SessionUser = {
+          id: provisioned.userId,
+          tenantId: provisioned.tenantId,
+          roles: ["Admin"],
+        };
+
         committed = true;
         return {
           isSuccess: true,
           data: {
-            kind: "signup-completed",
-            userId: provisioned.userId,
-            tenantId: provisioned.tenantId,
+            kind: "auth-session",
+            session,
             tenantKey,
-            email,
           },
         };
       } finally {

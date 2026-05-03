@@ -79,6 +79,11 @@ const VerifyEmailBody = z.object({
   token: z.string().min(1),
 });
 
+const SignupConfirmBody = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8).max(200),
+});
+
 // Shape guard for "handler not registered" — the only legitimate reason to
 // fall back to a single-tenant reply on /auth/tenants or /auth/switch-tenant.
 // Every other error (DB down, revoker throws, access denied, …) has to
@@ -192,6 +197,10 @@ export type AuthRoutesConfig = {
   passwordReset?: PasswordResetConfig;
   // Email-verification flow. Symmetric to passwordReset.
   emailVerification?: EmailVerificationConfig;
+  // Self-Signup (Magic-Link). Wenn wired, mountet POST
+  // /auth/signup-request + /auth/signup-confirm. Confirm returnt JWT-
+  // Cookie + Session-Body wie login.
+  signup?: SignupConfig;
   // SameSite flag for the HttpOnly auth cookie + JS-readable csrf cookie
   // issued by /auth/login and /auth/switch-tenant.
   //   "lax"    (default) — blocks cross-site POSTs entirely (which is what
@@ -236,6 +245,31 @@ export type EmailVerificationConfig = {
   // URL of the app page that receives the `?token=…` parameter and POSTs
   // it to /auth/verify-email on submit.
   appVerifyUrl: string;
+};
+
+// Magic-Link Self-Signup. Anders als reset/verify NICHT HMAC-signed —
+// der Token ist opaque random, Redis ist Source of Truth. Confirm
+// returnt `{ kind: "auth-session", session, tenantKey }` analog zu
+// loginHandler, sodass die Route JWT minten + Cookies setzen kann
+// (Auto-Login direkt nach Activation, kein zweiter login-Roundtrip).
+export type SignupConfig = {
+  // Qualified name of the request handler (typisch
+  // AuthHandlers.signupRequest).
+  requestHandler: string;
+  // Qualified name of the confirm handler (typisch
+  // AuthHandlers.signupConfirm). Returnt SessionUser-Shape — die
+  // Route wickelt das wie einen erfolgreichen login.
+  confirmHandler: string;
+  // Mail-Callback. Token-URL wird als `${appActivationUrl}?token=…`
+  // an die App-Page geleitet.
+  sendActivationEmail: (args: {
+    email: string;
+    activationUrl: string;
+    expiresAt: string;
+  }) => Promise<void>;
+  // Base URL of the app page that receives the `?token=…` parameter
+  // (typisch /signup/complete). KEIN trailing `?` oder `#`.
+  appActivationUrl: string;
 };
 
 // Extract `ip` and `user-agent` for the sessionCreator.
@@ -454,6 +488,77 @@ export function createAuthRoutes(
       path: Routes.authVerifyEmail,
       confirmHandler: ev.confirmHandler,
       schema: VerifyEmailBody,
+    });
+  }
+
+  // Self-Signup (Magic-Link). Request mountet wie reset/verify den
+  // silent-success-Pfad mit Token-Mail. Confirm ist anders: returnt
+  // SessionUser → die Route mintet JWT + setzt Cookies (Auto-Login
+  // direkt nach Activation, kein zweiter Login-Roundtrip nötig).
+  if (config.signup) {
+    const sg = config.signup;
+    registerTokenRequestRoute({
+      api,
+      dispatcher,
+      path: Routes.authSignupRequest,
+      requestHandler: sg.requestHandler,
+      successKind: "signup-requested",
+      appBaseUrl: sg.appActivationUrl,
+      sendEmail: ({ email, url, expiresAt }) =>
+        sg.sendActivationEmail({ email, activationUrl: url, expiresAt }),
+    });
+
+    api.post(Routes.authSignupConfirm, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = SignupConfirmBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+
+      const result = await dispatcher.write(sg.confirmHandler, parsed.data, GUEST_USER);
+
+      if (!result.isSuccess) {
+        // 422 für invalid_signup_token (handler-level UnprocessableError).
+        // @cast-boundary engine-payload — KumikoError.httpStatus narrows to the http-status union
+        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+
+      // @cast-boundary engine-payload — generic dispatcher.write result for signup-confirm
+      const data = result.data as {
+        kind: "auth-session";
+        session: SessionUser;
+        tenantKey: string;
+      };
+
+      // Session-Creator analog login — wenn wired, sid wird im JWT
+      // platziert und der Server kann später den Session revoken
+      // (Logout, Compromise).
+      let sessionForJwt: SessionUser = data.session;
+      if (config.sessionCreator) {
+        const sid = await config.sessionCreator(data.session, requestMeta(c));
+        sessionForJwt = { ...data.session, sid };
+      }
+
+      const token = await jwt.sign(sessionForJwt);
+      const csrfToken = generateToken();
+      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite });
+
+      return c.json({
+        isSuccess: true,
+        token,
+        user: {
+          id: data.session.id,
+          tenantId: data.session.tenantId,
+          roles: data.session.roles,
+        },
+        // tenantKey für Post-Signup-Redirect zu /<tenantKey>/.
+        // Anders als der login-response der nur `tenants[]` braucht
+        // (User wählt im Switcher), kennt der signup nur EINE
+        // membership — die Frontend-UI nimmt das direkt als Redirect-
+        // Target.
+        tenantKey: data.tenantKey,
+      });
     });
   }
 
