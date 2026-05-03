@@ -7,8 +7,10 @@ import {
 } from "@kumiko/framework/engine";
 import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query";
 import { addMemberWrite } from "./handlers/add-member.write";
+import { cancelInvitationWrite } from "./handlers/cancel-invitation.write";
 import { createWrite } from "./handlers/create.write";
 import { disableWrite } from "./handlers/disable.write";
+import { invitationsQuery } from "./handlers/invitations.query";
 import { listQuery } from "./handlers/list.query";
 import { meQuery } from "./handlers/me.query";
 import { membersQuery } from "./handlers/members.query";
@@ -88,6 +90,7 @@ export function createTenantFeature(): FeatureDefinition {
       addMember: r.writeHandler(addMemberWrite),
       removeMember: r.writeHandler(removeMemberWrite),
       updateMemberRoles: r.writeHandler(updateMemberRolesWrite),
+      cancelInvitation: r.writeHandler(cancelInvitationWrite),
     };
 
     // Queries
@@ -98,6 +101,7 @@ export function createTenantFeature(): FeatureDefinition {
       members: r.queryHandler(membersQuery),
       activeTenantIds: r.queryHandler(activeTenantIdsQuery),
       resolveUserIds: r.queryHandler(resolveUserIdsQuery),
+      invitations: r.queryHandler(invitationsQuery),
     };
 
     return { handlers, queries };

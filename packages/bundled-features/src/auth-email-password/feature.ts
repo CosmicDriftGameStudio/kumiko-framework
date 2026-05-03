@@ -5,11 +5,13 @@ import { logoutWrite } from "./handlers/logout.write";
 import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write";
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write";
 import { createResetPasswordHandler } from "./handlers/reset-password.write";
+import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write";
 import { createInviteAcceptHandler } from "./handlers/invite-accept.write";
 import {
   createInviteCreateHandler,
   type InviteCreateOptions,
 } from "./handlers/invite-create.write";
+import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write";
 import { createSignupConfirmHandler } from "./handlers/signup-confirm.write";
 import {
   createSignupRequestHandler,
@@ -129,8 +131,8 @@ export function createAuthEmailPasswordFeature(
     if (opts.invite) {
       r.writeHandler(createInviteCreateHandler(opts.invite));
       r.writeHandler(createInviteAcceptHandler());
-      // Branch 2 (acceptWithLogin) + Branch 3 (signupComplete) +
-      // Cancel + Pending-List-Query kommen in U.3-D/E/F.
+      r.writeHandler(createInviteAcceptWithLoginHandler());
+      r.writeHandler(createInviteSignupCompleteHandler());
     }
 
     return { handlers };
