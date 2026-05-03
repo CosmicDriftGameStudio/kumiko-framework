@@ -25,7 +25,12 @@
 //   PORT=3000
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
-import { AuthErrors, AuthHandlers } from "@kumiko/bundled-features/auth-email-password";
+import {
+  AuthErrors,
+  AuthHandlers,
+  type EmailVerificationOptions,
+  type PasswordResetOptions,
+} from "@kumiko/bundled-features/auth-email-password";
 import {
   type SeedAdminOptions,
   seedAdmin,
@@ -54,7 +59,7 @@ import {
 } from "@kumiko/framework/pipeline";
 import Redis from "ioredis";
 import { ASSETS_DIR } from "./build-prod-bundle";
-import { composeFeatures } from "./compose-features";
+import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { injectSchema } from "./inject-schema";
 
 /**
@@ -100,16 +105,16 @@ function readEnv(name: string): string | undefined {
   return value === undefined || value === "" ? undefined : value;
 }
 
-/** Vollständige Setup-Options für den Password-Reset-Flow. Kombiniert
- *  die Handler-Side (hmacSecret + tokenTtlMinutes — vom auth-email-
- *  password-Feature für Token-Signing genutzt) und die Mail-Side
- *  (sendResetEmail-callback + appResetUrl — von der Route an die App
- *  durchgereicht). Apps geben EINEN Block, run{Prod,Dev}App splittet
- *  intern auf composeFeatures(authOptions) + auth-routes-config. */
-export type PasswordResetSetup = {
-  /** HMAC-secret für Token-Signing. Typisch derselbe wie JWT_SECRET. */
-  readonly hmacSecret: string;
-  readonly tokenTtlMinutes?: number;
+/** Wrapper-API für den Password-Reset-Flow.
+ *
+ *  Setup = Feature-Options (PasswordResetOptions = hmacSecret +
+ *  tokenTtlMinutes) PLUS die Mail-Side die der Wrapper an die
+ *  auth-routes-config durchreicht (sendResetEmail-callback +
+ *  appResetUrl). Apps geben EINEN Block; run{Prod,Dev}App splittet
+ *  intern auf composeFeatures(authOptions) für die Feature-Options
+ *  und auth-routes-config für die Mail-Side. extends-Beziehung
+ *  pinst die Synchronität: jede Feature-Option ist auch Wrapper-Option. */
+export type PasswordResetSetup = PasswordResetOptions & {
   readonly sendResetEmail: (args: {
     email: string;
     resetUrl: string;
@@ -120,10 +125,9 @@ export type PasswordResetSetup = {
   readonly appResetUrl: string;
 };
 
-export type EmailVerificationSetup = {
-  readonly hmacSecret: string;
-  readonly tokenTtlMinutes?: number;
-  readonly mode?: "strict" | "off";
+/** Wrapper-API für den Email-Verification-Flow. Symmetrisch zu
+ *  PasswordResetSetup — extends EmailVerificationOptions + Mail-Side. */
+export type EmailVerificationSetup = EmailVerificationOptions & {
   readonly sendVerificationEmail: (args: {
     email: string;
     verificationUrl: string;
@@ -334,31 +338,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    password via composeFeatures — same source-of-truth as runDevApp
   //    AND the per-app drizzle-Schema-Generator, so Migration und Runtime
   //    sehen exakt dieselbe Liste.
+  const composeAuthOptions = buildComposeAuthOptions(options.auth);
   const features = composeFeatures(options.features, {
     includeBundled: !!options.auth,
-    ...(options.auth && {
-      authOptions: {
-        ...(options.auth.passwordReset && {
-          passwordReset: {
-            hmacSecret: options.auth.passwordReset.hmacSecret,
-            ...(options.auth.passwordReset.tokenTtlMinutes !== undefined && {
-              tokenTtlMinutes: options.auth.passwordReset.tokenTtlMinutes,
-            }),
-          },
-        }),
-        ...(options.auth.emailVerification && {
-          emailVerification: {
-            hmacSecret: options.auth.emailVerification.hmacSecret,
-            ...(options.auth.emailVerification.tokenTtlMinutes !== undefined && {
-              tokenTtlMinutes: options.auth.emailVerification.tokenTtlMinutes,
-            }),
-            ...(options.auth.emailVerification.mode !== undefined && {
-              mode: options.auth.emailVerification.mode,
-            }),
-          },
-        }),
-      },
-    }),
+    ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
   validateBoot(features);

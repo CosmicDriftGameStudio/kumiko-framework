@@ -25,7 +25,7 @@ import type { FeatureDefinition } from "@kumiko/framework/engine";
 import type { TestStack } from "@kumiko/framework/stack";
 
 import { watchAndRegenerate } from "./codegen";
-import { composeFeatures } from "./compose-features";
+import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import {
   type CreateKumikoServerOptions,
   createKumikoServer,
@@ -130,31 +130,10 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // source of truth — auch runProdApp und der per-app drizzle-Schema-
   // Generator nutzen denselben Helper, damit Migration und Runtime nie
   // auseinanderdriften können).
+  const composeAuthOptions = buildComposeAuthOptions(options.auth);
   const features = composeFeatures(options.features, {
     includeBundled: !!options.auth,
-    ...(options.auth && {
-      authOptions: {
-        ...(options.auth.passwordReset && {
-          passwordReset: {
-            hmacSecret: options.auth.passwordReset.hmacSecret,
-            ...(options.auth.passwordReset.tokenTtlMinutes !== undefined && {
-              tokenTtlMinutes: options.auth.passwordReset.tokenTtlMinutes,
-            }),
-          },
-        }),
-        ...(options.auth.emailVerification && {
-          emailVerification: {
-            hmacSecret: options.auth.emailVerification.hmacSecret,
-            ...(options.auth.emailVerification.tokenTtlMinutes !== undefined && {
-              tokenTtlMinutes: options.auth.emailVerification.tokenTtlMinutes,
-            }),
-            ...(options.auth.emailVerification.mode !== undefined && {
-              mode: options.auth.emailVerification.mode,
-            }),
-          },
-        }),
-      },
-    }),
+    ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
   // configResolver braucht das config-feature — im auth-mode immer
