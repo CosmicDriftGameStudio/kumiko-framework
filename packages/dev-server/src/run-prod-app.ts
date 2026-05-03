@@ -106,6 +106,38 @@ export type RunProdAppAuthOptions = {
   readonly admin: SeedAdminOptions;
   /** Optional override of the login error → HTTP status map. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
+  /** Password-reset flow. When set, /api/auth/request-password-reset +
+   *  /api/auth/reset-password are mounted as public routes. App provides
+   *  the sendResetEmail callback (typically using a mailSender +
+   *  renderResetPasswordEmail from auth-email-password) plus the URL
+   *  where the App's ResetPasswordScreen lives. */
+  readonly passwordReset?: PasswordResetOptions;
+  /** Email-verification flow. Symmetric to passwordReset. */
+  readonly emailVerification?: EmailVerificationOptions;
+};
+
+export type PasswordResetOptions = {
+  /** Called when a real user requested a reset; ignored when the email
+   *  is silent-dropped (anti-enumeration). Errors bubble as 5xx so a
+   *  silent mail-outage doesn't hide behind a green response. */
+  readonly sendResetEmail: (args: {
+    email: string;
+    resetUrl: string;
+    expiresAt: string;
+  }) => Promise<void>;
+  /** App page that hosts the ResetPasswordScreen. Framework appends
+   *  `?token=…`; do not include trailing `?` or `#`. Example:
+   *  "https://admin.example.com/reset-password" */
+  readonly appResetUrl: string;
+};
+
+export type EmailVerificationOptions = {
+  readonly sendVerificationEmail: (args: {
+    email: string;
+    verificationUrl: string;
+    expiresAt: string;
+  }) => Promise<void>;
+  readonly appVerifyUrl: string;
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -382,6 +414,22 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
+        ...(options.auth.passwordReset && {
+          passwordReset: {
+            requestHandler: AuthHandlers.requestPasswordReset,
+            confirmHandler: AuthHandlers.resetPassword,
+            sendResetEmail: options.auth.passwordReset.sendResetEmail,
+            appResetUrl: options.auth.passwordReset.appResetUrl,
+          },
+        }),
+        ...(options.auth.emailVerification && {
+          emailVerification: {
+            requestHandler: AuthHandlers.requestEmailVerification,
+            confirmHandler: AuthHandlers.verifyEmail,
+            sendVerificationEmail: options.auth.emailVerification.sendVerificationEmail,
+            appVerifyUrl: options.auth.emailVerification.appVerifyUrl,
+          },
+        }),
       },
     }),
     ...(resolvedAnonymousAccess && { anonymousAccess: resolvedAnonymousAccess }),

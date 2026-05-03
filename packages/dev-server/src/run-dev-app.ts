@@ -39,6 +39,29 @@ export type RunDevAppAuthOptions = {
   /** Optional override of the login error → HTTP status map. Default
    *  maps invalidCredentials → 401, noMembership → 403. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
+  /** Password-reset flow. Wenn gesetzt werden /api/auth/request-password-
+   *  reset + /api/auth/reset-password als Public-Routes gemounted. App
+   *  liefert sendResetEmail-callback (typisch via mailSender +
+   *  renderResetPasswordEmail aus auth-email-password) plus die App-URL
+   *  wo der ResetPasswordScreen sitzt. Symmetrisch zu
+   *  RunProdAppAuthOptions.passwordReset. */
+  readonly passwordReset?: {
+    readonly sendResetEmail: (args: {
+      email: string;
+      resetUrl: string;
+      expiresAt: string;
+    }) => Promise<void>;
+    readonly appResetUrl: string;
+  };
+  /** Email-verification flow. Symmetric zu passwordReset. */
+  readonly emailVerification?: {
+    readonly sendVerificationEmail: (args: {
+      email: string;
+      verificationUrl: string;
+      expiresAt: string;
+    }) => Promise<void>;
+    readonly appVerifyUrl: string;
+  };
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
@@ -144,6 +167,22 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
+        ...(options.auth.passwordReset && {
+          passwordReset: {
+            requestHandler: AuthHandlers.requestPasswordReset,
+            confirmHandler: AuthHandlers.resetPassword,
+            sendResetEmail: options.auth.passwordReset.sendResetEmail,
+            appResetUrl: options.auth.passwordReset.appResetUrl,
+          },
+        }),
+        ...(options.auth.emailVerification && {
+          emailVerification: {
+            requestHandler: AuthHandlers.requestEmailVerification,
+            confirmHandler: AuthHandlers.verifyEmail,
+            sendVerificationEmail: options.auth.emailVerification.sendVerificationEmail,
+            appVerifyUrl: options.auth.emailVerification.appVerifyUrl,
+          },
+        }),
       },
     }),
     onAfterSetup: async (stack) => {

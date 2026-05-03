@@ -21,6 +21,11 @@ export type LoginScreenProps = {
   readonly title?: string;
   readonly subtitle?: ReactNode;
   readonly submitLabel?: string;
+  /** Optional href zum ForgotPasswordScreen. Wenn gesetzt rendert die
+   *  LoginScreen unter dem Submit-Button einen "Passwort vergessen?"-
+   *  Link. Apps die den Reset-Flow NICHT anbieten (z.B. nur Magic-Link),
+   *  setzen das einfach nicht — Login bleibt minimalistisch. */
+  readonly forgotPasswordHref?: string;
 };
 
 // Map vom Reason-Code des Login-Handlers auf einen i18n-Key plus
@@ -54,7 +59,12 @@ function reasonToKey(failure: LoginFailure): {
   }
 }
 
-export function LoginScreen({ title, subtitle, submitLabel }: LoginScreenProps): ReactNode {
+export function LoginScreen({
+  title,
+  subtitle,
+  submitLabel,
+  forgotPasswordHref,
+}: LoginScreenProps): ReactNode {
   const t = useTranslation();
   const session = useSession();
   const [email, setEmail] = useState("");
@@ -143,6 +153,14 @@ export function LoginScreen({ title, subtitle, submitLabel }: LoginScreenProps):
           >
             {submitting ? t("auth.login.submitting") : effectiveSubmit}
           </button>
+          {forgotPasswordHref !== undefined && (
+            <a
+              href={forgotPasswordHref}
+              className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline self-center"
+            >
+              {t("auth.login.forgotPassword")}
+            </a>
+          )}
         </form>
       </div>
     </div>
