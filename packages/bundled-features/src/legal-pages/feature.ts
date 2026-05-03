@@ -75,7 +75,7 @@ export function createLegalPagesFeature(): FeatureDefinition {
 
           const body: ByslugQueryBody = await queryRes.json();
           const data = body.data;
-          if (!data || !data.body) {
+          if (!data?.body) {
             return c.text(
               `${route.titleFallback} not configured. Tenant-Admin must set this text-block.`,
               404,
