@@ -19,6 +19,7 @@ export type {
   AccountLockoutOptions,
   AuthEmailPasswordOptions,
   EmailVerificationOptions,
+  InviteOptions,
   PasswordResetOptions,
   SignupOptions,
 } from "./feature";

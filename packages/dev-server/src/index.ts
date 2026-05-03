@@ -44,6 +44,7 @@ export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-a
 export { runDevApp } from "./run-dev-app";
 export type {
   EmailVerificationSetup,
+  InviteSetup,
   PasswordResetSetup,
   ProdAppHandle,
   ProdSeedFn,

@@ -21,6 +21,14 @@ export const Routes = {
   authVerifyEmail: "/auth/verify-email",
   authSignupRequest: "/auth/signup-request",
   authSignupConfirm: "/auth/signup-confirm",
+  // Tenant-Invite (Magic-Link): 3 separate accept-Endpoints für klare
+  // Branch-Separation. Plus invite-info als public-readable details
+  // damit das Frontend "Du wirst eingeladen zu Tenant X als Role Y"
+  // anzeigen kann bevor der User submitted.
+  authInviteAccept: "/auth/invite-accept",
+  authInviteAcceptWithLogin: "/auth/invite-accept-with-login",
+  authInviteSignupComplete: "/auth/invite-signup-complete",
+  authInviteInfo: "/auth/invite-info",
   files: "/files",
 } as const;
 
@@ -34,6 +42,12 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authVerifyEmail}`,
   `/api${Routes.authSignupRequest}`,
   `/api${Routes.authSignupConfirm}`,
+  // invite-accept braucht JWT (logged-in User, Branch 1) — NICHT public.
+  // invite-accept-with-login (Branch 2) und invite-signup-complete
+  // (Branch 3) sind anonymous, brauchen public-skip.
+  `/api${Routes.authInviteAcceptWithLogin}`,
+  `/api${Routes.authInviteSignupComplete}`,
+  `/api${Routes.authInviteInfo}`,
   `/api${Routes.health}`,
   `/api${Routes.healthReady}`,
   `/api${Routes.version}`,

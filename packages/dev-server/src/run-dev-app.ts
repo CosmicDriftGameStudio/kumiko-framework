@@ -37,11 +37,17 @@ import {
 // run-prod-app.ts (single source of truth) — hier nur durchgereicht.
 export type {
   EmailVerificationSetup,
+  InviteSetup,
   PasswordResetSetup,
   SignupSetup,
 } from "./run-prod-app";
 
-import type { EmailVerificationSetup, PasswordResetSetup, SignupSetup } from "./run-prod-app";
+import type {
+  EmailVerificationSetup,
+  InviteSetup,
+  PasswordResetSetup,
+  SignupSetup,
+} from "./run-prod-app";
 
 export type RunDevAppAuthOptions = {
   /** Admin user to seed at boot. Idempotent — re-runs in persistent-DB
@@ -59,6 +65,8 @@ export type RunDevAppAuthOptions = {
   readonly emailVerification?: EmailVerificationSetup;
   /** Self-Signup flow (Magic-Link). Symmetric zu RunProdAppAuthOptions. */
   readonly signup?: SignupSetup;
+  /** Tenant-Invite flow (Magic-Link). Symmetric. */
+  readonly invite?: InviteSetup;
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
@@ -190,6 +198,15 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
             confirmHandler: AuthHandlers.signupConfirm,
             sendActivationEmail: options.auth.signup.sendActivationEmail,
             appActivationUrl: options.auth.signup.appActivationUrl,
+          },
+        }),
+        ...(options.auth.invite && {
+          invite: {
+            acceptHandler: AuthHandlers.inviteAccept,
+            acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
+            signupCompleteHandler: AuthHandlers.inviteSignupComplete,
+            sendInviteEmail: options.auth.invite.sendInviteEmail,
+            appAcceptUrl: options.auth.invite.appAcceptUrl,
           },
         }),
       },

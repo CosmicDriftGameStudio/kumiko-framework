@@ -15,6 +15,7 @@ import {
   type AuthEmailPasswordOptions,
   createAuthEmailPasswordFeature,
   type EmailVerificationOptions,
+  type InviteOptions,
   type PasswordResetOptions,
   type SignupOptions,
 } from "@kumiko/bundled-features/auth-email-password";
@@ -62,6 +63,7 @@ export type AuthOptionsCarrier = {
   readonly passwordReset?: PasswordResetOptions;
   readonly emailVerification?: EmailVerificationOptions;
   readonly signup?: SignupOptions;
+  readonly invite?: InviteOptions;
 };
 
 /** Baut den authOptions-Block für composeFeatures aus einem
@@ -112,5 +114,15 @@ export function buildComposeAuthOptions(
     }
     opts.signup = signup;
   }
-  return opts.passwordReset || opts.emailVerification || opts.signup ? opts : undefined;
+  if (auth.invite) {
+    // Plain object analog signup (gleicher type-alias-issue).
+    const invite: { tokenTtlMinutes?: number } = {};
+    if (auth.invite.tokenTtlMinutes !== undefined) {
+      invite.tokenTtlMinutes = auth.invite.tokenTtlMinutes;
+    }
+    opts.invite = invite;
+  }
+  return opts.passwordReset || opts.emailVerification || opts.signup || opts.invite
+    ? opts
+    : undefined;
 }

@@ -84,6 +84,21 @@ const SignupConfirmBody = z.object({
   password: z.string().min(8).max(200),
 });
 
+const InviteAcceptBody = z.object({
+  token: z.string().min(1),
+});
+
+const InviteAcceptWithLoginBody = z.object({
+  token: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(8).max(200),
+});
+
+const InviteSignupCompleteBody = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8).max(200),
+});
+
 // Shape guard for "handler not registered" — the only legitimate reason to
 // fall back to a single-tenant reply on /auth/tenants or /auth/switch-tenant.
 // Every other error (DB down, revoker throws, access denied, …) has to
@@ -201,6 +216,9 @@ export type AuthRoutesConfig = {
   // /auth/signup-request + /auth/signup-confirm. Confirm returnt JWT-
   // Cookie + Session-Body wie login.
   signup?: SignupConfig;
+  // Tenant-Invite (Magic-Link). Mountet 3 accept-Routes für die 3
+  // Branches (logged-in / anon-existing-email / anon-new-email).
+  invite?: InviteConfig;
   // SameSite flag for the HttpOnly auth cookie + JS-readable csrf cookie
   // issued by /auth/login and /auth/switch-tenant.
   //   "lax"    (default) — blocks cross-site POSTs entirely (which is what
@@ -245,6 +263,29 @@ export type EmailVerificationConfig = {
   // URL of the app page that receives the `?token=…` parameter and POSTs
   // it to /auth/verify-email on submit.
   appVerifyUrl: string;
+};
+
+// Tenant-Invite Magic-Link. Drei Accept-Branches für klare Separation:
+//   - acceptHandler: logged-in User akzeptiert via JWT (Branch 1)
+//   - acceptWithLoginHandler: anon User mit existing email (Branch 2)
+//   - signupCompleteHandler: anon User mit neuer email (Branch 3)
+// Branch 2+3 minten JWT analog signup-confirm.
+export type InviteConfig = {
+  // Qualified handler names
+  readonly acceptHandler: string;
+  readonly acceptWithLoginHandler: string;
+  readonly signupCompleteHandler: string;
+  // Mail-Callback. Token-URL wird von der App-Page (z.B. /invite/accept)
+  // an den User geschickt; der Frontend leitet je nach User-State (eingeloggt
+  // / anon mit existing-email / anon mit neuer email) auf den passenden
+  // Branch-Endpoint.
+  readonly sendInviteEmail: (args: {
+    email: string;
+    inviteUrl: string;
+    expiresAt: string;
+    role: string;
+  }) => Promise<void>;
+  readonly appAcceptUrl: string;
 };
 
 // Magic-Link Self-Signup. Anders als reset/verify NICHT HMAC-signed —
@@ -558,6 +599,124 @@ export function createAuthRoutes(
         // membership — die Frontend-UI nimmt das direkt als Redirect-
         // Target.
         tenantKey: data.tenantKey,
+      });
+    });
+  }
+
+  // Tenant-Invite Magic-Link. 3 separate Routes für 3 Accept-Branches:
+  if (config.invite) {
+    const inv = config.invite;
+
+    // Branch 1: logged-in User klickt Invite-Link → Membership-Add im
+    // invited Tenant (NICHT Tenant-Switch — User bleibt in seiner
+    // aktuellen Session, kann später via Tenant-Switcher wechseln).
+    // Requires JWT (siehe PUBLIC_API_PATHS — invite-accept ist NICHT
+    // public, im Gegensatz zu acceptWithLogin/signupComplete).
+    api.post(Routes.authInviteAccept, async (c) => {
+      const user = getUser(c);
+      const raw = await c.req.json().catch(() => null);
+      const parsed = InviteAcceptBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const result = await dispatcher.write(inv.acceptHandler, parsed.data, user);
+      if (!result.isSuccess) {
+        // @cast-boundary engine-payload — KumikoError.httpStatus
+        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+      // @cast-boundary engine-payload — generic dispatcher.write result
+      const data = result.data as {
+        kind: "invite-accepted";
+        tenantId: TenantId;
+        role: string;
+        alreadyMember: boolean;
+      };
+      return c.json({
+        isSuccess: true,
+        tenantId: data.tenantId,
+        role: data.role,
+        alreadyMember: data.alreadyMember,
+      });
+    });
+
+    // Branch 2: anon User mit existing email — Login + Accept in einem
+    // Roundtrip. JWT-mint analog signup-confirm.
+    api.post(Routes.authInviteAcceptWithLogin, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = InviteAcceptWithLoginBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const result = await dispatcher.write(inv.acceptWithLoginHandler, parsed.data, GUEST_USER);
+      if (!result.isSuccess) {
+        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+      const data = result.data as {
+        kind: "auth-session";
+        session: SessionUser;
+        tenantId: TenantId;
+        role: string;
+      };
+      let sessionForJwt: SessionUser = data.session;
+      if (config.sessionCreator) {
+        const sid = await config.sessionCreator(data.session, requestMeta(c));
+        sessionForJwt = { ...data.session, sid };
+      }
+      const token = await jwt.sign(sessionForJwt);
+      const csrfToken = generateToken();
+      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite });
+      return c.json({
+        isSuccess: true,
+        token,
+        user: {
+          id: data.session.id,
+          tenantId: data.session.tenantId,
+          roles: data.session.roles,
+        },
+        tenantId: data.tenantId,
+        role: data.role,
+      });
+    });
+
+    // Branch 3: anon User mit neuer email — User+Membership entstehen,
+    // KEIN neuer Tenant. JWT-mint.
+    api.post(Routes.authInviteSignupComplete, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = InviteSignupCompleteBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const result = await dispatcher.write(inv.signupCompleteHandler, parsed.data, GUEST_USER);
+      if (!result.isSuccess) {
+        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+      const data = result.data as {
+        kind: "auth-session";
+        session: SessionUser;
+        tenantId: TenantId;
+        role: string;
+      };
+      let sessionForJwt: SessionUser = data.session;
+      if (config.sessionCreator) {
+        const sid = await config.sessionCreator(data.session, requestMeta(c));
+        sessionForJwt = { ...data.session, sid };
+      }
+      const token = await jwt.sign(sessionForJwt);
+      const csrfToken = generateToken();
+      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite });
+      return c.json({
+        isSuccess: true,
+        token,
+        user: {
+          id: data.session.id,
+          tenantId: data.session.tenantId,
+          roles: data.session.roles,
+        },
+        tenantId: data.tenantId,
+        role: data.role,
       });
     });
   }
