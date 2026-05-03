@@ -28,6 +28,7 @@ export async function getSubscriptionForTenant(
   const aggId = subscriptionAggregateId(tenantId);
   const [row] = await ctx.db.select().from(subTable).where(eq(subTable["id"], aggId)).limit(1);
   if (!row) return null;
+  // @cast-boundary db-row — drizzle-row carries column-as-unknown
   return {
     tier: row["tier"] as string,
     status: row["status"] as string,
