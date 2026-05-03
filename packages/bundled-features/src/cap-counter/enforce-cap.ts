@@ -2,7 +2,11 @@ import { createEntityExecutor, type HandlerContext } from "@kumiko/framework/eng
 import { eventsTable } from "@kumiko/framework/event-store";
 import { and, eq, gte } from "drizzle-orm";
 import { rollingCapAggregateId } from "./aggregate-id";
-import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_NAME } from "./constants";
+import {
+  CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
+  CapCounterHandlers,
+  ROLLING_INCREMENTED_EVENT_QN,
+} from "./constants";
 import { capCounterEntity } from "./entity";
 
 // Temporal globally provided by the framework's polyfill init
@@ -193,7 +197,7 @@ export async function enforceRollingCap(
         eq(eventsTable.tenantId, ctx.user.tenantId),
         eq(eventsTable.aggregateType, CAP_COUNTER_ROLLING_AGGREGATE_TYPE),
         eq(eventsTable.aggregateId, aggregateId),
-        eq(eventsTable.type, ROLLING_INCREMENTED_EVENT_NAME),
+        eq(eventsTable.type, ROLLING_INCREMENTED_EVENT_QN),
         gte(eventsTable.createdAt, cutoff),
       ),
     );
@@ -346,7 +350,7 @@ export async function enforceCapAndMaybeNotify(
     // mark-soft-warned-handler in-line works via ctx.write (re-uses
     // the request user; the handler's own access-check enforces the
     // SystemAdmin role on the caller).
-    await ctx.write("cap-counter:write:mark-soft-warned", {
+    await ctx.write(CapCounterHandlers.markSoftWarned, {
       capName: options.capName,
       periodStartIso: options.periodStartIso,
     });

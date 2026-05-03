@@ -9,13 +9,14 @@ export const CAP_COUNTER_FEATURE = "cap-counter" as const;
 // muss.
 export const CAP_COUNTER_ROLLING_AGGREGATE_TYPE = "cap-counter-rolling" as const;
 
-// Custom event-type für Rolling-Window-Counter — als qualifizierter
-// Name. r.defineEvent kriegt den short-Anteil (siehe
-// ROLLING_INCREMENTED_SHORT), ctx.appendEventUnsafe + getEvent-Lookup
-// erwarten den qualifizierten Namen (`<feature>:event:<short>`).
-// Mirror zu FEATURE_TOGGLE_SET_EVENT_NAME in feature-toggles.
-export const ROLLING_INCREMENTED_SHORT = "rolling-incremented" as const;
-export const ROLLING_INCREMENTED_EVENT_NAME = "cap-counter:event:rolling-incremented" as const;
+// Custom event-type für Rolling-Window-Counter. Symmetrisches Paar:
+//   _SHORT  — passt zu `r.defineEvent(short, schema)` im Registrar
+//             (Framework prefixt automatisch zu QN)
+//   _QN     — qualifizierte Form für `ctx.appendEventUnsafe({type})`
+//             + `events.type`-Spalte + `registry.getEvent(qn)`-Lookup
+// Beide MÜSSEN konsistent sein (drift-pin im feature-test).
+export const ROLLING_INCREMENTED_EVENT_SHORT = "rolling-incremented" as const;
+export const ROLLING_INCREMENTED_EVENT_QN = "cap-counter:event:rolling-incremented" as const;
 
 // Qualified write handler names (QN format: scope:type:name).
 export const CapCounterHandlers = {

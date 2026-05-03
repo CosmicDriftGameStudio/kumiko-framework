@@ -21,7 +21,7 @@
 import type { WriteHandlerDef } from "@kumiko/framework/engine";
 import { z } from "zod";
 import { rollingCapAggregateId } from "../aggregate-id";
-import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_NAME } from "../constants";
+import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_QN } from "../constants";
 
 const incrementRollingSchema = z.object({
   /** App-defined cap-name. e.g. "ai-tokens-7day", "egress-bytes-24h". */
@@ -67,7 +67,7 @@ export const incrementRollingCapHandler: WriteHandlerDef = {
     await ctx.appendEventUnsafe({
       aggregateId,
       aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
-      type: ROLLING_INCREMENTED_EVENT_NAME,
+      type: ROLLING_INCREMENTED_EVENT_QN,
       payload: {
         capName: payload.capName,
         amount: payload.amount,

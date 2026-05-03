@@ -51,7 +51,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@kumiko/framework/engine";
-import { CAP_COUNTER_FEATURE, ROLLING_INCREMENTED_SHORT } from "./constants";
+import { CAP_COUNTER_FEATURE, ROLLING_INCREMENTED_EVENT_SHORT } from "./constants";
 import { capCounterEntity } from "./entity";
 import { getCounterQuery } from "./handlers/get-counter.query";
 import { incrementCapHandler } from "./handlers/increment.write";
@@ -70,8 +70,8 @@ export const capCounterFeature: FeatureDefinition = defineFeature(CAP_COUNTER_FE
   // das Schema beim Registry; ctx.appendEventUnsafe im Handler nutzt
   // dasselbe Schema für Append-Time-Validation. QN nach Prefixing:
   // "cap-counter:event:rolling-incremented" (siehe
-  // ROLLING_INCREMENTED_EVENT_NAME).
-  r.defineEvent(ROLLING_INCREMENTED_SHORT, rollingIncrementedSchema);
+  // ROLLING_INCREMENTED_EVENT_QN).
+  r.defineEvent(ROLLING_INCREMENTED_EVENT_SHORT, rollingIncrementedSchema);
 
   // Custom write-handlers.
   // - increment: Calendar-Period (CRUD via projection-row).

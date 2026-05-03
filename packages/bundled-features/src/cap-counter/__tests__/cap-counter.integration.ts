@@ -24,7 +24,10 @@ import {
   CapExceededError,
   currentCalendarMonthStartIso,
   enforceCap,
+  enforceCapAndMaybeNotify,
   enforceRollingCap,
+  enforceRollingCapAndMaybeNotify,
+  type SoftHitNotifier,
 } from "../enforce-cap";
 import { capCounterEntity } from "../entity";
 import { capCounterFeature } from "../feature";
@@ -94,9 +97,76 @@ const enforceRollingHandler: WriteHandlerDef = {
   },
 };
 
+// Notification-recorder — module-level state that the probe-handlers
+// push into. Tests reset between scenarios via `recordedNotifications.length = 0`.
+// Captures real notifier-callback firings against a real dispatched
+// mark-soft-warned-write — this is the full-stack proof that
+// enforceCapAndMaybeNotify actually wires soft-hit → notify + DB-flag.
+const recordedNotifications: Array<{
+  capName: string;
+  value: number;
+  limit: number;
+  tenantId: string;
+}> = [];
+const recordingNotifier: SoftHitNotifier = (info) => {
+  recordedNotifications.push({
+    capName: info.capName,
+    value: info.value,
+    limit: info.limit,
+    tenantId: info.tenantId,
+  });
+};
+
+const ENFORCE_NOTIFY_PROBE_QN = "cap-test:write:enforce-and-notify";
+const enforceAndNotifyHandler: WriteHandlerDef = {
+  name: "enforce-and-notify",
+  schema: z.object({
+    capName: z.string(),
+    periodStartIso: z.string(),
+    limit: z.number(),
+    profile: z.enum(["burstable", "storage", "hardSlot", "egress"]),
+  }),
+  access: { roles: ["TenantAdmin", "SystemAdmin"] },
+  handler: async (event, ctx) => {
+    try {
+      const result = await enforceCapAndMaybeNotify(ctx, {
+        ...(event.payload as Omit<Parameters<typeof enforceCapAndMaybeNotify>[1], "notify">),
+        notify: recordingNotifier,
+      });
+      return { isSuccess: true as const, data: { ok: true, ...result } };
+    } catch (e) {
+      if (e instanceof CapExceededError) {
+        return { isSuccess: true as const, data: { ok: false, code: e.code } };
+      }
+      throw e;
+    }
+  },
+};
+
+const ENFORCE_ROLLING_NOTIFY_PROBE_QN = "cap-test:write:enforce-rolling-and-notify";
+const enforceRollingAndNotifyHandler: WriteHandlerDef = {
+  name: "enforce-rolling-and-notify",
+  schema: z.object({
+    capName: z.string(),
+    windowDays: z.number(),
+    limit: z.number(),
+    profile: z.enum(["burstable", "storage", "hardSlot", "egress"]),
+  }),
+  access: { roles: ["TenantAdmin", "SystemAdmin"] },
+  handler: async (event, ctx) => {
+    const result = await enforceRollingCapAndMaybeNotify(ctx, {
+      ...(event.payload as Omit<Parameters<typeof enforceRollingCapAndMaybeNotify>[1], "notify">),
+      notify: recordingNotifier,
+    });
+    return { isSuccess: true as const, data: { ok: true, ...result } };
+  },
+};
+
 const enforceProbeFeature = defineFeature("cap-test", (r) => {
   r.writeHandler(enforceHandler);
   r.writeHandler(enforceRollingHandler);
+  r.writeHandler(enforceAndNotifyHandler);
+  r.writeHandler(enforceRollingAndNotifyHandler);
 });
 
 // --- Setup ---
@@ -381,5 +451,116 @@ describe("scenario 5: rolling-window through dispatcher", () => {
 
     expect(resultB["state"]).toBe("ok");
     expect(resultB["value"]).toBe(100);
+  });
+});
+
+// --- Scenario 6: Notification-Wiring through dispatcher (Sprint 4) ---
+//
+// Beweist: enforceCapAndMaybeNotify ruft den Notifier UND dispatched
+// tatsächlich `cap-counter:write:mark-soft-warned`, das den
+// `lastSoftWarnedAt`-flag in der DB setzt. Beim zweiten Aufruf in
+// derselben Period feuert der Notifier NICHT erneut (crossed=false,
+// weil flag jetzt nicht mehr null).
+
+describe("scenario 6: notification-wiring (calendar)", () => {
+  test("soft-hit-Crossing → notifier feuert UND mark-soft-warned-handler kippt das DB-Flag", async () => {
+    recordedNotifications.length = 0;
+    const admin = adminFor(1001);
+    const NOTIFY_PERIOD = "2026-06-01T00:00:00Z";
+
+    // 1100 = soft-threshold bei limit=1000 / burstable.
+    await increment(admin, "cap-notify-mails", 1100, NOTIFY_PERIOD);
+
+    const first = (await stack.http.writeOk(
+      ENFORCE_NOTIFY_PROBE_QN,
+      {
+        capName: "cap-notify-mails",
+        periodStartIso: NOTIFY_PERIOD,
+        limit: 1000,
+        profile: "burstable",
+      },
+      admin,
+    )) as Record<string, unknown>;
+    expect(first["state"]).toBe("soft-hit");
+    expect(first["crossed"]).toBe(true);
+    expect(recordedNotifications).toHaveLength(1);
+    expect(recordedNotifications[0]).toMatchObject({
+      capName: "cap-notify-mails",
+      value: 1100,
+      limit: 1000,
+    });
+
+    // Zweiter Aufruf in derselben Period — counter ist immer noch im
+    // soft-Bereich, aber lastSoftWarnedAt ist jetzt gesetzt (durch
+    // den dispatched mark-soft-warned-Handler). enforceCap returnt
+    // crossed=false, der Notifier feuert NICHT erneut.
+    const second = (await stack.http.writeOk(
+      ENFORCE_NOTIFY_PROBE_QN,
+      {
+        capName: "cap-notify-mails",
+        periodStartIso: NOTIFY_PERIOD,
+        limit: 1000,
+        profile: "burstable",
+      },
+      admin,
+    )) as Record<string, unknown>;
+    expect(second["state"]).toBe("soft-hit");
+    expect(second["crossed"]).toBe(false);
+    expect(recordedNotifications).toHaveLength(1); // unverändert
+  });
+
+  test("ok-Bereich → notifier feuert NICHT", async () => {
+    recordedNotifications.length = 0;
+    const admin = adminFor(1002);
+    await increment(admin, "cap-notify-quiet", 100);
+
+    const result = (await stack.http.writeOk(
+      ENFORCE_NOTIFY_PROBE_QN,
+      { capName: "cap-notify-quiet", periodStartIso: PERIOD, limit: 1000, profile: "burstable" },
+      admin,
+    )) as Record<string, unknown>;
+    expect(result["state"]).toBe("ok");
+    expect(recordedNotifications).toHaveLength(0);
+  });
+
+  test("hard-hit → CapExceededError, notifier feuert NICHT (throw kommt vor notify)", async () => {
+    recordedNotifications.length = 0;
+    const admin = adminFor(1003);
+    await increment(admin, "cap-notify-hard", 1200);
+
+    const result = (await stack.http.writeOk(
+      ENFORCE_NOTIFY_PROBE_QN,
+      { capName: "cap-notify-hard", periodStartIso: PERIOD, limit: 1000, profile: "burstable" },
+      admin,
+    )) as Record<string, unknown>;
+    expect(result["ok"]).toBe(false);
+    expect(result["code"]).toBe("cap_exceeded");
+    expect(recordedNotifications).toHaveLength(0);
+  });
+});
+
+describe("scenario 7: notification-wiring (rolling, no dedup)", () => {
+  test("rolling-soft-hit feuert notifier bei JEDEM Aufruf — kein lastSoftWarnedAt-tracking", async () => {
+    recordedNotifications.length = 0;
+    const admin = adminFor(1101);
+    await incrementRolling(admin, "cap-notify-rolling", 6000);
+    await incrementRolling(admin, "cap-notify-rolling", 5000);
+    // sum=11000, limit=10000, soft=1.1×10000=11000 → soft-hit
+
+    await stack.http.writeOk(
+      ENFORCE_ROLLING_NOTIFY_PROBE_QN,
+      { capName: "cap-notify-rolling", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    );
+    await stack.http.writeOk(
+      ENFORCE_ROLLING_NOTIFY_PROBE_QN,
+      { capName: "cap-notify-rolling", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    );
+
+    // Drift-Pin: Rolling-Counter HAT KEINEN lastSoftWarnedAt-Flag
+    // (kein projection-row). Wenn jemand heimlich Dedup einbaut ohne
+    // erst die Speicher-Story zu lösen, fällt das hier auf.
+    expect(recordedNotifications).toHaveLength(2);
   });
 });
