@@ -63,7 +63,7 @@ export const processEventSchema = z.object({
   status: statusSchema,
   tier: z.string().min(1).max(50),
   currentPeriodEndIso: z.string().min(1),
-  rawPayload: z.string().min(1).max(100_000),
+  rawPayload: z.string().min(1),
 });
 type ProcessEventPayload = z.infer<typeof processEventSchema>;
 

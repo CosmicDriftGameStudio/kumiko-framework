@@ -13,12 +13,11 @@ export const SubscriptionFoundationHandlers = {
   processEvent: "subscription-foundation:write:process-event",
 } as const;
 
-// Qualified query handler names.
-export const SubscriptionFoundationQueries = {
-  /** Current subscription state für einen Tenant. SystemAdmin oder der
-   *  Tenant-Admin selbst können das lesen. */
-  current: "subscription-foundation:query:current",
-} as const;
+// Qualified query handler names. Standard-list-handler werden vom
+// Framework auto-generiert; per-tenant-self-service-queries (current
+// subscription, available providers) kommen mit Phase 5.4 wenn das
+// Sample erweitert wird.
+export const SubscriptionFoundationQueries = {} as const;
 
 // Normalized subscription-event types — provider-agnostic.
 // Alle Provider-Plugins normalisieren ihre eigenen event-types auf einen

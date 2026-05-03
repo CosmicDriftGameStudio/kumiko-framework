@@ -3,6 +3,19 @@
 // `SubscriptionProviderPlugin` und registrieren via
 // `r.useExtension("subscriptionProvider", "<name>", { build })`.
 //
+// **Two-phase plugin contract:**
+//   1. **Pre-tenant-resolution:** `verifyAndParseWebhook` läuft BEVOR
+//      ein Tenant aus dem Event aufgelöst ist — kein HandlerContext
+//      verfügbar. Plugin liest seinen webhook-secret aus
+//      module-load-Closure (ENV-VAR oder system-config), NICHT aus
+//      ctx. **Webhook-secret ist app-wide**, nicht per-tenant — das
+//      ist App-Owner's Stripe-/PayPal-Account, nicht Tenant-Sache.
+//   2. **Post-tenant-resolution:** `createPortalSession` +
+//      `cancelSubscription` werden aus regulären write-handlern
+//      gerufen mit voll-aufgelöstem HandlerContext. Plugin kann
+//      hier ctx.config + ctx.secrets nutzen für tenant-spezifische
+//      Konfiguration (z.B. tenant-eigene customer-id-mapping).
+//
 // Foundation nutzt nur den common-subset der Provider-Funktionalität —
 // proration, multi-currency, coupons etc. bleiben provider-spezifisch
 // und sind über den Customer-Portal-Link erreichbar.
@@ -38,9 +51,10 @@ export type SubscriptionEvent = {
   /** Normalisierter status. */
   readonly status: SubscriptionStatus;
   /** Resolved tier — Plugin liest die price-id aus dem event und
-   *  mapped via subscription-foundation:config:price-to-tier auf einen
-   *  tier-name. Wenn der price-id im Mapping fehlt, returnt der Plugin
-   *  null aus verifyAndParseWebhook (= "unknown event, ignore"). */
+   *  mapped via plugin-eigenem `<plugin>:config:price-to-tier` auf
+   *  einen tier-name. Wenn der price-id im Mapping fehlt, returnt
+   *  der Plugin null aus verifyAndParseWebhook (= "unknown event,
+   *  ignore"). */
   readonly tier: string;
   /** ISO-timestamp wann die aktuelle Billing-Period endet. */
   readonly currentPeriodEnd: string;
@@ -56,9 +70,18 @@ export type SubscriptionEvent = {
 export type SubscriptionProviderPlugin = {
   /**
    * Verify webhook signature + parse provider-event into normalized
-   * form. Plugin-internal sig-verify (HMAC für Stripe, URL-secret für
-   * Mollie). Returns null für events die der Plugin nicht versteht
-   * oder die foundation nicht braucht (= filter out).
+   * form. **Pre-tenant-resolution** — kein HandlerContext, weil zum
+   * Zeitpunkt des sig-verify der Tenant noch nicht aufgelöst ist
+   * (Plugin macht die Tenant-Resolution selbst aus dem provider-
+   * payload metadata).
+   *
+   * Plugin liest seinen webhook-secret aus module-load-Closure
+   * (process.env.STRIPE_WEBHOOK_SECRET oder system-config), NICHT
+   * aus ctx. App-wide-secret = App-Owner's eigener Provider-Account.
+   *
+   * Returns null für events die der Plugin nicht versteht oder die
+   * foundation nicht braucht (= filter out, foundation returnt 200
+   * "ignored").
    *
    * **Throws** bei sig-mismatch — der webhook-handler mapped das auf
    * 401 damit der Provider keine retries macht (sig-fail = config-bug,
@@ -67,15 +90,22 @@ export type SubscriptionProviderPlugin = {
   readonly verifyAndParseWebhook: (
     rawBody: string,
     headers: Record<string, string>,
-    ctx: HandlerContext,
   ) => Promise<SubscriptionEvent | null>;
 
   /**
-   * Erstellt einen self-service Portal-Link. Stripe: customer-portal-
-   * session, Mollie: hosted-management-page. Tenant-Admin klickt darauf
-   * um Subscription selbst zu verwalten (cancel, payment-method, ...).
+   * **Post-tenant-resolution** — wird aus einem write-handler gerufen
+   * mit voll-aufgelöstem ctx. Erstellt einen self-service Portal-Link.
+   * Stripe: customer-portal-session, Mollie: hosted-management-page.
+   * Tenant-Admin klickt darauf um Subscription selbst zu verwalten
+   * (cancel, payment-method, ...).
+   *
+   * Optional weil nicht jeder Provider einen Portal-Pattern hat
+   * (Apple-IAP managed Subs in der Apple-App, kein Web-Portal).
+   * Plugin der das nicht supported kann das Field weglassen — foundation
+   * returnt dann "portal_not_supported"-error wenn ein Tenant-Admin
+   * den Portal-Link anfordert.
    */
-  readonly createPortalSession: (
+  readonly createPortalSession?: (
     ctx: HandlerContext,
     options: {
       readonly providerCustomerId: string;
@@ -85,7 +115,9 @@ export type SubscriptionProviderPlugin = {
 
   /**
    * Optional: Cancel-aus-der-App-API. Wenn nicht implementiert, kann
-   * der Tenant nur über den Customer-Portal-Link cancellen.
+   * der Tenant nur über den Customer-Portal-Link cancellen (oder gar
+   * nicht, wenn auch createPortalSession fehlt — dann ist
+   * Cancel-Flow Provider-Dashboard-only).
    */
   readonly cancelSubscription?: (
     ctx: HandlerContext,

@@ -295,7 +295,75 @@ describe("scenario 4: tenant-isolation", () => {
   });
 });
 
-describe("scenario 5: cancel-event setzt status auf canceled, behält subscription-row", () => {
+describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
+  test("Tenant switcht von Stripe zu PayPal: subscription-row updated providerName, subscription-event-history zeigt beide", async () => {
+    // **Disney+-Use-Case:** Tenant hat Stripe-sub, will umsteigen auf
+    // PayPal. Cancel des Stripe-sub + neue subscription via PayPal sind
+    // zwei getrennte Webhook-events vom Endkunden-Action ausgelöst.
+    // Foundation muss damit umgehen können — eine subscription-row
+    // pro Tenant, providerName tracked welcher Provider gerade hält.
+    const admin = adminFor(3009);
+
+    // Stripe-Sub erzeugt
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      buildEvent({
+        providerEventId: "evt_stripe_create",
+        providerCustomerId: "cus_stripe",
+        providerSubscriptionId: "sub_stripe",
+        tier: "pro",
+      }),
+      admin,
+    );
+
+    let subs = (await stack.http.queryOk(
+      "subscription-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows).toHaveLength(1);
+    expect(subs.rows[0]?.["providerName"]).toBe("stripe");
+
+    // Stripe-Cancel + PayPal-Create kommen — PayPal-Plugin liefert
+    // SubscriptionEvent mit providerName="paypal".
+    const paypalEvent = {
+      ...buildEvent({
+        providerEventId: "I-PAYPAL-NEW",
+        providerCustomerId: "PP-CUST-001",
+        providerSubscriptionId: "I-PAYPAL-NEW",
+        tier: "pro",
+      }),
+      providerName: "paypal",
+    };
+    await stack.http.writeOk(SubscriptionFoundationHandlers.processEvent, paypalEvent, admin);
+
+    // subscription-row geupdated, providerName ist jetzt "paypal".
+    // **Drift-Pin:** Eine subscription-row pro Tenant — der Wechsel
+    // überschreibt die alte Provider-Daten, history liegt in
+    // subscription-event-rows.
+    subs = (await stack.http.queryOk(
+      "subscription-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows).toHaveLength(1);
+    expect(subs.rows[0]?.["providerName"]).toBe("paypal");
+    expect(subs.rows[0]?.["providerCustomerId"]).toBe("PP-CUST-001");
+    expect(subs.rows[0]?.["providerSubscriptionId"]).toBe("I-PAYPAL-NEW");
+
+    // History: beide events archiviert
+    const events = (await stack.http.queryOk(
+      "subscription-foundation:query:subscription-event:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(events.rows).toHaveLength(2);
+    const providerNames = events.rows.map((r) => r["providerName"]).sort();
+    expect(providerNames).toEqual(["paypal", "stripe"]);
+  });
+});
+
+describe("scenario 6: cancel-event setzt status auf canceled, behält subscription-row", () => {
   test("subscription.canceled event flippt status, subscription-row bleibt", async () => {
     const admin = adminFor(3008);
 

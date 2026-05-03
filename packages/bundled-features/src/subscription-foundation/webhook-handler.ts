@@ -63,11 +63,6 @@ export type SubscriptionWebhookDeps = {
    *  Pfad und returnt den passenden Plugin (= entityName-match in
    *  registry.getExtensionUsages("subscriptionProvider")). */
   readonly resolveProvider: (providerName: string) => SubscriptionProviderPlugin | undefined;
-
-  /** Optional: ctx-shape den der Plugin's verifyAndParseWebhook
-   *  bekommen soll. Stripe braucht ggf. den Stripe-API-Key (aus
-   *  secrets) — der Plugin holt sich das selbst aus dem ctx. */
-  readonly buildPluginCtx: () => Promise<unknown>;
 };
 
 /**
@@ -113,14 +108,14 @@ export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) 
       );
     }
 
-    // 4. Plugin verifies + parses. Throws on sig-mismatch — wir mappen
-    //    auf 401 (= "config-bug, retry won't help, Provider stopp").
+    // 4. Plugin verifies + parses. **Pre-tenant-resolution** — kein
+    //    ctx, Plugin liest seinen webhook-secret aus eigener
+    //    module-load-Closure (ENV-VAR oder system-config).
+    //    Throws on sig-mismatch — wir mappen auf 401 (= "config-bug,
+    //    retry won't help, Provider stopp").
     let parsed: Awaited<ReturnType<SubscriptionProviderPlugin["verifyAndParseWebhook"]>>;
     try {
-      const pluginCtx = (await deps.buildPluginCtx()) as Parameters<
-        SubscriptionProviderPlugin["verifyAndParseWebhook"]
-      >[2];
-      parsed = await plugin.verifyAndParseWebhook(rawBody, headers, pluginCtx);
+      parsed = await plugin.verifyAndParseWebhook(rawBody, headers);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return c.json(

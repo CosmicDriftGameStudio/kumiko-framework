@@ -1,4 +1,9 @@
-import { createEntity, createTextField, createTimestampField } from "@kumiko/framework/engine";
+import {
+  createEntity,
+  createLongTextField,
+  createTextField,
+  createTimestampField,
+} from "@kumiko/framework/engine";
 
 // =============================================================================
 // `subscription` — current state pro Plattform-Tenant
@@ -85,13 +90,13 @@ export const subscriptionEventEntity = createEntity({
     providerEventId: createTextField({ required: true, maxLength: 200 }),
     eventType: createTextField({ required: true, maxLength: 100 }),
     receivedAt: createTimestampField({ required: true }),
-    // rawPayload als TextField statt JsonField — am DB-Layer ein jsonb
-    // wäre besser, aber createJsonField/jsonField gibt's im Framework
-    // nicht direkt; Plugin serialisiert auf seiner Seite, foundation
+    // rawPayload als longText — Stripe-events mit vielen line-items +
+    // metadata können hunderte KB groß sein, ein varchar-cap würde
+    // willkürlich daten verlieren. longText mapped auf Postgres TEXT
+    // (= unbegrenzt). Plugin serialisiert auf seiner Seite, foundation
     // archiviert den string. Trade-off: kein DB-side query auf payload
-    // möglich. Akzeptabel weil rawPayload primär audit/replay ist,
-    // nicht filter-target.
-    rawPayload: createTextField({ required: true, maxLength: 100_000 }),
+    // möglich — akzeptabel weil rawPayload primär audit/replay ist.
+    rawPayload: createLongTextField({ required: true }),
   },
 });
 
