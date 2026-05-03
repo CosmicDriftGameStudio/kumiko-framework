@@ -24,7 +24,7 @@ import {
   CapExceededError,
   currentCalendarMonthStartIso,
   enforceCap,
-  ROLLING_WINDOW_PERIOD,
+  enforceRollingCap,
 } from "../enforce-cap";
 import { capCounterEntity } from "../entity";
 import { capCounterFeature } from "../feature";
@@ -61,8 +61,42 @@ const enforceHandler: WriteHandlerDef = {
   },
 };
 
+// Sister probe for the rolling-window flavour. Same pattern as
+// `enforceHandler` above — drives `enforceRollingCap` through the
+// dispatcher so the test sees a real ctx with real db + real
+// tenant-scope.
+const ENFORCE_ROLLING_PROBE_QN = "cap-test:write:enforce-rolling";
+const enforceRollingHandler: WriteHandlerDef = {
+  name: "enforce-rolling",
+  schema: z.object({
+    capName: z.string(),
+    windowDays: z.number(),
+    limit: z.number(),
+    profile: z.enum(["burstable", "storage", "hardSlot", "egress"]),
+  }),
+  access: { roles: ["TenantAdmin", "SystemAdmin"] },
+  handler: async (event, ctx) => {
+    try {
+      const result = await enforceRollingCap(
+        ctx,
+        event.payload as Parameters<typeof enforceRollingCap>[1],
+      );
+      return { isSuccess: true as const, data: { ok: true, ...result } };
+    } catch (e) {
+      if (e instanceof CapExceededError) {
+        return {
+          isSuccess: true as const,
+          data: { ok: false, code: e.code, currentValue: e.currentValue, limit: e.limit },
+        };
+      }
+      throw e;
+    }
+  },
+};
+
 const enforceProbeFeature = defineFeature("cap-test", (r) => {
   r.writeHandler(enforceHandler);
+  r.writeHandler(enforceRollingHandler);
 });
 
 // --- Setup ---
@@ -84,7 +118,10 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-const ROLLING = ROLLING_WINDOW_PERIOD;
+// Fixed period used for calendar-counter scenarios. Tests don't care
+// which month — just need a stable iso-string so `increment` +
+// `readCounter` hit the same aggregate.
+const PERIOD = "2026-05-01T00:00:00Z";
 const sysadmin = TestUsers.systemAdmin;
 
 function adminFor(tenantNumber: number) {
@@ -99,15 +136,23 @@ async function increment(
   user: ReturnType<typeof adminFor>,
   capName: string,
   amount: number,
-  periodStartIso: string = ROLLING,
+  periodStartIso: string = PERIOD,
 ) {
   await stack.http.writeOk(CapCounterHandlers.increment, { capName, amount, periodStartIso }, user);
+}
+
+async function incrementRolling(
+  user: ReturnType<typeof adminFor>,
+  capName: string,
+  amount: number,
+) {
+  await stack.http.writeOk(CapCounterHandlers.incrementRolling, { capName, amount }, user);
 }
 
 async function readCounter(
   user: ReturnType<typeof adminFor>,
   capName: string,
-  periodStartIso: string = ROLLING,
+  periodStartIso: string = PERIOD,
 ) {
   return (await stack.http.queryOk(
     CapCounterQueries.getCounter,
@@ -152,7 +197,7 @@ describe("scenario 2: enforceCap through dispatcher", () => {
 
     const result = (await stack.http.writeOk(
       ENFORCE_PROBE_QN,
-      { capName: "cap-2-mails", periodStartIso: ROLLING, limit: 1000, profile: "burstable" },
+      { capName: "cap-2-mails", periodStartIso: PERIOD, limit: 1000, profile: "burstable" },
       admin,
     )) as Record<string, unknown>;
 
@@ -167,7 +212,7 @@ describe("scenario 2: enforceCap through dispatcher", () => {
 
     const result = (await stack.http.writeOk(
       ENFORCE_PROBE_QN,
-      { capName: "cap-2-mails", periodStartIso: ROLLING, limit: 1000, profile: "burstable" },
+      { capName: "cap-2-mails", periodStartIso: PERIOD, limit: 1000, profile: "burstable" },
       admin,
     )) as Record<string, unknown>;
 
@@ -181,7 +226,7 @@ describe("scenario 2: enforceCap through dispatcher", () => {
 
     const result = (await stack.http.writeOk(
       ENFORCE_PROBE_QN,
-      { capName: "cap-2-mails", periodStartIso: ROLLING, limit: 1000, profile: "burstable" },
+      { capName: "cap-2-mails", periodStartIso: PERIOD, limit: 1000, profile: "burstable" },
       admin,
     )) as Record<string, unknown>;
 
@@ -232,5 +277,109 @@ describe("scenario 4: period transition", () => {
     // Real-time call — just confirm it returns valid ISO + 1st-of-month
     const iso = currentCalendarMonthStartIso();
     expect(iso).toMatch(/^\d{4}-\d{2}-01T00:00:00/);
+  });
+});
+
+// --- Scenario 5: Rolling-Window Counter (Sprint 4) ---
+//
+// Echte Verdrahtung beweisen: incrementRollingCap appendet ein
+// rolling-incremented-Event in den event-store, enforceRollingCap
+// liest das Event aus dem Window und summiert. Beide gehen über den
+// Dispatcher mit dem realen ctx.
+
+describe("scenario 5: rolling-window through dispatcher", () => {
+  test("incrementRolling appends a rolling-incremented-event without creating a projection-row", async () => {
+    const admin = adminFor(901);
+    await incrementRolling(admin, "ai-tokens-7d", 1500);
+
+    // Drift-Pin: Rolling-Counter MUSS den Calendar-Counter NICHT
+    // berühren. Wenn ein Refactor die Pfade vermischt, taucht hier
+    // plötzlich eine Row auf, die nichts mit dem rolling-stream zu
+    // tun hat.
+    const calendarRow = await readCounter(admin, "ai-tokens-7d");
+    expect(calendarRow).toBeNull();
+  });
+
+  test("enforceRollingCap summiert mehrere increment-events innerhalb des Windows", async () => {
+    const admin = adminFor(902);
+    await incrementRolling(admin, "ai-tokens-7d", 1000);
+    await incrementRolling(admin, "ai-tokens-7d", 2500);
+    await incrementRolling(admin, "ai-tokens-7d", 500);
+
+    const result = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "ai-tokens-7d", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(result["ok"]).toBe(true);
+    expect(result["state"]).toBe("ok");
+    expect(result["value"]).toBe(4000);
+  });
+
+  test("at soft-threshold (11000, soft=1.1×10000) → soft-hit, crossed=false", async () => {
+    const admin = adminFor(903);
+    await incrementRolling(admin, "ai-tokens-7d", 6000);
+    await incrementRolling(admin, "ai-tokens-7d", 5000);
+
+    const result = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "ai-tokens-7d", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(result["state"]).toBe("soft-hit");
+    expect(result["value"]).toBe(11000);
+    // Rolling-Counter hat keine projection-row → crossed ist konstant false.
+    expect(result["crossed"]).toBe(false);
+  });
+
+  test("at hard-threshold (12000) → cap_exceeded code returned", async () => {
+    const admin = adminFor(904);
+    await incrementRolling(admin, "ai-tokens-7d", 6000);
+    await incrementRolling(admin, "ai-tokens-7d", 6000);
+
+    const result = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "ai-tokens-7d", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(result["ok"]).toBe(false);
+    expect(result["code"]).toBe("cap_exceeded");
+    expect(result["currentValue"]).toBe(12000);
+  });
+
+  test("rolling-counter-Stream isoliert pro (tenant, capName) — fremder cap zählt nicht", async () => {
+    const admin = adminFor(905);
+    await incrementRolling(admin, "ai-tokens-7d", 9999);
+    await incrementRolling(admin, "egress-bytes-24h", 100);
+
+    const result = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "egress-bytes-24h", windowDays: 1, limit: 1000, profile: "egress" },
+      admin,
+    )) as Record<string, unknown>;
+
+    // Egress-window sieht NUR die 100 vom egress-cap — die 9999 vom
+    // ai-tokens-cap sind ein anderer Aggregate-Stream.
+    expect(result["state"]).toBe("ok");
+    expect(result["value"]).toBe(100);
+  });
+
+  test("rolling-counter ist tenant-isoliert — tenant A's increments leaken nicht zu tenant B", async () => {
+    const adminA = adminFor(906);
+    const adminB = adminFor(907);
+    await incrementRolling(adminA, "rolling-iso", 5000);
+    await incrementRolling(adminB, "rolling-iso", 100);
+
+    const resultB = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "rolling-iso", windowDays: 7, limit: 10000, profile: "burstable" },
+      adminB,
+    )) as Record<string, unknown>;
+
+    expect(resultB["state"]).toBe("ok");
+    expect(resultB["value"]).toBe(100);
   });
 });

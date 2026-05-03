@@ -1,7 +1,17 @@
 import { createEntityExecutor, type HandlerContext } from "@kumiko/framework/engine";
-import { and, eq } from "drizzle-orm";
-import { Temporal } from "temporal-polyfill";
+import { eventsTable } from "@kumiko/framework/event-store";
+import { and, eq, gte } from "drizzle-orm";
+import { rollingCapAggregateId } from "./aggregate-id";
+import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_NAME } from "./constants";
 import { capCounterEntity } from "./entity";
+
+// Temporal globally provided by the framework's polyfill init
+// (ensureTemporalPolyfill() in time/polyfill.ts, called from
+// setupTestStack/boot). Importing from "temporal-polyfill" gives us
+// the polyfill-package types which don't quite match drizzle's
+// `instant()`-customType (temporal-spec narrowing of `until(...).sign`).
+// Mirror the audit-handler pattern: rely on the global ambient
+// declaration from temporal-spec.
 
 const { table } = createEntityExecutor("cap-counter", capCounterEntity);
 
@@ -119,6 +129,99 @@ export async function enforceCap(
 }
 
 // =============================================================================
+// Enforce-Rolling-Cap helper
+// =============================================================================
+
+/**
+ * Synchronous read-and-check of the calling tenant's Rolling-Window-
+ * Counter for `capName`. Reads the increment-events of the last
+ * `windowDays` from the event-store and sums their `amount`. Returns:
+ *   - "ok" when sum < soft-threshold
+ *   - "soft-hit" when soft ≤ sum < hard.
+ *
+ * **Throws** `CapExceededError` when sum ≥ hard-threshold.
+ *
+ * **`crossed`-flag fehlt absichtlich:** Anders als der Calendar-
+ * Counter hat das Rolling-Aggregate keine projection-row mit
+ * `lastSoftWarnedAt`-Flag. Dedup gegen Notification-Storm passiert
+ * im Caller (eigener key in einer Cache-Tabelle, oder einfache
+ * memoization für die Lebensdauer des Request). Der Result-Shape
+ * matcht trotzdem `EnforceCapResult` damit der gleiche Caller-Code
+ * gegen beide Funktionen funktioniert; `crossed` ist hier immer
+ * `false` (= "wir tracken's nicht").
+ *
+ * **Performance-Note:** der Read summiert ALLE Events im Window für
+ * (tenant, capName). Bei 10k+ Events/Tenant in der Window könnte
+ * das langsam werden — dann Migration auf eine Multi-Stream-
+ * Projection mit pre-aggregierten daily-buckets. Heute nicht
+ * vorgezogen.
+ */
+export async function enforceRollingCap(
+  ctx: HandlerContext,
+  options: {
+    readonly capName: string;
+    readonly windowDays: number;
+    readonly limit: number;
+    readonly profile: CapToleranceProfileName;
+  },
+): Promise<EnforceCapResult> {
+  if (!ctx.db) {
+    throw new Error("cap-counter.enforceRollingCap: ctx.db missing — run inside a handler context");
+  }
+  if (!ctx.user?.tenantId) {
+    throw new Error(
+      "cap-counter.enforceRollingCap: ctx.user.tenantId missing — required to compute aggregate-id",
+    );
+  }
+
+  const tolerance = CAP_TOLERANCES[options.profile];
+  const softThreshold = options.limit * tolerance.soft;
+  const hardThreshold = options.limit * tolerance.hard;
+
+  const aggregateId = rollingCapAggregateId(ctx.user.tenantId, options.capName);
+  const cutoff = Temporal.Now.instant().subtract({ hours: options.windowDays * 24 });
+
+  // events_tenant_type_idx (tenant_id, aggregate_type, created_at)
+  // covers the prefix; the additional aggregate_id eq narrows to the
+  // single rolling-stream. Postgres can use the index even with the
+  // aggregate_id filter applied as a residual.
+  const rows = await ctx.db
+    .select({ payload: eventsTable.payload })
+    .from(eventsTable)
+    .where(
+      and(
+        eq(eventsTable.tenantId, ctx.user.tenantId),
+        eq(eventsTable.aggregateType, CAP_COUNTER_ROLLING_AGGREGATE_TYPE),
+        eq(eventsTable.aggregateId, aggregateId),
+        eq(eventsTable.type, ROLLING_INCREMENTED_EVENT_NAME),
+        gte(eventsTable.createdAt, cutoff),
+      ),
+    );
+
+  let value = 0;
+  for (const row of rows) {
+    // @cast-boundary engine-payload — events.payload is jsonb (typed as
+    // unknown by drizzle's $type<Record<string,unknown>>); narrowing
+    // the shape here is a deliberate read-side contract for the
+    // rolling-incremented-event we authored.
+    const payload = row["payload"] as { amount?: number };
+    if (typeof payload.amount === "number") {
+      value += payload.amount;
+    }
+  }
+
+  if (value >= hardThreshold) {
+    throw new CapExceededError(options.capName, options.limit, value, tolerance);
+  }
+
+  if (value >= softThreshold) {
+    return { state: "soft-hit", value, crossed: false };
+  }
+
+  return { state: "ok", value };
+}
+
+// =============================================================================
 // CapExceededError
 // =============================================================================
 
@@ -176,11 +279,122 @@ export function currentCalendarMonthStartIso(
   return start.toInstant().toString();
 }
 
+// =============================================================================
+// Notification-Wiring helpers — convenience-wrapper für enforceCap +
+// enforceRollingCap, die einen Caller-supplied delivery-emit beim
+// soft-hit-crossing ausführen. Cap-counter kennt delivery-feature
+// nicht direkt — der Caller injiziert den emitter.
+// =============================================================================
+
 /**
- * Rolling-window sentinel. Use this for caps that filter by event-
- * timestamp at read-time (e.g. AI-tokens-7day) — the aggregate-stream
- * stays one row, periodStart is just an identity-anchor.
+ * Soft-hit-notifier callback. Caller liefert die Funktion die ein
+ * delivery-event emittet (z.B. `delivery.send({to, template, payload})`).
+ * Wird genau einmal pro Period beim Calendar-Counter aufgerufen
+ * (`crossed === true` deduplicated via `markSoftWarnedHandler`).
  *
- * Returns "1970-01-01T00:00:00Z" — meaningful zero, not a typo.
+ * Beim Rolling-Counter ist `crossed` immer `false` — der Caller muss
+ * dort selbst dedup'en (oder bewusst pro request feuern lassen).
  */
-export const ROLLING_WINDOW_PERIOD = "1970-01-01T00:00:00Z" as const;
+export type SoftHitNotifier = (info: {
+  readonly capName: string;
+  readonly value: number;
+  readonly limit: number;
+  readonly tenantId: string;
+}) => Promise<void> | void;
+
+/**
+ * Calendar-Period-enforcement + automatische soft-hit-Notification.
+ * Ruft `enforceCap`, bei `crossed: true` den Notifier UND
+ * `mark-soft-warned`-Handler (flippt `lastSoftWarnedAt` damit der
+ * nächste Aufruf in derselben Period nicht erneut feuert).
+ *
+ * Returnt das `EnforceCapResult` weiter — Caller kann die Logik
+ * verzweigen (z.B. UI-Toast bei soft-hit zusätzlich zur
+ * Email-Notification).
+ */
+export async function enforceCapAndMaybeNotify(
+  ctx: HandlerContext,
+  options: {
+    readonly capName: string;
+    readonly periodStartIso: string;
+    readonly limit: number;
+    readonly profile: CapToleranceProfileName;
+    readonly notify: SoftHitNotifier;
+  },
+): Promise<EnforceCapResult> {
+  const result = await enforceCap(ctx, {
+    capName: options.capName,
+    periodStartIso: options.periodStartIso,
+    limit: options.limit,
+    profile: options.profile,
+  });
+
+  if (result.state === "soft-hit" && result.crossed) {
+    if (!ctx.user?.tenantId) {
+      throw new Error(
+        "cap-counter.enforceCapAndMaybeNotify: ctx.user.tenantId missing — required for notification",
+      );
+    }
+    await options.notify({
+      capName: options.capName,
+      value: result.value,
+      limit: options.limit,
+      tenantId: ctx.user.tenantId,
+    });
+    // Flip the soft-warned flag so the same period doesn't re-notify.
+    // We're already inside a write-handler-context, so dispatching the
+    // mark-soft-warned-handler in-line works via ctx.write (re-uses
+    // the request user; the handler's own access-check enforces the
+    // SystemAdmin role on the caller).
+    await ctx.write("cap-counter:write:mark-soft-warned", {
+      capName: options.capName,
+      periodStartIso: options.periodStartIso,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Rolling-Window-enforcement + immer-feuert-Notification beim soft-hit.
+ *
+ * **Achtung Storm-Risk:** Rolling-Counter trackt `lastSoftWarnedAt`
+ * NICHT (kein projection-row). Bei jedem Aufruf während der Counter
+ * im soft-Bereich ist, feuert der notifier. Der Caller muss
+ * dedup'en — z.B. via Cache-Eintrag `lastNotified[capName]` mit TTL,
+ * oder er ruft `enforceRollingCapAndMaybeNotify` nur einmal pro
+ * Tag/Stunde auf (Hourly-Cron statt pro Request).
+ */
+export async function enforceRollingCapAndMaybeNotify(
+  ctx: HandlerContext,
+  options: {
+    readonly capName: string;
+    readonly windowDays: number;
+    readonly limit: number;
+    readonly profile: CapToleranceProfileName;
+    readonly notify: SoftHitNotifier;
+  },
+): Promise<EnforceCapResult> {
+  const result = await enforceRollingCap(ctx, {
+    capName: options.capName,
+    windowDays: options.windowDays,
+    limit: options.limit,
+    profile: options.profile,
+  });
+
+  if (result.state === "soft-hit") {
+    if (!ctx.user?.tenantId) {
+      throw new Error(
+        "cap-counter.enforceRollingCapAndMaybeNotify: ctx.user.tenantId missing — required for notification",
+      );
+    }
+    await options.notify({
+      capName: options.capName,
+      value: result.value,
+      limit: options.limit,
+      tenantId: ctx.user.tenantId,
+    });
+  }
+
+  return result;
+}

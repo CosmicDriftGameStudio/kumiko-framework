@@ -1,10 +1,13 @@
 // Public API of the cap-counter bundled-feature.
 
-export { capCounterAggregateId } from "./aggregate-id";
+export { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id";
 export {
   CAP_COUNTER_FEATURE,
+  CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
   CapCounterHandlers,
   CapCounterQueries,
+  ROLLING_INCREMENTED_EVENT_NAME,
+  ROLLING_INCREMENTED_SHORT,
 } from "./constants";
 export {
   CAP_TOLERANCES,
@@ -14,7 +17,10 @@ export {
   currentCalendarMonthStartIso,
   type EnforceCapResult,
   enforceCap,
-  ROLLING_WINDOW_PERIOD,
+  enforceCapAndMaybeNotify,
+  enforceRollingCap,
+  enforceRollingCapAndMaybeNotify,
+  type SoftHitNotifier,
 } from "./enforce-cap";
 export { capCounterEntity } from "./entity";
 export { capCounterFeature } from "./feature";
