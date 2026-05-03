@@ -4,6 +4,10 @@ dist-server/
 .expo/
 .turbo/
 
+# Claude Code session state (pro Run regeneriert + lokales worktree-staging).
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+
 # /platform ist Symlink zu ~/code/kumiko-platform (eigenes Repo).
 # Im Hauptrepo nur for-eyes sichtbar, nicht versioned. Slash-Prefix
 # anchored auf repo-root — sonst matcht es auch samples/apps/platform.
