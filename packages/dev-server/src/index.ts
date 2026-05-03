@@ -49,6 +49,7 @@ export type {
   ProdSeedFn,
   RunProdAppAuthOptions,
   RunProdAppOptions,
+  SignupSetup,
 } from "./run-prod-app";
 export { runProdApp } from "./run-prod-app";
 export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature";

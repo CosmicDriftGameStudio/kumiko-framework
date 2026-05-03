@@ -38,9 +38,14 @@ import {
 export type {
   EmailVerificationSetup,
   PasswordResetSetup,
+  SignupSetup,
 } from "./run-prod-app";
 
-import type { EmailVerificationSetup, PasswordResetSetup } from "./run-prod-app";
+import type {
+  EmailVerificationSetup,
+  PasswordResetSetup,
+  SignupSetup,
+} from "./run-prod-app";
 
 export type RunDevAppAuthOptions = {
   /** Admin user to seed at boot. Idempotent — re-runs in persistent-DB
@@ -56,6 +61,8 @@ export type RunDevAppAuthOptions = {
   readonly passwordReset?: PasswordResetSetup;
   /** Email-verification flow. Symmetric zu passwordReset. */
   readonly emailVerification?: EmailVerificationSetup;
+  /** Self-Signup flow (Magic-Link). Symmetric zu RunProdAppAuthOptions. */
+  readonly signup?: SignupSetup;
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
@@ -179,6 +186,14 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
             confirmHandler: AuthHandlers.verifyEmail,
             sendVerificationEmail: options.auth.emailVerification.sendVerificationEmail,
             appVerifyUrl: options.auth.emailVerification.appVerifyUrl,
+          },
+        }),
+        ...(options.auth.signup && {
+          signup: {
+            requestHandler: AuthHandlers.signupRequest,
+            confirmHandler: AuthHandlers.signupConfirm,
+            sendActivationEmail: options.auth.signup.sendActivationEmail,
+            appActivationUrl: options.auth.signup.appActivationUrl,
           },
         }),
       },

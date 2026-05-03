@@ -53,7 +53,15 @@ export type AccountLockoutOptions = {
 // kommt aus ctx.redis — TTL und Token-Length sind die einzigen Knöpfe.
 // Anders als reset/verify gibt's kein hmacSecret hier, weil der Token
 // opaque random ist (Redis ist Source of Truth).
-export type SignupOptions = SignupRequestOptions;
+//
+// Strukturell identisch zu SignupRequestOptions, aber explizit
+// re-deklariert (nicht als type-alias) damit der dev-server-Wrapper
+// die felder als regular properties — nicht als index-signature —
+// destrukturieren kann.
+export type SignupOptions = {
+  readonly tokenTtlMinutes?: number;
+  readonly tokenLength?: number;
+};
 
 export type AuthEmailPasswordOptions = {
   readonly passwordReset?: PasswordResetOptions;

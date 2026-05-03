@@ -30,6 +30,7 @@ import {
   AuthHandlers,
   type EmailVerificationOptions,
   type PasswordResetOptions,
+  type SignupOptions,
 } from "@kumiko/bundled-features/auth-email-password";
 import {
   type SeedAdminOptions,
@@ -136,6 +137,20 @@ export type EmailVerificationSetup = EmailVerificationOptions & {
   readonly appVerifyUrl: string;
 };
 
+/** Wrapper-API für Magic-Link Self-Signup. Mirror der existing
+ *  PasswordResetSetup-Struktur — Feature-Options (tokenTtlMinutes,
+ *  tokenLength) plus die Mail-Side die der Wrapper an die auth-routes-
+ *  config durchreicht. Anders als reset/verify gibt's KEIN hmacSecret —
+ *  Signup-Tokens sind opaque random in Redis, nicht HMAC-signed. */
+export type SignupSetup = SignupOptions & {
+  readonly sendActivationEmail: (args: {
+    email: string;
+    activationUrl: string;
+    expiresAt: string;
+  }) => Promise<void>;
+  readonly appActivationUrl: string;
+};
+
 export type RunProdAppAuthOptions = {
   /** Initial admin user. Seeded once (idempotent — re-boots check first
    *  whether the email is already in the users table). */
@@ -149,6 +164,11 @@ export type RunProdAppAuthOptions = {
   readonly passwordReset?: PasswordResetSetup;
   /** Email-verification flow. Symmetric to passwordReset. */
   readonly emailVerification?: EmailVerificationSetup;
+  /** Self-Signup flow (Magic-Link). When set, /api/auth/signup-request +
+   *  /api/auth/signup-confirm are mounted; signup-confirm mintet JWT +
+   *  Cookies wie ein erfolgreicher login (Auto-Login direkt nach
+   *  Activation). */
+  readonly signup?: SignupSetup;
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -443,6 +463,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
             confirmHandler: AuthHandlers.verifyEmail,
             sendVerificationEmail: options.auth.emailVerification.sendVerificationEmail,
             appVerifyUrl: options.auth.emailVerification.appVerifyUrl,
+          },
+        }),
+        ...(options.auth.signup && {
+          signup: {
+            requestHandler: AuthHandlers.signupRequest,
+            confirmHandler: AuthHandlers.signupConfirm,
+            sendActivationEmail: options.auth.signup.sendActivationEmail,
+            appActivationUrl: options.auth.signup.appActivationUrl,
           },
         }),
       },

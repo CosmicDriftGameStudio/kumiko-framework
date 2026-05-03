@@ -20,6 +20,7 @@ export type {
   AuthEmailPasswordOptions,
   EmailVerificationOptions,
   PasswordResetOptions,
+  SignupOptions,
 } from "./feature";
 export { createAuthEmailPasswordFeature } from "./feature";
 export { hashPassword, verifyPassword } from "./password-hashing";
