@@ -31,7 +31,13 @@ export async function seedTextBlock(
   db: DbConnection,
   opts: SeedTextBlockOptions,
 ): Promise<{ id: string | number }> {
-  const by = opts.by ?? TestUsers.systemAdmin;
+  // Default-user muss user.tenantId === opts.tenantId haben, sonst
+  // landet der event-store-stream im user.tenantId-bucket aber die
+  // projection-row im opts.tenantId-bucket. Spätere echte writes via
+  // set-handler (mit korrektem tenant-context) finden den stream
+  // nicht → version_conflict. TestUsers.systemAdmin ist hardcoded
+  // testTenantId(1), nicht opts.tenantId — explizit überschreiben.
+  const by = opts.by ?? { ...TestUsers.systemAdmin, tenantId: opts.tenantId };
   // executor.create erwartet TenantDb — wrapping nötig damit die runtime-
   // checks (tenant-scope-validation) greifen.
   const tdb = createTenantDb(db, opts.tenantId, "system");

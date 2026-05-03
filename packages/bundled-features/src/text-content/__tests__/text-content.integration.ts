@@ -105,6 +105,101 @@ describe("text-content :: write", () => {
     expectErrorIncludes(error, "validation_error");
   });
 
+  test("SystemAdmin can write with tenantIdOverride to a different tenant (legal-pages use-case)", async () => {
+    // Use-case: Plattform-App's Edit-UI lädt SystemAdmin der NICHT
+    // member auf SYSTEM_TENANT ist + lässt ihn dort schreiben.
+    // Ohne override würde der text auf systemAdmin.tenantId landen
+    // statt SYSTEM_TENANT — legal-pages-routes lesen ihn dann nie.
+    const targetTenant = createTestUser({ id: 99 }).tenantId;
+    const result = await stack.http.writeOk<Record<string, unknown>>(
+      TextContentHandlers.set,
+      {
+        slug: "override-target",
+        lang: "de",
+        title: "Override-Test",
+        body: "via tenantIdOverride",
+        tenantIdOverride: targetTenant,
+      },
+      systemAdmin,
+    );
+    expect(result).toMatchObject({ slug: "override-target", isNew: true });
+
+    // Beweis: text landed auf TARGET-tenant, nicht auf systemAdmin's
+    // eigenem tenant. Read mit denselben override returnt den block.
+    const read = await stack.http.queryOk<Record<string, unknown>>(
+      TextContentQueries.bySlug,
+      { slug: "override-target", lang: "de", tenantIdOverride: targetTenant },
+      systemAdmin,
+    );
+    expect(read).toMatchObject({ slug: "override-target", title: "Override-Test" });
+  });
+
+  test("SystemAdmin can UPDATE with tenantIdOverride (regression: stream-lookup must use override-tenantId, not user.tenantId)", async () => {
+    // Regression-Guard für 2026-05-04: bei tenantIdOverride MUSS auch der
+    // user-context für den event-store-executor remapped werden — sonst
+    // landet append() auf user.tenantId aber getStreamVersion (auf
+    // update) sucht ebenfalls auf user.tenantId, findet aber NUR den
+    // stream auf override-tenantId aus dem ersten write → version_conflict
+    // obwohl die projection-row da ist. Test der NUR create+override
+    // hatte den Bug nicht gefangen weil append=create ohne stream-lookup.
+    const targetTenant = createTestUser({ id: 77 }).tenantId;
+
+    // Schritt 1: create mit override.
+    await stack.http.writeOk<Record<string, unknown>>(
+      TextContentHandlers.set,
+      {
+        slug: "update-target",
+        lang: "de",
+        title: "v1",
+        body: "first",
+        tenantIdOverride: targetTenant,
+      },
+      systemAdmin,
+    );
+
+    // Schritt 2: UPDATE mit override (selbe slug+lang+target). Vor dem
+    // Fix: version_conflict. Nach dem Fix: clean update.
+    const result = await stack.http.writeOk<Record<string, unknown>>(
+      TextContentHandlers.set,
+      {
+        slug: "update-target",
+        lang: "de",
+        title: "v2",
+        body: "updated",
+        tenantIdOverride: targetTenant,
+      },
+      systemAdmin,
+    );
+    expect(result).toMatchObject({ slug: "update-target", isNew: false });
+
+    // Beweis: read returnt den UPDATED content auf TARGET-tenant.
+    const read = await stack.http.queryOk<Record<string, unknown>>(
+      TextContentQueries.bySlug,
+      { slug: "update-target", lang: "de", tenantIdOverride: targetTenant },
+      systemAdmin,
+    );
+    expect(read).toMatchObject({ slug: "update-target", title: "v2", body: "updated" });
+  });
+
+  test("TenantAdmin's tenantIdOverride attempt → 403 access_denied", async () => {
+    // Defense-in-Depth: override ist SystemAdmin-only. TenantAdmin
+    // darf NICHT auf andere tenants schreiben — sonst könnte ein
+    // Tenant-Admin von Tenant-A einfach Tenant-B's Impressum überschreiben.
+    const otherTenant = createTestUser({ id: 88 }).tenantId;
+    const error = await stack.http.writeErr(
+      TextContentHandlers.set,
+      {
+        slug: "evil-override",
+        lang: "de",
+        title: "evil",
+        body: null,
+        tenantIdOverride: otherTenant,
+      },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "access_denied");
+  });
+
   test("invalid lang rejected by schema validation", async () => {
     const error = await stack.http.writeErr(
       TextContentHandlers.set,
