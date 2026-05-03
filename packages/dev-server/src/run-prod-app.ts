@@ -100,6 +100,38 @@ function readEnv(name: string): string | undefined {
   return value === undefined || value === "" ? undefined : value;
 }
 
+/** Vollständige Setup-Options für den Password-Reset-Flow. Kombiniert
+ *  die Handler-Side (hmacSecret + tokenTtlMinutes — vom auth-email-
+ *  password-Feature für Token-Signing genutzt) und die Mail-Side
+ *  (sendResetEmail-callback + appResetUrl — von der Route an die App
+ *  durchgereicht). Apps geben EINEN Block, run{Prod,Dev}App splittet
+ *  intern auf composeFeatures(authOptions) + auth-routes-config. */
+export type PasswordResetSetup = {
+  /** HMAC-secret für Token-Signing. Typisch derselbe wie JWT_SECRET. */
+  readonly hmacSecret: string;
+  readonly tokenTtlMinutes?: number;
+  readonly sendResetEmail: (args: {
+    email: string;
+    resetUrl: string;
+    expiresAt: string;
+  }) => Promise<void>;
+  /** App-URL des ResetPasswordScreen. Framework appended `?token=…`;
+   *  KEIN trailing `?` oder `#`. Beispiel: "https://admin.example.com/reset-password" */
+  readonly appResetUrl: string;
+};
+
+export type EmailVerificationSetup = {
+  readonly hmacSecret: string;
+  readonly tokenTtlMinutes?: number;
+  readonly mode?: "strict" | "off";
+  readonly sendVerificationEmail: (args: {
+    email: string;
+    verificationUrl: string;
+    expiresAt: string;
+  }) => Promise<void>;
+  readonly appVerifyUrl: string;
+};
+
 export type RunProdAppAuthOptions = {
   /** Initial admin user. Seeded once (idempotent — re-boots check first
    *  whether the email is already in the users table). */
@@ -107,37 +139,12 @@ export type RunProdAppAuthOptions = {
   /** Optional override of the login error → HTTP status map. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
   /** Password-reset flow. When set, /api/auth/request-password-reset +
-   *  /api/auth/reset-password are mounted as public routes. App provides
-   *  the sendResetEmail callback (typically using a mailSender +
-   *  renderResetPasswordEmail from auth-email-password) plus the URL
-   *  where the App's ResetPasswordScreen lives. */
-  readonly passwordReset?: PasswordResetOptions;
+   *  /api/auth/reset-password are mounted as public routes UND der
+   *  request/confirm-Handler im auth-email-password-Feature wird
+   *  registriert (sonst dispatchen die Routes ins Leere → 500). */
+  readonly passwordReset?: PasswordResetSetup;
   /** Email-verification flow. Symmetric to passwordReset. */
-  readonly emailVerification?: EmailVerificationOptions;
-};
-
-export type PasswordResetOptions = {
-  /** Called when a real user requested a reset; ignored when the email
-   *  is silent-dropped (anti-enumeration). Errors bubble as 5xx so a
-   *  silent mail-outage doesn't hide behind a green response. */
-  readonly sendResetEmail: (args: {
-    email: string;
-    resetUrl: string;
-    expiresAt: string;
-  }) => Promise<void>;
-  /** App page that hosts the ResetPasswordScreen. Framework appends
-   *  `?token=…`; do not include trailing `?` or `#`. Example:
-   *  "https://admin.example.com/reset-password" */
-  readonly appResetUrl: string;
-};
-
-export type EmailVerificationOptions = {
-  readonly sendVerificationEmail: (args: {
-    email: string;
-    verificationUrl: string;
-    expiresAt: string;
-  }) => Promise<void>;
-  readonly appVerifyUrl: string;
+  readonly emailVerification?: EmailVerificationSetup;
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -327,7 +334,32 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    password via composeFeatures — same source-of-truth as runDevApp
   //    AND the per-app drizzle-Schema-Generator, so Migration und Runtime
   //    sehen exakt dieselbe Liste.
-  const features = composeFeatures(options.features, { includeBundled: !!options.auth });
+  const features = composeFeatures(options.features, {
+    includeBundled: !!options.auth,
+    ...(options.auth && {
+      authOptions: {
+        ...(options.auth.passwordReset && {
+          passwordReset: {
+            hmacSecret: options.auth.passwordReset.hmacSecret,
+            ...(options.auth.passwordReset.tokenTtlMinutes !== undefined && {
+              tokenTtlMinutes: options.auth.passwordReset.tokenTtlMinutes,
+            }),
+          },
+        }),
+        ...(options.auth.emailVerification && {
+          emailVerification: {
+            hmacSecret: options.auth.emailVerification.hmacSecret,
+            ...(options.auth.emailVerification.tokenTtlMinutes !== undefined && {
+              tokenTtlMinutes: options.auth.emailVerification.tokenTtlMinutes,
+            }),
+            ...(options.auth.emailVerification.mode !== undefined && {
+              mode: options.auth.emailVerification.mode,
+            }),
+          },
+        }),
+      },
+    }),
+  });
 
   validateBoot(features);
   const registry = createRegistry(features);

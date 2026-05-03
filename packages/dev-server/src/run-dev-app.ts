@@ -32,6 +32,16 @@ import {
   type KumikoServerHandle,
 } from "./create-kumiko-server";
 
+// Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
+// brauchen. PasswordResetSetup / EmailVerificationSetup leben in
+// run-prod-app.ts (single source of truth) — hier nur durchgereicht.
+export type {
+  EmailVerificationSetup,
+  PasswordResetSetup,
+} from "./run-prod-app";
+
+import type { EmailVerificationSetup, PasswordResetSetup } from "./run-prod-app";
+
 export type RunDevAppAuthOptions = {
   /** Admin user to seed at boot. Idempotent — re-runs in persistent-DB
    *  mode reuse the existing user. */
@@ -40,28 +50,12 @@ export type RunDevAppAuthOptions = {
    *  maps invalidCredentials → 401, noMembership → 403. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
   /** Password-reset flow. Wenn gesetzt werden /api/auth/request-password-
-   *  reset + /api/auth/reset-password als Public-Routes gemounted. App
-   *  liefert sendResetEmail-callback (typisch via mailSender +
-   *  renderResetPasswordEmail aus auth-email-password) plus die App-URL
-   *  wo der ResetPasswordScreen sitzt. Symmetrisch zu
-   *  RunProdAppAuthOptions.passwordReset. */
-  readonly passwordReset?: {
-    readonly sendResetEmail: (args: {
-      email: string;
-      resetUrl: string;
-      expiresAt: string;
-    }) => Promise<void>;
-    readonly appResetUrl: string;
-  };
+   *  reset + /api/auth/reset-password als Public-Routes gemounted UND
+   *  der request/confirm-Handler im auth-email-password-Feature wird
+   *  registriert. Symmetrisch zu RunProdAppAuthOptions.passwordReset. */
+  readonly passwordReset?: PasswordResetSetup;
   /** Email-verification flow. Symmetric zu passwordReset. */
-  readonly emailVerification?: {
-    readonly sendVerificationEmail: (args: {
-      email: string;
-      verificationUrl: string;
-      expiresAt: string;
-    }) => Promise<void>;
-    readonly appVerifyUrl: string;
-  };
+  readonly emailVerification?: EmailVerificationSetup;
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
@@ -136,7 +130,32 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // source of truth — auch runProdApp und der per-app drizzle-Schema-
   // Generator nutzen denselben Helper, damit Migration und Runtime nie
   // auseinanderdriften können).
-  const features = composeFeatures(options.features, { includeBundled: !!options.auth });
+  const features = composeFeatures(options.features, {
+    includeBundled: !!options.auth,
+    ...(options.auth && {
+      authOptions: {
+        ...(options.auth.passwordReset && {
+          passwordReset: {
+            hmacSecret: options.auth.passwordReset.hmacSecret,
+            ...(options.auth.passwordReset.tokenTtlMinutes !== undefined && {
+              tokenTtlMinutes: options.auth.passwordReset.tokenTtlMinutes,
+            }),
+          },
+        }),
+        ...(options.auth.emailVerification && {
+          emailVerification: {
+            hmacSecret: options.auth.emailVerification.hmacSecret,
+            ...(options.auth.emailVerification.tokenTtlMinutes !== undefined && {
+              tokenTtlMinutes: options.auth.emailVerification.tokenTtlMinutes,
+            }),
+            ...(options.auth.emailVerification.mode !== undefined && {
+              mode: options.auth.emailVerification.mode,
+            }),
+          },
+        }),
+      },
+    }),
+  });
 
   // configResolver braucht das config-feature — im auth-mode immer
   // hinzufügen, im no-auth-mode dem Caller überlassen.

@@ -79,4 +79,16 @@ describe("LoginScreen", () => {
       expect(screen.getByRole("alert").textContent).toMatch(/9 Minuten/);
     });
   });
+
+  test("forgotPasswordHref-prop → Link rendert mit korrektem href", () => {
+    renderWithProviders(<LoginScreen forgotPasswordHref="/forgot-password" />);
+    const link = screen.getByRole("link", { name: /Passwort vergessen/i });
+    expect(link).toBeTruthy();
+    expect(link.getAttribute("href")).toBe("/forgot-password");
+  });
+
+  test("ohne forgotPasswordHref → KEIN Link (Login bleibt minimalistisch)", () => {
+    renderWithProviders(<LoginScreen />);
+    expect(screen.queryByRole("link", { name: /Passwort vergessen/i })).toBeNull();
+  });
 });
