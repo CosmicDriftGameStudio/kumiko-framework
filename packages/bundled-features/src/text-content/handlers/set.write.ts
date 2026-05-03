@@ -32,7 +32,12 @@ export const setWrite = defineWriteHandler({
     title: z.string().min(1).max(200),
     body: z.string().max(100_000).nullable(),
   }),
-  access: { roles: ["TenantAdmin"] },
+  // SystemAdmin ist eine GLOBALE Rolle (users.roles), TenantAdmin pro
+  // tenant-membership. SystemAdmin braucht beide Pfade explizit weil
+  // er nicht implicit TenantAdmin auf jedem Tenant ist (siehe
+  // project_global_roles_sysadmin memory). Ohne SystemAdmin könnte
+  // niemand SYSTEM_TENANT-Texte setzen — nur via Test-Helper.
+  access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;
     const tenantId = event.user.tenantId;

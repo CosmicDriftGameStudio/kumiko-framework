@@ -48,12 +48,19 @@ export function createLegalPagesFeature(): FeatureDefinition {
         anonymous: true,
         handler: async (c, { app }) => {
           const url = new URL(c.req.url);
+          // Architektur: 1 App = X Tenants = 1 Impressum. Egal welche
+          // Subdomain der Visitor besucht (apex, admin.*, tenant-x.*) —
+          // legal-pages serven IMMER die SYSTEM_TENANT-Texte. Deshalb
+          // explizit X-Tenant-Header setzen statt host weiterreichen
+          // (sonst würde ein host-basierter anonymousAccess-Resolver
+          // die tenant-Subdomain auf tenant-tenantId resolven und
+          // tenant-x's leere imprint-Tabelle abfragen → 404).
           const queryRes = await app.fetch(
             new Request(`${url.origin}/api/query`, {
               method: "POST",
               headers: {
                 "content-type": "application/json",
-                host: c.req.header("host") ?? "",
+                "X-Tenant": SYSTEM_TENANT_ID,
               },
               body: JSON.stringify({
                 type: TEXT_CONTENT_BY_SLUG_QN,
@@ -92,6 +99,11 @@ export function createLegalPagesFeature(): FeatureDefinition {
     // Boot-Check via ctx.textContent (extraContext-Pattern, symmetrisch
     // zu requireConfigResolver in config). App-Bootstrap muss textContent
     // wired haben — der Helper gibt einen klaren Wiring-Hinweis wenn nicht.
+    //
+    // Body als named function extrahiert (`runLegalPagesBootCheck`) damit
+    // die Logik direkt unit-testbar ist statt nur indirekt über Routes.
+    // Pattern: thin job-shell ruft testable function — keine Test-Coupling
+    // zum JobRunner.
     r.job(
       "legal-pages-boot-check",
       {
@@ -99,38 +111,55 @@ export function createLegalPagesFeature(): FeatureDefinition {
         runOnBoot: true,
         runIn: "api",
       },
-      async (_payload, ctx) => {
-        const textContent: TextContentApi = requireTextContent(ctx, "legal-pages-boot-check");
-        const missing: { slug: string; lang: string }[] = [];
-
-        for (const required of LEGAL_REQUIRED_BLOCKS) {
-          const block = await textContent.getBlock({
-            tenantId: SYSTEM_TENANT_ID,
-            slug: required.slug,
-            lang: required.lang,
-          });
-          if (!block || !block.body) {
-            missing.push({ slug: required.slug, lang: required.lang });
-          }
-        }
-
-        if (missing.length === 0) {
-          ctx.log?.info("legal-pages boot-check: alle Pflicht-Blocks vorhanden");
-          return;
-        }
-
-        const message =
-          `legal-pages: missing ${missing.length} required text-block(s) in SYSTEM_TENANT: ` +
-          missing.map((m) => `${m.slug}/${m.lang}`).join(", ") +
-          ". Seed via text-content:write:set or seedTextBlock helper.";
-
-        if (process.env["NODE_ENV"] === "production") {
-          throw new Error(`Boot-Validation failed: ${message}`);
-        }
-        ctx.log?.warn(message);
-      },
+      async (_payload, ctx) => runLegalPagesBootCheck(ctx),
     );
 
     return {};
   });
+}
+
+// Minimal-shape für die Boot-Check-Logik — nur die Felder die der Check
+// braucht. Akzeptiert HandlerContext + AppContext + jeden anderen
+// Container der textContent + log mitbringt. Macht den Check direkt
+// unit-testbar mit constructed ctx-Objects.
+export type LegalPagesBootCheckCtx = {
+  readonly textContent?: TextContentApi;
+  readonly log?: {
+    readonly info?: (msg: string) => void;
+    readonly warn?: (msg: string) => void;
+  };
+};
+
+// Exportiert für direkte Tests. Wirft InternalError wenn ctx.textContent
+// nicht gewired ist (Hinweis auf fehlenden extraContext). Wirft Error
+// in NODE_ENV=production wenn Pflicht-Blocks fehlen, sonst log.warn.
+// Logged log.info wenn alles vorhanden ist (kein silent-skip).
+export async function runLegalPagesBootCheck(ctx: LegalPagesBootCheckCtx): Promise<void> {
+  const textContent: TextContentApi = requireTextContent(ctx, "legal-pages-boot-check");
+  const missing: { slug: string; lang: string }[] = [];
+
+  for (const required of LEGAL_REQUIRED_BLOCKS) {
+    const block = await textContent.getBlock({
+      tenantId: SYSTEM_TENANT_ID,
+      slug: required.slug,
+      lang: required.lang,
+    });
+    if (!block?.body) {
+      missing.push({ slug: required.slug, lang: required.lang });
+    }
+  }
+
+  if (missing.length === 0) {
+    ctx.log?.info?.("legal-pages boot-check: alle Pflicht-Blocks vorhanden");
+  } else {
+    const message =
+      `legal-pages: missing ${missing.length} required text-block(s) in SYSTEM_TENANT: ` +
+      missing.map((m) => `${m.slug}/${m.lang}`).join(", ") +
+      ". Seed via text-content:write:set or seedTextBlock helper.";
+
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error(`Boot-Validation failed: ${message}`);
+    }
+    ctx.log?.warn?.(message);
+  }
 }

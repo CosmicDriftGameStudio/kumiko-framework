@@ -1,3 +1,4 @@
+import type { TextContentApi } from "@kumiko/bundled-features/text-content";
 import {
   createTextContentApi,
   createTextContentFeature,
@@ -9,7 +10,7 @@ import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
 import { createEventsTable } from "@kumiko/framework/event-store";
 import { createEntityTable, setupTestStack, type TestStack } from "@kumiko/framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { createLegalPagesFeature } from "../feature";
+import { createLegalPagesFeature, runLegalPagesBootCheck } from "../feature";
 import { renderMarkdownToHtml, wrapInLayout } from "../markdown";
 
 let stack: TestStack;
@@ -143,39 +144,163 @@ describe("markdown render helpers", () => {
 // dass die Logik fehlende Blocks im SYSTEM_TENANT erkennt. Der eigentliche
 // runOnBoot-Trigger lebt im JobRunner und wird in jobs-feature integration-
 // tests separately exercised.
-describe("legal-pages :: boot-check logic", () => {
-  test("missing block detection identifies imprint+privacy gaps", async () => {
-    // Frischer Stack ohne Seeds, mit komplettem Wiring inklusive
-    // textContent-API damit der Boot-Check über ctx.textContent
-    // läuft (sonst wirft requireTextContent statt missing-blocks
-    // zu erkennen).
-    const freshStack = await setupTestStack({
+describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () => {
+  test("legal-pages serven SYSTEM_TENANT-Texte auch wenn tenantResolver einen anderen Tenant zurückgibt", async () => {
+    // Simuliert publicstatus's Setup: host-basierter tenantResolver der
+    // tenant-subdomain → tenant-tenantId resolved. Ohne den X-Tenant-Fix
+    // würde /legal/impressum für tenant-x.example.com tenant-x's
+    // (leeren) imprint-Block abfragen → 404. Mit Fix immer SYSTEM_TENANT.
+    const otherTenantId = "22222222-2222-4222-8222-222222222222";
+    const hostScopedStack = await setupTestStack({
       features: [createTextContentFeature(), createLegalPagesFeature()],
-      anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
+      anonymousAccess: {
+        // Resolver gibt IMMER einen anderen Tenant zurück — wenn legal-
+        // pages den respektieren würde, wäre der DB-Lookup leer.
+        tenantResolver: () => otherTenantId,
+        tenantExists: async (id) => id === otherTenantId || id === SYSTEM_TENANT_ID,
+      },
       extraContext: ({ db }) => ({
         textContent: createTextContentApi(db),
       }),
     });
     try {
-      await createEntityTable(freshStack.db, textBlockEntity);
-      await createEventsTable(freshStack.db);
+      await createEntityTable(hostScopedStack.db, textBlockEntity);
+      await createEventsTable(hostScopedStack.db);
 
-      // Direkt-Check über die /legal/-Routes: ohne Seed → 404 für jeden
-      // Pflicht-Block. Verifiziert end-to-end dass die Routes "block
-      // missing"-Path sauber durchläuft (nicht 503/500).
-      const { LEGAL_REQUIRED_BLOCKS } = await import("../constants");
-      const missing: { slug: string; lang: string }[] = [];
-      for (const required of LEGAL_REQUIRED_BLOCKS) {
-        const res = await freshStack.app.request(
-          `/legal/${required.slug === "imprint" ? "impressum" : "datenschutz"}`,
-        );
-        if (res.status === 404) {
-          missing.push({ slug: required.slug, lang: required.lang });
-        }
-      }
-      expect(missing).toHaveLength(LEGAL_REQUIRED_BLOCKS.length);
+      // Block NUR im SYSTEM_TENANT seeden — NICHT im otherTenantId
+      await seedTextBlock(hostScopedStack.db, {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "imprint",
+        lang: "de",
+        title: "System-Impressum",
+        body: "## Plattform\n\nMarc Frost",
+      });
+
+      const res = await hostScopedStack.app.request("/legal/impressum");
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain("System-Impressum");
+      expect(body).toContain("Marc Frost");
     } finally {
-      await freshStack.cleanup();
+      await hostScopedStack.cleanup();
+    }
+  });
+});
+
+describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
+  // Direkter Test der Boot-Check-Logik mit constructed ctx-Objects —
+  // keine JobRunner-Coupling, keine Test-Stacks. Das ist die echte
+  // Verhalten-Test-Surface; r.job() ist nur thin shell darum.
+
+  type Block = { slug: string; lang: string; title: string; body: string | null };
+
+  function fakeTextContent(blocks: readonly Block[]): {
+    api: TextContentApi;
+    calls: { tenantId: string; slug: string; lang: string }[];
+  } {
+    const calls: { tenantId: string; slug: string; lang: string }[] = [];
+    return {
+      calls,
+      api: {
+        getBlock: async ({ tenantId, slug, lang }) => {
+          calls.push({ tenantId, slug, lang });
+          const block = blocks.find((b) => b.slug === slug && b.lang === lang);
+          if (!block) return null;
+          return { ...block, updatedAt: new Date() };
+        },
+      },
+    };
+  }
+
+  test("alle Pflicht-Blocks vorhanden → log.info, kein throw", async () => {
+    const { api } = fakeTextContent([
+      { slug: "imprint", lang: "de", title: "I", body: "body" },
+      { slug: "privacy", lang: "de", title: "P", body: "body" },
+    ]);
+    const infos: string[] = [];
+    const warns: string[] = [];
+    await expect(
+      runLegalPagesBootCheck({
+        textContent: api,
+        log: { info: (m) => infos.push(m), warn: (m) => warns.push(m) },
+      }),
+    ).resolves.toBeUndefined();
+    expect(infos).toHaveLength(1);
+    expect(infos[0]).toContain("alle Pflicht-Blocks vorhanden");
+    expect(warns).toHaveLength(0);
+  });
+
+  test("missing blocks + NODE_ENV=production → throws mit slug-Liste", async () => {
+    const { api } = fakeTextContent([]);
+    const originalEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      await expect(runLegalPagesBootCheck({ textContent: api })).rejects.toThrow(
+        /Boot-Validation failed.*imprint\/de.*privacy\/de/s,
+      );
+    } finally {
+      if (originalEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = originalEnv;
+    }
+  });
+
+  test("missing blocks + NODE_ENV!=production → log.warn, kein throw", async () => {
+    const { api } = fakeTextContent([]);
+    const warns: string[] = [];
+    const originalEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "development";
+    try {
+      await expect(
+        runLegalPagesBootCheck({
+          textContent: api,
+          log: { warn: (m) => warns.push(m) },
+        }),
+      ).resolves.toBeUndefined();
+      expect(warns).toHaveLength(1);
+      expect(warns[0]).toContain("missing 2 required text-block(s)");
+      expect(warns[0]).toContain("imprint/de");
+      expect(warns[0]).toContain("privacy/de");
+    } finally {
+      if (originalEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = originalEnv;
+    }
+  });
+
+  test("ctx ohne textContent → InternalError mit Wiring-Hinweis", async () => {
+    await expect(runLegalPagesBootCheck({})).rejects.toThrow(/textContent missing.*extraContext/s);
+  });
+
+  test("Block existiert aber body ist null → wird als missing gezählt", async () => {
+    const { api } = fakeTextContent([
+      { slug: "imprint", lang: "de", title: "I", body: null },
+      { slug: "privacy", lang: "de", title: "P", body: "body" },
+    ]);
+    const warns: string[] = [];
+    const originalEnv = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "development";
+    try {
+      await runLegalPagesBootCheck({
+        textContent: api,
+        log: { warn: (m) => warns.push(m) },
+      });
+      expect(warns[0]).toContain("missing 1 required text-block(s)");
+      expect(warns[0]).toContain("imprint/de");
+      expect(warns[0]).not.toContain("privacy/de");
+    } finally {
+      if (originalEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = originalEnv;
+    }
+  });
+
+  test("alle Lookups erfolgen gegen SYSTEM_TENANT_ID (nie tenant-scoped)", async () => {
+    const { api, calls } = fakeTextContent([
+      { slug: "imprint", lang: "de", title: "I", body: "x" },
+      { slug: "privacy", lang: "de", title: "P", body: "x" },
+    ]);
+    await runLegalPagesBootCheck({ textContent: api });
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call.tenantId).toBe(SYSTEM_TENANT_ID);
     }
   });
 });

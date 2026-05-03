@@ -70,6 +70,23 @@ describe("text-content :: write", () => {
     expect(fetched).toMatchObject({ title: "Datenschutz v2", body: "neu" });
   });
 
+  test("SystemAdmin can create text blocks for SYSTEM_TENANT (without TenantAdmin role)", async () => {
+    // SystemAdmin ist global, hat KEIN implicit TenantAdmin auf seiner
+    // membership. Das Set-Handler-ACL muss SystemAdmin explizit erlauben
+    // sonst kann niemand Plattform-Texte (z.B. Impressum) setzen.
+    const result = await stack.http.writeOk<Record<string, unknown>>(
+      TextContentHandlers.set,
+      {
+        slug: "system-imprint-write",
+        lang: "de",
+        title: "System-Impressum",
+        body: "## Plattform\n\nMarc",
+      },
+      systemAdmin,
+    );
+    expect(result).toMatchObject({ slug: "system-imprint-write", isNew: true });
+  });
+
   test("normal User cannot create text blocks (access denied)", async () => {
     const error = await stack.http.writeErr(
       TextContentHandlers.set,
@@ -126,7 +143,7 @@ describe("text-content :: query (openToAll)", () => {
       { slug: "does-not-exist", lang: "de" },
       tenantAdmin,
     );
-    expect(result == null).toBe(true);
+    expect(result).toBeFalsy();
   });
 
   test("by-slug isolates by tenant — other tenant's block invisible", async () => {
@@ -146,7 +163,7 @@ describe("text-content :: query (openToAll)", () => {
       otherTenant,
     );
     // null oder undefined je nach pipeline-shape — beides bedeutet "nicht gefunden"
-    expect(result == null).toBe(true);
+    expect(result).toBeFalsy();
   });
 
   test("by-slug works for SystemAdmin scoped to system tenant", async () => {
