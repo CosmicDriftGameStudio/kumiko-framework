@@ -23,8 +23,8 @@ describe("ResetPasswordScreen", () => {
 
   test("mit token-Prop → Form rendert", () => {
     renderWithProviders(<ResetPasswordScreen token="abc-token" />);
-    expect(screen.getByLabelText("Neues Passwort")).toBeTruthy();
-    expect(screen.getByLabelText("Passwort bestätigen")).toBeTruthy();
+    expect(screen.getByLabelText(/^Neues Passwort/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Passwort bestätigen/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Passwort speichern" })).toBeTruthy();
   });
 
@@ -33,8 +33,8 @@ describe("ResetPasswordScreen", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderWithProviders(<ResetPasswordScreen token="abc" />);
-    fireEvent.change(screen.getByLabelText("Neues Passwort"), { target: { value: "short" } });
-    fireEvent.change(screen.getByLabelText("Passwort bestätigen"), { target: { value: "short" } });
+    fireEvent.change(screen.getByLabelText(/^Neues Passwort/), { target: { value: "short" } });
+    fireEvent.change(screen.getByLabelText(/^Passwort bestätigen/), { target: { value: "short" } });
     fireEvent.click(screen.getByRole("button", { name: "Passwort speichern" }));
 
     await waitFor(() => {
@@ -45,10 +45,10 @@ describe("ResetPasswordScreen", () => {
 
   test("mismatch zwischen Passwort und Confirm → client-side error", async () => {
     renderWithProviders(<ResetPasswordScreen token="abc" />);
-    fireEvent.change(screen.getByLabelText("Neues Passwort"), {
+    fireEvent.change(screen.getByLabelText(/^Neues Passwort/), {
       target: { value: "validpass1" },
     });
-    fireEvent.change(screen.getByLabelText("Passwort bestätigen"), {
+    fireEvent.change(screen.getByLabelText(/^Passwort bestätigen/), {
       target: { value: "differentpass" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Passwort speichern" }));
@@ -63,10 +63,10 @@ describe("ResetPasswordScreen", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderWithProviders(<ResetPasswordScreen token="abc-token" />);
-    fireEvent.change(screen.getByLabelText("Neues Passwort"), {
+    fireEvent.change(screen.getByLabelText(/^Neues Passwort/), {
       target: { value: "validpass1" },
     });
-    fireEvent.change(screen.getByLabelText("Passwort bestätigen"), {
+    fireEvent.change(screen.getByLabelText(/^Passwort bestätigen/), {
       target: { value: "validpass1" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Passwort speichern" }));
@@ -93,10 +93,10 @@ describe("ResetPasswordScreen", () => {
     );
 
     renderWithProviders(<ResetPasswordScreen token="bad" />);
-    fireEvent.change(screen.getByLabelText("Neues Passwort"), {
+    fireEvent.change(screen.getByLabelText(/^Neues Passwort/), {
       target: { value: "validpass1" },
     });
-    fireEvent.change(screen.getByLabelText("Passwort bestätigen"), {
+    fireEvent.change(screen.getByLabelText(/^Passwort bestätigen/), {
       target: { value: "validpass1" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Passwort speichern" }));

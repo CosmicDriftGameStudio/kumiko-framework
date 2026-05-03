@@ -19,7 +19,7 @@ describe("ForgotPasswordScreen", () => {
   test("rendert title + email-input + submit-button (de)", () => {
     renderWithProviders(<ForgotPasswordScreen />);
     expect(screen.getByText("Passwort zurücksetzen")).toBeTruthy();
-    expect(screen.getByLabelText("E-Mail")).toBeTruthy();
+    expect(screen.getByLabelText(/^E-Mail/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Link anfordern" })).toBeTruthy();
   });
 
@@ -28,7 +28,7 @@ describe("ForgotPasswordScreen", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderWithProviders(<ForgotPasswordScreen />);
-    fireEvent.change(screen.getByLabelText("E-Mail"), {
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
       target: { value: "user@example.com" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
@@ -46,7 +46,7 @@ describe("ForgotPasswordScreen", () => {
 
   test("nach erfolgreichem Submit: success-Banner + 'Zurück zum Login'-Link", async () => {
     renderWithProviders(<ForgotPasswordScreen />);
-    fireEvent.change(screen.getByLabelText("E-Mail"), {
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
       target: { value: "user@example.com" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
@@ -65,7 +65,7 @@ describe("ForgotPasswordScreen", () => {
     );
 
     renderWithProviders(<ForgotPasswordScreen />);
-    fireEvent.change(screen.getByLabelText("E-Mail"), {
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
       target: { value: "user@example.com" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));

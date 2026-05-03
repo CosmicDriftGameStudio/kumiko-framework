@@ -9,10 +9,10 @@
 // gemappt (reasonToI18nKey) — neue Reason-Codes brauchen nur eine
 // neue Zeile im Bundle + hier im Mapping.
 
-import { useTranslation } from "@kumiko/renderer";
-import { cn } from "@kumiko/renderer-web";
-import { type ReactNode, useState } from "react";
+import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { type FormEvent, type ReactNode, useState } from "react";
 import type { LoginFailure } from "./auth-client";
+import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";
 import { useSession } from "./session";
 
 export type LoginScreenProps = {
@@ -71,14 +71,14 @@ export function LoginScreen({
   signupHref,
 }: LoginScreenProps): ReactNode {
   const t = useTranslation();
+  const { Form, Field, Input, Button, Banner } = usePrimitives();
   const session = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<LoginFailure | null>(null);
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
+  const doSubmit = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
     const res = await session.login({ email, password });
@@ -86,96 +86,65 @@ export function LoginScreen({
     if (!res.ok) setError(res.error);
   };
 
-  const inputClass =
-    "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm " +
-    "transition-colors placeholder:text-muted-foreground focus-visible:outline-none " +
-    "focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+  const onSubmit = (e?: FormEvent): void => {
+    e?.preventDefault();
+    void doSubmit();
+  };
 
   const effectiveTitle = title ?? t("auth.login.title");
   const effectiveSubmit = submitLabel ?? t("auth.login.submit");
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-lg border bg-card text-card-foreground shadow-sm">
-        <div className="flex flex-col space-y-1.5 p-6 pb-4">
-          <h1 className="text-xl font-semibold tracking-tight">{effectiveTitle}</h1>
-          {subtitle !== undefined && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-        </div>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4 p-6 pt-0">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="login-email" className="text-sm font-medium leading-none">
-              {t("auth.login.email")}
-            </label>
-            <input
+    <AuthCard title={effectiveTitle} subtitle={subtitle}>
+      <div className="p-6 pt-0 flex flex-col gap-4">
+        <Form onSubmit={onSubmit}>
+          <Field id="login-email" label={t("auth.login.email")} required>
+            <Input
+              kind="email"
               id="login-email"
-              type="email"
-              autoComplete="email"
-              required
-              disabled={submitting}
+              name="login-email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="login-password" className="text-sm font-medium leading-none">
-              {t("auth.login.password")}
-            </label>
-            <input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              required
+              onChange={setEmail}
               disabled={submitting}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
+              required
+              autoComplete="email"
             />
-          </div>
+          </Field>
+          <Field id="login-password" label={t("auth.login.password")} required>
+            <Input
+              kind="password"
+              id="login-password"
+              name="login-password"
+              value={password}
+              onChange={setPassword}
+              disabled={submitting}
+              required
+              autoComplete="current-password"
+            />
+          </Field>
           {error !== null && (
-            <div
-              role="alert"
-              className={cn(
-                "relative w-full rounded-md border px-4 py-3 text-sm",
-                "border-destructive/50 text-destructive bg-destructive/10 dark:border-destructive",
-              )}
-            >
+            <Banner variant="error">
               {(() => {
                 const { key, params } = reasonToKey(error);
                 return t(key, params);
               })()}
-            </div>
+            </Banner>
           )}
-          <button
-            type="submit"
-            disabled={submitting}
-            className={cn(
-              "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-              "disabled:pointer-events-none disabled:opacity-50",
-              "bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2",
-            )}
-          >
+          <Button type="submit" loading={submitting} disabled={submitting}>
             {submitting ? t("auth.login.submitting") : effectiveSubmit}
-          </button>
-          {forgotPasswordHref !== undefined && (
-            <a
-              href={forgotPasswordHref}
-              className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline self-center"
-            >
-              {t("auth.login.forgotPassword")}
-            </a>
-          )}
-          {signupHref !== undefined && (
-            <a
-              href={signupHref}
-              className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline self-center"
-            >
-              {t("auth.signup.title")}
-            </a>
-          )}
-        </form>
+          </Button>
+        </Form>
+        {forgotPasswordHref !== undefined && (
+          <a href={forgotPasswordHref} className={`${authMutedLinkClass} self-center`}>
+            {t("auth.login.forgotPassword")}
+          </a>
+        )}
+        {signupHref !== undefined && (
+          <a href={signupHref} className={`${authMutedLinkClass} self-center`}>
+            {t("auth.signup.title")}
+          </a>
+        )}
       </div>
-    </div>
+    </AuthCard>
   );
 }

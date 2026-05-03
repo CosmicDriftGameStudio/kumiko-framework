@@ -8,8 +8,8 @@ describe("LoginScreen", () => {
   test("renders translated title + email + password labels (de)", () => {
     renderWithProviders(<LoginScreen />);
     expect(screen.getByText("Anmelden")).toBeTruthy();
-    expect(screen.getByLabelText("E-Mail")).toBeTruthy();
-    expect(screen.getByLabelText("Passwort")).toBeTruthy();
+    expect(screen.getByLabelText(/^E-Mail/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Passwort/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Einloggen" })).toBeTruthy();
   });
 
@@ -17,10 +17,10 @@ describe("LoginScreen", () => {
     const session = makeSessionApi({ status: "unauthenticated", user: null });
     renderWithProviders(<LoginScreen />, { session });
 
-    fireEvent.change(screen.getByLabelText("E-Mail"), {
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
       target: { value: "demo@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Passwort"), {
+    fireEvent.change(screen.getByLabelText(/^Passwort/), {
       target: { value: "secret" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
@@ -41,10 +41,10 @@ describe("LoginScreen", () => {
     });
     renderWithProviders(<LoginScreen />, { session });
 
-    fireEvent.change(screen.getByLabelText("E-Mail"), {
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
       target: { value: "wrong@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Passwort"), {
+    fireEvent.change(screen.getByLabelText(/^Passwort/), {
       target: { value: "x" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));
@@ -66,10 +66,10 @@ describe("LoginScreen", () => {
     });
     renderWithProviders(<LoginScreen />, { session });
 
-    fireEvent.change(screen.getByLabelText("E-Mail"), {
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), {
       target: { value: "x@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Passwort"), {
+    fireEvent.change(screen.getByLabelText(/^Passwort/), {
       target: { value: "x" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Einloggen" }));

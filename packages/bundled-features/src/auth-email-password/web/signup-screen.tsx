@@ -12,16 +12,10 @@
 // AuthGate). Apex-Marketing kann via Link "Kostenlos starten" auf den
 // /signup-Pfad routen.
 
-import { useTranslation } from "@kumiko/renderer";
-import { type ReactNode, useState } from "react";
+import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { requestSignup } from "./auth-client";
-import {
-  AuthBanner,
-  AuthCard,
-  AuthInput,
-  authButtonClass,
-  authMutedLinkClass,
-} from "./auth-form-primitives";
+import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";
 
 export type SignupScreenProps = {
   readonly title?: string;
@@ -37,13 +31,13 @@ export function SignupScreen({
   loginHref = "/login",
 }: SignupScreenProps): ReactNode {
   const t = useTranslation();
+  const { Form, Field, Input, Button, Banner } = usePrimitives();
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
+  const doSubmit = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
     try {
@@ -70,6 +64,11 @@ export function SignupScreen({
     }
   };
 
+  const onSubmit = (e?: FormEvent): void => {
+    e?.preventDefault();
+    void doSubmit();
+  };
+
   const onResend = async (): Promise<void> => {
     // Resend nutzt den gleichen Endpunkt — Server returnt den existing
     // Token aus Redis und schickt eine zweite Mail mit dem GLEICHEN
@@ -89,43 +88,42 @@ export function SignupScreen({
     <AuthCard title={effectiveTitle} subtitle={subtitle}>
       {done ? (
         <div className="p-6 pt-0 flex flex-col gap-4">
-          <AuthBanner tone="status">
+          <Banner variant="info">
             <p className="font-medium text-foreground">{t("auth.signup.successTitle")}</p>
             <p className="mt-1">{t("auth.signup.successBody")}</p>
-          </AuthBanner>
-          <button
-            type="button"
-            onClick={onResend}
-            disabled={submitting}
-            className={authMutedLinkClass}
-          >
+          </Banner>
+          <Button variant="secondary" onClick={onResend} disabled={submitting}>
             {t("auth.signup.resend")}
-          </button>
+          </Button>
           <a href={loginHref} className={authMutedLinkClass}>
             {t("auth.signup.haveAccount")}
           </a>
         </div>
       ) : (
-        <form onSubmit={onSubmit} className="flex flex-col gap-4 p-6 pt-0">
+        <div className="p-6 pt-0 flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{t("auth.signup.intro")}</p>
-          <AuthInput
-            id="signup-email"
-            label={t("auth.signup.email")}
-            type="email"
-            autoComplete="email"
-            required
-            disabled={submitting}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          {error !== null && <AuthBanner tone="error">{error}</AuthBanner>}
-          <button type="submit" disabled={submitting} className={authButtonClass}>
-            {submitting ? t("auth.signup.submitting") : t("auth.signup.submit")}
-          </button>
+          <Form onSubmit={onSubmit}>
+            <Field id="signup-email" label={t("auth.signup.email")} required>
+              <Input
+                kind="email"
+                id="signup-email"
+                name="signup-email"
+                value={email}
+                onChange={setEmail}
+                disabled={submitting}
+                required
+                autoComplete="email"
+              />
+            </Field>
+            {error !== null && <Banner variant="error">{error}</Banner>}
+            <Button type="submit" loading={submitting} disabled={submitting}>
+              {submitting ? t("auth.signup.submitting") : t("auth.signup.submit")}
+            </Button>
+          </Form>
           <a href={loginHref} className={`${authMutedLinkClass} self-center`}>
             {t("auth.signup.haveAccount")}
           </a>
-        </form>
+        </div>
       )}
     </AuthCard>
   );

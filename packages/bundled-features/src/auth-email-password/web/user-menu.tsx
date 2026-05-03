@@ -53,6 +53,7 @@ export function UserMenu({ children }: UserMenuProps): ReactNode {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
+        {/* kumiko-lint-ignore primitives-discipline radix-asChild braucht DOM-Element als Trigger; Native kriegt eigene .native.tsx-Variante mit ActionSheet */}
         <button
           type="button"
           className={cn(

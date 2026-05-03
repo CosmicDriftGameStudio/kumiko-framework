@@ -15,17 +15,10 @@
 // rein. Default-Template "/" wäre auch valide (App hat dann eigene
 // Routing-Logik die den eingeloggten User zur richtigen Page schickt).
 
-import { useTranslation } from "@kumiko/renderer";
-import { type ReactNode, useState } from "react";
+import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { confirmSignup } from "./auth-client";
-import {
-  AuthBanner,
-  AuthCard,
-  AuthInput,
-  authButtonClass,
-  authMutedLinkClass,
-  parseUrlToken,
-} from "./auth-form-primitives";
+import { AuthCard, authMutedLinkClass, parseUrlToken } from "./auth-form-primitives";
 
 export type SignupCompleteScreenProps = {
   readonly title?: string;
@@ -50,14 +43,14 @@ export function SignupCompleteScreen({
   loginHref = "/login",
 }: SignupCompleteScreenProps): ReactNode {
   const t = useTranslation();
+  const { Form, Field, Input, Button, Banner } = usePrimitives();
   const [token] = useState(() => tokenProp ?? parseUrlToken());
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
+  const doSubmit = async (): Promise<void> => {
     setError(null);
     if (password.length < 8) {
       setError(t("auth.signupComplete.tooShort"));
@@ -91,6 +84,11 @@ export function SignupCompleteScreen({
     setError(t("auth.errors.unknownError"));
   };
 
+  const onSubmit = (e?: FormEvent): void => {
+    e?.preventDefault();
+    void doSubmit();
+  };
+
   const effectiveTitle = title ?? t("auth.signupComplete.title");
 
   // Kein Token in der URL → klare Message statt Form ohne Token
@@ -110,35 +108,43 @@ export function SignupCompleteScreen({
 
   return (
     <AuthCard title={effectiveTitle}>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 p-6 pt-0">
+      <div className="p-6 pt-0 flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">{t("auth.signupComplete.intro")}</p>
-        <AuthInput
-          id="signup-password"
-          label={t("auth.signupComplete.password")}
-          type="password"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          disabled={submitting}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <AuthInput
-          id="signup-confirm-password"
-          label={t("auth.signupComplete.confirmPassword")}
-          type="password"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          disabled={submitting}
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
-        {error !== null && <AuthBanner tone="error">{error}</AuthBanner>}
-        <button type="submit" disabled={submitting} className={authButtonClass}>
-          {submitting ? t("auth.signupComplete.submitting") : t("auth.signupComplete.submit")}
-        </button>
-      </form>
+        <Form onSubmit={onSubmit}>
+          <Field id="signup-password" label={t("auth.signupComplete.password")} required>
+            <Input
+              kind="password"
+              id="signup-password"
+              name="signup-password"
+              value={password}
+              onChange={setPassword}
+              disabled={submitting}
+              required
+              autoComplete="new-password"
+            />
+          </Field>
+          <Field
+            id="signup-confirm-password"
+            label={t("auth.signupComplete.confirmPassword")}
+            required
+          >
+            <Input
+              kind="password"
+              id="signup-confirm-password"
+              name="signup-confirm-password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              disabled={submitting}
+              required
+              autoComplete="new-password"
+            />
+          </Field>
+          {error !== null && <Banner variant="error">{error}</Banner>}
+          <Button type="submit" loading={submitting} disabled={submitting}>
+            {submitting ? t("auth.signupComplete.submitting") : t("auth.signupComplete.submit")}
+          </Button>
+        </Form>
+      </div>
     </AuthCard>
   );
 }

@@ -5,7 +5,12 @@
 // (LocaleProvider mit Bundle, SessionContext mit injizierbarem Wert).
 
 import type { LocaleResolver } from "@kumiko/headless";
-import { createStaticLocaleResolver, LocaleProvider } from "@kumiko/renderer";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  PrimitivesProvider,
+} from "@kumiko/renderer";
+import { defaultPrimitives } from "@kumiko/renderer-web";
 import { render as _render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { vi } from "vitest";
@@ -58,9 +63,11 @@ export function renderWithProviders(
   const resolver = options.resolver ?? sharedDeResolver;
   const session = options.session ?? makeSessionApi();
   const result = _render(
-    <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
-      <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>
-    </LocaleProvider>,
+    <PrimitivesProvider value={defaultPrimitives}>
+      <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
+        <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>
+      </LocaleProvider>
+    </PrimitivesProvider>,
   );
   return { ...result, session };
 }
