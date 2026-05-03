@@ -70,6 +70,20 @@ export async function seedUserWithPassword(
  *  konsistent mit dem regulären create-Pfad: events werden geschrieben,
  *  Projections sind populated, MSPs/Audit sehen die neuen Rows.
  *
+ *  Naming-Hinweis: nutzt intern `seedTenant` / `seedUser*` —
+ *  diese Helpers sind production-grade (event-store-pipeline), das "seed"
+ *  im Namen ist historisch (zuerst für Tests + Bootstrap gebaut, dann
+ *  als General-Purpose-Helper exportiert). Rename `seed*` → `provision*`
+ *  ist als dedizierter Cleanup-PR geplant — disproportional zum Wert
+ *  innerhalb dieses Sprints, weil alle existing tests berührt würden.
+ *
+ *  Atomicity: läuft inside einer Drizzle-Tx wenn der Caller das angibt
+ *  (db.transaction(tx => provisionSignupAccount(tx, ...)) — die seed-
+ *  helpers nehmen DbConnection|DbTx strukturell. Bei pure DbConnection
+ *  sind die 3 writes nicht atomic; bei Failure zwischen Schritten kann
+ *  ein orphan-Tenant zurückbleiben (Tenant ohne User → unused row;
+ *  User ohne Membership → "no_membership" beim ersten Login).
+ *
  *  Nicht idempotent: ein zweiter Aufruf für dieselbe Email wirft (über
  *  seedTenant + seedUser deren idempotenz-Check sich an key/email
  *  orientiert; bei collidierenden tenantKey ist der Caller

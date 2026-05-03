@@ -73,7 +73,11 @@ export function createSignupRequestHandler(opts: SignupRequestOptions = {}) {
         );
       }
 
-      const email = event.payload.email.toLowerCase();
+      // Email-Normalisierung lebt im Store (signup-token-store). Der
+      // Handler reicht die raw email durch — eine Quelle, kein Drift
+      // zwischen Lookup-Pfaden die unterschiedlich (oder gar nicht)
+      // lowercased haben.
+      const email = event.payload.email;
 
       // Resend-Idempotenz: wenn ein Token für diese Email noch lebt,
       // re-use ihn und refreshe beide Keys. Der User kriegt eine zweite
@@ -89,7 +93,10 @@ export function createSignupRequestHandler(opts: SignupRequestOptions = {}) {
         isSuccess: true,
         data: {
           kind: "signup-requested",
-          email,
+          // email als lowercased zurückgeben — die Mail-Send-Callback
+          // im Route-Layer kriegt damit konsistent das normalisierte
+          // Format, kein "Marc@Foo.com vs marc@foo.com"-Drift.
+          email: email.toLowerCase(),
           token,
           expiresAt: expiresAt.toString(),
         },
