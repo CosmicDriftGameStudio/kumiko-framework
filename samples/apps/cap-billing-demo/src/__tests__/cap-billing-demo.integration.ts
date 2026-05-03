@@ -19,6 +19,13 @@ import {
 } from "@kumiko/bundled-features/config";
 import { clearInbox, getInbox } from "@kumiko/bundled-features/mail-transport-inmemory";
 import { createSecretsContext, tenantSecretsTable } from "@kumiko/bundled-features/secrets";
+import {
+  SubscriptionEventTypes,
+  SubscriptionFoundationHandlers,
+  SubscriptionStatuses,
+  subscriptionEntity,
+  subscriptionEventEntity,
+} from "@kumiko/bundled-features/subscription-foundation";
 import { createTenantFeature, tenantEntity } from "@kumiko/bundled-features/tenant";
 import { createEncryptionProvider, type DbConnection } from "@kumiko/framework/db";
 import { createEventsTable } from "@kumiko/framework/event-store";
@@ -79,6 +86,8 @@ beforeAll(async () => {
 
   await createEntityTable(db, tenantEntity);
   await createEntityTable(db, capCounterEntity);
+  await createEntityTable(db, subscriptionEntity);
+  await createEntityTable(db, subscriptionEventEntity);
   await pushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
   await createEventsTable(db);
 });
@@ -308,7 +317,7 @@ describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
     expect(inbox).toHaveLength(14);
   });
 
-  test("pro→free downgrade: existing counter kann sofort hard-hit auslösen", async () => {
+  test("pro→free downgrade via config: existing counter kann sofort hard-hit auslösen", async () => {
     const tenant = adminFor(2302);
     clearInbox(tenant.tenantId);
     await selectInMemoryMail(tenant);
@@ -335,6 +344,188 @@ describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
     expect(JSON.stringify(error)).toMatch(/CapExceededError/);
 
     // Inbox unverändert: blockierter send hat nichts hinzugefügt.
+    expect(inboxOf(tenant)).toHaveLength(15);
+  });
+});
+
+// =============================================================================
+// Subscription-driven tier (live-Webhook-Story)
+//
+// Phase 5.4: cap-billing-demo erweitert um subscription-foundation als
+// primary tier-source. Provider-Webhook (Stripe/Mollie) liefert ein
+// SubscriptionEvent; foundation persistiert die subscription-row;
+// newsletter-resolver liest die row beim cap-Auflösen → echter live-
+// Pfad ohne setTier-config-write.
+//
+// Tests rufen processEvent direkt (= das was die Hono-webhook-route
+// nach dem plugin.verifyAndParseWebhook ohnehin tut). Stripe-/Mollie-
+// spezifische sig-verify + lazy-fetch sind in den Plugin-Unit-Tests
+// abgedeckt.
+// =============================================================================
+
+async function processSubscriptionEvent(
+  admin: ReturnType<typeof adminFor>,
+  payload: {
+    providerEventId: string;
+    providerName: string;
+    type: (typeof SubscriptionEventTypes)[keyof typeof SubscriptionEventTypes];
+    status: (typeof SubscriptionStatuses)[keyof typeof SubscriptionStatuses];
+    tier: string;
+    providerCustomerId?: string;
+    providerSubscriptionId?: string;
+  },
+) {
+  return stack.http.writeOk(
+    SubscriptionFoundationHandlers.processEvent,
+    {
+      providerEventId: payload.providerEventId,
+      providerName: payload.providerName,
+      type: payload.type,
+      providerCustomerId: payload.providerCustomerId ?? `cus_${payload.providerEventId}`,
+      providerSubscriptionId: payload.providerSubscriptionId ?? `sub_${payload.providerEventId}`,
+      status: payload.status,
+      tier: payload.tier,
+      currentPeriodEndIso: "2026-12-31T00:00:00Z",
+      rawPayload: '{"raw":"webhook-test"}',
+    },
+    admin,
+  );
+}
+
+describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () => {
+  test("Provider-Webhook (Stripe-style) → subscription created → tier=pro greift sofort", async () => {
+    const tenant = adminFor(2401);
+    clearInbox(tenant.tenantId);
+    await selectInMemoryMail(tenant);
+    // Kein setTier — tenant hat keinen config-key, keine subscription.
+    // Resolver default: free (limit=10).
+
+    // 11 sends bei free → counter=11, beim 12. soft-hit (analog scenario 1+2).
+    for (let i = 1; i <= 11; i++) {
+      await sendNewsletter(tenant, `r${i}@x.de`, i);
+    }
+
+    // Provider-Webhook (= Stripe wäre's): subscription.created mit tier=pro.
+    await processSubscriptionEvent(tenant, {
+      providerEventId: "evt_stripe_2401",
+      providerName: "stripe",
+      type: SubscriptionEventTypes.created,
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+    });
+
+    // Sofort danach: der Tenant hat pro. counter=11, pro-soft@110.
+    // 11 < 110 → ok. 12. send läuft NICHT in soft-hit-warning.
+    await sendNewsletter(tenant, "r12@x.de", 12);
+    const inbox = inboxOf(tenant);
+    const warnings = inbox.filter((m) => m.subject.startsWith("[Cap Warning]"));
+    // Drift-Pin: hätte der resolver weiterhin config gelesen, wäre der
+    // tenant immer noch free → soft-hit-warning hätte gefeuert.
+    expect(warnings).toHaveLength(0);
+    expect(inbox).toHaveLength(12);
+  });
+
+  test("Provider-Webhook → subscription canceled → tier-fallback auf free → cap blockiert", async () => {
+    const tenant = adminFor(2402);
+    clearInbox(tenant.tenantId);
+    await selectInMemoryMail(tenant);
+
+    // Erst: pro-Subscription via webhook.
+    await processSubscriptionEvent(tenant, {
+      providerEventId: "evt_stripe_2402_create",
+      providerName: "stripe",
+      type: SubscriptionEventTypes.created,
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+    });
+
+    // 15 sends bei pro: counter=15, weit unter pro-soft@110.
+    for (let i = 1; i <= 15; i++) {
+      await sendNewsletter(tenant, `r${i}@x.de`, i);
+    }
+    expect(inboxOf(tenant)).toHaveLength(15);
+
+    // Provider-Webhook: subscription canceled. tier auf "free".
+    await processSubscriptionEvent(tenant, {
+      providerEventId: "evt_stripe_2402_cancel",
+      providerName: "stripe",
+      type: SubscriptionEventTypes.canceled,
+      status: SubscriptionStatuses.canceled,
+      tier: "free",
+    });
+
+    // Resolver: subscription.status=canceled → fallback auf config (kein
+    // key gesetzt) → default free. counter=15, free.hard=12 → blockiert.
+    const error = await stack.http.writeErr(
+      NEWSLETTER_SEND_QN,
+      { to: "after-cancel@x.de", subject: "X", html: "<p>n/a</p>" },
+      tenant,
+    );
+    expect(JSON.stringify(error)).toMatch(/CapExceededError/);
+    expect(inboxOf(tenant)).toHaveLength(15);
+  });
+
+  test("Webhook-Replay: zweiter event mit selber providerEventId → keine doppelte audit-row, kein zweiter tier-update", async () => {
+    const tenant = adminFor(2403);
+    clearInbox(tenant.tenantId);
+    await selectInMemoryMail(tenant);
+
+    await processSubscriptionEvent(tenant, {
+      providerEventId: "evt_stripe_2403",
+      providerName: "stripe",
+      type: SubscriptionEventTypes.created,
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+    });
+
+    // Replay (Stripe retried wegen Netzwerk-glitch).
+    const replayResult = (await processSubscriptionEvent(tenant, {
+      providerEventId: "evt_stripe_2403",
+      providerName: "stripe",
+      type: SubscriptionEventTypes.created,
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+    })) as { duplicate?: boolean };
+
+    // Drift-Pin: foundation muss `duplicate: true` zurückgeben.
+    // Sonst doppelte event-row in audit + idempotency-bug.
+    expect(replayResult.duplicate).toBe(true);
+  });
+
+  test("Multi-Provider: zweiter event von ANDEREM provider überschreibt subscription-row (Disney+-Wechsel)", async () => {
+    const tenant = adminFor(2404);
+    clearInbox(tenant.tenantId);
+    await selectInMemoryMail(tenant);
+
+    // Erst Stripe.
+    await processSubscriptionEvent(tenant, {
+      providerEventId: "evt_stripe_2404",
+      providerName: "stripe",
+      type: SubscriptionEventTypes.created,
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+      providerCustomerId: "cus_stripe_2404",
+      providerSubscriptionId: "sub_stripe_2404",
+    });
+
+    // Dann switch zu Mollie (anderer Provider, neue customerId).
+    await processSubscriptionEvent(tenant, {
+      providerEventId: "evt_mollie_2404",
+      providerName: "mollie",
+      type: SubscriptionEventTypes.created,
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+      providerCustomerId: "cst_mollie_2404",
+      providerSubscriptionId: "sub_mollie_2404",
+    });
+
+    // Resolver liest die aktuelle subscription-row → tier ist immer noch
+    // pro (egal welcher Provider). 15 sends ohne soft-hit.
+    for (let i = 1; i <= 15; i++) {
+      await sendNewsletter(tenant, `r${i}@x.de`, i);
+    }
+    const warnings = inboxOf(tenant).filter((m) => m.subject.startsWith("[Cap Warning]"));
+    expect(warnings).toHaveLength(0);
     expect(inboxOf(tenant)).toHaveLength(15);
   });
 });

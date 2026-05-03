@@ -10,12 +10,19 @@
 //   - cap-counter            — Counter-Storage + Helpers
 //   - mail-foundation        — Plugin-Host für Transports
 //   - mail-transport-inmemory — Demo-Transport (kein SMTP nötig)
+//   - subscription-foundation — Plugin-Host für Subscription-Provider
+//                               (Stripe/Mollie). Demo mountet Provider
+//                               nicht selbst — App-Owner ergänzt
+//                               createSubscriptionStripeFeature(...) /
+//                               createSubscriptionMollieFeature(...) in
+//                               der eigenen run-config.
 //   - newsletter             — die Demo-Domain mit cap-aware send
 
 import { capCounterFeature } from "@kumiko/bundled-features/cap-counter";
 import { mailFoundationFeature } from "@kumiko/bundled-features/mail-foundation";
 import { mailTransportInMemoryFeature } from "@kumiko/bundled-features/mail-transport-inmemory";
 import { createSecretsFeature } from "@kumiko/bundled-features/secrets";
+import { subscriptionFoundationFeature } from "@kumiko/bundled-features/subscription-foundation";
 import { newsletterFeature } from "./feature";
 
 /**
@@ -31,6 +38,7 @@ export const APP_FEATURES = [
   capCounterFeature,
   mailFoundationFeature,
   mailTransportInMemoryFeature,
+  subscriptionFoundationFeature,
   newsletterFeature,
 ] as const;
 

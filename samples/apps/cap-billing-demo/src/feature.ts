@@ -19,9 +19,12 @@
 //   - Die Soft-Hit-Warning-Mails (an admin@tenant.demo, beim ersten
 //     überschreiten)
 //
-// **Tier-Switching:** über den config-key "newsletter:config:tier"
-// (text, "free"/"pro"). Im echten Leben würde Stripe das setzen; im
-// Demo macht's der TenantAdmin per config:write:set-Handler.
+// **Tier-Switching:** primary-source ist die `subscription`-row aus
+// subscription-foundation (= produktiver Pfad: Stripe/Mollie webhook
+// schreibt → tier ändert sich). Fallback ist der config-key
+// "newsletter:config:tier" — den nutzt die Demo-README für manuelles
+// Switchen ohne Provider, plus tier-engine-only-Tests behalten so ihren
+// existing flow.
 
 import {
   currentCalendarMonthStartIso,
@@ -34,14 +37,24 @@ import {
   mailFoundationFeature,
 } from "@kumiko/bundled-features/mail-foundation";
 import {
+  SUBSCRIPTION_FOUNDATION_FEATURE,
+  SubscriptionStatuses,
+  subscriptionAggregateId,
+  subscriptionEntity,
+} from "@kumiko/bundled-features/subscription-foundation";
+import { buildDrizzleTable } from "@kumiko/framework/db";
+import {
   access,
   createTenantConfig,
   defineFeature,
   type HandlerContext,
   type WriteHandlerDef,
 } from "@kumiko/framework/engine";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { DEMO_TIER_MAP, TIER_NAMES, type TierName } from "./tier-map";
+
+const subscriptionTable = buildDrizzleTable("subscription", subscriptionEntity);
 
 const FEATURE_NAME = "newsletter";
 const NEWSLETTER_CAP = "newsletters-per-month";
@@ -81,12 +94,41 @@ const innerSendHandler: WriteHandlerDef = {
 // =============================================================================
 
 /**
- * Hol den Tenant-Tier aus dem config-key. Default "free" wenn nicht
- * gesetzt — neue Tenants starten ohne Subscription auf der niedrigsten
- * Stufe. Whitelist-Filter via TIER_NAMES verhindert Tippos
- * ("Pro" / "Premium"), würden ja sonst silent zu free fallen.
+ * Tenant-Tier auflösen.
+ *
+ * **Primary:** subscription-row mit status=active für den Tenant. Das
+ * ist der produktive Pfad — Provider-Webhook schreibt subscription via
+ * subscription-foundation, dieser Resolver liest sie hier.
+ *
+ * **Fallback:** config-key "newsletter:config:tier". Demo-Story nutzt
+ * den für manuelles Switchen ohne Provider; auch der tier-engine-only-
+ * Pfad der existing-Tests bleibt so grün.
+ *
+ * **Default:** "free" — neue Tenants ohne Subscription + ohne Override.
+ *
+ * Whitelist-Filter via TIER_NAMES verhindert Tippos ("Pro" / "Premium"),
+ * die sonst silent zu free fallen würden.
  */
 async function resolveTier(ctx: HandlerContext): Promise<TierName> {
+  const tenantId = ctx.user?.tenantId;
+  if (tenantId) {
+    const aggregateId = subscriptionAggregateId(tenantId);
+    const [subRow] = await ctx.db
+      .select()
+      .from(subscriptionTable)
+      .where(eq(subscriptionTable["id"], aggregateId))
+      .limit(1);
+    const subTier = subRow?.["tier"] as string | undefined;
+    const subStatus = subRow?.["status"] as string | undefined;
+    if (
+      subStatus === SubscriptionStatuses.active &&
+      subTier &&
+      (TIER_NAMES as readonly string[]).includes(subTier)
+    ) {
+      return subTier as TierName;
+    }
+  }
+
   const raw = (await ctx.config?.("newsletter:config:tier")) as string | undefined;
   if (raw && (TIER_NAMES as readonly string[]).includes(raw)) {
     return raw as TierName;
@@ -151,6 +193,7 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("config");
   r.requires("cap-counter");
   r.requires(mailFoundationFeature.name);
+  r.requires(SUBSCRIPTION_FOUNDATION_FEATURE);
 
   // Tier-config-key. Tenant-Admin setzt's; default "free".
   r.config({
