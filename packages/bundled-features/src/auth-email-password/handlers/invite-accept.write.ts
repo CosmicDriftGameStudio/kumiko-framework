@@ -15,7 +15,12 @@
 // Session"-Flow. Branch 2 (anon + existing email) und Branch 3 (anon +
 // new email) kommen als separate Handler.
 
-import { createEventStoreExecutor, fetchOne } from "@kumiko/framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbConnection,
+  fetchOne,
+} from "@kumiko/framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
@@ -24,9 +29,10 @@ import {
 import { InternalError, UnprocessableError, writeFailure } from "@kumiko/framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { TenantHandlers } from "../../tenant/constants";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
+// kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add (analog provisionSignupAccount)
+import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import auth handler reads user-row für email-match
 import { userTable } from "../../user/schema/user";
 import { AuthErrors } from "../constants";
@@ -66,7 +72,10 @@ export function createInviteAcceptHandler() {
   return defineWriteHandler<"invite-accept", typeof InviteAcceptSchema, InviteAcceptData>({
     name: "invite-accept",
     schema: InviteAcceptSchema,
-    access: { roles: ["all"] },
+    // openToAll: any authenticated user (Branch 1). Branch 2+3 (anon)
+    // nutzen `roles: ["all"]` weil dort GUEST_USER mit ["all"]-role
+    // dispatched wird.
+    access: { openToAll: true },
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(
@@ -120,23 +129,28 @@ export function createInviteAcceptHandler() {
         )) as Array<{ tenantId: string }>;
         const alreadyMember = memberships.some((m) => m.tenantId === invitationTenantId);
 
+        // @cast-boundary db-runner — TenantDb.raw is DbRunner
+        const dbConn = ctx.db.raw as DbConnection;
+
         if (!alreadyMember) {
-          // Membership-Add im invited Tenant. SystemUser für tenantId
-          // damit das tenant-scoping passt; addMember selbst ist
-          // SystemAdmin-only (siehe add-member.write.ts).
-          const addResult = await ctx.writeAs(
-            createSystemUser(invitationTenantId),
-            TenantHandlers.addMember,
-            {
-              userId: event.user.id,
-              tenantId: invitationTenantId,
-              roles: [invitationRole],
-            },
-          );
-          if (!addResult.isSuccess) return addResult;
+          // Membership-Add via seedTenantMembership-helper (event-store-
+          // executor pattern, gleich wie provisionSignupAccount). Nicht
+          // dispatcher.writeAs(addMember) weil addMember-Handler nur
+          // ["SystemAdmin"]-Role akzeptiert; createSystemUser produziert
+          // "system"-Role die NICHT matcht. Direkt-via-Executor bypassed
+          // den Access-Check für privilegierte Cross-Tenant-Operationen.
+          await seedTenantMembership(dbConn, {
+            userId: event.user.id,
+            tenantId: invitationTenantId,
+            roles: [invitationRole],
+          });
         }
 
         // Invitation-Status → accepted via event-store-executor.
+        // Tenant-scoping: ctx.db ist auf event.user.tenantId gescopt
+        // (= NICHT der invitation-tenant). Eigene TenantDb für den
+        // invitation-tenant bauen damit der executor die row findet.
+        const invitationTdb = createTenantDb(dbConn, invitationTenantId, "system");
         const updateResult = await invitationExecutor.update(
           {
             id: invitationId,
@@ -144,7 +158,7 @@ export function createInviteAcceptHandler() {
             changes: { status: "accepted" },
           },
           createSystemUser(invitationTenantId),
-          ctx.db,
+          invitationTdb,
         );
         if (!updateResult.isSuccess) return updateResult;
 

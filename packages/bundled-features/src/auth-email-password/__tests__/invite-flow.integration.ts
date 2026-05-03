@@ -1,0 +1,478 @@
+// Tenant-Invite-Flow Full-Stack Integration-Test. Spec für die 3
+// Accept-Branches via stack.http (echte HTTP-Routes durch).
+//
+// Setup:
+//   - Tenant-A mit Admin "alice@" als Admin-Member
+//   - Tenant-B mit User "bob@" als Member (für Branch 1: Bob ist
+//     eingeloggt in Tenant-B und akzeptiert ein Tenant-A-Invite)
+//   - "carol@" existiert NICHT (für Branch 3: neue Email)
+//
+// Flow pro Test:
+//   1. Admin invitet email → invite-create (Admin-Auth)
+//   2. Mail captured durch sendInviteEmail-callback
+//   3. Token aus Activation-URL extrahieren
+//   4. Branch-spezifischer Accept-Endpoint
+//   5. DB-State + Membership + Cookies/JWT verifizieren
+
+import {
+  createEntityTable,
+  pushTables,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "@kumiko/framework/stack";
+import {
+  createSystemUser,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@kumiko/framework/engine";
+import { eq } from "drizzle-orm";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { createConfigFeature } from "../../config";
+import { createConfigResolver } from "../../config/resolver";
+import { configValuesTable } from "../../config/table";
+import { createTenantFeature } from "../../tenant";
+import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
+import { tenantMembershipsTable } from "../../tenant/membership-table";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
+import { createUserFeature } from "../../user/feature";
+import { userEntity, userTable } from "../../user/schema/user";
+import { AuthErrors, AuthHandlers } from "../constants";
+import { createAuthEmailPasswordFeature } from "../feature";
+import { hashPassword } from "../password-hashing";
+import { seedUser } from "../seeding";
+
+const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
+const ALICE_EMAIL = "alice@example.com";
+const BOB_EMAIL = "bob@example.com";
+const CAROL_EMAIL = "carol@example.com";
+const BOB_PASSWORD = "bob-existing-pw-1234";
+const CAROL_PASSWORD = "carol-new-pw-1234";
+
+const capturedInviteEmails: Array<{
+  email: string;
+  inviteUrl: string;
+  expiresAt: string;
+  role: string;
+}> = [];
+
+let stack: TestStack;
+let aliceId: string;
+let bobId: string;
+// Pro Test frische Tenant-IDs damit der event-store-stream beim
+// db.delete-cleanup nicht mit version_conflict beim Re-seed feuert.
+let TENANT_A_ID: TenantId;
+let TENANT_B_ID: TenantId;
+
+function newTenantId(suffix: string): TenantId {
+  // UUIDv4 + suffix für Lesbarkeit in Logs.
+  const rand = crypto.randomUUID();
+  return rand as TenantId;
+}
+
+const GUEST: SessionUser = {
+  id: "00000000-0000-0000-0000-000000000000",
+  tenantId: SYSTEM_TENANT_ID,
+  roles: ["all"],
+};
+
+beforeAll(async () => {
+  stack = await setupTestStack({
+    features: [
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createAuthEmailPasswordFeature({
+        invite: { tokenTtlMinutes: 60 },
+      }),
+    ],
+    extraContext: { configResolver: createConfigResolver() },
+    authConfig: {
+      membershipQuery: "tenant:query:memberships",
+      loginHandler: AuthHandlers.login,
+      invite: {
+        acceptHandler: AuthHandlers.inviteAccept,
+        acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
+        signupCompleteHandler: AuthHandlers.inviteSignupComplete,
+        appAcceptUrl: APP_ACCEPT_URL,
+        sendInviteEmail: async (args) => {
+          capturedInviteEmails.push(args);
+        },
+      },
+    },
+  });
+
+  await createEntityTable(stack.db, userEntity);
+  await createEntityTable(stack.db, tenantEntity);
+  await createEntityTable(stack.db, tenantInvitationEntity);
+  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+beforeEach(async () => {
+  await stack.db.delete(userTable);
+  await stack.db.delete(tenantMembershipsTable);
+  await stack.db.delete(tenantInvitationsTable);
+  await stack.db.delete(tenantTable);
+  capturedInviteEmails.length = 0;
+  const allKeys = await stack.redis.redis.keys("invite:*");
+  if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
+
+  // Pro Test frische Tenant-IDs + tenant.key (sonst unique-violation
+  // auf read_tenants_key_unique beim 2. Run).
+  TENANT_A_ID = newTenantId("a");
+  TENANT_B_ID = newTenantId("b");
+  await seedTenant(stack.db, {
+    id: TENANT_A_ID,
+    key: `tenant-a-${TENANT_A_ID.slice(0, 8)}`,
+    name: "Tenant A",
+  });
+  await seedTenant(stack.db, {
+    id: TENANT_B_ID,
+    key: `tenant-b-${TENANT_B_ID.slice(0, 8)}`,
+    name: "Tenant B",
+  });
+
+  // Alice = Admin von Tenant-A
+  aliceId = await seedUser(stack.db, {
+    email: ALICE_EMAIL,
+    displayName: "Alice",
+    passwordHash: await hashPassword("alice-pw-1234"),
+    emailVerified: true,
+  });
+  await seedTenantMembership(stack.db, {
+    userId: aliceId,
+    tenantId: TENANT_A_ID,
+    roles: ["Admin"],
+  });
+
+  // Bob = Member von Tenant-B (für Branch 1 + 2 tests)
+  bobId = await seedUser(stack.db, {
+    email: BOB_EMAIL,
+    displayName: "Bob",
+    passwordHash: await hashPassword(BOB_PASSWORD),
+    emailVerified: true,
+  });
+  await seedTenantMembership(stack.db, {
+    userId: bobId,
+    tenantId: TENANT_B_ID,
+    roles: ["User"],
+  });
+});
+
+function aliceSession(): SessionUser {
+  return { id: aliceId, tenantId: TENANT_A_ID, roles: ["Admin"] };
+}
+
+function bobSession(): SessionUser {
+  return { id: bobId, tenantId: TENANT_B_ID, roles: ["User"] };
+}
+
+async function authedRaw(
+  method: string,
+  path: string,
+  body: unknown,
+  user: SessionUser,
+): Promise<Response> {
+  const token = await stack.jwt.sign(user);
+  return stack.http.raw(method, path, body, { Authorization: `Bearer ${token}` });
+}
+
+async function inviteEmail(email: string, role: string): Promise<string> {
+  // invite-create geht via /api/write (Admin-Auth via JWT). Token kommt
+  // direkt aus dem handler-result; sendInviteEmail-callback ist die
+  // optionale Mail-Side, die in production-Setups separat von der
+  // Sample-App aufgerufen wird (NICHT framework-route — invite-create
+  // ist Admin-only und somit kein Magic-Link-Pattern wie signup-request).
+  const result = (await stack.http.writeOk(
+    AuthHandlers.inviteCreate,
+    { email, role },
+    aliceSession(),
+  )) as { token: string };
+  return result.token;
+}
+
+describe("invite-create", () => {
+  test("Admin invitet → invitation row + token in result", async () => {
+    const result = (await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: BOB_EMAIL, role: "Admin" },
+      aliceSession(),
+    )) as { invitationId: string; email: string; role: string; token: string };
+
+    expect(result.email).toBe(BOB_EMAIL);
+    expect(result.role).toBe("Admin");
+    expect(result.token).toBeTruthy();
+    expect(result.token.length).toBeGreaterThanOrEqual(16);
+
+    const rows = await stack.db
+      .select()
+      .from(tenantInvitationsTable)
+      .where(eq(tenantInvitationsTable.email, BOB_EMAIL));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["status"]).toBe("pending");
+    expect(rows[0]?.["role"]).toBe("Admin");
+    expect(rows[0]?.["tenantId"]).toBe(TENANT_A_ID);
+  });
+
+  test("Resend: zweiter invite für selbe email → existing row updated, gleicher token", async () => {
+    const firstToken = await inviteEmail(BOB_EMAIL, "Admin");
+    const secondToken = await inviteEmail(BOB_EMAIL, "Editor");
+
+    expect(secondToken).toBe(firstToken);
+
+    // Eine Row, role updated
+    const rows = await stack.db
+      .select()
+      .from(tenantInvitationsTable)
+      .where(eq(tenantInvitationsTable.email, BOB_EMAIL));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["role"]).toBe("Editor");
+  });
+});
+
+describe("invite-accept (Branch 1: logged-in)", () => {
+  test("Bob (logged-in in Tenant-B) accepts Tenant-A invite → membership added", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+
+    const result = (await stack.http.writeOk(
+      AuthHandlers.inviteAccept,
+      { token },
+      bobSession(),
+    )) as { tenantId: string; role: string; alreadyMember: boolean };
+
+    expect(result.tenantId).toBe(TENANT_A_ID);
+    expect(result.role).toBe("Admin");
+    expect(result.alreadyMember).toBe(false);
+
+    // Bob hat jetzt 2 Memberships
+    const memberships = await stack.db
+      .select()
+      .from(tenantMembershipsTable)
+      .where(eq(tenantMembershipsTable.userId, bobId));
+    expect(memberships).toHaveLength(2);
+    const tenantIds = memberships.map((m) => m["tenantId"]).sort();
+    expect(tenantIds).toEqual([TENANT_A_ID, TENANT_B_ID].sort());
+
+    // Invitation status = accepted
+    const inv = await stack.db
+      .select()
+      .from(tenantInvitationsTable)
+      .where(eq(tenantInvitationsTable.email, BOB_EMAIL));
+    expect(inv[0]?.["status"]).toBe("accepted");
+  });
+
+  test("Email-Mismatch: Bob klickt Carol's Invite-Link → inviteEmailMismatch", async () => {
+    const token = await inviteEmail(CAROL_EMAIL, "Admin");
+
+    const res = await authedRaw(
+      "POST",
+      "/api/auth/invite-accept",
+      { token },
+      bobSession(),
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.inviteEmailMismatch);
+  });
+
+  test("Already-Member: Bob ist schon Member → idempotent no-op + alreadyMember=true", async () => {
+    // Bob direkt zu Tenant-A hinzufügen
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+      by: createSystemUser(TENANT_A_ID),
+    });
+
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+
+    const result = (await stack.http.writeOk(
+      AuthHandlers.inviteAccept,
+      { token },
+      bobSession(),
+    )) as { alreadyMember: boolean };
+    expect(result.alreadyMember).toBe(true);
+  });
+});
+
+describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
+  test("Bob (nicht eingeloggt) accepts mit email+password → JWT + membership", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      isSuccess: boolean;
+      tenantId: string;
+      role: string;
+      token?: string;
+    };
+    expect(body.isSuccess).toBe(true);
+    expect(body.tenantId).toBe(TENANT_A_ID);
+    expect(body.role).toBe("Editor");
+    expect(body.token).toBeTruthy();
+    const setCookies = res.headers.get("set-cookie") ?? "";
+    expect(setCookies).toContain("kumiko_auth=");
+
+    // Membership added
+    const memberships = await stack.db
+      .select()
+      .from(tenantMembershipsTable)
+      .where(eq(tenantMembershipsTable.userId, bobId));
+    expect(memberships).toHaveLength(2);
+  });
+
+  test("Wrong password → 422 invalid_invite_token (anti-enum)", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: "wrong-pw-1234",
+    });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+  });
+});
+
+describe("invite-signup-complete (Branch 3: anon + new email)", () => {
+  test("Carol (no account) accepts → user + membership entstehen, JWT", async () => {
+    const token = await inviteEmail(CAROL_EMAIL, "Admin");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token,
+      password: CAROL_PASSWORD,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      isSuccess: boolean;
+      user: { id: string };
+      tenantId: string;
+      role: string;
+    };
+    expect(body.isSuccess).toBe(true);
+    expect(body.tenantId).toBe(TENANT_A_ID);
+    expect(body.role).toBe("Admin");
+
+    // Carol entstanden in users
+    const carolRows = await stack.db
+      .select()
+      .from(userTable)
+      .where(eq(userTable.email, CAROL_EMAIL));
+    expect(carolRows).toHaveLength(1);
+    expect(carolRows[0]?.["emailVerified"]).toBe(true);
+    expect(carolRows[0]?.["id"]).toBe(body.user.id);
+
+    // Login funktioniert
+    const loginRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: CAROL_EMAIL,
+      password: CAROL_PASSWORD,
+    });
+    expect(loginRes.status).toBe(200);
+  });
+
+  test("Existing email → invalid_invite_token (User soll Branch 2 nutzen)", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token,
+      password: "new-pw-1234",
+    });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+
+    // Bob hat keine zweite Membership erworben
+    const memberships = await stack.db
+      .select()
+      .from(tenantMembershipsTable)
+      .where(eq(tenantMembershipsTable.userId, bobId));
+    expect(memberships).toHaveLength(1);
+    void GUEST;
+  });
+});
+
+describe("Single-Use-Burn (alle Branches)", () => {
+  test("Branch 1: zweiter accept mit gleichem Token → invalid", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await stack.http.writeOk(AuthHandlers.inviteAccept, { token }, bobSession());
+
+    const res = await authedRaw(
+      "POST",
+      "/api/auth/invite-accept",
+      { token },
+      bobSession(),
+    );
+    expect(res.status).toBe(422);
+  });
+});
+
+describe("cancel-invitation", () => {
+  test("Admin cancellt → status=cancelled + token weg, accept wird invalid", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+
+    // Find invitationId
+    const rows = await stack.db
+      .select()
+      .from(tenantInvitationsTable)
+      .where(eq(tenantInvitationsTable.email, BOB_EMAIL));
+    const invitationId = rows[0]?.["id"] as string;
+
+    await stack.http.writeOk(
+      "tenant:write:cancel-invitation",
+      { invitationId },
+      aliceSession(),
+    );
+
+    const updated = await stack.db
+      .select()
+      .from(tenantInvitationsTable)
+      .where(eq(tenantInvitationsTable.id, invitationId));
+    expect(updated[0]?.["status"]).toBe("cancelled");
+
+    // Accept mit dem gecancelten Token → invalid
+    const res = await authedRaw(
+      "POST",
+      "/api/auth/invite-accept",
+      { token },
+      bobSession(),
+    );
+    expect(res.status).toBe(422);
+  });
+});
+
+describe("invitations-query (pending list)", () => {
+  test("Admin sieht nur pending invitations", async () => {
+    await inviteEmail(BOB_EMAIL, "Admin");
+    await inviteEmail(CAROL_EMAIL, "Editor");
+
+    // Cancel das erste
+    const allRows = await stack.db.select().from(tenantInvitationsTable);
+    const bobInv = allRows.find((r) => r["email"] === BOB_EMAIL);
+    if (!bobInv) throw new Error("bob invitation missing");
+    await stack.http.writeOk(
+      "tenant:write:cancel-invitation",
+      { invitationId: bobInv["id"] },
+      aliceSession(),
+    );
+
+    const list = (await stack.http.queryOk(
+      "tenant:query:invitations",
+      {},
+      aliceSession(),
+    )) as Array<{ email: string; status: string }>;
+    expect(list).toHaveLength(1);
+    expect(list[0]?.email).toBe(CAROL_EMAIL);
+    expect(list[0]?.status).toBe("pending");
+  });
+});

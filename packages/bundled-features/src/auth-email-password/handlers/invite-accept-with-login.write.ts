@@ -17,7 +17,12 @@
 // User entsteht — beide existieren bereits. Magic ist die kombinierte
 // Login+Accept-Operation in einem Roundtrip.
 
-import { createEventStoreExecutor, fetchOne } from "@kumiko/framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbConnection,
+  fetchOne,
+} from "@kumiko/framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
@@ -27,9 +32,10 @@ import {
 import { InternalError, UnprocessableError, writeFailure } from "@kumiko/framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { TenantHandlers } from "../../tenant/constants";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
+// kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add
+import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import login-style password-check
 import { userTable } from "../../user/schema/user";
 import { AuthErrors } from "../constants";
@@ -138,16 +144,19 @@ export function createInviteAcceptWithLoginHandler() {
         )) as Array<{ tenantId: string }>;
         const alreadyMember = memberships.some((m) => m.tenantId === invitationTenantId);
 
+        // @cast-boundary db-runner — TenantDb.raw is DbRunner
+        const dbConn = ctx.db.raw as DbConnection;
+
         if (!alreadyMember) {
-          const addResult = await ctx.writeAs(
-            createSystemUser(invitationTenantId),
-            TenantHandlers.addMember,
-            { userId, tenantId: invitationTenantId, roles: [invitationRole] },
-          );
-          if (!addResult.isSuccess) return addResult;
+          await seedTenantMembership(dbConn, {
+            userId,
+            tenantId: invitationTenantId,
+            roles: [invitationRole],
+          });
         }
 
-        // Invitation → accepted
+        // Invitation → accepted: TenantDb für invitation-tenant.
+        const invitationTdb = createTenantDb(dbConn, invitationTenantId, "system");
         const updateResult = await invitationExecutor.update(
           {
             id: invitationId,
@@ -155,7 +164,7 @@ export function createInviteAcceptWithLoginHandler() {
             changes: { status: "accepted" },
           },
           createSystemUser(invitationTenantId),
-          ctx.db,
+          invitationTdb,
         );
         if (!updateResult.isSuccess) return updateResult;
 

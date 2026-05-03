@@ -17,7 +17,12 @@
 //      e. Invitation → accepted, Token gelöscht
 //   5. Response: SessionUser + tenantId für Auto-Login
 
-import { createEventStoreExecutor, type DbConnection, fetchOne } from "@kumiko/framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbConnection,
+  fetchOne,
+} from "@kumiko/framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
@@ -27,11 +32,12 @@ import {
 import { InternalError, UnprocessableError, writeFailure } from "@kumiko/framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { TenantHandlers } from "../../tenant/constants";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { seedUserWithPassword } from "../seeding";
+// kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add
+import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import existence-check
 import { userTable } from "../../user/schema/user";
 import { AuthErrors } from "../constants";
@@ -127,15 +133,17 @@ export function createInviteSignupCompleteHandler() {
           emailVerified: true,
         });
 
-        // Membership-Add im invited Tenant
-        const addResult = await ctx.writeAs(
-          createSystemUser(invitationTenantId),
-          TenantHandlers.addMember,
-          { userId, tenantId: invitationTenantId, roles: [invitationRole] },
-        );
-        if (!addResult.isSuccess) return addResult;
+        // Membership-Add via seed-helper (gleiches Pattern wie
+        // provisionSignupAccount — bypassed addMember access-check
+        // weil createSystemUser nicht ["SystemAdmin"] matcht).
+        await seedTenantMembership(dbConn, {
+          userId,
+          tenantId: invitationTenantId,
+          roles: [invitationRole],
+        });
 
-        // Invitation → accepted
+        // Invitation → accepted: TenantDb für invitation-tenant
+        const invitationTdb = createTenantDb(dbConn, invitationTenantId, "system");
         const updateResult = await invitationExecutor.update(
           {
             id: invitationId,
@@ -143,7 +151,7 @@ export function createInviteSignupCompleteHandler() {
             changes: { status: "accepted" },
           },
           createSystemUser(invitationTenantId),
-          ctx.db,
+          invitationTdb,
         );
         if (!updateResult.isSuccess) return updateResult;
 
