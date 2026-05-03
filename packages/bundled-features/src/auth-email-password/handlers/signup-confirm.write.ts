@@ -30,7 +30,7 @@ import { z } from "zod";
 import { tenantTable } from "../../tenant/schema/tenant";
 import { AuthErrors } from "../constants";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
-import { provisionSignupAccount } from "../seeding";
+import { INITIAL_SIGNUP_ROLES, provisionSignupAccount } from "../seeding";
 import {
   burnSignupToken,
   deleteSignupToken,
@@ -129,14 +129,15 @@ export function createSignupConfirmHandler() {
         // restliche Burn-TTL als Replay-Schutz.
         await deleteSignupToken(ctx.redis, { email, token: event.payload.token });
 
-        // SessionUser für JWT-Mint. Roles aus dem provisioning ("Admin"
-        // war der initial-membership-role); der Login-Handler würde
-        // sonst dasselbe Pattern fahren — wir bauen es direkt damit der
-        // Route-Layer einen einfachen Mirror der login-route sein kann.
+        // SessionUser für JWT-Mint. Roles aus INITIAL_SIGNUP_ROLES
+        // damit DB-write (provisionSignupAccount) und Session-claim
+        // dieselbe Quelle teilen — sonst hätten zwei Stellen "Admin"
+        // hardcoded und ein Refactor würde role-mismatch zwischen DB
+        // und JWT erzeugen.
         const session: SessionUser = {
           id: provisioned.userId,
           tenantId: provisioned.tenantId,
-          roles: ["Admin"],
+          roles: [...INITIAL_SIGNUP_ROLES],
         };
 
         committed = true;

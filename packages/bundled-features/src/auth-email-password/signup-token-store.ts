@@ -1,5 +1,11 @@
 // Redis-backed Pre-Activation-Token-Store für Magic-Link-Signup.
 //
+// Token-Material: opaque random 256-bit aus crypto.randomBytes
+// (siehe signup-request.write.ts → generateToken() aus framework/api).
+// Base64url-codiert zu 43 chars. NICHT no-confusable und NICHT für
+// menschliches Tippen — der User klickt den Mail-Link, niemand tippt
+// den Token ab.
+//
 // Anders als reset/verify-Tokens (HMAC-signed, stateless verifizierbar)
 // brauchen Signup-Tokens einen serverside Lookup: der User existiert
 // noch nicht, also gibt's keinen userId-claim den der HMAC binden
@@ -26,11 +32,19 @@ const TOKEN_KEY_PREFIX = "signup:by-token:";
 const EMAIL_KEY_PREFIX = "signup:by-email:";
 const BURN_KEY_PREFIX = "signup:burn:";
 
+/** Email-Normalisierung — single source für jede Lookup-Schicht (Store
+ *  intern UND Caller die im Return-Body / Mail-Send eine konsistente
+ *  Form brauchen). Vorher zwei Stellen mit `.toLowerCase()` — eine
+ *  Quelle = kein Drift. */
+export function normalizeEmail(email: string): string {
+  return email.toLowerCase();
+}
+
 function tokenKey(token: string): string {
   return `${TOKEN_KEY_PREFIX}${token}`;
 }
 function emailKey(email: string): string {
-  return `${EMAIL_KEY_PREFIX}${email.toLowerCase()}`;
+  return `${EMAIL_KEY_PREFIX}${normalizeEmail(email)}`;
 }
 function burnKey(token: string): string {
   return `${BURN_KEY_PREFIX}${token}`;
@@ -43,7 +57,7 @@ export async function storeSignupToken(
   args: { email: string; token: string; ttlSeconds: number },
 ): Promise<void> {
   await Promise.all([
-    redis.set(tokenKey(args.token), args.email.toLowerCase(), "EX", args.ttlSeconds),
+    redis.set(tokenKey(args.token), normalizeEmail(args.email), "EX", args.ttlSeconds),
     redis.set(emailKey(args.email), args.token, "EX", args.ttlSeconds),
   ]);
 }

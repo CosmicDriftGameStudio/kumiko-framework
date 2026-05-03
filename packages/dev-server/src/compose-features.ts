@@ -102,12 +102,13 @@ export function buildComposeAuthOptions(
     opts.emailVerification = verify;
   }
   if (auth.signup) {
-    const signup: { -readonly [K in keyof SignupOptions]: SignupOptions[K] } = {};
+    // Plain object statt mapped-type — SignupOptions ist type-alias auf
+    // SignupRequestOptions, der TS-mapped-type-Pfad löst's als
+    // index-signature auf (TS noPropertyAccessFromIndexSignature klagt
+    // dann beim Property-write). Plain shape ist klar UND funktioniert.
+    const signup: { tokenTtlMinutes?: number } = {};
     if (auth.signup.tokenTtlMinutes !== undefined) {
       signup.tokenTtlMinutes = auth.signup.tokenTtlMinutes;
-    }
-    if (auth.signup.tokenLength !== undefined) {
-      signup.tokenLength = auth.signup.tokenLength;
     }
     opts.signup = signup;
   }

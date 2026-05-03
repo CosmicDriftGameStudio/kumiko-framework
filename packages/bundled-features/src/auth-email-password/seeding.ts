@@ -88,6 +88,13 @@ export async function seedUserWithPassword(
  *  seedTenant + seedUser deren idempotenz-Check sich an key/email
  *  orientiert; bei collidierenden tenantKey ist der Caller
  *  verantwortlich, einen freien zu finden — siehe generateUniqueName). */
+/** Default-Roles für den Self-Signup-Admin. Geteilt zwischen
+ *  provisionSignupAccount (DB-write) und signup-confirm-handler
+ *  (SessionUser-Konstruktion für JWT-Mint) — sonst hätten zwei
+ *  Stellen unabhängig "Admin" hardcoded und würden bei einem
+ *  Refactor zu role-mismatch zwischen DB und Session leiden. */
+export const INITIAL_SIGNUP_ROLES = ["Admin"] as const;
+
 export type ProvisionSignupAccountOptions = {
   readonly email: string;
   readonly password: string;
@@ -116,7 +123,7 @@ export async function provisionSignupAccount(
   await seedTenantMembership(db, {
     userId,
     tenantId: options.tenantId,
-    roles: options.memberRoles ?? ["Admin"],
+    roles: options.memberRoles ?? INITIAL_SIGNUP_ROLES,
   });
   return { userId, tenantId: options.tenantId };
 }

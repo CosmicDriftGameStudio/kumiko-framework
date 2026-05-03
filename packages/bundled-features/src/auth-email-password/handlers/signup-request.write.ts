@@ -20,13 +20,17 @@
 // Was es geben könnte: dieselbe Email versucht es zum N-ten Mal —
 // Resend-Pfad ist by-design idempotent.
 
+import { generateToken } from "@kumiko/framework/api";
 import { defineWriteHandler } from "@kumiko/framework/engine";
 import { InternalError, writeFailure } from "@kumiko/framework/errors";
-import { generateNoConfusableId } from "@kumiko/framework/random";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
-import { getTokenForSignupEmail, storeSignupToken } from "../signup-token-store";
+import {
+  getTokenForSignupEmail,
+  normalizeEmail,
+  storeSignupToken,
+} from "../signup-token-store";
 
 const SignupRequestSchema = z.object({
   email: z.email(),
@@ -45,16 +49,10 @@ export type SignupRequestOptions = {
   /** TTL für den Activation-Token. Default 24 h — lang genug damit User
    *  "morgen aktivieren" können ohne Resend-Spam. */
   readonly tokenTtlMinutes?: number;
-  /** Token-Länge in no-confusable Zeichen. Default 32 (= 32^32 = ~10^48
-   *  Combinations, deutlich mehr als für ein 24h-Single-Use-Token nötig
-   *  ist; aber lang genug dass auch ein Brute-Force über die TTL keine
-   *  Chance hat). */
-  readonly tokenLength?: number;
 };
 
 export function createSignupRequestHandler(opts: SignupRequestOptions = {}) {
   const ttlMinutes = opts.tokenTtlMinutes ?? AUTH_SIGNUP_DEFAULT_TTL_MINUTES;
-  const tokenLength = opts.tokenLength ?? 32;
   const ttlSeconds = ttlMinutes * 60;
 
   return defineWriteHandler<"signup-request", typeof SignupRequestSchema, SignupRequestData>({
@@ -80,7 +78,14 @@ export function createSignupRequestHandler(opts: SignupRequestOptions = {}) {
       // re-use ihn und refreshe beide Keys. Der User kriegt eine zweite
       // Mail mit dem GLEICHEN Link.
       const existingToken = await getTokenForSignupEmail(ctx.redis, email);
-      const token = existingToken ?? generateNoConfusableId(tokenLength);
+      // 32 random bytes = 256 bits unguessable randomness, base64url
+      // encoded zu 43 chars. Math.random war früher ein Bug:
+      // xorshift128+ hat ~128 Bit State der nach ~5 beobachteten
+      // Outputs rekonstruierbar ist — Angreifer könnte eigene
+      // signup-requests triggern und die Tokens fremder User
+      // vorhersagen. generateToken nutzt randomBytes aus node:crypto,
+      // dieselbe Quelle wie CSRF/Session-Tokens.
+      const token = existingToken ?? generateToken();
 
       const expiresAt = Temporal.Now.instant().add({ seconds: ttlSeconds });
 
@@ -90,10 +95,10 @@ export function createSignupRequestHandler(opts: SignupRequestOptions = {}) {
         isSuccess: true,
         data: {
           kind: "signup-requested",
-          // email als lowercased zurückgeben — die Mail-Send-Callback
-          // im Route-Layer kriegt damit konsistent das normalisierte
-          // Format, kein "Marc@Foo.com vs marc@foo.com"-Drift.
-          email: email.toLowerCase(),
+          // normalizeEmail aus dem Store — eine Quelle für die
+          // Normalisierungs-Verantwortung; Mail-Callback kriegt
+          // konsistent das gleiche Format wie der Lookup-Pfad.
+          email: normalizeEmail(email),
           token,
           expiresAt: expiresAt.toString(),
         },

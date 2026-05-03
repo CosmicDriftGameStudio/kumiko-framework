@@ -6,7 +6,10 @@ import { createRequestEmailVerificationHandler } from "./handlers/request-email-
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write";
 import { createResetPasswordHandler } from "./handlers/reset-password.write";
 import { createSignupConfirmHandler } from "./handlers/signup-confirm.write";
-import { createSignupRequestHandler } from "./handlers/signup-request.write";
+import {
+  createSignupRequestHandler,
+  type SignupRequestOptions,
+} from "./handlers/signup-request.write";
 import { createVerifyEmailHandler } from "./handlers/verify-email.write";
 
 // Opt-in configuration for the password-reset flow. When omitted the
@@ -47,18 +50,12 @@ export type AccountLockoutOptions = {
 
 // Magic-Link Self-Signup. Wenn gesetzt, registriert das Feature die
 // signup-request + signup-confirm-Handler. Der Token-Store (Redis)
-// kommt aus ctx.redis — TTL und Token-Length sind die einzigen Knöpfe.
+// kommt aus ctx.redis — tokenTtlMinutes ist der einzige Knopf
+// (Token-Material ist generateToken() = 256 Bit randomBytes, fest;
+// Memory feedback_no_options_without_need: keine Knöpfe ohne Bedarf).
 // Anders als reset/verify gibt's kein hmacSecret hier, weil der Token
 // opaque random ist (Redis ist Source of Truth).
-//
-// Strukturell identisch zu SignupRequestOptions, aber explizit
-// re-deklariert (nicht als type-alias) damit der dev-server-Wrapper
-// die felder als regular properties — nicht als index-signature —
-// destrukturieren kann.
-export type SignupOptions = {
-  readonly tokenTtlMinutes?: number;
-  readonly tokenLength?: number;
-};
+export type SignupOptions = SignupRequestOptions;
 
 export type AuthEmailPasswordOptions = {
   readonly passwordReset?: PasswordResetOptions;
