@@ -43,6 +43,8 @@ export { buildFewShotCorpus, pathToId } from "./few-shot-corpus";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app";
 export { runDevApp } from "./run-dev-app";
 export type {
+  EmailVerificationSetup,
+  PasswordResetSetup,
   ProdAppHandle,
   ProdSeedFn,
   RunProdAppAuthOptions,

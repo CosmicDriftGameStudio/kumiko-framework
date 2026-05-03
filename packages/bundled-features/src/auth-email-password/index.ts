@@ -10,6 +10,12 @@ export type {
   RenderVerifyEmailArgs,
 } from "./email-templates";
 export { renderResetPasswordEmail, renderVerifyEmail } from "./email-templates";
+export type {
+  AccountLockoutOptions,
+  AuthEmailPasswordOptions,
+  EmailVerificationOptions,
+  PasswordResetOptions,
+} from "./feature";
 export { createAuthEmailPasswordFeature } from "./feature";
 export { hashPassword, verifyPassword } from "./password-hashing";
 // Generic HMAC-signed single-purpose token helpers. Re-exported damit

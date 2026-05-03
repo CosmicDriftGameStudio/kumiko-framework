@@ -11,7 +11,10 @@
 // auth-email-password, dann die App-Features. Spätere Features dürfen
 // auf Frühere referenzieren (z.B. authClaims-Hooks an user/tenant).
 
-import { createAuthEmailPasswordFeature } from "@kumiko/bundled-features/auth-email-password";
+import {
+  type AuthEmailPasswordOptions,
+  createAuthEmailPasswordFeature,
+} from "@kumiko/bundled-features/auth-email-password";
 import { createConfigFeature } from "@kumiko/bundled-features/config";
 import { createTenantFeature } from "@kumiko/bundled-features/tenant";
 import { createUserFeature } from "@kumiko/bundled-features/user";
@@ -21,6 +24,13 @@ export type ComposeFeaturesOptions = {
   /** When true, prepends config + user + tenant + auth-email-password
    *  before the app features. Mirror of "auth-mode" in run{Dev,Prod}App. */
   readonly includeBundled: boolean;
+  /** Optional auth-feature-options durchgereicht an
+   *  createAuthEmailPasswordFeature. Wenn passwordReset / emailVerification
+   *  hier gesetzt sind, registriert das Feature die request-/confirm-
+   *  Handler — sonst NICHT (500 wenn die routes via auth-routes.ts
+   *  gemounted sind aber kein Handler dispatcht). Hand-in-hand mit dem
+   *  passwordReset-Block in RunProdAppAuthOptions / RunDevAppAuthOptions. */
+  readonly authOptions?: AuthEmailPasswordOptions;
 };
 
 export function composeFeatures(
@@ -32,7 +42,7 @@ export function composeFeatures(
         createConfigFeature(),
         createUserFeature(),
         createTenantFeature(),
-        createAuthEmailPasswordFeature(),
+        createAuthEmailPasswordFeature(options.authOptions ?? {}),
         ...appFeatures,
       ]
     : [...appFeatures];
