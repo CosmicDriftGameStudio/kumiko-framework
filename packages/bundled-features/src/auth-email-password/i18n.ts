@@ -28,8 +28,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.loginFailed": "Login fehlgeschlagen.",
     "auth.errors.invalidResetToken":
       "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
-    "auth.errors.invalidVerificationToken":
-      "Der Bestätigungs-Link ist ungültig oder abgelaufen.",
+    "auth.errors.invalidVerificationToken": "Der Bestätigungs-Link ist ungültig oder abgelaufen.",
     "auth.errors.unknownError": "Etwas ist schief gegangen. Bitte erneut versuchen.",
     "auth.forgotPassword.title": "Passwort zurücksetzen",
     "auth.forgotPassword.intro":
@@ -82,8 +81,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.rateLimited": "Too many login attempts. Please wait briefly.",
     "auth.errors.invalidBody": "Invalid input.",
     "auth.errors.loginFailed": "Login failed.",
-    "auth.errors.invalidResetToken":
-      "Link is invalid or expired. Please request a new one.",
+    "auth.errors.invalidResetToken": "Link is invalid or expired. Please request a new one.",
     "auth.errors.invalidVerificationToken": "Verification link is invalid or expired.",
     "auth.errors.unknownError": "Something went wrong. Please try again.",
     "auth.forgotPassword.title": "Reset password",
@@ -107,8 +105,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.resetPassword.successTitle": "Password set",
     "auth.resetPassword.successBody": "You can now sign in with your new password.",
     "auth.resetPassword.goToLogin": "Go to sign in",
-    "auth.resetPassword.missingToken":
-      "Reset link is missing a token. Please request a new one.",
+    "auth.resetPassword.missingToken": "Reset link is missing a token. Please request a new one.",
     "auth.verifyEmail.verifying": "Verifying email …",
     "auth.verifyEmail.successTitle": "Email verified",
     "auth.verifyEmail.successBody": "Thanks! You can sign in now.",

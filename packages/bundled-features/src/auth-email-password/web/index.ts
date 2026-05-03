@@ -28,8 +28,12 @@ export type {
 export { emailPasswordClient } from "./client-plugin";
 export type { DefaultTopbarActionsProps } from "./default-topbar-actions";
 export { DefaultTopbarActions } from "./default-topbar-actions";
+export type { ForgotPasswordScreenProps } from "./forgot-password-screen";
+export { ForgotPasswordScreen } from "./forgot-password-screen";
 export type { LoginScreenProps } from "./login-screen";
 export { LoginScreen } from "./login-screen";
+export type { ResetPasswordScreenProps } from "./reset-password-screen";
+export { ResetPasswordScreen } from "./reset-password-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";
 export { SessionContext, SessionProvider, useSession } from "./session";
 export type { TenantSwitcherProps } from "./tenant-switcher";
@@ -38,3 +42,5 @@ export type { ShellUser } from "./use-shell-user";
 export { useShellUser } from "./use-shell-user";
 export type { UserMenuProps } from "./user-menu";
 export { UserMenu } from "./user-menu";
+export type { VerifyEmailScreenProps } from "./verify-email-screen";
+export { VerifyEmailScreen } from "./verify-email-screen";
