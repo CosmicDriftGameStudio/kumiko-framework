@@ -3,23 +3,20 @@
 // Beweist die echte Verdrahtung — analog stripe-foundation.integration:
 //   1. Mollie-webhook (form-urlencoded `id=tr_xxx`) kommt am
 //      webhook-handler an
-//   2. Plugin fetcht payment + subscription via Mollie-API (gemockt
-//      über injected MollieClientShape — Mollie-SDK 4.5.0 hat keinen
-//      generateTestHeaderString-equivalent)
+//   2. createSubscriptionMollieFeature (echter factory) verifiziert +
+//      parsed via gemocktem MollieClientShape (= injection-port
+//      `_clientShapeForTests` damit Mollie-SDK 4.5.0 keine HTTP-calls
+//      macht; vi.mock ist im integration-guard-blocked)
 //   3. Plugin returnt SubscriptionEvent → webhook-handler dispatched
 //      zu process-event-handler
 //   4. process-event-handler schreibt subscription + subscription-event
 //      in die DB
 //
-// **Test-feature statt createSubscriptionMollieFeature:** der factory
-// baut intern einen real createMollieClient(apiKey) der HTTP-calls
-// macht. Wir können nicht via vi.mock injizieren (integration-guard
-// blockiert vi.fn/vi.mock/vi.spyOn). Stattdessen baut der test ein
-// minimal-feature das die echten plugin-methods (`verifyAndParse-
-// MollieWebhook` + `createMollieCheckoutSession`) nutzt mit einem
-// hand-mock-MollieClient als injection. createSubscriptionMollie-
-// Feature's factory-Logik ist von den Unit-Tests in feature.test.ts
-// abgedeckt.
+// Drift-vector der ohne diesen Test fehlen würde: factory-Logik in
+// createSubscriptionMollieFeature (drift-validation, plugin-registration,
+// fetchAdapter-binding). Die plugin-methods sind separat in den
+// Unit-Tests (verify-webhook.test.ts) abgedeckt, aber die Verdrahtung
+// von factory bis foundation-DB-row beweist nur dieser Test.
 
 import {
   createSubscriptionWebhookHandler,
@@ -30,7 +27,7 @@ import {
   subscriptionFoundationFeature,
 } from "@kumiko/bundled-features/subscription-foundation";
 import type { DbConnection } from "@kumiko/framework/db";
-import { defineFeature, type TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@kumiko/framework/engine";
 import { createEventsTable } from "@kumiko/framework/event-store";
 import {
   createEntityTable,
@@ -44,21 +41,23 @@ import type {
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
 import { Hono } from "hono";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { type MollieClientShape, verifyAndParseMollieWebhook } from "../verify-webhook";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { createSubscriptionMollieFeature } from "../feature";
+import type { MollieClientShape } from "../verify-webhook";
 
 // =============================================================================
 // Mock-MollieClient — replay-fähige in-memory state
 //
-// Dieselben Methoden die `verifyAndParseMollieWebhook` aufruft.
-// State per Test isoliert (clear() vor jedem scenario im describe-block).
+// Der test-state ist module-level, wird aber per `beforeEach` reset —
+// jeder Test sieht eine clean state. Der mock-client closured den state
+// einmal beim factory-mount; reset() mutiert die Maps in-place damit
+// die Closure-Referenzen aktuell bleiben.
 // =============================================================================
 
 type MollieMockState = {
   payments: Map<string, MolliePayment>;
   subscriptionsByCustomer: Map<string, MollieSubscription[]>;
-  /** Tracked-create-calls für drift-pins (= "Plugin hat exactly N mal
-   *  customerSubscriptions.create gerufen"). */
+  /** Tracked-create-calls für drift-pins. */
   createCallCount: number;
 };
 
@@ -67,12 +66,6 @@ const mockState: MollieMockState = {
   subscriptionsByCustomer: new Map(),
   createCallCount: 0,
 };
-
-function resetMockState(): void {
-  mockState.payments.clear();
-  mockState.subscriptionsByCustomer.clear();
-  mockState.createCallCount = 0;
-}
 
 const mollieMockClient: MollieClientShape = {
   payments: {
@@ -94,7 +87,7 @@ const mollieMockClient: MollieClientShape = {
     },
     create: async (customerId, params) => {
       mockState.createCallCount += 1;
-      const newSub: MollieSubscription = buildMockSubscription({
+      const newSub = buildMockSubscription({
         id: `sub_created_${mockState.createCallCount}`,
         customerId,
         status: "active",
@@ -124,28 +117,6 @@ const PRICE_TO_CONFIG = {
 };
 
 // =============================================================================
-// Test-feature: nutzt die echten plugin-methods mit gemocktem Mollie-
-// Client. Registriert plugin unter "subscriptionProvider"/"mollie" so
-// dass der webhook-handler ihn via path-segment findet.
-// =============================================================================
-
-const verifyAndParse = verifyAndParseMollieWebhook(mollieMockClient, {
-  priceToTier: PRICE_TO_TIER,
-  priceToConfig: PRICE_TO_CONFIG,
-});
-
-const testMollieFeature = defineFeature("test-mollie-plugin", (r) => {
-  r.requires("subscription-foundation");
-  const plugin: SubscriptionProviderPlugin = {
-    verifyAndParseWebhook: verifyAndParse,
-    // createCheckoutSession + createPortalSession nicht — der echte
-    // Mollie-Plugin (createSubscriptionMollieFeature) registriert sie
-    // optional, foundation behandelt fehlende methods korrekt.
-  };
-  r.useExtension("subscriptionProvider", "mollie", plugin);
-});
-
-// =============================================================================
 // Setup
 // =============================================================================
 
@@ -154,8 +125,18 @@ let db: DbConnection;
 let webhookApp: Hono;
 
 beforeAll(async () => {
+  // Echte factory mit injection-port. Das beweist factory-Logik
+  // (drift-validation, plugin-registration) im Test-pfad.
+  const mollieFeature = createSubscriptionMollieFeature({
+    apiKey: "test_dummy_apikey",
+    webhookUrl: "https://test.example.com/api/subscription/webhook/mollie",
+    priceToTier: PRICE_TO_TIER,
+    priceToConfig: PRICE_TO_CONFIG,
+    _clientShapeForTests: mollieMockClient,
+  });
+
   stack = await setupTestStack({
-    features: [subscriptionFoundationFeature, testMollieFeature],
+    features: [subscriptionFoundationFeature, mollieFeature],
   });
   db = stack.db;
   await createEntityTable(db, subscriptionEntity);
@@ -186,6 +167,7 @@ beforeAll(async () => {
         const usage = stack.registry
           .getExtensionUsages("subscriptionProvider")
           .find((u) => u.entityName === providerName);
+        // @cast-boundary engine-payload — extension-usage carries unknown options
         return usage?.options as SubscriptionProviderPlugin | undefined;
       },
     }),
@@ -196,11 +178,18 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
+beforeEach(() => {
+  mockState.payments.clear();
+  mockState.subscriptionsByCustomer.clear();
+  mockState.createCallCount = 0;
+});
+
 // =============================================================================
 // Fixtures
 // =============================================================================
 
 function buildMockPayment(overrides: Partial<Record<string, unknown>> = {}): MolliePayment {
+  // @cast-boundary mollie-sdk — minimal mock-shape, nur Felder die der Plugin liest
   return {
     id: "tr_test_001",
     customerId: "cst_test_001",
@@ -215,6 +204,7 @@ function buildMockPayment(overrides: Partial<Record<string, unknown>> = {}): Mol
 function buildMockSubscription(
   overrides: Partial<Record<string, unknown>> = {},
 ): MollieSubscription {
+  // @cast-boundary mollie-sdk — minimal mock-shape, nur Felder die der Plugin liest
   return {
     id: "sub_test_001",
     customerId: "cst_test_001",
@@ -240,12 +230,8 @@ async function postMollieWebhook(id: string) {
 
 describe("scenario 1: Mollie-event → DB happy path", () => {
   test("recurring-payment paid → fetch sub → invoicePaid event → DB-row geupdated", async () => {
-    resetMockState();
     const tenantStringId = testTenantId(5001);
 
-    // Erst: existing subscription (= Tenant ist bereits Pro). Mollie
-    // sendet bei recurring-charges einen tr_xxx-event mit
-    // sequenceType=recurring + filled subscriptionId.
     const sub = buildMockSubscription({
       id: "sub_5001",
       customerId: "cst_5001",
@@ -297,11 +283,8 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
 
 describe("scenario 2: mandate-setup-flow — first-payment-paid OHNE existing sub → Plugin erstellt sub on-the-fly", () => {
   test("Plugin ruft customerSubscriptions.create + emit Created-Event → subscription-row in DB", async () => {
-    resetMockState();
     const tenantStringId = testTenantId(5002);
 
-    // Mollie's classic mandate-setup: payment.subscriptionId=null,
-    // sequenceType=first, status=paid, metadata trägt tenantId+priceId.
     mockState.payments.set(
       "tr_5002_first",
       buildMockPayment({
@@ -313,12 +296,10 @@ describe("scenario 2: mandate-setup-flow — first-payment-paid OHNE existing su
         metadata: { tenantId: tenantStringId, priceId: "plan_business" },
       }),
     );
-    // listResolve ist leer → Plugin's ensureSubscriptionForMandate ruft create.
 
     const res = await postMollieWebhook("tr_5002_first");
     expect(res.status).toBe(200);
 
-    // Drift-pin: Plugin hat customerSubscriptions.create EXACTLY EINMAL gerufen.
     expect(mockState.createCallCount).toBe(1);
 
     const admin = createTestUser({
@@ -335,15 +316,13 @@ describe("scenario 2: mandate-setup-flow — first-payment-paid OHNE existing su
     expect(subs.rows[0]?.["tier"]).toBe("business");
     expect(subs.rows[0]?.["status"]).toBe("active");
     // Drift-pin: providerSubscriptionId ist die VOM PLUGIN ERSTELLTE sub-id,
-    // nicht der payment-id. Wenn jemand die Werte vertauschen würde,
-    // bricht das hier loud.
+    // nicht der payment-id.
     expect(subs.rows[0]?.["providerSubscriptionId"]).toBe("sub_created_1");
   });
 });
 
 describe("scenario 3: idempotency via Mollie-retry", () => {
   test("derselbe tr_xxx 2× → 2. Mal foundation duplicate=true, kein zweiter event-row, kein zweiter sub-create", async () => {
-    resetMockState();
     const tenantStringId = testTenantId(5003);
 
     mockState.payments.set(
@@ -363,14 +342,12 @@ describe("scenario 3: idempotency via Mollie-retry", () => {
     const body1 = (await res1.json()) as { processed?: boolean; duplicate?: boolean };
     expect(body1.duplicate).toBe(false);
 
-    // Mollie retry-storm — selber tr_xxx
     const res2 = await postMollieWebhook("tr_5003_retry");
     expect(res2.status).toBe(200);
     const body2 = (await res2.json()) as { duplicate?: boolean };
     expect(body2.duplicate).toBe(true);
 
-    // Drift-pin: Plugin hat customerSubscriptions.create NUR EINMAL gerufen
-    // (= ensureSubscriptionForMandate fand die existing sub via list-check).
+    // Drift-pin: ensureSubscriptionForMandate fand die existing sub via list.
     expect(mockState.createCallCount).toBe(1);
 
     const admin = createTestUser({
@@ -387,25 +364,20 @@ describe("scenario 3: idempotency via Mollie-retry", () => {
   });
 });
 
-describe("scenario 4: ignored / unknown ID-forms pass through", () => {
+describe("scenario 4: error + ignored paths", () => {
   test("body ohne id → 401 (Plugin throws, foundation mapped auf signature_invalid)", async () => {
-    resetMockState();
     const res = await webhookApp.request("/api/subscription/webhook/mollie", {
       method: "POST",
       body: "no-id-field",
       headers: { "content-type": "application/x-www-form-urlencoded" },
     });
-    // Plugin throws bei body ohne id; webhook-handler mapped throws auf 401.
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("subscription_webhook_signature_invalid");
   });
 
   test("sub_xxx-direct-event → 200 ignored, kein DB-write", async () => {
-    resetMockState();
     const tenantStringId = testTenantId(5004);
-    // sub_xxx-events sind heute NICHT supported (= Plugin returnt null,
-    // foundation 200 ignored).
     const res = await postMollieWebhook("sub_5004_direct");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ignored?: boolean };
@@ -422,5 +394,20 @@ describe("scenario 4: ignored / unknown ID-forms pass through", () => {
       admin,
     )) as { rows: Array<Record<string, unknown>> };
     expect(subs.rows).toHaveLength(0);
+  });
+
+  test("provider not mounted → 404 (multi-provider-routing drift-pin)", async () => {
+    // Drift-pin: nur "mollie" ist gemountet. Wenn jemand den webhook-
+    // handler refactored sodass er ALLE requests an das erste plugin
+    // routet, wäre dieser Test grün — bricht aber wenn der Test einen
+    // unbekannten provider-name fordert.
+    const res = await webhookApp.request("/api/subscription/webhook/paypal", {
+      method: "POST",
+      body: "id=tr_dummy",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+    });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("subscription_provider_not_registered");
   });
 });

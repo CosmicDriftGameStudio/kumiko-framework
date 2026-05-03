@@ -44,7 +44,7 @@ import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine"
 import { createMollieClient } from "@mollie/api-client";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants";
 import { createMollieCheckoutSession, type MolliePriceConfig } from "./plugin-methods";
-import { verifyAndParseMollieWebhook } from "./verify-webhook";
+import { type MollieClientShape, verifyAndParseMollieWebhook } from "./verify-webhook";
 
 export type SubscriptionMollieOptions = {
   /** Mollie-API-key (`test_...` oder `live_...`). App-wide, beim Plugin-
@@ -64,6 +64,13 @@ export type SubscriptionMollieOptions = {
    *  price-id-Konzept — App-Builder muss pro virtuellem priceId einen
    *  amount/interval/description bereitstellen. */
   readonly priceToConfig: Readonly<Record<string, MolliePriceConfig>>;
+  /** @internal Test-only injection-port: ersetzt den verify-webhook-
+   *  fetch-client durch eine Mock-instance. Production left undefined —
+   *  factory baut den Adapter aus `createMollieClient(apiKey)`. Wird
+   *  vom IT (mollie-foundation.integration.ts) genutzt damit der echte
+   *  factory-Code (drift-validation, plugin-registration) im Test-pfad
+   *  durchläuft, ohne dass Mollie-API-Calls passieren. */
+  readonly _clientShapeForTests?: MollieClientShape;
 };
 
 export function createSubscriptionMollieFeature(
@@ -99,7 +106,7 @@ export function createSubscriptionMollieFeature(
   // Adapter um den Plugin's verify-fetch-client an den vollen Mollie-
   // Client zu binden. Plugin-fetch-API ist minimal damit Tests ohne
   // den vollen MollieClient mocken können.
-  const fetchAdapter = {
+  const fetchAdapter: MollieClientShape = options._clientShapeForTests ?? {
     payments: { get: (id: string) => client.payments.get(id) },
     customerSubscriptions: {
       get: (subId: string, customerId: string) =>
@@ -108,15 +115,8 @@ export function createSubscriptionMollieFeature(
         const page = await client.customerSubscriptions.page({ customerId });
         return [...page];
       },
-      create: (
-        customerId: string,
-        params: {
-          amount: { currency: string; value: string };
-          interval: string;
-          description: string;
-          metadata: Record<string, string>;
-        },
-      ) => client.customerSubscriptions.create({ customerId, ...params }),
+      create: (customerId, params) =>
+        client.customerSubscriptions.create({ customerId, ...params }),
     },
   };
 
