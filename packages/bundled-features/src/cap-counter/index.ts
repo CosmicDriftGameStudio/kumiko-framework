@@ -24,3 +24,11 @@ export {
 } from "./enforce-cap";
 export { capCounterEntity } from "./entity";
 export { capCounterFeature } from "./feature";
+export {
+  type CalendarCapDef,
+  type CalendarCapResolver,
+  type RollingCapDef,
+  type RollingCapResolver,
+  withCapEnforcement,
+  withRollingCapEnforcement,
+} from "./with-cap-enforcement";

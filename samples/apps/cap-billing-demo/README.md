@@ -1,0 +1,117 @@
+# Cap-Billing-Demo
+
+Sample-App, die zeigt wie eine Kumiko-App **tier-engine** + **cap-counter** + **mail-foundation Plugin-API** zusammen-verdrahtet, um per-Tenant-Caps auf Newsletter-Sends zu erzwingen — inkl. soft-hit-Notification und hard-block.
+
+Das Sample ist gleichzeitig die **lebende Doku** für das Pattern: lese den Code von oben nach unten und du hast die Cap-Engine verstanden.
+
+## Was die Demo macht
+
+Eine kleine Newsletter-App mit zwei Tiers:
+
+| Tier | Newsletter pro Monat | Soft-Warning bei | Hard-Block bei |
+|------|-----------|-------------------|-----------------|
+| free | 10 | 11 (110%) | 12 (120%) |
+| pro | 100 | 110 (110%) | 120 (120%) |
+
+Mails landen in einem **In-Memory-Transport** (`mail-transport-inmemory`). Es gibt keinen echten SMTP-Server — perfekt für die Demo, kein Mailpit/Mailcrab nötig. Die Inbox wird per Helper-Funktion ausgelesen.
+
+## Architektur in 4 Schichten
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ src/feature.ts                                               │
+│   newsletter:write:send (cap-aware)                          │
+│   ├── inner-handler: createTransportForTenant + .send()      │
+│   └── wrapper: withCapEnforcement                            │
+│       ├── pre: enforceCapAndMaybeNotify(tier-bedingt)        │
+│       │     └── notifier: sendet Warning-Mail an Admin       │
+│       └── post: incrementCap (+1)                            │
+└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ src/tier-map.ts                                              │
+│   DEMO_TIER_MAP: Record<TierName, {features, caps}>          │
+│   resolveTier(ctx) → liest "newsletter:config:tier"          │
+└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ src/run-config.ts                                            │
+│   APP_FEATURES = [secrets, cap-counter, mail-foundation,     │
+│                   mail-transport-inmemory, newsletter]       │
+└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ bundled-features (kein Code in der App)                      │
+│   tier-engine: composeApp + TierMap-Type                     │
+│   cap-counter: enforceCap + withCapEnforcement + counter-ES  │
+│   mail-foundation: Plugin-API für Transports                 │
+│   mail-transport-inmemory: per-tenant in-memory Inbox        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## Try it (ohne dev-server)
+
+Das Sample hat einen Integration-Test der die Demo-Story durchspielt:
+
+```bash
+yarn vitest run --config vitest.integration.config.ts samples/apps/cap-billing-demo
+```
+
+Der Test fährt den vollen Dispatcher + DB hoch, bootstrapped einen free-Tenant und einen pro-Tenant, sendet Newsletter bis zum Cap-Hit und prüft dass:
+- 10 Newsletter senden ohne Warning
+- 12. Newsletter triggered einmalig die Soft-Hit-Notification
+- 13. Newsletter wird hart geblockt (CapExceededError → 5xx)
+- Pro-Tenant nicht von Free-Tenant's Cap betroffen ist
+
+Lies die Test-Datei `src/__tests__/cap-billing-demo.integration.ts` — sie ist die kompletteste Doku der Demo-Story.
+
+## Try it (mit dev-server, optional)
+
+```bash
+yarn kumiko dev      # Postgres + Redis hochfahren
+yarn install
+cd samples/apps/cap-billing-demo
+yarn dev             # → http://localhost:4290
+```
+
+Login: `admin@cap-demo.local` / `changeme`. Dann via curl:
+
+```bash
+# Provider auswählen + Tier setzen (admin-Token aus dem Browser)
+curl -X POST localhost:4290/api/write -H 'Content-Type: application/json' \
+  -d '{"type":"config:write:set","payload":{"key":"mail-foundation:config:provider","value":"inmemory"}}'
+
+curl -X POST localhost:4290/api/write -H 'Content-Type: application/json' \
+  -d '{"type":"config:write:set","payload":{"key":"newsletter:config:tier","value":"free"}}'
+
+# Newsletter senden — bis zum Cap
+curl -X POST localhost:4290/api/write -H 'Content-Type: application/json' \
+  -d '{"type":"newsletter:write:send","payload":{"to":"a@x.de","subject":"Hi","html":"<p>Test</p>"}}'
+```
+
+Inbox abrufen: gibt's keinen HTTP-Endpoint dafür im Demo. Der Test-Code zeigt das Pattern (`getInbox(tenantId)` aus `@kumiko/bundled-features/mail-transport-inmemory`).
+
+## Wie übertrage ich das auf eine echte App?
+
+Das Sample ist absichtlich minimal. Für eine Production-App tausche:
+
+| Demo-Komponente | Production-Ersatz |
+|-----------------|-------------------|
+| `mail-transport-inmemory` | `mail-transport-smtp` (BYOK) oder ein selbst gebautes Plugin |
+| Hardcoded `DEMO_TIER_MAP` | Stripe-Webhook setzt einen `tenant.tier`-Wert (z.B. via `r.entity` oder `r.config`) |
+| 2 Tiers (free/pro) | beliebige Anzahl, siehe `samples/apps/platform/src/tier-map.ts` für 4-Tier-Beispiel |
+| Newsletter-domain | dein eigenes Feature mit `withCapEnforcement(handler, capResolver)` |
+
+Der **Plugin-API-Switch** zwischen demo + production ist ein einziges Konfig-Wert: `mail-foundation:config:provider` wechselt von `"inmemory"` auf `"smtp"`, kein Code-Refactor.
+
+## Schlüssel-Dateien
+
+- **`src/feature.ts`** — der gewrappte send-Handler. Hier siehst du wie `withCapEnforcement` einen normalen Handler in einen cap-aware-Handler verwandelt
+- **`src/tier-map.ts`** — DEMO_TIER_MAP + Tier-Namen-Whitelist
+- **`src/run-config.ts`** — Feature-Komposition (welche bundled-features die Demo mountet)
+- **`src/__tests__/cap-billing-demo.integration.ts`** — durchgespielte Story (10/11/12/13 Newsletter, soft+hard transitions, tenant-isolation)
+
+## Fragen / Schwächen die diese Demo offenlegt
+
+Das Sample ist als Doku-Test gedacht. Konkrete Schwächen die wir hier sehen:
+
+- **Notifier-Adresse hardcoded.** `buildSoftHitNotifier` in `feature.ts` schickt an `admin@tenant-${id.slice(-4)}.demo`. Echte App würde tenant-config oder users-Tabelle abfragen.
+- **Tier-Lookup pro send-call.** Die `resolveTier(ctx)`-Funktion liest den config-key bei jedem Send — bei busy Tenants wäre Caching sinnvoll. Demo lässt das raus weil's vom Cap-Pattern ablenkt.
+- **Kein Stripe-Wiring.** Tier wird per `config:write:set` direkt gesetzt; in Production ist das ein Stripe-Webhook-Trigger.
