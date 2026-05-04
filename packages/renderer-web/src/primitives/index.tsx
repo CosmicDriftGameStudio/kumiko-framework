@@ -189,6 +189,30 @@ function DefaultInput(props: InputProps): ReactNode {
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
+          {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
+          className={cn(inputClassBase, errorClass)}
+        />
+      );
+    case "email":
+      return (
+        <input
+          type="email"
+          {...common}
+          value={props.value}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
+          {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
+          autoComplete={props.autoComplete ?? "email"}
+          className={cn(inputClassBase, errorClass)}
+        />
+      );
+    case "password":
+      return (
+        <input
+          type="password"
+          {...common}
+          value={props.value}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
+          autoComplete={props.autoComplete ?? "current-password"}
           className={cn(inputClassBase, errorClass)}
         />
       );

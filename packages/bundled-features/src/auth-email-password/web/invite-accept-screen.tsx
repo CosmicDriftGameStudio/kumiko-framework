@@ -16,17 +16,10 @@
 // zu loggedInHref. Branch 1 hat schon eine Session — Frontend redirected
 // auch zu loggedInHref damit der invitee in seinem neuen Tenant landet.
 
-import { useTranslation } from "@kumiko/renderer";
-import { type ReactNode, useState } from "react";
+import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { csrfHeader } from "./auth-client";
-import {
-  AuthBanner,
-  AuthCard,
-  AuthInput,
-  authButtonClass,
-  authMutedLinkClass,
-  parseUrlToken,
-} from "./auth-form-primitives";
+import { AuthCard, authMutedLinkClass, parseUrlToken } from "./auth-form-primitives";
 import { useSession } from "./session";
 
 export type InviteAcceptScreenProps = {
@@ -48,6 +41,7 @@ export function InviteAcceptScreen({
   loginHref = "/login",
 }: InviteAcceptScreenProps): ReactNode {
   const t = useTranslation();
+  const { Form, Field, Input, Button, Banner } = usePrimitives();
   const session = useSession();
   const [token] = useState(() => tokenProp ?? parseUrlToken());
   const [mode, setMode] = useState<Mode>(() =>
@@ -126,11 +120,17 @@ export function InviteAcceptScreen({
     setError(t("auth.errors.invalidInviteToken"));
   };
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
-    if (mode === "loggedin") return acceptLoggedIn();
-    if (mode === "anon-existing") return acceptAnonExisting();
-    return acceptAnonNew();
+  const onSubmit = (e?: FormEvent): void => {
+    e?.preventDefault();
+    if (mode === "loggedin") {
+      void acceptLoggedIn();
+      return;
+    }
+    if (mode === "anon-existing") {
+      void acceptAnonExisting();
+      return;
+    }
+    void acceptAnonNew();
   };
 
   if (token === "") {
@@ -148,70 +148,73 @@ export function InviteAcceptScreen({
 
   return (
     <AuthCard title={effectiveTitle}>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4 p-6 pt-0">
+      <div className="p-6 pt-0 flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">{t("auth.inviteAccept.intro")}</p>
 
         {mode === "loggedin" ? (
-          <>
+          <Form onSubmit={onSubmit}>
             <p className="text-sm">{t("auth.inviteAccept.loggedInAs")}</p>
-            {error !== null && <AuthBanner tone="error">{error}</AuthBanner>}
-            <button type="submit" disabled={submitting} className={authButtonClass}>
+            {error !== null && <Banner variant="error">{error}</Banner>}
+            <Button type="submit" loading={submitting} disabled={submitting}>
               {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.acceptButton")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => {
                 setMode("anon-existing");
               }}
-              className={authMutedLinkClass}
             >
               {t("auth.inviteAccept.useOtherAccount")}
-            </button>
-          </>
+            </Button>
+          </Form>
         ) : (
-          <>
+          <Form onSubmit={onSubmit}>
             {mode === "anon-existing" && (
-              <AuthInput
-                id="invite-email"
-                label={t("auth.inviteAccept.email")}
-                type="email"
-                autoComplete="email"
-                required
-                disabled={submitting}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              <Field id="invite-email" label={t("auth.inviteAccept.email")} required>
+                <Input
+                  kind="email"
+                  id="invite-email"
+                  name="invite-email"
+                  value={email}
+                  onChange={setEmail}
+                  disabled={submitting}
+                  required
+                  autoComplete="email"
+                />
+              </Field>
             )}
-            <AuthInput
-              id="invite-password"
-              label={t("auth.inviteAccept.password")}
-              type="password"
-              autoComplete={mode === "anon-existing" ? "current-password" : "new-password"}
-              required
-              minLength={8}
-              disabled={submitting}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            {error !== null && <AuthBanner tone="error">{error}</AuthBanner>}
-            <button type="submit" disabled={submitting} className={authButtonClass}>
+            <Field id="invite-password" label={t("auth.inviteAccept.password")} required>
+              <Input
+                kind="password"
+                id="invite-password"
+                name="invite-password"
+                value={password}
+                onChange={setPassword}
+                disabled={submitting}
+                required
+                autoComplete={mode === "anon-existing" ? "current-password" : "new-password"}
+              />
+            </Field>
+            {error !== null && <Banner variant="error">{error}</Banner>}
+            <Button type="submit" loading={submitting} disabled={submitting}>
               {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.submit")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => {
                 setMode(mode === "anon-existing" ? "anon-new" : "anon-existing");
                 setError(null);
               }}
-              className={authMutedLinkClass}
             >
               {mode === "anon-existing"
                 ? t("auth.inviteAccept.toggleNew")
                 : t("auth.inviteAccept.toggleExisting")}
-            </button>
-          </>
+            </Button>
+          </Form>
         )}
-      </form>
+      </div>
     </AuthCard>
   );
 }

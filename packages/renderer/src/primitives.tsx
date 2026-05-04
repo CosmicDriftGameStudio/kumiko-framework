@@ -104,6 +104,37 @@ export type InputProps =
       /** Hint-Text wenn das Feld leer ist. Used für Search-Inputs in
        *  Toolbars ("Suchen…") wo kein Label sinnvoll ist. */
       readonly placeholder?: string;
+      /** Browser-Autofill / Native-Keyboard-Hint. Web setzt das auf
+       *  `<input autocomplete=...>`, Native auf `textContentType`. */
+      readonly autoComplete?: string;
+    }
+  | {
+      readonly kind: "email";
+      readonly id: string;
+      readonly name: string;
+      readonly value: string;
+      readonly onChange: (v: string) => void;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+      readonly placeholder?: string;
+      /** Default "email". Apps die "username" wollen (Login-Form mit
+       *  Username-or-Email) reichen das durch. */
+      readonly autoComplete?: string;
+    }
+  | {
+      readonly kind: "password";
+      readonly id: string;
+      readonly name: string;
+      readonly value: string;
+      readonly onChange: (v: string) => void;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+      /** "current-password" für Login, "new-password" für Reset/Signup —
+       *  Browser-Password-Manager nutzen das für die Speicherentscheidung.
+       *  Native: textContentType="password" / "newPassword". */
+      readonly autoComplete?: "current-password" | "new-password";
     }
   | {
       readonly kind: "number";

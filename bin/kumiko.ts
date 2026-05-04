@@ -126,6 +126,10 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   { name: "Direct-Entity-Writes Guard", cmd: "bun scripts/guard-direct-entity-writes.ts" },
   { name: "Cross-Feature-Import Guard", cmd: "bun scripts/guard-cross-feature-imports.ts" },
   { name: "Renderer-Boundaries Guard", cmd: "bun scripts/guard-renderer-boundaries.ts" },
+  {
+    name: "Primitives-Discipline Guard",
+    cmd: "bun scripts/guard-primitives-discipline.ts --strict-bundled",
+  },
   { name: "Fake-Test Guard", cmd: "bun scripts/guard-fake-tests.ts" },
   {
     name: "Feature-Integration-Test Guard",
