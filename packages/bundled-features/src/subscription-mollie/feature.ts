@@ -23,7 +23,7 @@
 // **Beispiel-Verwendung in run-config.ts:**
 //
 //   const features = [
-//     subscriptionFoundationFeature,
+//     billingFoundationFeature,
 //     createSubscriptionMollieFeature({
 //       apiKey: process.env.MOLLIE_API_KEY ?? "",
 //       webhookUrl: "https://app.example.com/api/subscription/webhook/mollie",

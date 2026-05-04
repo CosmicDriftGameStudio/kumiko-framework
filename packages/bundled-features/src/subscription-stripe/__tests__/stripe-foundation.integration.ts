@@ -13,10 +13,10 @@
 // Verdrahtungs-Bugs ab.
 
 import {
+  billingFoundationFeature,
   createSubscriptionWebhookHandler,
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
-  subscriptionFoundationFeature,
 } from "@kumiko/bundled-features/billing-foundation";
 import type { DbConnection } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";
@@ -54,7 +54,7 @@ beforeAll(async () => {
   });
 
   stack = await setupTestStack({
-    features: [subscriptionFoundationFeature, stripeFeature],
+    features: [billingFoundationFeature, stripeFeature],
   });
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch

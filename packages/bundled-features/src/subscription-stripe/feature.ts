@@ -20,7 +20,7 @@
 //   import { createSubscriptionStripeFeature } from "@kumiko/bundled-features/subscription-stripe";
 //
 //   const features = [
-//     subscriptionFoundationFeature,
+//     billingFoundationFeature,
 //     createSubscriptionStripeFeature({
 //       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
 //       apiKey: process.env.STRIPE_API_KEY ?? "",

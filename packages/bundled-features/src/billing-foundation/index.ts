@@ -28,7 +28,7 @@ export {
   type SubscriptionEventPayload,
   subscriptionEventPayloadSchema,
 } from "./events";
-export { subscriptionFoundationFeature } from "./feature";
+export { billingFoundationFeature } from "./feature";
 export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant";
 export { subscriptionsProjectionTable } from "./projection";
 export type {

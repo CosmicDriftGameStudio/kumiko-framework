@@ -38,7 +38,7 @@ Mails landen in einem **In-Memory-Transport** (`mail-transport-inmemory`). Es gi
 │ src/run-config.ts                                            │
 │   APP_FEATURES = [secrets, cap-counter, mail-foundation,     │
 │                   mail-transport-inmemory,                   │
-│                   subscription-foundation, newsletter]       │
+│                   billing-foundation, newsletter]       │
 └──────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────┐
 │ bundled-features (kein Code in der App)                      │
@@ -46,7 +46,7 @@ Mails landen in einem **In-Memory-Transport** (`mail-transport-inmemory`). Es gi
 │   cap-counter: enforceCap + withCapEnforcement + counter-ES  │
 │   mail-foundation: Plugin-API für Transports                 │
 │   mail-transport-inmemory: per-tenant in-memory Inbox        │
-│   subscription-foundation: Provider-Plugin-Host (Stripe/     │
+│   billing-foundation: Provider-Plugin-Host (Stripe/     │
 │                            Mollie). Demo mountet keine       │
 │                            Provider — Tests rufen process-   │
 │                            event direkt; eigene App ergänzt  │
@@ -132,4 +132,4 @@ Das Sample ist als Doku-Test gedacht. Konkrete Schwächen die wir hier sehen:
 
 - **Notifier-Adresse hardcoded.** `buildSoftHitNotifier` in `feature.ts` schickt an `admin@tenant-${id.slice(-4)}.demo`. Echte App würde tenant-config oder users-Tabelle abfragen.
 - **Tier-Lookup pro send-call.** Die `resolveTier(ctx)`-Funktion macht eine DB-Query auf die subscription-row bei jedem Send — bei busy Tenants wäre Caching sinnvoll. Demo lässt das raus weil's vom Cap-Pattern ablenkt.
-- **Kein Provider-Mount in der Demo selbst.** Die Tests rufen `subscription-foundation:write:process-event` direkt; in Production mountet die App `createSubscriptionStripeFeature(...)` oder `createSubscriptionMollieFeature(...)` und Mollie/Stripe-Webhooks treffen `/api/subscription/webhook/:providerName`.
+- **Kein Provider-Mount in der Demo selbst.** Die Tests rufen `billing-foundation:write:process-event` direkt; in Production mountet die App `createSubscriptionStripeFeature(...)` oder `createSubscriptionMollieFeature(...)` und Mollie/Stripe-Webhooks treffen `/api/subscription/webhook/:providerName`.

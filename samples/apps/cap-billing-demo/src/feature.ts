@@ -20,7 +20,7 @@
 //     überschreiten)
 //
 // **Tier-Switching:** primary-source ist die `subscription`-row aus
-// subscription-foundation (= produktiver Pfad: Stripe/Mollie webhook
+// billing-foundation (= produktiver Pfad: Stripe/Mollie webhook
 // schreibt → tier ändert sich). Fallback ist der config-key
 // "newsletter:config:tier" — den nutzt die Demo-README für manuelles
 // Switchen ohne Provider, plus tier-engine-only-Tests behalten so ihren
@@ -92,7 +92,7 @@ const innerSendHandler: WriteHandlerDef = {
  * Tenant-Tier auflösen.
  *
  * **Reihenfolge:**
- *   1. subscription-row aus subscription-foundation (= produktiver
+ *   1. subscription-row aus billing-foundation (= produktiver
  *      Pfad). Wenn die row existiert, trumpft sie den config-fallback —
  *      auch im canceled-Status (= Tenant fällt auf free zurück, NICHT
  *      auf einen verwaisten config="pro"-override).

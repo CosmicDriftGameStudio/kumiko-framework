@@ -9,15 +9,15 @@ import {
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../constants";
-import { subscriptionFoundationFeature } from "../feature";
+import { billingFoundationFeature } from "../feature";
 
-describe("subscriptionFoundationFeature — shape", () => {
+describe("billingFoundationFeature — shape", () => {
   test("has the expected name", () => {
-    expect(subscriptionFoundationFeature.name).toBe(BILLING_FOUNDATION_FEATURE);
+    expect(billingFoundationFeature.name).toBe(BILLING_FOUNDATION_FEATURE);
     // Naming-Disziplin pin: NICHT "billing-foundation" — damit
     // marketplace-foundation später ohne Rename dazukommt (siehe
     // docs/plans/architecture/subscription-foundation.md).
-    expect(subscriptionFoundationFeature.name).toBe("billing-foundation");
+    expect(billingFoundationFeature.name).toBe("billing-foundation");
   });
 
   test("does NOT require config (Multi-Provider — config liegt in den Plugins)", () => {
@@ -26,11 +26,11 @@ describe("subscriptionFoundationFeature — shape", () => {
     // gemountete Plugin ist gleichzeitig aktiv. Wenn jemand wieder
     // `r.requires("config")` einbaut, verstößt das gegen die
     // Multi-Provider-Architektur.
-    expect(subscriptionFoundationFeature.requires).not.toContain("config");
+    expect(billingFoundationFeature.requires).not.toContain("config");
   });
 
   test("does NOT require secrets — Provider-Plugins owne ihre eigenen API-Keys", () => {
-    expect(subscriptionFoundationFeature.requires).not.toContain("secrets");
+    expect(billingFoundationFeature.requires).not.toContain("secrets");
   });
 
   test("foundation has NO config-keys (alle config-keys liegen in den Plugins)", () => {
@@ -38,21 +38,21 @@ describe("subscriptionFoundationFeature — shape", () => {
     // exportieren weil sonst sowas wie "globaler price-to-tier-Map"
     // erzwungen wäre — der existiert NUR pro Plugin (Stripe-priceIds
     // vs PayPal-plan-ids vs Apple-product-ids sind verschieden).
-    expect(Object.keys(subscriptionFoundationFeature.configKeys)).toHaveLength(0);
+    expect(Object.keys(billingFoundationFeature.configKeys)).toHaveLength(0);
   });
 });
 
-describe("subscriptionFoundationFeature — registers extension-point", () => {
+describe("billingFoundationFeature — registers extension-point", () => {
   test("declares 'subscriptionProvider' extension-point", () => {
     expect(
-      subscriptionFoundationFeature.registrarExtensions[SUBSCRIPTION_PROVIDER_EXTENSION],
+      billingFoundationFeature.registrarExtensions[SUBSCRIPTION_PROVIDER_EXTENSION],
     ).toBeDefined();
   });
 });
 
-describe("subscriptionFoundationFeature — events + projection + handlers registered", () => {
+describe("billingFoundationFeature — events + projection + handlers registered", () => {
   test("5 domain-events registriert (created/updated/canceled/invoice-paid/invoice-payment-failed)", () => {
-    const events = subscriptionFoundationFeature.events;
+    const events = billingFoundationFeature.events;
     expect(events["subscription-created"]).toBeDefined();
     expect(events["subscription-updated"]).toBeDefined();
     expect(events["subscription-canceled"]).toBeDefined();
@@ -61,21 +61,21 @@ describe("subscriptionFoundationFeature — events + projection + handlers regis
   });
 
   test("subscription-projection registriert mit 5 apply-keys", () => {
-    const proj = subscriptionFoundationFeature.projections["subscription"];
+    const proj = billingFoundationFeature.projections["subscription"];
     expect(proj).toBeDefined();
     const applyKeys = Object.keys(proj?.apply ?? {});
     expect(applyKeys).toHaveLength(5);
   });
 
   test("process-event write-handler registriert mit erwarteter QN", () => {
-    expect(subscriptionFoundationFeature.writeHandlers["process-event"]).toBeDefined();
+    expect(billingFoundationFeature.writeHandlers["process-event"]).toBeDefined();
     expect(SubscriptionFoundationHandlers.processEvent).toBe(
       "billing-foundation:write:process-event",
     );
   });
 
   test("process-event ist SystemAdmin-only (programmatic-only entry-point)", () => {
-    const handler = subscriptionFoundationFeature.writeHandlers["process-event"];
+    const handler = billingFoundationFeature.writeHandlers["process-event"];
     const access = handler?.access as { roles?: readonly string[] } | undefined;
     expect(access?.roles).toEqual(["SystemAdmin"]);
   });

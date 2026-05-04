@@ -27,7 +27,7 @@ import {
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../constants";
-import { subscriptionFoundationFeature } from "../feature";
+import { billingFoundationFeature } from "../feature";
 import type { SubscriptionProviderPlugin } from "../types";
 
 // =============================================================================
@@ -80,7 +80,7 @@ let db: DbConnection;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [subscriptionFoundationFeature, mockProviderFeature],
+    features: [billingFoundationFeature, mockProviderFeature],
   });
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch

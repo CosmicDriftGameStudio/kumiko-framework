@@ -349,7 +349,7 @@ describe("cap-billing-demo: tier-Wechsel innerhalb derselben Period", () => {
 // =============================================================================
 // Subscription-driven tier (live-Webhook-Story)
 //
-// Phase 5.4: cap-billing-demo erweitert um subscription-foundation als
+// Phase 5.4: cap-billing-demo erweitert um billing-foundation als
 // primary tier-source. Provider-Webhook (Stripe/Mollie) liefert ein
 // SubscriptionEvent; foundation persistiert die subscription-row;
 // newsletter-resolver liest die row beim cap-Auflösen → echter live-

@@ -70,7 +70,7 @@ import {
   subscriptionsProjectionTable,
 } from "./projection";
 
-export const subscriptionFoundationFeature: FeatureDefinition = defineFeature(
+export const billingFoundationFeature: FeatureDefinition = defineFeature(
   BILLING_FOUNDATION_FEATURE,
   (r) => {
     // 5 fine-grained domain-events. Alle 5 nutzen denselben payload-
