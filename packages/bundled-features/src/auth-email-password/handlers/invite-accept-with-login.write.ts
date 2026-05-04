@@ -127,12 +127,8 @@ export function createInviteAcceptWithLoginHandler() {
         // Password-Check gegen userTable. Anti-enumeration: bei
         // user-not-found ODER wrong-password collapsed beides auf
         // invalidInviteToken (gleicher anti-enum-Trade-off wie reset).
-        const userRow = await fetchOne(
-          ctx.db.raw,
-          userTable,
-          eq(userTable.email, invitationEmail),
-        );
-        if (!userRow || !userRow["passwordHash"]) return invalidInviteToken();
+        const userRow = await fetchOne(ctx.db.raw, userTable, eq(userTable.email, invitationEmail));
+        if (!userRow?.["passwordHash"]) return invalidInviteToken();
         const passwordValid = await verifyPassword(
           userRow["passwordHash"] as string,
           event.payload.password,

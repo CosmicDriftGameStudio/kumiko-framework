@@ -1,0 +1,15 @@
+{
+  "name": "@kumiko/sample-cap-billing-demo",
+  "description": "Sample-App: tier-engine + cap-counter + Plugin-API in einem laufenden Beispiel. Newsletter-send mit per-Tier-Cap und in-memory mail-Inbox — demonstriert wie eine Kumiko-App tier-bedingtes billing + soft-hit-Notification + hard-block verdrahtet.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "PORT=4290 bun --env-file=../../../.env run kumiko-dev bin/server.ts"
+  },
+  "dependencies": {
+    "@kumiko/bundled-features": "workspace:*",
+    "@kumiko/dev-server": "workspace:*",
+    "@kumiko/framework": "workspace:*",
+    "zod": "^4.3.6"
+  }
+}

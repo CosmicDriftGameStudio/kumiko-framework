@@ -1,3 +1,9 @@
+export {
+  CONFIG_FEATURE,
+  ConfigErrors,
+  ConfigHandlers,
+  ConfigQueries,
+} from "./constants";
 export type { ConfigContext } from "./feature";
 export {
   createConfigAccessor,

@@ -38,8 +38,6 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table";
-// kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
-import { seedUserWithPassword } from "../seeding";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add
 import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import existence-check
@@ -51,6 +49,8 @@ import {
   getInvitationIdForToken,
   unburnInviteToken,
 } from "../invite-token-store";
+// kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
+import { seedUserWithPassword } from "../seeding";
 
 const InviteSignupCompleteSchema = z.object({
   token: z.string().min(1),

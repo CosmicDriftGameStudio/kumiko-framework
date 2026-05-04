@@ -21,11 +21,7 @@ import {
   type DbConnection,
   fetchOne,
 } from "@kumiko/framework/db";
-import {
-  createSystemUser,
-  defineWriteHandler,
-  type TenantId,
-} from "@kumiko/framework/engine";
+import { createSystemUser, defineWriteHandler, type TenantId } from "@kumiko/framework/engine";
 import { InternalError, UnprocessableError, writeFailure } from "@kumiko/framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -111,11 +107,7 @@ export function createInviteAcceptHandler() {
         // Email-Match: User muss mit der eingeladenen Email matchen.
         // Sonst kann ein Angreifer mit Zugriff zur invitee-Mail seinen
         // eigenen Account dem Tenant zuschlagen.
-        const userRow = await fetchOne(
-          ctx.db.raw,
-          userTable,
-          eq(userTable.id, event.user.id),
-        );
+        const userRow = await fetchOne(ctx.db.raw, userTable, eq(userTable.id, event.user.id));
         if (!userRow || (userRow["email"] as string).toLowerCase() !== invitationEmail) {
           return writeFailure(
             new UnprocessableError(AuthErrors.inviteEmailMismatch, {
