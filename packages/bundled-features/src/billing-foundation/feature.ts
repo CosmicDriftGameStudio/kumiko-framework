@@ -42,7 +42,7 @@
 // `subscription-provider-changed`-event-type später.
 
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
-import { SUBSCRIPTION_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
+import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
 import {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
@@ -71,7 +71,7 @@ import {
 } from "./projection";
 
 export const subscriptionFoundationFeature: FeatureDefinition = defineFeature(
-  SUBSCRIPTION_FOUNDATION_FEATURE,
+  BILLING_FOUNDATION_FEATURE,
   (r) => {
     // 5 fine-grained domain-events. Alle 5 nutzen denselben payload-
     // shape (= subscription-state-snapshot); der event-type taggt was

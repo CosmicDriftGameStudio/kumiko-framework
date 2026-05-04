@@ -23,7 +23,7 @@
     "./jobs": "./src/jobs/index.ts",
     "./tier-engine": "./src/tier-engine/index.ts",
     "./cap-counter": "./src/cap-counter/index.ts",
-    "./subscription-foundation": "./src/subscription-foundation/index.ts",
+    "./billing-foundation": "./src/billing-foundation/index.ts",
     "./subscription-stripe": "./src/subscription-stripe/index.ts",
     "./subscription-mollie": "./src/subscription-mollie/index.ts",
     "./foundation-shared": "./src/foundation-shared/index.ts",

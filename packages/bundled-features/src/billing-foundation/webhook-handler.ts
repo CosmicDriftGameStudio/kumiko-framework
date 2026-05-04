@@ -26,7 +26,7 @@
 //      und dem providerName aus dem URL-Pfad
 //   5. plugin.verifyAndParseWebhook(raw, headers, ctx) → SubscriptionEvent | null
 //   6. Bei null (= Plugin filtert event-type raus): 200 OK ohne side-effects
-//   7. Bei Event: ctx.write("subscription-foundation:write:process-event")
+//   7. Bei Event: ctx.write("billing-foundation:write:process-event")
 //      mit der vom Plugin aufgelösten tenantId
 //   8. Returnt 200 OK an Provider
 //
@@ -36,7 +36,7 @@
 import type { TenantId } from "@kumiko/framework/engine";
 import type { Context, Hono } from "hono";
 import {
-  SUBSCRIPTION_FOUNDATION_FEATURE,
+  BILLING_FOUNDATION_FEATURE,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionFoundationHandlers,
 } from "./constants";
@@ -78,7 +78,7 @@ export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) 
         {
           error: {
             code: "subscription_provider_path_missing",
-            message: `${SUBSCRIPTION_FOUNDATION_FEATURE}: Mount the route as POST /api/subscription/webhook/:providerName so each provider has its own URL (Stripe-Dashboard → /stripe, PayPal-Dashboard → /paypal).`,
+            message: `${BILLING_FOUNDATION_FEATURE}: Mount the route as POST /api/subscription/webhook/:providerName so each provider has its own URL (Stripe-Dashboard → /stripe, PayPal-Dashboard → /paypal).`,
           },
         },
         400,
@@ -101,7 +101,7 @@ export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) 
         {
           error: {
             code: "subscription_provider_not_registered",
-            message: `${SUBSCRIPTION_FOUNDATION_FEATURE}: provider "${providerName}" not registered as '${SUBSCRIPTION_PROVIDER_EXTENSION}'-plugin. Mount the matching subscription-${providerName} feature.`,
+            message: `${BILLING_FOUNDATION_FEATURE}: provider "${providerName}" not registered as '${SUBSCRIPTION_PROVIDER_EXTENSION}'-plugin. Mount the matching subscription-${providerName} feature.`,
           },
         },
         404,

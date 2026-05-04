@@ -22,13 +22,13 @@
 // returnt der Plugin defensiv null — der nächste subscription-event
 // wird den state korrekt handhaben.
 
-import type { SubscriptionEvent } from "@kumiko/bundled-features/subscription-foundation";
+import type { SubscriptionEvent } from "@kumiko/bundled-features/billing-foundation";
 import {
   type SubscriptionEventType,
   SubscriptionEventTypes,
   type SubscriptionStatus,
   SubscriptionStatuses,
-} from "@kumiko/bundled-features/subscription-foundation";
+} from "@kumiko/bundled-features/billing-foundation";
 import type Stripe from "stripe";
 import { STRIPE_PROVIDER_NAME, StripeEventTypes } from "./constants";
 

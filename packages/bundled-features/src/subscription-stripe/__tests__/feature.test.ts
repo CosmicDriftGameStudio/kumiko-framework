@@ -19,7 +19,7 @@ describe("createSubscriptionStripeFeature — shape", () => {
 
   test("requires only subscription-foundation (NICHT config/secrets — alles app-wide via factory-options)", () => {
     const feature = createSubscriptionStripeFeature(VALID_OPTIONS);
-    expect(feature.requires).toContain("subscription-foundation");
+    expect(feature.requires).toContain("billing-foundation");
     // Drift-Pin: webhook-secret + apiKey kommen aus factory-options
     // (= module-load-Closure), NICHT aus tenant-config/-secrets.
     expect(feature.requires).not.toContain("config");

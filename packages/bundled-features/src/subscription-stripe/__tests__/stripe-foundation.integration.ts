@@ -17,7 +17,7 @@ import {
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
   subscriptionFoundationFeature,
-} from "@kumiko/bundled-features/subscription-foundation";
+} from "@kumiko/bundled-features/billing-foundation";
 import type { DbConnection } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";
 import { createEventsTable, loadAggregate } from "@kumiko/framework/event-store";
@@ -185,7 +185,7 @@ describe("scenario 1: Stripe-event → DB happy path", () => {
       roles: ["TenantAdmin", "SystemAdmin"],
     });
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
@@ -205,7 +205,7 @@ describe("scenario 1: Stripe-event → DB happy path", () => {
       tenantStringId,
     );
     expect(esEvents).toHaveLength(1);
-    expect(esEvents[0]?.type).toBe("subscription-foundation:event:subscription-created");
+    expect(esEvents[0]?.type).toBe("billing-foundation:event:subscription-created");
     expect(esEvents[0]?.metadata.headers?.["providerName"]).toBe("stripe");
     expect(esEvents[0]?.metadata.headers?.["providerEventId"]).toBe("evt_4001_create");
     // rawPayload wurde 1:1 in headers archiviert
@@ -243,7 +243,7 @@ describe("scenario 2: invalid sig → 401, kein DB-write", () => {
       roles: ["TenantAdmin", "SystemAdmin"],
     });
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
@@ -306,7 +306,7 @@ describe("scenario 4: ignored event-types pass through", () => {
       roles: ["TenantAdmin", "SystemAdmin"],
     });
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };

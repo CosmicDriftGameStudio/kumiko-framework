@@ -79,7 +79,7 @@ describe("webhook-handler — happy path", () => {
 
     expect(dispatchWrite).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
-        handlerQn: "subscription-foundation:write:process-event",
+        handlerQn: "billing-foundation:write:process-event",
         tenantId: "tenant-test",
         payload: expect.objectContaining({
           providerEventId: "evt_test_001",

@@ -2,7 +2,7 @@
 
 export { subscriptionAggregateId } from "./aggregate-id";
 export {
-  SUBSCRIPTION_FOUNDATION_FEATURE,
+  BILLING_FOUNDATION_FEATURE,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   type SubscriptionEventType,
   SubscriptionEventTypes,

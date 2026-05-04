@@ -10,7 +10,7 @@
 import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
-} from "@kumiko/bundled-features/subscription-foundation";
+} from "@kumiko/bundled-features/billing-foundation";
 import Stripe from "stripe";
 import { describe, expect, test } from "vitest";
 import {

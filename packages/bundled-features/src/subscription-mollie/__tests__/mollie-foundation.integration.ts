@@ -23,7 +23,7 @@ import {
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
   subscriptionFoundationFeature,
-} from "@kumiko/bundled-features/subscription-foundation";
+} from "@kumiko/bundled-features/billing-foundation";
 import type { DbConnection } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";
 import { createEventsTable, loadAggregate } from "@kumiko/framework/event-store";
@@ -266,7 +266,7 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
       roles: ["TenantAdmin", "SystemAdmin"],
     });
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
@@ -286,8 +286,8 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
     );
     // create + renewal beide im stream
     expect(esEvents).toHaveLength(2);
-    expect(esEvents[0]?.type).toBe("subscription-foundation:event:subscription-created");
-    expect(esEvents[1]?.type).toBe("subscription-foundation:event:invoice-paid");
+    expect(esEvents[0]?.type).toBe("billing-foundation:event:subscription-created");
+    expect(esEvents[1]?.type).toBe("billing-foundation:event:invoice-paid");
     expect(esEvents[1]?.metadata.headers?.["providerEventId"]).toBe("tr_5001_renewal");
   });
 });
@@ -319,7 +319,7 @@ describe("scenario 2: mandate-setup-flow — first-payment-paid OHNE existing su
       roles: ["TenantAdmin", "SystemAdmin"],
     });
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
@@ -397,7 +397,7 @@ describe("scenario 4: error + ignored paths", () => {
       roles: ["TenantAdmin", "SystemAdmin"],
     });
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };

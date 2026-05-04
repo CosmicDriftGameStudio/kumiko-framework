@@ -27,7 +27,7 @@ describe("createSubscriptionMollieFeature — shape", () => {
 
   test("requires only subscription-foundation (alles app-wide via factory-options)", () => {
     const feature = createSubscriptionMollieFeature(VALID_OPTIONS);
-    expect(feature.requires).toContain("subscription-foundation");
+    expect(feature.requires).toContain("billing-foundation");
     expect(feature.requires).not.toContain("config");
     expect(feature.requires).not.toContain("secrets");
   });

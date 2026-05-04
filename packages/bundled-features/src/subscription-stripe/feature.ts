@@ -35,7 +35,7 @@
 // gleiche factory-Form für features die module-load-time-Konfiguration
 // haben (analog zum FeatureToggle-runtime-holder).
 
-import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/subscription-foundation";
+import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/billing-foundation";
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
 import Stripe from "stripe";
 import { STRIPE_PROVIDER_NAME, SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
@@ -104,7 +104,7 @@ export function createSubscriptionStripeFeature(
     // `r.requires("config", "secrets")` — der Plugin nutzt weder
     // tenant-config noch tenant-secrets (alles app-wide via factory-
     // options).
-    r.requires("subscription-foundation");
+    r.requires("billing-foundation");
 
     // Plugin: register against subscription-foundation's
     // "subscriptionProvider" extension. entityName "stripe" matcht den

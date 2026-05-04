@@ -8,6 +8,11 @@
 // verdrahtet.
 
 import { randomBytes } from "node:crypto";
+import {
+  SubscriptionEventTypes,
+  SubscriptionFoundationHandlers,
+  SubscriptionStatuses,
+} from "@kumiko/bundled-features/billing-foundation";
 import { capCounterEntity } from "@kumiko/bundled-features/cap-counter";
 import {
   ConfigHandlers,
@@ -19,11 +24,6 @@ import {
 } from "@kumiko/bundled-features/config";
 import { clearInbox, getInbox } from "@kumiko/bundled-features/mail-transport-inmemory";
 import { createSecretsContext, tenantSecretsTable } from "@kumiko/bundled-features/secrets";
-import {
-  SubscriptionEventTypes,
-  SubscriptionFoundationHandlers,
-  SubscriptionStatuses,
-} from "@kumiko/bundled-features/subscription-foundation";
 import { createTenantFeature, tenantEntity } from "@kumiko/bundled-features/tenant";
 import { createEncryptionProvider, type DbConnection } from "@kumiko/framework/db";
 import { createEventsTable } from "@kumiko/framework/event-store";

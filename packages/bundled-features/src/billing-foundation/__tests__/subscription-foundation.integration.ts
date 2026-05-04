@@ -47,7 +47,7 @@ const mockCheckoutCalls: Array<{
 const mockPortalCalls: Array<{ providerCustomerId: string; returnUrl: string }> = [];
 
 const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
-  r.requires("subscription-foundation");
+  r.requires("billing-foundation");
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     createCheckoutSession: async (_ctx, options) => {
@@ -147,7 +147,7 @@ describe("scenario 1: webhook-event creates subscription + audit-row", () => {
 
     // subscription-row sichtbar via list-query
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
@@ -163,7 +163,7 @@ describe("scenario 1: webhook-event creates subscription + audit-row", () => {
       admin.tenantId,
     );
     expect(esEvents).toHaveLength(1);
-    expect(esEvents[0]?.type).toBe("subscription-foundation:event:subscription-created");
+    expect(esEvents[0]?.type).toBe("billing-foundation:event:subscription-created");
     expect(esEvents[0]?.metadata.headers?.["providerEventId"]).toBe("evt_3001_create");
   });
 });
@@ -198,7 +198,7 @@ describe("scenario 2: webhook-update upserts subscription, archiviert weiteren e
     );
 
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
@@ -245,7 +245,7 @@ describe("scenario 3: idempotency — webhook-retry mit selber providerEventId",
     // event hat den state NICHT überschrieben (wäre data-loss bei
     // out-of-order webhook-retries).
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
@@ -287,12 +287,12 @@ describe("scenario 4: tenant-isolation", () => {
     );
 
     const subsA = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       adminA,
     )) as { rows: Array<Record<string, unknown>> };
     const subsB = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       adminB,
     )) as { rows: Array<Record<string, unknown>> };
@@ -359,7 +359,7 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
     );
 
     let subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
@@ -383,11 +383,9 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
     // **Drift-Pin:** Eine subscription-row pro Tenant — der Wechsel
     // überschreibt die alte Provider-Daten, history liegt in
     // subscription-event-rows.
-    subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
-      {},
-      admin,
-    )) as { rows: Array<Record<string, unknown>> };
+    subs = (await stack.http.queryOk("billing-foundation:query:subscription:list", {}, admin)) as {
+      rows: Array<Record<string, unknown>>;
+    };
     expect(subs.rows).toHaveLength(1);
     expect(subs.rows[0]?.["providerName"]).toBe("paypal");
     expect(subs.rows[0]?.["providerCustomerId"]).toBe("PP-CUST-001");
@@ -419,7 +417,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     mockCheckoutCalls.length = 0;
     const admin = adminFor(3009);
     const result = (await stack.http.writeOk(
-      "subscription-foundation:write:create-checkout-session",
+      "billing-foundation:write:create-checkout-session",
       {
         providerName: "mock",
         priceId: "price_pro_test",
@@ -448,7 +446,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
   test("provider not registered → klarer error mit known-list", async () => {
     const admin = adminFor(3010);
     const error = await stack.http.writeErr(
-      "subscription-foundation:write:create-checkout-session",
+      "billing-foundation:write:create-checkout-session",
       {
         providerName: "non-existent-provider",
         priceId: "price_test",
@@ -464,7 +462,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     mockCheckoutCalls.length = 0;
     const admin = adminFor(3012);
     await stack.http.writeOk(
-      "subscription-foundation:write:create-checkout-session",
+      "billing-foundation:write:create-checkout-session",
       {
         providerName: "mock",
         priceId: "price_business_test",
@@ -499,7 +497,7 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
     );
 
     const result = (await stack.http.writeOk(
-      "subscription-foundation:write:create-portal-session",
+      "billing-foundation:write:create-portal-session",
       { returnUrl: "https://example.com/return" },
       admin,
     )) as Record<string, unknown>;
@@ -521,7 +519,7 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
   test("Tenant ohne subscription → 'no active subscription'-error", async () => {
     const admin = adminFor(3011);
     const error = await stack.http.writeErr(
-      "subscription-foundation:write:create-portal-session",
+      "billing-foundation:write:create-portal-session",
       { returnUrl: "https://example.com/return" },
       admin,
     );
@@ -559,7 +557,7 @@ describe("scenario 8: cancel-event setzt status auf canceled, behält subscripti
     );
 
     const subs = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription:list",
+      "billing-foundation:query:subscription:list",
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };

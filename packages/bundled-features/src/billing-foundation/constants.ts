@@ -1,5 +1,5 @@
 // Feature name
-export const SUBSCRIPTION_FOUNDATION_FEATURE = "subscription-foundation" as const;
+export const BILLING_FOUNDATION_FEATURE = "billing-foundation" as const;
 
 // Extension-point name fuer Provider-Plugins (subscription-stripe,
 // subscription-mollie, ...).
@@ -10,17 +10,17 @@ export const SubscriptionFoundationHandlers = {
   /** Programmatic entry-point für den webhook-handler. Receives the
    *  parsed SubscriptionEvent (vom Plugin schon verifiziert) + macht
    *  insert-event + upsert-subscription + tier-sync atomic. */
-  processEvent: "subscription-foundation:write:process-event",
+  processEvent: "billing-foundation:write:process-event",
   /** Tenant-Admin klickt "Upgrade to Pro" → handler findet den
    *  gewählten provider-plugin + ruft seine createCheckoutSession-
    *  Methode + returnt die hosted-page-URL. Tenant-Admin wird dorthin
    *  redirected, der subsequent provider-webhook erstellt die
    *  subscription. */
-  createCheckoutSession: "subscription-foundation:write:create-checkout-session",
+  createCheckoutSession: "billing-foundation:write:create-checkout-session",
   /** Tenant-Admin klickt "Manage Subscription" → handler findet
    *  current subscription, ruft plugin.createPortalSession, returnt
    *  hosted-portal-URL. */
-  createPortalSession: "subscription-foundation:write:create-portal-session",
+  createPortalSession: "billing-foundation:write:create-portal-session",
 } as const;
 
 // Qualified query handler names.
@@ -28,7 +28,7 @@ export const SubscriptionFoundationQueries = {
   /** Sysadmin-cross-tenant + tenant-scoped self-list auf der
    *  read_subscriptions-projection. Tenant-Admin sieht via ctx.db
    *  tenant-scoping nur die eigene row. */
-  listSubscriptions: "subscription-foundation:query:subscription:list",
+  listSubscriptions: "billing-foundation:query:subscription:list",
 } as const;
 
 // Normalized subscription-event types — provider-agnostic.

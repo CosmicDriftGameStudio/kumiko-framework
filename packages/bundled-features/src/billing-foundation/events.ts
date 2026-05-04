@@ -11,7 +11,7 @@
 // type ohne payload-discriminator.
 
 import { z } from "zod";
-import { SUBSCRIPTION_FOUNDATION_FEATURE, SubscriptionStatuses } from "./constants";
+import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./constants";
 
 // Aggregate-type für den event-store. Eine subscription pro Tenant ist
 // ein stream; der subscriptionAggregateId-helper liefert die stream-id.
@@ -26,15 +26,15 @@ export const INVOICE_PAID_EVENT_SHORT = "invoice-paid" as const;
 export const INVOICE_PAYMENT_FAILED_EVENT_SHORT = "invoice-payment-failed" as const;
 
 export const SUBSCRIPTION_CREATED_EVENT_QN =
-  `${SUBSCRIPTION_FOUNDATION_FEATURE}:event:${SUBSCRIPTION_CREATED_EVENT_SHORT}` as const;
+  `${BILLING_FOUNDATION_FEATURE}:event:${SUBSCRIPTION_CREATED_EVENT_SHORT}` as const;
 export const SUBSCRIPTION_UPDATED_EVENT_QN =
-  `${SUBSCRIPTION_FOUNDATION_FEATURE}:event:${SUBSCRIPTION_UPDATED_EVENT_SHORT}` as const;
+  `${BILLING_FOUNDATION_FEATURE}:event:${SUBSCRIPTION_UPDATED_EVENT_SHORT}` as const;
 export const SUBSCRIPTION_CANCELED_EVENT_QN =
-  `${SUBSCRIPTION_FOUNDATION_FEATURE}:event:${SUBSCRIPTION_CANCELED_EVENT_SHORT}` as const;
+  `${BILLING_FOUNDATION_FEATURE}:event:${SUBSCRIPTION_CANCELED_EVENT_SHORT}` as const;
 export const INVOICE_PAID_EVENT_QN =
-  `${SUBSCRIPTION_FOUNDATION_FEATURE}:event:${INVOICE_PAID_EVENT_SHORT}` as const;
+  `${BILLING_FOUNDATION_FEATURE}:event:${INVOICE_PAID_EVENT_SHORT}` as const;
 export const INVOICE_PAYMENT_FAILED_EVENT_QN =
-  `${SUBSCRIPTION_FOUNDATION_FEATURE}:event:${INVOICE_PAYMENT_FAILED_EVENT_SHORT}` as const;
+  `${BILLING_FOUNDATION_FEATURE}:event:${INVOICE_PAYMENT_FAILED_EVENT_SHORT}` as const;
 
 // Status-enum für event-payloads (= subscription-state-snapshot vom Provider).
 const statusEnum = z.enum([

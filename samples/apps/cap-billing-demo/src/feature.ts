@@ -27,6 +27,11 @@
 // existing flow.
 
 import {
+  BILLING_FOUNDATION_FEATURE,
+  getSubscriptionForTenant,
+  SubscriptionStatuses,
+} from "@kumiko/bundled-features/billing-foundation";
+import {
   currentCalendarMonthStartIso,
   type SoftHitNotifier,
   withCapEnforcement,
@@ -36,11 +41,6 @@ import {
   createTransportForTenant,
   mailFoundationFeature,
 } from "@kumiko/bundled-features/mail-foundation";
-import {
-  getSubscriptionForTenant,
-  SUBSCRIPTION_FOUNDATION_FEATURE,
-  SubscriptionStatuses,
-} from "@kumiko/bundled-features/subscription-foundation";
 import {
   access,
   createTenantConfig,
@@ -186,7 +186,7 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("config");
   r.requires("cap-counter");
   r.requires(mailFoundationFeature.name);
-  r.requires(SUBSCRIPTION_FOUNDATION_FEATURE);
+  r.requires(BILLING_FOUNDATION_FEATURE);
 
   // Tier-config-key. Tenant-Admin setzt's; default "free".
   r.config({

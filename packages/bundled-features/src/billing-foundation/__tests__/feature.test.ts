@@ -3,7 +3,7 @@
 import { describe, expect, test } from "vitest";
 import { subscriptionAggregateId } from "../aggregate-id";
 import {
-  SUBSCRIPTION_FOUNDATION_FEATURE,
+  BILLING_FOUNDATION_FEATURE,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
@@ -13,11 +13,11 @@ import { subscriptionFoundationFeature } from "../feature";
 
 describe("subscriptionFoundationFeature — shape", () => {
   test("has the expected name", () => {
-    expect(subscriptionFoundationFeature.name).toBe(SUBSCRIPTION_FOUNDATION_FEATURE);
+    expect(subscriptionFoundationFeature.name).toBe(BILLING_FOUNDATION_FEATURE);
     // Naming-Disziplin pin: NICHT "billing-foundation" — damit
     // marketplace-foundation später ohne Rename dazukommt (siehe
     // docs/plans/architecture/subscription-foundation.md).
-    expect(subscriptionFoundationFeature.name).toBe("subscription-foundation");
+    expect(subscriptionFoundationFeature.name).toBe("billing-foundation");
   });
 
   test("does NOT require config (Multi-Provider — config liegt in den Plugins)", () => {
@@ -70,7 +70,7 @@ describe("subscriptionFoundationFeature — events + projection + handlers regis
   test("process-event write-handler registriert mit erwarteter QN", () => {
     expect(subscriptionFoundationFeature.writeHandlers["process-event"]).toBeDefined();
     expect(SubscriptionFoundationHandlers.processEvent).toBe(
-      "subscription-foundation:write:process-event",
+      "billing-foundation:write:process-event",
     );
   });
 

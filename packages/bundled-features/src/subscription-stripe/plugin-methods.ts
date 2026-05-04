@@ -12,7 +12,7 @@
 // Contract erweitert (z.B. neuer optionaler Field), bemerkt der
 // Stripe-Plugin das beim TS-Compile, nicht erst zur Laufzeit.
 
-import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/subscription-foundation";
+import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/billing-foundation";
 import type { HandlerContext } from "@kumiko/framework/engine";
 import type Stripe from "stripe";
 

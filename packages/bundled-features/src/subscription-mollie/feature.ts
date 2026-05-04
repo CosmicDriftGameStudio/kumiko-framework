@@ -39,7 +39,7 @@
 //     }),
 //   ];
 
-import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/subscription-foundation";
+import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/billing-foundation";
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
 import { createMollieClient } from "@mollie/api-client";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants";
@@ -131,7 +131,7 @@ export function createSubscriptionMollieFeature(
   );
 
   return defineFeature(SUBSCRIPTION_MOLLIE_FEATURE, (r) => {
-    r.requires("subscription-foundation");
+    r.requires("billing-foundation");
 
     const plugin: SubscriptionProviderPlugin = {
       verifyAndParseWebhook: verifyAndParse,
