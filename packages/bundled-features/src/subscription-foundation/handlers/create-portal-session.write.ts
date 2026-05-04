@@ -9,15 +9,13 @@
 // kann nicht zum Portal eines OTHER Providers, weil der ihn nicht
 // kennt.
 
-import { createEntityExecutor, type WriteHandlerDef } from "@kumiko/framework/engine";
+import type { WriteHandlerDef } from "@kumiko/framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
 import { SUBSCRIPTION_PROVIDER_EXTENSION } from "../constants";
-import { subscriptionEntity } from "../entities";
+import { subscriptionsProjectionTable as subTable } from "../projection";
 import type { SubscriptionProviderPlugin } from "../types";
-
-const { table: subTable } = createEntityExecutor("subscription", subscriptionEntity);
 
 const createPortalSessionSchema = z.object({
   /** Wo der Endkunde nach Portal-Session landed. */

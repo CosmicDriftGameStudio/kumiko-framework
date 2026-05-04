@@ -11,87 +11,109 @@
 //
 // **Was diese Foundation liefert:**
 //   1. **Plugin-API** für Subscription-Provider via `r.extendsRegistrar(
-//      "subscriptionProvider", ...)`. Provider-Plugins registrieren sich.
-//   2. **2 Domain-Entitäten**:
-//      - `subscription`: current state pro Plattform-Tenant (mit
-//        providerName-Spalte = welcher Plugin gerade die Sub hält)
-//      - `subscription-event`: audit + idempotency-anchor für webhooks
-//   3. **process-event-handler**: programmatic write-handler den der
-//      webhook-handler aufruft mit dem normalisierten Event vom Plugin
-//   4. **createSubscriptionWebhookHandler**: factory für die HTTP-Route
-//      `/api/subscription/webhook/:providerName` (Pfad-Parameter wählt
-//      Plugin). App-Owner mountet via `extraRoutes` in seinem
-//      bin/server.ts.
+//      "subscriptionProvider", ...)`.
+//   2. **5 Domain-Events** auf dem `subscription`-stream (eine
+//      stream-id pro Tenant): created/updated/canceled/invoice-paid/
+//      invoice-payment-failed. Audit-history kommt frei vom event-store.
+//   3. **Inline-Projection** auf `read_subscriptions` (= current state
+//      pro Tenant). Apply läuft in derselben TX wie der event-append
+//      → read-your-own-write semantics.
+//   4. **process-event-handler**: programmatic write-handler den der
+//      webhook-handler aufruft, dispatcht zu type-passendem appendEvent.
+//   5. **createSubscriptionWebhookHandler**: factory für die HTTP-Route
+//      `/api/subscription/webhook/:providerName`.
 //
 // **Was diese Foundation NICHT macht:**
-//   - Kein Tier-Sync zum tier-engine. Das ist optional — App-Owner
-//     verdrahtet den process-event-handler-success ggf. mit einem
-//     post-write-hook der `tier-engine:write:upsert-tier-assignment`
-//     ruft.
-//   - Keine provider-spezifischen Configs (Stripe-Webhook-secret,
-//     PayPal-API-key etc). Diese liegen im jeweiligen Provider-Plugin
-//     analog mail-transport-smtp / file-provider-s3.
-//   - Keine `price-to-tier`-Map auf foundation-Ebene — pro-Plugin, weil
-//     Stripe-priceIds vs PayPal-plan-ids vs Apple-product-ids
-//     unterschiedliche IDs sind. Jedes Plugin definiert seinen eigenen
-//     `<plugin-name>:config:price-to-tier`-Key.
+//   - Kein r.entity für `subscription`. Die Tabelle ist eine reine
+//     Read-Projection — kein CRUD-Pfad. Schreibt wird ausschließlich
+//     via projection-apply, getriggert von einem der 5 events.
+//   - Kein Tier-Sync zum tier-engine. App-Owner liest die subscription-
+//     row via `getSubscriptionForTenant(ctx, tenantId)` wenn er möchte.
+//   - Keine provider-spezifischen Configs.
 //   - Kein Marketplace-Use-Case (App-Tenant billed Endkunden via
-//     Stripe Connect). Kommt als separate `marketplace-foundation` —
-//     siehe docs/plans/architecture/subscription-foundation.md.
-//
-// **Pattern-Vorbild:** mirrors mail-foundation + file-foundation +
-// ai-foundation. Identische Trennung Foundation ↔ Provider, aber
-// MULTI-PROVIDER statt single-selector.
+//     Stripe Connect). Kommt als separate `marketplace-foundation`.
 
-import {
-  defineEntityListHandler,
-  defineFeature,
-  type FeatureDefinition,
-} from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
 import { SUBSCRIPTION_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
-import { subscriptionEntity, subscriptionEventEntity } from "./entities";
+import { subscriptionEntity } from "./entities";
+import {
+  INVOICE_PAID_EVENT_QN,
+  INVOICE_PAID_EVENT_SHORT,
+  INVOICE_PAYMENT_FAILED_EVENT_QN,
+  INVOICE_PAYMENT_FAILED_EVENT_SHORT,
+  SUBSCRIPTION_AGGREGATE_TYPE,
+  SUBSCRIPTION_CANCELED_EVENT_QN,
+  SUBSCRIPTION_CANCELED_EVENT_SHORT,
+  SUBSCRIPTION_CREATED_EVENT_QN,
+  SUBSCRIPTION_CREATED_EVENT_SHORT,
+  SUBSCRIPTION_UPDATED_EVENT_QN,
+  SUBSCRIPTION_UPDATED_EVENT_SHORT,
+  subscriptionEventPayloadSchema,
+} from "./events";
 import { createCheckoutSessionHandler } from "./handlers/create-checkout-session.write";
 import { createPortalSessionHandler } from "./handlers/create-portal-session.write";
+import { listSubscriptionsQuery } from "./handlers/list-subscriptions.query";
 import { processEventHandler } from "./handlers/process-event.write";
+import {
+  applyInvoicePaid,
+  applyInvoicePaymentFailed,
+  applySubscriptionCanceled,
+  applySubscriptionCreated,
+  applySubscriptionUpdated,
+  subscriptionsProjectionTable,
+} from "./projection";
 
-const sysadminAccess = { access: { roles: ["SystemAdmin"] } } as const;
+// Re-export entity-shape so external callers (helper, tests) can build
+// their own drizzle-table-instance via buildDrizzleTable.
+export { subscriptionEntity };
 
 export const subscriptionFoundationFeature: FeatureDefinition = defineFeature(
   SUBSCRIPTION_FOUNDATION_FEATURE,
   (r) => {
-    // Domain-entities. Beide tenant-scoped (tenantId kommt automatisch
-    // als Base-Column). r.entity registriert intern eine Implicit-
-    // Projection — projection-rebuild wird via `kumiko project rebuild`
-    // möglich falls die Mapping-Logik im handler je geändert wird.
-    r.entity("subscription", subscriptionEntity);
-    r.entity("subscription-event", subscriptionEventEntity);
+    // 5 fine-grained domain-events. Alle 5 nutzen denselben payload-
+    // shape (= subscription-state-snapshot); der event-type taggt was
+    // passiert ist. Future-consumer (billing-history, accounting)
+    // listenen direkt auf den event-type ohne payload-discriminator.
+    r.defineEvent(SUBSCRIPTION_CREATED_EVENT_SHORT, subscriptionEventPayloadSchema);
+    r.defineEvent(SUBSCRIPTION_UPDATED_EVENT_SHORT, subscriptionEventPayloadSchema);
+    r.defineEvent(SUBSCRIPTION_CANCELED_EVENT_SHORT, subscriptionEventPayloadSchema);
+    r.defineEvent(INVOICE_PAID_EVENT_SHORT, subscriptionEventPayloadSchema);
+    r.defineEvent(INVOICE_PAYMENT_FAILED_EVENT_SHORT, subscriptionEventPayloadSchema);
+
+    // Inline projection: materialized current state in `read_subscriptions`.
+    // Apply läuft in derselben TX wie ctx.appendEventUnsafe — read-your-
+    // own-write ohne dispatcher-tick.
+    r.projection({
+      name: "subscription",
+      source: SUBSCRIPTION_AGGREGATE_TYPE,
+      table: subscriptionsProjectionTable,
+      apply: {
+        [SUBSCRIPTION_CREATED_EVENT_QN]: applySubscriptionCreated,
+        [SUBSCRIPTION_UPDATED_EVENT_QN]: applySubscriptionUpdated,
+        [SUBSCRIPTION_CANCELED_EVENT_QN]: applySubscriptionCanceled,
+        [INVOICE_PAID_EVENT_QN]: applyInvoicePaid,
+        [INVOICE_PAYMENT_FAILED_EVENT_QN]: applyInvoicePaymentFailed,
+      },
+    });
 
     // Plugin extension-point. Provider-Plugins registrieren sich hier.
-    // Der entityName beim r.useExtension wird Teil der webhook-URL
-    // (`/api/subscription/webhook/:providerName`) und der
-    // `subscription.providerName`-Spalte.
     r.extendsRegistrar(SUBSCRIPTION_PROVIDER_EXTENSION, {
       onRegister: () => {
-        // No side-effects at register-time — Registry stores the usage,
-        // webhook-handler-factory looks it up at request-time via
-        // path-segment.
+        // No side-effects at register-time.
       },
     });
 
     // Custom write-handlers:
-    //   - process-event: programmatic entry-point vom webhook-handler
+    //   - process-event: programmatic entry-point vom webhook-handler;
+    //     dispatcht zu type-passendem appendEvent
     //   - create-checkout-session: Tenant-Admin "Upgrade to Pro"-flow
     //   - create-portal-session: Tenant-Admin "Manage Subscription"-flow
     r.writeHandler(processEventHandler);
     r.writeHandler(createCheckoutSessionHandler);
     r.writeHandler(createPortalSessionHandler);
 
-    // Standard reads — sysadmin-cross-tenant via list. Tenant-self-service-
-    // queries (current subscription, available providers, ...) kommen mit
-    // Phase 5.4 wenn das Sample erweitert wird.
-    r.queryHandler(defineEntityListHandler("subscription", subscriptionEntity, sysadminAccess));
-    r.queryHandler(
-      defineEntityListHandler("subscription-event", subscriptionEventEntity, sysadminAccess),
-    );
+    // Custom list-query auf der subscription-projection (raw drizzle-
+    // table; kein r.entity weil Schreiben via projection-apply läuft).
+    r.queryHandler(listSubscriptionsQuery);
   },
 );

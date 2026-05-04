@@ -13,9 +13,8 @@
 
 import type { DbConnection } from "@kumiko/framework/db";
 import { defineFeature } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
+import { createEventsTable, loadAggregate } from "@kumiko/framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
@@ -28,8 +27,8 @@ import {
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../constants";
-import { subscriptionEntity, subscriptionEventEntity } from "../entities";
 import { subscriptionFoundationFeature } from "../feature";
+import { subscriptionsProjectionTable } from "../projection";
 import type { SubscriptionProviderPlugin } from "../types";
 
 // =============================================================================
@@ -85,8 +84,8 @@ beforeAll(async () => {
     features: [subscriptionFoundationFeature, mockProviderFeature],
   });
   db = stack.db;
-  await createEntityTable(db, subscriptionEntity);
-  await createEntityTable(db, subscriptionEventEntity);
+  // subscriptionsProjectionTable wird von setupTestStack automatisch
+  // gepusht (r.projection mit `table`-Property → auto-push).
   await createEventsTable(db);
 });
 
@@ -157,15 +156,16 @@ describe("scenario 1: webhook-event creates subscription + audit-row", () => {
     expect(subs.rows[0]?.["tier"]).toBe("pro");
     expect(subs.rows[0]?.["providerCustomerId"]).toBe("cus_3001");
 
-    // subscription-event-row archiviert
-    const events = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription-event:list",
-      {},
-      admin,
-    )) as { rows: Array<Record<string, unknown>> };
-    expect(events.rows).toHaveLength(1);
-    expect(events.rows[0]?.["providerEventId"]).toBe("evt_3001_create");
-    expect(events.rows[0]?.["eventType"]).toBe(SubscriptionEventTypes.created);
+    // ES-event archiviert (= audit lebt im event-store, kein separate
+    // subscription-event-Tabelle mehr).
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(admin.tenantId),
+      admin.tenantId,
+    );
+    expect(esEvents).toHaveLength(1);
+    expect(esEvents[0]?.type).toBe("subscription-foundation:event:subscription-created");
+    expect(esEvents[0]?.metadata.headers?.["providerEventId"]).toBe("evt_3001_create");
   });
 });
 
@@ -206,12 +206,12 @@ describe("scenario 2: webhook-update upserts subscription, archiviert weiteren e
     expect(subs.rows).toHaveLength(1); // immer noch 1 row, geupdated
     expect(subs.rows[0]?.["tier"]).toBe("business");
 
-    const events = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription-event:list",
-      {},
-      admin,
-    )) as { rows: Array<Record<string, unknown>> };
-    expect(events.rows).toHaveLength(2); // create + update beide archiviert
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(admin.tenantId),
+      admin.tenantId,
+    );
+    expect(esEvents).toHaveLength(2); // create + update beide im stream
   });
 });
 
@@ -252,12 +252,12 @@ describe("scenario 3: idempotency — webhook-retry mit selber providerEventId",
     )) as { rows: Array<Record<string, unknown>> };
     expect(subs.rows[0]?.["tier"]).toBe("pro");
 
-    const events = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription-event:list",
-      {},
-      admin,
-    )) as { rows: Array<Record<string, unknown>> };
-    expect(events.rows).toHaveLength(1); // dedup'd
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(admin.tenantId),
+      admin.tenantId,
+    );
+    expect(esEvents).toHaveLength(1); // dedup'd
   });
 });
 
@@ -394,14 +394,17 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
     expect(subs.rows[0]?.["providerCustomerId"]).toBe("PP-CUST-001");
     expect(subs.rows[0]?.["providerSubscriptionId"]).toBe("I-PAYPAL-NEW");
 
-    // History: beide events archiviert
-    const events = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription-event:list",
-      {},
-      admin,
-    )) as { rows: Array<Record<string, unknown>> };
-    expect(events.rows).toHaveLength(2);
-    const providerNames = events.rows.map((r) => r["providerName"]).sort();
+    // History: beide events im subscription-stream archiviert
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(admin.tenantId),
+      admin.tenantId,
+    );
+    expect(esEvents).toHaveLength(2);
+    const providerNames = esEvents
+      .map((e) => e.metadata.headers?.["providerName"] as string | undefined)
+      .filter((p): p is string => p !== undefined)
+      .sort();
     expect(providerNames).toEqual(["paypal", "stripe"]);
   });
 });

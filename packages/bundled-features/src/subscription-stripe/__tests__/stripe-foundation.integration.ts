@@ -16,15 +16,13 @@ import {
   createSubscriptionWebhookHandler,
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
-  subscriptionEntity,
-  subscriptionEventEntity,
   subscriptionFoundationFeature,
+  subscriptionsProjectionTable,
 } from "@kumiko/bundled-features/subscription-foundation";
 import type { DbConnection } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
+import { createEventsTable, loadAggregate } from "@kumiko/framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
@@ -60,8 +58,8 @@ beforeAll(async () => {
     features: [subscriptionFoundationFeature, stripeFeature],
   });
   db = stack.db;
-  await createEntityTable(db, subscriptionEntity);
-  await createEntityTable(db, subscriptionEventEntity);
+  // subscriptionsProjectionTable wird von setupTestStack automatisch
+  // gepusht (r.projection mit `table`-Property → auto-push).
   await createEventsTable(db);
 
   // Webhook-app: Hono mit der webhook-handler-Route.
@@ -202,17 +200,18 @@ describe("scenario 1: Stripe-event → DB happy path", () => {
     // (foundation-side) und expected uuid.
     expect(subs.rows[0]?.["id"]).toBe(subscriptionAggregateId(tenantStringId));
 
-    const events = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription-event:list",
-      {},
-      admin,
-    )) as { rows: Array<Record<string, unknown>> };
-    expect(events.rows).toHaveLength(1);
-    expect(events.rows[0]?.["providerName"]).toBe("stripe");
-    expect(events.rows[0]?.["providerEventId"]).toBe("evt_4001_create");
-    expect(events.rows[0]?.["eventType"]).toBe("subscription.created");
-    // rawPayload wurde 1:1 archiviert
-    const archivedRaw = JSON.parse(events.rows[0]?.["rawPayload"] as string) as { id: string };
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(tenantStringId),
+      tenantStringId,
+    );
+    expect(esEvents).toHaveLength(1);
+    expect(esEvents[0]?.type).toBe("subscription-foundation:event:subscription-created");
+    expect(esEvents[0]?.metadata.headers?.["providerName"]).toBe("stripe");
+    expect(esEvents[0]?.metadata.headers?.["providerEventId"]).toBe("evt_4001_create");
+    // rawPayload wurde 1:1 in headers archiviert
+    const rawHeader = esEvents[0]?.metadata.headers?.["rawPayload"] as string;
+    const archivedRaw = JSON.parse(rawHeader) as { id: string };
     expect(archivedRaw.id).toBe("evt_4001_create");
   });
 });
@@ -275,18 +274,13 @@ describe("scenario 3: idempotency via Stripe-retry", () => {
     const body2 = (await res2.json()) as { processed: boolean; duplicate: boolean };
     expect(body2.duplicate).toBe(true);
 
-    // Drift-pin: nur ein subscription-event-row in der DB
-    const admin = createTestUser({
-      id: 4003,
-      tenantId: tenantStringId,
-      roles: ["TenantAdmin", "SystemAdmin"],
-    });
-    const events = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription-event:list",
-      {},
-      admin,
-    )) as { rows: Array<Record<string, unknown>> };
-    expect(events.rows).toHaveLength(1);
+    // Drift-pin: nur ein event im subscription-stream
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(tenantStringId),
+      tenantStringId,
+    );
+    expect(esEvents).toHaveLength(1);
   });
 });
 

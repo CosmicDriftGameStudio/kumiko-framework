@@ -23,11 +23,13 @@ export const SubscriptionFoundationHandlers = {
   createPortalSession: "subscription-foundation:write:create-portal-session",
 } as const;
 
-// Qualified query handler names. Standard-list-handler werden vom
-// Framework auto-generiert; per-tenant-self-service-queries (current
-// subscription, available providers) kommen mit Phase 5.4 wenn das
-// Sample erweitert wird.
-export const SubscriptionFoundationQueries = {} as const;
+// Qualified query handler names.
+export const SubscriptionFoundationQueries = {
+  /** Sysadmin-cross-tenant + tenant-scoped self-list auf der
+   *  read_subscriptions-projection. Tenant-Admin sieht via ctx.db
+   *  tenant-scoping nur die eigene row. */
+  listSubscriptions: "subscription-foundation:query:subscription:list",
+} as const;
 
 // Normalized subscription-event types — provider-agnostic.
 // Alle Provider-Plugins normalisieren ihre eigenen event-types auf einen

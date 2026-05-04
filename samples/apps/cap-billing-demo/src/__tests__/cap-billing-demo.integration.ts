@@ -23,8 +23,6 @@ import {
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
-  subscriptionEntity,
-  subscriptionEventEntity,
 } from "@kumiko/bundled-features/subscription-foundation";
 import { createTenantFeature, tenantEntity } from "@kumiko/bundled-features/tenant";
 import { createEncryptionProvider, type DbConnection } from "@kumiko/framework/db";
@@ -86,8 +84,8 @@ beforeAll(async () => {
 
   await createEntityTable(db, tenantEntity);
   await createEntityTable(db, capCounterEntity);
-  await createEntityTable(db, subscriptionEntity);
-  await createEntityTable(db, subscriptionEventEntity);
+  // read_subscriptions wird von setupTestStack automatisch gepusht
+  // (r.projection mit `table`-Property → auto-push).
   await pushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
   await createEventsTable(db);
 });

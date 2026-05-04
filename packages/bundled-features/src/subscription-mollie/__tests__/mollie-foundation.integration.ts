@@ -22,15 +22,13 @@ import {
   createSubscriptionWebhookHandler,
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
-  subscriptionEntity,
-  subscriptionEventEntity,
   subscriptionFoundationFeature,
+  subscriptionsProjectionTable,
 } from "@kumiko/bundled-features/subscription-foundation";
 import type { DbConnection } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
+import { createEventsTable, loadAggregate } from "@kumiko/framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
@@ -139,8 +137,8 @@ beforeAll(async () => {
     features: [subscriptionFoundationFeature, mollieFeature],
   });
   db = stack.db;
-  await createEntityTable(db, subscriptionEntity);
-  await createEntityTable(db, subscriptionEventEntity);
+  // subscriptionsProjectionTable wird von setupTestStack automatisch
+  // gepusht (r.projection mit `table`-Property → auto-push).
   await createEventsTable(db);
 
   webhookApp = new Hono();
@@ -232,19 +230,29 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
   test("recurring-payment paid → fetch sub → invoicePaid event → DB-row geupdated", async () => {
     const tenantStringId = testTenantId(5001);
 
-    const sub = buildMockSubscription({
-      id: "sub_5001",
-      customerId: "cst_5001",
-      status: "active",
-      metadata: { tenantId: tenantStringId, priceId: "plan_pro" },
-    });
-    mockState.subscriptionsByCustomer.set("cst_5001", [sub]);
+    // 1. First mandate-setup-payment (= subscription-created event).
+    //    Real-world: Mollie sendet first-payment-paid → Plugin
+    //    erstellt sub on-the-fly → Created-event landed in DB.
+    mockState.payments.set(
+      "tr_5001_first",
+      buildMockPayment({
+        id: "tr_5001_first",
+        customerId: "cst_5001",
+        subscriptionId: null,
+        sequenceType: "first",
+        status: "paid",
+        metadata: { tenantId: tenantStringId, priceId: "plan_pro" },
+      }),
+    );
+    await postMollieWebhook("tr_5001_first");
+
+    // 2. Existing sub jetzt im mock-state. Recurring-charge kommt:
     mockState.payments.set(
       "tr_5001_renewal",
       buildMockPayment({
         id: "tr_5001_renewal",
         customerId: "cst_5001",
-        subscriptionId: "sub_5001",
+        subscriptionId: "sub_created_1",
         sequenceType: "recurring",
         status: "paid",
       }),
@@ -265,19 +273,21 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
     )) as { rows: Array<Record<string, unknown>> };
     expect(subs.rows).toHaveLength(1);
     expect(subs.rows[0]?.["providerName"]).toBe("mollie");
-    expect(subs.rows[0]?.["providerSubscriptionId"]).toBe("sub_5001");
+    expect(subs.rows[0]?.["providerSubscriptionId"]).toBe("sub_created_1");
     expect(subs.rows[0]?.["tier"]).toBe("pro");
     expect(subs.rows[0]?.["status"]).toBe("active");
     expect(subs.rows[0]?.["id"]).toBe(subscriptionAggregateId(tenantStringId));
 
-    const events = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription-event:list",
-      {},
-      admin,
-    )) as { rows: Array<Record<string, unknown>> };
-    expect(events.rows).toHaveLength(1);
-    expect(events.rows[0]?.["providerEventId"]).toBe("tr_5001_renewal");
-    expect(events.rows[0]?.["eventType"]).toBe("invoice.paid");
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(tenantStringId),
+      tenantStringId,
+    );
+    // create + renewal beide im stream
+    expect(esEvents).toHaveLength(2);
+    expect(esEvents[0]?.type).toBe("subscription-foundation:event:subscription-created");
+    expect(esEvents[1]?.type).toBe("subscription-foundation:event:invoice-paid");
+    expect(esEvents[1]?.metadata.headers?.["providerEventId"]).toBe("tr_5001_renewal");
   });
 });
 
@@ -350,17 +360,12 @@ describe("scenario 3: idempotency via Mollie-retry", () => {
     // Drift-pin: ensureSubscriptionForMandate fand die existing sub via list.
     expect(mockState.createCallCount).toBe(1);
 
-    const admin = createTestUser({
-      id: 5003,
-      tenantId: tenantStringId,
-      roles: ["TenantAdmin", "SystemAdmin"],
-    });
-    const events = (await stack.http.queryOk(
-      "subscription-foundation:query:subscription-event:list",
-      {},
-      admin,
-    )) as { rows: Array<Record<string, unknown>> };
-    expect(events.rows).toHaveLength(1);
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(tenantStringId),
+      tenantStringId,
+    );
+    expect(esEvents).toHaveLength(1);
   });
 });
 

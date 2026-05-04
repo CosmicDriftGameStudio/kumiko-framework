@@ -2,35 +2,30 @@
 // (createSubscriptionWebhookHandler) aufruft NACHDEM Plugin den raw-body
 // verifiziert + zu SubscriptionEvent normalisiert hat.
 //
-// Macht in einem Atomzug:
-//   1. Insert subscription-event (deterministic aggregate-id =
-//      Idempotency-Anker)
-//   2. Upsert subscription (deterministic aggregate-id per tenant,
-//      try-create / executor-update analog cap-counter increment)
-//
-// Beide Schritte laufen in derselben dispatcher-Transaktion — System-
-// Crash → rollback aller Schritte → Provider-Retry kommt sauber durch.
-//
-// **NICHT** macht: Tier-Sync zum tier-engine. Das ist ein separater
-// optionaler Schritt — nicht jede subscription-foundation-Mount braucht
-// auch tier-engine. App-Owner ruft im eigenen post-process-hook ggf.
-// `tier-engine:write:upsert-tier-assignment` mit dem aufgelösten tier.
+// **ES-Pattern:**
+//   1. Idempotency-check: lädt subscription-stream + scannt nach
+//      bereits gesehenem `metadata.providerEventId`. Provider-Replay
+//      (Stripe-Retry-Storm) sieht denselben event-id → duplicate=true,
+//      kein zweiter append.
+//   2. Type-mapping: SubscriptionEvent.type (= normalisiert vom Plugin)
+//      → einer der 5 ES-event-typen.
+//   3. ctx.appendEventUnsafe — Inline-projection materialisiert die
+//      `read_subscriptions`-row in derselben TX.
 
-import { createEntityExecutor, type WriteHandlerDef } from "@kumiko/framework/engine";
-import { eq } from "drizzle-orm";
+import type { WriteHandlerDef } from "@kumiko/framework/engine";
 import { z } from "zod";
-import { subscriptionAggregateId, subscriptionEventAggregateId } from "../aggregate-id";
+import { subscriptionAggregateId } from "../aggregate-id";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
-import { subscriptionEntity, subscriptionEventEntity } from "../entities";
-
-const { table: subTable, executor: subExecutor } = createEntityExecutor(
-  "subscription",
-  subscriptionEntity,
-);
-const { table: eventTable, executor: eventExecutor } = createEntityExecutor(
-  "subscription-event",
-  subscriptionEventEntity,
-);
+import {
+  INVOICE_PAID_EVENT_QN,
+  INVOICE_PAYMENT_FAILED_EVENT_QN,
+  SUBSCRIPTION_AGGREGATE_TYPE,
+  SUBSCRIPTION_CANCELED_EVENT_QN,
+  SUBSCRIPTION_CREATED_EVENT_QN,
+  SUBSCRIPTION_UPDATED_EVENT_QN,
+  type SubscriptionEventHeaders,
+  type SubscriptionEventPayload,
+} from "../events";
 
 // =============================================================================
 // Input-Schema = der normalisierte SubscriptionEvent (ohne tenantId, der
@@ -67,13 +62,22 @@ export const processEventSchema = z.object({
 });
 type ProcessEventPayload = z.infer<typeof processEventSchema>;
 
+// Map normalized SubscriptionEventType → fully-qualified ES event-name.
+const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
+  [SubscriptionEventTypes.created]: SUBSCRIPTION_CREATED_EVENT_QN,
+  [SubscriptionEventTypes.updated]: SUBSCRIPTION_UPDATED_EVENT_QN,
+  [SubscriptionEventTypes.canceled]: SUBSCRIPTION_CANCELED_EVENT_QN,
+  [SubscriptionEventTypes.invoicePaid]: INVOICE_PAID_EVENT_QN,
+  [SubscriptionEventTypes.invoicePaymentFailed]: INVOICE_PAYMENT_FAILED_EVENT_QN,
+};
+
 // =============================================================================
 // Handler
 // =============================================================================
 //
 // SystemAdmin-only: dieser handler wird ausschließlich vom programmatic
 // webhook-handler aufgerufen (mit einem internal SystemUser), nie vom
-// Tenant-Admin direkt. Audit-Row dokumentiert "subsystem hat es geschrieben".
+// Tenant-Admin direkt.
 export const processEventHandler: WriteHandlerDef = {
   name: "process-event",
   schema: processEventSchema,
@@ -82,96 +86,69 @@ export const processEventHandler: WriteHandlerDef = {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
     const payload = event.payload as ProcessEventPayload;
     const tenantId = event.user.tenantId;
+    const aggId = subscriptionAggregateId(tenantId);
 
     // ---------------------------------------------------------------
-    // 1. Idempotency-Check: existiert schon ein subscription-event mit
-    //    diesem aggregate-id? Wenn ja → duplicate, early-return.
-    //
-    //    **Pattern: exists-check VOR create** statt try/catch um den
-    //    create. Reason: Postgres setzt die TX in abort-state nach
-    //    einem fehlgeschlagenen INSERT (UNIQUE-violation oder
-    //    version_conflict); ein folgendes SELECT wirft "current
-    //    transaction is aborted". Im Dispatcher öffnet jeder write-
-    //    handler eine eigene TX, also würde der ganze handler abbrechen.
-    //    Same approach wie cap-counter increment.
+    // 1. Idempotency: load subscription-stream + check ob dieser
+    //    providerEventId bereits gesehen wurde. Provider-Retry-Storm
+    //    (Stripe sendet bis zu 5x in 4h) trifft denselben Stream und
+    //    findet den event-id in metadata.
     // ---------------------------------------------------------------
-    const eventAggregateId = subscriptionEventAggregateId(
-      tenantId,
-      payload.providerName,
-      payload.providerEventId,
-    );
-    const existingEvent = await ctx.db
-      .select()
-      .from(eventTable)
-      .where(eq(eventTable["id"], eventAggregateId))
-      .limit(1);
-    if (existingEvent.length > 0) {
+    const existingEvents = await ctx.loadAggregate(aggId);
+    const alreadySeen = existingEvents.some((e) => {
+      const headers = e.metadata.headers ?? {};
+      return (
+        headers["providerEventId"] === payload.providerEventId &&
+        headers["providerName"] === payload.providerName
+      );
+    });
+    if (alreadySeen) {
       return {
         isSuccess: true as const,
-        data: { duplicate: true as const, eventAggregateId },
+        data: { duplicate: true as const, subscriptionAggregateId: aggId },
       };
     }
 
-    await eventExecutor.create(
-      {
-        id: eventAggregateId,
-        providerName: payload.providerName,
-        providerEventId: payload.providerEventId,
-        eventType: payload.type,
-        receivedAt: ctx.tz?.now() ?? Temporal.Now.instant(),
-        rawPayload: payload.rawPayload,
-      },
-      event.user,
-      ctx.db,
-    );
+    // ---------------------------------------------------------------
+    // 2. Map normalized event-type → ES event-FQN.
+    // ---------------------------------------------------------------
+    const esEventType = NORMALIZED_TO_ES_EVENT[payload.type];
+    if (!esEventType) {
+      // Schema-validation oben sollte das schon fangen, aber defensive
+      // gegen drift im SubscriptionEventTypes-enum vs NORMALIZED-Map.
+      throw new Error(`subscription-foundation: no ES event-type mapping for "${payload.type}"`);
+    }
 
     // ---------------------------------------------------------------
-    // 2. Upsert subscription. Aggregate-id ist deterministic per
-    //    tenantId — eine subscription-row pro Tenant.
+    // 3. Append event auf den subscription-stream. Inline-projection
+    //    materialisiert die read_subscriptions-row in derselben TX.
     // ---------------------------------------------------------------
-    const subAggId = subscriptionAggregateId(tenantId);
-    const existing = await ctx.db
-      .select()
-      .from(subTable)
-      .where(eq(subTable["id"], subAggId))
-      .limit(1);
-
-    const subscriptionFields = {
+    const eventPayload: SubscriptionEventPayload = {
       providerName: payload.providerName,
       providerCustomerId: payload.providerCustomerId,
       providerSubscriptionId: payload.providerSubscriptionId,
       status: payload.status,
       tier: payload.tier,
-      currentPeriodEnd: payload.currentPeriodEndIso,
+      currentPeriodEndIso: payload.currentPeriodEndIso,
     };
-
-    if (existing.length === 0) {
-      await subExecutor.create({ id: subAggId, ...subscriptionFields }, event.user, ctx.db);
-    } else {
-      const row = existing[0];
-      if (!row) {
-        throw new Error(
-          "subscription-foundation: subscription row vanished between length-check and read",
-        );
-      }
-      const currentVersion = row["version"] as number;
-      await subExecutor.update(
-        {
-          id: subAggId,
-          version: currentVersion,
-          changes: subscriptionFields,
-        },
-        event.user,
-        ctx.db,
-      );
-    }
+    const headers: SubscriptionEventHeaders = {
+      providerEventId: payload.providerEventId,
+      providerName: payload.providerName,
+      rawPayload: payload.rawPayload,
+    };
+    await ctx.appendEventUnsafe({
+      aggregateId: aggId,
+      aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
+      type: esEventType,
+      payload: eventPayload,
+      headers,
+    });
 
     return {
       isSuccess: true as const,
       data: {
         duplicate: false as const,
-        eventAggregateId,
-        subscriptionAggregateId: subAggId,
+        subscriptionAggregateId: aggId,
       },
     };
   },

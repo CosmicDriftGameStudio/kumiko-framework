@@ -1,14 +1,10 @@
-// Resolver-helper: liest die current subscription-row für einen Tenant.
-// Apps die tier-engine + subscription-foundation kombinieren benutzen
-// diesen Helper statt selbst gegen `subscription`-table zu queryn —
-// damit foundation-Schema-Änderungen nur eine Stelle aktualisieren.
+// Resolver-helper: liest die current subscription-row für einen Tenant
+// aus der read_subscriptions-projection.
 
-import { createEntityExecutor, type HandlerContext } from "@kumiko/framework/engine";
+import type { HandlerContext } from "@kumiko/framework/engine";
 import { eq } from "drizzle-orm";
 import { subscriptionAggregateId } from "./aggregate-id";
-import { subscriptionEntity } from "./entities";
-
-const { table: subTable } = createEntityExecutor("subscription", subscriptionEntity);
+import { subscriptionsProjectionTable } from "./projection";
 
 export type SubscriptionView = {
   readonly tier: string;
@@ -26,7 +22,11 @@ export async function getSubscriptionForTenant(
   tenantId: string,
 ): Promise<SubscriptionView | null> {
   const aggId = subscriptionAggregateId(tenantId);
-  const [row] = await ctx.db.select().from(subTable).where(eq(subTable["id"], aggId)).limit(1);
+  const [row] = await ctx.db
+    .select()
+    .from(subscriptionsProjectionTable)
+    .where(eq(subscriptionsProjectionTable["id"], aggId))
+    .limit(1);
   if (!row) return null;
   // @cast-boundary db-row — drizzle-row carries column-as-unknown
   return {

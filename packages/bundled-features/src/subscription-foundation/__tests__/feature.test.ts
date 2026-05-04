@@ -1,7 +1,7 @@
 // feature.ts contract tests for subscription-foundation.
 
 import { describe, expect, test } from "vitest";
-import { subscriptionAggregateId, subscriptionEventAggregateId } from "../aggregate-id";
+import { subscriptionAggregateId } from "../aggregate-id";
 import {
   SUBSCRIPTION_FOUNDATION_FEATURE,
   SUBSCRIPTION_PROVIDER_EXTENSION,
@@ -50,10 +50,21 @@ describe("subscriptionFoundationFeature — registers extension-point", () => {
   });
 });
 
-describe("subscriptionFoundationFeature — entities + handlers registered", () => {
-  test("subscription + subscription-event entities", () => {
-    expect(subscriptionFoundationFeature.entities["subscription"]).toBeDefined();
-    expect(subscriptionFoundationFeature.entities["subscription-event"]).toBeDefined();
+describe("subscriptionFoundationFeature — events + projection + handlers registered", () => {
+  test("5 domain-events registriert (created/updated/canceled/invoice-paid/invoice-payment-failed)", () => {
+    const events = subscriptionFoundationFeature.events;
+    expect(events["subscription-created"]).toBeDefined();
+    expect(events["subscription-updated"]).toBeDefined();
+    expect(events["subscription-canceled"]).toBeDefined();
+    expect(events["invoice-paid"]).toBeDefined();
+    expect(events["invoice-payment-failed"]).toBeDefined();
+  });
+
+  test("subscription-projection registriert mit 5 apply-keys", () => {
+    const proj = subscriptionFoundationFeature.projections["subscription"];
+    expect(proj).toBeDefined();
+    const applyKeys = Object.keys(proj?.apply ?? {});
+    expect(applyKeys).toHaveLength(5);
   });
 
   test("process-event write-handler registriert mit erwarteter QN", () => {
@@ -70,23 +81,9 @@ describe("subscriptionFoundationFeature — entities + handlers registered", () 
   });
 });
 
-describe("aggregate-id namespaces — drift-pin", () => {
+describe("aggregate-id namespace — drift-pin", () => {
   test("subscriptionAggregateId stable per tenantId", () => {
     expect(subscriptionAggregateId("tenant-1")).toBe("bfe0d98f-293c-5215-af7a-3282629aa5d3");
-  });
-
-  test("subscriptionEventAggregateId stable per (tenant, provider, eventId)", () => {
-    expect(subscriptionEventAggregateId("tenant-1", "stripe", "evt_test123")).toBe(
-      "6230db6b-925b-5309-bcfe-b72c5541056f",
-    );
-  });
-
-  test("subscription + subscription-event nutzen verschiedene Namespaces (kein Kollision)", () => {
-    // Auch wenn jemand eventId="" passes (= leerer string + tenantId|providerName|"")
-    // sollen die UUIDs NICHT mit subscriptionAggregateId(tenantId) kollidieren.
-    const subId = subscriptionAggregateId("tenant-x");
-    const evtId = subscriptionEventAggregateId("tenant-x", "stripe", "");
-    expect(subId).not.toBe(evtId);
   });
 });
 
