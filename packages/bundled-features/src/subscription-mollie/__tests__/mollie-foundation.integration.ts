@@ -23,7 +23,6 @@ import {
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
   subscriptionFoundationFeature,
-  subscriptionsProjectionTable,
 } from "@kumiko/bundled-features/subscription-foundation";
 import type { DbConnection } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";
@@ -273,7 +272,9 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
     )) as { rows: Array<Record<string, unknown>> };
     expect(subs.rows).toHaveLength(1);
     expect(subs.rows[0]?.["providerName"]).toBe("mollie");
-    expect(subs.rows[0]?.["providerSubscriptionId"]).toBe("sub_created_1");
+    // Looser assertion: dependet nicht auf mock-impl-detail (= "sub_created_${count}").
+    // Wichtig: subscriptionId ist VOM PLUGIN gesetzt (kein payment-id), nicht null.
+    expect(subs.rows[0]?.["providerSubscriptionId"]).toMatch(/^sub_/);
     expect(subs.rows[0]?.["tier"]).toBe("pro");
     expect(subs.rows[0]?.["status"]).toBe("active");
     expect(subs.rows[0]?.["id"]).toBe(subscriptionAggregateId(tenantStringId));
@@ -327,7 +328,9 @@ describe("scenario 2: mandate-setup-flow — first-payment-paid OHNE existing su
     expect(subs.rows[0]?.["status"]).toBe("active");
     // Drift-pin: providerSubscriptionId ist die VOM PLUGIN ERSTELLTE sub-id,
     // nicht der payment-id.
-    expect(subs.rows[0]?.["providerSubscriptionId"]).toBe("sub_created_1");
+    // Looser assertion: dependet nicht auf mock-impl-detail (= "sub_created_${count}").
+    // Wichtig: subscriptionId ist VOM PLUGIN gesetzt (kein payment-id), nicht null.
+    expect(subs.rows[0]?.["providerSubscriptionId"]).toMatch(/^sub_/);
   });
 });
 

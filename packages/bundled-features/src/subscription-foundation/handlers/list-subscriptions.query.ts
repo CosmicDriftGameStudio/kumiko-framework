@@ -7,7 +7,7 @@ import type { QueryHandlerDef } from "@kumiko/framework/engine";
 import { z } from "zod";
 import { subscriptionsProjectionTable } from "../projection";
 
-const listSchema = z.object({}).passthrough();
+const listSchema = z.object({}).strict();
 
 export const listSubscriptionsQuery: QueryHandlerDef = {
   name: "subscription:list",

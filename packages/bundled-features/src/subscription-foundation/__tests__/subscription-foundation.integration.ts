@@ -28,7 +28,6 @@ import {
   SubscriptionStatuses,
 } from "../constants";
 import { subscriptionFoundationFeature } from "../feature";
-import { subscriptionsProjectionTable } from "../projection";
 import type { SubscriptionProviderPlugin } from "../types";
 
 // =============================================================================

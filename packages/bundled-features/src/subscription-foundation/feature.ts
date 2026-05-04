@@ -32,10 +32,17 @@
 //   - Keine provider-spezifischen Configs.
 //   - Kein Marketplace-Use-Case (App-Tenant billed Endkunden via
 //     Stripe Connect). Kommt als separate `marketplace-foundation`.
+//
+// **Provider-Wechsel:** Disney+-Pattern (= Tenant cancelt Stripe-sub,
+// startet neue mit PayPal) wird heute als zweiter `subscription-created`-
+// event modelliert. UPSERT in der projection-apply überschreibt den
+// existing row mit dem neuen providerName. Reicht für MVP. Wenn das
+// business-fact "Provider-Wechsel" ein eigenes domain-event braucht
+// (z.B. für analytics: "wie viele Wechsel im Monat?"), kommt ein
+// `subscription-provider-changed`-event-type später.
 
 import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
 import { SUBSCRIPTION_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
-import { subscriptionEntity } from "./entities";
 import {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
@@ -62,10 +69,6 @@ import {
   applySubscriptionUpdated,
   subscriptionsProjectionTable,
 } from "./projection";
-
-// Re-export entity-shape so external callers (helper, tests) can build
-// their own drizzle-table-instance via buildDrizzleTable.
-export { subscriptionEntity };
 
 export const subscriptionFoundationFeature: FeatureDefinition = defineFeature(
   SUBSCRIPTION_FOUNDATION_FEATURE,

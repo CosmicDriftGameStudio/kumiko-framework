@@ -17,7 +17,6 @@ import {
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
   subscriptionFoundationFeature,
-  subscriptionsProjectionTable,
 } from "@kumiko/bundled-features/subscription-foundation";
 import type { DbConnection } from "@kumiko/framework/db";
 import type { TenantId } from "@kumiko/framework/engine";

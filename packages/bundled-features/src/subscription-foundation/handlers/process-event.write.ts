@@ -93,6 +93,11 @@ export const processEventHandler: WriteHandlerDef = {
     //    providerEventId bereits gesehen wurde. Provider-Retry-Storm
     //    (Stripe sendet bis zu 5x in 4h) trifft denselben Stream und
     //    findet den event-id in metadata.
+    //
+    //    **Performance-caveat:** O(N) pro stream. Bei 5 Jahren history
+    //    (recurring monatlich = ~60 events) noch <50ms. Bei deutlich
+    //    längeren streams optimieren via snapshot oder per-tenant
+    //    dedup-table als idempotency-anchor (analog cap-counter).
     // ---------------------------------------------------------------
     const existingEvents = await ctx.loadAggregate(aggId);
     const alreadySeen = existingEvents.some((e) => {
