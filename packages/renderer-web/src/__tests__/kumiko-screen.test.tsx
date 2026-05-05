@@ -485,6 +485,7 @@ describe("KumikoScreen", () => {
     };
 
     const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    const user = userEvent.setup();
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -497,7 +498,7 @@ describe("KumikoScreen", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
-    fireEvent.click(screen.getByTestId("render-list-toolbar-action-open"));
+    await user.click(screen.getByTestId("render-list-toolbar-action-open"));
     expect(navigateCalls).toEqual([{ screenId: "task-edit" }]);
   });
 
