@@ -41,7 +41,10 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:all": "vitest --config vitest.all.config.ts",
-    "typecheck": "tsc --build"
+    "typecheck": "tsc --build",
+    "build:apps": "bun run scripts/build-apps.ts",
+    "truth-anchors:check": "bun run scripts/truth-anchors-check.ts",
+    "postinstall": "bun run scripts/codegen-samples.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.11",
