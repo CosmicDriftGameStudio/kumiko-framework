@@ -36,7 +36,22 @@ type ByslugQueryBody = {
 //     setzen — sonst wirft Boot-Check beim Start
 //   • anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID } — sonst
 //     antworten die Routes mit 503
-export function createLegalPagesFeature(): FeatureDefinition {
+export type LegalPagesWrapLayout = (opts: {
+  readonly title: string;
+  readonly bodyHtml: string;
+  readonly lang: string;
+}) => string;
+
+export type LegalPagesOptions = {
+  /** Custom Layout-Wrapper für die /legal/*-Routes. Default: minimaler
+   *  HTML-Skeleton aus markdown.ts (`wrapInLayout`). Apps die ihr eigenes
+   *  Marketing-Layout (Header/Footer/Theme) auch um Legal-Body legen
+   *  wollen, übergeben hier ihre Render-Function. */
+  readonly wrapLayout?: LegalPagesWrapLayout;
+};
+
+export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDefinition {
+  const wrapLayout = opts.wrapLayout ?? wrapInLayout;
   return defineFeature("legal-pages", (r) => {
     r.requires("text-content");
 
@@ -82,7 +97,7 @@ export function createLegalPagesFeature(): FeatureDefinition {
             );
           }
 
-          const html = wrapInLayout({
+          const html = wrapLayout({
             title: data.title || route.titleFallback,
             bodyHtml: renderMarkdownToHtml(data.body),
             lang: route.lang,
