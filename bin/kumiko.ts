@@ -142,6 +142,10 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   { name: "Predicate Extraction Check", cmd: "bun scripts/check-predicates.ts" },
   { name: "as-Cast Audit", cmd: "bun scripts/check-as-casts.ts" },
   { name: "License Check", cmd: "bun scripts/check-licenses.ts" },
+  // Cross-Domain Concept-Layer: validiert concepts/*.yaml (Schema, FK, Code-Anker, Drift)
+  { name: "Concept-Check", cmd: "bun scripts/concept-check.ts" },
+  // Cross-Domain Truth-Anchors: validiert truth_anchors-Frontmatter in Doku/Marketing-Files
+  { name: "Truth-Anchors Check", cmd: "bun scripts/truth-anchors-check.ts" },
 ];
 
 const commands = {
