@@ -30,6 +30,7 @@
   },
   "exports": {
     "./engine": "./src/engine/index.ts",
+    "./engine/types": "./src/engine/types/index.ts",
     "./errors": "./src/errors/index.ts",
     "./db": "./src/db/index.ts",
     "./event-store": "./src/event-store/index.ts",

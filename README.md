@@ -1,6 +1,6 @@
 # Kumiko
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-runtime-black.svg)](https://bun.sh)
 
@@ -39,8 +39,8 @@ Config-driven, command-based, realtime Multi-Tenant App Framework.
 ### Setup
 
 ```bash
-git clone git@github.com:bender0oo0/kumiko.git
-cd kumiko
+git clone git@github.com:cosmicdriftgamestudio/kumiko-framework.git
+cd kumiko-framework
 yarn install
 cp .env.example .env
 ```
@@ -249,10 +249,10 @@ yarn kumiko test integration
 Beiträge willkommen — siehe [CONTRIBUTING.md](./CONTRIBUTING.md) für Setup, Conventions und was gemerged wird (und was nicht).
 
 Kurzfassung:
-- Roadmap in `docs/plans/uebersicht.md` — neue Features bitte vorher diskutieren
+- Roadmap in [kumiko-platform/docs/plans/uebersicht.md](https://github.com/cosmicdriftgamestudio/kumiko-platform) — neue Features bitte vorher diskutieren
 - Jedes Feature braucht ein Sample in `samples/`
 - Integration-Tests ohne Mocks, Full-Stack oder nicht relevant
 
 ## License
 
-[MIT](./LICENSE) © 2026 Marc Frost
+[BUSL-1.1](./LICENSE) © 2026 Marc Frost — Cosmic Drift Game Studio
