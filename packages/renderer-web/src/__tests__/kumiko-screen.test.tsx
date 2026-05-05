@@ -389,6 +389,7 @@ describe("KumikoScreen", () => {
     };
 
     const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    const user = userEvent.setup();
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -401,7 +402,7 @@ describe("KumikoScreen", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
-    fireEvent.click(screen.getByTestId("row-r1-action-edit"));
+    await user.click(screen.getByTestId("row-r1-action-edit"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
     // params werden zu Strings serialisiert (URL-Layer kennt nur Strings).
@@ -437,6 +438,7 @@ describe("KumikoScreen", () => {
       rowActions: [{ kind: "navigate", id: "view", label: "actions.view", screen: "task-edit" }],
     };
     const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    const user = userEvent.setup();
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -449,7 +451,7 @@ describe("KumikoScreen", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
-    fireEvent.click(screen.getByTestId("row-r1-action-view"));
+    await user.click(screen.getByTestId("row-r1-action-view"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(searchParamUpdates).toEqual([]);
   });
@@ -530,6 +532,7 @@ describe("KumikoScreen", () => {
       ],
     };
 
+    const user = userEvent.setup();
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen
@@ -540,7 +543,7 @@ describe("KumikoScreen", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
-    fireEvent.click(screen.getByTestId("render-list-toolbar-action-sync"));
+    await user.click(screen.getByTestId("render-list-toolbar-action-sync"));
     await waitFor(() => expect(writeCalls.length).toBe(1));
     expect(writeCalls[0]).toEqual({ type: "tasks:write:task:sync", payload: { all: true } });
   });

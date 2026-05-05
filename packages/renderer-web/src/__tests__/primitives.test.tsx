@@ -662,6 +662,7 @@ describe("DataTable", () => {
     });
 
     test("Click auf Action ohne confirm: onTrigger wird mit Row gerufen", async () => {
+      const user = userEvent.setup();
       const onTrigger = vi.fn();
       render(
         <DataTable
@@ -671,9 +672,7 @@ describe("DataTable", () => {
           rowActions={[{ id: "edit", label: "Edit", onTrigger }]}
         />,
       );
-      fireEvent.click(screen.getByTestId("row-r1-action-edit"));
-      // onTrigger ist async (await im Component) — micro-task warten.
-      await new Promise((r) => setTimeout(r, 0));
+      await user.click(screen.getByTestId("row-r1-action-edit"));
       expect(onTrigger).toHaveBeenCalledWith(rows[0]);
     });
 
@@ -715,7 +714,8 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("row-r2-action-archive")).toBeNull();
     });
 
-    test("Click auf Action-Cell propagiert NICHT auf onRowClick", () => {
+    test("Click auf Action-Cell propagiert NICHT auf onRowClick", async () => {
+      const user = userEvent.setup();
       const onRowClick = vi.fn();
       const onTrigger = vi.fn();
       render(
@@ -727,7 +727,7 @@ describe("DataTable", () => {
           rowActions={[{ id: "edit", label: "Edit", onTrigger }]}
         />,
       );
-      fireEvent.click(screen.getByTestId("row-r1-action-edit"));
+      await user.click(screen.getByTestId("row-r1-action-edit"));
       // onTrigger feuert, onRowClick MUSS NICHT — sonst würde der User
       // beim Action-Click gleichzeitig zum Edit-Screen navigieren.
       expect(onRowClick).not.toHaveBeenCalled();

@@ -22,6 +22,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@cosmicdrift/kumiko-headless": "0.0.1"
+    "@cosmicdrift/kumiko-headless": "workspace:*"
   }
 }

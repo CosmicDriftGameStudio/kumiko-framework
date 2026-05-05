@@ -13,7 +13,7 @@ import {
   PrimitivesProvider,
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { defaultPrimitives } from "../primitives";
 
@@ -72,11 +72,15 @@ describe("RenderList — Search-Debounce", () => {
 
     // Vor Debounce-Ablauf: kein call (jeder Keypress hat den Timer
     // resettet).
-    vi.advanceTimersByTime(299);
+    act(() => {
+      vi.advanceTimersByTime(299);
+    });
     expect(onSearchChange).not.toHaveBeenCalled();
 
     // 300ms: jetzt feuert es exakt einmal mit dem letzten Wert.
-    vi.advanceTimersByTime(1);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
     expect(onSearchChange).toHaveBeenCalledTimes(1);
     expect(onSearchChange).toHaveBeenCalledWith("acme");
   });
@@ -113,7 +117,9 @@ describe("RenderList — Search-Debounce", () => {
     // Wert nochmal zurückrufen — sonst wäre's eine Loop.
     const onSearchChange = vi.fn();
     renderRL({ searchValue: "x", onSearchChange });
-    vi.advanceTimersByTime(500);
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     expect(onSearchChange).not.toHaveBeenCalled();
   });
 });

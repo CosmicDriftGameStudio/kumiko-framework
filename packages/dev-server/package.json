@@ -31,7 +31,7 @@
     "kumiko-dev": "./bin/kumiko-dev.ts"
   },
   "dependencies": {
-    "@cosmicdrift/kumiko-bundled-features": "0.0.1",
-    "@cosmicdrift/kumiko-framework": "0.0.1"
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }
