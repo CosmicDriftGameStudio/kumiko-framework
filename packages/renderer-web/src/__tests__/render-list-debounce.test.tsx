@@ -13,7 +13,7 @@ import {
   PrimitivesProvider,
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
-import { fireEvent, render, screen, act } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { defaultPrimitives } from "../primitives";
 
