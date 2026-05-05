@@ -38,6 +38,7 @@ import {
   seedAdmin,
 } from "@kumiko/bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@kumiko/bundled-features/config";
+import { createSessionCallbacks } from "@kumiko/bundled-features/sessions";
 import { TenantQueries } from "@kumiko/bundled-features/tenant";
 import { UserQueries } from "@kumiko/bundled-features/user";
 import { createSseBroker, type SseBroker } from "@kumiko/framework/api";
@@ -63,6 +64,7 @@ import Redis from "ioredis";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { injectSchema } from "./inject-schema";
+import { tryHonoFirst } from "./try-hono-first";
 
 /**
  * Bun.serve-Options für Production.
@@ -172,6 +174,16 @@ export type RunProdAppAuthOptions = {
   readonly admin: SeedAdminOptions;
   /** Optional override of the login error → HTTP status map. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
+  /** Opt-in: revocable server-side sessions. Caller MUSS
+   *  `createSessionsFeature()` zu `features` adden — runProdApp wired
+   *  hier nur die Auth-Callbacks (creator/revoker/checker) gegen die
+   *  echte db-connection, plus sessionStrictMode=true.
+   *
+   *  Standardverhalten ohne diese Option: stateless JWTs ohne sid
+   *  (legacy-Verhalten, Karten­haus existing-Apps unangefasst). */
+  readonly sessions?: {
+    readonly expiresInMs?: number;
+  };
   /** Password-reset flow. When set, /api/auth/request-password-reset +
    *  /api/auth/reset-password are mounted as public routes UND der
    *  request/confirm-Handler im auth-email-password-Feature wird
@@ -444,6 +456,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ? options.anonymousAccess(deps)
       : options.anonymousAccess;
 
+  // Sessions opt-in: db ist hier schon konkret (createDbConnection oben),
+  // also direkt verdrahten — kein late-bound nötig wie bei runDevApp.
+  // sessionStrictMode=true: Prod-Sessions sollen nicht stillschweigend
+  // von einem JWT-ohne-sid umgangen werden können. sessionMassRevoker
+  // (4. callback aus createSessionCallbacks) ist nicht Teil der
+  // AuthRoutesConfig-Surface — der wird vom sessions-Feature selbst über
+  // die `autoRevokeOnPasswordChange`-Option konsumiert, nicht über die
+  // auth-routes.
+  const sessionAuthFragment = options.auth?.sessions
+    ? buildProdSessionAuth(db, options.auth.sessions)
+    : undefined;
+
   const entrypoint = createApiEntrypoint({
     registry,
     context: {
@@ -468,6 +492,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
+        ...sessionAuthFragment,
         ...(options.auth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
@@ -778,12 +803,15 @@ function buildStaticFallback(
     }
 
     // Hono-First für andere Pfade: extraRoutes (z.B. /feed.xml,
-    // /sitemap.xml) müssen vor dem Disk-Lookup greifen, sonst
-    // schluckt der SPA-Fallback unten unbekannte Pfade als index.html.
-    const honoRes = await apiHandler(req);
-    if (honoRes.status !== 404) {
-      return honoRes;
+    // /sitemap.xml) UND r.httpRoute-Features (z.B. /legal/*) müssen vor
+    // dem Disk-Lookup greifen, sonst schluckt der SPA-Fallback unten
+    // unbekannte Pfade als index.html. Shared mit dev-server's
+    // createKumikoServer.handleFetch damit beide IDENTISCHE Semantik haben.
+    const honoTry = await tryHonoFirst({ fetch: apiHandler }, req);
+    if (honoTry.matched) {
+      return honoTry.response;
     }
+    const honoRes = honoTry.response;
 
     // Disk-Datei (Asset oder konkrete File). Asset-Pfade laufen
     // host-unabhängig — die Bundles in /assets/* werden vom client
@@ -835,4 +863,25 @@ export function cacheHeadersFor(pathname: string): Record<string, string> {
     return { "cache-control": "no-cache" };
   }
   return {};
+}
+
+function buildProdSessionAuth(
+  db: import("@kumiko/framework/db").DbConnection,
+  opts: NonNullable<RunProdAppAuthOptions["sessions"]>,
+): {
+  readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];
+  readonly sessionRevoker: ReturnType<typeof createSessionCallbacks>["sessionRevoker"];
+  readonly sessionChecker: ReturnType<typeof createSessionCallbacks>["sessionChecker"];
+  readonly sessionStrictMode: true;
+} {
+  const cbs = createSessionCallbacks({
+    db,
+    ...(opts.expiresInMs !== undefined && { expiresInMs: opts.expiresInMs }),
+  });
+  return {
+    sessionCreator: cbs.sessionCreator,
+    sessionRevoker: cbs.sessionRevoker,
+    sessionChecker: cbs.sessionChecker,
+    sessionStrictMode: true,
+  };
 }

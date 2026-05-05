@@ -1,5 +1,6 @@
 import { createEventStoreExecutor, fetchOne } from "@kumiko/framework/db";
-import { defineWriteHandler } from "@kumiko/framework/engine";
+import { defineWriteHandler, type TenantId } from "@kumiko/framework/engine";
+import { AccessDeniedError, writeFailure } from "@kumiko/framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "../table";
@@ -22,8 +23,12 @@ const executor = createEventStoreExecutor(textBlocksTable, textBlockEntity, {
 
 // Upsert handler — eine Operation pro (tenantId, slug, lang). Bei
 // existierender Row → update, sonst → create. Tenant-Scope kommt
-// automatisch aus event.user. Tenant-Admins setzen Texte für ihren
-// eigenen Tenant; Plattform-Sysadmins setzen Texte für SYSTEM_TENANT_ID.
+// default aus event.user. Tenant-Admins setzen Texte für ihren
+// eigenen Tenant; Plattform-Sysadmins können via optional
+// `tenantIdOverride` für einen anderen Tenant schreiben (typisch:
+// SYSTEM_TENANT_ID für legal-pages-content den die ganze Plattform
+// teilt). Override ist SystemAdmin-only — TenantAdmin's Override-
+// Versuch → 403.
 export const setWrite = defineWriteHandler({
   name: "set",
   schema: z.object({
@@ -31,6 +36,12 @@ export const setWrite = defineWriteHandler({
     lang: langSchema,
     title: z.string().min(1).max(200),
     body: z.string().max(100_000).nullable(),
+    /** Optional cross-tenant write — nur für SystemAdmin. Typischer
+     *  use-case: legal-pages-Edit-UI lässt SystemAdmin auf
+     *  SYSTEM_TENANT_ID schreiben (sonst landet der text auf seinem
+     *  eigenen platform-tenant und legal-pages-routes lesen ihn
+     *  nicht). TenantAdmin's Versuch → ForbiddenError. */
+    tenantIdOverride: z.string().min(1).optional(),
   }),
   // SystemAdmin ist eine GLOBALE Rolle (users.roles), TenantAdmin pro
   // tenant-membership. SystemAdmin braucht beide Pfade explizit weil
@@ -40,7 +51,24 @@ export const setWrite = defineWriteHandler({
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;
-    const tenantId = event.user.tenantId;
+    const override = event.payload.tenantIdOverride;
+    if (override !== undefined && !event.user.roles.includes("SystemAdmin")) {
+      return writeFailure(
+        new AccessDeniedError({
+          i18nKey: "textContent.errors.tenantOverrideRequiresSystemAdmin",
+          details: { reason: "tenant_override_requires_system_admin" },
+        }),
+      );
+    }
+    const tenantId = override ?? event.user.tenantId;
+    // Bei tenantIdOverride muss auch der user-context auf den ziel-tenant
+    // umgestellt werden, sonst läuft der event-store-Lookup
+    // (getStreamVersion) gegen user.tenantId statt tenantId — und findet
+    // den stream nicht → version_conflict obwohl die projection-row da ist.
+    // Symmetrisch zu seedTextBlock, das TestUsers.systemAdmin (tenantId =
+    // SYSTEM_TENANT) als by verwendet.
+    const executorUser =
+      override !== undefined ? { ...event.user, tenantId: override as TenantId } : event.user;
 
     const existing = await fetchOne<TextBlockRow>(
       db,
@@ -60,7 +88,7 @@ export const setWrite = defineWriteHandler({
             body: event.payload.body,
           },
         },
-        event.user,
+        executorUser,
         db,
       );
       if (!result.isSuccess) return result;
@@ -78,7 +106,7 @@ export const setWrite = defineWriteHandler({
         body: event.payload.body,
         tenantId,
       },
-      event.user,
+      executorUser,
       db,
     );
     if (!result.isSuccess) return result;

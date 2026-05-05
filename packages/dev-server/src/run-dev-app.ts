@@ -19,9 +19,11 @@ import {
   seedAdmin,
 } from "@kumiko/bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@kumiko/bundled-features/config";
+import { createSessionCallbacks, type SessionCallbacks } from "@kumiko/bundled-features/sessions";
 import { TenantQueries } from "@kumiko/bundled-features/tenant";
 
-import type { FeatureDefinition } from "@kumiko/framework/engine";
+import type { SessionMetadata } from "@kumiko/framework/api";
+import type { FeatureDefinition, SessionUser } from "@kumiko/framework/engine";
 import type { TestStack } from "@kumiko/framework/stack";
 
 import { watchAndRegenerate } from "./codegen";
@@ -56,6 +58,17 @@ export type RunDevAppAuthOptions = {
   /** Optional override of the login error → HTTP status map. Default
    *  maps invalidCredentials → 401, noMembership → 403. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
+  /** Opt-in: revocable server-side sessions. Caller MUSS
+   *  `createSessionsFeature()` zu `features` adden — runDevApp wired
+   *  hier nur die Auth-Callbacks (creator/revoker/checker) gegen
+   *  stack.db, plus sessionStrictMode=true.
+   *
+   *  Standardverhalten ohne diese Option: stateless JWTs ohne sid,
+   *  Logout ist client-side cookie-clear, Karten­haus existing-Apps
+   *  bleibt unangefasst. */
+  readonly sessions?: {
+    readonly expiresInMs?: number;
+  };
   /** Password-reset flow. Wenn gesetzt werden /api/auth/request-password-
    *  reset + /api/auth/reset-password als Public-Routes gemounted UND
    *  der request/confirm-Handler im auth-email-password-Feature wird
@@ -147,11 +160,43 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
-  // configResolver braucht das config-feature — im auth-mode immer
-  // hinzufügen, im no-auth-mode dem Caller überlassen.
+  // configResolver-default fürs config-feature — im auth-mode immer
+  // hinzufügen, im no-auth-mode dem Caller überlassen. Factory-form
+  // wird gewrap't damit der spread auf das aufgerufene Result greift,
+  // nicht auf die function selbst (no-op).
   const extraContext = options.auth
-    ? { configResolver: createConfigResolver(), ...(options.extraContext ?? {}) }
+    ? mergeConfigResolverDefault(options.extraContext)
     : options.extraContext;
+
+  // Sessions opt-in: Holder lebt im closure, `createSessionCallbacks`
+  // kennt erst nach setupTestStack die echte db-connection. Inline
+  // statt @kumiko/framework/testing's createLateBoundHolder zu reusen,
+  // weil dev-server (dev-runtime) keine Tooling aus framework/testing
+  // (test-runtime) importieren darf — Runtime-Isolation Guard.
+  // Server-Start passiert NACH onAfterSetup (siehe create-kumiko-server.ts),
+  // daher ist `sessionCallbacks` zur ersten Login-Request konkret.
+  let sessionCallbacks: SessionCallbacks | undefined;
+  const requireSessions = (): SessionCallbacks => {
+    if (!sessionCallbacks) {
+      throw new Error("[runDevApp] session-callbacks accessed before onAfterSetup");
+    }
+    return sessionCallbacks;
+  };
+  const sessionAuthFragment =
+    options.auth?.sessions !== undefined
+      ? {
+          sessionCreator: (user: SessionUser, meta: SessionMetadata) =>
+            requireSessions().sessionCreator(user, meta),
+          sessionRevoker: (sid: string) => requireSessions().sessionRevoker(sid),
+          sessionChecker: (sid: string, userId: string) =>
+            requireSessions().sessionChecker(sid, userId),
+          // strict-mode: jede neue Plattform-App startet ohne legacy-
+          // JWTs ohne sid, daher safe als Default. Wer Sessions opt-in
+          // wählt, will explizite Server-side Revocation — strict-mode
+          // ist der einzige Modus der das tatsächlich erzwingt.
+          sessionStrictMode: true,
+        }
+      : {};
 
   return createKumikoServer({
     features,
@@ -176,6 +221,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
+        ...sessionAuthFragment,
         ...(options.auth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
@@ -212,6 +258,13 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       },
     }),
     onAfterSetup: async (stack) => {
+      if (options.auth?.sessions !== undefined) {
+        const expiresInMs = options.auth.sessions.expiresInMs;
+        sessionCallbacks = createSessionCallbacks({
+          db: stack.db,
+          ...(expiresInMs !== undefined && { expiresInMs }),
+        });
+      }
       if (options.auth) {
         await seedAdmin(stack.db, options.auth.admin);
       }
@@ -220,4 +273,15 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       }
     },
   });
+}
+
+function mergeConfigResolverDefault(
+  ctx: CreateKumikoServerOptions["extraContext"],
+): CreateKumikoServerOptions["extraContext"] {
+  const defaults = { configResolver: createConfigResolver() };
+  if (ctx === undefined) return defaults;
+  if (typeof ctx === "function") {
+    return (deps) => ({ ...defaults, ...ctx(deps) });
+  }
+  return { ...defaults, ...ctx };
 }
