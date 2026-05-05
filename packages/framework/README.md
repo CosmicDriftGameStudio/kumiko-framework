@@ -1,6 +1,6 @@
 # @cosmicdrift/kumiko-framework
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](../../LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](../../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
 
 Framework core for Kumiko — engine, pipeline, API, DB, event-store, and
@@ -156,4 +156,4 @@ sample under `samples/`; the roadmap lives in [docs/plans/uebersicht.md](../../d
 
 ## License
 
-MIT — see [LICENSE](../../LICENSE).
+BUSL-1.1 — see [LICENSE](../../LICENSE).

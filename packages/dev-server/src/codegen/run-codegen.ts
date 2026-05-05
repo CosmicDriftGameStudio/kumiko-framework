@@ -111,10 +111,10 @@ function renderKumikoPackageJson(): string {
     name: "@app/define",
     private: true,
     // license: keep the generated package out of unknown-license territory
-    // for the License-Check guard. The repo is MIT-licensed, the generated
+    // for the License-Check guard. The repo is BUSL-1.1-licensed, the generated
     // wrapper inherits that — the file just re-exports framework code,
     // there's no original IP in `.kumiko/` worth a different license.
-    license: "MIT",
+    license: "BUSL-1.1",
     version: "0.0.0",
     type: "module",
     main: "./define.ts",

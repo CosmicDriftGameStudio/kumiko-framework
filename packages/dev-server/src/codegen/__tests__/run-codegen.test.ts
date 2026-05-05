@@ -457,7 +457,7 @@ export default defineFeature("evolve", (r) => {
     //   - name=@app/define matches what handlers import
     //   - exports."."=./define.ts gives the wrapper as the default
     //   - exports."./*"=./* lets apps reach types.generated etc.
-    //   - license=MIT keeps License-Check happy (UNLICENSED would deny)
+    //   - license=BUSL-1.1 keeps License-Check happy (UNLICENSED would deny)
     //   - main+types pin TypeScript + Node resolution targets
     // Regressions in any field break either runtime resolution or the
     // kumiko-check License-Check gate — the test fails fast.
@@ -481,7 +481,7 @@ export default defineFeature("pkgjson", (r) => {
     expect(pkg).toMatchObject({
       name: "@app/define",
       private: true,
-      license: "MIT",
+      license: "BUSL-1.1",
       type: "module",
       main: "./define.ts",
       types: "./define.ts",
