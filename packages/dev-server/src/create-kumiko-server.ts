@@ -85,6 +85,14 @@ export type DevHostDispatchResult =
        *  prod-`injectSchema:false` für Anonymous-Visitors. */
       readonly injectSchema?: boolean;
     }
+  | {
+      /** Static-HTML: liefert eine Datei wortwörtlich, kein Bundle-Inject,
+       *  kein Schema-Inject. Pendant zu prod's `{ kind: "html", file: ...,
+       *  injectSchema: false }` für Marketing-/Apex-Pages die kein React
+       *  brauchen. Pfad relativ zum Server-CWD. */
+      readonly kind: "static-html";
+      readonly file: string;
+    }
   | { readonly kind: "redirect"; readonly to: string; readonly status?: 301 | 302 }
   | { readonly kind: "not-found" };
 
@@ -855,6 +863,14 @@ export async function createKumikoServer(
         }
         if (dispatch.kind === "not-found") {
           return new Response("Not Found", { status: 404 });
+        }
+        if (dispatch.kind === "static-html") {
+          // Raw-File-Serve, kein Bundle-Inject, kein Schema-Inject.
+          // Pendant zu prod's `{ kind: "html", file: ..., injectSchema: false }`.
+          const file = await readFile(dispatch.file, "utf-8");
+          return new Response(file, {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
         }
         return htmlResponse(dispatch.entryName, dispatch.injectSchema ?? true);
       }
