@@ -13,7 +13,7 @@
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { runCodegen } from "@kumiko/dev-server";
+import { runCodegen } from "@cosmicdrift/kumiko-dev-server";
 
 const REPO_ROOT = resolve(import.meta.dir, "..");
 
