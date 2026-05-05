@@ -44,4 +44,4 @@
 //     stateful server. The middleware never trusts the JWT alone when a
 //     checker is wired — it confirms the sid is still live.
 
-export { createSessionCallbacks, createSessionsFeature } from "@kumiko/bundled-features/sessions";
+export { createSessionCallbacks, createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";

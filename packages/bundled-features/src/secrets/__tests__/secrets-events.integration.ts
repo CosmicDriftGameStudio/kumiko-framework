@@ -6,14 +6,14 @@
 // audit query.
 
 import { randomBytes } from "node:crypto";
-import { createEventsTable, eventsTable } from "@kumiko/framework/event-store";
-import { createEnvMasterKeyProvider, type MasterKeyProvider } from "@kumiko/framework/secrets";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEnvMasterKeyProvider, type MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createSecretsFeature } from "../feature";

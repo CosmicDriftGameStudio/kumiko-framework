@@ -11,20 +11,20 @@
 //
 // Wer maximale Kontrolle braucht (z.B. abweichende Auth-Wiring,
 // alternativer Membership-Query, eigener LoginRateLimiter): geht direkt
-// auf `createKumikoServer` aus @kumiko/dev-server.
+// auf `createKumikoServer` aus @cosmicdrift/kumiko-dev-server.
 
-import { AuthErrors, AuthHandlers } from "@kumiko/bundled-features/auth-email-password";
+import { AuthErrors, AuthHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   type SeedAdminOptions,
   seedAdmin,
-} from "@kumiko/bundled-features/auth-email-password/seeding";
-import { createConfigResolver } from "@kumiko/bundled-features/config";
-import { createSessionCallbacks, type SessionCallbacks } from "@kumiko/bundled-features/sessions";
-import { TenantQueries } from "@kumiko/bundled-features/tenant";
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createSessionCallbacks, type SessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 
-import type { SessionMetadata } from "@kumiko/framework/api";
-import type { FeatureDefinition, SessionUser } from "@kumiko/framework/engine";
-import type { TestStack } from "@kumiko/framework/stack";
+import type { SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
+import type { FeatureDefinition, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 
 import { watchAndRegenerate } from "./codegen";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
@@ -103,7 +103,7 @@ export type RunDevAppOptions = {
    *  geforderten — sonst weiß der Server nicht welche HTML er liefern
    *  soll. */
   readonly hostDispatch?: CreateKumikoServerOptions["hostDispatch"];
-  /** CSS-Entry. Default: package-export `@kumiko/renderer-web/styles.css`
+  /** CSS-Entry. Default: package-export `@cosmicdrift/kumiko-renderer-web/styles.css`
    *  wenn ein client-Entry gesetzt ist. `false` deaktiviert die CSS-Pipeline. */
   readonly stylesheet?: string | false;
   /** Eigenes HTML-Template; sonst minimal-Default (#root + client.js).
@@ -170,7 +170,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
 
   // Sessions opt-in: Holder lebt im closure, `createSessionCallbacks`
   // kennt erst nach setupTestStack die echte db-connection. Inline
-  // statt @kumiko/framework/testing's createLateBoundHolder zu reusen,
+  // statt @cosmicdrift/kumiko-framework/testing's createLateBoundHolder zu reusen,
   // weil dev-server (dev-runtime) keine Tooling aus framework/testing
   // (test-runtime) importieren darf — Runtime-Isolation Guard.
   // Server-Start passiert NACH onAfterSetup (siehe create-kumiko-server.ts),

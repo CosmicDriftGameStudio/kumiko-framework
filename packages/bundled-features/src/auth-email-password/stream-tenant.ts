@@ -14,7 +14,7 @@
 // tenant the user belongs to" is robust against non-deterministic
 // memberships-query ordering (tenant:query:memberships has no ORDER BY).
 
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 export function orderTenantsByPreference(
   memberships: readonly { readonly tenantId: TenantId }[],

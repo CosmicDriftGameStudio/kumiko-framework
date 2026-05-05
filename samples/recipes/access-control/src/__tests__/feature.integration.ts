@@ -1,11 +1,11 @@
-import { defineFeature, validateBoot } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
+import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";

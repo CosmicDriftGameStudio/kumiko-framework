@@ -5,7 +5,7 @@
 // test pairs this with L1+L2 middleware wired via buildServer's
 // `rateLimit` option to prove all three layers stack.
 
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export function createRateLimitShowcaseFeature(): FeatureDefinition {

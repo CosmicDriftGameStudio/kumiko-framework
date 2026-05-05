@@ -9,7 +9,7 @@
 // tx rollback. The handler author never has to touch HTTP codes or assemble
 // JSON error bodies.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
+import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createNumberField,
@@ -18,7 +18,7 @@ import {
   defineFeature,
   defineTransitions,
   guardTransition,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
   ConflictError,
@@ -27,7 +27,7 @@ import {
   NotFoundError,
   UnprocessableError,
   writeFailure,
-} from "@kumiko/framework/errors";
+} from "@cosmicdrift/kumiko-framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 

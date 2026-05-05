@@ -1,5 +1,5 @@
-import type { TenantId } from "@kumiko/framework/engine";
-import { generateId as uuid } from "@kumiko/framework/utils";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
 import { Meilisearch } from "meilisearch";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createMeilisearchAdapter } from "../meilisearch-adapter";

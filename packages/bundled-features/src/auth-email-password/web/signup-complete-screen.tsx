@@ -15,7 +15,7 @@
 // rein. Default-Template "/" wäre auch valide (App hat dann eigene
 // Routing-Logik die den eingeloggten User zur richtigen Page schickt).
 
-import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { confirmSignup } from "./auth-client";
 import { AuthCard, authMutedLinkClass, parseUrlToken } from "./auth-form-primitives";

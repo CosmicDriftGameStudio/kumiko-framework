@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { bySlugQuery } from "./handlers/by-slug.query";
 import { setWrite } from "./handlers/set.write";
 import { textBlockEntity } from "./table";

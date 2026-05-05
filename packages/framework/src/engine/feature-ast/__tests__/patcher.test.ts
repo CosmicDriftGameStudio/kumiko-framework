@@ -14,7 +14,7 @@ import { parseSourceFile } from "../parse";
 import { createFeaturePatcher } from "../patcher";
 
 const STARTER = `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("inventory", (r) => {
 });
@@ -425,7 +425,7 @@ describe("FeaturePatcher — AI workflow simulation", () => {
   // (no FeaturePattern internal-shape knowledge required).
   test("end-to-end: 4 patterns added, file parses clean, kinds + names match", () => {
     const sf = makeSourceFile(`
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("tasks", (r) => {
 });

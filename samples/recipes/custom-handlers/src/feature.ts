@@ -8,8 +8,8 @@ import {
   createNumberField,
   createTextField,
   defineFeature,
-} from "@kumiko/framework/engine";
-import { failNotFound } from "@kumiko/framework/errors";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 export const counterEntity = createEntity({

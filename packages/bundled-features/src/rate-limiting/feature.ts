@@ -1,4 +1,4 @@
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { rateLimitStatus } from "./handlers/status.query";
 
 // Opt-in feature. Loading it does NOT install rate-limit middleware —

@@ -2,7 +2,7 @@
 // Konzept — reines Sample-Layout, das die Top-Action-Bar Convention
 // (h-12, bg-muted/30, border-b) konsistent mit Form/Liste hält.
 
-import { usePrimitives } from "@kumiko/renderer";
+import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 
 export function DemoPage({

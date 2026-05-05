@@ -48,7 +48,7 @@ export const fooSchema = z.object({ id: z.string() });
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { fooSchema } from "./events";
 
 export const myFeature = defineFeature("myFeat", (r) => {
@@ -93,7 +93,7 @@ export const barSchema = z.object({ count: z.number() });
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { barSchema } from "./events";
 
 export const myFeature = defineFeature("objForm", (r) => {
@@ -113,7 +113,7 @@ export const myFeature = defineFeature("objForm", (r) => {
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export const myFeature = defineFeature("inlineFeat", (r) => {
@@ -159,7 +159,7 @@ export const paidSchema = z.object({ amount: z.number() });
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { EVT, sentSchema, paidSchema } from "./events";
 
 export const myFeature = defineFeature("billing", (r) => {
@@ -191,7 +191,7 @@ export const myFeature = defineFeature("billing", (r) => {
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { EVT } from "./events";
 
@@ -222,7 +222,7 @@ export const myFeature = defineFeature("billing", (r) => {
     write(
       appRoot,
       "src/a/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { aSchema } from "./events";
 export default defineFeature("featA", (r) => {
   r.defineEvent("evt", aSchema);
@@ -237,7 +237,7 @@ export default defineFeature("featA", (r) => {
     write(
       appRoot,
       "src/b/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { bSchema } from "./events";
 export default defineFeature("featB", (r) => {
   r.defineEvent("evt", bSchema);
@@ -262,7 +262,7 @@ export default defineFeature("featB", (r) => {
     write(
       appRoot,
       "src/x/feature1.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { xSchema } from "./events";
 export default defineFeature("dup", (r) => {
   r.defineEvent("collide", xSchema);
@@ -272,7 +272,7 @@ export default defineFeature("dup", (r) => {
     write(
       appRoot,
       "src/x/feature2.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { ySchema } from "./events";
 export default defineFeature("dup", (r) => {
   r.defineEvent("collide", ySchema);
@@ -297,7 +297,7 @@ export default defineFeature("dup", (r) => {
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { sSchema } from "./events";
 export default defineFeature("idem", (r) => {
   r.defineEvent("only", sSchema);
@@ -323,7 +323,7 @@ export default defineFeature("idem", (r) => {
     write(
       appRoot,
       "src/inline/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 const localSchema = z.object({ x: z.string() });
@@ -350,7 +350,7 @@ export default defineFeature("inline", (r) => {
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { realSchema } from "./events";
 export default defineFeature("real", (r) => {
   r.defineEvent("ok", realSchema);
@@ -361,7 +361,7 @@ export default defineFeature("real", (r) => {
     write(
       appRoot,
       "src/feature/__tests__/feature.test.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 const fakeSchema = z.object({});
 defineFeature("fake-from-test", (r) => {
@@ -372,7 +372,7 @@ defineFeature("fake-from-test", (r) => {
     write(
       appRoot,
       ".kumiko/old.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 const oldSchema = z.object({});
 defineFeature("old-codegen-output", (r) => {
@@ -396,7 +396,7 @@ defineFeature("old-codegen-output", (r) => {
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 export default defineFeature("nothing", (r) => {
   r.requires("auth");
 });
@@ -416,7 +416,7 @@ export default defineFeature("nothing", (r) => {
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 export default defineFeature("evolve", (r) => {
   r.defineEvent("inline-once", z.object({ x: z.string() }));
@@ -437,7 +437,7 @@ export default defineFeature("evolve", (r) => {
     write(
       appRoot,
       "src/feature/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { onceSchema } from "./events";
 export default defineFeature("evolve", (r) => {
   r.defineEvent("inline-once", onceSchema);
@@ -465,7 +465,7 @@ export default defineFeature("evolve", (r) => {
     write(
       appRoot,
       "src/feature.ts",
-      `import { defineFeature } from "@kumiko/framework/engine";
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 export default defineFeature("pkgjson", (r) => {
   r.defineEvent("evt", z.object({ id: z.string() }));

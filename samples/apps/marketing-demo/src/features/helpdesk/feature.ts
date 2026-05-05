@@ -8,7 +8,7 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { ticketEditScreen, ticketEntity, ticketListScreen } from "./schema";
 
 const open = { access: { openToAll: true } } as const;

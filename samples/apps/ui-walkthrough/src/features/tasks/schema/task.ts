@@ -7,7 +7,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
-} from "@kumiko/framework/ui-types";
+} from "@cosmicdrift/kumiko-framework/ui-types";
 
 // Entity — cast at the boundary. `createEntity` from framework/engine
 // would read nicer here, but its import path pulls the full framework

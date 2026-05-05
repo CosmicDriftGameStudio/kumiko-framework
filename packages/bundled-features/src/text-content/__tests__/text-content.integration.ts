@@ -1,13 +1,13 @@
-import type { DbConnection } from "@kumiko/framework/db";
-import { createEventsTable } from "@kumiko/framework/event-store";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
-import { expectErrorIncludes } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { TextContentHandlers, TextContentQueries } from "../constants";
 import { createTextContentFeature } from "../feature";

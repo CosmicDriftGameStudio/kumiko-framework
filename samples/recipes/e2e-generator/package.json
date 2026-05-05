@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-e2e-generator",
+  "name": "@cosmicdrift/kumiko-sample-e2e-generator",
   "description": "generateE2ESpec + generateZodFixture — Registry → JSON-Specs für externen Playwright-Worker. Zeigt die 4 Test-Kinds, Feldtyp→Interaktion-Mapping und welche Feldtypen heute noch nicht generisch unterstützt sind.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

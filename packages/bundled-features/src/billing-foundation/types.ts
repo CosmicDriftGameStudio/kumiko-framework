@@ -20,7 +20,7 @@
 // proration, multi-currency, coupons etc. bleiben provider-spezifisch
 // und sind über den Customer-Portal-Link erreichbar.
 
-import type { HandlerContext } from "@kumiko/framework/engine";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { SubscriptionEventType, SubscriptionStatus } from "./constants";
 
 // =============================================================================

@@ -1,4 +1,4 @@
-import type { ClientFeatureDefinition } from "@kumiko/renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { driverTranslations } from "../i18n";
 
 export const driverClient: ClientFeatureDefinition = {

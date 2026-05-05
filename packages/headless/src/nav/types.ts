@@ -1,4 +1,4 @@
-import type { NavDefinition } from "@kumiko/framework/ui-types";
+import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 
 // A single resolved nav entry as the renderer consumes it. Labels are NOT
 // translated yet — nav can be used in SSR contexts where the locale isn't

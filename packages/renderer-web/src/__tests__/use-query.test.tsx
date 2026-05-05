@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import type { Dispatcher, DispatcherError } from "@kumiko/headless";
-import { DispatcherProvider, useQuery } from "@kumiko/renderer";
+import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-headless";
+import { DispatcherProvider, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
 import { act, createMockDispatcher, renderHook, waitFor } from "./test-utils";

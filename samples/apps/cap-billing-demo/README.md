@@ -96,7 +96,7 @@ Im Browser kannst du via Designer/Admin-UI den config-key
 `newsletter:config:tier` auf `"free"` oder `"pro"` setzen und den
 `newsletter:write:send`-Handler triggern. Die "versendeten" Mails
 landen in `getInbox(tenantId)` aus
-`@kumiko/bundled-features/mail-transport-inmemory` — es gibt keinen
+`@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory` — es gibt keinen
 HTTP-Endpoint dafür, weil das Sample die Architektur zeigt, nicht
 ein Inbox-UI.
 

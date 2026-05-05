@@ -17,8 +17,8 @@ import {
   makeUpcastCtx,
   streamAllEventsByType,
   upcastStoredEvent,
-} from "@kumiko/framework/event-store";
-import { getAllProjectionProgress } from "@kumiko/framework/pipeline";
+} from "@cosmicdrift/kumiko-framework/event-store";
+import { getAllProjectionProgress } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEntityTable,
   createTestUser,
@@ -26,7 +26,7 @@ import {
   resetEventStore,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
@@ -591,7 +591,7 @@ describe("Event Sourcing Showcase", () => {
   });
 
   test("AllConsumerProgress: MSP cursor catches up to HWM after dispatcher run", async () => {
-    const { getAllConsumerProgress } = await import("@kumiko/framework/pipeline");
+    const { getAllConsumerProgress } = await import("@cosmicdrift/kumiko-framework/pipeline");
     const consumerName = "showcase:projection:customer-revenue";
 
     const baseline = await getAllConsumerProgress(stack.db, [consumerName]);

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider } from "@kumiko/framework/db";
-import type { TenantId } from "@kumiko/framework/engine";
+import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   createTestUser,
@@ -9,8 +9,8 @@ import {
   type TestStack,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/stack";
-import { expectErrorIncludes, getSetCookieRaw, getSetCookieValue } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { expectErrorIncludes, getSetCookieRaw, getSetCookieValue } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -334,7 +334,7 @@ describe("scenario 7b: login rate limiting", () => {
   beforeAll(async () => {
     const encryption = createEncryptionProvider(encryptionKey);
     const resolver = createConfigResolver({ encryption });
-    const { createInMemoryLoginRateLimiter } = await import("@kumiko/framework/api");
+    const { createInMemoryLoginRateLimiter } = await import("@cosmicdrift/kumiko-framework/api");
 
     rlStack = await setupTestStack({
       features: [

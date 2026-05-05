@@ -1,5 +1,5 @@
 // shadcn+Tailwind Default-Primitives für den Web-Renderer.
-// Konsumieren den Primitives-Contract aus `@kumiko/renderer`. Keine
+// Konsumieren den Primitives-Contract aus `@cosmicdrift/kumiko-renderer`. Keine
 // useTokens()-Aufrufe — die Farben kommen aus den Tailwind-Klassen
 // die auf die shadcn-CSS-Variablen referenzieren.
 //
@@ -8,8 +8,8 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
-import type { ListRowViewModel } from "@kumiko/headless";
-import type { DataTableRowAction, DataTableSort, DataTableSortDir } from "@kumiko/renderer";
+import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
+import type { DataTableRowAction, DataTableSort, DataTableSortDir } from "@cosmicdrift/kumiko-renderer";
 import {
   type BannerProps,
   type ButtonProps,
@@ -25,7 +25,7 @@ import {
   type TextProps,
   useColumnRenderer,
   useTranslation,
-} from "@kumiko/renderer";
+} from "@cosmicdrift/kumiko-renderer";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { cva } from "class-variance-authority";
 import {

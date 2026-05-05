@@ -18,7 +18,7 @@
 // in monoton-steigender version. enforceRollingCap liest die letzten
 // N Tage aus diesem Stream.
 
-import type { WriteHandlerDef } from "@kumiko/framework/engine";
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { rollingCapAggregateId } from "../aggregate-id";
 import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_QN } from "../constants";

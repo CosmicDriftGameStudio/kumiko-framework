@@ -2,8 +2,8 @@
 // Proves: translations registered, locale resolution, fallback to default
 // Note: keys are prefixed with feature name → "featureName:key"
 
-import { createRegistry } from "@kumiko/framework/engine";
-import { createI18n } from "@kumiko/framework/i18n";
+import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
 import { describe, expect, test } from "vitest";
 import { errorFeature, greetingFeature } from "../feature";
 

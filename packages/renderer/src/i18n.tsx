@@ -1,6 +1,6 @@
 // Locale-Handling für React-Consumer des Kumiko-Renderers. Eine dünne
 // Schicht um den platform-agnostischen `LocaleResolver`-Contract aus
-// @kumiko/headless: Provider, Hooks, Default-Noop-Resolver und ein
+// @cosmicdrift/kumiko-headless: Provider, Hooks, Default-Noop-Resolver und ein
 // Fallback-Bundle-Merge für Feature-gelieferte Translations.
 //
 // Architektur-Idee:
@@ -15,7 +15,7 @@
 //      dem Resolver's `subscribe()` — App-Code kann mitten in der
 //      Session die Sprache umschalten ohne Reload.
 
-import type { LocaleResolver } from "@kumiko/headless";
+import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import { createContext, type ReactNode, useContext, useSyncExternalStore } from "react";
 
 /** Map von i18n-Key → Template-String. Templates dürfen `{name}`-

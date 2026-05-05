@@ -1,9 +1,9 @@
-import type { DbConnection } from "@kumiko/framework/db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   computeEffectiveFeatures,
   type Registry,
   type ToggleReader,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { globalFeatureStateTable } from "./global-feature-state-table";
 
 // Holds the current global-override snapshot in memory and exposes a

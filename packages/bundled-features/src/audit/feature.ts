@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { listQuery } from "./handlers/list.query";
 
 // Audit feature — exposes a filtered read over the framework's event log.

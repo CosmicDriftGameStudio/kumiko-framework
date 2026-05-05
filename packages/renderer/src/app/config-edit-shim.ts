@@ -17,7 +17,7 @@ import type {
   ConfigEditScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
-} from "@kumiko/framework/ui-types";
+} from "@cosmicdrift/kumiko-framework/ui-types";
 
 const CONFIG_EDIT_PSEUDO_ENTITY = "__config-edit__";
 

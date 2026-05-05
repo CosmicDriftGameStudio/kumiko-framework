@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-custom-handlers",
+  "name": "@cosmicdrift/kumiko-sample-custom-handlers",
   "description": "Beyond CRUD — when your domain refuses to fit a table.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

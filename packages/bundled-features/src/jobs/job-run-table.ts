@@ -5,7 +5,7 @@ import {
   table as pgTable,
   serial,
   text,
-} from "@kumiko/framework/db";
+} from "@cosmicdrift/kumiko-framework/db";
 
 export type JobRunStatus = "queued" | "running" | "completed" | "failed";
 export type JobLogLevel = "info" | "warn" | "error";

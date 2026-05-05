@@ -3,9 +3,9 @@ import {
   defineWriteHandler,
   type SessionUser,
   type TenantId,
-} from "@kumiko/framework/engine";
-import { UnprocessableError, writeFailure } from "@kumiko/framework/errors";
-import { parseRoles } from "@kumiko/framework/utils";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { UserQueries } from "../../user";
 import { parseAuthUserRow } from "../auth-user-row";

@@ -1,8 +1,8 @@
-import type { Store } from "@kumiko/headless";
+import type { Store } from "@cosmicdrift/kumiko-headless";
 import { useRef, useSyncExternalStore } from "react";
 
 // React-Bindings für Kumikos Store-Primitive (`createStore` aus
-// @kumiko/headless). Beide Hooks sind dünne Wrapper um React's
+// @cosmicdrift/kumiko-headless). Beide Hooks sind dünne Wrapper um React's
 // useSyncExternalStore — die ganze Subscribe/Notify-Mechanik lebt im
 // Store selbst, hier wird nur React verdrahtet.
 //

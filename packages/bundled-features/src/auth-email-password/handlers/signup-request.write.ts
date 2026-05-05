@@ -20,9 +20,9 @@
 // Was es geben könnte: dieselbe Email versucht es zum N-ten Mal —
 // Resend-Pfad ist by-design idempotent.
 
-import { generateToken } from "@kumiko/framework/api";
-import { defineWriteHandler } from "@kumiko/framework/engine";
-import { InternalError, writeFailure } from "@kumiko/framework/errors";
+import { generateToken } from "@cosmicdrift/kumiko-framework/api";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";

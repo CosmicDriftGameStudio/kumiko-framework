@@ -13,8 +13,8 @@
 // Mollie-webhook → verify-webhook erstellt die Mollie-Subscription
 // idempotent (siehe verify-webhook.ts ensureSubscriptionForMandate).
 
-import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/billing-foundation";
-import type { HandlerContext } from "@kumiko/framework/engine";
+import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { MollieClient, Payment } from "@mollie/api-client";
 import { SequenceType } from "@mollie/api-client";
 

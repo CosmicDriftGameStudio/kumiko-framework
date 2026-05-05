@@ -26,19 +26,19 @@ import {
   AuthErrors,
   AuthHandlers,
   hashPassword,
-} from "@kumiko/bundled-features/auth-email-password";
-import { configValuesTable, createConfigResolver } from "@kumiko/bundled-features/config";
-import { tenantEntity, tenantMembershipsTable } from "@kumiko/bundled-features/tenant";
-import { seedTenantMembership } from "@kumiko/bundled-features/tenant/testing";
-import { UserHandlers, userEntity, userTable } from "@kumiko/bundled-features/user";
-import type { TenantId } from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { configValuesTable, createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
+import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { composeFeatures } from "../compose-features";
 

@@ -6,7 +6,7 @@
 // Native-Plattform würde parallel dazu in features/items/native/
 // liegen — translations werden geteilt, components/UI nicht.
 
-import type { ClientFeatureDefinition } from "@kumiko/renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { itemsTranslations } from "../i18n";
 
 export const itemsClient: ClientFeatureDefinition = {

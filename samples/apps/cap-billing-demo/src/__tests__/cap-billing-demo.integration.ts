@@ -12,8 +12,8 @@ import {
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
-} from "@kumiko/bundled-features/billing-foundation";
-import { capCounterEntity } from "@kumiko/bundled-features/cap-counter";
+} from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { capCounterEntity } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import {
   ConfigHandlers,
   type ConfigResolver,
@@ -21,13 +21,13 @@ import {
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
-} from "@kumiko/bundled-features/config";
-import { clearInbox, getInbox } from "@kumiko/bundled-features/mail-transport-inmemory";
-import { createSecretsContext, tenantSecretsTable } from "@kumiko/bundled-features/secrets";
-import { createTenantFeature, tenantEntity } from "@kumiko/bundled-features/tenant";
-import { createEncryptionProvider, type DbConnection } from "@kumiko/framework/db";
-import { createEventsTable } from "@kumiko/framework/event-store";
-import { createEnvMasterKeyProvider } from "@kumiko/framework/secrets";
+} from "@cosmicdrift/kumiko-bundled-features/config";
+import { clearInbox, getInbox } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
+import { createSecretsContext, tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createEntityTable,
   createTestUser,
@@ -35,11 +35,11 @@ import {
   setupTestStack,
   type TestStack,
   testTenantId,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
-} from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { NEWSLETTER_SEND_QN, NEWSLETTER_TIER_CONFIG_KEY } from "../feature";
 import { APP_FEATURES } from "../run-config";

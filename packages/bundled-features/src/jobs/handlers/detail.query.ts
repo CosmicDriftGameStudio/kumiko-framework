@@ -1,5 +1,5 @@
-import { fetchOne } from "@kumiko/framework/db";
-import { defineQueryHandler } from "@kumiko/framework/engine";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";

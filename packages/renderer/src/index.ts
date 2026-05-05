@@ -5,9 +5,9 @@
 // in diesen Baum.
 //
 // Wer diesen Layer direkt konsumiert: andere Renderer-Packages
-// (@kumiko/renderer-web, später -native) oder eine App die ihren
+// (@cosmicdrift/kumiko-renderer-web, später -native) oder eine App die ihren
 // eigenen Bootstrap schreiben will. Normale Samples gehen über
-// @kumiko/renderer-web/createKumikoApp, das alle Provider verdrahtet.
+// @cosmicdrift/kumiko-renderer-web/createKumikoApp, das alle Provider verdrahtet.
 
 export type {
   ColumnRendererComponent,

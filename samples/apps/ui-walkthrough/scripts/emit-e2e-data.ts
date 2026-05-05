@@ -6,8 +6,8 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { createRegistry } from "@kumiko/framework/engine";
-import { generateE2ESpec } from "@kumiko/framework/testing/e2e-generator";
+import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { generateE2ESpec } from "@cosmicdrift/kumiko-framework/testing/e2e-generator";
 import { taskFeature } from "../src/features/tasks";
 
 const outPath = resolve(import.meta.dir, "..", "e2e", ".e2e-data.json");

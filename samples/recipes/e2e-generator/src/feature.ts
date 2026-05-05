@@ -22,7 +22,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const productEntity = createEntity({
   table: "read_products",

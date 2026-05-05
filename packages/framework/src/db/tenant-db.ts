@@ -1,4 +1,4 @@
-import { SYSTEM_TENANT_ID, type TenantId } from "@kumiko/framework/engine";
+import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { and, type Column, eq, getTableName, or, type SQL } from "drizzle-orm";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";

@@ -1,4 +1,4 @@
-import type { FileStorageProvider } from "@kumiko/framework/files";
+import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { createS3Provider, type S3ProviderConfig } from "./s3-provider";
 
 // Reads S3 connection details from process.env with a configurable prefix so

@@ -2,9 +2,9 @@ import {
   defineFeature,
   type FeatureDefinition,
   type HandlerContext,
-} from "@kumiko/framework/engine";
-import { InternalError } from "@kumiko/framework/errors";
-import type { SecretsContext } from "@kumiko/framework/secrets";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { deleteWrite } from "./handlers/delete.write";
 import { listQuery } from "./handlers/list.query";
 import { rotateJob } from "./handlers/rotate.job";

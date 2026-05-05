@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-currencies-global",
+  "name": "@cosmicdrift/kumiko-sample-currencies-global",
   "description": "Shared money fields across tenants. Commas still matter.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

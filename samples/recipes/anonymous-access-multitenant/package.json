@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-anonymous-access-multitenant",
+  "name": "@cosmicdrift/kumiko-sample-anonymous-access-multitenant",
   "description": "Subdomain-based tenant resolution for anonymous-access — SaaS shop / CMS pattern with per-tenant public surface.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

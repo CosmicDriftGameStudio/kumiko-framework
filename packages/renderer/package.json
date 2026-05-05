@@ -1,5 +1,5 @@
 {
-  "name": "@kumiko/renderer",
+  "name": "@cosmicdrift/kumiko-renderer",
   "version": "0.0.1",
   "description": "Platform-agnostic React renderer for Kumiko screens. Contains the shared logic — primitives-contract, hooks, KumikoScreen, navigation & SSE abstractions — that any platform-specific renderer (web, native) composes. No DOM, no EventSource, no react-dom.",
   "license": "BUSL-1.1",
@@ -13,13 +13,17 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@kumiko/framework": "0.0.1",
-    "@kumiko/headless": "0.0.1",
+    "@cosmicdrift/kumiko-framework": "0.0.1",
+    "@cosmicdrift/kumiko-headless": "0.0.1",
     "react": "^19.2.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.2.0",
     "jsdom": "^29.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git"
   }
 }

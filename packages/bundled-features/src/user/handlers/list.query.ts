@@ -1,4 +1,4 @@
-import { access, defineEntityListHandler } from "@kumiko/framework/engine";
+import { access, defineEntityListHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { userEntity } from "../schema/user";
 
 // System-wide user listing is SystemAdmin-only. Tenant admins list their

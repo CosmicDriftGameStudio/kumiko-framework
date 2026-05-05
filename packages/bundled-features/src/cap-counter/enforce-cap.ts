@@ -1,5 +1,5 @@
-import { createEntityExecutor, type HandlerContext } from "@kumiko/framework/engine";
-import { eventsTable } from "@kumiko/framework/event-store";
+import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { and, eq, gte } from "drizzle-orm";
 import { rollingCapAggregateId } from "./aggregate-id";
 import {

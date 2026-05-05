@@ -1,6 +1,6 @@
 // Helpdesk-Feature i18n-Bundle. Gleiche Convention wie assets/.
 
-import type { TranslationsByLocale } from "@kumiko/renderer";
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const helpdeskTranslations: TranslationsByLocale = {
   de: {

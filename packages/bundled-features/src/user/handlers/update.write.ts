@@ -1,6 +1,6 @@
-import { createEventStoreExecutor } from "@kumiko/framework/db";
-import { access, defineWriteHandler, hasAccess } from "@kumiko/framework/engine";
-import { AccessDeniedError, writeFailure } from "@kumiko/framework/errors";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { access, defineWriteHandler, hasAccess } from "@cosmicdrift/kumiko-framework/engine";
+import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { UserErrors } from "../constants";
 import { userEntity, userTable } from "../schema/user";

@@ -1,5 +1,5 @@
-import { defineWriteHandler } from "@kumiko/framework/engine";
-import { UnprocessableError, writeFailure } from "@kumiko/framework/errors";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { AuthErrors } from "../constants";
 import { hashPassword } from "../password-hashing";

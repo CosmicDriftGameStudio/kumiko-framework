@@ -4,7 +4,7 @@
 // für Teams die pro Persona ein eigenes Package haben und die an einen
 // gemeinsamen Core anflanschen.
 
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export const driverFeature: FeatureDefinition = defineFeature("demo-driver", (r) => {
   r.nav({

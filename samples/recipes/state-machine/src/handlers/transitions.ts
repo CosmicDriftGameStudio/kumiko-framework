@@ -4,7 +4,7 @@
 // and stay inline so the variation is visible at the call site.
 
 import { defineWriteHandler, guardTransition } from "@app/define";
-import { failNotFound, failUnprocessable } from "@kumiko/framework/errors";
+import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { INVOICE_STATES, INVOICE_TRANSITIONS } from "../entities/invoice";
 import { ENTITY_NAME, eventName, INVOICE_EVENTS } from "../events";

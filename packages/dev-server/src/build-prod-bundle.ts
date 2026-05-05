@@ -7,7 +7,7 @@
 //
 //   src/client.tsx | src/client.ts   →  Bun.build (splitting + hash + asset-loader)
 //   src/styles.css                   →  Tailwind one-shot
-//                                       (oder fallback auf @kumiko/renderer-web/styles.css
+//                                       (oder fallback auf @cosmicdrift/kumiko-renderer-web/styles.css
 //                                        wenn nur clientEntry da ist und kein eigenes CSS)
 //   public/                          →  rsync 1:1 (kein Hash — User-bewusste URLs)
 //   public/index.html | index.html   →  Template, Placeholder-Tags ersetzt:
@@ -57,7 +57,7 @@ export type BuildProdBundleOptions = {
   /** Output-Folder relativ zu cwd. Default: "dist". */
   readonly outDir?: string;
   /** Stylesheet-Override. Default: erst src/styles.css, dann
-   *  @kumiko/renderer-web/styles.css wenn clientEntry da ist.
+   *  @cosmicdrift/kumiko-renderer-web/styles.css wenn clientEntry da ist.
    *  `false` deaktiviert die CSS-Pipeline explizit. */
   readonly stylesheet?: string | false;
 };
@@ -304,7 +304,7 @@ function resolveStylesheetEntry(
   try {
     return (
       globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
-    ).Bun.resolveSync("@kumiko/renderer-web/styles.css", cwd);
+    ).Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", cwd);
   } catch {
     return undefined;
   }

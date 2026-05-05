@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createEmailChannel, type EmailChannelOptions } from "./email-channel";
 
 export function createChannelEmailFeature(options: EmailChannelOptions): FeatureDefinition {

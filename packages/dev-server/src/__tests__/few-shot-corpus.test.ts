@@ -15,7 +15,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildFewShotCorpus, type FewShotCorpus, pathToId } from "@kumiko/dev-server";
+import { buildFewShotCorpus, type FewShotCorpus, pathToId } from "@cosmicdrift/kumiko-dev-server";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,12 +40,12 @@ describe("buildFewShotCorpus — smoke", () => {
     // Plant two feature-files inside `samples/recipes/` so the default
     // scan-roots pick them up.
     plantPackage(workdir, "samples/recipes/canonical-demo", {
-      pkgName: "@kumiko/sample-canonical-demo",
+      pkgName: "@cosmicdrift/kumiko-sample-canonical-demo",
       pkgDescription: "Canonical-form demo feature.",
       featureSource: buildCanonicalMultiKindFeature("canonicalDemo"),
     });
     plantPackage(workdir, "samples/recipes/legacy-demo", {
-      pkgName: "@kumiko/sample-legacy-demo",
+      pkgName: "@cosmicdrift/kumiko-sample-legacy-demo",
       pkgDescription: "Identifier-ref-style legacy feature.",
       featureSource: buildLegacyFeature("legacyDemo"),
     });
@@ -61,7 +61,7 @@ describe("buildFewShotCorpus — smoke", () => {
 
   test("multi-kind canonical entry exposes tags and kind-counts across all kinds", () => {
     plantPackage(workdir, "samples/recipes/multi-kind", {
-      pkgName: "@kumiko/sample-multi-kind",
+      pkgName: "@cosmicdrift/kumiko-sample-multi-kind",
       pkgDescription: "Demo feature spanning entity, writeHandler, nav.",
       featureSource: buildCanonicalMultiKindFeature("multiKind"),
     });
@@ -88,7 +88,7 @@ describe("buildFewShotCorpus — smoke", () => {
 
   test("entries carry id, repo-relative paths, description, tags", () => {
     plantPackage(workdir, "samples/recipes/demo", {
-      pkgName: "@kumiko/sample-demo",
+      pkgName: "@cosmicdrift/kumiko-sample-demo",
       pkgDescription: "Demo.",
       featureSource: buildCanonicalMultiKindFeature("demo"),
     });
@@ -100,7 +100,7 @@ describe("buildFewShotCorpus — smoke", () => {
     expect(entry.id).toBe("recipes/demo");
     expect(entry.sourcePath).toBe("samples/recipes/demo/src/feature.ts");
     expect(entry.packageJsonPath).toBe("samples/recipes/demo/package.json");
-    expect(entry.packageName).toBe("@kumiko/sample-demo");
+    expect(entry.packageName).toBe("@cosmicdrift/kumiko-sample-demo");
     expect(entry.description).toBe("Demo.");
     expect(entry.featureName).toBe("demo");
     expect(entry.authoringStyle).toBe("canonical");
@@ -153,12 +153,12 @@ describe("buildFewShotCorpus — warnings", () => {
     // Without the duplicate-id check the second entry would silently
     // overwrite the first in any consumer that built `Map<id, entry>`.
     plantPackage(workdir, "samples/foo", {
-      pkgName: "@kumiko/sample-foo-a",
+      pkgName: "@cosmicdrift/kumiko-sample-foo-a",
       pkgDescription: "First foo.",
       featureSource: buildCanonicalMultiKindFeature("fooA"),
     });
     plantPackage(workdir, "packages/foo", {
-      pkgName: "@kumiko/sample-foo-b",
+      pkgName: "@cosmicdrift/kumiko-sample-foo-b",
       pkgDescription: "Second foo.",
       featureSource: buildCanonicalMultiKindFeature("fooB"),
     });
@@ -318,7 +318,7 @@ function plantPackage(
  */
 function buildCanonicalMultiKindFeature(featureName: string): string {
   return `// kumiko-feature-version: 1
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("${featureName}", (r) => {
@@ -353,7 +353,7 @@ function buildLegacyFeature(featureName: string): string {
   // captured const), produces a ParseError, and the corpus marks the
   // entry as authoringStyle: "legacy".
   return `
-import { defineFeature, createEntity, createTextField } from "@kumiko/framework/engine";
+import { defineFeature, createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 const itemEntity = createEntity({
   table: "items",

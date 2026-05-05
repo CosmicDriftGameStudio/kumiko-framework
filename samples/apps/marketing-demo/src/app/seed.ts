@@ -8,8 +8,8 @@
 // Daten leben in seed-data.ts (Templates + Personen-Listen). Hier bleibt
 // nur Logik: Random-Generator, Datums-Helper, der eigentliche Seed.
 
-import type { SeedFn } from "@kumiko/dev-server";
-import { TestUsers } from "@kumiko/framework/stack";
+import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { ASSET_STATUSES } from "../features/assets/schema";

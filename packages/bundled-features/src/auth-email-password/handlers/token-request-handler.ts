@@ -11,8 +11,8 @@
 // default TTL, extra skip condition) + two error codes — encoded on the
 // spec rather than duplicated across two near-identical handler bodies.
 
-import { createSystemUser, defineWriteHandler } from "@kumiko/framework/engine";
-import { UnprocessableError, writeFailure } from "@kumiko/framework/errors";
+import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { UserQueries } from "../../user";

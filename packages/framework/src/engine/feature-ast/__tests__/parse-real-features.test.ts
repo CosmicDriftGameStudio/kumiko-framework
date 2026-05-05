@@ -67,12 +67,6 @@ const FEATURES: readonly RealFeature[] = [
     recognisedKinds: ["requires"],
     errorMethodNames: ["writeHandler"],
   },
-  {
-    path: "samples/showcases/publicstatus/src/features/publicstatus/feature.ts",
-    expectedFeatureName: "publicstatus",
-    recognisedKinds: ["defineEvent", "nav"],
-    errorMethodNames: ["entity", "writeHandler", "queryHandler", "screen", "job", "translations"],
-  },
 ];
 
 describe("parseFeatureFile against real Kumiko features", () => {

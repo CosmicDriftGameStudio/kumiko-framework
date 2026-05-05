@@ -1,4 +1,4 @@
-import type { QueryHandlerDef } from "@kumiko/framework/engine";
+import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // get-active-tier — return the current tier-assignment for the calling tenant.

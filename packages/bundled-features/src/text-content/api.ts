@@ -8,10 +8,10 @@
 // bleiben Features durch Refactorings entkoppelt — wer textBlocksTable
 // umzieht oder die Query-Signatur ändert, muss nur die Factory anpassen.
 
-import type { DbConnection } from "@kumiko/framework/db";
-import { fetchOne } from "@kumiko/framework/db";
-import type { SessionUser, TenantId } from "@kumiko/framework/engine";
-import { InternalError } from "@kumiko/framework/errors";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { eq } from "drizzle-orm";
 import { type TextBlockRow, textBlocksTable } from "./table";
 

@@ -78,7 +78,7 @@ ioredis, postgres, temporal-polyfill) bleiben als prod-deps in einem
 generierten `dist-server/package.json`. Versionspin aus dem Repo-
 `packages/framework/package.json`. Für App-spezifische externals siehe
 `buildServerBundle({ extraRuntimeExternals })` in
-`@kumiko/dev-server/build`.
+`@cosmicdrift/kumiko-dev-server/build`.
 
 **Container-Deploy**: `samples/showcases/publicstatus/deploy/` ist die
 Reference — Multi-Stage Dockerfile baut beide Bundles, Runtime-Image kennt
@@ -94,7 +94,7 @@ kumiko-CLI gegen die DB. Details + GHA-Workflow-Pattern siehe
 
 ```
 samples/recipes/my-recipe/
-  package.json              ← { "name": "@kumiko/sample-my-recipe", "dependencies": { "@kumiko/framework": "workspace:*" } }
+  package.json              ← { "name": "@cosmicdrift/kumiko-sample-my-recipe", "dependencies": { "@cosmicdrift/kumiko-framework": "workspace:*" } }
   src/
     feature.ts              ← defineFeature + Entity + Handler
     __tests__/

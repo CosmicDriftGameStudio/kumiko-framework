@@ -14,7 +14,7 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   itemActiveScreen,
   itemEditScreen,

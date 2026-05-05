@@ -1,4 +1,4 @@
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { SessionUser } from "./types";
 
 // Stringified so it round-trips through SessionUser.id (string UUID-shape).

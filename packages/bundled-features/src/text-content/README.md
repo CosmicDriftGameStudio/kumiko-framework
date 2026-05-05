@@ -13,7 +13,7 @@ API-Apps), aktiviert das Feature gar nicht.
 ## Setup
 
 ```typescript
-import { createTextContentFeature } from "@kumiko/bundled-features/text-content";
+import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
 
 runProdApp({
   features: [createTextContentFeature(), /* ... */],
@@ -39,8 +39,8 @@ Container exit. Kein Auto-Heal in Production. Siehe
 In Integration-Tests (vitest) genügt:
 
 ```typescript
-import { createEntityTable } from "@kumiko/framework/stack";
-import { textBlockEntity } from "@kumiko/bundled-features/text-content";
+import { createEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { textBlockEntity } from "@cosmicdrift/kumiko-bundled-features/text-content";
 
 await createEntityTable(stack.db, textBlockEntity);
 ```
@@ -75,7 +75,7 @@ Tenant-Admin schreibt einen Block. Idempotent: existiert bereits
 ein Block für `(tenantId, slug, lang)`, wird er aktualisiert.
 
 ```typescript
-import { TextContentHandlers } from "@kumiko/bundled-features/text-content";
+import { TextContentHandlers } from "@cosmicdrift/kumiko-bundled-features/text-content";
 
 await stack.http.writeOk(TextContentHandlers.set, {
   slug: "imprint",
@@ -102,7 +102,7 @@ Anonymous-tauglich (`roles: ["anonymous", "User", "TenantAdmin",
 sehen ohne Login.
 
 ```typescript
-import { TextContentQueries } from "@kumiko/bundled-features/text-content";
+import { TextContentQueries } from "@cosmicdrift/kumiko-bundled-features/text-content";
 
 const block = await stack.http.queryOk(TextContentQueries.bySlug, {
   slug: "imprint",
@@ -120,7 +120,7 @@ oder `tenantResolver` konfigurieren.
 ## Test-Helper
 
 ```typescript
-import { seedTextBlock } from "@kumiko/bundled-features/text-content/seeding";
+import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
 
 await seedTextBlock(db, {
   tenantId: SYSTEM_TENANT_ID,
@@ -141,7 +141,7 @@ Wenn ein anderes Feature (z.B. `legal-pages`) text-blocks lesen will,
 **ohne direct code-import**, gibt es eine extraContext-API:
 
 ```typescript
-import { createTextContentApi, requireTextContent } from "@kumiko/bundled-features/text-content";
+import { createTextContentApi, requireTextContent } from "@cosmicdrift/kumiko-bundled-features/text-content";
 
 // 1. App-Bootstrap wired die API:
 runProdApp({

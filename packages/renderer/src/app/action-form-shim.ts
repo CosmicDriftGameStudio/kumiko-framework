@@ -19,7 +19,7 @@ import type {
   ActionFormScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
-} from "@kumiko/framework/ui-types";
+} from "@cosmicdrift/kumiko-framework/ui-types";
 
 const ACTION_FORM_PSEUDO_ENTITY = "__action-form__";
 

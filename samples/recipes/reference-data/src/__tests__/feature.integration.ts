@@ -1,9 +1,9 @@
 // Reference Data Sample — Integration Test
 // Proves: seed data is inserted, upsert updates existing rows, new rows added
 
-import { seedReferenceData } from "@kumiko/framework/db";
-import type { ReferenceDataDef } from "@kumiko/framework/engine";
-import { createTestDb, pushTables, type TestDb } from "@kumiko/framework/stack";
+import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
+import type { ReferenceDataDef } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestDb, pushTables, type TestDb } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { categoryFeature, categoryTable } from "../feature";
 

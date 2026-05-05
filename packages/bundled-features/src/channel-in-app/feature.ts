@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { inboxQuery } from "./handlers/inbox.query";
 import { markAllReadWrite } from "./handlers/mark-all-read.write";
 import { markReadWrite } from "./handlers/mark-read.write";

@@ -1,4 +1,4 @@
-import { defineQueryHandler, SYSTEM_ROLE } from "@kumiko/framework/engine";
+import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { tenantMembershipsTable } from "../membership-table";

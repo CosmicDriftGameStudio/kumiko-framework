@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { formatPath, NavProvider, parsePath, useNav } from "@kumiko/renderer";
+import { formatPath, NavProvider, parsePath, useNav } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test } from "vitest";

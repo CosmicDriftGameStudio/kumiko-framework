@@ -10,7 +10,7 @@
 // nicht den ersten valid-call beim Mount und den zweiten als invalid-
 // Banner sehen.
 
-import { useTranslation } from "@kumiko/renderer";
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { verifyEmail } from "./auth-client";
 import {

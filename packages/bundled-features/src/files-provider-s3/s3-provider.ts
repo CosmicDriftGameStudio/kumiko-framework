@@ -6,7 +6,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl as presign } from "@aws-sdk/s3-request-presigner";
-import type { FileStorageProvider, SignedUrlOptions } from "@kumiko/framework/files";
+import type { FileStorageProvider, SignedUrlOptions } from "@cosmicdrift/kumiko-framework/files";
 
 // Minimal config surface — everything the SDK needs, nothing framework-
 // specific. Apps wire this into `buildServer({ files: { storageProvider } })`

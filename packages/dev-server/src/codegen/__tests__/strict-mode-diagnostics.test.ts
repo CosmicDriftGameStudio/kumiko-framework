@@ -86,7 +86,7 @@ function compileApp(appRoot: string): readonly ts.Diagnostic[] {
     noEmit: true,
     baseUrl: REPO_ROOT,
     paths: {
-      "@kumiko/framework/*": [join(FRAMEWORK_SRC, "*/index.ts")],
+      "@cosmicdrift/kumiko-framework/*": [join(FRAMEWORK_SRC, "*/index.ts")],
     },
     types: [],
   };
@@ -134,7 +134,7 @@ function setupApp(): string {
   write(
     appRoot,
     "src/feature/feature.ts",
-    `import { defineFeature } from "@kumiko/framework/engine";
+    `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { orderPlacedSchema } from "./events";
 
 export const ordersFeature = defineFeature("orders", (r) => {
@@ -154,7 +154,7 @@ function setupAppWithExports(): string {
   write(
     appRoot,
     "src/feature/feature.ts",
-    `import { defineFeature } from "@kumiko/framework/engine";
+    `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { orderPlacedSchema } from "./events";
 
 export const ordersFeature = defineFeature("orders", (r) => ({
@@ -333,7 +333,7 @@ export const placeOrder = defineWriteHandler({
     write(
       appRoot,
       "src/feature/handler-direct.ts",
-      `import { defineWriteHandler } from "@kumiko/framework/engine";
+      `import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export const placeOrder = defineWriteHandler({

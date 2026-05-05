@@ -1,4 +1,4 @@
-# @kumiko/framework
+# @cosmicdrift/kumiko-framework
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](../../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
@@ -18,7 +18,7 @@ for runnable examples of every feature.
 ## Install
 
 ```bash
-yarn add @kumiko/framework
+yarn add @cosmicdrift/kumiko-framework
 # peers you probably already have:
 yarn add drizzle-orm hono ioredis zod
 ```
@@ -28,7 +28,7 @@ Bun is the intended runtime. Node 20+ works for the CLI and tests.
 ## At-a-glance
 
 ```typescript
-import { defineFeature, createEntity, createTextField } from "@kumiko/framework/engine";
+import { defineFeature, createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 export const taskEntity = createEntity({
   fields: {
@@ -107,20 +107,20 @@ export const taskFeature = defineFeature("tasks", (r) => {
 
 | Entry | What's in it |
 |---|---|
-| `@kumiko/framework/engine` | `defineFeature`, `createEntity`, field helpers, access rules, registry |
-| `@kumiko/framework/db` | Drizzle re-exports, `createEventStoreExecutor`, table builders, tenant-db |
-| `@kumiko/framework/event-store` | `events` table, `append`, `loadAggregate`, `loadAggregateAsOf` |
-| `@kumiko/framework/pipeline` | Dispatcher, event-dispatcher (AsyncDaemon), projection-rebuild, SSE + search consumers |
-| `@kumiko/framework/api` | `buildServer`, auth middleware, SSE route, error contract |
-| `@kumiko/framework/auth` | JWT helper, password hashing, session users |
-| `@kumiko/framework/search` | `SearchAdapter` interface, in-memory adapter, Meili wrapper |
-| `@kumiko/framework/jobs` | BullMQ-backed job runner, cron scheduling |
-| `@kumiko/framework/files` | Signed-URL upload/download, tenant-scoped storage |
-| `@kumiko/framework/i18n` | i18next setup, per-feature translation registration |
-| `@kumiko/framework/ui` | React hooks (Zustand stores, SSE subscription, optimistic mutations) |
-| `@kumiko/framework/testing` | `setupTestStack`, `createTestDb`, request helpers |
-| `@kumiko/framework/utils` | Safe JSON, qualified-name helpers |
-| `@kumiko/framework/errors` | Error classes, `writeFailure`, reason contracts |
+| `@cosmicdrift/kumiko-framework/engine` | `defineFeature`, `createEntity`, field helpers, access rules, registry |
+| `@cosmicdrift/kumiko-framework/db` | Drizzle re-exports, `createEventStoreExecutor`, table builders, tenant-db |
+| `@cosmicdrift/kumiko-framework/event-store` | `events` table, `append`, `loadAggregate`, `loadAggregateAsOf` |
+| `@cosmicdrift/kumiko-framework/pipeline` | Dispatcher, event-dispatcher (AsyncDaemon), projection-rebuild, SSE + search consumers |
+| `@cosmicdrift/kumiko-framework/api` | `buildServer`, auth middleware, SSE route, error contract |
+| `@cosmicdrift/kumiko-framework/auth` | JWT helper, password hashing, session users |
+| `@cosmicdrift/kumiko-framework/search` | `SearchAdapter` interface, in-memory adapter, Meili wrapper |
+| `@cosmicdrift/kumiko-framework/jobs` | BullMQ-backed job runner, cron scheduling |
+| `@cosmicdrift/kumiko-framework/files` | Signed-URL upload/download, tenant-scoped storage |
+| `@cosmicdrift/kumiko-framework/i18n` | i18next setup, per-feature translation registration |
+| `@cosmicdrift/kumiko-framework/ui` | React hooks (Zustand stores, SSE subscription, optimistic mutations) |
+| `@cosmicdrift/kumiko-framework/testing` | `setupTestStack`, `createTestDb`, request helpers |
+| `@cosmicdrift/kumiko-framework/utils` | Safe JSON, qualified-name helpers |
+| `@cosmicdrift/kumiko-framework/errors` | Error classes, `writeFailure`, reason contracts |
 
 ## Core concepts
 

@@ -1,4 +1,4 @@
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { and, eq, type SQL } from "drizzle-orm";
 import { NotFoundError } from "../errors";
 import type { DbConnection } from "./connection";

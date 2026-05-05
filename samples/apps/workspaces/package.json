@@ -1,5 +1,5 @@
 {
-  "name": "@kumiko/sample-workspaces",
+  "name": "@cosmicdrift/kumiko-sample-workspaces",
   "description": "r.workspace() — persona-/role-scoped UI surfaces. Live demo with 3 workspaces and the WorkspaceShell switcher.",
   "private": true,
   "type": "module",
@@ -7,11 +7,11 @@
     "dev": "PORT=4174 bun --env-file=../../../.env run kumiko-dev src/app/server.ts"
   },
   "dependencies": {
-    "@kumiko/dev-server": "workspace:*",
-    "@kumiko/dispatcher-live": "workspace:*",
-    "@kumiko/framework": "workspace:*",
-    "@kumiko/headless": "workspace:*",
-    "@kumiko/renderer-web": "workspace:*",
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-headless": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   }

@@ -8,7 +8,7 @@ import type { FieldIssue } from "../dispatcher";
 // error-display path doesn't branch on provenance.
 //
 // Duplicated here (not imported) so ui-core remains free of
-// @kumiko/framework — this package has to bundle for browsers and Expo,
+// @cosmicdrift/kumiko-framework — this package has to bundle for browsers and Expo,
 // where a server-oriented framework dep would balloon bundle size and drag
 // in Node-only modules (postgres, drizzle, bullmq) even if only types are
 // consumed.

@@ -175,7 +175,7 @@ export function withResponseData<T>(result: WriteResult<unknown>, data: T): Writ
 
 // --- Context Types ---
 
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 // Forward import: Registry is in feature.ts (circular type import — fine in TS)
 import type { Registry } from "./feature";
 
@@ -303,7 +303,7 @@ export type AppContext = SharedContextFields & {
 //
 // TMap propagates the strict event-type-map through `appendEvent`. Defaults
 // to the global KumikoEventTypeMap (augmented per app via
-// `declare module "@kumiko/framework/engine"`). Code that bypasses the
+// `declare module "@cosmicdrift/kumiko-framework/engine"`). Code that bypasses the
 // type-map (runtime-pluggable events) uses `appendEventUnsafe`.
 export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedContextFields & {
   readonly db: TenantDb;

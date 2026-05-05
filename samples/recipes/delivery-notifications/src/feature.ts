@@ -10,8 +10,8 @@
 //
 // The feature code only declares WHAT to notify. HOW is handled by Delivery.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
-import { createEntity, createTextField, defineFeature } from "@kumiko/framework/engine";
+import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // --- Entity ---

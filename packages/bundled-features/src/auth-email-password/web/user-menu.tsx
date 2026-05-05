@@ -8,7 +8,7 @@
 // Component außerhalb des AuthGate einhängen ohne dass ein harter
 // Fehler entsteht.
 
-import { useTranslation } from "@kumiko/renderer";
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import {
   cn,
   DropdownMenu,
@@ -17,7 +17,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@kumiko/renderer-web";
+} from "@cosmicdrift/kumiko-renderer-web";
 import { ChevronDown, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSession } from "./session";

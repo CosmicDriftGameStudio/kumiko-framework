@@ -1,7 +1,7 @@
 // i18n Sample
 // Shows: r.translations() for multi-language feature keys
 
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const greetingFeature = defineFeature("greeting", (r) => {
   r.translations({

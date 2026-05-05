@@ -8,7 +8,7 @@
 //   - access rule + order preserved verbatim
 //   - boot-validator catches the common author mistakes
 
-import { createRegistry, defineFeature, validateBoot } from "@kumiko/framework/engine";
+import { createRegistry, defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
 import { demoFeature } from "../features/demo";
 import { driverFeature } from "../features/demo-driver";

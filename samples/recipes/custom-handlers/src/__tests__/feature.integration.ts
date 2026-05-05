@@ -1,15 +1,15 @@
 // Custom Handlers Sample — Integration Test
 // Proves: custom business logic in handlers, payload transformation, custom queries
 
-import { createEventsTable } from "@kumiko/framework/event-store";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
-import { expectErrorIncludes } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { counterEntity, counterFeature } from "../feature";
 

@@ -1,7 +1,7 @@
-import type { DbRow } from "@kumiko/framework/db";
-import { defineWriteHandler } from "@kumiko/framework/engine";
-import { NotFoundError, writeFailure } from "@kumiko/framework/errors";
-import type { JobRunner } from "@kumiko/framework/jobs";
+import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { z } from "zod";
 
 export const triggerWrite = defineWriteHandler({

@@ -13,7 +13,7 @@ import { createFeaturePatcher } from "../patcher";
 import type { FeaturePattern } from "../patterns";
 
 const STARTER = `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("inventory", (r) => {
   r.entity({ name: "item", fields: { name: { type: "text", required: true } } });
@@ -77,7 +77,7 @@ describe("addPattern — appends in canonical Object-Form", () => {
 
   test("first add into an empty setup callback", () => {
     const empty = `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("blank", (r) => {
 });
@@ -200,7 +200,7 @@ describe("applyChanges — bulk operations in order", () => {
 describe("custom-code survival — patches don't disturb non-r.* code", () => {
   test("helpers, comments, imports between calls remain unchanged", () => {
     const featureWithCustomCode = `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 const SHARED_HELPER = "computed-at-module-init";
@@ -322,7 +322,7 @@ describe("patch coverage for the remaining pattern-kinds", () => {
 describe("singleton-pattern guards", () => {
   test("findCallForId throws when a singleton-kind appears twice", () => {
     const file = `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 defineFeature("dup", (r) => {
   r.systemScope();
   r.systemScope();
@@ -336,7 +336,7 @@ defineFeature("dup", (r) => {
 describe("legacy positional → canonical Object-Form on replace", () => {
   test("a positional-form r.entity call is replaced with object-form", () => {
     const legacyFile = `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("legacy", (r) => {
   r.entity("item", { fields: { name: { type: "text", required: true } } });

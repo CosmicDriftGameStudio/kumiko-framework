@@ -7,7 +7,7 @@
 // aber die Handler fehlen → POST /api/auth/request-password-reset
 // dispatched ins Leere → 500.
 
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
 import { composeFeatures } from "../compose-features";
 

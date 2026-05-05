@@ -10,11 +10,11 @@ import {
   createNumberField,
   createSelectField,
   createTextField,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
-} from "@kumiko/framework/ui-types";
+} from "@cosmicdrift/kumiko-framework/ui-types";
 
 export const ASSET_TYPES = ["laptop", "monitor", "phone", "tool", "license", "other"] as const;
 export type AssetType = (typeof ASSET_TYPES)[number];

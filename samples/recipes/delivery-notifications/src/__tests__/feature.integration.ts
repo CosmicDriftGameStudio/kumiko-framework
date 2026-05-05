@@ -12,43 +12,43 @@ import {
   createChannelEmailFeature,
   createInMemoryTransport,
   type EmailMessage,
-} from "@kumiko/bundled-features/channel-email";
+} from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   createChannelInAppFeature,
   inAppMessagesTable,
-} from "@kumiko/bundled-features/channel-in-app";
+} from "@cosmicdrift/kumiko-bundled-features/channel-in-app";
 import {
   createChannelPushFeature,
   createInMemoryPushTransport,
   type PushMessage,
-} from "@kumiko/bundled-features/channel-push";
-import { createConfigFeature } from "@kumiko/bundled-features/config";
+} from "@cosmicdrift/kumiko-bundled-features/channel-push";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createDeliveryFeature,
   createDeliveryTestContext,
   deliveryAttemptsTable,
   notificationPreferencesTable,
-} from "@kumiko/bundled-features/delivery";
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   createRendererSimpleFeature,
   simpleRenderer,
-} from "@kumiko/bundled-features/renderer-simple";
+} from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import {
   createTenantFeature,
   TenantQueries,
   tenantMembershipsTable,
-} from "@kumiko/bundled-features/tenant";
-import type { DbConnection } from "@kumiko/framework/db";
-import type { SessionUser } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
+} from "@cosmicdrift/kumiko-bundled-features/tenant";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
-import { expectErrorIncludes } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { supportFeature, ticketTable } from "../feature";

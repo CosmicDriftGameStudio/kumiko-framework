@@ -50,7 +50,7 @@ import {
   defineEntityListHandler,
   defineFeature,
   type FeatureDefinition,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { CAP_COUNTER_FEATURE, ROLLING_INCREMENTED_EVENT_SHORT } from "./constants";
 import { capCounterEntity } from "./entity";
 import { getCounterQuery } from "./handlers/get-counter.query";

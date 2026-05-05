@@ -1,4 +1,4 @@
-import { createEntityExecutor, type WriteHandlerDef } from "@kumiko/framework/engine";
+import { createEntityExecutor, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";

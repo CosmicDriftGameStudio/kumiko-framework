@@ -9,7 +9,7 @@
 // ganz außen gestackt, dann alle Gates nach innen. So hat jeder Gate
 // Zugriff auf jeden Provider, egal welches Feature ihn gebracht hat.
 
-import type { ColumnRendererComponent, TranslationsByLocale } from "@kumiko/renderer";
+import type { ColumnRendererComponent, TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 
 export type ClientFeatureDefinition = {

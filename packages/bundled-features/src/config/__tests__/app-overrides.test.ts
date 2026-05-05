@@ -1,4 +1,4 @@
-import { createTenantConfig, createUserConfig } from "@kumiko/framework/engine";
+import { createTenantConfig, createUserConfig } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
 import { validateAppOverrides } from "../resolver";
 

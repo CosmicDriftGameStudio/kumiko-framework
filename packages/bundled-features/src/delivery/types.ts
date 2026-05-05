@@ -1,6 +1,6 @@
-import type { SseBroker } from "@kumiko/framework/api";
-import type { DbConnection } from "@kumiko/framework/db";
-import type { NotifyOptions, Registry, SessionUser, TenantId } from "@kumiko/framework/engine";
+import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { NotifyOptions, Registry, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 // --- Channel Interface ---
 

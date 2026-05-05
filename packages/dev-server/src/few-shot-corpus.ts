@@ -38,7 +38,7 @@ import {
   PATTERN_LIBRARY,
   type ParseError,
   parseFeatureFile,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 // =============================================================================
 // Public types
@@ -62,7 +62,7 @@ export type FewShotEntry = {
   readonly sourcePath: string;
   /** Repo-relative path to the workspace package.json (for description lookup). */
   readonly packageJsonPath: string | undefined;
-  /** Workspace name (`@kumiko/sample-basic-entity`). */
+  /** Workspace name (`@cosmicdrift/kumiko-sample-basic-entity`). */
   readonly packageName: string | undefined;
   /** English description from package.json. */
   readonly description: string | undefined;

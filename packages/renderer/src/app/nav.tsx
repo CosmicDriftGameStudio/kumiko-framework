@@ -117,7 +117,7 @@ export function useNav(): NavApi {
   const api = useContext(NavContext);
   if (api === undefined) {
     throw new Error(
-      "useNav: no <NavProvider> mounted above this component. Plattform-Packages (z.B. @kumiko/renderer-web) liefern eine Default-Impl über createKumikoApp.",
+      "useNav: no <NavProvider> mounted above this component. Plattform-Packages (z.B. @cosmicdrift/kumiko-renderer-web) liefern eine Default-Impl über createKumikoApp.",
     );
   }
   return api;

@@ -19,13 +19,13 @@ import {
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";

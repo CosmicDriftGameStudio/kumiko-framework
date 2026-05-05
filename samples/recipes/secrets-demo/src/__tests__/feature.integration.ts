@@ -13,29 +13,29 @@
 //      through BullMQ — app code writes zero rotation logic.
 
 import { randomBytes } from "node:crypto";
-import { createJobsFeature } from "@kumiko/bundled-features/jobs";
+import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import {
   createSecretsContext,
   createSecretsFeature,
   type StoredEnvelope,
   TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
-} from "@kumiko/bundled-features/secrets";
-import { defineFeature, defineWriteHandler } from "@kumiko/framework/engine";
-import { createEventsTable, eventsTable } from "@kumiko/framework/event-store";
-import { createJobRunner, type JobRunner } from "@kumiko/framework/jobs";
-import { createEnvMasterKeyProvider, createSecret } from "@kumiko/framework/secrets";
+} from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
+import { createEnvMasterKeyProvider, createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
   waitFor,
-} from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/testing";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";

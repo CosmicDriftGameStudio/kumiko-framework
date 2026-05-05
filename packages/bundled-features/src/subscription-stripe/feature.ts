@@ -17,7 +17,7 @@
 //
 // Beispiel-Verwendung in run-config.ts:
 //
-//   import { createSubscriptionStripeFeature } from "@kumiko/bundled-features/subscription-stripe";
+//   import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 //
 //   const features = [
 //     billingFoundationFeature,
@@ -35,8 +35,8 @@
 // gleiche factory-Form für features die module-load-time-Konfiguration
 // haben (analog zum FeatureToggle-runtime-holder).
 
-import type { SubscriptionProviderPlugin } from "@kumiko/bundled-features/billing-foundation";
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import Stripe from "stripe";
 import { STRIPE_PROVIDER_NAME, SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
 import {

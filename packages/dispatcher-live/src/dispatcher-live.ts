@@ -11,7 +11,7 @@ import {
   type QueryResult,
   type WriteOpts,
   type WriteResult,
-} from "@kumiko/headless";
+} from "@cosmicdrift/kumiko-headless";
 import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf";
 import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping";
 
@@ -22,7 +22,7 @@ import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapp
 //   - mobile "managed" apps where offline means "locked"
 //
 // For local-first UIs (mobile-field apps, PWA offline mode) use
-// @kumiko/dispatcher-savable (M7) — same contract, different semantics.
+// @cosmicdrift/kumiko-dispatcher-savable (M7) — same contract, different semantics.
 //
 // Wiring — app entrypoint:
 //   const dispatcher = createLiveDispatcher();  // defaults are fine for same-origin

@@ -1,10 +1,10 @@
-import { buildDrizzleTable } from "@kumiko/framework/db";
+import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createBooleanField,
   createEntity,
   createTextField,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 // User entity — tenant-agnostic. A single user can belong to multiple tenants
 // via tenantMemberships. No tenantId column on this table.

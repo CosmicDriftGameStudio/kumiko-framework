@@ -1,5 +1,5 @@
-import { buildDrizzleTable } from "@kumiko/framework/db";
-import { createEntity, createTextField } from "@kumiko/framework/engine";
+import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 // TextBlock — generischer Container für statische Texte (legal pages,
 // FAQ, About, ToS, Marketing-Snippets). Pro (tenantId, slug, lang) genau

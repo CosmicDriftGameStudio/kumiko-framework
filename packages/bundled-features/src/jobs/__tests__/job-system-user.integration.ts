@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider, createTenantDb, type DbConnection } from "@kumiko/framework/db";
+import { createEncryptionProvider, createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createRegistry,
@@ -7,9 +7,9 @@ import {
   defineFeature,
   type Registry,
   type SessionUser,
-} from "@kumiko/framework/engine";
-import { createArchivedStreamsTable, createEventsTable } from "@kumiko/framework/event-store";
-import { createJobRunner, type JobRunner } from "@kumiko/framework/jobs";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { createArchivedStreamsTable, createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createTestDb,
   createTestRedis,
@@ -17,8 +17,8 @@ import {
   type TestDb,
   type TestRedis,
   TestUsers,
-} from "@kumiko/framework/stack";
-import { bridgeStub, sleep } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { bridgeStub, sleep } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessor, createConfigFeature } from "../../config/feature";

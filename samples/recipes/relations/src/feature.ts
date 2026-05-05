@@ -1,14 +1,14 @@
 // Relations Sample
 // Shows: hasMany relation, onDelete: cascade vs restrict, parent-child entities.
 
-import { buildDrizzleTable } from "@kumiko/framework/db";
+import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDetailHandler,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamEntity = createEntity({
   table: "read_sample_teams",

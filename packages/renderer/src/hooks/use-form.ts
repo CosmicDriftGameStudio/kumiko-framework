@@ -3,8 +3,8 @@ import type {
   FormControllerOptions,
   FormSnapshot,
   FormValues,
-} from "@kumiko/headless";
-import { createFormController } from "@kumiko/headless";
+} from "@cosmicdrift/kumiko-headless";
+import { createFormController } from "@cosmicdrift/kumiko-headless";
 import { useMemo, useSyncExternalStore } from "react";
 import { useDispatcher } from "../context/dispatcher-context";
 

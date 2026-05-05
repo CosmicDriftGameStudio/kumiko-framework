@@ -5,14 +5,14 @@
 // this test covers just the feature's own handlers.
 
 import { randomBytes } from "node:crypto";
-import { createEventsTable } from "@kumiko/framework/event-store";
-import { createEnvMasterKeyProvider, type MasterKeyProvider } from "@kumiko/framework/secrets";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEnvMasterKeyProvider, type MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createSecretsFeature } from "../feature";

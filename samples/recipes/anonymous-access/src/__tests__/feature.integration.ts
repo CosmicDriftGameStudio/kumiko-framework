@@ -6,14 +6,14 @@
 // that parses the host (acme.shop.com → tenantId) plus a tenantExists
 // callback that confirms the tenant is real (against DB or cache).
 
-import { ANONYMOUS_USER_ID, type TenantId } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
+import { ANONYMOUS_USER_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   anonymousAccessFeature,

@@ -1,4 +1,4 @@
-import { type ConfigKeyDefinition, defineQueryHandler } from "@kumiko/framework/engine";
+import { type ConfigKeyDefinition, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { hasConfigAccess } from "../write-helpers";
 

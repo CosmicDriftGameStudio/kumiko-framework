@@ -6,13 +6,13 @@
 // die Race-Condition (Sync-Effect auf searchValue + Debounce-Effect)
 // wahrscheinlich kaputt gegangen ohne dass eine CI das fängt.
 
-import type { EntityDefinition, EntityListScreenDefinition } from "@kumiko/framework/ui-types";
+import type { EntityDefinition, EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   PrimitivesProvider,
   RenderList,
-} from "@kumiko/renderer";
+} from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { defaultPrimitives } from "../primitives";

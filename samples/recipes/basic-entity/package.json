@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-basic-entity",
+  "name": "@cosmicdrift/kumiko-sample-basic-entity",
   "description": "The simplest possible CRUD demo. About six lines of actual code.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

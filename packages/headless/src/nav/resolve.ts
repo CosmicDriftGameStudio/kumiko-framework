@@ -1,4 +1,4 @@
-import type { AccessRule, NavDefinition } from "@kumiko/framework/ui-types";
+import type { AccessRule, NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavNode, NavTree, ResolveNavigationOptions } from "./types";
 
 // Assembles the renderable nav tree from the registry's pre-grouped
@@ -53,7 +53,7 @@ function bySortKey(a: NavNode, b: NavNode): number {
 }
 
 // Access evaluator. Duplicated minimal logic instead of importing
-// hasAccess from @kumiko/framework/engine at runtime — that module pulls
+// hasAccess from @cosmicdrift/kumiko-framework/engine at runtime — that module pulls
 // in server-side deps (tenant-db, ownership-evaluator) and would break
 // ui-core's bundle-purity guarantee. Only roles + openToAll are checked;
 // ownership-level row-filtering is a server-side concern and doesn't

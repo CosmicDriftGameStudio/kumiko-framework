@@ -13,7 +13,7 @@
 // für Multi-Workspace mit Switcher in der Topbar), nutzt
 // <WorkspaceShell> oder baut den Shell selber.
 
-import type { AppSchema, FeatureSchema } from "@kumiko/renderer";
+import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { AppLayout } from "./app-layout";
 import { NavTree } from "./nav-tree";

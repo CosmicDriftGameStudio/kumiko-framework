@@ -14,18 +14,18 @@
 // jobs, the scaling.md pick-guide would apply — this sample stays
 // worker-only because that's the prod default.
 
-import { createRegistry } from "@kumiko/framework/engine";
-import { createAllInOneEntrypoint } from "@kumiko/framework/entrypoint";
-import { createArchivedStreamsTable, createEventsTable } from "@kumiko/framework/event-store";
-import { createEventConsumerStateTable } from "@kumiko/framework/pipeline";
+import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { createAllInOneEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
+import { createArchivedStreamsTable, createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEventConsumerStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestDb,
   createTestRedis,
   type TestDb,
   type TestRedis,
   TestUsers,
-} from "@kumiko/framework/stack";
-import { waitFor } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createLaneRoutingFeature, renderedReceipts, sentConfirmations } from "../feature";
 

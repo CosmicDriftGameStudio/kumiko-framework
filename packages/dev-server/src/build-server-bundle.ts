@@ -19,7 +19,7 @@
 //                                       (drizzle-kit lädt's per Convention.
 //                                        kumikoDrizzleConfig-Helper-Imports
 //                                        werden inlined damit der Container
-//                                        kein @kumiko/dev-server-Paket
+//                                        kein @cosmicdrift/kumiko-dev-server-Paket
 //                                        installiert haben muss.)
 //   dist-server/package.json         →  generiert mit Versionen aus framework +
 //                                       bundled-features package.json
@@ -163,7 +163,7 @@ export async function buildServerBundle(
   }
   // drizzle.config.ts wird mit-bundelt damit drizzle-kit migrate im
   // Runtime-Container den kumikoDrizzleConfig-Helper nicht via
-  // @kumiko/dev-server resolven muss (das Paket ist nicht installiert).
+  // @cosmicdrift/kumiko-dev-server resolven muss (das Paket ist nicht installiert).
   // Output behält die .ts-Endung — drizzle-kit's TS-Loader akzeptiert
   // bundled JavaScript.
   if (drizzleConfig) {

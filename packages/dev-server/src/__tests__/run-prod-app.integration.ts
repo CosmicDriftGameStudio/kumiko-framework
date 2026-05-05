@@ -12,19 +12,19 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { createDbConnection } from "@kumiko/framework/db";
+import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,
   createTextField,
   defineFeature,
-} from "@kumiko/framework/engine";
-import { createArchivedStreamsTable, createEventsTable } from "@kumiko/framework/event-store";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { createArchivedStreamsTable, createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEventConsumerStateTable,
   createProjectionStateTable,
-} from "@kumiko/framework/pipeline";
-import { ensureEntityTable } from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/pipeline";
+import { ensureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
@@ -122,7 +122,7 @@ async function migrateTestDb(): Promise<void> {
 let testDbMigrated = false;
 
 async function boot(
-  seedFn?: (deps: { db: import("@kumiko/framework/db").DbConnection }) => Promise<void>,
+  seedFn?: (deps: { db: import("@cosmicdrift/kumiko-framework/db").DbConnection }) => Promise<void>,
   extra?: Partial<Parameters<typeof runProdApp>[0]>,
 ): Promise<ProdAppHandle> {
   // Override env per boot to point at the suite's DB.
@@ -454,7 +454,7 @@ describe("runProdApp", () => {
     let seedInvocations = 0;
     let inserted = false;
 
-    const seed = async ({ db }: { db: import("@kumiko/framework/db").DbConnection }) => {
+    const seed = async ({ db }: { db: import("@cosmicdrift/kumiko-framework/db").DbConnection }) => {
       seedInvocations++;
       // Seed-side idempotence: check before inserting. runProdApp doesn't
       // gate seeds — the seed itself is responsible.

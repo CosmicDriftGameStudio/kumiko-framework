@@ -1,6 +1,6 @@
-import { createEventStoreExecutor } from "@kumiko/framework/db";
-import { ConfigScopes, defineWriteHandler } from "@kumiko/framework/engine";
-import { writeFailure } from "@kumiko/framework/errors";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { ConfigScopes, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { requireConfigEncryption } from "../feature";
 import { configValueEntity, configValuesTable } from "../table";

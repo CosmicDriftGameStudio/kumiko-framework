@@ -1,4 +1,4 @@
-import { createEntityExecutor, type QueryHandlerDef } from "@kumiko/framework/engine";
+import { createEntityExecutor, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { capCounterEntity } from "../entity";

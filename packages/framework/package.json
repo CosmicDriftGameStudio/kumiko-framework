@@ -1,13 +1,12 @@
 {
-  "name": "@kumiko/framework",
+  "name": "@cosmicdrift/kumiko-framework",
   "version": "0.0.1",
   "description": "Framework core — engine, pipeline, API, DB, and every other bit that makes Kumiko go.",
   "license": "BUSL-1.1",
   "author": "Marc Frost",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bender0oo0/kumiko.git",
-    "directory": "packages/framework"
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git"
   },
   "bugs": {
     "url": "https://github.com/bender0oo0/kumiko/issues"
@@ -73,7 +72,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@kumiko/dispatcher-live": "0.0.1",
+    "@cosmicdrift/kumiko-dispatcher-live": "0.0.1",
     "@types/uuid": "^11.0.0",
     "bun-types": "^1.2.9",
     "drizzle-kit": "^0.31.0",

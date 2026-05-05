@@ -34,7 +34,7 @@ import {
   defineFeature,
   type SessionUser,
   type TenantId,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamMembershipEntity = createEntity({
   table: "read_sample_auth_team_memberships",

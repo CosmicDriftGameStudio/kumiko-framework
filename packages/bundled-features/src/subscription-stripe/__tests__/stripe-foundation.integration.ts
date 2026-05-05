@@ -17,16 +17,16 @@ import {
   createSubscriptionWebhookHandler,
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
-} from "@kumiko/bundled-features/billing-foundation";
-import type { DbConnection } from "@kumiko/framework/db";
-import type { TenantId } from "@kumiko/framework/engine";
-import { createEventsTable, loadAggregate } from "@kumiko/framework/event-store";
+} from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { Hono } from "hono";
 import Stripe from "stripe";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";

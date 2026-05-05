@@ -10,7 +10,7 @@ import {
   SYSTEM_ROLE,
   SYSTEM_TENANT_ID,
   type TenantId,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
 import { prepareConfigWrite, validateBounds } from "../../write-helpers";
 

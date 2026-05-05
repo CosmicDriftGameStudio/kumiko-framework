@@ -1,4 +1,4 @@
-import { type ConfigScope, defineQueryHandler } from "@kumiko/framework/engine";
+import { type ConfigScope, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../feature";
 import { deserializeValue } from "../resolver";

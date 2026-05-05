@@ -15,12 +15,12 @@ Hobby-Projekte ohne Public-Zugriff aktivieren das Feature gar nicht.
 ## Setup
 
 ```typescript
-import { createLegalPagesFeature } from "@kumiko/bundled-features/legal-pages";
+import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import {
   createTextContentApi,
   createTextContentFeature,
-} from "@kumiko/bundled-features/text-content";
-import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-bundled-features/text-content";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
 runProdApp({
   features: [
@@ -129,8 +129,8 @@ sofortige Sichtbarkeit braucht, kann via CDN-Purge nachhelfen.
 Beim ersten App-Boot oder via Migration:
 
 ```typescript
-import { seedTextBlock } from "@kumiko/bundled-features/text-content/seeding";
-import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
+import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
 await seedTextBlock(db, {
   tenantId: SYSTEM_TENANT_ID,

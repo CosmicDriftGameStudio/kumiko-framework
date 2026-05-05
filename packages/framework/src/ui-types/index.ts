@@ -1,7 +1,7 @@
 // @runtime client
 //
 // Client-safe subset of engine types + the two normalize helpers. Split
-// out into its own subpath (`@kumiko/framework/ui-types`) so ui-core and
+// out into its own subpath (`@cosmicdrift/kumiko-framework/ui-types`) so ui-core and
 // renderer packages can import without pulling node-only framework
 // internals (postgres, drizzle-kit, ioredis, bullmq, ...) into the
 // browser or Expo bundle through the main `./engine` barrel.

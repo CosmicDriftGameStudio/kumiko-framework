@@ -1,4 +1,4 @@
-import { defineQueryHandler } from "@kumiko/framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { notificationPreferencesTable } from "../tables";

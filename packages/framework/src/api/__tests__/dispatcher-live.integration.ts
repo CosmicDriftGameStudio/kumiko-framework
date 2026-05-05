@@ -1,4 +1,4 @@
-import { createLiveDispatcher } from "@kumiko/dispatcher-live";
+import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { generateToken } from "../../api/tokens";

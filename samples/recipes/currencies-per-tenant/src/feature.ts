@@ -8,7 +8,7 @@
 //   currency   — tenant-owned, created by tenant admin (with isActive flag)
 //   invoice    — money fields validated against tenant's currency table
 
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { currencyEntity } from "./entities/currency";
 import { invoiceEntity } from "./entities/invoice";
 import { currencyCreate } from "./handlers/currency-create.write";

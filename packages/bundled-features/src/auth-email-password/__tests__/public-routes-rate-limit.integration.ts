@@ -5,13 +5,13 @@
 // or tightens loginRateLimit but forgets these would sail through.
 
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider } from "@kumiko/framework/db";
+import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityTable,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";

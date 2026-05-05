@@ -1,5 +1,5 @@
-import { buildDrizzleTable } from "@kumiko/framework/db";
-import { createBooleanField, createEntity, createTextField } from "@kumiko/framework/engine";
+import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { createBooleanField, createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 export const tenantEntity = createEntity({
   table: "read_tenants",

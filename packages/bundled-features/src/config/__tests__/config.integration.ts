@@ -1,21 +1,21 @@
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider, type DbConnection } from "@kumiko/framework/db";
+import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSystemConfig,
   createTenantConfig,
   createUserConfig,
   defineFeature,
-} from "@kumiko/framework/engine";
-import { eventsTable } from "@kumiko/framework/event-store";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
-import { expectErrorIncludes } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";

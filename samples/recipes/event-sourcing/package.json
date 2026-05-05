@@ -1,9 +1,9 @@
 {
-  "name": "@kumiko/sample-event-sourcing",
+  "name": "@cosmicdrift/kumiko-sample-event-sourcing",
   "description": "Production-pattern ES sample: r.defineEvent (versioned) + r.eventMigration + ctx.appendEvent + r.projection + r.multiStreamProjection + ctx.loadAggregate (asOf) + ctx.archiveStream + ctx.queryProjection.",
   "private": true,
   "dependencies": {
     "@app/define": "link:./.kumiko",
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

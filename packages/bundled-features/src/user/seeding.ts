@@ -14,9 +14,9 @@ import {
   createTenantDb,
   type DbConnection,
   fetchOne,
-} from "@kumiko/framework/db";
-import type { SessionUser } from "@kumiko/framework/engine";
-import { TestUsers } from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { userEntity, userTable } from "./schema/user";
 
@@ -27,7 +27,7 @@ export type SeedUserOptions = {
   readonly displayName: string;
   /** Optional bereits-gehashtes Passwort. Für plain-password-Tests
    *  besser den Convenience-Wrapper aus
-   *  `@kumiko/bundled-features/auth-email-password/seeding` nutzen,
+   *  `@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding` nutzen,
    *  der argon2-Hashing übernimmt. */
   readonly passwordHash?: string;
   readonly locale?: string;

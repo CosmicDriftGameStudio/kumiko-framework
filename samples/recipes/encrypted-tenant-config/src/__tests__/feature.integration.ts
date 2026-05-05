@@ -8,15 +8,15 @@ import {
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
-} from "@kumiko/bundled-features/config";
-import { createEncryptionProvider } from "@kumiko/framework/db";
+} from "@cosmicdrift/kumiko-bundled-features/config";
+import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { billingFeature, stripeApiKeyHandle } from "../feature";

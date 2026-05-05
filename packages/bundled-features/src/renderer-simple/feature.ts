@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { simpleRenderer } from "./simple-renderer";
 
 export function createRendererSimpleFeature(): FeatureDefinition {

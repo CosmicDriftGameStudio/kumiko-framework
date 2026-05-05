@@ -1,5 +1,5 @@
 // Browser-Impl der Navigation: HTML5-History + popstate subscribe.
-// Types + Context + useNav leben im shared `@kumiko/renderer`; dieser
+// Types + Context + useNav leben im shared `@cosmicdrift/kumiko-renderer`; dieser
 // File liefert nur die Web-spezifische NavApi-Instanz und die
 // `<KumikoLink>` Anchor-Komponente.
 //
@@ -10,7 +10,7 @@
 // Event-Bus). Hand-rolled Listener-Set ist hier idiomatisch: zwei
 // Notify-Trigger (eigenes pushPath, popstate-Event), nicht generalisierbar.
 
-import { formatPath, type NavApi, type NavTarget, parsePath, useNav } from "@kumiko/renderer";
+import { formatPath, type NavApi, type NavTarget, parsePath, useNav } from "@cosmicdrift/kumiko-renderer";
 import {
   type AnchorHTMLAttributes,
   type MouseEvent,

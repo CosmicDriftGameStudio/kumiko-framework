@@ -535,7 +535,7 @@ export function qualifiedNameToConstName(qualifiedName: string): string {
  * Resolves the relative schema-import path from the feature-file's
  * point-of-view to a path relative to `.kumiko/` (which is where the
  * generated d.ts file lives). Workspace-package specifiers
- * (`@kumiko/...`) are returned as-is.
+ * (`@cosmicdrift/kumiko-...`) are returned as-is.
  */
 export function rewriteImportPath(
   schemaModulePath: string,

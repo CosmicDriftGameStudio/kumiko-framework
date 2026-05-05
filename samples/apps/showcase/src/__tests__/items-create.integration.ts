@@ -5,13 +5,13 @@
 // dialect.toDriver [Temporal.Instant.from braucht ISO-datetime]). Der
 // Test rennt jetzt beim CI mit, damit die Regression nicht wiederkommt.
 
-import { createEventsTable } from "@kumiko/framework/event-store";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { itemsFeature } from "../features/items/feature";
 import { itemEntity } from "../features/items/schema";

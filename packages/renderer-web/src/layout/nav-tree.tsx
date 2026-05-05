@@ -11,11 +11,11 @@
 // auf/zu. State lebt lokal im NavTree (useState); Default expanded
 // für alles, Caller kann später localStorage-Persistenz drüberlegen.
 
-import type { NavDefinition } from "@kumiko/framework/ui-types";
-import type { NavNode, NavRegistrySlice } from "@kumiko/headless";
-import { resolveNavigation } from "@kumiko/headless";
-import type { AppSchema, FeatureSchema } from "@kumiko/renderer";
-import { lastSegment, toAppSchema, useNav, useTranslation } from "@kumiko/renderer";
+import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-headless";
+import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
+import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
+import { lastSegment, toAppSchema, useNav, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { KumikoLink } from "../app/nav";
@@ -276,6 +276,6 @@ function qualifyScreenId(feature: string, id: string): string {
   return id.includes(":screen:") ? id : `${feature}:screen:${id}`;
 }
 
-// `lastSegment` lebt jetzt in @kumiko/renderer (./app/qn) — eine
+// `lastSegment` lebt jetzt in @cosmicdrift/kumiko-renderer (./app/qn) — eine
 // Quelle, beide Pakete teilen sie.
 export { lastSegment };

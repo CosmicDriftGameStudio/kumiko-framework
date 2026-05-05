@@ -36,9 +36,9 @@ import {
   createTenantDb,
   type DbConnection,
   fetchOne,
-} from "@kumiko/framework/db";
-import type { SessionUser, TenantId } from "@kumiko/framework/engine";
-import { TestUsers } from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 import { tenantEntity, tenantTable } from "./schema/tenant";

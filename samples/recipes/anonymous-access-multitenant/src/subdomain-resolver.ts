@@ -8,7 +8,7 @@
 // the TTL or call invalidateTenantCache(slug) from their disable-tenant
 // handler.
 
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 export type TenantLookup = (subdomain: string) => Promise<TenantId | null>;
 export type TenantExistsLookup = (tenantId: TenantId) => Promise<boolean>;

@@ -8,7 +8,7 @@ import {
   defineEntityWriteHandler,
   defineFeature,
   type SessionUser,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   createTestUser,
@@ -17,7 +17,7 @@ import {
   type TestStack,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { AuditQueries } from "../constants";

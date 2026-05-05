@@ -8,7 +8,7 @@ import {
   defineEntityDeleteHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const messageEntity = createEntity({
   table: "read_sample_messages",

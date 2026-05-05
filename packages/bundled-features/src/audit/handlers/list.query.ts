@@ -11,8 +11,8 @@
 // append time (see event-store-executor → stripSensitive), so this query
 // can't surface PII that the entity definition marked as sensitive.
 
-import { defineQueryHandler } from "@kumiko/framework/engine";
-import { eventsTable } from "@kumiko/framework/event-store";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { and, desc, eq, gte, lt, lte } from "drizzle-orm";
 import { z } from "zod";
 

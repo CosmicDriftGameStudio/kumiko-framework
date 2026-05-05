@@ -12,8 +12,8 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   type SaveContext,
-} from "@kumiko/framework/engine";
-import { ConflictError } from "@kumiko/framework/errors";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 
 export const articleEntity = createEntity({
   table: "read_sample_articles",

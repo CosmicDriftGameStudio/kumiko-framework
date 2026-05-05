@@ -4,7 +4,7 @@
     "rootDir": "..",
     "outDir": "dist",
     "paths": {
-      "@kumiko/framework/*": ["../framework/src/*/index.ts"]
+      "@cosmicdrift/kumiko-framework/*": ["../framework/src/*/index.ts"]
     },
     "noEmit": true,
     "jsx": "react-jsx",

@@ -1,4 +1,4 @@
-import { useToast } from "@kumiko/renderer-web";
+import { useToast } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import { DemoPage, DemoSection } from "../components/page";
 

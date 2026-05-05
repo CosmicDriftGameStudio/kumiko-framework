@@ -9,7 +9,7 @@ import {
   ProfileMenu,
   type ProfileMenuItem,
   ThemeToggle,
-} from "@kumiko/renderer-web";
+} from "@cosmicdrift/kumiko-renderer-web";
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 

@@ -4,7 +4,7 @@
 // die jede App in der DB haben muss. App-Author schreibt:
 //
 //   // drizzle/schema.ts
-//   export * from "@kumiko/dev-server/drizzle-tables-auth-mode";
+//   export * from "@cosmicdrift/kumiko-dev-server/drizzle-tables-auth-mode";
 //   export * from "./schema.generated";   // App-eigene + Bundle-Entity-Tables
 //
 // drizzle-kit sucht im schema-Module nur nach pgTable-Instances und
@@ -21,5 +21,5 @@
 // Framework-Infra. Umbenennen ist breaking change für App-Imports.)
 
 // Framework-Infra (immer da, unabhängig von Features)
-export { archivedStreamsTable, eventsTable, snapshotsTable } from "@kumiko/framework/event-store";
-export { eventConsumerStateTable, projectionStateTable } from "@kumiko/framework/pipeline";
+export { archivedStreamsTable, eventsTable, snapshotsTable } from "@cosmicdrift/kumiko-framework/event-store";
+export { eventConsumerStateTable, projectionStateTable } from "@cosmicdrift/kumiko-framework/pipeline";

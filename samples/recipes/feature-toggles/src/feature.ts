@@ -9,7 +9,7 @@
 // callback + set-handler) is exercised as documentation, not just in the
 // framework's own tests.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
+import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,
@@ -17,8 +17,8 @@ import {
   defineFeature,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
-} from "@kumiko/framework/engine";
-import { generateId } from "@kumiko/framework/utils";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 

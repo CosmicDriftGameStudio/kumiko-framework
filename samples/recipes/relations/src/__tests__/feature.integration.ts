@@ -1,14 +1,14 @@
 // Relations Sample — Integration Test
 // Proves: hasMany relations, cascade delete, restrict delete
 
-import { createEventsTable } from "@kumiko/framework/event-store";
-import { createCascadeDeleteHook } from "@kumiko/framework/pipeline";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEntityTable,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   memberEntity,

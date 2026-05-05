@@ -1,5 +1,5 @@
-import type { DbRow } from "@kumiko/framework/db";
-import type { TenantId } from "@kumiko/framework/engine";
+import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { DeliveryChannel, NotificationRenderer } from "../delivery";
 import type { EmailTransport } from "./types";
 

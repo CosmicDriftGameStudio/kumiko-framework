@@ -29,7 +29,7 @@
 //     ...
 //   });
 
-import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@kumiko/framework/ui-types";
+import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-framework/ui-types";
 
 export type { AppSchema, FeatureSchema, WorkspaceSchema };
 

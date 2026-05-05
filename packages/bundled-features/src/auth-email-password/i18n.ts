@@ -8,7 +8,7 @@
 // Formular-UI, `auth.errors.*` für Reason-Codes aus dem Login-Handler
 // (1:1 gespiegelt zu AuthErrors im server-side Feature).
 
-import type { TranslationsByLocale } from "@kumiko/renderer";
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
   de: {

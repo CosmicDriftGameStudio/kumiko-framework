@@ -1,13 +1,13 @@
-import { buildServer, type JwtHelper } from "@kumiko/framework/api";
-import { createTenantDb, type DbConnection } from "@kumiko/framework/db";
+import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
+import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
   defineFeature,
   type SessionUser,
   type TenantId,
-} from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
-import { createJobRunner, type JobRunner } from "@kumiko/framework/jobs";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createEntityTable,
   createTestDb,
@@ -18,8 +18,8 @@ import {
   type TestRedis,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/stack";
-import { bridgeStub, sleep } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { bridgeStub, sleep } from "@cosmicdrift/kumiko-framework/testing";
 import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config/feature";

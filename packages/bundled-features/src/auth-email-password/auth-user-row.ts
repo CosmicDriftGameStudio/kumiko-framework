@@ -3,7 +3,7 @@
 // `as AuthUserRow | null` at the system boundary — the coding standard
 // requires a TypeGuard in place of unchecked casts from unknown.
 
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 // Fields findForAuth returns. `version` is present for updates, `email` +
 // `passwordHash` only for login/reset/verification lookups. Every field

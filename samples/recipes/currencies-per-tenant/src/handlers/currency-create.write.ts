@@ -1,6 +1,6 @@
 // Tenant creates their own currency — no global table needed
 
-import { defineWriteHandler } from "@kumiko/framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { currencyTable } from "../entities/currency";
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { LocaleResolver } from "@kumiko/headless";
+import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import { act, render, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";

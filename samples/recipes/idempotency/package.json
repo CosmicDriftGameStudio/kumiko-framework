@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-idempotency",
+  "name": "@cosmicdrift/kumiko-sample-idempotency",
   "description": "Same request, same result. Dedupes on request ID.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

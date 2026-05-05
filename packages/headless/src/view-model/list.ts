@@ -2,8 +2,8 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
   FieldDefinition,
-} from "@kumiko/framework/ui-types";
-import { normalizeListColumn, parseRefTarget } from "@kumiko/framework/ui-types";
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import { normalizeListColumn, parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListColumnViewModel, ListRowViewModel, ListViewModel, Translate } from "./types";
 
 export type ComputeListViewModelInput = {

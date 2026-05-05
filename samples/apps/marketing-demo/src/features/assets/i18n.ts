@@ -7,7 +7,7 @@
 // `assets:entity:asset:field:<field>:option:<value>` damit „lent"
 // nicht raw als „lent" im Screenshot landet.
 
-import type { TranslationsByLocale } from "@kumiko/renderer";
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const assetsTranslations: TranslationsByLocale = {
   de: {

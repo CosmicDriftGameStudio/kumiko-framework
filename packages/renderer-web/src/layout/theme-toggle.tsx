@@ -4,7 +4,7 @@
 // jedem Browser, jede App kann lucide/heroicons/eigene SVG via Props
 // reinreichen.
 
-import { useTokenController } from "@kumiko/renderer";
+import { useTokenController } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 
 export type ThemeToggleProps = {

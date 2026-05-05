@@ -1,9 +1,9 @@
 {
-  "name": "@kumiko/sample-secrets-demo",
+  "name": "@cosmicdrift/kumiko-sample-secrets-demo",
   "description": "Tenant-owned secrets with envelope encryption, DEK cache, and KEK rotation.",
   "private": true,
   "dependencies": {
-    "@kumiko/bundled-features": "workspace:*",
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

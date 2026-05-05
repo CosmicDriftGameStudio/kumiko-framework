@@ -1,4 +1,4 @@
-import { access, defineWriteHandler } from "@kumiko/framework/engine";
+import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // Logout — JWT is stateless, so server-side we only return OK. A future

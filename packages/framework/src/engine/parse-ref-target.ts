@@ -5,7 +5,7 @@
 //   - "users:user"  → cross-feature ref (qualifiziert)
 //
 // Lebt im framework-Package damit Server-Validator + Renderer (über
-// Re-Export aus @kumiko/headless) denselben Parser nutzen — die
+// Re-Export aus @cosmicdrift/kumiko-headless) denselben Parser nutzen — die
 // Convention darf nicht zweimal implementiert werden.
 
 export type ParsedRefTarget = {

@@ -12,7 +12,7 @@
 //   3. ctx.appendEventUnsafe — Inline-projection materialisiert die
 //      `read_subscriptions`-row in derselben TX.
 
-import type { WriteHandlerDef } from "@kumiko/framework/engine";
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";

@@ -10,8 +10,8 @@
 // onAfterSetup. Schema landet als window.__KUMIKO_SCHEMA__-Injection
 // im Browser, kein hand-geschriebener clientSchema-Spiegel.
 
-import { runDevApp } from "@kumiko/dev-server";
-import type { TenantId } from "@kumiko/framework/engine";
+import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { demoFeature } from "../features/demo";
 import { driverFeature } from "../features/demo-driver";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./auth-constants";

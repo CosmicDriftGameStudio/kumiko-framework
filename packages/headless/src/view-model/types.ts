@@ -4,7 +4,7 @@ import type {
   FieldRenderer,
   ListColumnSpec,
   ScreenSlots,
-} from "@kumiko/framework/ui-types";
+} from "@cosmicdrift/kumiko-framework/ui-types";
 
 // View-Models — plain data structures produced by computeListViewModel and
 // computeEditViewModel. They flatten the combined [screen-def + entity-def
@@ -145,6 +145,6 @@ export type Translate = (key: string, params?: Readonly<Record<string, unknown>>
 export type FieldConditionCtx = unknown;
 
 // Re-export the ScreenDef spec halves we don't want ui-core callers to
-// import from @kumiko/framework separately. Renderer packages expect a
+// import from @cosmicdrift/kumiko-framework separately. Renderer packages expect a
 // single import surface.
 export type { EditFieldSpec, EditSectionSpec, FieldRenderer, ListColumnSpec, ScreenSlots };

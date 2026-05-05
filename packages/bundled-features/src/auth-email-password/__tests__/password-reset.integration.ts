@@ -1,13 +1,13 @@
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider } from "@kumiko/framework/db";
-import type { TenantId } from "@kumiko/framework/engine";
+import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { Temporal } from "temporal-polyfill";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";

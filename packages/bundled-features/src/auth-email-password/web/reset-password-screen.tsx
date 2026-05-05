@@ -10,7 +10,7 @@
 // injected Token-Prop, andere Parameter-Namen) reichen einen
 // expliziten `token` als Prop durch.
 
-import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { resetPassword } from "./auth-client";
 import {

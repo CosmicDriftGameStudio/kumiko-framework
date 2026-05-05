@@ -6,7 +6,7 @@
 // Autocomplete kennt alle Event-Typen aller geladenen Features, payload-
 // Shape-Mismatches werden im Editor angezeigt, nicht erst beim Boot.
 //
-// Befüllung erfolgt per Feature über `declare module "@kumiko/framework/engine"`
+// Befüllung erfolgt per Feature über `declare module "@cosmicdrift/kumiko-framework/engine"`
 // — entweder hand-geschrieben (für stabile Frameworks-Internals) oder vom
 // Codegen-Skript erzeugt (für apps/bundled-features). Empty defaults sind
 // kein Bug: ein Feature ohne Augmentation ist runtime-pluggable und nutzt
@@ -14,14 +14,14 @@
 //
 // Pattern für hand-geschriebene Augmentation am File-Top:
 //
-//   declare module "@kumiko/framework/engine" {
+//   declare module "@cosmicdrift/kumiko-framework/engine" {
 //     interface KumikoEventTypeMap {
 //       "users:user.created": z.infer<typeof userCreatedSchema>;
 //     }
 //   }
 
 // MUST be `interface` (not `type`): only interfaces support TS declaration-
-// merging. Apps/features extend these via `declare module "@kumiko/framework/engine"`
+// merging. Apps/features extend these via `declare module "@cosmicdrift/kumiko-framework/engine"`
 // blocks. A `type X = {}` alias would silently break that augmentation channel.
 
 // biome-ignore lint/suspicious/noEmptyInterface: declaration-merging marker — augmented per feature

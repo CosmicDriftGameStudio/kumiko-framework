@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { FEATURE_TOGGLE_SET_EVENT_NAME } from "./constants";
 import { featureToggleSetSchema } from "./events";
 import { listQuery } from "./handlers/list.query";
@@ -91,7 +91,7 @@ export function createFeatureTogglesFeature(options: FeatureTogglesOptions): Fea
 export { FEATURE_TOGGLE_SET_EVENT_NAME, FeatureToggleErrors } from "./constants";
 export { globalFeatureStateTable } from "./global-feature-state-table";
 // Re-export the runtime factory + class so app-boot code has a single
-// import path: "@kumiko/bundled-features/feature-toggles".
+// import path: "@cosmicdrift/kumiko-bundled-features/feature-toggles".
 export {
   createFeatureToggleRuntime,
   GlobalFeatureToggleRuntime,

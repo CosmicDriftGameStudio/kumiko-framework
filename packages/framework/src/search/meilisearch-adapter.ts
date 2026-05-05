@@ -1,4 +1,4 @@
-import type { EntityId, TenantId } from "@kumiko/framework/engine";
+import type { EntityId, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Meilisearch } from "meilisearch";
 import type { SearchAdapter, SearchResult } from "./types";
 

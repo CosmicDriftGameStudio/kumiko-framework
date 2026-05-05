@@ -5,8 +5,8 @@
 // dokumentiert das Ergebnis; jeder Feature-Autor der den Generator zum
 // ersten Mal anfasst kann hier reinschauen statt in die Implementation.
 
-import { createRegistry, validateBoot } from "@kumiko/framework/engine";
-import { generateE2ESpec } from "@kumiko/framework/testing";
+import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { generateE2ESpec } from "@cosmicdrift/kumiko-framework/testing";
 import { describe, expect, test } from "vitest";
 import { createShopFeature } from "../feature";
 

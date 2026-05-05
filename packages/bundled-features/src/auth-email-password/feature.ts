@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { changePasswordWrite } from "./handlers/change-password.write";
 import { createInviteAcceptHandler } from "./handlers/invite-accept.write";
 import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write";

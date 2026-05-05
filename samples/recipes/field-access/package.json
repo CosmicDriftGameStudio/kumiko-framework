@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-field-access",
+  "name": "@cosmicdrift/kumiko-sample-field-access",
   "description": "Field-level access control. When entity-level roles aren't granular enough.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

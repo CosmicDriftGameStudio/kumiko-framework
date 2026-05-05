@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-currencies-per-tenant",
+  "name": "@cosmicdrift/kumiko-sample-currencies-per-tenant",
   "description": "Tenant-scoped money fields. Commas matter.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

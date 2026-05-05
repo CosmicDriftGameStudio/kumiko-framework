@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { z } from "zod";
 import { DELIVERY_ATTEMPT_EVENT } from "./constants";
 import { deliveryAttemptSchema } from "./events";

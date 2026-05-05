@@ -7,7 +7,7 @@
 // money pair.
 
 import { defineWriteHandler } from "@app/define";
-import { createEventStoreExecutor } from "@kumiko/framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { z } from "zod";
 import { invoiceEntity, invoiceTable } from "../entities/invoice";
 

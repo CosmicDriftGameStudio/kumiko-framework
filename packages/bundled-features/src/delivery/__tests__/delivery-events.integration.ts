@@ -6,8 +6,8 @@
 // aggregateType) fails loudly instead of breaking downstream consumers
 // (MSPs, audit-feature, event-replays) who subscribe by name.
 
-import type { DbConnection } from "@kumiko/framework/db";
-import { eventsTable } from "@kumiko/framework/event-store";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   createTestUser,
@@ -15,7 +15,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createChannelInAppFeature } from "../../channel-in-app/feature";

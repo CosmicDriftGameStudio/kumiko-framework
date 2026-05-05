@@ -15,8 +15,8 @@ import {
   createTenantConfig,
   defineFeature,
   defineWriteHandler,
-} from "@kumiko/framework/engine";
-import { UnprocessableError, writeFailure } from "@kumiko/framework/errors";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 const FEATURE = "billing";

@@ -1,6 +1,6 @@
-import { createEventStoreExecutor, fetchOne } from "@kumiko/framework/db";
-import { defineWriteHandler, type TenantId } from "@kumiko/framework/engine";
-import { AccessDeniedError, writeFailure } from "@kumiko/framework/errors";
+import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "../table";

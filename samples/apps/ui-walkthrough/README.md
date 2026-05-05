@@ -2,7 +2,7 @@
 
 Full-Stack-Demo des Kumiko-Renderers: `DefaultAppShell` + `LanguageSwitcher`
 + `ThemeToggle` + `emailPasswordClient` + `TenantSwitcher` + Tasks-CRUD.
-Bootet via `runDevApp` aus `@kumiko/dev-server` mit Auth-Mode (Login-
+Bootet via `runDevApp` aus `@cosmicdrift/kumiko-dev-server` mit Auth-Mode (Login-
 Screen vor Zugang) und zwei Dev-Tenants damit der TenantSwitcher
 sichtbar wird.
 

@@ -7,8 +7,8 @@
 // Dependencies und Sub-Exports zieht — hält das Primitives-Hauptfile
 // schlank.
 
-import type { DialogProps } from "@kumiko/renderer";
-import { useTranslation } from "@kumiko/renderer";
+import type { DialogProps } from "@cosmicdrift/kumiko-renderer";
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Loader2, X } from "lucide-react";
 import { type ReactNode, useState } from "react";

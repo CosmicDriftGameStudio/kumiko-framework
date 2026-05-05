@@ -1,9 +1,9 @@
-import { createTextContentApi, textBlockEntity } from "@kumiko/bundled-features/text-content";
-import { seedTextBlock } from "@kumiko/bundled-features/text-content/seeding";
-import type { DbConnection } from "@kumiko/framework/db";
-import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
-import { createEntityTable, setupTestStack, type TestStack } from "@kumiko/framework/stack";
+import { createTextContentApi, textBlockEntity } from "@cosmicdrift/kumiko-bundled-features/text-content";
+import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEntityTable, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { LEGAL_ROUTES, legalPagesFeature, textContentFeature } from "../feature";
 

@@ -1,6 +1,6 @@
-import { fetchOne } from "@kumiko/framework/db";
-import { defineQueryHandler } from "@kumiko/framework/engine";
-import { AccessDeniedError } from "@kumiko/framework/errors";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { type TextBlockRow, textBlocksTable } from "../table";

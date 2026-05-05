@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-designer-demo",
+  "name": "@cosmicdrift/kumiko-sample-designer-demo",
   "description": "Kumiko sample feature — scaffolded by `yarn kumiko create`",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

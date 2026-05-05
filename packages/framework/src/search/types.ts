@@ -1,4 +1,4 @@
-import type { EntityId, TenantId } from "@kumiko/framework/engine";
+import type { EntityId, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 export type SearchAdapterConfig = {
   searchableFields: readonly string[];

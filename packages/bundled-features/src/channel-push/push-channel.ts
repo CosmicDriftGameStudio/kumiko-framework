@@ -1,4 +1,4 @@
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { DeliveryChannel } from "../delivery";
 import type { PushTransport } from "./types";
 

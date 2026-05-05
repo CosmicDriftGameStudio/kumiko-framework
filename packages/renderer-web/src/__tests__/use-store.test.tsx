@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { createStore, shallowEqual } from "@kumiko/headless";
-import { useStore, useStoreSelector } from "@kumiko/renderer";
+import { createStore, shallowEqual } from "@cosmicdrift/kumiko-headless";
+import { useStore, useStoreSelector } from "@cosmicdrift/kumiko-renderer";
 import { describe, expect, test, vi } from "vitest";
 import { act, renderHook } from "./test-utils";
 

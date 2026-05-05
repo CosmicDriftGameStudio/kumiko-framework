@@ -2,8 +2,8 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   FieldCondition,
-} from "@kumiko/framework/ui-types";
-import { normalizeEditField, parseRefTarget } from "@kumiko/framework/ui-types";
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import { normalizeEditField, parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import { buildOptionLabels, fieldLabelKey } from "./list";
 import type { EditFieldViewModel, EditSectionViewModel, EditViewModel, Translate } from "./types";
 

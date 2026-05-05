@@ -24,7 +24,7 @@ import {
   defineProjectionQueryHandler,
   typedPayload,
 } from "@app/define";
-import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
+import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { eq, sql } from "drizzle-orm";
 import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { z } from "zod";

@@ -2,7 +2,7 @@
 // CLI) import exclusively from here.
 
 // Forwarded barrel — keeps the pattern-library reachable through
-// @kumiko/framework/engine without forcing a separate sub-path import.
+// @cosmicdrift/kumiko-framework/engine without forcing a separate sub-path import.
 export type {
   FormFieldLabel,
   FormFieldSpec,

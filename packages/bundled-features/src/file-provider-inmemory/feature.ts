@@ -17,13 +17,13 @@
 // **NICHT für Production.** Buffer ist Process-Memory, geht beim
 // Restart verloren + wächst monoton mit jedem write.
 
-import type { FileProviderPlugin } from "@kumiko/bundled-features/file-foundation";
-import { defineFeature, type HandlerContext } from "@kumiko/framework/engine";
+import type { FileProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { defineFeature, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
   type InMemoryFileProvider,
-} from "@kumiko/framework/files";
+} from "@cosmicdrift/kumiko-framework/files";
 
 const FEATURE_NAME = "file-provider-inmemory";
 

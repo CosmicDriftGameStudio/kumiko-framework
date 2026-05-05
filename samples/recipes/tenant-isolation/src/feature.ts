@@ -8,7 +8,7 @@ import {
   defineEntityDetailHandler,
   defineEntityListHandler,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const noteEntity = createEntity({
   table: "read_sample_notes",

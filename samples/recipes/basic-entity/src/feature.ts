@@ -16,7 +16,7 @@ import {
   defineEntityRestoreHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const taskEntity = createEntity({
   table: "read_sample_tasks",

@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-rate-limiting",
+  "name": "@cosmicdrift/kumiko-sample-rate-limiting",
   "description": "End-to-end rate limiting: L1 global-IP + L2 auth-endpoints + L3 handler opt-in.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

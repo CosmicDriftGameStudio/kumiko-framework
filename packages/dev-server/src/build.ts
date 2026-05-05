@@ -1,4 +1,4 @@
-// Build-Toolchain Public-API. Eigener Sub-Path-Export `@kumiko/dev-server/build`
+// Build-Toolchain Public-API. Eigener Sub-Path-Export `@cosmicdrift/kumiko-dev-server/build`
 // damit der Main-Barrel kein Bun-Toolchain-Bundle in Production-Reads zieht
 // (z.B. wenn drizzle-kit die App-Config unter Node lädt).
 

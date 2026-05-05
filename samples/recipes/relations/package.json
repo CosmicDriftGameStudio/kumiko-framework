@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-relations",
+  "name": "@cosmicdrift/kumiko-sample-relations",
   "description": "belongsTo, hasMany, manyToMany — the good stuff.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

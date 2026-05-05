@@ -8,27 +8,27 @@ import {
   AuthHandlers,
   createAuthEmailPasswordFeature,
   hashPassword,
-} from "@kumiko/bundled-features/auth-email-password";
-import { configValuesTable, createConfigFeature } from "@kumiko/bundled-features/config";
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { configValuesTable, createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   type SessionCallbacks,
   userSessionEntity,
   userSessionTable,
-} from "@kumiko/bundled-features/sessions";
-import { sessionCallbacksFromLateBound } from "@kumiko/bundled-features/sessions/testing";
+} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { sessionCallbacksFromLateBound } from "@cosmicdrift/kumiko-bundled-features/sessions/testing";
 import {
   createTenantFeature,
   tenantEntity,
   tenantMembershipsTable,
-} from "@kumiko/bundled-features/tenant";
-import { seedTenantMembership } from "@kumiko/bundled-features/tenant/seeding";
+} from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
 import {
   createUserFeature,
   UserHandlers,
   userEntity,
   userTable,
-} from "@kumiko/bundled-features/user";
-import type { TenantId } from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-bundled-features/user";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   pushTables,
@@ -36,8 +36,8 @@ import {
   type TestStack,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/stack";
-import { createLateBoundHolder } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import * as jose from "jose";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createSessionCallbacks, createSessionsFeature } from "../feature";

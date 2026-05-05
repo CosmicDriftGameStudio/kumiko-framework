@@ -3,14 +3,14 @@
 // plaintext secret without ever exposing it to clients — the charge endpoint
 // returns { chargeId } but never the apiKey.
 
-import { requireSecretsContext } from "@kumiko/bundled-features/secrets";
+import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
   defineFeature,
   defineWriteHandler,
   type FeatureDefinition,
   type SecretKeyHandle,
-} from "@kumiko/framework/engine";
-import { failUnprocessable } from "@kumiko/framework/errors";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 // Typed handle exported by the feature's setup. Bound to what r.secret

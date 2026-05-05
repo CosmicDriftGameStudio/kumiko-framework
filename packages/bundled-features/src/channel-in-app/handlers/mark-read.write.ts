@@ -1,5 +1,5 @@
-import { defineWriteHandler } from "@kumiko/framework/engine";
-import { NotFoundError, writeFailure } from "@kumiko/framework/errors";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { inAppMessagesTable } from "../tables";

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import type { LocaleResolver } from "@kumiko/headless";
-import { createStaticLocaleResolver, LocaleProvider } from "@kumiko/renderer";
+import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
+import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer";
 import { render as _render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";

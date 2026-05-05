@@ -6,14 +6,14 @@
 //   4. `passwordHash`-Field ist optional (User ohne Passwort, z.B. SSO-
 //      Federation, soll auch funktionieren)
 
-import { createEventsTable, eventsTable } from "@kumiko/framework/event-store";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config/feature";

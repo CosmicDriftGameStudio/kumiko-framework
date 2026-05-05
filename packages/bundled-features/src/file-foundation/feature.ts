@@ -21,14 +21,14 @@
 // **Boot-Dependencies:** config (für provider-selector). Kein secrets,
 // weil Foundation selbst keine Secrets hält.
 
-import { requireDefined } from "@kumiko/bundled-features/foundation-shared";
+import { requireDefined } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
   access,
   createTenantConfig,
   defineFeature,
   type HandlerContext,
-} from "@kumiko/framework/engine";
-import type { FileStorageProvider } from "@kumiko/framework/files";
+} from "@cosmicdrift/kumiko-framework/engine";
+import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 
 const FEATURE_NAME = "file-foundation";
 

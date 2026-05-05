@@ -1,8 +1,8 @@
 // @runtime client
 // Public exports für die Browser-Seite des auth-email-password Features.
-// Wird über den Sub-Path-Export `@kumiko/bundled-features/auth-email-
+// Wird über den Sub-Path-Export `@cosmicdrift/kumiko-bundled-features/auth-email-
 // password/web` konsumiert — die Server-Seite (defineFeature) lebt in
-// `@kumiko/bundled-features/auth-email-password` und hat keine
+// `@cosmicdrift/kumiko-bundled-features/auth-email-password` und hat keine
 // React-/DOM-Deps. Trennung bleibt sauber so wie renderer vs renderer-web.
 
 export { defaultTranslations } from "../i18n";

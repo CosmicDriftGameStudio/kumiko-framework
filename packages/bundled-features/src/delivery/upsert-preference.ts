@@ -10,8 +10,8 @@
 // through to update. Worst case: one extra roundtrip for the loser of
 // the race. Happy path: same number of queries as the pre-ES upsert.
 
-import { createEventStoreExecutor, fetchOne, type TenantDb } from "@kumiko/framework/db";
-import type { SessionUser, TenantId, WriteResult } from "@kumiko/framework/engine";
+import { createEventStoreExecutor, fetchOne, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables";
 

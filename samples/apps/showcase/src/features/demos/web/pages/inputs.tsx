@@ -1,4 +1,4 @@
-import { usePrimitives } from "@kumiko/renderer";
+import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useMemo, useState } from "react";
 import { DemoPage, DemoSection } from "../components/page";
 

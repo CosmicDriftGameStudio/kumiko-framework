@@ -10,7 +10,7 @@
 //             address.street and address.city are searchable
 //             billingAddress.vatId has restricted field access
 
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { contactEntity } from "./entities/contact";
 import { contactCreate } from "./handlers/contact-create.write";
 import { contactDetail } from "./handlers/contact-detail.query";

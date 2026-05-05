@@ -5,7 +5,7 @@
 // Translations (de/en) mit. Alles ist overridbar — Login-Screen,
 // Strings pro Locale, pro Key.
 
-import type { TranslationsByLocale } from "@kumiko/renderer";
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 import { defaultTranslations, mergeTranslations } from "../i18n";
 import { makeAuthGate } from "./auth-gate";
@@ -26,7 +26,7 @@ export type EmailPasswordClientOptions = {
 };
 
 // Struktural identisch zur renderer-web ClientFeatureDefinition, aber
-// ohne harte Dep auf @kumiko/renderer-web — so bleibt das Feature auch
+// ohne harte Dep auf @cosmicdrift/kumiko-renderer-web — so bleibt das Feature auch
 // für React-Native-Renderer (wenn sie kommen) nutzbar.
 export type EmailPasswordClientFeature = {
   readonly name: "auth-email-password";

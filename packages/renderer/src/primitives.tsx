@@ -1,6 +1,6 @@
 // Primitives-Contract. Plattform-neutral — die Types beschreiben die
 // semantische Oberfläche, die konkrete Implementation (HTML, React
-// Native) kommt aus `@kumiko/renderer-web` oder `@kumiko/renderer-native`.
+// Native) kommt aus `@cosmicdrift/kumiko-renderer-web` oder `@cosmicdrift/kumiko-renderer-native`.
 //
 // Die Renderer (RenderEdit, RenderList, RenderField, KumikoScreen)
 // konsumieren nur diesen Context. Es gibt KEIN Default-Registry hier
@@ -29,7 +29,7 @@
 // nicht), aber der App-Code hat ein einheitliches Primitive-Vokabular
 // über Core + Custom.
 
-import type { FieldIssue, ListColumnViewModel, ListRowViewModel } from "@kumiko/headless";
+import type { FieldIssue, ListColumnViewModel, ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import {
   type ComponentType,
   createContext,
@@ -482,7 +482,7 @@ export type CorePrimitives = {
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern
  *  dieses Interface via TypeScript Module-Augmentation:
  *
- *    declare module "@kumiko/renderer" {
+ *    declare module "@cosmicdrift/kumiko-renderer" {
  *      interface AppPrimitives {
  *        Chip: ComponentType<ChipProps>;
  *        Accordion: ComponentType<AccordionProps>;
@@ -517,7 +517,7 @@ export function usePrimitives(): PrimitivesRegistry {
   const registry = useContext(PrimitivesContext);
   if (registry === undefined) {
     throw new Error(
-      "usePrimitives: no <PrimitivesProvider> mounted. Wrap your app in one (createKumikoApp does this for you with defaultPrimitives from @kumiko/renderer-web).",
+      "usePrimitives: no <PrimitivesProvider> mounted. Wrap your app in one (createKumikoApp does this for you with defaultPrimitives from @cosmicdrift/kumiko-renderer-web).",
     );
   }
   return registry;

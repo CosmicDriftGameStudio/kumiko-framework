@@ -41,7 +41,7 @@
 // (z.B. für analytics: "wie viele Wechsel im Monat?"), kommt ein
 // `subscription-provider-changed`-event-type später.
 
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
 import {
   INVOICE_PAID_EVENT_QN,

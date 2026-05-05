@@ -1,8 +1,8 @@
 // Contact with embedded address — address belongs 1:1 to the contact,
 // is never shared, and is always read/written together
 
-import { buildDrizzleTable } from "@kumiko/framework/db";
-import { createEmbeddedField, createEntity, createTextField } from "@kumiko/framework/engine";
+import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { createEmbeddedField, createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 export const contactEntity = createEntity({
   table: "read_sample_contacts",

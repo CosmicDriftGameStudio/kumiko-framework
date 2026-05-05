@@ -3,7 +3,7 @@
 //                des Mouse-Click-Bugs reproduzieren ohne AppSchema)
 //   sonst      → createKumikoApp mit MockDispatcher (Standard-Smoke-Suite)
 
-import { createKumikoApp, DefaultAppShell } from "@kumiko/renderer-web";
+import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ComboboxTestPage } from "./combobox-page";

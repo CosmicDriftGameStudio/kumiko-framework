@@ -31,14 +31,14 @@
 // `channel-email` (App-wide-Mail-Sender via delivery) bleibt unangetastet
 // — additive Feature.
 
-import type { EmailTransport } from "@kumiko/bundled-features/channel-email";
-import { requireDefined } from "@kumiko/bundled-features/foundation-shared";
+import type { EmailTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import { requireDefined } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
   access,
   createTenantConfig,
   defineFeature,
   type HandlerContext,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 const FEATURE_NAME = "mail-foundation";
 

@@ -5,7 +5,7 @@ import {
   integer,
   table as pgTable,
   uuid,
-} from "@kumiko/framework/db";
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,
@@ -13,17 +13,17 @@ import {
   defineFeature,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
-} from "@kumiko/framework/engine";
-import { createEventDispatcher, type EventConsumer } from "@kumiko/framework/pipeline";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { createEventDispatcher, type EventConsumer } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEntityTable,
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
-import { createLateBoundHolder } from "@kumiko/framework/testing";
-import { generateId } from "@kumiko/framework/utils";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -227,7 +227,7 @@ async function trackerCount(): Promise<number> {
 }
 
 // Raw SQL because kumiko_event_consumers isn't exported as a drizzle table
-// from @kumiko/framework/db. Single cast at the system boundary with
+// from @cosmicdrift/kumiko-framework/db. Single cast at the system boundary with
 // explicit shape — typed access everywhere else.
 type ConsumerCursorRow = { last_processed_event_id: number | string };
 async function trackerCursor(): Promise<number> {

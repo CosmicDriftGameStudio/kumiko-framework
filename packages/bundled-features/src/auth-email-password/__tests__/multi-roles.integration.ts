@@ -8,7 +8,7 @@
 // Gegen-Beweis: User OHNE globale Rollen verhält sich wie vorher
 // (nur tenant-membership-roles in der Session).
 
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   pushTables,
@@ -16,7 +16,7 @@ import {
   type TestStack,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";

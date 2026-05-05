@@ -14,8 +14,8 @@
 // `drizzle/generate.ts` ergänzen (= via subscriptionsProjectionTable-
 // import). setupTestStack pusht sie automatisch via r.projection.table.
 
-import { buildDrizzleTable } from "@kumiko/framework/db";
-import { defineApply } from "@kumiko/framework/engine";
+import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
 import { subscriptionEntity } from "./entities";
 import type { SubscriptionEventPayload } from "./events";
 

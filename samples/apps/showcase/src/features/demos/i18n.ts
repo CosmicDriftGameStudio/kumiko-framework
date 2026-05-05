@@ -1,7 +1,7 @@
 // Demos-Feature i18n-Bundle. Nur die Screen-Titles für die
 // Top-Action-Bars der Demo-Pages.
 
-import type { TranslationsByLocale } from "@kumiko/renderer";
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const demosTranslations: TranslationsByLocale = {
   de: {

@@ -17,10 +17,10 @@ import {
   createTenantDb,
   type DbConnection,
   fetchOne,
-} from "@kumiko/framework/db";
-import type { SessionUser } from "@kumiko/framework/engine";
-import { InternalError, type WriteErrorInfo } from "@kumiko/framework/errors";
-import { append, type EventMetadata } from "@kumiko/framework/event-store";
+} from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, type WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
+import { append, type EventMetadata } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createDekCache,
   createSecret,
@@ -29,8 +29,8 @@ import {
   encryptValue,
   type MasterKeyProvider,
   type SecretsContext,
-} from "@kumiko/framework/secrets";
-import { generateId } from "@kumiko/framework/utils";
+} from "@cosmicdrift/kumiko-framework/secrets";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -41,8 +41,8 @@ import {
 } from "./table";
 
 // Re-export the framework interface so consumers of bundled-features/secrets
-// don't need to reach into @kumiko/framework/secrets separately.
-export type { Secret, SecretsContext } from "@kumiko/framework/secrets";
+// don't need to reach into @cosmicdrift/kumiko-framework/secrets separately.
+export type { Secret, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 
 export type SecretsContextOptions = {
   readonly db: DbConnection;

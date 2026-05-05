@@ -1,7 +1,7 @@
 // Resolver-helper: liest die current subscription-row für einen Tenant
 // aus der read_subscriptions-projection.
 
-import type { HandlerContext } from "@kumiko/framework/engine";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { subscriptionAggregateId } from "./aggregate-id";
 import { subscriptionsProjectionTable } from "./projection";

@@ -2,7 +2,7 @@
 // `showcase:` + `entity:item:field:<name>` für Field-Labels. Plus
 // die zwei Nav-Labels die in feature.ts referenziert werden.
 
-import type { TranslationsByLocale } from "@kumiko/renderer";
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const itemsTranslations: TranslationsByLocale = {
   de: {

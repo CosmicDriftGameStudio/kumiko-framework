@@ -30,7 +30,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   from,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 // The "teams" feature declares the teamId claim. Any other feature can
 // reference it via the QN string "teams:teamId" in ownership rules — no

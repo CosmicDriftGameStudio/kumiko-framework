@@ -9,7 +9,7 @@
 // Bereich unter /admin, Embedded-App unter /embed, Workspace-Routing
 // unter Prefix) sind hier mit Beispiel-URLs durchgespielt.
 
-import { NavProvider, useNav } from "@kumiko/renderer";
+import { NavProvider, useNav } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test } from "vitest";

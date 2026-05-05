@@ -1,9 +1,9 @@
 {
-  "name": "@kumiko/sample-encrypted-tenant-config",
+  "name": "@cosmicdrift/kumiko-sample-encrypted-tenant-config",
   "description": "Per-tenant secrets via config-key encryption — Stripe-API-key pattern.",
   "private": true,
   "dependencies": {
-    "@kumiko/bundled-features": "workspace:*",
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

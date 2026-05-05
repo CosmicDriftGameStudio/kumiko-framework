@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { cleanupJob } from "./handlers/cleanup.job";
 import { listQuery } from "./handlers/list.query";
 import { mineQuery } from "./handlers/mine.query";

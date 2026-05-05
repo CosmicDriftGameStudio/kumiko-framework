@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-tenant-isolation",
+  "name": "@cosmicdrift/kumiko-sample-tenant-isolation",
   "description": "Multi-tenant separation. Your data stays your data.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

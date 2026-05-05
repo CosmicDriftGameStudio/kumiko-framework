@@ -3,15 +3,15 @@ import {
   type EncryptionProvider,
   fetchOne,
   type TenantDb,
-} from "@kumiko/framework/db";
+} from "@cosmicdrift/kumiko-framework/db";
 import type {
   ConfigKeyDefinition,
   ConfigResolver,
   ConfigValueSource,
   ConfigValueWithSource,
-} from "@kumiko/framework/engine";
-import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
-import { assertUnreachable, parseJsonOrThrow } from "@kumiko/framework/utils";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { configValuesTable } from "./table";
 
@@ -213,7 +213,7 @@ export function validateAppOverrides(
   registry: {
     getConfigKey: (
       key: string,
-    ) => import("@kumiko/framework/engine").ConfigKeyDefinition | undefined;
+    ) => import("@cosmicdrift/kumiko-framework/engine").ConfigKeyDefinition | undefined;
   },
   overrides: Readonly<Record<string, string | number | boolean>>,
 ): AppConfigOverrides {

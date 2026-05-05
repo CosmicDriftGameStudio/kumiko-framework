@@ -18,7 +18,7 @@ import {
   type Dispatcher,
   type DispatcherStatus,
   type WritableStore,
-} from "@kumiko/headless";
+} from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
   kumikoDefaultTranslations,
@@ -29,7 +29,7 @@ import {
   NavProvider,
   PrimitivesProvider,
   TokensProvider,
-} from "@kumiko/renderer";
+} from "@cosmicdrift/kumiko-renderer";
 import { render as _render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { defaultPrimitives } from "../primitives";

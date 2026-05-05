@@ -8,15 +8,15 @@
 // projection side (list + detail queries). This file covers the event
 // side — complementary coverage, minimal overlap.
 
-import { createRegistry, SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
-import { createEventsTable, eventsTable } from "@kumiko/framework/event-store";
+import { createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestDb,
   createTestRedis,
   pushTables,
   type TestDb,
   type TestRedis,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "../events";

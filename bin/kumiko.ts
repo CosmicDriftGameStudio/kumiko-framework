@@ -195,7 +195,7 @@ const commands = {
       //   1. Bun.argv[3] (explicit path)
       //   2. $INIT_CWD (yarn-Workspace)
       //   3. process.cwd()
-      const { runCodegen } = await import("@kumiko/dev-server");
+      const { runCodegen } = await import("@cosmicdrift/kumiko-dev-server");
       const explicit = Bun.argv[3];
       const cwd = explicit
         ? resolvePath(explicit)
@@ -231,7 +231,7 @@ const commands = {
       //   1. Bun.argv[3] (explicit path)        → kumiko build samples/apps/showcase
       //   2. $INIT_CWD (yarn-Workspace-Aufruf)  → cd <app> && yarn build
       //   3. process.cwd() (fallback)
-      const { buildProdBundle, formatBuildResult } = await import("@kumiko/dev-server/build");
+      const { buildProdBundle, formatBuildResult } = await import("@cosmicdrift/kumiko-dev-server/build");
       const explicit = Bun.argv[3];
       const cwd = explicit
         ? resolvePath(explicit)
@@ -254,7 +254,7 @@ const commands = {
       // feature.ts ist canonical Object-Form (// kumiko-feature-version: 1)
       // mit einem Starter-Entity — direkt durch parser/patcher
       // weiterbearbeitbar. yarn install nach create für Workspace-Wiring.
-      const { scaffoldFeature } = await import("@kumiko/dev-server");
+      const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server");
       const args = Bun.argv.slice(3);
       const name = args.find((a) => !a.startsWith("--"));
       if (!name) {
@@ -551,9 +551,9 @@ const commands = {
           // Schema-Drift-Check: Journal vs. __drizzle_migrations + erwartete
           // Tabellen vs. tatsächlicher DB-Stand. Exit 1 bei Drift.
           console.log(`\n  Prüfe Schema-Drift (${appCwd})…`);
-          const { createDbConnection } = await import("@kumiko/framework/db");
+          const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
           const { detectDrift, formatDriftReport } = await import(
-            "@kumiko/framework/migrations"
+            "@cosmicdrift/kumiko-framework/migrations"
           );
           const dbUrl = process.env["DATABASE_URL"];
           if (!dbUrl) {
@@ -646,17 +646,17 @@ const commands = {
         process.exit(1);
       }
       const config = (await import(configPath)).default as {
-        features: readonly import("@kumiko/framework/engine").FeatureDefinition[];
+        features: readonly import("@cosmicdrift/kumiko-framework/engine").FeatureDefinition[];
       };
 
-      const { createRegistry } = await import("@kumiko/framework/engine");
-      const { createDbConnection } = await import("@kumiko/framework/db");
+      const { createRegistry } = await import("@cosmicdrift/kumiko-framework/engine");
+      const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
       const {
         listProjectionsWithState,
         getProjectionState,
         rebuildProjection,
         createProjectionStateTable,
-      } = await import("@kumiko/framework/pipeline");
+      } = await import("@cosmicdrift/kumiko-framework/pipeline");
 
       const registry = createRegistry(config.features);
       const databaseUrl = Bun.env["DATABASE_URL"];
@@ -791,8 +791,8 @@ const commands = {
         }
       }
 
-      const { createDbConnection } = await import("@kumiko/framework/db");
-      const { ConsumerLagError, pruneEvents } = await import("@kumiko/framework/pipeline");
+      const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
+      const { ConsumerLagError, pruneEvents } = await import("@cosmicdrift/kumiko-framework/pipeline");
 
       const databaseUrl = Bun.env["DATABASE_URL"];
       if (!databaseUrl) {
@@ -853,11 +853,11 @@ const commands = {
         process.exit(1);
       }
       const config = (await import(configPath)).default as {
-        features: readonly import("@kumiko/framework/engine").FeatureDefinition[];
+        features: readonly import("@cosmicdrift/kumiko-framework/engine").FeatureDefinition[];
       };
 
-      const { createRegistry } = await import("@kumiko/framework/engine");
-      const { createDbConnection } = await import("@kumiko/framework/db");
+      const { createRegistry } = await import("@cosmicdrift/kumiko-framework/engine");
+      const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
       const {
         createEventConsumerStateTable,
         disableConsumer,
@@ -868,7 +868,7 @@ const commands = {
         skipPoisonEvent,
         SEARCH_CONSUMER_NAME,
         SSE_BROADCAST_CONSUMER_NAME,
-      } = await import("@kumiko/framework/pipeline");
+      } = await import("@cosmicdrift/kumiko-framework/pipeline");
 
       const registry = createRegistry(config.features);
       const databaseUrl = Bun.env["DATABASE_URL"];
@@ -1125,8 +1125,8 @@ async function runMigrateApply(appCwd: string, drizzleKitBin: string): Promise<v
 
   let appliedBefore = 0;
   if (dbUrl && existsSync(journalPath)) {
-    const { createDbConnection } = await import("@kumiko/framework/db");
-    const { loadAppliedMigrations } = await import("@kumiko/framework/migrations");
+    const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
+    const { loadAppliedMigrations } = await import("@cosmicdrift/kumiko-framework/migrations");
     const { db, close } = createDbConnection(dbUrl);
     try {
       const applied = await loadAppliedMigrations(db);
@@ -1139,7 +1139,7 @@ async function runMigrateApply(appCwd: string, drizzleKitBin: string): Promise<v
   await $`node ${drizzleKitBin} migrate`.cwd(appCwd);
 
   if (dbUrl && existsSync(journalPath) && existsSync(hooksPath)) {
-    const { loadJournal } = await import("@kumiko/framework/migrations");
+    const { loadJournal } = await import("@cosmicdrift/kumiko-framework/migrations");
     const journal = loadJournal(join(appCwd, "drizzle/migrations"));
     const newlyApplied = journal.entries.slice(appliedBefore).map((e) => e.tag);
     if (newlyApplied.length > 0) {

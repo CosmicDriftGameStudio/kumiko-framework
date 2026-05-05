@@ -5,7 +5,7 @@
 // Mint-JWT-Mode aktiv (TestUsers.admin) → direkt im Edit-Screen.
 // Wer Auth-Pfade testen will: ui-walkthrough oder workspaces.
 
-import { runDevApp } from "@kumiko/dev-server";
+import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { demosFeature } from "../features/demos";
 import { itemsFeature } from "../features/items";
 import { seedShowcaseItems } from "./seed-items";

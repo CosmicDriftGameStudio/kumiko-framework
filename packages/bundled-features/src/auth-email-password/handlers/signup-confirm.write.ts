@@ -19,11 +19,11 @@
 // bei !committed wird der burn released damit ein legitimer Retry
 // nicht durch einen stale Marker geblockt wird (wie reset/verify).
 
-import type { DbConnection } from "@kumiko/framework/db";
-import { defineWriteHandler, type SessionUser, type TenantId } from "@kumiko/framework/engine";
-import { InternalError, UnprocessableError, writeFailure } from "@kumiko/framework/errors";
-import { generateUniqueName } from "@kumiko/framework/random";
-import { generateId } from "@kumiko/framework/utils";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler, type SessionUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { generateUniqueName } from "@cosmicdrift/kumiko-framework/random";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)

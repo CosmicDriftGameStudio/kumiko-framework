@@ -11,7 +11,7 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { editScreen, listScreen, taskEntity } from "./schema";
 
 // Re-export so the server bootstrap (server.ts) keeps one source of

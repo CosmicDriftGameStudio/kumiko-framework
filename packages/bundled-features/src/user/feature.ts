@@ -1,4 +1,4 @@
-import { defineFeature, type FeatureDefinition } from "@kumiko/framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createWrite } from "./handlers/create.write";
 import { detailQuery } from "./handlers/detail.query";
 import { findForAuthQuery } from "./handlers/find-for-auth.query";

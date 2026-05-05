@@ -9,7 +9,7 @@
 // kann nicht zum Portal eines OTHER Providers, weil der ihn nicht
 // kennt.
 
-import type { WriteHandlerDef } from "@kumiko/framework/engine";
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";

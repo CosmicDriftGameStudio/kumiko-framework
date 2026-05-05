@@ -17,7 +17,7 @@ import {
   type FeaturePattern,
   renderFeatureFile,
   type SourceLocation,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 // =============================================================================
 // Public API
@@ -68,7 +68,7 @@ export function scaffoldFeature(options: ScaffoldFeatureOptions): ScaffoldFeatur
 
   mkdirSync(join(destination, "src"), { recursive: true });
 
-  const packageName = `@kumiko/sample-${kebab}`;
+  const packageName = `@cosmicdrift/kumiko-sample-${kebab}`;
   const packageJson = renderPackageJson(packageName);
   const packageJsonFile = join(destination, "package.json");
   writeFileSync(packageJsonFile, packageJson);
@@ -159,7 +159,7 @@ function renderPackageJson(packageName: string): string {
       description: "Kumiko sample feature — scaffolded by `yarn kumiko create`",
       private: true,
       dependencies: {
-        "@kumiko/framework": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
     null,

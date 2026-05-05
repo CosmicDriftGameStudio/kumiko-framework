@@ -6,7 +6,7 @@ import {
   createEntity,
   createTextField,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, test } from "vitest";
 import { createKumikoServer, type KumikoServerHandle } from "../create-kumiko-server";

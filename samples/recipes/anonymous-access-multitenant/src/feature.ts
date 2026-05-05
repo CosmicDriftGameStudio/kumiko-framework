@@ -15,8 +15,8 @@
 // single-tenant recipe (samples/recipes/anonymous-access/) for
 // comparison.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
-import { access, createEntity, createTextField, defineFeature } from "@kumiko/framework/engine";
+import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { access, createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export const productEntity = createEntity({

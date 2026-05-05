@@ -4,8 +4,8 @@
     "rootDir": "..",
     "outDir": "dist",
     "paths": {
-      "@kumiko/framework/*": ["../framework/src/*/index.ts"],
-      "@kumiko/bundled-features/*": ["../bundled-features/src/*/index.ts"]
+      "@cosmicdrift/kumiko-framework/*": ["../framework/src/*/index.ts"],
+      "@cosmicdrift/kumiko-bundled-features/*": ["../bundled-features/src/*/index.ts"]
     },
     "noEmit": true,
     "lib": ["ESNext"]

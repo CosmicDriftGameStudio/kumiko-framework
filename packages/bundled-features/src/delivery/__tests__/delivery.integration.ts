@@ -1,5 +1,5 @@
-import type { DbConnection } from "@kumiko/framework/db";
-import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -7,14 +7,14 @@ import {
   defineWriteHandler,
   type NotifyFn,
   qn,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -298,7 +298,7 @@ beforeAll(async () => {
   });
 
   // Create tenant entity table + seed memberships for tenant broadcast tests
-  const { createEntityTable } = await import("@kumiko/framework/stack");
+  const { createEntityTable } = await import("@cosmicdrift/kumiko-framework/stack");
   await createEntityTable(db, tenantEntity, "tenant");
 
   // Create tenant + members via real API

@@ -17,9 +17,9 @@
 // app's feature-wiring so a dev environment doesn't churn through a fresh
 // seed). Mirror of secrets/retention.job in shape.
 
-import type { DbConnection } from "@kumiko/framework/db";
-import type { JobHandlerFn } from "@kumiko/framework/engine";
-import { InternalError } from "@kumiko/framework/errors";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { or, sql } from "drizzle-orm";
 import { userSessionTable } from "../schema/user-session";
 

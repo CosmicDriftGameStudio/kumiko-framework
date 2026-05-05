@@ -1,5 +1,5 @@
 {
-  "name": "@kumiko/marketing-demo",
+  "name": "@cosmicdrift/kumiko-marketing-demo",
   "description": "Marketing-Showcase — zwei kleine Demo-Apps (Asset-Tracker + Helpdesk) auf einer Kumiko-Instanz. Liefert die Screenshots für kumiko.so. Cream/Light-Branding wie die echte Marketing-Site.",
   "private": true,
   "type": "module",
@@ -9,12 +9,12 @@
     "screenshots": "bun x playwright test --config=playwright.config.ts"
   },
   "dependencies": {
-    "@kumiko/bundled-features": "workspace:*",
-    "@kumiko/dev-server": "workspace:*",
-    "@kumiko/dispatcher-live": "workspace:*",
-    "@kumiko/framework": "workspace:*",
-    "@kumiko/headless": "workspace:*",
-    "@kumiko/renderer-web": "workspace:*",
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-headless": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

@@ -1,4 +1,4 @@
-import { defineQueryHandler, filterReadFields } from "@kumiko/framework/engine";
+import { defineQueryHandler, filterReadFields } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { contactEntity, contactTable } from "../entities/contact";

@@ -33,7 +33,7 @@
 // **Auth:** kein JWT/Cookie. Authentifizierung läuft via Provider-
 // Webhook-Sig im Plugin. Kein `c.get("user")`-call hier.
 
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Context, Hono } from "hono";
 import {
   BILLING_FOUNDATION_FEATURE,

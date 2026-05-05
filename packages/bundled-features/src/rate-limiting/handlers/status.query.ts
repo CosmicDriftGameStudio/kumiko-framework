@@ -1,5 +1,5 @@
-import { defineQueryHandler } from "@kumiko/framework/engine";
-import { UnprocessableError } from "@kumiko/framework/errors";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { RateLimitErrors } from "../constants";
 

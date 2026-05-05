@@ -15,7 +15,7 @@ import type { FeaturePattern } from "../patterns";
 import { renderFeatureFile, renderPattern } from "../render";
 
 const STATIC_FEATURE = `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("inventory", (r) => {
   r.requires("auth", "tenant");
@@ -174,7 +174,7 @@ describe("render → parse roundtrip — static patterns", () => {
 });
 
 const MIXED_FEATURE = `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("workflow", (r) => {

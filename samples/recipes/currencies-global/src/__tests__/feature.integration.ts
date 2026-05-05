@@ -14,15 +14,15 @@
 // └──────────┴────────────────────────────┴──────────────────────────┘
 // XYZ is NOT in DEFAULT_CURRENCIES — proves custom currencies work end-to-end
 
-import { seedReferenceData } from "@kumiko/framework/db";
+import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
-import { expectErrorIncludes } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { currencyEntity, currencyTable } from "../entities/currency";
 import { invoiceEntity } from "../entities/invoice";

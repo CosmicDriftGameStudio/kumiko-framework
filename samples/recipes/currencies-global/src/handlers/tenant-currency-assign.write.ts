@@ -1,9 +1,9 @@
 // Assigns an existing currency to a tenant (creates tenantCurrency entry)
 // The currency must exist in the global currency table
 
-import { assertExistsIn } from "@kumiko/framework/db";
-import { defineWriteHandler } from "@kumiko/framework/engine";
-import { writeFailure } from "@kumiko/framework/errors";
+import { assertExistsIn } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { currencyTable } from "../entities/currency";
 import { tenantCurrencyTable } from "../entities/tenant-currency";

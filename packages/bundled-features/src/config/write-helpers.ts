@@ -2,7 +2,7 @@
 // Extracted from set.write.ts so reset.write.ts + values.query.ts don't
 // have to cross-import from another handler file.
 
-import { type DbConnection, fetchOne, type TenantDb } from "@kumiko/framework/db";
+import { type DbConnection, fetchOne, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigKeyDefinition,
   type ConfigScope,
@@ -12,7 +12,7 @@ import {
   SYSTEM_ROLE,
   SYSTEM_TENANT_ID,
   type TenantId,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
   type KumikoError,
@@ -21,8 +21,8 @@ import {
   ValidationError,
   type WriteFailure,
   writeFailure,
-} from "@kumiko/framework/errors";
-import { assertUnreachable } from "@kumiko/framework/utils";
+} from "@cosmicdrift/kumiko-framework/errors";
+import { assertUnreachable } from "@cosmicdrift/kumiko-framework/utils";
 import { eq, isNull } from "drizzle-orm";
 import { ConfigErrors } from "./constants";
 import { configValuesTable } from "./table";

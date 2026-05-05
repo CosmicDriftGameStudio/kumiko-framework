@@ -1,7 +1,7 @@
 // Tasks-Feature i18n-Bundle. Plattform-neutral — Web und (zukünftig)
 // Native konsumieren das gleiche Bundle.
 
-import type { TranslationsByLocale } from "@kumiko/renderer";
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const tasksTranslations: TranslationsByLocale = {
   de: {

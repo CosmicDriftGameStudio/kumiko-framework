@@ -6,7 +6,7 @@
 import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
-} from "@kumiko/bundled-features/billing-foundation";
+} from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { describe, expect, test, vi } from "vitest";
 import {
   extractMollieId,

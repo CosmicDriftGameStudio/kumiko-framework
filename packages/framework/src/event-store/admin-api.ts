@@ -2,7 +2,7 @@
 // Spec + Verhalten: docs/plans/features/event-store-admin-api.md
 //
 // Guard-Rail: dieses Modul ist NICHT aus event-store/index.ts re-exportiert.
-// Import nur via deep-path `@kumiko/framework/event-store/admin-api`. Das
+// Import nur via deep-path `@cosmicdrift/kumiko-framework/event-store/admin-api`. Das
 // Guard-Script `scripts/guard-admin-api.ts` blockt Aufrufe aus App-Code —
 // Allowlist: samples/*/migration/, scripts/migrations/, die Definition
 // selbst, das Guard-Script selbst.

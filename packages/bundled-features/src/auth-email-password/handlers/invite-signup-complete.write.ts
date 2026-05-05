@@ -22,14 +22,14 @@ import {
   createTenantDb,
   type DbConnection,
   fetchOne,
-} from "@kumiko/framework/db";
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
   type SessionUser,
   type TenantId,
-} from "@kumiko/framework/engine";
-import { InternalError, UnprocessableError, writeFailure } from "@kumiko/framework/errors";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow

@@ -1,9 +1,9 @@
 {
-  "name": "@kumiko/sample-delivery-notifications",
+  "name": "@cosmicdrift/kumiko-sample-delivery-notifications",
   "description": "Delivery flows plus notifications. Package tracking, minus the tracking.",
   "private": true,
   "dependencies": {
-    "@kumiko/bundled-features": "workspace:*",
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

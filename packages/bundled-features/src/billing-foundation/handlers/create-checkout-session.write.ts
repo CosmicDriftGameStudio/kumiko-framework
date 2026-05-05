@@ -14,7 +14,7 @@
 // liest verifyAndParseWebhook das aus dem provider-payload zurück und
 // resolved den Tenant.
 
-import type { WriteHandlerDef } from "@kumiko/framework/engine";
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { SUBSCRIPTION_PROVIDER_EXTENSION } from "../constants";
 import type { SubscriptionProviderPlugin } from "../types";

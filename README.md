@@ -67,7 +67,7 @@ yarn kumiko stop       # Services stoppen
 
 ### Step 1: Monorepo + Package Setup
 
-- Yarn 1 Workspaces mit `@kumiko/framework`, 2 Feature-Packages, App-Shell
+- Yarn 1 Workspaces mit `@cosmicdrift/kumiko-framework`, 2 Feature-Packages, App-Shell
 - Biome Linting/Formatting (React-Regeln fuer UI, relaxed fuer Server)
 - Strict TypeScript (`noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`)
 - Docker Compose (PostgreSQL 17 + Redis 7) auf hohen Ports (keine Konflikte)
@@ -83,7 +83,7 @@ yarn kumiko check
 
 # Verify: Workspace-Linking funktioniert
 node -e "const p = require('./features/admin-users/package.json'); console.log(p.dependencies)"
-# -> { '@kumiko/framework': '*' }
+# -> { '@cosmicdrift/kumiko-framework': '*' }
 ```
 
 ### Step 2: Engine (Registry, defineFeature, Access)

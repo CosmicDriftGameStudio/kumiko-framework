@@ -1,4 +1,4 @@
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 // All framework constants as `as const` objects with inferred union types.
 // No enums — only const objects + typeof inference.

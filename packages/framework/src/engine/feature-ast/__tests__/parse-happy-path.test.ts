@@ -12,7 +12,7 @@ import { describe, expect, test } from "vitest";
 import { parseSourceFile } from "../parse";
 
 const INLINE_FEATURE = `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("todoList", (r) => {

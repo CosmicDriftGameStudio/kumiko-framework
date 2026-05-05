@@ -14,10 +14,10 @@
 // erlaubt new-user-signup mit dem Token. Keine Enumeration durchs
 // invite-create.
 
-import { generateToken } from "@kumiko/framework/api";
-import { createEventStoreExecutor, fetchOne } from "@kumiko/framework/db";
-import { defineWriteHandler } from "@kumiko/framework/engine";
-import { InternalError, writeFailure } from "@kumiko/framework/errors";
+import { generateToken } from "@cosmicdrift/kumiko-framework/api";
+import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { eq } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";

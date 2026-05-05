@@ -1,7 +1,7 @@
 // kumikoDrizzleConfig — Convention-Helper für drizzle.config.ts in App-
 // Workspaces. Convention-driven Defaults statt Boilerplate-Copy:
 //
-//   import { kumikoDrizzleConfig } from "@kumiko/dev-server/drizzle-config";
+//   import { kumikoDrizzleConfig } from "@cosmicdrift/kumiko-dev-server/drizzle-config";
 //   export default kumikoDrizzleConfig();
 //
 // Default-Pfade:

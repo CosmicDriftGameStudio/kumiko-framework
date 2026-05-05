@@ -1,5 +1,5 @@
-import { createLiveDispatcher } from "@kumiko/dispatcher-live";
-import type { Dispatcher, ListRowViewModel, LocaleResolver, Translate } from "@kumiko/headless";
+import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
+import type { Dispatcher, ListRowViewModel, LocaleResolver, Translate } from "@cosmicdrift/kumiko-headless";
 import {
   type AppSchema,
   type ColumnRendererComponent,
@@ -19,7 +19,7 @@ import {
   TokensProvider,
   toAppSchema,
   useNav,
-} from "@kumiko/renderer";
+} from "@cosmicdrift/kumiko-renderer";
 import { type ComponentType, type ReactNode, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { lastSegment } from "../layout/nav-tree";
@@ -46,7 +46,7 @@ export type CreateKumikoAppOptions = {
    *
    *  Optional: ohne Argument liest createKumikoApp das schema aus
    *  `window.__KUMIKO_SCHEMA__`, das der dev-server beim Boot in die
-   *  HTML injiziert (siehe @kumiko/dev-server: injectSchema).
+   *  HTML injiziert (siehe @cosmicdrift/kumiko-dev-server: injectSchema).
    *  Production-Apps mit eigenem Bundling-Setup können das Global selbst
    *  setzen (`<script>window.__KUMIKO_SCHEMA__=...</script>` aus einem
    *  build-time bake oder einem fetch). Wer kein Schema übergibt UND
@@ -123,7 +123,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
     throw new Error(
       "createKumikoApp: kein Schema übergeben und window.__KUMIKO_SCHEMA__ nicht gesetzt. " +
         "Entweder `schema: <FeatureSchema|AppSchema>` an createKumikoApp übergeben, oder " +
-        "den dev-server (@kumiko/dev-server) nutzen — der injiziert das Schema beim Boot.",
+        "den dev-server (@cosmicdrift/kumiko-dev-server) nutzen — der injiziert das Schema beim Boot.",
     );
   }
   const app = toAppSchema(rawSchema);

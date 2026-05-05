@@ -4,7 +4,7 @@ import {
   createTenantConfig,
   defineFeature,
   type FeatureDefinition,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query";
 import { addMemberWrite } from "./handlers/add-member.write";
 import { cancelInvitationWrite } from "./handlers/cancel-invitation.write";

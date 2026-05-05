@@ -9,7 +9,7 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { assetEditScreen, assetEntity, assetListScreen } from "./schema";
 
 const open = { access: { openToAll: true } } as const;

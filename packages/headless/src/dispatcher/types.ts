@@ -18,7 +18,7 @@
 //
 // Result shape: `{ isSuccess: true, data } | { isSuccess: false, error }`.
 // Pattern matches the server's WriteResult but does not import it — this
-// package stays free of @kumiko/framework so it runs in any JS runtime
+// package stays free of @cosmicdrift/kumiko-framework so it runs in any JS runtime
 // (browser, Expo/React Native, Web Worker). The HTTP dispatcher adapts
 // the server response to this shape; the savable dispatcher synthesizes
 // it from its own state machine. The shape is the boundary, not the

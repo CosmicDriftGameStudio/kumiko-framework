@@ -8,8 +8,8 @@
 // Idempotent: wenn schon ≥100 items existieren, skip — der Server wird
 // bei jedem Restart neu geseeded sonst.
 
-import type { SeedFn } from "@kumiko/dev-server";
-import { TestUsers } from "@kumiko/framework/stack";
+import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
 
 const STATUSES = ["draft", "active", "blocked", "done"] as const;

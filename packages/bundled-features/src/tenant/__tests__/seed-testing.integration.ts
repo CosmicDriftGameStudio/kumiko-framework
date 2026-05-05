@@ -11,8 +11,8 @@
 //   4. The `by`-user shows up as insertedById on the projection — so
 //      audit-queries that join events→users actually find the actor.
 
-import type { TenantId } from "@kumiko/framework/engine";
-import { createEventsTable, eventsTable } from "@kumiko/framework/event-store";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   createTestUser,
@@ -20,7 +20,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config/feature";

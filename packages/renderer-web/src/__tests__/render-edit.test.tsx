@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import type { EntityDefinition, EntityEditScreenDefinition } from "@kumiko/framework/ui-types";
-import type { Dispatcher, SubmitResult } from "@kumiko/headless";
-import { DispatcherProvider, RenderEdit } from "@kumiko/renderer";
+import type { EntityDefinition, EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { Dispatcher, SubmitResult } from "@cosmicdrift/kumiko-headless";
+import { DispatcherProvider, RenderEdit } from "@cosmicdrift/kumiko-renderer";
 import { describe, expect, test, vi } from "vitest";
 import { act, createMockDispatcher, fireEvent, render, screen } from "./test-utils";
 

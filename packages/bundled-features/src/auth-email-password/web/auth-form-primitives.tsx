@@ -15,7 +15,7 @@
 //   authMutedLinkClass  — Subtle-Link-Style.
 //   parseUrlToken       — URL-Param-Helper (window.location.search).
 
-import { cn } from "@kumiko/renderer-web";
+import { cn } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
 
 export type AuthCardProps = {

@@ -16,7 +16,7 @@
 // zu loggedInHref. Branch 1 hat schon eine Session — Frontend redirected
 // auch zu loggedInHref damit der invitee in seinem neuen Tenant landet.
 
-import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { csrfHeader } from "./auth-client";
 import { AuthCard, authMutedLinkClass, parseUrlToken } from "./auth-form-primitives";

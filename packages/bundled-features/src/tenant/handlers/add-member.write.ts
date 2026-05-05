@@ -1,6 +1,6 @@
-import { createEventStoreExecutor, fetchOne } from "@kumiko/framework/db";
-import { defineWriteHandler } from "@kumiko/framework/engine";
-import { ConflictError, writeFailure } from "@kumiko/framework/errors";
+import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { TenantErrors } from "../constants";

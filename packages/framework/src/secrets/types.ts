@@ -84,7 +84,7 @@ export type Envelope = {
 
 // The contract a KEK backend must fulfil. The framework sees only this
 // interface; concrete implementations live in separate packages
-// (@kumiko/secrets-vault, @kumiko/secrets-aws-kms, ...). The default is
+// (@cosmicdrift/kumiko-secrets-vault, @cosmicdrift/kumiko-secrets-aws-kms, ...). The default is
 // EnvMasterKeyProvider which reads keys from environment variables.
 export interface MasterKeyProvider {
   // Wrap a fresh DEK with the current KEK. Returns the wrapped bytes + the

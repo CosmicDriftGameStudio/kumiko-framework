@@ -11,7 +11,7 @@
 // data-* Property auf dem Body, damit der Spec ohne page.evaluate-Round
 // auslesen kann (`getAttribute('data-combo-single-local')`).
 
-import { createStaticLocaleResolver, LocaleProvider } from "@kumiko/renderer-web";
+import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useMemo, useState } from "react";
 import { ComboboxInput } from "../../src/primitives/combobox";
 

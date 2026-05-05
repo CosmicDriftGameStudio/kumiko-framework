@@ -1,4 +1,4 @@
-import type { LiveEvent, LiveEventSubscriber } from "@kumiko/renderer";
+import type { LiveEvent, LiveEventSubscriber } from "@cosmicdrift/kumiko-renderer";
 
 // EventSource-backed Live-Events für den Web-Renderer. Der shared
 // Layer konsumiert nur das `LiveEventSubscriber`-Interface; diese Datei

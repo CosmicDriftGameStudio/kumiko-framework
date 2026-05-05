@@ -4,7 +4,7 @@
 // view-model, and nav-resolver all produce already-translated strings
 // to hand to the renderer.
 //
-// The framework already has an i18n layer (@kumiko/framework/i18n) that
+// The framework already has an i18n layer (@cosmicdrift/kumiko-framework/i18n) that
 // features register translations against. This contract is what ui-core
 // consumes — the app's entrypoint instantiates the resolver from a
 // framework i18next instance and passes it to the renderer via context.

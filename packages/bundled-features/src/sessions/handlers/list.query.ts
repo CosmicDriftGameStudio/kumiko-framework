@@ -1,4 +1,4 @@
-import { access, defineQueryHandler } from "@kumiko/framework/engine";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { desc } from "drizzle-orm";
 import { z } from "zod";
 import { userSessionTable } from "../schema/user-session";

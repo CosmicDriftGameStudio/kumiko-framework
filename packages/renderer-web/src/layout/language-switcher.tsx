@@ -11,7 +11,7 @@
 // rein; eine App die keinen Icon-Import will, kriegt den Globe-
 // Unicode-Glyph (🌐) als Default.
 
-import { useLocale } from "@kumiko/renderer";
+import { useLocale } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useMemo } from "react";
 import { cn } from "../lib/cn";
 import {

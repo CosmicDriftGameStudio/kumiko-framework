@@ -1,4 +1,4 @@
-import { access, defineEntityDetailHandler } from "@kumiko/framework/engine";
+import { access, defineEntityDetailHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { userEntity } from "../schema/user";
 
 // Only SystemAdmins can read arbitrary users. Tenant-level "Admin" does NOT

@@ -15,7 +15,7 @@ import {
   normalizeEditField,
   normalizeListColumn,
   validateBoot,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
 import { bookEntity, createBookshopAdminFeature, createBookshopFeature } from "../feature";
 

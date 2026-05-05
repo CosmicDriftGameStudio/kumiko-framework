@@ -17,7 +17,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { orderEditScreen, orderEntity, orderListScreen } from "./schema";
 
 export { orderEntity };

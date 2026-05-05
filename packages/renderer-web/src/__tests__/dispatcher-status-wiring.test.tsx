@@ -17,8 +17,8 @@
 // lassen alles darüber echt laufen. Im Sinne von CLAUDE.md ist das ein
 // "Full-Stack des Frontend-Stacks", nicht ein Full-Stack-mit-API.
 
-import { createLiveDispatcher } from "@kumiko/dispatcher-live";
-import { DispatcherProvider, useDispatcherStatus } from "@kumiko/renderer";
+import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
+import { DispatcherProvider, useDispatcherStatus } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
 import { act, render, screen, waitFor } from "./test-utils";

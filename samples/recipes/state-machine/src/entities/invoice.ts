@@ -5,7 +5,7 @@ import {
   createTextField,
   defineTransitions,
 } from "@app/define";
-import { buildDrizzleTable } from "@kumiko/framework/db";
+import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 
 export const INVOICE_STATES = ["draft", "sent", "paid", "cancelled"] as const;
 

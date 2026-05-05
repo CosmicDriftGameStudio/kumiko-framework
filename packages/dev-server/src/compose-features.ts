@@ -18,11 +18,11 @@ import {
   type InviteOptions,
   type PasswordResetOptions,
   type SignupOptions,
-} from "@kumiko/bundled-features/auth-email-password";
-import { createConfigFeature } from "@kumiko/bundled-features/config";
-import { createTenantFeature } from "@kumiko/bundled-features/tenant";
-import { createUserFeature } from "@kumiko/bundled-features/user";
-import type { FeatureDefinition } from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
+import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export type ComposeFeaturesOptions = {
   /** When true, prepends config + user + tenant + auth-email-password

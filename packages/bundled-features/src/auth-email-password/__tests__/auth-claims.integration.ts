@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider } from "@kumiko/framework/db";
-import type { TenantId } from "@kumiko/framework/engine";
-import { defineFeature } from "@kumiko/framework/engine";
+import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   pushTables,
@@ -9,7 +9,7 @@ import {
   type TestStack,
   TestUsers,
   testTenantId,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";

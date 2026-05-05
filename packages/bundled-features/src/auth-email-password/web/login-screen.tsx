@@ -9,7 +9,7 @@
 // gemappt (reasonToI18nKey) — neue Reason-Codes brauchen nur eine
 // neue Zeile im Bundle + hier im Mapping.
 
-import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import type { LoginFailure } from "./auth-client";
 import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";

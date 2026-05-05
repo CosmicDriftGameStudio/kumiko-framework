@@ -1,8 +1,8 @@
 {
-  "name": "@kumiko/sample-screens-nav",
+  "name": "@cosmicdrift/kumiko-sample-screens-nav",
   "description": "r.screen() + r.nav() — entityList/entityEdit/custom screens, cross-feature nav parents, FieldCondition<TData>, boot-validator behaviour.",
   "private": true,
   "dependencies": {
-    "@kumiko/framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

@@ -37,7 +37,7 @@ describe("parseSourceFile", () => {
     const sourceFile = project.createSourceFile(
       "inline.ts",
       `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 defineFeature("myFeature", (r) => {
   r.entity("task", { fields: { name: { type: "text" } } });
 });

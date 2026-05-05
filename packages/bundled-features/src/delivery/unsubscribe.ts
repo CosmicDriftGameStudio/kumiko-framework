@@ -1,5 +1,5 @@
-import { createTenantDb, type DbConnection } from "@kumiko/framework/db";
-import type { TenantId } from "@kumiko/framework/engine";
+import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Hono } from "hono";
 import * as jose from "jose";
 import { z } from "zod";

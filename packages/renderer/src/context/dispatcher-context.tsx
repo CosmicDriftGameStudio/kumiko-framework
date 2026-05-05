@@ -1,4 +1,4 @@
-import type { Dispatcher, DispatcherStatus } from "@kumiko/headless";
+import type { Dispatcher, DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import { createContext, type ReactNode, useContext } from "react";
 import { useStore } from "../hooks/use-store";
 

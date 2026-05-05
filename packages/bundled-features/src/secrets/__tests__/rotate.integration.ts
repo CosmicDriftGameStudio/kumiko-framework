@@ -4,18 +4,18 @@
 // with every row's identical error.
 
 import { randomBytes } from "node:crypto";
-import type { AppContext } from "@kumiko/framework/engine";
+import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEnvMasterKeyProvider,
   encryptValue,
   type MasterKeyProvider,
-} from "@kumiko/framework/secrets";
+} from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createSecretsFeature } from "../feature";

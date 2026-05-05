@@ -1,13 +1,12 @@
 {
-  "name": "@kumiko/bundled-features",
+  "name": "@cosmicdrift/kumiko-bundled-features",
   "version": "0.0.1",
   "description": "Built-in features — tenant, user, auth, delivery. The stuff you'd rewrite anyway, already typed.",
   "license": "BUSL-1.1",
   "author": "Marc Frost",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bender0oo0/kumiko.git",
-    "directory": "packages/bundled-features"
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git"
   },
   "bugs": {
     "url": "https://github.com/bender0oo0/kumiko/issues"
@@ -64,10 +63,10 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.700.0",
     "@aws-sdk/s3-request-presigner": "^3.700.0",
-    "@kumiko/dispatcher-live": "0.0.1",
-    "@kumiko/framework": "0.0.1",
-    "@kumiko/renderer": "0.0.1",
-    "@kumiko/renderer-web": "0.0.1",
+    "@cosmicdrift/kumiko-dispatcher-live": "0.0.1",
+    "@cosmicdrift/kumiko-framework": "0.0.1",
+    "@cosmicdrift/kumiko-renderer": "0.0.1",
+    "@cosmicdrift/kumiko-renderer-web": "0.0.1",
     "@mollie/api-client": "^4.5.0",
     "@node-rs/argon2": "^2.0.2",
     "@types/nodemailer": "^8.0.0",

@@ -1,5 +1,5 @@
-// Public entry für @kumiko/renderer-web. Re-exportiert die shared-
-// API aus @kumiko/renderer damit Samples nur ein Paket importieren
+// Public entry für @cosmicdrift/kumiko-renderer-web. Re-exportiert die shared-
+// API aus @cosmicdrift/kumiko-renderer damit Samples nur ein Paket importieren
 // müssen, und fügt die Web-spezifischen Helpers dazu: createKumikoApp
 // (react-dom-bootstrap), defaultPrimitives (HTML), useBrowserNavApi
 // (window.history), createEventSourceLiveEvents, KumikoLink.
@@ -51,7 +51,7 @@ export type {
   UseQueryOptions,
   UseQueryResult,
   WorkspaceSchema,
-} from "@kumiko/renderer";
+} from "@cosmicdrift/kumiko-renderer";
 export {
   createStaticLocaleResolver,
   cssVarTokens,
@@ -81,7 +81,7 @@ export {
   useTokenController,
   useTokens,
   useTranslation,
-} from "@kumiko/renderer";
+} from "@cosmicdrift/kumiko-renderer";
 // --- Web-platform specifics ---
 export { createBrowserLocaleResolver } from "./app/browser-locale";
 export type { ClientFeatureDefinition } from "./app/client-plugin";

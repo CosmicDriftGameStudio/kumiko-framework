@@ -14,7 +14,7 @@
 // der Host den Resolver rein (kommt z.B. aus einer useTenantNames()-
 // Hook die einmalig am App-Boot geladen wird).
 
-import { useTranslation } from "@kumiko/renderer";
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import {
   cn,
   DropdownMenu,
@@ -22,7 +22,7 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@kumiko/renderer-web";
+} from "@cosmicdrift/kumiko-renderer-web";
 import { Building2, ChevronDown } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
 import { useSession } from "./session";

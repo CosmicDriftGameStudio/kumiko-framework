@@ -3,7 +3,7 @@
 // merged das in den CustomScreens-Context, KumikoScreen schaut darin
 // nach wenn ein Schema-Screen `type: "custom"` hat.
 
-import type { ClientFeatureDefinition } from "@kumiko/renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { demosTranslations } from "../i18n";
 import { BannerDemo } from "./pages/banner";
 import { ButtonsDemo } from "./pages/buttons";

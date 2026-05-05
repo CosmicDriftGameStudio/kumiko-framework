@@ -18,17 +18,17 @@
 //
 // **Boot-Dependencies:** config + secrets + file-foundation.
 
-import type { FileProviderPlugin } from "@kumiko/bundled-features/file-foundation";
-import { createS3Provider } from "@kumiko/bundled-features/files-provider-s3";
-import { requireDefined, requireNonEmpty } from "@kumiko/bundled-features/foundation-shared";
-import { requireSecretsContext } from "@kumiko/bundled-features/secrets";
+import type { FileProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { createS3Provider } from "@cosmicdrift/kumiko-bundled-features/files-provider-s3";
+import { requireDefined, requireNonEmpty } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
+import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
   access,
   createTenantConfig,
   defineFeature,
   type HandlerContext,
-} from "@kumiko/framework/engine";
-import type { FileStorageProvider } from "@kumiko/framework/files";
+} from "@cosmicdrift/kumiko-framework/engine";
+import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 
 const FEATURE_NAME = "file-provider-s3";
 

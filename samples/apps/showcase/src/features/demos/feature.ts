@@ -11,7 +11,7 @@
 // werden client-side via clientFeatures.components zugeordnet (siehe
 // client.ts).
 
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const demosFeature = defineFeature("showcase-demos", (r) => {
   r.screen({ id: "demo-layout", type: "custom", renderer: {} });

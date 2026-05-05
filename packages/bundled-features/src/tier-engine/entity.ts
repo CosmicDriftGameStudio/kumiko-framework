@@ -1,4 +1,4 @@
-import { createEntity, createTextField } from "@kumiko/framework/engine";
+import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 // tier-assignment — pro Plattform-Tenant genau ein Aggregat. Aggregate-ID
 // wird deterministisch aus tenantId abgeleitet (uuidv5, siehe aggregate-id.ts).

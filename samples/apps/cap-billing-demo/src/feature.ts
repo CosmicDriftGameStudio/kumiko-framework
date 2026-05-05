@@ -30,24 +30,24 @@ import {
   BILLING_FOUNDATION_FEATURE,
   getSubscriptionForTenant,
   SubscriptionStatuses,
-} from "@kumiko/bundled-features/billing-foundation";
+} from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
   currentCalendarMonthStartIso,
   type SoftHitNotifier,
   withCapEnforcement,
-} from "@kumiko/bundled-features/cap-counter";
-import type { EmailMessage } from "@kumiko/bundled-features/channel-email";
+} from "@cosmicdrift/kumiko-bundled-features/cap-counter";
+import type { EmailMessage } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   createTransportForTenant,
   mailFoundationFeature,
-} from "@kumiko/bundled-features/mail-foundation";
+} from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import {
   access,
   createTenantConfig,
   defineFeature,
   type HandlerContext,
   type WriteHandlerDef,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { DEMO_TIER_MAP, TIER_NAMES, type TierName } from "./tier-map";
 

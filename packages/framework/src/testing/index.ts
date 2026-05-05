@@ -1,6 +1,6 @@
 // Test-Assertions, Domain-Test-Fixtures und Vitest-spezifische Helpers.
 // Production-Code (dev-server, bin/) darf NICHTS aus diesem Sub-Path importieren —
-// die Stack-Builder leben in `@kumiko/framework/stack`, dieses Modul darf
+// die Stack-Builder leben in `@cosmicdrift/kumiko-framework/stack`, dieses Modul darf
 // vitest-Imports top-level enthalten (siehe expect-error.ts).
 
 export { rolesOf } from "./access-assertions";

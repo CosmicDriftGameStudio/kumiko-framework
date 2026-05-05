@@ -1,5 +1,5 @@
-import type { HandlerContext } from "@kumiko/framework/engine";
-import { UnprocessableError, writeFailure } from "@kumiko/framework/errors";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { describe, expect, test } from "vitest";
 import { runConfirmTokenFlow } from "../handlers/confirm-token-flow";
 

@@ -9,7 +9,7 @@ import {
   defineEntityDetailHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const employeeEntity = createEntity({
   table: "read_sample_employees",

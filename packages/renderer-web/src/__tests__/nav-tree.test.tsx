@@ -6,7 +6,7 @@
 //   2. Active-State greift auf node mit screen wenn nav.route's
 //      screenId matcht (Standard-Sidebar-Verhalten).
 
-import type { FeatureSchema } from "@kumiko/renderer";
+import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { describe, expect, test } from "vitest";
 import { NavTree } from "../layout/nav-tree";
 import { fireEvent, render, screen } from "./test-utils";

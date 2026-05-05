@@ -8,7 +8,7 @@
 // `mode` + `toggleMode`, der Rest (tokens, setMode) wird vom Toggle
 // nicht angefasst.
 
-import { TokensProvider } from "@kumiko/renderer";
+import { TokensProvider } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";

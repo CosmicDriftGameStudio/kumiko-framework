@@ -1,7 +1,7 @@
-import type { EagerloadedRow } from "@kumiko/framework/db";
-import type { EntityDefinition, EntityListScreenDefinition } from "@kumiko/framework/ui-types";
-import type { ListRowViewModel, Translate } from "@kumiko/headless";
-import { computeListViewModel } from "@kumiko/headless";
+import type { EagerloadedRow } from "@cosmicdrift/kumiko-framework/db";
+import type { EntityDefinition, EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
+import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { ListSort } from "../hooks/use-list-url-state";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
@@ -192,7 +192,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         // schickt, lesen wir den Display-Wert direkt aus der
         // resolved Row — kein Roundtrip durch die Bridge-Map nötig
         // und keine limit:200-Constraint. EagerloadedRow-Type aus
-        // @kumiko/framework/db pinnt die Form von _refs.
+        // @cosmicdrift/kumiko-framework/db pinnt die Form von _refs.
         const eagerloadedRow = row as EagerloadedRow | undefined;
         const resolved = eagerloadedRow?._refs?.[col.field];
         if (Array.isArray(resolved) && resolved.length > 0) {

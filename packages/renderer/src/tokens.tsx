@@ -53,7 +53,7 @@ export type CoreTokens = {
 
 /** Erweiterung für App-eigene Token-Kategorien. Devs augmentieren:
  *
- *    declare module "@kumiko/renderer" {
+ *    declare module "@cosmicdrift/kumiko-renderer" {
  *      interface AppTokens {
  *        chart: { gridline: string; line: string };
  *      }
@@ -101,7 +101,7 @@ export function useTokenController(): TokensApi {
   const api = useContext(TokensContext);
   if (api === undefined) {
     throw new Error(
-      "useTokens/useTokenController: no <TokensProvider> mounted. createKumikoApp verdrahtet den Provider automatisch mit @kumiko/renderer-web defaults.",
+      "useTokens/useTokenController: no <TokensProvider> mounted. createKumikoApp verdrahtet den Provider automatisch mit @cosmicdrift/kumiko-renderer-web defaults.",
     );
   }
   return api;

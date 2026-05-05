@@ -1,4 +1,4 @@
-import { tenantChannel } from "@kumiko/framework/engine";
+import { tenantChannel } from "@cosmicdrift/kumiko-framework/engine";
 import type { DeliveryChannel } from "../delivery";
 import { inAppMessagesTable } from "./tables";
 

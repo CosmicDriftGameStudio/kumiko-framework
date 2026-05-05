@@ -9,7 +9,7 @@
 // /forgot-password) und ihn zu erreichen — der LoginScreen kann einen
 // "Passwort vergessen?"-Link auf die App-Route setzen.
 
-import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { requestPasswordReset } from "./auth-client";
 import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";

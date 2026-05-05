@@ -1,5 +1,5 @@
-import type { DbRow } from "@kumiko/framework/db";
-import { access, defineQueryHandler } from "@kumiko/framework/engine";
+import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { userTable } from "../schema/user";

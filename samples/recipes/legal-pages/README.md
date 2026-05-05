@@ -55,13 +55,13 @@ Schritt-für-Schritt für eine bestehende Kumiko-App (z.B.
 
 ```typescript
 // bin/main.ts
-import { runProdApp } from "@kumiko/dev-server";
+import { runProdApp } from "@cosmicdrift/kumiko-dev-server";
 import {
   createTextContentApi,
   createTextContentFeature,
-} from "@kumiko/bundled-features/text-content";
-import { createLegalPagesFeature } from "@kumiko/bundled-features/legal-pages";
-import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-bundled-features/text-content";
+import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
 await runProdApp({
   features: [
@@ -98,9 +98,9 @@ Eine einmalige Setup-Routine die beim ersten Boot oder via CLI läuft:
 
 ```typescript
 // bin/seed-legal.ts
-import { seedTextBlock } from "@kumiko/bundled-features/text-content/seeding";
-import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
-import { createDb } from "@kumiko/framework/db";
+import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createDb } from "@cosmicdrift/kumiko-framework/db";
 
 const db = createDb(process.env.DATABASE_URL!);
 

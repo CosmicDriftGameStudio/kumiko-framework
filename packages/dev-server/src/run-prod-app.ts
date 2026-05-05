@@ -32,34 +32,34 @@ import {
   type InviteOptions,
   type PasswordResetOptions,
   type SignupOptions,
-} from "@kumiko/bundled-features/auth-email-password";
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   type SeedAdminOptions,
   seedAdmin,
-} from "@kumiko/bundled-features/auth-email-password/seeding";
-import { createConfigResolver } from "@kumiko/bundled-features/config";
-import { createSessionCallbacks } from "@kumiko/bundled-features/sessions";
-import { TenantQueries } from "@kumiko/bundled-features/tenant";
-import { UserQueries } from "@kumiko/bundled-features/user";
-import { createSseBroker, type SseBroker } from "@kumiko/framework/api";
-import { createDbConnection } from "@kumiko/framework/db";
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
+import { createSseBroker, type SseBroker } from "@cosmicdrift/kumiko-framework/api";
+import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
   createRegistry,
   type FeatureDefinition,
   validateBoot,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   type ApiEntrypoint,
   type ApiEntrypointOptions,
   createApiEntrypoint,
-} from "@kumiko/framework/entrypoint";
-import { assertSchemaCurrent, SchemaDriftError } from "@kumiko/framework/migrations";
+} from "@cosmicdrift/kumiko-framework/entrypoint";
+import { assertSchemaCurrent, SchemaDriftError } from "@cosmicdrift/kumiko-framework/migrations";
 import {
   createEntityCache,
   createEventDedup,
   createIdempotencyGuard,
-} from "@kumiko/framework/pipeline";
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import Redis from "ioredis";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
@@ -206,7 +206,7 @@ export type RunProdAppAuthOptions = {
  *  active). Each seed is responsible for its own idempotence (seeds are
  *  expected to check "is my row already there?" before inserting). */
 export type ProdSeedFn = (deps: {
-  db: import("@kumiko/framework/db").DbConnection;
+  db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
 }) => Promise<void>;
 
 /** Boot-Time-Deps die `extraContext` + `anonymousAccess` Factories als
@@ -216,15 +216,15 @@ export type ProdSeedFn = (deps: {
  *  setupTestStack's extraContext-Factory-Shape damit Test/Prod gleich
  *  aussehen. */
 export type RunProdAppDeps = {
-  readonly db: import("@kumiko/framework/db").DbConnection;
+  readonly db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
   readonly redis: import("ioredis").default;
-  readonly registry: import("@kumiko/framework/engine").Registry;
+  readonly registry: import("@cosmicdrift/kumiko-framework/engine").Registry;
   readonly sseBroker: SseBroker;
 };
 
 export type AnonymousAccessOption =
-  | import("@kumiko/framework/api").ServerOptions["anonymousAccess"]
-  | ((deps: RunProdAppDeps) => import("@kumiko/framework/api").ServerOptions["anonymousAccess"]);
+  | import("@cosmicdrift/kumiko-framework/api").ServerOptions["anonymousAccess"]
+  | ((deps: RunProdAppDeps) => import("@cosmicdrift/kumiko-framework/api").ServerOptions["anonymousAccess"]);
 
 export type ExtraContextOption =
   | Record<string, unknown>
@@ -338,7 +338,7 @@ export type RunProdAppOptions = {
    *  (Routes laufen außerhalb der Auth/Tenant-Pipeline). */
   readonly extraRoutes?: (
     app: import("hono").Hono,
-    deps: { db: import("@kumiko/framework/db").DbConnection; redis: import("ioredis").default },
+    deps: { db: import("@cosmicdrift/kumiko-framework/db").DbConnection; redis: import("ioredis").default },
   ) => void;
   /** When true (default), Bun.serve is started before runProdApp resolves —
    *  the common case: `await runProdApp({...})` boots the server and the
@@ -363,7 +363,7 @@ export type ProdAppHandle = {
 
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
   // 1. Polyfill before anything else — feature code references Temporal.
-  const { ensureTemporalPolyfill } = await import("@kumiko/framework/time");
+  const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
   await ensureTemporalPolyfill();
 
   // 2. Env-vars: fail-fast. Better a 0s boot crash with a clear error
@@ -866,7 +866,7 @@ export function cacheHeadersFor(pathname: string): Record<string, string> {
 }
 
 function buildProdSessionAuth(
-  db: import("@kumiko/framework/db").DbConnection,
+  db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
   opts: NonNullable<RunProdAppAuthOptions["sessions"]>,
 ): {
   readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];

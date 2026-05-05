@@ -5,7 +5,7 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   ScreenDefinition,
-} from "@kumiko/framework/ui-types";
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
   FormSnapshot,
@@ -13,7 +13,7 @@ import type {
   ListRowViewModel,
   SubmitResult,
   Translate,
-} from "@kumiko/headless";
+} from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit";
 import { RenderList } from "../components/render-list";

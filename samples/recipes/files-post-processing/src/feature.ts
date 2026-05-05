@@ -19,8 +19,8 @@
 // This is how beammycar's Image-Feature should plug in resize / EXIF-strip /
 // virus-scan etc. — each as its own small feature with a single MSP.
 
-import { defineFeature, typedPayload } from "@kumiko/framework/engine";
-import { fileUploadedEvent } from "@kumiko/framework/files";
+import { defineFeature, typedPayload } from "@cosmicdrift/kumiko-framework/engine";
+import { fileUploadedEvent } from "@cosmicdrift/kumiko-framework/files";
 
 // Exported so the integration test can assert which derivates got produced
 // and reset between cases. Real consumers would push to a queue, write a

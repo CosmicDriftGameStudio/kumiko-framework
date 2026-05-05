@@ -1,4 +1,4 @@
-import type { DispatcherError, FieldIssue } from "@kumiko/headless";
+import type { DispatcherError, FieldIssue } from "@cosmicdrift/kumiko-headless";
 
 // The server returns failure envelopes whose shape is nearly — but not
 // exactly — DispatcherError. Kumiko's error-contract (see

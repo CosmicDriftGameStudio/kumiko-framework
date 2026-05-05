@@ -7,7 +7,7 @@
 // Zwei Features (Assets + Helpdesk) auf einer Instanz — beweist
 // Marketing-Story „mehrere kleine Apps, eine Plattform".
 
-import { runDevApp } from "@kumiko/dev-server";
+import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { assetsFeature } from "../features/assets/feature";
 import { helpdeskFeature } from "../features/helpdesk/feature";
 import { seedMarketingDemo } from "./seed";

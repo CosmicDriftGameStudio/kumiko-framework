@@ -13,7 +13,7 @@ import type { Dispatcher, FieldIssue, WriteResult } from "../dispatcher";
 // Form state has a small, well-defined shape — values, initial, changes,
 // errors, per-field meta. Building it on raw subscribe/emit keeps the
 // runtime deps at zero (this package imports nothing but types from
-// @kumiko/framework and zod), and leaves renderer-specific decisions
+// @cosmicdrift/kumiko-framework and zod), and leaves renderer-specific decisions
 // (batching, suspense) to the host framework.
 //
 // Snapshot identity: `getSnapshot()` returns the SAME reference until a

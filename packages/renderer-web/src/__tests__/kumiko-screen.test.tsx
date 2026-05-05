@@ -4,10 +4,10 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
-} from "@kumiko/framework/ui-types";
-import type { Dispatcher } from "@kumiko/headless";
-import type { FeatureSchema } from "@kumiko/renderer";
-import { DispatcherProvider, KumikoScreen } from "@kumiko/renderer";
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
+import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
@@ -388,7 +388,7 @@ describe("KumikoScreen", () => {
       ],
     };
 
-    const { NavProvider } = await import("@kumiko/renderer");
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -436,7 +436,7 @@ describe("KumikoScreen", () => {
       columns: ["title"],
       rowActions: [{ kind: "navigate", id: "view", label: "actions.view", screen: "task-edit" }],
     };
-    const { NavProvider } = await import("@kumiko/renderer");
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -484,7 +484,7 @@ describe("KumikoScreen", () => {
       ],
     };
 
-    const { NavProvider } = await import("@kumiko/renderer");
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -724,7 +724,7 @@ describe("KumikoScreen", () => {
       redirect: "task-list",
     };
 
-    const { NavProvider } = await import("@kumiko/renderer");
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -770,7 +770,7 @@ describe("KumikoScreen", () => {
       },
     };
 
-    const { NavProvider } = await import("@kumiko/renderer");
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -806,7 +806,7 @@ describe("KumikoScreen", () => {
       fields: { priority: { type: "number", default: 7 } },
       layout: { sections: [{ title: "x", fields: ["priority"] }] },
     };
-    const { NavProvider } = await import("@kumiko/renderer");
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -868,7 +868,7 @@ describe("KumikoScreen", () => {
       // redirect bewusst NICHT gesetzt
     };
 
-    const { NavProvider } = await import("@kumiko/renderer");
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -940,7 +940,7 @@ describe("KumikoScreen", () => {
       })) as unknown as Dispatcher["query"],
     });
 
-    const { NavProvider } = await import("@kumiko/renderer");
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>
@@ -991,7 +991,7 @@ describe("KumikoScreen", () => {
       screens: [editScreenQn, listScreen],
     };
 
-    const { NavProvider } = await import("@kumiko/renderer");
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
       <NavProvider value={memoryNav}>
         <DispatcherProvider dispatcher={dispatcher}>

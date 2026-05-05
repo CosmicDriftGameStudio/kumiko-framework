@@ -10,14 +10,14 @@
 //   3. The handler is a regular async function — no timers, no magic
 //      callbacks. runOnce() drains deterministically.
 
-import { eventsTable } from "@kumiko/framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { capturedEvents, orderEntity, pubsubOrderFeature } from "../feature";

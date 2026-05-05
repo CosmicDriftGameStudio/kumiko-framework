@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import type { Dispatcher } from "@kumiko/headless";
-import { DispatcherProvider, useForm } from "@kumiko/renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import { DispatcherProvider, useForm } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
 import { z } from "zod";

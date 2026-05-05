@@ -1,4 +1,4 @@
-import type { FeatureDefinition } from "@kumiko/framework/engine";
+import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 /**
  * Tier definition — a named bundle of features + caps.

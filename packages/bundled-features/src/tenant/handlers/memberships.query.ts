@@ -1,5 +1,5 @@
-import { defineQueryHandler, SYSTEM_ROLE } from "@kumiko/framework/engine";
-import { parseRoles } from "@kumiko/framework/utils";
+import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { tenantMembershipsTable } from "../membership-table";

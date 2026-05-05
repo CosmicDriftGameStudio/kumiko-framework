@@ -3,10 +3,10 @@
 // + secrets-context + tenant-scoped reads are exercised.
 
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider, type DbConnection } from "@kumiko/framework/db";
-import { defineFeature, defineWriteHandler } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
-import { createEnvMasterKeyProvider } from "@kumiko/framework/secrets";
+import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createEntityTable,
   createTestUser,
@@ -14,11 +14,11 @@ import {
   setupTestStack,
   type TestStack,
   testTenantId,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
-} from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createConfigFeature } from "../../config";

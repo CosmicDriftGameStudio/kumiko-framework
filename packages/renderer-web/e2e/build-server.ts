@@ -1,5 +1,5 @@
 // Tiny Bun-Server der das e2e-Bundle baut und ausliefert. Pendant zum
-// dev-server in @kumiko/dev-server, aber radikal abgespeckt — kein
+// dev-server in @cosmicdrift/kumiko-dev-server, aber radikal abgespeckt — kein
 // Postgres, kein Tailwind, keine Auth, keine Schema-Injection. Reicht
 // für renderer-web/e2e weil:
 //   - der MockDispatcher den Stack komplett ersetzt

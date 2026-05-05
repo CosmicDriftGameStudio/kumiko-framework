@@ -2,7 +2,7 @@
 // „Kumiko Demo", Light-Mode-default (kein Theme-Toggle für screenshots
 // damit immer der gleiche Look).
 
-import { type AppSchema, DefaultAppShell } from "@kumiko/renderer-web";
+import { type AppSchema, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
 
 const Brand = (): ReactNode => (

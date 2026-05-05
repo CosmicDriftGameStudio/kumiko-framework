@@ -1,4 +1,4 @@
-import { defineQueryHandler } from "@kumiko/framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 

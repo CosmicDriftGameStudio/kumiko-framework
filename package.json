@@ -1,5 +1,5 @@
 {
-  "name": "kumiko",
+  "name": "cosmicdrift-kumiko-framework",
   "description": "Config-driven, command-based, realtime multi-tenant app framework.",
   "private": true,
   "packageManager": "yarn@4.14.1",
@@ -33,26 +33,15 @@
     "packages/dispatcher-live",
     "packages/renderer",
     "packages/renderer-web",
-    "packages/ai-foundation",
-    "packages/ai-provider-anthropic",
-    "packages/ai-provider-openai-compat",
-    "packages/ai-provider-mock",
-    "packages/enterprise-features",
     "samples/recipes/*",
-    "samples/apps/*",
-    "samples/showcases/*",
-    "app"
+    "samples/apps/*"
   ],
   "scripts": {
     "kumiko": "NODE_OPTIONS=--no-deprecation bun run bin/kumiko.ts",
-    "build:apps": "bun run scripts/build-apps.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "test:all": "vitest --config vitest.all.config.ts",
-    "typecheck": "tsc --build",
-    "concept:check": "bun run scripts/concept-check.ts",
-    "truth-anchors:check": "bun run scripts/truth-anchors-check.ts",
-    "postinstall": "bun run scripts/codegen-samples.ts"
+    "typecheck": "tsc --build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.11",

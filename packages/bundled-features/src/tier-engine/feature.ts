@@ -41,7 +41,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { TIER_ENGINE_FEATURE } from "./constants";
 import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";

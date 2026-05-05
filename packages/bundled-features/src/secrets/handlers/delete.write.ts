@@ -1,5 +1,5 @@
-import { defineWriteHandler } from "@kumiko/framework/engine";
-import { failNotFound } from "@kumiko/framework/errors";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { requireSecretsContext } from "../feature";
 

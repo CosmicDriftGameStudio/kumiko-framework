@@ -1,5 +1,5 @@
-import { createEventStoreExecutor } from "@kumiko/framework/db";
-import { defineWriteHandler } from "@kumiko/framework/engine";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { tenantEntity, tenantTable } from "../schema/tenant";
 

@@ -2,16 +2,16 @@ import {
   createFeatureTogglesFeature,
   GlobalFeatureToggleRuntime,
   globalFeatureStateTable,
-} from "@kumiko/bundled-features/feature-toggles";
-import { SYSTEM_TENANT_ID } from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   createTestUser,
   pushTables,
   setupTestStack,
   type TestStack,
-} from "@kumiko/framework/stack";
-import { createLateBoundHolder } from "@kumiko/framework/testing";
+} from "@cosmicdrift/kumiko-framework/stack";
+import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createProductAuditFeature,

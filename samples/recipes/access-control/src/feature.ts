@@ -11,7 +11,7 @@
 //     automatically — no manual CREATE INDEX. Inspect the Drizzle table
 //     config in tests to verify.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@kumiko/framework/db";
+import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -19,7 +19,7 @@ import {
   defineEntityListHandler,
   defineFeature,
   defineRoles,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // Typed role registry — `defineRoles` returns an object keyed by role name
@@ -45,7 +45,7 @@ export const taskEntity = createEntity({
 });
 
 // The "owner" relation points at a hypothetical external `user` entity — in
-// a real app this would be @kumiko/bundled-features/user. For the sample we
+// a real app this would be @cosmicdrift/kumiko-bundled-features/user. For the sample we
 // keep it internal: projectRelations only holds FK metadata (no cross-entity
 // resolution) so the sample stays self-contained.
 export const projectRelations = {} as const;

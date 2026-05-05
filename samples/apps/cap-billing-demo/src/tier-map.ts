@@ -7,7 +7,7 @@
 // unterschiedliche Limits — exakt das Pattern, das eine echte Plattform
 // zwischen Free und Pro fährt.
 
-import type { TierMap } from "@kumiko/bundled-features/tier-engine";
+import type { TierMap } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 
 /**
  * Cap-Shape der Demo-App. Zwei Caps:

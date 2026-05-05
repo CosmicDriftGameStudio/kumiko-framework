@@ -29,9 +29,9 @@
 //   * access undefined → shown to everyone (engine convention — same
 //                        rule that NavDefinition.access follows)
 
-import type { AccessRule } from "@kumiko/framework/ui-types";
-import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@kumiko/renderer";
-import { qualifyNavId, toAppSchema, useNav } from "@kumiko/renderer";
+import type { AccessRule } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
+import { qualifyNavId, toAppSchema, useNav } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
 import { AppLayout } from "./app-layout";
 import { lastSegment, NavTree } from "./nav-tree";

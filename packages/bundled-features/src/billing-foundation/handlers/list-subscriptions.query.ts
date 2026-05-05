@@ -3,7 +3,7 @@
 // subscription via getSubscriptionForTenant-helper (= ctx.db ist
 // tenant-scoped, gibt automatisch nur die row des Callers zurück).
 
-import type { QueryHandlerDef } from "@kumiko/framework/engine";
+import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { subscriptionsProjectionTable } from "../projection";
 

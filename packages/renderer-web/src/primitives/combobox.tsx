@@ -13,7 +13,7 @@
 // Auswahl. Selected-Tags rendern als kleine entfernbare Chips, das
 // Search-Input bleibt offen für weitere Auswahl.
 
-import { REFERENCE_SEARCH_DEBOUNCE_MS, useTranslation } from "@kumiko/renderer";
+import { REFERENCE_SEARCH_DEBOUNCE_MS, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
 import { Check, ChevronDown, Loader2 } from "lucide-react";

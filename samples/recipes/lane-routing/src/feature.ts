@@ -14,7 +14,7 @@ import {
   createTextField,
   defineFeature,
   type FeatureDefinition,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // In-memory collectors so the integration-test can assert both jobs ran

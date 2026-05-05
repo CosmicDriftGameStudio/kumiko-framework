@@ -4,13 +4,13 @@
 // exercised by the framework's job tests. Here we pin the semantics: old
 // expired/revoked rows go, live rows stay, batching + signal work.
 
-import type { AppContext } from "@kumiko/framework/engine";
+import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   setupTestStack,
   type TestStack,
   testTenantId,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createSessionsFeature } from "../feature";

@@ -17,8 +17,8 @@
 // sessions feature owns. framework/testing only provides the generic
 // `createLateBoundHolder<T>` — shape-independent.
 
-import type { AuthRoutesConfig } from "@kumiko/framework/api";
-import type { LateBoundHolder } from "@kumiko/framework/testing";
+import type { AuthRoutesConfig } from "@cosmicdrift/kumiko-framework/api";
+import type { LateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import type { SessionCallbacks, SessionMassRevoker } from "./session-callbacks";
 
 export type BoundSessionCallbacks = {

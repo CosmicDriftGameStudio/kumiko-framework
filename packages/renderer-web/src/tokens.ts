@@ -1,5 +1,5 @@
-import { createStore } from "@kumiko/headless";
-import { cssVarTokens, type ThemeMode, type Tokens, type TokensApi } from "@kumiko/renderer";
+import { createStore } from "@cosmicdrift/kumiko-headless";
+import { cssVarTokens, type ThemeMode, type Tokens, type TokensApi } from "@cosmicdrift/kumiko-renderer";
 import { useSyncExternalStore } from "react";
 
 // Web-spezifische TokensApi-Impl. Theme-Toggle via `.dark`-Class auf

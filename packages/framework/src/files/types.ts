@@ -1,4 +1,4 @@
-import type { TenantId } from "@kumiko/framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 export type FileMetadata = {
   readonly fileName: string;

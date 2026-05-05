@@ -1,5 +1,5 @@
-import { buildDrizzleTable } from "@kumiko/framework/db";
-import { createEntity, createTextField } from "@kumiko/framework/engine";
+import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 // Config values are event-sourced. Each (key, scope) is its own aggregate
 // stream — lifecycle events `configValue.created / .updated / .deleted`

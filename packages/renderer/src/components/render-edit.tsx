@@ -1,5 +1,5 @@
-import type { EntityDefinition, EntityEditScreenDefinition } from "@kumiko/framework/ui-types";
-import { normalizeEditField } from "@kumiko/framework/ui-types";
+import type { EntityDefinition, EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   DispatcherError,
   EditFieldViewModel,
@@ -9,8 +9,8 @@ import type {
   FormValues,
   SubmitResult,
   Translate,
-} from "@kumiko/headless";
-import { computeEditViewModel } from "@kumiko/headless";
+} from "@cosmicdrift/kumiko-headless";
+import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useMemo, useState } from "react";
 import type { z } from "zod";
 import { useForm } from "../hooks/use-form";

@@ -37,8 +37,8 @@ import {
   createLegalPagesFeature,
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
-} from "@kumiko/bundled-features/legal-pages";
-import { createTextContentFeature } from "@kumiko/bundled-features/text-content";
+} from "@cosmicdrift/kumiko-bundled-features/legal-pages";
+import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
 
 // Beide Features aktivieren — text-content ist Foundation, legal-pages
 // requires sie. r.requires("text-content") greift automatisch im

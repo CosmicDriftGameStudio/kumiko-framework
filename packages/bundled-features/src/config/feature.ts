@@ -1,4 +1,4 @@
-import type { DbConnection, EncryptionProvider, TenantDb } from "@kumiko/framework/db";
+import type { DbConnection, EncryptionProvider, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigAccessor,
   type ConfigAccessorFactory,
@@ -10,8 +10,8 @@ import {
   type HandlerContext,
   type Registry,
   type TenantId,
-} from "@kumiko/framework/engine";
-import { InternalError } from "@kumiko/framework/errors";
+} from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { resetWrite } from "./handlers/reset.write";
 import { schemaQuery } from "./handlers/schema.query";
 import { setWrite } from "./handlers/set.write";

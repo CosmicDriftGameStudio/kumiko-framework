@@ -1,6 +1,6 @@
-import { assertExistsIn } from "@kumiko/framework/db";
-import { defineWriteHandler } from "@kumiko/framework/engine";
-import { failUnprocessable } from "@kumiko/framework/errors";
+import { assertExistsIn } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { invoiceTable } from "../entities/invoice";
 import { tenantCurrencyTable } from "../entities/tenant-currency";

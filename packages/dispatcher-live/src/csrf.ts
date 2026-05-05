@@ -13,7 +13,7 @@
 // header with the matching value.
 
 // Exported constants stay in sync with auth-middleware.ts. Kept here as
-// literals rather than imported from @kumiko/framework because this
+// literals rather than imported from @cosmicdrift/kumiko-framework because this
 // package must remain server-dep-free (runs in browsers and React Native).
 // If the server ever renames the cookie, this file needs a one-line bump.
 export const CSRF_COOKIE_NAME = "kumiko_csrf";

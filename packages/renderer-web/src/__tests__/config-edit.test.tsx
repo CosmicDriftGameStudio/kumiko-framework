@@ -8,10 +8,10 @@
 //   - Save-Button Greying via controller.rebase nach Success
 //   - Loading-State während config:query:values noch läuft
 
-import type { ConfigEditScreenDefinition } from "@kumiko/framework/ui-types";
-import type { Dispatcher } from "@kumiko/headless";
-import type { FeatureSchema } from "@kumiko/renderer";
-import { DispatcherProvider, KumikoScreen } from "@kumiko/renderer";
+import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
+import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils";

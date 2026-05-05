@@ -6,7 +6,7 @@
 //   - nav         → ID/Label/Screen-Card
 // Plus optionalRequires + metric als JSON-Dump-Fallback.
 
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("designerDemo", (r) => {

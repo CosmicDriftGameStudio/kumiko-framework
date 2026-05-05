@@ -4,8 +4,8 @@
 // state (URL ?w=, defaults, role filtering) and tests can hand any list
 // in directly.
 
-import type { WorkspaceSchema } from "@kumiko/renderer";
-import { useTranslation } from "@kumiko/renderer";
+import type { WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 

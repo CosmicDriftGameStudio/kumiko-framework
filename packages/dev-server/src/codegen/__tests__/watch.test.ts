@@ -64,7 +64,7 @@ async function waitFor(
 }
 
 const FEATURE_TEMPLATE = (featureName: string, eventName: string) => `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export default defineFeature("${featureName}", (r) => {
@@ -107,7 +107,7 @@ describe("watchAndRegenerate", () => {
       appRoot,
       "src/feature.ts",
       `
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export default defineFeature("orders", (r) => {

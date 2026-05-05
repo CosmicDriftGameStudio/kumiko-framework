@@ -4,9 +4,9 @@
 // an Provider-Tree den die Components zur Laufzeit voraussetzen
 // (LocaleProvider mit Bundle, SessionContext mit injizierbarem Wert).
 
-import type { LocaleResolver } from "@kumiko/headless";
-import { createStaticLocaleResolver, LocaleProvider, PrimitivesProvider } from "@kumiko/renderer";
-import { defaultPrimitives } from "@kumiko/renderer-web";
+import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
+import { createStaticLocaleResolver, LocaleProvider, PrimitivesProvider } from "@cosmicdrift/kumiko-renderer";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render as _render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { vi } from "vitest";

@@ -12,7 +12,7 @@
 // AuthGate). Apex-Marketing kann via Link "Kostenlos starten" auf den
 // /signup-Pfad routen.
 
-import { usePrimitives, useTranslation } from "@kumiko/renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { requestSignup } from "./auth-client";
 import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";

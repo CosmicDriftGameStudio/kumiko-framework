@@ -22,7 +22,7 @@ import {
   defineFeature,
   type FeatureDefinition,
   type FieldCondition,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const bookEntity = createEntity({
   table: "read_books",

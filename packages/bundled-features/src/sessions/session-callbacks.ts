@@ -4,10 +4,10 @@ import type {
   SessionCreator,
   SessionMetadata,
   SessionRevoker,
-} from "@kumiko/framework/api";
-import type { DbConnection } from "@kumiko/framework/db";
-import type { SessionUser } from "@kumiko/framework/engine";
-import { generateId } from "@kumiko/framework/utils";
+} from "@cosmicdrift/kumiko-framework/api";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { and, eq, isNull } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";

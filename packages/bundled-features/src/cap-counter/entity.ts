@@ -3,7 +3,7 @@ import {
   createNumberField,
   createTextField,
   createTimestampField,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 // cap-counter — eine Row pro (tenantId, capName, periodStart). tenantId
 // kommt automatisch als Base-Column (Kumiko Multi-Tenant-Default).

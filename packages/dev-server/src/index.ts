@@ -14,7 +14,7 @@
 //     für Sample-Apps und Showcases — 5-10 Zeilen Bootstrap statt 50.
 
 // Build-Toolchain (buildProdBundle, Bun.build, Tailwind-Pipeline, ts-morph) lebt
-// im Sub-Path-Export `@kumiko/dev-server/build`. Damit zieht der Main-Barrel
+// im Sub-Path-Export `@cosmicdrift/kumiko-dev-server/build`. Damit zieht der Main-Barrel
 // kein Bun-Toolchain-Bundle mehr in Production-Reads (z.B. wenn drizzle-kit
 // die App-Config unter Node lädt).
 export {

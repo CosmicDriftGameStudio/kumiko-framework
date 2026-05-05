@@ -2,15 +2,15 @@
 // persistence working together. The test shop has two real tenants
 // (acme + globex) and one bogus subdomain to prove the 404 path.
 
-import { setTenantCookie } from "@kumiko/framework/api";
-import type { TenantId } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
+import { setTenantCookie } from "@cosmicdrift/kumiko-framework/api";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   setupTestStack,
   type TestStack,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { multiTenantShopFeature, productEntity, productTable } from "../feature";
 import { createSubdomainResolver, extractSubdomain } from "../subdomain-resolver";

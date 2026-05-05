@@ -9,8 +9,8 @@
 // kein Auto-Mint-JWT mehr. Persistent-DB-Modus über KUMIKO_DEV_DB_NAME
 // in der Umgebung.
 
-import { runDevApp } from "@kumiko/dev-server";
-import type { TenantId } from "@kumiko/framework/engine";
+import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { taskFeature } from "../features/tasks";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 

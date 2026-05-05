@@ -11,7 +11,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseSourceFile, VERSION_HEADER } from "@kumiko/framework/engine";
+import { parseSourceFile, VERSION_HEADER } from "@cosmicdrift/kumiko-framework/engine";
 import { Project } from "ts-morph";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { scaffoldFeature } from "../scaffold-feature";
@@ -36,7 +36,7 @@ describe("scaffoldFeature — output shape", () => {
     expect(existsSync(result.tsconfigFile)).toBe(true);
     expect(existsSync(result.featureFile)).toBe(true);
     expect(result.featureName).toBe("todoList");
-    expect(result.packageName).toBe("@kumiko/sample-todo-list");
+    expect(result.packageName).toBe("@cosmicdrift/kumiko-sample-todo-list");
   });
 
   test("tsconfig.json is strict + bundler-resolution + no-emit", () => {
@@ -58,9 +58,9 @@ describe("scaffoldFeature — output shape", () => {
       destination: join(workdir, "todoList"),
     });
     const pkg = JSON.parse(readFileSync(result.packageJsonFile, "utf8"));
-    expect(pkg.name).toBe("@kumiko/sample-todo-list");
+    expect(pkg.name).toBe("@cosmicdrift/kumiko-sample-todo-list");
     expect(pkg.private).toBe(true);
-    expect(pkg.dependencies["@kumiko/framework"]).toBe("workspace:*");
+    expect(pkg.dependencies["@cosmicdrift/kumiko-framework"]).toBe("workspace:*");
   });
 
   test("feature.ts starts with the schema-version header", () => {
@@ -138,6 +138,6 @@ describe("scaffoldFeature — destination handling", () => {
       name: "userProfileCustomization",
       destination: join(workdir, "userProfileCustomization"),
     });
-    expect(result.packageName).toBe("@kumiko/sample-user-profile-customization");
+    expect(result.packageName).toBe("@cosmicdrift/kumiko-sample-user-profile-customization");
   });
 });

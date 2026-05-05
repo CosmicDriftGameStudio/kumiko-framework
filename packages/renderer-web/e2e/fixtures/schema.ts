@@ -9,8 +9,8 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
-} from "@kumiko/framework/ui-types";
-import type { AppSchema } from "@kumiko/renderer-web";
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import type { AppSchema } from "@cosmicdrift/kumiko-renderer-web";
 
 export const thingEntity = {
   fields: {

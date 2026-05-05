@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 
-import type { WorkspaceSchema } from "@kumiko/renderer";
+import type { WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   NavProvider,
   PrimitivesProvider,
-} from "@kumiko/renderer";
+} from "@cosmicdrift/kumiko-renderer";
 import { render as _render, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";

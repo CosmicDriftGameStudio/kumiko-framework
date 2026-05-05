@@ -6,8 +6,8 @@ import {
   table,
   text,
   uniqueIndex,
-} from "@kumiko/framework/db";
-import { createEntity, createNumberField, createTextField } from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/db";
+import { createEntity, createNumberField, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 import { sql } from "drizzle-orm";
 
 // Envelope stored as a single jsonb blob. All ops are upsert-by-(tenantId, key)

@@ -7,7 +7,7 @@ Plattform-Operator den Klartext aus der DB lesen kann.
 ## Pattern
 
 ```ts
-import { access, createTenantConfig } from "@kumiko/framework/engine";
+import { access, createTenantConfig } from "@cosmicdrift/kumiko-framework/engine";
 
 createTenantConfig("text", {
   encrypted: true,        // ← ciphertext in der DB
@@ -43,8 +43,8 @@ parallel haben Customer ihre tenant-eigenen `encrypted: true` config-keys.
 ## Boot-Wiring
 
 ```ts
-import { createConfigResolver } from "@kumiko/bundled-features/config";
-import { createEncryptionProvider } from "@kumiko/framework/db";
+import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 
 const encryption = createEncryptionProvider(process.env.CONFIG_ENCRYPTION_KEY);
 const configResolver = createConfigResolver({ encryption });

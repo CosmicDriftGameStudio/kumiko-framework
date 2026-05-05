@@ -1,4 +1,4 @@
-import type { EditFieldViewModel, FieldIssue } from "@kumiko/headless";
+import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";

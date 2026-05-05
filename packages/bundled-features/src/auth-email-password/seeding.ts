@@ -12,9 +12,9 @@
 // Damit Sample-Server und Tests keine drei sub-paths zusammensammeln
 // müssen.
 
-import type { DbConnection } from "@kumiko/framework/db";
-import type { SessionUser, TenantId } from "@kumiko/framework/engine";
-import { TestUsers } from "@kumiko/framework/stack";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { seedTenant, seedTenantMembership } from "../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers

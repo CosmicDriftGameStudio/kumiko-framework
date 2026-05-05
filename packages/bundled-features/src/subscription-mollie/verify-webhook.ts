@@ -20,7 +20,7 @@ import {
   SubscriptionEventTypes,
   type SubscriptionStatus,
   SubscriptionStatuses,
-} from "@kumiko/bundled-features/billing-foundation";
+} from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type {
   Payment as MolliePayment,
   Subscription as MollieSubscription,

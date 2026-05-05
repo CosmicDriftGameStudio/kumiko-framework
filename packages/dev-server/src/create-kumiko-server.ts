@@ -11,7 +11,7 @@
 //   - bundles the client in-process (prod uses a prebuilt dist)
 //   - no rate-limit, no helmet, no secure-cookie flags
 //
-// The companion prod entry will land at `@kumiko/framework/server`
+// The companion prod entry will land at `@cosmicdrift/kumiko-framework/server`
 // with a different options shape (clientDist, auth config, db url).
 
 import { spawn } from "node:child_process";
@@ -19,16 +19,16 @@ import { existsSync, mkdtempSync, statSync } from "node:fs";
 import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type AuthRoutesConfig, generateToken } from "@kumiko/framework/api";
-import { buildAppSchema, type FeatureDefinition } from "@kumiko/framework/engine";
-import { createEventsTable } from "@kumiko/framework/event-store";
+import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framework/api";
+import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   ensureEntityTable,
   setupTestStack,
   type TestStack,
   type TestStackOptions,
   TestUsers,
-} from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/stack";
 import { injectSchema } from "./inject-schema";
 import { resolveTailwindCli } from "./resolve-tailwind-cli";
 import { buildBunServeOptions } from "./run-prod-app";
@@ -135,7 +135,7 @@ export type CreateKumikoServerOptions = {
    *  /styles.css.
    *
    *  Wenn `undefined` UND `clientEntry` gesetzt: resolve die
-   *  `@kumiko/renderer-web/styles.css`-Default via Package-Exports.
+   *  `@cosmicdrift/kumiko-renderer-web/styles.css`-Default via Package-Exports.
    *  So muss kein Sample mehr den monorepo-relativen Pfad
    *  ../../packages/renderer-web/src/styles.css hardcoden.
    *
@@ -421,7 +421,7 @@ function expandWatchPatterns(patterns: readonly string[]): string[] {
 //   - false            → CSS-Pipeline aus (undefined zurück)
 //   - undefined + client(s):
 //       1. App-eigenes src/styles.css (App-Theme-Override) wenn vorhanden
-//       2. Sonst Default `@kumiko/renderer-web/styles.css` über Package-Exports
+//       2. Sonst Default `@cosmicdrift/kumiko-renderer-web/styles.css` über Package-Exports
 //   - undefined + kein clientEntry/clientEntries: undefined (keine CSS nötig)
 //
 // Auto-Detection von src/styles.css spiegelt die Logik aus
@@ -459,10 +459,10 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
   try {
     return (
       globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
-    ).Bun.resolveSync("@kumiko/renderer-web/styles.css", process.cwd());
+    ).Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", process.cwd());
   } catch (err) {
     logError(
-      "[kumiko-server] couldn't auto-resolve @kumiko/renderer-web/styles.css — " +
+      "[kumiko-server] couldn't auto-resolve @cosmicdrift/kumiko-renderer-web/styles.css — " +
         "pass `stylesheet: <path>` or `stylesheet: false` explicitly.",
       err,
     );
@@ -611,7 +611,7 @@ export async function createKumikoServer(
   //
   // Default-Resolution: wenn kein `stylesheet` übergeben und ein
   // `clientEntry` existiert, resolve die styles.css aus
-  // `@kumiko/renderer-web` via Package-Exports. Bun.resolveSync liefert
+  // `@cosmicdrift/kumiko-renderer-web` via Package-Exports. Bun.resolveSync liefert
   // einen absoluten Pfad — funktioniert sowohl im Monorepo (Workspace-
   // Link) als auch in einer installierten Fremd-App (node_modules).
   let stylesheetPath: string | undefined;

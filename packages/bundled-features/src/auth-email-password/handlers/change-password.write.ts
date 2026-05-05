@@ -1,5 +1,5 @@
-import { access, createSystemUser, defineWriteHandler } from "@kumiko/framework/engine";
-import { UnprocessableError, writeFailure } from "@kumiko/framework/errors";
+import { access, createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { UserHandlers, UserQueries } from "../../user";
 import { AuthErrors } from "../constants";

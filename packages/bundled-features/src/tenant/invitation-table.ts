@@ -22,13 +22,13 @@
 // pending → re-use existing row + refresh Redis-token + send mail
 // (analog zu signup-Resend).
 
-import { buildDrizzleTable } from "@kumiko/framework/db";
+import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createSelectField,
   createTextField,
   createTimestampField,
-} from "@kumiko/framework/engine";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 // Status-const-Object damit Handler-Code keine Magic-Strings nutzt.
 // Bei rename (z.B. "cancelled" → "revoked") fällt jeder caller auf

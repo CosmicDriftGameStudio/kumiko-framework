@@ -9,7 +9,7 @@
 //   tenantCurrency   — which currencies each tenant may use (with isActive flag)
 //   invoice          — money fields validated against tenantCurrency
 
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { currencyEntity } from "./entities/currency";
 import { invoiceEntity } from "./entities/invoice";
 import { tenantCurrencyEntity } from "./entities/tenant-currency";

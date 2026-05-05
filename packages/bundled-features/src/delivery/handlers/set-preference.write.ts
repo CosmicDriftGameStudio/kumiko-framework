@@ -1,4 +1,4 @@
-import { defineWriteHandler } from "@kumiko/framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { upsertPreference } from "../upsert-preference";
 

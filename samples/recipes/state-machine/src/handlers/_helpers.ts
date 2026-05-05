@@ -4,7 +4,7 @@
 
 import type { AccessRule, KumikoEventTypeMap } from "@app/define";
 import { defineWriteHandler, guardTransition } from "@app/define";
-import { failNotFound } from "@kumiko/framework/errors";
+import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { INVOICE_TRANSITIONS } from "../entities/invoice";
 import { ENTITY_NAME } from "../events";

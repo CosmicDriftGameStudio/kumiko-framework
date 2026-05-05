@@ -94,7 +94,7 @@ export function renderTypesAugmentation(
   // into the target interface; a script-form (`export {}` removed)
   // would REPLACE the module's exports.
   const body = [
-    'declare module "@kumiko/framework/engine" {',
+    'declare module "@cosmicdrift/kumiko-framework/engine" {',
     "  interface KumikoEventTypeMap {",
     ...(mapEntries.length === 0 ? ["    // (no r.defineEvent calls discovered yet)"] : mapEntries),
     "  }",
@@ -157,7 +157,7 @@ export function renderInlineSchemasFile(events: readonly ScannedEvent[]): string
  *
  * The wrappers are intentionally *thin* — same signature as the
  * framework's, just with TMap pre-bound. Apps stay portable: switch
- * the import back to "@kumiko/framework/engine" and you're back on the
+ * the import back to "@cosmicdrift/kumiko-framework/engine" and you're back on the
  * loose default. Migration is reversible, no behavioural surface change.
  */
 export function renderDefineFile(): string {
@@ -179,21 +179,21 @@ export function renderDefineFile(): string {
     `/// <reference path="./types.generated.d.ts" />`,
     "",
     "// Re-export the entire engine surface — apps can switch their imports",
-    "// from `@kumiko/framework/engine` to `./.kumiko/define` with a single",
+    "// from `@cosmicdrift/kumiko-framework/engine` to `./.kumiko/define` with a single",
     "// sed-replace, no fine-grained import-splitting needed. The strict",
     "// `defineWriteHandler` / `defineQueryHandler` overrides below shadow",
     "// the loose framework versions in the local module's export table.",
-    `export * from "@kumiko/framework/engine";`,
+    `export * from "@cosmicdrift/kumiko-framework/engine";`,
     "",
     `import {`,
     `  defineWriteHandler as fwDefineWriteHandler,`,
     `  defineQueryHandler as fwDefineQueryHandler,`,
-    `} from "@kumiko/framework/engine";`,
+    `} from "@cosmicdrift/kumiko-framework/engine";`,
     `import type {`,
     `  KumikoEventTypeMap,`,
     `  WriteHandlerDefinition,`,
     `  QueryHandlerDefinition,`,
-    `} from "@kumiko/framework/engine";`,
+    `} from "@cosmicdrift/kumiko-framework/engine";`,
     `import type { ZodType } from "zod";`,
     "",
     `// Strict defineWriteHandler — TMap fixed to the global`,

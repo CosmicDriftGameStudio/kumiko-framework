@@ -22,7 +22,7 @@ import { parseSourceFile } from "../parse";
 
 const CANONICAL_FEATURE = `
 // kumiko-feature-version: 1
-import { defineFeature } from "@kumiko/framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("todoList", (r) => {

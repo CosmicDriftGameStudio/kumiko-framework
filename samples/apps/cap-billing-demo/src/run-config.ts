@@ -18,11 +18,11 @@
 //                               der eigenen run-config.
 //   - newsletter             — die Demo-Domain mit cap-aware send
 
-import { billingFoundationFeature } from "@kumiko/bundled-features/billing-foundation";
-import { capCounterFeature } from "@kumiko/bundled-features/cap-counter";
-import { mailFoundationFeature } from "@kumiko/bundled-features/mail-foundation";
-import { mailTransportInMemoryFeature } from "@kumiko/bundled-features/mail-transport-inmemory";
-import { createSecretsFeature } from "@kumiko/bundled-features/secrets";
+import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
+import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
+import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
+import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { newsletterFeature } from "./feature";
 
 /**

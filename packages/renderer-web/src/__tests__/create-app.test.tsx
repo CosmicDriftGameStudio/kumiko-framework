@@ -3,9 +3,9 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
-} from "@kumiko/framework/ui-types";
-import type { Dispatcher } from "@kumiko/headless";
-import type { ColumnRendererProps, FeatureSchema, NavApi } from "@kumiko/renderer";
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import type { ColumnRendererProps, FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, type MockInstance, test, vi } from "vitest";

@@ -1,4 +1,4 @@
-import type { DispatcherError } from "@kumiko/headless";
+import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatcher } from "../context/dispatcher-context";
 import { useLiveEvents } from "../sse/live-events";

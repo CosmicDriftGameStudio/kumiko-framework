@@ -11,7 +11,7 @@
 // user:write:update auf user.locale zusätzlich gesetzt (separater
 // App-Code, nicht im Resolver).
 
-import { createStore, type LocaleResolver } from "@kumiko/headless";
+import { createStore, type LocaleResolver } from "@cosmicdrift/kumiko-headless";
 
 export type CreateBrowserLocaleResolverOptions = {
   /** localStorage-Key unter dem die aktive Locale persistiert wird.

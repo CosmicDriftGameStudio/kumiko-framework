@@ -22,10 +22,10 @@ import {
   createTenantDb,
   type DbConnection,
   type TenantDb,
-} from "@kumiko/framework/db";
-import type { JobHandlerFn, SessionUser, TenantId } from "@kumiko/framework/engine";
-import { InternalError } from "@kumiko/framework/errors";
-import { rewrapDek } from "@kumiko/framework/secrets";
+} from "@cosmicdrift/kumiko-framework/db";
+import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { rewrapDek } from "@cosmicdrift/kumiko-framework/secrets";
 import { ne } from "drizzle-orm";
 import { type StoredEnvelope, tenantSecretEntity, tenantSecretsTable } from "../table";
 

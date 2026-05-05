@@ -1,4 +1,4 @@
-import type { ClientFeatureDefinition } from "@kumiko/renderer-web";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { helpdeskTranslations } from "../i18n";
 
 export const helpdeskClient: ClientFeatureDefinition = {

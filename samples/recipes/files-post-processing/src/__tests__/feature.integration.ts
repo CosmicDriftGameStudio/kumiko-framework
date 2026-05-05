@@ -13,8 +13,8 @@ import {
   createInMemoryFileProvider,
   FILE_UPLOADED_EVENT_TYPE,
   type InMemoryFileProvider,
-} from "@kumiko/framework/files";
-import { setupTestStack, type TestStack, TestUsers } from "@kumiko/framework/stack";
+} from "@cosmicdrift/kumiko-framework/files";
+import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { derivateLog, filesPostProcessingFeature } from "../feature";
