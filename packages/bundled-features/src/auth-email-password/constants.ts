@@ -1,3 +1,9 @@
+// @runtime client
+// Pure string-Konstanten — keine DB/Node-builtins. Mit `@runtime client`
+// markiert damit auch Browser-Code (Members-Screen etc.) sie importieren
+// kann ohne dass die runtime-isolation-Guard schreit. Runtime darf
+// "client"-Files importieren (siehe RUNTIME_RULES), also bleibt auch
+// der server-side Zugriff (handlers, dispatcher) erhalten.
 export const AUTH_EMAIL_PASSWORD_FEATURE = "auth-email-password" as const;
 
 // Qualified handler names. Non-CRUD handlers, no entity prefix.

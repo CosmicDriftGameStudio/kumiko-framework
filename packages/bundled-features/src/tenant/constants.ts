@@ -1,3 +1,9 @@
+// @runtime client
+// Pure string-Konstanten — `@runtime client` damit auch Browser-Code
+// (Members-Screen) sie importieren kann (siehe auth-email-password/
+// constants.ts für die Begründung). Runtime importiert client → server
+// kann sie weiter nutzen.
+
 // Feature name
 export const TENANT_FEATURE = "tenant" as const;
 
