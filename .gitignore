@@ -44,3 +44,4 @@ playwright-report/
 !.yarn/releases
 !.yarn/plugins
 .pnp.*
+.output.txt

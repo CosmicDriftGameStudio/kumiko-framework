@@ -7,19 +7,17 @@
 //   3. Warnings — duplicate-id collisions and parser-throw don't get
 //      swallowed; they show up in the corpus.warnings array.
 //   4. pathToId — pure-function unit tests for the id derivation.
-//   5. Drift — the live build against the real repo matches the
-//      checked-in docs/few-shot-corpus.json. Catches "feature changed,
-//      corpus didn't get refreshed" in CI.
+//
+// Note: The drift-check against the checked-in `docs/few-shot-corpus.json`
+// has been moved to `kumiko-enterprise/packages/ai-foundation` (Phase O.6)
+// because the corpus JSON now lives there — framework is public and must
+// not carry the eval baseline.
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildFewShotCorpus, type FewShotCorpus, pathToId } from "@cosmicdrift/kumiko-dev-server";
+import { join } from "node:path";
+import { buildFewShotCorpus, pathToId } from "@cosmicdrift/kumiko-dev-server";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-
-const __filename = fileURLToPath(import.meta.url);
-const REPO_ROOT = resolve(dirname(__filename), "..", "..", "..", "..");
 
 let workdir: string;
 
@@ -231,60 +229,6 @@ describe("pathToId", () => {
   test("only strips the leading samples|packages prefix once (no greedy)", () => {
     // packages/samples/foo/feature.ts: only the first prefix gets dropped.
     expect(pathToId("packages/samples/foo/feature.ts")).toBe("samples/foo");
-  });
-});
-
-// =============================================================================
-// Drift test against the checked-in docs/few-shot-corpus.json
-// =============================================================================
-
-describe("docs/few-shot-corpus.json — drift check", () => {
-  test("checked-in corpus matches the live repo state", () => {
-    const checkedInPath = join(REPO_ROOT, "docs", "few-shot-corpus.json");
-    const checkedIn = JSON.parse(readFileSync(checkedInPath, "utf8")) as FewShotCorpus;
-    const live = buildFewShotCorpus({ repoRoot: REPO_ROOT });
-
-    // Compare structural data only — generatedAt is intentionally
-    // static in the build output (the regenerate-script could have
-    // overwritten it with a real timestamp; either way drift-tests
-    // ignore it). totals + entries must match exactly.
-    expect(live.totals).toEqual(checkedIn.totals);
-    expect(live.entries.length).toBe(checkedIn.entries.length);
-    expect(live.warnings.length).toBe(checkedIn.warnings?.length ?? 0);
-
-    // Per-entry comparison: id + sourcePath + featureName + counts +
-    // tags + authoringStyle + description + packageName + parseError-count.
-    // Skip rawSource + the patterns blob — they're long, the totals and
-    // per-kind counts are the cheap proxy for "did anything change here?".
-    // The added fields catch description / package-name drift that the
-    // original drift-check missed (e.g. workspace renamed without
-    // refreshing the corpus).
-    for (const liveEntry of live.entries) {
-      const checkedEntry = checkedIn.entries.find((e) => e.id === liveEntry.id);
-      expect(checkedEntry, `missing entry ${liveEntry.id} in checked-in corpus`).toBeDefined();
-      if (!checkedEntry) continue;
-      expect({
-        id: liveEntry.id,
-        sourcePath: liveEntry.sourcePath,
-        featureName: liveEntry.featureName,
-        authoringStyle: liveEntry.authoringStyle,
-        tags: liveEntry.tags,
-        patternsByKind: liveEntry.patternsByKind,
-        description: liveEntry.description,
-        packageName: liveEntry.packageName,
-        parseErrorCount: liveEntry.parseErrors.length,
-      }).toEqual({
-        id: checkedEntry.id,
-        sourcePath: checkedEntry.sourcePath,
-        featureName: checkedEntry.featureName,
-        authoringStyle: checkedEntry.authoringStyle,
-        tags: checkedEntry.tags,
-        patternsByKind: checkedEntry.patternsByKind,
-        description: checkedEntry.description,
-        packageName: checkedEntry.packageName,
-        parseErrorCount: checkedEntry.parseErrors.length,
-      });
-    }
   });
 });
 
