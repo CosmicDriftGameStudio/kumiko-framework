@@ -1,18 +1,18 @@
 {
-  "name": "cosmicdrift-kumiko-framework",
+  "name": "kumiko-framework",
   "description": "Config-driven, command-based, realtime multi-tenant app framework.",
   "private": true,
   "packageManager": "yarn@4.14.1",
   "license": "BUSL-1.1",
-  "author": "Marc Frost",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bender0oo0/kumiko.git"
+    "url": "git+https://github.com/cosmicdriftgamestudio/kumiko-framework.git"
   },
   "bugs": {
-    "url": "https://github.com/bender0oo0/kumiko/issues"
+    "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
   },
-  "homepage": "https://github.com/bender0oo0/kumiko#readme",
+  "homepage": "https://kumiko.so",
   "keywords": [
     "framework",
     "multi-tenant",

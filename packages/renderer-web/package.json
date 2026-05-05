@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Web-platform bindings for @cosmicdrift/kumiko-renderer. HTML default-primitives, browser history-based navigation, EventSource-backed live events, and a one-call createKumikoApp that mounts the whole stack via react-dom.",
   "license": "BUSL-1.1",
-  "author": "Marc Frost",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "private": true,
   "type": "module",
   "kumiko": {
@@ -45,6 +45,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git"
+    "url": "git+https://github.com/cosmicdriftgamestudio/kumiko-framework.git",
+    "directory": "packages/renderer-web"
+  },
+  "homepage": "https://kumiko.so",
+  "bugs": {
+    "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
   }
 }

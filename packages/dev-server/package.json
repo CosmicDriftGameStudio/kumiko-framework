@@ -3,15 +3,16 @@
   "version": "0.0.1",
   "description": "Development server bootstrap for Kumiko apps. Bundles the client, mints dev-JWTs, injects the resolved AppSchema, and seeds an admin. Not for production.",
   "license": "BUSL-1.1",
-  "author": "Marc Frost",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git"
+    "url": "git+https://github.com/cosmicdriftgamestudio/kumiko-framework.git",
+    "directory": "packages/dev-server"
   },
   "bugs": {
-    "url": "https://github.com/bender0oo0/kumiko/issues"
+    "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
   },
-  "homepage": "https://github.com/bender0oo0/kumiko#readme",
+  "homepage": "https://kumiko.so",
   "private": true,
   "type": "module",
   "kumiko": {
