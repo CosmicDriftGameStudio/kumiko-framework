@@ -823,15 +823,25 @@ export async function createKumikoServer(
       });
     }
 
+    // Hono-First für non-asset GETs: extraRoutes (z.B. /feed.xml,
+    // /legal/impressum) und r.httpRoute-Routes (legal-pages) müssen vor
+    // dem SPA-Catchall greifen, sonst schluckt hostDispatch unbekannte
+    // Pfade als HTML. Symmetrisch zu run-prod-app.ts (Hono-First
+    // Pattern). Wenn Hono 404 returnt, fällt die Logik zu hostDispatch
+    // bzw. SPA-Catchall durch.
+    if (
+      req.method === "GET" &&
+      !url.pathname.startsWith("/api/") &&
+      !url.pathname.startsWith("/sse")
+    ) {
+      const honoRes = await stack.app.fetch(req);
+      if (honoRes.status !== 404) return honoRes;
+    }
+
     // SPA catch-all: any GET to a non-API, non-asset path returns the
     // HTML shell. The client-side router then reads location.pathname
     // and mounts the right screen. The "no dot" filter skips
     // /favicon.ico etc. (let the stack's 404 handler respond).
-    //
-    // Backend routes that live outside /api (currently just /sse) have
-    // to be excluded explicitly, otherwise the catch-all would shadow
-    // the real Hono route with HTML and EventSource would never
-    // connect.
     if (
       req.method === "GET" &&
       !url.pathname.startsWith("/api/") &&
