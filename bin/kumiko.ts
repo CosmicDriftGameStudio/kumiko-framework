@@ -118,32 +118,35 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // samples/<category>/<app>/tsconfig.json: neue Apps werden ohne
   // Konfig-Pflege gefunden.
   { name: "TypeScript (Samples)", cmd: "bun scripts/check-app-tsc.ts" },
-  { name: "Silent-Skip Guard", cmd: "bun scripts/guard-silent-skip.ts" },
-  { name: "Admin-API Guard", cmd: "bun scripts/guard-admin-api.ts" },
-  { name: "Unsafe-JSON-Parse Guard", cmd: "bun scripts/guard-unsafe-json-parse.ts" },
-  { name: "No-Date-API Guard", cmd: "bun scripts/guard-no-date-api.ts" },
-  { name: "Pre-ES-Patterns Guard", cmd: "bun scripts/guard-pre-es-patterns.ts" },
-  { name: "Direct-Entity-Writes Guard", cmd: "bun scripts/guard-direct-entity-writes.ts" },
-  { name: "Cross-Feature-Import Guard", cmd: "bun scripts/guard-cross-feature-imports.ts" },
-  { name: "Renderer-Boundaries Guard", cmd: "bun scripts/guard-renderer-boundaries.ts" },
+  // Guards leben jetzt im Sibling-Repo `infra/guards/` (Phase O.11) —
+  // multi-root-aware, scannen alle 4 Repos (kumiko-framework,
+  // -enterprise, -studio, publicstatus). Aufruf via Pfad relativ zur
+  // framework-Repo-Wurzel. Concepts wurden archiviert (O.4 Schritt 9),
+  // also Concept-Check raus.
+  { name: "Silent-Skip Guard", cmd: "bun ../infra/guards/guard-silent-skip.ts" },
+  { name: "Admin-API Guard", cmd: "bun ../infra/guards/guard-admin-api.ts" },
+  { name: "Unsafe-JSON-Parse Guard", cmd: "bun ../infra/guards/guard-unsafe-json-parse.ts" },
+  { name: "No-Date-API Guard", cmd: "bun ../infra/guards/guard-no-date-api.ts" },
+  { name: "Pre-ES-Patterns Guard", cmd: "bun ../infra/guards/guard-pre-es-patterns.ts" },
+  { name: "Direct-Entity-Writes Guard", cmd: "bun ../infra/guards/guard-direct-entity-writes.ts" },
+  { name: "Cross-Feature-Import Guard", cmd: "bun ../infra/guards/guard-cross-feature-imports.ts" },
+  { name: "Renderer-Boundaries Guard", cmd: "bun ../infra/guards/guard-renderer-boundaries.ts" },
   {
     name: "Primitives-Discipline Guard",
-    cmd: "bun scripts/guard-primitives-discipline.ts --strict-bundled",
+    cmd: "bun ../infra/guards/guard-primitives-discipline.ts --strict-bundled",
   },
-  { name: "Fake-Test Guard", cmd: "bun scripts/guard-fake-tests.ts" },
+  { name: "Fake-Test Guard", cmd: "bun ../infra/guards/guard-fake-tests.ts" },
   {
     name: "Feature-Integration-Test Guard",
-    cmd: "bun scripts/guard-feature-integration-tests.ts",
+    cmd: "bun ../infra/guards/guard-feature-integration-tests.ts",
   },
-  { name: "i18n-Keys Guard", cmd: "bun scripts/guard-i18n-keys.ts" },
-  { name: "Test-Stack-Drift Guard", cmd: "bun scripts/guard-test-stack-drift.ts" },
-  { name: "Runtime-Isolation Guard", cmd: "bun scripts/check-runtime-isolation.ts" },
-  { name: "Error-Reasons Guard", cmd: "bun scripts/guard-error-reasons.ts" },
-  { name: "Predicate Extraction Check", cmd: "bun scripts/check-predicates.ts" },
-  { name: "as-Cast Audit", cmd: "bun scripts/check-as-casts.ts" },
-  { name: "License Check", cmd: "bun scripts/check-licenses.ts" },
-  // Cross-Domain Concept-Layer: validiert concepts/*.yaml (Schema, FK, Code-Anker, Drift)
-  { name: "Concept-Check", cmd: "bun scripts/concept-check.ts" },
+  { name: "i18n-Keys Guard", cmd: "bun ../infra/guards/guard-i18n-keys.ts" },
+  { name: "Test-Stack-Drift Guard", cmd: "bun ../infra/guards/guard-test-stack-drift.ts" },
+  { name: "Runtime-Isolation Guard", cmd: "bun ../infra/guards/check-runtime-isolation.ts" },
+  { name: "Error-Reasons Guard", cmd: "bun ../infra/guards/guard-error-reasons.ts" },
+  { name: "Predicate Extraction Check", cmd: "bun ../infra/guards/check-predicates.ts" },
+  { name: "as-Cast Audit", cmd: "bun ../infra/guards/check-as-casts.ts" },
+  { name: "License Check", cmd: "bun ../infra/guards/check-licenses.ts" },
   // Cross-Domain Truth-Anchors: validiert truth_anchors-Frontmatter in Doku/Marketing-Files
   { name: "Truth-Anchors Check", cmd: "bun scripts/truth-anchors-check.ts" },
 ];
@@ -384,13 +387,15 @@ const commands = {
       // in vitest.config.ts auf — die Box ist eh gesättigt während eines
       // check-Laufs, da soll Wall-Time zählen. Im Watch-Mode/IDE bleibt
       // der konservative Default aktiv.
+      //
+      // Phase O.11: Integration-Tests aus dem Default-`check`-Run
+      // entfernt — sie brauchen DB/Redis/Meilisearch und gehören in
+      // einen separaten `check:integration`-Lauf bzw. CI-Job. Der
+      // Parent-Workspace-`yarn check` triggert vorher schon
+      // `yarn workspaces foreach -A run test:run` über alle 4 Repos
+      // — das deckt Unit-Tests parent-weit ab.
       const slowSteps: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
         { name: "Unit Tests", cmd: "KUMIKO_CHECK=1 yarn vitest run" },
-        { name: "Integration Guard", cmd: "node vitest.integration.guard.js" },
-        {
-          name: "Integration Tests",
-          cmd: "KUMIKO_CHECK=1 yarn vitest run --config vitest.integration.config.ts",
-        },
       ];
       for (const step of slowSteps) {
         logBoth(`--- ${step.name} ---`, logPath);
