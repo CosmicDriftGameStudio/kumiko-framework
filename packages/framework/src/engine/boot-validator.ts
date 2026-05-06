@@ -16,6 +16,12 @@ const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 // Field-Namen die typischerweise PII enthalten. Ohne `pii: true` /
 // `userOwned` / `tenantOwned` / `allowPlaintext`-Marker → Boot-Warning.
 // Lower-case compare für case-insensitive Match (displayName vs displayname).
+//
+// Bewusst NICHT in der Liste:
+//   - `name` allein — zu viele Geschäfts-Kontexte (product.name,
+//     tenant.name, role.name) sind kein PII. Personen-Namen werden
+//     ueber displayName / firstName / lastName / fullName erfasst.
+//
 // Quelle: docs/plans/datenschutz/crypto-shredding.md Boot-Validation-Sektion.
 const PII_DIRECT_NAME_HINTS: ReadonlySet<string> = new Set([
   "email",
@@ -32,7 +38,6 @@ const PII_DIRECT_NAME_HINTS: ReadonlySet<string> = new Set([
   "firstname",
   "lastname",
   "fullname",
-  "name",
   "birthday",
   "birthdate",
   "dateofbirth",
@@ -66,6 +71,12 @@ const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
   "lastSeenAt",
   "deletedAt",
 ]);
+
+// Erlaubtes Format fuer retention.keepFor — Zahlen + Suffix (h/d/w/m/y).
+// Echtes Parsen kommt mit dem Cleanup-Job in Sprint 2; Boot-Validator
+// macht nur den Sanity-Check damit Tippfehler ("30days") frueh sichtbar
+// werden statt erst beim ersten Cleanup-Run.
+const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 
 /**
  * Validates all feature configurations at boot time.
@@ -126,15 +137,14 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   const allWorkspaceQns = collectWorkspaceQns(features);
   const allWriteHandlerQns = collectWriteHandlerQns(features);
 
-  // Cross-feature API exposure-map — every name an exposing feature
-  // declared via r.exposesApi(). Per-feature validateApiExposureMatching
-  // walks usedApis-set and checks each one resolves here. Verhindert
-  // dass typo-getroffene QN-Aufrufe oder gedroppte Features zu Runtime-
-  // Crash statt Boot-Fail werden (Memory feedback_role_naming_drift —
-  // Magic-Strings im Cross-Feature-Code).
+  // Cross-feature API exposure-map — jedes Feature deklariert Marker via
+  // r.exposesApi(name). Per-feature validateApiExposureMatching walkt
+  // usedApis-Set und checkt dass jeder Eintrag hier einen Match findet.
+  // Verhindert dass typo-getroffene oder gedroppte QN-Aufrufe zu
+  // Runtime-Crash statt Boot-Fail werden.
   const allExposedApis = new Map<string, string>(); // apiName → providerFeature
   for (const f of features) {
-    for (const apiName of Object.keys(f.exposedApis)) {
+    for (const apiName of f.exposedApis) {
       const existing = allExposedApis.get(apiName);
       if (existing && existing !== f.name) {
         throw new Error(
@@ -677,6 +687,13 @@ function validatePiiAndRetention(feature: FeatureDefinition): void {
     // --- Entity-level retention ---
     const retention = entity.retention;
     if (retention) {
+      if (!KEEP_FOR_PATTERN.test(retention.keepFor)) {
+        // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+        console.warn(
+          `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.keepFor="${retention.keepFor}" hat ungueltiges Format. Erwartet: <Zahl><h|d|w|m|y> (z.B. "30d", "10y", "6m"). Cleanup-Job (Sprint 2) wird das nicht parsen koennen.`,
+        );
+      }
+
       if (retention.reference !== undefined) {
         const refName = retention.reference;
         if (!fieldsByName[refName] && !FRAMEWORK_TIMESTAMP_FIELDS.has(refName)) {

@@ -112,7 +112,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const notifications: Record<string, NotificationDefinition> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
-  const exposedApis: Record<string, unknown> = {};
+  const exposedApis: Set<string> = new Set();
   const usedApis: Set<string> = new Set();
   const referenceData: ReferenceDataDef[] = [];
   const handlerEntityMappings: Record<string, string> = {};
@@ -467,29 +467,29 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     },
 
     /**
-     * Exposes a cross-feature API endpoint. Other features call it by name
-     * via the QN-pattern (see existing legal-pages → text-content). The
-     * boot-validator (validateApiExposureMatching) prüft dass jedes
-     * `r.usesApi(name)` einen passenden Exposer findet — verhindert dass
-     * Tippfehler oder Drop-Refactorings zu Runtime-Crashes werden.
+     * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API
+     * unter dem genannten Namen bereit. Die eigentliche Implementation
+     * wird separat als Query- oder Write-Handler unter dem QN-Pattern
+     * registriert; r.exposesApi ist reine Boot-Check-Surface.
      *
      * Beispiel:
      *   defineFeature("compliance-profiles", (r) => {
-     *     r.exposesApi("compliance.forTenant", complianceForTenant);
+     *     r.exposesApi("compliance.forTenant");
+     *     r.queryHandler({ name: "compliance:query:for-tenant", ... });
      *   });
      *   defineFeature("user-data-rights", (r) => {
      *     r.requires("compliance-profiles");
      *     r.usesApi("compliance.forTenant");
-     *     // ... irgendwo im Handler: ctx.callApi("compliance.forTenant", ...)
+     *     // ruft im Handler: ctx.callQuery("compliance:query:for-tenant", ...)
      *   });
      */
-    exposesApi(apiName: string, impl: unknown): void {
-      if (exposedApis[apiName] !== undefined) {
+    exposesApi(apiName: string): void {
+      if (exposedApis.has(apiName)) {
         throw new Error(
           `[Feature ${name}] r.exposesApi("${apiName}") called twice — API names must be unique within a feature.`,
         );
       }
-      exposedApis[apiName] = impl;
+      exposedApis.add(apiName);
     },
 
     /**

@@ -23,7 +23,7 @@ export { defineQueryHandler, defineWriteHandler } from "./define-handler";
 export { defineRoles } from "./define-roles";
 export type { ToggleReader } from "./effective-features";
 export { computeEffectiveFeatures } from "./effective-features";
-export type { DatenschutzExtensionName } from "./extension-names";
+export type { KumikoExtensionName } from "./extension-names";
 export {
   EXT_EXTERNAL_RESOURCE,
   EXT_INFRA_RESOURCE,

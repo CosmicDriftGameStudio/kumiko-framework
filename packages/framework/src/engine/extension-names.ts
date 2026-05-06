@@ -6,11 +6,13 @@
 // Andere Features haengen sich ein via:
 //   r.useExtension(EXT_USER_DATA, "myEntity", { ...hookImpls });
 //
-// Memory: feedback_role_naming_drift — Magic-Strings driften zwischen
-// bundled-features. Diese Constants sind die einzige Quelle der Wahrheit;
-// String-Literale aus dem Code rauswerfen. Boot-Validator (validate-
-// ExtensionUsages) checkt dass jedes useExtension einen passenden
-// extendsRegistrar findet — Tippfehler in Constants → Compile-Time-Fail.
+// Hintergrund: Magic-Strings driften zwischen Bundled-Features (Beispiel:
+// text-content nutzt "Admin" als Rolle, tenant-handler nutzt "TenantAdmin").
+// Constants sind die einzige Quelle der Wahrheit; String-Literale werden
+// in den Sprint-Touchpoints schrittweise ersetzt. Boot-Validator
+// (validateExtensionUsages) checkt dass jedes useExtension einen
+// passenden extendsRegistrar findet — Tippfehler in Constants →
+// Compile-Time-Fail.
 //
 // Hook-Signaturen + Boot-Validation pro Extension-Achse kommen mit dem
 // jeweiligen registrierenden Sprint:
@@ -90,11 +92,11 @@ export const EXT_EXTERNAL_RESOURCE = "externalResource" as const;
 export const EXT_INFRA_RESOURCE = "infraResource" as const;
 
 /**
- * Union aller standardisierten Extension-Namen. Nicht alle Extensions
- * im System sind in dieser Liste — sie ist nur die Datenschutz-Surface.
- * Andere Features koennen weiterhin eigene Extension-Namen registrieren.
+ * Union aller standardisierten Extension-Namen der Datenschutz-Surface.
+ * Nicht alle Extensions im System sind in dieser Liste — andere
+ * Features koennen weiterhin eigene Extension-Namen registrieren.
  */
-export type DatenschutzExtensionName =
+export type KumikoExtensionName =
   | typeof EXT_USER_DATA
   | typeof EXT_TENANT_DATA
   | typeof EXT_STORAGE_PROVIDER

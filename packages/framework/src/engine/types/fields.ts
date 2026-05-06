@@ -51,12 +51,16 @@ export type FieldAccess = {
 // sollen — z.B. ticket.title als Geschaeftsdaten. Wert ist eine Begruendung
 // wie "is-business-data".
 //
+// `anonymize` darf sync oder async sein — der Cleanup-Job (Sprint 2)
+// awaited den Return. Async-Funktionen sind sinnvoll wenn die Anonymisierung
+// einen Lookup braucht (z.B. konsistente Pseudonyme aus separater Tabelle).
+//
 // Siehe docs/plans/datenschutz/crypto-shredding.md und docs/plans/datenschutz/roadmap.md.
 export type PiiAnnotations = {
   readonly pii?: boolean;
   readonly userOwned?: { readonly ownerField: string };
   readonly tenantOwned?: boolean;
-  readonly anonymize?: () => unknown;
+  readonly anonymize?: () => unknown | Promise<unknown>;
   readonly allowPlaintext?: string;
 };
 
@@ -273,7 +277,7 @@ export type EmbeddedFieldDef = {
   readonly sensitive?: boolean;
   readonly schema: Readonly<Record<string, EmbeddedSubFieldDef>>;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 // Legacy "date" — JS-Date-Object, semantisch unklar (Wall-Clock vs Instant).
 // Für neue Felder bevorzuge:
@@ -328,7 +332,7 @@ export type TzFieldDef = {
   readonly required?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 // Wall-Clock-Termin an einem Ort als ATOMARES Konzept.
 // EIN Feld in der Schema-Definition, ZWEI Spalten in der DB
@@ -355,7 +359,7 @@ export type LocatedTimestampFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 export type FileFieldDef = {
   readonly type: "file";

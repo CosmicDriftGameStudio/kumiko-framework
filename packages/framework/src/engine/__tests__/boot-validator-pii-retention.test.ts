@@ -18,7 +18,20 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
-import { createEntity, createLongTextField, createTextField } from "../factories";
+import {
+  createBooleanField,
+  createDateField,
+  createEmbeddedField,
+  createEntity,
+  createLocatedTimestampField,
+  createLongTextField,
+  createMultiSelectField,
+  createNumberField,
+  createSelectField,
+  createTextField,
+  createTimestampField,
+  createTzField,
+} from "../factories";
 
 // Stubt einen leeren `<entity>:list`-Query-Handler damit der reference-
 // Field-Boot-Validator den Audit-Fix-#2-Check durchläßt. Wird gebraucht
@@ -227,6 +240,191 @@ describe("validateBoot — PII annotations", () => {
     );
     expect(matchingWarn).toBeUndefined();
   });
+
+  // --- T1: PII-Annotations auf weiteren Field-Defs ---
+
+  test("pii: true on number field passes (z.B. salary, kontostand)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "payslip",
+        createEntity({
+          fields: {
+            grossAmount: createNumberField({ pii: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("pii: true on select field passes (z.B. gender, marital status)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "profile",
+        createEntity({
+          fields: {
+            gender: createSelectField({
+              options: ["male", "female", "diverse", "prefer-not-to-say"] as const,
+              pii: true,
+            }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("pii: true on multiSelect field passes (z.B. dietary restrictions)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "profile",
+        createEntity({
+          fields: {
+            dietaryRestrictions: createMultiSelectField({
+              options: ["vegan", "vegetarian", "halal", "kosher", "gluten-free"] as const,
+              pii: true,
+            }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("pii: true on date field passes (z.B. dateOfBirth)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "profile",
+        createEntity({
+          fields: {
+            dateOfBirth: createDateField({ pii: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("pii: true on timestamp field passes (z.B. lastLoginAt)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "session",
+        createEntity({
+          fields: {
+            lastLoginAt: createTimestampField({ pii: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("pii: true on tz field passes (Standort verraet Person)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "profile",
+        createEntity({
+          fields: {
+            homeTz: createTzField({ pii: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("pii: true on locatedTimestamp field passes (z.B. employee shift)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "shift",
+        createEntity({
+          fields: {
+            startsAt: createLocatedTimestampField({ pii: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("pii: true on embedded field passes (z.B. customerAddress)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "order",
+        createEntity({
+          fields: {
+            customerAddress: createEmbeddedField(
+              {
+                street: { type: "text" },
+                city: { type: "text" },
+                postalCode: { type: "text" },
+              },
+              { pii: true },
+            ),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  // --- T3: Edge-Cases ---
+
+  test("pii on boolean field is ignored at runtime (TS prevents it at compile, runtime is silent)", () => {
+    // Boolean-FieldDef hat kein PiiAnnotations-Intersection. TypeScript
+    // wuerde `pii: true` auf createBooleanField() ablehnen. Runtime-Cast
+    // simuliert programmatisch konstruierte FieldDefs — Validator soll
+    // das stillschweigend tolerieren (kein Error, kein false-Warning).
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "thing",
+        createEntity({
+          fields: {
+            isPublic: { ...createBooleanField(), pii: true } as ReturnType<
+              typeof createBooleanField
+            >,
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test('"name" alone is NOT in PII direct hints (too broad — product.name, tenant.name)', () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "product",
+        createEntity({
+          fields: {
+            name: createTextField(),
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes("PII-typical name"),
+    );
+    expect(matchingWarn).toBeUndefined();
+  });
+
+  test("displayName / firstName / lastName / fullName remain in PII hints", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "person",
+        createEntity({
+          fields: {
+            displayName: createTextField(),
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes("PII-typical name"),
+    );
+    expect(matchingWarn).toBeDefined();
+  });
 });
 
 describe("validateBoot — retention", () => {
@@ -304,6 +502,47 @@ describe("validateBoot — retention", () => {
       String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
     );
     expect(matchingWarn).toBeDefined();
+  });
+
+  test('retention.keepFor with invalid format "30days" warns', () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "thing",
+        createEntity({
+          fields: {
+            note: createTextField({ allowPlaintext: "is-business-data" }),
+          },
+          retention: { keepFor: "30days", strategy: "hardDelete" },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes('keepFor="30days" hat ungueltiges Format'),
+    );
+    expect(matchingWarn).toBeDefined();
+  });
+
+  test('retention.keepFor with valid format "30d" / "10y" / "6m" / "1w" / "24h" passes silently', () => {
+    const validFormats = ["30d", "10y", "6m", "1w", "24h"];
+    for (const keepFor of validFormats) {
+      const feature = defineFeature("test", (r) => {
+        r.entity(
+          "thing",
+          createEntity({
+            fields: {
+              note: createTextField({ allowPlaintext: "is-business-data" }),
+            },
+            retention: { keepFor, strategy: "hardDelete" },
+          }),
+        );
+      });
+      validateBoot([feature]);
+    }
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes("hat ungueltiges Format"),
+    );
+    expect(matchingWarn).toBeUndefined();
   });
 
   test("blockDelete with at least one anonymize-field is silent", () => {

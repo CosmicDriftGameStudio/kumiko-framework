@@ -165,19 +165,18 @@ export type FeatureDefinition = {
   readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
   readonly extensionUsages: readonly RegistrarExtensionRegistration[];
   /**
-   * Cross-feature API endpoints exposed by this feature via
-   * `r.exposesApi(name, impl)`. Other features call them via the QN-
-   * Pattern; the boot-validator checks that every `r.usesApi(name)`-
-   * declaration finds a matching exposer here. Memory: feedback_role_
-   * naming_drift — typed declaration + boot-check verhindert Magic-
-   * String-Drift bei Cross-Feature-Aufrufen.
+   * Cross-feature API names this feature exposes via `r.exposesApi(name)`.
+   * Pure Marker-Deklaration — die echte Implementation wird als
+   * Query-/Write-Handler unter dem QN-Pattern registriert (z.B.
+   * `compliance-profiles:query:effective-profile`). Boot-Validator prüft
+   * dass jedes `r.usesApi(name)` einen passenden Exposer hier findet —
+   * Tippfehler oder Drop-Refactorings werden zu Boot-Fail statt Runtime-Crash.
    */
-  readonly exposedApis: Readonly<Record<string, unknown>>;
+  readonly exposedApis: ReadonlySet<string>;
   /**
-   * Cross-feature API endpoints this feature calls. Pflicht-Boot-Check:
-   * jeder Eintrag muss in `exposedApis` irgendeines Features auftauchen.
-   * Vermeidet dass Tippfehler oder Drop-Refactorings zu Runtime-Crash
-   * statt Boot-Fail werden.
+   * Cross-feature API names this feature calls. Pflicht-Boot-Check:
+   * jeder Eintrag muss in `exposedApis` irgendeines Features auftauchen
+   * UND das Provider-Feature muss in requires/optionalRequires sein.
    */
   readonly usedApis: ReadonlySet<string>;
   readonly referenceData: readonly ReferenceDataDef[];
@@ -377,20 +376,26 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   useExtension(extensionName: string, entity: NameOrRef, options?: Record<string, unknown>): void;
 
   /**
-   * Exposes a cross-feature API endpoint with explicit Boot-Check. Other
-   * features call it via QN-pattern; the boot-validator
-   * (validateApiExposureMatching) verifies that every `r.usesApi(name)`
-   * declaration matches an exposer here. Verhindert Magic-String-Drift
-   * + Tippfehler bei Cross-Feature-Aufrufen (Memory:
-   * feedback_role_naming_drift).
+   * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API
+   * unter dem genannten Namen bereit. Die eigentliche Implementation
+   * wird separat als Query- oder Write-Handler unter dem QN-Pattern
+   * registriert; `r.exposesApi` ist reine Boot-Check-Surface.
+   *
+   * Boot-Validator prüft, dass jedes `r.usesApi(name)` einen passenden
+   * Exposer findet, dass das Exposer-Feature in requires/optionalRequires
+   * gelisted ist und dass kein API-Name doppelt exposed wird.
    *
    * ```ts
    * defineFeature("compliance-profiles", (r) => {
-   *   r.exposesApi("compliance.forTenant", complianceForTenant);
+   *   r.exposesApi("compliance.forTenant");
+   *   r.queryHandler({
+   *     name: "compliance:query:for-tenant",
+   *     // ... echte Implementation
+   *   });
    * });
    * ```
    */
-  exposesApi(apiName: string, impl: unknown): void;
+  exposesApi(apiName: string): void;
 
   /**
    * Declares that this feature calls a cross-feature API. Boot-Validator

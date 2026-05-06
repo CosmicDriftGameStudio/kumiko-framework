@@ -14,6 +14,13 @@
 // Management" + docs/plans/datenschutz/legal-artifacts.md.
 
 /**
+ * Bundle-Tier-Marker fuer SubProcessor.appliesTo. "all-tiers" matched
+ * unabhaengig vom konkreten Tenant-Bundle (z.B. Hetzner als Hosting-
+ * Provider). Konkrete Tier-Namen koennen per-Tenant gefiltert werden.
+ */
+export type BundleTier = "all-tiers" | "standard" | "business" | "enterprise";
+
+/**
  * Beschreibt einen Auftragsverarbeiter (Art. 28 DSGVO) der von Kumiko
  * fuer den Plattform-Betrieb eingesetzt wird.
  */
@@ -30,11 +37,10 @@ export interface SubProcessor {
   readonly addedAt: string;
   /**
    * Welche Bundle-Tiers nutzen diesen Sub-Processor?
-   *   - "all-tiers" | "standard" | "business" | "enterprise"
    * Tenants nicht-betroffener Tiers brauchen keine Notification bei
    * Aenderungen.
    */
-  readonly appliesTo: readonly string[];
+  readonly appliesTo: readonly BundleTier[];
   /**
    * Standard Contractual Clauses (SCC) fuer Drittlandsuebermittlung
    * abgeschlossen. Pflicht fuer alle Sub-Processors mit Sitz ausserhalb

@@ -4,4 +4,4 @@
 // lifecycle, S6 legal-hold) genutzt.
 
 export type { Role } from "./roles";
-export { ROLE_LEGACY_ALIASES, ROLES } from "./roles";
+export { ROLES } from "./roles";

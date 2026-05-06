@@ -1,17 +1,18 @@
 // Zentrale Role-Konstanten der Plattform.
 //
-// Memory feedback_role_naming_drift: aktuell driften Bundled-Features
-// zwischen "Admin" (text-content, secrets, ai-foundation, file-provider-s3)
-// und "TenantAdmin" (tenant-handler, publicstatus, platform). App-Builder
-// fallen in diese Falle. Diese Datei ist die Single Source of Truth —
-// Bundled-Features migrieren schrittweise auf die ROLES-Constants.
+// Hintergrund: Bundled-Features driften zwischen "Admin" (text-content,
+// secrets, ai-foundation, file-provider-s3) und "TenantAdmin" (tenant-
+// handler, publicstatus, platform). App-Builder fallen in diese Falle.
+// Diese Datei ist die Single Source of Truth — Bundled-Features
+// migrieren schrittweise auf die ROLES-Constants in den Sprint-
+// Touchpoints, an denen sie ohnehin angefasst werden.
 //
 // Canonical-Names:
 //   TenantOwner            — Volle Tenant-Hoheit, einzige Rolle die
 //                            Tenant-Destroy triggern darf.
 //   TenantAdmin            — Tenant-Konfiguration + User-Management.
-//                            "Admin" (legacy) ist ein Alias hierauf —
-//                            wird bei Migration ersetzt.
+//                            Bestehender String "Admin" wird hierauf
+//                            migriert.
 //   DataProtectionOfficer  — DPO; setzt Legal-Holds, sieht Authority-
 //                            Audit-Stream auch im silentMode (Sprint 6).
 //   PlatformAdmin          — Plattform-Operator (NICHT Tenant-scoped).
@@ -22,11 +23,6 @@
 /**
  * Plattform-weit standardisierte Role-Namen. Alle Datenschutz-Sprints
  * (1+) nutzen ausschliesslich diese Constants statt String-Literale.
- *
- * Bestehende Bundled-Features werden in ihren jeweiligen Sprint-
- * Touchpoints migriert (Memory: feedback_role_naming_drift). Bis zur
- * vollstaendigen Migration akzeptiert die Auth-Middleware sowohl
- * "Admin" (legacy) als auch "TenantAdmin" (canonical).
  */
 export const ROLES = {
   TenantOwner: "TenantOwner",
@@ -41,11 +37,3 @@ export const ROLES = {
  * Handler-Access-Rules + Ownership-Maps).
  */
 export type Role = (typeof ROLES)[keyof typeof ROLES];
-
-/**
- * Legacy-Aliase die schrittweise migriert werden. Auth-Middleware
- * akzeptiert sie weiter, aber neue Code soll ROLES-Constants nutzen.
- */
-export const ROLE_LEGACY_ALIASES: Readonly<Record<string, Role>> = {
-  Admin: ROLES.TenantAdmin,
-};

@@ -26,7 +26,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
 
   test("matching exposesApi/usesApi with requires() passes", () => {
     const provider = defineFeature("compliance-profiles", (r) => {
-      r.exposesApi("compliance.forTenant", () => "ok");
+      r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
       r.requires("compliance-profiles");
@@ -37,7 +37,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
 
   test("matching exposesApi/usesApi with optionalRequires() passes", () => {
     const provider = defineFeature("compliance-profiles", (r) => {
-      r.exposesApi("compliance.forTenant", () => "ok");
+      r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
       r.optionalRequires("compliance-profiles");
@@ -57,7 +57,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
 
   test("usesApi with typo throws and lists known APIs", () => {
     const provider = defineFeature("compliance-profiles", (r) => {
-      r.exposesApi("compliance.forTenant", () => "ok");
+      r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
       r.requires("compliance-profiles");
@@ -70,7 +70,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
 
   test("usesApi exists but missing requires() throws", () => {
     const provider = defineFeature("compliance-profiles", (r) => {
-      r.exposesApi("compliance.forTenant", () => "ok");
+      r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
       // missing r.requires("compliance-profiles")
@@ -84,18 +84,18 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
   test("exposesApi twice in same feature throws", () => {
     expect(() =>
       defineFeature("dup", (r) => {
-        r.exposesApi("api.foo", () => 1);
-        r.exposesApi("api.foo", () => 2);
+        r.exposesApi("api.foo");
+        r.exposesApi("api.foo");
       }),
     ).toThrow(/r\.exposesApi\("api\.foo"\) called twice/);
   });
 
   test("two features expose the same API throws on boot", () => {
     const a = defineFeature("a", (r) => {
-      r.exposesApi("shared.api", () => "a");
+      r.exposesApi("shared.api");
     });
     const b = defineFeature("b", (r) => {
-      r.exposesApi("shared.api", () => "b");
+      r.exposesApi("shared.api");
     });
     expect(() => validateBoot([a, b])).toThrow(
       /Cross-feature API "shared\.api" exposed by both "a" and "b"/,
@@ -104,7 +104,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
 
   test("self-exposure (feature uses its own exposed API) warns", () => {
     const f = defineFeature("self-loop", (r) => {
-      r.exposesApi("self.api", () => "x");
+      r.exposesApi("self.api");
       r.usesApi("self.api");
     });
     validateBoot([f]);
@@ -119,5 +119,24 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
       r.requires();
     });
     expect(() => validateBoot([plain])).not.toThrow();
+  });
+
+  test("global double-exposure throws before consumer-resolution kicks in", () => {
+    // Edge-case: zwei Features exposen denselben Namen UND ein drittes
+    // Feature ruft den Namen. Erwartet: Doppel-Exposure-Error wirft im
+    // Pre-Walk (validateBoot) BEVOR validateApiExposureMatching laeuft.
+    const a = defineFeature("provider-a", (r) => {
+      r.exposesApi("shared.api");
+    });
+    const b = defineFeature("provider-b", (r) => {
+      r.exposesApi("shared.api");
+    });
+    const consumer = defineFeature("consumer", (r) => {
+      r.requires("provider-a");
+      r.usesApi("shared.api");
+    });
+    expect(() => validateBoot([a, b, consumer])).toThrow(
+      /Cross-feature API "shared\.api" exposed by both/,
+    );
   });
 });
