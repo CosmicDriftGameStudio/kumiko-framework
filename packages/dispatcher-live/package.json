@@ -13,7 +13,6 @@
     "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
   },
   "homepage": "https://kumiko.so",
-  "private": true,
   "type": "module",
   "kumiko": {
     "runtime": "client"
@@ -23,5 +22,14 @@
   },
   "dependencies": {
     "@cosmicdrift/kumiko-headless": "workspace:*"
-  }
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
 }

@@ -13,7 +13,6 @@
     "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
   },
   "homepage": "https://kumiko.so",
-  "private": true,
   "type": "module",
   "kumiko": {
     "runtime": "dev"
@@ -33,5 +32,14 @@
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*"
-  }
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
 }
