@@ -14,9 +14,12 @@ concurrency:
 
 jobs:
   test:
+    # Vorerst nur Vitest (yarn test:run) — yarn kumiko check ruft ../infra/guards/X.ts
+    # was Sibling-Repo-Cross-Setup braucht. Pending: _test.yml mit multi-checkout
+    # erweitern, dann test-command auf "yarn kumiko check" zurück.
     uses: cosmicdriftgamestudio/infra/.github/workflows/_test.yml@main
     with:
-      test-command: "yarn kumiko check"
+      test-command: "yarn test:run"
     secrets: inherit
 
   release:
