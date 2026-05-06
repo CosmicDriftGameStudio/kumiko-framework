@@ -1,7 +1,9 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { forTenantQuery } from "./handlers/for-tenant.query";
 import { listProfilesQuery } from "./handlers/list-profiles.query";
+import { needsProfileQuery } from "./handlers/needs-profile.query";
 import { setProfileWrite } from "./handlers/set-profile.write";
+import { subProcessorsQuery } from "./handlers/sub-processors.query";
 import { tenantComplianceProfileEntity } from "./schema/profile-selection";
 
 export { tenantComplianceProfileEntity, tenantComplianceProfileTable } from "./schema/profile-selection";
@@ -37,6 +39,8 @@ export function createComplianceProfilesFeature(): FeatureDefinition {
     const queries = {
       forTenant: r.queryHandler(forTenantQuery),
       listProfiles: r.queryHandler(listProfilesQuery),
+      subProcessors: r.queryHandler(subProcessorsQuery),
+      needsProfile: r.queryHandler(needsProfileQuery),
     };
 
     return { handlers, queries };

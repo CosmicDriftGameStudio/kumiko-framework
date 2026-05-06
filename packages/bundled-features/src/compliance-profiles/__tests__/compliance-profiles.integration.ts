@@ -4,6 +4,7 @@ import {
   createEntityTable,
   createTestUser,
   setupTestStack,
+  testTenantId,
   type TestStack,
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -13,6 +14,8 @@ import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 const FOR_TENANT = "compliance-profiles:query:for-tenant";
 const LIST_PROFILES = "compliance-profiles:query:list-profiles";
+const SUB_PROCESSORS = "compliance-profiles:query:sub-processors";
+const NEEDS_PROFILE = "compliance-profiles:query:needs-profile";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -149,5 +152,90 @@ describe("compliance-profiles :: set-profile", () => {
       tenantAdmin,
     );
     expect(result.status).toBeGreaterThanOrEqual(400);
+  });
+});
+
+describe("compliance-profiles :: sub-processors (S1.4)", () => {
+  test("liefert active + planned Sub-Processors mit Pflicht-Feldern", async () => {
+    const result = await stack.http.queryOk<{
+      active: Array<{ name: string; region: string; dpa: string; sccRequired?: boolean }>;
+      planned: Array<{ name: string; status: string }>;
+      total: number;
+      generatedAt: string;
+    }>(SUB_PROCESSORS, {}, normalUser);
+
+    expect(result.active.length).toBeGreaterThan(0);
+    const hetzner = result.active.find((s) => s.name.includes("Hetzner"));
+    expect(hetzner).toBeDefined();
+    expect(hetzner?.dpa).toMatch(/^https:\/\//);
+    expect(hetzner?.region).toContain("Germany");
+
+    const cloudflare = result.active.find((s) => s.name.includes("Cloudflare"));
+    expect(cloudflare?.sccRequired).toBe(true);
+
+    expect(result.planned.length).toBeGreaterThan(0);
+    expect(result.planned.every((p) => p.status === "planned")).toBe(true);
+
+    expect(result.total).toBe(result.active.length + result.planned.length);
+    expect(result.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
+describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", () => {
+  test("Tenant ohne Profile-Wahl → needsSelection=true, reason=no-profile-selected", async () => {
+    // Frischer Tenant-Admin (eigener Tenant ID damit kein Profile gesetzt
+    // ist — sonst sieht er den Eintrag aus den vorherigen set-profile-Tests).
+    const freshTenantAdmin = createTestUser({
+      id: 99,
+      tenantId: testTenantId(99),
+      roles: ["TenantAdmin"],
+    });
+    const result = await stack.http.queryOk<{
+      needsSelection: boolean;
+      currentProfile: string | null;
+      reason?: string;
+    }>(NEEDS_PROFILE, {}, freshTenantAdmin);
+    expect(result.needsSelection).toBe(true);
+    expect(result.currentProfile).toBeNull();
+    expect(result.reason).toBe("no-profile-selected");
+  });
+
+  test("Tenant mit eu-dsgvo-Wahl → needsSelection=false", async () => {
+    const setupAdmin = createTestUser({
+      id: 100,
+      tenantId: testTenantId(100),
+      roles: ["TenantAdmin"],
+    });
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, setupAdmin);
+
+    const result = await stack.http.queryOk<{
+      needsSelection: boolean;
+      currentProfile: string | null;
+    }>(NEEDS_PROFILE, {}, setupAdmin);
+    expect(result.needsSelection).toBe(false);
+    expect(result.currentProfile).toBe("eu-dsgvo");
+  });
+
+  test("Tenant mit minimal-no-region → needsSelection=true, reason=minimal-not-production-ready", async () => {
+    const setupAdmin = createTestUser({
+      id: 101,
+      tenantId: testTenantId(101),
+      roles: ["TenantAdmin"],
+    });
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "minimal-no-region" }, setupAdmin);
+
+    const result = await stack.http.queryOk<{
+      needsSelection: boolean;
+      currentProfile: string | null;
+      reason?: string;
+    }>(NEEDS_PROFILE, {}, setupAdmin);
+    expect(result.needsSelection).toBe(true);
+    expect(result.currentProfile).toBe("minimal-no-region");
+    expect(result.reason).toBe("minimal-not-production-ready");
+  });
+
+  test("Member-Rolle bekommt 403 (Banner ist Admin-only)", async () => {
+    const result = await stack.http.query(NEEDS_PROFILE, {}, normalUser);
+    expect(result.status).toBe(403);
   });
 });
