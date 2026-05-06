@@ -20,6 +20,72 @@ export type FieldAccess = {
 // custom projections cannot read sensitive field values. See
 // docs/plans/architecture/projections.md.
 
+// --- PII / Subject-Key Annotations (DSGVO Art. 17 — Crypto-Shredding) ---
+//
+// Felder die PII enthalten werden in Sprint 3 (crypto-shredding) mit einem
+// Subject-Schluessel encrypted gespeichert. Subject = die natuerliche Person
+// oder der Tenant der die Daten "besitzt". Loeschung erfolgt durch Vernichten
+// des Subject-Keys ("Crypto-Shredding") — der Datensatz bleibt physisch
+// (Audit-Trail bewahrt), ist aber nicht mehr entschluesselbar. Sprint 0
+// fuegt nur die Schema-Marker + Boot-Validation ein; Encrypt/Decrypt-Mechanik
+// kommt in Sprint 3.
+//
+// Drei orthogonale Markierungen:
+//   - `pii: true`              — Subject = die Entity selbst.
+//                                Beispiel: user.email gehoert User Marc.
+//   - `userOwned: { ownerField }` — Subject = der User der im genannten
+//                                Field referenziert ist.
+//                                Beispiel: comment.body gehoert
+//                                comment.authorId.
+//   - `tenantOwned: true`      — Subject = der aktuelle Tenant
+//                                (ctx.tenantId zur Schreibzeit).
+//                                Beispiel: tenantBranding.brandColor.
+//
+// `anonymize` ist die Pro-Feld-Funktion die der retention-Cleanup-Job
+// (Sprint 2) aufruft wenn die Entity-Strategy "anonymize" lautet oder die
+// `blockDelete`-Frist abgelaufen ist. Beispiel: `() => "[ANONYMIZED]"` oder
+// `() => null`.
+//
+// `allowPlaintext` unterdrueckt PII-Heuristik-Boot-Warnings fuer Felder die
+// zwar PII-Naming haben (email, name, body) aber bewusst Klartext bleiben
+// sollen — z.B. ticket.title als Geschaeftsdaten. Wert ist eine Begruendung
+// wie "is-business-data".
+//
+// Siehe docs/plans/datenschutz/crypto-shredding.md und docs/plans/datenschutz/roadmap.md.
+export type PiiAnnotations = {
+  readonly pii?: boolean;
+  readonly userOwned?: { readonly ownerField: string };
+  readonly tenantOwned?: boolean;
+  readonly anonymize?: () => unknown;
+  readonly allowPlaintext?: string;
+};
+
+// --- Retention (DSGVO Art. 5(1)(e) + HGB/AO Aufbewahrungspflichten) ---
+//
+// Pro Entity definiert der Author eine Default-Retention-Policy. Tenant-
+// Admin uebersteuert sie via Compliance-Profile + Tenant-Override (Sprint 2).
+// Vier Strategien:
+//
+//   - "hardDelete"  — Row physisch weg nach `keepFor`. Logs, Sessions.
+//   - "softDelete"  — `deletedAt = now()`. Erlaubt spaetere Restore.
+//   - "anonymize"   — Felder mit `anonymize`-Funktion ueberschrieben,
+//                     Row bleibt. Order/Invoice mit gemischter PII +
+//                     Geschaeftsdaten.
+//   - "blockDelete" — Cleanup-Job ignoriert; User-Forget loest stattdessen
+//                     `anonymize` aus. Buchhaltung, Mandate, Patientenakten.
+//
+// `keepFor` ist eine Duration-String wie "30d", "10y", "6m". Parser
+// kommt im Cleanup-Job (Sprint 2). `reference` ist das Field das den
+// Lebenszeit-Anker liefert (Default: `createdAt`). Sessions z.B. nutzen
+// `lastSeenAt` damit aktive Sessions nicht weggemueht werden.
+//
+// Siehe docs/plans/features/core-data-retention.md und Sprint 2 in roadmap.md.
+export type RetentionDef = {
+  readonly keepFor: string;
+  readonly strategy: "hardDelete" | "softDelete" | "anonymize" | "blockDelete";
+  readonly reference?: string;
+};
+
 export type TextFieldDef = {
   readonly type: "text";
   readonly maxLength?: number;
@@ -40,7 +106,7 @@ export type TextFieldDef = {
    *  explizite Höhe. Search/sort/encrypt verhalten sich unverändert
    *  identisch zu single-line — nur die Render-Surface wechselt. */
   readonly multiline?: boolean | { readonly rows?: number };
-};
+} & PiiAnnotations;
 
 /**
  * Long-form text content — source-code, markdown, blog-posts, email-
@@ -74,7 +140,7 @@ export type LongTextFieldDef = {
   readonly default?: string;
   readonly access?: FieldAccess;
   readonly multiline?: boolean | { readonly rows?: number };
-};
+} & PiiAnnotations;
 
 export type BooleanFieldDef = {
   readonly type: "boolean";
@@ -95,7 +161,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly sensitive?: boolean;
   readonly default?: TOptions[number];
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 // Mehrere Werte aus einer festen Options-Liste — UI rendert als
 // Checkbox-/Multi-Select-Kontrolle. Storage: jsonb-Array<string>;
@@ -119,7 +185,7 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   /** Default-Auswahl. Jeder Eintrag muss in `options` sein (Boot-Validator). */
   readonly default?: readonly TOptions[number][];
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 export type NumberFieldDef = {
   readonly type: "number";
@@ -129,7 +195,7 @@ export type NumberFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 export type MoneyFieldDef = {
   readonly type: "money";
@@ -223,7 +289,7 @@ export type DateFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 // UTC-Instant (Temporal.Instant). Für Ereignisse die zu einem bestimmten
 // Augenblick passieren, ohne Location-Bezug: createdAt, loginAt, actualPickupAt.
@@ -251,7 +317,7 @@ export type TimestampFieldDef = {
    *   { pickupAt: { type: "timestamp", locatedBy: "pickupTz" }, pickupTz: { type: "tz" } }
    */
   readonly locatedBy?: string;
-};
+} & PiiAnnotations;
 
 // IANA-Zonenname (z.B. "Europe/Berlin", "America/Los_Angeles").
 // Wird via `Intl.supportedValuesOf("timeZone")` validiert (kommt im
@@ -419,4 +485,20 @@ export type EntityDefinition<F extends FieldsMap = FieldsMap> = {
     readonly read?: OwnershipMap;
     readonly write?: OwnershipMap;
   };
+  /**
+   * Default-Retention-Policy fuer diese Entity. Tenant-Admin kann via
+   * Compliance-Profile + Tenant-Override (Sprint 2) uebersteuern.
+   * Cleanup-Job (Sprint 2) verarbeitet die Strategy:
+   *
+   *   - "hardDelete" → Row physisch weg nach keepFor
+   *   - "softDelete" → deletedAt = now() (mit core-soft-delete-Feature)
+   *   - "anonymize"  → Felder mit `anonymize`-Funktion ueberschrieben,
+   *                    Row bleibt
+   *   - "blockDelete" → Cleanup-Job ignoriert; User-Forget loest
+   *                     stattdessen anonymize aus. Buchhaltung, Mandate,
+   *                     Patientenakten.
+   *
+   * Siehe docs/plans/features/core-data-retention.md.
+   */
+  readonly retention?: RetentionDef;
 };
