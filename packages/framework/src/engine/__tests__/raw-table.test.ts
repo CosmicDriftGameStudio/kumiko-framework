@@ -6,6 +6,7 @@ import { pgTable, text } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vitest";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
+import type { ProjectionDefinition } from "../types";
 
 const probeTable = pgTable("rt_probe_table", {
   id: text("id").primaryKey(),
@@ -99,5 +100,50 @@ describe("createRegistry — rawTable aggregation", () => {
     });
     const registry = createRegistry([featNoRaw]);
     expect(registry.getAllRawTables().size).toBe(0);
+  });
+
+  test("two raw tables on the same PgTable register under both names", () => {
+    // Different logical names, identical physical target — legitimate
+    // when one role writes (primary cache) and a second role reads
+    // (alias view). Push-time dedupe keeps the boot to a single CREATE;
+    // the registry keeps both entries so callers can resolve either name.
+    const sharedT = pgTable("rt_shared_dedupe", {
+      id: text("id").primaryKey(),
+    });
+    const feat = defineFeature("dedupe", (r) => {
+      r.rawTable("primary", sharedT, { reason: "main writer" });
+      r.rawTable("alias", sharedT, { reason: "alias for read consumers" });
+    });
+    const registry = createRegistry([feat]);
+
+    expect(registry.getAllRawTables().size).toBe(2);
+    expect(registry.getAllRawTables().get("primary")?.table).toBe(sharedT);
+    expect(registry.getAllRawTables().get("alias")?.table).toBe(sharedT);
+  });
+
+  test("rejects rawTable that shares a PgTable with an explicit projection", () => {
+    // A r.rawTable() declaring the same physical table as a registered
+    // r.projection() is almost always an authoring bug — two owners on
+    // the same physical table, one event-sourced, one bypass. Boot
+    // throws so the failure points at the misconfiguration site.
+    const sharedT = pgTable("rt_collision_phys", {
+      id: text("id").primaryKey(),
+    });
+    const projection: ProjectionDefinition = {
+      name: "shared-summary",
+      source: "shared",
+      table: sharedT,
+      apply: {},
+    };
+    const featProj = defineFeature("proj-owner", (r) => {
+      r.projection(projection);
+    });
+    const featRaw = defineFeature("raw-owner", (r) => {
+      r.rawTable("collision", sharedT, { reason: "intentionally bad" });
+    });
+
+    expect(() => createRegistry([featProj, featRaw])).toThrow(
+      /shares a Drizzle PgTable with a registered projection/,
+    );
   });
 });

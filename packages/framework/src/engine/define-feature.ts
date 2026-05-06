@@ -45,7 +45,7 @@ import type {
   QueryHandlerDef,
   QueryHandlerFn,
   RateLimitOption,
-  RawTableDef,
+  RawTableEntry,
   RawTableOptions,
   ReferenceDataDef,
   RegistrarExtensionDef,
@@ -118,7 +118,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const secretKeys: Record<string, SecretKeyDefinition> = {};
   const projections: Record<string, ProjectionDefinition> = {};
   const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
-  const rawTables: Record<string, Omit<RawTableDef, "featureName">> = {};
+  const rawTables: Record<string, RawTableEntry> = {};
   const authClaimsHooks: AuthClaimsFn[] = [];
   const claimKeys: Record<string, ClaimKeyDefinition> = {};
   const screens: Record<string, ScreenDefinition> = {};

@@ -532,44 +532,33 @@ async function startTailwindWatcher(
   };
 }
 
-// Create all entity-shaped tables (one per r.entity() implicit projection)
-// plus raw tables (r.rawTable() bypass declarations) the registry knows
-// about. Iterating over the registry's central map — instead of poking
-// at feature.entities directly — keeps this path a regular Registry
-// reader; no more feature-shape coupling. Idempotent via tableExists so
-// a persistent dev DB (KUMIKO_DEV_DB_NAME) reuses existing tables on
-// reboot.
-async function createEntityTablesForFeatures(stack: TestStack, registry: Registry): Promise<void> {
+// Push all implicit-projection tables — one per r.entity() — that the
+// registry knows about. setupTestStack already handles explicit
+// projections, MSPs, and r.rawTable() declarations in its own loop;
+// implicit projections are the missing piece for a fresh boot. Idempotent
+// via tableExists so a persistent dev DB (KUMIKO_DEV_DB_NAME) reuses
+// existing tables on reboot. One batched push at the end (drizzle-kit
+// generateMigration runs once over the whole missing set).
+async function pushEntityProjectionTables(stack: TestStack, registry: Registry): Promise<void> {
   const seen = new Set<unknown>();
-  const ordered: Array<{ key: string; table: unknown }> = [];
+  const missing: Record<string, unknown> = {};
 
-  // Implicit projections — one per r.entity(). Registry pre-built each
-  // Drizzle table via buildDrizzleTable; we push only the missing ones.
   for (const [projName, proj] of registry.getAllProjections()) {
     if (!proj.isImplicit) continue;
     if (seen.has(proj.table)) continue;
     seen.add(proj.table);
-    ordered.push({ key: projName, table: proj.table });
-  }
-
-  // Raw tables declared via r.rawTable(). setupTestStack already pushes
-  // these in its own loop, so the existence-check below short-circuits
-  // every entry on the second pass — no double-create, no race.
-  for (const [rawName, raw] of registry.getAllRawTables()) {
-    if (seen.has(raw.table)) continue;
-    seen.add(raw.table);
-    ordered.push({ key: `raw_${rawName}`, table: raw.table });
-  }
-
-  for (const { key, table } of ordered) {
     // @cast-boundary drizzle-bridge — ProjectionTable + PgTable both round-trip
     // through getTableName at runtime; the type system can't unify them.
-    const physical = getTableName(table as Parameters<typeof getTableName>[0]);
+    const physical = getTableName(proj.table as Parameters<typeof getTableName>[0]);
     if (await tableExists(stack.db, `public.${physical}`)) {
       logInfo(`[kumiko-server] table ${physical} already exists — skipping create`);
       continue;
     }
-    await unsafePushTables(stack.db, { [key]: table });
+    missing[projName] = proj.table;
+  }
+
+  if (Object.keys(missing).length > 0) {
+    await unsafePushTables(stack.db, missing);
   }
 }
 
@@ -690,7 +679,7 @@ export async function createKumikoServer(
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
   });
   await createEventsTable(stack.db);
-  await createEntityTablesForFeatures(stack, stack.registry);
+  await pushEntityProjectionTables(stack, stack.registry);
 
   // Hook für Caller-spezifische Tables + Seed. Läuft nach den Entity-
   // Tabellen damit das Sample auf `stack.db` / `stack.dispatcher`

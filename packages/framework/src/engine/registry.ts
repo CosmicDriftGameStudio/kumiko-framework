@@ -496,7 +496,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // event-stream binding to disambiguate). Reject cross-feature
     // duplicates at boot so the dev-server doesn't race two CREATE TABLE
     // statements that target the same physical table name.
-    for (const [rawName, rawDef] of Object.entries(feature.rawTables ?? {})) {
+    for (const [rawName, rawDef] of Object.entries(feature.rawTables)) {
       const existing = rawTableMap.get(rawName);
       if (existing) {
         throw new Error(
@@ -759,6 +759,25 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       const existing = projectionsBySource.get(entityName) ?? [];
       existing.push(def);
       projectionsBySource.set(entityName, existing);
+    }
+  }
+
+  // Cross-cut: a r.rawTable() PgTable must not coincide with any
+  // registered projection's table. Silent dedupe via Set would mask a
+  // real authoring bug (two owners writing to the same physical table).
+  // Run after both passes so implicit projections are visible too.
+  const projectionTables = new Set<unknown>();
+  for (const proj of projectionMap.values()) projectionTables.add(proj.table);
+  for (const msp of multiStreamProjectionMap.values()) {
+    if (msp.table) projectionTables.add(msp.table);
+  }
+  for (const raw of rawTableMap.values()) {
+    if (projectionTables.has(raw.table)) {
+      throw new Error(
+        `r.rawTable "${raw.name}" (feature "${raw.featureName}") shares a Drizzle ` +
+          `PgTable with a registered projection. Pick one owner: r.entity() / ` +
+          `r.projection() for event-sourced reads, r.rawTable() for the bypass.`,
+      );
     }
   }
 

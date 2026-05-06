@@ -122,20 +122,19 @@ export type RawTableOptions = {
   readonly reason: string;
 };
 
-/** A raw Drizzle table registered via `r.rawTable()`. Bypasses the
- *  event-sourcing projection registry — no implicit-projection, no
- *  audit, no rebuild. Used for legacy-import, read-only caches, or
- *  write-only buffers (webhook payloads). The dev-server iterates these
- *  alongside implicit projections at boot; schema-drift detection sees
- *  them via the standard drizzle-snapshot path. */
-export type RawTableDef = {
+/** Per-feature raw-table registration. Carries the bypass-justification
+ *  reason but knows nothing about the owning feature — that's added when
+ *  the registry aggregates entries cross-feature into `RawTableDef`. */
+export type RawTableEntry = {
   readonly name: string;
   readonly table: PgTable;
   readonly reason: string;
-  /** Set during registry build — points at the feature that registered
-   *  the table. Inside `FeatureDefinition.rawTables` this field is
-   *  absent (per-feature view); inside `Registry.getAllRawTables()` it
-   *  is always present (cross-feature view). */
+};
+
+/** Registry-aggregated raw-table — the per-feature `RawTableEntry` plus
+ *  the owning feature name. This is what `Registry.getAllRawTables()`
+ *  exposes to readers (dev-server, ops UIs). */
+export type RawTableDef = RawTableEntry & {
   readonly featureName: string;
 };
 
@@ -217,9 +216,9 @@ export type FeatureDefinition = {
   // writeHandlers — Routes leben mit dem Feature, nicht im Bootstrap.
   readonly httpRoutes: Readonly<Record<string, HttpRouteDefinition>>;
   // Raw tables declared via r.rawTable() — bypass the event-sourcing
-  // system. Keyed by feature-local short name. featureName is omitted
-  // here (per-feature view); registry attaches it on aggregation.
-  readonly rawTables: Readonly<Record<string, Omit<RawTableDef, "featureName">>>;
+  // system. Keyed by feature-local short name. The registry attaches
+  // featureName on aggregation, lifting RawTableEntry → RawTableDef.
+  readonly rawTables: Readonly<Record<string, RawTableEntry>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
