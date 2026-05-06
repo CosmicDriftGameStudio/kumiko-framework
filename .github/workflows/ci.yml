@@ -20,6 +20,7 @@ jobs:
     uses: cosmicdriftgamestudio/infra/.github/workflows/_test.yml@main
     with:
       test-command: "yarn test:run"
+      enable-gh-packages: true
     secrets: inherit
 
   release:
