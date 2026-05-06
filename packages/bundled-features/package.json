@@ -19,6 +19,7 @@
   },
   "exports": {
     "./audit": "./src/audit/index.ts",
+    "./compliance-profiles": "./src/compliance-profiles/index.ts",
     "./config": "./src/config/index.ts",
     "./jobs": "./src/jobs/index.ts",
     "./tier-engine": "./src/tier-engine/index.ts",
