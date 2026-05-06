@@ -181,11 +181,12 @@ export const orderPlacedSchema = z.object({
 
 // Each test compiles a tmp-app via ts.createProgram, which traverses
 // the framework-source via paths-alias (~700 files). Lokal ~1.7s pro
-// test; CI auf cdgs-runner (Hetzner CAX21 ARM64) ist 8-10× langsamer
-// (kleinere Cores + weniger RAM-cache als M-Series-Mac). 60s gibt
-// Puffer für ts-morph-Project-Compile auf langsamer Hardware ohne
-// echte Hänger zu maskieren.
-const STRICT_MODE_TIMEOUT_MS = 60_000;
+// test; CI auf cdgs-runner (Hetzner CAX21 ARM64) braucht teilweise
+// >60s — vermutlich kleinere Cores + weniger RAM-cache als M-Series-
+// Mac. 120s gibt genug Puffer für den langsamsten Run-Path
+// (eventDef.name pattern lädt full augmented map) ohne echte Hänger
+// zu maskieren.
+const STRICT_MODE_TIMEOUT_MS = 120_000;
 
 describe("strict-mode diagnostics — the actual contract of the codegen", () => {
   test("good ctx.appendEvent compiles cleanly", { timeout: STRICT_MODE_TIMEOUT_MS }, () => {
