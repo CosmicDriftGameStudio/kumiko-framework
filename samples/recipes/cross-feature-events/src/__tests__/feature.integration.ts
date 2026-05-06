@@ -12,11 +12,11 @@
 
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -28,7 +28,7 @@ const customer = createTestUser({ roles: ["Customer"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [pubsubOrderFeature] });
-  await createEntityTable(stack.db, orderEntity);
+  await unsafeCreateEntityTable(stack.db, orderEntity);
 });
 
 afterAll(async () => {

@@ -2,11 +2,11 @@ import { randomBytes } from "node:crypto";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  createEntityTable,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
@@ -84,9 +84,9 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db, userEntity);
-  await createEntityTable(stack.db, tenantEntity);
-  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {

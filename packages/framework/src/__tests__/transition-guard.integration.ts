@@ -9,7 +9,7 @@ import {
   createTextField,
   defineFeature,
 } from "../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
 import { expectErrorIncludes } from "../testing";
 
 // Two entities, both with a field named `status`, but different transitions.
@@ -178,9 +178,9 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
-  await createEntityTable(stack.db, invoiceEntity);
-  await createEntityTable(stack.db, orderEntity);
-  await createEntityTable(stack.db, ticketEntity);
+  await unsafeCreateEntityTable(stack.db, invoiceEntity);
+  await unsafeCreateEntityTable(stack.db, orderEntity);
+  await unsafeCreateEntityTable(stack.db, ticketEntity);
 });
 
 afterAll(async () => {

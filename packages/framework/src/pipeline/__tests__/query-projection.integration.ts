@@ -15,11 +15,11 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 
 const widgetEntity = createEntity({
@@ -121,7 +121,7 @@ const otherTenantAdmin = {
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [qpFeature], systemHooks: [] });
-  await createEntityTable(stack.db, widgetEntity, "qp-widget");
+  await unsafeCreateEntityTable(stack.db, widgetEntity, "qp-widget");
 });
 
 afterAll(async () => {

@@ -9,9 +9,9 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createLegalPagesFeature, runLegalPagesBootCheck } from "../feature";
@@ -36,7 +36,7 @@ beforeAll(async () => {
     }),
   });
   db = stack.db;
-  await createEntityTable(db, textBlockEntity);
+  await unsafeCreateEntityTable(db, textBlockEntity);
   await createEventsTable(db);
 
   // Seed legal blocks für SYSTEM_TENANT in DE
@@ -219,7 +219,7 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
       }),
     });
     try {
-      await createEntityTable(hostScopedStack.db, textBlockEntity);
+      await unsafeCreateEntityTable(hostScopedStack.db, textBlockEntity);
       await createEventsTable(hostScopedStack.db);
 
       // Block NUR im SYSTEM_TENANT seeden — NICHT im otherTenantId

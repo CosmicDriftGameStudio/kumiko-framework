@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import { bigint, index, instant, integer, table as pgTable, primaryKey, text } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
-import { pushTables } from "../stack";
+import { unsafePushTables } from "../stack";
 
 // Reserved sentinel used in the instance_id column for consumers whose
 // delivery is "shared" — i.e. one cursor across all dispatcher instances
@@ -104,5 +104,5 @@ export const CONSUMER_STATUSES = [
 export async function createEventConsumerStateTable(db: DbConnection): Promise<void> {
   // skip: table already exists — bootstrap is called from multiple paths
   if (await tableExists(db, "public.kumiko_event_consumers")) return;
-  await pushTables(db, { kumikoEventConsumers: eventConsumerStateTable });
+  await unsafePushTables(db, { kumikoEventConsumers: eventConsumerStateTable });
 }

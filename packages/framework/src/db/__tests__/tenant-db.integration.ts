@@ -2,12 +2,12 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import {
-  createEntityTable,
   createTestDb,
-  pushTables,
   type TestDb,
   TestUsers,
   testTenantId,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "../../stack";
 import { table as pgTable, serial, text, timestamp } from "../dialect";
 import { buildDrizzleTable } from "../table-builder";
@@ -41,8 +41,8 @@ const tenant2 = TestUsers.otherTenant; // tenantId: 2
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEntityTable(testDb.db, entity, "tenantDbItem");
-  await pushTables(testDb.db, { tdb_system_entries: systemTable });
+  await unsafeCreateEntityTable(testDb.db, entity, "tenantDbItem");
+  await unsafePushTables(testDb.db, { tdb_system_entries: systemTable });
 });
 
 afterAll(async () => {

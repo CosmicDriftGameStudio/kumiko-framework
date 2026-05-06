@@ -25,11 +25,11 @@ import {
   RecordingTracer,
 } from "../../observability";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
@@ -85,7 +85,7 @@ beforeAll(async () => {
     features: [wiringFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
 });
 
@@ -181,7 +181,7 @@ describe("E.1 — consumer-lag metric", () => {
       observability: recordingProvider,
     });
     try {
-      await createEntityTable(recStack.db, sharedWidgetEntity, "widget");
+      await unsafeCreateEntityTable(recStack.db, sharedWidgetEntity, "widget");
       const recTdb = createTenantDb(recStack.db, admin.tenantId);
       await executor.create({ name: "lag-check" }, admin, recTdb);
 

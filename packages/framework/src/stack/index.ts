@@ -18,10 +18,10 @@ export { createEventCollector, type EventCollector } from "./event-collector";
 export { createTestRedis, type TestRedis } from "./redis";
 export { createRequestHelper, type RequestHelper } from "./request-helper";
 export {
-  createEntityTable,
-  ensureEntityTable,
-  pushTables,
   resetEventStore,
+  unsafeCreateEntityTable,
+  unsafeEnsureEntityTable,
+  unsafePushTables,
 } from "./table-helpers";
 export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack";
 export {

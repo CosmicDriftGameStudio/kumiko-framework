@@ -1,10 +1,10 @@
 import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -23,8 +23,8 @@ const user = TestUsers.user; // { id: 2, tenantId: 1, roles: ["User"] }
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [accessControlFeature] });
-  await createEntityTable(stack.db, projectEntity);
-  await createEntityTable(stack.db, taskEntity);
+  await unsafeCreateEntityTable(stack.db, projectEntity);
+  await unsafeCreateEntityTable(stack.db, taskEntity);
   await createEventsTable(stack.db);
 });
 

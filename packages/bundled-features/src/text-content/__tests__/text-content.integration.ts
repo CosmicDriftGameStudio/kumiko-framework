@@ -1,11 +1,11 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -26,7 +26,7 @@ const feature = createTextContentFeature();
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   db = stack.db;
-  await createEntityTable(db, textBlockEntity);
+  await unsafeCreateEntityTable(db, textBlockEntity);
   await createEventsTable(db);
 });
 

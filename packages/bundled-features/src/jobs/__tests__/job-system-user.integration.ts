@@ -20,10 +20,10 @@ import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/j
 import {
   createTestDb,
   createTestRedis,
-  pushTables,
   type TestDb,
   type TestRedis,
   TestUsers,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub, sleep } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -99,11 +99,11 @@ beforeAll(async () => {
   testRedis = await createTestRedis();
   db = testDb.db;
 
-  await pushTables(db, { configValuesTable });
+  await unsafePushTables(db, { configValuesTable });
   // Post-ES config writes go through the event-store executor, which needs
   // the framework events + archived-streams tables to exist before the
   // first append. setupTestStack provisions them automatically; this test
-  // builds its DB manually (createTestDb + pushTables), so we do it here.
+  // builds its DB manually (createTestDb + unsafePushTables), so we do it here.
   await createEventsTable(db);
   await createArchivedStreamsTable(db);
 

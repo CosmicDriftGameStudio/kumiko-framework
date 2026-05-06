@@ -22,11 +22,11 @@ import {
   writeFailure,
 } from "../errors";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../stack";
 
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
@@ -187,7 +187,7 @@ const guest = createTestUser({ id: 2, roles: ["Guest"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [errorFeature] });
-  await createEntityTable(stack.db, itemEntity);
+  await unsafeCreateEntityTable(stack.db, itemEntity);
 });
 afterAll(async () => stack.cleanup());
 beforeEach(async () => {

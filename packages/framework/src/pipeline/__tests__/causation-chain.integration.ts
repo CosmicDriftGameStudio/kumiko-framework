@@ -23,11 +23,11 @@ import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 
 // --- Feature ---
@@ -104,7 +104,7 @@ beforeAll(async () => {
     features: [causationFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, orderEntity, "causation-order");
+  await unsafeCreateEntityTable(stack.db, orderEntity, "causation-order");
 });
 
 afterAll(async () => {

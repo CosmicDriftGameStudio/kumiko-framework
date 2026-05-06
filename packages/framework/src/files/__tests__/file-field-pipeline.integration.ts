@@ -30,11 +30,11 @@ import {
   defineFeature,
 } from "../../engine";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "../../stack";
 import { createLocalProvider } from "../local-provider";
 
@@ -74,7 +74,7 @@ beforeAll(async () => {
     features: [documentFeature],
     files: { storageProvider: createLocalProvider(storagePath) },
   });
-  await createEntityTable(stack.db, documentEntity);
+  await unsafeCreateEntityTable(stack.db, documentEntity);
 });
 
 afterAll(async () => {

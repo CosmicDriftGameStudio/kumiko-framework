@@ -40,7 +40,7 @@ Test Files  1 passed (1)
 
 When the tests are green:
 - text-content + legal-pages are compatible
-- Table schema is clean via `createEntityTable(stack.db, textBlockEntity)`
+- Table schema is clean via `unsafeCreateEntityTable(stack.db, textBlockEntity)`
 - Routes are reachable via `stack.app.request("/legal/impressum")`
 - Markdown rendering produces valid HTML
 - Boot check correctly detects missing blocks

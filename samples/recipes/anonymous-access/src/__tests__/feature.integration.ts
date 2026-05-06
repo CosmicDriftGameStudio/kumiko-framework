@@ -9,10 +9,10 @@
 import { ANONYMOUS_USER_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
@@ -34,8 +34,8 @@ beforeAll(async () => {
     // tenant. No header, cookie, or resolver needed.
     anonymousAccess: { defaultTenantId: TENANT_ID },
   });
-  await createEntityTable(stack.db, productEntity);
-  await createEntityTable(stack.db, guestOrderEntity);
+  await unsafeCreateEntityTable(stack.db, productEntity);
+  await unsafeCreateEntityTable(stack.db, guestOrderEntity);
   await createEventsTable(stack.db);
 });
 

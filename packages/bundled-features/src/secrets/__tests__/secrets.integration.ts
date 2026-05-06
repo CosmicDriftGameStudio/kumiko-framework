@@ -12,9 +12,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -49,7 +49,7 @@ beforeAll(async () => {
   // table (tenant_secrets) still needs an explicit push here, since it
   // belongs to an ES entity (and entity-tables aren't auto-pushed by
   // setupTestStack).
-  await pushTables(stack.db, { tenant_secrets: tenantSecretsTable });
+  await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
   await createEventsTable(stack.db);
 });
 

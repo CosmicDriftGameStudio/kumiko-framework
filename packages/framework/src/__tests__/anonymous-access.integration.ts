@@ -15,7 +15,7 @@ import {
   defineFeature,
   type TenantId,
 } from "../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
@@ -104,8 +104,8 @@ describe("anonymous access — single-tenant default", () => {
       features: [shopFeature],
       anonymousAccess: { defaultTenantId: TENANT_ID },
     });
-    await createEntityTable(stack.db, productEntity);
-    await createEntityTable(stack.db, orderEntity);
+    await unsafeCreateEntityTable(stack.db, productEntity);
+    await unsafeCreateEntityTable(stack.db, orderEntity);
   });
 
   afterAll(() => stack.cleanup());
@@ -216,8 +216,8 @@ describe("anonymous access — header-supplied tenant", () => {
         tenantExists: async (id: TenantId) => id === TENANT_ID || id === OTHER_TENANT_ID,
       },
     });
-    await createEntityTable(stack.db, productEntity);
-    await createEntityTable(stack.db, orderEntity);
+    await unsafeCreateEntityTable(stack.db, productEntity);
+    await unsafeCreateEntityTable(stack.db, orderEntity);
   });
 
   afterAll(() => stack.cleanup());
@@ -309,8 +309,8 @@ describe("anonymous access — disabled by default", () => {
 
   beforeAll(async () => {
     stack = await setupTestStack({ features: [shopFeature] });
-    await createEntityTable(stack.db, productEntity);
-    await createEntityTable(stack.db, orderEntity);
+    await unsafeCreateEntityTable(stack.db, productEntity);
+    await unsafeCreateEntityTable(stack.db, orderEntity);
   });
 
   afterAll(() => stack.cleanup());

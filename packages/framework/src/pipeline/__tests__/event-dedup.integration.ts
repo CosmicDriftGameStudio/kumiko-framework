@@ -3,12 +3,12 @@ import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { defineFeature, type SaveContext } from "../../engine";
 import {
-  createEntityTable,
   createTestRedis,
   setupTestStack,
   type TestRedis,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 import { sharedItemEntity, sharedItemTable } from "../../testing";
 import { createEventDedup } from "../event-dedup";
@@ -71,7 +71,7 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await createEntityTable(stack.db, sharedItemEntity, "item");
+  await unsafeCreateEntityTable(stack.db, sharedItemEntity, "item");
 });
 
 afterAll(async () => {

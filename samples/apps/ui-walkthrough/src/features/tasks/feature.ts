@@ -15,7 +15,7 @@ import {
 import { editScreen, listScreen, taskEntity } from "./schema";
 
 // Re-export so the server bootstrap (server.ts) keeps one source of
-// truth when it calls createEntityTable(stack.db, taskEntity).
+// truth when it calls unsafeCreateEntityTable(stack.db, taskEntity).
 export { taskEntity };
 
 // Both handlers open — demo concern, real feature would gate writes.

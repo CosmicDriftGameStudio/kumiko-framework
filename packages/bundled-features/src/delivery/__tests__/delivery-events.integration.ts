@@ -9,12 +9,12 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -51,12 +51,12 @@ beforeAll(async () => {
     extraContext: { configResolver: createConfigResolver() },
   });
   db = stack.db;
-  await createEntityTable(db, tenantEntity);
+  await unsafeCreateEntityTable(db, tenantEntity);
   // Events-table is auto-pushed by setupTestStack; we only need to add
   // the feature-specific projection + lookup tables here. notificationPre-
   // ferencesTable is explicit because delivery-service queries it on
   // every notify() — without it, notify() crashes before the event append.
-  await pushTables(db, {
+  await unsafePushTables(db, {
     configValuesTable,
     tenantMembershipsTable,
     inAppMessagesTable,

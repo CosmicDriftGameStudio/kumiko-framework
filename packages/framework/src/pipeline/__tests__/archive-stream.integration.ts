@@ -16,11 +16,11 @@ import {
   loadAggregate as loadAggregateRaw,
 } from "../../event-store";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 
 const itemEntity = createEntity({
@@ -103,7 +103,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [archFeature], systemHooks: [] });
-  await createEntityTable(stack.db, itemEntity, "arch-item");
+  await unsafeCreateEntityTable(stack.db, itemEntity, "arch-item");
 });
 
 afterAll(async () => {

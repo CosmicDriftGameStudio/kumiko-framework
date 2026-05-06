@@ -23,11 +23,11 @@ import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framew
 import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  ensureEntityTable,
   setupTestStack,
   type TestStack,
   type TestStackOptions,
   TestUsers,
+  unsafeEnsureEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { injectSchema } from "./inject-schema";
 import { resolveTailwindCli } from "./resolve-tailwind-cli";
@@ -171,7 +171,7 @@ export type CreateKumikoServerOptions = {
    *  Header/Cookie/Default; siehe AnonymousAccessConfig. */
   readonly anonymousAccess?: TestStackOptions["anonymousAccess"];
   /** Wird nach dem Aufsetzen der Entity-Tabellen aufgerufen. Hook für
-   *  non-entity-tables (pushTables) und Seeding (admin user, initial
+   *  non-entity-tables (unsafePushTables) und Seeding (admin user, initial
    *  tenant, …). Muss idempotent sein — im persistent-DB-Modus läuft
    *  es bei jedem Boot. */
   readonly onAfterSetup?: (stack: TestStack) => Promise<void>;
@@ -527,16 +527,17 @@ async function startTailwindWatcher(
 }
 
 // Create all entity tables declared by the given features. Uses
-// ensureEntityTable so a persistent DB (KUMIKO_DEV_DB_NAME) can
+// unsafeEnsureEntityTable so a persistent DB (KUMIKO_DEV_DB_NAME) can
 // reuse tables from the previous boot without the caller having to
-// check.
+// check. This is the one production bypass that Stufe 3 (r.rawTable)
+// will eliminate — see plans/architecture/table-ddl-guard.md.
 async function createEntityTablesForFeatures(
   stack: TestStack,
   features: readonly FeatureDefinition[],
 ): Promise<void> {
   for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities)) {
-      const created = await ensureEntityTable(stack.db, entity, entityName);
+      const created = await unsafeEnsureEntityTable(stack.db, entity, entityName);
       if (!created) {
         logInfo(
           `[kumiko-server] table ${entity.table ?? entityName} already exists — skipping create`,

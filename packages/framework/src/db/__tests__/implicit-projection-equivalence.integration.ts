@@ -22,7 +22,7 @@ import { createRegistry } from "../../engine/registry";
 import { createEventsTable } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
-import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../stack";
+import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
@@ -49,7 +49,7 @@ const adminUser = TestUsers.admin;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEntityTable(testDb.db, userEntity, "user");
+  await unsafeCreateEntityTable(testDb.db, userEntity, "user");
   await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   tdb = createTenantDb(testDb.db, adminUser.tenantId);
@@ -244,7 +244,7 @@ const sensitiveDrizzleTable = buildDrizzleTable("sensitive-user", sensitiveEntit
 
 describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
   beforeAll(async () => {
-    await createEntityTable(testDb.db, sensitiveEntity, "sensitive-user");
+    await unsafeCreateEntityTable(testDb.db, sensitiveEntity, "sensitive-user");
   });
 
   beforeEach(async () => {

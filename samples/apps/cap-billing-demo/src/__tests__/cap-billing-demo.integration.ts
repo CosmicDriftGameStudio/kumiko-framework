@@ -32,12 +32,12 @@ import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
-  createEntityTable,
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createMutableMasterKeyProvider,
@@ -85,11 +85,11 @@ beforeAll(async () => {
   });
   db = stack.db;
 
-  await createEntityTable(db, tenantEntity);
-  await createEntityTable(db, capCounterEntity);
+  await unsafeCreateEntityTable(db, tenantEntity);
+  await unsafeCreateEntityTable(db, capCounterEntity);
   // read_subscriptions wird von setupTestStack automatisch gepusht
   // (r.projection mit `table`-Property → auto-push).
-  await pushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
+  await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
   await createEventsTable(db);
 });
 

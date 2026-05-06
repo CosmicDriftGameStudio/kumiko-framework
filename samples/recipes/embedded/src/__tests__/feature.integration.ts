@@ -4,11 +4,11 @@
 // searchable sub-fields registered, field access on sub-fields E2E
 
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { contactEntity } from "../entities/contact";
@@ -25,7 +25,7 @@ beforeAll(async () => {
     features: [embeddedFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, contactEntity);
+  await unsafeCreateEntityTable(stack.db, contactEntity);
 });
 
 afterAll(async () => {

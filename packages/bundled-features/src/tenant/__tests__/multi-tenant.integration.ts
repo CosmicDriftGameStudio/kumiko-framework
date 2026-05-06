@@ -9,15 +9,15 @@ import {
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
-  createEntityTable,
   createTestDb,
   createTestRedis,
   createTestUser,
-  pushTables,
   type TestDb,
   type TestRedis,
   TestUsers,
   testTenantId,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub, sleep } from "@cosmicdrift/kumiko-framework/testing";
 import type { Hono } from "hono";
@@ -60,8 +60,8 @@ beforeAll(async () => {
   testRedis = await createTestRedis();
   db = testDb.db;
 
-  await createEntityTable(db, tenantEntity);
-  await pushTables(db, { tenantMembershipsTable, configValuesTable });
+  await unsafeCreateEntityTable(db, tenantEntity);
+  await unsafePushTables(db, { tenantMembershipsTable, configValuesTable });
   await createEventsTable(db);
 
   const configFeature = createConfigFeature();

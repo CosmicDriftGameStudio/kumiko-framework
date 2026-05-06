@@ -10,7 +10,7 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createEntity, createFileField, createImageField } from "../../engine";
-import { createEntityTable, createTestDb, pushTables, type TestDb } from "../../stack";
+import { createTestDb, type TestDb, unsafeCreateEntityTable, unsafePushTables } from "../../stack";
 import { generateId } from "../../utils";
 import { fileRefsTable } from "../file-ref-table";
 
@@ -28,8 +28,8 @@ let testDb: TestDb;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await pushTables(testDb.db, { fileRefsTable });
-  await createEntityTable(testDb.db, documentEntity);
+  await unsafePushTables(testDb.db, { fileRefsTable });
+  await unsafeCreateEntityTable(testDb.db, documentEntity);
 });
 
 afterAll(async () => {
@@ -40,7 +40,7 @@ describe("file-field entity-column type", () => {
   test("`file` and `image` fields generate UUID columns (not integer)", async () => {
     // Pull the actual column type from information_schema. This is the
     // load-bearing assertion: the type emitted by drizzle-kit during
-    // `createEntityTable` must be `uuid`. A regression to `integer` would
+    // `unsafeCreateEntityTable` must be `uuid`. A regression to `integer` would
     // fail here even if higher-level code happened to still work through
     // implicit casts.
     const rows = await testDb.db.execute<{ column_name: string; data_type: string }>(sql`

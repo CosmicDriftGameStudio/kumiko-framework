@@ -13,9 +13,9 @@ import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/ev
 import {
   createTestDb,
   createTestRedis,
-  pushTables,
   type TestDb,
   type TestRedis,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -37,7 +37,7 @@ beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
   const registry = createRegistry([createJobsFeature()]);
-  await pushTables(testDb.db, { jobRunsTable, jobRunLogsTable });
+  await unsafePushTables(testDb.db, { jobRunsTable, jobRunLogsTable });
   await createEventsTable(testDb.db);
   logger = createJobRunLogger({ db: testDb.db, registry });
 });
