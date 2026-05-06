@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@cosmicdrift/kumiko-framework",
+      "@cosmicdrift/kumiko-bundled-features",
+      "@cosmicdrift/kumiko-dev-server",
+      "@cosmicdrift/kumiko-dispatcher-live",
+      "@cosmicdrift/kumiko-headless",
+      "@cosmicdrift/kumiko-renderer",
+      "@cosmicdrift/kumiko-renderer-web"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "@cosmicdrift/kumiko-sample-*",
+    "@cosmicdrift/kumiko-marketing-demo"
+  ]
+}

@@ -1,0 +1,26 @@
+# CI für kumiko-framework. Pattern: test + auto-publish via Changesets.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_test.yml@main
+    with:
+      test-command: "yarn kumiko check"
+    secrets: inherit
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_npm-publish.yml@main
+    secrets: inherit
