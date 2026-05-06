@@ -150,7 +150,7 @@ describe("validateBoot — PII annotations", () => {
       );
     });
     validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args) =>
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
       String(args[0]).includes('targets reference "employee"'),
     );
     expect(matchingWarn).toBeDefined();
@@ -168,7 +168,7 @@ describe("validateBoot — PII annotations", () => {
       );
     });
     validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args) =>
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
       String(args[0]).includes("PII-typical name"),
     );
     expect(matchingWarn).toBeDefined();
@@ -186,7 +186,7 @@ describe("validateBoot — PII annotations", () => {
       );
     });
     validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args) =>
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
       String(args[0]).includes("user-content-typical name"),
     );
     expect(matchingWarn).toBeDefined();
@@ -204,7 +204,7 @@ describe("validateBoot — PII annotations", () => {
       );
     });
     validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args) =>
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
       String(args[0]).includes("PII-typical name"),
     );
     expect(matchingWarn).toBeUndefined();
@@ -222,7 +222,7 @@ describe("validateBoot — PII annotations", () => {
       );
     });
     validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args) =>
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
       String(args[0]).includes("PII-typical name"),
     );
     expect(matchingWarn).toBeUndefined();
@@ -300,7 +300,7 @@ describe("validateBoot — retention", () => {
       );
     });
     validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args) =>
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
       String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
     );
     expect(matchingWarn).toBeDefined();
@@ -323,7 +323,7 @@ describe("validateBoot — retention", () => {
       );
     });
     validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args) =>
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
       String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
     );
     expect(matchingWarn).toBeUndefined();

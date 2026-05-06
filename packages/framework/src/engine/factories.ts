@@ -13,6 +13,7 @@ import type {
   MoneyFieldDef,
   MultiSelectFieldDef,
   NumberFieldDef,
+  RetentionDef,
   SelectFieldDef,
   TextFieldDef,
   TimestampFieldDef,
@@ -316,6 +317,7 @@ export function createEntity<F>(def: {
   }[];
   readonly idType?: "serial" | "uuid";
   readonly access?: EntityDefinition["access"];
+  readonly retention?: RetentionDef;
 }): F extends FieldsMap ? EntityDefinition<F> : never {
   return {
     softDelete: false,
