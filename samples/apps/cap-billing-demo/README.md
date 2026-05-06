@@ -1,36 +1,38 @@
-# Cap-Billing-Demo
+# Cap-Billing Demo
 
-Sample-App, die zeigt wie eine Kumiko-App **tier-engine** + **cap-counter** + **mail-foundation Plugin-API** zusammen-verdrahtet, um per-Tenant-Caps auf Newsletter-Sends zu erzwingen — inkl. soft-hit-Notification und hard-block.
+Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.
 
-Das Sample ist gleichzeitig die **lebende Doku** für das Pattern: lese den Code von oben nach unten und du hast die Cap-Engine verstanden.
+The sample doubles as **living documentation** for the pattern: read the code top-to-bottom and you've understood the cap engine.
 
-## Was die Demo macht
+## What the demo does
 
-Eine kleine Newsletter-App mit zwei Tiers:
+A tiny newsletter app with two tiers:
 
-| Tier | Newsletter pro Monat | Soft-Warning bei | Hard-Block bei |
+| Tier | Newsletters per month | Soft warning at | Hard block at |
 |------|-----------|-------------------|-----------------|
 | free | 10 | 11 (110%) | 12 (120%) |
 | pro | 100 | 110 (110%) | 120 (120%) |
 
-Mails landen in einem **In-Memory-Transport** (`mail-transport-inmemory`). Es gibt keinen echten SMTP-Server — perfekt für die Demo, kein Mailpit/Mailcrab nötig. Die Inbox wird per Helper-Funktion ausgelesen.
+Mails land in an **in-memory transport** (`mail-transport-inmemory`).
+There's no real SMTP server — perfect for the demo, no Mailpit/Mailcrab
+needed. The inbox is read via a helper function.
 
-## Architektur in 4 Schichten
+## Architecture in 4 layers
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │ src/feature.ts                                               │
 │   newsletter:write:send (cap-aware)                          │
-│   ├── inner-handler: createTransportForTenant + .send()      │
+│   ├── inner handler: createTransportForTenant + .send()      │
 │   └── wrapper: withCapEnforcement                            │
-│       ├── pre: enforceCapAndMaybeNotify(tier-bedingt)        │
-│       │     └── notifier: sendet Warning-Mail an Admin       │
+│       ├── pre: enforceCapAndMaybeNotify (tier-conditional)   │
+│       │     └── notifier: sends warning mail to admin        │
 │       └── post: incrementCap (+1)                            │
 └──────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────┐
 │ src/tier-map.ts                                              │
 │   DEMO_TIER_MAP: Record<TierName, {features, caps}>          │
-│   resolveTier(ctx) → 1. subscription-row (Provider-Webhook)  │
+│   resolveTier(ctx) → 1. subscription row (provider webhook)  │
 │                      2. config "newsletter:config:tier"      │
 │                      3. default "free"                       │
 └──────────────────────────────────────────────────────────────┘
@@ -38,98 +40,112 @@ Mails landen in einem **In-Memory-Transport** (`mail-transport-inmemory`). Es gi
 │ src/run-config.ts                                            │
 │   APP_FEATURES = [secrets, cap-counter, mail-foundation,     │
 │                   mail-transport-inmemory,                   │
-│                   billing-foundation, newsletter]       │
+│                   billing-foundation, newsletter]            │
 └──────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────┐
-│ bundled-features (kein Code in der App)                      │
-│   tier-engine: composeApp + TierMap-Type                     │
-│   cap-counter: enforceCap + withCapEnforcement + counter-ES  │
-│   mail-foundation: Plugin-API für Transports                 │
-│   mail-transport-inmemory: per-tenant in-memory Inbox        │
-│   billing-foundation: Provider-Plugin-Host (Stripe/     │
-│                            Mollie). Demo mountet keine       │
-│                            Provider — Tests rufen process-   │
-│                            event direkt; eigene App ergänzt  │
+│ bundled-features (no code in the app)                        │
+│   tier-engine: composeApp + TierMap type                     │
+│   cap-counter: enforceCap + withCapEnforcement + counter ES  │
+│   mail-foundation: plugin API for transports                 │
+│   mail-transport-inmemory: per-tenant in-memory inbox        │
+│   billing-foundation: provider plugin host (Stripe/          │
+│                            Mollie). Demo mounts no           │
+│                            providers — tests call process-   │
+│                            event directly; your own app adds │
 │                            createSubscriptionStripeFeature() │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Demo-Story als Test
+## Demo story as a test
 
-Die kompletteste Doku der Demo ist der Integration-Test selbst:
+The most thorough doc for the demo is the integration test itself:
 
 ```bash
 yarn vitest run --config vitest.integration.config.ts samples/apps/cap-billing-demo
 ```
 
-`src/__tests__/cap-billing-demo.integration.ts` fährt den vollen
-Dispatcher + DB hoch und beweist Schritt-für-Schritt:
+`src/__tests__/cap-billing-demo.integration.ts` boots the full
+dispatcher + DB and proves step by step:
 
-- 10 Newsletter senden ohne Warning
-- 12. Newsletter triggered einmalig die Soft-Hit-Notification
-- 13. Newsletter wird hart geblockt (CapExceededError)
-- Pro-Tenant nicht von Free-Tenant's Cap betroffen
-- **Tier-Wechsel mid-period:** free→pro upgrade lässt counter
-  intakt + nutzt sofort den höheren Cap (= echter Stripe-Webhook-
-  Pfad). pro→free downgrade blockiert sofort wenn counter über dem
-  neuen hard-limit liegt.
+- 10 newsletters sent without warning
+- 12th newsletter triggers the soft-hit notification once
+- 13th newsletter is hard-blocked (CapExceededError)
+- Pro tenant unaffected by the free tenant's cap
+- **Mid-period tier change:** free→pro upgrade keeps the counter
+  intact + immediately uses the higher cap (= the real Stripe-webhook
+  path). pro→free downgrade blocks immediately when the counter is
+  above the new hard limit.
 
-Lies die Test-Datei oben-nach-unten — sie ist als living-doc geschrieben.
+Read the test file top-to-bottom — it's written as a living doc.
 
-## Lokal laufen lassen
+## Run locally
 
 ```bash
-yarn kumiko dev      # Postgres + Redis hochfahren
+yarn kumiko dev      # Postgres + Redis
 yarn install
 cd samples/apps/cap-billing-demo
 yarn dev             # → http://localhost:4290
 ```
 
-| Login | Wert |
+| Login | Value |
 |-------|------|
 | URL | `http://localhost:4290` |
 | Email | `admin@cap-demo.local` |
-| Passwort | `changeme` |
+| Password | `changeme` |
 | Tenant | "Cap-Billing-Demo" |
 
-Im Browser kannst du via Designer/Admin-UI den config-key
-`newsletter:config:tier` auf `"free"` oder `"pro"` setzen und den
-`newsletter:write:send`-Handler triggern. Die "versendeten" Mails
-landen in `getInbox(tenantId)` aus
-`@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory` — es gibt keinen
-HTTP-Endpoint dafür, weil das Sample die Architektur zeigt, nicht
-ein Inbox-UI.
+In the browser, use the Designer/Admin UI to set the config key
+`newsletter:config:tier` to `"free"` or `"pro"` and trigger the
+`newsletter:write:send` handler. The "sent" mails land in
+`getInbox(tenantId)` from
+`@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory` —
+there's no HTTP endpoint for it because the sample shows the
+architecture, not an inbox UI.
 
-Wer's klick-bar will: schreib einen kleinen `r.queryHandler("inbox:
-list")` der `getInbox(ctx.user.tenantId)` returnt. ~20 LOC,
-absichtlich nicht im Sample drin um den Fokus auf cap+tier zu
-halten.
+If you want clickable: write a small `r.queryHandler("inbox:list")`
+that returns `getInbox(ctx.user.tenantId)`. ~20 LOC, deliberately
+omitted to keep the focus on cap+tier.
 
-## Wie übertrage ich das auf eine echte App?
+## How do I port this to a real app?
 
-Das Sample ist absichtlich minimal. Für eine Production-App tausche:
+The sample is intentionally minimal. For a production app, swap:
 
-| Demo-Komponente | Production-Ersatz |
+| Demo component | Production replacement |
 |-----------------|-------------------|
-| `mail-transport-inmemory` | `mail-transport-smtp` (BYOK) oder ein selbst gebautes Plugin |
-| Hardcoded `DEMO_TIER_MAP` | bleibt — Tier-Definitionen sind statisch, der subscription-row schreibt nur den `tier`-Schlüssel |
-| Tier-Switch via Webhook (test-only) | Mount eines echten Plugins: `createSubscriptionStripeFeature(...)` und/oder `createSubscriptionMollieFeature(...)` in der run-config |
-| 2 Tiers (free/pro) | beliebige Anzahl, siehe `samples/apps/platform/src/tier-map.ts` für 4-Tier-Beispiel |
-| Newsletter-domain | dein eigenes Feature mit `withCapEnforcement(handler, capResolver)` |
+| `mail-transport-inmemory` | `mail-transport-smtp` (BYOK) or a custom plugin |
+| Hardcoded `DEMO_TIER_MAP` | stays — tier definitions are static, the subscription row only writes the `tier` key |
+| Tier switch via webhook (test-only) | mount a real plugin: `createSubscriptionStripeFeature(...)` and/or `createSubscriptionMollieFeature(...)` in the run config |
+| 2 tiers (free/pro) | any number, see `samples/apps/platform/src/tier-map.ts` for a 4-tier example |
+| Newsletter domain | your own feature with `withCapEnforcement(handler, capResolver)` |
 
-Der **Plugin-API-Switch** zwischen demo + production ist ein einziges Konfig-Wert: `mail-foundation:config:provider` wechselt von `"inmemory"` auf `"smtp"`, kein Code-Refactor.
+The **plugin API switch** between demo and production is a single
+config value: `mail-foundation:config:provider` flips from
+`"inmemory"` to `"smtp"`, no code refactor.
 
-## Schlüssel-Dateien
+## Key files
 
-- **`src/feature.ts`** — der gewrappte send-Handler. Hier siehst du wie `withCapEnforcement` einen normalen Handler in einen cap-aware-Handler verwandelt
-- **`src/tier-map.ts`** — DEMO_TIER_MAP + Tier-Namen-Whitelist
-- **`src/run-config.ts`** — Feature-Komposition (welche bundled-features die Demo mountet)
-- **`src/__tests__/cap-billing-demo.integration.ts`** — durchgespielte Story (10/11/12/13 Newsletter, soft+hard transitions, tenant-isolation)
+- **`src/feature.ts`** — the wrapped send handler. Here you see how
+  `withCapEnforcement` turns a normal handler into a cap-aware one
+- **`src/tier-map.ts`** — DEMO_TIER_MAP + tier-name whitelist
+- **`src/run-config.ts`** — feature composition (which bundled-features
+  the demo mounts)
+- **`src/__tests__/cap-billing-demo.integration.ts`** — the played-out
+  story (10/11/12/13 newsletters, soft+hard transitions, tenant
+  isolation)
 
-## Fragen / Schwächen die diese Demo offenlegt
+## Questions / weaknesses this demo exposes
 
-Das Sample ist als Doku-Test gedacht. Konkrete Schwächen die wir hier sehen:
+The sample is meant as a doc test. Concrete weaknesses we see here:
 
-- **Notifier-Adresse hardcoded.** `buildSoftHitNotifier` in `feature.ts` schickt an `admin@tenant-${id.slice(-4)}.demo`. Echte App würde tenant-config oder users-Tabelle abfragen.
-- **Tier-Lookup pro send-call.** Die `resolveTier(ctx)`-Funktion macht eine DB-Query auf die subscription-row bei jedem Send — bei busy Tenants wäre Caching sinnvoll. Demo lässt das raus weil's vom Cap-Pattern ablenkt.
-- **Kein Provider-Mount in der Demo selbst.** Die Tests rufen `billing-foundation:write:process-event` direkt; in Production mountet die App `createSubscriptionStripeFeature(...)` oder `createSubscriptionMollieFeature(...)` und Mollie/Stripe-Webhooks treffen `/api/subscription/webhook/:providerName`.
+- **Notifier address hardcoded.** `buildSoftHitNotifier` in
+  `feature.ts` sends to `admin@tenant-${id.slice(-4)}.demo`. A real
+  app would query tenant config or the users table.
+- **Tier lookup per send call.** `resolveTier(ctx)` runs a DB query on
+  the subscription row on every send — for busy tenants caching would
+  be sensible. The demo skips it because it distracts from the cap
+  pattern.
+- **No provider mount in the demo itself.** The tests call
+  `billing-foundation:write:process-event` directly; in production an
+  app mounts `createSubscriptionStripeFeature(...)` or
+  `createSubscriptionMollieFeature(...)` and Mollie/Stripe webhooks
+  hit `/api/subscription/webhook/:providerName`.

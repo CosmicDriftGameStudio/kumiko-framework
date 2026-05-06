@@ -1,27 +1,30 @@
 # Cross-Feature Reactions
 
-Ein Handler emittiert ein typisiertes Domain-Event auf den Aggregate-Stream, eine asynchrone
-MultiStreamProjection reagiert darauf. Seit Sprint E der Marten-Gold-Standard-Pfad für
-cross-feature-Reaktionen — der alte `ctx.emit` + `r.postEvent`-Zweig ist mit E.2 entfernt.
+A handler emits a typed domain event onto the aggregate stream, and an
+async MultiStreamProjection reacts. Since Sprint E this is the
+Marten-gold-standard path for cross-feature reactions — the old
+`ctx.emit` + `r.postEvent` branch was removed in E.2.
 
-## Was zeigt das Sample
+## What the sample shows
 
-Drei Bausteine:
+Three building blocks:
 
-- **`r.defineEvent("name", zodSchema)`** deklariert Name und Payload. Der qualifizierte Name
-  (z.B. `pubsub-orders:event:order-placed`) kommt als `.name` zurück — direkt an
-  `ctx.appendEvent` übergeben. Events die nicht registriert sind lehnt `ctx.appendEvent`
-  bereits am Emit-Site ab.
+- **`r.defineEvent("name", zodSchema)`** declares the name and payload.
+  The qualified name (e.g. `pubsub-orders:event:order-placed`) comes
+  back as `.name` — pass it directly to `ctx.appendEvent`. Events that
+  aren't registered are rejected by `ctx.appendEvent` at the emit site.
 
-- **`ctx.appendEvent({ aggregateId, aggregateType, type, payload })`** hängt das Event innerhalb
-  derselben TX an den Aggregate-Stream an. Version-Lineage wird automatisch fortgeschrieben —
-  kein synthetischer `"pubsub"`-Stream mehr, das Event lebt wirklich zum Aggregate.
+- **`ctx.appendEvent({ aggregateId, aggregateType, type, payload })`**
+  appends the event onto the aggregate stream within the same TX.
+  Version lineage is continued automatically — no synthetic
+  `"pubsub"` stream anymore, the event truly lives on the aggregate.
 
-- **`r.multiStreamProjection({ name, apply })`** deklariert einen Consumer. Der
-  event-dispatcher läuft per Cursor über die `events`-Tabelle und liefert **at-least-once**
-  in Event-ID-Reihenfolge aus. `table` kann weggelassen werden — dann ist die MSP reiner
-  Side-Effect (Mail senden, Webhook, externes System). Mit `table` wird die Apply in einem
-  persistenten Read-Model materialisiert.
+- **`r.multiStreamProjection({ name, apply })`** declares a consumer.
+  The event dispatcher walks the `events` table via cursor and
+  delivers **at-least-once** in event-ID order. `table` can be omitted
+  — the MSP then becomes a pure side effect (send mail, webhook,
+  external system). With `table`, the apply materializes a persistent
+  read model.
 
 ## Flow
 
@@ -37,21 +40,23 @@ HTTP → writeHandler
          MSP apply → capture side effect
 ```
 
-## Migrationshinweis
+## Migration note
 
-`r.postEvent` ist mit Sprint E.2 entfernt. `ctx.appendEvent` + `r.multiStreamProjection` ist
-die einheitliche Marten-API für CRUD-Events, Domain-Events und Cross-Feature-Reactions.
+`r.postEvent` was removed in Sprint E.2. `ctx.appendEvent` +
+`r.multiStreamProjection` is the unified Marten API for CRUD events,
+domain events, and cross-feature reactions.
 
 ## Test
 
-Der Integration-Test pinnt drei Garantien:
+The integration test pins three guarantees:
 
-1. **TX-Atomicity** — Event-Row liegt nach dem Commit in der `events`-Tabelle, auf dem
-   Aggregate-Stream (nicht auf einem synthetischen `"pubsub"`-Stream).
-2. **MSP-Delivery** — `runOnce()` liefert das Event an den Handler, mit korrektem
-   `tenantId` + Payload.
-3. **Rollback-Sicherheit** — schlägt die Write fehl, existiert weder Business-Row noch
-   Event-Row noch MSP-Seiteneffekt.
+1. **TX atomicity** — after commit the event row sits in the `events`
+   table on the aggregate stream (not on a synthetic `"pubsub"`
+   stream).
+2. **MSP delivery** — `runOnce()` delivers the event to the handler
+   with the correct `tenantId` + payload.
+3. **Rollback safety** — when the write fails, neither the business
+   row nor the event row nor the MSP side effect exists.
 
 ```bash
 yarn kumiko test integration samples/cross-feature-events

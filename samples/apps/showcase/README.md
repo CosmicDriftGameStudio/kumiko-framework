@@ -1,13 +1,13 @@
 # Showcase
 
-Kitchen-Sink-Demo der Kumiko-Renderer-Surface — alle Field-Types die
-DefaultInput rendert, alle relevanten Layout-Pfade, alle Primitive-
-States durch normale Click-Pfade erreichbar. Gut zum schnellen
-optischen + funktionellen Sichten beim Refactoring.
+Kitchen-sink demo of the Kumiko renderer surface — every field type
+that DefaultInput renders, every relevant layout path, every primitive
+state reachable through normal click paths. Useful for a quick visual
+and functional sweep during refactoring.
 
-**Kein Auth** — der Server läuft im Auto-Mint-JWT-Mode, du landest
-direkt im Edit-Screen ohne Login. Wer Auth-Pfade testen will, schaut
-in `samples/apps/ui-walkthrough` oder `samples/apps/workspaces`.
+**No auth** — the server runs in auto-mint-JWT mode, you land on the
+edit screen without a login. To exercise auth paths, see
+`samples/apps/ui-walkthrough` or `samples/apps/workspaces`.
 
 ## Run
 
@@ -17,102 +17,102 @@ cd samples/apps/showcase && yarn dev
 # → http://localhost:4175
 ```
 
-Port 4175 ist hardcoded damit drei Sample-Apps parallel laufen können
+Port 4175 is hardcoded so three sample apps can run in parallel
 (ui-walkthrough=4173, workspaces=4174).
 
-## Click-Through-Guide
+## Click-through guide
 
-### Empty-State (List-Primitive)
+### Empty state (list primitive)
 
-Nach Mount → List-Screen mit "No entries." (`render-list-empty`).
-Sidebar zeigt zwei Nav-Einträge ("Items", "Neuer Eintrag"), Topbar hat
-Brand + ThemeToggle.
+After mount → list screen with "No entries." (`render-list-empty`).
+Sidebar shows two nav entries ("Items", "New entry"), topbar has
+brand + ThemeToggle.
 
-### Form-Primitives + Conditional Visibility
+### Form primitives + conditional visibility
 
-Klick auf "Neuer Eintrag" → entityEdit-Screen.
+Click "New entry" → entityEdit screen.
 
-- **Section "Basics"** mit 2-Spalten-Layout (`Section` mit `columns: 2`),
-  Mobile (<640px) automatisch einspaltig
-- **`title`** als `text` Input, full-width via `span: 2` (Required-Marker
-  rot rechts neben dem Label)
-- **`priority`** als `number` Input, Default 1
-- **`isDone`** als checkbox
-- **`status`** als shadcn/Radix-Select-Dropdown mit 4 Optionen
-  (draft/active/blocked/done), Default "draft", full-width
-- **Section "Details"** mit 1-Spalte-Layout
-- **`notes`** ist UNSICHTBAR — `visible: (d) => d.isDone === true`,
-  rendert als 4-zeilige Textarea wenn sichtbar (`multiline: { rows: 4 }`)
-- **`dueDate`** als nativer date-Picker
+- **Section "Basics"** with a 2-column layout (`Section` with
+  `columns: 2`), automatically single-column on mobile (<640px)
+- **`title`** as a `text` input, full-width via `span: 2` (required
+  marker red, right of the label)
+- **`priority`** as a `number` input, default 1
+- **`isDone`** as a checkbox
+- **`status`** as a shadcn/Radix select dropdown with 4 options
+  (draft/active/blocked/done), default "draft", full-width
+- **Section "Details"** with a 1-column layout
+- **`notes`** is INVISIBLE — `visible: (d) => d.isDone === true`,
+  renders as a 4-row textarea when visible (`multiline: { rows: 4 }`)
+- **`dueDate`** as a native date picker
 
-→ Tick **`isDone`**: das `notes`-Textarea erscheint mit Required-Marker.
-Beweist die FieldCondition-Pipeline.
+→ Tick **`isDone`**: the `notes` textarea appears with a required
+marker. Proves the FieldCondition pipeline.
 
-→ Wechsle den Status im Dropdown: Form-Controller markiert dirty,
-Submit-Button enabled.
+→ Change the status in the dropdown: form controller marks dirty,
+submit button enabled.
 
-### Validation + Submit-Button-States
+### Validation + submit-button states
 
-- Submit-Button ist **disabled** solange das Form unverändert ist
-  (`isUnchanged` Gate) — sieht sofort grau aus
-- Tippe in `title` → Button enabled sich
-- Tick isDone, lass title leer, submit → `field-error` an title
-- Submit mit valid: navigiert zur Liste
+- Submit button is **disabled** while the form is unchanged
+  (`isUnchanged` gate) — visibly grey
+- Type into `title` → button enables
+- Tick isDone, leave title empty, submit → `field-error` on title
+- Submit with valid input: navigates to the list
 
-### List-Primitive mit Daten + Custom-Renderer
+### List primitive with data + custom renderer
 
-Nach erstem Submit → List-Screen.
+After the first submit → list screen.
 
-- **DataTable** mit Spalten Title, Status, IsDone (rendert ✓ / ✗),
-  Priority (Custom-Renderer `(v) => v === 0 ? "—" : "P{v}"`), DueDate
+- **DataTable** with columns Title, Status, IsDone (renders ✓ / ✗),
+  Priority (custom renderer `(v) => v === 0 ? "—" : "P{v}"`), DueDate
 
-→ Klick auf die Row → navigiert zur Edit-Form für genau dieses Item
-(useDispatcher.detail-Query).
+→ Click a row → navigates to the edit form for that exact item
+(useDispatcher.detail query).
 
-### Optimistic Locking + Version Conflict
+### Optimistic locking + version conflict
 
-- Zwei Browser-Tabs: beide auf den Edit-Screen für dasselbe Item
-- Tab A: Title ändern, Submit → Erfolg, navigiert zurück
-- Tab B: Title ändern, Submit → **`version_conflict`**-Banner mit
-  "Neu laden"-Button. Klick → Form rebased auf den neuen Server-State.
+- Two browser tabs: both on the edit screen for the same item
+- Tab A: change the title, submit → success, navigates back
+- Tab B: change the title, submit → **`version_conflict`** banner
+  with a "Reload" button. Click → form rebases on the new server state.
 
-### Theme-Toggle
+### Theme toggle
 
-Click auf den Theme-Toggle (Sonne/Mond rechts oben) → `<html class>`
-wechselt zwischen `light` und `dark`. Tailwind-Tokens (background,
-foreground, border, accent) passen sich an.
+Click the theme toggle (sun/moon top-right) → `<html class>` toggles
+between `light` and `dark`. Tailwind tokens (background, foreground,
+border, accent) follow.
 
 ### Responsiveness
 
-- Browser-Window auf <640px Breite ziehen → 2-Spalten-Section wird
-  einspaltig (Mobile-Breakpoint sm:)
-- Form bleibt zentriert mit `max-w-3xl` (768px) — auf großen Screens
-  spreizen sich Inputs nicht über die volle Breite
+- Drag the browser window below 640px → 2-column section becomes
+  single-column (mobile breakpoint sm:)
+- The form stays centered with `max-w-3xl` (768px) — on large screens
+  inputs don't spread the full width
 
-## Was beweisbar ist
+## What's provable
 
-- Form-Controller: dirty/changes/errors-Tracking
+- Form controller: dirty/changes/errors tracking
 - Validation: required + conditional required
-- Optimistic Locking: version-Stempel, Conflict-Banner, Reload-Pfad
-- Field-Conditions: visible + required als Functions auf `data`
-- DataTable: Empty-State, Header-Row, Cell-Renderers (boolean ✓/✗,
-  custom render-function)
-- Layout: Section-Title, responsive columns + span, KumikoLink, NavTree
+- Optimistic locking: version stamp, conflict banner, reload path
+- Field conditions: visible + required as functions on `data`
+- DataTable: empty state, header row, cell renderers (boolean ✓/✗,
+  custom render function)
+- Layout: section title, responsive columns + span, KumikoLink, NavTree
 - Theme: light/dark via TokensProvider
-- AppSchema-Injection: kein hand-geschriebener clientSchema, alles
-  vom Server geliefert
+- AppSchema injection: no hand-written clientSchema, everything comes
+  from the server
 
-## Was hier NICHT drin ist
+## What's NOT in here
 
-- `timestamp`-Field-Type (Tier 2.2 pending)
-- `money`-Field-Type (Tier 2.3 pending)
+- `timestamp` field type (Tier 2.2 pending)
+- `money` field type (Tier 2.3 pending)
 - Searchable Select (Tier 2.1c pending)
 - Multi-Select (Tier 2.1d pending)
-- `embedded`-Field-Type (Tier 2.4 pending — niedrige Prio)
-- `file/image`-Field-Types (Tier 2.5/2.5b pending — Resize-Pipeline + UI)
-- Auth-Pfade (siehe `samples/apps/ui-walkthrough/`)
-- Workspaces (siehe `samples/apps/workspaces/`)
-- TenantSwitcher mit mehreren Tenants (siehe `samples/apps/ui-walkthrough/`)
-- LanguageSwitcher (siehe `samples/apps/ui-walkthrough/`)
+- `embedded` field type (Tier 2.4 pending — low priority)
+- `file/image` field types (Tier 2.5/2.5b pending — resize pipeline + UI)
+- Auth paths (see `samples/apps/ui-walkthrough/`)
+- Workspaces (see `samples/apps/workspaces/`)
+- TenantSwitcher with multiple tenants (see `samples/apps/ui-walkthrough/`)
+- LanguageSwitcher (see `samples/apps/ui-walkthrough/`)
 
-Wenn ein Primitive dazukommt, gehört es hier rein.
+When a primitive lands, it belongs here.

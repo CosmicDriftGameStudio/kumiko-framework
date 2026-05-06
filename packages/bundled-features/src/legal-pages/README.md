@@ -1,14 +1,14 @@
 # legal-pages
 
-Opt-in-Wrapper um [`text-content`](../text-content/) für
-DACH-Compliance. Liefert vier feste Public-HTML-Routes
+Opt-in wrapper around [`text-content`](../text-content/) for
+DACH compliance. Ships four fixed public HTML routes
 (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`,
-`/legal/privacy`) mit Markdown→HTML-Rendering und einen Boot-Check
-der in Production hart fehlt wenn die DE-Pflicht-Blocks nicht
-geseedet sind.
+`/legal/privacy`) with Markdown→HTML rendering and a boot check that
+hard-fails in production when the DE required blocks aren't seeded.
 
-**Opt-in.** Interne Tools, US-Apps ohne Impressums-Pflicht,
-Hobby-Projekte ohne Public-Zugriff aktivieren das Feature gar nicht.
+**Opt-in.** Internal tools, US apps without an imprint requirement,
+or hobby projects without public access simply don't activate the
+feature.
 
 ---
 
@@ -28,11 +28,11 @@ runProdApp({
     createLegalPagesFeature(),
     /* ... */
   ],
-  // Zwei Wirings sind Pflicht:
-  //   1. anonymousAccess für /legal/*-Routes (laufen ohne JWT)
-  //   2. extraContext.textContent für den Boot-Check (Cross-Feature-
-  //      Decoupling — legal-pages importiert keinen Code aus text-content,
-  //      nutzt nur die API über ctx)
+  // Two wirings are required:
+  //   1. anonymousAccess for /legal/* routes (run without a JWT)
+  //   2. extraContext.textContent for the boot check (cross-feature
+  //      decoupling — legal-pages imports no code from text-content,
+  //      only uses the API via ctx)
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
   extraContext: ({ db }) => ({
     textContent: createTextContentApi(db),
@@ -42,65 +42,64 @@ runProdApp({
 
 ---
 
-### Production-Tabellen-Setup
+### Production table setup
 
-legal-pages selbst hat keine eigene Tabelle — es nutzt
-`text-content`'s `read_text_blocks`. Tabellen-Setup geht also
-über text-content:
+legal-pages doesn't have its own table — it uses text-content's
+`read_text_blocks`. Table setup therefore goes through text-content:
 
 ```bash
-yarn kumiko migrate generate    # text-block-Entity wird erkannt
+yarn kumiko migrate generate    # text-block entity is detected
 yarn kumiko migrate apply
 ```
 
-Siehe [text-content/README.md](../text-content/README.md#production-tabellen-setup).
+See [text-content/README.md](../text-content/README.md#production-table-setup).
 
-## Routen
+## Routes
 
-| Pfad | Slug + Lang | Title-Fallback (wenn Block leer) |
+| Path | Slug + lang | Title fallback (when block empty) |
 |---|---|---|
 | `GET /legal/impressum` | `imprint` / `de` | "Impressum" |
 | `GET /legal/datenschutz` | `privacy` / `de` | "Datenschutzerklärung" |
 | `GET /legal/imprint` | `imprint` / `en` | "Imprint" |
 | `GET /legal/privacy` | `privacy` / `en` | "Privacy Policy" |
 
-Antwort:
-- `200 text/html` — Block existiert + hat body. Cache-Header `public, max-age=300`.
-- `404 text/plain` — Block fehlt. Hinweis "Tenant-Admin must set this text-block".
-- `503 text/plain` — `app.fetch` zu `/api/query` failed (anonymousAccess fehlt?).
+Response:
+- `200 text/html` — block exists + has body. Cache header `public, max-age=300`.
+- `404 text/plain` — block missing. Hint: "Tenant admin must set this text block".
+- `503 text/plain` — `app.fetch` to `/api/query` failed (anonymousAccess missing?).
 
-Layout: minimaler HTML5-Skeleton mit Inline-CSS — Apps die das in
-ihr eigenes Layout integrieren wollen, nutzen
-`text-content:query:by-slug` direkt und rendern selbst.
+Layout: a minimal HTML5 skeleton with inline CSS — apps that want to
+integrate into their own layout use `text-content:query:by-slug`
+directly and render themselves.
 
 ---
 
-## Boot-Check
+## Boot check
 
-`r.job` mit `runOnBoot: true` checkt beim App-Start ob die
-DE-Pflicht-Blocks im SYSTEM_TENANT existieren:
+`r.job` with `runOnBoot: true` checks at app start whether the DE
+required blocks exist in SYSTEM_TENANT:
 
-| Slug + Lang | Was passiert wenn fehlt |
+| Slug + lang | What happens when missing |
 |---|---|
-| `imprint` / `de` | **Production:** `throw new Error(...)` blockt App-Start. **Dev:** `ctx.log.warn(...)` |
-| `privacy` / `de` | wie oben |
+| `imprint` / `de` | **Production:** `throw new Error(...)` blocks app start. **Dev:** `ctx.log.warn(...)` |
+| `privacy` / `de` | as above |
 
-EN-Versionen sind **nicht** Boot-fail-relevant (`LEGAL_OPTIONAL_BLOCKS`).
-Die Routes liefern `404` falls EN-Block fehlt.
+EN versions are **not** boot-fail-relevant (`LEGAL_OPTIONAL_BLOCKS`).
+Routes return `404` if an EN block is missing.
 
-→ Apps die das Feature aktivieren müssen vor Production-Deploy die
-beiden DE-Blocks seeden — entweder via Bootstrap-Script
-(`seedTextBlock`) oder manuell via TenantAdmin-API.
+→ Apps that activate the feature must seed both DE blocks before a
+production deploy — either via a bootstrap script (`seedTextBlock`) or
+manually via the TenantAdmin API.
 
 ---
 
-## TenantAdmin-Pflege via API
+## TenantAdmin maintenance via the API
 
-Tenant-Admins (oder Plattform-SystemAdmin für SYSTEM_TENANT-Texte)
-können Inhalte jederzeit per Standard-write-Handler aktualisieren:
+Tenant admins (or platform SystemAdmin for SYSTEM_TENANT texts) can
+update content at any time through the standard write handler:
 
 ```typescript
-// Aus dem Tenant-Admin-Frontend (oder admin-curl):
+// From the tenant admin frontend (or admin curl):
 await fetch("/api/write", {
   method: "POST",
   headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
@@ -116,17 +115,17 @@ await fetch("/api/write", {
 });
 ```
 
-→ Idempotent: zweiter Call mit gleichem `(slug, lang)` updated den Block.
-ACL: `roles: ["TenantAdmin", "SystemAdmin"]` — SystemAdmin (globale Rolle)
-darf SYSTEM_TENANT-Texte setzen, TenantAdmin nur Tenant-eigene.
+→ Idempotent: a second call with the same `(slug, lang)` updates the block.
+ACL: `roles: ["TenantAdmin", "SystemAdmin"]` — SystemAdmin (a global
+role) may set SYSTEM_TENANT texts, TenantAdmin only tenant-owned ones.
 
-→ Cache-Header der Routes ist `public, max-age=300` — nach Update
-sehen Visitors die neuen Inhalte spätestens nach 5 Minuten. Wer
-sofortige Sichtbarkeit braucht, kann via CDN-Purge nachhelfen.
+→ The route's cache header is `public, max-age=300` — after an update,
+visitors see new content within 5 minutes at most. If you need
+instant visibility, you can help things along with a CDN purge.
 
 ## Seeding
 
-Beim ersten App-Boot oder via Migration:
+On first app boot or via migration:
 
 ```typescript
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
@@ -150,47 +149,47 @@ E-Mail: hello@example.com`,
 });
 ```
 
-Vorlagen für Impressum + Datenschutzerklärung siehe
+Templates for imprint + privacy policy: see
 [docs/plans/datenschutz/legal-artifacts.md](../../../../docs/plans/datenschutz/legal-artifacts.md)
-sowie geprüfte externe Generatoren (e-recht24.de,
+and vetted external generators (e-recht24.de,
 datenschutz-generator.de).
 
 ---
 
-## XSS — bewusst aktuell nicht gesichert
+## XSS — currently not secured by design
 
-`marked` rendert HTML-Tags 1:1, also kann ein böswilliger
-TenantAdmin theoretisch `<script>` in den Body setzen.
+`marked` renders HTML tags 1:1, so a malicious tenant admin could in
+theory put `<script>` into the body.
 
-Aktuell akzeptiert weil:
-- nur `roles: ["TenantAdmin"]` setzen Texte
-- Multi-Author-Setups gibt es noch nicht
-- Self-Hosted-Tier ohne unbekannte Tenant-Admins
+Currently accepted because:
+- only `roles: ["TenantAdmin"]` may set texts
+- multi-author setups don't exist yet
+- self-hosted tier without unknown tenant admins
 
-**Phase-2-Hardening:** `DOMPurify` oder `isomorphic-dompurify`
-sanitization-step zwischen `marked.parse()` und Response.
-Dokumentiert wenn ein Customer mit Multi-Author-Setup auftaucht.
-
----
-
-## Tenant-Modell
-
-**1 App = X Tenants = 1 Impressum.** Alle Subdomains/Tenant-Hosts
-einer Kumiko-App teilen sich die SYSTEM_TENANT-Version der
-Legal-Pages. Wer pro-Tenant-Impressums braucht (selten — typischer
-Fall: Plattform-Betreiber ist Verantwortlicher, nicht Tenant-Customer),
-kann `text-content`'s by-slug-Query direkt mit Tenant-spezifischer
-TenantId aufrufen und eigene Routes davorsetzen.
+**Phase-2 hardening:** `DOMPurify` or `isomorphic-dompurify`
+sanitization step between `marked.parse()` and the response.
+Documented when a customer with a multi-author setup shows up.
 
 ---
 
-## Architektur-Cross-Refs
+## Tenant model
+
+**1 app = X tenants = 1 imprint.** All subdomains/tenant hosts of a
+Kumiko app share the SYSTEM_TENANT version of the legal pages. If you
+need per-tenant imprints (rare — typical case: the platform operator
+is the responsible party, not the tenant customer), call
+text-content's by-slug query directly with a tenant-specific TenantId
+and put your own routes in front.
+
+---
+
+## Architecture cross-refs
 
 - [docs/plans/datenschutz/](../../../../docs/plans/datenschutz/)
-  — Konsolidierter Datenschutz-Plan-Index
+  — consolidated privacy plan index
 - [docs/plans/datenschutz/legal-artifacts.md](../../../../docs/plans/datenschutz/legal-artifacts.md)
-  — Vorlagen + Wo-was-liegt für Impressum/AVV/TOMs/Verarbeitungsverzeichnis
+  — templates + where-is-what for imprint/AVV/TOMs/RoPA
 - [docs/plans/datenschutz/compliance-as-product.md](../../../../docs/plans/datenschutz/compliance-as-product.md)
-  — Roadmap für Auto-Generation (Sub-Processor-Liste, TOMs, Datenpannen-Workflow)
+  — roadmap for auto-generation (sub-processor list, TOMs, data-breach workflow)
 - [samples/recipes/legal-pages/](../../../../samples/recipes/legal-pages/)
-  — Live-Sample mit beiden Features verdrahtet
+  — live sample with both features wired up

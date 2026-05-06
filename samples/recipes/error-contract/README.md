@@ -1,48 +1,48 @@
-# Sample: Error-Contract
+# Sample: Error Contract
 
-**Ich will einen Handler schreiben der sauber mit Fehlern umgeht — ohne HTTP-Codes, ohne JSON-Bodies, ohne try/catch-Ketten.**
+**I want to write a handler that handles errors cleanly — no HTTP codes, no JSON bodies, no try/catch chains.**
 
-## Was dieses Sample zeigt
+## What this sample shows
 
-Jede Kumiko-Error-Klasse im realen Handler-Kontext. Ein einzelnes Feature `orders-lite`, vier Handler, 7 Testfaelle die je eine typische Fehler-Situation zeigen.
+Every Kumiko error class in a real handler context. A single feature `orders-lite`, four handlers, 7 test cases each demonstrating a typical error situation.
 
-## Das Rezept in 3 Saetzen
+## The recipe in 3 sentences
 
-1. Handler wirft oder returnt einen `KumikoError` ueber `writeFailure(...)` oder `failNotFound(...)` / `failUnprocessable(...)`.
-2. Der Dispatcher uebersetzt ihn in HTTP-Status + Wire-Format — immer `{ code, i18nKey, message, details?, requestId?, timestamp }`.
-3. Der Client liest `error.code` (stabile Kategorie) oder `error.details.reason` (Feature-spezifischer Subtyp).
+1. The handler throws or returns a `KumikoError` via `writeFailure(...)` or `failNotFound(...)` / `failUnprocessable(...)`.
+2. The dispatcher translates it into HTTP status + wire format — always `{ code, i18nKey, message, details?, requestId?, timestamp }`.
+3. The client reads `error.code` (stable category) or `error.details.reason` (feature-specific subtype).
 
-## Die Klassen — wann nutze ich welche?
+## The classes — when do I use which?
 
-| Klasse | HTTP | Benutzung im Handler |
+| Class | HTTP | Use in handler |
 |---|---|---|
-| `ValidationError` | 400 | Automatisch aus Zod. Nie manuell werfen, nur fuer Validation-Hook-Fehler. |
-| `AccessDeniedError` | 403 | "Du darfst das nicht" — Ownership, Role-Check, Field-Lock. |
-| `NotFoundError` | 404 | Entity existiert nicht. Automatisch via `failNotFound(entity, id)`. |
-| `ConflictError` | 409 | State-Kollision ohne Version (z.B. "paid orders can't be cancelled"). |
-| `VersionConflictError` | 409 | Optimistic Lock — kommt aus CrudExecutor automatisch. Du wirfst sie nie. |
-| `UnprocessableError` | 422 | Business-Regel verletzt. Der Reason-String beschreibt was. |
-| `InternalError` | 500 | Wirfst du **nicht selbst**. Das Framework wrappt unerwartete Throws automatisch. |
+| `ValidationError` | 400 | Automatic from Zod. Never throw manually, only for validation-hook errors. |
+| `AccessDeniedError` | 403 | "You're not allowed" — ownership, role check, field lock. |
+| `NotFoundError` | 404 | Entity doesn't exist. Automatic via `failNotFound(entity, id)`. |
+| `ConflictError` | 409 | State collision without a version (e.g. "paid orders can't be cancelled"). |
+| `VersionConflictError` | 409 | Optimistic lock — comes out of CrudExecutor automatically. You never throw it. |
+| `UnprocessableError` | 422 | Business rule violated. The reason string describes what. |
+| `InternalError` | 500 | You **don't throw it yourself**. The framework wraps unexpected throws automatically. |
 
-## Convenience-Helper
+## Convenience helpers
 
-Statt
+Instead of
 
 ```ts
 return { isSuccess: false, error: toWriteErrorInfo(new NotFoundError("order", id)) };
 ```
 
-schreib
+write
 
 ```ts
 return failNotFound("order", id);
 ```
 
-Analog: `failUnprocessable("reason", details?)` und `writeFailure(new AnyKumikoError(...))`.
+Likewise: `failUnprocessable("reason", details?)` and `writeFailure(new AnyKumikoError(...))`.
 
-## Reason-Codes — die Konvention
+## Reason codes — the convention
 
-Wenn dein Feature eine eigene Differenzierung braucht (z.B. `already_paid` vs. `already_cancelled`), nimm die `UnprocessableError` oder `ConflictError` und setze `details.reason`:
+When your feature needs its own differentiation (e.g. `already_paid` vs. `already_cancelled`), use `UnprocessableError` or `ConflictError` and set `details.reason`:
 
 ```ts
 export const OrdersLiteReasons = {
@@ -53,21 +53,21 @@ export const OrdersLiteReasons = {
 return failUnprocessable(OrdersLiteReasons.alreadyPaid, { orderId });
 ```
 
-**Regeln:**
-- `snake_case`, keine Leerzeichen
-- Ein `<Feature>Reasons` const-Object pro Feature
-- Framework-Reasons (`stale_state`, `invalid_transition`, `field_access_denied`, `delete_restricted`) kommen aus `FrameworkReasons` — **wiederverwenden, nicht duplizieren**
+**Rules:**
+- `snake_case`, no spaces
+- One `<Feature>Reasons` const-object per feature
+- Framework reasons (`stale_state`, `invalid_transition`, `field_access_denied`, `delete_restricted`) come from `FrameworkReasons` — **reuse, don't duplicate**
 
 ## Throw vs. writeFailure
 
-Beide enden im selben Wire-Format. Faustregel:
+Both end up in the same wire format. Rule of thumb:
 
-- **Handler-Top-Level** → `return writeFailure(new X())` oder die `failX(...)`-Helper. Der Rueckgabetyp ist explizit.
-- **Tief in einer Helper-Funktion** → `throw new KumikoError(...)`. Sonst muesstest du `WriteResult` durch jede Funktionssignatur schleifen.
+- **Handler top-level** → `return writeFailure(new X())` or the `failX(...)` helpers. The return type is explicit.
+- **Deep inside a helper function** → `throw new KumikoError(...)`. Otherwise you'd have to thread `WriteResult` through every function signature.
 
-## Cause-Chain
+## Cause chain
 
-Wenn du einen KumikoError wirfst der einen anderen Error als Ursache hat:
+When you throw a KumikoError that has another error as its cause:
 
 ```ts
 try {
@@ -82,17 +82,17 @@ try {
 }
 ```
 
-Die Kette landet im Log (fuer Forensik), aber **nicht** im Response an den Client. Kein manueller Filter noetig.
+The chain lands in the log (for forensics), but **not** in the response to the client. No manual filter required.
 
-## Was du **nicht** machen sollst
+## What you should **not** do
 
-- `throw new Error("string")` — wird zu `InternalError` (500), der Client sieht keinen hilfreichen Fehler
-- `return { isSuccess: false, error: "string" }` — kein gueltiger `WriteErrorInfo`, TypeScript blockt es aber es ist ein typisches Muster aus Pre-v1-Code
-- Eigene `class MyError extends Error` — auch das wird zu `InternalError`. Nutze `UnprocessableError` + `details.reason` fuer Feature-Subtypen
-- Reason-Strings wie `"userNotAllowedToEditRecord"` (camelCase) oder mit Leerzeichen — die Konvention ist `snake_case`
+- `throw new Error("string")` — becomes `InternalError` (500), the client sees no helpful error
+- `return { isSuccess: false, error: "string" }` — not a valid `WriteErrorInfo`, TypeScript blocks it but it's a typical pre-v1 pattern
+- Custom `class MyError extends Error` — also becomes `InternalError`. Use `UnprocessableError` + `details.reason` for feature subtypes
+- Reason strings like `"userNotAllowedToEditRecord"` (camelCase) or with spaces — the convention is `snake_case`
 
-## Weiterfuehrend
+## Further reading
 
-- Komplette Klassen-Definition: `packages/framework/src/errors/classes.ts`
-- Goldstandard-Integration-Test: `packages/framework/src/__tests__/error-contract.integration.ts`
-- Architekturplan: [`docs/plans/architecture/error-contract.md`](../../docs/plans/architecture/error-contract.md)
+- Full class definitions: `packages/framework/src/errors/classes.ts`
+- Gold-standard integration test: `packages/framework/src/__tests__/error-contract.integration.ts`
+- Architecture plan: [`docs/plans/architecture/error-contract.md`](../../docs/plans/architecture/error-contract.md)

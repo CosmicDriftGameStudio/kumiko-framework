@@ -1,12 +1,12 @@
 # text-content
 
-Generischer Markdown-Text-Container — pro `(tenantId, slug, lang)`
-genau ein Block. Use-Cases: Impressum, Datenschutzerklärung, FAQ,
-About, ToS, Marketing-Snippets. Foundation für
-[`legal-pages`](../legal-pages/), aber auch standalone nutzbar.
+Generic Markdown text container — exactly one block per
+`(tenantId, slug, lang)`. Use cases: imprint, privacy policy, FAQ,
+about, ToS, marketing snippets. Foundation for
+[`legal-pages`](../legal-pages/), but also usable standalone.
 
-**Opt-in.** Wer keine statischen Texte braucht (interne Tools, reine
-API-Apps), aktiviert das Feature gar nicht.
+**Opt-in.** If you don't need static texts (internal tools, pure API
+apps), simply don't activate the feature.
 
 ---
 
@@ -20,23 +20,22 @@ runProdApp({
 });
 ```
 
-### Production-Tabellen-Setup
+### Production table setup
 
-Pro App wird die `read_text_blocks`-Tabelle via Drizzle-Migration
-angelegt:
+Each app creates the `read_text_blocks` table via a Drizzle migration:
 
 ```bash
-# Im App-Workspace (z.B. samples/showcases/myapp):
-yarn kumiko migrate generate    # erkennt das neue r.entity("text-block")
-                                # → drizzle-Migration im drizzle/-Ordner
-yarn kumiko migrate apply       # führt aus (Pre-Deploy-Step in Prod)
+# In the app workspace (e.g. samples/showcases/myapp):
+yarn kumiko migrate generate    # detects the new r.entity("text-block")
+                                # → drizzle migration in the drizzle/ folder
+yarn kumiko migrate apply       # apply (pre-deploy step in prod)
 ```
 
-Boot-Gate (`runProdApp`) prüft hart: fehlende Tabelle = `SchemaDriftError`,
-Container exit. Kein Auto-Heal in Production. Siehe
+The boot gate (`runProdApp`) checks hard: missing table = `SchemaDriftError`,
+container exits. No auto-heal in production. See
 [docs/plans/architecture/migrations.md](../../../../docs/plans/architecture/migrations.md).
 
-In Integration-Tests (vitest) genügt:
+In integration tests (vitest) it's enough to do:
 
 ```typescript
 import { createEntityTable } from "@cosmicdrift/kumiko-framework/stack";
@@ -45,34 +44,34 @@ import { textBlockEntity } from "@cosmicdrift/kumiko-bundled-features/text-conte
 await createEntityTable(stack.db, textBlockEntity);
 ```
 
-## Use-Cases
+## Use cases
 
-text-content ist generisch — alles was statischer Markdown-Text
-pro `(tenantId, slug, lang)` ist passt. Beispiele aus der Praxis:
+text-content is generic — anything that's static Markdown text per
+`(tenantId, slug, lang)` fits. Examples from real life:
 
-| Slug-Beispiel | Use-Case | Tenant-Scope |
+| Slug example | Use case | Tenant scope |
 |---|---|---|
-| `imprint`, `privacy` | Impressum, Datenschutz (DACH) | SYSTEM_TENANT_ID (app-weit) |
-| `terms-of-service`, `eula` | Nutzungsbedingungen | SYSTEM_TENANT_ID oder tenant-eigen |
-| `faq-billing`, `faq-onboarding`, `faq-troubleshooting` | FAQ-Sektionen | SYSTEM_TENANT_ID |
-| `about-team`, `about-mission` | About-Pages | SYSTEM_TENANT_ID |
-| `help-shortcuts`, `help-search` | In-App Help-Texte | SYSTEM_TENANT_ID |
-| `welcome-email-body`, `password-reset-body` | Email-Templates (Markdown-Body) | SYSTEM_TENANT_ID oder tenant-Branding |
-| `marketing-pricing-cta`, `marketing-feature-list` | Marketing-Snippets für Landing-Pages | SYSTEM_TENANT_ID |
-| `tenant-welcome-message` | Tenant-spezifischer Text | TenantId (jeder Tenant pflegt seinen) |
+| `imprint`, `privacy` | Imprint, privacy (DACH) | SYSTEM_TENANT_ID (app-wide) |
+| `terms-of-service`, `eula` | Terms of service | SYSTEM_TENANT_ID or tenant-owned |
+| `faq-billing`, `faq-onboarding`, `faq-troubleshooting` | FAQ sections | SYSTEM_TENANT_ID |
+| `about-team`, `about-mission` | About pages | SYSTEM_TENANT_ID |
+| `help-shortcuts`, `help-search` | In-app help texts | SYSTEM_TENANT_ID |
+| `welcome-email-body`, `password-reset-body` | Email templates (Markdown body) | SYSTEM_TENANT_ID or tenant branding |
+| `marketing-pricing-cta`, `marketing-feature-list` | Marketing snippets for landing pages | SYSTEM_TENANT_ID |
+| `tenant-welcome-message` | Tenant-specific text | TenantId (each tenant maintains their own) |
 
-Konvention für Slugs: `kebab-case`, Hierarchie via `bereich-thema`
-(z.B. `faq-billing` statt `billing-faq` damit Listen-Aggregation
-nach Präfix einfach ist).
+Convention for slugs: `kebab-case`, hierarchy via `area-topic`
+(e.g. `faq-billing` rather than `billing-faq` so list aggregation by
+prefix is straightforward).
 
 ---
 
 ## API
 
-### `text-content:write:set` — Upsert pro Block
+### `text-content:write:set` — upsert per block
 
-Tenant-Admin schreibt einen Block. Idempotent: existiert bereits
-ein Block für `(tenantId, slug, lang)`, wird er aktualisiert.
+The tenant admin writes a block. Idempotent: if a block already exists
+for `(tenantId, slug, lang)`, it's updated.
 
 ```typescript
 import { TextContentHandlers } from "@cosmicdrift/kumiko-bundled-features/text-content";
@@ -86,20 +85,20 @@ await stack.http.writeOk(TextContentHandlers.set, {
 ```
 
 **Validation:**
-- `slug` — kebab-case (`/^[a-z0-9][a-z0-9-]*$/`), max 64 Zeichen
+- `slug` — kebab-case (`/^[a-z0-9][a-z0-9-]*$/`), max 64 chars
 - `lang` — ISO 639-1 (`de`, `en`, `en-us`, ...)
-- `title` — 1-200 Zeichen
-- `body` — Markdown, max 100000 Zeichen, nullable
+- `title` — 1-200 chars
+- `body` — Markdown, max 100000 chars, nullable
 
-**Access:** `roles: ["TenantAdmin"]`. Tenant-scope kommt automatisch
-aus `event.user.tenantId`. Plattform-Admins (SystemTenant) setzen
-Texte via SystemAdmin-Rolle in SYSTEM_TENANT_ID.
+**Access:** `roles: ["TenantAdmin"]`. Tenant scope comes automatically
+from `event.user.tenantId`. Platform admins (SystemTenant) set texts
+through the SystemAdmin role in SYSTEM_TENANT_ID.
 
-### `text-content:query:by-slug` — Public Read
+### `text-content:query:by-slug` — public read
 
-Anonymous-tauglich (`roles: ["anonymous", "User", "TenantAdmin",
-"SystemAdmin"]`) — Visitors auf Marketing-/Legal-Pages sollen Texte
-sehen ohne Login.
+Anonymous-capable (`roles: ["anonymous", "User", "TenantAdmin",
+"SystemAdmin"]`) — visitors on marketing/legal pages should see texts
+without a login.
 
 ```typescript
 import { TextContentQueries } from "@cosmicdrift/kumiko-bundled-features/text-content";
@@ -111,13 +110,13 @@ const block = await stack.http.queryOk(TextContentQueries.bySlug, {
 // → { slug, lang, title, body, updatedAt } | null
 ```
 
-**Tenant-Scope:** kommt aus `query.user.tenantId`. Bei anonymous-
-Requests muss der Server `anonymousAccess` mit `defaultTenantId`
-oder `tenantResolver` konfigurieren.
+**Tenant scope:** comes from `query.user.tenantId`. For anonymous
+requests the server must configure `anonymousAccess` with a
+`defaultTenantId` or `tenantResolver`.
 
 ---
 
-## Test-Helper
+## Test helper
 
 ```typescript
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
@@ -131,19 +130,19 @@ await seedTextBlock(db, {
 });
 ```
 
-Idempotent: zweiter Aufruf updated den Block.
+Idempotent: a second call updates the block.
 
 ---
 
-## Cross-Feature-API (für consumer-Features)
+## Cross-feature API (for consuming features)
 
-Wenn ein anderes Feature (z.B. `legal-pages`) text-blocks lesen will,
-**ohne direct code-import**, gibt es eine extraContext-API:
+When another feature (e.g. `legal-pages`) wants to read text blocks
+**without a direct code import**, there's an extraContext API:
 
 ```typescript
 import { createTextContentApi, requireTextContent } from "@cosmicdrift/kumiko-bundled-features/text-content";
 
-// 1. App-Bootstrap wired die API:
+// 1. App bootstrap wires the API:
 runProdApp({
   features: [createTextContentFeature(), createLegalPagesFeature(), /* ... */],
   extraContext: ({ db }) => ({
@@ -151,7 +150,7 @@ runProdApp({
   }),
 });
 
-// 2. Im consumer-Feature (z.B. legal-pages handler / boot-job):
+// 2. In the consumer feature (e.g. legal-pages handler / boot job):
 const textContent = requireTextContent(ctx, "my-handler");
 const block = await textContent.getBlock({
   tenantId: SYSTEM_TENANT_ID,
@@ -160,32 +159,32 @@ const block = await textContent.getBlock({
 });
 ```
 
-Pattern symmetrisch zu `config` ↔ `tenant`: `text-content` exportiert
-nur Type + Factory, consuming-Features importieren nur den Type. So
-kann text-content beliebig refactor werden ohne andere Features zu
-brechen — der Vertrag ist die `TextContentApi`-Schnittstelle.
+Pattern is symmetrical to `config` ↔ `tenant`: `text-content` only
+exports the type + factory, consuming features only import the type.
+This means text-content can be refactored freely without breaking
+other features — the contract is the `TextContentApi` interface.
 
-## Mit `legal-pages` kombinieren
+## Combining with `legal-pages`
 
-`legal-pages` ist ein opt-in-Wrapper der vier feste Convenience-
-Routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`,
-`/legal/privacy`) registriert und Markdown→HTML rendered. Siehe
+`legal-pages` is an opt-in wrapper that registers four fixed
+convenience routes (`/legal/impressum`, `/legal/datenschutz`,
+`/legal/imprint`, `/legal/privacy`) and renders Markdown→HTML. See
 [../legal-pages/README.md](../legal-pages/README.md).
 
 ---
 
-## Architektur
+## Architecture
 
-- **Single-Source-of-Truth:** `textBlockEntity` in `table.ts`.
-  Drizzle-Tabelle wird via `buildDrizzleTable("text-block",
-  textBlockEntity)` abgeleitet, der unique-Index auf
-  `(tenantId, slug, lang)` ist via `entity.indexes` deklariert.
-- **Event-Sourced:** Schreibe-Pfad geht durch
-  `createEventStoreExecutor` — `text-block.created` und
-  `text-block.updated` landen im Event-Stream, Projection-Row in
-  derselben TX. Subscribers (Audit, Search) bekommen die Events.
-- **Storage:** ein Block pro `(tenantId, slug, lang)`. SYSTEM_TENANT_ID
-  für app-weite Texte, normale TenantId für tenant-eigene.
+- **Single source of truth:** `textBlockEntity` in `table.ts`.
+  The Drizzle table is derived via `buildDrizzleTable("text-block",
+  textBlockEntity)`, the unique index on `(tenantId, slug, lang)` is
+  declared via `entity.indexes`.
+- **Event-sourced:** the write path goes through
+  `createEventStoreExecutor` — `text-block.created` and
+  `text-block.updated` land in the event stream, the projection row in
+  the same TX. Subscribers (audit, search) receive the events.
+- **Storage:** one block per `(tenantId, slug, lang)`. SYSTEM_TENANT_ID
+  for app-wide texts, regular TenantId for tenant-owned ones.
 
-Cross-Refs: [../../docs/plans/datenschutz/](../../../../docs/plans/datenschutz/) für
-das größere Datenschutz-Plan-Bild.
+Cross-refs: [../../docs/plans/datenschutz/](../../../../docs/plans/datenschutz/)
+for the bigger privacy plan picture.

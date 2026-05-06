@@ -1,57 +1,56 @@
 # Recipe: legal-pages + text-content
 
-DACH-Compliance-Stack: zwei opt-in bundled-features verdrahtet zu
-auto-rendernden Impressum + Datenschutzerklärung-Pages, mit
-Markdown-Authoring und Boot-Check für Pflicht-Inhalte.
+DACH compliance stack: two opt-in bundled features wired up to
+auto-rendered Imprint + Privacy-Policy pages, with Markdown authoring
+and a boot check for required content.
 
-**Was die Recipe zeigt:**
-- Beide Features in `runProdApp({ features: [...] })` aktivieren
-- Pflicht-Wirings: `anonymousAccess` + `extraContext.textContent`
-- Initial-Seed der DE-Pflicht-Blocks (Impressum + Datenschutz) für SYSTEM_TENANT
-- 5 integration-tests die End-to-End-Verhalten beweisen
+**What the recipe demonstrates:**
+- Activate both features in `runProdApp({ features: [...] })`
+- Required wirings: `anonymousAccess` + `extraContext.textContent`
+- Initial seed of the DE required blocks (Imprint + Privacy) for SYSTEM_TENANT
+- 5 integration tests proving end-to-end behavior
 
-## Aufbau
+## Layout
 
 ```
 samples/recipes/legal-pages/
 ├── package.json                # workspace deps
-├── README.md                   # diese Datei
+├── README.md                   # this file
 └── src/
-    ├── feature.ts              # die zwei Features re-exportiert für Tests
+    ├── feature.ts              # the two features re-exported for tests
     └── __tests__/
-        └── feature.integration.ts  # 5 Tests: Routes + Boot-Check
+        └── feature.integration.ts  # 5 tests: routes + boot check
 ```
 
-`feature.ts` ist absichtlich dünn (Re-Export). In einer echten App
-landet das in `bin/main.ts` (siehe „Integration in eine echte App"
-unten).
+`feature.ts` is intentionally thin (re-export). In a real app this
+lives in `bin/main.ts` (see "Integration into a real app" below).
 
-## Tests laufen
+## Run tests
 
 ```bash
-# Vom Repo-Root aus:
+# From the repo root:
 yarn test:all run samples/recipes/legal-pages/
 ```
 
-Erwarteter Output:
+Expected output:
 ```
 Test Files  1 passed (1)
      Tests  5 passed (5)
 ```
 
-Wenn Tests grün sind, ist:
-- text-content + legal-pages compatibel
-- Tabellen-Schema sauber via `createEntityTable(stack.db, textBlockEntity)`
-- Routes erreichbar über `stack.app.request("/legal/impressum")`
-- Markdown-Render produziert gültiges HTML
-- Boot-Check erkennt fehlende Blocks korrekt
+When the tests are green:
+- text-content + legal-pages are compatible
+- Table schema is clean via `createEntityTable(stack.db, textBlockEntity)`
+- Routes are reachable via `stack.app.request("/legal/impressum")`
+- Markdown rendering produces valid HTML
+- Boot check correctly detects missing blocks
 
-## Integration in eine echte App
+## Integration into a real app
 
-Schritt-für-Schritt für eine bestehende Kumiko-App (z.B.
+Step-by-step for an existing Kumiko app (e.g.
 `samples/showcases/your-app/`):
 
-### 1. Features in `runProdApp` aktivieren
+### 1. Activate features in `runProdApp`
 
 ```typescript
 // bin/main.ts
@@ -67,34 +66,34 @@ await runProdApp({
   features: [
     createTextContentFeature(),
     createLegalPagesFeature(),
-    /* ... deine anderen Features */
+    /* ... your other features */
   ],
-  // Pflicht (1): Routes laufen anonymous, brauchen Tenant-Resolution
+  // Required (1): routes run anonymous, need tenant resolution
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-  // Pflicht (2): Boot-Check + interner Lookup nutzen ctx.textContent
+  // Required (2): boot check + internal lookup use ctx.textContent
   extraContext: ({ db }) => ({
     textContent: createTextContentApi(db),
   }),
 });
 ```
 
-→ Bei host-basierten Multi-Tenant-Apps (wie publicstatus.eu) bleibt
-`SYSTEM_TENANT_ID` für legal-pages immer korrekt — die Routes setzen
-intern `X-Tenant: SYSTEM_TENANT_ID` und überstimmen jeden host-
-basierten `tenantResolver`. Das ist die Entscheidung „1 App = X Tenants
-= 1 Impressum".
+→ For host-based multi-tenant apps (like publicstatus.eu),
+`SYSTEM_TENANT_ID` always stays correct for legal-pages — the routes
+internally set `X-Tenant: SYSTEM_TENANT_ID` and override any
+host-based `tenantResolver`. This is the "1 app = X tenants = 1
+imprint" decision.
 
-### 2. Tabelle anlegen
+### 2. Create the table
 
 ```bash
-# Im App-Workspace:
-yarn kumiko migrate generate    # erkennt text-block-Entity → SQL-Migration
-yarn kumiko migrate apply       # einmalig (Pre-Deploy-Step in Prod)
+# In the app workspace:
+yarn kumiko migrate generate    # detects text-block entity → SQL migration
+yarn kumiko migrate apply       # one-time (pre-deploy step in prod)
 ```
 
-### 3. Initial-Seed der Pflicht-Blocks
+### 3. Initial seed of the required blocks
 
-Eine einmalige Setup-Routine die beim ersten Boot oder via CLI läuft:
+A one-shot setup routine that runs on first boot or via the CLI:
 
 ```typescript
 // bin/seed-legal.ts
@@ -141,27 +140,27 @@ await seedTextBlock(db, {
 });
 ```
 
-→ Vorlagen für vollständige rechtssichere Texte: e-recht24.de
-oder datenschutz-generator.de von Dr. Schwenke. Siehe
+→ Templates for full legally-sound texts: e-recht24.de
+or datenschutz-generator.de by Dr. Schwenke. See
 [docs/plans/datenschutz/legal-artifacts.md](../../../docs/plans/datenschutz/legal-artifacts.md).
 
-### 4. Pages besuchen
+### 4. Visit the pages
 
-Nach dem Seed sind diese URLs sofort live:
+After the seed these URLs are immediately live:
 
-| URL | Inhalt |
+| URL | Content |
 |---|---|
 | `https://your-app.example/legal/impressum` | Impressum (DE) |
 | `https://your-app.example/legal/datenschutz` | Datenschutzerklärung (DE) |
-| `https://your-app.example/legal/imprint` | Imprint (EN, falls geseedet) |
-| `https://your-app.example/legal/privacy` | Privacy Policy (EN, falls geseedet) |
+| `https://your-app.example/legal/imprint` | Imprint (EN, if seeded) |
+| `https://your-app.example/legal/privacy` | Privacy Policy (EN, if seeded) |
 
-→ Footer-Links pro App selbst setzen (legal-pages liefert keine
-Footer-Component — bewusst, jede App hat ihr eigenes Layout).
+→ Footer links are set per app (legal-pages does not ship a footer
+component — deliberately, every app has its own layout).
 
-### 5. Texte später ändern (TenantAdmin-Pflege)
+### 5. Editing texts later (TenantAdmin maintenance)
 
-Über die normale Write-API:
+Through the standard write API:
 
 ```typescript
 await fetch("/api/write", {
@@ -174,34 +173,34 @@ await fetch("/api/write", {
 });
 ```
 
-ACL: `["TenantAdmin", "SystemAdmin"]`. Cache-Header `public, max-age=300`
-— Visitors sehen Updates spätestens nach 5 Minuten.
+ACL: `["TenantAdmin", "SystemAdmin"]`. Cache header `public, max-age=300`
+— visitors see updates within 5 minutes at most.
 
-## Boot-Check-Verhalten
+## Boot-check behavior
 
-Wenn die Pflicht-Blocks (`imprint/de` + `privacy/de`) im SYSTEM_TENANT
-fehlen:
+When the required blocks (`imprint/de` + `privacy/de`) are missing
+from SYSTEM_TENANT:
 
-| Modus | Verhalten |
+| Mode | Behavior |
 |---|---|
-| `NODE_ENV=production` | App-Boot wirft Error mit slug-Liste — Container exit |
-| sonst (dev/test) | `console.warn` mit slug-Liste, App startet trotzdem |
+| `NODE_ENV=production` | App boot throws an error with a slug list — container exits |
+| otherwise (dev/test) | `console.warn` with a slug list, app starts anyway |
 
-→ Sicherheits-Netz: kein Production-Deploy ohne befüllte Legal-Pages.
+→ Safety net: no production deploy without populated legal pages.
 
 ## Troubleshooting
 
-| Symptom | Ursache | Fix |
+| Symptom | Cause | Fix |
 |---|---|---|
-| Route returnt `503 legal page unavailable` | `anonymousAccess` nicht in `runProdApp` konfiguriert | `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` setzen |
-| Boot-Check wirft `ctx.textContent missing` | `extraContext.textContent` nicht gewired | `extraContext: ({ db }) => ({ textContent: createTextContentApi(db) })` setzen |
-| Route returnt `404 not configured` | Pflicht-Block existiert nicht oder hat `body=null` | `seedTextBlock` mit body-string |
-| Multi-Tenant-App: tenant-subdomain zeigt leere Page | (Bug-Regression?) Routes sollten IMMER SYSTEM_TENANT-Texte zeigen | Test in `legal-pages.integration.ts` „SYSTEM_TENANT-routing" prüft das — sollte grün sein |
-| `<script>`-Tags im Markdown-Body landen 1:1 im HTML | Bewusst aktuell — siehe [legal-pages/README.md XSS-Sektion](../../../packages/bundled-features/src/legal-pages/README.md#xss--bewusst-aktuell-nicht-gesichert) | DOMPurify als Phase-2 wenn Multi-Author-Setup kommt |
+| Route returns `503 legal page unavailable` | `anonymousAccess` not configured in `runProdApp` | Set `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` |
+| Boot check throws `ctx.textContent missing` | `extraContext.textContent` not wired | Set `extraContext: ({ db }) => ({ textContent: createTextContentApi(db) })` |
+| Route returns `404 not configured` | Required block doesn't exist or has `body=null` | `seedTextBlock` with a body string |
+| Multi-tenant app: tenant subdomain shows an empty page | (Bug regression?) Routes should ALWAYS show SYSTEM_TENANT texts | The `legal-pages.integration.ts` test "SYSTEM_TENANT routing" covers this — should be green |
+| `<script>` tags in a Markdown body land 1:1 in the HTML | Deliberately accepted right now — see [legal-pages/README.md XSS section](../../../packages/bundled-features/src/legal-pages/README.md#xss--currently-not-secured-by-design) | DOMPurify is a Phase 2 once a multi-author setup arrives |
 
-## Cross-Refs
+## Cross-refs
 
-- [packages/bundled-features/src/text-content/README.md](../../../packages/bundled-features/src/text-content/README.md) — generisches Text-Modul
-- [packages/bundled-features/src/legal-pages/README.md](../../../packages/bundled-features/src/legal-pages/README.md) — DACH-Compliance-Wrapper
-- [docs/plans/datenschutz/](../../../docs/plans/datenschutz/) — konsolidierter Datenschutz-Plan-Index
-- [docs/plans/datenschutz/legal-artifacts.md](../../../docs/plans/datenschutz/legal-artifacts.md) — Vorlagen-Quellen für rechtssichere Texte
+- [packages/bundled-features/src/text-content/README.md](../../../packages/bundled-features/src/text-content/README.md) — generic text module
+- [packages/bundled-features/src/legal-pages/README.md](../../../packages/bundled-features/src/legal-pages/README.md) — DACH compliance wrapper
+- [docs/plans/datenschutz/](../../../docs/plans/datenschutz/) — consolidated privacy plan index
+- [docs/plans/datenschutz/legal-artifacts.md](../../../docs/plans/datenschutz/legal-artifacts.md) — template sources for legally-sound texts

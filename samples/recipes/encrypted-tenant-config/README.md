@@ -1,8 +1,8 @@
 # Recipe: Encrypted per-tenant config
 
-**What this shows:** wie ein SaaS-Customer seinen eigenen API-Key (Stripe,
-Slack-webhook, SMTP-pass …) selbst in Settings speichert, ohne dass der
-Plattform-Operator den Klartext aus der DB lesen kann.
+**What this shows:** how a SaaS customer stores their own API key
+(Stripe, Slack webhook, SMTP password …) in their settings, without
+the platform operator being able to read the plaintext from the DB.
 
 ## Pattern
 
@@ -10,37 +10,38 @@ Plattform-Operator den Klartext aus der DB lesen kann.
 import { access, createTenantConfig } from "@cosmicdrift/kumiko-framework/engine";
 
 createTenantConfig("text", {
-  encrypted: true,        // ← ciphertext in der DB
-  write: access.admin,    // ← tenant-admin schreibt seinen eigenen
-  read: access.admin,     // ← niemand sonst sieht ihn
+  encrypted: true,        // ← ciphertext in the DB
+  write: access.admin,    // ← the tenant admin writes their own
+  read: access.admin,     // ← nobody else sees it
 });
 ```
 
-Der config-resolver entschlüsselt beim `ctx.config(handle)`-call mit dem
-`EncryptionProvider` aus `extraContext.configEncryption`. Wer den
-Master-Key (= `CONFIG_ENCRYPTION_KEY` env) NICHT hat, sieht in der DB nur
-base64-AES-ciphertext.
+The config resolver decrypts on the `ctx.config(handle)` call using
+the `EncryptionProvider` from `extraContext.configEncryption`. Anyone
+without the master key (= the `CONFIG_ENCRYPTION_KEY` env) only sees
+base64 AES ciphertext in the DB.
 
-## Use-cases
+## Use cases
 
-- **Per-Tenant API-Keys** — Customer A nutzt SEIN Stripe-Konto, Customer B
-  SEINS. Plattform-Operator führt KEINE Stripe-Calls für Customer aus.
-- **Webhook-Secrets** — pro Tenant ein eigener Slack/Discord-incoming-
-  webhook-URL.
-- **SMTP-Credentials** — pro Tenant ein eigener Mailserver (siehe
+- **Per-tenant API keys** — Customer A uses THEIR Stripe account,
+  Customer B uses THEIRS. The platform operator never makes Stripe
+  calls on behalf of customers.
+- **Webhook secrets** — per-tenant Slack/Discord incoming webhook URL.
+- **SMTP credentials** — per-tenant mail server (see
   `samples/showcases/publicstatus` Phase 2).
 
 ## Vs. `r.secret` / `samples/recipes/secrets-demo`
 
-| Pattern | Scope | Use-case |
+| Pattern | Scope | Use case |
 |---|---|---|
-| **`r.secret`** (envelope-encryption, KEK-rotation) | App-global | Plattform-eigene secrets (z.B. der Master-Stripe-Key der ALLE customers abrechnet). |
-| **`encrypted: true` config-key** (dieses recipe) | Per-tenant | Customer-eigene secrets. Customer setzt selbst, rotiert selbst, sieht keinen anderen Customer. |
+| **`r.secret`** (envelope encryption, KEK rotation) | App-global | Platform-owned secrets (e.g. the master Stripe key that bills ALL customers). |
+| **`encrypted: true` config key** (this recipe) | Per-tenant | Customer-owned secrets. Customer sets, rotates, and never sees another customer's. |
 
-Kombinierbar: Plattform nutzt `r.secret` für ihre internal-secrets, und
-parallel haben Customer ihre tenant-eigenen `encrypted: true` config-keys.
+Combinable: the platform uses `r.secret` for its internal secrets,
+and in parallel customers have their tenant-owned `encrypted: true`
+config keys.
 
-## Boot-Wiring
+## Boot wiring
 
 ```ts
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
@@ -52,21 +53,21 @@ const configResolver = createConfigResolver({ encryption });
 await runProdApp({
   extraContext: ({ registry }) => ({
     configResolver,
-    configEncryption: encryption,  // ← Pflicht für encrypted-keys
+    configEncryption: encryption,  // ← required for encrypted keys
     _configAccessorFactory: createConfigAccessorFactory(registry, configResolver),
   }),
   // ...
 });
 ```
 
-## Sicherheits-Garantien
+## Security guarantees
 
-1. **DB-Klartext-Free:** `SELECT value FROM config_values WHERE key = 'stripe-api-key'` returnt NUR ciphertext. Backup-files, DB-Dumps, postgres-eavesdropping → kein Klartext-Leak.
-2. **UI-Mask:** `config:query:values` returnt `"••••••"` für encrypted-keys. Auch der Admin der den Wert SETZEN darf, sieht ihn nicht zurück. (Wer den Wert braucht, geht über `ctx.config(handle)` im backend, nicht über die UI.)
-3. **Tenant-Isolation:** jeder Tenant hat seinen eigenen Eintrag — `(key, tenantId)` ist im config-feature unique. Customer A sieht NIE Customer B's API-Key.
+1. **DB plaintext-free:** `SELECT value FROM config_values WHERE key = 'stripe-api-key'` returns ONLY ciphertext. Backup files, DB dumps, postgres eavesdropping → no plaintext leak.
+2. **UI mask:** `config:query:values` returns `"••••••"` for encrypted keys. Even the admin allowed to SET the value doesn't see it back. (If you need the value, go through `ctx.config(handle)` in the backend, not through the UI.)
+3. **Tenant isolation:** every tenant has its own entry — `(key, tenantId)` is unique in the config feature. Customer A NEVER sees Customer B's API key.
 
-## Was nicht in diesem Recipe ist
+## What's not in this recipe
 
-- **Key-Rotation:** der CONFIG_ENCRYPTION_KEY ist app-global, Rotation erfordert decrypt-old + encrypt-new pro Eintrag. Nicht-trivial. Wer das braucht: `samples/recipes/secrets-demo` zeigt envelope-encryption mit KEK-rotation für app-global secrets.
-- **Audit-Trail:** secrets-demo trackt jeden Secret-read als event. Hier nicht — config-keys sind als "settings" gedacht (read frequent, audit overkill).
-- **Backup-Encryption:** `CONFIG_ENCRYPTION_KEY` muss bei jedem Backup mitgesichert werden, sonst ist die DB nach restore wertlos. Operator-Pflicht.
+- **Key rotation:** the `CONFIG_ENCRYPTION_KEY` is app-global, rotation requires decrypt-old + encrypt-new per entry. Non-trivial. If you need it: `samples/recipes/secrets-demo` shows envelope encryption with KEK rotation for app-global secrets.
+- **Audit trail:** secrets-demo tracks every secret read as an event. Not here — config keys are meant as "settings" (read frequent, audit overkill).
+- **Backup encryption:** `CONFIG_ENCRYPTION_KEY` must be backed up alongside every backup, otherwise the DB is worthless after restore. Operator's job.
