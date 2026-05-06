@@ -20,21 +20,15 @@ import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framework/api";
-import { tableExists } from "@cosmicdrift/kumiko-framework/db";
-import {
-  buildAppSchema,
-  type FeatureDefinition,
-  type Registry,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  pushEntityProjectionTables,
   setupTestStack,
   type TestStack,
   type TestStackOptions,
   TestUsers,
-  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { getTableName } from "drizzle-orm";
 import { injectSchema } from "./inject-schema";
 import { resolveTailwindCli } from "./resolve-tailwind-cli";
 import { buildBunServeOptions } from "./run-prod-app";
@@ -530,36 +524,6 @@ async function startTailwindWatcher(
       }
     },
   };
-}
-
-// Push all implicit-projection tables — one per r.entity() — that the
-// registry knows about. setupTestStack already handles explicit
-// projections, MSPs, and r.rawTable() declarations in its own loop;
-// implicit projections are the missing piece for a fresh boot. Idempotent
-// via tableExists so a persistent dev DB (KUMIKO_DEV_DB_NAME) reuses
-// existing tables on reboot. One batched push at the end (drizzle-kit
-// generateMigration runs once over the whole missing set).
-async function pushEntityProjectionTables(stack: TestStack, registry: Registry): Promise<void> {
-  const seen = new Set<unknown>();
-  const missing: Record<string, unknown> = {};
-
-  for (const [projName, proj] of registry.getAllProjections()) {
-    if (!proj.isImplicit) continue;
-    if (seen.has(proj.table)) continue;
-    seen.add(proj.table);
-    // @cast-boundary drizzle-bridge — ProjectionTable + PgTable both round-trip
-    // through getTableName at runtime; the type system can't unify them.
-    const physical = getTableName(proj.table as Parameters<typeof getTableName>[0]);
-    if (await tableExists(stack.db, `public.${physical}`)) {
-      logInfo(`[kumiko-server] table ${physical} already exists — skipping create`);
-      continue;
-    }
-    missing[projName] = proj.table;
-  }
-
-  if (Object.keys(missing).length > 0) {
-    await unsafePushTables(stack.db, missing);
-  }
 }
 
 /** @internal — normalisierte Client-Entry-Form, einheitlich über

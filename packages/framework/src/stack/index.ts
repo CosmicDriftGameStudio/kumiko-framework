@@ -15,6 +15,7 @@ export {
   type TestDb,
 } from "./db";
 export { createEventCollector, type EventCollector } from "./event-collector";
+export { pushEntityProjectionTables } from "./push-entity-projection-tables";
 export { createTestRedis, type TestRedis } from "./redis";
 export { createRequestHelper, type RequestHelper } from "./request-helper";
 export {
