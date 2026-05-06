@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.2.0
+
+### Minor Changes
+
+- 6c70b6f: fix(tenant): seedTenant idempotent gegen Event-Store-Projection-Drift.
+
+  Verhindert version_conflict beim App-Boot wenn Aggregat existiert aber
+  Projection-Row fehlt (rebuild-drift, async-lag, manueller DB-Eingriff).
+
 ## 0.1.0
 
 ### Minor Changes
