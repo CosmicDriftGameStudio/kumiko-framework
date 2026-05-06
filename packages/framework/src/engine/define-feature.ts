@@ -112,6 +112,8 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const notifications: Record<string, NotificationDefinition> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
+  const exposedApis: Record<string, unknown> = {};
+  const usedApis: Set<string> = new Set();
   const referenceData: ReferenceDataDef[] = [];
   const handlerEntityMappings: Record<string, string> = {};
   const metrics: Record<string, FeatureMetricDef> = {};
@@ -464,6 +466,41 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       extensionUsages.push({ extensionName, entityName: resolveName(entityRef), options });
     },
 
+    /**
+     * Exposes a cross-feature API endpoint. Other features call it by name
+     * via the QN-pattern (see existing legal-pages → text-content). The
+     * boot-validator (validateApiExposureMatching) prüft dass jedes
+     * `r.usesApi(name)` einen passenden Exposer findet — verhindert dass
+     * Tippfehler oder Drop-Refactorings zu Runtime-Crashes werden.
+     *
+     * Beispiel:
+     *   defineFeature("compliance-profiles", (r) => {
+     *     r.exposesApi("compliance.forTenant", complianceForTenant);
+     *   });
+     *   defineFeature("user-data-rights", (r) => {
+     *     r.requires("compliance-profiles");
+     *     r.usesApi("compliance.forTenant");
+     *     // ... irgendwo im Handler: ctx.callApi("compliance.forTenant", ...)
+     *   });
+     */
+    exposesApi(apiName: string, impl: unknown): void {
+      if (exposedApis[apiName] !== undefined) {
+        throw new Error(
+          `[Feature ${name}] r.exposesApi("${apiName}") called twice — API names must be unique within a feature.`,
+        );
+      }
+      exposedApis[apiName] = impl;
+    },
+
+    /**
+     * Declares that this feature calls a cross-feature API. Boot-Validator
+     * checkt dass irgendein anderes Feature `r.exposesApi(name)` macht und
+     * dass dieses Feature `r.requires` darauf hat.
+     */
+    usesApi(apiName: string): void {
+      usedApis.add(apiName);
+    },
+
     metric(shortName: string, options: MetricOptions): void {
       if (metrics[shortName]) {
         throw new Error(
@@ -720,6 +757,8 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     notifications,
     registrarExtensions,
     extensionUsages,
+    exposedApis,
+    usedApis,
     referenceData,
     events,
     eventMigrations,

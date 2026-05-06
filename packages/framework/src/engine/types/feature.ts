@@ -164,6 +164,22 @@ export type FeatureDefinition = {
   readonly jobs: Readonly<Record<string, JobDefinition>>;
   readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
   readonly extensionUsages: readonly RegistrarExtensionRegistration[];
+  /**
+   * Cross-feature API endpoints exposed by this feature via
+   * `r.exposesApi(name, impl)`. Other features call them via the QN-
+   * Pattern; the boot-validator checks that every `r.usesApi(name)`-
+   * declaration finds a matching exposer here. Memory: feedback_role_
+   * naming_drift — typed declaration + boot-check verhindert Magic-
+   * String-Drift bei Cross-Feature-Aufrufen.
+   */
+  readonly exposedApis: Readonly<Record<string, unknown>>;
+  /**
+   * Cross-feature API endpoints this feature calls. Pflicht-Boot-Check:
+   * jeder Eintrag muss in `exposedApis` irgendeines Features auftauchen.
+   * Vermeidet dass Tippfehler oder Drop-Refactorings zu Runtime-Crash
+   * statt Boot-Fail werden.
+   */
+  readonly usedApis: ReadonlySet<string>;
   readonly referenceData: readonly ReferenceDataDef[];
   readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;
@@ -359,6 +375,36 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
   useExtension(extensionName: string, entity: NameOrRef, options?: Record<string, unknown>): void;
+
+  /**
+   * Exposes a cross-feature API endpoint with explicit Boot-Check. Other
+   * features call it via QN-pattern; the boot-validator
+   * (validateApiExposureMatching) verifies that every `r.usesApi(name)`
+   * declaration matches an exposer here. Verhindert Magic-String-Drift
+   * + Tippfehler bei Cross-Feature-Aufrufen (Memory:
+   * feedback_role_naming_drift).
+   *
+   * ```ts
+   * defineFeature("compliance-profiles", (r) => {
+   *   r.exposesApi("compliance.forTenant", complianceForTenant);
+   * });
+   * ```
+   */
+  exposesApi(apiName: string, impl: unknown): void;
+
+  /**
+   * Declares that this feature calls a cross-feature API. Boot-Validator
+   * checkt dass irgendein anderes Feature `r.exposesApi(apiName)` macht
+   * und dass dieses Feature `r.requires/optionalRequires` darauf hat.
+   *
+   * ```ts
+   * defineFeature("user-data-rights", (r) => {
+   *   r.requires("compliance-profiles");
+   *   r.usesApi("compliance.forTenant");
+   * });
+   * ```
+   */
+  usesApi(apiName: string): void;
 
   // Declare a metric. Short name (without kumiko_<feature>_ prefix) — Framework
   // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.

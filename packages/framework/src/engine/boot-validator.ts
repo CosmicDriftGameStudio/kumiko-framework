@@ -126,6 +126,25 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   const allWorkspaceQns = collectWorkspaceQns(features);
   const allWriteHandlerQns = collectWriteHandlerQns(features);
 
+  // Cross-feature API exposure-map — every name an exposing feature
+  // declared via r.exposesApi(). Per-feature validateApiExposureMatching
+  // walks usedApis-set and checks each one resolves here. Verhindert
+  // dass typo-getroffene QN-Aufrufe oder gedroppte Features zu Runtime-
+  // Crash statt Boot-Fail werden (Memory feedback_role_naming_drift —
+  // Magic-Strings im Cross-Feature-Code).
+  const allExposedApis = new Map<string, string>(); // apiName → providerFeature
+  for (const f of features) {
+    for (const apiName of Object.keys(f.exposedApis)) {
+      const existing = allExposedApis.get(apiName);
+      if (existing && existing !== f.name) {
+        throw new Error(
+          `Cross-feature API "${apiName}" exposed by both "${existing}" and "${f.name}" — API names must be globally unique.`,
+        );
+      }
+      allExposedApis.set(apiName, f.name);
+    }
+  }
+
   let hasEncryptedFields = false;
   let hasFileFields = false;
 
@@ -134,6 +153,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     if (validateEncryptedFields(feature)) hasEncryptedFields = true;
     if (validateFileFields(feature)) hasFileFields = true;
     validatePiiAndRetention(feature);
+    validateApiExposureMatching(feature, allExposedApis, featureMap);
     validateEmbeddedFields(feature);
     validateMultiSelectFields(feature);
     validateReferenceFields(feature, featureMap);
@@ -680,6 +700,59 @@ function validatePiiAndRetention(feature: FeatureDefinition): void {
           );
         }
       }
+    }
+  }
+}
+
+// --- Cross-feature API exposure / usage matching ---
+//
+// `r.exposesApi(name, impl)` registers a callable; `r.usesApi(name)`
+// declares a caller. Boot-Validator prüft drei Invarianten:
+//   1. Jeder usesApi(name) findet einen exposesApi(name) in irgendeinem
+//      Feature.
+//   2. Das exposing-Feature ist in requires/optionalRequires des callers
+//      gelisted (sonst klappt die Cross-Feature-Aufruf-Reihenfolge nicht).
+//   3. Self-exposure ist erlaubt (Feature ruft eigene API), wird aber
+//      mit Warning markiert weil es typisch ein Refactor-Restbestand ist.
+//
+// Globale Eindeutigkeit der apiNames (kein Dublicate über Features)
+// wird in validateBoot() vor dem Per-Feature-Walk geprüft.
+function validateApiExposureMatching(
+  feature: FeatureDefinition,
+  allExposedApis: ReadonlyMap<string, string>,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  for (const apiName of feature.usedApis) {
+    const providerFeature = allExposedApis.get(apiName);
+    if (!providerFeature) {
+      const known = [...allExposedApis.keys()].sort().join(", ") || "(none)";
+      throw new Error(
+        `[Feature ${feature.name}] r.usesApi("${apiName}") but no feature exposes that API. Known exposed APIs: ${known}`,
+      );
+    }
+
+    if (providerFeature === feature.name) {
+      // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+      console.warn(
+        `[kumiko:boot] [Feature ${feature.name}] r.usesApi("${apiName}") on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
+      );
+      continue;
+    }
+
+    const allDeps = [...feature.requires, ...feature.optionalRequires];
+    if (!allDeps.includes(providerFeature)) {
+      throw new Error(
+        `[Feature ${feature.name}] r.usesApi("${apiName}") is exposed by "${providerFeature}" but feature is not in requires/optionalRequires. Add r.requires("${providerFeature}").`,
+      );
+    }
+
+    // Sanity: provider feature actually exists in this app's feature set.
+    // Should always be true if allExposedApis was built from `features`,
+    // aber defensiv für unklare Constructor-Pfade.
+    if (!featureMap.has(providerFeature)) {
+      throw new Error(
+        `[Feature ${feature.name}] internal: r.usesApi("${apiName}") points to provider "${providerFeature}" which is not in feature map`,
+      );
     }
   }
 }
