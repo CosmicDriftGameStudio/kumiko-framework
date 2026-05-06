@@ -1,4 +1,8 @@
-import { createEntity, createTextField, createTimestampField } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  createTimestampField,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 // =============================================================================
 // `subscription` — current state pro Plattform-Tenant (= Read-Model)

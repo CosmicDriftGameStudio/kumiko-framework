@@ -21,5 +21,12 @@
 // Framework-Infra. Umbenennen ist breaking change für App-Imports.)
 
 // Framework-Infra (immer da, unabhängig von Features)
-export { archivedStreamsTable, eventsTable, snapshotsTable } from "@cosmicdrift/kumiko-framework/event-store";
-export { eventConsumerStateTable, projectionStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
+export {
+  archivedStreamsTable,
+  eventsTable,
+  snapshotsTable,
+} from "@cosmicdrift/kumiko-framework/event-store";
+export {
+  eventConsumerStateTable,
+  projectionStateTable,
+} from "@cosmicdrift/kumiko-framework/pipeline";

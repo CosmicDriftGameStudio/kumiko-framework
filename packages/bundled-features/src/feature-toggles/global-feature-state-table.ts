@@ -1,4 +1,10 @@
-import { boolean, instant, integer, table as pgTable, text } from "@cosmicdrift/kumiko-framework/db";
+import {
+  boolean,
+  instant,
+  integer,
+  table as pgTable,
+  text,
+} from "@cosmicdrift/kumiko-framework/db";
 import { sql } from "drizzle-orm";
 
 // Global feature-toggle override state. One row per feature that has ever

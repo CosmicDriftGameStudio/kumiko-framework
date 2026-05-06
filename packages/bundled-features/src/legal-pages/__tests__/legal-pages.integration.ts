@@ -8,7 +8,11 @@ import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createEntityTable, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  createEntityTable,
+  setupTestStack,
+  type TestStack,
+} from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createLegalPagesFeature, runLegalPagesBootCheck } from "../feature";
 import { renderMarkdownToHtml, wrapInLayout } from "../markdown";

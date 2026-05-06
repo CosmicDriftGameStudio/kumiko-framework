@@ -100,12 +100,13 @@ function banner(): void {
 // danach noch Unit + Integration Tests an; `kumiko check:fast` hängt nur
 // `vitest run --changed` an und skipt Integration komplett.
 const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
-  // Biome explizit auf packages/samples/app — `.` triggert FS-walk durch
+  // Biome explizit auf packages/samples — `.` triggert FS-walk durch
   // docs/plans/marketing/* die im local-dev als symlinks auf kumiko-
   // platform zeigen. CI hat den Nachbar-Repo nicht → broken-symlink-
   // error im scan-Pfad. Die biome.json `files.includes` filtert nur
-  // Lint-Targets, nicht den Discovery-Walk.
-  { name: "Biome", cmd: "yarn biome check packages samples app" },
+  // Lint-Targets, nicht den Discovery-Walk. (`app/` war in O.1 #18
+  // archiviert.)
+  { name: "Biome", cmd: "yarn biome check packages samples" },
   // tsc -b nutzt .tsbuildinfo-Caches — Re-Runs bei unverändertem Code
   // sind nahezu instant. Project-References im root tsconfig ziehen alle
   // Workspaces mit (framework, bundled-features, headless, dispatcher-
@@ -122,7 +123,8 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // multi-root-aware, scannen alle 4 Repos (kumiko-framework,
   // -enterprise, -studio, publicstatus). Aufruf via Pfad relativ zur
   // framework-Repo-Wurzel. Concepts wurden archiviert (O.4 Schritt 9),
-  // also Concept-Check raus.
+  // also Concept-Check + Truth-Anchors-Check raus — beide werden neu
+  // konzipiert wenn das Concepts-Layer-Format steht.
   { name: "Silent-Skip Guard", cmd: "bun ../infra/guards/guard-silent-skip.ts" },
   { name: "Admin-API Guard", cmd: "bun ../infra/guards/guard-admin-api.ts" },
   { name: "Unsafe-JSON-Parse Guard", cmd: "bun ../infra/guards/guard-unsafe-json-parse.ts" },
@@ -147,8 +149,6 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   { name: "Predicate Extraction Check", cmd: "bun ../infra/guards/check-predicates.ts" },
   { name: "as-Cast Audit", cmd: "bun ../infra/guards/check-as-casts.ts" },
   { name: "License Check", cmd: "bun ../infra/guards/check-licenses.ts" },
-  // Cross-Domain Truth-Anchors: validiert truth_anchors-Frontmatter in Doku/Marketing-Files
-  { name: "Truth-Anchors Check", cmd: "bun scripts/truth-anchors-check.ts" },
 ];
 
 const commands = {

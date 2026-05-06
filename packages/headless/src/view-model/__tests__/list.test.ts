@@ -1,4 +1,7 @@
-import type { EntityDefinition, EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  EntityDefinition,
+  EntityListScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { describe, expect, test, vi } from "vitest";
 import { computeListViewModel } from "../list";
 

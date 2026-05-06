@@ -1,5 +1,12 @@
-import { requireTextContent, type TextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
-import { defineFeature, type FeatureDefinition, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  requireTextContent,
+  type TextContentApi,
+} from "@cosmicdrift/kumiko-bundled-features/text-content";
+import {
+  defineFeature,
+  type FeatureDefinition,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES } from "./constants";
 import { renderMarkdownToHtml, wrapInLayout } from "./markdown";
 

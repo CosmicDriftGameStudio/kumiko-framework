@@ -224,7 +224,9 @@ export type RunProdAppDeps = {
 
 export type AnonymousAccessOption =
   | import("@cosmicdrift/kumiko-framework/api").ServerOptions["anonymousAccess"]
-  | ((deps: RunProdAppDeps) => import("@cosmicdrift/kumiko-framework/api").ServerOptions["anonymousAccess"]);
+  | ((
+      deps: RunProdAppDeps,
+    ) => import("@cosmicdrift/kumiko-framework/api").ServerOptions["anonymousAccess"]);
 
 export type ExtraContextOption =
   | Record<string, unknown>
@@ -338,7 +340,10 @@ export type RunProdAppOptions = {
    *  (Routes laufen außerhalb der Auth/Tenant-Pipeline). */
   readonly extraRoutes?: (
     app: import("hono").Hono,
-    deps: { db: import("@cosmicdrift/kumiko-framework/db").DbConnection; redis: import("ioredis").default },
+    deps: {
+      db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
+      redis: import("ioredis").default;
+    },
   ) => void;
   /** When true (default), Bun.serve is started before runProdApp resolves —
    *  the common case: `await runProdApp({...})` boots the server and the

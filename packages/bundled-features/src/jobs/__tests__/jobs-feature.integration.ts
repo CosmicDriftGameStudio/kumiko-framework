@@ -1,6 +1,10 @@
 import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createRegistry, defineFeature, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createRegistry,
+  defineFeature,
+  type SessionUser,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {

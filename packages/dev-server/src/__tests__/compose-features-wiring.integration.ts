@@ -27,7 +27,10 @@ import {
   AuthHandlers,
   hashPassword,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { configValuesTable, createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  configValuesTable,
+  createConfigResolver,
+} from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";

@@ -9,7 +9,11 @@
 // Dropdown etc. kommen später).
 
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
-import type { DataTableRowAction, DataTableSort, DataTableSortDir } from "@cosmicdrift/kumiko-renderer";
+import type {
+  DataTableRowAction,
+  DataTableSort,
+  DataTableSortDir,
+} from "@cosmicdrift/kumiko-renderer";
 import {
   type BannerProps,
   type ButtonProps,

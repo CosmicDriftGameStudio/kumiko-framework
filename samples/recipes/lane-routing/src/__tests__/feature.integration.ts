@@ -16,7 +16,10 @@
 
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { createAllInOneEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
-import { createArchivedStreamsTable, createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createArchivedStreamsTable,
+  createEventsTable,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import { createEventConsumerStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestDb,

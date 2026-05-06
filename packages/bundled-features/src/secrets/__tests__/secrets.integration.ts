@@ -6,7 +6,10 @@
 
 import { randomBytes } from "node:crypto";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createEnvMasterKeyProvider, type MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import {
+  createEnvMasterKeyProvider,
+  type MasterKeyProvider,
+} from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
   pushTables,

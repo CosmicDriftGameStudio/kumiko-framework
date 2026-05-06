@@ -1,4 +1,8 @@
-import { defineApply, defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineApply,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import type { z } from "zod";
 // Event-payload schemas live in a sibling module so the logger can import

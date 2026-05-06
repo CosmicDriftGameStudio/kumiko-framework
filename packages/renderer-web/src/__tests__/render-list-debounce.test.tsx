@@ -6,7 +6,10 @@
 // die Race-Condition (Sync-Effect auf searchValue + Debounce-Effect)
 // wahrscheinlich kaputt gegangen ohne dass eine CI das fängt.
 
-import type { EntityDefinition, EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  EntityDefinition,
+  EntityListScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   createStaticLocaleResolver,
   LocaleProvider,

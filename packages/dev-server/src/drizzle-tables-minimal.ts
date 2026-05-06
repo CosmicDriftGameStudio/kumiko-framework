@@ -16,4 +16,7 @@ export {
   snapshotsTable,
   upcasterDeadLetterTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
-export { eventConsumerStateTable, projectionStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
+export {
+  eventConsumerStateTable,
+  projectionStateTable,
+} from "@cosmicdrift/kumiko-framework/pipeline";

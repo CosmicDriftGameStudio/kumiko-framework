@@ -4,7 +4,11 @@
 // Konzept.
 
 import { DefaultTopbarActions } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
-import { type AppSchema, DefaultAppShell, LanguageSwitcher } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  type AppSchema,
+  DefaultAppShell,
+  LanguageSwitcher,
+} from "@cosmicdrift/kumiko-renderer-web";
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";

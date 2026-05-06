@@ -1,5 +1,8 @@
 import type { EagerloadedRow } from "@cosmicdrift/kumiko-framework/db";
-import type { EntityDefinition, EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  EntityDefinition,
+  EntityListScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
 import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";

@@ -25,8 +25,14 @@
 //   - `config` — für die Tenant-Config-Keys
 //   - `secrets` — für das verschlüsselte SMTP-Password
 
-import { createSmtpTransport, type EmailTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import { requireDefined, requireNonEmpty } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
+import {
+  createSmtpTransport,
+  type EmailTransport,
+} from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import {
+  requireDefined,
+  requireNonEmpty,
+} from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import type { MailTransportPlugin } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {

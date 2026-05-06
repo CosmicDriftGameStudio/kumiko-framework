@@ -19,7 +19,10 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createArchivedStreamsTable, createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createArchivedStreamsTable,
+  createEventsTable,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEventConsumerStateTable,
   createProjectionStateTable,
@@ -454,7 +457,11 @@ describe("runProdApp", () => {
     let seedInvocations = 0;
     let inserted = false;
 
-    const seed = async ({ db }: { db: import("@cosmicdrift/kumiko-framework/db").DbConnection }) => {
+    const seed = async ({
+      db,
+    }: {
+      db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
+    }) => {
       seedInvocations++;
       // Seed-side idempotence: check before inserting. runProdApp doesn't
       // gate seeds — the seed itself is responsible.

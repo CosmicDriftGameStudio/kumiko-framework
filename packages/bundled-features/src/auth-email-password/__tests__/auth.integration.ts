@@ -10,7 +10,11 @@ import {
   TestUsers,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes, getSetCookieRaw, getSetCookieValue } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  expectErrorIncludes,
+  getSetCookieRaw,
+  getSetCookieValue,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";

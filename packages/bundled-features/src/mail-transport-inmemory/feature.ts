@@ -21,7 +21,10 @@
 // Restart verloren. Cap-Counter / Audit-Trail bleiben trotzdem korrekt
 // — die hängen am event-store, nicht am Transport.
 
-import type { EmailMessage, EmailTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import type {
+  EmailMessage,
+  EmailTransport,
+} from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import type { MailTransportPlugin } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { defineFeature, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";

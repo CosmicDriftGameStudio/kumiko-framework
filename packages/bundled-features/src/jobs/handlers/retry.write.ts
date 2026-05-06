@@ -1,6 +1,10 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError, UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  NotFoundError,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { eq } from "drizzle-orm";

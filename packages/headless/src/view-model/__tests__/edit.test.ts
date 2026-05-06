@@ -1,4 +1,7 @@
-import type { EntityDefinition, EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  EntityDefinition,
+  EntityEditScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { describe, expect, test } from "vitest";
 import { computeEditViewModel } from "../edit";
 

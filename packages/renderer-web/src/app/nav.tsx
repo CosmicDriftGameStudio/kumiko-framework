@@ -10,7 +10,13 @@
 // Event-Bus). Hand-rolled Listener-Set ist hier idiomatisch: zwei
 // Notify-Trigger (eigenes pushPath, popstate-Event), nicht generalisierbar.
 
-import { formatPath, type NavApi, type NavTarget, parsePath, useNav } from "@cosmicdrift/kumiko-renderer";
+import {
+  formatPath,
+  type NavApi,
+  type NavTarget,
+  parsePath,
+  useNav,
+} from "@cosmicdrift/kumiko-renderer";
 import {
   type AnchorHTMLAttributes,
   type MouseEvent,

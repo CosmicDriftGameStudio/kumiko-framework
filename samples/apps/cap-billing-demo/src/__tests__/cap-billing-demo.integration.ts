@@ -23,7 +23,10 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { clearInbox, getInbox } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
-import { createSecretsContext, tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import {
+  createSecretsContext,
+  tenantSecretsTable,
+} from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";

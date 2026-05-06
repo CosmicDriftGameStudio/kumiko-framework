@@ -1,5 +1,10 @@
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
-import type { Dispatcher, ListRowViewModel, LocaleResolver, Translate } from "@cosmicdrift/kumiko-headless";
+import type {
+  Dispatcher,
+  ListRowViewModel,
+  LocaleResolver,
+  Translate,
+} from "@cosmicdrift/kumiko-headless";
 import {
   type AppSchema,
   type ColumnRendererComponent,

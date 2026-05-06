@@ -1,5 +1,9 @@
 import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createMoneyField, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createMoneyField,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const invoiceEntity = createEntity({
   table: "read_sample_invoices",

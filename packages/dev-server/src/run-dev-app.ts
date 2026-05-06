@@ -19,7 +19,10 @@ import {
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createSessionCallbacks, type SessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import {
+  createSessionCallbacks,
+  type SessionCallbacks,
+} from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 
 import type { SessionMetadata } from "@cosmicdrift/kumiko-framework/api";

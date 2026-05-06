@@ -7,7 +7,12 @@
 //   draft → sent → paid
 //                 → cancelled → draft (reopen)
 
-import { createTestUser, setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  createTestUser,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { stateMachineFeature } from "../feature";

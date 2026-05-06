@@ -20,7 +20,10 @@
 
 import type { FileProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { createS3Provider } from "@cosmicdrift/kumiko-bundled-features/files-provider-s3";
-import { requireDefined, requireNonEmpty } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
+import {
+  requireDefined,
+  requireNonEmpty,
+} from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
   access,

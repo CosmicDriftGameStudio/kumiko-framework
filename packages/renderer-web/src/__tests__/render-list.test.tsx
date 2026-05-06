@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
-import type { EntityDefinition, EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  EntityDefinition,
+  EntityListScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { RenderList } from "@cosmicdrift/kumiko-renderer";
 import { describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen } from "./test-utils";

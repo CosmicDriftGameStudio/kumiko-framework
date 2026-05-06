@@ -16,7 +16,12 @@
 // comparison.
 
 import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { access, createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createEntity,
+  createTextField,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export const productEntity = createEntity({

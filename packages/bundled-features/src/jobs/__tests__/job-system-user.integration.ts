@@ -1,5 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider, createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEncryptionProvider,
+  createTenantDb,
+  type DbConnection,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createRegistry,
@@ -8,7 +12,10 @@ import {
   type Registry,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createArchivedStreamsTable, createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createArchivedStreamsTable,
+  createEventsTable,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createTestDb,

@@ -29,7 +29,11 @@
 // nicht), aber der App-Code hat ein einheitliches Primitive-Vokabular
 // über Core + Custom.
 
-import type { FieldIssue, ListColumnViewModel, ListRowViewModel } from "@cosmicdrift/kumiko-headless";
+import type {
+  FieldIssue,
+  ListColumnViewModel,
+  ListRowViewModel,
+} from "@cosmicdrift/kumiko-headless";
 import {
   type ComponentType,
   createContext,

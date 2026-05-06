@@ -19,7 +19,11 @@
 // enforceCapAndMaybeNotify drin (siehe enforce-cap.ts). Wrapper ruft
 // nur den Helper, der den write dispatched.
 
-import type { HandlerContext, WriteEvent, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  HandlerContext,
+  WriteEvent,
+  WriteHandlerDef,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { CapCounterHandlers } from "./constants";
 import {
   type CapToleranceProfileName,

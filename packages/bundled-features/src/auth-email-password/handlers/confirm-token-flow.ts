@@ -24,7 +24,11 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, type WriteFailure, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  InternalError,
+  type WriteFailure,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import type Redis from "ioredis";
 import { UserHandlers, UserQueries } from "../../user";
 import type { AuthUserRow } from "../auth-user-row";

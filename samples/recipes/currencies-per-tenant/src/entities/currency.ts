@@ -2,7 +2,11 @@
 // No global reference data — tenants create currencies themselves
 
 import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
-import { createBooleanField, createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createBooleanField,
+  createEntity,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const currencyEntity = createEntity({
   table: "read_sample_mt_currencies",

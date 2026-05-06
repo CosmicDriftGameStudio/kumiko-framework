@@ -9,7 +9,10 @@ import {
   createAuthEmailPasswordFeature,
   hashPassword,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { configValuesTable, createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  configValuesTable,
+  createConfigFeature,
+} from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   type SessionCallbacks,
   userSessionEntity,
