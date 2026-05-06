@@ -56,6 +56,8 @@ export type {
   FeatureMetricType,
   FeatureRegistrar,
   MetricOptions,
+  RawTableDef,
+  RawTableOptions,
   Registry,
   SecretKeyDefinition,
   SecretKeyHandle,

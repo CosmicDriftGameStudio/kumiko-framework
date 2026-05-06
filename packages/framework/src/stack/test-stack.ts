@@ -189,6 +189,15 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       seenTables.add(msp.table);
       projectionTables[`msp_${mspName}`] = msp.table;
     }
+    // Raw tables declared via r.rawTable(). Same auto-push rule — the
+    // table needs to exist before the first reader query runs. The
+    // bypass is in the registration site (r.rawTable's `unsafe` cousins
+    // would target the same DDL), not in setting up the test DB.
+    for (const [rawName, raw] of Object.entries(feature.rawTables)) {
+      if (seenTables.has(raw.table)) continue;
+      seenTables.add(raw.table);
+      projectionTables[`raw_${rawName}`] = raw.table;
+    }
   }
   if (Object.keys(projectionTables).length > 0) {
     // unsafePushTables emits raw CREATE TABLE — fine for ephemeral test DBs but

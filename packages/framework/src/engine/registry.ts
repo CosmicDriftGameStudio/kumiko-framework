@@ -26,6 +26,7 @@ import type {
   PreSaveHookFn,
   ProjectionDefinition,
   QueryHandlerDef,
+  RawTableDef,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
@@ -153,6 +154,12 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // qualified-MSP-name → owning-feature name. Used by the event-dispatcher
   // to pause consumers whose feature is globally disabled.
   const multiStreamProjectionFeatureMap = new Map<string, string>();
+  // Raw tables — declared via r.rawTable(). Bypass the projection registry,
+  // so they have no qualified-name namespace and no source-entity index.
+  // Keyed by the feature-local short name; cross-feature uniqueness is
+  // enforced at ingest below (collisions would race two CREATE TABLE
+  // statements at the same physical name and break boot).
+  const rawTableMap = new Map<string, RawTableDef>();
   // Auth-claims hooks — tagged with featureName so the login resolver can
   // auto-prefix each hook's returned keys with "<feature>:".
   const authClaimsHooks: AuthClaimsHookDef[] = [];
@@ -482,6 +489,22 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
       multiStreamProjectionMap.set(qualified, { ...mspDef, name: qualified });
       multiStreamProjectionFeatureMap.set(qualified, feature.name);
+    }
+
+    // Raw tables: aggregated by feature-local short name (unprefixed —
+    // these bypass the qualified-name namespace because they have no
+    // event-stream binding to disambiguate). Reject cross-feature
+    // duplicates at boot so the dev-server doesn't race two CREATE TABLE
+    // statements that target the same physical table name.
+    for (const [rawName, rawDef] of Object.entries(feature.rawTables ?? {})) {
+      const existing = rawTableMap.get(rawName);
+      if (existing) {
+        throw new Error(
+          `Raw-table "${rawName}" registered by both feature "${existing.featureName}" and ` +
+            `"${feature.name}". Pick a feature-prefixed name to disambiguate.`,
+        );
+      }
+      rawTableMap.set(rawName, { ...rawDef, featureName: feature.name });
     }
 
     // Claim keys: aggregated by qualified name. Two features cannot collide
@@ -1232,6 +1255,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllProjections(): ReadonlyMap<string, ProjectionDefinition> {
       return projectionMap;
+    },
+
+    getAllRawTables(): ReadonlyMap<string, RawTableDef> {
+      return rawTableMap;
     },
 
     getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition> {

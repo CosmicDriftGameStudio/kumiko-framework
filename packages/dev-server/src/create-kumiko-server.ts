@@ -20,15 +20,21 @@ import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framework/api";
-import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { tableExists } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildAppSchema,
+  type FeatureDefinition,
+  type Registry,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
   type TestStackOptions,
   TestUsers,
-  unsafeEnsureEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { getTableName } from "drizzle-orm";
 import { injectSchema } from "./inject-schema";
 import { resolveTailwindCli } from "./resolve-tailwind-cli";
 import { buildBunServeOptions } from "./run-prod-app";
@@ -526,24 +532,44 @@ async function startTailwindWatcher(
   };
 }
 
-// Create all entity tables declared by the given features. Uses
-// unsafeEnsureEntityTable so a persistent DB (KUMIKO_DEV_DB_NAME) can
-// reuse tables from the previous boot without the caller having to
-// check. This is the one production bypass that Stufe 3 (r.rawTable)
-// will eliminate — see plans/architecture/table-ddl-guard.md.
-async function createEntityTablesForFeatures(
-  stack: TestStack,
-  features: readonly FeatureDefinition[],
-): Promise<void> {
-  for (const feature of features) {
-    for (const [entityName, entity] of Object.entries(feature.entities)) {
-      const created = await unsafeEnsureEntityTable(stack.db, entity, entityName);
-      if (!created) {
-        logInfo(
-          `[kumiko-server] table ${entity.table ?? entityName} already exists — skipping create`,
-        );
-      }
+// Create all entity-shaped tables (one per r.entity() implicit projection)
+// plus raw tables (r.rawTable() bypass declarations) the registry knows
+// about. Iterating over the registry's central map — instead of poking
+// at feature.entities directly — keeps this path a regular Registry
+// reader; no more feature-shape coupling. Idempotent via tableExists so
+// a persistent dev DB (KUMIKO_DEV_DB_NAME) reuses existing tables on
+// reboot.
+async function createEntityTablesForFeatures(stack: TestStack, registry: Registry): Promise<void> {
+  const seen = new Set<unknown>();
+  const ordered: Array<{ key: string; table: unknown }> = [];
+
+  // Implicit projections — one per r.entity(). Registry pre-built each
+  // Drizzle table via buildDrizzleTable; we push only the missing ones.
+  for (const [projName, proj] of registry.getAllProjections()) {
+    if (!proj.isImplicit) continue;
+    if (seen.has(proj.table)) continue;
+    seen.add(proj.table);
+    ordered.push({ key: projName, table: proj.table });
+  }
+
+  // Raw tables declared via r.rawTable(). setupTestStack already pushes
+  // these in its own loop, so the existence-check below short-circuits
+  // every entry on the second pass — no double-create, no race.
+  for (const [rawName, raw] of registry.getAllRawTables()) {
+    if (seen.has(raw.table)) continue;
+    seen.add(raw.table);
+    ordered.push({ key: `raw_${rawName}`, table: raw.table });
+  }
+
+  for (const { key, table } of ordered) {
+    // @cast-boundary drizzle-bridge — ProjectionTable + PgTable both round-trip
+    // through getTableName at runtime; the type system can't unify them.
+    const physical = getTableName(table as Parameters<typeof getTableName>[0]);
+    if (await tableExists(stack.db, `public.${physical}`)) {
+      logInfo(`[kumiko-server] table ${physical} already exists — skipping create`);
+      continue;
     }
+    await unsafePushTables(stack.db, { [key]: table });
   }
 }
 
@@ -664,7 +690,7 @@ export async function createKumikoServer(
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
   });
   await createEventsTable(stack.db);
-  await createEntityTablesForFeatures(stack, options.features);
+  await createEntityTablesForFeatures(stack, stack.registry);
 
   // Hook für Caller-spezifische Tables + Seed. Läuft nach den Entity-
   // Tabellen damit das Sample auf `stack.db` / `stack.dispatcher`
