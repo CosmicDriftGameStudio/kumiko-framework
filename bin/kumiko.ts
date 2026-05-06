@@ -122,9 +122,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // Guards leben jetzt im Sibling-Repo `infra/guards/` (Phase O.11) —
   // multi-root-aware, scannen alle 4 Repos (kumiko-framework,
   // -enterprise, -studio, publicstatus). Aufruf via Pfad relativ zur
-  // framework-Repo-Wurzel. Concepts wurden archiviert (O.4 Schritt 9),
-  // also Concept-Check + Truth-Anchors-Check raus — beide werden neu
-  // konzipiert wenn das Concepts-Layer-Format steht.
+  // framework-Repo-Wurzel.
   { name: "Silent-Skip Guard", cmd: "bun ../infra/guards/guard-silent-skip.ts" },
   { name: "Admin-API Guard", cmd: "bun ../infra/guards/guard-admin-api.ts" },
   { name: "Unsafe-JSON-Parse Guard", cmd: "bun ../infra/guards/guard-unsafe-json-parse.ts" },
