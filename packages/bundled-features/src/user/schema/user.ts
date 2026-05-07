@@ -8,6 +8,31 @@ import {
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
+/**
+ * User-Lifecycle-Status (S2.U1). Single source of truth — Auth-Middleware
+ * (S2.U6), Forget-Job (S2.U5) und Restriction-Handler nutzen diese
+ * Constants statt Magic-Strings (Memory feedback_role_naming_drift —
+ * gleiches Pattern wie ROLES.SystemAdmin).
+ */
+export const USER_STATUS = {
+  Active: "active",
+  Restricted: "restricted",
+  DeletionRequested: "deletionRequested",
+  Deleted: "deleted",
+} as const;
+
+export type UserStatus = (typeof USER_STATUS)[keyof typeof USER_STATUS];
+
+// Tuple form fuer createSelectField (erfordert non-empty readonly tuple).
+// Object.values(USER_STATUS) waere string[] — statisches Tuple ist
+// type-sicher.
+const USER_STATUS_OPTIONS = [
+  USER_STATUS.Active,
+  USER_STATUS.Restricted,
+  USER_STATUS.DeletionRequested,
+  USER_STATUS.Deleted,
+] as const;
+
 // User entity — tenant-agnostic. A single user can belong to multiple tenants
 // via tenantMemberships. No tenantId column on this table.
 export const userEntity = createEntity({
@@ -82,8 +107,8 @@ export const userEntity = createEntity({
     // execute-forget-Handler (alle SYSTEM-context) duerfen status flippen.
     status: createSelectField({
       required: true,
-      default: "active",
-      options: ["active", "restricted", "deletionRequested", "deleted"] as const,
+      default: USER_STATUS.Active,
+      options: USER_STATUS_OPTIONS,
       access: { write: access.privileged },
     }),
 

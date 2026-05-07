@@ -8,6 +8,7 @@ export {
   type RetentionPreset,
   type RetentionPresetKey,
 } from "./presets";
+export { retentionOverrideSchema } from "./override-schema";
 export {
   resolveRetentionPolicy,
   type EffectiveRetentionPolicy,
