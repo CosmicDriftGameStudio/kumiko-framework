@@ -351,6 +351,14 @@ export type RunProdAppOptions = {
    *  the fetch-handler directly (Bun.serve isn't available under vitest +
    *  node), then call handle.listen() manually if needed. */
   readonly autoListen?: boolean;
+  /** Feature-toggle resolver — durchgereicht an createApiEntrypoint's
+   *  dispatcherOptions. Sprint-8 Tier-Composition: per-Tenant unterschied-
+   *  liche features aktiv via globalFeatureToggleRuntime. Pattern:
+   *  createLateBoundHolder + post-boot runtime.initialize in einem
+   *  seed-fn (db ist erst nach migrations + features ready). */
+  readonly effectiveFeatures?: (
+    tenantId: import("@cosmicdrift/kumiko-framework/engine").TenantId,
+  ) => ReadonlySet<string>;
 };
 
 export type ProdAppHandle = {
@@ -486,7 +494,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     jwtSecret,
     ...(jwtIssuer && { jwtIssuer }),
     ...(instanceId && { instanceId }),
-    dispatcherOptions: { idempotency },
+    dispatcherOptions: {
+      idempotency,
+      ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
+    },
     eventDedup,
     ...(options.auth && {
       auth: {

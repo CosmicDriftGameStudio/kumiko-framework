@@ -170,6 +170,14 @@ export type CreateKumikoServerOptions = {
    *  Handler `roles: ["anonymous"]` deklariert. Tenant-Resolution per
    *  Header/Cookie/Default; siehe AnonymousAccessConfig. */
   readonly anonymousAccess?: TestStackOptions["anonymousAccess"];
+  /** Feature-toggle resolver — durchgereicht an setupTestStack. Wenn
+   *  gesetzt, konsultiert der dispatcher-feature-gate, hook-filter, MSP-
+   *  filter den callback; absent = alle features always-on. Erforderlich
+   *  für Tier-Composition (Sprint 8) wo per-Tenant unterschiedliche
+   *  features aktiv sein sollen. Die typische produktive Implementierung
+   *  ist `() => globalFeatureToggleRuntime.effectiveFeatures` post-boot
+   *  (createLateBoundHolder-pattern, weil runtime stack.db braucht). */
+  readonly effectiveFeatures?: TestStackOptions["effectiveFeatures"];
   /** Wird nach dem Aufsetzen der Entity-Tabellen aufgerufen. Hook für
    *  non-entity-tables (unsafePushTables) und Seeding (admin user, initial
    *  tenant, …). Muss idempotent sein — im persistent-DB-Modus läuft
@@ -641,6 +649,9 @@ export async function createKumikoServer(
     ...(options.auth !== undefined && { authConfig: options.auth }),
     ...(options.extraContext !== undefined && { extraContext: options.extraContext }),
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
+    ...(options.effectiveFeatures !== undefined && {
+      effectiveFeatures: options.effectiveFeatures,
+    }),
   });
   await createEventsTable(stack.db);
   await pushEntityProjectionTables(stack, stack.registry);

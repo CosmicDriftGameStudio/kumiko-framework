@@ -250,7 +250,15 @@ export function createLifecycleHooks(
     async runPreSave(handlerName, changes, previous, isNew, context) {
       let currentChanges = changes;
       const hookContext = { ...context, previous, isNew };
-      const eff = context.effectiveFeatures?.();
+      // tenant-aware effectiveFeatures-call (Sprint 8a tier-composition).
+      // _tenantId wird vom dispatcher beim HandlerContext-Bau gespiegelt;
+      // bei legacy-callsites ohne user (system-jobs, boot-time) ist es
+      // undefined — der callback selbst muss das tolerieren oder auf
+      // SYSTEM_TENANT_ID defaulten.
+      const eff =
+        context._tenantId !== undefined
+          ? context.effectiveFeatures?.(context._tenantId)
+          : undefined;
 
       for (const hook of registry.getPreSaveHooks(handlerName, eff)) {
         currentChanges = await hook(currentChanges, hookContext);
@@ -266,7 +274,15 @@ export function createLifecycleHooks(
     },
 
     async runPostSave(handlerName, result, context, phase = HookPhases.afterCommit) {
-      const eff = context.effectiveFeatures?.();
+      // tenant-aware effectiveFeatures-call (Sprint 8a tier-composition).
+      // _tenantId wird vom dispatcher beim HandlerContext-Bau gespiegelt;
+      // bei legacy-callsites ohne user (system-jobs, boot-time) ist es
+      // undefined — der callback selbst muss das tolerieren oder auf
+      // SYSTEM_TENANT_ID defaulten.
+      const eff =
+        context._tenantId !== undefined
+          ? context.effectiveFeatures?.(context._tenantId)
+          : undefined;
       await runHookSet({
         handlerName,
         payload: result,
@@ -283,7 +299,15 @@ export function createLifecycleHooks(
     async runPreDelete(handlerName, payload, context) {
       // preDelete hooks run in-transaction and throw on failure (not best-effort).
       // They're used to check invariants before delete, so phase filter is "inTransaction".
-      const eff = context.effectiveFeatures?.();
+      // tenant-aware effectiveFeatures-call (Sprint 8a tier-composition).
+      // _tenantId wird vom dispatcher beim HandlerContext-Bau gespiegelt;
+      // bei legacy-callsites ohne user (system-jobs, boot-time) ist es
+      // undefined — der callback selbst muss das tolerieren oder auf
+      // SYSTEM_TENANT_ID defaulten.
+      const eff =
+        context._tenantId !== undefined
+          ? context.effectiveFeatures?.(context._tenantId)
+          : undefined;
       for (const hook of registry.getPreDeleteHooks(handlerName, HookPhases.inTransaction, eff)) {
         await hook(payload, context);
       }
@@ -308,7 +332,15 @@ export function createLifecycleHooks(
     },
 
     async runPostDelete(handlerName, payload, context, phase = HookPhases.afterCommit) {
-      const eff = context.effectiveFeatures?.();
+      // tenant-aware effectiveFeatures-call (Sprint 8a tier-composition).
+      // _tenantId wird vom dispatcher beim HandlerContext-Bau gespiegelt;
+      // bei legacy-callsites ohne user (system-jobs, boot-time) ist es
+      // undefined — der callback selbst muss das tolerieren oder auf
+      // SYSTEM_TENANT_ID defaulten.
+      const eff =
+        context._tenantId !== undefined
+          ? context.effectiveFeatures?.(context._tenantId)
+          : undefined;
       await runHookSet({
         handlerName,
         payload,

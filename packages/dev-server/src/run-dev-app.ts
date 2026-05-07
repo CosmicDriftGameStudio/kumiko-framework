@@ -138,6 +138,13 @@ export type RunDevAppOptions = {
    *  Hono-app gehängt, läuft VOR dem static-asset-Pfad. Symmetrisch zur
    *  gleichnamigen Option in runProdApp. */
   readonly extraRoutes?: CreateKumikoServerOptions["extraRoutes"];
+  /** Feature-toggle resolver — durchgereicht an createKumikoServer →
+   *  setupTestStack. Sprint-8 Tier-Composition: per-Tenant unterschied-
+   *  liche features aktiv via globalFeatureToggleRuntime. Pattern in
+   *  bin/server.ts: createLateBoundHolder + post-boot runtime.initialize
+   *  in einem seed-fn, weil die runtime stack.db braucht und die seed-
+   *  Funktionen nach setupTestStack laufen. */
+  readonly effectiveFeatures?: CreateKumikoServerOptions["effectiveFeatures"];
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
@@ -216,6 +223,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(extraContext !== undefined && { extraContext }),
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
+    ...(options.effectiveFeatures !== undefined && {
+      effectiveFeatures: options.effectiveFeatures,
+    }),
     ...(options.auth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
