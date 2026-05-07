@@ -11,6 +11,7 @@ export type {
   EffectiveComplianceProfile,
   UserNotificationRequiredPolicy,
 } from "./profiles";
+export { complianceProfileOverrideSchema } from "./override-schema";
 export {
   COMPLIANCE_PROFILES,
   OVERRIDABLE_PROFILE_KEYS,

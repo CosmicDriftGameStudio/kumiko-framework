@@ -32,6 +32,14 @@ export {
   EXT_TENANT_DATA,
   EXT_USER_DATA,
 } from "./extension-names";
+export type {
+  UserDataDeleteHook,
+  UserDataDeleteStrategy,
+  UserDataExportHook,
+  UserDataExportSnippet,
+  UserDataExtensionHooks,
+  UserDataHookCtx,
+} from "./extensions/user-data";
 export {
   createEntityExecutor,
   defineEntityCreateHandler,

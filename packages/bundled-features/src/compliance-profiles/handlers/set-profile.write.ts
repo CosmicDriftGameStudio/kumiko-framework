@@ -1,8 +1,8 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
-  OVERRIDABLE_PROFILE_KEYS,
   SELECTABLE_PROFILE_KEYS,
   type ComplianceProfileKey,
+  complianceProfileOverrideSchema,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -70,8 +70,11 @@ export const setProfileWrite = defineWriteHandler({
     const executorUser =
       tenantOverride !== undefined ? { ...event.user, tenantId } : event.user;
 
-    // Override-Validation: muss parseables JSON-Object sein, mit
-    // bekannten Top-Level-Keys.
+    // Override-Validation: muss parseables JSON-Object sein UND dem
+    // ComplianceProfileOverride-Schema entsprechen (S1.9 Z3 — strict-Zod
+    // mit Top-Level + Sub-Level-Whitelist via .strict()). Tippfehler
+    // wie `{ userRights: { weeks: 3 } }` werden hier rejected statt vom
+    // deepMerge silent ins Profile gespliced.
     if (event.payload.override) {
       let parsed: unknown;
       try {
@@ -81,15 +84,12 @@ export const setProfileWrite = defineWriteHandler({
           `Invalid compliance-profile override: ${(e as Error).message}. Expected JSON object string.`,
         );
       }
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        throw new Error("Invalid compliance-profile override: must be a JSON object");
-      }
-      const unknownKeys = Object.keys(parsed).filter((k) => !OVERRIDABLE_PROFILE_KEYS.has(k));
-      if (unknownKeys.length > 0) {
+      const validation = complianceProfileOverrideSchema.safeParse(parsed);
+      if (!validation.success) {
+        const issue = validation.error.issues[0];
+        const path = issue?.path.length ? issue.path.join(".") : "(root)";
         throw new Error(
-          `Invalid compliance-profile override: unknown top-level keys [${unknownKeys.join(", ")}]. ` +
-            `Allowed: ${[...OVERRIDABLE_PROFILE_KEYS].sort().join(", ")}. ` +
-            "Tippfehler werden vom deepMerge stillschweigend ignoriert — Schema strict.",
+          `Invalid compliance-profile override at "${path}": ${issue?.message ?? "schema mismatch"}`,
         );
       }
     }

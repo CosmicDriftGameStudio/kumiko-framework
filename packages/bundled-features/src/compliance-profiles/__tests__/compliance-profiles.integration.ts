@@ -183,6 +183,33 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.status).toBeGreaterThanOrEqual(400);
   });
 
+  // S1.9 Z3: Override-Sub-Level-Tippfehler (Schema-Strict)
+  test("set-profile mit Sub-Level-Tippfehler wirft Error (Z3 — { userRights: { weeks: 3 } })", async () => {
+    const result = await stack.http.write(
+      SET_PROFILE,
+      {
+        profileKey: "eu-dsgvo",
+        override: JSON.stringify({ userRights: { weeks: 3 } }), // weeks gibt's nicht
+      },
+      tenantAdmin,
+    );
+    expect(result.status).toBeGreaterThanOrEqual(400);
+  });
+
+  test("set-profile mit invalid retention-shape wirft Error (Z3 — gracePeriod mit days+hours)", async () => {
+    const result = await stack.http.write(
+      SET_PROFILE,
+      {
+        profileKey: "eu-dsgvo",
+        override: JSON.stringify({
+          userRights: { gracePeriod: { days: 30, hours: 24 } }, // strict-disjunction
+        }),
+      },
+      tenantAdmin,
+    );
+    expect(result.status).toBeGreaterThanOrEqual(400);
+  });
+
   // S1.7 F2: SystemAdmin kann Profile setzen
   test("SystemAdmin kann Profile setzen (Plattform-Operator-Pfad)", async () => {
     const sysAdmin = createIsolatedTenantAdmin(50, ["SystemAdmin"]);
