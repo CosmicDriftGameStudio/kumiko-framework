@@ -190,6 +190,8 @@ export type {
   EditLayout,
   EditSectionSpec,
   EntityDefinition,
+  PiiAnnotations,
+  RetentionDef,
   EntityEditScreenDefinition,
   EntityId,
   EntityListScreenDefinition,
