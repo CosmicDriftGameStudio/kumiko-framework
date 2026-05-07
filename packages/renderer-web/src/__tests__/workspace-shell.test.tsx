@@ -864,4 +864,51 @@ describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
     expect(screen.getByText("List")).toBeTruthy();
     expect(screen.queryByLabelText("Visual Tree (V.1.1 placeholder)")).toBeNull();
   });
+
+  test("Switcher-Toggle re-rendert Sidebar zwischen NavTree und Stub", () => {
+    // Multi-Workspace-Setup: beide accessible, einer nav, einer tree.
+    // Single-mount-Tests können nicht beweisen dass der conditional
+    // render bei prop-change sauber re-rendert — das ist die echte UX
+    // (User klickt im Switcher zwischen Modi). Dieser Test pinnt das.
+    const schema = {
+      featureName: "demo",
+      entities: {},
+      screens: [],
+      navs: [{ id: "list", label: "List" }],
+      workspaces: [
+        ws("admin", {
+          label: "Admin",
+          openToAll: true,
+          isDefault: true,
+          navigation: "nav",
+          navMembers: ["demo:nav:list"],
+        }),
+        ws("visual", {
+          label: "Visual",
+          openToAll: true,
+          navigation: "tree",
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell brand={<div>Brand</div>} schema={schema} user={{ id: "u1", roles: [] }}>
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+
+    // Initial: admin-Workspace (default) aktiv → NavTree sichtbar, kein Stub
+    expect(screen.getByText("List")).toBeTruthy();
+    expect(screen.queryByLabelText("Visual Tree (V.1.1 placeholder)")).toBeNull();
+
+    // Switch zu visual-Workspace via Switcher-Click
+    fireEvent.click(screen.getByTestId("workspace-tab-visual"));
+    expect(screen.getByLabelText("Visual Tree (V.1.1 placeholder)")).toBeTruthy();
+    expect(screen.queryByText("List")).toBeNull();
+
+    // Zurück zu admin → NavTree wieder, Stub weg
+    fireEvent.click(screen.getByTestId("workspace-tab-admin"));
+    expect(screen.getByText("List")).toBeTruthy();
+    expect(screen.queryByLabelText("Visual Tree (V.1.1 placeholder)")).toBeNull();
+  });
 });

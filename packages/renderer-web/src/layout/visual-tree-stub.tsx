@@ -14,6 +14,10 @@
 // gegen ein lebendes opt-in-Pattern bauen. Der Stub ist die minimale
 // Form die das beweist.
 //
+// **Styling.** Tailwind-Klassen konsistent mit existing layout-Komponenten
+// (Sidebar nutzt `bg-muted/30 text-sm`, NavTree nutzt `cn`-Helper).
+// V.1.1-Visual-Tree-Component sollte diese Convention fortführen.
+//
 // Siehe docs/plans/architecture/visual-tree.md A1 + Komponenten-
 // Architektur-Sektion.
 
@@ -23,14 +27,11 @@ export function VisualTreeStub(): ReactNode {
   return (
     <aside
       aria-label="Visual Tree (V.1.1 placeholder)"
-      style={{
-        padding: "16px",
-        fontSize: "13px",
-        color: "var(--kumiko-text-muted, #888)",
-      }}
+      data-kumiko-layout="visual-tree-stub"
+      className="p-4 text-sm text-muted-foreground"
     >
-      <p style={{ margin: 0, fontWeight: 600 }}>Visual-Tree</p>
-      <p style={{ marginTop: "8px" }}>
+      <p className="m-0 font-semibold">Visual-Tree</p>
+      <p className="mt-2">
         Wird in <code>V.1.1</code> implementiert. Aktuell als Placeholder gemounted, weil dieser
         Workspace <code>navigation: "tree"</code> deklariert.
       </p>
