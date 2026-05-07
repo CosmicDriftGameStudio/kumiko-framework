@@ -1,0 +1,90 @@
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import type {
+  UserDataDeleteHook,
+  UserDataExportHook,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { eq, sql } from "drizzle-orm";
+import { USER_STATUS, userTable } from "../../user/schema/user";
+
+// userData-Hook fuer user-entity (S2.H1).
+//
+// Export-Hook liefert Profil-Daten ohne security-sensitive Felder
+// (passwordHash, roles, status — DSGVO Art. 20 ist Datenportabilitaet
+// fuer das was der User selbst zur Verfuegung gestellt hat, nicht
+// Lifecycle-Metadata oder Authorization-State).
+//
+// Delete-Hook anonymisiert PII + setzt status=deleted. Der eigentliche
+// softDelete-Flag wird ueber drizzle's deletedAt-Column gesetzt; die
+// Row bleibt fuer Audit-Trail erhalten (alle FK-Refs auf user.id
+// bleiben gueltig). DSGVO-konform via PII-Anonymisierung.
+//
+// Strategy:
+//   "delete":    softDelete + email/displayName/passwordHash leeren,
+//                status=deleted (Login geblockt)
+//   "anonymize": email/displayName auf Pseudonym, Row bleibt active
+//                — fuer Cases wo User-Row als FK noch relevant ist
+//                aber PII raus muss (z.B. anonymize mit blockDelete-
+//                Frist auf einer FK-target-Entity)
+
+export const userExportHook: UserDataExportHook = async (ctx) => {
+  const row = (await fetchOne(
+    ctx.db,
+    userTable,
+    eq(userTable["id"], ctx.userId),
+  )) as {
+    id: string;
+    email: string;
+    displayName: string;
+    locale: string;
+    emailVerified: boolean;
+  } | null;
+
+  if (!row) return null;
+
+  return {
+    entity: "user",
+    rows: [
+      {
+        id: row.id,
+        email: row.email,
+        displayName: row.displayName,
+        locale: row.locale,
+        emailVerified: row.emailVerified,
+      },
+    ],
+  };
+};
+
+export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
+  // Idempotent: zweiter Call findet die Row schon anonymized + skipt
+  // implicit (UPDATE mit gleichen Werten). Memory feedback_event_store_
+  // tenant_consistency: ctx.tenantId muss in der user-table-Zeile
+  // korrelieren — user.id ist tenant-agnostic (User kann in mehreren
+  // Tenants Member sein), kein tenantId-Filter noetig.
+
+  if (strategy === "delete") {
+    await ctx.db
+      .update(userTable)
+      .set({
+        email: `deleted-${ctx.userId}@anonymized.invalid`,
+        displayName: "[Geloescht]",
+        passwordHash: null,
+        status: USER_STATUS.Deleted,
+        deletedAt: sql`now()`,
+      })
+      .where(eq(userTable["id"], ctx.userId));
+  } else {
+    // anonymize: PII raus, aber Row bleibt active (damit FK-References
+    // weiter aufloesbar sind). Account ist effektiv weiter nutzbar
+    // wenn der User sich neu authentifiziert — pragmatisch akzeptabel
+    // weil "anonymize" auf user-entity ein seltener Edge-Case ist
+    // (typisch hard-delete fuer User).
+    await ctx.db
+      .update(userTable)
+      .set({
+        email: `anonymized-${ctx.userId}@anonymized.invalid`,
+        displayName: "[Anonymisiert]",
+      })
+      .where(eq(userTable["id"], ctx.userId));
+  }
+};
