@@ -37,6 +37,8 @@ import {
   type DbConnection,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { max as maxFn } from "drizzle-orm";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
@@ -93,6 +95,16 @@ export async function seedTenant(db: DbConnection, options: SeedTenantOptions): 
 
   const existing = await fetchOne(db, tenantTable, eq(tenantTable["id"], options.id));
   if (existing) return options.id;
+
+  // Idempotenz: Aggregate kann im Event-Store existieren ohne Projection-Row
+  // (Projection-Drift nach rebuild, manuellem DELETE, oder async-lag). Wenn
+  // Stream-Version > 0 → kein create() — wäre version_conflict. Caller
+  // bekommt die ID, Projection wird beim nächsten Dispatcher-Cycle aufgebaut.
+  const [streamRow] = await db
+    .select({ v: maxFn(eventsTable.version) })
+    .from(eventsTable)
+    .where(eq(eventsTable.aggregateId, options.id));
+  if ((streamRow?.v ?? 0) > 0) return options.id;
 
   const result = await tenantExecutor.create(
     { id: options.id, key: options.key, name: options.name },
