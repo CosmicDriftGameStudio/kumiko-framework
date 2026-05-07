@@ -23,6 +23,24 @@ export const USER_STATUS = {
 
 export type UserStatus = (typeof USER_STATUS)[keyof typeof USER_STATUS];
 
+/**
+ * Anonymize-Display-Strings fuer userDeleteHook (S2.H1). Constants statt
+ * Magic-Strings damit i18n-Mapping moeglich + drift-fest. Default-DE,
+ * App-Author kann via i18n-System uebersetzen wenn gewuenscht.
+ */
+export const USER_DELETED_DISPLAY_NAME = "[Geloescht]";
+export const USER_ANONYMIZED_DISPLAY_NAME = "[Anonymisiert]";
+
+/**
+ * Email-Pseudonyme nach Forget. `<prefix>-<userId>@anonymized.invalid`
+ * — der userId-Suffix ist als Pseudo-Audit-Marker fuer Operator
+ * (Tracing-fall) erlaubt; user-id selbst ist UUID, kein PII.
+ * `.invalid`-TLD ist RFC2606-reserviert — niemals deliverbare Email.
+ */
+export const USER_DELETED_EMAIL_PREFIX = "deleted";
+export const USER_ANONYMIZED_EMAIL_PREFIX = "anonymized";
+export const USER_ANONYMIZED_EMAIL_DOMAIN = "anonymized.invalid";
+
 // Tuple form fuer createSelectField (erfordert non-empty readonly tuple).
 // Object.values(USER_STATUS) waere string[] — statisches Tuple ist
 // type-sicher.

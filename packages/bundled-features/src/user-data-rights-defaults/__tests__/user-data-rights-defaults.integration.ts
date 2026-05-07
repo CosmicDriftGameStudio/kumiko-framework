@@ -23,7 +23,14 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createFilesFeature } from "../../files";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
+import {
+  createUserFeature,
+  USER_ANONYMIZED_DISPLAY_NAME,
+  USER_DELETED_DISPLAY_NAME,
+  USER_STATUS,
+  userEntity,
+  userTable,
+} from "../../user";
 import { createUserDataRightsFeature } from "../../user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "../feature";
 import {
@@ -206,7 +213,7 @@ describe("S2.H1 :: userDeleteHook", () => {
     if (!row) throw new Error("row should exist");
     expect(row.email).toContain("anonymized.invalid"); // PII raus
     expect(row.email).not.toContain("@example.com"); // urspruengliche email weg
-    expect(row.display_name).toBe("[Geloescht]");
+    expect(row.display_name).toBe(USER_DELETED_DISPLAY_NAME);
     expect(row.password_hash).toBeNull();
     expect(row.status).toBe(USER_STATUS.Deleted);
     expect(row.deleted_at).not.toBeNull(); // softDelete-Timestamp gesetzt
@@ -223,25 +230,37 @@ describe("S2.H1 :: userDeleteHook", () => {
     const row = await fetchUser(uuid(1004));
     if (!row) throw new Error("row should exist");
     expect(row.email).toContain("anonymized.invalid");
-    expect(row.display_name).toBe("[Anonymisiert]");
+    expect(row.display_name).toBe(USER_ANONYMIZED_DISPLAY_NAME);
     expect(row.status).toBe(USER_STATUS.Active); // NICHT auf deleted
     expect(row.deleted_at).toBeNull(); // KEIN softDelete
   });
 
-  test("idempotent: zweiter delete-Call crasht nicht", async () => {
+  test("idempotent: zweiter delete-Call crasht nicht UND State bleibt korrekt deleted", async () => {
     await seedUser(uuid(1005));
 
     await userDeleteHook(
       { db: stack.db, tenantId: TENANT_A, userId: uuid(1005) },
       "delete",
     );
-    // Zweiter Call: Row ist bereits anonymisiert
+    const afterFirst = await fetchUser(uuid(1005));
+    if (!afterFirst) throw new Error("user should exist after first delete");
+
+    // Zweiter Call: kein Crash + State unverändert
     await expect(
       userDeleteHook(
         { db: stack.db, tenantId: TENANT_A, userId: uuid(1005) },
         "delete",
       ),
     ).resolves.toBeUndefined();
+
+    // State-Verifikation (S2.H1+H2-Audit N3): Row weiterhin deleted,
+    // kein Status-Reset, anonymisierte Werte unverändert.
+    const afterSecond = await fetchUser(uuid(1005));
+    if (!afterSecond) throw new Error("user should exist after second delete");
+    expect(afterSecond.status).toBe(USER_STATUS.Deleted);
+    expect(afterSecond.display_name).toBe(USER_DELETED_DISPLAY_NAME);
+    expect(afterSecond.password_hash).toBeNull();
+    expect(afterSecond.email).toBe(afterFirst.email); // gleicher Wert, nicht "neu anonymisiert"
   });
 });
 
@@ -321,18 +340,24 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     expect(bRemaining[0]?.file_name).toBe("tenantB.pdf");
   });
 
-  test("idempotent: zweiter delete-Call crasht nicht", async () => {
+  test("idempotent: zweiter delete-Call crasht nicht UND DB-State bleibt 0 Files", async () => {
     await seedFileRef(uuid(401), TENANT_A, "user-idem-files", "f.pdf");
 
     await fileRefDeleteHook(
       { db: stack.db, tenantId: TENANT_A, userId: "user-idem-files" },
       "delete",
     );
+    const afterFirst = await fetchFileRefs(TENANT_A, "user-idem-files");
+    expect(afterFirst).toHaveLength(0);
+
+    // Zweiter Call: kein Crash + State weiter 0 Files
     await expect(
       fileRefDeleteHook(
         { db: stack.db, tenantId: TENANT_A, userId: "user-idem-files" },
         "delete",
       ),
     ).resolves.toBeUndefined();
+    const afterSecond = await fetchFileRefs(TENANT_A, "user-idem-files");
+    expect(afterSecond).toHaveLength(0);
   });
 });

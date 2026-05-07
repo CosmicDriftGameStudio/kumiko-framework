@@ -4,7 +4,15 @@ import type {
   UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eq, sql } from "drizzle-orm";
-import { USER_STATUS, userTable } from "../../user/schema/user";
+import {
+  USER_ANONYMIZED_DISPLAY_NAME,
+  USER_ANONYMIZED_EMAIL_DOMAIN,
+  USER_ANONYMIZED_EMAIL_PREFIX,
+  USER_DELETED_DISPLAY_NAME,
+  USER_DELETED_EMAIL_PREFIX,
+  USER_STATUS,
+  userTable,
+} from "../../user/schema/user";
 
 // userData-Hook fuer user-entity (S2.H1).
 //
@@ -66,8 +74,8 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
     await ctx.db
       .update(userTable)
       .set({
-        email: `deleted-${ctx.userId}@anonymized.invalid`,
-        displayName: "[Geloescht]",
+        email: `${USER_DELETED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
+        displayName: USER_DELETED_DISPLAY_NAME,
         passwordHash: null,
         status: USER_STATUS.Deleted,
         deletedAt: sql`now()`,
@@ -82,8 +90,8 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
     await ctx.db
       .update(userTable)
       .set({
-        email: `anonymized-${ctx.userId}@anonymized.invalid`,
-        displayName: "[Anonymisiert]",
+        email: `${USER_ANONYMIZED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
+        displayName: USER_ANONYMIZED_DISPLAY_NAME,
       })
       .where(eq(userTable["id"], ctx.userId));
   }
