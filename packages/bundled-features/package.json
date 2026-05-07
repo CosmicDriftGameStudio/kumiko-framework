@@ -36,6 +36,7 @@
     "./file-provider-s3": "./src/file-provider-s3/index.ts",
     "./file-provider-inmemory": "./src/file-provider-inmemory/index.ts",
     "./files": "./src/files/index.ts",
+    "./user-data-rights": "./src/user-data-rights/index.ts",
     "./tenant": "./src/tenant/index.ts",
     "./tenant/constants": "./src/tenant/constants.ts",
     "./tenant/seeding": "./src/tenant/seeding.ts",

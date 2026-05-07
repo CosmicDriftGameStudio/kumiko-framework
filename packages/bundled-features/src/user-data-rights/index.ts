@@ -1,0 +1,1 @@
+export { createUserDataRightsFeature } from "./feature";
