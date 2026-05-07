@@ -183,9 +183,10 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.status).toBeGreaterThanOrEqual(400);
   });
 
-  // S1.9 Z3: Override-Sub-Level-Tippfehler (Schema-Strict)
-  test("set-profile mit Sub-Level-Tippfehler wirft Error (Z3 — { userRights: { weeks: 3 } })", async () => {
-    const result = await stack.http.write(
+  // S1.9 Z3 + S1.10 M3: Override-Sub-Level-Tippfehler (Schema-Strict)
+  // mit path-spezifischer Assertion via ValidationError.details.fields.
+  test("set-profile mit Sub-Level-Tippfehler liefert validation_error mit Path (Z3+M3)", async () => {
+    const err = await stack.http.writeErr(
       SET_PROFILE,
       {
         profileKey: "eu-dsgvo",
@@ -193,11 +194,18 @@ describe("compliance-profiles :: set-profile", () => {
       },
       tenantAdmin,
     );
-    expect(result.status).toBeGreaterThanOrEqual(400);
+    expect(err.code).toBe("validation_error");
+    expect(err.httpStatus).toBe(400);
+    const fields = (err.details as { fields: Array<{ path: string }> })?.fields;
+    expect(fields).toBeDefined();
+    // Schema-strict wirft auf "userRights.weeks" als unrecognized_keys — ODER
+    // generelle "userRights" wenn Zod das so reportet. Beide Pfade decken den
+    // Bug ab.
+    expect(fields?.some((f) => f.path.includes("userRights"))).toBe(true);
   });
 
-  test("set-profile mit invalid retention-shape wirft Error (Z3 — gracePeriod mit days+hours)", async () => {
-    const result = await stack.http.write(
+  test("set-profile mit invalid retention-shape liefert validation_error mit Path (Z3+M3)", async () => {
+    const err = await stack.http.writeErr(
       SET_PROFILE,
       {
         profileKey: "eu-dsgvo",
@@ -207,7 +215,9 @@ describe("compliance-profiles :: set-profile", () => {
       },
       tenantAdmin,
     );
-    expect(result.status).toBeGreaterThanOrEqual(400);
+    expect(err.code).toBe("validation_error");
+    const fields = (err.details as { fields: Array<{ path: string }> })?.fields;
+    expect(fields?.some((f) => f.path.includes("gracePeriod"))).toBe(true);
   });
 
   // S1.7 F2: SystemAdmin kann Profile setzen

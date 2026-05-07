@@ -7,6 +7,7 @@
 //   4. Override darf einzelne Felder gezielt setzen ohne Required-Drops
 
 import { describe, expect, test } from "vitest";
+import { complianceProfileOverrideSchema } from "../override-schema";
 import {
   COMPLIANCE_PROFILES,
   OVERRIDABLE_PROFILE_KEYS,
@@ -88,6 +89,50 @@ describe("OVERRIDABLE_PROFILE_KEYS — Drift-Guard (S1.8 N2)", () => {
   test("Identifikations-Keys (key, region, label, extends) sind NICHT in OVERRIDABLE_PROFILE_KEYS", () => {
     for (const idKey of IDENTIFICATION_KEYS) {
       expect(OVERRIDABLE_PROFILE_KEYS.has(idKey)).toBe(false);
+    }
+  });
+});
+
+describe("complianceProfileOverrideSchema — Schema↔Profile-Konsistenz (S1.10 M2)", () => {
+  // Wenn Profile-Type erweitert wird (neues Sub-Property in userRights /
+  // breach / auditLog / etc.) ohne dass override-schema.ts mitgepflegt
+  // wird, fail dieser Test. Prinzip: ein voll aufgelöstes Profile ist
+  // ein triviales valides Override-Object — wenn Schema das ablehnt, ist
+  // entweder Schema oder Profile out of sync.
+  test("Schema akzeptiert ein vollständig aufgelöstes Profile als Override (Drift-Guard)", () => {
+    // Identifikations-Felder rausnehmen weil die nicht override-bar sind.
+    const fullProfile = COMPLIANCE_PROFILES["eu-dsgvo"];
+    const {
+      key: _key,
+      region: _region,
+      label: _label,
+      extends: _extends,
+      ...overridable
+    } = fullProfile;
+
+    const result = complianceProfileOverrideSchema.safeParse(overridable);
+    if (!result.success) {
+      throw new Error(
+        `Schema↔Profile-Drift: vollständig aufgelöstes eu-dsgvo wird vom Override-Schema abgelehnt. ` +
+          `Issue at "${result.error.issues[0]?.path.join(".")}": ${result.error.issues[0]?.message}. ` +
+          "Entweder ComplianceProfile-Type erweitert ohne Schema-Update, oder Schema strikter als Profile-Type.",
+      );
+    }
+    expect(result.success).toBe(true);
+  });
+
+  test("Schema akzeptiert auch swiss-dsg + de-hr-dsgvo-hgb (extends-Profile mit Override-Feldern)", () => {
+    for (const key of ["swiss-dsg", "de-hr-dsgvo-hgb"] as const) {
+      const fullProfile = COMPLIANCE_PROFILES[key];
+      const {
+        key: _key,
+        region: _region,
+        label: _label,
+        extends: _extends,
+        ...overridable
+      } = fullProfile;
+      const result = complianceProfileOverrideSchema.safeParse(overridable);
+      expect(result.success, `Schema lehnt voll aufgelöstes ${key} ab`).toBe(true);
     }
   });
 });

@@ -6,7 +6,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  AccessDeniedError,
+  UnprocessableError,
+  validationErrorFromZod,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -75,22 +80,24 @@ export const setProfileWrite = defineWriteHandler({
     // mit Top-Level + Sub-Level-Whitelist via .strict()). Tippfehler
     // wie `{ userRights: { weeks: 3 } }` werden hier rejected statt vom
     // deepMerge silent ins Profile gespliced.
+    //
+    // Errors via writeFailure + Kumiko-Error-Klassen (S1.10 M3) statt
+    // throw — landen so mit Path-Detail im response-body statt als
+    // generic internal_error.
     if (event.payload.override) {
       let parsed: unknown;
       try {
         parsed = JSON.parse(event.payload.override);
       } catch (e) {
-        throw new Error(
-          `Invalid compliance-profile override: ${(e as Error).message}. Expected JSON object string.`,
+        return writeFailure(
+          new UnprocessableError("compliance_override_invalid_json", {
+            details: { reason: "compliance_override_invalid_json", parseError: (e as Error).message },
+          }),
         );
       }
       const validation = complianceProfileOverrideSchema.safeParse(parsed);
       if (!validation.success) {
-        const issue = validation.error.issues[0];
-        const path = issue?.path.length ? issue.path.join(".") : "(root)";
-        throw new Error(
-          `Invalid compliance-profile override at "${path}": ${issue?.message ?? "schema mismatch"}`,
-        );
+        return writeFailure(validationErrorFromZod(validation.error));
       }
     }
 

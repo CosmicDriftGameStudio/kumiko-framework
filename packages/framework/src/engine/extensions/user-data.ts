@@ -13,10 +13,12 @@
 //
 // Siehe docs/plans/datenschutz/user-data-rights.md.
 
+import type { DbConnection } from "../../db/connection";
 import type { TenantId } from "../types";
 
-// SessionUser.id ist `string` (kein Brand) — andere Codebase-Stellen
-// nutzen das so. Wenn UserId mal als Brand kommt, hier 1× ändern.
+// SessionUser.id ist plattformweit `string` (kein Brand-Type). Wenn
+// jemals ein UserId-Brand eingefuehrt wird, ersetzt man hier den
+// inline-Type — andere Codebase-Stellen nutzen denselben Pfad.
 type UserId = string;
 
 /**
@@ -37,7 +39,7 @@ export type UserDataDeleteStrategy = "delete" | "anonymize";
  * das ggf. um cancel-/timeout-Marker; aktuell minimaler Schnitt.
  */
 export interface UserDataHookCtx {
-  readonly db: unknown; // DbConnection — typed in Sprint 2 wenn ctx-Shape klar
+  readonly db: DbConnection;
   readonly tenantId: TenantId;
   readonly userId: UserId;
 }
