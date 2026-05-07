@@ -58,5 +58,9 @@
     "typescript": "^6.0.0",
     "vitest": "^4.1.4",
     "yaml": "^2.8.4"
+  },
+  "resolutions": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   }
 }
