@@ -30,7 +30,6 @@ export type {
   PipelineBuildCtx,
   PipelineCtx,
   PipelineDef,
-  PipelineRunResult,
   StepBuilder,
   StepDef,
   StepFailureStrategy,

@@ -22,14 +22,9 @@ import type { PipelineDef } from "./types/step";
 // visible) and collapse `keyof TMap` to `never`. See the spike-findings
 // memory for the empirical proof.
 //
-// Two authoring forms are supported:
-//   - `handler: (event, ctx) => Promise<WriteResult>`  — free-form (legacy + escape-hatch)
-//   - `perform: pipeline(({ event, r }) => [...])`     — step-pipeline (preferred)
-//
-// At defineWriteHandler call-time, a `perform` is compiled into a
-// handler-function that the dispatcher consumes unchanged. Both inputs
-// produce a WriteHandlerDefinition with `handler` always present —
-// downstream code (registry, dispatcher, AST tools) sees the same shape.
+// Two authoring forms — `handler` (free-form) or `perform: pipeline(...)`
+// (step-pipeline). A `perform` is compiled to a handler-function at
+// definition time; the dispatcher only ever sees `handler`.
 
 export type WriteHandlerDefinition<
   TName extends string = string,

@@ -4,33 +4,21 @@
 // Scope: defineWriteHandler({ perform: pipeline(...) }) → handler(event, ctx)
 //        runs through the pipeline-runner, executes a single
 //        r.step.return, and lands the resolver's WriteResult on the
-//        caller. Dispatcher integration is intentionally NOT covered here
-//        — that lives in pipeline-handler-integration.integration.ts in
-//        the next slice.
+//        caller. Dispatcher integration is exercised by
+//        pipeline-handler.integration.ts (real Postgres + JWT + HTTP).
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { defineStep } from "../define-step";
 import { defineWriteHandler } from "../define-handler";
 import { pipeline } from "../pipeline";
-import "../steps/return";
-import { parseTenantId, SYSTEM_TENANT_ID } from "../types/identifiers";
-import type { HandlerContext, SessionUser, WriteEvent } from "../types/handlers";
-
-function buildSessionUser(): SessionUser {
-  // Minimal SessionUser shape — system tenant + system role keep the
-  // test independent of the auth feature's claim machinery.
-  return {
-    id: "00000000-0000-0000-0000-000000000001",
-    tenantId: parseTenantId(SYSTEM_TENANT_ID) ?? SYSTEM_TENANT_ID,
-    roles: ["User"] as const,
-  };
-}
+import { TestUsers } from "../../stack";
+import type { HandlerContext, WriteEvent } from "../types/handlers";
 
 function buildMinimalCtx(): HandlerContext {
-  // The return-step doesn't read any ctx field — we hand the runner a
-  // minimal cast so we can exercise the compile-to-handler path without
-  // standing up the full dispatcher. Real-ctx integration is the job of
-  // the next test (pipeline-handler-integration.integration.ts).
+  // The return-step doesn't read any ctx field — the runner needs an
+  // object-shaped ctx but no surface beyond that. Real-ctx integration
+  // is the job of pipeline-handler.integration.ts.
   return {} as HandlerContext;
 }
 
@@ -55,7 +43,7 @@ describe("pipeline (M.1.1 vertical slice)", () => {
     const event: WriteEvent<{ greeting: string }> = {
       type: "demo:noop",
       payload: { greeting: "hello" },
-      user: buildSessionUser(),
+      user: TestUsers.admin,
     };
 
     const result = await handlerDef.handler(event, buildMinimalCtx());
@@ -76,7 +64,7 @@ describe("pipeline (M.1.1 vertical slice)", () => {
     });
 
     const result = await handlerDef.handler(
-      { type: "demo:static", payload: {}, user: buildSessionUser() },
+      { type: "demo:static", payload: {}, user: TestUsers.admin },
       buildMinimalCtx(),
     );
     expect(result).toEqual({ isSuccess: true, data: { ok: true } });
@@ -93,7 +81,7 @@ describe("pipeline (M.1.1 vertical slice)", () => {
     expect(handlerDef.perform).toBeUndefined();
 
     const result = await handlerDef.handler(
-      { type: "demo:freeform", payload: { n: 21 }, user: buildSessionUser() },
+      { type: "demo:freeform", payload: { n: 21 }, user: TestUsers.admin },
       buildMinimalCtx(),
     );
     expect(result.isSuccess).toBe(true);
@@ -103,8 +91,6 @@ describe("pipeline (M.1.1 vertical slice)", () => {
   });
 
   it("surfaces an explicit error when a pipeline ends without r.step.return", async () => {
-    // No-step pipelines should fail loudly — silent fallthrough would mask
-    // the most common authoring mistake (forgotten r.step.return at the end).
     const handlerDef = defineWriteHandler({
       name: "demo:no-return",
       schema: z.object({}),
@@ -114,9 +100,49 @@ describe("pipeline (M.1.1 vertical slice)", () => {
 
     await expect(
       handlerDef.handler(
-        { type: "demo:no-return", payload: {}, user: buildSessionUser() },
+        { type: "demo:no-return", payload: {}, user: TestUsers.admin },
         buildMinimalCtx(),
       ),
     ).rejects.toThrow(/r\.step\.return/);
+  });
+
+  it("rejects a step with an unknown kind at runtime", async () => {
+    const handlerDef = defineWriteHandler({
+      name: "demo:unknown-kind",
+      schema: z.object({}),
+      access: { roles: ["User"] },
+      perform: pipeline<Record<string, never>, never>(() => [
+        // Hand-crafted instance with a kind that's never been registered —
+        // simulates a typo in a future step-builder factory.
+        { kind: "this-step-does-not-exist", args: {} },
+      ]),
+    });
+
+    await expect(
+      handlerDef.handler(
+        { type: "demo:unknown-kind", payload: {}, user: TestUsers.admin },
+        buildMinimalCtx(),
+      ),
+    ).rejects.toThrow(/Unknown step kind "this-step-does-not-exist"/);
+  });
+
+  it("defineStep throws when the same kind is registered with a different definition", () => {
+    // First registration: define a unique-named step. Second registration
+    // with the same kind but a different fn must fail loud — silent
+    // shadowing would let two features fight over the same kind without
+    // the caller noticing.
+    defineStep({
+      kind: "test-only:duplicate-guard",
+      defaultFailureStrategy: "throw",
+      run: () => undefined,
+    });
+
+    expect(() =>
+      defineStep({
+        kind: "test-only:duplicate-guard",
+        defaultFailureStrategy: "throw",
+        run: () => "different",
+      }),
+    ).toThrow(/already registered/);
   });
 });

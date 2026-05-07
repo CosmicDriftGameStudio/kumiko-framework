@@ -47,21 +47,13 @@ export type PipelineCtx<TPayload = unknown, TMap extends object = KumikoEventTyp
 export type StepResolver<T, TPayload = unknown> = T | ((ctx: PipelineCtx<TPayload>) => T);
 
 /**
- * A registered step definition. The runtime calls `run()` with the
- * resolved args + ctx; the return value lands under `resultKey` in the
- * pipeline's steps map (or is dropped when resultKey is undefined).
- *
- * `onFailure` is the per-step error strategy. M.1 implements:
- *   - "throw"  — propagate, abort the pipeline
- *   - "return" — wrap as PipelineResult.fail, return early
- *   - "skip"   — log and continue
- *   - { fallback: ... } — execute fallback step instead
+ * Per-step error strategy. M.1.1 only supports "throw" — the type is
+ * deliberately narrowed so callers cannot pass an unsupported strategy
+ * past the type-checker. The doc lists "return" / "skip" / fallback as
+ * future strategies; each lands together with its own runtime support
+ * + integration test in a later slice (no untested type expansion).
  */
-export type StepFailureStrategy =
-  | "throw"
-  | "return"
-  | "skip"
-  | { readonly fallback: StepInstance };
+export type StepFailureStrategy = "throw";
 
 export type StepDef<TArgs = unknown, TResult = unknown> = {
   readonly kind: StepKind;
@@ -150,12 +142,3 @@ export type StepNamespace = {
   // M.1.2+: compute, branch, forEach, read, aggregate, db, ...
 };
 
-/**
- * Pipeline run result. Either succeeds with the explicit data from the
- * last `r.step.return(...)` (or the last step's bare result, if no
- * return was used), or fails via WriteFailure when a step throws under
- * "throw"-or-"return"-strategy.
- */
-export type PipelineRunResult<TData = unknown> =
-  | { readonly isSuccess: true; readonly data: TData; readonly steps: Readonly<Record<string, unknown>> }
-  | { readonly isSuccess: false; readonly error: import("../../errors/write-error-info").WriteFailure["error"]; readonly failedAt: { readonly index: number; readonly kind: StepKind } };

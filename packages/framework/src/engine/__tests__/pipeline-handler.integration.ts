@@ -17,7 +17,6 @@ import { z } from "zod";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { pipeline } from "../pipeline";
-import "../steps/return";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack";
 
 const echoSchema = z.object({ greeting: z.string() });
@@ -78,7 +77,8 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // catches the type mismatch and returns a validation error.
     const res = await stack.http.write(
       "demo-pipeline:write:echo",
-      // @ts-expect-error — intentional bad payload to exercise schema-first pipeline
+      // Intentional type-mismatch — stack.http.write accepts unknown
+      // payload, the dispatcher's Zod parse rejects it with 400.
       { greeting: 42 },
       admin,
     );
