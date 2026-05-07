@@ -45,6 +45,7 @@ import type { NavDefinition } from "../types/nav";
 import type { MspErrorMode } from "../types/projection";
 import type { RelationDefinition } from "../types/relations";
 import type { ScreenDefinition } from "../types/screen";
+import type { TreeActionDef } from "../types/tree-node";
 import type { WorkspaceDefinition } from "../types/workspace";
 import type { SourceLocation } from "./source-location";
 
@@ -158,6 +159,17 @@ export type UseExtensionPattern = {
   readonly options?: Readonly<Record<string, unknown>>;
 };
 
+// r.treeActions({ ... }) — Schema-Map für Visual-Tree-Action-Verben.
+// Static: Args sind Type-Samples (kein Runtime-Validator), Designer
+// rendert das als nested form pro Action. Compile-Time-Validation
+// passiert via setup-export-Handle (TreeActionsHandle), nicht über
+// dieses Pattern — das hier ist reine Runtime-Repräsentation.
+export type TreeActionsPattern = {
+  readonly kind: "treeActions";
+  readonly source: SourceLocation;
+  readonly definitions: Readonly<Record<string, TreeActionDef>>;
+};
+
 // =============================================================================
 // Mixed patterns — header (name/access/etc.) is declarative, body
 // (handler/hook/apply/transform fn) is opaque. Designer renders the
@@ -262,6 +274,16 @@ export type AuthClaimsPattern = {
   readonly fnBody: SourceLocation;
 };
 
+// r.tree(provider) — Top-Level-Tree-Provider-Function. Closure-only,
+// kein Header-Form. Designer rendert als read-only Code-Block, AI-
+// Patcher überschreibt span verbatim. Konsistent mit r.authClaims —
+// auch da ist die Function-Body die einzige Information.
+export type TreePattern = {
+  readonly kind: "tree";
+  readonly source: SourceLocation;
+  readonly providerBody: SourceLocation;
+};
+
 export type HttpRoutePattern = {
   readonly kind: "httpRoute";
   readonly source: SourceLocation;
@@ -354,6 +376,7 @@ export type FeaturePattern =
   | ReferenceDataPattern
   | ReadsConfigPattern
   | UseExtensionPattern
+  | TreeActionsPattern
   // Mixed
   | ScreenPattern
   | WriteHandlerPattern
@@ -369,6 +392,7 @@ export type FeaturePattern =
   | DefineEventPattern
   | EventMigrationPattern
   | ExtendsRegistrarPattern
+  | TreePattern
   // Catch-all
   | UnknownPattern;
 
@@ -406,6 +430,7 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "referenceData":
     case "readsConfig":
     case "useExtension":
+    case "treeActions":
       return "static";
     case "screen":
     case "writeHandler":
@@ -422,6 +447,7 @@ export function getEditability(pattern: FeaturePattern): Editability {
       return "mixed";
     case "authClaims":
     case "extendsRegistrar":
+    case "tree":
     case "unknown":
       return "opaque";
     default: {

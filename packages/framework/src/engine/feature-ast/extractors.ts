@@ -40,6 +40,7 @@ import type { NavDefinition } from "../types/nav";
 import type { MspErrorMode } from "../types/projection";
 import type { RelationDefinition } from "../types/relations";
 import type { ScreenDefinition } from "../types/screen";
+import type { TreeActionDef } from "../types/tree-node";
 import type { WorkspaceDefinition } from "../types/workspace";
 import type { ParseError } from "./parse";
 import type {
@@ -71,6 +72,8 @@ import type {
   SystemScopePattern,
   ToggleablePattern,
   TranslationsPattern,
+  TreeActionsPattern,
+  TreePattern,
   UseExtensionPattern,
   WorkspacePattern,
   WriteHandlerPattern,
@@ -2558,5 +2561,65 @@ export function extractExtendsRegistrar(
     source: sourceLocationFromNode(call, sourceFile),
     extensionName: nameArg.getLiteralValue(),
     defBody: sourceLocationFromNode(defArg, sourceFile),
+  });
+}
+
+// =============================================================================
+// Round 6 — Visual-Tree patterns. r.treeActions is a static object-literal
+// (mirror of extractWorkspace), r.tree is a closure-only opaque pattern
+// (mirror of extractAuthClaims).
+// =============================================================================
+
+export function extractTreeActions(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<TreeActionsPattern> {
+  const arg = call.getArguments()[0];
+  if (!arg) {
+    return fail(
+      "treeActions",
+      sourceLocationFromNode(call, sourceFile),
+      "expected an action-map object literal as first argument",
+    );
+  }
+  const definitions = readDataLiteralNode(arg);
+  if (!isPlainObject(definitions)) {
+    return fail(
+      "treeActions",
+      sourceLocationFromNode(call, sourceFile),
+      "action-map could not be read as a plain object",
+    );
+  }
+  return ok({
+    kind: "treeActions",
+    source: sourceLocationFromNode(call, sourceFile),
+    definitions: definitions as Readonly<Record<string, TreeActionDef>>,
+  });
+}
+
+export function extractTree(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<TreePattern> {
+  const arg = call.getArguments()[0];
+  if (!arg) {
+    return fail(
+      "tree",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a tree-provider function as first argument",
+    );
+  }
+  const fn = findFunctionLiteral(arg);
+  if (!fn) {
+    return fail(
+      "tree",
+      sourceLocationFromNode(call, sourceFile),
+      "first argument must be an inline arrow function or function expression",
+    );
+  }
+  return ok({
+    kind: "tree",
+    source: sourceLocationFromNode(call, sourceFile),
+    providerBody: sourceLocationFromNode(fn, sourceFile),
   });
 }

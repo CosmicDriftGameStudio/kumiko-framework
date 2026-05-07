@@ -21,13 +21,12 @@
 // Siehe docs/plans/architecture/visual-tree.md A5.
 
 import type { TargetRef } from "./types/target-ref";
+import type { TreeActionDef } from "./types/tree-node";
 
-// TreeActionDef — Schema-Eintrag pro Action. Phase 0: Args sind ein
-// optionales Type-Sample (kein Validator — Validation passiert in
-// Schicht 2 via Pattern-AST).
-export type TreeActionDef<TArgs = Record<string, unknown>> = {
-  readonly args?: TArgs;
-};
+// TreeActionDef wird re-exported (für Public-API-Kompatibilität —
+// Caller importieren weiterhin von engine), lebt aber kanonisch in
+// types/tree-node.ts (Visual-Tree-Domäne, nicht Builder-Domäne).
+export type { TreeActionDef };
 
 // FeatureWithTreeActions — internal Generic-Constraint für den Builder.
 // **Bewusst nicht exportiert** — Phase-0-Stub, wird in V.1.1 durch echte

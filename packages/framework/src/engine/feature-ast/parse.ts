@@ -53,6 +53,8 @@ import {
   extractSystemScope,
   extractToggleable,
   extractTranslations,
+  extractTree,
+  extractTreeActions,
   extractUseExtension,
   extractWorkspace,
   extractWriteHandler,
@@ -346,6 +348,11 @@ function dispatchExtractor(
     // Round 5 — opaque patterns
     case "extendsRegistrar":
       return extractExtendsRegistrar(call, sourceFile);
+    // Round 6 — Visual-Tree patterns
+    case "treeActions":
+      return extractTreeActions(call, sourceFile);
+    case "tree":
+      return extractTree(call, sourceFile);
     // Unknown method — UnknownPattern signal so Designer/AI surface it
     // as "custom call" without losing the source location.
     default:

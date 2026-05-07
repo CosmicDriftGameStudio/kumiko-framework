@@ -45,6 +45,8 @@ import type {
   SystemScopePattern,
   ToggleablePattern,
   TranslationsPattern,
+  TreeActionsPattern,
+  TreePattern,
   UnknownPattern,
   UseExtensionPattern,
   WorkspacePattern,
@@ -122,6 +124,10 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderEventMigration(pattern);
     case "extendsRegistrar":
       return renderExtendsRegistrar(pattern);
+    case "treeActions":
+      return renderTreeActions(pattern);
+    case "tree":
+      return renderTree(pattern);
     case "unknown":
       return renderUnknown(pattern);
     default: {
@@ -406,6 +412,16 @@ function renderNotification(p: NotificationPattern): string {
 
 function renderAuthClaims(p: AuthClaimsPattern): string {
   return `r.authClaims(${p.fnBody.raw});`;
+}
+
+// Visual-Tree patterns. treeActions is a static object-literal (mirrors
+// renderWorkspace), tree is opaque-only (mirrors renderAuthClaims).
+function renderTreeActions(p: TreeActionsPattern): string {
+  return `r.treeActions(${renderValue(p.definitions)});`;
+}
+
+function renderTree(p: TreePattern): string {
+  return `r.tree(${p.providerBody.raw});`;
 }
 
 function renderHttpRoute(p: HttpRoutePattern): string {

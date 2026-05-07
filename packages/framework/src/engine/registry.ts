@@ -34,6 +34,8 @@ import type {
   ScreenDefinition,
   SecretKeyDefinition,
   TranslationKeys,
+  TreeActionDef,
+  TreeProvider,
   WorkspaceDefinition,
   WriteHandlerDef,
 } from "./types";
@@ -190,6 +192,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const workspaceFeatureMap = new Map<string, string>();
   const navsByWorkspace = new Map<string, string[]>();
   let defaultWorkspace: WorkspaceDefinition | undefined;
+
+  // Visual-Tree-Provider — keyed by declaring feature name (NOT qualified;
+  // ein Feature liefert genau einen Provider). Visual-Tree-Component
+  // iteriert die Map zur Mount-Zeit. Tree-Actions parallel — featureName
+  // → erased Action-Map (compile-time-typed Variante geht über
+  // setup-export-handle, siehe FeatureRegistrar.treeActions docs).
+  const treeProvidersMap = new Map<string, TreeProvider>();
+  const treeActionsMap = new Map<string, Readonly<Record<string, TreeActionDef>>>();
 
   // Local alias for readability — `qualifyEntityName` is the shared helper
   // from qualified-name.ts, also used by validateBoot to keep ingest and
@@ -571,6 +581,16 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
           defaultWorkspace = stored;
         }
       }
+    }
+
+    // Visual-Tree slots — at-most-one per feature (only-once-guard im
+    // registrar). Erased Maps für Runtime-Lookup; compile-time-typed
+    // Surface läuft über FeatureDefinition.exports (TreeActionsHandle).
+    if (feature.treeProvider !== undefined) {
+      treeProvidersMap.set(feature.name, feature.treeProvider);
+    }
+    if (feature.treeActions !== undefined) {
+      treeActionsMap.set(feature.name, feature.treeActions);
     }
 
     // Auth-claims hooks: order of registration is preserved. Feature name is
@@ -1308,6 +1328,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getDefaultWorkspace(): WorkspaceDefinition | undefined {
       return defaultWorkspace;
+    },
+
+    getTreeProviders(): ReadonlyMap<string, TreeProvider> {
+      return treeProvidersMap;
+    },
+
+    getTreeActions(featureName: string): Readonly<Record<string, TreeActionDef>> | undefined {
+      return treeActionsMap.get(featureName);
     },
   };
 }
