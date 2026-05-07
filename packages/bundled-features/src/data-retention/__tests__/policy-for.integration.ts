@@ -122,12 +122,15 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     expect(result.policy).toBeNull();
   });
 
-  test("Override mit invalid JSON in DB → console.warn, fallback (source=none)", async () => {
+  test("Override mit Schema-Violation in DB → console.warn, fallback (source=none)", async () => {
     const tenantId = testTenantId(4);
     const user = createTestUser({ id: 4, tenantId, roles: ["TenantAdmin"] });
 
-    // DB-Direct-Insert mit JSON das vom Schema rejected wird
-    // (strategy: "delete" — gibt's nicht)
+    // Test-Name korrigiert in S2.D2.5-Audit (N3): "invalid JSON" war
+    // missleading — der Test prueft Schema-Violation (gueltiges JSON
+    // mit ungueltigem strategy-Enum-Wert), nicht JSON-Parse-Fehler.
+    // DB-Direct-Insert via seedOverride mit strategy="delete" — Zod
+    // retentionOverrideSchema rejected das.
     await seedOverride(
       tenantId,
       "ghost-corrupt",
