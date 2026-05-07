@@ -1,0 +1,91 @@
+// M.1.1 dispatcher-integration test — proves the perform-as-pipeline path
+// goes through the full real stack:
+//   - r.writeHandler(definitionObj) accepts the new output shape
+//   - boot-validation doesn't trip on the `perform` field
+//   - dispatcher parses the payload (Zod schema) BEFORE invoking handler
+//   - dispatcher hands the handler a real HandlerContext (~30 fields)
+//   - the compiled handler (defineWriteHandler-generated) runs the
+//     pipeline-runner against that ctx
+//   - r.step.return resolver receives the live event
+//   - WriteResult lands on the HTTP caller
+//
+// Compare to pipeline-vertical-slice.test.ts which mocks ctx — this test
+// is the gate advisor flagged: real Postgres, real JWT, real HTTP.
+
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
+import { defineFeature } from "../define-feature";
+import { defineWriteHandler } from "../define-handler";
+import { pipeline } from "../pipeline";
+import "../steps/return";
+import { setupTestStack, type TestStack, TestUsers } from "../../stack";
+
+const echoSchema = z.object({ greeting: z.string() });
+
+const echoHandler = defineWriteHandler({
+  // Registry's qualify() prepends "<feature>:write:" — handler def-name
+  // is the short form only.
+  name: "echo",
+  schema: echoSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof echoSchema>, { echoed: string; from: string }>(
+    ({ event, r }) => [
+      r.step.return(() => ({
+        isSuccess: true as const,
+        data: {
+          echoed: event.payload.greeting,
+          from: event.user.id,
+        },
+      })),
+    ],
+  ),
+});
+
+const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
+  r.writeHandler(echoHandler);
+});
+
+let stack: TestStack;
+const admin = TestUsers.admin;
+
+describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher path", () => {
+  beforeAll(async () => {
+    stack = await setupTestStack({ features: [demoPipelineFeature] });
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+  });
+
+  test("HTTP write call goes through dispatcher → pipeline-runner → r.step.return", async () => {
+    const res = await stack.http.write(
+      "demo-pipeline:write:echo",
+      { greeting: "hallo welt" },
+      admin,
+    );
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { isSuccess: true; data: { echoed: string; from: string } };
+    expect(body.isSuccess).toBe(true);
+    expect(body.data).toEqual({
+      echoed: "hallo welt",
+      from: admin.id,
+    });
+  });
+
+  test("dispatcher rejects the call when payload fails Zod validation (schema runs BEFORE pipeline)", async () => {
+    // Pipeline-runner shouldn't even fire — the dispatcher's parse-stage
+    // catches the type mismatch and returns a validation error.
+    const res = await stack.http.write(
+      "demo-pipeline:write:echo",
+      // @ts-expect-error — intentional bad payload to exercise schema-first pipeline
+      { greeting: 42 },
+      admin,
+    );
+    expect(res.status).toBe(400);
+
+    const body = (await res.json()) as { isSuccess: false; error: { code: string } };
+    expect(body.isSuccess).toBe(false);
+    expect(body.error.code).toBe("validation_error");
+  });
+});

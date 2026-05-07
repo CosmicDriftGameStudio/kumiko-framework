@@ -1,4 +1,5 @@
 import type { ZodType, z } from "zod";
+import { runPipeline } from "./run-pipeline";
 import type {
   AccessRule,
   HandlerContext,
@@ -8,6 +9,7 @@ import type {
   WriteEvent,
   WriteResult,
 } from "./types";
+import type { PipelineDef } from "./types/step";
 
 // --- Write Handler Definition ---
 //
@@ -19,6 +21,15 @@ import type {
 // definition-site (framework's compile, where the augmentation isn't
 // visible) and collapse `keyof TMap` to `never`. See the spike-findings
 // memory for the empirical proof.
+//
+// Two authoring forms are supported:
+//   - `handler: (event, ctx) => Promise<WriteResult>`  — free-form (legacy + escape-hatch)
+//   - `perform: pipeline(({ event, r }) => [...])`     — step-pipeline (preferred)
+//
+// At defineWriteHandler call-time, a `perform` is compiled into a
+// handler-function that the dispatcher consumes unchanged. Both inputs
+// produce a WriteHandlerDefinition with `handler` always present —
+// downstream code (registry, dispatcher, AST tools) sees the same shape.
 
 export type WriteHandlerDefinition<
   TName extends string = string,
@@ -35,7 +46,40 @@ export type WriteHandlerDefinition<
     event: WriteEvent<z.infer<TSchema>>,
     context: HandlerContext<TMap>,
   ) => Promise<WriteResult<TData>>;
+  // Preserved when the author wrote a `perform` block — the original
+  // PipelineDef. Designer/AI/AST tools read this when present; the
+  // dispatcher ignores it and just calls `handler`. Absent on free-form
+  // handlers.
+  readonly perform?: PipelineDef<z.infer<TSchema>, TData>;
 };
+
+// Author-facing input — accepts either the free-form `handler` or the
+// pipeline-form `perform`. defineWriteHandler narrows them to the
+// canonical WriteHandlerDefinition shape.
+export type WriteHandlerInput<
+  TName extends string = string,
+  TSchema extends ZodType = ZodType,
+  TData = unknown,
+  TMap extends object = KumikoEventTypeMap,
+> = {
+  readonly name: TName;
+  readonly schema: TSchema;
+  readonly access?: AccessRule;
+  readonly skipTransitionGuard?: boolean;
+  readonly rateLimit?: RateLimitOption;
+} & (
+  | {
+      readonly handler: (
+        event: WriteEvent<z.infer<TSchema>>,
+        context: HandlerContext<TMap>,
+      ) => Promise<WriteResult<TData>>;
+      readonly perform?: never;
+    }
+  | {
+      readonly perform: PipelineDef<z.infer<TSchema>, TData>;
+      readonly handler?: never;
+    }
+);
 
 export function defineWriteHandler<
   const TName extends string,
@@ -43,9 +87,35 @@ export function defineWriteHandler<
   TData = unknown,
   TMap extends object = KumikoEventTypeMap,
 >(
-  def: WriteHandlerDefinition<TName, TSchema, TData, TMap>,
+  def: WriteHandlerInput<TName, TSchema, TData, TMap>,
 ): WriteHandlerDefinition<TName, TSchema, TData, TMap> {
-  return def;
+  if ("perform" in def && def.perform !== undefined) {
+    const performDef = def.perform;
+    const compiledHandler = async (
+      event: WriteEvent<z.infer<TSchema>>,
+      ctx: HandlerContext<TMap>,
+    ): Promise<WriteResult<TData>> => {
+      return runPipeline<z.infer<TSchema>, TData, TMap>(performDef, event, ctx);
+    };
+    return {
+      name: def.name,
+      schema: def.schema,
+      access: def.access,
+      skipTransitionGuard: def.skipTransitionGuard,
+      rateLimit: def.rateLimit,
+      handler: compiledHandler,
+      perform: performDef,
+    };
+  }
+  // Free-form handler input: shape is already canonical, just return it.
+  return {
+    name: def.name,
+    schema: def.schema,
+    access: def.access,
+    skipTransitionGuard: def.skipTransitionGuard,
+    rateLimit: def.rateLimit,
+    handler: def.handler,
+  };
 }
 
 // --- Query Handler Definition ---

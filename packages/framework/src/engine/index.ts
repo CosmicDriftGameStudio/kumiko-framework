@@ -18,8 +18,27 @@ export {
 export type { App, AppConfig } from "./create-app";
 export { createApp } from "./create-app";
 export { defineFeature } from "./define-feature";
-export type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
+export type {
+  QueryHandlerDefinition,
+  WriteHandlerDefinition,
+  WriteHandlerInput,
+} from "./define-handler";
 export { defineQueryHandler, defineWriteHandler } from "./define-handler";
+export { defineStep, getStep, listStepKinds } from "./define-step";
+export { pipeline } from "./pipeline";
+export type {
+  PipelineBuildCtx,
+  PipelineCtx,
+  PipelineDef,
+  PipelineRunResult,
+  StepBuilder,
+  StepDef,
+  StepFailureStrategy,
+  StepInstance,
+  StepKind,
+  StepNamespace,
+  StepResolver,
+} from "./types/step";
 export { defineRoles } from "./define-roles";
 export type { ToggleReader } from "./effective-features";
 export { computeEffectiveFeatures } from "./effective-features";
