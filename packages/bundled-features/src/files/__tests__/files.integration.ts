@@ -15,6 +15,7 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { getTableColumns } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createFilesFeature, fileRefEntity } from "../feature";
 
@@ -103,21 +104,24 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
 });
 
 describe("files :: DDL-Konsistenz (M3, S1.7)", () => {
+  // Drizzle's getTableColumns liefert die typed column-map ohne den
+  // Symbol-Properties-Junk. Sauberer als Object.keys(table) das auch
+  // interne Drizzle-Symbols mitnimmt.
+  function pgColumnNames(): Set<string> {
+    return new Set(Object.keys(getTableColumns(fileRefsTable)));
+  }
+
   test("Feature-Entity-Felder matchen die Framework-pgTable column-set", () => {
     // Framework's fileRefsTable ist die Quelle der Wahrheit fuer die
     // DB-Struktur. Feature-Entity ist Schema-Sicht. Beide muessen
     // konsistent sein — sonst landet Sprint-2's userData-Hook in
     // Drift-Hell beim Forget-Flow.
     //
-    // Drizzle pgTable speichert Spalten als Properties am Tabellen-
-    // Object. Feature-Entity-Felder sind Object.keys von .fields.
     // Vergleich: alle Feature-Felder muessen als Spalten in der pgTable
     // existieren (umgekehrt darf pgTable framework-managed Spalten haben
-    // wie tenantId/version/createdAt/updatedAt/deletedAt — die deklariert
-    // das Framework automatisch beim buildDrizzleTable-Mapping).
-
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle-Tables exposen Spalten als Object-Properties
-    const pgColumns = new Set(Object.keys(fileRefsTable as any));
+    // wie tenantId/createdAt/updatedAt/deletedAt — die deklariert das
+    // Framework automatisch beim buildDrizzleTable-Mapping).
+    const pgColumns = pgColumnNames();
     const featureFields = Object.keys(fileRefEntity.fields);
 
     for (const field of featureFields) {
@@ -129,8 +133,7 @@ describe("files :: DDL-Konsistenz (M3, S1.7)", () => {
   });
 
   test("Framework-pgTable hat die kritischen file_ref-Spalten (storageKey, fileName, mimeType, size)", () => {
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle-Tables exposen Spalten als Object-Properties
-    const pgColumns = new Set(Object.keys(fileRefsTable as any));
+    const pgColumns = pgColumnNames();
     expect(pgColumns.has("storageKey")).toBe(true);
     expect(pgColumns.has("fileName")).toBe(true);
     expect(pgColumns.has("mimeType")).toBe(true);

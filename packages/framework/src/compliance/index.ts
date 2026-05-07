@@ -13,6 +13,7 @@ export type {
 } from "./profiles";
 export {
   COMPLIANCE_PROFILES,
+  OVERRIDABLE_PROFILE_KEYS,
   SELECTABLE_PROFILE_KEYS,
   resolveComplianceProfile,
 } from "./profiles";

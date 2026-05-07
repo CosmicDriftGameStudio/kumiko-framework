@@ -16,6 +16,13 @@ const LIST_PROFILES = "compliance-profiles:query:list-profiles";
 const SUB_PROCESSORS = "compliance-profiles:query:sub-processors";
 const NEEDS_PROFILE = "compliance-profiles:query:needs-profile";
 
+// S1.8 N5: Isolierten Tenant-Admin pro Test bauen — verhindert
+// Cross-Test-Interferenz uber gemeinsamen Default-tenantId aus
+// TestUsers.admin. Eindeutige numerische ID + parallele tenantId.
+function createIsolatedTenantAdmin(n: number, roles: string[] = ["TenantAdmin"]) {
+  return createTestUser({ id: n, tenantId: testTenantId(n), roles });
+}
+
 let stack: TestStack;
 let db: DbConnection;
 
@@ -178,11 +185,7 @@ describe("compliance-profiles :: set-profile", () => {
 
   // S1.7 F2: SystemAdmin kann Profile setzen
   test("SystemAdmin kann Profile setzen (Plattform-Operator-Pfad)", async () => {
-    const sysAdmin = createTestUser({
-      id: 50,
-      tenantId: testTenantId(50),
-      roles: ["SystemAdmin"],
-    });
+    const sysAdmin = createIsolatedTenantAdmin(50, ["SystemAdmin"]);
     const result = await stack.http.writeOk(
       SET_PROFILE,
       { profileKey: "eu-dsgvo" },
@@ -193,16 +196,8 @@ describe("compliance-profiles :: set-profile", () => {
 
   // S1.7 F3: tenantIdOverride als SystemAdmin → für Customer-Tenant
   test("SystemAdmin kann mit tenantIdOverride für anderen Tenant Profile setzen (F3)", async () => {
-    const sysAdmin = createTestUser({
-      id: 51,
-      tenantId: testTenantId(51),
-      roles: ["SystemAdmin"],
-    });
-    const targetTenantAdmin = createTestUser({
-      id: 52,
-      tenantId: testTenantId(52),
-      roles: ["TenantAdmin"],
-    });
+    const sysAdmin = createIsolatedTenantAdmin(51, ["SystemAdmin"]);
+    const targetTenantAdmin = createIsolatedTenantAdmin(52);
 
     await stack.http.writeOk(
       SET_PROFILE,
@@ -221,11 +216,7 @@ describe("compliance-profiles :: set-profile", () => {
 
   // S1.7 F3: tenantIdOverride als TenantAdmin → 403
   test("TenantAdmin mit tenantIdOverride bekommt 403 (F3)", async () => {
-    const someTenantAdmin = createTestUser({
-      id: 53,
-      tenantId: testTenantId(53),
-      roles: ["TenantAdmin"],
-    });
+    const someTenantAdmin = createIsolatedTenantAdmin(53);
     const result = await stack.http.write(
       SET_PROFILE,
       { profileKey: "eu-dsgvo", tenantIdOverride: testTenantId(54) },
@@ -265,11 +256,7 @@ describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", ()
   test("Tenant ohne Profile-Wahl → needsSelection=true, reason=no-profile-selected", async () => {
     // Frischer Tenant-Admin (eigener Tenant ID damit kein Profile gesetzt
     // ist — sonst sieht er den Eintrag aus den vorherigen set-profile-Tests).
-    const freshTenantAdmin = createTestUser({
-      id: 99,
-      tenantId: testTenantId(99),
-      roles: ["TenantAdmin"],
-    });
+    const freshTenantAdmin = createIsolatedTenantAdmin(99);
     const result = await stack.http.queryOk<{
       needsSelection: boolean;
       currentProfile: string | null;
@@ -281,11 +268,7 @@ describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", ()
   });
 
   test("Tenant mit eu-dsgvo-Wahl → needsSelection=false", async () => {
-    const setupAdmin = createTestUser({
-      id: 100,
-      tenantId: testTenantId(100),
-      roles: ["TenantAdmin"],
-    });
+    const setupAdmin = createIsolatedTenantAdmin(100);
     await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, setupAdmin);
 
     const result = await stack.http.queryOk<{
@@ -296,28 +279,10 @@ describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", ()
     expect(result.currentProfile).toBe("eu-dsgvo");
   });
 
-  test.skip("Tenant mit minimal-no-region → needsSelection=true (Migration-Edge-Case, S1.7)", async () => {
-    // S1.7 X1: minimal-no-region ist über set-profile (Zod) nicht mehr
-    // setzbar. Der defensive Code-Pfad in needs-profile.query.ts greift
-    // nur bei Migration-Edge-Cases (DB-direct-Insert von altem Schema).
-    // Setup-Helper für DB-State ist stack-context-spezifisch und nicht
-    // stable in der aktuellen Test-Stack-Form — Test bleibt skipped bis
-    // Sprint 2 einen seedComplianceProfile-Helper liefert.
-    const setupAdmin = createTestUser({
-      id: 101,
-      tenantId: testTenantId(101),
-      roles: ["TenantAdmin"],
-    });
-
-    const result = await stack.http.queryOk<{
-      needsSelection: boolean;
-      currentProfile: string | null;
-      reason?: string;
-    }>(NEEDS_PROFILE, {}, setupAdmin);
-    expect(result.needsSelection).toBe(true);
-    expect(result.currentProfile).toBe("minimal-no-region");
-    expect(result.reason).toBe("minimal-not-production-ready");
-  });
+  // S1.8 O3: minimal-no-region-Defensiv-Pfad in needs-profile.query.ts
+  // entfernt (toter Code nach S1.7 X1 — Zod blockt minimal-no-region).
+  // Wenn Sprint 2 einen seedComplianceProfile-Helper bringt der den
+  // Migration-Edge-Case einführt, kommt hier ein neuer Test rein.
 
   test("Member-Rolle bekommt 403 (Banner ist Admin-only)", async () => {
     const result = await stack.http.query(NEEDS_PROFILE, {}, normalUser);

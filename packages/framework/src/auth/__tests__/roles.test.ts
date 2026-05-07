@@ -9,7 +9,7 @@ describe("ROLES constants", () => {
       {
         "DataProtectionOfficer": "DataProtectionOfficer",
         "Member": "Member",
-        "PlatformAdmin": "PlatformAdmin",
+        "SystemAdmin": "SystemAdmin",
         "TenantAdmin": "TenantAdmin",
         "TenantOwner": "TenantOwner",
       }

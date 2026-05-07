@@ -1,5 +1,6 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
+  OVERRIDABLE_PROFILE_KEYS,
   SELECTABLE_PROFILE_KEYS,
   type ComplianceProfileKey,
 } from "@cosmicdrift/kumiko-framework/compliance";
@@ -18,22 +19,6 @@ const crud = createEventStoreExecutor(
   tenantComplianceProfileEntity,
   { entityName: "tenant-compliance-profile" },
 );
-
-// Whitelist der erlaubten Top-Level-Keys im Override. Verhindert dass
-// Tippfehler ("userrights" statt "userRights") stillschweigend ignoriert
-// werden — deepMerge findet den falschen Key nicht und das Override
-// hat keine Wirkung. Plus: schützt Identifikations-Felder (key, region,
-// label, extends) vor versehentlichem Override das die Profile-
-// Identitaet zerstoeren wuerde.
-const ALLOWED_OVERRIDE_KEYS: ReadonlySet<string> = new Set([
-  "userRights",
-  "notifications",
-  "breach",
-  "auditLog",
-  "subProcessor",
-  "tenantDestroyGracePeriod",
-  "forgetDiscovery",
-]);
 
 // Schema engt sich auf die 3 oeffentlich waehlbaren Profile (Sprint 1.7
 // X1) — minimal-no-region ist Default-Fallback fuer "noch keine Wahl",
@@ -70,10 +55,10 @@ export const setProfileWrite = defineWriteHandler({
   }),
   // SystemAdmin kann Profile fuer Customer-Setup setzen (Plattform-
   // Operator-Pfad). TenantAdmin nur fuer eigenen Tenant.
-  access: { roles: [ROLES.TenantAdmin, "SystemAdmin"] },
+  access: { roles: [ROLES.TenantAdmin, ROLES.SystemAdmin] },
   handler: async (event, ctx) => {
     const tenantOverride = event.payload.tenantIdOverride;
-    if (tenantOverride !== undefined && !event.user.roles.includes("SystemAdmin")) {
+    if (tenantOverride !== undefined && !event.user.roles.includes(ROLES.SystemAdmin)) {
       return writeFailure(
         new AccessDeniedError({
           i18nKey: "complianceProfiles.errors.tenantOverrideRequiresSystemAdmin",
@@ -99,11 +84,11 @@ export const setProfileWrite = defineWriteHandler({
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
         throw new Error("Invalid compliance-profile override: must be a JSON object");
       }
-      const unknownKeys = Object.keys(parsed).filter((k) => !ALLOWED_OVERRIDE_KEYS.has(k));
+      const unknownKeys = Object.keys(parsed).filter((k) => !OVERRIDABLE_PROFILE_KEYS.has(k));
       if (unknownKeys.length > 0) {
         throw new Error(
           `Invalid compliance-profile override: unknown top-level keys [${unknownKeys.join(", ")}]. ` +
-            `Allowed: ${[...ALLOWED_OVERRIDE_KEYS].sort().join(", ")}. ` +
+            `Allowed: ${[...OVERRIDABLE_PROFILE_KEYS].sort().join(", ")}. ` +
             "Tippfehler werden vom deepMerge stillschweigend ignoriert — Schema strict.",
         );
       }

@@ -252,6 +252,32 @@ export const SELECTABLE_PROFILE_KEYS: readonly ComplianceProfileKey[] = [
   "de-hr-dsgvo-hgb",
 ];
 
+/**
+ * Top-Level-Properties des `ComplianceProfile`-Type, die ein Tenant-
+ * Override modifizieren darf. Identifikations-Felder (key, region,
+ * label, extends) sind ausgeschlossen — wer die overriden wuerde,
+ * würde die Profile-Identität zerstoeren.
+ *
+ * Single source of truth fuer:
+ *   - set-profile-Handler-Whitelist (Tippfehler-Reject)
+ *   - Snapshot-Test gegen Profile-Top-Level (Drift-Guard)
+ *
+ * Wenn ein neues Top-Level-Property zu `ComplianceProfile` kommt
+ * (z.B. `dataSubjectRights` oder `crossBorderTransferRules`), MUSS es
+ * hier ergaenzt werden — sonst lehnt set-profile valide Overrides ab.
+ * Der Snapshot-Test in profiles.test.ts faengt Drift in beide
+ * Richtungen.
+ */
+export const OVERRIDABLE_PROFILE_KEYS: ReadonlySet<string> = new Set([
+  "userRights",
+  "notifications",
+  "breach",
+  "auditLog",
+  "subProcessor",
+  "tenantDestroyGracePeriod",
+  "forgetDiscovery",
+]);
+
 // --- Extends-Resolver (deep-merge) ---
 
 type DeepReadonly<T> = T extends object

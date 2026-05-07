@@ -15,8 +15,11 @@
 //                            migriert.
 //   DataProtectionOfficer  — DPO; setzt Legal-Holds, sieht Authority-
 //                            Audit-Stream auch im silentMode (Sprint 6).
-//   PlatformAdmin          — Plattform-Operator (NICHT Tenant-scoped).
-//                            Authority-Export, KMS-Recovery, etc.
+//   SystemAdmin            — Plattform-Operator (NICHT Tenant-scoped).
+//                            Authority-Export, KMS-Recovery, Cross-
+//                            Tenant-Setup. Matched den bestehenden
+//                            "SystemAdmin"-String in text-content,
+//                            secrets, auth-email-password, etc.
 //   Member                 — Standard-Mitglied eines Tenants ohne
 //                            Admin-Rechte.
 
@@ -28,7 +31,7 @@ export const ROLES = {
   TenantOwner: "TenantOwner",
   TenantAdmin: "TenantAdmin",
   DataProtectionOfficer: "DataProtectionOfficer",
-  PlatformAdmin: "PlatformAdmin",
+  SystemAdmin: "SystemAdmin",
   Member: "Member",
 } as const;
 

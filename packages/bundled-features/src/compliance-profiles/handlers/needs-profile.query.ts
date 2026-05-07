@@ -37,18 +37,11 @@ export const needsProfileQuery = defineQueryHandler({
       };
     }
 
-    if (row.profileKey === "minimal-no-region") {
-      // Defensive: ueber set-profile (S1.7 X1) nicht mehr setzbar, aber
-      // Migration-Edge-Case oder DB-Direct-Insert koennten den State
-      // erzeugen. Banner auf "needs selection" damit Tenant-Admin weiss
-      // dass er waehlen muss.
-      return {
-        needsSelection: true,
-        currentProfile: "minimal-no-region",
-        reason: "minimal-not-production-ready",
-      };
-    }
-
+    // S1.7 X1: minimal-no-region ist via set-profile (Zod) nicht mehr
+    // setzbar. Wenn Sprint 2 einen seedComplianceProfile-Helper liefert
+    // der den Migration-Edge-Case einführt, kommt hier wieder ein
+    // defensiver Pfad rein — bis dahin: jeder existierende Eintrag ist
+    // ein bewusst gewähltes Production-Profile.
     return {
       needsSelection: false,
       currentProfile: row.profileKey,
@@ -59,5 +52,5 @@ export const needsProfileQuery = defineQueryHandler({
 interface NeedsProfileResponse {
   readonly needsSelection: boolean;
   readonly currentProfile: ComplianceProfileKey | null;
-  readonly reason?: "no-profile-selected" | "minimal-not-production-ready";
+  readonly reason?: "no-profile-selected";
 }
