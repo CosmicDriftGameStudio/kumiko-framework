@@ -16,11 +16,11 @@ jobs:
   test:
     # Full check: yarn kumiko check ruft alle 19 Guards via bunx
     # (kumiko-guard-X bin-entries aus @cosmicdriftgamestudio/kumiko-guards).
-    # Plus: KUMIKO_GUARD_ROOTS engt Cross-Repo-Scan auf framework-only ein
-    # (in Standalone-CI gibt's keine Sibling-Repos).
+    # Standalone-CI-Detection in resolveRepoRoots() (siehe guards@0.1.2)
+    # erkennt cwd-basename als single root — keine ENV-Override nötig.
     uses: cosmicdriftgamestudio/infra/.github/workflows/_test.yml@main
     with:
-      test-command: "KUMIKO_GUARD_ROOTS=kumiko-framework yarn kumiko check"
+      test-command: "yarn kumiko check"
       enable-gh-packages: true
     secrets: inherit
 
