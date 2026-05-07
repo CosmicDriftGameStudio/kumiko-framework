@@ -14,11 +14,11 @@
 // XYZ is a custom currency — not ISO, created by tenant 1
 
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -37,8 +37,8 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await createEntityTable(stack.db, currencyEntity);
-  await createEntityTable(stack.db, invoiceEntity);
+  await unsafeCreateEntityTable(stack.db, currencyEntity);
+  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 
   // Tenant 1 creates their own currencies: EUR, USD, XYZ
   for (const { code, name } of [

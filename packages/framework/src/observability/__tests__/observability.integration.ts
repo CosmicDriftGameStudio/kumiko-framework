@@ -6,11 +6,11 @@ import type { AppContext, SaveContext } from "../../engine/types";
 import { createJobRunner } from "../../jobs";
 import { createLogger } from "../../logging/pino-logger";
 import {
-  createEntityTable,
   createTestRedis,
   setupTestStack,
   type TestRedis,
   type TestStack,
+  unsafeCreateEntityTable,
 } from "../../stack";
 import { createRecordingProvider, type RecordingProvider, waitFor } from "../../testing";
 
@@ -194,7 +194,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
       observability: provider,
       systemHooks: [],
     });
-    await createEntityTable(stack.db, todoEntity, "todo");
+    await unsafeCreateEntityTable(stack.db, todoEntity, "todo");
   });
 
   afterEach(async () => {

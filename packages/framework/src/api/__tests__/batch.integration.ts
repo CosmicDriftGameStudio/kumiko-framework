@@ -12,7 +12,7 @@ import {
   type SaveContext,
 } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({
@@ -151,8 +151,8 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [itemFeature] });
-  await createEntityTable(stack.db, itemEntity);
-  await createEntityTable(stack.db, auditEntity);
+  await unsafeCreateEntityTable(stack.db, itemEntity);
+  await unsafeCreateEntityTable(stack.db, auditEntity);
 });
 
 afterAll(async () => {

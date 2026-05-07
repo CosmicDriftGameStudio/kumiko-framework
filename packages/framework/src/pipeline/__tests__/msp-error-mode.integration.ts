@@ -15,11 +15,11 @@ import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
 import { getConsumerState } from "../../pipeline";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
@@ -80,7 +80,7 @@ beforeAll(async () => {
     features: [z2Feature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
 });
 

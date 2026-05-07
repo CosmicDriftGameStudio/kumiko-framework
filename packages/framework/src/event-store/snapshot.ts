@@ -12,7 +12,7 @@ import {
 } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
-import { pushTables } from "../stack";
+import { unsafePushTables } from "../stack";
 import { isStreamArchived } from "./archive";
 import { loadEventsAfterVersion, type StoredEvent } from "./event-store";
 
@@ -73,7 +73,7 @@ export const snapshotsTable = pgTable(
 export async function createSnapshotsTable(db: DbConnection): Promise<void> {
   // skip: table already exists — idempotent boot + test-setup call
   if (await tableExists(db, "public.kumiko_snapshots")) return;
-  await pushTables(db, { kumikoSnapshots: snapshotsTable });
+  await unsafePushTables(db, { kumikoSnapshots: snapshotsTable });
 }
 
 export type Snapshot<TState extends Record<string, unknown> = Record<string, unknown>> = {

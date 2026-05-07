@@ -23,7 +23,7 @@ import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framew
 import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  ensureEntityTable,
+  pushEntityProjectionTables,
   setupTestStack,
   type TestStack,
   type TestStackOptions,
@@ -171,7 +171,7 @@ export type CreateKumikoServerOptions = {
    *  Header/Cookie/Default; siehe AnonymousAccessConfig. */
   readonly anonymousAccess?: TestStackOptions["anonymousAccess"];
   /** Wird nach dem Aufsetzen der Entity-Tabellen aufgerufen. Hook für
-   *  non-entity-tables (pushTables) und Seeding (admin user, initial
+   *  non-entity-tables (unsafePushTables) und Seeding (admin user, initial
    *  tenant, …). Muss idempotent sein — im persistent-DB-Modus läuft
    *  es bei jedem Boot. */
   readonly onAfterSetup?: (stack: TestStack) => Promise<void>;
@@ -526,26 +526,6 @@ async function startTailwindWatcher(
   };
 }
 
-// Create all entity tables declared by the given features. Uses
-// ensureEntityTable so a persistent DB (KUMIKO_DEV_DB_NAME) can
-// reuse tables from the previous boot without the caller having to
-// check.
-async function createEntityTablesForFeatures(
-  stack: TestStack,
-  features: readonly FeatureDefinition[],
-): Promise<void> {
-  for (const feature of features) {
-    for (const [entityName, entity] of Object.entries(feature.entities)) {
-      const created = await ensureEntityTable(stack.db, entity, entityName);
-      if (!created) {
-        logInfo(
-          `[kumiko-server] table ${entity.table ?? entityName} already exists — skipping create`,
-        );
-      }
-    }
-  }
-}
-
 /** @internal — normalisierte Client-Entry-Form, einheitlich über
  *  Single-Mode (`clientEntry`) und Multi-Mode (`clientEntries`). */
 type NormalizedEntry = {
@@ -663,7 +643,7 @@ export async function createKumikoServer(
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
   });
   await createEventsTable(stack.db);
-  await createEntityTablesForFeatures(stack, options.features);
+  await pushEntityProjectionTables(stack, stack.registry);
 
   // Hook für Caller-spezifische Tables + Seed. Läuft nach den Entity-
   // Tabellen damit das Sample auf `stack.db` / `stack.dispatcher`

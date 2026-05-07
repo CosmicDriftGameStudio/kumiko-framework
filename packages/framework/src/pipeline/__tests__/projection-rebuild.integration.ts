@@ -36,7 +36,13 @@ import {
   listProjectionsWithState,
   rebuildProjection,
 } from "../../pipeline";
-import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } from "../../stack";
+import {
+  createTestDb,
+  type TestDb,
+  TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "../../stack";
 
 // --- Test fixtures ---
 
@@ -103,10 +109,10 @@ const executor = createEventStoreExecutor(itemTable, itemEntity, { entityName: "
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEntityTable(testDb.db, itemEntity, "rebuild-item");
+  await unsafeCreateEntityTable(testDb.db, itemEntity, "rebuild-item");
   await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
-  await pushTables(testDb.db, { rebuildItemsPerGroup: itemsPerGroupTable });
+  await unsafePushTables(testDb.db, { rebuildItemsPerGroup: itemsPerGroupTable });
   tdb = createTenantDb(testDb.db, admin.tenantId);
 });
 

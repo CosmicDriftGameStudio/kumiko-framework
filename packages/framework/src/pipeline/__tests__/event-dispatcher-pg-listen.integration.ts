@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
 // --- Fixture ---
@@ -48,7 +48,7 @@ beforeAll(async () => {
     features: [listenFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
 });
 

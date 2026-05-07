@@ -3,7 +3,7 @@
 
 import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
 import type { ReferenceDataDef } from "@cosmicdrift/kumiko-framework/engine";
-import { createTestDb, pushTables, type TestDb } from "@cosmicdrift/kumiko-framework/stack";
+import { createTestDb, type TestDb, unsafePushTables } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { categoryFeature, categoryTable } from "../feature";
 
@@ -11,7 +11,7 @@ let testDb: TestDb;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await pushTables(testDb.db, { categoryTable });
+  await unsafePushTables(testDb.db, { categoryTable });
 });
 
 afterAll(async () => {

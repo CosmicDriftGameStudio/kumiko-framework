@@ -17,11 +17,11 @@ import { z } from "zod";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 import { sharedWidgetEntity } from "../../testing";
 import { generateId } from "../../utils";
@@ -120,7 +120,7 @@ beforeAll(async () => {
     features: [emitterFeature, neighborFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
 });
 
 afterEach(async () => {

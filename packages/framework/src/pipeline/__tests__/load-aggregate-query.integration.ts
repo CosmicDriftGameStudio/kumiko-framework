@@ -13,11 +13,11 @@ import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { append, loadAggregate as loadAggregateRaw } from "../../event-store";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 
 // --- Fixture entity ---
@@ -131,7 +131,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [asOfFeature], systemHooks: [] });
-  await createEntityTable(stack.db, invoiceEntity, "asof-invoice");
+  await unsafeCreateEntityTable(stack.db, invoiceEntity, "asof-invoice");
 });
 
 afterAll(async () => {

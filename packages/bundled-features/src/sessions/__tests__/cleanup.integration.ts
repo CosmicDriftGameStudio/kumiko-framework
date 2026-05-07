@@ -6,10 +6,10 @@
 
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  createEntityTable,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -38,7 +38,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [createSessionsFeature()],
   });
-  await createEntityTable(stack.db, userSessionEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
 });
 
 afterAll(async () => {

@@ -43,10 +43,10 @@ import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { and, eq } from "drizzle-orm";
@@ -97,7 +97,7 @@ beforeAll(async () => {
   });
   db = stack.db;
 
-  await pushTables(db, {
+  await unsafePushTables(db, {
     inAppMessagesTable,
     notificationPreferencesTable,
     tenantMembershipsTable,

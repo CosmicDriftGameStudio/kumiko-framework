@@ -2,13 +2,13 @@ import { randomBytes } from "node:crypto";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  createEntityTable,
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   expectErrorIncludes,
@@ -57,9 +57,9 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db, userEntity);
-  await createEntityTable(stack.db, tenantEntity);
-  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -359,9 +359,9 @@ describe("scenario 7b: login rate limiting", () => {
         loginRateLimit: createInMemoryLoginRateLimiter(3, 60_000),
       },
     });
-    await createEntityTable(rlStack.db, userEntity);
-    await createEntityTable(rlStack.db, tenantEntity);
-    await pushTables(rlStack.db, { configValuesTable, tenantMembershipsTable });
+    await unsafeCreateEntityTable(rlStack.db, userEntity);
+    await unsafeCreateEntityTable(rlStack.db, tenantEntity);
+    await unsafePushTables(rlStack.db, { configValuesTable, tenantMembershipsTable });
 
     // Seed one real user
     const hash = await hashPassword("right-password");

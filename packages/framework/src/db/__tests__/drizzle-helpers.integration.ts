@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
-import { createEntityTable, testTenantId } from "../../stack";
+import { testTenantId, unsafeCreateEntityTable } from "../../stack";
 import { applyCursorQuery, encodeCursor } from "../cursor";
 import { buildDrizzleTable } from "../table-builder";
 
@@ -49,7 +49,7 @@ beforeAll(async () => {
   client = postgres(testUrl);
   db = drizzle(client);
 
-  await createEntityTable(db, entity);
+  await unsafeCreateEntityTable(db, entity);
 
   const rows = [
     {

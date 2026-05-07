@@ -146,6 +146,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   { name: "Error-Reasons Guard", cmd: "bun ../infra/guards/guard-error-reasons.ts" },
   { name: "Predicate Extraction Check", cmd: "bun ../infra/guards/check-predicates.ts" },
   { name: "as-Cast Audit", cmd: "bun ../infra/guards/check-as-casts.ts" },
+  { name: "Table-DDL Guard", cmd: "bun ../infra/guards/guard-table-ddl.ts" },
   { name: "License Check", cmd: "bun ../infra/guards/check-licenses.ts" },
 ];
 

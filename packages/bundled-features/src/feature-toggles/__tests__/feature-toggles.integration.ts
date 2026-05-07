@@ -16,11 +16,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventDispatcher, type EventConsumer } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
-  createEntityTable,
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
@@ -165,12 +165,12 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await pushTables(stack.db, { globalFeatureStateTable });
+  await unsafePushTables(stack.db, { globalFeatureStateTable });
   // widgetTrackerTable is auto-pushed by setupTestStack because it's the
   // projection-table of a registered r.multiStreamProjection — manually
   // pushing again would re-run the CREATE TABLE and fail duplicate.
-  await createEntityTable(stack.db, widgetEntity);
-  await createEntityTable(stack.db, widgetAuditEntity, "widget-audit");
+  await unsafeCreateEntityTable(stack.db, widgetEntity);
+  await unsafeCreateEntityTable(stack.db, widgetAuditEntity, "widget-audit");
 
   runtime = new GlobalFeatureToggleRuntime(stack.db, stack.registry);
   await runtime.initialize();

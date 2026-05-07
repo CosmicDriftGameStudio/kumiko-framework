@@ -11,7 +11,7 @@ import {
   type Registry,
 } from "../../engine";
 import { createEventsTable } from "../../event-store";
-import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../stack";
+import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createCascadeDeleteHook } from "../cascade-handler";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -81,14 +81,14 @@ beforeAll(async () => {
   await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 
-  await createEntityTable(testDb.db, departmentEntity);
-  await createEntityTable(testDb.db, userEntity);
-  await createEntityTable(testDb.db, sessionEntity);
-  await createEntityTable(testDb.db, groupEntity);
-  await createEntityTable(testDb.db, userGroupRestrictEntity);
-  await createEntityTable(testDb.db, userGroupCascadeEntity);
-  await createEntityTable(testDb.db, teamEntity);
-  await createEntityTable(testDb.db, memberEntity);
+  await unsafeCreateEntityTable(testDb.db, departmentEntity);
+  await unsafeCreateEntityTable(testDb.db, userEntity);
+  await unsafeCreateEntityTable(testDb.db, sessionEntity);
+  await unsafeCreateEntityTable(testDb.db, groupEntity);
+  await unsafeCreateEntityTable(testDb.db, userGroupRestrictEntity);
+  await unsafeCreateEntityTable(testDb.db, userGroupCascadeEntity);
+  await unsafeCreateEntityTable(testDb.db, teamEntity);
+  await unsafeCreateEntityTable(testDb.db, memberEntity);
 
   departmentTable = buildDrizzleTable("department", departmentEntity);
   userTable = buildDrizzleTable("user", userEntity);

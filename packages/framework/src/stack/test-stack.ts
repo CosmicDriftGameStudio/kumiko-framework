@@ -17,7 +17,7 @@ import { createTestDb } from "./db";
 import { createEventCollector, type EventCollector } from "./event-collector";
 import { createTestRedis, type TestRedis } from "./redis";
 import { createRequestHelper, type RequestHelper } from "./request-helper";
-import { pushTables } from "./table-helpers";
+import { unsafePushTables } from "./table-helpers";
 
 export type TestStack = {
   app: Hono;
@@ -161,7 +161,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // stays off tenant test DBs that never touch files.
   if (options.files) {
     const { fileRefsTable } = await import("../files");
-    await pushTables(testDb.db, { fileRefsTable });
+    await unsafePushTables(testDb.db, { fileRefsTable });
   }
 
   // Projection tables: the executor writes into them in the same TX as the
@@ -189,9 +189,18 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       seenTables.add(msp.table);
       projectionTables[`msp_${mspName}`] = msp.table;
     }
+    // Raw tables declared via r.rawTable(). Same auto-push rule — the
+    // table needs to exist before the first reader query runs. The
+    // bypass is in the registration site (r.rawTable's `unsafe` cousins
+    // would target the same DDL), not in setting up the test DB.
+    for (const [rawName, raw] of Object.entries(feature.rawTables)) {
+      if (seenTables.has(raw.table)) continue;
+      seenTables.add(raw.table);
+      projectionTables[`raw_${rawName}`] = raw.table;
+    }
   }
   if (Object.keys(projectionTables).length > 0) {
-    // pushTables emits raw CREATE TABLE — fine for ephemeral test DBs but
+    // unsafePushTables emits raw CREATE TABLE — fine for ephemeral test DBs but
     // collides on re-boot against a persistent DB whose projection tables
     // were created during a previous run. Filter out the ones that already
     // exist; drizzle-kit's diff machinery would otherwise emit CREATE for
@@ -205,7 +214,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       missing[key] = tbl;
     }
     if (Object.keys(missing).length > 0) {
-      await pushTables(testDb.db, missing);
+      await unsafePushTables(testDb.db, missing);
     }
   }
 

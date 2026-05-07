@@ -11,10 +11,10 @@ import {
   createTestDb,
   createTestRedis,
   createTestUser,
-  pushTables,
   type TestDb,
   type TestRedis,
   TestUsers,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { sleep } from "@cosmicdrift/kumiko-framework/testing";
 import type { Hono } from "hono";
@@ -72,10 +72,10 @@ beforeAll(async () => {
   const registry = createRegistry([appFeature, jobsFeature]);
 
   // jobRuns + jobRunLogs are projection tables (auto-pushed by
-  // pushTables via the registry-declared inline projections in jobs-feature).
+  // unsafePushTables via the registry-declared inline projections in jobs-feature).
   // We need events + archived_streams for the ES writes the job-runner's
   // logger does.
-  await pushTables(db, { jobRunsTable, jobRunLogsTable });
+  await unsafePushTables(db, { jobRunsTable, jobRunLogsTable });
   await createEventsTable(db);
 
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;

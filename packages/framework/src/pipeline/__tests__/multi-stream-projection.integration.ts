@@ -14,12 +14,12 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
-  createEntityTable,
   createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 
 // --- Two aggregate types that feed one MSP ---
@@ -162,8 +162,8 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [mspFeature], systemHooks: [] });
-  await createEntityTable(stack.db, shipmentEntity, "msp-shipment");
-  await createEntityTable(stack.db, refundEntity, "msp-refund");
+  await unsafeCreateEntityTable(stack.db, shipmentEntity, "msp-shipment");
+  await unsafeCreateEntityTable(stack.db, refundEntity, "msp-refund");
 });
 
 afterAll(async () => {

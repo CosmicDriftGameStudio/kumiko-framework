@@ -2,7 +2,13 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
-import { createEntityTable, createTestDb, type TestDb, TestUsers, testTenantId } from "../../stack";
+import {
+  createTestDb,
+  type TestDb,
+  TestUsers,
+  testTenantId,
+  unsafeCreateEntityTable,
+} from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
@@ -24,7 +30,7 @@ const adminUser = TestUsers.admin;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEntityTable(testDb.db, entity, "esExecUser");
+  await unsafeCreateEntityTable(testDb.db, entity, "esExecUser");
   await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, adminUser.tenantId);
 });
@@ -119,7 +125,7 @@ describe("event-store-executor — sensitive fields", () => {
   });
 
   beforeAll(async () => {
-    await createEntityTable(testDb.db, sensitiveEntity, "esExecSensitive");
+    await unsafeCreateEntityTable(testDb.db, sensitiveEntity, "esExecSensitive");
   });
 
   beforeEach(async () => {

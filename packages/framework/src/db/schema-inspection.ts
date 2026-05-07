@@ -13,7 +13,7 @@ import type { DbConnection, DbTx } from "./connection";
 // "already exists" error code.
 //
 //   if (await tableExists(db, "public.events")) return;
-//   await pushTables(db, { events: eventsTable });
+//   await unsafePushTables(db, { events: eventsTable });
 export async function tableExists(
   db: DbConnection | DbTx,
   fullyQualifiedName: string,

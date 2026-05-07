@@ -8,11 +8,11 @@
 
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -31,8 +31,8 @@ beforeAll(async () => {
     features: [createConfigFeature(), createUserFeature()],
     extraContext: { configResolver: resolver },
   });
-  await createEntityTable(stack.db, userEntity);
-  await pushTables(stack.db, { configValuesTable });
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafePushTables(stack.db, { configValuesTable });
   await createEventsTable(stack.db);
 });
 

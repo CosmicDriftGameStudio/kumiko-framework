@@ -7,49 +7,56 @@ import { buildDrizzleTable, toTableName } from "../db/table-builder";
 import type { TestStack } from "./test-stack";
 
 /**
- * Syncs a Drizzle table to the database via drizzle-kit migration.
- * No manual SQL — Drizzle generates CREATE/ALTER TABLE statements.
+ * Bypass: creates a Drizzle table directly, without registering it as
+ * a projection of the event-sourcing engine. Apps should declare data
+ * via `r.entity(...)` and get tables, migrations, snapshots and audit
+ * for free — this helper is reserved for framework-internal meta-tables
+ * (event-store, snapshots, projection-state) and test setup.
+ *
  * Strict: raises a postgres `relation already exists` (42P07) error if
- * the table is already there. Use `ensureEntityTable` for idempotent
- * boot paths.
+ * the table is already there. Use `unsafeEnsureEntityTable` for the
+ * idempotent boot-path variant.
  */
-export async function createEntityTable(
+export async function unsafeCreateEntityTable(
   db: ReturnType<typeof drizzle>,
   entity: import("../engine/types").EntityDefinition,
   entityName?: string,
 ): Promise<void> {
   const table = buildDrizzleTable(entityName ?? "entity", entity);
-  await pushTables(db, { [entityName ?? "entity"]: table });
+  await unsafePushTables(db, { [entityName ?? "entity"]: table });
 }
 
 /**
- * Idempotent variant of `createEntityTable`: checks whether the entity's
+ * Bypass (idempotent): same caveat as `unsafeCreateEntityTable` —
+ * apps declare data via `r.entity(...)`. Checks whether the entity's
  * table already exists and skips creation if so. Schema-drift is *not*
- * detected — if the table is there but has the wrong columns, that's
+ * detected: if the table is there but has the wrong columns, that's
  * the caller's problem (the dev-server contract is "drop the DB by
  * hand when you change the schema"). Tests should use
- * `createEntityTable` instead, since they rely on fresh DBs.
+ * `unsafeCreateEntityTable` instead, since they rely on fresh DBs.
  */
-export async function ensureEntityTable(
+export async function unsafeEnsureEntityTable(
   db: ReturnType<typeof drizzle>,
   entity: import("../engine/types").EntityDefinition,
   entityName?: string,
 ): Promise<boolean> {
   const resolvedName = entity.table ?? toTableName(entityName ?? "entity");
   if (await tableExists(db, `public.${resolvedName}`)) return false;
-  await createEntityTable(db, entity, entityName);
+  await unsafeCreateEntityTable(db, entity, entityName);
   return true;
 }
 
 /**
- * Pushes Drizzle table definitions to the database.
+ * Bypass: pushes Drizzle table definitions to the database directly.
  * Uses drizzle-kit's generateDrizzleJson + generateMigration to produce SQL,
  * then executes it. Same SQL that `drizzle-kit push` would generate.
+ * Reserved for framework-internal meta-tables (event-store, projections,
+ * consumer-state) and test setup — apps declare data via `r.entity(...)`.
  *
  * @param prevTables - Previous table definitions (for ALTER TABLE scenarios).
  *                     If omitted, assumes empty DB (CREATE TABLE).
  */
-export async function pushTables(
+export async function unsafePushTables(
   db: ReturnType<typeof drizzle>,
   tables: Record<string, unknown>,
   prevTables?: Record<string, unknown>,

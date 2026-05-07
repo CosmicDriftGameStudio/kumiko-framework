@@ -3,12 +3,12 @@ import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  createEntityTable,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
@@ -91,9 +91,9 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db, userEntity);
-  await createEntityTable(stack.db, tenantEntity);
-  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -294,9 +294,9 @@ describe("scenario 2.5: reserved separator + multi-feature isolation", () => {
       },
     });
     try {
-      await createEntityTable(localStack.db, userEntity);
-      await createEntityTable(localStack.db, tenantEntity);
-      await pushTables(localStack.db, { configValuesTable, tenantMembershipsTable });
+      await unsafeCreateEntityTable(localStack.db, userEntity);
+      await unsafeCreateEntityTable(localStack.db, tenantEntity);
+      await unsafePushTables(localStack.db, { configValuesTable, tenantMembershipsTable });
 
       const hash = await hashPassword("pw-long-enough");
       const created = await localStack.http.writeOk<{ id: string }>(
@@ -386,9 +386,9 @@ describe("scenario 2.6: multi-feature drift warnings fire independently", () => 
       },
     });
     try {
-      await createEntityTable(localStack.db, userEntity);
-      await createEntityTable(localStack.db, tenantEntity);
-      await pushTables(localStack.db, { configValuesTable, tenantMembershipsTable });
+      await unsafeCreateEntityTable(localStack.db, userEntity);
+      await unsafeCreateEntityTable(localStack.db, tenantEntity);
+      await unsafePushTables(localStack.db, { configValuesTable, tenantMembershipsTable });
 
       const hash = await hashPassword("pw-long-enough");
       const created = await localStack.http.writeOk<{ id: string }>(
@@ -472,9 +472,9 @@ describe("scenario 3: a broken claims hook does not break login", () => {
       },
     });
     try {
-      await createEntityTable(localStack.db, userEntity);
-      await createEntityTable(localStack.db, tenantEntity);
-      await pushTables(localStack.db, { configValuesTable, tenantMembershipsTable });
+      await unsafeCreateEntityTable(localStack.db, userEntity);
+      await unsafeCreateEntityTable(localStack.db, tenantEntity);
+      await unsafePushTables(localStack.db, { configValuesTable, tenantMembershipsTable });
 
       const hash = await hashPassword("pw-long-enough");
       const created = await localStack.http.writeOk<{ id: string }>(

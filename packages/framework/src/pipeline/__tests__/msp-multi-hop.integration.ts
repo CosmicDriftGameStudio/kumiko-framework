@@ -17,11 +17,11 @@ import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 
 // --- Feature ---
@@ -109,7 +109,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [mmhFeature], systemHooks: [] });
-  await createEntityTable(stack.db, orderEntity, "mmh-order");
+  await unsafeCreateEntityTable(stack.db, orderEntity, "mmh-order");
 });
 
 afterAll(async () => {

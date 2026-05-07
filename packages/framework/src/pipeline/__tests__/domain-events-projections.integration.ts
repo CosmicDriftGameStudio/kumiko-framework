@@ -24,11 +24,11 @@ import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { loadAggregate } from "../../event-store";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 
 // --- Entity ---
@@ -175,7 +175,7 @@ beforeAll(async () => {
     features: [shippingFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, shipmentEntity, "domain-shipment");
+  await unsafeCreateEntityTable(stack.db, shipmentEntity, "domain-shipment");
 });
 
 afterAll(async () => {

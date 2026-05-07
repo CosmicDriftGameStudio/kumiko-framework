@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack } from "../../stack";
+import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack";
 
 const linkEntity = createEntity({
   table: "mri_links",
@@ -25,7 +25,7 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [] });
-  await createEntityTable(stack.db, linkEntity);
+  await unsafeCreateEntityTable(stack.db, linkEntity);
 });
 
 afterAll(async () => stack?.cleanup());
@@ -44,7 +44,7 @@ describe("instant() customType is forgiving with ISO strings", () => {
   const tsTable = buildDrizzleTable("ts-row", tsEntity);
 
   test("INSERT accepts an ISO string for an instant column (forgiving path)", async () => {
-    await createEntityTable(stack.db, tsEntity, "ts-row");
+    await unsafeCreateEntityTable(stack.db, tsEntity, "ts-row");
     // insertedAt is base-column, type instant. Pass an ISO string —
     // coercion in toDriver handles it. Without the fix, Drizzle-driver
     // would call .toString() on a string and produce a malformed driver

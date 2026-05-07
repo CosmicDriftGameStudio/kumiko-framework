@@ -3,10 +3,10 @@
 
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { productEntity, productFeature } from "../feature";
@@ -17,7 +17,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [productFeature] });
-  await createEntityTable(stack.db, productEntity);
+  await unsafeCreateEntityTable(stack.db, productEntity);
   await createEventsTable(stack.db);
 });
 

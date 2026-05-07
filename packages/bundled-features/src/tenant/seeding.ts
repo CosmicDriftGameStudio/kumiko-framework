@@ -37,11 +37,10 @@ import {
   type DbConnection,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { max as maxFn } from "drizzle-orm";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
+import { eq, max as maxFn } from "drizzle-orm";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 import { tenantEntity, tenantTable } from "./schema/tenant";
 

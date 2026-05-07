@@ -10,10 +10,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -289,7 +289,7 @@ beforeAll(async () => {
   // deliveryAttemptsTable is auto-pushed by setupTestStack as MSP-projection-table;
   // notificationPreferencesTable is an ES-entity, so it still needs explicit
   // push here (entity-tables are not auto-provisioned — only projection ones).
-  await pushTables(db, {
+  await unsafePushTables(db, {
     configValuesTable,
     tenantMembershipsTable,
     notificationPreferencesTable,
@@ -298,8 +298,8 @@ beforeAll(async () => {
   });
 
   // Create tenant entity table + seed memberships for tenant broadcast tests
-  const { createEntityTable } = await import("@cosmicdrift/kumiko-framework/stack");
-  await createEntityTable(db, tenantEntity, "tenant");
+  const { unsafeCreateEntityTable } = await import("@cosmicdrift/kumiko-framework/stack");
+  await unsafeCreateEntityTable(db, tenantEntity, "tenant");
 
   // Create tenant + members via real API
   await stack.http.writeOk(

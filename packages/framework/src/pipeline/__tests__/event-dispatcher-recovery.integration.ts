@@ -26,11 +26,11 @@ import {
   skipPoisonEvent,
 } from "../../pipeline";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
@@ -71,7 +71,7 @@ beforeAll(async () => {
     features: [recoveryFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
 });
 

@@ -15,12 +15,12 @@ import {
 } from "../../engine";
 import { createEventsTable, loadAggregate } from "../../event-store";
 import {
-  createEntityTable,
   createTestDb,
   createTestUser,
-  pushTables,
   type TestDb,
   TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "../../stack";
 import { expectErrorIncludes } from "../../testing";
 import { fileRefsTable } from "../file-ref-table";
@@ -64,8 +64,8 @@ beforeAll(async () => {
   storagePath = await mkdtemp(join(tmpdir(), "kumiko-files-test-"));
 
   // Create tables
-  await pushTables(testDb.db, { fileRefsTable });
-  await createEntityTable(testDb.db, testTenantEntity);
+  await unsafePushTables(testDb.db, { fileRefsTable });
+  await unsafeCreateEntityTable(testDb.db, testTenantEntity);
   // Event-store table: the upload route appends files:event:uploaded in the
   // same tx as the FileRef insert. Without events, upload would 500.
   await createEventsTable(testDb.db);
@@ -402,8 +402,8 @@ describe("custom file access guard", () => {
   ): Promise<void> {
     const { storageProvider: providerOverride, ...routeOptions } = options;
     const isolatedDb = await createTestDb();
-    await pushTables(isolatedDb.db, { fileRefsTable });
-    await createEntityTable(isolatedDb.db, testTenantEntity);
+    await unsafePushTables(isolatedDb.db, { fileRefsTable });
+    await unsafeCreateEntityTable(isolatedDb.db, testTenantEntity);
     const storagePath = await mkdtemp(join(tmpdir(), "kumiko-files-custom-"));
     const provider = providerOverride ?? createLocalProvider(storagePath);
     const isolatedRegistry = createRegistry([tenantFeature]);
@@ -716,8 +716,8 @@ describe("download-url endpoint", () => {
     }) => Promise<void>,
   ): Promise<void> {
     const isolatedDb = await createTestDb();
-    await pushTables(isolatedDb.db, { fileRefsTable });
-    await createEntityTable(isolatedDb.db, testTenantEntity);
+    await unsafePushTables(isolatedDb.db, { fileRefsTable });
+    await unsafeCreateEntityTable(isolatedDb.db, testTenantEntity);
     const isolatedRegistry = createRegistry([tenantFeature]);
     const isolatedServer = buildServer({
       registry: isolatedRegistry,

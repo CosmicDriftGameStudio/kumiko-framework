@@ -10,10 +10,10 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { eq } from "drizzle-orm";
@@ -199,7 +199,7 @@ beforeAll(async () => {
   });
   db = stack.db;
 
-  await pushTables(db, { configValuesTable });
+  await unsafePushTables(db, { configValuesTable });
   // setupTestStack already calls createEventsTable + createArchivedStreamsTable
   // for us; nothing extra needed for the config-changed event-store writes.
 });

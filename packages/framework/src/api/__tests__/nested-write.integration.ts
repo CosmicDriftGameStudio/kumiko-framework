@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
 // Two entities in a 1:N relation. The relation is declared with
 // `nestedWrite: true`, which opts the framework into expanding
@@ -69,8 +69,8 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [nestedFeature] });
-  await createEntityTable(stack.db, projectEntity);
-  await createEntityTable(stack.db, taskEntity);
+  await unsafeCreateEntityTable(stack.db, projectEntity);
+  await unsafeCreateEntityTable(stack.db, taskEntity);
 });
 
 afterAll(async () => {

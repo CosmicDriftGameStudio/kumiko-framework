@@ -1,3 +1,4 @@
+import type { PgTable } from "drizzle-orm/pg-core";
 import type { ZodType, z } from "zod";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
 import type {
@@ -107,6 +108,36 @@ export type SecretKeyHandle = {
   readonly name: string;
 };
 
+// --- Raw tables (declared by features via r.rawTable()) ---
+
+/** Options accepted by `r.rawTable()`. The `reason` is required so the
+ *  bypass leaves an audit trail at the registration site — reviewers can
+ *  judge legitimacy without spelunking into history, and a future cleanup
+ *  pass can find candidates for migration to `r.entity()`. */
+export type RawTableOptions = {
+  /** Why this table needs to bypass the event-sourcing system. Examples:
+   *  "imported from pre-ES system, read-only", "external Stripe webhook
+   *  payload cache, write-only by webhook handler", "denormalised
+   *  projection of a non-Kumiko data source". */
+  readonly reason: string;
+};
+
+/** Per-feature raw-table registration. Carries the bypass-justification
+ *  reason but knows nothing about the owning feature — that's added when
+ *  the registry aggregates entries cross-feature into `RawTableDef`. */
+export type RawTableEntry = {
+  readonly name: string;
+  readonly table: PgTable;
+  readonly reason: string;
+};
+
+/** Registry-aggregated raw-table — the per-feature `RawTableEntry` plus
+ *  the owning feature name. This is what `Registry.getAllRawTables()`
+ *  exposes to readers (dev-server, ops UIs). */
+export type RawTableDef = RawTableEntry & {
+  readonly featureName: string;
+};
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
@@ -184,6 +215,10 @@ export type FeatureDefinition = {
   // den Hono-app (außerhalb /api/*). Pattern symmetrisch zu queryHandlers/
   // writeHandlers — Routes leben mit dem Feature, nicht im Bootstrap.
   readonly httpRoutes: Readonly<Record<string, HttpRouteDefinition>>;
+  // Raw tables declared via r.rawTable() — bypass the event-sourcing
+  // system. Keyed by feature-local short name. The registry attaches
+  // featureName on aggregation, lifting RawTableEntry → RawTableDef.
+  readonly rawTables: Readonly<Record<string, RawTableEntry>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -407,6 +442,19 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // nicht im Bootstrap. Escape-hatch für nicht-feature-bound Routes
   // bleibt runProdApp.extraRoutes.
   httpRoute(definition: HttpRouteDefinition): void;
+
+  // Declare a raw Drizzle table that bypasses the event-sourcing system.
+  // Reserved for legacy-import, read-only caches, write-only webhook
+  // payload buffers, or any other case where the event-sourced flow
+  // doesn't fit. The dev-server iterates these alongside r.entity()
+  // projections at boot so the table exists before the first query.
+  // Apps still declare the table in `drizzle/schema.ts` so drizzle-kit
+  // tracks migrations and schema-drift detection works automatically.
+  //
+  // The required `reason` string is the marker that justifies the bypass —
+  // a non-empty string is the contract. If you can't write a reason,
+  // declare data via `r.entity()` instead.
+  rawTable(name: string, table: PgTable, options: RawTableOptions): void;
 };
 
 // --- Registry (created from features) ---
@@ -505,6 +553,13 @@ export type Registry = {
   // feeds off the entity — event-store-executor uses this as the hot-path.
   getProjectionsForSource(entityName: string): readonly ProjectionDefinition[];
   getAllProjections(): ReadonlyMap<string, ProjectionDefinition>;
+
+  // All r.rawTable() registrations across all features, keyed by
+  // feature-local short name. The dev-server iterates this alongside
+  // implicit projections at boot. Cross-feature uniqueness is enforced
+  // at registry-build — duplicate names from different features fail
+  // the boot, so callers can rely on a flat keyspace.
+  getAllRawTables(): ReadonlyMap<string, RawTableDef>;
 
   // Multi-stream projections registered via r.multiStreamProjection().
   // Keyed by qualified name. The server wires each into the event-dispatcher

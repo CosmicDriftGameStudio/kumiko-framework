@@ -7,11 +7,11 @@
 import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -26,7 +26,7 @@ const bob = createTestUser({ id: 11, roles: ["User"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ordersLiteFeature], systemHooks: [] });
-  await createEntityTable(stack.db, orderEntity);
+  await unsafeCreateEntityTable(stack.db, orderEntity);
   await createEventsTable(stack.db);
 });
 afterAll(async () => stack.cleanup());

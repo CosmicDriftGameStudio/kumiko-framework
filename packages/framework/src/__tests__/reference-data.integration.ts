@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { integer, table as pgTable, serial, text } from "../db/dialect";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
-import { createTestDb, pushTables, type TestDb } from "../stack";
+import { createTestDb, type TestDb, unsafePushTables } from "../stack";
 
 // --- Tables ---
 
@@ -25,7 +25,7 @@ let testDb: TestDb;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await pushTables(testDb.db, { countryTable, statusTable });
+  await unsafePushTables(testDb.db, { countryTable, statusTable });
 });
 
 afterAll(async () => {

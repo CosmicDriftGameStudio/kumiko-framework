@@ -12,11 +12,11 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -95,7 +95,7 @@ let db: DbConnection;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [capCounterFeature, newsletterFeature] });
   db = stack.db;
-  await createEntityTable(db, capCounterEntity);
+  await unsafeCreateEntityTable(db, capCounterEntity);
   await createEventsTable(db);
 });
 

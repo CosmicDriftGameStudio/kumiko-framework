@@ -2,12 +2,12 @@ import { randomBytes } from "node:crypto";
 import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes, rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -42,8 +42,8 @@ beforeAll(async () => {
   });
   db = stack.db;
 
-  await createEntityTable(db, tenantEntity);
-  await pushTables(db, { configValuesTable });
+  await unsafeCreateEntityTable(db, tenantEntity);
+  await unsafePushTables(db, { configValuesTable });
   await createEventsTable(db);
 });
 

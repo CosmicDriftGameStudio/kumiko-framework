@@ -27,9 +27,9 @@ import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/j
 import { createEnvMasterKeyProvider, createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createMutableMasterKeyProvider,
@@ -99,7 +99,7 @@ beforeAll(async () => {
     }),
   });
 
-  await pushTables(stack.db, {
+  await unsafePushTables(stack.db, {
     tenant_secrets: tenantSecretsTable,
   });
   await createEventsTable(stack.db);
