@@ -1,1 +1,57 @@
-../../LICENSE
+Business Source License 1.1
+
+Parameters
+
+Licensor:             Marc Frost
+
+Licensed Work:        @cosmicdrift/kumiko-framework
+                      The Licensed Work is © 2026 Marc Frost.
+
+Additional Use Grant: 
+You may use the Licensed Work in production for any purpose, including 
+commercially, EXCEPT for the Restricted Use. 
+
+"Restricted Use" is defined as using the Licensed Work to provide a platform 
+or service to third parties that allows them to host, deploy, or run their 
+own applications built with the Licensed Work. This includes, but is not 
+limited to: managed hosting services, software-as-a-service (SaaS) platforms, 
+platform-as-a-service (PaaS), developer platforms, or any multi-tenant 
+managed offering of the Licensed Work.
+
+This restriction does not apply to the Licensor, any entity controlled by, 
+controlling, or under common control with the Licensor ("Affiliates"), or 
+contractors acting on their behalf. The Licensor remains free to use the 
+Licensed Work for any purpose, including for the operation of kumiko.so.
+
+Change Date:          2030-05-05
+Change License:       Apache License, Version 2.0
+
+
+Terms
+
+The Licensor hereby grants you the right to copy, modify, create derivative works, 
+redistribute, and make non-production use of the Licensed Work. The Licensor may 
+make an Additional Use Grant, above, permitting limited production use.
+
+Effective on the Change Date, or the fourth anniversary of the first publicly 
+available distribution of the Licensed Work under this License, whichever comes 
+first, this License will convert to the Change License.
+
+This Business Source License governs use of the Licensed Work in all cases, except 
+as to any use that is explicitly granted in the Additional Use Grant above or 
+under the Change License after the Change Date.
+
+If your use of the Licensed Work does not comply with the requirements of this 
+License, you must cease use of the Licensed Work immediately.
+
+All copies of the Licensed Work, and all derivative works thereof, must include 
+this License.
+
+This License does not grant you any right, title, or interest in any trademark, 
+logo, or branding of the Licensor, except as required to comply with this License.
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON AN 
+“AS IS” BASIS. LICENSOR DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING 
+WITHOUT LIMITATION WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, 
+TITLE, AND NON-INFRINGEMENT. IN NO EVENT WILL LICENSOR BE LIABLE FOR ANY DAMAGES 
+ARISING OUT OF OR RELATED TO THIS LICENSE OR THE USE OF THE LICENSED WORK.
