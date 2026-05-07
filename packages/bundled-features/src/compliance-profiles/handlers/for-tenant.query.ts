@@ -32,28 +32,32 @@ export const forTenantQuery = defineQueryHandler({
       return resolveComplianceProfile({});
     }
 
-    const override = parseOverride(row.override);
+    const override = parseOverride(row.override, query.user.tenantId);
     return resolveComplianceProfile({
       selection: row.profileKey as ComplianceProfileKey,
       override,
-      // isProduction-Marker kommt ggf. ueber config-key in spaeterem Sprint;
-      // jetzt: minimal-no-region zeigt nur das "no-profile-selected"-warning
-      // wenn keine Wahl da ist, kein "minimal-in-production".
-      isProduction: false,
     });
   },
 });
 
-function parseOverride(raw: string | null): ComplianceProfileOverride | undefined {
+function parseOverride(
+  raw: string | null,
+  tenantId: string,
+): ComplianceProfileOverride | undefined {
   if (!raw || raw.trim() === "") return undefined;
   try {
     const parsed = JSON.parse(raw) as ComplianceProfileOverride;
     return parsed;
-  } catch {
-    // Defensiv: ungültiges JSON wird als "kein Override" behandelt. Im
+  } catch (e) {
+    // Defensiv: ungültiges JSON wird als "kein Override" behandelt. Der
     // set-profile-Handler validiert Zod das Override schon — invalides
     // JSON in der DB ist also nur möglich bei manueller DB-Manipulation
     // oder Migration-Bug. Resolver-Caller darf trotzdem nicht crashen.
+    // Operator-Sichtbarkeit via console.warn — Telemetry-Hook spaeter.
+    // biome-ignore lint/suspicious/noConsole: operator visibility for DB-corruption edge-case
+    console.warn(
+      `[compliance-profiles:for-tenant] tenant ${tenantId}: stored override is not valid JSON, falling back to base profile. Reason: ${(e as Error).message}`,
+    );
     return undefined;
   }
 }

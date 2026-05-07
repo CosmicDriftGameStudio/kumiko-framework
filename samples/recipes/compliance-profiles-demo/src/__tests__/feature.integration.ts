@@ -126,25 +126,40 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
   });
 
   test("Profile-Wechsel auf demselben Tenant zeigt sofort neues Verhalten", async () => {
-    // Tenant A wechselt von eu-dsgvo auf swiss-dsg
-    await stack.http.writeOk(SET_PROFILE, { profileKey: "swiss-dsg" }, tenantADachAdmin);
+    // Eigener Tenant D damit der Test reihenfolge-unabhaengig laeuft
+    // (Tenant A bleibt auf eu-dsgvo fuer die anderen Tests).
+    const tenantDAdmin = createTestUser({
+      id: 4,
+      tenantId: testTenantId(4),
+      roles: ["TenantAdmin"],
+    });
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantDAdmin);
+
+    // Wechsel von eu-dsgvo auf swiss-dsg
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "swiss-dsg" }, tenantDAdmin);
     const after = await stack.http.queryOk<{
       profile: { key: string; breach: { authorityContact: string } };
-    }>(FOR_TENANT, {}, tenantADachAdmin);
+    }>(FOR_TENANT, {}, tenantDAdmin);
     expect(after.profile.key).toBe("swiss-dsg");
     expect(after.profile.breach.authorityContact).toBe("EDÖB Bern");
 
     // Zurueck auf eu-dsgvo
-    await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantADachAdmin);
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantDAdmin);
     const back = await stack.http.queryOk<{
       profile: { key: string; breach: { authorityContact: string } };
-    }>(FOR_TENANT, {}, tenantADachAdmin);
+    }>(FOR_TENANT, {}, tenantDAdmin);
     expect(back.profile.key).toBe("eu-dsgvo");
     expect(back.profile.breach.authorityContact).toBe("BlnBDI Berlin");
   });
 
   test("Tenant-Override merged auf base-profile, andere Felder bleiben", async () => {
-    // Tenant B setzt swiss-dsg + Override fuer gracePeriod
+    // Eigener Tenant E damit der Override-State Tenant B nicht
+    // ueberschreibt (reihenfolge-unabhaengig).
+    const tenantEAdmin = createTestUser({
+      id: 5,
+      tenantId: testTenantId(5),
+      roles: ["TenantAdmin"],
+    });
     await stack.http.writeOk(
       SET_PROFILE,
       {
@@ -153,7 +168,7 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
           userRights: { gracePeriod: { days: 90 } },
         }),
       },
-      tenantBSwissAdmin,
+      tenantEAdmin,
     );
 
     const result = await stack.http.queryOk<{
@@ -165,7 +180,7 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
         };
         notifications: { languages: string[] };
       };
-    }>(FOR_TENANT, {}, tenantBSwissAdmin);
+    }>(FOR_TENANT, {}, tenantEAdmin);
 
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 90 });
     // Andere userRights aus swiss-dsg bleiben

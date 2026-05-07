@@ -344,7 +344,7 @@ export const COMPLIANCE_PROFILES: Readonly<Record<ComplianceProfileKey, Complian
 
 export interface EffectiveComplianceProfile {
   readonly profile: ComplianceProfile;
-  readonly warning?: "no-profile-selected" | "minimal-in-production";
+  readonly warning?: "no-profile-selected";
 }
 
 /**
@@ -353,26 +353,23 @@ export interface EffectiveComplianceProfile {
  *
  * Edge-Case-Verhalten (gepinnt):
  *   - selection=undefined → minimal-no-region + warning="no-profile-selected"
- *   - selection=minimal-no-region in production → minimal-no-region + warning="minimal-in-production"
  *   - selection=valid + override=undefined → effective profile, kein warning
  *   - selection=valid + override → deep-merged effective, kein warning
+ *
+ * Production-Marker: das frueher hier vorgesehene "minimal-in-production"-
+ * warning ist entfallen weil set-profile (Sprint 1.7 X1) minimal-no-region
+ * nicht mehr als Tenant-Wahl akzeptiert. Wer Production-spezifisches
+ * Verhalten braucht (z.B. Block-bei-Default), addiert den Marker spaeter
+ * bei Bedarf.
  */
 export function resolveComplianceProfile(args: {
   readonly selection?: ComplianceProfileKey;
   readonly override?: ComplianceProfileOverride;
-  readonly isProduction?: boolean;
 }): EffectiveComplianceProfile {
   if (!args.selection) {
     return {
       profile: COMPLIANCE_PROFILES["minimal-no-region"],
       warning: "no-profile-selected",
-    };
-  }
-
-  if (args.selection === "minimal-no-region" && args.isProduction === true) {
-    return {
-      profile: COMPLIANCE_PROFILES["minimal-no-region"],
-      warning: "minimal-in-production",
     };
   }
 

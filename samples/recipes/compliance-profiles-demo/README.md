@@ -37,11 +37,12 @@ text-content für Cross-Feature-Aufruf-Beispiel).
 ## Tests laufen
 
 ```bash
-# Aus dem Repo-Root:
-yarn test:integration --filter=@cosmicdrift/kumiko-sample-compliance-profiles-demo
-# oder gezielt:
+# Aus dem framework-Repo-Root (kumiko-framework):
 bunx vitest run --config vitest.integration.config.ts \
   samples/recipes/compliance-profiles-demo/src/__tests__/feature.integration.ts
+
+# Alle Integration-Tests (incl. dieses Sample):
+bunx vitest run --config vitest.integration.config.ts
 ```
 
 5 Tests, alle full-stack via `setupTestStack` + echte HTTP-Calls.

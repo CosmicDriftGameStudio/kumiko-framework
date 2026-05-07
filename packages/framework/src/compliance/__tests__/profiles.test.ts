@@ -71,16 +71,12 @@ describe("resolveComplianceProfile — Default-Fallback", () => {
     expect(result.warning).toBe("no-profile-selected");
   });
 
-  test("selection=minimal in production → warning=minimal-in-production", () => {
-    const result = resolveComplianceProfile({
-      selection: "minimal-no-region",
-      isProduction: true,
-    });
-    expect(result.profile.key).toBe("minimal-no-region");
-    expect(result.warning).toBe("minimal-in-production");
-  });
-
-  test("selection=minimal in dev (kein isProduction-Flag) → kein warning", () => {
+  test("selection=minimal-no-region (DB-Edge-Case) → kein warning, fallback aktiv", () => {
+    // Sprint 1.7 X1: minimal-no-region ist ueber set-profile nicht mehr
+    // setzbar. Wer den State trotzdem in der DB hat (Migration, Direct-
+    // Insert) bekommt das minimal-Profile zurueck — der needs-profile-
+    // Banner-Endpoint markiert ihn separat als "needsSelection=true".
+    // Resolver selber zieht keine warning, weil "explicit selection".
     const result = resolveComplianceProfile({ selection: "minimal-no-region" });
     expect(result.profile.key).toBe("minimal-no-region");
     expect(result.warning).toBeUndefined();

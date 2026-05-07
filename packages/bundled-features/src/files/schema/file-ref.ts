@@ -29,52 +29,30 @@ import {
 // Framework. Drizzle-Reads in den Sprint-2+-Hooks gehen direkt über
 // `fileRefsTable` aus `@cosmicdrift/kumiko-framework/files`.
 //
-// PII-Annotations (Sprint 0.1+0.7):
-//   - fileName        → pii: true (Originalname enthält oft Personen-
-//                       bezug: "Marc-Lebenslauf.pdf", "Krankheitsattest-
-//                       Mai.pdf")
-//   - storageKey      → kein PII (interner UUID-Key)
-//   - mimeType, size  → kein PII (binäre Metadata)
-//   - entityType/Id/fieldName → kein PII (FK-Refs)
-//   - insertedById    → kein PII (User-Reference, gehört dem User)
-//   - insertedAt      → kein PII (Audit-Timestamp)
+// PII-Annotations (Sprint 0.1+0.7+1.7):
+//   - fileName  → pii: true (Originalname enthält oft Personen-Bezug:
+//                "Marc-Lebenslauf.pdf", "Krankheitsattest-Mai.pdf")
+//
+//   Andere Felder brauchen KEINE Annotation:
+//   - storageKey, mimeType, size, entityType, entityId, fieldName,
+//     insertedById → keine PII-typischen Field-Namen, PII-Heuristik
+//     greift nicht (siehe boot-validator.ts PII_DIRECT_NAME_HINTS).
+//     Ein allowPlaintext-Marker wäre Über-Annotation ohne Effekt.
+//   - insertedAt → Audit-Timestamp, framework-managed.
 //
 // Tabellenname matched die Framework-pgTable damit r.entity-Reads über
 // dieselbe Postgres-Tabelle laufen.
 export const fileRefEntity = createEntity({
   table: "file_refs",
   fields: {
-    storageKey: createTextField({
-      required: true,
-      allowPlaintext: "is-business-data",
-    }),
-    fileName: createTextField({
-      required: true,
-      pii: true,
-    }),
-    mimeType: createTextField({
-      required: true,
-      allowPlaintext: "is-business-data",
-    }),
-    size: createNumberField({
-      required: true,
-      allowPlaintext: "is-business-data",
-    }),
-    entityType: createTextField({
-      allowPlaintext: "is-business-data",
-    }),
-    entityId: createTextField({
-      allowPlaintext: "is-business-data",
-    }),
-    fieldName: createTextField({
-      allowPlaintext: "is-business-data",
-    }),
-    insertedAt: createTimestampField({
-      sortable: true,
-      filterable: true,
-    }),
-    insertedById: createTextField({
-      allowPlaintext: "is-business-data",
-    }),
+    storageKey: createTextField({ required: true }),
+    fileName: createTextField({ required: true, pii: true }),
+    mimeType: createTextField({ required: true }),
+    size: createNumberField({ required: true }),
+    entityType: createTextField(),
+    entityId: createTextField(),
+    fieldName: createTextField(),
+    insertedAt: createTimestampField({ sortable: true, filterable: true }),
+    insertedById: createTextField(),
   },
 });

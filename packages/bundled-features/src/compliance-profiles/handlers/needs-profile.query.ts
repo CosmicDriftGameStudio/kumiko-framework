@@ -1,5 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
+import type { ComplianceProfileKey } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -26,7 +27,7 @@ export const needsProfileQuery = defineQueryHandler({
       ctx.db,
       tenantComplianceProfileTable,
       eq(tenantComplianceProfileTable["tenantId"], query.user.tenantId),
-    )) as { profileKey: string } | null;
+    )) as { profileKey: ComplianceProfileKey } | null;
 
     if (!row) {
       return {
@@ -37,6 +38,10 @@ export const needsProfileQuery = defineQueryHandler({
     }
 
     if (row.profileKey === "minimal-no-region") {
+      // Defensive: ueber set-profile (S1.7 X1) nicht mehr setzbar, aber
+      // Migration-Edge-Case oder DB-Direct-Insert koennten den State
+      // erzeugen. Banner auf "needs selection" damit Tenant-Admin weiss
+      // dass er waehlen muss.
       return {
         needsSelection: true,
         currentProfile: "minimal-no-region",
@@ -53,6 +58,6 @@ export const needsProfileQuery = defineQueryHandler({
 
 interface NeedsProfileResponse {
   readonly needsSelection: boolean;
-  readonly currentProfile: string | null;
+  readonly currentProfile: ComplianceProfileKey | null;
   readonly reason?: "no-profile-selected" | "minimal-not-production-ready";
 }
