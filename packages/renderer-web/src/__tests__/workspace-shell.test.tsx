@@ -59,6 +59,7 @@ function ws(
     openToAll?: boolean;
     isDefault?: boolean;
     navMembers?: readonly string[];
+    navigation?: "nav" | "tree";
   } = {},
 ): WorkspaceSchema {
   const access = options.openToAll
@@ -73,6 +74,7 @@ function ws(
       ...(options.order !== undefined && { order: options.order }),
       ...(access !== undefined && { access }),
       ...(options.isDefault === true && { default: true }),
+      ...(options.navigation !== undefined && { navigation: options.navigation }),
     },
     navMembers: options.navMembers ?? [],
   };
@@ -768,5 +770,98 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
     // einzelnen Workspace nichts (no-choice-no-UI), das ist nicht der
     // Test-Punkt hier.
     expect(screen.getByText("List")).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// navigation-Mode-Switch — Phase 0 Schicht 3 / V.1.
+// Workspace mit `navigation: "tree"` mountet den Visual-Tree-Stub statt
+// NavTree. Default (kein navigation oder navigation="nav") hält das
+// existing NavTree-Verhalten — kein Breaking-Change für Apps die Visual-
+// Tree nicht aktivieren. Echte Tree-Component kommt in V.1.1.
+// Siehe docs/plans/architecture/visual-tree.md A1.
+// ---------------------------------------------------------------------------
+
+describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
+  test('navigation: "tree" mountet den Visual-Tree-Stub statt NavTree', () => {
+    const schema = {
+      featureName: "demo",
+      entities: {},
+      screens: [],
+      navs: [{ id: "list", label: "List" }],
+      workspaces: [
+        ws("visual", {
+          label: "Visual",
+          openToAll: true,
+          isDefault: true,
+          navigation: "tree",
+          navMembers: ["demo:nav:list"],
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell brand={<div>Brand</div>} schema={schema} user={{ id: "u1", roles: [] }}>
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    // Stub-Marker rendert
+    expect(screen.getByLabelText("Visual Tree (V.1.1 placeholder)")).toBeTruthy();
+    // NavTree wäre durch das nav-Item "List" sichtbar — darf hier NICHT
+    // rendern (Tree-Mode ersetzt NavTree komplett)
+    expect(screen.queryByText("List")).toBeNull();
+  });
+
+  test('navigation: "nav" mountet NavTree (default-äquivalent)', () => {
+    const schema = {
+      featureName: "demo",
+      entities: {},
+      screens: [],
+      navs: [{ id: "list", label: "List" }],
+      workspaces: [
+        ws("admin", {
+          label: "Admin",
+          openToAll: true,
+          isDefault: true,
+          navigation: "nav",
+          navMembers: ["demo:nav:list"],
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell brand={<div>Brand</div>} schema={schema} user={{ id: "u1", roles: [] }}>
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    expect(screen.getByText("List")).toBeTruthy();
+    expect(screen.queryByLabelText("Visual Tree (V.1.1 placeholder)")).toBeNull();
+  });
+
+  test("workspace ohne navigation-Property defaultet zu NavTree (Backwards-Compat)", () => {
+    const schema = {
+      featureName: "demo",
+      entities: {},
+      screens: [],
+      navs: [{ id: "list", label: "List" }],
+      workspaces: [
+        // Keine `navigation`-Property → existing Apps müssen exakt so
+        // weiter laufen wie vor V.1
+        ws("admin", {
+          label: "Admin",
+          openToAll: true,
+          isDefault: true,
+          navMembers: ["demo:nav:list"],
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell brand={<div>Brand</div>} schema={schema} user={{ id: "u1", roles: [] }}>
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    expect(screen.getByText("List")).toBeTruthy();
+    expect(screen.queryByLabelText("Visual Tree (V.1.1 placeholder)")).toBeNull();
   });
 });

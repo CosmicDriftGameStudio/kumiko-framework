@@ -37,6 +37,7 @@ import { AppLayout } from "./app-layout";
 import { lastSegment, NavTree } from "./nav-tree";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { VisualTreeStub } from "./visual-tree-stub";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export type WorkspaceShellUser = {
@@ -182,16 +183,29 @@ export function WorkspaceShell({
     <WorkspaceSwitcher workspaces={visible} activeId={activeId} onSelect={handleSelect} />
   );
 
+  // Sidebar-Content-Switch: workspace mit `navigation: "tree"` (opt-in)
+  // mountet den Visual-Tree-Stub statt NavTree. Default (kein navigation
+  // gesetzt oder navigation="nav") behält das existing NavTree-Verhalten —
+  // kein Breaking-Change für Apps die Visual-Tree nicht aktivieren.
+  // Stub wird in V.1.1 durch echte Visual-Tree-Component ersetzt.
+  // Siehe docs/plans/architecture/visual-tree.md A1.
+  const sidebarContent =
+    activeWorkspace?.definition.navigation === "tree" ? (
+      <VisualTreeStub />
+    ) : (
+      <NavTree
+        schema={app}
+        {...(user !== undefined && { user })}
+        {...(allowedNavQns !== undefined && { allowedNavQns })}
+      />
+    );
+
   return (
     <AppLayout
       topbar={<Topbar start={brand} center={switcher || undefined} end={topbarActions} />}
       sidebar={
         <Sidebar {...(sidebarFooter !== undefined && { footer: sidebarFooter })}>
-          <NavTree
-            schema={app}
-            {...(user !== undefined && { user })}
-            {...(allowedNavQns !== undefined && { allowedNavQns })}
-          />
+          {sidebarContent}
         </Sidebar>
       }
     >
