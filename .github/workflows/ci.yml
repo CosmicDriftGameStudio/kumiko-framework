@@ -27,5 +27,13 @@ jobs:
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
+    # Caller-Permissions sind die Obergrenze für reusable workflows. Das
+    # reusable braucht id-token:write für OIDC Trusted Publishing — wenn
+    # der Caller das nicht grantet, scheitert die Workflow-Validation
+    # vor dem ersten Step.
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
     uses: cosmicdriftgamestudio/infra/.github/workflows/_npm-publish.yml@main
     secrets: inherit
