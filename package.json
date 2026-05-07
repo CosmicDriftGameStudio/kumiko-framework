@@ -45,7 +45,8 @@
     "typecheck": "tsc --build",
     "build:apps": "bun run scripts/build-apps.ts",
     "build": "echo 'kumiko-framework: TypeScript source is published as-is (Bun resolver), no transpile step.'",
-    "postinstall": "bun run scripts/codegen-samples.ts"
+    "postinstall": "bun run scripts/codegen-samples.ts",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.11",
@@ -57,7 +58,8 @@
     "ts-morph": "^28.0.0",
     "typescript": "^6.0.0",
     "vitest": "^4.1.4",
-    "yaml": "^2.8.4"
+    "yaml": "^2.8.4",
+    "husky": "^9.1.7"
   },
   "resolutions": {
     "react": "19.2.6",
