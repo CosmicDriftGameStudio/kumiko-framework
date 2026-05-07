@@ -249,7 +249,6 @@ export type {
   TreeContext,
   TreeNode,
   TreeNodeState,
-  TreeProvider,
   ValidationError,
   ValidationHookFn,
   WorkspaceDefinition,

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { createRegistry, defineFeature } from "../index";
-import type { TreeNode, TreeProvider } from "../types/tree-node";
+import { buildTarget, createRegistry, defineFeature } from "../index";
+import type { TreeChildrenSubscribe, TreeNode } from "../types/tree-node";
 
 // Stub-Provider für Tests. Form: (ctx) => (emit) => unsubscribe.
 // Emittet einmal initial, kein Cleanup nötig (no-op unsubscribe).
-function makeStubProvider(nodes: readonly TreeNode[]): TreeProvider {
+function makeStubProvider(nodes: readonly TreeNode[]): TreeChildrenSubscribe {
   return () => (emit) => {
     emit(nodes);
     return () => {};
@@ -159,5 +159,80 @@ describe("Registry.getTreeProviders + getTreeActions", () => {
     const reg = createRegistry([feature]);
 
     expect(reg.getTreeActions("no-actions")).toBeUndefined();
+  });
+});
+
+// =============================================================================
+// Schicht-1↔Schicht-2-Bridge: typed handle survives module-boundary.
+//
+// Diese Tests sind die kritische Architektur-Verification: r.treeActions
+// returnt einen typed Handle, der via setup-export durch FeatureDefinition
+// fließt und compile-time-typisiert vom Schicht-1-buildTarget konsumiert
+// wird. Ohne diese Tests würde ein Type-Drift in einer der zwei Schichten
+// erst in V.1.1 sichtbar — siehe advisor-Verdict + Memory `[EventDef-
+// Exports-Pattern]`.
+// =============================================================================
+
+describe("Schicht-1↔Schicht-2 Bridge — buildTarget against real defineFeature handle", () => {
+  test("buildTarget compiles + runs against handle from feature.exports", () => {
+    const textContent = defineFeature("text-content", (r) => {
+      const handle = r.treeActions({
+        edit: { args: { slug: "" as string } },
+        list: {},
+      });
+      return { handle };
+    });
+
+    // Der Beweis: dieser Call typecheckt OHNE Casts/unknowns.
+    const ref = buildTarget({
+      target: textContent.exports.handle,
+      action: "edit",
+      args: { slug: "imprint" },
+    });
+    expect(ref.featureId).toBe("text-content");
+    expect(ref.action).toBe("edit");
+    expect(ref.args).toEqual({ slug: "imprint" });
+  });
+
+  test("NoArgs-Action durch den Bridge — list ohne args", () => {
+    const textContent = defineFeature("text-content", (r) => {
+      const handle = r.treeActions({
+        edit: { args: { slug: "" as string } },
+        list: {},
+      });
+      return { handle };
+    });
+    const ref = buildTarget({ target: textContent.exports.handle, action: "list" });
+    expect(ref).toEqual({ featureId: "text-content", action: "list" });
+  });
+
+  test("Compile-Time-Pinning — typed handle rejects falsche Calls (@ts-expect-error)", () => {
+    const textContent = defineFeature("text-content", (r) => {
+      const handle = r.treeActions({
+        edit: { args: { slug: "" as string } },
+        list: {},
+      });
+      return { handle };
+    });
+
+    // @ts-expect-error — "delet" ist keine Action im Handle
+    buildTarget({ target: textContent.exports.handle, action: "delet", args: { slug: "x" } });
+
+    buildTarget({
+      target: textContent.exports.handle,
+      action: "edit",
+      // @ts-expect-error — slug muss string sein, nicht number
+      args: { slug: 42 },
+    });
+
+    buildTarget({
+      target: textContent.exports.handle,
+      action: "list",
+      // @ts-expect-error — list hat keine args, args-Feld nicht erlaubt
+      args: { x: 1 },
+    });
+
+    // @ts-expect-error — edit braucht args, fehlt
+    buildTarget({ target: textContent.exports.handle, action: "edit" });
   });
 });

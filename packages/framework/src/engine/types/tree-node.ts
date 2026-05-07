@@ -80,14 +80,6 @@ export type TreeChildrenSubscribe = (ctx: TreeContext) => Subscribe<readonly Tre
 // nur additiv dazukommen.
 export type TreeContext = Readonly<Record<string, never>>;
 
-// TreeProvider — Type-Alias für die Top-Level-Tree-Provider-Function
-// eines Features (was r.tree(provider) entgegennimmt). Shape-identisch
-// mit TreeChildrenSubscribe, aber semantisch klar getrennt: Provider
-// liefert die Wurzel-Knoten eines Features, TreeChildrenSubscribe
-// liefert Children eines Container-Knotens. Spätere Divergenz wenn
-// nötig ohne Caller-Refactor.
-export type TreeProvider = TreeChildrenSubscribe;
-
 // TreeActionDef — Schema-Eintrag pro Action in der treeActions-Map
 // eines Features. Phase 0: Args sind ein optionales Type-Sample
 // (kein Validator zur Laufzeit — Validation passiert compile-time

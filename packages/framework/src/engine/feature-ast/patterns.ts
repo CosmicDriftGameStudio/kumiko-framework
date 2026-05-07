@@ -26,6 +26,28 @@
 // **Naming convention.** Pattern `kind` matches the r.* method name
 // 1:1 (e.g. `r.writeHandler` → `kind: "writeHandler"`). No kebab/camel
 // translation layer.
+//
+// **Adding a new FeaturePattern kind — full consumer cascade.** The
+// extension-point is wider than just this file + the parser. Update
+// ALL of these when introducing a new r.* API, otherwise tests/checks
+// catch the drift but the call-site jumps across files:
+//   1. patterns.ts (this file): Pattern type + add to FeaturePattern
+//      union + getEditability switch
+//   2. feature-ast/extractors.ts: extract<Kind> function + import in
+//      patterns-import-block
+//   3. feature-ast/parse.ts: dispatcher case + import
+//   4. feature-ast/render.ts: render<Kind> function + import + switch
+//      case
+//   5. feature-ast/patch.ts: PatternId variant; if singleton-per-feature
+//      add to SINGLETON_KINDS; callMatchesId case
+//   6. pattern-library/library.ts: <kind>Schema + entry in
+//      PATTERN_LIBRARY map
+//   7. pattern-library/__tests__/library.test.ts: ALL_KINDS array +
+//      makePlaceholderPattern case
+// TS-exhaustiveness catches most omissions automatically (1, 3, 4, 5,
+// 7-via-makePlaceholderPattern), but the runtime-checked maps in 6 +
+// the ALL_KINDS array in 7 are silent if forgotten — pin them with the
+// library.test.ts coverage tests.
 
 import type { LifecycleHookType } from "../constants";
 import type {

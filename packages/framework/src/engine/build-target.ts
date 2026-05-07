@@ -23,11 +23,6 @@
 import type { TargetRef } from "./types/target-ref";
 import type { TreeActionDef } from "./types/tree-node";
 
-// TreeActionDef wird re-exported (für Public-API-Kompatibilität —
-// Caller importieren weiterhin von engine), lebt aber kanonisch in
-// types/tree-node.ts (Visual-Tree-Domäne, nicht Builder-Domäne).
-export type { TreeActionDef };
-
 // FeatureWithTreeActions — internal Generic-Constraint für den Builder.
 // **Bewusst nicht exportiert** — Phase-0-Stub, wird in V.1.1 durch echte
 // FeatureDefinition mit treeActions-Slot ersetzt. Caller brauchen den Type

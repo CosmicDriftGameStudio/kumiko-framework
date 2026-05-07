@@ -35,7 +35,7 @@ import type {
   SecretKeyDefinition,
   TranslationKeys,
   TreeActionDef,
-  TreeProvider,
+  TreeChildrenSubscribe,
   WorkspaceDefinition,
   WriteHandlerDef,
 } from "./types";
@@ -198,7 +198,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // iteriert die Map zur Mount-Zeit. Tree-Actions parallel — featureName
   // → erased Action-Map (compile-time-typed Variante geht über
   // setup-export-handle, siehe FeatureRegistrar.treeActions docs).
-  const treeProvidersMap = new Map<string, TreeProvider>();
+  const treeProvidersMap = new Map<string, TreeChildrenSubscribe>();
   const treeActionsMap = new Map<string, Readonly<Record<string, TreeActionDef>>>();
 
   // Local alias for readability — `qualifyEntityName` is the shared helper
@@ -1330,7 +1330,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       return defaultWorkspace;
     },
 
-    getTreeProviders(): ReadonlyMap<string, TreeProvider> {
+    getTreeProviders(): ReadonlyMap<string, TreeChildrenSubscribe> {
       return treeProvidersMap;
     },
 

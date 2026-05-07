@@ -215,6 +215,5 @@ export type {
   TreeContext,
   TreeNode,
   TreeNodeState,
-  TreeProvider,
 } from "./tree-node";
 export type { WorkspaceDefinition } from "./workspace";

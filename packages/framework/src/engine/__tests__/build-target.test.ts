@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildTarget, type TreeActionDef } from "../build-target";
+import { buildTarget, type TreeActionDef } from "../index";
 
 // createTreeActionsStub — Test-Helper für Phase-0-Stub-Features. Das
 // `const`-Generic-Modifier forciert Literal-Inference, sodass die

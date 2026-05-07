@@ -53,7 +53,7 @@ import type { NavDefinition } from "./nav";
 import type { MultiStreamProjectionDefinition, ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
 import type { ScreenDefinition } from "./screen";
-import type { TreeActionDef, TreeActionsHandle, TreeProvider } from "./tree-node";
+import type { TreeActionDef, TreeActionsHandle, TreeChildrenSubscribe } from "./tree-node";
 import type { WorkspaceDefinition } from "./workspace";
 
 // --- Metrics (declared by features via r.metric()) ---
@@ -193,7 +193,7 @@ export type FeatureDefinition = {
   // beim Mount des Workspaces aufgerufen, kann Updates emittieren.
   // Feature ohne treeProvider ist im Visual-Workspace unsichtbar
   // (Zero-Whitelist-Filter aus visual-tree.md A2).
-  readonly treeProvider?: TreeProvider;
+  readonly treeProvider?: TreeChildrenSubscribe;
   // HTTP-Routes declared via r.httpRoute(). Index is "METHOD path"
   // (z.B. "GET /feed.xml") — eindeutig pro Feature. Die App-Server-
   // Boot-Stage iteriert getAllHttpRoutes() und mountet jede Route auf
@@ -460,7 +460,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // A feature without r.tree() is invisible in `navigation: "tree"`-
   // workspaces — that's the Zero-Whitelist-Filter from visual-tree.md A2:
   // provider-Vorhandensein ist der Filter, kein Workspace-Mapping.
-  tree(provider: TreeProvider): void;
+  tree(provider: TreeChildrenSubscribe): void;
 };
 
 // --- Registry (created from features) ---
@@ -633,7 +633,7 @@ export type Registry = {
   // navigation: "tree"-Workspaces, ruft jeden Provider mit ctx auf,
   // sammelt die emitted TreeNode[] und merged sie zur Top-Level-Liste.
   // See visual-tree.md A2 (Zero-Whitelist) + A4 (Subscribe-Form).
-  getTreeProviders(): ReadonlyMap<string, TreeProvider>;
+  getTreeProviders(): ReadonlyMap<string, TreeChildrenSubscribe>;
 
   // Tree-Actions-Map des Features. Returns the erased Record (compile-
   // time-typed handle wandert über setup-export, nicht hier). Visual-
