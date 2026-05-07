@@ -36,8 +36,7 @@ export function createUserDataRightsFeature(): FeatureDefinition {
   return defineFeature("user-data-rights", (r) => {
     r.requires("user", "data-retention", "compliance-profiles");
     r.usesApi("compliance.forTenant");
-    // r.usesApi("retention.policyFor")  — kommt mit S2.D3 wenn der
-    //                                      exposer da ist
+    r.usesApi("retention.policyFor");
 
     // EXT_USER_DATA — Schema-Marker fuer userData-Hooks. Andere features
     // (Sprint 2.H1+H2) registrieren via:

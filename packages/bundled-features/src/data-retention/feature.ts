@@ -1,4 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { policyForQuery } from "./handlers/policy-for.query";
 import { tenantRetentionOverrideEntity } from "./schema/tenant-retention-override";
 
 export { tenantRetentionOverrideEntity, tenantRetentionOverrideTable } from "./schema/tenant-retention-override";
@@ -38,11 +39,12 @@ export function createDataRetentionFeature(): FeatureDefinition {
   return defineFeature("data-retention", (r) => {
     r.entity("tenant-retention-override", tenantRetentionOverrideEntity);
 
-    // S2.D3 wird hier dazukommen:
-    //   r.exposesApi("retention.policyFor");
-    //   r.queryHandler({ name: "retention:query:policy-for", ... });
-    //
-    // S2.D2 wird hier den Cleanup-Job registrieren:
+    // S2.D3: Cross-Feature-API fuer Forget-Flow + Cleanup-Job
+    r.exposesApi("retention.policyFor");
+    r.queryHandler(policyForQuery);
+
+    // S2.D2b wird hier den Cleanup-Job registrieren:
     //   r.job("retention-cleanup", { trigger: { cron: "0 3 * * *" } }, ...)
+    // + tenant-config-key fuer Preset-Auswahl.
   });
 }
