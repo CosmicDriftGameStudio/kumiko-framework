@@ -3,7 +3,9 @@ import {
   access,
   createBooleanField,
   createEntity,
+  createSelectField,
   createTextField,
+  createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // User entity — tenant-agnostic. A single user can belong to multiple tenants
@@ -61,6 +63,37 @@ export const userEntity = createEntity({
     roles: createTextField({
       required: true,
       default: "[]",
+      access: { write: access.privileged },
+    }),
+
+    // S2.U1: User-Lifecycle-Status für user-data-rights (Sprint 2).
+    //   - "active":            Normaler State, alle Operationen erlaubt
+    //   - "restricted":        Art. 18 Restriction — Auth-Middleware blockiert
+    //                          Schreib-Endpoints, Read bleibt erlaubt damit
+    //                          User das Banner sieht + lift-restriction klicken kann
+    //   - "deletionRequested": delete-account aufgerufen, gracePeriodEnd
+    //                          gesetzt, User kann via cancel-deletion zurueck
+    //                          auf "active". Auth-Middleware blockiert wie
+    //                          "restricted".
+    //   - "deleted":           Forget executed nach Grace, Row anonymisiert via
+    //                          softDelete. Auth-Middleware blockt Login.
+    //
+    // Schreibrecht privileged: nur die request-deletion / restrict / lift /
+    // execute-forget-Handler (alle SYSTEM-context) duerfen status flippen.
+    status: createSelectField({
+      required: true,
+      default: "active",
+      options: ["active", "restricted", "deletionRequested", "deleted"] as const,
+      access: { write: access.privileged },
+    }),
+
+    // Wann darf der pending-Forget tatsaechlich ausgefuehrt werden?
+    // Cron-Job in user-data-rights checkt taeglich gracePeriodEnd < now()
+    // und triggert dann die EXT_USER_DATA-Hooks. NULL solange kein
+    // Forget pending — wird beim delete-account-Call gesetzt
+    // (= now() + Compliance-Profile.userRights.gracePeriod), beim
+    // cancel-deletion zurueckgesetzt.
+    gracePeriodEnd: createTimestampField({
       access: { write: access.privileged },
     }),
   },
