@@ -23,6 +23,7 @@
 //
 // Siehe docs/plans/architecture/visual-tree.md A4.
 
+import type { TenantId } from "./identifiers";
 import type { TargetRef } from "./target-ref";
 
 export type TreeNodeState = "filled" | "stub" | "empty" | "loading" | "error";
@@ -62,6 +63,13 @@ export type TreeNode = {
   // erst beim Ausklappen aufgerufen (lazy); die Function-Form erlaubt
   // SSE-gefütterte Live-Updates wenn neue Entity-Rows reinkommen.
   readonly children?: readonly TreeNode[] | TreeChildrenSubscribe;
+  // Provider-deklarierte „+ create"-Action für Knoten mit `state: "empty"`.
+  // Tree-Component zeigt automatisch ein „+"-Icon und dispatcht
+  // `createAction.target` bei Klick — Provider weiß was „leer befüllen"
+  // für ihn bedeutet (z.B. „neuer Page-Slug" vs „neue Entity-Row"),
+  // Convention könnte das nicht raten. Konsistent zu `state` (auch
+  // Provider-explizit). Siehe visual-tree.md V.1.1-Decision D3.
+  readonly createAction?: TreeAction;
 };
 
 // Subscribe<T> — Provider implementiert: emit(initial); ...emit(updated);
@@ -75,10 +83,17 @@ export type Subscribe<T> = (emit: (value: T) => void) => () => void;
 // Subscribe-Helpers (entity-list, slug-list etc.).
 export type TreeChildrenSubscribe = (ctx: TreeContext) => Subscribe<readonly TreeNode[]>;
 
-// TreeContext — Phase-0-Stub. Provider sollen ctx als opaque Handle
-// behandeln — V.1.1-Erweiterungen sind non-breaking weil neue Felder
-// nur additiv dazukommen.
-export type TreeContext = Readonly<Record<string, never>>;
+// TreeContext — Provider erhält context-Objekt mit den minimal-nötigen
+// React-Tree-State-Bridges. V.1.1 startet mit `tenantId` only (Provider
+// braucht tenant-awareness sonst stale-tenant-Bug bei Tenant-Switch);
+// `query` und `subscribe` werden additiv ergänzt wenn ein konkreter
+// Konsument sie braucht (V.1.2: text-content slug-list-query, später
+// SSE-driven re-emit). Memory `[Keine Optionen ohne Bedarf]` — surface
+// wächst mit Bedarfen, nicht mit Spekulation. Siehe visual-tree.md
+// V.1.1-Decision D1.
+export type TreeContext = Readonly<{
+  readonly tenantId: TenantId;
+}>;
 
 // TreeActionDef — Schema-Eintrag pro Action in der treeActions-Map
 // eines Features. Phase 0: Args sind ein optionales Type-Sample

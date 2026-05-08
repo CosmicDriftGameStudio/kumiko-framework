@@ -37,7 +37,7 @@ import { AppLayout } from "./app-layout";
 import { lastSegment, NavTree } from "./nav-tree";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
-import { VisualTreeStub } from "./visual-tree-stub";
+import { VisualTree } from "./visual-tree";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export type WorkspaceShellUser = {
@@ -184,14 +184,20 @@ export function WorkspaceShell({
   );
 
   // Sidebar-Content-Switch: workspace mit `navigation: "tree"` (opt-in)
-  // mountet den Visual-Tree-Stub statt NavTree. Default (kein navigation
-  // gesetzt oder navigation="nav") behält das existing NavTree-Verhalten —
-  // kein Breaking-Change für Apps die Visual-Tree nicht aktivieren.
-  // Stub wird in V.1.1 durch echte Visual-Tree-Component ersetzt.
-  // Siehe docs/plans/architecture/visual-tree.md A1.
+  // mountet die VisualTree-Component statt NavTree. Default (kein
+  // navigation gesetzt oder navigation="nav") behält das existing
+  // NavTree-Verhalten — kein Breaking-Change für Apps die Visual-Tree
+  // nicht aktivieren.
+  //
+  // VisualTree konsumiert TreeProviders via Context (siehe
+  // app/tree-providers-context.tsx) — App-Author registriert seine
+  // clientFeatures.treeProvider via createKumikoApp, kein zusätzlicher
+  // Prop hier nötig. Workspace-ID wird durchgereicht für die
+  // localStorage-Persistenz des expanded-Set.
+  // Siehe docs/plans/architecture/visual-tree.md A1 + V.1.1-A.
   const sidebarContent =
     activeWorkspace?.definition.navigation === "tree" ? (
-      <VisualTreeStub />
+      <VisualTree workspaceId={activeWorkspace.definition.id} />
     ) : (
       <NavTree
         schema={app}

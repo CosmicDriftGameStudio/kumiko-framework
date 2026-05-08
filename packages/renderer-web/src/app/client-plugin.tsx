@@ -9,6 +9,7 @@
 // ganz außen gestackt, dann alle Gates nach innen. So hat jeder Gate
 // Zugriff auf jeden Provider, egal welches Feature ihn gebracht hat.
 
+import type { TreeActionDef, TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
 import type { ColumnRendererComponent, TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 
@@ -45,6 +46,21 @@ export type ClientFeatureDefinition = {
    *  echte JSX-Renderer leben im Client-Bundle. Last-Wins bei Key-
    *  Kollision über mehrere Features. */
   readonly columnRenderers?: Readonly<Record<string, ColumnRendererComponent>>;
+  /** Tree-Provider für `r.workspace({ navigation: "tree" })`-Workspaces
+   *  (Visual-Tree). Wird beim Mount des Tree-Workspaces mit ctx aufgerufen,
+   *  emittiert TreeNode[] die in der Sidebar gerendert werden. Closure-
+   *  Distribution gleicher Mechanismus wie `columnRenderers` — Server-
+   *  Registry kennt nur „dass es das gibt", echte Function lebt
+   *  client-side. Spiegelt das server-side `r.tree(provider)` aus dem
+   *  Feature; bundled-features liefern beide Seiten konsistent.
+   *  Siehe visual-tree.md V.1.1-Distribution. */
+  readonly treeProvider?: TreeChildrenSubscribe;
+  /** Tree-Actions-Schema — die Action-Map die `buildTarget` compile-time
+   *  validiert. Erased-Runtime-Surface; typed Handle wandert separat
+   *  via Server-Feature setup-export (FeatureDefinition.exports.handle).
+   *  Identisch zur server-side `r.treeActions(...)`-Map; bundled-
+   *  features liefern beide Seiten konsistent. */
+  readonly treeActions?: Readonly<Record<string, TreeActionDef>>;
 };
 
 /** Wickelt einen ReactNode durch eine Liste von Providern/Gates von

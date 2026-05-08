@@ -1,4 +1,5 @@
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
+import type { TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   Dispatcher,
   ListRowViewModel,
@@ -35,6 +36,7 @@ import { useBrowserTokensApi } from "../tokens";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { useBrowserNavApi } from "./nav";
+import { TreeProvidersProvider } from "./tree-providers-context";
 
 // Web-Bootstrap. Mounted den ganzen Kumiko-Render-Stack im Browser:
 // Tokens (class-based light/dark via <html>), Primitives (HTML),
@@ -192,6 +194,23 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
     }
   }
 
+  // Tree-Provider-Map aggregieren — keyed by clientFeature.name (matches
+  // server-side FeatureDefinition.name). Mehrere clientFeatures mit
+  // gleichem name + treeProvider sind ein Author-Bug (würde stillschweigend
+  // den Provider eines Features durch den eines anderen überschreiben);
+  // wir warnen einmal pro Kollision. Visual-Tree.md V.1.1-Distribution.
+  const treeProviders = new Map<string, TreeChildrenSubscribe>();
+  for (const f of clientFeatures) {
+    if (f.treeProvider === undefined) continue;
+    if (treeProviders.has(f.name)) {
+      // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
+      console.warn(
+        `[kumiko] treeProvider for "${f.name}" defined by multiple clientFeatures — last definition wins.`,
+      );
+    }
+    treeProviders.set(f.name, f.treeProvider);
+  }
+
   const resolver = options.locale ?? createBrowserLocaleResolver();
 
   const navAdapter = options.navAdapter ?? useBrowserNavApi;
@@ -216,9 +235,11 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
             <LiveEventsProvider value={liveEvents}>
               <CustomScreensProvider value={customScreens}>
                 <ColumnRenderersProvider value={columnRenderers}>
-                  <ToastProvider>
-                    {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                  </ToastProvider>
+                  <TreeProvidersProvider value={treeProviders}>
+                    <ToastProvider>
+                      {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                    </ToastProvider>
+                  </TreeProvidersProvider>
                 </ColumnRenderersProvider>
               </CustomScreensProvider>
             </LiveEventsProvider>

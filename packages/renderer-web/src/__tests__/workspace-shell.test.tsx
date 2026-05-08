@@ -806,7 +806,7 @@ describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
       </WorkspaceShell>,
     );
     // Stub-Marker rendert
-    expect(screen.getByLabelText("Visual Tree (V.1.1 placeholder)")).toBeTruthy();
+    expect(screen.getByLabelText("Visual Tree (no providers)")).toBeTruthy();
     // NavTree wäre durch das nav-Item "List" sichtbar — darf hier NICHT
     // rendern (Tree-Mode ersetzt NavTree komplett)
     expect(screen.queryByText("List")).toBeNull();
@@ -835,7 +835,7 @@ describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
       </WorkspaceShell>,
     );
     expect(screen.getByText("List")).toBeTruthy();
-    expect(screen.queryByLabelText("Visual Tree (V.1.1 placeholder)")).toBeNull();
+    expect(screen.queryByLabelText("Visual Tree (no providers)")).toBeNull();
   });
 
   test("workspace ohne navigation-Property defaultet zu NavTree (Backwards-Compat)", () => {
@@ -862,7 +862,7 @@ describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
       </WorkspaceShell>,
     );
     expect(screen.getByText("List")).toBeTruthy();
-    expect(screen.queryByLabelText("Visual Tree (V.1.1 placeholder)")).toBeNull();
+    expect(screen.queryByLabelText("Visual Tree (no providers)")).toBeNull();
   });
 
   test("Switcher-Toggle re-rendert Sidebar zwischen NavTree und Stub", () => {
@@ -899,16 +899,16 @@ describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
 
     // Initial: admin-Workspace (default) aktiv → NavTree sichtbar, kein Stub
     expect(screen.getByText("List")).toBeTruthy();
-    expect(screen.queryByLabelText("Visual Tree (V.1.1 placeholder)")).toBeNull();
+    expect(screen.queryByLabelText("Visual Tree (no providers)")).toBeNull();
 
     // Switch zu visual-Workspace via Switcher-Click
     fireEvent.click(screen.getByTestId("workspace-tab-visual"));
-    expect(screen.getByLabelText("Visual Tree (V.1.1 placeholder)")).toBeTruthy();
+    expect(screen.getByLabelText("Visual Tree (no providers)")).toBeTruthy();
     expect(screen.queryByText("List")).toBeNull();
 
     // Zurück zu admin → NavTree wieder, Stub weg
     fireEvent.click(screen.getByTestId("workspace-tab-admin"));
     expect(screen.getByText("List")).toBeTruthy();
-    expect(screen.queryByLabelText("Visual Tree (V.1.1 placeholder)")).toBeNull();
+    expect(screen.queryByLabelText("Visual Tree (no providers)")).toBeNull();
   });
 });
