@@ -76,7 +76,7 @@
     "nodemailer": "^8.0.7",
     "react": "^19.2.0",
     "stripe": "^22.1.0",
-    "tailwind-merge": "^3.0.2"
+    "tailwind-merge": "^3.5.0"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
