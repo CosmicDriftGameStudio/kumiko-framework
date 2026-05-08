@@ -123,8 +123,16 @@ async function fetchAlice(): Promise<{
 type RequestDeletionResponse = {
   userId: string;
   status: string;
-  gracePeriod: { days?: number; hours?: number };
-  graceDescription: string;
+  // ISO-8601-Timestamp (Temporal.Instant.toString()) — der absolute
+  // Cleanup-Trigger-Zeitpunkt, denselben Wert den der Cleanup-Runner
+  // (S2.U5b) gegen now() vergleicht.
+  gracePeriodEnd: string;
+};
+
+type CancelDeletionResponse = {
+  userId: string;
+  status: string;
+  gracePeriodEnd: string | null;
 };
 
 describe("POST request-deletion :: happy path", () => {
@@ -143,19 +151,22 @@ describe("POST request-deletion :: happy path", () => {
 
     expect(result.status).toBe(USER_STATUS.DeletionRequested);
     expect(result.userId).toBe(aliceUser.id);
-    expect(result.gracePeriod).toEqual({ days: 30 });
-    expect(result.graceDescription).toBe("30 days");
+
+    // gracePeriodEnd liegt zwischen +29d und +31d (Drift-Toleranz). Pinst
+    // sowohl API-Contract (Response liefert ISO-Timestamp) als auch DB-
+    // State (fetchAlice's Instant) in derselben Frist-Aussage.
+    const responseGraceMs = new Date(result.gracePeriodEnd).getTime() - Date.now();
+    expect(responseGraceMs).toBeGreaterThan(29 * 24 * 60 * 60 * 1000);
+    expect(responseGraceMs).toBeLessThan(31 * 24 * 60 * 60 * 1000);
 
     const row = await fetchAlice();
     expect(row?.status).toBe(USER_STATUS.DeletionRequested);
     expect(row?.gracePeriodEnd).not.toBeNull();
-    // Frist liegt zwischen +29d und +31d (Drift-Toleranz, weil now() server-side).
-    const graceMs = row?.gracePeriodEnd ? row.gracePeriodEnd.epochMilliseconds - Date.now() : 0;
-    expect(graceMs).toBeGreaterThan(29 * 24 * 60 * 60 * 1000);
-    expect(graceMs).toBeLessThan(31 * 24 * 60 * 60 * 1000);
+    // DB-Wert == Response-Wert: derselbe Cleanup-Trigger-Timestamp.
+    expect(row?.gracePeriodEnd?.toString()).toBe(result.gracePeriodEnd);
   });
 
-  test("ohne explizites Profile → minimal-no-region-Fallback (30 Tage)", async () => {
+  test("ohne explizites Profile → minimal-no-region-Fallback (~30 Tage)", async () => {
     await seedAlice();
     // Kein SET_PROFILE → resolveComplianceProfile fallt auf
     // minimal-no-region (warning="no-profile-selected") zurueck.
@@ -164,13 +175,15 @@ describe("POST request-deletion :: happy path", () => {
       {},
       aliceUser,
     );
-    expect(result.gracePeriod).toEqual({ days: 30 });
+    const graceMs = new Date(result.gracePeriodEnd).getTime() - Date.now();
+    expect(graceMs).toBeGreaterThan(29 * 24 * 60 * 60 * 1000);
+    expect(graceMs).toBeLessThan(31 * 24 * 60 * 60 * 1000);
   });
 
   // Advisor-Finding S2.U5a: hours-Override wurde stillschweigend auf 30d
-  // gefallen weil "days" in spec false war. Pinst den Fix via durationSpec-
-  // ToInterval — sowohl `{days}` als auch `{hours}` werden korrekt
-  // gerendert.
+  // gefallen weil "days" in spec false war. Pinst den Fix via
+  // addDurationSpec — sowohl `{days}` als auch `{hours}` werden korrekt
+  // addiert.
   test("Profile-Override {hours: 6} → ~6h Grace (kein 30d-Fallback)", async () => {
     await seedAlice();
     await stack.http.writeOk(
@@ -187,12 +200,8 @@ describe("POST request-deletion :: happy path", () => {
       {},
       aliceUser,
     );
-    expect(result.gracePeriod).toEqual({ hours: 6 });
-    expect(result.graceDescription).toBe("6 hours");
-
-    const row = await fetchAlice();
-    const graceMs = row?.gracePeriodEnd ? row.gracePeriodEnd.epochMilliseconds - Date.now() : 0;
     // Toleranzfenster: +5h..+7h (vorher: stilles 30d-Fallback ware ~720h).
+    const graceMs = new Date(result.gracePeriodEnd).getTime() - Date.now();
     expect(graceMs).toBeGreaterThan(5 * 60 * 60 * 1000);
     expect(graceMs).toBeLessThan(7 * 60 * 60 * 1000);
   });
@@ -243,12 +252,9 @@ describe("POST cancel-deletion :: happy path", () => {
       gracePeriodEnd: futureGrace,
     });
 
-    const result = await stack.http.writeOk<{ userId: string; status: string }>(
-      CANCEL_DELETION,
-      {},
-      aliceUser,
-    );
+    const result = await stack.http.writeOk<CancelDeletionResponse>(CANCEL_DELETION, {}, aliceUser);
     expect(result.status).toBe(USER_STATUS.Active);
+    expect(result.gracePeriodEnd).toBeNull();
 
     const row = await fetchAlice();
     expect(row?.status).toBe(USER_STATUS.Active);
