@@ -5,7 +5,6 @@ import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
-import type { TenantId } from "../engine/types/identifiers";
 import { parseQn, qn } from "../engine/qualified-name";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type {
@@ -26,6 +25,7 @@ import type {
   WriteResult,
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
+import type { TenantId } from "../engine/types/identifiers";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
@@ -319,13 +319,25 @@ export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;
   lifecycle?: LifecycleHooks;
   jobRunner?: JobRunnerRef;
-  // Resolves the effective-feature set per tenant — the dispatcher uses it
-  // to gate calls to handlers of disabled features (403 feature_disabled)
+  // Resolves the effective-feature set per tenant — the dispatcher uses
+  // it to gate calls to handlers of disabled features (403 feature_disabled)
   // and to populate ctx.hasFeature. Absent = all features treated as
   // always-on (no feature-toggles or tier-engine feature loaded). The
   // resolver must be fast and synchronous per call; implementations cache
   // tenant-keyed sets and refresh on tier-assignment / toggle events.
-  // Sprint-8a: per-tenant signature für Tier-Composition.
+  //
+  // **System-context convention:** when called with SYSTEM_TENANT_ID, the
+  // resolver should return the union/superset of all tier-features. Two
+  // contexts call with this sentinel:
+  //   1. event-dispatcher async-pass (consumers tagged with feature X
+  //      should not silently skip events from a tenant where X is off —
+  //      events are immutable, async work runs through).
+  //   2. operator-tooling queries (e.g. feature-toggles:registered) where
+  //      a SystemAdmin needs to see platform-truth, not their own
+  //      tier-cut.
+  // Returning a non-superset for SYSTEM_TENANT_ID will cause silent
+  // event-skips and a confusing operator-UI — the framework cannot
+  // enforce this contract, but the recipe-test pins the convention.
   effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
 };
 
@@ -731,11 +743,12 @@ export function createDispatcher(
       // dispatcher.resolveAuthClaims) cannot drift.
       resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(claimsUser),
 
-      // Feature-effective check for in-handler opt-in logic. Per-tenant:
-      // resolves against the active user's tenantId. When the feature-
-      // toggles or tier-engine feature isn't wired (no effectiveFeatures
-      // callback), always returns true — apps without tier-cuts treat all
-      // features on.
+      // Feature-effective check for in-handler opt-in logic. Scope:
+      // **current user's tenant** — for cross-tenant lookups (rare,
+      // SysAdmin operations) read effectiveFeatures(otherTenantId) directly.
+      // When the feature-toggles or tier-engine feature isn't wired (no
+      // effectiveFeatures callback), always returns true — apps without
+      // tier-cuts treat all features on.
       hasFeature: (featureName: string): boolean =>
         effectiveFeatures ? effectiveFeatures(user.tenantId).has(featureName) : true,
     };
