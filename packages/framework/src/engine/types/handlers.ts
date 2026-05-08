@@ -729,7 +729,7 @@ export type WriteHandlerDef = {
   readonly schema: ZodType;
   readonly handler: WriteHandlerFn;
   readonly access?: AccessRule;
-  readonly skipTransitionGuard?: boolean;
+  readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
 };
 

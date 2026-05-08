@@ -597,7 +597,7 @@ const writeHandlerSchema: PatternFormSchema = {
       input: "json-readonly",
     },
     {
-      path: "skipTransitionGuard",
+      path: "unsafeSkipTransitionGuard",
       label: { en: "Skip transition guard", de: "Übergangs-Guard überspringen" },
       input: "boolean",
     },

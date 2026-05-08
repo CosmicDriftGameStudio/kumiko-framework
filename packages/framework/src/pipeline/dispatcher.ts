@@ -1253,7 +1253,7 @@ export function createDispatcher(
     const handlerContext = buildHandlerContext(type, user, tx, afterCommitHooks);
 
     // Auto transition guard: if entity has transitions and handler doesn't skip it
-    if (entityName && !handler.skipTransitionGuard) {
+    if (entityName && !handler.unsafeSkipTransitionGuard) {
       const entity = registry.getEntity(entityName);
       if (entity?.transitions && handlerContext.db) {
         const parsedData = parsed.data as DbRow;
@@ -1281,7 +1281,7 @@ export function createDispatcher(
           if (!row) continue;
           // Skip guard for soft-deleted rows — they shouldn't be transitioning
           // at all; a handler that wants to move a deleted row should use
-          // skipTransitionGuard or restore first.
+          // unsafeSkipTransitionGuard or restore first.
           if (entity.softDelete && (row as DbRow)["isDeleted"] === true) {
             continue;
           }

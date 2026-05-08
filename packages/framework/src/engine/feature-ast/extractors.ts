@@ -1530,7 +1530,7 @@ export function extractAuthClaims(
 
 // Common fields produced by parseHandlerCall — both write- and query-
 // handler patterns share them. The wrapper functions below add the
-// kind-discriminator and the write-only skipTransitionGuard so the
+// kind-discriminator and the write-only unsafeSkipTransitionGuard so the
 // shared helper stays unbiased.
 type ParsedHandlerCall = {
   readonly source: SourceLocation;
@@ -1539,7 +1539,7 @@ type ParsedHandlerCall = {
   readonly handlerBody: SourceLocation;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
-  readonly skipTransitionGuard?: boolean;
+  readonly unsafeSkipTransitionGuard?: boolean;
 };
 
 // Shared parser for r.writeHandler / r.queryHandler. Accepts both
@@ -1618,7 +1618,7 @@ function parseHandlerCall(
     const rateLimit = rateLimitInit
       ? readOptionalRateLimit(readDataLiteralNode(rateLimitInit))
       : undefined;
-    const skip = readBooleanProperty(obj, "skipTransitionGuard");
+    const skip = readBooleanProperty(obj, "unsafeSkipTransitionGuard");
     return ok({
       source: sourceLocationFromNode(call, sourceFile),
       handlerName: nameLiteral.getLiteralValue(),
@@ -1626,7 +1626,7 @@ function parseHandlerCall(
       handlerBody: sourceLocationFromNode(fn, sourceFile),
       ...(access !== undefined && { access }),
       ...(rateLimit !== undefined && { rateLimit }),
-      ...(skip === true && { skipTransitionGuard: true }),
+      ...(skip === true && { unsafeSkipTransitionGuard: true }),
     });
   }
 
@@ -1697,7 +1697,7 @@ export function extractWriteHandler(
     handlerBody: parsed.pattern.handlerBody,
     ...(parsed.pattern.access !== undefined && { access: parsed.pattern.access }),
     ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
-    ...(parsed.pattern.skipTransitionGuard === true && { skipTransitionGuard: true }),
+    ...(parsed.pattern.unsafeSkipTransitionGuard === true && { unsafeSkipTransitionGuard: true }),
   });
 }
 
@@ -1707,7 +1707,7 @@ export function extractQueryHandler(
 ): ExtractOutput<QueryHandlerPattern> {
   const parsed = parseHandlerCall(call, sourceFile, "queryHandler");
   if (parsed.kind === "error") return parsed;
-  // QueryHandler has no skipTransitionGuard — the field is silently
+  // QueryHandler has no unsafeSkipTransitionGuard — the field is silently
   // ignored if the parser reads one (won't happen in practice because
   // queryHandlers don't carry that option).
   return ok({

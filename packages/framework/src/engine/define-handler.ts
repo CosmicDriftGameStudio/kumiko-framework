@@ -35,7 +35,7 @@ export type WriteHandlerDefinition<
   readonly name: TName;
   readonly schema: TSchema;
   readonly access?: AccessRule;
-  readonly skipTransitionGuard?: boolean;
+  readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
   readonly handler: (
     event: WriteEvent<z.infer<TSchema>>,
@@ -60,7 +60,7 @@ export type WriteHandlerInput<
   readonly name: TName;
   readonly schema: TSchema;
   readonly access?: AccessRule;
-  readonly skipTransitionGuard?: boolean;
+  readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
 } & (
   | {
@@ -92,7 +92,7 @@ export function defineWriteHandler<
     name: def.name,
     schema: def.schema,
     ...(def.access && { access: def.access }),
-    ...(def.skipTransitionGuard && { skipTransitionGuard: def.skipTransitionGuard }),
+    ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: def.unsafeSkipTransitionGuard }),
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
   };
 

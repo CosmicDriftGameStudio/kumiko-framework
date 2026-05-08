@@ -187,7 +187,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
           handler: def.handler as WriteHandlerFn,
           ...(def.access && { access: def.access }),
-          ...(def.skipTransitionGuard && { skipTransitionGuard: true }),
+          ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
         };
         tryMapEntity(def.name);
