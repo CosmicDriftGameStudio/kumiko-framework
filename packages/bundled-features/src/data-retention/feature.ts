@@ -2,20 +2,27 @@ import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-frame
 import { policyForQuery } from "./handlers/policy-for.query";
 import { tenantRetentionOverrideEntity } from "./schema/tenant-retention-override";
 
-export { tenantRetentionOverrideEntity, tenantRetentionOverrideTable } from "./schema/tenant-retention-override";
-export {
-  RETENTION_PRESETS,
-  SELECTABLE_RETENTION_PRESETS,
-  type RetentionPreset,
-  type RetentionPresetKey,
-} from "./presets";
 export { retentionOverrideSchema } from "./override-schema";
 export {
-  resolveRetentionPolicy,
+  RETENTION_PRESETS,
+  type RetentionPreset,
+  type RetentionPresetKey,
+  SELECTABLE_RETENTION_PRESETS,
+} from "./presets";
+export {
+  type ResolveForTenantArgs,
+  resolveRetentionPolicyForTenant,
+} from "./resolve-for-tenant";
+export {
   type EffectiveRetentionPolicy,
   type ResolveRetentionPolicyArgs,
   type RetentionOverride,
+  resolveRetentionPolicy,
 } from "./resolver";
+export {
+  tenantRetentionOverrideEntity,
+  tenantRetentionOverrideTable,
+} from "./schema/tenant-retention-override";
 
 // data-retention — automatisierte Aufbewahrung + Löschung pro Entity.
 //

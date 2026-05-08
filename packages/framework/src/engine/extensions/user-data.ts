@@ -13,7 +13,7 @@
 //
 // Siehe docs/plans/datenschutz/user-data-rights.md.
 
-import type { DbConnection } from "../../db/connection";
+import type { DbRunner } from "../../db/connection";
 import type { TenantId } from "../types";
 
 // SessionUser.id ist plattformweit `string` (kein Brand-Type). Wenn
@@ -37,9 +37,14 @@ export type UserDataDeleteStrategy = "delete" | "anonymize";
 /**
  * Context-Snapshot der dem Hook übergeben wird. Sprint 2 erweitert
  * das ggf. um cancel-/timeout-Marker; aktuell minimaler Schnitt.
+ *
+ * `db` ist `DbRunner` (DbConnection | DbTx) damit der Cleanup-Runner
+ * (S2.U5b) den Hook in einer Per-User-Sub-Tx callen kann. Hooks die
+ * raw-DB-Operationen machen funktionieren auf beiden Shapes via
+ * Drizzle's polymorphem select/insert/update/delete-Chain.
  */
 export interface UserDataHookCtx {
-  readonly db: DbConnection;
+  readonly db: DbRunner;
   readonly tenantId: TenantId;
   readonly userId: UserId;
 }
@@ -71,9 +76,7 @@ export interface UserDataExportSnippet {
  * Sprint 2 user-data-rights ruft das via Iteration über alle
  * `r.useExtension(EXT_USER_DATA, ...)`-Registrierungen.
  */
-export type UserDataExportHook = (
-  ctx: UserDataHookCtx,
-) => Promise<UserDataExportSnippet | null>;
+export type UserDataExportHook = (ctx: UserDataHookCtx) => Promise<UserDataExportSnippet | null>;
 
 /**
  * Forget-Hook: Löscht oder anonymisiert die Entity-Rows die zu einem

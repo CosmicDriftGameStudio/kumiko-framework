@@ -1,10 +1,7 @@
 // Unit-Tests für resolveRetentionPolicy — pure function, keine
 // Test-Stack-Abhängigkeit.
 
-import {
-  createEntity,
-  createTextField,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
 import { resolveRetentionPolicy } from "../resolver";
 

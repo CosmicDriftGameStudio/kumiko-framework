@@ -17,12 +17,7 @@ import { z } from "zod";
 
 const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 
-const retentionStrategySchema = z.enum([
-  "hardDelete",
-  "softDelete",
-  "anonymize",
-  "blockDelete",
-]);
+const retentionStrategySchema = z.enum(["hardDelete", "softDelete", "anonymize", "blockDelete"]);
 
 /**
  * RetentionOverride-Zod-Schema mit .strict() — fuer (a) set-override-

@@ -19,10 +19,7 @@
 // fragt blockDelete-Felder ab + anonymisiert sie statt zu löschen.
 
 import type { EntityDefinition, RetentionDef } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  RETENTION_PRESETS,
-  type RetentionPresetKey,
-} from "./presets";
+import { RETENTION_PRESETS, type RetentionPresetKey } from "./presets";
 
 /**
  * Roh-Override aus der DB-Tabelle (config-Spalte als JSON-String).
@@ -62,9 +59,7 @@ export interface ResolveRetentionPolicyArgs {
  * Inputs werden vom Caller besorgt (Cleanup-Job aggregiert pro Tenant
  * vorher).
  */
-export function resolveRetentionPolicy(
-  args: ResolveRetentionPolicyArgs,
-): EffectiveRetentionPolicy {
+export function resolveRetentionPolicy(args: ResolveRetentionPolicyArgs): EffectiveRetentionPolicy {
   const { entityName, entityDef, tenantPreset, tenantOverride } = args;
 
   // Layer 3: Override wins, aber Override darf Felder weglassen — dann

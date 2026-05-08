@@ -12,10 +12,7 @@ import {
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import {
-  createDataRetentionFeature,
-  tenantRetentionOverrideEntity,
-} from "../feature";
+import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";
 
 let stack: TestStack;
 

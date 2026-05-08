@@ -55,29 +55,23 @@ describe("computeCutoff", () => {
 describe("isPastCutoff", () => {
   test("Row 31 Tage alt + keepFor 30d + now jetzt → past cutoff (true)", () => {
     const past = now().subtract({ hours: 31 * 24 });
-    expect(
-      isPastCutoff({ referenceTimestamp: past, keepFor: "30d", now: now() }),
-    ).toBe(true);
+    expect(isPastCutoff({ referenceTimestamp: past, keepFor: "30d", now: now() })).toBe(true);
   });
 
   test("Row 29 Tage alt + keepFor 30d → noch nicht abgelaufen (false)", () => {
     const recent = now().subtract({ hours: 29 * 24 });
-    expect(
-      isPastCutoff({ referenceTimestamp: recent, keepFor: "30d", now: now() }),
-    ).toBe(false);
+    expect(isPastCutoff({ referenceTimestamp: recent, keepFor: "30d", now: now() })).toBe(false);
   });
 
   test("Row exakt am Cutoff → false (strict less-than-Check)", () => {
     const exact = now().subtract({ hours: 30 * 24 });
-    expect(
-      isPastCutoff({ referenceTimestamp: exact, keepFor: "30d", now: now() }),
-    ).toBe(false);
+    expect(isPastCutoff({ referenceTimestamp: exact, keepFor: "30d", now: now() })).toBe(false);
   });
 
   test("Row 11 Jahre alt + keepFor 10y → past (Aufbewahrungspflicht abgelaufen)", () => {
     const elevenYearsAgo = now().subtract({ hours: 11 * 365 * 24 });
-    expect(
-      isPastCutoff({ referenceTimestamp: elevenYearsAgo, keepFor: "10y", now: now() }),
-    ).toBe(true);
+    expect(isPastCutoff({ referenceTimestamp: elevenYearsAgo, keepFor: "10y", now: now() })).toBe(
+      true,
+    );
   });
 });

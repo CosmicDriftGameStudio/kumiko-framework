@@ -11,9 +11,9 @@ import {
   createEntityTable,
   createTestUser,
   setupTestStack,
-  testTenantId,
   type TestStack,
   TestUsers,
+  testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";
@@ -86,11 +86,11 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     const tenantId = testTenantId(2);
     const user = createTestUser({ id: 2, tenantId, roles: ["TenantAdmin"] });
 
-    await seedOverride(
-      tenantId,
-      "session",
-      { keepFor: "60d", strategy: "hardDelete", reference: "lastSeenAt" },
-    );
+    await seedOverride(tenantId, "session", {
+      keepFor: "60d",
+      strategy: "hardDelete",
+      reference: "lastSeenAt",
+    });
 
     const result = await stack.http.queryOk<{
       policy: { keepFor: string; strategy: string; reference?: string } | null;
@@ -153,11 +153,7 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     const userA = createTestUser({ id: 5, tenantId: tenantA, roles: ["TenantAdmin"] });
     const userB = createTestUser({ id: 6, tenantId: tenantB, roles: ["TenantAdmin"] });
 
-    await seedOverride(
-      tenantA,
-      "report",
-      { keepFor: "1y", strategy: "hardDelete" },
-    );
+    await seedOverride(tenantA, "report", { keepFor: "1y", strategy: "hardDelete" });
 
     const resultA = await stack.http.queryOk<{ source: string }>(
       POLICY_FOR,

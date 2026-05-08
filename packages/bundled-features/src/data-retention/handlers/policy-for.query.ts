@@ -2,12 +2,8 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { retentionOverrideSchema } from "../override-schema";
-import {
-  type EffectiveRetentionPolicy,
-  type RetentionOverride,
-  resolveRetentionPolicy,
-} from "../resolver";
+import { parseRetentionOverrideOrNull } from "../_internal/parse-override";
+import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "../resolver";
 import { tenantRetentionOverrideTable } from "../schema/tenant-retention-override";
 
 // retention:query:policy-for — Cross-Feature-API fuer den Forget-Flow.
@@ -39,7 +35,11 @@ export const policyForQuery = defineQueryHandler({
       eq(tenantRetentionOverrideTable["entityName"], entityName),
     )) as { config: string | null } | null;
 
-    const tenantOverride = parseOverrideOrNull(overrideRow?.config ?? null, query.user.tenantId);
+    const tenantOverride = parseRetentionOverrideOrNull(
+      overrideRow?.config ?? null,
+      query.user.tenantId,
+      "data-retention:policy-for",
+    );
 
     // Layer 1: Entity-Default aus Registry
     const entityDef = ctx.registry?.getEntity(entityName) ?? null;
@@ -55,31 +55,3 @@ export const policyForQuery = defineQueryHandler({
     });
   },
 });
-
-// Defensiv: ungueltiges JSON aus DB-config wird als "kein Override"
-// behandelt + console.warn fuer Operator-Sichtbarkeit. Set-override-
-// Handler (S3 ggf.) validiert beim Schreiben gegen retentionOverride-
-// Schema; invalides JSON in DB ist also nur via manueller Manipulation
-// oder Migration-Bug erreichbar.
-function parseOverrideOrNull(raw: string | null, tenantId: string): RetentionOverride | null {
-  if (!raw || raw.trim() === "") return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (e) {
-    // biome-ignore lint/suspicious/noConsole: operator visibility for DB-corruption edge-case
-    console.warn(
-      `[data-retention:policy-for] tenant ${tenantId}: stored override is not valid JSON, ignoring. Reason: ${(e as Error).message}`,
-    );
-    return null;
-  }
-  const validation = retentionOverrideSchema.safeParse(parsed);
-  if (!validation.success) {
-    // biome-ignore lint/suspicious/noConsole: operator visibility for schema-drift
-    console.warn(
-      `[data-retention:policy-for] tenant ${tenantId}: stored override fails schema validation, ignoring. Issue: ${validation.error.issues[0]?.path.join(".")}: ${validation.error.issues[0]?.message}`,
-    );
-    return null;
-  }
-  return validation.data;
-}

@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { requestDeletionWrite } from "./handlers/request-deletion.write";
+import { runForgetCleanupWrite } from "./handlers/run-forget-cleanup.write";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
 // Art. 18 (Restriction) + Art. 20 (Portabilität) als Core-Feature.
@@ -56,9 +57,12 @@ export function createUserDataRightsFeature(): FeatureDefinition {
     //   POST /api/user/request-deletion — status-Flip "active" →
     //                                     "deletionRequested" + gracePeriodEnd
     //   POST /api/user/cancel-deletion  — Reversal innerhalb der Grace-Period
-    // Der Cleanup-Runner (eigentliches Forget via EXT_USER_DATA-Hooks)
-    // folgt in S2.U5b als Cron-Job + r.exposesApi("userDataRights.runForget").
     r.writeHandler(requestDeletionWrite);
     r.writeHandler(cancelDeletionWrite);
+
+    // S2.U5b — Cleanup-Runner als privileged-Handler. Cron triggert das
+    // mit createSystemUser(...) als executor.
+    r.writeHandler(runForgetCleanupWrite);
+    r.exposesApi("userDataRights.runForget");
   });
 }
