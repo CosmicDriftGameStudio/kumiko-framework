@@ -47,6 +47,7 @@ import {
   buildAppSchema,
   createRegistry,
   type FeatureDefinition,
+  type TenantId,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -356,9 +357,7 @@ export type RunProdAppOptions = {
    *  liche features aktiv via globalFeatureToggleRuntime. Pattern:
    *  createLateBoundHolder + post-boot runtime.initialize in einem
    *  seed-fn (db ist erst nach migrations + features ready). */
-  readonly effectiveFeatures?: (
-    tenantId: import("@cosmicdrift/kumiko-framework/engine").TenantId,
-  ) => ReadonlySet<string>;
+  readonly effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
 };
 
 export type ProdAppHandle = {
