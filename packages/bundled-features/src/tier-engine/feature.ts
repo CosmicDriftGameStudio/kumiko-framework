@@ -138,6 +138,21 @@ function featuresForTier<TCaps extends Readonly<Record<string, unknown>>>(
 }
 
 /**
+ * Merge always-on features (non-toggleable framework-base) mit tier-cut
+ * features (toggleable per tier). Canonical Kumiko: dispatcher-gate
+ * blockt nur features die explizit `r.toggleable()` haben — alle anderen
+ * sind immer aktiv. Tier-resolver muss das selbe pattern liefern.
+ */
+function mergeAlwaysOn(
+  alwaysOn: ReadonlySet<string>,
+  tierFeatures: ReadonlySet<string>,
+): ReadonlySet<string> {
+  const merged = new Set<string>(alwaysOn);
+  for (const f of tierFeatures) merged.add(f);
+  return merged;
+}
+
+/**
  * Factory: create a tier-engine feature instance with optional auto-tier-
  * resolution + default-tier-on-signup behavior. Returns FeatureDefinition
  * mountable in run-config.
@@ -162,7 +177,10 @@ export function createTierEngineFeature<
     // ───────────────────────────────────────────────────────────────────
     // Resolver-extension (only when tierMap is configured)
     // ───────────────────────────────────────────────────────────────────
-    if (!opts.tierMap) return; // Storage-only mode (back-compat)
+    // skip: ohne tierMap ist die feature nur Storage (legacy back-compat
+    // zu `tierEngineFeature`). Resolver-extension + invalidation-hooks
+    // brauchen die tierMap zum Mapping tier-name → feature-set.
+    if (!opts.tierMap) return;
 
     const tierMap = opts.tierMap;
 
@@ -170,16 +188,30 @@ export function createTierEngineFeature<
     // cache aktuell during process-lifetime; build() im extension-pickup
     // pre-loaded existing assignments at boot.
     const cache = new Map<TenantId, ReadonlySet<string>>();
+    // alwaysOn-Set wird in build(deps) aus registry.features berechnet (alle
+    // non-toggleable features). Hooks brauchen Zugriff darauf für
+    // mergeAlwaysOn-calls — Late-bind via mutable holder, gefüllt vor allen
+    // Requests (build läuft pre-listen via runDevApp/runProdApp-pickup).
+    const alwaysOnHolder: { set: ReadonlySet<string> } = { set: new Set() };
 
     // Invalidation: tier-assignment events update the cache.
     r.entityHook("postSave", "tier-assignment", async (result) => {
       // result.data has tenantId + tier (after entity-update merge)
       const data = result.data as { tenantId?: unknown; tier?: unknown };
+      // skip: defensive type-guard auf payload-shape. Bei korrekt gerenderten
+      // entity-events sind beide fields immer strings; ein malformed-payload
+      // (custom-handler-bug) würde hier silent zum cache-skip führen statt
+      // throwing — der lifecycle-pipeline darf nicht durch hook-fehler
+      // blocken (afterCommit-pattern, side-effect-best-effort).
       if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
-      cache.set(data.tenantId as TenantId, featuresForTier(tierMap, data.tier));
+      cache.set(
+        data.tenantId as TenantId,
+        mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, data.tier)),
+      );
     });
     r.entityHook("postDelete", "tier-assignment", async (payload) => {
       const data = payload.data as { tenantId?: unknown };
+      // skip: gleiche type-guard semantik wie postSave-hook oben.
       if (typeof data.tenantId !== "string") return;
       cache.delete(data.tenantId as TenantId);
     });
@@ -204,13 +236,21 @@ export function createTierEngineFeature<
         async (result, ctx) => {
           // result-shape: kumiko-framework's SaveContext mit isNew + data
           const saveResult = result as { isNew?: unknown; data?: unknown };
+          // skip: nur bei tenant-create (initial) — tenant-updates feuern
+          // auch postSave aber wir wollen kein neues tier-assignment bei
+          // re-keying oder name-update.
           if (saveResult.isNew !== true) return;
           const data = saveResult.data as { id?: unknown };
+          // skip: defensive type-guard. Tenant-entity hat id zwingend, aber
+          // CrudExecutor's payload-shape ist runtime-unknown.
           if (typeof data.id !== "string") return;
           const newTenantId = data.id as TenantId;
           const aggregateId = tierAssignmentAggregateId(newTenantId);
 
-          if (!ctx.db) return; // defensive — should always be set in inTransaction phase
+          // skip: defensive — inTransaction phase hat ctx.db immer gesetzt,
+          // aber AppContext type macht's optional. Throw wäre overreach
+          // (lifecycle blocking), silent-skip ist defensive-soft.
+          if (!ctx.db) return;
 
           // ctx.db ist im inTransaction-phase eine TenantDb (tenant-scoped
           // proxy auf die echte TX). Für event-store-reads (cross-tenant
@@ -227,6 +267,10 @@ export function createTierEngineFeature<
             .select({ v: maxFn(eventsTable.version) })
             .from(eventsTable)
             .where(eq(eventsTable.aggregateId, aggregateId))) as StreamRow[];
+          // skip: idempotency — aggregate-stream existiert schon (re-replay
+          // nach projection-rebuild oder hook-retry). create() würde
+          // version_conflict werfen + tenant-create rollback'n. Pattern aus
+          // tenant/seeding.ts seedTenant.
           if ((streamRow?.v ?? 0) > 0) return;
 
           // SystemUser für den NEUEN tenant — der Hook wird vom signup-
@@ -264,6 +308,19 @@ export function createTierEngineFeature<
     // post-stack-setup, calls build(deps), wires effectiveFeatures.
     const plugin: TierResolverPlugin = {
       build: async (deps) => {
+        // Always-on-Set: alle non-toggleable features im registry. Canonical
+        // Kumiko-pattern (matches feature-toggles' resolver): nur features
+        // die explizit `r.toggleable()` registrieren sind tier-cuttable.
+        // Framework-base-features (auth-email-password, config, user, tenant,
+        // sessions, etc.) sind non-toggleable → IMMER aktiv für jeden Tenant
+        // unabhängig vom tier. Sonst würde dispatcher 403 auf login-handler
+        // werfen weil "feature auth-email-password disabled".
+        const computedAlwaysOn = new Set<string>();
+        for (const feature of deps.registry.features.values()) {
+          if (feature.toggleableDefault === undefined) computedAlwaysOn.add(feature.name);
+        }
+        alwaysOnHolder.set = computedAlwaysOn;
+
         // Pre-load all existing assignments into cache. SaaS-Apps haben
         // typischerweise <100k tenants — single-pass scan akzeptabel.
         // Skalierungs-Pfad (lazy-load + LRU) ist Sprint-8b wenn echtes
@@ -271,7 +328,10 @@ export function createTierEngineFeature<
         type AssignmentRow = { tenantId: string; tier: string };
         const rows = (await deps.db.select().from(tierAssignmentTable)) as AssignmentRow[];
         for (const row of rows) {
-          cache.set(row.tenantId as TenantId, featuresForTier(tierMap, row.tier));
+          cache.set(
+            row.tenantId as TenantId,
+            mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
+          );
         }
 
         // Synchronous resolver-callback for dispatcher hot-path.
@@ -279,7 +339,7 @@ export function createTierEngineFeature<
           // Operator-tooling + async-event-dispatch convention: SYSTEM_TENANT_ID
           // gets the union of all tier-features (siehe DispatcherOptions doc).
           if (tenantId === SYSTEM_TENANT_ID) {
-            return unionAllTierFeatures(tierMap);
+            return mergeAlwaysOn(computedAlwaysOn, unionAllTierFeatures(tierMap));
           }
           const cached = cache.get(tenantId);
           if (cached !== undefined) return cached;
@@ -288,8 +348,8 @@ export function createTierEngineFeature<
           // ist least-privileged — typisch Free-Tier-features. Memory
           // `feedback_security_default_on`: secure-by-default.
           const fallbackTier = opts.defaultTier;
-          if (fallbackTier === undefined) return new Set();
-          return featuresForTier(tierMap, fallbackTier);
+          if (fallbackTier === undefined) return computedAlwaysOn;
+          return mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, fallbackTier));
         };
       },
     };
