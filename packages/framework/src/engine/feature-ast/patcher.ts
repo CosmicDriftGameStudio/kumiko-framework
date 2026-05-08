@@ -364,7 +364,14 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       add({ kind: "screen", source: SYNTHETIC_LOC, definition, opaqueProps });
     },
 
-    addWriteHandler({ name, schemaSource, handlerSource, access, rateLimit, unsafeSkipTransitionGuard }) {
+    addWriteHandler({
+      name,
+      schemaSource,
+      handlerSource,
+      access,
+      rateLimit,
+      unsafeSkipTransitionGuard,
+    }) {
       add({
         kind: "writeHandler",
         source: SYNTHETIC_LOC,

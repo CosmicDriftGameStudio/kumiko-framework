@@ -34,9 +34,7 @@ defineStep<UnsafeProjectionUpsertArgs, void>({
     const conflictTargets = args.on.map((key) => {
       const col = columns[key];
       if (!col) {
-        throw new Error(
-          `unsafeProjectionUpsert: column "${key}" not found on target table`,
-        );
+        throw new Error(`unsafeProjectionUpsert: column "${key}" not found on target table`);
       }
       return col;
     });
@@ -65,8 +63,6 @@ defineStep<UnsafeProjectionUpsertArgs, void>({
   },
 });
 
-export function buildUnsafeProjectionUpsertStep(
-  args: UnsafeProjectionUpsertArgs,
-): StepInstance {
+export function buildUnsafeProjectionUpsertStep(args: UnsafeProjectionUpsertArgs): StepInstance {
   return { kind: "unsafeProjectionUpsert", args };
 }

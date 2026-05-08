@@ -1,24 +1,27 @@
-// M.1.1 vertical-slice test — proves the pipeline form compiles to a
-// callable handler that produces a WriteResult.
+// Cumulative unit tests for r.step.* steps and the pipeline runner.
 //
-// Scope: defineWriteHandler({ perform: pipeline(...) }) → handler(event, ctx)
-//        runs through the pipeline-runner, executes a single
-//        r.step.return, and lands the resolver's WriteResult on the
-//        caller. Dispatcher integration is exercised by
-//        pipeline-handler.integration.ts (real Postgres + JWT + HTTP).
+// Scope: defineWriteHandler({ perform: pipeline(...) }) compiles to a
+// callable handler; the runner executes step instances against a minimal
+// ctx; r.requires.projection allowlist is enforced at boot. Real-stack
+// equivalents (Postgres + JWT + HTTP) live in
+// pipeline-handler.integration.ts.
+//
+// NOTE: file is a deliberate sammelpunkt across slices (return / compute /
+// unsafeProjectionUpsert / boot-validation / step-registry guards) until
+// step-vocabulary.md M.1-Followup #7 splits per-step files after M.1.5.
 
 import { randomUUID } from "node:crypto";
 import { pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { validateProjectionAllowlist } from "../validate-projection-allowlist";
+import { TestUsers } from "../../stack";
 import { defineFeature } from "../define-feature";
-import { defineStep } from "../define-step";
 import { defineWriteHandler } from "../define-handler";
+import { defineStep } from "../define-step";
 import { createEntity, createTextField } from "../factories";
 import { pipeline } from "../pipeline";
-import { TestUsers } from "../../stack";
 import type { HandlerContext, WriteEvent } from "../types/handlers";
+import { validateProjectionAllowlist } from "../validate-projection-allowlist";
 
 function buildMinimalCtx(): HandlerContext {
   // The return-step doesn't read any ctx field — the runner needs an
@@ -27,7 +30,7 @@ function buildMinimalCtx(): HandlerContext {
   return {} as HandlerContext;
 }
 
-describe("pipeline (M.1.1 vertical slice)", () => {
+describe("r.step.* (unit)", () => {
   it("compiles a perform-block into a callable handler that returns the resolver's WriteResult", async () => {
     const handlerDef = defineWriteHandler({
       name: "demo:noop",
@@ -80,7 +83,10 @@ describe("pipeline (M.1.1 vertical slice)", () => {
       name: "demo:freeform",
       schema: z.object({ n: z.number() }),
       access: { roles: ["User"] },
-      handler: async (event) => ({ isSuccess: true as const, data: { doubled: event.payload.n * 2 } }),
+      handler: async (event) => ({
+        isSuccess: true as const,
+        data: { doubled: event.payload.n * 2 },
+      }),
     });
 
     expect(handlerDef.perform).toBeUndefined();
@@ -203,32 +209,38 @@ describe("pipeline (M.1.1 vertical slice)", () => {
     it("rejects unsafeProjectionUpsert on an undeclared table", () => {
       const featureWithMissingDeclaration = defineFeature("vproj-missing", (r) => {
         // Note: NO r.requires.projection("validate_demo_log") here.
-        r.writeHandler(defineWriteHandler({
-          name: "log",
-          schema: z.object({ msg: z.string() }),
-          access: { roles: ["User"] },
-          perform: pipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
-            r.step.unsafeProjectionUpsert({
-              table: demoLogTable,
-              on: ["id"],
-              row: () => ({ message: event.payload.msg }),
-            }),
-            r.step.return({ isSuccess: true as const, data: { ok: true } }),
-          ]),
-        }));
+        r.writeHandler(
+          defineWriteHandler({
+            name: "log",
+            schema: z.object({ msg: z.string() }),
+            access: { roles: ["User"] },
+            perform: pipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
+              r.step.unsafeProjectionUpsert({
+                table: demoLogTable,
+                on: ["id"],
+                row: () => ({ message: event.payload.msg }),
+              }),
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
       });
 
-      expect(() => validateProjectionAllowlist([featureWithMissingDeclaration]))
-        .toThrow(/did not declare it via r\.requires\.projection\("validate_demo_log"\)/);
+      expect(() => validateProjectionAllowlist([featureWithMissingDeclaration])).toThrow(
+        /did not declare it via r\.requires\.projection\("validate_demo_log"\)/,
+      );
     });
 
     it("rejects unsafeProjectionUpsert on an aggregate-table (registered via r.entity)", () => {
       // Feature A registers `widget` as an aggregate (with table "widgets").
       const ownerFeature = defineFeature("vproj-owner", (r) => {
-        r.entity("widget", createEntity({
-          table: "widgets",
-          fields: { label: createTextField({ required: true }) },
-        }));
+        r.entity(
+          "widget",
+          createEntity({
+            table: "widgets",
+            fields: { label: createTextField({ required: true }) },
+          }),
+        );
       });
 
       // Feature B tries to upsert directly into the widgets table — bypassing
@@ -239,41 +251,46 @@ describe("pipeline (M.1.1 vertical slice)", () => {
           id: uuid("id").primaryKey().defaultRandom(),
           label: text("label").notNull(),
         });
-        r.writeHandler(defineWriteHandler({
-          name: "sneaky",
-          schema: z.object({}),
-          access: { roles: ["User"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
-            r.step.unsafeProjectionUpsert({
-              table: widgetsTable,
-              on: ["id"],
-              row: () => ({ label: "trespass" }),
-            }),
-            r.step.return({ isSuccess: true as const, data: { ok: true } }),
-          ]),
-        }));
+        r.writeHandler(
+          defineWriteHandler({
+            name: "sneaky",
+            schema: z.object({}),
+            access: { roles: ["User"] },
+            perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+              r.step.unsafeProjectionUpsert({
+                table: widgetsTable,
+                on: ["id"],
+                row: () => ({ label: "trespass" }),
+              }),
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
       });
 
-      expect(() => validateProjectionAllowlist([ownerFeature, trespasserFeature]))
-        .toThrow(/aggregate-projection of feature "vproj-owner".*r\.step\.aggregate\.\*/s);
+      expect(() => validateProjectionAllowlist([ownerFeature, trespasserFeature])).toThrow(
+        /aggregate-projection of feature "vproj-owner".*r\.step\.aggregate\.\*/s,
+      );
     });
 
     it("accepts unsafeProjectionUpsert when the table is declared and not an aggregate", () => {
       const happyFeature = defineFeature("vproj-happy", (r) => {
         r.requires.projection("validate_demo_log");
-        r.writeHandler(defineWriteHandler({
-          name: "log",
-          schema: z.object({ msg: z.string() }),
-          access: { roles: ["User"] },
-          perform: pipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
-            r.step.unsafeProjectionUpsert({
-              table: demoLogTable,
-              on: ["id"],
-              row: () => ({ message: event.payload.msg }),
-            }),
-            r.step.return({ isSuccess: true as const, data: { ok: true } }),
-          ]),
-        }));
+        r.writeHandler(
+          defineWriteHandler({
+            name: "log",
+            schema: z.object({ msg: z.string() }),
+            access: { roles: ["User"] },
+            perform: pipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
+              r.step.unsafeProjectionUpsert({
+                table: demoLogTable,
+                on: ["id"],
+                row: () => ({ message: event.payload.msg }),
+              }),
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
       });
 
       expect(() => validateProjectionAllowlist([happyFeature])).not.toThrow();

@@ -23,8 +23,8 @@ import { getStep } from "./define-step";
 import { buildPipelineSteps } from "./pipeline";
 import { RETURN_RESULT_KEY } from "./steps/return";
 import type { KumikoEventTypeMap } from "./types/event-type-map";
-import type { PipelineCtx, PipelineDef } from "./types/step";
 import type { HandlerContext, WriteEvent, WriteResult } from "./types/handlers";
+import type { PipelineCtx, PipelineDef } from "./types/step";
 
 export async function runPipeline<TPayload, TData, TMap extends object = KumikoEventTypeMap>(
   pipelineDef: PipelineDef<TPayload, TData>,

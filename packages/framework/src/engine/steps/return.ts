@@ -6,8 +6,8 @@
 // common authoring mistake (forgotten r.step.return at the end).
 
 import { defineStep } from "../define-step";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import type { WriteResult } from "../types/handlers";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 
 type ReturnStepArgs = {
   readonly resolver: StepResolver<WriteResult<unknown>>;
@@ -32,9 +32,7 @@ defineStep<ReturnStepArgs, WriteResult<unknown>>({
   },
 });
 
-export function buildReturnStep<TData>(
-  resolver: StepResolver<WriteResult<TData>>,
-): StepInstance {
+export function buildReturnStep<TData>(resolver: StepResolver<WriteResult<TData>>): StepInstance {
   return {
     kind: "return",
     args: { resolver } satisfies ReturnStepArgs,

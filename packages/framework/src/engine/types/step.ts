@@ -10,8 +10,8 @@
 // semantics under the hood for r.step.aggregate.appendEvent.
 
 import type { Table } from "drizzle-orm";
-import type { HandlerContext, WriteEvent, WriteResult } from "./handlers";
 import type { KumikoEventTypeMap } from "./event-type-map";
+import type { HandlerContext, WriteEvent, WriteResult } from "./handlers";
 
 /**
  * The kind discriminator for a step instance — matches the step's
@@ -33,12 +33,14 @@ export type StepKind = string;
  * with `r.step.return` only, which reads `event` and ignores both
  * `steps` and `scope`.
  */
-export type PipelineCtx<TPayload = unknown, TMap extends object = KumikoEventTypeMap> =
-  HandlerContext<TMap> & {
-    readonly event: WriteEvent<TPayload>;
-    readonly steps: Readonly<Record<string, unknown>>;
-    readonly scope: Readonly<Record<string, unknown>>;
-  };
+export type PipelineCtx<
+  TPayload = unknown,
+  TMap extends object = KumikoEventTypeMap,
+> = HandlerContext<TMap> & {
+  readonly event: WriteEvent<TPayload>;
+  readonly steps: Readonly<Record<string, unknown>>;
+  readonly scope: Readonly<Record<string, unknown>>;
+};
 
 /**
  * A resolver is either a static value or a function that derives the
@@ -92,15 +94,17 @@ export type StepInstance = {
  * `__kind: "pipeline"` lets defineWriteHandler distinguish a pipeline-
  * form `perform` from accidental other shapes.
  *
- * TData is a phantom type-parameter — held in constraint position only,
- * never referenced in the type body. defineWriteHandler binds it via
- * `def.perform: PipelineDef<…, TData>`. TData is NOT inferred from the
- * closure body (r.step.return has its own per-call TData), so callers
- * must spell it explicitly:
+ * `_TData` is a phantom type-parameter — held in constraint position
+ * only, never referenced in the type body. defineWriteHandler binds it
+ * via `def.perform: PipelineDef<…, TData>` (the call-site uses TData
+ * without underscore — phantom-prefix is purely a Biome
+ * `noUnusedVariables` marker, not user-facing). _TData is NOT inferred
+ * from the closure body (r.step.return has its own per-call TData), so
+ * callers must spell it explicitly:
  *   `pipeline<{ greeting: string }, { echoed: string }>(...)`
  * Better DX is a known follow-up — see step-vocabulary.md M.1-Followups.
  */
-export type PipelineDef<TPayload = unknown, TData = unknown> = {
+export type PipelineDef<TPayload = unknown, _TData = unknown> = {
   readonly __kind: "pipeline";
   readonly build: (ctx: PipelineBuildCtx<TPayload>) => readonly StepInstance[];
 };
@@ -149,13 +153,8 @@ export type StepBuilder = {
  * unsafeProjectionDelete.
  */
 export type StepNamespace = {
-  readonly return: <TData>(
-    resolver: StepResolver<WriteResult<TData>>,
-  ) => StepInstance;
-  readonly compute: <TResult>(
-    name: string,
-    fn: (ctx: PipelineCtx) => TResult,
-  ) => StepInstance;
+  readonly return: <TData>(resolver: StepResolver<WriteResult<TData>>) => StepInstance;
+  readonly compute: <TResult>(name: string, fn: (ctx: PipelineCtx) => TResult) => StepInstance;
   // Inline read-side projection write. Boot-validation enforces the
   // table is in the owning feature's r.requires.projection allowlist
   // and NOT registered as an aggregate-table via r.entity. See
@@ -167,4 +166,3 @@ export type StepNamespace = {
   }) => StepInstance;
   // M.1.4+: branch, forEach, read, aggregate, unsafeProjectionDelete
 };
-

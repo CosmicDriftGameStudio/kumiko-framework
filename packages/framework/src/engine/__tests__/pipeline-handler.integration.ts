@@ -28,10 +28,10 @@ import { eq } from "drizzle-orm";
 import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { setupTestStack, type TestStack, TestUsers, unsafePushTables } from "../../stack";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { pipeline } from "../pipeline";
-import { setupTestStack, type TestStack, TestUsers, unsafePushTables } from "../../stack";
 
 const echoSchema = z.object({ greeting: z.string() });
 
@@ -212,11 +212,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
   });
 
   test("compute steps thread results through to the return-step's resolver via the real dispatcher ctx", async () => {
-    const res = await stack.http.write(
-      "demo-pipeline:write:compound",
-      { base: 7 },
-      admin,
-    );
+    const res = await stack.http.write("demo-pipeline:write:compound", { base: 7 }, admin);
     expect(res.status).toBe(200);
 
     const body = (await res.json()) as {

@@ -24,21 +24,8 @@ export type {
   WriteHandlerInput,
 } from "./define-handler";
 export { defineQueryHandler, defineWriteHandler } from "./define-handler";
-export { defineStep, getStep, listStepKinds } from "./define-step";
-export { pipeline } from "./pipeline";
-export type {
-  PipelineBuildCtx,
-  PipelineCtx,
-  PipelineDef,
-  StepBuilder,
-  StepDef,
-  StepFailureStrategy,
-  StepInstance,
-  StepKind,
-  StepNamespace,
-  StepResolver,
-} from "./types/step";
 export { defineRoles } from "./define-roles";
+export { defineStep, getStep, listStepKinds } from "./define-step";
 export type { ToggleReader } from "./effective-features";
 export { computeEffectiveFeatures } from "./effective-features";
 export {
@@ -125,6 +112,7 @@ export {
 } from "./field-access";
 export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
 export { from } from "./ownership";
+export { pipeline } from "./pipeline";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";
@@ -151,7 +139,6 @@ export type {
   AppContext,
   AppendEventArgs,
   AppendEventFn,
-  UnsafeAppendEventFn,
   AuthClaimsContext,
   AuthClaimsFn,
   AuthClaimsHookDef,
@@ -257,6 +244,7 @@ export type {
   ToolbarAction,
   TranslationKeys,
   TranslationsDef,
+  UnsafeAppendEventFn,
   ValidationError,
   ValidationHookFn,
   WorkspaceDefinition,
@@ -269,4 +257,16 @@ export { DEFAULT_CURRENCIES, HookPhases } from "./types";
 export { resolveName, withResponseData } from "./types/handlers";
 export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
 export { normalizeEditField, normalizeListColumn } from "./types/screen";
+export type {
+  PipelineBuildCtx,
+  PipelineCtx,
+  PipelineDef,
+  StepBuilder,
+  StepDef,
+  StepFailureStrategy,
+  StepInstance,
+  StepKind,
+  StepNamespace,
+  StepResolver,
+} from "./types/step";
 export { runValidation } from "./validation";

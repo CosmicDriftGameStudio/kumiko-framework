@@ -734,6 +734,10 @@ export type WriteHandlerDef = {
   // Set when the author wrote a `perform: pipeline(...)` block. Boot-
   // validators (projection-allowlist) and Designer/AI tooling read this
   // to inspect the step list. Absent on free-form handlers.
+  // Inline-import is intentional: step.ts imports HandlerContext from
+  // this file, a top-level `import type { PipelineDef } from "./step"`
+  // would form a type-only circular import that TS resolves but tooling
+  // (incremental compile, IDEs) sometimes mis-handles.
   readonly perform?: import("./step").PipelineDef;
 };
 

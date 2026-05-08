@@ -61,10 +61,12 @@ import type {
   WriteHandlerFn,
 } from "./types";
 import { HookPhases } from "./types";
+import type { RequiresApi } from "./types/feature";
 import { resolveName } from "./types/handlers";
 import type { HttpRouteDefinition } from "./types/http-route";
 import type { NavDefinition } from "./types/nav";
 import type { ScreenDefinition } from "./types/screen";
+import type { PipelineDef } from "./types/step";
 import type { WorkspaceDefinition } from "./types/workspace";
 
 const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
@@ -161,7 +163,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       fn.projection = (tableName: string) => {
         requiredProjections.add(tableName);
       };
-      return fn as import("./types/feature").RequiresApi;
+      return fn as RequiresApi;
     })(),
 
     optionalRequires(...featureNames: string[]): void {
@@ -212,7 +214,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           // mirrors the handler-cast above: PipelineDef<output<TSchema>>
           // is stricter than PipelineDef<unknown> for the same reason.
           ...(def.perform !== undefined && {
-            perform: def.perform as import("./types/step").PipelineDef,
+            perform: def.perform as PipelineDef,
           }),
         };
         tryMapEntity(def.name);

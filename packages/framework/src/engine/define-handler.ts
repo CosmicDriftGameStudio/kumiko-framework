@@ -92,7 +92,9 @@ export function defineWriteHandler<
     name: def.name,
     schema: def.schema,
     ...(def.access && { access: def.access }),
-    ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: def.unsafeSkipTransitionGuard }),
+    ...(def.unsafeSkipTransitionGuard && {
+      unsafeSkipTransitionGuard: def.unsafeSkipTransitionGuard,
+    }),
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
   };
 
