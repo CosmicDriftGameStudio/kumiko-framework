@@ -52,6 +52,7 @@
       "minimumReleaseAge": "0 days"
     }
   ],
+  "ignoreDeps": ["@cosmicdriftgamestudio/kumiko-guards"],
   "vulnerabilityAlerts": {
     "labels": ["security"],
     "automerge": true,
