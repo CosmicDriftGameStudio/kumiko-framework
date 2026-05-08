@@ -335,8 +335,7 @@ describe("dispatcher feature-gate", () => {
       registry,
       {},
       {
-        effectiveFeatures: (tenantId) =>
-          tenantId === tenantA ? new Set(["toggled"]) : new Set(),
+        effectiveFeatures: (tenantId) => (tenantId === tenantA ? new Set(["toggled"]) : new Set()),
       },
     );
 
@@ -350,18 +349,10 @@ describe("dispatcher feature-gate", () => {
       /feature toggled is disabled/,
     );
 
-    const writeA = await dispatcher.write(
-      "toggled:write:widget:create",
-      { name: "from-a" },
-      userA,
-    );
+    const writeA = await dispatcher.write("toggled:write:widget:create", { name: "from-a" }, userA);
     expect(writeA.isSuccess).toBe(true);
 
-    const writeB = await dispatcher.write(
-      "toggled:write:widget:create",
-      { name: "from-b" },
-      userB,
-    );
+    const writeB = await dispatcher.write("toggled:write:widget:create", { name: "from-b" }, userB);
     expect(writeB.isSuccess).toBe(false);
     if (!writeB.isSuccess) {
       expect(writeB.error.code).toBe("feature_disabled");
@@ -389,9 +380,7 @@ describe("dispatcher feature-gate", () => {
       {},
       {
         effectiveFeatures: (tenantId) =>
-          tenantId === tenantA
-            ? new Set(["toggled", "probe"])
-            : new Set(["probe"]),
+          tenantId === tenantA ? new Set(["toggled", "probe"]) : new Set(["probe"]),
       },
     );
 

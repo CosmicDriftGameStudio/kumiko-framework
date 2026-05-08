@@ -7,6 +7,7 @@ import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
 import { parseQn, qn } from "../engine/qualified-name";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import type {
   AggregateStreamHandle,
   AppContext,
@@ -24,7 +25,6 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
-import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import { HookPhases } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
 

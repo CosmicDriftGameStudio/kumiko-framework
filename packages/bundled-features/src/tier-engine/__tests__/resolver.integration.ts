@@ -21,8 +21,6 @@ import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntity,
-  createTextField,
   defineFeature,
   findTierResolverUsage,
   SYSTEM_TENANT_ID,
@@ -75,8 +73,8 @@ const features = composeFeatures(
 let stack: TestStack;
 const tenantA = "00000000-0000-4000-8000-0000000000a1" as TenantId;
 const tenantB = "00000000-0000-4000-8000-0000000000b2" as TenantId;
-const adminA = createTestUser({ id: "u-a", tenantId: tenantA, roles: ["TenantAdmin"] });
-const adminB = createTestUser({ id: "u-b", tenantId: tenantB, roles: ["TenantAdmin"] });
+const _adminA = createTestUser({ id: "u-a", tenantId: tenantA, roles: ["TenantAdmin"] });
+const _adminB = createTestUser({ id: "u-b", tenantId: tenantB, roles: ["TenantAdmin"] });
 
 beforeAll(async () => {
   // setupTestStack mit dem extension-pickup-Pfad: wir holen den plugin
@@ -98,7 +96,9 @@ beforeAll(async () => {
 afterAll(async () => stack?.cleanup());
 
 beforeEach(async () => {
-  await stack.db.execute(sql`TRUNCATE read_tier_assignments, kumiko_events RESTART IDENTITY CASCADE`);
+  await stack.db.execute(
+    sql`TRUNCATE read_tier_assignments, kumiko_events RESTART IDENTITY CASCADE`,
+  );
 });
 
 describe("createTierEngineFeature — per-tenant resolver", () => {

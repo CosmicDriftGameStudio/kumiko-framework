@@ -76,11 +76,9 @@ const tierAssignmentTable = buildDrizzleTable("tier-assignment", tierAssignmentE
 // Pattern wie tenant/seeding.ts: hook sieht AppContext (kein ctx.write),
 // muss aber atomisch mit tenant-create im selben TX schreiben → executor
 // direkt aufrufen, nicht via dispatcher.
-const tierAssignmentExecutor = createEventStoreExecutor(
-  tierAssignmentTable,
-  tierAssignmentEntity,
-  { entityName: "tier-assignment" },
-);
+const tierAssignmentExecutor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
+  entityName: "tier-assignment",
+});
 
 const adminAccess = { access: { roles: ["TenantAdmin", "SystemAdmin"] } } as const;
 
@@ -295,6 +293,7 @@ export function createTierEngineFeature<
         };
       },
     };
+    // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a framework registrar method, not a React hook.
     r.useExtension(TENANT_TIER_RESOLVER_EXT, TIER_ENGINE_FEATURE, plugin);
   });
 }

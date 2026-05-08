@@ -183,9 +183,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // in onAfterSetup (where stack.db + stack.registry are available).
   // App-Author sees nothing — `createTierEngineFeature(opts)` mounts +
   // framework auto-wires.
-  const tierResolverUsage = options.effectiveFeatures
-    ? undefined
-    : findTierResolverUsage(features);
+  const tierResolverUsage = options.effectiveFeatures ? undefined : findTierResolverUsage(features);
   const tierResolverHolder: { resolver: EffectiveFeaturesResolver | undefined } = {
     resolver: undefined,
   };
@@ -344,4 +342,3 @@ function mergeConfigResolverDefault(
   }
   return { ...defaults, ...ctx };
 }
-

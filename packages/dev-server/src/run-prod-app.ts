@@ -418,8 +418,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // effectiveFeatures, build the resolver here (db + registry are
   // available) before the dispatcher is constructed. App-Author sees
   // nothing — `createTierEngineFeature(opts)` mounts + framework auto-wires.
-  let resolvedEffectiveFeatures: EffectiveFeaturesResolver | undefined =
-    options.effectiveFeatures;
+  let resolvedEffectiveFeatures: EffectiveFeaturesResolver | undefined = options.effectiveFeatures;
   if (resolvedEffectiveFeatures === undefined) {
     const tierResolverUsage = findTierResolverUsage(features);
     if (tierResolverUsage) {
