@@ -41,6 +41,14 @@ const STATE_CLASSES: Readonly<Record<TreeNodeState, string>> = {
   error: "text-destructive",
 };
 
+// TypeGuard für TreeChildrenSubscribe-Form. Nach `Array.isArray()`-check
+// kann TS den Function-Branch nicht automatisch narrowen, daher dieser
+// explizite Guard statt `as`-Cast (siehe Memory `[Type Assertions]` und
+// build-target.ts:isArgsObject als Vorbild).
+function isSubscribeFn(c: readonly TreeNode[] | TreeChildrenSubscribe): c is TreeChildrenSubscribe {
+  return typeof c === "function";
+}
+
 export type TreeNodeRendererProps = {
   readonly node: TreeNode;
   readonly ctx: TreeContext;
@@ -60,17 +68,23 @@ export function TreeNodeRenderer({
 }: TreeNodeRendererProps): ReactNode {
   const isExpanded = expanded.has(path);
   const hasChildren = node.children !== undefined;
-  const isStaticChildren = Array.isArray(node.children);
 
   // Dynamic-Children-Subscribe: nur wenn ausgeklappt UND Function-Form.
   // null = noch nicht emitted (zeige loading), Array = letzter Emit.
+  //
+  // **Identity-Assumption** (TODO V.1.2 verifizieren mit echtem Provider):
+  // node.children muss als Function-Reference stabil über Re-Renders sein,
+  // sonst trigger der useEffect ständig unsubscribe+resubscribe ("re-
+  // subscribe-Storm"). Recommended-Pattern für Provider-Authors: Function
+  // als top-level-const oder useMemo'd, NICHT inline-Closure pro Emit.
+  // Bei first violation in V.1.2 entweder useMemo hier oder path-Cache
+  // im VisualTree-Top-Level — Entscheidung wenn realer Trigger sichtbar.
   const [dynamicChildren, setDynamicChildren] = useState<readonly TreeNode[] | null>(null);
   useEffect(() => {
     if (!isExpanded) return;
     if (node.children === undefined) return;
-    if (Array.isArray(node.children)) return; // static path covered separat
-    const subscribeFn = node.children as TreeChildrenSubscribe;
-    const subscribe = subscribeFn(ctx);
+    if (!isSubscribeFn(node.children)) return; // static-Array-Pfad in ChildrenView
+    const subscribe = node.children(ctx);
     const unsubscribe = subscribe(setDynamicChildren);
     return unsubscribe;
   }, [isExpanded, node.children, ctx]);
@@ -90,14 +104,27 @@ export function TreeNodeRenderer({
 
   return (
     <div data-kumiko-tree-node={path}>
-      <button
-        type="button"
+      {/* Outer Row als <div role="button"> statt <button>: native <button>
+          darf laut HTML-Spec keine geschachtelten <button>-Children
+          enthalten — die HoverActions würden sonst ungültiges HTML
+          erzeugen. role+tabIndex+keyDown gibt äquivalente a11y. TODO V.1.2:
+          Arrow-key-navigation zwischen Tree-Siblings (ARIA-tree-Pattern). */}
+      {/* biome-ignore lint/a11y/useSemanticElements: nested <button> wäre invalid HTML — siehe HoverActions */}
+      <div
         className={cn(
-          "group flex w-full items-center gap-1.5 py-1 pr-2 cursor-pointer hover:bg-accent/30 rounded-sm bg-transparent border-0 text-left",
+          "group flex w-full items-center gap-1.5 py-1 pr-2 cursor-pointer hover:bg-accent/30 rounded-sm",
           stateClass,
         )}
         style={indentStyle}
         onClick={handleRowClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleRowClick();
+          }
+        }}
+        role="button"
+        tabIndex={0}
         aria-expanded={hasChildren ? isExpanded : undefined}
       >
         <ChevronGlyph hasChildren={hasChildren} expanded={isExpanded} />
@@ -111,7 +138,7 @@ export function TreeNodeRenderer({
           actions={node.actions}
           createAction={node.state === "empty" ? node.createAction : undefined}
         />
-      </button>
+      </div>
       {isExpanded && (
         <ChildrenView
           node={node}
@@ -120,7 +147,6 @@ export function TreeNodeRenderer({
           expanded={expanded}
           onToggle={onToggle}
           depth={depth}
-          isStaticChildren={isStaticChildren}
           dynamicChildren={dynamicChildren}
         />
       )}
@@ -195,7 +221,6 @@ function ChildrenView({
   expanded,
   onToggle,
   depth,
-  isStaticChildren,
   dynamicChildren,
 }: {
   readonly node: TreeNode;
@@ -204,11 +229,12 @@ function ChildrenView({
   readonly expanded: ReadonlySet<string>;
   readonly onToggle: (path: string) => void;
   readonly depth: number;
-  readonly isStaticChildren: boolean;
   readonly dynamicChildren: readonly TreeNode[] | null;
 }): ReactNode {
-  if (isStaticChildren) {
-    const children = node.children as readonly TreeNode[];
+  // Array.isArray narrow't TS automatisch auf readonly TreeNode[] — kein
+  // as-Cast nötig (Memory `[Type Assertions]`).
+  if (Array.isArray(node.children)) {
+    const children = node.children;
     return (
       <>
         {children.map((child, idx) => {
@@ -217,7 +243,6 @@ function ChildrenView({
           // sein sonst silent state-corruption). Provider-Liefer-Order
           // ist stabil — idx ist hier kein „array-shift"-Risk wie bei
           // user-rearrangeable Lists.
-          // biome-ignore lint/suspicious/noArrayIndexKey: idx ist Disambiguator gegen Label-Dups, nicht primary-key
           const childPath = `${path}/${idx}-${child.label}`;
           return (
             <TreeNodeRenderer
@@ -248,7 +273,7 @@ function ChildrenView({
   return (
     <>
       {dynamicChildren.map((child, idx) => {
-        // biome-ignore lint/suspicious/noArrayIndexKey: idx ist Disambiguator gegen Label-Dups, nicht primary-key (siehe ChildrenView static-Branch)
+        // Selbe idx-Disambiguator-Logik wie ChildrenView static-Branch.
         const childPath = `${path}/${idx}-${child.label}`;
         return (
           <TreeNodeRenderer

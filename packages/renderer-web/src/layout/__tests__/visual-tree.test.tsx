@@ -190,6 +190,41 @@ describe("VisualTree — Click-Dispatch", () => {
     ]);
   });
 
+  test('Skeleton-Affordance: state="empty" + createAction rendert + Button und dispatcht createAction.target', () => {
+    // D3-Validation aus visual-tree.md V.1.1-Decisions: Provider-explizit
+    // createAction-Field auf TreeNode mit state="empty" → Tree-Component
+    // zeigt automatisch ein "+"-Icon und dispatcht createAction.target
+    // beim Klick (NICHT node.target — das wäre die Row-onClick-Action).
+    const dispatched: unknown[] = [];
+    cleanup = setDispatchListener((target) => {
+      dispatched.push(target);
+    });
+
+    const providers = new Map([
+      [
+        "sections",
+        makeStaticProvider([
+          {
+            label: "Sections",
+            state: "empty",
+            createAction: {
+              icon: "plus",
+              label: "Add section",
+              target: { featureId: "sections", action: "create" },
+            },
+          },
+        ]),
+      ],
+    ]);
+    renderTree(providers);
+
+    // + Button greifbar via aria-label aus createAction.label
+    const addButton = screen.getByLabelText("Add section");
+    fireEvent.click(addButton);
+
+    expect(dispatched).toEqual([{ featureId: "sections", action: "create" }]);
+  });
+
   test("Click auf Container-Knoten (mit children) toggled expand statt Dispatch", () => {
     const dispatched: unknown[] = [];
     cleanup = setDispatchListener((target) => {

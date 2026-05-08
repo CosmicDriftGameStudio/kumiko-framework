@@ -32,9 +32,11 @@ import { TreeNodeRenderer } from "./tree-node-renderer";
 
 const EXPANDED_STORAGE_PREFIX = "kumiko:visual-tree:expanded:";
 
-// V.1.1-Stub: TreeContext bekommt nur SYSTEM_TENANT_ID. V.1.2 ersetzt
-// das mit echtem Tenant-Source (TenantContext oder Auth-Layer).
-const STUB_CTX: TreeContext = Object.freeze({ tenantId: SYSTEM_TENANT_ID });
+// Default-TreeContext für V.1.1: tenantId pinned auf SYSTEM_TENANT_ID.
+// Kein Stub im Test-Sinn — das ist der legitime V.1.1-Default-Wert.
+// V.1.2 ersetzt den Wert durch echten Tenant-Source (TenantContext oder
+// Auth-Layer) sobald der erste Provider tenant-spezifische Daten braucht.
+const DEFAULT_TREE_CTX: TreeContext = Object.freeze({ tenantId: SYSTEM_TENANT_ID });
 
 export type VisualTreeProps = {
   /** Workspace-ID des aktiven `navigation:"tree"`-Workspaces. Wird als
@@ -92,7 +94,7 @@ export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
           key={featureName}
           featureName={featureName}
           provider={provider}
-          ctx={STUB_CTX}
+          ctx={DEFAULT_TREE_CTX}
           expanded={expanded}
           onToggle={handleToggle}
         />
@@ -123,6 +125,14 @@ function ProviderBranch({
   const [nodes, setNodes] = useState<readonly TreeNode[] | null>(null);
 
   useEffect(() => {
+    // TODO V.1.2: Subscribe-Error-Handling. Drei Error-Surfaces sind heute
+    // nicht abgedeckt: (1) provider(ctx) wirft synchron, (2) subscribe(emit)
+    // wirft synchron, (3) Provider-internes SSE/fetch wirft → emit nie
+    // gefeuert, „lädt …" bleibt unendlich. Fix-Shape hängt vom
+    // V.1.2-Consumer (text-content) ab — transient-network-blip vs.
+    // tenant-misconfig haben unterschiedliche Recovery-Pfade. Reload-
+    // Action im Knoten (state="error" + retry-Button) als minimaler
+    // Plan, aber ohne konkreten Failure-Mode-Anker keine richtige Spec.
     const subscribe = provider(ctx);
     const unsubscribe = subscribe(setNodes);
     return unsubscribe;
@@ -143,7 +153,7 @@ function ProviderBranch({
   return (
     <div data-kumiko-tree-branch={featureName}>
       {nodes.map((node, idx) => {
-        // biome-ignore lint/suspicious/noArrayIndexKey: idx ist Disambiguator gegen Label-Dups, nicht primary-key (siehe TreeNodeRenderer)
+        // Selbe idx-Disambiguator-Logik wie TreeNodeRenderer.ChildrenView.
         const nodePath = `${featureName}/${idx}-${node.label}`;
         return (
           <TreeNodeRenderer
@@ -162,11 +172,20 @@ function ProviderBranch({
 }
 
 function EmptyState(): ReactNode {
+  // <section> + aria-label + tabIndex=0 macht den Empty-State per Tab
+  // erreichbar — sonst wäre die Diagnose-Message für Keyboard-Nutzer
+  // unsichtbar/nicht-fokussierbar. <section> ist semantisch korrekt für
+  // „informational region", Biome akzeptiert tabIndex hier (im Gegensatz
+  // zu <aside> oder bare <div role="region">).
+  // TODO V.1.2: Volle Arrow-Key-Navigation zwischen Tree-Siblings (siehe
+  // ARIA-tree-Pattern). Heute nur Tab-Reach + native button-Tastatur.
   return (
-    <aside
+    <section
       aria-label="Visual Tree (no providers)"
       data-kumiko-layout="visual-tree-empty"
       className="p-4 text-sm text-muted-foreground"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: Empty-State ist eine Diagnose-Region die Keyboard-Nutzer per Tab erreichen können müssen
+      tabIndex={0}
     >
       <p className="m-0 font-semibold">Keine Tree-Provider aktiv</p>
       <p className="mt-2">
@@ -177,7 +196,7 @@ function EmptyState(): ReactNode {
         </code>
         .
       </p>
-    </aside>
+    </section>
   );
 }
 
