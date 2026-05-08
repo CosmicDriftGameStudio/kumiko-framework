@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.2.1
+
+### Patch Changes
+
+- 48b7f6a: CI: switch publish to npm-CLI with OIDC Trusted Publishing + provenance.
+  No source changes — verifies the new publish path produces a verified-
+  provenance attestation on npmjs.com instead of token-based publish.
+
 ## 0.2.0
 
 ### Minor Changes
