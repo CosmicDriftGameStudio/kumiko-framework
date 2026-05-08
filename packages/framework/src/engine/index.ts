@@ -250,5 +250,11 @@ export type {
 export { DEFAULT_CURRENCIES, HookPhases } from "./types";
 export { resolveName, withResponseData } from "./types/handlers";
 export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
+export {
+  type EffectiveFeaturesResolver,
+  findTierResolverUsage,
+  TENANT_TIER_RESOLVER_EXT,
+  type TierResolverPlugin,
+} from "./tier-resolver-extension";
 export { normalizeEditField, normalizeListColumn } from "./types/screen";
 export { runValidation } from "./validation";

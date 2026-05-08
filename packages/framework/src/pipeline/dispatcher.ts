@@ -24,6 +24,7 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import { HookPhases } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
 
@@ -338,7 +339,7 @@ export type DispatcherOptions = {
   // Returning a non-superset for SYSTEM_TENANT_ID will cause silent
   // event-skips and a confusing operator-UI — the framework cannot
   // enforce this contract, but the recipe-test pins the convention.
-  effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
+  effectiveFeatures?: EffectiveFeaturesResolver;
 };
 
 type HandlerType = string | HandlerRef;

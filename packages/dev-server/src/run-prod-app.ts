@@ -46,8 +46,11 @@ import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
   createRegistry,
+  type EffectiveFeaturesResolver,
   type FeatureDefinition,
+  findTierResolverUsage,
   type TenantId,
+  type TierResolverPlugin,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -410,6 +413,21 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   validateBoot(features);
   const registry = createRegistry(features);
 
+  // Sprint-8a Tier-Composition auto-wire: scan features for a
+  // tenantTierResolver-extension. If found AND user didn't supply own
+  // effectiveFeatures, build the resolver here (db + registry are
+  // available) before the dispatcher is constructed. App-Author sees
+  // nothing — `createTierEngineFeature(opts)` mounts + framework auto-wires.
+  let resolvedEffectiveFeatures: EffectiveFeaturesResolver | undefined =
+    options.effectiveFeatures;
+  if (resolvedEffectiveFeatures === undefined) {
+    const tierResolverUsage = findTierResolverUsage(features);
+    if (tierResolverUsage) {
+      const plugin = tierResolverUsage.options as TierResolverPlugin;
+      resolvedEffectiveFeatures = await plugin.build({ db, registry });
+    }
+  }
+
   // 5. Schema-Drift-Gate. Drizzle-kit migrate (yarn kumiko migrate apply)
   //    läuft als CI-Step VOR dem Container-Rollout. Boot prüft hier nur:
   //      (a) Alle Migrations aus drizzle/migrations/meta/_journal.json
@@ -495,7 +513,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(instanceId && { instanceId }),
     dispatcherOptions: {
       idempotency,
-      ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
+      ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
     },
     eventDedup,
     ...(options.auth && {
