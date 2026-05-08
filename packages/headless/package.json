@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
