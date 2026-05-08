@@ -158,31 +158,37 @@ async function processUser(args: {
   }>;
 
   // Edge-Case "0 Memberships": User hat alle Tenants schon verlassen
-  // bevor Forget triggerte. Ohne Tenant kann der file-ref-Hook keine
-  // Files finden (tenant-scoped). Wir koennen den user-Hook trotzdem
-  // laufen lassen, aber das geht ohne Memberships nicht sauber durch
-  // den Hook-Loop (Hook-ctx braucht tenantId). Praktisch: skippen mit
-  // status=Deleted-Flip, der user-row wird bei den naechsten User-
-  // Cleanup-Job-Runs (DPO-driven) hard-deleted oder bleibt liegen.
-  if (memberships.length === 0) {
-    await db
-      .update(userTable)
-      .set({ status: USER_STATUS.Deleted })
-      .where(eq(userTable["id"], userId));
-    return { success: true, hookCallsAttempted: 0, errors: [] };
-  }
+  // bevor Forget triggerte. Wir laufen den Hook-Loop trotzdem mit einem
+  // Pseudo-Tenant — der user-Hook (user-data-rights-defaults) ist
+  // tenant-agnostisch und MUSS laufen damit email/displayName/passwordHash
+  // anonymisiert werden. Tenant-scoped Hooks (z.B. fileRefDeleteHook)
+  // finden im Pseudo-Tenant nichts und sind no-op. Ohne diesen Pfad
+  // wuerde status=Deleted gesetzt waehrend Original-PII liegen bleibt
+  // — sieht compliant aus, ist es nicht (advisor-Finding S2.U5b.fix1).
+  const tenantList: TenantId[] =
+    memberships.length > 0 ? memberships.map((m) => m.tenantId) : [SYSTEM_TENANT_ID_FOR_ORPHANS];
 
   // Per-User-Sub-Tx: hooks + status-flip atomar. Bei Hook-Throw rollt
   // nur dieser User zurueck, andere User bleiben commit-fest. Drizzle
-  // mappt das in nested-Tx auf SAVEPOINT, in top-level auf BEGIN —
-  // die `transaction()`-API ist auf DbRunner uniform.
+  // mappt das in nested-Tx auf SAVEPOINT, in top-level auf BEGIN — die
+  // `transaction()`-API ist auf DbRunner uniform.
+  //
+  // Cast `db as {transaction: ...}` ist eine TS-Limitation: DbRunner ist
+  // `DbConnection | DbTx`, beide haben `.transaction()`, aber TS kann
+  // die Signaturen ueber die Union nicht unifizieren (PgDatabase vs
+  // PgTransaction haben unterschiedliche Generics). Cast macht das
+  // Strukturelle explizit, kein Hack.
   let txSucceeded = false;
+  let currentTenantId: TenantId | null = null;
+  let currentEntityName: string | null = null;
   try {
     await (
       db as { transaction: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }
     ).transaction(async (tx) => {
-      for (const tenantId of memberships.map((m) => m.tenantId)) {
+      for (const tenantId of tenantList) {
+        currentTenantId = tenantId;
         for (const entry of hookEntries) {
+          currentEntityName = entry.entityName;
           const policy = await resolveRetentionPolicyForTenant({
             db: tx,
             registry,
@@ -197,7 +203,7 @@ async function processUser(args: {
       }
 
       // Status-Flip in derselben Sub-Tx. Falls einer der Hooks oben
-      // gewirft hat, kommen wir hier nicht an — die Tx rollback'd
+      // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
       // alles, der User bleibt im DeletionRequested-Status, naechster
       // Run retried.
       await tx
@@ -207,19 +213,25 @@ async function processUser(args: {
       txSucceeded = true;
     });
   } catch (e) {
-    // Pro Hook ein Error-Eintrag waere granularer aber wir sind nach
-    // dem Throw schon raus aus dem Loop. Operator sieht "User X failed,
-    // see logs"; die concrete Hook-Failure-Zeile ist in den Server-Logs.
+    // currentTenantId/currentEntityName tracken den Failing-Hook —
+    // Operator sieht "Hook fileRef in Tenant A failed for user X" statt
+    // generisches "<sub-transaction>".
     errors.push({
       userId,
-      tenantId: memberships[0]?.tenantId ?? ("" as TenantId),
-      entityName: "<sub-transaction>",
+      tenantId: currentTenantId ?? ("" as TenantId),
+      entityName: currentEntityName ?? "<unknown>",
       message: e instanceof Error ? e.message : String(e),
     });
   }
 
   return { success: txSucceeded, hookCallsAttempted, errors };
 }
+
+// Pseudo-Tenant fuer User ohne aktive Memberships. RFC4122-konforme
+// Null-UUID. Tenant-scoped Hooks finden hier nichts (no-op),
+// tenant-agnostische Hooks (z.B. user) operieren auf der globalen
+// User-Row und ignorieren tenantId.
+const SYSTEM_TENANT_ID_FOR_ORPHANS = "00000000-0000-0000-0000-000000000000" as TenantId;
 
 // Mapping retention.strategy → user-data-rights.UserDataDeleteStrategy.
 //   - "anonymize" / "blockDelete" → "anonymize" (Aufbewahrungs-Pflicht

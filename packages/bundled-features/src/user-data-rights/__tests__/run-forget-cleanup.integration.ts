@@ -363,3 +363,133 @@ describe("runForgetCleanup :: PII-Audit nach Cleanup", () => {
     expect(fileRows).toHaveLength(0);
   });
 });
+
+describe("runForgetCleanup :: 0-Memberships orphan-Pfad", () => {
+  // Advisor-Finding S2.U5b.fix1: vor dem Fix flippte der orphan-Pfad
+  // status=Deleted ohne userDeleteHook → email/displayName/passwordHash
+  // blieben original. "Sah compliant aus, war es nicht."
+  test("User ohne Memberships → trotzdem PII anonymisiert (kein leerer status-Flip)", async () => {
+    const ORIGINAL_EMAIL = "orphan.unique@example.com";
+    const ORIGINAL_NAME = "Orphan Original";
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: ORIGINAL_EMAIL,
+      displayName: ORIGINAL_NAME,
+    });
+    // KEINE seedMembership-Aufrufe — User ist orphan.
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+    });
+
+    expect(result.processedUserIds).toContain(ALICE_ID);
+    expect(result.errors).toEqual([]);
+
+    const aliceRow = await fetchUser(ALICE_ID);
+    expect(aliceRow?.status).toBe(USER_STATUS.Deleted);
+    // Harter PII-Check: Original-Werte sind weg, Pseudonyme sind drin.
+    expect(aliceRow?.email).not.toBe(ORIGINAL_EMAIL);
+    expect(aliceRow?.email).toContain("anonymized.invalid");
+    expect(aliceRow?.display_name).not.toBe(ORIGINAL_NAME);
+    expect(aliceRow?.password_hash).toBeNull();
+  });
+});
+
+describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architektur)", () => {
+  // Pinst die load-bearing Property: ein failing Hook bei User A darf
+  // nicht User B mit zurueckrollen. Wenn jemand die Sub-Tx in
+  // run-forget-cleanup.ts wieder rausnimmt, faellt dieser Test um.
+  test("failing Hook bei User A → User B trotzdem cleaned, A bleibt im DeletionRequested", async () => {
+    const ORIGINAL_A_EMAIL = "alice.failing.hook@example.com";
+    const ORIGINAL_B_EMAIL = "bob.success.hook@example.com";
+
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: ORIGINAL_A_EMAIL,
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    await seedUser(BOB_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: ORIGINAL_B_EMAIL,
+    });
+    await seedMembership(BOB_ID, TENANT_A);
+
+    // Failing Hook der nur fuer Alice wirft. Wir injizieren ihn
+    // ueber eine eigene Pseudo-Extension-Usage in der Registry.
+    // (registry.getExtensionUsages liefert Liste — wir nutzen einen
+    // Spy am ersten existierenden Hook.)
+    const usages = stack.registry.getExtensionUsages("userData");
+    const userUsage = usages.find((u) => u.entityName === "user");
+    if (!userUsage?.options) throw new Error("user usage not found");
+    const originalUserDelete = (
+      userUsage.options as {
+        delete: (
+          ctx: { userId: string; tenantId: string; db: unknown },
+          strategy: string,
+        ) => Promise<void>;
+      }
+    ).delete;
+    (
+      userUsage.options as {
+        delete: (
+          ctx: { userId: string; tenantId: string; db: unknown },
+          strategy: string,
+        ) => Promise<void>;
+      }
+    ).delete = async (ctx: { userId: string; tenantId: string; db: unknown }, strategy: string) => {
+      if (ctx.userId === ALICE_ID) {
+        throw new Error("synthetic hook failure for alice");
+      }
+      return originalUserDelete(ctx, strategy);
+    };
+
+    try {
+      const result = await runForgetCleanup({
+        db: stack.db,
+        registry: stack.registry,
+        now: NOW(),
+      });
+
+      // Bob durchgegangen, Alice nicht.
+      expect(result.processedUserIds).toContain(BOB_ID);
+      expect(result.processedUserIds).not.toContain(ALICE_ID);
+      expect(result.errors.some((e) => e.userId === ALICE_ID)).toBe(true);
+
+      // Alice unverändert (Sub-Tx zurueckgerollt → Original-PII intakt,
+      // status weiter DeletionRequested damit naechster Run retried).
+      const aliceRow = await fetchUser(ALICE_ID);
+      expect(aliceRow?.status).toBe(USER_STATUS.DeletionRequested);
+      expect(aliceRow?.email).toBe(ORIGINAL_A_EMAIL);
+
+      // Bob anonymisiert + Deleted.
+      const bobRow = await fetchUser(BOB_ID);
+      expect(bobRow?.status).toBe(USER_STATUS.Deleted);
+      expect(bobRow?.email).not.toBe(ORIGINAL_B_EMAIL);
+      expect(bobRow?.email).toContain("anonymized.invalid");
+
+      // Error-Detail traegt den richtigen Tenant + Entity-Namen
+      // (advisor-Finding: vorher waren das "<sub-transaction>"-Pseudos).
+      const aliceError = result.errors.find((e) => e.userId === ALICE_ID);
+      expect(aliceError?.tenantId).toBe(TENANT_A);
+      expect(aliceError?.entityName).toBe("user");
+    } finally {
+      // Hook-Spy zuruecksetzen damit andere Tests im selben File nicht
+      // davon betroffen sind. (beforeEach cleared eh die DB; aber die
+      // Registry ist ueber alle Tests dieselbe.)
+      (
+        userUsage.options as {
+          delete: (
+            ctx: { userId: string; tenantId: string; db: unknown },
+            strategy: string,
+          ) => Promise<void>;
+        }
+      ).delete = originalUserDelete;
+    }
+  });
+});
