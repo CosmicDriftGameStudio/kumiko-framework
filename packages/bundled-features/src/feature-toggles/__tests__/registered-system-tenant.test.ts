@@ -23,7 +23,7 @@ import { createDispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/stack";
 import { describe, expect, test } from "vitest";
 import { createFeatureTogglesFeature } from "../feature";
-import { GlobalFeatureToggleRuntime } from "../toggle-runtime";
+import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 
 describe("Sprint 8a: registered.query SYSTEM_TENANT_ID convention", () => {
   test("ruft effectiveFeatures mit SYSTEM_TENANT_ID, nicht mit caller-tenantId", async () => {
@@ -33,7 +33,7 @@ describe("Sprint 8a: registered.query SYSTEM_TENANT_ID convention", () => {
       r.entity("widget", createEntity({ table: "Widgets", fields: { name: createTextField() } }));
     });
 
-    let runtime: GlobalFeatureToggleRuntime | null = null;
+    const runtime: GlobalFeatureToggleRuntime | null = null;
     const featureToggles = createFeatureTogglesFeature({
       getRuntime: () => {
         if (!runtime) throw new Error("runtime not initialized");
