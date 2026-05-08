@@ -420,11 +420,11 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // name without the feature having to import the drizzle-table directly.
   //
   // Auto-applies tenant_id filter when the projection table has a tenant_id
-  // column (or opt out with { allTenants: true } for system-scoped reads
+  // column (or opt out with { unsafeAllTenants: true } for system-scoped reads
   // like cross-tenant analytics). Unknown projection name throws.
   readonly queryProjection: <T = Record<string, unknown>>(
     qualifiedName: string,
-    options?: { readonly allTenants?: boolean },
+    options?: { readonly unsafeAllTenants?: boolean },
   ) => Promise<readonly T[]>;
 
   // Always populated — Noop when no observability provider is configured.

@@ -678,7 +678,7 @@ export function createDispatcher(
       },
       queryProjection: async <T = Record<string, unknown>>(
         qualifiedName: string,
-        queryOptions?: { readonly allTenants?: boolean },
+        queryOptions?: { readonly unsafeAllTenants?: boolean },
       ): Promise<readonly T[]> => {
         // queryProjection works against both single-stream and multi-stream
         // projections. MSPs without a table cannot be queried — those are
@@ -712,7 +712,7 @@ export function createDispatcher(
         // @cast-boundary dynamic-key — drizzle's PgTable columns are schema-dependent
         const tenantCol = (projTable as Record<string, AnyColumn | undefined>)["tenantId"];
         let rows: readonly Record<string, unknown>[];
-        if (tenantCol && !queryOptions?.allTenants) {
+        if (tenantCol && !queryOptions?.unsafeAllTenants) {
           rows = (await dbSource
             .select()
             .from(projTable)

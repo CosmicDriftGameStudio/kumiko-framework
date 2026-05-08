@@ -345,7 +345,7 @@ export function createEntityExecutor(
 export function defineProjectionQueryHandler(
   name: string,
   projectionQualifiedName: string,
-  options?: { access?: AccessRule; allTenants?: boolean },
+  options?: { access?: AccessRule; unsafeAllTenants?: boolean },
 ): QueryHandlerDef {
   return {
     name,
@@ -357,7 +357,7 @@ export function defineProjectionQueryHandler(
     handler: async (_query, ctx) =>
       ctx.queryProjection(
         projectionQualifiedName,
-        options?.allTenants ? { allTenants: true } : undefined,
+        options?.unsafeAllTenants ? { unsafeAllTenants: true } : undefined,
       ),
     ...(options?.access && { access: options.access }),
   };

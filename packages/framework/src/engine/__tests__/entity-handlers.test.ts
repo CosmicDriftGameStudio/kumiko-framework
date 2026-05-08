@@ -185,11 +185,11 @@ describe("defineProjectionQueryHandler", () => {
     expect(result).toBe(fakeRows);
   });
 
-  test("allTenants: true forwards the option to ctx.queryProjection", async () => {
+  test("unsafeAllTenants: true forwards the option to ctx.queryProjection", async () => {
     const def = defineProjectionQueryHandler(
       "revenue:list",
       "showcase:projection:customer-revenue",
-      { allTenants: true },
+      { unsafeAllTenants: true },
     );
     const ctx = { queryProjection: vi.fn().mockResolvedValue([]) };
     await def.handler(
@@ -199,7 +199,7 @@ describe("defineProjectionQueryHandler", () => {
       ctx as any,
     );
     expect(ctx.queryProjection).toHaveBeenCalledWith("showcase:projection:customer-revenue", {
-      allTenants: true,
+      unsafeAllTenants: true,
     });
   });
 
