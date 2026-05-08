@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { requestDeletionWrite } from "./handlers/request-deletion.write";
+import { requestExportQuery } from "./handlers/request-export.query";
 import { runForgetCleanupWrite } from "./handlers/run-forget-cleanup.write";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
@@ -64,5 +65,11 @@ export function createUserDataRightsFeature(): FeatureDefinition {
     // mit createSystemUser(...) als executor.
     r.writeHandler(runForgetCleanupWrite);
     r.exposesApi("userDataRights.runForget");
+
+    // S2.U3 — DSGVO Art. 15 + 20 Export. Sync-Bundle (JSON) als Query.
+    // Async ZIP + Storage-Mount kommt mit einem Wrapper-Job spaeter
+    // (siehe run-user-export.ts Header).
+    r.queryHandler(requestExportQuery);
+    r.exposesApi("userDataRights.runExport");
   });
 }
