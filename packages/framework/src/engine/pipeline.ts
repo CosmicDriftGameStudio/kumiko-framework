@@ -10,6 +10,7 @@
 
 import { buildComputeStep } from "./steps/compute";
 import { buildReturnStep } from "./steps/return";
+import { buildUnsafeProjectionUpsertStep } from "./steps/unsafe-projection-upsert";
 import type { PipelineBuildCtx, PipelineDef, StepBuilder, StepInstance } from "./types/step";
 import type { WriteEvent } from "./types/handlers";
 
@@ -17,6 +18,7 @@ const stepBuilder: StepBuilder = {
   step: {
     return: buildReturnStep,
     compute: buildComputeStep,
+    unsafeProjectionUpsert: buildUnsafeProjectionUpsertStep,
   },
 };
 

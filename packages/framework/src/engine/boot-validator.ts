@@ -9,6 +9,7 @@ import type {
   WorkspaceDefinition,
 } from "./types";
 import { normalizeEditField, normalizeListColumn } from "./types/screen";
+import { validateProjectionAllowlist } from "./validate-projection-allowlist";
 
 const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 
@@ -17,6 +18,10 @@ const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
  * Throws on the first error found — fail fast.
  */
 export function validateBoot(features: readonly FeatureDefinition[]): void {
+  // Pipeline-step projection-allowlist. Runs first so that other validators
+  // (which don't know about pipelines) see a clean handler-set.
+  validateProjectionAllowlist(features);
+
   const featureMap = new Map<string, FeatureDefinition>();
   for (const f of features) {
     featureMap.set(f.name, f);

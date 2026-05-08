@@ -87,6 +87,9 @@ export function defineFeature<const TName extends string, TExports = undefined>(
 ): FeatureDefinition & { readonly exports: TExports } {
   const requires: string[] = [];
   const optionalRequires: string[] = [];
+  // Read-side projection-tables declared via r.requires.projection("table").
+  // Boot-validator checks unsafeProjection-* step calls against this set.
+  const requiredProjections = new Set<string>();
   const entities: Record<string, EntityDefinition> = {};
   const relations: Record<string, Record<string, RelationDefinition>> = {};
   const writeHandlers: Record<string, WriteHandlerDef> = {};
@@ -151,9 +154,15 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       isSystemScoped = true;
     },
 
-    requires(...featureNames: string[]): void {
-      requires.push(...featureNames);
-    },
+    requires: (() => {
+      const fn = (...featureNames: string[]) => {
+        requires.push(...featureNames);
+      };
+      fn.projection = (tableName: string) => {
+        requiredProjections.add(tableName);
+      };
+      return fn as import("./types/feature").RequiresApi;
+    })(),
 
     optionalRequires(...featureNames: string[]): void {
       optionalRequires.push(...featureNames);
@@ -189,6 +198,13 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           ...(def.access && { access: def.access }),
           ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
+          // Forward the pipeline-build closure so boot-validators and
+          // Designer/AI tooling can inspect the step list. Absent on
+          // free-form handlers — defineWriteHandler only sets `perform`
+          // when the author used the pipeline form (M.1-Followup #2).
+          ...((def as { readonly perform?: unknown }).perform !== undefined && {
+            perform: (def as { readonly perform: import("./types/step").PipelineDef }).perform,
+          }),
         };
         tryMapEntity(def.name);
         return { name: def.name };
@@ -696,6 +712,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     exports,
     requires,
     optionalRequires,
+    requiredProjections,
     ...(toggleableDefault !== undefined && { toggleableDefault }),
     entities,
     relations,

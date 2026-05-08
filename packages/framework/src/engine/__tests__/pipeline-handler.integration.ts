@@ -16,12 +16,14 @@
 // mock — this test is the gate advisor flagged: real Postgres, real
 // JWT, real HTTP.
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { eq } from "drizzle-orm";
+import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { pipeline } from "../pipeline";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafePushTables } from "../../stack";
 
 const echoSchema = z.object({ greeting: z.string() });
 
@@ -82,10 +84,48 @@ const compoundHandler = defineWriteHandler({
   ),
 });
 
+// Read-side projection-table for the unsafeProjectionUpsert handler.
+// Plain pgTable (not r.entity) — it's a read-side log, not an aggregate.
+const pipelineDemoLogTable = pgTable("pipeline_demo_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  correlationId: text("correlation_id").notNull().unique(),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Fourth handler exercises r.step.unsafeProjectionUpsert: writes a row
+// to the demo-log table after the pipeline runs. Idempotent on
+// correlationId — running the same handler twice with the same id
+// updates the existing row, not insert a duplicate.
+const logSchema = z.object({ correlationId: z.string(), message: z.string() });
+const logHandler = defineWriteHandler({
+  name: "log",
+  schema: logSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof logSchema>, { correlationId: string }>(({ event, r }) => [
+    r.step.unsafeProjectionUpsert({
+      table: pipelineDemoLogTable,
+      on: ["correlationId"],
+      row: ({ event: e }) => ({
+        tenantId: e.user.tenantId,
+        correlationId: e.payload.correlationId,
+        message: e.payload.message,
+      }),
+    }),
+    r.step.return(({ event: e }) => ({
+      isSuccess: true as const,
+      data: { correlationId: e.payload.correlationId },
+    })),
+  ]),
+});
+
 const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
+  r.requires.projection("pipeline_demo_log");
   r.writeHandler(echoHandler);
   r.writeHandler(explodeHandler);
   r.writeHandler(compoundHandler);
+  r.writeHandler(logHandler);
 });
 
 let stack: TestStack;
@@ -94,10 +134,17 @@ const admin = TestUsers.admin;
 describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher path", () => {
   beforeAll(async () => {
     stack = await setupTestStack({ features: [demoPipelineFeature] });
+    // Push the read-side-projection table — not registered as an entity,
+    // so push-entity-projection-tables doesn't pick it up automatically.
+    await unsafePushTables(stack.db, [pipelineDemoLogTable]);
   });
 
   afterAll(async () => {
     await stack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await stack.db.delete(pipelineDemoLogTable);
   });
 
   test("HTTP write call goes through dispatcher → pipeline-runner → r.step.return", async () => {
@@ -165,6 +212,43 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // 100 (offset) + 14 (base * 2) = 114
     expect(body.data.sum).toBe(114);
     expect(body.data.userId).toBe(admin.id);
+  });
+
+  test("unsafeProjectionUpsert writes a row to a declared read-side table via real Postgres", async () => {
+    const res = await stack.http.write(
+      "demo-pipeline:write:log",
+      { correlationId: "corr-1", message: "first write" },
+      admin,
+    );
+    expect(res.status).toBe(200);
+
+    const rows = await stack.db.select().from(pipelineDemoLogTable);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      correlationId: "corr-1",
+      message: "first write",
+      tenantId: admin.tenantId,
+    });
+  });
+
+  test("unsafeProjectionUpsert is idempotent on the conflict-key — second write updates, not inserts", async () => {
+    await stack.http.write(
+      "demo-pipeline:write:log",
+      { correlationId: "corr-2", message: "v1" },
+      admin,
+    );
+    await stack.http.write(
+      "demo-pipeline:write:log",
+      { correlationId: "corr-2", message: "v2 — overwritten" },
+      admin,
+    );
+
+    const rows = await stack.db
+      .select()
+      .from(pipelineDemoLogTable)
+      .where(eq(pipelineDemoLogTable.correlationId, "corr-2"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.message).toBe("v2 — overwritten");
   });
 
   test("a step that throws maps to a standard write-failure (dispatcher catch)", async () => {

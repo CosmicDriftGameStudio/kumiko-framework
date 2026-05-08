@@ -8,10 +8,14 @@
 //        pipeline-handler.integration.ts (real Postgres + JWT + HTTP).
 
 import { randomUUID } from "node:crypto";
+import { pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { validateProjectionAllowlist } from "../validate-projection-allowlist";
+import { defineFeature } from "../define-feature";
 import { defineStep } from "../define-step";
 import { defineWriteHandler } from "../define-handler";
+import { createEntity, createTextField } from "../factories";
 import { pipeline } from "../pipeline";
 import { TestUsers } from "../../stack";
 import type { HandlerContext, WriteEvent } from "../types/handlers";
@@ -188,6 +192,92 @@ describe("pipeline (M.1.1 vertical slice)", () => {
         buildMinimalCtx(),
       ),
     ).rejects.toThrow(/Unknown step kind "this-step-does-not-exist"/);
+  });
+
+  describe("Boot-validation: r.requires.projection allowlist", () => {
+    const demoLogTable = pgTable("validate_demo_log", {
+      id: uuid("id").primaryKey().defaultRandom(),
+      message: text("message").notNull(),
+    });
+
+    it("rejects unsafeProjectionUpsert on an undeclared table", () => {
+      const featureWithMissingDeclaration = defineFeature("vproj-missing", (r) => {
+        // Note: NO r.requires.projection("validate_demo_log") here.
+        r.writeHandler(defineWriteHandler({
+          name: "log",
+          schema: z.object({ msg: z.string() }),
+          access: { roles: ["User"] },
+          perform: pipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
+            r.step.unsafeProjectionUpsert({
+              table: demoLogTable,
+              on: ["id"],
+              row: () => ({ message: event.payload.msg }),
+            }),
+            r.step.return({ isSuccess: true as const, data: { ok: true } }),
+          ]),
+        }));
+      });
+
+      expect(() => validateProjectionAllowlist([featureWithMissingDeclaration]))
+        .toThrow(/did not declare it via r\.requires\.projection\("validate_demo_log"\)/);
+    });
+
+    it("rejects unsafeProjectionUpsert on an aggregate-table (registered via r.entity)", () => {
+      // Feature A registers `widget` as an aggregate (with table "widgets").
+      const ownerFeature = defineFeature("vproj-owner", (r) => {
+        r.entity("widget", createEntity({
+          table: "widgets",
+          fields: { label: createTextField({ required: true }) },
+        }));
+      });
+
+      // Feature B tries to upsert directly into the widgets table — bypassing
+      // the aggregate-pipeline. Even with r.requires.projection it must fail.
+      const trespasserFeature = defineFeature("vproj-trespasser", (r) => {
+        r.requires.projection("widgets");
+        const widgetsTable = pgTable("widgets", {
+          id: uuid("id").primaryKey().defaultRandom(),
+          label: text("label").notNull(),
+        });
+        r.writeHandler(defineWriteHandler({
+          name: "sneaky",
+          schema: z.object({}),
+          access: { roles: ["User"] },
+          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+            r.step.unsafeProjectionUpsert({
+              table: widgetsTable,
+              on: ["id"],
+              row: () => ({ label: "trespass" }),
+            }),
+            r.step.return({ isSuccess: true as const, data: { ok: true } }),
+          ]),
+        }));
+      });
+
+      expect(() => validateProjectionAllowlist([ownerFeature, trespasserFeature]))
+        .toThrow(/aggregate-projection of feature "vproj-owner".*r\.step\.aggregate\.\*/s);
+    });
+
+    it("accepts unsafeProjectionUpsert when the table is declared and not an aggregate", () => {
+      const happyFeature = defineFeature("vproj-happy", (r) => {
+        r.requires.projection("validate_demo_log");
+        r.writeHandler(defineWriteHandler({
+          name: "log",
+          schema: z.object({ msg: z.string() }),
+          access: { roles: ["User"] },
+          perform: pipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
+            r.step.unsafeProjectionUpsert({
+              table: demoLogTable,
+              on: ["id"],
+              row: () => ({ message: event.payload.msg }),
+            }),
+            r.step.return({ isSuccess: true as const, data: { ok: true } }),
+          ]),
+        }));
+      });
+
+      expect(() => validateProjectionAllowlist([happyFeature])).not.toThrow();
+    });
   });
 
   it("defineStep throws when the same kind is registered with a different definition", () => {

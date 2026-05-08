@@ -9,6 +9,7 @@
 // (see TS-typing notes in the design doc). M.1 uses unsafeAppendEvent
 // semantics under the hood for r.step.aggregate.appendEvent.
 
+import type { Table } from "drizzle-orm";
 import type { HandlerContext, WriteEvent, WriteResult } from "./handlers";
 import type { KumikoEventTypeMap } from "./event-type-map";
 
@@ -134,8 +135,9 @@ export type StepBuilder = {
 
 /**
  * The collection of step factory functions. Grown incrementally —
- * landed: return (M.1.1), compute (M.1.2). Pending: branch, forEach,
- * read.*, aggregate.*, db.*.
+ * landed: return (M.1.1), compute (M.1.2), unsafeProjectionUpsert
+ * (M.1.3). Pending: branch, forEach, read.*, aggregate.*,
+ * unsafeProjectionDelete.
  */
 export type StepNamespace = {
   readonly return: <TData>(
@@ -145,6 +147,15 @@ export type StepNamespace = {
     name: string,
     fn: (ctx: PipelineCtx) => TResult,
   ) => StepInstance;
-  // M.1.3+: branch, forEach, read, aggregate, db, ...
+  // Inline read-side projection write. Boot-validation enforces the
+  // table is in the owning feature's r.requires.projection allowlist
+  // and NOT registered as an aggregate-table via r.entity. See
+  // step-vocabulary.md "Was unsafeProjection.* überspringt".
+  readonly unsafeProjectionUpsert: (args: {
+    readonly table: Table;
+    readonly on: readonly string[];
+    readonly row: StepResolver<Record<string, unknown>>;
+  }) => StepInstance;
+  // M.1.4+: branch, forEach, read, aggregate, unsafeProjectionDelete
 };
 
