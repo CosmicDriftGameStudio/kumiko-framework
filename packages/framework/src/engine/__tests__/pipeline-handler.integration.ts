@@ -1,20 +1,28 @@
-// M.1.1 dispatcher-integration test — proves the perform-as-pipeline path
-// goes through the full real stack:
-//   - r.writeHandler(definitionObj) accepts the new output shape
-//   - boot-validation doesn't trip on the `perform` field
-//   - dispatcher parses the payload (Zod schema) BEFORE invoking handler
-//   - dispatcher checks access-rules BEFORE invoking handler
-//   - dispatcher hands the handler a real HandlerContext (~30 fields)
-//   - the compiled handler (defineWriteHandler-generated) runs the
-//     pipeline-runner against that ctx
-//   - r.step.return resolver receives the live event
-//   - WriteResult lands on the HTTP caller
-//   - a step that throws maps to a standard write-failure (500 +
-//     internal_error) via the dispatcher's catch
+// Pipeline dispatcher-integration test — exercises the perform-as-pipeline
+// path through the full real stack (Postgres + JWT + HTTP). Covers:
 //
-// Compare to pipeline-vertical-slice.test.ts which uses an empty ctx
-// mock — this test is the gate advisor flagged: real Postgres, real
-// JWT, real HTTP.
+//   M.1.1 (return / boundary):
+//     - r.writeHandler(definitionObj) accepts the new output shape
+//     - boot-validation doesn't trip on the `perform` field
+//     - dispatcher parses the payload (Zod schema) BEFORE invoking handler
+//     - dispatcher checks access-rules BEFORE invoking handler
+//     - dispatcher hands the handler a real HandlerContext (~30 fields)
+//     - the compiled handler runs the pipeline-runner against that ctx
+//     - WriteResult lands on the HTTP caller
+//     - a step that throws maps to a standard write-failure (500 +
+//       internal_error) via the dispatcher's catch
+//
+//   M.1.2 (compute):
+//     - multi-step pipeline threads compute results through to the
+//       return-resolver via steps.<name> against the real ctx
+//
+//   M.1.3 (unsafeProjectionUpsert):
+//     - writes a row to a declared read-side table via real Postgres
+//     - is idempotent on the conflict-key — second write updates,
+//       not duplicates
+//
+// Unit-side tests in pipeline-vertical-slice.test.ts cover the same
+// surface against an empty ctx mock; this file is the real-stack gate.
 
 import { eq } from "drizzle-orm";
 import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
@@ -73,11 +81,13 @@ const compoundHandler = defineWriteHandler({
     ({ event, r }) => [
       r.step.compute("offset", () => 100),
       r.step.compute("doubledBase", () => event.payload.base * 2),
-      r.step.return(({ steps, event: e }) => ({
+      // Capture `event` from outer scope (typed); `ctx.event.user.id` would
+      // type-erase. See note above on M.1-Followup #4.
+      r.step.return(({ steps }) => ({
         isSuccess: true as const,
         data: {
           sum: (steps["offset"] as number) + (steps["doubledBase"] as number),
-          userId: e.user.id,
+          userId: event.user.id,
         },
       })),
     ],
@@ -103,19 +113,24 @@ const logHandler = defineWriteHandler({
   name: "log",
   schema: logSchema,
   access: { roles: ["Admin"] },
+  // Resolvers capture `event` from the outer build-closure scope rather
+  // than reading it via the resolver's PipelineCtx — `PipelineCtx<TPayload>`
+  // does not propagate the pipeline's TPayload generic to per-call
+  // resolvers (M.1-Followup #4), so `ctx.event.payload` would land as
+  // `unknown`. Outer-capture preserves the typed payload.
   perform: pipeline<z.infer<typeof logSchema>, { correlationId: string }>(({ event, r }) => [
     r.step.unsafeProjectionUpsert({
       table: pipelineDemoLogTable,
       on: ["correlationId"],
-      row: ({ event: e }) => ({
-        tenantId: e.user.tenantId,
-        correlationId: e.payload.correlationId,
-        message: e.payload.message,
+      row: () => ({
+        tenantId: event.user.tenantId,
+        correlationId: event.payload.correlationId,
+        message: event.payload.message,
       }),
     }),
-    r.step.return(({ event: e }) => ({
+    r.step.return(() => ({
       isSuccess: true as const,
-      data: { correlationId: e.payload.correlationId },
+      data: { correlationId: event.payload.correlationId },
     })),
   ]),
 });
@@ -136,7 +151,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     stack = await setupTestStack({ features: [demoPipelineFeature] });
     // Push the read-side-projection table — not registered as an entity,
     // so push-entity-projection-tables doesn't pick it up automatically.
-    await unsafePushTables(stack.db, [pipelineDemoLogTable]);
+    await unsafePushTables(stack.db, { pipeline_demo_log: pipelineDemoLogTable });
   });
 
   afterAll(async () => {

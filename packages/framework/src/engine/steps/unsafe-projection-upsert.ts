@@ -25,10 +25,10 @@ defineStep<UnsafeProjectionUpsertArgs, void>({
   kind: "unsafeProjectionUpsert",
   defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
-    const resolvedRow =
-      typeof args.row === "function"
-        ? (args.row as (c: PipelineCtx) => Record<string, unknown>)(ctx)
-        : args.row;
+    // Local alias so the typeof-narrowing kicks in (TS narrows on
+    // a const, not on a property access).
+    const row = args.row;
+    const resolvedRow = typeof row === "function" ? row(ctx) : row;
 
     const columns = getTableColumns(args.table) as Record<string, unknown>;
     const conflictTargets = args.on.map((key) => {
@@ -70,7 +70,3 @@ export function buildUnsafeProjectionUpsertStep(
 ): StepInstance {
   return { kind: "unsafeProjectionUpsert", args };
 }
-
-// Re-exported for boot-validator to scan pipeline-build outputs and
-// extract the table-name for allowlist + entity-table checks.
-export type { UnsafeProjectionUpsertArgs };

@@ -193,7 +193,14 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         writeHandlers[def.name] = {
           name: def.name,
           schema: def.schema,
-          // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
+          // @cast-boundary engine-bridge — typed Dev-API's handler is
+          // generic over the schema's parsed payload (`WriteEvent<output<TSchema>>`),
+          // the storage form WriteHandlerFn carries `WriteEvent<unknown>`.
+          // Function-arg variance: TS sees the typed handler as stricter
+          // than the loose storage shape and rejects direct assignment.
+          // The runtime value is identical — the cast crosses that boundary.
+          // `satisfies` does not work here (it asserts assignability, which
+          // is what fails). Explicit cast is the right tool.
           handler: def.handler as WriteHandlerFn,
           ...(def.access && { access: def.access }),
           ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
@@ -201,9 +208,11 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           // Forward the pipeline-build closure so boot-validators and
           // Designer/AI tooling can inspect the step list. Absent on
           // free-form handlers — defineWriteHandler only sets `perform`
-          // when the author used the pipeline form (M.1-Followup #2).
-          ...((def as { readonly perform?: unknown }).perform !== undefined && {
-            perform: (def as { readonly perform: import("./types/step").PipelineDef }).perform,
+          // when the author used the pipeline form. Variance cast
+          // mirrors the handler-cast above: PipelineDef<output<TSchema>>
+          // is stricter than PipelineDef<unknown> for the same reason.
+          ...(def.perform !== undefined && {
+            perform: def.perform as import("./types/step").PipelineDef,
           }),
         };
         tryMapEntity(def.name);

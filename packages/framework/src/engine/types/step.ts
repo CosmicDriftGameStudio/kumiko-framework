@@ -114,6 +114,15 @@ export type PipelineDef<TPayload = unknown, TData = unknown> = {
  * list of step instances. Values inside the closure that depend on prior
  * step results MUST go through resolvers (functions) — those receive the
  * resolver-side PipelineCtx which carries `steps` + `scope`.
+ *
+ * **Closure-body contract:** the closure must produce a deterministic
+ * step-list that doesn't depend on `event.payload` — branching on payload
+ * fields belongs inside resolvers (where they fire per-call), not in the
+ * outer closure body. Boot-validation runs the closure once with a dummy
+ * empty payload to scan unsafeProjection-* step targets; a closure that
+ * conditionally builds different step-lists per payload would silently
+ * skip validation. See validate-projection-allowlist.ts for the
+ * boot-side mechanics.
  */
 export type PipelineBuildCtx<TPayload = unknown> = {
   readonly event: WriteEvent<TPayload>;

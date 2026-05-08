@@ -10,16 +10,29 @@
 // a closure. We invoke it once at boot with a minimal dummy event to
 // extract the immutable step-list, then walk the list looking for the
 // known unsafeProjection-* kinds. Resolvers (the per-step arg-callbacks)
-// don't run at build time, so dummy event-payloads are fine — the
-// closure-body itself must not read payload-fields outside resolvers,
-// and we surface that as a boot-error if it crashes.
+// don't run at build time, so dummy event-payloads are fine.
+//
+// CLOSURE-BODY CONTRACT: the pipeline-closure body (the function passed
+// to `pipeline(...)`) must produce its step-list deterministically based
+// on the step-builder `r` alone. Reading `event.payload` outside of
+// resolvers (i.e. at the top of the closure, not inside a step's `row:`
+// or `data:` callback) is forbidden — at boot the dummy payload is `{}`
+// and a closure that branches on payload-fields would pass validation
+// while production calls produce a different step-list. A throw at
+// boot-time is surfaced cleanly; a quietly-different step-list is not
+// caught by this validator. A future lint-rule will enforce the contract
+// statically; today it lives in this comment + the StepBuilder doc.
 
 import { getTableName, type Table } from "drizzle-orm";
 import { buildPipelineSteps } from "./pipeline";
 import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types";
 import type { PipelineDef, StepInstance } from "./types/step";
 
-const UNSAFE_PROJECTION_KINDS = new Set(["unsafeProjectionUpsert", "unsafeProjectionDelete"]);
+// Listed step-kinds whose `args.table` must be in the owning feature's
+// r.requires.projection allowlist. Extend as further unsafeProjection.*
+// steps land — don't pre-list hypothetical kinds (CLAUDE.md: don't design
+// for scenarios that can't happen).
+const UNSAFE_PROJECTION_KINDS = new Set(["unsafeProjectionUpsert"]);
 
 type UnsafeProjectionStepArgs = { readonly table: Table };
 
