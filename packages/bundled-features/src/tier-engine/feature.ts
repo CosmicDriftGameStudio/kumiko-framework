@@ -162,7 +162,10 @@ export function createTierEngineFeature<
     // ───────────────────────────────────────────────────────────────────
     // Resolver-extension (only when tierMap is configured)
     // ───────────────────────────────────────────────────────────────────
-    if (!opts.tierMap) return; // Storage-only mode (back-compat)
+    // skip: ohne tierMap ist die feature nur Storage (legacy back-compat
+    // zu `tierEngineFeature`). Resolver-extension + invalidation-hooks
+    // brauchen die tierMap zum Mapping tier-name → feature-set.
+    if (!opts.tierMap) return;
 
     const tierMap = opts.tierMap;
 
@@ -175,11 +178,17 @@ export function createTierEngineFeature<
     r.entityHook("postSave", "tier-assignment", async (result) => {
       // result.data has tenantId + tier (after entity-update merge)
       const data = result.data as { tenantId?: unknown; tier?: unknown };
+      // skip: defensive type-guard auf payload-shape. Bei korrekt gerenderten
+      // entity-events sind beide fields immer strings; ein malformed-payload
+      // (custom-handler-bug) würde hier silent zum cache-skip führen statt
+      // throwing — der lifecycle-pipeline darf nicht durch hook-fehler
+      // blocken (afterCommit-pattern, side-effect-best-effort).
       if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
       cache.set(data.tenantId as TenantId, featuresForTier(tierMap, data.tier));
     });
     r.entityHook("postDelete", "tier-assignment", async (payload) => {
       const data = payload.data as { tenantId?: unknown };
+      // skip: gleiche type-guard semantik wie postSave-hook oben.
       if (typeof data.tenantId !== "string") return;
       cache.delete(data.tenantId as TenantId);
     });
@@ -204,13 +213,21 @@ export function createTierEngineFeature<
         async (result, ctx) => {
           // result-shape: kumiko-framework's SaveContext mit isNew + data
           const saveResult = result as { isNew?: unknown; data?: unknown };
+          // skip: nur bei tenant-create (initial) — tenant-updates feuern
+          // auch postSave aber wir wollen kein neues tier-assignment bei
+          // re-keying oder name-update.
           if (saveResult.isNew !== true) return;
           const data = saveResult.data as { id?: unknown };
+          // skip: defensive type-guard. Tenant-entity hat id zwingend, aber
+          // CrudExecutor's payload-shape ist runtime-unknown.
           if (typeof data.id !== "string") return;
           const newTenantId = data.id as TenantId;
           const aggregateId = tierAssignmentAggregateId(newTenantId);
 
-          if (!ctx.db) return; // defensive — should always be set in inTransaction phase
+          // skip: defensive — inTransaction phase hat ctx.db immer gesetzt,
+          // aber AppContext type macht's optional. Throw wäre overreach
+          // (lifecycle blocking), silent-skip ist defensive-soft.
+          if (!ctx.db) return;
 
           // ctx.db ist im inTransaction-phase eine TenantDb (tenant-scoped
           // proxy auf die echte TX). Für event-store-reads (cross-tenant
@@ -227,6 +244,10 @@ export function createTierEngineFeature<
             .select({ v: maxFn(eventsTable.version) })
             .from(eventsTable)
             .where(eq(eventsTable.aggregateId, aggregateId))) as StreamRow[];
+          // skip: idempotency — aggregate-stream existiert schon (re-replay
+          // nach projection-rebuild oder hook-retry). create() würde
+          // version_conflict werfen + tenant-create rollback'n. Pattern aus
+          // tenant/seeding.ts seedTenant.
           if ((streamRow?.v ?? 0) > 0) return;
 
           // SystemUser für den NEUEN tenant — der Hook wird vom signup-
