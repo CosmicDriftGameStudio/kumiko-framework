@@ -40,8 +40,23 @@ const echoHandler = defineWriteHandler({
   ),
 });
 
+// Second handler whose pipeline throws — proves the dispatcher's catch
+// maps step-thrown errors to the standard write-failure shape.
+const explodeSchema = z.object({});
+const explodeHandler = defineWriteHandler({
+  name: "explode",
+  schema: explodeSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof explodeSchema>, never>(({ r }) => [
+    r.step.return(() => {
+      throw new Error("boom");
+    }),
+  ]),
+});
+
 const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.writeHandler(echoHandler);
+  r.writeHandler(explodeHandler);
 });
 
 let stack: TestStack;
@@ -87,5 +102,33 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     const body = (await res.json()) as { isSuccess: false; error: { code: string } };
     expect(body.isSuccess).toBe(false);
     expect(body.error.code).toBe("validation_error");
+  });
+
+  test("dispatcher rejects the call when the user lacks the handler's role (access runs BEFORE pipeline)", async () => {
+    // Access-check is a different boundary than schema-validation —
+    // verify it also fires before the pipeline is built/executed.
+    // TestUsers.user has role "User", handler requires "Admin".
+    const res = await stack.http.write(
+      "demo-pipeline:write:echo",
+      { greeting: "should not pass" },
+      TestUsers.user,
+    );
+    expect(res.status).toBe(403);
+
+    const body = (await res.json()) as { isSuccess: false; error: { code: string } };
+    expect(body.isSuccess).toBe(false);
+    expect(body.error.code).toBe("access_denied");
+  });
+
+  test("a step that throws maps to a standard write-failure (dispatcher catch)", async () => {
+    // The pipeline-runner doesn't wrap step exceptions in M.1.1 (the
+    // "throw" failure-strategy is the only one supported). The dispatcher
+    // must catch and surface the error as a normal WriteFailure shape.
+    const res = await stack.http.write("demo-pipeline:write:explode", {}, admin);
+    expect(res.status).toBe(500);
+
+    const body = (await res.json()) as { isSuccess: false; error: { code: string } };
+    expect(body.isSuccess).toBe(false);
+    expect(body.error.code).toBe("internal_error");
   });
 });

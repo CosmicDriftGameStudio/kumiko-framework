@@ -9,8 +9,7 @@
 // (see TS-typing notes in the design doc). M.1 uses appendEventUnsafe
 // semantics under the hood for r.step.aggregate.appendEvent.
 
-import type { WriteEvent, WriteResult } from "./handlers";
-import type { HandlerContext } from "./handlers";
+import type { HandlerContext, WriteEvent, WriteResult } from "./handlers";
 import type { KumikoEventTypeMap } from "./event-type-map";
 
 /**
@@ -26,11 +25,12 @@ export type StepKind = string;
  *
  * Contains the full HandlerContext (no per-step subset in M.1) plus
  * the accumulated `steps` map of prior step results, and a `scope`
- * for forEach/branch-local bindings.
+ * record for forEach/branch-local bindings.
  *
- * `scope` is currently `Record<string, unknown>` — sub-step builders
- * (forEach, branch) populate it in M.1 only when they land. M.1.1 only
- * uses event + steps.
+ * `scope` is `Record<string, unknown>` — sub-step builders (forEach,
+ * branch) populate it once they land in later M.1 slices. M.1.1 ships
+ * with `r.step.return` only, which reads `event` and ignores both
+ * `steps` and `scope`.
  */
 export type PipelineCtx<TPayload = unknown, TMap extends object = KumikoEventTypeMap> =
   HandlerContext<TMap> & {
@@ -63,8 +63,8 @@ export type StepDef<TArgs = unknown, TResult = unknown> = {
   // (e.g. r.step.compute("startedAt", fn) → "startedAt") becomes the key.
   readonly resultKey?: (args: TArgs) => string | undefined;
   // Runtime: resolve the args against the ctx, perform the work, return
-  // the value to land in steps.{resultKey}. Throwing propagates to the
-  // pipeline-runner which applies onFailure.
+  // the value to land in steps.{resultKey}. Thrown errors propagate to
+  // the dispatcher's catch (M.1.1 supports "throw"-strategy only).
   readonly run: (args: TArgs, ctx: PipelineCtx) => Promise<TResult> | TResult;
 };
 
@@ -84,33 +84,34 @@ export type StepInstance = {
 };
 
 /**
- * What `pipeline(closure)` returns. Carrying the closure (instead of an
- * eagerly-built array) lets us pass `r` (the step-builder) at runtime
- * and lets each call see fresh event/steps refs.
+ * What `pipeline(closure)` returns. Carries the closure (instead of an
+ * eagerly-built array) so each handler-call sees a fresh event ref and
+ * the `r` step-builder is resolved at runtime, not at module-load time.
  *
- * The factory tags this with `__kind: "pipeline"` so defineWriteHandler
- * can detect a pipeline-form `perform` and compile-to-handler.
+ * `__kind: "pipeline"` lets defineWriteHandler distinguish a pipeline-
+ * form `perform` from accidental other shapes.
+ *
+ * TData is a phantom type-parameter held in constraint position only —
+ * defineWriteHandler binds it via `def.perform: PipelineDef<…, TData>`.
+ * Note: TData is NOT inferred from the closure body (r.step.return has
+ * its own per-call TData), so callers must spell it explicitly:
+ *   `pipeline<{ greeting: string }, { echoed: string }>(...)`
+ * Better DX is a known follow-up — see step-vocabulary.md M.1-Followups.
  */
-export type PipelineDef<TPayload = unknown, TData = unknown> = {
+export type PipelineDef<TPayload = unknown, _TData = unknown> = {
   readonly __kind: "pipeline";
   readonly build: (ctx: PipelineBuildCtx<TPayload>) => readonly StepInstance[];
-  // Phantom data-type marker — exists only to thread TData through the
-  // type system so defineWriteHandler can infer the WriteResult shape
-  // from a pipeline-form perform.
-  readonly __dataType?: TData;
 };
 
 /**
  * Argument bundle passed to the closure inside `pipeline(closure)`.
- * Mirrors PipelineCtx but is restricted to fields the closure should
- * read at build time — `r` is the step-builder, the rest are forwarded
- * from the live pipeline-ctx.
+ * Build-time only — no `steps`, no `scope`, no `db`: at build time no
+ * step has run yet.
  *
- * The closure is invoked ONCE per handler-call, not once per step. It
- * returns the immutable list of step instances to execute. Values inside
- * the closure that depend on prior step results MUST go through resolvers
- * (functions) — direct `steps.foo.id` reads in the array body would only
- * see the empty initial state.
+ * The closure is invoked ONCE per handler-call and returns the immutable
+ * list of step instances. Values inside the closure that depend on prior
+ * step results MUST go through resolvers (functions) — those receive the
+ * resolver-side PipelineCtx which carries `steps` + `scope`.
  */
 export type PipelineBuildCtx<TPayload = unknown> = {
   readonly event: WriteEvent<TPayload>;

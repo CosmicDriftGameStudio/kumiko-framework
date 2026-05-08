@@ -7,6 +7,7 @@
 //        caller. Dispatcher integration is exercised by
 //        pipeline-handler.integration.ts (real Postgres + JWT + HTTP).
 
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { defineStep } from "../define-step";
@@ -127,22 +128,16 @@ describe("pipeline (M.1.1 vertical slice)", () => {
   });
 
   it("defineStep throws when the same kind is registered with a different definition", () => {
-    // First registration: define a unique-named step. Second registration
-    // with the same kind but a different fn must fail loud — silent
-    // shadowing would let two features fight over the same kind without
-    // the caller noticing.
-    defineStep({
-      kind: "test-only:duplicate-guard",
-      defaultFailureStrategy: "throw",
-      run: () => undefined,
-    });
+    // Unique-per-run kind so this test is safe under vitest --watch
+    // (where the file may re-execute in the same process). Without the
+    // unique-kind, the first defineStep call on the second run would
+    // already throw against the registration left from the first run.
+    const kind = `test-only:duplicate-guard:${randomUUID()}`;
+
+    defineStep({ kind, defaultFailureStrategy: "throw", run: () => undefined });
 
     expect(() =>
-      defineStep({
-        kind: "test-only:duplicate-guard",
-        defaultFailureStrategy: "throw",
-        run: () => "different",
-      }),
+      defineStep({ kind, defaultFailureStrategy: "throw", run: () => "different" }),
     ).toThrow(/already registered/);
   });
 });

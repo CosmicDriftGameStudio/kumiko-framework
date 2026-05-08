@@ -5,7 +5,9 @@
 //   1. Build the immutable step list by invoking the pipeline closure.
 //   2. Walk the list sequentially. For each step:
 //      - Look up the registered StepDef by kind.
-//      - Build the live PipelineCtx (handler-ctx + accumulated steps + scope).
+//      - Build the live PipelineCtx (handler-ctx + accumulated steps).
+//        `scope` is reserved for future forEach/branch sub-builders;
+//        M.1.1 leaves it as an empty record.
 //      - Call step.run(args, ctx) — capture its return value.
 //      - Detect the sentinel RETURN_RESULT_KEY → end pipeline with that
 //        WriteResult; otherwise stash the value under resultKey if any.
@@ -56,6 +58,11 @@ export async function runPipeline<TPayload, TData, TMap extends object = KumikoE
 
     const key = stepDef.resultKey?.(instance.args);
     if (key === RETURN_RESULT_KEY) {
+      // RETURN_RESULT_KEY is only produced by r.step.return, whose run()
+      // returns WriteResult<unknown>. The pipeline's generic TData is
+      // bound at build time (defineWriteHandler ↔ pipeline<P, D>(...));
+      // matching the runtime value to that compile-time type is the
+      // contract user-side. Cast crosses that boundary.
       return value as WriteResult<TData>;
     }
     if (key !== undefined) {

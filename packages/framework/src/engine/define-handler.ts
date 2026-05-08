@@ -84,6 +84,18 @@ export function defineWriteHandler<
 >(
   def: WriteHandlerInput<TName, TSchema, TData, TMap>,
 ): WriteHandlerDefinition<TName, TSchema, TData, TMap> {
+  // Conditional spreads (`...(def.access && { access: def.access })`)
+  // mirror the existing convention in entity-handlers.ts /
+  // define-feature.ts — optional fields stay absent rather than being
+  // serialised as `key: undefined`.
+  const base = {
+    name: def.name,
+    schema: def.schema,
+    ...(def.access && { access: def.access }),
+    ...(def.skipTransitionGuard && { skipTransitionGuard: def.skipTransitionGuard }),
+    ...(def.rateLimit && { rateLimit: def.rateLimit }),
+  } as const;
+
   if ("perform" in def && def.perform !== undefined) {
     const performDef = def.perform;
     const compiledHandler = async (
@@ -92,25 +104,10 @@ export function defineWriteHandler<
     ): Promise<WriteResult<TData>> => {
       return runPipeline<z.infer<TSchema>, TData, TMap>(performDef, event, ctx);
     };
-    return {
-      name: def.name,
-      schema: def.schema,
-      access: def.access,
-      skipTransitionGuard: def.skipTransitionGuard,
-      rateLimit: def.rateLimit,
-      handler: compiledHandler,
-      perform: performDef,
-    };
+    return { ...base, handler: compiledHandler, perform: performDef };
   }
-  // Free-form handler input: shape is already canonical, just return it.
-  return {
-    name: def.name,
-    schema: def.schema,
-    access: def.access,
-    skipTransitionGuard: def.skipTransitionGuard,
-    rateLimit: def.rateLimit,
-    handler: def.handler,
-  };
+
+  return { ...base, handler: def.handler };
 }
 
 // --- Query Handler Definition ---

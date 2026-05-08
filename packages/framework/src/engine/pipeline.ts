@@ -2,13 +2,11 @@
 //
 // The closure receives { event, r } and returns the immutable list of
 // step instances. `r` is the StepBuilder singleton; new tier-1 steps
-// add a builder factory in steps/<x>.ts and expose it under
-// `step` below.
+// add a builder factory in steps/<x>.ts and expose it under `step` below.
 //
-// Note: `steps` and `scope` are NOT exposed at build time. They only
-// exist on PipelineCtx (the resolver-side context) — at build time
-// no step has run yet. Resolvers that need prior step results
-// destructure them from the resolver's ctx, not from the closure args.
+// `steps` and `scope` are NOT exposed at build time — they only exist on
+// the resolver-side PipelineCtx (run-pipeline.ts). Resolvers that need
+// prior step results destructure them from the resolver's ctx.
 
 import { buildReturnStep } from "./steps/return";
 import type { PipelineBuildCtx, PipelineDef, StepBuilder, StepInstance } from "./types/step";
@@ -25,10 +23,12 @@ export function pipeline<TPayload = unknown, TData = unknown>(
 ): PipelineDef<TPayload, TData> {
   return {
     __kind: "pipeline",
-    build: (ctx: PipelineBuildCtx<TPayload>) => closure(ctx),
+    build: closure,
   };
 }
 
+// Internal: invoked by run-pipeline.ts to materialise the step list.
+// Not exported from the engine barrel — pipeline-internal plumbing.
 export function buildPipelineSteps<TPayload>(
   pipelineDef: PipelineDef<TPayload>,
   event: WriteEvent<TPayload>,
