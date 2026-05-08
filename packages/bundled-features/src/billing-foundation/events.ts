@@ -18,7 +18,7 @@ import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./constants";
 export const SUBSCRIPTION_AGGREGATE_TYPE = "subscription" as const;
 
 // Event-name-Konstanten — short-form (für r.defineEvent) + qualifizierte
-// FQN (für ctx.appendEventUnsafe + projection-apply-keys).
+// FQN (für ctx.unsafeAppendEvent + projection-apply-keys).
 export const SUBSCRIPTION_CREATED_EVENT_SHORT = "subscription-created" as const;
 export const SUBSCRIPTION_UPDATED_EVENT_SHORT = "subscription-updated" as const;
 export const SUBSCRIPTION_CANCELED_EVENT_SHORT = "subscription-canceled" as const;

@@ -6,7 +6,7 @@
 //   - Resolvers receive the full PipelineCtx as one argument.
 //
 // Strict typing on appendEvent inside steps is deferred to a later pass
-// (see TS-typing notes in the design doc). M.1 uses appendEventUnsafe
+// (see TS-typing notes in the design doc). M.1 uses unsafeAppendEvent
 // semantics under the hood for r.step.aggregate.appendEvent.
 
 import type { HandlerContext, WriteEvent, WriteResult } from "./handlers";

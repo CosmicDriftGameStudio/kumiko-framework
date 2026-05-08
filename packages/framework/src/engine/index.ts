@@ -151,7 +151,7 @@ export type {
   AppContext,
   AppendEventArgs,
   AppendEventFn,
-  AppendEventUnsafeFn,
+  UnsafeAppendEventFn,
   AuthClaimsContext,
   AuthClaimsFn,
   AuthClaimsHookDef,

@@ -304,7 +304,7 @@ export type AppContext = SharedContextFields & {
 // TMap propagates the strict event-type-map through `appendEvent`. Defaults
 // to the global KumikoEventTypeMap (augmented per app via
 // `declare module "@cosmicdrift/kumiko-framework/engine"`). Code that bypasses the
-// type-map (runtime-pluggable events) uses `appendEventUnsafe`.
+// type-map (runtime-pluggable events) uses `unsafeAppendEvent`.
 export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedContextFields & {
   readonly db: TenantDb;
   readonly registry: Registry;
@@ -345,11 +345,11 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   readonly appendEvent: AppendEventFn<TMap>;
 
   // Escape-hatch for runtime-pluggable features without a compile-time
-  // augmentation. See AppendEventUnsafeFn — same runtime as appendEvent,
+  // augmentation. See UnsafeAppendEventFn — same runtime as appendEvent,
   // but the type-surface is `payload: unknown`. Use only when the event-
   // type is not knowable at compile-time; otherwise the strict path
   // (appendEvent) is the contract Designer/AI rely on.
-  readonly appendEventUnsafe: AppendEventUnsafeFn;
+  readonly unsafeAppendEvent: UnsafeAppendEventFn;
 
   // Marten FetchForWriting equivalent: load the current stream, optionally
   // enforce expectedVersion, and get a handle that appends further events
@@ -593,7 +593,7 @@ export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
 // Strict-only form. Single overload — `<K extends keyof TMap>` against the
 // app's pre-bound TMap. No fallback overload: apps that need runtime-pluggable
 // events (where the type-string isn't known at compile-time) reach for
-// `appendEventUnsafe`.
+// `unsafeAppendEvent`.
 //
 // Why no fallback overload:
 //   A two-overload form (`(args: AppendEventArgs)` as the second sig)
@@ -611,13 +611,13 @@ export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
 //     KumikoEventTypeMap>(...)` wrappers. Handlers inside those wrappers
 //     get a strict ctx.appendEvent.
 //   - Cross-package callers (e.g. bundled-features's set.write.ts) that
-//     can't afford a local wrapper reach for `ctx.appendEventUnsafe`
+//     can't afford a local wrapper reach for `ctx.unsafeAppendEvent`
 //     instead — same runtime, looser type-surface.
 export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends keyof TMap>(
   args: TypedAppendEventArgs<TMap, K>,
 ) => Promise<void>;
 
-export type AppendEventUnsafeFn = (args: AppendEventArgs) => Promise<void>;
+export type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
 
 // Args for ctx.fetchForWriting — Marten FetchForWriting equivalent. Returns
 // the current stream state + a handle that appends without re-specifying

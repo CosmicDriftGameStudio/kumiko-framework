@@ -51,7 +51,7 @@ export async function runPipeline<TPayload, TData, TMap extends object = KumikoE
     // Variance bridge: PipelineCtx<TPayload, TMap> and
     // PipelineCtx<unknown, KumikoEventTypeMap> are runtime-identical —
     // TMap is purely compile-time (HandlerContext.appendEvent). Steps in
-    // M.1 use appendEventUnsafe-semantics and don't read TMap-aware
+    // M.1 use unsafeAppendEvent-semantics and don't read TMap-aware
     // fields. The cast disappears once strict-typed appendEvent inside
     // steps lands (post-M.1.5).
     const value = await stepDef.run(instance.args, pipelineCtx as unknown as PipelineCtx);

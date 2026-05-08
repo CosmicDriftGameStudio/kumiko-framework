@@ -84,7 +84,7 @@ export const billingFoundationFeature: FeatureDefinition = defineFeature(
     r.defineEvent(INVOICE_PAYMENT_FAILED_EVENT_SHORT, subscriptionEventPayloadSchema);
 
     // Inline projection: materialized current state in `read_subscriptions`.
-    // Apply läuft in derselben TX wie ctx.appendEventUnsafe — read-your-
+    // Apply läuft in derselben TX wie ctx.unsafeAppendEvent — read-your-
     // own-write ohne dispatcher-tick.
     r.projection({
       name: "subscription",

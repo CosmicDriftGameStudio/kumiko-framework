@@ -139,7 +139,7 @@ const feature = defineFeature("mspreb", (r) => {
     apply: {
       [invoiceBilled.name]: async (event, _tx, ctx) => {
         const p = event.payload as { customer: string };
-        await ctx.appendEventUnsafe({
+        await ctx.unsafeAppendEvent({
           aggregateId: p.customer,
           aggregateType: "msp-reb-invoice",
           type: escalationTriggered.name,
@@ -166,7 +166,7 @@ const feature = defineFeature("mspreb", (r) => {
         ctx.db,
       );
       if (!res.isSuccess) return res;
-      await ctx.appendEventUnsafe({
+      await ctx.unsafeAppendEvent({
         aggregateId: String(res.data.id),
         aggregateType: "msp-reb-invoice",
         type: invoiceBilled.name,
@@ -187,7 +187,7 @@ const feature = defineFeature("mspreb", (r) => {
         ctx.db,
       );
       if (!res.isSuccess) return res;
-      await ctx.appendEventUnsafe({
+      await ctx.unsafeAppendEvent({
         aggregateId: String(res.data.id),
         aggregateType: "msp-reb-payment",
         type: paymentReceived.name,

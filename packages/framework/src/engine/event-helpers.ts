@@ -4,11 +4,11 @@ import type { AppendEventArgs, EventDef, HandlerContext } from "./types/handlers
 // MultiStreamApplyContext-style callers pass their own appendEvent without
 // a full HandlerContext. Real handlers just pass `ctx`.
 //
-// Uses appendEventUnsafe internally because EventDef's TPayload comes from
+// Uses unsafeAppendEvent internally because EventDef's TPayload comes from
 // a runtime-defined zod-schema — emitEvent does the type-check itself via
 // the EventDef generic, so it doesn't need the strict KumikoEventTypeMap
 // path. The strict appendEvent is for direct in-handler callsites.
-export type EmitCtx = Pick<HandlerContext, "appendEventUnsafe">;
+export type EmitCtx = Pick<HandlerContext, "unsafeAppendEvent">;
 
 // Typed wrapper around ctx.appendEvent. Two wins over the raw call:
 //
@@ -42,7 +42,7 @@ export async function emitEvent<TPayload>(
     type: eventDef.name,
     payload: args.payload,
   };
-  await ctx.appendEventUnsafe(appendArgs);
+  await ctx.unsafeAppendEvent(appendArgs);
 }
 
 // Read-side counterpart: narrow a StoredEvent's `payload` (declared as

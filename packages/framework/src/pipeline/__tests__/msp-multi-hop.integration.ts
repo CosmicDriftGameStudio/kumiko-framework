@@ -55,7 +55,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
     async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
-      await ctx.appendEventUnsafe({
+      await ctx.unsafeAppendEvent({
         aggregateId: String(created.data.id),
         aggregateType: "mmh-order",
         type: placed.name,
@@ -75,7 +75,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
         if (!ctx) throw new Error("MSP-apply ctx missing — regression of C.2b wiring");
         const history = await ctx.loadAggregate(event.aggregateId);
         confirmLoadCounts.push(history.length);
-        await ctx.appendEventUnsafe({
+        await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
           aggregateType: "mmh-order",
           type: confirmed.name,
@@ -91,7 +91,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
     apply: {
       [confirmed.name]: async (event, _tx, ctx) => {
         if (!ctx) throw new Error("MSP-apply ctx missing — regression of C.2b wiring");
-        await ctx.appendEventUnsafe({
+        await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
           aggregateType: "mmh-order",
           type: shipped.name,

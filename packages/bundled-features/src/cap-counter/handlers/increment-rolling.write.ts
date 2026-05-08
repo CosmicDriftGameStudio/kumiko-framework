@@ -60,11 +60,11 @@ export const incrementRollingCapHandler: WriteHandlerDef = {
     const payload = event.payload as IncrementRollingPayload;
     const aggregateId = rollingCapAggregateId(event.user.tenantId, payload.capName);
 
-    // appendEventUnsafe — bundled-features-Pfad (apps mit yarn kumiko
+    // unsafeAppendEvent — bundled-features-Pfad (apps mit yarn kumiko
     // codegen kriegen den strict-typed appendEvent-Wrapper). Schema-
     // Validation läuft trotzdem, weil r.defineEvent das Schema
     // registriert hat.
-    await ctx.appendEventUnsafe({
+    await ctx.unsafeAppendEvent({
       aggregateId,
       aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
       type: ROLLING_INCREMENTED_EVENT_QN,

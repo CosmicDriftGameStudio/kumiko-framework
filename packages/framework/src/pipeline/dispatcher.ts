@@ -505,7 +505,7 @@ export function createDispatcher(
       appendEvent: (async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
       }) as AppendEventFn,
-      appendEventUnsafe: async (args: AppendEventArgs) => {
+      unsafeAppendEvent: async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
       },
       fetchForWriting: async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {

@@ -2,7 +2,7 @@ import type { DbRunner } from "../db/connection";
 import type {
   AppendEventArgs,
   AppendEventFn,
-  AppendEventUnsafeFn,
+  UnsafeAppendEventFn,
   KumikoEventTypeMap,
   Registry,
   TenantId,
@@ -20,7 +20,7 @@ import { appendDomainEventCore } from "./append-event-core";
 //
 // TMap propagates the strict event-type-map (see HandlerContext). Default
 // matches the global KumikoEventTypeMap; runtime-pluggable callers route
-// through appendEventUnsafe.
+// through unsafeAppendEvent.
 export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = {
   // Append a domain event onto an aggregate stream in the CURRENT tx.
   // Schema-validated, archive-guarded, stream-version derived. Metadata
@@ -31,7 +31,7 @@ export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = 
   readonly appendEvent: AppendEventFn<TMap>;
   // Escape hatch for runtime-pluggable events without compile-time
   // augmentation. Same runtime semantics; type-surface is `payload: unknown`.
-  readonly appendEventUnsafe: AppendEventUnsafeFn;
+  readonly unsafeAppendEvent: UnsafeAppendEventFn;
   // Read an aggregate stream — useful when a saga needs to inspect the
   // current state of a different aggregate before deciding what to emit.
   readonly loadAggregate: (
@@ -88,14 +88,14 @@ export function createMultiStreamApplyContext(
         args,
       );
     }) as AppendEventFn,
-    appendEventUnsafe: async (args) => {
+    unsafeAppendEvent: async (args) => {
       await appendDomainEventCore(
         {
           registry: deps.registry,
           db: deps.db,
           tenantId: deps.tenantId,
           userId: deps.userId,
-          callSiteLabel: "MSP-apply ctx.appendEventUnsafe",
+          callSiteLabel: "MSP-apply ctx.unsafeAppendEvent",
           ...(deps.callerFeature && { callerFeature: deps.callerFeature }),
         },
         args,
