@@ -576,6 +576,7 @@ describe("feature-toggles queries + audit automation", () => {
       effective: true,
     });
   });
+
 });
 
 // --- Multi-instance cache-sync (toggle-cache-sync MSP) ---

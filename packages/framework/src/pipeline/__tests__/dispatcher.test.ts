@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import type { TenantId } from "../../engine/types/identifiers";
 import { createTestUser } from "../../stack";
 import { createDispatcher } from "../dispatcher";
 
@@ -327,12 +328,8 @@ describe("dispatcher feature-gate", () => {
     // mit user.tenantId, resolver kann pro Tenant unterschiedliche Sets
     // returnen → Tier-A sieht feature, Tier-B nicht.
     const registry = createRegistry([toggled()]);
-    const tenantA = "00000000-0000-4000-8000-0000000000a1" as import(
-      "../../engine/types/identifiers"
-    ).TenantId;
-    const tenantB = "00000000-0000-4000-8000-0000000000b2" as import(
-      "../../engine/types/identifiers"
-    ).TenantId;
+    const tenantA = "00000000-0000-4000-8000-0000000000a1" as TenantId;
+    const tenantB = "00000000-0000-4000-8000-0000000000b2" as TenantId;
 
     const dispatcher = createDispatcher(
       registry,
@@ -375,12 +372,8 @@ describe("dispatcher feature-gate", () => {
     // Pin: hasFeature() in handler-bodies resolves against ctx.user.tenantId,
     // NICHT gegen einen globalen Set. Two tenants call same handler,
     // beide rufen hasFeature("toggled") — A bekommt true, B false.
-    const tenantA = "00000000-0000-4000-8000-0000000000a3" as import(
-      "../../engine/types/identifiers"
-    ).TenantId;
-    const tenantB = "00000000-0000-4000-8000-0000000000b4" as import(
-      "../../engine/types/identifiers"
-    ).TenantId;
+    const tenantA = "00000000-0000-4000-8000-0000000000a3" as TenantId;
+    const tenantB = "00000000-0000-4000-8000-0000000000b4" as TenantId;
 
     const probe = defineFeature("probe", (r) => {
       r.queryHandler(
