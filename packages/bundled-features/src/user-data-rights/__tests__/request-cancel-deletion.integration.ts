@@ -14,9 +14,9 @@ import {
   createEntityTable,
   createTestUser,
   setupTestStack,
+  type TestStack,
   testTenantId,
   testUserId,
-  type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq, sql } from "drizzle-orm";
@@ -120,6 +120,13 @@ async function fetchAlice(): Promise<{
   return rows[0] ?? null;
 }
 
+type RequestDeletionResponse = {
+  userId: string;
+  status: string;
+  gracePeriod: { days?: number; hours?: number };
+  graceDescription: string;
+};
+
 describe("POST request-deletion :: happy path", () => {
   test("Active-User → status=deletionRequested + gracePeriodEnd ~30 Tage (eu-dsgvo)", async () => {
     await seedAlice();
@@ -128,23 +135,22 @@ describe("POST request-deletion :: happy path", () => {
     // Profile-Resolution sichtbar ist.
     await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
 
-    const result = await stack.http.writeOk<{
-      userId: string;
-      status: string;
-      graceDays: number;
-    }>(REQUEST_DELETION, {}, aliceUser);
+    const result = await stack.http.writeOk<RequestDeletionResponse>(
+      REQUEST_DELETION,
+      {},
+      aliceUser,
+    );
 
     expect(result.status).toBe(USER_STATUS.DeletionRequested);
     expect(result.userId).toBe(aliceUser.id);
-    expect(result.graceDays).toBe(30);
+    expect(result.gracePeriod).toEqual({ days: 30 });
+    expect(result.graceDescription).toBe("30 days");
 
     const row = await fetchAlice();
     expect(row?.status).toBe(USER_STATUS.DeletionRequested);
     expect(row?.gracePeriodEnd).not.toBeNull();
     // Frist liegt zwischen +29d und +31d (Drift-Toleranz, weil now() server-side).
-    const graceMs = row?.gracePeriodEnd
-      ? row.gracePeriodEnd.epochMilliseconds - Date.now()
-      : 0;
+    const graceMs = row?.gracePeriodEnd ? row.gracePeriodEnd.epochMilliseconds - Date.now() : 0;
     expect(graceMs).toBeGreaterThan(29 * 24 * 60 * 60 * 1000);
     expect(graceMs).toBeLessThan(31 * 24 * 60 * 60 * 1000);
   });
@@ -153,12 +159,42 @@ describe("POST request-deletion :: happy path", () => {
     await seedAlice();
     // Kein SET_PROFILE → resolveComplianceProfile fallt auf
     // minimal-no-region (warning="no-profile-selected") zurueck.
-    const result = await stack.http.writeOk<{ graceDays: number }>(
+    const result = await stack.http.writeOk<RequestDeletionResponse>(
       REQUEST_DELETION,
       {},
       aliceUser,
     );
-    expect(result.graceDays).toBe(30);
+    expect(result.gracePeriod).toEqual({ days: 30 });
+  });
+
+  // Advisor-Finding S2.U5a: hours-Override wurde stillschweigend auf 30d
+  // gefallen weil "days" in spec false war. Pinst den Fix via durationSpec-
+  // ToInterval — sowohl `{days}` als auch `{hours}` werden korrekt
+  // gerendert.
+  test("Profile-Override {hours: 6} → ~6h Grace (kein 30d-Fallback)", async () => {
+    await seedAlice();
+    await stack.http.writeOk(
+      SET_PROFILE,
+      {
+        profileKey: "eu-dsgvo",
+        override: JSON.stringify({ userRights: { gracePeriod: { hours: 6 } } }),
+      },
+      tenantAdmin,
+    );
+
+    const result = await stack.http.writeOk<RequestDeletionResponse>(
+      REQUEST_DELETION,
+      {},
+      aliceUser,
+    );
+    expect(result.gracePeriod).toEqual({ hours: 6 });
+    expect(result.graceDescription).toBe("6 hours");
+
+    const row = await fetchAlice();
+    const graceMs = row?.gracePeriodEnd ? row.gracePeriodEnd.epochMilliseconds - Date.now() : 0;
+    // Toleranzfenster: +5h..+7h (vorher: stilles 30d-Fallback ware ~720h).
+    expect(graceMs).toBeGreaterThan(5 * 60 * 60 * 1000);
+    expect(graceMs).toBeLessThan(7 * 60 * 60 * 1000);
   });
 });
 
@@ -181,9 +217,9 @@ describe("POST request-deletion :: state-transitions", () => {
     await seedAlice({ status: USER_STATUS.DeletionRequested });
     const err = await stack.http.writeErr(REQUEST_DELETION, {}, aliceUser);
     expect(reason(err)).toBe("user_not_in_active_state");
-    expect(
-      (err.details as { currentStatus?: string })?.currentStatus,
-    ).toBe(USER_STATUS.DeletionRequested);
+    expect((err.details as { currentStatus?: string })?.currentStatus).toBe(
+      USER_STATUS.DeletionRequested,
+    );
   });
 
   test("im Restricted-State (Art. 18) → 422 user_not_in_active_state", async () => {
@@ -245,9 +281,7 @@ describe("POST cancel-deletion :: state-transitions", () => {
     await seedAlice();
     const err = await stack.http.writeErr(CANCEL_DELETION, {}, aliceUser);
     expect(reason(err)).toBe("no_pending_deletion");
-    expect((err.details as { currentStatus?: string })?.currentStatus).toBe(
-      USER_STATUS.Active,
-    );
+    expect((err.details as { currentStatus?: string })?.currentStatus).toBe(USER_STATUS.Active);
   });
 
   test("im Restricted-State (Art. 18) → 422 no_pending_deletion", async () => {
@@ -266,6 +300,37 @@ describe("POST cancel-deletion :: state-transitions", () => {
     expect(reason(err)).toBe("grace_period_expired");
     // Bewusst nicht reversibel — Cleanup-Runner darf in der Zwischenzeit
     // schon angelaufen sein, Reversal waere data-loss-Risiko.
+  });
+});
+
+describe("Cross-Tenant-Account-Semantik", () => {
+  // User-Entity ist tenant-agnostisch — `status` und `gracePeriodEnd`
+  // sind globale Spalten am User-Row. request-deletion in Tenant A
+  // flippt den User-Row global, alle Tenants sehen den User als
+  // deletionRequested. Pinst die Default-Semantik fuer DSGVO Art. 17
+  // (Account-weite Loeschung, nicht Per-Mandant). Wer nur einen Tenant
+  // verlassen will, nutzt leave-tenant — kein Forget-Pfad.
+  test("request-deletion in Tenant A flippt User global (sichtbar fuer alle Memberships)", async () => {
+    await seedAlice(); // Alice landet als 1 User-Row, status=Active.
+
+    // request aus Tenant A.
+    await stack.http.writeOk(REQUEST_DELETION, {}, aliceUser);
+
+    // Sicht aus Tenant B — derselbe User-Row, also ist status auch hier
+    // deletionRequested. Wir koennen das ueber den User-Row direkt pinnen
+    // (kein per-Membership-State); ein zweiter request-from-B wuerde
+    // mit "user_not_in_active_state" abgelehnt werden, was die Globalitaet
+    // beweist.
+    const aliceFromB = createTestUser({
+      id: 42,
+      tenantId: testTenantId(2),
+      roles: ["Member"],
+    });
+    const err = await stack.http.writeErr(REQUEST_DELETION, {}, aliceFromB);
+    expect(reason(err)).toBe("user_not_in_active_state");
+    expect((err.details as { currentStatus?: string })?.currentStatus).toBe(
+      USER_STATUS.DeletionRequested,
+    );
   });
 });
 

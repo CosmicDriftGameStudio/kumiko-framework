@@ -11,8 +11,8 @@ import { complianceProfileOverrideSchema } from "../override-schema";
 import {
   COMPLIANCE_PROFILES,
   OVERRIDABLE_PROFILE_KEYS,
-  SELECTABLE_PROFILE_KEYS,
   resolveComplianceProfile,
+  SELECTABLE_PROFILE_KEYS,
 } from "../profiles";
 
 // Identifikations-Keys die ein Override NICHT modifizieren darf — sie

@@ -20,17 +20,19 @@ export const cancelDeletionWrite = defineWriteHandler({
   schema: z.object({}),
   access: { openToAll: true },
   handler: async (event, ctx) => {
+    // ctx.db.raw (kein TenantDb-Wrapper) weil User-Entity tenant-agnostisch
+    // ist — siehe request-deletion.write.ts fuer die Begruendung. Cancel
+    // muss aus jedem Tenant-Mode den User finden + zuruecksetzen koennen.
+    //
     // Combined query: status + grace_period_end-vs-now in einem Pass.
-    // Subquery pattern weil ctx.db (TenantDb) keinen direkten execute()
-    // exposed — drizzle-select mit raw-SQL-where-Klausel funktioniert.
-    const checkRows = (await ctx.db
+    const checkRows = await ctx.db.raw
       .select({
         status: userTable["status"],
         inGrace: sql<boolean>`(${userTable["gracePeriodEnd"]} > now())`,
       })
       .from(userTable)
       .where(eq(userTable["id"], event.user.id))
-      .limit(1)) as Array<{ status: string; inGrace: boolean | null }>;
+      .limit(1);
 
     if (checkRows.length === 0) {
       return writeFailure(
@@ -60,7 +62,7 @@ export const cancelDeletionWrite = defineWriteHandler({
       );
     }
 
-    await ctx.db
+    await ctx.db.raw
       .update(userTable)
       .set({
         status: USER_STATUS.Active,

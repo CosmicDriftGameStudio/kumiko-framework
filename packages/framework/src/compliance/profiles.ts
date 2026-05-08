@@ -280,15 +280,11 @@ export const OVERRIDABLE_PROFILE_KEYS: ReadonlySet<string> = new Set([
 
 // --- Extends-Resolver (deep-merge) ---
 
-type DeepReadonly<T> = T extends object
-  ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
-  : T;
+type DeepReadonly<T> = T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
 
 export type ComplianceProfileOverride = DeepReadonly<DeepPartial<ComplianceProfile>>;
 
-type DeepPartial<T> = T extends object
-  ? { [K in keyof T]?: DeepPartial<T[K]> }
-  : T;
+type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } : T;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -352,8 +348,10 @@ function resolveExtends(key: ComplianceProfileKey): ComplianceProfile {
     );
   }
 
-  return deepMerge(base as Record<string, unknown>, raw as unknown as Record<string, unknown>) as
-    unknown as ComplianceProfile;
+  return deepMerge(
+    base as Record<string, unknown>,
+    raw as unknown as Record<string, unknown>,
+  ) as unknown as ComplianceProfile;
 }
 
 /**

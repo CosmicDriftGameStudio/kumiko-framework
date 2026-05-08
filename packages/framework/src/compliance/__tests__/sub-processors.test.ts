@@ -6,9 +6,9 @@
 
 import { describe, expect, test } from "vitest";
 import {
-  KUMIKO_SUB_PROCESSORS,
   getActiveSubProcessors,
   getPlannedSubProcessors,
+  KUMIKO_SUB_PROCESSORS,
 } from "../sub-processors";
 
 describe("KUMIKO_SUB_PROCESSORS", () => {
