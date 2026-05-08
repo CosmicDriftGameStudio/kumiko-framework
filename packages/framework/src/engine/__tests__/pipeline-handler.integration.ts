@@ -3,14 +3,18 @@
 //   - r.writeHandler(definitionObj) accepts the new output shape
 //   - boot-validation doesn't trip on the `perform` field
 //   - dispatcher parses the payload (Zod schema) BEFORE invoking handler
+//   - dispatcher checks access-rules BEFORE invoking handler
 //   - dispatcher hands the handler a real HandlerContext (~30 fields)
 //   - the compiled handler (defineWriteHandler-generated) runs the
 //     pipeline-runner against that ctx
 //   - r.step.return resolver receives the live event
 //   - WriteResult lands on the HTTP caller
+//   - a step that throws maps to a standard write-failure (500 +
+//     internal_error) via the dispatcher's catch
 //
-// Compare to pipeline-vertical-slice.test.ts which mocks ctx — this test
-// is the gate advisor flagged: real Postgres, real JWT, real HTTP.
+// Compare to pipeline-vertical-slice.test.ts which uses an empty ctx
+// mock — this test is the gate advisor flagged: real Postgres, real
+// JWT, real HTTP.
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";

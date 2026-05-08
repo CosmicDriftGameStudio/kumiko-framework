@@ -94,7 +94,7 @@ export function defineWriteHandler<
     ...(def.access && { access: def.access }),
     ...(def.skipTransitionGuard && { skipTransitionGuard: def.skipTransitionGuard }),
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
-  } as const;
+  };
 
   if ("perform" in def && def.perform !== undefined) {
     const performDef = def.perform;

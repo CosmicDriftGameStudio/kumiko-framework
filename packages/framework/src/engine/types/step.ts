@@ -91,14 +91,15 @@ export type StepInstance = {
  * `__kind: "pipeline"` lets defineWriteHandler distinguish a pipeline-
  * form `perform` from accidental other shapes.
  *
- * TData is a phantom type-parameter held in constraint position only —
- * defineWriteHandler binds it via `def.perform: PipelineDef<…, TData>`.
- * Note: TData is NOT inferred from the closure body (r.step.return has
- * its own per-call TData), so callers must spell it explicitly:
+ * TData is a phantom type-parameter — held in constraint position only,
+ * never referenced in the type body. defineWriteHandler binds it via
+ * `def.perform: PipelineDef<…, TData>`. TData is NOT inferred from the
+ * closure body (r.step.return has its own per-call TData), so callers
+ * must spell it explicitly:
  *   `pipeline<{ greeting: string }, { echoed: string }>(...)`
  * Better DX is a known follow-up — see step-vocabulary.md M.1-Followups.
  */
-export type PipelineDef<TPayload = unknown, _TData = unknown> = {
+export type PipelineDef<TPayload = unknown, TData = unknown> = {
   readonly __kind: "pipeline";
   readonly build: (ctx: PipelineBuildCtx<TPayload>) => readonly StepInstance[];
 };
