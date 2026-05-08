@@ -58,9 +58,34 @@ const explodeHandler = defineWriteHandler({
   ]),
 });
 
+// Third handler exercises the multi-step path through the real
+// dispatcher: compute lands a value under steps.<name>, return reads it.
+// Threading verified in the unit-test against an empty ctx; this proves
+// the same wiring holds with the dispatcher's full HandlerContext.
+const compoundSchema = z.object({ base: z.number() });
+const compoundHandler = defineWriteHandler({
+  name: "compound",
+  schema: compoundSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof compoundSchema>, { sum: number; userId: string }>(
+    ({ event, r }) => [
+      r.step.compute("offset", () => 100),
+      r.step.compute("doubledBase", () => event.payload.base * 2),
+      r.step.return(({ steps, event: e }) => ({
+        isSuccess: true as const,
+        data: {
+          sum: (steps["offset"] as number) + (steps["doubledBase"] as number),
+          userId: e.user.id,
+        },
+      })),
+    ],
+  ),
+});
+
 const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.writeHandler(echoHandler);
   r.writeHandler(explodeHandler);
+  r.writeHandler(compoundHandler);
 });
 
 let stack: TestStack;
@@ -122,6 +147,24 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     const body = (await res.json()) as { isSuccess: false; error: { code: string } };
     expect(body.isSuccess).toBe(false);
     expect(body.error.code).toBe("access_denied");
+  });
+
+  test("compute steps thread results through to the return-step's resolver via the real dispatcher ctx", async () => {
+    const res = await stack.http.write(
+      "demo-pipeline:write:compound",
+      { base: 7 },
+      admin,
+    );
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as {
+      isSuccess: true;
+      data: { sum: number; userId: string };
+    };
+    expect(body.isSuccess).toBe(true);
+    // 100 (offset) + 14 (base * 2) = 114
+    expect(body.data.sum).toBe(114);
+    expect(body.data.userId).toBe(admin.id);
   });
 
   test("a step that throws maps to a standard write-failure (dispatcher catch)", async () => {

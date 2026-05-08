@@ -107,6 +107,69 @@ describe("pipeline (M.1.1 vertical slice)", () => {
     ).rejects.toThrow(/r\.step\.return/);
   });
 
+  it("threads compute results into subsequent step resolvers via steps.<name>", async () => {
+    // Multi-step pipeline: compute lands a value under steps.startedAt,
+    // the return resolver reads it back. This is the smallest test
+    // that proves the steps-accumulator works end-to-end — every later
+    // tier-1 step (read.*, aggregate.*) relies on the same plumbing.
+    const handlerDef = defineWriteHandler({
+      name: "demo:thread",
+      schema: z.object({ base: z.number() }),
+      access: { roles: ["User"] },
+      perform: pipeline<{ base: number }, { sum: number }>(({ event, r }) => [
+        r.step.compute("offset", () => 10),
+        r.step.compute("doubledBase", () => event.payload.base * 2),
+        r.step.return(({ steps }) => ({
+          isSuccess: true as const,
+          data: {
+            sum: (steps["offset"] as number) + (steps["doubledBase"] as number),
+          },
+        })),
+      ]),
+    });
+
+    const result = await handlerDef.handler(
+      { type: "demo:thread", payload: { base: 5 }, user: TestUsers.admin },
+      buildMinimalCtx(),
+    );
+    expect(result.isSuccess).toBe(true);
+    if (result.isSuccess) {
+      expect(result.data).toEqual({ sum: 20 });
+    }
+  });
+
+  it("re-evaluates compute resolvers per pipeline run (not at build time)", async () => {
+    // The pipeline closure runs once per handler-invocation, but compute
+    // resolvers are part of step args and execute again on each call.
+    // Verifies a counter-style derivation produces fresh values per call.
+    let counter = 0;
+    const handlerDef = defineWriteHandler({
+      name: "demo:fresh",
+      schema: z.object({}),
+      access: { roles: ["User"] },
+      perform: pipeline<Record<string, never>, { tick: number }>(({ r }) => [
+        r.step.compute("tick", () => ++counter),
+        r.step.return(({ steps }) => ({
+          isSuccess: true as const,
+          data: { tick: steps["tick"] as number },
+        })),
+      ]),
+    });
+
+    const a = await handlerDef.handler(
+      { type: "demo:fresh", payload: {}, user: TestUsers.admin },
+      buildMinimalCtx(),
+    );
+    const b = await handlerDef.handler(
+      { type: "demo:fresh", payload: {}, user: TestUsers.admin },
+      buildMinimalCtx(),
+    );
+    if (a.isSuccess && b.isSuccess) {
+      expect(a.data.tick).toBe(1);
+      expect(b.data.tick).toBe(2);
+    }
+  });
+
   it("rejects a step with an unknown kind at runtime", async () => {
     const handlerDef = defineWriteHandler({
       name: "demo:unknown-kind",

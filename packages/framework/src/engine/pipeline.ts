@@ -8,6 +8,7 @@
 // the resolver-side PipelineCtx (run-pipeline.ts). Resolvers that need
 // prior step results destructure them from the resolver's ctx.
 
+import { buildComputeStep } from "./steps/compute";
 import { buildReturnStep } from "./steps/return";
 import type { PipelineBuildCtx, PipelineDef, StepBuilder, StepInstance } from "./types/step";
 import type { WriteEvent } from "./types/handlers";
@@ -15,6 +16,7 @@ import type { WriteEvent } from "./types/handlers";
 const stepBuilder: StepBuilder = {
   step: {
     return: buildReturnStep,
+    compute: buildComputeStep,
   },
 };
 

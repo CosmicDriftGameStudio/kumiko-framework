@@ -133,14 +133,18 @@ export type StepBuilder = {
 };
 
 /**
- * The collection of step factory functions. Grown incrementally — M.1.1
- * lands `return` only; subsequent slices add compute, branch, forEach,
+ * The collection of step factory functions. Grown incrementally —
+ * landed: return (M.1.1), compute (M.1.2). Pending: branch, forEach,
  * read.*, aggregate.*, db.*.
  */
 export type StepNamespace = {
   readonly return: <TData>(
     resolver: StepResolver<WriteResult<TData>>,
   ) => StepInstance;
-  // M.1.2+: compute, branch, forEach, read, aggregate, db, ...
+  readonly compute: <TResult>(
+    name: string,
+    fn: (ctx: PipelineCtx) => TResult,
+  ) => StepInstance;
+  // M.1.3+: branch, forEach, read, aggregate, db, ...
 };
 
