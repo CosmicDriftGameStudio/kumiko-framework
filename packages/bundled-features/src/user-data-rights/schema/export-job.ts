@@ -68,6 +68,17 @@ export const exportJobEntity = createEntity({
       required: true,
     }),
 
+    // **requestedFromTenantId** — der Tenant aus dem der User den Antrag
+    // gestellt hat. Persistierter Audit-Pfad fuer den Worker (welches
+    // Compliance-Profile gilt fuer Job-TTL/Stale/Cleanup) — DSGVO-
+    // konsistent: 1 User = 1 effektives Profile pro Antrag, nicht "wechselt
+    // mit jedem Cross-Tenant-Klick". Plan-Doc-Decision: Tenant aus 1. Klick
+    // (Option a). Spalte heisst nicht einfach "tenantId" damit kein
+    // Verwechseln mit der Framework-Auto-Spalte tenant_id.
+    requestedFromTenantId: createTextField({
+      required: true,
+    }),
+
     status: createSelectField({
       required: true,
       default: EXPORT_JOB_STATUS.Pending,

@@ -100,6 +100,7 @@ describe("exportJobEntity Schema-Shape", () => {
     expect(fieldNames).toEqual(
       expect.arrayContaining([
         "userId",
+        "requestedFromTenantId",
         "status",
         "requestedAt",
         "startedAt",

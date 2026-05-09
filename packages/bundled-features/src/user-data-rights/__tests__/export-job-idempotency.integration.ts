@@ -87,6 +87,7 @@ async function insertJob(
     id,
     tenantId: TENANT_SYSTEM,
     userId,
+    requestedFromTenantId: TENANT_SYSTEM,
     status,
     requestedAt: NOW(),
   };

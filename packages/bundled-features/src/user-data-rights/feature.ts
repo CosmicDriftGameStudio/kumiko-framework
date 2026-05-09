@@ -4,7 +4,9 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
+import { exportStatusQuery } from "./handlers/export-status.query";
 import { requestDeletionWrite } from "./handlers/request-deletion.write";
+import { requestExportWrite } from "./handlers/request-export.write";
 import { runForgetCleanupWrite } from "./handlers/run-forget-cleanup.write";
 import { exportJobEntity } from "./schema/export-job";
 
@@ -72,16 +74,15 @@ export function createUserDataRightsFeature(): FeatureDefinition {
     r.writeHandler(runForgetCleanupWrite);
     r.exposesApi("userDataRights.runForget");
 
-    // S2.U3+U4 (geplant) — Async Export-Pipeline:
-    //   ExportJob-Entity (pending → running → done | failed)
-    //   user-data-rights:write:request-export    (User triggert Job)
-    //   user-data-rights:query:export-status     (User pollt Status)
-    //   user-data-rights:query:download-export   (Job=done → Download)
-    //   r.job("run-export-jobs", { trigger: { manual + cron } }) Worker
+    // S2.U3 Atom 2 — User-Touchpoints fuer Async Export-Pipeline:
+    //   POST /api/user/request-export   — Job-Trigger mit App-side-Pre-
+    //                                     Check + crud.create (ES-Pattern)
+    //   GET  /api/user/export-status    — Polling fuer den meist-aktuellen
+    //                                     Job des Users
     //
-    // `runUserExport` (siehe run-user-export.ts) ist die pure Single-User-
-    // Bundle-Function — wird vom Worker pro Job-Row gerufen, nicht direkt
-    // exposed. Plan-Doc:
-    // docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
+    // Worker (Atom 3b), Download-Endpoint (Atom 4b) folgen.
+    r.writeHandler(requestExportWrite);
+    r.queryHandler(exportStatusQuery);
+    r.exposesApi("userDataRights.runExport");
   });
 }
