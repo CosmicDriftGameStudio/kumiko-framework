@@ -11,11 +11,11 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -40,7 +40,7 @@ beforeAll(async () => {
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
-  await pushTables(stack.db, { configValuesTable });
+  await unsafePushTables(stack.db, { configValuesTable });
 });
 
 afterAll(async () => stack?.cleanup());

@@ -127,6 +127,12 @@ export {
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
 } from "./system-user";
+export {
+  type EffectiveFeaturesResolver,
+  findTierResolverUsage,
+  TENANT_TIER_RESOLVER_EXT,
+  type TierResolverPlugin,
+} from "./tier-resolver-extension";
 // Types
 export type {
   AccessRule,

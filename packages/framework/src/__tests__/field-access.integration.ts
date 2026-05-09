@@ -12,13 +12,13 @@ import {
   type SessionUser,
 } from "../engine";
 import {
-  createEntityTable,
   createTestDb,
   createTestRedis,
   createTestUser,
   type TestDb,
   type TestRedis,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../stack";
 
 // --- Entity with field-level access ---
@@ -52,7 +52,7 @@ beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
 
-  await createEntityTable(testDb.db, employeeEntity);
+  await unsafeCreateEntityTable(testDb.db, employeeEntity);
 
   const feature = defineFeature("employees", (r) => {
     r.entity("employee", employeeEntity);

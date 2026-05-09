@@ -11,7 +11,7 @@ import {
   defineFeature,
 } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
 // Two entities: `bag` (outer) + `secret` (inner). The outer handler calls
 // the inner via ctx.queryAs / ctx.writeAs. We verify:
@@ -144,8 +144,8 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [bridgeFeature] });
-  await createEntityTable(stack.db, bagEntity);
-  await createEntityTable(stack.db, secretEntity);
+  await unsafeCreateEntityTable(stack.db, bagEntity);
+  await unsafeCreateEntityTable(stack.db, secretEntity);
 });
 
 afterAll(async () => {

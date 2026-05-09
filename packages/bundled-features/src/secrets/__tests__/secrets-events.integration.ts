@@ -13,9 +13,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -50,7 +50,7 @@ beforeAll(async () => {
       secrets: createSecretsContext({ db, masterKeyProvider: provider }),
     }),
   });
-  await pushTables(stack.db, { tenantSecretsTable });
+  await unsafePushTables(stack.db, { tenantSecretsTable });
   await createEventsTable(stack.db);
 });
 

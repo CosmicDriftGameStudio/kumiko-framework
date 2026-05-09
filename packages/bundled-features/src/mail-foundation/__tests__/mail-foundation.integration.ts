@@ -14,12 +14,12 @@ import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
-  createEntityTable,
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createMutableMasterKeyProvider,
@@ -106,8 +106,8 @@ beforeAll(async () => {
   });
   db = stack.db;
 
-  await createEntityTable(db, tenantEntity);
-  await pushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
+  await unsafeCreateEntityTable(db, tenantEntity);
+  await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
   await createEventsTable(db);
 });
 

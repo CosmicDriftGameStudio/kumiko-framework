@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import { bigint, index, instant, table as pgTable, text } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
-import { pushTables } from "../stack";
+import { unsafePushTables } from "../stack";
 
 // Framework-level state for every registered projection. One row per qualified
 // projection name. Written by the rebuild machinery; read by the CLI + any
@@ -23,7 +23,7 @@ import { pushTables } from "../stack";
 // last_processed_event_id uses a raw DEFAULT 0 instead of .default(0n) because
 // drizzle-kit's JSON snapshot generator cannot serialise bigint literals —
 // `TypeError: Do not know how to serialize a BigInt` bubbles through
-// pushTables → generateMigration. `sql\`0\`` yields the same server-side
+// unsafePushTables → generateMigration. `sql\`0\`` yields the same server-side
 // default without ever putting a bigint in a generated-JSON path.
 export const projectionStateTable = pgTable(
   "kumiko_projections",
@@ -68,5 +68,5 @@ export const PROJECTION_STATUSES = [
 export async function createProjectionStateTable(db: DbConnection): Promise<void> {
   // skip: table already exists — bootstrap is called from multiple paths
   if (await tableExists(db, "public.kumiko_projections")) return;
-  await pushTables(db, { kumikoProjections: projectionStateTable });
+  await unsafePushTables(db, { kumikoProjections: projectionStateTable });
 }

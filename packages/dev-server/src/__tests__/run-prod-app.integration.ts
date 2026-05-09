@@ -27,7 +27,7 @@ import {
   createEventConsumerStateTable,
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { ensureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
@@ -116,7 +116,7 @@ async function migrateTestDb(): Promise<void> {
     await createArchivedStreamsTable(db);
     await createProjectionStateTable(db);
     await createEventConsumerStateTable(db);
-    await ensureEntityTable(db, widgetEntity, "widget");
+    await unsafeEnsureEntityTable(db, widgetEntity, "widget");
   } finally {
     await close();
   }
@@ -167,7 +167,7 @@ describe("runProdApp", () => {
   test("second boot against the same DB is idempotent — no crash, no duplicate tables", async () => {
     await boot();
     // First boot left tables in place. Restart on the same DB —
-    // ensureEntityTable should be a no-op for the existing rows.
+    // unsafeEnsureEntityTable should be a no-op for the existing rows.
     const second = await boot();
 
     const res = await second.entrypoint.app.fetch(new Request("http://test/health"));

@@ -2,71 +2,368 @@
 //
 // **Was diese Feature macht:**
 //   Speichert pro Plattform-Tenant ein Tier-Assignment (welcher Tier ist
-//   aktiv). composeApp-Helper liest diesen Stand und leitet daraus ab,
-//   welche Features für den Tenant gemountet werden.
+//   aktiv). Optional (mit `tierMap` in Options): per-tenant feature-set
+//   resolution via Framework's `tenantTierResolver`-extension — das
+//   dispatcher-feature-gate fragt automatisch pro request den resolver
+//   nach dem effective Set für den aktiven Tenant.
+//
+// **Zwei Use-Modes:**
+//   1. `createTierEngineFeature()` ohne opts — nur Storage (Standard-CRUD
+//      für tier-assignment-Entity). Apps die composeApp() oder eigene
+//      logic nutzen.
+//   2. `createTierEngineFeature({ defaultTier, tierMap })` — vollständige
+//      Tier-Composition. Sprint-8a Pattern für multi-tenant SaaS-Apps.
+//      Framework auto-wires effectiveFeatures via extension-pickup.
 //
 // **Generic über Tier-Werte:** das Feature kennt keine "free"/"pro"/etc.
-//   konkreten Tier-Werte. Es speichert nur den Tier-Namen als String. Die
-//   App definiert ihre TierMap (siehe compose-app.ts), damit kumiko.so,
-//   PublicStatus, und andere Kumiko-Apps je eigene Tier-Sets nutzen können.
+//   konkreten Tier-Werte. App definiert ihre TierMap.
 //
-// **Standard-CRUD-Handler in Sprint 1:** Create/Update/List/Detail per
-//   `defineEntityXxxHandler`. Idempotente set-tier-Logic (deterministic
-//   aggregate-id, create-or-update-Routing) kommt im stripe-sync-Feature
-//   in Sprint 5 als Wrapper darum.
+// **Auto-Default-Tier on Tenant-Signup:** wenn `opts.defaultTier` gesetzt
+//   ist, schreibt ein r.entityHook("postSave", "tenant", phase: inTransaction)
+//   automatisch eine tier-assignment für den neuen Tenant. Atomic mit
+//   tenant-create — wenn tier-assignment fail't, tenant-create rolled back.
+//   Idempotent via deterministic aggregate-id (re-replay re-checkt stream-
+//   version, skip wenn schon da). Plus: cache-miss-fallback returnt
+//   defaultTier-features wenn assignment-row fehlt (defense-in-depth gegen
+//   replay-races wo der hook noch nicht durch ist).
 //
-// **Tenant-Scope:** tier-engine ist tenant-scoped. Plattform-Tenant verwaltet
-//   seinen eigenen Tier (Self-Service-Upgrade-UI). Stripe-Webhook (Sprint 5)
-//   wird im stripe-sync-Feature die tenant-resolution machen und den
-//   tier-assignment:create/update-Handler mit dem aufgelösten Context
-//   aufrufen.
+// **In-Memory-Cache mit Push-Invalidation:**
+//   Closure-state pro feature-instance hält die effective Sets pro Tenant.
+//   r.entityHook auf tier-assignment:postSave/postDelete hält cache aktuell.
+//   Erste-Request-Cold-Cache: pre-load via build(deps) im extension-pickup
+//   Pfad (boot-time via runDevApp/runProdApp).
 //
-// **Was Sprint 1 NICHT macht:**
-//   - Custom Domain-Events (`tier-changed`) — emittiert werden derzeit nur
-//     die CRUD-Auto-Events. Sprint 4 (Add-On-Marketplace) erweitert das auf
-//     semantische Domain-Events.
-//   - Add-Ons im Schema — Sprint 4 fügt sie als separate
-//     `tier-add-on`-Entity hinzu (1:n Relation, ES-saubere Add/Remove-Events).
-//   - Cap-Counter-Integration — kommt mit `cap-counter`-Feature in Sprint 3.
-//   - Stripe-Sync + Idempotent-Set-Tier-Wrapper — kommt mit `stripe-sync`-
-//     Feature in Sprint 5.
+// **SYSTEM_TENANT_ID-Convention:**
+//   resolver-callback bei call mit SYSTEM_TENANT_ID returnt union aller
+//   tier-features (für event-dispatcher async-pass + operator-tooling).
+//   Siehe DispatcherOptions.effectiveFeatures-doc.
 //
-// **Boot-Dependencies:**
-//   r.requires("config") — transitiv für tenant.
-//   r.requires("tenant") — tier-assignment lebt im Plattform-Tenant-Kontext.
+// **Boot-Dependencies:** config + tenant.
 
+import {
+  buildDrizzleTable,
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbConnection,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   defineEntityCreateHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
+  HookPhases,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  TENANT_TIER_RESOLVER_EXT,
+  type TenantId,
+  type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eq, max as maxFn } from "drizzle-orm";
+import { tierAssignmentAggregateId } from "./aggregate-id";
+import type { TierMap } from "./compose-app";
 import { TIER_ENGINE_FEATURE } from "./constants";
 import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
 
+// Drizzle-table for the tier-assignment-entity. Built once at module-load
+// from the entity definition — same shape buildDrizzleTable would produce
+// in the App's drizzle/schema.generated.ts.
+const tierAssignmentTable = buildDrizzleTable("tier-assignment", tierAssignmentEntity);
+
+// Event-store-executor für direct-write aus dem auto-default-tier-hook.
+// Pattern wie tenant/seeding.ts: hook sieht AppContext (kein ctx.write),
+// muss aber atomisch mit tenant-create im selben TX schreiben → executor
+// direkt aufrufen, nicht via dispatcher.
+const tierAssignmentExecutor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
+  entityName: "tier-assignment",
+});
+
 const adminAccess = { access: { roles: ["TenantAdmin", "SystemAdmin"] } } as const;
 
-export const tierEngineFeature: FeatureDefinition = defineFeature(TIER_ENGINE_FEATURE, (r) => {
-  r.requires("config");
-  r.requires("tenant");
+/**
+ * Options for createTierEngineFeature. Both fields optional — wenn beide
+ * leer, ist die feature nur Storage (back-compat zu legacy `tierEngineFeature`).
+ *
+ * @template TCaps - App-spezifischer Cap-Shape. Type-leakt durch tierMap →
+ * future capsFor() resolver returnt diesen Shape exakt.
+ */
+export type CreateTierEngineOptions<TCaps extends Readonly<Record<string, unknown>>> = {
+  /**
+   * Tier-Name der bei Tenant-signup automatisch geschrieben wird. Erfordert
+   * dass `tierMap` diesen Tier-Namen kennt (Boot-Validation).
+   * Wenn weggelassen, kein auto-assign — App schreibt manuell.
+   */
+  readonly defaultTier?: string;
 
-  r.entity("tier-assignment", tierAssignmentEntity);
+  /**
+   * App-spezifische Tier-Map. Wenn gesetzt, registriert das feature sich
+   * als plugin für `tenantTierResolver`-extension → framework auto-wires
+   * effectiveFeatures pro tenant.
+   * Wenn weggelassen, keine Resolver-extension — App muss `composeApp`
+   * oder eigene resolution-logic nutzen (legacy-pattern).
+   */
+  readonly tierMap?: TierMap<TCaps>;
+};
 
-  // Standard-CRUD via Helper. Sprint 5 wraps these in a custom set-tier
-  // handler with deterministic aggregate-id for Stripe-Webhook idempotency.
-  r.writeHandler(defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, adminAccess));
-  r.writeHandler(defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, adminAccess));
+/**
+ * Compute the union of features across all tiers — verwendet bei
+ * SYSTEM_TENANT_ID-resolver-call (operator-tooling, async-event-dispatch).
+ * Operator-UI sieht alle features unabhängig vom tier-cut, async-events
+ * laufen tier-agnostic durch.
+ */
+function unionAllTierFeatures<TCaps extends Readonly<Record<string, unknown>>>(
+  tierMap: TierMap<TCaps>,
+): ReadonlySet<string> {
+  const all = new Set<string>();
+  for (const tier of Object.values(tierMap)) {
+    for (const f of tier.features) all.add(f);
+  }
+  return all;
+}
 
-  // Reads.
-  //   - list: cross-tenant view for SystemAdmin (debug/migration-tooling)
-  //     and per-tenant 0-or-1-row view for TenantAdmin (auto-tenant-scoped)
-  //   - get-active-tier: convenience-wrapper for the only sensible per-tenant
-  //     query — returns the single row or null. composeApp consumes this.
-  //
-  // Detail-by-id-handler bewusst weggelassen — kein Use-Case, weil pro Tenant
-  // genau eine Row existiert; get-active-tier ist die richtige Lookup-Form.
-  r.queryHandler(defineEntityListHandler("tier-assignment", tierAssignmentEntity, adminAccess));
-  r.queryHandler(getActiveTierQuery);
-});
+/**
+ * Compute the feature-set for a given tier-name. Unknown tier → empty Set
+ * (defensive — verwendete tier-namen werden nicht an boot-time validiert
+ * weil tier-engine generic über tier-Werte ist).
+ */
+function featuresForTier<TCaps extends Readonly<Record<string, unknown>>>(
+  tierMap: TierMap<TCaps>,
+  tierName: string,
+): ReadonlySet<string> {
+  const tier = tierMap[tierName];
+  if (!tier) return new Set();
+  return new Set(tier.features);
+}
+
+/**
+ * Merge always-on features (non-toggleable framework-base) mit tier-cut
+ * features (toggleable per tier). Canonical Kumiko: dispatcher-gate
+ * blockt nur features die explizit `r.toggleable()` haben — alle anderen
+ * sind immer aktiv. Tier-resolver muss das selbe pattern liefern.
+ */
+function mergeAlwaysOn(
+  alwaysOn: ReadonlySet<string>,
+  tierFeatures: ReadonlySet<string>,
+): ReadonlySet<string> {
+  const merged = new Set<string>(alwaysOn);
+  for (const f of tierFeatures) merged.add(f);
+  return merged;
+}
+
+/**
+ * Factory: create a tier-engine feature instance with optional auto-tier-
+ * resolution + default-tier-on-signup behavior. Returns FeatureDefinition
+ * mountable in run-config.
+ */
+export function createTierEngineFeature<
+  TCaps extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
+>(opts: CreateTierEngineOptions<TCaps> = {}): FeatureDefinition {
+  return defineFeature(TIER_ENGINE_FEATURE, (r) => {
+    r.requires("config");
+    r.requires("tenant");
+
+    r.entity("tier-assignment", tierAssignmentEntity);
+
+    // Standard-CRUD via Helper.
+    r.writeHandler(defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, adminAccess));
+    r.writeHandler(defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, adminAccess));
+
+    // Reads.
+    r.queryHandler(defineEntityListHandler("tier-assignment", tierAssignmentEntity, adminAccess));
+    r.queryHandler(getActiveTierQuery);
+
+    // ───────────────────────────────────────────────────────────────────
+    // Resolver-extension (only when tierMap is configured)
+    // ───────────────────────────────────────────────────────────────────
+    // skip: ohne tierMap ist die feature nur Storage (legacy back-compat
+    // zu `tierEngineFeature`). Resolver-extension + invalidation-hooks
+    // brauchen die tierMap zum Mapping tier-name → feature-set.
+    if (!opts.tierMap) return;
+
+    const tierMap = opts.tierMap;
+
+    // Closure-state: cache per-tenant effective Sets. Hooks halten den
+    // cache aktuell during process-lifetime; build() im extension-pickup
+    // pre-loaded existing assignments at boot.
+    const cache = new Map<TenantId, ReadonlySet<string>>();
+    // alwaysOn-Set wird in build(deps) aus registry.features berechnet (alle
+    // non-toggleable features). Hooks brauchen Zugriff darauf für
+    // mergeAlwaysOn-calls — Late-bind via mutable holder, gefüllt vor allen
+    // Requests (build läuft pre-listen via runDevApp/runProdApp-pickup).
+    const alwaysOnHolder: { set: ReadonlySet<string> } = { set: new Set() };
+
+    // Invalidation: tier-assignment events update the cache.
+    r.entityHook("postSave", "tier-assignment", async (result) => {
+      // result.data has tenantId + tier (after entity-update merge)
+      const data = result.data as { tenantId?: unknown; tier?: unknown };
+      // skip: defensive type-guard auf payload-shape. Bei korrekt gerenderten
+      // entity-events sind beide fields immer strings; ein malformed-payload
+      // (custom-handler-bug) würde hier silent zum cache-skip führen statt
+      // throwing — der lifecycle-pipeline darf nicht durch hook-fehler
+      // blocken (afterCommit-pattern, side-effect-best-effort).
+      if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
+      cache.set(
+        data.tenantId as TenantId,
+        mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, data.tier)),
+      );
+    });
+    r.entityHook("postDelete", "tier-assignment", async (payload) => {
+      const data = payload.data as { tenantId?: unknown };
+      // skip: gleiche type-guard semantik wie postSave-hook oben.
+      if (typeof data.tenantId !== "string") return;
+      cache.delete(data.tenantId as TenantId);
+    });
+
+    // Auto-default-tier-on-tenant-signup: hook fires inTransaction (atomic
+    // mit tenant-create rollback), schreibt tier-assignment via Direct-
+    // Executor (nicht ctx.write — hook hat AppContext). Pattern analog
+    // tenant/seeding.ts seedTenant.
+    //
+    // **Idempotency:** deterministic aggregate-id aus tenantId. Re-replay
+    // (nach projection-rebuild oder hook-retry) findet stream-version > 0
+    // und skipt, statt version_conflict zu werfen. Caller sieht erfolgreichen
+    // tenant-create + bestehende tier-assignment.
+    //
+    // **Cross-tenant write:** executor braucht systemUser MIT tenantId =
+    // neuer Tenant (Memory `feedback_event_store_tenant_consistency`).
+    if (opts.defaultTier !== undefined) {
+      const defaultTier = opts.defaultTier;
+      r.entityHook(
+        "postSave",
+        "tenant",
+        async (result, ctx) => {
+          // result-shape: kumiko-framework's SaveContext mit isNew + data
+          const saveResult = result as { isNew?: unknown; data?: unknown };
+          // skip: nur bei tenant-create (initial) — tenant-updates feuern
+          // auch postSave aber wir wollen kein neues tier-assignment bei
+          // re-keying oder name-update.
+          if (saveResult.isNew !== true) return;
+          const data = saveResult.data as { id?: unknown };
+          // skip: defensive type-guard. Tenant-entity hat id zwingend, aber
+          // CrudExecutor's payload-shape ist runtime-unknown.
+          if (typeof data.id !== "string") return;
+          const newTenantId = data.id as TenantId;
+          const aggregateId = tierAssignmentAggregateId(newTenantId);
+
+          // skip: defensive — inTransaction phase hat ctx.db immer gesetzt,
+          // aber AppContext type macht's optional. Throw wäre overreach
+          // (lifecycle blocking), silent-skip ist defensive-soft.
+          if (!ctx.db) return;
+
+          // ctx.db ist im inTransaction-phase eine TenantDb (tenant-scoped
+          // proxy auf die echte TX). Für event-store-reads (cross-tenant
+          // stream-lookup via aggregate-id) brauchen wir die rohe TX —
+          // TenantDb wrapped die echte DbConnection, der select-call
+          // funktioniert structural identisch. Cast als DbConnection ist
+          // boundary-cast für event-store-API, kein narrowing-escape.
+          const rawDb = ctx.db as DbConnection;
+
+          // Idempotency: stream-existence-check vor create. Pattern aus
+          // seedTenant.ts. Bei re-replay (rebuild) nicht versionsbumpen.
+          type StreamRow = { v: number | null };
+          const [streamRow] = (await rawDb
+            .select({ v: maxFn(eventsTable.version) })
+            .from(eventsTable)
+            .where(eq(eventsTable.aggregateId, aggregateId))) as StreamRow[];
+          // skip: idempotency — aggregate-stream existiert schon (re-replay
+          // nach projection-rebuild oder hook-retry). create() würde
+          // version_conflict werfen + tenant-create rollback'n. Pattern aus
+          // tenant/seeding.ts seedTenant.
+          if ((streamRow?.v ?? 0) > 0) return;
+
+          // SystemUser für den NEUEN tenant — der Hook wird vom signup-
+          // user (anderer tenant, oder SystemAdmin) ausgelöst, aber das
+          // tier-assignment muss im stream des neu-erzeugten tenants
+          // landen (= aggregate-id deterministic auf newTenantId). Memory
+          // `feedback_event_store_tenant_consistency`: by.tenantId muss =
+          // ziel-tenant.
+          const systemUser: SessionUser = {
+            id: "00000000-0000-4000-8000-000000000001",
+            tenantId: newTenantId,
+            roles: ["SystemAdmin"],
+          };
+          const tdb = createTenantDb(rawDb, newTenantId, "system");
+
+          await tierAssignmentExecutor.create(
+            { id: aggregateId, tier: defaultTier },
+            systemUser,
+            tdb,
+          );
+        },
+        { phase: HookPhases.inTransaction },
+      );
+    }
+
+    // Extension-point declaration + self-registration. Pattern analog
+    // mail-foundation/file-foundation: das feature deklariert den
+    // extension-point UND registriert sich als default-plugin. Andere
+    // features könnten später auch dort registrieren (z.B. ein future
+    // toggle-only-resolver), aber nur ein plugin gewinnt — siehe
+    // findTierResolverUsage's "single-plugin"-comment.
+    r.extendsRegistrar(TENANT_TIER_RESOLVER_EXT, { onRegister: () => {} });
+
+    // Plugin-registration: framework's runDevApp/runProdApp picks this up
+    // post-stack-setup, calls build(deps), wires effectiveFeatures.
+    const plugin: TierResolverPlugin = {
+      build: async (deps) => {
+        // Always-on-Set: alle non-toggleable features im registry. Canonical
+        // Kumiko-pattern (matches feature-toggles' resolver): nur features
+        // die explizit `r.toggleable()` registrieren sind tier-cuttable.
+        // Framework-base-features (auth-email-password, config, user, tenant,
+        // sessions, etc.) sind non-toggleable → IMMER aktiv für jeden Tenant
+        // unabhängig vom tier. Sonst würde dispatcher 403 auf login-handler
+        // werfen weil "feature auth-email-password disabled".
+        const computedAlwaysOn = new Set<string>();
+        for (const feature of deps.registry.features.values()) {
+          if (feature.toggleableDefault === undefined) computedAlwaysOn.add(feature.name);
+        }
+        alwaysOnHolder.set = computedAlwaysOn;
+
+        // Pre-load all existing assignments into cache. SaaS-Apps haben
+        // typischerweise <100k tenants — single-pass scan akzeptabel.
+        // Skalierungs-Pfad (lazy-load + LRU) ist Sprint-8b wenn echtes
+        // Bedürfnis entsteht.
+        type AssignmentRow = { tenantId: string; tier: string };
+        const rows = (await deps.db.select().from(tierAssignmentTable)) as AssignmentRow[];
+        for (const row of rows) {
+          cache.set(
+            row.tenantId as TenantId,
+            mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
+          );
+        }
+
+        // Synchronous resolver-callback for dispatcher hot-path.
+        return (tenantId: TenantId): ReadonlySet<string> => {
+          // Operator-tooling + async-event-dispatch convention: SYSTEM_TENANT_ID
+          // gets the union of all tier-features (siehe DispatcherOptions doc).
+          if (tenantId === SYSTEM_TENANT_ID) {
+            return mergeAlwaysOn(computedAlwaysOn, unionAllTierFeatures(tierMap));
+          }
+          const cached = cache.get(tenantId);
+          if (cached !== undefined) return cached;
+          // Cache-miss: tenant ist noch nicht im cache (z.B. brandneu nach
+          // boot, oder defaultTier-hook hat noch nicht gefired). Default-Set
+          // ist least-privileged — typisch Free-Tier-features. Memory
+          // `feedback_security_default_on`: secure-by-default.
+          const fallbackTier = opts.defaultTier;
+          if (fallbackTier === undefined) return computedAlwaysOn;
+          return mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, fallbackTier));
+        };
+      },
+    };
+    // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a framework registrar method, not a React hook.
+    r.useExtension(TENANT_TIER_RESOLVER_EXT, TIER_ENGINE_FEATURE, plugin);
+  });
+}
+
+/**
+ * Legacy named export — equivalent to `createTierEngineFeature()` ohne opts.
+ * Storage-only mode (no resolver, no auto-default). Existing apps die
+ * `tierEngineFeature` referenzieren bekommen identical behavior.
+ *
+ * Migration zu `createTierEngineFeature({ defaultTier, tierMap })` gibt
+ * volle Tier-Composition (Sprint-8a Pattern).
+ */
+export const tierEngineFeature: FeatureDefinition = createTierEngineFeature();

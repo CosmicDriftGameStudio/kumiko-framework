@@ -5,11 +5,11 @@ import { defineFeature, type EntityId, type HandlerContext, type SaveContext } f
 import { UnprocessableError, writeFailure } from "../errors";
 import { eventsTable } from "../event-store";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../stack";
 import { expectErrorIncludes, sharedUserEntity, sharedUserTable } from "../testing";
 
@@ -203,7 +203,7 @@ const otherTenantAdmin = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [userFeature] });
-  await createEntityTable(stack.db, userEntity, "user");
+  await unsafeCreateEntityTable(stack.db, userEntity, "user");
 });
 
 afterAll(async () => {

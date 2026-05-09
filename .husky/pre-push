@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+# Pre-push hook — runs yarn check before allowing push.
+#
+# Logic:
+#   1. If running inside the cosmicdriftgamestudio Parent-Workspace,
+#      delegate to its `yarn check` (covers all CDGS-Repos via
+#      shared infra/guards).
+#   2. Else (standalone clone): run the sub-repo's own `yarn test:run`.
+#
+# Override: set PRE_PUSH_SKIP=1 to bypass (use sparingly).
+
+if [ "${PRE_PUSH_SKIP:-0}" = "1" ]; then
+  echo "[pre-push] PRE_PUSH_SKIP=1 — Hook übersprungen"
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+PARENT_DIR="$(cd "$REPO_ROOT/.." && pwd)"
+
+if [ -f "$PARENT_DIR/package.json" ] \
+   && grep -q '"name": *"cosmicdriftgamestudio"' "$PARENT_DIR/package.json" 2>/dev/null; then
+  echo "[pre-push] yarn check (Parent-Workspace)…"
+  cd "$PARENT_DIR" && yarn check
+else
+  echo "[pre-push] yarn test:run (standalone)…"
+  cd "$REPO_ROOT" && yarn test:run
+fi

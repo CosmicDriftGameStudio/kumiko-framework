@@ -15,7 +15,7 @@ import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { loadAggregate } from "../../event-store";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
 // --- Feature ---
 
@@ -136,7 +136,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [cartFeature], systemHooks: [] });
-  await createEntityTable(stack.db, cartEntity, "f4wCart");
+  await unsafeCreateEntityTable(stack.db, cartEntity, "f4wCart");
 });
 
 afterAll(async () => {

@@ -28,11 +28,11 @@ import {
   rebuildMultiStreamProjection,
 } from "../../pipeline";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
@@ -211,8 +211,8 @@ beforeAll(async () => {
     features: [feature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, invoiceEntity, "msp-reb-invoice");
-  await createEntityTable(stack.db, paymentEntity, "msp-reb-payment");
+  await unsafeCreateEntityTable(stack.db, invoiceEntity, "msp-reb-invoice");
+  await unsafeCreateEntityTable(stack.db, paymentEntity, "msp-reb-payment");
 });
 
 afterAll(async () => {

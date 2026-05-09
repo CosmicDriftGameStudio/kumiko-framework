@@ -26,7 +26,14 @@ import {
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 
 import type { SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
-import type { FeatureDefinition, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type EffectiveFeaturesResolver,
+  type FeatureDefinition,
+  findTierResolverUsage,
+  type SessionUser,
+  type TenantId,
+  type TierResolverPlugin,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 
 import { watchAndRegenerate } from "./codegen";
@@ -138,6 +145,13 @@ export type RunDevAppOptions = {
    *  Hono-app gehängt, läuft VOR dem static-asset-Pfad. Symmetrisch zur
    *  gleichnamigen Option in runProdApp. */
   readonly extraRoutes?: CreateKumikoServerOptions["extraRoutes"];
+  /** Feature-toggle resolver — durchgereicht an createKumikoServer →
+   *  setupTestStack. Sprint-8 Tier-Composition: per-Tenant unterschied-
+   *  liche features aktiv via globalFeatureToggleRuntime. Pattern in
+   *  bin/server.ts: createLateBoundHolder + post-boot runtime.initialize
+   *  in einem seed-fn, weil die runtime stack.db braucht und die seed-
+   *  Funktionen nach setupTestStack laufen. */
+  readonly effectiveFeatures?: CreateKumikoServerOptions["effectiveFeatures"];
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
@@ -162,6 +176,33 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     includeBundled: !!options.auth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
+
+  // Sprint-8a Tier-Composition auto-wire: scan features for a
+  // tenantTierResolver-extension. If found AND user didn't supply own
+  // effectiveFeatures, we wire a late-bound wrapper here and fill it
+  // in onAfterSetup (where stack.db + stack.registry are available).
+  // App-Author sees nothing — `createTierEngineFeature(opts)` mounts +
+  // framework auto-wires.
+  const tierResolverUsage = options.effectiveFeatures ? undefined : findTierResolverUsage(features);
+  const tierResolverHolder: { resolver: EffectiveFeaturesResolver | undefined } = {
+    resolver: undefined,
+  };
+  const finalEffectiveFeatures: EffectiveFeaturesResolver | undefined =
+    options.effectiveFeatures ??
+    (tierResolverUsage
+      ? (tenantId: TenantId) => {
+          // Defensive: Server starts AFTER onAfterSetup completes, so the
+          // resolver is filled before any request comes in. Throwing here
+          // means a programming error (boot order) rather than silent
+          // "all-features-on" misbehavior.
+          if (!tierResolverHolder.resolver) {
+            throw new Error(
+              "tier-resolver: extension found but resolver not yet built — boot order issue?",
+            );
+          }
+          return tierResolverHolder.resolver(tenantId);
+        }
+      : undefined);
 
   // configResolver-default fürs config-feature — im auth-mode immer
   // hinzufügen, im no-auth-mode dem Caller überlassen. Factory-form
@@ -216,6 +257,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(extraContext !== undefined && { extraContext }),
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
+    ...(finalEffectiveFeatures !== undefined && {
+      effectiveFeatures: finalEffectiveFeatures,
+    }),
     ...(options.auth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
@@ -261,6 +305,16 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       },
     }),
     onAfterSetup: async (stack) => {
+      // Sprint-8a: build tier-resolver BEFORE any seeds so seeds can rely
+      // on the resolver being live (e.g. seed that writes a SystemAdmin's
+      // tier-assignment can immediately read tier-cuts).
+      if (tierResolverUsage) {
+        const plugin = tierResolverUsage.options as TierResolverPlugin;
+        tierResolverHolder.resolver = await plugin.build({
+          db: stack.db,
+          registry: stack.registry,
+        });
+      }
       if (options.auth?.sessions !== undefined) {
         const expiresInMs = options.auth.sessions.expiresInMs;
         sessionCallbacks = createSessionCallbacks({

@@ -20,12 +20,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { getAllProjectionProgress } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
-  createEntityTable,
   createTestUser,
-  pushTables,
   resetEventStore,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -41,8 +41,8 @@ const admin = createTestUser({ roles: ["Admin"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [invoiceFeature], systemHooks: [] });
-  await createEntityTable(stack.db, invoiceEntity, "showcase-invoice");
-  await pushTables(stack.db, { read_showcase_approver_directory: approverDirectoryTable });
+  await unsafeCreateEntityTable(stack.db, invoiceEntity, "showcase-invoice");
+  await unsafePushTables(stack.db, { read_showcase_approver_directory: approverDirectoryTable });
 });
 
 afterAll(async () => {

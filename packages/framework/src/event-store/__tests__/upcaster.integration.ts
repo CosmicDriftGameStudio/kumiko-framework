@@ -18,7 +18,13 @@ import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { StoredEvent } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
-import { createEntityTable, createTestDb, pushTables, type TestDb, TestUsers } from "../../stack";
+import {
+  createTestDb,
+  type TestDb,
+  TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "../../stack";
 import { append, createEventsTable } from "../index";
 import { upcastStoredEvent } from "../upcaster";
 
@@ -102,11 +108,11 @@ const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEntityTable(testDb.db, orderEntity, "upcast-order");
+  await unsafeCreateEntityTable(testDb.db, orderEntity, "upcast-order");
   await createEventsTable(testDb.db);
   const { createProjectionStateTable } = await import("../../pipeline");
   await createProjectionStateTable(testDb.db);
-  await pushTables(testDb.db, { upcastOrderSummary: orderSummaryTable });
+  await unsafePushTables(testDb.db, { upcastOrderSummary: orderSummaryTable });
   tdb = createTenantDb(testDb.db, admin.tenantId);
 });
 
@@ -298,7 +304,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
       customerId: pgText("customer_id").primaryKey(),
       segment: pgText("segment").notNull(),
     });
-    await pushTables(testDb.db, { upcastAsyncCustomerSegments: customerSegments });
+    await unsafePushTables(testDb.db, { upcastAsyncCustomerSegments: customerSegments });
     await testDb.db
       .insert(customerSegments)
       .values({ customerId: "c-async-1", segment: "PREMIUM" });
@@ -308,7 +314,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
       customerId: pgText("customer_id").notNull(),
       segment: pgText("segment").notNull(),
     });
-    await pushTables(testDb.db, { upcastAsyncSummary: asyncSummary });
+    await unsafePushTables(testDb.db, { upcastAsyncSummary: asyncSummary });
 
     // Feature with async upcaster v1 → v2: enrich payload with segment from DB.
     const asyncFeature = defineFeature("upcastasync", (r) => {

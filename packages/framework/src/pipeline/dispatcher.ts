@@ -7,6 +7,7 @@ import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
 import { parseQn, qn } from "../engine/qualified-name";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import type {
   AggregateStreamHandle,
   AppContext,
@@ -25,6 +26,7 @@ import type {
   WriteResult,
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
+import type { TenantId } from "../engine/types/identifiers";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
@@ -318,13 +320,26 @@ export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;
   lifecycle?: LifecycleHooks;
   jobRunner?: JobRunnerRef;
-  // Resolves the current effective-feature set — the dispatcher uses it
-  // to gate calls to handlers of disabled features (403 feature_disabled)
+  // Resolves the effective-feature set per tenant — the dispatcher uses
+  // it to gate calls to handlers of disabled features (403 feature_disabled)
   // and to populate ctx.hasFeature. Absent = all features treated as
-  // always-on (no feature-toggles feature loaded). The resolver must be
-  // fast and synchronous per call; implementations cache a DB snapshot
-  // under the hood and refresh on toggle events.
-  effectiveFeatures?: () => ReadonlySet<string>;
+  // always-on (no feature-toggles or tier-engine feature loaded). The
+  // resolver must be fast and synchronous per call; implementations cache
+  // tenant-keyed sets and refresh on tier-assignment / toggle events.
+  //
+  // **System-context convention:** when called with SYSTEM_TENANT_ID, the
+  // resolver should return the union/superset of all tier-features. Two
+  // contexts call with this sentinel:
+  //   1. event-dispatcher async-pass (consumers tagged with feature X
+  //      should not silently skip events from a tenant where X is off —
+  //      events are immutable, async work runs through).
+  //   2. operator-tooling queries (e.g. feature-toggles:registered) where
+  //      a SystemAdmin needs to see platform-truth, not their own
+  //      tier-cut.
+  // Returning a non-superset for SYSTEM_TENANT_ID will cause silent
+  // event-skips and a confusing operator-UI — the framework cannot
+  // enforce this contract, but the recipe-test pins the convention.
+  effectiveFeatures?: EffectiveFeaturesResolver;
 };
 
 type HandlerType = string | HandlerRef;
@@ -729,11 +744,14 @@ export function createDispatcher(
       // dispatcher.resolveAuthClaims) cannot drift.
       resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(claimsUser),
 
-      // Feature-effective check for in-handler opt-in logic. When the
-      // feature-toggles feature isn't wired (no effectiveFeatures callback),
-      // always returns true — apps without toggles treat all features on.
+      // Feature-effective check for in-handler opt-in logic. Scope:
+      // **current user's tenant** — for cross-tenant lookups (rare,
+      // SysAdmin operations) read effectiveFeatures(otherTenantId) directly.
+      // When the feature-toggles or tier-engine feature isn't wired (no
+      // effectiveFeatures callback), always returns true — apps without
+      // tier-cuts treat all features on.
       hasFeature: (featureName: string): boolean =>
-        effectiveFeatures ? effectiveFeatures().has(featureName) : true,
+        effectiveFeatures ? effectiveFeatures(user.tenantId).has(featureName) : true,
     };
 
     // Registry is always the dispatcher's registry — injecting it here lets
@@ -771,6 +789,7 @@ export function createDispatcher(
       // event.user-Wert; Identity-Switches nutzen weiterhin queryAs/writeAs.
       user,
       _userId: user.id,
+      _tenantId: user.tenantId,
       _handlerType: type,
       ...bridge,
     } as HandlerContext;
@@ -860,6 +879,7 @@ export function createDispatcher(
   // pass-through in that common case.
   function checkFeatureEnabled(
     qualifiedHandler: string,
+    tenantId: TenantId,
   ): import("../errors").FeatureDisabledError | undefined {
     if (!effectiveFeatures) return undefined;
     const owner = registry.getHandlerFeature(qualifiedHandler);
@@ -867,13 +887,13 @@ export function createDispatcher(
     // happen for registry-built handlers, but guards against edge-case
     // runtime injections.
     if (!owner) return undefined;
-    const set = effectiveFeatures();
+    const set = effectiveFeatures(tenantId);
     if (set.has(owner)) return undefined;
     return new FeatureDisabledError(owner, qualifiedHandler);
   }
 
-  function ensureFeatureEnabled(qualifiedHandler: string): void {
-    const err = checkFeatureEnabled(qualifiedHandler);
+  function ensureFeatureEnabled(qualifiedHandler: string, tenantId: TenantId): void {
+    const err = checkFeatureEnabled(qualifiedHandler, tenantId);
     if (err) throw err;
   }
 
@@ -935,7 +955,7 @@ export function createDispatcher(
     // disabled feature must not consume the rate-limit quota — the call
     // never happened from the feature's perspective. Order is: lookup →
     // feature-gate → rate-limit → access → validation → handler.
-    ensureFeatureEnabled(type);
+    ensureFeatureEnabled(type, user.tenantId);
 
     // Rate-limit gate runs BEFORE access-check on purpose: anonymous /
     // unauthorized callers must hit the cap too (otherwise the limit
@@ -1173,7 +1193,7 @@ export function createDispatcher(
 
     // Feature-toggle gate: disabled handlers must short-circuit before any
     // rate-limit/access/validation work — see executeQueryInner comment.
-    const disabledErr = checkFeatureEnabled(type);
+    const disabledErr = checkFeatureEnabled(type, user.tenantId);
     if (disabledErr) return writeFailure(disabledErr);
 
     // Rate-limit gate before access (same reasoning as in executeQueryInner).

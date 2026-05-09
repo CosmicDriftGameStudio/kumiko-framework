@@ -11,7 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "../db/dialect";
-import { pushTables } from "../stack";
+import { unsafePushTables } from "../stack";
 import { createArchivedStreamsTable } from "./archive";
 import { createSnapshotsTable } from "./snapshot";
 
@@ -83,7 +83,7 @@ export async function createEventsTable(db: DbConnection): Promise<void> {
   // skip: events table already exists — createEventsTable is called from both
   // setupTestStack and explicit test-setups, the guard keeps it idempotent.
   if (!(await tableExists(db, "public.kumiko_events"))) {
-    await pushTables(db, { kumikoEvents: eventsTable });
+    await unsafePushTables(db, { kumikoEvents: eventsTable });
   }
   await createArchivedStreamsTable(db);
   await createSnapshotsTable(db);

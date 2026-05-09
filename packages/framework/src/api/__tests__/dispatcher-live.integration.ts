@@ -5,7 +5,7 @@ import { generateToken } from "../../api/tokens";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { createEntityTable, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { generateId } from "../../utils";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.
@@ -97,7 +97,7 @@ async function buildFetch(): Promise<{
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [itemFeature] });
-  await createEntityTable(stack.db, itemEntity);
+  await unsafeCreateEntityTable(stack.db, itemEntity);
 });
 
 afterAll(async () => {

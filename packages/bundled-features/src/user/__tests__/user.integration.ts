@@ -1,9 +1,9 @@
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -18,7 +18,7 @@ const userFeature = createUserFeature();
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [userFeature] });
-  await createEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
 });
 
 afterAll(async () => {

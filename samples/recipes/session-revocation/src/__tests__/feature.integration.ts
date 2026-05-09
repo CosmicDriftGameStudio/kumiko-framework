@@ -33,12 +33,12 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  createEntityTable,
-  pushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import * as jose from "jose";
@@ -68,10 +68,10 @@ beforeAll(async () => {
   });
   callbacks.set(createSessionCallbacks({ db: stack.db }));
 
-  await createEntityTable(stack.db, userEntity);
-  await createEntityTable(stack.db, userSessionEntity);
-  await createEntityTable(stack.db, tenantEntity);
-  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {

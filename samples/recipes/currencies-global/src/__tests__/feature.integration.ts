@@ -16,11 +16,11 @@
 
 import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -40,9 +40,9 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await createEntityTable(stack.db, currencyEntity);
-  await createEntityTable(stack.db, tenantCurrencyEntity);
-  await createEntityTable(stack.db, invoiceEntity);
+  await unsafeCreateEntityTable(stack.db, currencyEntity);
+  await unsafeCreateEntityTable(stack.db, tenantCurrencyEntity);
+  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 
   // Seed global currency table — same as r.referenceData() does at boot
   const tables = new Map([["currency", currencyTable]]);

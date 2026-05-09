@@ -1,3 +1,4 @@
+import type { PgTable } from "drizzle-orm/pg-core";
 import type { ZodType, z } from "zod";
 import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
@@ -44,6 +45,8 @@ import type {
   QueryHandlerDef,
   QueryHandlerFn,
   RateLimitOption,
+  RawTableEntry,
+  RawTableOptions,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
@@ -118,6 +121,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const secretKeys: Record<string, SecretKeyDefinition> = {};
   const projections: Record<string, ProjectionDefinition> = {};
   const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
+  const rawTables: Record<string, RawTableEntry> = {};
   const authClaimsHooks: AuthClaimsFn[] = [];
   const claimKeys: Record<string, ClaimKeyDefinition> = {};
   const screens: Record<string, ScreenDefinition> = {};
@@ -636,6 +640,39 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       httpRoutes[key] = definition;
     },
 
+    rawTable(rawTableName: string, table: PgTable, options: RawTableOptions): void {
+      // Same kebab guard as r.projection / r.screen / r.nav so authoring-time
+      // mistakes surface at the feature file, not deep in registry boot.
+      if (!isKebabSegment(rawTableName)) {
+        throw new Error(
+          `[Feature ${name}] Raw-table name "${rawTableName}" must be kebab-case ` +
+            `(lowercase letters, digits, dashes; start with a letter). ` +
+            `Got "${rawTableName}" — try "${toKebab(rawTableName).replace(/_/g, "-")}".`,
+        );
+      }
+      if (rawTables[rawTableName]) {
+        throw new Error(
+          `[Feature ${name}] r.rawTable("${rawTableName}") already registered. ` +
+            `Raw-table names must be unique per feature.`,
+        );
+      }
+      // The `reason` is the marker that justifies the bypass — empty
+      // strings would defeat the audit trail. Reject early so the
+      // failure points at the feature file.
+      if (typeof options.reason !== "string" || options.reason.trim().length === 0) {
+        throw new Error(
+          `[Feature ${name}] r.rawTable("${rawTableName}"): options.reason must be a ` +
+            `non-empty string. The reason is the marker that justifies the bypass — ` +
+            `if you can't write one, declare data via r.entity() instead.`,
+        );
+      }
+      rawTables[rawTableName] = {
+        name: rawTableName,
+        table,
+        reason: options.reason,
+      };
+    },
+
     claimKey<T extends ClaimKeyType>(
       shortName: string,
       options: { readonly type: T },
@@ -741,6 +778,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     navs,
     workspaces,
     httpRoutes,
+    rawTables,
     ...(treeActions !== undefined && { treeActions }),
     ...(treeProvider !== undefined && { treeProvider }),
   };

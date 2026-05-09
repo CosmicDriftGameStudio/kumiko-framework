@@ -26,12 +26,12 @@ import { defineFeature, type FeatureDefinition } from "../../engine";
 import type { StoredEvent } from "../../event-store";
 import { eventConsumerStateTable, getAllConsumerProgress, getConsumerState } from "../../pipeline";
 import {
-  createEntityTable,
-  pushTables,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
@@ -98,8 +98,8 @@ beforeAll(async () => {
     // hook chain. SSE / search are irrelevant to cursor behaviour.
     systemHooks: [],
   });
-  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
-  await pushTables(stack.db, { subscriberLog: subscriberLogTable });
+  await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
+  await unsafePushTables(stack.db, { subscriberLog: subscriberLogTable });
   tdb = createTenantDb(stack.db, admin.tenantId);
 });
 

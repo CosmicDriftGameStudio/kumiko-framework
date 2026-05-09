@@ -2,11 +2,11 @@ import { randomBytes } from "node:crypto";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  createEntityTable,
-  pushTables,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
@@ -77,10 +77,10 @@ beforeAll(async () => {
   callbacks.set(createSessionCallbacks({ db: stack.db }));
   h = makeSessionHelpers(stack, TENANT);
 
-  await createEntityTable(stack.db, userEntity);
-  await createEntityTable(stack.db, tenantEntity);
-  await createEntityTable(stack.db, userSessionEntity);
-  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {

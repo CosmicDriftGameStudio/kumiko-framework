@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createEntity, createNumberField, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
-import { createEntityTable, createTestDb, type TestDb, TestUsers } from "../../stack";
+import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
@@ -28,7 +28,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEntityTable(testDb.db, entity, "pagerItem");
+  await unsafeCreateEntityTable(testDb.db, entity, "pagerItem");
   await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 });

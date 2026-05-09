@@ -25,10 +25,10 @@
 //      zusammen).
 
 import {
-  createEntityTable,
-  pushTables,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -77,12 +77,12 @@ beforeAll(async () => {
     },
   });
 
-  await createEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
   // tenant-entity hat den unique-constraint auf .key (siehe
-  // tenant.schema.indexes). createEntityTable baut das via
+  // tenant.schema.indexes). unsafeCreateEntityTable baut das via
   // buildDrizzleTable nach — pinst den TOCTOU-Schutz für signup-confirm.
-  await createEntityTable(stack.db, tenantEntity);
-  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {

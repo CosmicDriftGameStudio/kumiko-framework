@@ -15,12 +15,12 @@ import {
 } from "../engine";
 import type { SessionUser, TenantId } from "../engine/types";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "../stack";
 import { expectErrorIncludes } from "../testing";
 
@@ -123,7 +123,7 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [teamsFeature, contractsFeature] });
-  await createEntityTable(stack.db, contractEntity, "contract");
+  await unsafeCreateEntityTable(stack.db, contractEntity, "contract");
 });
 
 afterAll(async () => {

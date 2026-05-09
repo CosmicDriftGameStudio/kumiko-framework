@@ -13,10 +13,10 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
-  pushTables,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -42,9 +42,9 @@ beforeAll(async () => {
     features: [createConfigFeature(), createUserFeature(), createTenantFeature()],
     extraContext: { configResolver: resolver },
   });
-  await createEntityTable(stack.db, tenantEntity);
-  await createEntityTable(stack.db, userEntity);
-  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   await createEventsTable(stack.db);
 });
 

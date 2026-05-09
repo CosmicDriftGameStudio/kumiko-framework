@@ -261,11 +261,13 @@ type SharedContextFields = {
   // rebuildProjection) honour it automatically.
   readonly signal?: AbortSignal;
   // Effective feature-toggle resolver. Wired by the dispatcher when the
-  // feature-toggles feature is loaded — the lifecycle pipeline, MSP runner,
-  // and ctx.hasFeature all read from this single source. Returns the Set
-  // of feature names that are currently effectively enabled (after global
-  // overrides and r.requires() cascade). Absent = all features on.
-  readonly effectiveFeatures?: () => ReadonlySet<string>;
+  // feature-toggles or tier-engine feature is loaded — the lifecycle
+  // pipeline, MSP runner, and ctx.hasFeature all read from this single
+  // source. Per-tenant: tenantId argument enables tier-cuts (Sprint 8a)
+  // where Tenant-A sees Pro features and Tenant-B sees Free features in
+  // the same process. Returns the Set of feature names effectively
+  // enabled for that tenant. Absent = all features on (back-compat).
+  readonly effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
 };
 
 // All optional — used at pipeline/system boundaries.
@@ -286,6 +288,12 @@ export type AppContext = SharedContextFields & {
   readonly triggerName?: string;
   readonly _userId?: string | undefined;
   readonly _handlerType?: string | undefined;
+  /** Tenant des aktuellen Pipeline-Calls. Wird vom Dispatcher beim Bauen
+   *  des HandlerContext aus `user.tenantId` gespiegelt, damit lifecycle-
+   *  pipeline + system-hooks den Wert ohne Zugriff auf user-Object haben.
+   *  Sprint-8a Tier-Composition: `effectiveFeatures(ctx._tenantId)`-call
+   *  in den hook-filter-Stellen. */
+  readonly _tenantId?: TenantId;
 };
 
 // Handler execution: db (tenant-scoped) + registry guaranteed.

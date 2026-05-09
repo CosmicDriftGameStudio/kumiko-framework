@@ -27,11 +27,11 @@ import {
 } from "../../observability";
 import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline";
 import {
-  createEntityTable,
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "../../stack";
 import { sharedWidgetEntity } from "../../testing";
 import { generateId } from "../../utils";
@@ -62,7 +62,7 @@ beforeAll(async () => {
     features: [auditFeature],
     systemHooks: [],
   });
-  await createEntityTable(stack.db, sharedWidgetEntity, "widget");
+  await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
 });
 
 afterEach(async () => {
@@ -179,7 +179,7 @@ describe("Second audit — LISTEN gauge", () => {
       observability: recordingProvider,
     });
     try {
-      await createEntityTable(recStack.db, sharedWidgetEntity, "widget");
+      await unsafeCreateEntityTable(recStack.db, sharedWidgetEntity, "widget");
 
       await recStack.eventDispatcher?.start();
       try {
@@ -233,7 +233,7 @@ describe("Second audit — LISTEN gauge", () => {
       observability: recordingProvider,
     });
     try {
-      await createEntityTable(recStack.db, sharedWidgetEntity, "widget");
+      await unsafeCreateEntityTable(recStack.db, sharedWidgetEntity, "widget");
 
       await recStack.eventDispatcher?.start();
       try {

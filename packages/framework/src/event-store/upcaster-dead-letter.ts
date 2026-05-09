@@ -15,7 +15,7 @@
 import { bigint, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { DbConnection, DbRunner } from "../db/connection";
 import { tableExists } from "../db/schema-inspection";
-import { pushTables } from "../stack";
+import { unsafePushTables } from "../stack";
 import type { StoredEvent } from "./event-store";
 
 export const upcasterDeadLetterTable = pgTable(
@@ -50,7 +50,7 @@ export const upcasterDeadLetterTable = pgTable(
 export async function createUpcasterDeadLetterTable(db: DbConnection): Promise<void> {
   // skip: table already exists — bootstrap called from multiple paths
   if (await tableExists(db, "public.kumiko_upcaster_dead_letters")) return;
-  await pushTables(db, { kumikoUpcasterDeadLetters: upcasterDeadLetterTable });
+  await unsafePushTables(db, { kumikoUpcasterDeadLetters: upcasterDeadLetterTable });
 }
 
 // Writes a dead-letter row. Called by upcastStoredEvent when errorPolicy

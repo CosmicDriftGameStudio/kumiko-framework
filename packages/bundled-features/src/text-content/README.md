@@ -38,11 +38,15 @@ container exits. No auto-heal in production. See
 In integration tests (vitest) it's enough to do:
 
 ```typescript
-import { createEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import { textBlockEntity } from "@cosmicdrift/kumiko-bundled-features/text-content";
 
-await createEntityTable(stack.db, textBlockEntity);
+await unsafeCreateEntityTable(stack.db, textBlockEntity);
 ```
+
+The `unsafe` prefix is intentional — it bypasses the projection
+registry and is reserved for test setup and framework-internals. Apps
+declare data via `r.entity(...)` everywhere else.
 
 ## Use cases
 

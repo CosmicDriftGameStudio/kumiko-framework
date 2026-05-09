@@ -46,7 +46,11 @@ import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
   createRegistry,
+  type EffectiveFeaturesResolver,
   type FeatureDefinition,
+  findTierResolverUsage,
+  type TenantId,
+  type TierResolverPlugin,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -351,6 +355,12 @@ export type RunProdAppOptions = {
    *  the fetch-handler directly (Bun.serve isn't available under vitest +
    *  node), then call handle.listen() manually if needed. */
   readonly autoListen?: boolean;
+  /** Feature-toggle resolver — durchgereicht an createApiEntrypoint's
+   *  dispatcherOptions. Sprint-8 Tier-Composition: per-Tenant unterschied-
+   *  liche features aktiv via globalFeatureToggleRuntime. Pattern:
+   *  createLateBoundHolder + post-boot runtime.initialize in einem
+   *  seed-fn (db ist erst nach migrations + features ready). */
+  readonly effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
 };
 
 export type ProdAppHandle = {
@@ -402,6 +412,20 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   validateBoot(features);
   const registry = createRegistry(features);
+
+  // Sprint-8a Tier-Composition auto-wire: scan features for a
+  // tenantTierResolver-extension. If found AND user didn't supply own
+  // effectiveFeatures, build the resolver here (db + registry are
+  // available) before the dispatcher is constructed. App-Author sees
+  // nothing — `createTierEngineFeature(opts)` mounts + framework auto-wires.
+  let resolvedEffectiveFeatures: EffectiveFeaturesResolver | undefined = options.effectiveFeatures;
+  if (resolvedEffectiveFeatures === undefined) {
+    const tierResolverUsage = findTierResolverUsage(features);
+    if (tierResolverUsage) {
+      const plugin = tierResolverUsage.options as TierResolverPlugin;
+      resolvedEffectiveFeatures = await plugin.build({ db, registry });
+    }
+  }
 
   // 5. Schema-Drift-Gate. Drizzle-kit migrate (yarn kumiko migrate apply)
   //    läuft als CI-Step VOR dem Container-Rollout. Boot prüft hier nur:
@@ -486,7 +510,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     jwtSecret,
     ...(jwtIssuer && { jwtIssuer }),
     ...(instanceId && { instanceId }),
-    dispatcherOptions: { idempotency },
+    dispatcherOptions: {
+      idempotency,
+      ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
+    },
     eventDedup,
     ...(options.auth && {
       auth: {

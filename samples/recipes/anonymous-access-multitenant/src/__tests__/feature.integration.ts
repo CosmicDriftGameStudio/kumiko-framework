@@ -6,10 +6,10 @@ import { setTenantCookie } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   setupTestStack,
   type TestStack,
   TestUsers,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { multiTenantShopFeature, productEntity, productTable } from "../feature";
@@ -53,7 +53,7 @@ beforeAll(async () => {
       tenantExists: resolver.tenantExists,
     },
   });
-  await createEntityTable(stack.db, productEntity);
+  await unsafeCreateEntityTable(stack.db, productEntity);
   await createEventsTable(stack.db);
 
   // Stamp test routes that exercise setTenantCookie. The framework gives

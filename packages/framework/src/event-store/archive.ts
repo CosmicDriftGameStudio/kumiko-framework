@@ -3,7 +3,7 @@ import type { DbConnection, DbRunner } from "../db/connection";
 import { instant, table as pgTable, text, uniqueIndex, uuid } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
-import { pushTables } from "../stack";
+import { unsafePushTables } from "../stack";
 
 // Marten-aligned stream archival. Archived streams become read-only: fresh
 // appendEvent on an archived aggregate throws, and loadAggregate returns
@@ -31,7 +31,7 @@ export const archivedStreamsTable = pgTable(
 export async function createArchivedStreamsTable(db: DbConnection): Promise<void> {
   // skip: table already exists — idempotent boot + test-setup call
   if (await tableExists(db, "public.kumiko_archived_streams")) return;
-  await pushTables(db, { kumikoArchivedStreams: archivedStreamsTable });
+  await unsafePushTables(db, { kumikoArchivedStreams: archivedStreamsTable });
 }
 
 export type ArchiveStreamArgs = {

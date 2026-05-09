@@ -5,11 +5,11 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  createEntityTable,
   createTestUser,
-  pushTables,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -39,9 +39,9 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await pushTables(stack.db, { globalFeatureStateTable });
-  await createEntityTable(stack.db, productEntity);
-  await createEntityTable(stack.db, productAuditEntity, "product-audit");
+  await unsafePushTables(stack.db, { globalFeatureStateTable });
+  await unsafeCreateEntityTable(stack.db, productEntity);
+  await unsafeCreateEntityTable(stack.db, productAuditEntity, "product-audit");
 
   runtime = new GlobalFeatureToggleRuntime(stack.db, stack.registry);
   await runtime.initialize();

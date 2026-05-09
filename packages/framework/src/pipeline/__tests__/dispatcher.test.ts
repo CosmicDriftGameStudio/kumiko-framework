@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import type { TenantId } from "../../engine/types/identifiers";
 import { createTestUser } from "../../stack";
 import { createDispatcher } from "../dispatcher";
 
@@ -319,6 +320,78 @@ describe("dispatcher feature-gate", () => {
     const dispatcher = createDispatcher(registry, {});
     await expect(dispatcher.query("toggled:query:widget:list", {}, user)).resolves.toEqual({
       items: [],
+    });
+  });
+
+  test("Sprint 8a: per-tenant gating — Tenant A passes, Tenant B gets feature_disabled", async () => {
+    // Beweist die Phase-1-Architektur: dispatcher ruft effectiveFeatures
+    // mit user.tenantId, resolver kann pro Tenant unterschiedliche Sets
+    // returnen → Tier-A sieht feature, Tier-B nicht.
+    const registry = createRegistry([toggled()]);
+    const tenantA = "00000000-0000-4000-8000-0000000000a1" as TenantId;
+    const tenantB = "00000000-0000-4000-8000-0000000000b2" as TenantId;
+
+    const dispatcher = createDispatcher(
+      registry,
+      {},
+      {
+        effectiveFeatures: (tenantId) => (tenantId === tenantA ? new Set(["toggled"]) : new Set()),
+      },
+    );
+
+    const userA = createTestUser({ id: "u-a", tenantId: tenantA, roles: ["Admin"] });
+    const userB = createTestUser({ id: "u-b", tenantId: tenantB, roles: ["Admin"] });
+
+    await expect(dispatcher.query("toggled:query:widget:list", {}, userA)).resolves.toEqual({
+      items: [],
+    });
+    await expect(dispatcher.query("toggled:query:widget:list", {}, userB)).rejects.toThrow(
+      /feature toggled is disabled/,
+    );
+
+    const writeA = await dispatcher.write("toggled:write:widget:create", { name: "from-a" }, userA);
+    expect(writeA.isSuccess).toBe(true);
+
+    const writeB = await dispatcher.write("toggled:write:widget:create", { name: "from-b" }, userB);
+    expect(writeB.isSuccess).toBe(false);
+    if (!writeB.isSuccess) {
+      expect(writeB.error.code).toBe("feature_disabled");
+    }
+  });
+
+  test("Sprint 8a: ctx.hasFeature is current-user-scoped", async () => {
+    // Pin: hasFeature() in handler-bodies resolves against ctx.user.tenantId,
+    // NICHT gegen einen globalen Set. Two tenants call same handler,
+    // beide rufen hasFeature("toggled") — A bekommt true, B false.
+    const tenantA = "00000000-0000-4000-8000-0000000000a3" as TenantId;
+    const tenantB = "00000000-0000-4000-8000-0000000000b4" as TenantId;
+
+    const probe = defineFeature("probe", (r) => {
+      r.queryHandler(
+        "check",
+        z.object({}).passthrough(),
+        async (_event, ctx) => ({ enabled: ctx.hasFeature("toggled") }),
+        { access: { openToAll: true } },
+      );
+    });
+    const registry = createRegistry([toggled(), probe]);
+    const dispatcher = createDispatcher(
+      registry,
+      {},
+      {
+        effectiveFeatures: (tenantId) =>
+          tenantId === tenantA ? new Set(["toggled", "probe"]) : new Set(["probe"]),
+      },
+    );
+
+    const userA = createTestUser({ id: "u-a2", tenantId: tenantA, roles: ["Admin"] });
+    const userB = createTestUser({ id: "u-b2", tenantId: tenantB, roles: ["Admin"] });
+
+    await expect(dispatcher.query("probe:query:check", {}, userA)).resolves.toEqual({
+      enabled: true,
+    });
+    await expect(dispatcher.query("probe:query:check", {}, userB)).resolves.toEqual({
+      enabled: false,
     });
   });
 });

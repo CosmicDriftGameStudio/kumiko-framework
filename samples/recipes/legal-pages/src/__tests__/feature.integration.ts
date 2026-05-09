@@ -7,9 +7,9 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { LEGAL_ROUTES, legalPagesFeature, textContentFeature } from "../feature";
@@ -26,7 +26,7 @@ beforeAll(async () => {
     }),
   });
   db = stack.db;
-  await createEntityTable(db, textBlockEntity);
+  await unsafeCreateEntityTable(db, textBlockEntity);
   await createEventsTable(db);
 
   // Seed Pflicht-Blocks für SYSTEM_TENANT (DE Impressum + DSE)

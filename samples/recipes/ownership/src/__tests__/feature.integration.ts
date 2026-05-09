@@ -4,12 +4,12 @@
 // feature. Each test maps directly to a cell in the design-doc matrix.
 
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -39,7 +39,7 @@ const driverAlice = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [teamsFeature, contractsFeature] });
-  await createEntityTable(stack.db, contractEntity, "contract");
+  await unsafeCreateEntityTable(stack.db, contractEntity, "contract");
 });
 
 afterAll(async () => {
