@@ -14,12 +14,30 @@ export type SignedUrlOptions = {
   readonly contentDisposition?: string;
 };
 
+// Options fuer `writeStream`. `mimeType` ist Content-Type-Hint analog zu
+// `write`. `contentLength` ist optional fuer Provider die einen Length-
+// Header brauchen (S3 multipart hat einen TransferManager, kann auch ohne
+// length); local-Provider ignoriert beides.
+export type WriteStreamOptions = {
+  readonly mimeType?: string;
+  readonly contentLength?: number;
+};
+
 // Primitive storage contract: key+bytes in, bytes out. Metadata (fileName,
 // mimeType, size) lives on the FileRef row — the provider only needs to
 // shuttle bytes. `mimeType` on write() is a hint for providers that need a
 // Content-Type header (S3/R2/…); local filesystems can ignore it.
 //
-// `getSignedUrl` is optional: object-store backends (S3/R2/GCS) implement it
+// **Streaming-Pfad (`writeStream`)** ist optional und ist die Skalierungs-
+// Variante zu `write` fuer Bundles die nicht in Memory passen sollen
+// (User-Data-Export ZIPs, Backup-Archives, ...). Source ist eine
+// `AsyncIterable<Uint8Array>` — der Caller streamt chunk-fuer-chunk
+// rein, der Provider schreibt direkt durch. Niemals alles im Memory.
+// Wenn ein Provider `writeStream` nicht implementiert, faellt der
+// Caller via Feature-Detect auf chunk-collection + write zurueck oder
+// erkennt das Setup-Limit fruehzeitig.
+//
+// `getSignedUrl` ist optional: object-store backends (S3/R2/GCS) implement it
 // so clients can download directly from the provider after the server has
 // checked access — offloads bandwidth and enables browser-native caching.
 // Filesystem providers leave it undefined; the route then returns 501 and
@@ -27,6 +45,11 @@ export type SignedUrlOptions = {
 // feature-detect via `typeof provider.getSignedUrl === "function"`.
 export type FileStorageProvider = {
   write(key: string, data: Uint8Array, mimeType?: string): Promise<void>;
+  writeStream?(
+    key: string,
+    source: AsyncIterable<Uint8Array>,
+    options?: WriteStreamOptions,
+  ): Promise<void>;
   read(key: string): Promise<Uint8Array>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;

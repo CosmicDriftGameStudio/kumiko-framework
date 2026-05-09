@@ -29,6 +29,25 @@ export function createInMemoryFileProvider(): InMemoryFileProvider {
       store.set(key, { data: new Uint8Array(data), mimeType });
     },
 
+    async writeStream(key, source, options) {
+      // In-Memory hat kein "Streaming" im real-physikalischen Sinn —
+      // wir collecten chunks in einen Uint8Array. Test-Tauglich, kein
+      // Production-Pfad.
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for await (const chunk of source) {
+        chunks.push(chunk);
+        total += chunk.byteLength;
+      }
+      const data = new Uint8Array(total);
+      let offset = 0;
+      for (const c of chunks) {
+        data.set(c, offset);
+        offset += c.byteLength;
+      }
+      store.set(key, { data, mimeType: options?.mimeType });
+    },
+
     async read(key) {
       const entry = store.get(key);
       if (!entry) throw new Error(`in-memory file not found: ${key}`);
