@@ -4,6 +4,7 @@ import type {
   DateFieldDef,
   EmbeddedFieldDef,
   EntityDefinition,
+  EntityIndexDef,
   FieldsMap,
   FileFieldDef,
   FilesFieldDef,
@@ -321,12 +322,7 @@ export function createEntity<F>(def: {
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
   readonly transitions?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
-  readonly indexes?: readonly {
-    readonly columns: readonly [string, ...string[]];
-    readonly unique?: boolean;
-    readonly name?: string;
-    readonly where?: import("drizzle-orm").SQL;
-  }[];
+  readonly indexes?: readonly EntityIndexDef[];
   readonly idType?: "serial" | "uuid";
   readonly access?: EntityDefinition["access"];
   readonly retention?: RetentionDef;

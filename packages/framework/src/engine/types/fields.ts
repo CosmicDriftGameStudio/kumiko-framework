@@ -5,6 +5,7 @@
 // accepted at the type layer during migration: features that pass an
 // array are auto-normalized to { [role]: "all" } at registry build.
 // Long-term: string[] disappears.
+import type { SQL } from "drizzle-orm";
 import type { OwnershipMap } from "../ownership";
 
 export type FieldAccess = {
@@ -474,17 +475,19 @@ export type EntityIndexDef = {
   readonly unique?: boolean;
   readonly name?: string;
   /**
-   * Optional SQL-Fragment fuer Partial-Index — `CREATE UNIQUE INDEX ...
-   * WHERE <condition>`. Postgres-Pattern fuer "UNIQUE nur unter
-   * bestimmten Status-Werten" wie z.B. ExportJob-Idempotency:
-   * UNIQUE(userId) WHERE status IN ('pending', 'running'). Caller
-   * baut das Fragment via drizzle-orm `sql\`...\`` Tagged-Template.
+   * Optional SQL-Fragment fuer Partial-Index — `CREATE [UNIQUE] INDEX
+   * ... WHERE <condition>`. Postgres-Pattern fuer "Index nur unter
+   * bestimmten Bedingungen", typisches Beispiel: ExportJob-Idempotency
+   * `UNIQUE(userId) WHERE status IN ('pending', 'running')`.
    *
-   * Wird nur angewendet wenn `unique: true` (Partial-Non-Unique-Index
-   * ist legal in PG, aber semantisch selten sinnvoll — wer das braucht,
-   * kann den Type lockern; aktuell ist die enge Variante absichtlich).
+   * Caller baut das Fragment via drizzle-orm `sql\`...\``-Tagged-
+   * Template. table-builder.ts emittiert `.where(def.where)` auf den
+   * Drizzle-IndexBuilder — wirkt sowohl fuer unique- als auch fuer
+   * non-unique-Indexes (PG erlaubt beides; non-unique partial nutzt
+   * man z.B. fuer scharfe BTREE-Indexes nur auf einer Status-Teilmenge
+   * statt voller Tabelle).
    */
-  readonly where?: import("drizzle-orm").SQL;
+  readonly where?: SQL;
 };
 
 export type FieldsMap = Readonly<Record<string, FieldDefinition>>;

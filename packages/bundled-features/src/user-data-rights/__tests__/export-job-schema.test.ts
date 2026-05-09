@@ -101,6 +101,13 @@ describe("exportJobEntity Schema-Shape", () => {
     }
   });
 
+  test("bytesWritten ist bigInt-Field (NICHT number) — pinst Atom-1b-Migration", () => {
+    // Drift-Guard: wenn jemand zurueck auf createNumberField refactored,
+    // faellt der DB-Roundtrip-Test um (gut), aber das dauert >1s. Hier
+    // <1s + klare Fehlermeldung was das Problem ist.
+    expect(exportJobEntity.fields.bytesWritten.type).toBe("bigInt");
+  });
+
   test("userId + status + requestedAt sind required", () => {
     expect(exportJobEntity.fields["userId"]?.required).toBe(true);
     expect(exportJobEntity.fields["status"]?.required).toBe(true);

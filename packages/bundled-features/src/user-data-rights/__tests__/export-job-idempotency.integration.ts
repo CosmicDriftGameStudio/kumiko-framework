@@ -54,7 +54,15 @@ const NOW = () => getTemporal().Now.instant();
 
 // Drizzle wraps PostgresError mit "Failed query: ..."; die original
 // PG-Message ist im `cause`. Unique-Violation hat sqlstate 23505.
-async function expectUniqueViolation(promise: Promise<unknown>): Promise<void> {
+//
+// Constraint-Name pinnen damit der Test nur unsere Idempotency-
+// Constraint pinst, nicht zufaellig eine andere unique-violation
+// (z.B. UUID-Kollision auf id-PK durch wiederholtes Test-Setup) —
+// silent-Pass durch fremden Constraint waere falsche Bestaetigung.
+async function expectUniqueViolation(
+  promise: Promise<unknown>,
+  expectedConstraint: string,
+): Promise<void> {
   let caught: unknown;
   try {
     await promise;
@@ -62,9 +70,12 @@ async function expectUniqueViolation(promise: Promise<unknown>): Promise<void> {
     caught = e;
   }
   expect(caught).toBeDefined();
-  const cause = (caught as { cause?: { code?: string } }).cause;
+  const cause = (caught as { cause?: { code?: string; constraint_name?: string } }).cause;
   expect(cause?.code).toBe("23505");
+  expect(cause?.constraint_name).toBe(expectedConstraint);
 }
+
+const IDEMPOTENCY_CONSTRAINT = "read_export_jobs_one_active_per_user";
 
 async function insertJob(
   userId: string,
@@ -90,7 +101,10 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
   test("zwei pending-Jobs fuer denselben User → DB lehnt zweiten ab", async () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
 
-    await expectUniqueViolation(insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending));
+    await expectUniqueViolation(
+      insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending),
+      IDEMPOTENCY_CONSTRAINT,
+    );
   });
 
   test("pending + running fuer denselben User → DB lehnt running ab", async () => {
@@ -98,7 +112,10 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
 
     // Zweiter "aktiver" Status (running) ist auch gesperrt — der Index
     // greift fuer alle Status-Werte im WHERE-Set.
-    await expectUniqueViolation(insertJob(ALICE_ID, EXPORT_JOB_STATUS.Running));
+    await expectUniqueViolation(
+      insertJob(ALICE_ID, EXPORT_JOB_STATUS.Running),
+      IDEMPOTENCY_CONSTRAINT,
+    );
   });
 
   test("pending fuer User A + pending fuer User B → beide erlaubt (per-User-scoped)", async () => {
@@ -136,7 +153,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     expect(rows).toHaveLength(2);
   });
 
-  test("status-Update von pending → running blockiert keinen anderen pending-Insert nicht — nur dieselbe Row faellt unter Index", async () => {
+  test("Lifecycle: pending → running blockt weitere pending-Inserts; nach running → done wieder erlaubt", async () => {
     // Alice pending insert
     const aliceJobId = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
     // Worker pickt auf — Status flip
@@ -147,7 +164,10 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
 
     // Zweiter pending-Insert fuer Alice → faellt weiter, weil bestehender
     // Job in running auch im Index-Filter ist.
-    await expectUniqueViolation(insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending));
+    await expectUniqueViolation(
+      insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending),
+      IDEMPOTENCY_CONSTRAINT,
+    );
 
     // Aber wenn der running-Job fertig wird (done), darf User wieder pending starten
     await stack.db
