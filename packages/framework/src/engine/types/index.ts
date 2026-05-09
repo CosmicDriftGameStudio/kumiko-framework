@@ -66,6 +66,7 @@ export type {
 } from "./feature";
 export type {
   AnyFileFieldDef,
+  BigIntFieldDef,
   BooleanFieldDef,
   DateFieldDef,
   DefaultCurrency,

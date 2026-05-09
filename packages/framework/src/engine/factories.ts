@@ -1,4 +1,5 @@
 import type {
+  BigIntFieldDef,
   BooleanFieldDef,
   DateFieldDef,
   EmbeddedFieldDef,
@@ -125,6 +126,16 @@ export function createNumberField<R extends true | false = false>(
     required: false,
     ...overrides,
   } as NumberFieldDef & { required: R };
+}
+
+export function createBigIntField<R extends true | false = false>(
+  overrides?: Partial<Omit<BigIntFieldDef, "type" | "required">> & { required?: R },
+): BigIntFieldDef & { required: R } {
+  return {
+    type: "bigInt",
+    required: false,
+    ...overrides,
+  } as BigIntFieldDef & { required: R };
 }
 
 export function createMoneyField<R extends true | false = false>(

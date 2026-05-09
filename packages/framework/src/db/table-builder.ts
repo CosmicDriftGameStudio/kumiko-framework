@@ -8,6 +8,7 @@ import type {
 } from "../engine/types";
 import { assertUnreachable } from "../utils";
 import {
+  bigint,
   boolean,
   index,
   instant,
@@ -25,6 +26,7 @@ import {
 type ColumnBuilder =
   | ReturnType<typeof text>
   | ReturnType<typeof integer>
+  | ReturnType<typeof bigint>
   | ReturnType<typeof boolean>
   | ReturnType<typeof moneyAmount>
   | ReturnType<typeof jsonb>
@@ -90,6 +92,15 @@ function fieldToColumns(
       return { [name]: jsonb(snakeName).default([]).notNull() };
     case "number": {
       const col = integer(snakeName);
+      return { [name]: field.required ? col.notNull() : col };
+    }
+    case "bigInt": {
+      // 64-bit-Integer fuer Audit-Counter, Byte-Sizes, Cumulative-Sums.
+      // mode:"number" liefert JS-`number` (sicher bis 2^53 ≈ 9 PB) statt
+      // JS-`bigint` — JSON-serialisierbar, Frontend-tauglich. Wer >2^53
+      // braucht (Astronomie-Astronomie), nutzt einen Text-Field mit
+      // eigenem Codec.
+      const col = bigint(snakeName, { mode: "number" });
       return { [name]: field.required ? col.notNull() : col };
     }
     case "reference":

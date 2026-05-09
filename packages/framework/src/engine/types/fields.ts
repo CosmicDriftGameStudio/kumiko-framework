@@ -201,6 +201,28 @@ export type NumberFieldDef = {
   readonly access?: FieldAccess;
 } & PiiAnnotations;
 
+/**
+ * 64-bit-Integer-Spalte fuer Audit-Counter, Byte-Sizes, Event-IDs und
+ * andere Werte die >2^31 (~2.1 Mrd) wandern koennen. Storage als
+ * Postgres `bigint`, JS-Round-trip als `number` (mode:"number" — sicher
+ * bis 2^53 ≈ 9 PB, JSON-serialisierbar). Wer >2^53 braucht (rare),
+ * nutzt einen `text`-Field mit eigenem Codec.
+ *
+ * Vorrang vor `NumberFieldDef`-(integer 32-bit-Cap, ~2.1 GB) immer dann
+ * wenn der Wert physisch ueber dieses Limit klettern kann: Bytes,
+ * Events, Counters in High-Throughput-Apps, Cumulative-Sums. Money
+ * hat dafuer den eigenen `MoneyFieldDef` (mit Currency-Spalte).
+ */
+export type BigIntFieldDef = {
+  readonly type: "bigInt";
+  readonly required?: boolean;
+  readonly sortable?: boolean;
+  readonly filterable?: boolean;
+  readonly sensitive?: boolean;
+  readonly default?: number;
+  readonly access?: FieldAccess;
+} & PiiAnnotations;
+
 export type MoneyFieldDef = {
   readonly type: "money";
   readonly required?: boolean;
@@ -402,6 +424,7 @@ export type FieldDefinition =
   | SelectFieldDef
   | MultiSelectFieldDef
   | NumberFieldDef
+  | BigIntFieldDef
   | MoneyFieldDef
   | ReferenceFieldDef
   | EmbeddedFieldDef

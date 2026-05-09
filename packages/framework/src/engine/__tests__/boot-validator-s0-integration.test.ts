@@ -19,11 +19,11 @@ import { ROLES } from "../../auth";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
 import {
-  EXT_USER_DATA,
   createEntity,
   createLongTextField,
   createTextField,
   createTimestampField,
+  EXT_USER_DATA,
 } from "../index";
 
 describe("S0 Integration — full surface stack", () => {
@@ -106,9 +106,7 @@ describe("S0 Integration — full surface stack", () => {
       });
     });
 
-    expect(() =>
-      validateBoot([complianceProfiles, userDataRights, tenantFeature]),
-    ).not.toThrow();
+    expect(() => validateBoot([complianceProfiles, userDataRights, tenantFeature])).not.toThrow();
   });
 
   test("missing requires() on usesApi-target throws even when other surfaces are clean", () => {

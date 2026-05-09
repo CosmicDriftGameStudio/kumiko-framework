@@ -23,23 +23,6 @@ export { defineQueryHandler, defineWriteHandler } from "./define-handler";
 export { defineRoles } from "./define-roles";
 export type { ToggleReader } from "./effective-features";
 export { computeEffectiveFeatures } from "./effective-features";
-export type { KumikoExtensionName } from "./extension-names";
-export {
-  EXT_EXTERNAL_RESOURCE,
-  EXT_INFRA_RESOURCE,
-  EXT_SEARCH_ADAPTER,
-  EXT_STORAGE_PROVIDER,
-  EXT_TENANT_DATA,
-  EXT_USER_DATA,
-} from "./extension-names";
-export type {
-  UserDataDeleteHook,
-  UserDataDeleteStrategy,
-  UserDataExportHook,
-  UserDataExportSnippet,
-  UserDataExtensionHooks,
-  UserDataHookCtx,
-} from "./extensions/user-data";
 export {
   createEntityExecutor,
   defineEntityCreateHandler,
@@ -58,7 +41,25 @@ export {
 } from "./entity-handlers";
 export type { EmitCtx } from "./event-helpers";
 export { emitEvent, typedPayload } from "./event-helpers";
+export type { KumikoExtensionName } from "./extension-names";
 export {
+  EXT_EXTERNAL_RESOURCE,
+  EXT_INFRA_RESOURCE,
+  EXT_SEARCH_ADAPTER,
+  EXT_STORAGE_PROVIDER,
+  EXT_TENANT_DATA,
+  EXT_USER_DATA,
+} from "./extension-names";
+export type {
+  UserDataDeleteHook,
+  UserDataDeleteStrategy,
+  UserDataExportHook,
+  UserDataExportSnippet,
+  UserDataExtensionHooks,
+  UserDataHookCtx,
+} from "./extensions/user-data";
+export {
+  createBigIntField,
   createBooleanField,
   createDateField,
   createEmbeddedField,
@@ -161,6 +162,7 @@ export type {
   AuthClaimsFn,
   AuthClaimsHookDef,
   BelongsToRelation,
+  BigIntFieldDef,
   BooleanFieldDef,
   CamelToKebab,
   ClaimKeyDefinition,
@@ -190,8 +192,6 @@ export type {
   EditLayout,
   EditSectionSpec,
   EntityDefinition,
-  PiiAnnotations,
-  RetentionDef,
   EntityEditScreenDefinition,
   EntityId,
   EntityListScreenDefinition,
@@ -239,6 +239,7 @@ export type {
   NotifyPriority,
   NumberFieldDef,
   OnDeleteStrategy,
+  PiiAnnotations,
   PlatformComponent,
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -253,6 +254,7 @@ export type {
   QueryHandlerFn,
   Registry,
   RelationDefinition,
+  RetentionDef,
   RowAction,
   SaveContext,
   ScreenDefinition,

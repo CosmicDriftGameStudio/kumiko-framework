@@ -60,6 +60,14 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
       const schema = z.number();
       return field.default !== undefined ? schema.default(field.default) : schema;
     }
+    case "bigInt": {
+      // JS-`number`-Round-trip via mode:"number"; sicher bis 2^53.
+      // safe-integer-Cap ist explizit damit ein Caller, der einen
+      // Float reinwirft (z.B. parseFloat-Bug), beim Insert sofort
+      // failed statt silent-Truncation zu kassieren.
+      const schema = z.number().int().safe();
+      return field.default !== undefined ? schema.default(field.default) : schema;
+    }
     case "money": {
       const [first, ...rest] = currencies;
       if (!first) throw new Error("No currencies configured");
