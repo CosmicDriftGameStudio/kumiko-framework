@@ -473,6 +473,18 @@ export type EntityIndexDef = {
   readonly columns: readonly [string, ...string[]];
   readonly unique?: boolean;
   readonly name?: string;
+  /**
+   * Optional SQL-Fragment fuer Partial-Index — `CREATE UNIQUE INDEX ...
+   * WHERE <condition>`. Postgres-Pattern fuer "UNIQUE nur unter
+   * bestimmten Status-Werten" wie z.B. ExportJob-Idempotency:
+   * UNIQUE(userId) WHERE status IN ('pending', 'running'). Caller
+   * baut das Fragment via drizzle-orm `sql\`...\`` Tagged-Template.
+   *
+   * Wird nur angewendet wenn `unique: true` (Partial-Non-Unique-Index
+   * ist legal in PG, aber semantisch selten sinnvoll — wer das braucht,
+   * kann den Type lockern; aktuell ist die enge Variante absichtlich).
+   */
+  readonly where?: import("drizzle-orm").SQL;
 };
 
 export type FieldsMap = Readonly<Record<string, FieldDefinition>>;

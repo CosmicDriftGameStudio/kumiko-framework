@@ -325,6 +325,7 @@ export function createEntity<F>(def: {
     readonly columns: readonly [string, ...string[]];
     readonly unique?: boolean;
     readonly name?: string;
+    readonly where?: import("drizzle-orm").SQL;
   }[];
   readonly idType?: "serial" | "uuid";
   readonly access?: EntityDefinition["access"];

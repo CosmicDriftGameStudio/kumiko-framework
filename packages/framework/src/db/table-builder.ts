@@ -478,7 +478,13 @@ export function buildDrizzleTable<E extends EntityDefinition>(
           def.name ?? `${tableName}_${def.columns.map((c) => toSnakeCase(c)).join("_")}_${suffix}`;
         const builder = def.unique === true ? uniqueIndex(indexName) : index(indexName);
         // biome-ignore lint/suspicious/noExplicitAny: drizzle's .on(...cols) is variadic generic
-        indexes.push((builder.on as any)(...cols));
+        let chain = (builder.on as any)(...cols);
+        if (def.where !== undefined) {
+          // Partial-Index: drizzle's IndexBuilder.where(SQL) emittiert das
+          // `WHERE <condition>` ans Ende der `CREATE [UNIQUE] INDEX`-DDL.
+          chain = chain.where(def.where);
+        }
+        indexes.push(chain);
       }
       return indexes;
     },
