@@ -86,15 +86,19 @@ interface HookEntry {
  * Pure function: iteriert alle EXT_USER_DATA-Hooks pro Tenant (Cross-
  * Tenant-Memberships) + sammelt Snippets in ein UserExportBundle.
  *
- * **Memory-Footprint (wichtig fuer DSGVO-Skalierung):**
+ * **Memory-Footprint:**
  *
- * Das Bundle wird KOMPLETT IN-MEMORY gebaut bevor `bundleToZipEntries`
- * es als bundle.json yieldet. Bewusste Design-Entscheidung fuer Phase 1
- * (Atom 3c):
- *   - File-Binaries gehen via readStream chunk-streaming → skaliert auf
- *     beliebige File-Sizes ohne Heap-Spike.
- *   - Bundle-JSON (Tabellen-Daten + Metadata) ist ein einziger
- *     JSON-String. Heap-Footprint = JSON-Size.
+ * Der gesamte Storage-Pfad ist streaming-bound:
+ *   - File-Binaries via provider.readStream → chunk-streaming, skaliert
+ *     auf beliebige File-Sizes ohne Heap-Spike.
+ *   - ZIP-Schreiben via provider.writeStream — local nutzt fs.createWriteStream,
+ *     S3 nutzt lib-storage.Upload (multipart, ~20MB Heap-Bound bei 4
+ *     concurrent parts).
+ *
+ * **EINZIGER nicht-streaming Pfad:** das Bundle-Object selbst (bundle.json
+ * Inhalt). Es wird komplett in-memory gebaut bevor `bundleToZipEntries`
+ * es als ZIP-Entry yieldet. Hooks geben Snippets als Plain-Objects
+ * zurueck (siehe UserDataExportSnippet).
  *
  * **Threshold:** Web-App mit ~500 Tabellen-Rows pro User ≈ 500 KB JSON.
  * 50k Rows ≈ 50 MB. 100k+ Rows pro User (z.B. langjaehrige Mietportal-
@@ -105,8 +109,8 @@ interface HookEntry {
  * JSON-Lines-Format. bundleToZipEntries wuerde line-by-line streamen.
  * Eigener Sprint, nicht-trivialer Schema-Bruch.
  *
- * **Operator-Signal:** Job mit `bytesWritten > 100 MB` sollte Telemetry-
- * Alert triggern + Bundle-Schema-Refactor evaluieren.
+ * **Operator-Signal:** wenn bundle.json im ZIP > 100 MB ist, sollte
+ * Telemetry triggern + Schema-Refactor evaluieren.
  */
 export async function runUserExport(args: RunUserExportArgs): Promise<UserExportBundle> {
   const { db, registry, userId, now } = args;

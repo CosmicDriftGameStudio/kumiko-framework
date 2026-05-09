@@ -25,6 +25,13 @@ async function* fromChunks(chunks: Uint8Array[]): AsyncIterable<Uint8Array> {
   }
 }
 
+async function* slowChunks(chunks: Uint8Array[], delayMs: number): AsyncIterable<Uint8Array> {
+  for (const c of chunks) {
+    await new Promise((r) => setTimeout(r, delayMs));
+    yield c;
+  }
+}
+
 describe("FileStorageProvider.writeStream — in-memory", () => {
   test("schreibt 3 chunks + read liefert konkateniert zurueck", async () => {
     const provider = createInMemoryFileProvider();
@@ -166,5 +173,51 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
 
     const data = await provider.read("lazy.bin");
     expect(Array.from(data)).toEqual([1, 2, 3]);
+  });
+
+  test("local-Provider streamt WAEHREND der Source yieldet (tmp-File existiert pre-completion)", async () => {
+    // Echter Streaming-Property-Test: bei langsamen Source-yields muss
+    // der local-Provider die tmp-File anfangen zu schreiben WAEHREND
+    // wir noch chunks zur Verfuegung stellen — nicht erst alle chunks
+    // collecten.
+    //
+    // Pattern: 5 chunks mit je 30ms delay zwischen yields. Wir starten
+    // writeStream, warten ~50ms (= nach 1-2 yields), und schauen ob
+    // schon eine .tmp-File auf der Disk existiert. Bei collect-then-
+    // write waeren noch keine Bytes auf Disk; bei echtem streaming
+    // ist die tmp-File schon da.
+    const basePath = await mkdtemp(join(tmpdir(), "kumiko-stream-prop-"));
+    try {
+      const provider = createLocalProvider(basePath);
+      const chunks = [
+        new Uint8Array([1]),
+        new Uint8Array([2]),
+        new Uint8Array([3]),
+        new Uint8Array([4]),
+        new Uint8Array([5]),
+      ];
+      const writePromise = provider.writeStream("streamed.bin", slowChunks(chunks, 30));
+
+      // Nach ~50ms: 1-2 chunks geyielded, tmp-File sollte existieren
+      await new Promise((r) => setTimeout(r, 50));
+      const dirContents = await readdir(basePath);
+      const hasTmp = dirContents.some((f) => f.endsWith(".tmp"));
+      const hasFinal = dirContents.includes("streamed.bin");
+      expect(hasTmp).toBe(true); // tmp existiert WAEHREND yields
+      expect(hasFinal).toBe(false); // rename ist noch nicht passiert
+
+      // Warten auf completion
+      await writePromise;
+
+      // Nach completion: tmp ist weg, final-File ist da
+      const finalContents = await readdir(basePath);
+      expect(finalContents).toContain("streamed.bin");
+      expect(finalContents.filter((f) => f.endsWith(".tmp"))).toEqual([]);
+
+      const data = await provider.read("streamed.bin");
+      expect(Array.from(data)).toEqual([1, 2, 3, 4, 5]);
+    } finally {
+      await rm(basePath, { recursive: true, force: true });
+    }
   });
 });

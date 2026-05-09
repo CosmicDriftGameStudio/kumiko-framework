@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -5,6 +6,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl as presign } from "@aws-sdk/s3-request-presigner";
 import type { FileStorageProvider, SignedUrlOptions } from "@cosmicdrift/kumiko-framework/files";
 
@@ -63,40 +65,30 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
     },
 
     async writeStream(key, source, options): Promise<void> {
-      // Phase 1 (3c.fix): collect-then-PutObject. Erfuellt den Surface-
-      // Contract (writeStream ist required in FileStorageProvider) und
-      // funktioniert fuer ZIP-Bundles bis ~50MB ohne signifikanten Heap-
-      // Druck (S3-SDK hat eigenen Buffer-Overhead).
+      // Echtes multipart-streaming via @aws-sdk/lib-storage.Upload —
+      // der Source-AsyncIterable wird chunk-weise zu S3 hochgeladen,
+      // niemals alles im Memory aggregiert. lib-storage handled
+      // automatisch chunking (5MB-Parts default), parallel-uploads
+      // (4 concurrent default), und retry bei Part-Failures.
       //
-      // Phase 2 (separates Ticket wenn Bundles >100MB realistisch werden):
-      // S3-Multipart-Upload via @aws-sdk/lib-storage.Upload. Pattern:
-      //   const upload = new Upload({ client, params: { Bucket, Key, Body: source } });
-      //   await upload.done();
-      // lib-storage handled chunking + parallel-uploads + retry. Aber:
-      // separater dependency + Test-Setup braucht LocalStack — eigener
-      // Sprint wenn die Memory-Threshold gerissen wird (Operator-Signal:
-      // bytesWritten > 100 MB im run-export-jobs-Output, siehe doc auf
-      // runUserExport).
-      const chunks: Uint8Array[] = [];
-      let total = 0;
-      for await (const chunk of source) {
-        chunks.push(chunk);
-        total += chunk.byteLength;
-      }
-      const body = new Uint8Array(total);
-      let offset = 0;
-      for (const c of chunks) {
-        body.set(c, offset);
-        offset += c.byteLength;
-      }
-      await client.send(
-        new PutObjectCommand({
+      // Memory-Footprint: ~5MB pro in-flight-part × 4 concurrent =
+      // ~20MB Heap-Bound, unabhaengig von der Total-Bundle-Size. Macht
+      // 1GB+ Bundles moeglich ohne OOM.
+      //
+      // Readable.from(source) adapiert AsyncIterable → node:Readable —
+      // lib-storage's Body-Type akzeptiert Web-ReadableStream + node-
+      // Readable, nicht direkt AsyncIterable. Adapter ist zero-copy.
+      const body = Readable.from(source);
+      const upload = new Upload({
+        client,
+        params: {
           Bucket: config.bucket,
           Key: key,
           Body: body,
           ...(options?.mimeType !== undefined && { ContentType: options.mimeType }),
-        }),
-      );
+        },
+      });
+      await upload.done();
     },
 
     async read(key): Promise<Uint8Array> {
