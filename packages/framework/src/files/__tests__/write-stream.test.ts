@@ -33,7 +33,6 @@ describe("FileStorageProvider.writeStream — in-memory", () => {
       new Uint8Array([4, 5, 6]),
       new Uint8Array([7, 8, 9]),
     ];
-    if (!provider.writeStream) throw new Error("writeStream missing");
     await provider.writeStream("test/file.bin", fromChunks(chunks));
 
     const data = await provider.read("test/file.bin");
@@ -42,7 +41,6 @@ describe("FileStorageProvider.writeStream — in-memory", () => {
 
   test("leerer Stream → leere Datei", async () => {
     const provider = createInMemoryFileProvider();
-    if (!provider.writeStream) throw new Error("writeStream missing");
     await provider.writeStream("empty.bin", fromChunks([]));
 
     const data = await provider.read("empty.bin");
@@ -80,7 +78,6 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
   test("schreibt + read roundtrip mit chunked source", async () => {
     const provider = createLocalProvider(basePath);
     const chunks = [new Uint8Array([10, 20, 30]), new Uint8Array([40, 50, 60])];
-    if (!provider.writeStream) throw new Error("writeStream missing");
     await provider.writeStream("dir/foo.bin", fromChunks(chunks));
 
     const data = await provider.read("dir/foo.bin");
@@ -89,7 +86,6 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
 
   test("legt parent-Verzeichnisse rekursiv an", async () => {
     const provider = createLocalProvider(basePath);
-    if (!provider.writeStream) throw new Error("writeStream missing");
     await provider.writeStream("deeply/nested/path/file.bin", fromChunks([new Uint8Array([1])]));
 
     const stats = await stat(join(basePath, "deeply/nested/path/file.bin"));
@@ -104,7 +100,6 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
       throw new Error("synthetic mid-stream failure");
     }
 
-    if (!provider.writeStream) throw new Error("writeStream missing");
     await expect(provider.writeStream("dir/half.bin", failingSource())).rejects.toThrow(
       /synthetic mid-stream failure/,
     );
@@ -124,7 +119,6 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
       throw new Error("fail");
     }
 
-    if (!provider.writeStream) throw new Error("writeStream missing");
     await expect(provider.writeStream("subdir/leak-check.bin", failing())).rejects.toThrow();
 
     // Final-Pfad ist NICHT da — das ist die harte Garantie.
@@ -139,7 +133,6 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
 
   test("ueberschreibt existing file atomar (rename ueber bestehenden Pfad)", async () => {
     const provider = createLocalProvider(basePath);
-    if (!provider.writeStream) throw new Error("writeStream missing");
 
     await provider.write("k", new Uint8Array([1, 1, 1]));
     await provider.writeStream("k", fromChunks([new Uint8Array([2, 2, 2])]));
@@ -169,7 +162,6 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
       yield new Uint8Array([3]);
     }
 
-    if (!provider.writeStream) throw new Error("writeStream missing");
     await provider.writeStream("lazy.bin", lazySource());
 
     const data = await provider.read("lazy.bin");

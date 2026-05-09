@@ -28,38 +28,34 @@ export type WriteStreamOptions = {
 // shuttle bytes. `mimeType` on write() is a hint for providers that need a
 // Content-Type header (S3/R2/…); local filesystems can ignore it.
 //
-// **Streaming-Pfad (`writeStream`)** ist optional und ist die Skalierungs-
-// Variante zu `write` fuer Bundles die nicht in Memory passen sollen
-// (User-Data-Export ZIPs, Backup-Archives, ...). Source ist eine
-// `AsyncIterable<Uint8Array>` — der Caller streamt chunk-fuer-chunk
-// rein, der Provider schreibt direkt durch. Niemals alles im Memory.
-// Wenn ein Provider `writeStream` nicht implementiert, faellt der
-// Caller via Feature-Detect auf chunk-collection + write zurueck oder
-// erkennt das Setup-Limit fruehzeitig.
+// **Streaming (`writeStream` + `readStream`) ist PFLICHT** — beide
+// Methoden sind required, kein optional-feature. Begruendung:
+//   - User-Data-Export (Atom 3c) braucht beide, sonst silent fail bei
+//     erstem Job mit fileRefs in Production.
+//   - Apps die nur kleine Files (Avatar-Uploads, Profile-Pics) handeln,
+//     koennen trivial via `oneShot`-Pattern den Stream-Contract erfuellen
+//     (single-chunk yield von write/read-Bytes). 5 Zeilen pro Provider.
+//   - Optional-Type wuerde TypeScript-Lying erlauben: Type sagt "kann
+//     fehlen", Worker throws zur Runtime → App-Authors sehen den Bug
+//     erst in Production. Required + TS-enforced ist ehrlich.
 //
-// **Streaming-Pfad (`readStream`)** ist die Lese-Variante: gibt eine
-// `AsyncIterable<Uint8Array>` zurueck statt der ganzen Datei in Memory.
-// Wichtig fuer Atom 3c+ (User-Data-Export ZIP-Bau iteriert ueber alle
-// fileRefs und streamt Bytes durch den ZIP-Builder — bei einem User mit
-// 50 PDFs à 10MB sonst 500MB Heap-Spike). Wenn ein Provider readStream
-// nicht implementiert, faellt der Caller per feature-detect auf read()
-// + chunk-collection zurueck oder erkennt das Setup-Limit fruehzeitig.
-//
-// `getSignedUrl` ist optional: object-store backends (S3/R2/GCS) implement it
-// so clients can download directly from the provider after the server has
-// checked access — offloads bandwidth and enables browser-native caching.
-// Filesystem providers leave it undefined; the route then returns 501 and
-// the client falls back to streaming via GET /files/:id. Callers must
-// feature-detect via `typeof provider.getSignedUrl === "function"`.
+// `getSignedUrl` BLEIBT optional: object-store backends (S3/R2/GCS)
+// implement it so clients can download directly from the provider after
+// the server has checked access — offloads bandwidth and enables browser-
+// native caching. Filesystem providers leave it undefined; the route then
+// returns 501 and the client falls back to streaming via GET /files/:id.
+// Callers must feature-detect via `typeof provider.getSignedUrl === "function"`.
+// Hier ist Optional korrekt weil die Fallback-Pfad existiert — kein
+// silent-fail, sondern 501 + alternativer download.
 export type FileStorageProvider = {
   write(key: string, data: Uint8Array, mimeType?: string): Promise<void>;
-  writeStream?(
+  writeStream(
     key: string,
     source: AsyncIterable<Uint8Array>,
     options?: WriteStreamOptions,
   ): Promise<void>;
   read(key: string): Promise<Uint8Array>;
-  readStream?(key: string): AsyncIterable<Uint8Array>;
+  readStream(key: string): AsyncIterable<Uint8Array>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
   getSignedUrl?(key: string, expiresInSeconds: number, options?: SignedUrlOptions): Promise<string>;

@@ -82,6 +82,32 @@ interface HookEntry {
   readonly exportHook: UserDataExportHook;
 }
 
+/**
+ * Pure function: iteriert alle EXT_USER_DATA-Hooks pro Tenant (Cross-
+ * Tenant-Memberships) + sammelt Snippets in ein UserExportBundle.
+ *
+ * **Memory-Footprint (wichtig fuer DSGVO-Skalierung):**
+ *
+ * Das Bundle wird KOMPLETT IN-MEMORY gebaut bevor `bundleToZipEntries`
+ * es als bundle.json yieldet. Bewusste Design-Entscheidung fuer Phase 1
+ * (Atom 3c):
+ *   - File-Binaries gehen via readStream chunk-streaming → skaliert auf
+ *     beliebige File-Sizes ohne Heap-Spike.
+ *   - Bundle-JSON (Tabellen-Daten + Metadata) ist ein einziger
+ *     JSON-String. Heap-Footprint = JSON-Size.
+ *
+ * **Threshold:** Web-App mit ~500 Tabellen-Rows pro User ≈ 500 KB JSON.
+ * 50k Rows ≈ 50 MB. 100k+ Rows pro User (z.B. langjaehrige Mietportal-
+ * Logs) macht Heap-Druck merkbar.
+ *
+ * **Wenn das knapp wird:** runUserExport auf AsyncIterable-Form refactoren —
+ * Hooks yielden snippets statt Object-Returns; Bundle-Schema bekommt
+ * JSON-Lines-Format. bundleToZipEntries wuerde line-by-line streamen.
+ * Eigener Sprint, nicht-trivialer Schema-Bruch.
+ *
+ * **Operator-Signal:** Job mit `bytesWritten > 100 MB` sollte Telemetry-
+ * Alert triggern + Bundle-Schema-Refactor evaluieren.
+ */
 export async function runUserExport(args: RunUserExportArgs): Promise<UserExportBundle> {
   const { db, registry, userId, now } = args;
 

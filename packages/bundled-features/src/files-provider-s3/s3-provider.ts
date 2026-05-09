@@ -62,6 +62,43 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
       );
     },
 
+    async writeStream(key, source, options): Promise<void> {
+      // Phase 1 (3c.fix): collect-then-PutObject. Erfuellt den Surface-
+      // Contract (writeStream ist required in FileStorageProvider) und
+      // funktioniert fuer ZIP-Bundles bis ~50MB ohne signifikanten Heap-
+      // Druck (S3-SDK hat eigenen Buffer-Overhead).
+      //
+      // Phase 2 (separates Ticket wenn Bundles >100MB realistisch werden):
+      // S3-Multipart-Upload via @aws-sdk/lib-storage.Upload. Pattern:
+      //   const upload = new Upload({ client, params: { Bucket, Key, Body: source } });
+      //   await upload.done();
+      // lib-storage handled chunking + parallel-uploads + retry. Aber:
+      // separater dependency + Test-Setup braucht LocalStack — eigener
+      // Sprint wenn die Memory-Threshold gerissen wird (Operator-Signal:
+      // bytesWritten > 100 MB im run-export-jobs-Output, siehe doc auf
+      // runUserExport).
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for await (const chunk of source) {
+        chunks.push(chunk);
+        total += chunk.byteLength;
+      }
+      const body = new Uint8Array(total);
+      let offset = 0;
+      for (const c of chunks) {
+        body.set(c, offset);
+        offset += c.byteLength;
+      }
+      await client.send(
+        new PutObjectCommand({
+          Bucket: config.bucket,
+          Key: key,
+          Body: body,
+          ...(options?.mimeType !== undefined && { ContentType: options.mimeType }),
+        }),
+      );
+    },
+
     async read(key): Promise<Uint8Array> {
       const response = await client.send(new GetObjectCommand({ Bucket: config.bucket, Key: key }));
       if (!response.Body) {

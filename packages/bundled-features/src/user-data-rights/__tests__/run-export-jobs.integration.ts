@@ -443,18 +443,21 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
   // Stack mit Test-Feature das fileRefs liefert. Ueberschreibt das outer
   // stack via local setupTestStack — nur fuer diesen describe-Block.
   let localStack: TestStack;
+  // Module-level mutable damit der malicious-filename-Test den User-Input
+  // pro Test variieren kann ohne neuen Stack aufzubauen. Default sicher.
+  let currentTestFileName = "report.pdf";
   beforeAll(async () => {
     const { defineFeature, EXT_USER_DATA } = await import("@cosmicdrift/kumiko-framework/engine");
     const testFileExporter = defineFeature("test-file-exporter", (r) => {
       r.useExtension(EXT_USER_DATA, "test-file", {
         export: async (ctx: { tenantId: string; userId: string }) => ({
           entity: "test-file",
-          rows: [{ id: "f1", name: "report.pdf" }],
+          rows: [{ id: "f1", name: currentTestFileName }],
           fileRefs: [
             {
               fileRefId: "f1",
               storageKey: `${ctx.tenantId}/test-file/f1.pdf`,
-              fileName: "report.pdf",
+              fileName: currentTestFileName,
             },
           ],
         }),
@@ -502,6 +505,8 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     await localStack.db.execute(sql`DELETE FROM kumiko_events`);
     await localStack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
     await localStack.db.execute(sql`DELETE FROM read_tenant_memberships`);
+    // Reset zu safe Default damit kein Test den State an den naechsten leakt.
+    currentTestFileName = "report.pdf";
   });
 
   async function seedMembership(tenantId: string, userId: string | number) {
@@ -615,5 +620,68 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
       .where(sql`id = ${jobId}`)) as Array<{ status: string; errorMessage: string | null }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
     expect(row?.errorMessage).toMatch(/in-memory file not found/);
+  });
+
+  test("malicious filename: '../../etc/passwd' bleibt im ZIP-Root (defense-in-depth e2e)", async () => {
+    // Defense-in-depth: pinst die ganze Chain
+    //   user-input fileName → buildFileRefZipPath → bundle.fileRefs[].zipPath
+    //   → bundleToZipEntries → ZipEntry.path → unzip.
+    // Ein User-uploaded-fileName mit "../../etc/passwd" darf NIEMALS
+    // ein ZIP-Reader dazu bringen, ausserhalb des extract-Roots zu
+    // schreiben. Das wird unit-getestet auf zip-path-Ebene; der
+    // Integration-Test hier pinst dass der Sanitize-Pfad WIRKLICH
+    // durchgaengig wirkt.
+    currentTestFileName = "../../etc/passwd";
+    await seedMembership(tenantA, aliceUser.id);
+    await seedFileBytes(
+      tenantA,
+      `${tenantA}/test-file/f1.pdf`,
+      new Uint8Array([0xde, 0xad, 0xbe, 0xef]),
+    );
+
+    const jobId = await seedPendingJobLocal(aliceUser);
+    const result = await runExportJobs({
+      db: localStack.db,
+      registry: localStack.registry,
+      buildStorageProvider: spiedBuildProvider,
+      now: NOW(),
+    });
+    expect(result.completedJobIds).toContain(jobId);
+
+    const provider = await buildProvider(tenantA);
+    const zipBytes = await provider.read(`${tenantA}/exports/${jobId}.zip`);
+    const dir = await mkdtemp(join(tmpdir(), "kumiko-3c-malicious-"));
+    try {
+      const zipPath = join(dir, "out.zip");
+      const extractRoot = join(dir, "out");
+      await writeFile(zipPath, zipBytes);
+      await new Promise<void>((resolve, reject) => {
+        const proc = spawn("unzip", ["-d", extractRoot, zipPath]);
+        proc.on("close", (code) =>
+          code === 0 ? resolve() : reject(new Error(`unzip exit ${code}`)),
+        );
+        proc.on("error", reject);
+      });
+
+      // Bundle hat zipPath ohne ".." gespeichert
+      const bundle = JSON.parse(await readFile(join(extractRoot, "bundle.json"), "utf8"));
+      expect(bundle.fileRefs[0].zipPath).not.toContain("..");
+      expect(bundle.fileRefs[0].zipPath).toMatch(/^files\//);
+
+      // ZIP-Entry-Pfad ist DERSELBE wie zipPath in bundle.json
+      // → Reader hat KEINE Datei outside extractRoot geschrieben.
+      // unzip wuerde mit warning skipen wenn der path-traversal greifen
+      // wuerde; wir verifizieren via filesystem-check ausserhalb.
+      const dirAbove = join(dir, "..");
+      const escapedFile = join(dirAbove, "etc", "passwd");
+      const { access } = await import("node:fs/promises");
+      await expect(access(escapedFile)).rejects.toThrow();
+
+      // Die Bytes sind unter dem sanitized-Path im ZIP-Root.
+      const fileBytes = await readFile(join(extractRoot, bundle.fileRefs[0].zipPath));
+      expect(Array.from(fileBytes)).toEqual([0xde, 0xad, 0xbe, 0xef]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

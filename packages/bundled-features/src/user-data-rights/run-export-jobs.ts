@@ -238,12 +238,8 @@ async function processJob(args: {
     };
 
     const writeProvider = await cachedProvider(job.requestedFromTenantId);
-    if (!writeProvider.writeStream) {
-      throw new Error(
-        `Storage-Provider for tenant ${job.requestedFromTenantId} has no writeStream API ` +
-          `— required fuer Streaming-ZIP. Mount a provider that implements writeStream.`,
-      );
-    }
+    // writeStream + readStream sind im FileStorageProvider-Type required
+    // (Atom 3c.fix Type-Honesty) — keine Runtime-Optional-Checks mehr noetig.
 
     const storageKey = buildExportStorageKey(job);
     const tracker = countingStream(
@@ -499,12 +495,8 @@ async function* bundleToZipEntries(
   // (default highWaterMark) gleichzeitig im Heap gehalten.
   for (const ref of bundle.fileRefs) {
     const provider = await getProvider(ref.tenantId);
-    if (!provider.readStream) {
-      throw new Error(
-        `Storage-Provider for tenant ${ref.tenantId} has no readStream API ` +
-          `— required fuer Streaming-File-Export. Mount a provider that implements readStream.`,
-      );
-    }
+    // readStream ist required im FileStorageProvider-Type (Atom 3c.fix
+    // Type-Honesty) — kein Runtime-Optional-Check noetig.
     yield {
       path: ref.zipPath,
       data: provider.readStream(ref.storageKey),
