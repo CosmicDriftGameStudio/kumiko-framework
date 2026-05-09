@@ -10,6 +10,41 @@ import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl as presign } from "@aws-sdk/s3-request-presigner";
 import type { FileStorageProvider, SignedUrlOptions } from "@cosmicdrift/kumiko-framework/files";
 
+// =============================================================================
+// Operator-Pflicht-Setup (Multipart-Upload-Cleanup)
+// =============================================================================
+//
+// `writeStream` nutzt @aws-sdk/lib-storage's Upload-class fuer echtes
+// multipart-streaming. S3 created dabei eine Multipart-Upload-Session mit
+// einer Upload-ID; bei normaler Completion wird sie via Complete-
+// MultipartUpload geschlossen.
+//
+// **Edge-Case bei Worker-Abort:** wenn der Export-Worker mid-write gecancelt
+// wird (Pod-Restart, K8s-OOM-Kill, Process-Signal), bleibt die Multipart-
+// Upload-Session in S3 OFFEN. S3 behaelt die bereits hochgeladenen Parts
+// und berechnet Storage-Kosten dafuer — bis sie manuell oder via Lifecycle-
+// Rule abgebrochen werden.
+//
+// **Pflicht-Operator-Setup auf jedem Bucket:**
+//
+//   {
+//     "Rules": [{
+//       "ID": "AbortIncompleteMultipartUploads",
+//       "Status": "Enabled",
+//       "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 },
+//       "Filter": {}
+//     }]
+//   }
+//
+// AWS-CLI: `aws s3api put-bucket-lifecycle-configuration --bucket <name>
+// --lifecycle-configuration file://lifecycle.json`. Hetzner Object Storage
+// + R2 + Minio supporten dieselbe Syntax.
+//
+// **Code-side abort()** fuer graceful Worker-Shutdown ist follow-up. Das
+// braucht Worker-Cancel-Semantik (AbortSignal-Propagation durch r.job),
+// die im framework noch nicht existiert. Bis dahin ist die Lifecycle-
+// Rule die einzige Garantie gegen Storage-Leakage.
+
 // Minimal config surface — everything the SDK needs, nothing framework-
 // specific. Apps wire this into `buildServer({ files: { storageProvider } })`
 // the same way they'd pass createLocalProvider in dev.

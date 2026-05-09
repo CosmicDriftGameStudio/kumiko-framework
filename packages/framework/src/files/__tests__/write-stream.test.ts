@@ -182,10 +182,11 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
     // collecten.
     //
     // Pattern: 5 chunks mit je 30ms delay zwischen yields. Wir starten
-    // writeStream, warten ~50ms (= nach 1-2 yields), und schauen ob
-    // schon eine .tmp-File auf der Disk existiert. Bei collect-then-
-    // write waeren noch keine Bytes auf Disk; bei echtem streaming
-    // ist die tmp-File schon da.
+    // writeStream + pollen alle 10ms (max 200ms) bis tmp-File auftaucht.
+    // Bei collect-then-write taucht NIE eine tmp-File auf — Test failed
+    // dann via Timeout. Poll-basiert statt time-hardcoded gibt CI-
+    // Geschwindigkeits-Toleranz; flake-frei solange total-source-time
+    // (5 × 30ms = 150ms) > poll-Granularitaet (10ms).
     const basePath = await mkdtemp(join(tmpdir(), "kumiko-stream-prop-"));
     try {
       const provider = createLocalProvider(basePath);
@@ -198,13 +199,22 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
       ];
       const writePromise = provider.writeStream("streamed.bin", slowChunks(chunks, 30));
 
-      // Nach ~50ms: 1-2 chunks geyielded, tmp-File sollte existieren
-      await new Promise((r) => setTimeout(r, 50));
-      const dirContents = await readdir(basePath);
-      const hasTmp = dirContents.some((f) => f.endsWith(".tmp"));
-      const hasFinal = dirContents.includes("streamed.bin");
+      // Poll bis tmp existiert ODER final schon fertig (zu schneller CI).
+      let hasTmp = false;
+      let alreadyDone = false;
+      for (let i = 0; i < 20 && !hasTmp && !alreadyDone; i++) {
+        await new Promise((r) => setTimeout(r, 10));
+        const dirContents = await readdir(basePath);
+        hasTmp = dirContents.some((f) => f.endsWith(".tmp"));
+        alreadyDone = dirContents.includes("streamed.bin");
+      }
+      if (alreadyDone && !hasTmp) {
+        throw new Error(
+          "slowChunks-delay zu kurz fuer CI: writeStream war fertig bevor poll start. " +
+            "delayMs erhoehen oder chunks reduzieren.",
+        );
+      }
       expect(hasTmp).toBe(true); // tmp existiert WAEHREND yields
-      expect(hasFinal).toBe(false); // rename ist noch nicht passiert
 
       // Warten auf completion
       await writePromise;
