@@ -23,12 +23,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cosmicdriftgamestudio/kumiko-framework.git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
     "directory": "packages/renderer"
   },
   "homepage": "https://kumiko.so",
   "bugs": {
-    "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

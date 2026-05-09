@@ -6,11 +6,11 @@
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cosmicdriftgamestudio/kumiko-framework.git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
     "directory": "packages/framework"
   },
   "bugs": {
-    "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
   },
   "homepage": "https://kumiko.so",
   "keywords": [
