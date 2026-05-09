@@ -54,6 +54,25 @@ export function createInMemoryFileProvider(): InMemoryFileProvider {
       return new Uint8Array(entry.data);
     },
 
+    readStream(key) {
+      // In-Memory hat technisch keine Chunks, aber das Surface muss
+      // identisch zu echten Streamern (Local/S3) sein damit Test-Code
+      // den Pfad genauso geht. Wir yielden die Bytes als single-chunk.
+      // Map-lookup ist O(1), also kein Verlust durch eager-resolve.
+      // Throw passiert beim ersten chunk-pull — gleicher Lazy-Pattern
+      // wie S3 (request abgesetzt beim ersten Iterator-Step).
+      const entry = store.get(key);
+      const captured = entry ? new Uint8Array(entry.data) : null;
+      return {
+        async *[Symbol.asyncIterator]() {
+          if (captured === null) {
+            throw new Error(`in-memory file not found: ${key}`);
+          }
+          yield captured;
+        },
+      };
+    },
+
     async delete(key) {
       store.delete(key);
     },

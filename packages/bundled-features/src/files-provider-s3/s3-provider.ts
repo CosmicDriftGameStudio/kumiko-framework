@@ -73,6 +73,31 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
       return response.Body.transformToByteArray();
     },
 
+    readStream(key): AsyncIterable<Uint8Array> {
+      // S3 GetObject.Body ist ein StreamingBlobPayloadOutputTypes — auf
+      // node ist das ein Readable-Stream der bereits AsyncIterable<Buffer>
+      // ist. Wir wrappen lazy: erst beim ersten chunk-pull wird der
+      // GetObject-Request abgesetzt. Wenn der Key nicht existiert, faellt
+      // der Error genau dort (nicht beim readStream-Aufruf) — gleiches
+      // Lazy-Verhalten wie inmemory + local.
+      return {
+        async *[Symbol.asyncIterator]() {
+          const response = await client.send(
+            new GetObjectCommand({ Bucket: config.bucket, Key: key }),
+          );
+          if (!response.Body) {
+            throw new Error(`s3_read_empty_body: ${key}`);
+          }
+          // SdkStream is AsyncIterable<Buffer> on node. Buffer extends
+          // Uint8Array; cast sichert die Surface ohne neue runtime-deps.
+          const body = response.Body as AsyncIterable<Uint8Array>;
+          for await (const chunk of body) {
+            yield chunk;
+          }
+        },
+      };
+    },
+
     async delete(key): Promise<void> {
       await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
     },

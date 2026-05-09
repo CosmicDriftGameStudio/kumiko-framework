@@ -37,6 +37,14 @@ export type WriteStreamOptions = {
 // Caller via Feature-Detect auf chunk-collection + write zurueck oder
 // erkennt das Setup-Limit fruehzeitig.
 //
+// **Streaming-Pfad (`readStream`)** ist die Lese-Variante: gibt eine
+// `AsyncIterable<Uint8Array>` zurueck statt der ganzen Datei in Memory.
+// Wichtig fuer Atom 3c+ (User-Data-Export ZIP-Bau iteriert ueber alle
+// fileRefs und streamt Bytes durch den ZIP-Builder — bei einem User mit
+// 50 PDFs à 10MB sonst 500MB Heap-Spike). Wenn ein Provider readStream
+// nicht implementiert, faellt der Caller per feature-detect auf read()
+// + chunk-collection zurueck oder erkennt das Setup-Limit fruehzeitig.
+//
 // `getSignedUrl` ist optional: object-store backends (S3/R2/GCS) implement it
 // so clients can download directly from the provider after the server has
 // checked access — offloads bandwidth and enables browser-native caching.
@@ -51,6 +59,7 @@ export type FileStorageProvider = {
     options?: WriteStreamOptions,
   ): Promise<void>;
   read(key: string): Promise<Uint8Array>;
+  readStream?(key: string): AsyncIterable<Uint8Array>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
   getSignedUrl?(key: string, expiresInSeconds: number, options?: SignedUrlOptions): Promise<string>;

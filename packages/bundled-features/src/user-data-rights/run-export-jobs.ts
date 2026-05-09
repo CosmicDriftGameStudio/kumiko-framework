@@ -222,8 +222,23 @@ async function processJob(args: {
     });
     const ttl = profile.profile.userRights.exportDownloadTtl;
 
-    const provider = await buildStorageProvider(job.requestedFromTenantId);
-    if (!provider.writeStream) {
+    // Per-Tenant-Provider-Cache: Cross-Tenant-fileRefs (Alice Member von
+    // Tenant A + B → File-Refs aus beiden) brauchen pro Tenant separat
+    // einen Provider-Build (S3-Bucket pro Tenant, andere config). Job-
+    // Tenant ist die Identitaet fuer den write-Pfad; read-Pfade gehen
+    // ueber den fileRef.tenantId.
+    const providerCache = new Map<TenantId, FileStorageProvider>();
+    const cachedProvider = async (tenantId: TenantId): Promise<FileStorageProvider> => {
+      let p = providerCache.get(tenantId);
+      if (!p) {
+        p = await buildStorageProvider(tenantId);
+        providerCache.set(tenantId, p);
+      }
+      return p;
+    };
+
+    const writeProvider = await cachedProvider(job.requestedFromTenantId);
+    if (!writeProvider.writeStream) {
       throw new Error(
         `Storage-Provider for tenant ${job.requestedFromTenantId} has no writeStream API ` +
           `— required fuer Streaming-ZIP. Mount a provider that implements writeStream.`,
@@ -231,9 +246,11 @@ async function processJob(args: {
     }
 
     const storageKey = buildExportStorageKey(job);
-    const tracker = countingStream(createZipStream(bundleToZipEntries(bundle, now)));
+    const tracker = countingStream(
+      createZipStream(bundleToZipEntries(bundle, now, cachedProvider)),
+    );
 
-    await provider.writeStream(storageKey, tracker.stream, {
+    await writeProvider.writeStream(storageKey, tracker.stream, {
       mimeType: "application/zip",
     });
 
@@ -445,27 +462,55 @@ function buildExportStorageKey(job: JobRow): string {
  * Konvertiert das UserExportBundle in eine `AsyncIterable<ZipEntry>`
  * fuer createZipStream.
  *
- * Bundle-Layout:
- *   bundle.json                   — Top-Level-Bundle-Metadata + tenant-sections
- *   files/<tenantId>/<fileId>     — File-Binaries (Atom 3b lädt sie aus
- *                                   dem Storage; aktuell als Stub-empty
- *                                   weil File-Read pro tenant einen
- *                                   eigenen Storage-Provider braucht;
- *                                   Atom 4b wird die Files-Loop
- *                                   final wiren)
+ * Bundle-Layout (Atom 3c):
+ *   bundle.json                              — Top-Level-Bundle-Metadata
+ *                                              + tenant-sections + flat
+ *                                              fileRefs[] mit zipPath
+ *                                              pro Datei
+ *   files/<tenantId>/<fileRefId>-<name>      — File-Binaries, Pfad
+ *                                              identisch zu fileRef.zipPath
+ *                                              im JSON. Bytes via
+ *                                              provider.readStream — kein
+ *                                              Memory-Spike, auch grosse
+ *                                              PDFs streamen durch.
+ *
+ * `getProvider` ist ein async-cached Resolver pro tenantId. Caller
+ * (processJob) baut die Caching-Map damit jeder Tenant nur EINMAL
+ * via `buildStorageProvider` materialisiert wird.
  */
 async function* bundleToZipEntries(
   bundle: UserExportBundle,
   mtime: Instant,
+  getProvider: (tenantId: TenantId) => Promise<FileStorageProvider>,
 ): AsyncIterable<ZipEntry> {
   const mtimeDate = new Date(mtime.epochMilliseconds);
-  // bundle.json
+
+  // bundle.json zuerst — Reader-Tools koennen das frueh parsen.
   const bundleJson = JSON.stringify(bundle, null, 2);
   yield {
     path: "bundle.json",
     data: oneShot(new TextEncoder().encode(bundleJson)),
     mtime: mtimeDate,
   };
+
+  // File-Binaries: pro fileRef einen ZIP-Entry. data ist der readStream
+  // direkt — der ZIP-Builder konsumiert chunk-fuer-chunk, kein Upfront-
+  // Memory-Spike pro File. Bei 50 PDFs à 10MB werden trotzdem max. ~64KB
+  // (default highWaterMark) gleichzeitig im Heap gehalten.
+  for (const ref of bundle.fileRefs) {
+    const provider = await getProvider(ref.tenantId);
+    if (!provider.readStream) {
+      throw new Error(
+        `Storage-Provider for tenant ${ref.tenantId} has no readStream API ` +
+          `— required fuer Streaming-File-Export. Mount a provider that implements readStream.`,
+      );
+    }
+    yield {
+      path: ref.zipPath,
+      data: provider.readStream(ref.storageKey),
+      mtime: mtimeDate,
+    };
+  }
 }
 
 async function* oneShot(bytes: Uint8Array): AsyncIterable<Uint8Array> {

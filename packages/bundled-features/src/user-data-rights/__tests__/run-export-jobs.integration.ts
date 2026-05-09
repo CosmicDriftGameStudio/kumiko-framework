@@ -415,3 +415,205 @@ describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
   });
 });
+
+describe("runExportJobs :: Atom 3c file-binaries", () => {
+  // Helper: spy auf buildProvider damit wir verifizieren koennen, dass
+  // multi-tenant-fileRefs ZWEI separate Provider-Builds triggern (Cache-
+  // Invariant: pro tenant nur einmal).
+  let providerCallsByTenant: Map<string, number>;
+
+  function spiedBuildProvider(tenantId: string): Promise<FileStorageProvider> {
+    providerCallsByTenant.set(tenantId, (providerCallsByTenant.get(tenantId) ?? 0) + 1);
+    return buildProvider(tenantId);
+  }
+
+  // Pre-seed eine fileRef-Row in read_user_files damit der user-Hook in
+  // user-data-rights-defaults sie findet. Aber: wir mounten diesen
+  // defaults-Feature NICHT, weil dann file-foundation + files-Feature
+  // mit dazukommen muessen. Stattdessen: ein test-only Feature das einen
+  // userData-export-Hook mit fileRefs[] direkt zurueckgibt.
+  function seedFileBytes(tenantId: string, storageKey: string, bytes: Uint8Array) {
+    return buildProvider(tenantId).then((p) => p.write(storageKey, bytes));
+  }
+
+  beforeEach(() => {
+    providerCallsByTenant = new Map();
+  });
+
+  // Stack mit Test-Feature das fileRefs liefert. Ueberschreibt das outer
+  // stack via local setupTestStack — nur fuer diesen describe-Block.
+  let localStack: TestStack;
+  beforeAll(async () => {
+    const { defineFeature, EXT_USER_DATA } = await import("@cosmicdrift/kumiko-framework/engine");
+    const testFileExporter = defineFeature("test-file-exporter", (r) => {
+      r.useExtension(EXT_USER_DATA, "test-file", {
+        export: async (ctx: { tenantId: string; userId: string }) => ({
+          entity: "test-file",
+          rows: [{ id: "f1", name: "report.pdf" }],
+          fileRefs: [
+            {
+              fileRefId: "f1",
+              storageKey: `${ctx.tenantId}/test-file/f1.pdf`,
+              fileName: "report.pdf",
+            },
+          ],
+        }),
+      });
+    });
+
+    localStack = await setupTestStack({
+      features: [
+        createUserFeature(),
+        createDataRetentionFeature(),
+        createComplianceProfilesFeature(),
+        createUserDataRightsFeature(),
+        testFileExporter,
+      ],
+    });
+    await createEntityTable(localStack.db, exportJobEntity);
+    await createEntityTable(localStack.db, tenantComplianceProfileEntity);
+    await createEventsTable(localStack.db);
+    await localStack.db.execute(sql`
+      CREATE TABLE IF NOT EXISTS read_tenant_memberships (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL,
+        user_id TEXT NOT NULL,
+        version INTEGER NOT NULL DEFAULT 0,
+        inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        inserted_by_id TEXT,
+        modified_by_id TEXT,
+        is_deleted BOOLEAN NOT NULL DEFAULT false,
+        deleted_at TIMESTAMPTZ,
+        deleted_by_id TEXT,
+        roles TEXT NOT NULL DEFAULT '[]',
+        UNIQUE(user_id, tenant_id)
+      )
+    `);
+  });
+
+  afterAll(async () => {
+    if (localStack) await localStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    if (!localStack) return;
+    await localStack.db.delete(exportJobsTable);
+    await localStack.db.execute(sql`DELETE FROM kumiko_events`);
+    await localStack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
+    await localStack.db.execute(sql`DELETE FROM read_tenant_memberships`);
+  });
+
+  async function seedMembership(tenantId: string, userId: string | number) {
+    await localStack.db.execute(sql`
+      INSERT INTO read_tenant_memberships (tenant_id, user_id)
+      VALUES (${tenantId}, ${String(userId)})
+      ON CONFLICT (user_id, tenant_id) DO NOTHING
+    `);
+  }
+
+  async function seedPendingJobLocal(user: typeof aliceUser): Promise<string> {
+    const result = await localStack.http.writeOk<{ jobId: string }>(
+      "user-data-rights:write:request-export",
+      {},
+      user,
+    );
+    return result.jobId;
+  }
+
+  test("happy: 1 fileRef in 1 Tenant → ZIP enthaelt file-bytes unter zipPath", async () => {
+    await seedMembership(tenantA, aliceUser.id);
+    await seedFileBytes(tenantA, `${tenantA}/test-file/f1.pdf`, new Uint8Array([1, 2, 3, 4, 5]));
+
+    const jobId = await seedPendingJobLocal(aliceUser);
+
+    const result = await runExportJobs({
+      db: localStack.db,
+      registry: localStack.registry,
+      buildStorageProvider: spiedBuildProvider,
+      now: NOW(),
+    });
+
+    expect(result.completedJobIds).toContain(jobId);
+    expect(result.errors).toEqual([]);
+
+    // ZIP entpacken + file-bytes verifizieren
+    const provider = await buildProvider(tenantA);
+    const zipBytes = await provider.read(`${tenantA}/exports/${jobId}.zip`);
+    const dir = await mkdtemp(join(tmpdir(), "kumiko-3c-test-"));
+    try {
+      const zipPath = join(dir, "out.zip");
+      await writeFile(zipPath, zipBytes);
+      await new Promise<void>((resolve, reject) => {
+        const proc = spawn("unzip", ["-d", join(dir, "out"), zipPath]);
+        proc.on("close", (code) =>
+          code === 0 ? resolve() : reject(new Error(`unzip exit ${code}`)),
+        );
+        proc.on("error", reject);
+      });
+
+      // bundle.json existiert + hat zipPath
+      const bundle = JSON.parse(await readFile(join(dir, "out", "bundle.json"), "utf8"));
+      expect(bundle.fileRefs).toHaveLength(1);
+      const expectedZipPath = `files/${tenantA}/f1-report.pdf`;
+      expect(bundle.fileRefs[0].zipPath).toBe(expectedZipPath);
+
+      // File-bytes liegen unter genau diesem Pfad
+      const fileBytes = await readFile(join(dir, "out", expectedZipPath));
+      expect(Array.from(fileBytes)).toEqual([1, 2, 3, 4, 5]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("multi-tenant: fileRefs aus 2 Tenants → 2 separate Provider-Builds (cache-invariant)", async () => {
+    const tenantB = testTenantId(2);
+    await seedMembership(tenantA, aliceUser.id);
+    await seedMembership(tenantB, aliceUser.id);
+    await seedFileBytes(tenantA, `${tenantA}/test-file/f1.pdf`, new Uint8Array([10]));
+    await seedFileBytes(tenantB, `${tenantB}/test-file/f1.pdf`, new Uint8Array([20]));
+
+    const jobId = await seedPendingJobLocal(aliceUser);
+
+    const result = await runExportJobs({
+      db: localStack.db,
+      registry: localStack.registry,
+      buildStorageProvider: spiedBuildProvider,
+      now: NOW(),
+    });
+
+    expect(result.completedJobIds).toContain(jobId);
+
+    // Cache-Invariant: Tenant A Provider wurde 1x gebaut (Job-Tenant fuer
+    // writeStream + 1. fileRef-Read), Tenant B nur fuer den 2. fileRef-Read.
+    // Mehrere fileRef-Reads pro Tenant duerfen aber NICHT mehrere builds
+    // triggern.
+    expect(providerCallsByTenant.get(tenantA)).toBe(1);
+    expect(providerCallsByTenant.get(tenantB)).toBe(1);
+  });
+
+  test("missing-file: storage-key gibt's nicht → job=failed mit klarem error", async () => {
+    await seedMembership(tenantA, aliceUser.id);
+    // Bewusst KEIN seedFileBytes — der storage-key existiert nicht im
+    // in-memory-provider; readStream throw't beim ersten chunk-pull.
+    const jobId = await seedPendingJobLocal(aliceUser);
+
+    const result = await runExportJobs({
+      db: localStack.db,
+      registry: localStack.registry,
+      buildStorageProvider: spiedBuildProvider,
+      now: NOW(),
+    });
+
+    expect(result.completedJobIds).not.toContain(jobId);
+    expect(result.failedJobIds).toContain(jobId);
+    expect(result.errors[0]?.message).toMatch(/in-memory file not found/);
+
+    const [row] = (await localStack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id = ${jobId}`)) as Array<{ status: string; errorMessage: string | null }>;
+    expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
+    expect(row?.errorMessage).toMatch(/in-memory file not found/);
+  });
+});

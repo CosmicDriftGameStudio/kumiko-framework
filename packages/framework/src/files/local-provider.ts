@@ -1,4 +1,4 @@
-import { createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -43,6 +43,28 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
     async read(key: string): Promise<Uint8Array> {
       const filePath = join(basePath, key);
       return readFile(filePath);
+    },
+
+    readStream(key: string): AsyncIterable<Uint8Array> {
+      // node:fs createReadStream ist ein AsyncIterable<Buffer>; Buffer
+      // extends Uint8Array. Wir bauen einen kleinen Adapter weil
+      // @types/node das asyncIterator als AsyncIterableIterator<any>
+      // typt — Adapter sichert die Surface auf Uint8Array.
+      // Default-highWaterMark = 64KB Chunks, was fuer ZIP-Stream-Konsum
+      // gut ist. Errors landen im for-await-Loop des Konsumenten
+      // (z.B. ENOENT bei Missing-File faellt erst beim ersten chunk-
+      // pull, nicht beim readStream-Aufruf — gleiches Lazy-Verhalten
+      // wie inmemory + S3).
+      const filePath = join(basePath, key);
+      const stream = createReadStream(filePath);
+      return {
+        async *[Symbol.asyncIterator]() {
+          for await (const chunk of stream) {
+            // @cast-boundary node-stream — Buffer extends Uint8Array.
+            yield chunk as Uint8Array;
+          }
+        },
+      };
     },
 
     async delete(key: string): Promise<void> {

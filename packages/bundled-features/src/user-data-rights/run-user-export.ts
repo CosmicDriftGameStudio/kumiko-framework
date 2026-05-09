@@ -31,6 +31,7 @@ import {
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq } from "drizzle-orm";
 import { tenantMembershipsTable } from "../tenant";
+import { buildFileRefZipPath } from "./zip-path";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -47,6 +48,13 @@ export interface UserExportFileRef {
   readonly fileName: string;
   /** Tenant in dem die Datei haengt — gleicher fileRefId kann nicht ueber Tenants geteilt sein. */
   readonly tenantId: TenantId;
+  /**
+   * ZIP-internal Pfad unter dem die Datei im Export-ZIP landet. Reader-
+   * Tools (Compliance-Audit, Self-Service-Portal) verlinken bundle.json
+   * fileRefs[] auf die files/-Pfade ueber dieses Feld. Garantiert
+   * path-traversal-frei via sanitizeZipFilename.
+   */
+  readonly zipPath: string;
 }
 
 export interface UserExportTenantSection {
@@ -106,7 +114,15 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
       entities.push(snippet);
       if (snippet.fileRefs) {
         for (const ref of snippet.fileRefs) {
-          fileRefs.push({ ...ref, tenantId });
+          fileRefs.push({
+            ...ref,
+            tenantId,
+            zipPath: buildFileRefZipPath({
+              tenantId,
+              fileRefId: ref.fileRefId,
+              fileName: ref.fileName,
+            }),
+          });
         }
       }
     }
@@ -134,7 +150,15 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
       orphanEntities.push(snippet);
       if (snippet.fileRefs) {
         for (const ref of snippet.fileRefs) {
-          fileRefs.push({ ...ref, tenantId: SYSTEM_TENANT_ID_FOR_ORPHANS });
+          fileRefs.push({
+            ...ref,
+            tenantId: SYSTEM_TENANT_ID_FOR_ORPHANS,
+            zipPath: buildFileRefZipPath({
+              tenantId: SYSTEM_TENANT_ID_FOR_ORPHANS,
+              fileRefId: ref.fileRefId,
+              fileName: ref.fileName,
+            }),
+          });
         }
       }
     }
