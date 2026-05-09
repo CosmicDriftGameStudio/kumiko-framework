@@ -2,6 +2,7 @@ import {
   defineFeature,
   EXT_USER_DATA,
   type FeatureDefinition,
+  SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFileProviderForTenant } from "../file-foundation";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
@@ -110,11 +111,15 @@ export function createUserDataRightsFeature(): FeatureDefinition {
         // hat config/registry/secrets, aber _userId ist im Job-Pfad nicht
         // automatisch gesetzt (dispatcher setzt es nur im request-Pfad).
         // Audit-Identity fuer Provider-Plugins die secrets lesen (z.B. S3):
+        // SYSTEM_USER_ID ist die framework-weite Konvention. Der job-
+        // Discriminator wird via handlerName="user-data-rights:run-export-
+        // jobs" im Secret-Read-Audit erfasst (siehe createFileProviderForTenant-
+        // Aufruf unten + secrets/feature.ts:requireSecretsContext).
         const providerCtx = {
           config: ctx.config,
           registry: ctx.registry,
           secrets: ctx.secrets,
-          _userId: ctx._userId ?? "system:user-data-rights:run-export-jobs",
+          _userId: ctx._userId ?? SYSTEM_USER_ID,
         };
         await runExportJobs({
           // ctx.db ist DbConnection|TenantDb in AppContext-Type; im Job-

@@ -70,6 +70,16 @@ export type FileProviderContext = {
  * File-Storage-Plugin contract. Each provider-feature (file-provider-s3,
  * file-provider-azure-blob, ...) registers an implementation via
  * `r.useExtension("fileProvider", "<name>", { build })`.
+ *
+ * **Plugin-Author-Warnung:** `ctx` ist EXPLIZIT ein FileProviderContext,
+ * nicht ein voller HandlerContext. Felder ausserhalb der schmalen
+ * Surface (z.B. `ctx.tx`, `ctx.actor`, `ctx.signal`, `ctx.notify`) sind
+ * im Worker-Pfad (r.job-getriggerte Provider-Builds) NICHT vorhanden.
+ * Cast `ctx as unknown as HandlerContext` macht den Compiler happy aber
+ * fliegt zur Runtime im Worker — und der Crash kommt erst in production
+ * mit dem ersten S3-Tenant. Wenn ein Plugin Felder braucht die nicht in
+ * FileProviderContext sind: lieber FileProviderContext explizit erweitern
+ * (sichtbarer breaking change) als ctx-cast.
  */
 export type FileProviderPlugin = {
   readonly build: (ctx: FileProviderContext, tenantId: string) => Promise<FileStorageProvider>;
