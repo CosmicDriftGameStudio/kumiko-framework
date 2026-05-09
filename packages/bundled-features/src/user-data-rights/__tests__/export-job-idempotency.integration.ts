@@ -21,7 +21,12 @@ import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
-import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
+import {
+  ACTIVE_JOB_CONSTRAINT,
+  EXPORT_JOB_STATUS,
+  exportJobEntity,
+  exportJobsTable,
+} from "../schema/export-job";
 
 let stack: TestStack;
 
@@ -75,7 +80,9 @@ async function expectUniqueViolation(
   expect(cause?.constraint_name).toBe(expectedConstraint);
 }
 
-const IDEMPOTENCY_CONSTRAINT = "read_export_jobs_one_active_per_user";
+// Re-Export aus dem Schema — Single source of truth, Rename hier
+// braeuche kein Test-Edit.
+const IDEMPOTENCY_CONSTRAINT = ACTIVE_JOB_CONSTRAINT;
 
 async function insertJob(
   userId: string,

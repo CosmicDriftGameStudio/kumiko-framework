@@ -140,8 +140,12 @@ describe("exportJobEntity Schema-Shape", () => {
     expect(exportJobEntity.fields.bytesWritten.type).toBe("bigInt");
   });
 
-  test("userId + status + requestedAt sind required", () => {
+  test("userId + requestedFromTenantId + status + requestedAt sind required", () => {
     expect(exportJobEntity.fields["userId"]?.required).toBe(true);
+    // requestedFromTenantId ist load-bearing: Atom 3b's Worker liest es
+    // fuer Profile-Resolution. Ohne required wuerde ein Insert ohne
+    // Wert silent NULL setzen + der Worker crashed bei queryAs(systemUserOf(null), ...).
+    expect(exportJobEntity.fields["requestedFromTenantId"]?.required).toBe(true);
     expect(exportJobEntity.fields["status"]?.required).toBe(true);
     expect(exportJobEntity.fields["requestedAt"]?.required).toBe(true);
   });

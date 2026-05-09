@@ -23,27 +23,37 @@
 // fuer Job-TTL/Stale/Cleanup.
 
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type SaveContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
+import {
+  ACTIVE_JOB_CONSTRAINT,
+  EXPORT_JOB_STATUS,
+  exportJobEntity,
+  exportJobsTable,
+} from "../schema/export-job";
 
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
 });
 
-// Constraint-Name aus dem Partial-UNIQUE-Index. Magic-String hier akzeptabel
-// weil Schema-Drift-Test (export-job-idempotency.integration.ts) den
-// Namen pinst — ein Rename faellt im Test um.
-const IDEMPOTENCY_CONSTRAINT = "read_export_jobs_one_active_per_user";
-
-// PG-sqlstate fuer unique_violation.
-const PG_UNIQUE_VIOLATION = "23505";
-
-function isIdempotencyRaceLoss(e: unknown): boolean {
-  const cause = (e as { cause?: { code?: string; constraint_name?: string } }).cause;
-  return cause?.code === PG_UNIQUE_VIOLATION && cause.constraint_name === IDEMPOTENCY_CONSTRAINT;
+/**
+ * Race-Loss-Detection: createEventStoreExecutor.create catched 23505
+ * intern + returnt `WriteFailure(UniqueViolationError)`, **kein throw**.
+ * Wir checken den Failure-Code + constraintName um den App-side-vs-Race-
+ * Pfad zu unterscheiden. Andere Failures (validation, version-conflict,
+ * ...) propagieren unveraendert.
+ */
+function isActiveJobConflict(failure: WriteFailure): boolean {
+  const error = failure.error as {
+    code?: string;
+    details?: { constraintName?: string };
+  };
+  return (
+    error.code === "unique_violation" && error.details?.constraintName === ACTIVE_JOB_CONSTRAINT
+  );
 }
 
 export const requestExportWrite = defineWriteHandler({
@@ -59,6 +69,9 @@ export const requestExportWrite = defineWriteHandler({
     // der TenantDb-Wrapper wuerde Cross-Tenant-Jobs ausblenden.
     const existing = await findActiveJob(ctx.db.raw, userId);
     if (existing) {
+      // Snapshot-Status (kann zwischen fetchOne + Response stale werden
+      // wenn Worker parallel den State flippt; window minimal). User
+      // pollt fuer Live-Wahrheit ueber export-status.query.
       return {
         isSuccess: true as const,
         data: {
@@ -72,48 +85,57 @@ export const requestExportWrite = defineWriteHandler({
     // Kein active Job — neuen anlegen via crud.create. requestedFromTenantId
     // = aktueller Tenant des Users; Worker liest sein Compliance-Profile
     // aus diesem Tenant.
-    try {
-      const result = await crud.create(
-        {
-          userId,
-          requestedFromTenantId: event.user.tenantId,
-          requestedAt: now,
-          tenantId: event.user.tenantId,
-        },
-        event.user,
-        ctx.db,
-      );
-      if (!result.isSuccess) return result;
-      const created = result.data as { id: string };
-      return {
-        isSuccess: true as const,
-        data: {
-          jobId: created.id,
-          status: EXPORT_JOB_STATUS.Pending,
-          isExisting: false,
-        },
-      };
-    } catch (e) {
-      // Race verloren: paralleler Klick hat zwischen fetchOne + create
-      // einen aktiven Job angelegt. Re-fetch + return als isExisting.
-      // Andere Errors (DB-Down, Schema-Bug, ...) werfen wir weiter.
-      if (!isIdempotencyRaceLoss(e)) throw e;
-      const winner = await findActiveJob(ctx.db.raw, userId);
-      if (!winner) {
-        // Sollte nie passieren — Constraint-Violation OHNE existing
-        // active job hieße der Constraint matcht etwas anderes als wir
-        // denken. Werfen damit das auffaellt.
-        throw e;
+    const result = await crud.create(
+      {
+        userId,
+        requestedFromTenantId: event.user.tenantId,
+        requestedAt: now,
+        tenantId: event.user.tenantId,
+      },
+      event.user,
+      ctx.db,
+    );
+
+    if (!result.isSuccess) {
+      // Race-Pfad: paralleler Klick hat zwischen findActiveJob + crud.create
+      // einen aktiven Job angelegt → UniqueViolationError mit unserem
+      // Constraint. Re-fetch + return existing als isExisting=true.
+      // Andere Failures (validation, version-conflict, ...) propagieren.
+      if (isActiveJobConflict(result)) {
+        const winner = await findActiveJob(ctx.db.raw, userId);
+        if (!winner) {
+          // Sollte nie passieren — Constraint-Violation ohne existing
+          // active Job hiesse der Constraint matcht etwas anderes.
+          // Original-Failure zurueckgeben damit das auffaellt.
+          return result;
+        }
+        return {
+          isSuccess: true as const,
+          data: {
+            jobId: winner.id,
+            status: winner.status,
+            isExisting: true,
+          },
+        };
       }
-      return {
-        isSuccess: true as const,
-        data: {
-          jobId: winner.id,
-          status: winner.status,
-          isExisting: true,
-        },
-      };
+      return result;
     }
+
+    // Happy path: neuer Job. SaveContext.id ist EntityId (number | string);
+    // exportJobEntity hat idType:"uuid" → garantiert string, String()
+    // schuetzt vor Drift falls jemand die Entity auf serial migriert.
+    const created = result.data as SaveContext;
+    return {
+      isSuccess: true as const,
+      data: {
+        jobId: String(created.id),
+        // Snapshot: just-created → pending. Live-Wahrheit kommt ueber
+        // export-status.query, status hier ist nice-to-have fuer das
+        // initial UI-Render ("Anfrage angenommen, currently pending").
+        status: EXPORT_JOB_STATUS.Pending,
+        isExisting: false,
+      },
+    };
   },
 });
 

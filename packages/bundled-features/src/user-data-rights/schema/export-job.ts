@@ -31,6 +31,14 @@ export const EXPORT_JOB_STATUS = {
 
 export type ExportJobStatus = (typeof EXPORT_JOB_STATUS)[keyof typeof EXPORT_JOB_STATUS];
 
+/**
+ * DB-Constraint-Name fuer den Partial-UNIQUE-Index (1 aktiver Job pro
+ * User). Single source of truth — request-export.write catched 23505
+ * mit diesem Namen als Race-Schutz, Tests pinnen ihn als
+ * `expectUniqueViolation`-Argument. Rename hier propagiert automatisch.
+ */
+export const ACTIVE_JOB_CONSTRAINT = "read_export_jobs_one_active_per_user";
+
 const EXPORT_JOB_STATUS_OPTIONS = [
   EXPORT_JOB_STATUS.Pending,
   EXPORT_JOB_STATUS.Running,
@@ -75,6 +83,12 @@ export const exportJobEntity = createEntity({
     // mit jedem Cross-Tenant-Klick". Plan-Doc-Decision: Tenant aus 1. Klick
     // (Option a). Spalte heisst nicht einfach "tenantId" damit kein
     // Verwechseln mit der Framework-Auto-Spalte tenant_id.
+    //
+    // **Atom 3b Worker-Hinweis:** Profile-Resolution muss ueber
+    // `requestedFromTenantId` laufen (`queryAs(systemUserOf(requestedFromTenantId),
+    // "compliance-profiles:query:for-tenant", {})`), NICHT ueber
+    // `executor.tenantId` — sonst kriegt ein Job-Pickup aus einem anderen
+    // Tenant-Context ein falsches Profile.
     requestedFromTenantId: createTextField({
       required: true,
     }),
@@ -136,14 +150,14 @@ export const exportJobEntity = createEntity({
   },
 
   // Partial-UNIQUE-Index: nur 1 aktiver Job pro User, Done/Failed-
-  // Historie ist unbeschraenkt. Atom 2's request-export-Handler nutzt
-  // ON CONFLICT DO NOTHING + RETURNING um silent existing-Job
-  // zurueckzugeben statt zu failen.
+  // Historie ist unbeschraenkt. request-export.write nutzt App-side-
+  // Pre-Check als primaeren Pfad + 23505-Catch dieser Constraint als
+  // Race-Schutz fuer das <1ms-Window zwischen fetchOne + crud.create.
   indexes: [
     {
       unique: true,
       columns: ["userId"],
-      name: "read_export_jobs_one_active_per_user",
+      name: ACTIVE_JOB_CONSTRAINT,
       where: sql`status IN ('pending', 'running')`,
     },
   ],

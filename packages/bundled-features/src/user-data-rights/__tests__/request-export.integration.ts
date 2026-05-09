@@ -162,29 +162,38 @@ describe("request-export :: Cross-Tenant (Plan-Doc-Pflicht-Test)", () => {
   });
 });
 
-describe("request-export :: Race-Schutz (DB-Constraint Sekundaerpfad)", () => {
-  test("Paralleler Job zwischen Pre-Check + crud.create → 2nd Klick catched 23505 + return existing", async () => {
-    // Simulation: Alice klickt; vor dem crud.create direct-INSERTen wir
-    // einen parallelen Job. Da der Handler erst fetchOne macht (sieht
-    // nichts), dann crud.create versucht (collidiert mit direct-INSERT
-    // via UNIQUE-Index), greift der Race-Schutz.
-    //
-    // Da wir den Handler nicht "in die Mitte" pausieren koennen ohne
-    // Hook-Surgery, simulieren wir den Race-Loss-Pfad indem wir den
-    // direct-INSERT VOR dem Klick machen, aber mit einer *abweichenden*
-    // status-Variante die der App-side-Pre-Check NICHT erkennt — geht
-    // hier nicht ohne Schema-Change. Stattdessen dieser pragmatische
-    // Test: zweiter Klick nach erstem (App-side fängt) → already
-    // covered im idempotency-test oben. Der reine 23505-Catch-Pfad
-    // ist unit-getestet via isIdempotencyRaceLoss-Funktion (nicht
-    // hier). Pinning hier statt: Doppel-Klick hinterlaesst 1 Row.
-    await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
-    await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
-    await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
+describe("request-export :: Race-Schutz (Promise.all parallel)", () => {
+  test("zwei parallele Klicks → 1 Job, beide Caller sehen denselben jobId", async () => {
+    // Promise.all parallelisiert die Handler. PG-Layer macht die
+    // Serialisierung im Tx-Scheduling — einer wird crud.create-Race-
+    // Loser und nimmt den 23505-Catch-Pfad, der andere wins.
+    // Welcher konkret welchen Pfad nimmt haengt vom DB-Scheduling +
+    // App-side-Pre-Check-Timing — beide sind correctness-aequivalent.
+    // Test pinst die Invariante: 2 parallele Klicks → 1 Row, beide
+    // Caller sehen denselben jobId.
+    const [a, b] = await Promise.all([
+      stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser),
+      stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser),
+    ]);
+
+    expect(a.jobId).toBe(b.jobId);
+    // Genau einer ist isExisting=false (winner). Der andere kann via
+    // App-side-Check ODER via 23505-Race-Catch isExisting=true returnen
+    // — beides ist funktional korrekt.
+    const winners = [a, b].filter((r) => r.isExisting === false);
+    expect(winners).toHaveLength(1);
 
     const rows = await stack.db.select().from(exportJobsTable);
     expect(rows).toHaveLength(1);
   });
+
+  // 10+ parallele Klicks bewusst NICHT getestet: das triggert event-
+  // store-stream-version-conflicts (separate Schicht ueber dem Projection-
+  // Index, Memory feedback_event_store_tenant_consistency). High-
+  // Concurrency-Race ist orthogonal zu unserem App-side+DB-Constraint-
+  // Schutz — sollte in framework/event-store-Tests gepinnt werden,
+  // nicht hier. 2-paralleler-Test reicht fuer die "Race-Schutz greift"-
+  // Invariante.
 });
 
 describe("export-status :: User-Polling", () => {
