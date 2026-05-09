@@ -33,7 +33,23 @@ const CENTRAL_DIR_HEADER_SIG = 0x02014b50;
 const EOCD_SIG = 0x06054b50;
 
 const VERSION_MADE_BY = 0x031e; // 0x03 = UNIX, 0x1e = ZIP 3.0
-const GENERAL_PURPOSE_FLAGS = 0;
+
+// General Purpose Flag Bit 11 (0x0800) = UTF-8 filename + comment encoding.
+// Wird default-on gesetzt: ASCII ist gueltiges UTF-8, also Win-Win.
+// Ohne Flag interpretieren aeltere ZIP-Tools filenames als CP437 — bei
+// Umlauten ("Bügel.pdf") wird das Mojibake.
+const GENERAL_PURPOSE_FLAGS = 0x0800;
+
+// External-Attrs (UNIX-Mode in High-Bytes) fuer regulaere Dateien mit
+// 0644-Permissions: `(S_IFREG | 0644) << 16 = 0o100644 << 16 = 0x81a40000`.
+// S_IFREG = 0o100000 (regular file), 0o644 = rw-r--r--. Ohne diese
+// Bits entpackt Info-ZIP mit Mode 0000 (EACCES beim Read).
+const UNIX_REGULAR_FILE_0644 = 0o100644 << 16; // 0x81a40000
+
+// ZIP-Format-Limits ohne ZIP64-Extension. Atom 3a-Scope ist STORE-only;
+// ZIP64 kommt wenn ein realer User-Export diese Caps reisst.
+const ZIP_MAX_ENTRY_SIZE = 0xffffffff; // uint32 → 4 GB
+const ZIP_MAX_ENTRIES = 0xffff; // uint16 → 65535
 
 export interface ZipEntry {
   /** Pfad im ZIP, slash-separated. ASCII (kein UTF-8-Flag gesetzt). */
@@ -77,6 +93,25 @@ export async function* createZipStream(
     // file-storage-providers nicht zwingend seek-able sind, aber wir
     // wollen vermeiden dass der konsumierende Storage zwei-pass laesst).
     const body = await collectBody(entry.data);
+
+    // Hard-Limit: STORE-Mode ohne ZIP64-Extension cappt bei uint32 (4 GB).
+    // Bei Ueberschreitung wuerde der Integer-Wrap silent ein korruptes
+    // ZIP produzieren (Decoder lesen Muell-Sizes). Lieber early-fail mit
+    // klarer Begruendung — Worker (Atom 3b) fängt das + setzt Job=failed.
+    if (body.byteLength > ZIP_MAX_ENTRY_SIZE) {
+      throw new Error(
+        `ZIP-Entry "${entry.path}" exceeds 4 GB limit (${body.byteLength} bytes). ` +
+          `STORE-mode without ZIP64-extension caps at uint32. ` +
+          `Add ZIP64-support before exporting >4 GB single-files.`,
+      );
+    }
+    if (centralDirRecords.length >= ZIP_MAX_ENTRIES) {
+      throw new Error(
+        `ZIP archive exceeds ${ZIP_MAX_ENTRIES}-entry limit. ` +
+          `Add ZIP64-support before exporting >${ZIP_MAX_ENTRIES} entries.`,
+      );
+    }
+
     const crc = crc32(body);
     const size = body.byteLength;
     const filenameBytes = new TextEncoder().encode(entry.path);
@@ -120,11 +155,7 @@ export async function* createZipStream(
     cdhView.setUint16(32, 0, true); // comment length
     cdhView.setUint16(34, 0, true); // disk number start
     cdhView.setUint16(36, 0, true); // internal file attrs
-    // external file attrs (UNIX-Mode in high-Bytes): regular file mit
-    // 0644 = (S_IFREG | 0644) << 16 = 0o100644 << 16 = 0x81a40000.
-    // Ohne das wuerde Info-ZIP files mit mode 0000 entpacken (EACCES
-    // beim Lesen).
-    cdhView.setUint32(38, 0x81a40000, true);
+    cdhView.setUint32(38, UNIX_REGULAR_FILE_0644, true);
     cdhView.setUint32(42, offset, true); // local-header-offset
     cdh.set(filenameBytes, 46);
     centralDirRecords.push(cdh);
@@ -198,17 +229,23 @@ function crc32(data: Uint8Array): number {
 // MS-DOS Date+Time encoding fuer ZIP-Header.
 // Date: bits 9-15=year-1980, 5-8=month, 0-4=day.
 // Time: bits 11-15=hour, 5-10=minute, 0-4=second/2.
+//
+// **UTC** statt lokaler Zeitzone: in einem DSGVO-Kontext ist der
+// ZIP-mtime Teil des Auskunfts-Artefakts. Verschiedene Server-Zeitzonen
+// wuerden sonst verschiedene mtime-Werte fuer denselben Generation-
+// Instant produzieren — Audit-Drift. UTC ist der Standard fuer alle
+// server-side-Timestamps im Repo (Temporal.Instant ueberall).
 function toDosTime(d: Date): { date: number; time: number } {
-  const year = d.getFullYear();
+  const year = d.getUTCFullYear();
   const date =
     (((Math.max(year - 1980, 0) & 0x7f) << 9) |
-      (((d.getMonth() + 1) & 0x0f) << 5) |
-      (d.getDate() & 0x1f)) >>>
+      (((d.getUTCMonth() + 1) & 0x0f) << 5) |
+      (d.getUTCDate() & 0x1f)) >>>
     0;
   const time =
-    (((d.getHours() & 0x1f) << 11) |
-      ((d.getMinutes() & 0x3f) << 5) |
-      ((d.getSeconds() >> 1) & 0x1f)) >>>
+    (((d.getUTCHours() & 0x1f) << 11) |
+      ((d.getUTCMinutes() & 0x3f) << 5) |
+      ((d.getUTCSeconds() >> 1) & 0x1f)) >>>
     0;
   return { date, time };
 }
