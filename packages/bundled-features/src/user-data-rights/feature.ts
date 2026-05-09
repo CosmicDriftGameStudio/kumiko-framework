@@ -11,6 +11,7 @@ import { requestDeletionWrite } from "./handlers/request-deletion.write";
 import { requestExportWrite } from "./handlers/request-export.write";
 import { runForgetCleanupWrite } from "./handlers/run-forget-cleanup.write";
 import { runExportJobs } from "./run-export-jobs";
+import { exportDownloadTokenEntity } from "./schema/download-token";
 import { exportJobEntity } from "./schema/export-job";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
@@ -68,6 +69,12 @@ export function createUserDataRightsFeature(): FeatureDefinition {
     // `runUserExport` + ZIP-Build, setzt status=done + downloadStorageKey.
     // Spec: docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
     r.entity("export-job", exportJobEntity);
+
+    // S2.U3 Atom 4a — Download-Token-Entity. Worker generiert Token beim
+    // Flip auf done (siehe run-export-jobs.ts). Hash in DB, plain im
+    // RunExportJobsResult fuer Atom 5 (Notification per Email).
+    // Atom 4b's Download-Endpoint verifiziert hash + streamt ZIP.
+    r.entity("export-download-token", exportDownloadTokenEntity);
 
     // S2.U5a — Endpoints fuer DSGVO Art. 17 Forget-Pfad mit Grace.
     //   POST /api/user/request-deletion — status-Flip "active" →

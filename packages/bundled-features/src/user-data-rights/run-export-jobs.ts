@@ -58,12 +58,22 @@ import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { and, asc, eq, lte } from "drizzle-orm";
 import { resolveProfileForTenant } from "../compliance-profiles";
 import { runUserExport, type UserExportBundle } from "./run-user-export";
+import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/export-job";
+import { generateDownloadToken } from "./token-helpers";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
+});
+
+// Atom 4a — separater ES-Executor fuer Download-Tokens. crud.create
+// emittiert `exportDownloadToken.created`-Event in den event-store +
+// projected synchron auf read_export_download_tokens. KEIN direct-INSERT
+// (Memory `feedback_no_fake_dispatcher`).
+const tokenCrud = createEventStoreExecutor(exportDownloadTokensTable, exportDownloadTokenEntity, {
+  entityName: "export-download-token",
 });
 
 export interface RunExportJobsArgs {
@@ -96,6 +106,14 @@ export interface RunExportJobsResult {
   /** Job-IDs deren downloadStorageKey im Cleanup-Pass geloescht wurde. */
   readonly cleanedJobIds: readonly string[];
   readonly errors: readonly ExportJobError[];
+  /**
+   * Plain-Tokens fuer in diesem Pass completed-Jobs. Map<jobId, plain>.
+   * Atom 5 (Notification) liest das + versendet plain per Email.
+   * NIEMALS persistiert — nur in-memory zwischen Worker-Run und
+   * Notification-Hook. NACH dem Run ist plain nur via DB-Hash
+   * verifizierbar (Atom 4b's Download-Endpoint).
+   */
+  readonly tokenByJobId: ReadonlyMap<string, string>;
 }
 
 export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJobsResult> {
@@ -111,6 +129,7 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
   const completedJobIds: string[] = [];
   const failedJobIds: string[] = [];
   const errors: ExportJobError[] = [];
+  const tokenByJobId = new Map<string, string>();
 
   const pendingJobs = await fetchPendingJobs(db);
   for (const job of pendingJobs) {
@@ -123,6 +142,10 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
     });
     if (outcome.kind === "done") {
       completedJobIds.push(job.id);
+      // Worker hat plain im Memory; weitergeben fuer Atom 5 (Notification).
+      // Atom 5's email-Hook konsumiert tokenByJobId + verschickt plain
+      // im Magic-Link. Plain landet NICHT in Logs/Telemetry.
+      tokenByJobId.set(job.id, outcome.tokenPlain);
     } else if (outcome.kind === "failed") {
       failedJobIds.push(job.id);
       errors.push(outcome.error);
@@ -146,6 +169,7 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
     staleFailedJobIds,
     cleanedJobIds,
     errors,
+    tokenByJobId,
   };
 }
 
@@ -171,7 +195,7 @@ async function fetchPendingJobs(db: DbRunner): Promise<readonly JobRow[]> {
 }
 
 type ProcessOutcome =
-  | { kind: "done" }
+  | { kind: "done"; tokenPlain: string }
   | { kind: "failed"; error: ExportJobError }
   | { kind: "skipped" }; // claim-race-loss (anderer Worker)
 
@@ -276,7 +300,35 @@ async function processJob(args: {
           `${(doneResult as { error?: { code?: string } }).error?.code ?? "unknown"}`,
       );
     }
-    return { kind: "done" };
+
+    // Phase 8: Download-Token generieren + persistieren (S2.U3 Atom 4a).
+    // Plain-Token bleibt im Worker-Memory + wird via RunExportJobsResult
+    // an Atom 5 (Notification) weitergegeben. NUR der hash landet in DB.
+    // ES via crud.create — kein direct-INSERT (Memory `feedback_no_fake_dispatcher`).
+    const { plain: tokenPlain, hash: tokenHash } = await generateDownloadToken();
+    const tokenCreateResult = await tokenCrud.create(
+      {
+        jobId: job.id,
+        tokenHash,
+        issuedAt: now,
+        expiresAt,
+      },
+      executor,
+      tdb,
+    );
+    if (!tokenCreateResult.isSuccess) {
+      // Token-Creation failed nach successful done-flip → Job ist done
+      // aber kein Download moeglich. Throw → catch-Pfad flippt Job auf
+      // failed mit klarer Diagnose. User muss neuen Export anfordern.
+      // Alternative (silent-skip + Atom 5 fallt zurueck) verschleiert
+      // den Bug; hartes Throw macht ihn visible.
+      throw new Error(
+        `Job ${job.id}: ZIP done aber Token-Creation failed. ` +
+          `${(tokenCreateResult as { error?: { code?: string } }).error?.code ?? "unknown"}`,
+      );
+    }
+
+    return { kind: "done", tokenPlain };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     // Best-effort failure-flip. Wenn auch das failed (DB down etc.),

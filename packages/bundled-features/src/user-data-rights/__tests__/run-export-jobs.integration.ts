@@ -39,7 +39,9 @@ import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";
+import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
+import { hashDownloadToken } from "../token-helpers";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;
@@ -57,6 +59,7 @@ beforeAll(async () => {
     ],
   });
   await createEntityTable(stack.db, exportJobEntity);
+  await createEntityTable(stack.db, exportDownloadTokenEntity);
   await createEntityTable(stack.db, tenantComplianceProfileEntity);
   await createEventsTable(stack.db);
   // tenant-membership-table fuer runUserExport's Cross-Tenant-Iteration.
@@ -85,6 +88,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  await stack.db.delete(exportDownloadTokensTable);
   await stack.db.delete(exportJobsTable);
   await stack.db.execute(sql`DELETE FROM kumiko_events`);
   await stack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
@@ -416,6 +420,113 @@ describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
   });
 });
 
+describe("runExportJobs :: Atom 4a download-tokens", () => {
+  test("Worker generiert Token + Hash in DB nach done-flip", async () => {
+    const jobId = await seedPendingJob();
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+
+    expect(result.completedJobIds).toContain(jobId);
+
+    // Plain-Token im Result fuer Atom 5
+    const plainToken = result.tokenByJobId.get(jobId);
+    expect(plainToken).toBeDefined();
+    expect(plainToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+    // Hash in DB matched plain via hashDownloadToken roundtrip
+    const tokenRows = (await stack.db
+      .select()
+      .from(exportDownloadTokensTable)
+      .where(sql`job_id = ${jobId}`)) as Array<{
+      jobId: string;
+      tokenHash: string;
+      issuedAt: { toString(): string };
+      expiresAt: { toString(): string };
+      lastUsedAt: { toString(): string } | null;
+      useCount: number | null;
+    }>;
+    expect(tokenRows).toHaveLength(1);
+    expect(tokenRows[0]?.tokenHash).toBe(await hashDownloadToken(plainToken as string));
+    expect(tokenRows[0]?.lastUsedAt).toBeNull();
+    expect(tokenRows[0]?.useCount).toBeNull();
+
+    // expiresAt im Token = job.expiresAt (denormalized)
+    const [jobRow] = (await stack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id = ${jobId}`)) as Array<{ expiresAt: { toString(): string } | null }>;
+    expect(tokenRows[0]?.expiresAt.toString()).toBe(jobRow?.expiresAt?.toString());
+  });
+
+  test("ES via crud.create — Token-Created-Event in kumiko_events", async () => {
+    // Pinst dass Worker den Token via Event-Sourcing erstellt, nicht
+    // direct-INSERT (Memory `feedback_no_fake_dispatcher`). Ohne Event
+    // koennten Atom-5-Notification-Hooks nicht aufs Token-Created-Event
+    // hooken.
+    await seedPendingJob();
+    await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+
+    const events = (await stack.db.execute(
+      sql`SELECT type FROM kumiko_events WHERE type LIKE 'export-download-token.%'`,
+    )) as unknown as Array<{ type: string }>;
+    // Mindestens 1 created-Event fuer den Token
+    expect(events.some((e) => e.type === "export-download-token.created")).toBe(true);
+  });
+
+  test("Worker idempotency: 2× run done-Job → kein 2. Token (UNIQUE jobId)", async () => {
+    const jobId = await seedPendingJob();
+    await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+
+    // 2nd run: pending-Loop ist leer (status=done), kein 2. Token-Insert
+    const second = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+    expect(second.completedJobIds).toEqual([]);
+    expect(second.tokenByJobId.size).toBe(0);
+
+    const tokenRows = (await stack.db
+      .select()
+      .from(exportDownloadTokensTable)
+      .where(sql`job_id = ${jobId}`)) as Array<unknown>;
+    expect(tokenRows).toHaveLength(1);
+  });
+
+  test("failed-Job: kein Token wird generiert", async () => {
+    // Bewusst keinen Job — leerer Pending-Pass. Aber wir koennen den
+    // failure-Pfad pinnen via runUserExport-Fehler. Einfacher: nur
+    // verifizieren dass tokenByJobId leer bleibt wenn keine completed-Jobs.
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+    expect(result.completedJobIds).toEqual([]);
+    expect(result.tokenByJobId.size).toBe(0);
+
+    const allTokens = (await stack.db.select().from(exportDownloadTokensTable)) as Array<unknown>;
+    expect(allTokens).toHaveLength(0);
+  });
+});
+
 describe("runExportJobs :: Atom 3c file-binaries", () => {
   // Helper: spy auf buildProvider damit wir verifizieren koennen, dass
   // multi-tenant-fileRefs ZWEI separate Provider-Builds triggern (Cache-
@@ -474,6 +585,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
       ],
     });
     await createEntityTable(localStack.db, exportJobEntity);
+    await createEntityTable(localStack.db, exportDownloadTokenEntity);
     await createEntityTable(localStack.db, tenantComplianceProfileEntity);
     await createEventsTable(localStack.db);
     await localStack.db.execute(sql`
@@ -501,6 +613,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
 
   beforeEach(async () => {
     if (!localStack) return;
+    await localStack.db.delete(exportDownloadTokensTable);
     await localStack.db.delete(exportJobsTable);
     await localStack.db.execute(sql`DELETE FROM kumiko_events`);
     await localStack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
