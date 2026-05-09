@@ -13,12 +13,8 @@
 // Schema-Snapshot, kein Behavior-Test. Behavior-Tests kommen mit Atom 2
 // (request-export.write.ts) + Atom 3 (Worker).
 
+import { COMPLIANCE_PROFILES } from "@cosmicdrift/kumiko-framework/compliance";
 import { describe, expect, test } from "vitest";
-import {
-  EXPORT_DOWNLOAD_TTL_DAYS,
-  EXPORT_STALE_TIMEOUT_MINUTES,
-  EXPORT_STORAGE_CLEANUP_GRACE_HOURS,
-} from "../constants";
 import { EXPORT_JOB_STATUS, exportJobEntity } from "../schema/export-job";
 
 describe("EXPORT_JOB_STATUS Drift-Guard", () => {
@@ -42,24 +38,59 @@ describe("EXPORT_JOB_STATUS Drift-Guard", () => {
   });
 });
 
-describe("Export-TTL-Konstanten", () => {
-  test("EXPORT_DOWNLOAD_TTL_DAYS > 0", () => {
-    expect(EXPORT_DOWNLOAD_TTL_DAYS).toBeGreaterThan(0);
+describe("Export-Konfig in compliance-profiles", () => {
+  // Atom 1c: TTL-Konstanten wandern aus user-data-rights/constants.ts
+  // ins compliance-profile.userRights — pro Profile konfigurierbar +
+  // per-Tenant-Override. Tests pinnen dass die Defaults pro Profile
+  // sinnvoll sind.
+
+  for (const profileKey of [
+    "eu-dsgvo",
+    "swiss-dsg",
+    "de-hr-dsgvo-hgb",
+    "minimal-no-region",
+  ] as const) {
+    test(`${profileKey}: exportDownloadTtl gesetzt + > 0`, () => {
+      const profile = COMPLIANCE_PROFILES[profileKey];
+      const ttl = profile.userRights.exportDownloadTtl;
+      expect(ttl).toBeDefined();
+      // DurationSpec hat entweder days oder hours.
+      const hasDuration = ("days" in ttl && ttl.days > 0) || ("hours" in ttl && ttl.hours > 0);
+      expect(hasDuration).toBe(true);
+    });
+
+    test(`${profileKey}: exportStaleTimeoutMinutes > 0`, () => {
+      expect(COMPLIANCE_PROFILES[profileKey].userRights.exportStaleTimeoutMinutes).toBeGreaterThan(
+        0,
+      );
+    });
+
+    test(`${profileKey}: exportStorageCleanupGraceHours > 0`, () => {
+      expect(
+        COMPLIANCE_PROFILES[profileKey].userRights.exportStorageCleanupGraceHours,
+      ).toBeGreaterThan(0);
+    });
+  }
+
+  test("eu-dsgvo Default-TTL ist 7 Tage (sanity-Pin)", () => {
+    expect(COMPLIANCE_PROFILES["eu-dsgvo"].userRights.exportDownloadTtl).toEqual({
+      days: 7,
+    });
   });
 
-  test("EXPORT_DOWNLOAD_TTL_DAYS <= 30 (DSGVO-Auskunftsfrist als sanity-cap)", () => {
+  test("Download-TTL <= 30d in jedem Profile (DSGVO-Auskunftsfrist als sanity-cap)", () => {
     // Auskunftsfrist ist 30d — Download laenger zu halten als die
-    // Antwort-Pflicht macht keinen Sinn (User sollte den Download
-    // innerhalb der Frist abrufen).
-    expect(EXPORT_DOWNLOAD_TTL_DAYS).toBeLessThanOrEqual(30);
-  });
-
-  test("EXPORT_STALE_TIMEOUT_MINUTES > 0", () => {
-    expect(EXPORT_STALE_TIMEOUT_MINUTES).toBeGreaterThan(0);
-  });
-
-  test("EXPORT_STORAGE_CLEANUP_GRACE_HOURS > 0", () => {
-    expect(EXPORT_STORAGE_CLEANUP_GRACE_HOURS).toBeGreaterThan(0);
+    // Antwort-Pflicht macht keinen Sinn.
+    for (const profileKey of [
+      "eu-dsgvo",
+      "swiss-dsg",
+      "de-hr-dsgvo-hgb",
+      "minimal-no-region",
+    ] as const) {
+      const ttl = COMPLIANCE_PROFILES[profileKey].userRights.exportDownloadTtl;
+      const days = "days" in ttl ? ttl.days : Math.ceil(ttl.hours / 24);
+      expect(days).toBeLessThanOrEqual(30);
+    }
   });
 });
 

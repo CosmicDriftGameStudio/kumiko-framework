@@ -60,6 +60,11 @@ const userRightsOverrideSchema = z
     employeeAccessRight: z.boolean().optional(),
     explicitConsentForAutomatedDecision: z.boolean().optional(),
     doNotSellRequired: z.boolean().optional(),
+    // Async-Export-Pipeline (S2.U3+U4) — TTL Compliance-relevant,
+    // Stale/Cleanup Operations-Settings.
+    exportDownloadTtl: durationSpecSchema.optional(),
+    exportStaleTimeoutMinutes: z.number().int().nonnegative().optional(),
+    exportStorageCleanupGraceHours: z.number().int().nonnegative().optional(),
   })
   .strict();
 

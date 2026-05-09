@@ -74,6 +74,13 @@ export interface ComplianceProfile {
     readonly employeeAccessRight?: boolean;
     readonly explicitConsentForAutomatedDecision?: boolean;
     readonly doNotSellRequired?: boolean;
+    /**
+     * DSGVO Art. 15 + 20 Async-Export — Pipeline-Konfiguration. Spec:
+     * docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
+     */
+    readonly exportDownloadTtl: DurationSpec;
+    readonly exportStaleTimeoutMinutes: number;
+    readonly exportStorageCleanupGraceHours: number;
   };
 
   readonly notifications: {
@@ -124,6 +131,9 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
       objectionAllowed: true,
       portabilityFormat: ["json"],
       auskunftFrist: { days: 30 },
+      exportDownloadTtl: { days: 7 },
+      exportStaleTimeoutMinutes: 30,
+      exportStorageCleanupGraceHours: 24,
     },
     notifications: {
       languages: ["de", "en"],
@@ -174,6 +184,9 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
       portabilityFormat: ["json"],
       auskunftFrist: { days: 30 },
       employeeAccessRight: true,
+      exportDownloadTtl: { days: 7 },
+      exportStaleTimeoutMinutes: 30,
+      exportStorageCleanupGraceHours: 24,
     },
     notifications: {
       languages: ["de"],
@@ -207,6 +220,9 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
       objectionAllowed: false,
       portabilityFormat: ["json"],
       auskunftFrist: { days: 30 },
+      exportDownloadTtl: { days: 7 },
+      exportStaleTimeoutMinutes: 30,
+      exportStorageCleanupGraceHours: 24,
     },
     notifications: {
       languages: ["en"],
@@ -298,6 +314,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 const ATOMIC_PATHS: ReadonlySet<string> = new Set([
   "userRights.gracePeriod",
   "userRights.auskunftFrist",
+  "userRights.exportDownloadTtl",
   "tenantDestroyGracePeriod",
   "breach.authorityNotificationDeadline",
   "auditLog.retention",

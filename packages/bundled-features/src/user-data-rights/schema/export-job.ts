@@ -14,8 +14,10 @@ import { sql } from "drizzle-orm";
 // Spec: docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
 // User triggert `request-export` → ExportJob (status="pending"). Worker
 // pickt auf → "running" → erfolgreich "done" + downloadStorageKey gesetzt
-// + expiresAt = completedAt + EXPORT_DOWNLOAD_TTL_DAYS. Bei Throw oder
-// Stale-Timeout → "failed" mit errorMessage.
+// + expiresAt = completedAt + compliance-profile.userRights.exportDownloadTtl
+// (per-Tenant-konfigurierbar via Override, Default 7 Tage). Bei Throw
+// oder Stale-Timeout → "failed" mit errorMessage. Stale-Timeout +
+// Storage-Cleanup-Grace ebenfalls aus dem compliance-profile.
 //
 // Status-Werte als Constants — Single source of truth fuer Worker,
 // Application-Code (request-export-Handler), UI-Banner (Polling) und
@@ -79,8 +81,8 @@ export const exportJobEntity = createEntity({
     }),
 
     // Wann hat der Worker mit dem Pickup angefangen. NULL solange
-    // `pending`. Stale-Detection nutzt das + EXPORT_STALE_TIMEOUT_MINUTES
-    // (siehe constants.ts).
+    // `pending`. Stale-Detection nutzt das +
+    // compliance-profile.userRights.exportStaleTimeoutMinutes.
     startedAt: createTimestampField({}),
 
     // Wann hat der Worker abgeschlossen (success oder fail). NULL
@@ -96,12 +98,13 @@ export const exportJobEntity = createEntity({
     }),
 
     // Ab wann ist der Download nicht mehr abrufbar. Worker setzt
-    // `completedAt + EXPORT_DOWNLOAD_TTL_DAYS` beim Flip auf `done`.
-    // NULL fuer pending/running/failed.
+    // `completedAt + compliance-profile.userRights.exportDownloadTtl`
+    // beim Flip auf `done`. NULL fuer pending/running/failed.
     //
-    // Storage-Cleanup-Pflicht: Worker laesst nach `expiresAt + EXPORT_
-    // STORAGE_CLEANUP_GRACE_HOURS` einen separaten Pass loeschen damit
-    // abgelaufene ZIPs nicht auf S3 verbleiben.
+    // Storage-Cleanup-Pflicht: Worker laesst nach
+    // `expiresAt + compliance-profile.userRights.exportStorageCleanupGraceHours`
+    // einen separaten Pass loeschen damit abgelaufene ZIPs nicht auf S3
+    // verbleiben.
     expiresAt: createTimestampField({}),
 
     // Failed-State Diagnose. longText weil Hook-Errors mit Stack-Trace

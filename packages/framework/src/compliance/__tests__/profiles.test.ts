@@ -288,6 +288,11 @@ describe("Profile-Definition-Snapshots — fängt Drift ab", () => {
           "auskunftFrist": {
             "days": 30,
           },
+          "exportDownloadTtl": {
+            "days": 7,
+          },
+          "exportStaleTimeoutMinutes": 30,
+          "exportStorageCleanupGraceHours": 24,
           "gracePeriod": {
             "days": 30,
           },
