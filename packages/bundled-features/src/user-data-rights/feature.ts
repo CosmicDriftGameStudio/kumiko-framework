@@ -6,6 +6,7 @@ import {
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { requestDeletionWrite } from "./handlers/request-deletion.write";
 import { runForgetCleanupWrite } from "./handlers/run-forget-cleanup.write";
+import { exportJobEntity } from "./schema/export-job";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
 // Art. 18 (Restriction) + Art. 20 (Portabilität) als Core-Feature.
@@ -52,6 +53,12 @@ export function createUserDataRightsFeature(): FeatureDefinition {
     // die Hooks zur Laufzeit ruft — dann faengt boot-validator falsch
     // typed Hooks frueh ab.
     r.extendsRegistrar(EXT_USER_DATA, {});
+
+    // S2.U3+U4 Atom 1 — ExportJob-Lifecycle-Entity. Foundation fuer den
+    // Async-Export-Pipeline. Worker (Atom 3) laeuft pro pending-Row durch
+    // `runUserExport` + ZIP-Build, setzt status=done + downloadStorageKey.
+    // Spec: docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
+    r.entity("export-job", exportJobEntity);
 
     // S2.U5a — Endpoints fuer DSGVO Art. 17 Forget-Pfad mit Grace.
     //   POST /api/user/request-deletion — status-Flip "active" →
