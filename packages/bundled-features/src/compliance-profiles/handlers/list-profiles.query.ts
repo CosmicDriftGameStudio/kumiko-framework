@@ -1,10 +1,10 @@
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   COMPLIANCE_PROFILES,
   type ComplianceProfile,
   type ComplianceProfileKey,
   SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // Liefert alle waehlbaren Compliance-Profile fuer das Tenant-Onboarding.

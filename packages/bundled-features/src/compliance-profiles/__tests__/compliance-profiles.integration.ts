@@ -4,8 +4,8 @@ import {
   createEntityTable,
   createTestUser,
   setupTestStack,
-  testTenantId,
   type TestStack,
+  testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature";
@@ -78,11 +78,7 @@ describe("compliance-profiles :: for-tenant", () => {
 
 describe("compliance-profiles :: set-profile", () => {
   test("TenantAdmin kann Profile auf eu-dsgvo setzen", async () => {
-    await stack.http.writeOk(
-      SET_PROFILE,
-      { profileKey: "eu-dsgvo" },
-      tenantAdmin,
-    );
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
 
     const result = await stack.http.queryOk<{
       profile: { key: string; region: string; breach: { authorityContact: string } };
@@ -95,16 +91,8 @@ describe("compliance-profiles :: set-profile", () => {
   });
 
   test("set-profile ist idempotent — zweiter Call wechselt Profile", async () => {
-    await stack.http.writeOk(
-      SET_PROFILE,
-      { profileKey: "eu-dsgvo" },
-      tenantAdmin,
-    );
-    await stack.http.writeOk(
-      SET_PROFILE,
-      { profileKey: "swiss-dsg" },
-      tenantAdmin,
-    );
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "swiss-dsg" }, tenantAdmin);
 
     const result = await stack.http.queryOk<{
       profile: { key: string; region: string; breach: { authorityContact: string } };
@@ -134,11 +122,7 @@ describe("compliance-profiles :: set-profile", () => {
   });
 
   test("Member ohne TenantAdmin-Rolle bekommt 403 beim set-profile", async () => {
-    const result = await stack.http.write(
-      SET_PROFILE,
-      { profileKey: "eu-dsgvo" },
-      normalUser,
-    );
+    const result = await stack.http.write(SET_PROFILE, { profileKey: "eu-dsgvo" }, normalUser);
     expect(result.status).toBe(403);
   });
 
@@ -223,11 +207,7 @@ describe("compliance-profiles :: set-profile", () => {
   // S1.7 F2: SystemAdmin kann Profile setzen
   test("SystemAdmin kann Profile setzen (Plattform-Operator-Pfad)", async () => {
     const sysAdmin = createIsolatedTenantAdmin(50, ["SystemAdmin"]);
-    const result = await stack.http.writeOk(
-      SET_PROFILE,
-      { profileKey: "eu-dsgvo" },
-      sysAdmin,
-    );
+    const result = await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, sysAdmin);
     expect(result).toMatchObject({ profileKey: "eu-dsgvo", isNew: true });
   });
 

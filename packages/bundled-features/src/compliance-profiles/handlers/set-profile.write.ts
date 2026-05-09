@@ -1,8 +1,8 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
-  SELECTABLE_PROFILE_KEYS,
   type ComplianceProfileKey,
   complianceProfileOverrideSchema,
+  SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -19,11 +19,9 @@ import {
   tenantComplianceProfileTable,
 } from "../schema/profile-selection";
 
-const crud = createEventStoreExecutor(
-  tenantComplianceProfileTable,
-  tenantComplianceProfileEntity,
-  { entityName: "tenant-compliance-profile" },
-);
+const crud = createEventStoreExecutor(tenantComplianceProfileTable, tenantComplianceProfileEntity, {
+  entityName: "tenant-compliance-profile",
+});
 
 // Schema engt sich auf die 3 oeffentlich waehlbaren Profile (Sprint 1.7
 // X1) — minimal-no-region ist Default-Fallback fuer "noch keine Wahl",
@@ -72,8 +70,7 @@ export const setProfileWrite = defineWriteHandler({
       );
     }
     const tenantId = (tenantOverride ?? event.user.tenantId) as TenantId;
-    const executorUser =
-      tenantOverride !== undefined ? { ...event.user, tenantId } : event.user;
+    const executorUser = tenantOverride !== undefined ? { ...event.user, tenantId } : event.user;
 
     // Override-Validation: muss parseables JSON-Object sein UND dem
     // ComplianceProfileOverride-Schema entsprechen (S1.9 Z3 — strict-Zod
@@ -91,7 +88,10 @@ export const setProfileWrite = defineWriteHandler({
       } catch (e) {
         return writeFailure(
           new UnprocessableError("compliance_override_invalid_json", {
-            details: { reason: "compliance_override_invalid_json", parseError: (e as Error).message },
+            details: {
+              reason: "compliance_override_invalid_json",
+              parseError: (e as Error).message,
+            },
           }),
         );
       }

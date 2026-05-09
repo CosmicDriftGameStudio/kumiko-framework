@@ -13,8 +13,8 @@ import {
   createEntityTable,
   createTestUser,
   setupTestStack,
-  testTenantId,
   type TestStack,
+  testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature";
@@ -43,11 +43,7 @@ describe("seedComplianceProfile", () => {
 
     await seedComplianceProfile(stack.db, { tenantId, profileKey: "eu-dsgvo" });
 
-    const result = await stack.http.queryOk<{ profile: { key: string } }>(
-      FOR_TENANT,
-      {},
-      user,
-    );
+    const result = await stack.http.queryOk<{ profile: { key: string } }>(FOR_TENANT, {}, user);
     expect(result.profile.key).toBe("eu-dsgvo");
   });
 
@@ -58,11 +54,7 @@ describe("seedComplianceProfile", () => {
     await seedComplianceProfile(stack.db, { tenantId, profileKey: "eu-dsgvo" });
     await seedComplianceProfile(stack.db, { tenantId, profileKey: "swiss-dsg" });
 
-    const result = await stack.http.queryOk<{ profile: { key: string } }>(
-      FOR_TENANT,
-      {},
-      user,
-    );
+    const result = await stack.http.queryOk<{ profile: { key: string } }>(FOR_TENANT, {}, user);
     expect(result.profile.key).toBe("swiss-dsg");
   });
 
@@ -77,11 +69,7 @@ describe("seedComplianceProfile", () => {
       profileKey: "minimal-no-region",
     });
 
-    const result = await stack.http.queryOk<{ profile: { key: string } }>(
-      FOR_TENANT,
-      {},
-      user,
-    );
+    const result = await stack.http.queryOk<{ profile: { key: string } }>(FOR_TENANT, {}, user);
     expect(result.profile.key).toBe("minimal-no-region");
   });
 

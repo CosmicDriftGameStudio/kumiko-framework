@@ -3,11 +3,13 @@ import {
   EXT_USER_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createFileProviderForTenant } from "../file-foundation";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { exportStatusQuery } from "./handlers/export-status.query";
 import { requestDeletionWrite } from "./handlers/request-deletion.write";
 import { requestExportWrite } from "./handlers/request-export.write";
 import { runForgetCleanupWrite } from "./handlers/run-forget-cleanup.write";
+import { runExportJobs } from "./run-export-jobs";
 import { exportJobEntity } from "./schema/export-job";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
@@ -43,6 +45,10 @@ export function createUserDataRightsFeature(): FeatureDefinition {
     r.requires("user", "data-retention", "compliance-profiles");
     r.usesApi("compliance.forTenant");
     r.usesApi("retention.policyFor");
+    // file-foundation ist soft-dep: nur der Export-Worker (Atom 3b)
+    // braucht ihn fuer Storage-Schreiben. Apps die nur Forget nutzen
+    // (kein Export) muessen file-foundation nicht mounten — Worker
+    // wirft zur Runtime einen klaren Error wenn der Provider fehlt.
 
     // EXT_USER_DATA — Schema-Marker fuer userData-Hooks. Andere features
     // (Sprint 2.H1+H2) registrieren via:
@@ -84,5 +90,40 @@ export function createUserDataRightsFeature(): FeatureDefinition {
     r.writeHandler(requestExportWrite);
     r.queryHandler(exportStatusQuery);
     r.exposesApi("userDataRights.runExport");
+
+    // S2.U3 Atom 3b — Worker fuer Async Export-Pipeline. Cron-getriggert
+    // (default 1× pro Minute; App-Author kann via config-key haerter
+    // setzen). 3 Passes pro Run: stale-detection, pending-pickup, storage-
+    // cleanup. concurrency:"skip" verhindert Cron-Overlap (Pass-internal
+    // sequenziell wegen ZIP-Memory-Footprint pro Job).
+    r.job(
+      "run-export-jobs",
+      { trigger: { cron: "0 * * * * *" }, concurrency: "skip" },
+      async (_payload, ctx) => {
+        if (!ctx.db || !ctx.registry) {
+          throw new Error(
+            "run-export-jobs: ctx.db + ctx.registry required (JobContext incomplete)",
+          );
+        }
+        const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
+        await runExportJobs({
+          // ctx.db ist DbConnection|TenantDb in AppContext-Type; im Job-
+          // Pfad ist es die rohe Connection. Cast zu DbConnection legitim
+          // weil JobContext-Wiring die rohe Connection liefert.
+          db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection,
+          registry: ctx.registry,
+          buildStorageProvider: async (tenantId) =>
+            // file-foundation's createFileProviderForTenant nimmt
+            // HandlerContext; AppContext ist subset, der ctx hat config
+            // + registry — die einzigen Felder die der Resolver liest.
+            createFileProviderForTenant(
+              ctx as unknown as import("@cosmicdrift/kumiko-framework/engine").HandlerContext,
+              tenantId,
+              "user-data-rights:run-export-jobs",
+            ),
+          now: T.Now.instant(),
+        });
+      },
+    );
   });
 }

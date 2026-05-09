@@ -10,16 +10,16 @@
 //
 // Pattern matched seedTextBlock aus text-content.
 
+import type {
+  ComplianceProfileKey,
+  ComplianceProfileOverride,
+} from "@cosmicdrift/kumiko-framework/compliance";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
-import type {
-  ComplianceProfileKey,
-  ComplianceProfileOverride,
-} from "@cosmicdrift/kumiko-framework/compliance";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";

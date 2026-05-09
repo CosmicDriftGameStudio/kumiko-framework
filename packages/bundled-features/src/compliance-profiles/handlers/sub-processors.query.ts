@@ -1,10 +1,10 @@
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  KUMIKO_SUB_PROCESSORS,
-  type SubProcessor,
   getActiveSubProcessors,
   getPlannedSubProcessors,
+  KUMIKO_SUB_PROCESSORS,
+  type SubProcessor,
 } from "@cosmicdrift/kumiko-framework/compliance";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // Public Sub-Processor-Liste — anonymous accessible (Memory:

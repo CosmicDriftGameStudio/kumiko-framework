@@ -6,7 +6,10 @@ import { setProfileWrite } from "./handlers/set-profile.write";
 import { subProcessorsQuery } from "./handlers/sub-processors.query";
 import { tenantComplianceProfileEntity } from "./schema/profile-selection";
 
-export { tenantComplianceProfileEntity, tenantComplianceProfileTable } from "./schema/profile-selection";
+export {
+  tenantComplianceProfileEntity,
+  tenantComplianceProfileTable,
+} from "./schema/profile-selection";
 
 // compliance-profiles — Tenant-weite DSGVO/Compliance-Profile-Wahl.
 //
