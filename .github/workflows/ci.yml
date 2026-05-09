@@ -68,7 +68,10 @@ jobs:
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
-    runs-on: cdgs-runner
+    # github-hosted, NICHT cdgs-runner: npm akzeptiert sigstore-provenance-
+    # attestations nur von github-hosted runners (HTTP 422 sonst). Public
+    # Repo → github-hosted free. Test-Job bleibt auf cdgs-runner (resources).
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: write
