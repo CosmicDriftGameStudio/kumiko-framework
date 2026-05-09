@@ -5,7 +5,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { requestDeletionWrite } from "./handlers/request-deletion.write";
-import { requestExportQuery } from "./handlers/request-export.query";
 import { runForgetCleanupWrite } from "./handlers/run-forget-cleanup.write";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
@@ -66,10 +65,16 @@ export function createUserDataRightsFeature(): FeatureDefinition {
     r.writeHandler(runForgetCleanupWrite);
     r.exposesApi("userDataRights.runForget");
 
-    // S2.U3 — DSGVO Art. 15 + 20 Export. Sync-Bundle (JSON) als Query.
-    // Async ZIP + Storage-Mount kommt mit einem Wrapper-Job spaeter
-    // (siehe run-user-export.ts Header).
-    r.queryHandler(requestExportQuery);
-    r.exposesApi("userDataRights.runExport");
+    // S2.U3+U4 (geplant) — Async Export-Pipeline:
+    //   ExportJob-Entity (pending → running → done | failed)
+    //   user-data-rights:write:request-export    (User triggert Job)
+    //   user-data-rights:query:export-status     (User pollt Status)
+    //   user-data-rights:query:download-export   (Job=done → Download)
+    //   r.job("run-export-jobs", { trigger: { manual + cron } }) Worker
+    //
+    // `runUserExport` (siehe run-user-export.ts) ist die pure Single-User-
+    // Bundle-Function — wird vom Worker pro Job-Row gerufen, nicht direkt
+    // exposed. Plan-Doc:
+    // docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
   });
 }
