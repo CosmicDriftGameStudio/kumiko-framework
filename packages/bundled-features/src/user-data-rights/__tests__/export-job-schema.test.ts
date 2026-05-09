@@ -31,7 +31,10 @@ describe("EXPORT_JOB_STATUS Drift-Guard", () => {
     expect(values).toContain("failed");
   });
 
-  test("Status-Strings sind lowercase + alphabetisch (Convention-Check)", () => {
+  test("Status-Strings sind lowercase + nur a-z (Convention-Check, keine Sortier-Aussage)", () => {
+    // Test-Name ist bewusst praezise: wir checken Format, NICHT
+    // alphabetische Sortierung — die State-Machine kuemmert sich nicht
+    // um Sort-Order, ein Re-Order der Konstanten waere kein Bug.
     for (const value of Object.values(EXPORT_JOB_STATUS)) {
       expect(value).toBe(value.toLowerCase());
       expect(value).toMatch(/^[a-z]+$/);

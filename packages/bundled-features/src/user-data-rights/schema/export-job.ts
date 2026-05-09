@@ -46,15 +46,22 @@ const EXPORT_JOB_STATUS_OPTIONS = [
 // Atom 2 application-side via SELECT-then-INSERT geloest. Race-Window
 // klein, tolerable; partial-Index `WHERE status IN ('pending','running')`
 // koennte spaeter als DB-Hardening rein wenn realer Bedarf.
+//
+// **idType: "uuid"** — Job-IDs reisen ueber Process-Grenzen
+// (BullMQ-Payload, Job-Run-Logger, Audit-Events fuer DPO). Serial-IDs
+// sind nur prozess-lokal verlaesslich, UUIDs cross-process stabil.
 export const exportJobEntity = createEntity({
   table: "read_export_jobs",
+  idType: "uuid",
 
   fields: {
     // Tenant-agnostisch: Wert wird beim Schreiben gesetzt (Framework
     // braucht eine tenant_id-Spalte), domain-mäßig ignoriert.
+    // Kein maxLength — folgt userTable.id + tenantMembershipsTable.userId
+    // (beide ohne maxLength). UserId-Form ist Plattform-Konzern, hier
+    // nur Storage.
     userId: createTextField({
       required: true,
-      maxLength: 36,
     }),
 
     status: createSelectField({
@@ -109,8 +116,13 @@ export const exportJobEntity = createEntity({
     // Capacity-Planning + erkennt Pathologische Cases (5GB-User triggert
     // Job, der Job-Worker raucht ab, error="OOM" → bytesWritten zeigt
     // wann es kollabierte).
-    bytesWritten: createNumberField({
-    }),
+    //
+    // **Type-Limit:** createNumberField mappt auf integer (signed 32-bit,
+    // ~2 GB cap). Fuer den Audit-Use-Case ausreichend — Worker ist
+    // memory-bound bei JSZip in-memory, ZIPs >2 GB kollabieren vorher mit
+    // OOM. Bei aenderbarer Production-Realitaet: Framework-Helper
+    // `createBigIntField` adden (existiert noch nicht).
+    bytesWritten: createNumberField({}),
   },
 });
 
