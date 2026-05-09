@@ -55,7 +55,7 @@ import {
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, or } from "drizzle-orm";
 import { resolveProfileForTenant } from "../compliance-profiles";
 import { runUserExport, type UserExportBundle } from "./run-user-export";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token";
@@ -216,11 +216,22 @@ async function processJob(args: {
 
   // Phase 1: Claim — version-bumped update, scheitert via VersionConflict
   // wenn paralleler Worker schon claimed hat.
+  //
+  // **Path-pre-claim** (Atom 4a.fix): downloadStorageKey wird HIER schon
+  // persistiert (deterministischer Pfad aus job.id). Begründung: wenn
+  // Worker zwischen ZIP-write und done-flip crashed, hat der Job-Row
+  // bereits den Pfad → storageCleanupPass kann den orphan-ZIP via
+  // failed-Job-Cleanup-Pass loeschen (sonst forever-leak im S3).
+  const storageKey = buildExportStorageKey(job);
   const claimResult = await crud.update(
     {
       id: job.id,
       version: job.version,
-      changes: { status: EXPORT_JOB_STATUS.Running, startedAt: now },
+      changes: {
+        status: EXPORT_JOB_STATUS.Running,
+        startedAt: now,
+        downloadStorageKey: storageKey,
+      },
     },
     executor,
     tdb,
@@ -265,7 +276,6 @@ async function processJob(args: {
     // writeStream + readStream sind im FileStorageProvider-Type required
     // (Atom 3c.fix Type-Honesty) — keine Runtime-Optional-Checks mehr noetig.
 
-    const storageKey = buildExportStorageKey(job);
     const tracker = countingStream(
       createZipStream(bundleToZipEntries(bundle, now, cachedProvider)),
     );
@@ -274,8 +284,47 @@ async function processJob(args: {
       mimeType: "application/zip",
     });
 
-    // Phase 7: Job=done.
+    // Phase 7: Token VOR done-flip (Atom 4a.fix Sequencing).
+    //
+    // Wenn Token-Create failt, bleibt Job in `running` → catch-Pfad
+    // flippt auf failed (monotone Status-Transition). Wenn Token-Create
+    // VOR und done-flip NACH: tightes Race-Window in dem ein Worker-
+    // Crash zwischen den zwei calls einen Token + ZIP orphans. Beides
+    // catched die Stale-Detection im naechsten Pass — Job=failed,
+    // Storage-Cleanup-Pass clearted den ZIP (path-pre-claim oben).
+    //
+    // Plain-Token bleibt im Worker-Memory + wird via RunExportJobsResult
+    // an Atom 5 (Notification) weitergegeben. NUR der hash landet in DB.
+    // ES via tokenCrud.create — kein direct-INSERT.
     const expiresAt = addDurationSpec(now, ttl);
+    const { plain: tokenPlain, hash: tokenHash } = await generateDownloadToken();
+    const tokenCreateResult = await tokenCrud.create(
+      {
+        jobId: job.id,
+        tokenHash,
+        issuedAt: now,
+        expiresAt,
+        // Atom 4a.fix: useCount explizit 0 statt default null. 4b's
+        // Verify-Pfad incrementiert via `useCount + 1` ohne COALESCE-
+        // Defensiv-Code.
+        useCount: 0,
+      },
+      executor,
+      tdb,
+    );
+    if (!tokenCreateResult.isSuccess) {
+      // Token-Creation failed VOR done-flip → Job bleibt running.
+      // Catch-Pfad flippt auf failed mit klarer Diagnose. Storage-
+      // Cleanup-Pass clearted den orphan-ZIP (path bereits via claim
+      // persistiert).
+      throw new Error(
+        `Job ${job.id}: Token-Creation failed before done-flip. ` +
+          `${(tokenCreateResult as { error?: { code?: string } }).error?.code ?? "unknown"}`,
+      );
+    }
+
+    // Phase 8: Job=done. expiresAt wurde oben fuer Token gesetzt; identisch
+    // hier persistiert (denormalisiert in beiden Tabellen).
     const doneResult = await crud.update(
       {
         id: job.id,
@@ -283,7 +332,8 @@ async function processJob(args: {
         changes: {
           status: EXPORT_JOB_STATUS.Done,
           completedAt: now,
-          downloadStorageKey: storageKey,
+          // downloadStorageKey ist beim claim bereits gesetzt — kein
+          // Re-Set hier noetig (waere identisch).
           expiresAt,
           bytesWritten: tracker.bytes,
         },
@@ -294,37 +344,12 @@ async function processJob(args: {
     if (!doneResult.isSuccess) {
       // Sehr unerwartet — wir haben gerade claimed (version+1), niemand
       // sollte den Job zwischenzeitlich aendern. Materialisieren als
-      // failed damit der Operator das sieht.
+      // failed damit der Operator das sieht. Token-Row bleibt orphan
+      // bis Atom-spaeter-Cleanup; Storage-ZIP wird via failed-Cleanup
+      // gecleared.
       throw new Error(
-        `Job ${job.id}: failed to flip status=done after successful ZIP-write. ` +
+        `Job ${job.id}: failed to flip status=done after successful Token-Create. ` +
           `${(doneResult as { error?: { code?: string } }).error?.code ?? "unknown"}`,
-      );
-    }
-
-    // Phase 8: Download-Token generieren + persistieren (S2.U3 Atom 4a).
-    // Plain-Token bleibt im Worker-Memory + wird via RunExportJobsResult
-    // an Atom 5 (Notification) weitergegeben. NUR der hash landet in DB.
-    // ES via crud.create — kein direct-INSERT (Memory `feedback_no_fake_dispatcher`).
-    const { plain: tokenPlain, hash: tokenHash } = await generateDownloadToken();
-    const tokenCreateResult = await tokenCrud.create(
-      {
-        jobId: job.id,
-        tokenHash,
-        issuedAt: now,
-        expiresAt,
-      },
-      executor,
-      tdb,
-    );
-    if (!tokenCreateResult.isSuccess) {
-      // Token-Creation failed nach successful done-flip → Job ist done
-      // aber kein Download moeglich. Throw → catch-Pfad flippt Job auf
-      // failed mit klarer Diagnose. User muss neuen Export anfordern.
-      // Alternative (silent-skip + Atom 5 fallt zurueck) verschleiert
-      // den Bug; hartes Throw macht ihn visible.
-      throw new Error(
-        `Job ${job.id}: ZIP done aber Token-Creation failed. ` +
-          `${(tokenCreateResult as { error?: { code?: string } }).error?.code ?? "unknown"}`,
       );
     }
 
@@ -430,15 +455,25 @@ async function storageCleanupPass(args: {
 }): Promise<readonly string[]> {
   const { db, buildStorageProvider, now } = args;
 
-  // Done-Jobs deren expiresAt+grace bereits vorbei ist + die noch einen
-  // downloadStorageKey haben. Per-Tenant-Grace ist im Profile, wir
-  // grob-filtern auf expiresAt <= now (kleinster grace=0) + checken
-  // im Loop genau.
+  // Zwei Cleanup-Pfade:
+  //
+  //   1. **Done-Jobs** (TTL-expired): expiresAt + grace < now → cleanup.
+  //      Per-Tenant-Grace aus Profile (default 24h post-expiry damit
+  //      gleichzeitige Re-Downloads bei Connection-Abbrueche moeglich).
+  //
+  //   2. **Failed-Jobs mit downloadStorageKey** (Atom 4a.fix orphan-cleanup):
+  //      Worker hat ZIP geschrieben, dann ist VOR done-flip etwas
+  //      schiefgegangen (Token-Create-Fail, done-flip-Fail, Stale-
+  //      Detection). Job=failed mit gesetztem downloadStorageKey =
+  //      ZIP-Orphan in Storage, kein User-Pfad zum download. Sofortige
+  //      cleanup ohne Grace — der ZIP ist nutzlos.
+  //
   // @cast-boundary db-row.
   const candidates = (await db
     .select({
       id: exportJobsTable["id"],
       version: exportJobsTable["version"],
+      status: exportJobsTable["status"],
       requestedFromTenantId: exportJobsTable["requestedFromTenantId"],
       downloadStorageKey: exportJobsTable["downloadStorageKey"],
       expiresAt: exportJobsTable["expiresAt"],
@@ -446,12 +481,23 @@ async function storageCleanupPass(args: {
     .from(exportJobsTable)
     .where(
       and(
-        eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Done),
-        lte(exportJobsTable["expiresAt"], now),
+        // Beide Pfade: status in (done, failed) + downloadStorageKey gesetzt.
+        // Filter im Loop verfeinert (done braucht expiresAt+grace, failed
+        // sofort).
+        or(
+          eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Done),
+          eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Failed),
+        ),
+        // downloadStorageKey != NULL: nach Atom 4a.fix wird der Pfad
+        // bereits beim claim persistiert, also fast alle running/done-
+        // Jobs haben ihn. failed-Jobs ohne ZIP (claim hat funktioniert
+        // aber bundle/zip-write nie erreicht): downloadStorageKey
+        // bleibt set, provider.delete ist no-op auf non-existent-key.
       ),
     )) as readonly {
     id: string;
     version: number;
+    status: string;
     requestedFromTenantId: TenantId;
     downloadStorageKey: string | null;
     expiresAt: Instant | null;
@@ -459,15 +505,22 @@ async function storageCleanupPass(args: {
 
   const cleaned: string[] = [];
   for (const c of candidates) {
-    if (!c.downloadStorageKey || !c.expiresAt) continue;
-    const profile = await resolveProfileForTenant({
-      db,
-      tenantId: c.requestedFromTenantId,
-    });
-    const cleanupAfter =
-      c.expiresAt.epochMilliseconds +
-      profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;
-    if (now.epochMilliseconds < cleanupAfter) continue;
+    if (!c.downloadStorageKey) continue;
+
+    // Done-Jobs brauchen expiresAt+grace-Check. Failed-Jobs gehen direkt
+    // durch (kein User-Pfad → sofort cleanup).
+    if (c.status === EXPORT_JOB_STATUS.Done) {
+      if (!c.expiresAt) continue;
+      const profile = await resolveProfileForTenant({
+        db,
+        tenantId: c.requestedFromTenantId,
+      });
+      const cleanupAfter =
+        c.expiresAt.epochMilliseconds +
+        profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;
+      if (now.epochMilliseconds < cleanupAfter) continue;
+    }
+    // Failed-Job-Branch: kein TTL-Check, sofort cleanup.
 
     // Storage-Datei loeschen + DB-Spalte nullen.
     try {

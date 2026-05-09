@@ -453,7 +453,9 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(tokenRows).toHaveLength(1);
     expect(tokenRows[0]?.tokenHash).toBe(await hashDownloadToken(plainToken as string));
     expect(tokenRows[0]?.lastUsedAt).toBeNull();
-    expect(tokenRows[0]?.useCount).toBeNull();
+    // Atom 4a.fix: useCount explicit 0 statt null — 4b's Increment ist
+    // dadurch trivial (useCount + 1 ohne COALESCE).
+    expect(tokenRows[0]?.useCount).toBe(0);
 
     // expiresAt im Token = job.expiresAt (denormalized)
     const [jobRow] = (await stack.db
@@ -524,6 +526,95 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
 
     const allTokens = (await stack.db.select().from(exportDownloadTokensTable)) as Array<unknown>;
     expect(allTokens).toHaveLength(0);
+  });
+
+  test("Token-create UNIQUE-violation → Job=failed (NICHT done) — Sequencing-Pin", async () => {
+    // Atom 4a.fix Sequence-Garantie: Token wird VOR done-flip erstellt.
+    // Wenn Token-create failt (z.B. UNIQUE-violation auf jobId), faellt
+    // der Worker in catch-Pfad → Job auf failed (NICHT done). Vorher
+    // war die Reihenfolge gefaehrlich: Job=done dann Token-create-fail
+    // → catch flippt done→failed (nicht-monoton + verwirrend).
+    //
+    // Setup: pending Job seeden, dann eine duplicate-Token-Row mit
+    // demselben jobId direct-INSERT (test-fixture). Worker pickt Job,
+    // schreibt ZIP, versucht Token-create → UNIQUE hits → throw.
+    const jobId = await seedPendingJob();
+
+    // Force UNIQUE-violation: pre-seed eine Token-Row mit jobId via
+    // direct-INSERT (Test-Exemption). Worker's tokenCrud.create wird
+    // dann mit constraintName "read_export_download_tokens_one_per_job"
+    // failen.
+    await stack.db.execute(sql`
+      INSERT INTO read_export_download_tokens
+        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
+      VALUES (
+        gen_random_uuid(),
+        ${tenantA},
+        ${jobId},
+        ${"existing-hash"},
+        now(),
+        now() + interval '7 days',
+        1,
+        now(),
+        now()
+      )
+    `);
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+
+    // Job ist failed, NICHT done — Sequence-Garantie
+    expect(result.completedJobIds).not.toContain(jobId);
+    expect(result.failedJobIds).toContain(jobId);
+
+    const [row] = (await stack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id = ${jobId}`)) as Array<{ status: string; errorMessage: string | null }>;
+    expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
+    expect(row?.errorMessage).toMatch(/Token-Creation failed/);
+  });
+
+  test("failed-Job mit downloadStorageKey → ZIP wird im Cleanup-Pass entfernt (orphan-fix)", async () => {
+    // Atom 4a.fix orphan-cleanup: failed-Jobs haben downloadStorageKey
+    // gesetzt (path-pre-claim) — der ZIP-Pfad ist persistiert ab claim.
+    // Storage-Cleanup-Pass fuer failed-Jobs: sofort ZIP loeschen (kein
+    // Grace), DB-Spalte nullen.
+    const jobId = await seedPendingJob();
+    const storageKey = `${tenantA}/exports/${jobId}.zip`;
+
+    // ZIP in storage seeden + Job manuell auf failed mit storageKey
+    // (simuliert orphan-state nach Worker-crash).
+    const provider = await buildProvider(tenantA);
+    await provider.write(storageKey, new Uint8Array([99, 99, 99]));
+    await stack.db
+      .update(exportJobsTable)
+      .set({
+        status: EXPORT_JOB_STATUS.Failed,
+        downloadStorageKey: storageKey,
+        errorMessage: "synthetic crash mid-run",
+      })
+      .where(sql`id = ${jobId}`);
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+
+    expect(result.cleanedJobIds).toContain(jobId);
+    expect(await provider.exists(storageKey)).toBe(false);
+
+    const [row] = (await stack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id = ${jobId}`)) as Array<{ downloadStorageKey: string | null }>;
+    expect(row?.downloadStorageKey).toBeNull();
   });
 });
 
