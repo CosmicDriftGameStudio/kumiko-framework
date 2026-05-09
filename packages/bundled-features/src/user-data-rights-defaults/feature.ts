@@ -1,6 +1,6 @@
 import {
-  EXT_USER_DATA,
   defineFeature,
+  EXT_USER_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefDeleteHook, fileRefExportHook } from "./hooks/file-ref.userdata-hook";

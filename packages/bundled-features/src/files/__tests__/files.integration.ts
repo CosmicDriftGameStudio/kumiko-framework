@@ -9,11 +9,8 @@
 //   4. Event-QN-Match: r.defineEvent + framework's fileUploadedEvent
 //      resolven zum selben QN
 
-import { EXT_USER_DATA, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  FILE_UPLOADED_EVENT_TYPE,
-  fileRefsTable,
-} from "@cosmicdrift/kumiko-framework/files";
+import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
+import { FILE_UPLOADED_EVENT_TYPE, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { getTableColumns } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";

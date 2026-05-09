@@ -11,9 +11,6 @@
 //     fileRef-Forget beruehrt Tenant B's Files nicht)
 
 import {
-  fileRefsTable,
-} from "@cosmicdrift/kumiko-framework/files";
-import {
   createEntityTable,
   setupTestStack,
   type TestStack,
@@ -33,12 +30,7 @@ import {
 } from "../../user";
 import { createUserDataRightsFeature } from "../../user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "../feature";
-import {
-  fileRefDeleteHook,
-  fileRefExportHook,
-  userDeleteHook,
-  userExportHook,
-} from "../index";
+import { fileRefDeleteHook, fileRefExportHook, userDeleteHook, userExportHook } from "../index";
 
 let stack: TestStack;
 
@@ -203,10 +195,7 @@ describe("S2.H1 :: userDeleteHook", () => {
   test('strategy="delete" → softDelete + email/displayName anonymisiert + status=deleted', async () => {
     await seedUser(uuid(1003));
 
-    await userDeleteHook(
-      { db: stack.db, tenantId: TENANT_A, userId: uuid(1003) },
-      "delete",
-    );
+    await userDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: uuid(1003) }, "delete");
 
     const row = await fetchUser(uuid(1003));
     expect(row).not.toBeNull();
@@ -222,10 +211,7 @@ describe("S2.H1 :: userDeleteHook", () => {
   test('strategy="anonymize" → email/displayName anonymisiert aber status bleibt active', async () => {
     await seedUser(uuid(1004));
 
-    await userDeleteHook(
-      { db: stack.db, tenantId: TENANT_A, userId: uuid(1004) },
-      "anonymize",
-    );
+    await userDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: uuid(1004) }, "anonymize");
 
     const row = await fetchUser(uuid(1004));
     if (!row) throw new Error("row should exist");
@@ -238,19 +224,13 @@ describe("S2.H1 :: userDeleteHook", () => {
   test("idempotent: zweiter delete-Call crasht nicht UND State bleibt korrekt deleted", async () => {
     await seedUser(uuid(1005));
 
-    await userDeleteHook(
-      { db: stack.db, tenantId: TENANT_A, userId: uuid(1005) },
-      "delete",
-    );
+    await userDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: uuid(1005) }, "delete");
     const afterFirst = await fetchUser(uuid(1005));
     if (!afterFirst) throw new Error("user should exist after first delete");
 
     // Zweiter Call: kein Crash + State unverändert
     await expect(
-      userDeleteHook(
-        { db: stack.db, tenantId: TENANT_A, userId: uuid(1005) },
-        "delete",
-      ),
+      userDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: uuid(1005) }, "delete"),
     ).resolves.toBeUndefined();
 
     // State-Verifikation (S2.H1+H2-Audit N3): Row weiterhin deleted,
@@ -327,10 +307,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(302), TENANT_B, "shared-user", "tenantB.pdf");
 
     // Tenant A loescht alle Files von "shared-user"
-    await fileRefDeleteHook(
-      { db: stack.db, tenantId: TENANT_A, userId: "shared-user" },
-      "delete",
-    );
+    await fileRefDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: "shared-user" }, "delete");
 
     const aRemaining = await fetchFileRefs(TENANT_A, "shared-user");
     const bRemaining = await fetchFileRefs(TENANT_B, "shared-user");
@@ -352,10 +329,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
 
     // Zweiter Call: kein Crash + State weiter 0 Files
     await expect(
-      fileRefDeleteHook(
-        { db: stack.db, tenantId: TENANT_A, userId: "user-idem-files" },
-        "delete",
-      ),
+      fileRefDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: "user-idem-files" }, "delete"),
     ).resolves.toBeUndefined();
     const afterSecond = await fetchFileRefs(TENANT_A, "user-idem-files");
     expect(afterSecond).toHaveLength(0);

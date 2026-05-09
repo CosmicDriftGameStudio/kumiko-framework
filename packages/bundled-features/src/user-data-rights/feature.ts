@@ -106,6 +106,16 @@ export function createUserDataRightsFeature(): FeatureDefinition {
           );
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
+        // FileProviderContext explizit zusammenstellen — ctx ist AppContext,
+        // hat config/registry/secrets, aber _userId ist im Job-Pfad nicht
+        // automatisch gesetzt (dispatcher setzt es nur im request-Pfad).
+        // Audit-Identity fuer Provider-Plugins die secrets lesen (z.B. S3):
+        const providerCtx = {
+          config: ctx.config,
+          registry: ctx.registry,
+          secrets: ctx.secrets,
+          _userId: ctx._userId ?? "system:user-data-rights:run-export-jobs",
+        };
         await runExportJobs({
           // ctx.db ist DbConnection|TenantDb in AppContext-Type; im Job-
           // Pfad ist es die rohe Connection. Cast zu DbConnection legitim
@@ -113,14 +123,7 @@ export function createUserDataRightsFeature(): FeatureDefinition {
           db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection,
           registry: ctx.registry,
           buildStorageProvider: async (tenantId) =>
-            // file-foundation's createFileProviderForTenant nimmt
-            // HandlerContext; AppContext ist subset, der ctx hat config
-            // + registry — die einzigen Felder die der Resolver liest.
-            createFileProviderForTenant(
-              ctx as unknown as import("@cosmicdrift/kumiko-framework/engine").HandlerContext,
-              tenantId,
-              "user-data-rights:run-export-jobs",
-            ),
+            createFileProviderForTenant(providerCtx, tenantId, "user-data-rights:run-export-jobs"),
           now: T.Now.instant(),
         });
       },

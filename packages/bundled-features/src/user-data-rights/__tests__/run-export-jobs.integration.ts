@@ -339,3 +339,79 @@ describe("runExportJobs :: idempotency", () => {
     expect(second.failedJobIds).toEqual([]);
   });
 });
+
+describe("runExportJobs :: concurrency", () => {
+  test("zwei parallele Runner mit 1 pending-Job → genau ein done, ein skipped", async () => {
+    // Pinst die zentrale Korrektheits-Behauptung von Atom 3b: optimistic-
+    // locking via crud.update mit version-conflict gewinnt EXAKT ein
+    // Worker-Replica den claim, der zweite skipped silent. Vor dem Fix
+    // war der "skipped"-Pfad totes coverage.
+    const jobId = await seedPendingJob();
+
+    const [resultA, resultB] = await Promise.all([
+      runExportJobs({
+        db: stack.db,
+        registry: stack.registry,
+        buildStorageProvider: buildProvider,
+        now: NOW(),
+      }),
+      runExportJobs({
+        db: stack.db,
+        registry: stack.registry,
+        buildStorageProvider: buildProvider,
+        now: NOW(),
+      }),
+    ]);
+
+    // Genau ein Runner hat den Job als completed verbucht
+    const completedAcrossBoth = [...resultA.completedJobIds, ...resultB.completedJobIds];
+    expect(completedAcrossBoth.filter((id) => id === jobId)).toHaveLength(1);
+
+    // Keine doppelten failures
+    expect([...resultA.failedJobIds, ...resultB.failedJobIds]).toEqual([]);
+
+    // DB hat genau eine done-Row
+    const rows = (await stack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id = ${jobId}`)) as Array<{ status: string; downloadStorageKey: string | null }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe(EXPORT_JOB_STATUS.Done);
+    expect(rows[0]?.downloadStorageKey).toBe(`${tenantA}/exports/${jobId}.zip`);
+
+    // Storage hat genau ein ZIP — kein Race-induziertes Doppel-Schreiben
+    const provider = await buildProvider(tenantA);
+    expect(await provider.exists(`${tenantA}/exports/${jobId}.zip`)).toBe(true);
+  });
+});
+
+describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
+  test("running-Job 45min ago + Profile-Default 30min → wird gefailed (kein 60min-coarse-filter mehr)", async () => {
+    // Regression-Pin: vor 3b.fix hatte staleDetectionPass einen
+    // hardcoded `startedAt <= now-1h` Coarse-Filter. Default-Profile
+    // exportStaleTimeoutMinutes = 30, also waeren 30-60min-alte
+    // Stale-Jobs nicht erkannt worden. Mit Filter raus + per-Job
+    // profile-resolve im Loop wird das jetzt korrekt gefangen.
+    const jobId = await seedPendingJob();
+    const T = getTemporal();
+    const fortyFiveMinAgo = T.Instant.fromEpochMilliseconds(Date.now() - 45 * 60 * 1000);
+    await stack.db
+      .update(exportJobsTable)
+      .set({ status: EXPORT_JOB_STATUS.Running, startedAt: fortyFiveMinAgo })
+      .where(sql`id = ${jobId}`);
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+
+    expect(result.staleFailedJobIds).toContain(jobId);
+    const [row] = (await stack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id = ${jobId}`)) as Array<{ status: string }>;
+    expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
+  });
+});

@@ -1,8 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import type {
-  UserDataDeleteHook,
-  UserDataExportHook,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { eq, sql } from "drizzle-orm";
 import {
   USER_ANONYMIZED_DISPLAY_NAME,
@@ -35,11 +32,7 @@ import {
 //                Frist auf einer FK-target-Entity)
 
 export const userExportHook: UserDataExportHook = async (ctx) => {
-  const row = (await fetchOne(
-    ctx.db,
-    userTable,
-    eq(userTable["id"], ctx.userId),
-  )) as {
+  const row = (await fetchOne(ctx.db, userTable, eq(userTable["id"], ctx.userId))) as {
     id: string;
     email: string;
     displayName: string;

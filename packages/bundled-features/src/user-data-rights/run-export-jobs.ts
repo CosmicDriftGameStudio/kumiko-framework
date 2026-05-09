@@ -54,8 +54,8 @@ import {
   type FileStorageProvider,
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { and, asc, eq, lt, lte, or } from "drizzle-orm";
+import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { and, asc, eq, lte } from "drizzle-orm";
 import { resolveProfileForTenant } from "../compliance-profiles";
 import { runUserExport, type UserExportBundle } from "./run-user-export";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/export-job";
@@ -105,7 +105,7 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
   // spezifische exportStaleTimeoutMinutes haengen werden gefailed.
   // Wird VOR dem pickup-pass ausgefuehrt damit ein neuer Worker-Run
   // den vorhergehenden Crash erstmal als failed markiert.
-  const staleFailedJobIds = await staleDetectionPass({ db, registry, now });
+  const staleFailedJobIds = await staleDetectionPass({ db, now });
 
   // Pass 2: Pickup pending jobs + Process them.
   const completedJobIds: string[] = [];
@@ -136,7 +136,6 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
   // + im DB-Row genullt.
   const cleanedJobIds = await storageCleanupPass({
     db,
-    registry,
     buildStorageProvider,
     now,
   });
@@ -301,17 +300,16 @@ async function processJob(args: {
 
 async function staleDetectionPass(args: {
   db: DbConnection;
-  registry: Registry;
   now: Instant;
 }): Promise<readonly string[]> {
-  const { db, registry, now } = args;
-  void registry; // unused but kept for API-symmetry mit andere Passes
+  const { db, now } = args;
 
-  // running jobs holen + pro Job die tenant-spezifische Stale-TTL
-  // pruefen. Per-Tenant-Profile macht das nicht batch-bar — wir
-  // filtern grob "running > 1h" und checken im Loop genauer.
-  const HOUR_MS = 60 * 60 * 1000;
-  const oneHourAgo = getTemporal().Instant.fromEpochMilliseconds(now.epochMilliseconds - HOUR_MS);
+  // **Kein Coarse-Filter** — der vorherige `startedAt <= now-1h` Filter
+  // war fragile: profile.exportStaleTimeoutMinutes hat Default 30min und
+  // erlaubt per-Tenant-Override auf z.B. 5min. Ein 60min-Coarse-Filter
+  // wuerde 30-60min-alte stale-Jobs UNERKANNT lassen. Cron laeuft alle
+  // 60s, zu jedem Zeitpunkt sind nur wenige Jobs in `running` —
+  // alle fetchen + profile-resolve im Loop ist bezahlbar + korrekt.
   // @cast-boundary db-row.
   const candidates = (await db
     .select({
@@ -322,12 +320,7 @@ async function staleDetectionPass(args: {
       startedAt: exportJobsTable["startedAt"],
     })
     .from(exportJobsTable)
-    .where(
-      and(
-        eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Running),
-        lte(exportJobsTable["startedAt"], oneHourAgo),
-      ),
-    )) as readonly {
+    .where(eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Running))) as readonly {
     id: string;
     version: number;
     userId: string;
@@ -367,16 +360,14 @@ async function staleDetectionPass(args: {
 
 async function storageCleanupPass(args: {
   db: DbConnection;
-  registry: Registry;
   buildStorageProvider: (tenantId: TenantId) => Promise<FileStorageProvider>;
   now: Instant;
 }): Promise<readonly string[]> {
-  const { db, registry, buildStorageProvider, now } = args;
-  void registry;
+  const { db, buildStorageProvider, now } = args;
 
   // Done-Jobs deren expiresAt+grace bereits vorbei ist + die noch einen
   // downloadStorageKey haben. Per-Tenant-Grace ist im Profile, wir
-  // grob-filtern auf expiresAt < now (kleinster grace=0) + checken
+  // grob-filtern auf expiresAt <= now (kleinster grace=0) + checken
   // im Loop genau.
   // @cast-boundary db-row.
   const candidates = (await db
@@ -391,9 +382,7 @@ async function storageCleanupPass(args: {
     .where(
       and(
         eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Done),
-        // Nicht-NULL downloadStorageKey + expiresAt
-        // (drizzle-eq mit `or` matcht auch null-pfad — unten filter).
-        or(lt(exportJobsTable["expiresAt"], now), eq(exportJobsTable["expiresAt"], now)),
+        lte(exportJobsTable["expiresAt"], now),
       ),
     )) as readonly {
     id: string;

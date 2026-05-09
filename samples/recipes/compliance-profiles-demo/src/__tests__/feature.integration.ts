@@ -21,14 +21,14 @@
 //   - Plus worksCouncilApprovalRequired
 
 import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEntityTable,
   createTestUser,
   setupTestStack,
-  testTenantId,
   type TestStack,
+  testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { complianceProfilesDemoFeatures } from "../feature";
 

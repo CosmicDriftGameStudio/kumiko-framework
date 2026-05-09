@@ -1,7 +1,4 @@
-import type {
-  UserDataDeleteHook,
-  UserDataExportHook,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { and, eq } from "drizzle-orm";
 
