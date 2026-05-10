@@ -10,6 +10,8 @@ import { downloadByJobQuery } from "./handlers/download-by-job.query";
 import { downloadByTokenQuery } from "./handlers/download-by-token.query";
 import { exportStatusQuery } from "./handlers/export-status.query";
 import { liftRestrictionWrite } from "./handlers/lift-restriction.write";
+import { listDownloadAttemptsQuery } from "./handlers/list-download-attempts.query";
+import { myAuditLogQuery } from "./handlers/my-audit-log.query";
 import {
   createRequestDeletionHandler,
   type SendDeletionRequestedEmailFn,
@@ -23,6 +25,7 @@ import {
   type SendExportReadyEmailFn,
 } from "./run-export-jobs";
 import type { SendDeletionExecutedEmailFn } from "./run-forget-cleanup";
+import { downloadAttemptEntity } from "./schema/download-attempt";
 import { exportDownloadTokenEntity } from "./schema/download-token";
 import { exportJobEntity } from "./schema/export-job";
 
@@ -103,6 +106,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // RunExportJobsResult fuer Atom 5 (Notification per Email).
     r.entity("export-download-token", exportDownloadTokenEntity);
 
+    // S2.U7 — Audit-Trail invalid Download-Attempts (DPO Brute-Force-Detection).
+    r.entity("download-attempt", downloadAttemptEntity);
+
     // S2.U6 — DSGVO Art. 18 Account-Freeze (Verarbeitungs-Pause).
     // Endpoints fuer Restrict + Lift. Login-Block fuer Restricted Users
     // lebt in auth-email-password/login.write.ts.
@@ -143,6 +149,11 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // r.httpRoute-Wrapper unten machen den 302-Redirect zu signedUrl.
     r.queryHandler(downloadByTokenQuery);
     r.queryHandler(downloadByJobQuery);
+
+    // S2.U7 — User-Selbstauskunft (Art. 15) + Operator-Sicht auf
+    // invalid Download-Attempts (DPO).
+    r.queryHandler(myAuditLogQuery);
+    r.queryHandler(listDownloadAttemptsQuery);
 
     // r.httpRoute-Wrapper: Magic-Link-Pfad (anonymous) + UI-Klick-Pfad.
     //

@@ -16,10 +16,18 @@
 // `feedback_no_fake_dispatcher` + `feedback_event_store_tenant_consistency`.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import {
+  downloadAttemptEntity,
+  downloadAttemptsTable,
+} from "./schema/download-attempt";
 import { tokenCrud } from "./run-export-jobs";
+
+const attemptCrud = createEventStoreExecutor(downloadAttemptsTable, downloadAttemptEntity, {
+  entityName: "download-attempt",
+});
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -76,3 +84,49 @@ export async function recordDownloadUse(args: RecordDownloadUseArgs): Promise<vo
 // extractCallerIp lebt in feature.ts (extractAuditMeta) — query-handler
 // haben keinen direkten Header-Zugriff (transport-agnostic), httpRoute-
 // Wrapper extrahiert + steckt in payload.auditMeta.
+
+export type DownloadAttemptResult =
+  | "notFound"
+  | "expired"
+  | "failed"
+  | "signedUrlNotSupported";
+
+export interface RecordInvalidAttemptArgs {
+  readonly db: DbConnection;
+  readonly tenantId: TenantId;
+  readonly now: Instant;
+  readonly result: DownloadAttemptResult;
+  readonly via: "token" | "job";
+  readonly tokenHash: string | null;
+  readonly jobId: string | null;
+  readonly attemptedByUserId: string | null;
+  readonly ip: string | null;
+  readonly userAgent: string | null;
+}
+
+// Best-effort INSERT in read_download_attempts. Throws im Audit-Pfad
+// duerfen den Download-Endpoint nicht killen (User soll seinen 404
+// bekommen, nicht 500); failures werden silent geswallowt.
+export async function recordInvalidAttempt(args: RecordInvalidAttemptArgs): Promise<void> {
+  const { db, tenantId, now } = args;
+  const executor = createSystemUser(tenantId);
+  const tdb = createTenantDb(db, tenantId, "system");
+  await attemptCrud
+    .create(
+      {
+        result: args.result,
+        via: args.via,
+        tokenHash: args.tokenHash,
+        jobId: args.jobId,
+        attemptedByUserId: args.attemptedByUserId,
+        ip: args.ip,
+        userAgent: args.userAgent,
+        attemptedAt: now,
+      },
+      executor,
+      tdb,
+    )
+    .catch(() => {
+      // best-effort
+    });
+}

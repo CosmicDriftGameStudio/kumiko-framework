@@ -34,7 +34,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createFileProviderForTenant } from "../../file-foundation";
-import { recordDownloadUse } from "../audit-download";
+import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
 import { exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job";
 import { hashDownloadToken } from "../token-helpers";
@@ -102,6 +102,9 @@ export const downloadByTokenQuery = defineQueryHandler({
       });
     }
 
+    const auditIp = query.payload.auditMeta?.ip ?? null;
+    const auditUa = query.payload.auditMeta?.userAgent ?? null;
+
     // Step 2: TTL-check.
     //
     // **Pragma:** semantisch waere 410 Gone richtig (war mal da, jetzt
@@ -110,6 +113,30 @@ export const downloadByTokenQuery = defineQueryHandler({
     // anhand des i18nKeys, nicht des HTTP-Status — also User sieht
     // "Dein Download ist abgelaufen", nicht generic "not found".
     if (tokenRow.expiresAt.epochMilliseconds <= now.epochMilliseconds) {
+      // Audit-Skip noch nicht moeglich — jobRow noch nicht geladen,
+      // tenantId unbekannt. Wir laden den Job hier noch fuer Audit-Context
+      // (best-effort — wenn Job auch fehlt, audit-skip ist akzeptabel).
+      const jobForAudit = (await fetchOne(
+        ctx.db.raw,
+        exportJobsTable,
+        eq(exportJobsTable["id"], tokenRow.jobId),
+      )) as { requestedFromTenantId: string } | null;
+      if (jobForAudit) {
+        await recordInvalidAttempt({
+          db: ctx.db.raw as DbConnection,
+          tenantId: jobForAudit.requestedFromTenantId as Parameters<
+            typeof recordInvalidAttempt
+          >[0]["tenantId"],
+          now,
+          result: "expired",
+          via: "token",
+          tokenHash: hash,
+          jobId: tokenRow.jobId,
+          attemptedByUserId: null,
+          ip: auditIp,
+          userAgent: auditUa,
+        });
+      }
       throw new NotFoundError("export-download", undefined, {
         i18nKey: "userDataRights.errors.download.expired",
       });
@@ -128,12 +155,39 @@ export const downloadByTokenQuery = defineQueryHandler({
       });
     }
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
+      await recordInvalidAttempt({
+        db: ctx.db.raw as DbConnection,
+        tenantId: jobRow.requestedFromTenantId as Parameters<
+          typeof recordInvalidAttempt
+        >[0]["tenantId"],
+        now,
+        result: "failed",
+        via: "token",
+        tokenHash: hash,
+        jobId: jobRow.id,
+        attemptedByUserId: null,
+        ip: auditIp,
+        userAgent: auditUa,
+      });
       throw new NotFoundError("export-download", undefined, {
         i18nKey: "userDataRights.errors.download.unavailable",
       });
     }
     if (!jobRow.downloadStorageKey) {
-      // storage gecleared = effektiv expired
+      await recordInvalidAttempt({
+        db: ctx.db.raw as DbConnection,
+        tenantId: jobRow.requestedFromTenantId as Parameters<
+          typeof recordInvalidAttempt
+        >[0]["tenantId"],
+        now,
+        result: "expired",
+        via: "token",
+        tokenHash: hash,
+        jobId: jobRow.id,
+        attemptedByUserId: null,
+        ip: auditIp,
+        userAgent: auditUa,
+      });
       throw new NotFoundError("export-download", undefined, {
         i18nKey: "userDataRights.errors.download.expired",
       });
@@ -147,14 +201,20 @@ export const downloadByTokenQuery = defineQueryHandler({
       "user-data-rights:query:download-by-token",
     );
     if (!provider.getSignedUrl) {
-      // Operator-Konfig-Bug — kein User-Fehler. UnprocessableError (422)
-      // damit DPO/Operator das im Log unterscheiden kann; 404 wuerde
-      // wie User-Probing aussehen + alle 4 echten not-found-Pfade
-      // verschmieren.
-      //
-      // **Audit-Skip:** Throw VOR recordDownloadUse — kein effektiver
-      // Download stattgefunden, useCount=0 ist semantisch richtig.
-      // Operator-Bug-Pfad ist nicht User-Brute-Force.
+      await recordInvalidAttempt({
+        db: ctx.db.raw as DbConnection,
+        tenantId: jobRow.requestedFromTenantId as Parameters<
+          typeof recordInvalidAttempt
+        >[0]["tenantId"],
+        now,
+        result: "signedUrlNotSupported",
+        via: "token",
+        tokenHash: hash,
+        jobId: jobRow.id,
+        attemptedByUserId: null,
+        ip: auditIp,
+        userAgent: auditUa,
+      });
       throw new UnprocessableError("storage_provider_signed_url_not_supported", {
         i18nKey: "userDataRights.errors.download.signedUrlNotSupported",
       });

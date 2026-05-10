@@ -31,7 +31,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createFileProviderForTenant } from "../../file-foundation";
-import { recordDownloadUse } from "../audit-download";
+import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
 import { exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job";
 
@@ -69,6 +69,9 @@ export const downloadByJobQuery = defineQueryHandler({
     const now = T.Now.instant();
     const userId = query.user.id;
     const jobId = query.payload.jobId;
+    const tenantId = query.user.tenantId;
+    const auditIp = query.payload.auditMeta?.ip ?? null;
+    const auditUa = query.payload.auditMeta?.userAgent ?? null;
 
     // Step 1-2: job-lookup + cross-user-isolation
     // ctx.db.raw weil tenant-agnostisch — Alice in Tenant B sucht den
@@ -80,33 +83,76 @@ export const downloadByJobQuery = defineQueryHandler({
     )) as JobRow | null;
 
     if (!jobRow || jobRow.userId !== userId) {
-      // Generischer 404 — kein Existenz-Leak gegen cross-user-Probing.
+      await recordInvalidAttempt({
+        db: ctx.db.raw as DbConnection,
+        tenantId,
+        now,
+        result: "notFound",
+        via: "job",
+        tokenHash: null,
+        jobId,
+        attemptedByUserId: userId,
+        ip: auditIp,
+        userAgent: auditUa,
+      });
       throw new NotFoundError("export-download", jobId, {
         i18nKey: "userDataRights.errors.download.notFound",
       });
     }
 
-    // Step 3-4: status + storage-key
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
+      await recordInvalidAttempt({
+        db: ctx.db.raw as DbConnection,
+        tenantId,
+        now,
+        result: "failed",
+        via: "job",
+        tokenHash: null,
+        jobId,
+        attemptedByUserId: userId,
+        ip: auditIp,
+        userAgent: auditUa,
+      });
       throw new NotFoundError("export-download", jobId, {
         i18nKey: "userDataRights.errors.download.unavailable",
       });
     }
     if (!jobRow.downloadStorageKey) {
+      await recordInvalidAttempt({
+        db: ctx.db.raw as DbConnection,
+        tenantId,
+        now,
+        result: "expired",
+        via: "job",
+        tokenHash: null,
+        jobId,
+        attemptedByUserId: userId,
+        ip: auditIp,
+        userAgent: auditUa,
+      });
       throw new NotFoundError("export-download", jobId, {
         i18nKey: "userDataRights.errors.download.expired",
       });
     }
 
-    // Step 5: signed-URL via provider
     const provider = await createFileProviderForTenant(
       ctx,
       jobRow.requestedFromTenantId,
       "user-data-rights:query:download-by-job",
     );
     if (!provider.getSignedUrl) {
-      // Operator-Konfig-Bug, kein User-Fehler. 422 statt 404 — siehe
-      // download-by-token.query fuer detaillierten Comment.
+      await recordInvalidAttempt({
+        db: ctx.db.raw as DbConnection,
+        tenantId,
+        now,
+        result: "signedUrlNotSupported",
+        via: "job",
+        tokenHash: null,
+        jobId,
+        attemptedByUserId: userId,
+        ip: auditIp,
+        userAgent: auditUa,
+      });
       throw new UnprocessableError("storage_provider_signed_url_not_supported", {
         i18nKey: "userDataRights.errors.download.signedUrlNotSupported",
       });
