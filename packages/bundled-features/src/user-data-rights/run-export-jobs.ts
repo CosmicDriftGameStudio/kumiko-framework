@@ -46,7 +46,11 @@
 
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  fetchOne,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -57,6 +61,7 @@ import {
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { and, asc, eq, isNotNull, or } from "drizzle-orm";
 import { resolveProfileForTenant } from "../compliance-profiles";
+import { userTable } from "../user";
 import { runUserExport, type UserExportBundle } from "./run-user-export";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/export-job";
@@ -81,6 +86,42 @@ export const tokenCrud = createEventStoreExecutor(
   { entityName: "export-download-token" },
 );
 
+/**
+ * Notification-Callback fuer den done-Pfad. Pattern matched
+ * auth-routes.PasswordResetConfig.sendResetEmail. Plain-Token bleibt
+ * ephemeral (nicht in DB/event-store/jobRunsTable). App-Author wired
+ * den Callback an seinen Email-Provider:
+ *   - existing `delivery.notify` (multi-channel + delivery_attempts-Log)
+ *   - `mailFoundation.send` direkt
+ *   - Custom Resend/SES/etc.
+ *
+ * **Best-effort:** Throw vom Callback faengt der Worker; Job bleibt
+ * `done`, aber Worker-Run wird als failed in jobRunsTable gemerkt
+ * (Operator sieht's im /jobs-Dashboard, kann via jobs:write:retry
+ * neu triggern). Plain-Token wird beim retry NICHT neu generiert —
+ * 4a hat UNIQUE-jobId-Constraint, retry liefert denselben hash; aber
+ * der ALTE plain-token ist verloren weil ephemeral. → operator-Eingriff
+ * noetig (Token in DB nullen + Job auf pending → next Worker-Run
+ * generiert neuen Token).
+ */
+export type SendExportReadyEmailFn = (args: {
+  readonly userId: string;
+  readonly userEmail: string;
+  readonly tenantId: TenantId;
+  readonly jobId: string;
+  readonly downloadUrl: string;
+  readonly expiresAt: string;
+  readonly bytesWritten: number | null;
+}) => Promise<void>;
+
+export type SendExportFailedEmailFn = (args: {
+  readonly userId: string;
+  readonly userEmail: string;
+  readonly tenantId: TenantId;
+  readonly jobId: string;
+  readonly errorMessage: string;
+}) => Promise<void>;
+
 export interface RunExportJobsArgs {
   readonly db: DbConnection;
   readonly registry: Registry;
@@ -92,6 +133,18 @@ export interface RunExportJobsArgs {
   readonly buildStorageProvider: (tenantId: TenantId) => Promise<FileStorageProvider>;
   /** Now-Injection — Tests pinnen den Wert ohne Date-Mock. */
   readonly now: Instant;
+
+  /** S2.U3 Atom 5 — Email-Notification beim done-flip. Optional;
+   *  wenn nicht gesetzt, sendet der Worker keine notification (User
+   *  kann aber via export-status.query polln + UI-Klick). */
+  readonly sendExportReadyEmail?: SendExportReadyEmailFn;
+  /** Optional Email beim failed-flip. */
+  readonly sendExportFailedEmail?: SendExportFailedEmailFn;
+  /** Base-URL fuer den Magic-Link. App-Author setzt das (z.B.
+   *  "https://app.example.com/user-export/by-token"). Worker baut
+   *  `${appExportDownloadUrl}?token=<plain>` und reicht das im
+   *  Callback durch. Required wenn sendExportReadyEmail gesetzt. */
+  readonly appExportDownloadUrl?: string;
 }
 
 export interface ExportJobError {
@@ -122,7 +175,8 @@ export interface RunExportJobsResult {
 }
 
 export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJobsResult> {
-  const { db, registry, buildStorageProvider, now } = args;
+  const { db, registry, buildStorageProvider, now, sendExportReadyEmail, sendExportFailedEmail } =
+    args;
 
   // Pass 1: Stale-Detection — running jobs die laenger als das tenant-
   // spezifische exportStaleTimeoutMinutes haengen werden gefailed.
@@ -147,13 +201,40 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
     });
     if (outcome.kind === "done") {
       completedJobIds.push(job.id);
-      // Worker hat plain im Memory; weitergeben fuer Atom 5 (Notification).
-      // Atom 5's email-Hook konsumiert tokenByJobId + verschickt plain
-      // im Magic-Link. Plain landet NICHT in Logs/Telemetry.
+      // Worker hat plain im Memory; weitergeben fuer downstream-callbacks
+      // + Atom-5-Tests (RunExportJobsResult.tokenByJobId). Plain landet
+      // NICHT in Logs/Telemetry/jobRunsTable.
       tokenByJobId.set(job.id, outcome.tokenPlain);
+
+      // Atom 5: Email-Notification beim done-flip. Best-effort —
+      // Throw bubbelt zum r.job-handler hoch + macht Worker-Run als
+      // failed in jobRunsTable. Operator sieht's, kann via
+      // jobs:write:retry neu triggern.
+      if (sendExportReadyEmail) {
+        await fireExportReadyCallback({
+          db,
+          job,
+          plainToken: outcome.tokenPlain,
+          bytesWritten: outcome.bytesWritten,
+          expiresAt: outcome.expiresAt,
+          appExportDownloadUrl: args.appExportDownloadUrl,
+          send: sendExportReadyEmail,
+        });
+      }
     } else if (outcome.kind === "failed") {
       failedJobIds.push(job.id);
       errors.push(outcome.error);
+
+      // Atom 5: Email-Notification beim failed-flip — User soll wissen
+      // dass er neuen Export anfordern muss.
+      if (sendExportFailedEmail) {
+        await fireExportFailedCallback({
+          db,
+          job,
+          errorMessage: outcome.error.message,
+          send: sendExportFailedEmail,
+        });
+      }
     }
     // "skipped" (claim race lost) wird still passiert — kein error,
     // anderer Worker hat den Job bereits.
@@ -200,7 +281,12 @@ async function fetchPendingJobs(db: DbRunner): Promise<readonly JobRow[]> {
 }
 
 type ProcessOutcome =
-  | { kind: "done"; tokenPlain: string }
+  | {
+      kind: "done";
+      tokenPlain: string;
+      expiresAt: Instant;
+      bytesWritten: number;
+    }
   | { kind: "failed"; error: ExportJobError }
   | { kind: "skipped" }; // claim-race-loss (anderer Worker)
 
@@ -358,7 +444,7 @@ async function processJob(args: {
       );
     }
 
-    return { kind: "done", tokenPlain };
+    return { kind: "done", tokenPlain, expiresAt, bytesWritten: tracker.bytes };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     // Best-effort failure-flip. Wenn auch das failed (DB down etc.),
@@ -656,4 +742,83 @@ function countingStream(source: AsyncIterable<Uint8Array>): {
       return tracker.bytes;
     },
   };
+}
+
+// Atom 5 — userEmail-Lookup fuer notification-callback. Pattern matched
+// runUserExport's Cross-Tenant-Iteration: tenant-agnostic db.raw weil
+// User-Row nicht tenant-scoped.
+async function lookupUserEmail(db: DbConnection, userId: string): Promise<string | null> {
+  // @cast-boundary db-row.
+  const row = (await fetchOne(db, userTable, eq(userTable["id"], userId))) as {
+    email: string | null;
+  } | null;
+  return row?.email ?? null;
+}
+
+// Atom 5 — Email-Notification beim done-flip. Best-effort:
+// Throw vom Callback bubbelt zum r.job-handler hoch + Worker-Run wird
+// als failed in jobRunsTable gemerkt. Operator kann via jobs:write:retry
+// den Worker-Run erneut anstossen — der Job selbst bleibt done, das
+// retry findet keinen pending-Job mehr aber die Audit-Log zeigt den
+// Failure.
+async function fireExportReadyCallback(args: {
+  readonly db: DbConnection;
+  readonly job: JobRow;
+  readonly plainToken: string;
+  readonly expiresAt: Instant;
+  readonly bytesWritten: number;
+  readonly appExportDownloadUrl: string | undefined;
+  readonly send: SendExportReadyEmailFn;
+}): Promise<void> {
+  const userEmail = await lookupUserEmail(args.db, args.job.userId);
+  if (!userEmail) {
+    // User-Row fehlt (z.B. forget-Pfad mid-export). Skip-Notification mit
+    // Operator-Alert via job-run-Log statt Throw — Job bleibt done, User
+    // hat ja seinen Token via export-status.query erreichbar (UI-Pfad).
+    // biome-ignore lint/suspicious/noConsole: operator-visibility for missing-user edge-case
+    console.warn(
+      `[user-data-rights:run-export-jobs] userId=${args.job.userId} hat kein userEmail — sendExportReadyEmail skipped`,
+    );
+    return;
+  }
+  const baseUrl = args.appExportDownloadUrl;
+  if (!baseUrl) {
+    throw new Error(
+      "user-data-rights: sendExportReadyEmail gesetzt aber appExportDownloadUrl fehlt — beide muessen zusammen konfiguriert sein",
+    );
+  }
+  const downloadUrl = `${baseUrl}?token=${encodeURIComponent(args.plainToken)}`;
+  await args.send({
+    userId: args.job.userId,
+    userEmail,
+    tenantId: args.job.requestedFromTenantId,
+    jobId: args.job.id,
+    downloadUrl,
+    expiresAt: args.expiresAt.toString(),
+    bytesWritten: args.bytesWritten,
+  });
+}
+
+// Atom 5 — Email-Notification beim failed-flip.
+async function fireExportFailedCallback(args: {
+  readonly db: DbConnection;
+  readonly job: JobRow;
+  readonly errorMessage: string;
+  readonly send: SendExportFailedEmailFn;
+}): Promise<void> {
+  const userEmail = await lookupUserEmail(args.db, args.job.userId);
+  if (!userEmail) {
+    // biome-ignore lint/suspicious/noConsole: operator-visibility
+    console.warn(
+      `[user-data-rights:run-export-jobs] userId=${args.job.userId} hat kein userEmail — sendExportFailedEmail skipped`,
+    );
+    return;
+  }
+  await args.send({
+    userId: args.job.userId,
+    userEmail,
+    tenantId: args.job.requestedFromTenantId,
+    jobId: args.job.id,
+    errorMessage: args.errorMessage,
+  });
 }

@@ -12,7 +12,11 @@ import { exportStatusQuery } from "./handlers/export-status.query";
 import { requestDeletionWrite } from "./handlers/request-deletion.write";
 import { requestExportWrite } from "./handlers/request-export.write";
 import { runForgetCleanupWrite } from "./handlers/run-forget-cleanup.write";
-import { runExportJobs } from "./run-export-jobs";
+import {
+  runExportJobs,
+  type SendExportFailedEmailFn,
+  type SendExportReadyEmailFn,
+} from "./run-export-jobs";
 import { exportDownloadTokenEntity } from "./schema/download-token";
 import { exportJobEntity } from "./schema/export-job";
 
@@ -27,7 +31,34 @@ import { exportJobEntity } from "./schema/export-job";
 //   - Forget-Job: iteriert alle, ruft delete-Hook mit Strategy aus
 //                 retention.policyFor (data-retention)
 //   - Restriction: status-Flip auf user-Schema, Auth-Middleware-Guard
-export function createUserDataRightsFeature(): FeatureDefinition {
+/**
+ * Options fuer createUserDataRightsFeature. Notification-Callbacks
+ * (Atom 5) folgen dem password-reset-Pattern aus auth-routes.ts.
+ *
+ * Plain-Token landet NIE in DB/event-store/jobRunsTable — Worker reicht
+ * ihn ephemeral via Callback-arg an die App-Author-Implementation
+ * (typisch: `delivery.notify(...)` mit `r.notification`-Templates,
+ * `mailFoundation.send` direkt, oder Custom Resend/SES).
+ *
+ * Worker-Run-Tracking + Retry kommt automatisch via existing
+ * `jobs`-Feature (siehe CLAUDE.md "Bundled-Features by Concern").
+ */
+export type UserDataRightsOptions = {
+  /** Email-Notification beim Export-done. App-Author wired das an seinen
+   *  Email-Provider. Throw bubbelt → Worker-Run failed in jobRunsTable
+   *  → Operator sieht's via /jobs-Dashboard + jobs:write:retry. */
+  readonly sendExportReadyEmail?: SendExportReadyEmailFn;
+  /** Email-Notification beim Export-failed. Best-effort. */
+  readonly sendExportFailedEmail?: SendExportFailedEmailFn;
+  /** Base-URL fuer den Magic-Link, z.B.
+   *  "https://app.example.com/user-export/by-token". Worker bauen
+   *  `${appExportDownloadUrl}?token=<plain>`. Required wenn
+   *  sendExportReadyEmail gesetzt. Per-Tenant via reverse-proxy host
+   *  routing — nicht via per-Tenant-config-key (App-Author-Decision). */
+  readonly appExportDownloadUrl?: string;
+};
+
+export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
   return defineFeature("user-data-rights", (r) => {
     r.requires("user", "data-retention", "compliance-profiles");
     r.usesApi("compliance.forTenant");
@@ -154,6 +185,18 @@ export function createUserDataRightsFeature(): FeatureDefinition {
           buildStorageProvider: async (tenantId) =>
             createFileProviderForTenant(providerCtx, tenantId, "user-data-rights:run-export-jobs"),
           now: T.Now.instant(),
+          // Atom 5 — App-Author-Callbacks fuer Email-Notification.
+          // Optional: wenn nicht gesetzt, kein Email; User pollt
+          // export-status.query + UI-Klick.
+          ...(opts.sendExportReadyEmail && {
+            sendExportReadyEmail: opts.sendExportReadyEmail,
+          }),
+          ...(opts.sendExportFailedEmail && {
+            sendExportFailedEmail: opts.sendExportFailedEmail,
+          }),
+          ...(opts.appExportDownloadUrl !== undefined && {
+            appExportDownloadUrl: opts.appExportDownloadUrl,
+          }),
         });
       },
     );

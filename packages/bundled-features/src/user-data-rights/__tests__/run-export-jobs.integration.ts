@@ -36,7 +36,7 @@ import {
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
-import { createUserFeature } from "../../user";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
@@ -61,6 +61,7 @@ beforeAll(async () => {
   await createEntityTable(stack.db, exportJobEntity);
   await createEntityTable(stack.db, exportDownloadTokenEntity);
   await createEntityTable(stack.db, tenantComplianceProfileEntity);
+  await createEntityTable(stack.db, userEntity);
   await createEventsTable(stack.db);
   // tenant-membership-table fuer runUserExport's Cross-Tenant-Iteration.
   // Pattern matched user-data-rights-defaults integration-test.
@@ -90,10 +91,28 @@ afterAll(async () => {
 beforeEach(async () => {
   await stack.db.delete(exportDownloadTokensTable);
   await stack.db.delete(exportJobsTable);
+  await stack.db.delete(userTable);
   await stack.db.execute(sql`DELETE FROM kumiko_events`);
   await stack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
   await stack.db.execute(sql`DELETE FROM read_tenant_memberships`);
   providerPerTenant = new Map();
+
+  // Atom 5: aliceUser-Row mit email seeden — Worker-Notification-Callback
+  // schaut email via lookupUserEmail an.
+  await stack.db
+    .insert(userTable)
+    .values({
+      id: String(aliceUser.id),
+      tenantId: tenantA,
+      email: "alice@example.com",
+      passwordHash: "hashed",
+      displayName: "Alice",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.Active,
+    })
+    .onConflictDoNothing();
 });
 
 const NOW = () => getTemporal().Now.instant();
@@ -929,5 +948,118 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("runExportJobs :: Atom 5 notification-callbacks", () => {
+  test("done-Job: sendExportReadyEmail wird mit downloadUrl + userEmail gerufen", async () => {
+    const jobId = await seedPendingJob();
+    type SentArgs = {
+      userId: string;
+      userEmail: string;
+      jobId: string;
+      downloadUrl: string;
+      expiresAt: string;
+      bytesWritten: number | null;
+      tenantId: string;
+    };
+    const sentEmails: SentArgs[] = [];
+    const exportReadyMock = async (args: SentArgs) => {
+      sentEmails.push(args);
+    };
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      sendExportReadyEmail: exportReadyMock,
+      appExportDownloadUrl: "https://app.example.com/user-export/by-token",
+    });
+
+    expect(result.completedJobIds).toContain(jobId);
+    expect(sentEmails).toHaveLength(1);
+    const sent = sentEmails[0];
+    if (!sent) throw new Error("expected 1 sent email");
+    expect(sent.userId).toBe(String(aliceUser.id));
+    expect(sent.userEmail).toBe("alice@example.com");
+    expect(sent.jobId).toBe(jobId);
+    expect(sent.downloadUrl).toMatch(
+      /^https:\/\/app\.example\.com\/user-export\/by-token\?token=[A-Za-z0-9_%-]+$/,
+    );
+    // plain-token aus dem callback-arg entspricht dem result.tokenByJobId
+    const plainFromResult = result.tokenByJobId.get(jobId);
+    expect(plainFromResult).toBeDefined();
+    expect(sent.downloadUrl).toContain(encodeURIComponent(plainFromResult ?? ""));
+  });
+
+  test("done-Job ohne Callback: kein Email, Worker-Run succeeded", async () => {
+    const jobId = await seedPendingJob();
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      // Kein sendExportReadyEmail/appExportDownloadUrl
+    });
+    expect(result.completedJobIds).toContain(jobId);
+    // Kein Email, kein Throw — Worker laeuft normal durch
+  });
+
+  test("done-Job mit Callback aber ohne appExportDownloadUrl → throw bubbelt zum r.job", async () => {
+    // Boot-Misconfig-Detection: wer Callback setzt aber URL vergisst
+    // soll einen klaren Error sehen. Worker wirft direkt — r.job-Wrap
+    // markiert Worker-Run als failed in jobRunsTable.
+    await seedPendingJob();
+    await expect(
+      runExportJobs({
+        db: stack.db,
+        registry: stack.registry,
+        buildStorageProvider: buildProvider,
+        now: NOW(),
+        sendExportReadyEmail: async () => {
+          // wird nicht erreicht — fireExportReadyCallback throws vorher
+        },
+        // appExportDownloadUrl absichtlich fehlt
+      }),
+    ).rejects.toThrow(/appExportDownloadUrl fehlt/);
+  });
+
+  test("user ohne email → Callback skipped + console.warn (kein Throw)", async () => {
+    // User-Row mit email=null seeden (override). Worker logged warn,
+    // Callback wird NICHT gerufen, Worker-Run bleibt successful.
+    await stack.db.delete(userTable);
+    await stack.db.insert(userTable).values({
+      id: String(aliceUser.id),
+      tenantId: tenantA,
+      email: "" as string, // empty string — lookupUserEmail returnt null
+      passwordHash: "h",
+      displayName: "Alice",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.Active,
+    });
+    const jobId = await seedPendingJob();
+    let callbackInvoked = false;
+    await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      sendExportReadyEmail: async () => {
+        callbackInvoked = true;
+      },
+      appExportDownloadUrl: "https://app/user-export/by-token",
+    });
+    // Callback NICHT aufgerufen weil userEmail leer
+    expect(callbackInvoked).toBe(false);
+    // Job ist trotzdem done (Notification ist best-effort, Audit-Trail
+    // existiert via Token-DB-row)
+    const [row] = (await stack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id = ${jobId}`)) as Array<{ status: string }>;
+    expect(row?.status).toBe("done");
   });
 });
