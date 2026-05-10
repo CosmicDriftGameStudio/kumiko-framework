@@ -72,6 +72,13 @@ export const downloadByTokenQuery = defineQueryHandler({
       .optional(),
   }),
   access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
+  // Brute-Force-Schutz fuer Token-Hash-Probing. Anonymous-Endpoint mit
+  // 32-byte-Random-Token = 256 Bit Search-Space, aber rate-limit als
+  // defense-in-depth + Schutz gegen Storm-Patterns die DB-Last erzeugen.
+  // 30 attempts/min/IP reicht fuer legitime User (mehrere Klicks bei
+  // Connection-Abbruch); blockiert automatisierte Probing-Loops.
+  // Memory `feedback_security_default_on`.
+  rateLimit: { per: "ip", limit: 30, windowSeconds: 60 },
   handler: async (query, ctx) => {
     const T = getTemporal();
     const now = T.Now.instant();
