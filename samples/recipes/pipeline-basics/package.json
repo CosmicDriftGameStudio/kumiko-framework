@@ -1,0 +1,8 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-pipeline-basics",
+  "description": "M.1 Tier-1 step-vocabulary showcase: every step in one inventory-management feature (aggregate.{create,update,appendEvent}, read.{findOne,findMany}, branch, forEach, compute, return, unsafeProjection{Upsert,Delete}).",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
