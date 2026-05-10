@@ -13,7 +13,7 @@ export default defineConfig({
     // Exclude here, run locally via:
     //   cd samples/recipes/pipeline-basics && bunx vitest run
     // Once M.1 lands in main, this exclude can go away.
-    exclude: ["samples/recipes/pipeline-basics/**"],
+    exclude: ["samples/recipes/pipeline-basics/**", "samples/recipes/webhook-step/**"],
     setupFiles: ["./vitest.setup.ts"],
     reporters: ["dot"],
     passWithNoTests: true,

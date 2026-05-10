@@ -92,6 +92,8 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   // Read-side projection-tables declared via r.requires.projection("table").
   // Boot-validator checks unsafeProjection-* step calls against this set.
   const requiredProjections = new Set<string>();
+  // Tier-2 step kinds declared via r.requires.step("webhook.send"). Q9.
+  const requiredSteps = new Set<string>();
   const entities: Record<string, EntityDefinition> = {};
   const relations: Record<string, Record<string, RelationDefinition>> = {};
   const writeHandlers: Record<string, WriteHandlerDef> = {};
@@ -162,6 +164,9 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       };
       fn.projection = (tableName: string) => {
         requiredProjections.add(tableName);
+      };
+      fn.step = (stepKind: string) => {
+        requiredSteps.add(stepKind);
       };
       return fn as RequiresApi;
     })(),
@@ -724,6 +729,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     requires,
     optionalRequires,
     requiredProjections,
+    requiredSteps,
     ...(toggleableDefault !== undefined && { toggleableDefault }),
     entities,
     relations,

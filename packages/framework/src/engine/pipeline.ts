@@ -29,6 +29,7 @@ import { buildReadFindOneStep } from "./steps/read-find-one";
 import { buildReturnStep } from "./steps/return";
 import { buildUnsafeProjectionDeleteStep } from "./steps/unsafe-projection-delete";
 import { buildUnsafeProjectionUpsertStep } from "./steps/unsafe-projection-upsert";
+import { buildWebhookSendStep } from "./steps/webhook-send";
 import type { WriteEvent } from "./types/handlers";
 import type { PipelineBuildCtx, PipelineDef, StepBuilder, StepInstance } from "./types/step";
 
@@ -48,6 +49,9 @@ const stepBuilder: StepBuilder = {
     read: {
       findOne: buildReadFindOneStep,
       findMany: buildReadFindManyStep,
+    },
+    webhook: {
+      send: buildWebhookSendStep,
     },
   },
 };

@@ -76,6 +76,9 @@ export type StepDef<TArgs = unknown, TResult = unknown> = {
   // registration: prevents future sub-step-builders from silently bypassing
   // the unsafeProjection allowlist by forgetting to update a central map.
   readonly subPaths?: readonly string[];
+  // Step-vocabulary tier (Q9). Tier-1 implicit, Tier-2+ requires
+  // r.requires.step("<kind>") in the owning feature. Default 1 (implicit).
+  readonly tier?: 1 | 2;
   // Runtime: resolve the args against the ctx, perform the work, return
   // the value to land in steps.{resultKey}. Thrown errors propagate to
   // the dispatcher's catch (M.1.1 supports "throw"-strategy only).
@@ -253,6 +256,21 @@ export type StepNamespace = {
     readonly do: readonly StepInstance[];
     readonly concurrency?: 1;
   }) => StepInstance;
+  // Tier-2 namespace. Each builder requires r.requires.step("<kind>")
+  // in the owning feature; boot-validation enforces.
+  readonly webhook: {
+    readonly send: (args: {
+      readonly url: StepResolver<string>;
+      readonly method?: "POST" | "PUT" | "PATCH";
+      readonly headers?: StepResolver<Readonly<Record<string, string>>>;
+      readonly body?: StepResolver<unknown>;
+      readonly auth?:
+        | { readonly kind: "bearer"; readonly secretRef: string }
+        | { readonly kind: "header"; readonly name: string; readonly secretRef: string };
+      readonly mode: "deferred";
+      readonly retry?: { readonly times: number; readonly backoff: "exponential" | "linear" };
+    }) => StepInstance;
+  };
 };
 
 // SaveContext is the result-type of aggregate.create / aggregate.update;

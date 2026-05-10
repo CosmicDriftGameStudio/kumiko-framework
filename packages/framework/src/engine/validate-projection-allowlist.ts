@@ -119,6 +119,16 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
       }
 
       for (const step of walkAllSteps(steps)) {
+        // Tier-2 step-discovery (Q9): require explicit opt-in via
+        // r.requires.step("<kind>") for any tier-2+ step. Tier-1 is implicit.
+        const def = getStep(step.kind);
+        if (def?.tier === 2 && !f.requiredSteps.has(step.kind)) {
+          throw new Error(
+            `[Feature ${f.name}] writeHandler "${handlerName}" uses tier-2 step "${step.kind}" ` +
+              `but did not declare it via r.requires.step("${step.kind}"). ` +
+              `Add the declaration in defineFeature("${f.name}", r => { r.requires.step("${step.kind}"); ... }).`,
+          );
+        }
         if (!UNSAFE_PROJECTION_KINDS.has(step.kind)) continue;
         const stepArgs = step.args as UnsafeProjectionStepArgs;
         if (!stepArgs.table) {

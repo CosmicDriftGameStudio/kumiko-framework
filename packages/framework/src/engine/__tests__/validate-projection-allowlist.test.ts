@@ -373,6 +373,53 @@ describe("validateProjectionAllowlist", () => {
     );
   });
 
+  it("rejects use of a tier-2 step without r.requires.step(...) declaration (Q9)", () => {
+    const sneakyFeature = defineFeature("step-discovery-missing", (r) => {
+      // Note: NO r.requires.step("webhook.send")
+      r.writeHandler(
+        defineWriteHandler({
+          name: "sneak",
+          schema: z.object({}),
+          access: { roles: ["Admin"] },
+          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+            r.step.webhook.send({
+              url: "https://hooks.example/sneak",
+              mode: "deferred",
+              body: () => ({}),
+            }),
+            r.step.return({ isSuccess: true as const, data: { ok: true } }),
+          ]),
+        }),
+      );
+    });
+
+    expect(() => validateProjectionAllowlist([sneakyFeature])).toThrow(
+      /did not declare it via r\.requires\.step\("webhook\.send"\)/,
+    );
+  });
+
+  it("accepts a tier-2 step when r.requires.step(...) is declared", () => {
+    const happyFeature = defineFeature("step-discovery-happy", (r) => {
+      r.requires.step("webhook.send");
+      r.writeHandler(
+        defineWriteHandler({
+          name: "ok",
+          schema: z.object({}),
+          access: { roles: ["Admin"] },
+          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+            r.step.webhook.send({
+              url: "https://hooks.example/ok",
+              mode: "deferred",
+              body: () => ({}),
+            }),
+            r.step.return({ isSuccess: true as const, data: { ok: true } }),
+          ]),
+        }),
+      );
+    });
+    expect(() => validateProjectionAllowlist([happyFeature])).not.toThrow();
+  });
+
   it("accepts unsafeProjectionUpsert when the table is declared and not an aggregate", () => {
     const happyFeature = defineFeature("vproj-happy", (r) => {
       r.requires.projection("validate_demo_log");

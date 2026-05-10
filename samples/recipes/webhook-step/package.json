@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-webhook-step",
+  "description": "Tier-2 r.step.webhook.send showcase: deferred webhook dispatch via step-dispatcher subscription, no outbox table, retry from event-stream.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*"
+  }
+}

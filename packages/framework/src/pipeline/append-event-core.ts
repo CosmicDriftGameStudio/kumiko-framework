@@ -41,12 +41,21 @@ function eventOwnerFeature(qualifiedName: string): string | undefined {
   return idx > 0 ? qualifiedName.slice(0, idx) : undefined;
 }
 
+// System-event prefix: events under this namespace bypass the registry +
+// ownership checks. Reserved for framework-internal coordination (step-
+// engine deferred dispatch, lifecycle signals). The matching MSP filters
+// on the literal type-string. Apps cannot write into "kumiko:system:*"
+// directly — only framework step implementations call unsafeAppendEvent
+// with these types.
+const SYSTEM_EVENT_PREFIX = "kumiko:system:";
+
 export async function appendDomainEventCore(
   deps: AppendDomainEventCoreDeps,
   args: AppendEventArgs,
 ): Promise<StoredEvent> {
+  const isSystemEvent = args.type.startsWith(SYSTEM_EVENT_PREFIX);
   const eventDef = deps.registry.getEvent(args.type);
-  if (!eventDef) {
+  if (!eventDef && !isSystemEvent) {
     throw new InternalError({
       message: `${deps.callSiteLabel}("${args.type}") — event not registered. Call r.defineEvent(shortName, schema) in a feature; appendEvent expects the qualified name returned by defineEvent (e.g. "<feature>:event:<short>").`,
     });
@@ -61,7 +70,7 @@ export async function appendDomainEventCore(
   // Feature names are registered case-preserving (pubsubOrders) but qualified
   // into kebab-case for the event/handler names (pubsub-orders:event:…) — so
   // we compare the kebab form on both sides.
-  if (deps.callerFeature) {
+  if (deps.callerFeature && !isSystemEvent) {
     const owner = eventOwnerFeature(args.type);
     const callerKebab = toKebab(deps.callerFeature);
     if (owner && owner !== callerKebab) {
@@ -70,9 +79,16 @@ export async function appendDomainEventCore(
       });
     }
   }
-  const parsed = eventDef.schema.safeParse(args.payload ?? {});
-  if (!parsed.success) throw validationErrorFromZod(parsed.error);
-  const validatedPayload = parsed.data as Record<string, unknown>; // @cast-boundary engine-payload
+  // System events skip schema validation — payload shape is owned by the
+  // framework step that emits + the bundled MSP that consumes.
+  let validatedPayload: Record<string, unknown>;
+  if (eventDef) {
+    const parsed = eventDef.schema.safeParse(args.payload ?? {});
+    if (!parsed.success) throw validationErrorFromZod(parsed.error);
+    validatedPayload = parsed.data as Record<string, unknown>;
+  } else {
+    validatedPayload = (args.payload ?? {}) as Record<string, unknown>;
+  }
 
   // Archive guard: block writes on archived streams. Without this an append
   // would produce an "invisible" row that loadAggregate filters out by default
@@ -97,7 +113,7 @@ export async function appendDomainEventCore(
     tenantId: deps.tenantId,
     expectedVersion,
     type: args.type,
-    eventVersion: eventDef.version,
+    eventVersion: eventDef?.version ?? 1,
     payload: validatedPayload,
     metadata: {
       userId: deps.userId,
