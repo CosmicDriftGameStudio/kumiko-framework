@@ -791,9 +791,11 @@ async function fireExportReadyCallback(args: {
     // User-Row fehlt (z.B. forget-Pfad mid-export). Skip-Notification mit
     // Operator-Alert via job-run-Log statt Throw — Job bleibt done, User
     // hat ja seinen Token via export-status.query erreichbar (UI-Pfad).
-    // TODO(structured-log): replace console.warn with ctx.log when the
-    // r.job-Wrap threads AppContext.log into runExportJobs-args. Currently
-    // operator sieht das in stdout, nicht in structured-log-pipeline.
+    // **console.warn statt ctx.log:** runExportJobs-args fuehren AppContext.log
+    // aktuell nicht durch (Worker-pure-function-Pattern). console.warn ist
+    // die einzige Operator-Sichtbarkeit fuer den missing-user-edge-case.
+    // Wenn jobs-Feature spaeter ctx.log threadet oder Worker-args erweitert
+    // werden, hier Refactor-Kandidat.
     // biome-ignore lint/suspicious/noConsole: operator-visibility for missing-user edge-case
     console.warn(
       `[user-data-rights:run-export-jobs] userId=${args.job.userId} hat kein userEmail — sendExportReadyEmail skipped`,
