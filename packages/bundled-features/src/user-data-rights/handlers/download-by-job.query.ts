@@ -26,7 +26,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
+import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -105,7 +105,9 @@ export const downloadByJobQuery = defineQueryHandler({
       "user-data-rights:query:download-by-job",
     );
     if (!provider.getSignedUrl) {
-      throw new NotFoundError("export-download", jobId, {
+      // Operator-Konfig-Bug, kein User-Fehler. 422 statt 404 — siehe
+      // download-by-token.query fuer detaillierten Comment.
+      throw new UnprocessableError("storage_provider_signed_url_not_supported", {
         i18nKey: "userDataRights.errors.download.signedUrlNotSupported",
       });
     }

@@ -29,7 +29,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
+import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -95,7 +95,13 @@ export const downloadByTokenQuery = defineQueryHandler({
       });
     }
 
-    // Step 2: TTL-check
+    // Step 2: TTL-check.
+    //
+    // **Pragma:** semantisch waere 410 Gone richtig (war mal da, jetzt
+    // nicht mehr). Framework hat keine GoneError-Class; wir nutzen
+    // NotFoundError + i18nKey "expired" als Kompromiss. UI rendert
+    // anhand des i18nKeys, nicht des HTTP-Status — also User sieht
+    // "Dein Download ist abgelaufen", nicht generic "not found".
     if (tokenRow.expiresAt.epochMilliseconds <= now.epochMilliseconds) {
       throw new NotFoundError("export-download", undefined, {
         i18nKey: "userDataRights.errors.download.expired",
@@ -134,9 +140,11 @@ export const downloadByTokenQuery = defineQueryHandler({
       "user-data-rights:query:download-by-token",
     );
     if (!provider.getSignedUrl) {
-      // Operator-Bug — provider muss signed-URL supporten. UnprocessableError
-      // statt NotFoundError damit der Operator das im Log unterscheiden kann.
-      throw new NotFoundError("export-download", undefined, {
+      // Operator-Konfig-Bug — kein User-Fehler. UnprocessableError (422)
+      // damit DPO/Operator das im Log unterscheiden kann; 404 wuerde
+      // wie User-Probing aussehen + alle 4 echten not-found-Pfade
+      // verschmieren.
+      throw new UnprocessableError("storage_provider_signed_url_not_supported", {
         i18nKey: "userDataRights.errors.download.signedUrlNotSupported",
       });
     }

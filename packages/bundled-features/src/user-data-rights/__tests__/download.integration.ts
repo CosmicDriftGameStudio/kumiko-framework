@@ -9,6 +9,7 @@
 
 import { randomBytes } from "node:crypto";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
@@ -59,6 +60,41 @@ const tenantAdmin = createTestUser({
 
 const testEncryptionKey = randomBytes(32).toString("base64");
 
+// Test-only file-provider OHNE getSignedUrl. Pinst dass der Code-Pfad
+// signedUrlNotSupported einen UnprocessableError (422) wirft, nicht
+// generic 404. Memory `feedback_no_fake_tests`: Code-Fix ohne Test
+// waere theatre.
+const noSignedUrlProviderFeature = defineFeature("test-no-signed-url-provider", (r) => {
+  r.requires("file-foundation");
+  r.useExtension("fileProvider", "no-signed-url", {
+    build: async () => ({
+      async write() {
+        // no-op fuer dieses Test-Setup
+      },
+      async writeStream() {
+        // no-op
+      },
+      async read() {
+        return new Uint8Array();
+      },
+      readStream() {
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield new Uint8Array();
+          },
+        };
+      },
+      async delete() {
+        // no-op
+      },
+      async exists() {
+        return true;
+      },
+      // **kein** getSignedUrl — pinst den 422-Pfad
+    }),
+  });
+});
+
 beforeAll(async () => {
   const encryption = createEncryptionProvider(testEncryptionKey);
   const resolver = createConfigResolver({ encryption });
@@ -71,6 +107,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       fileFoundationFeature,
       fileProviderInMemoryFeature,
+      noSignedUrlProviderFeature,
       createUserDataRightsFeature(),
     ],
     extraContext: ({ registry }) => ({
@@ -305,6 +342,37 @@ describe("download-by-token :: error paths", () => {
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: { i18nKey: string } };
     expect(body.error.i18nKey).toBe("userDataRights.errors.download.expired");
+  });
+
+  test("provider ohne getSignedUrl → 422 unprocessable signedUrlNotSupported", async () => {
+    // Pinst Operator-Konfig-Bug-Pfad: provider ohne getSignedUrl-Support
+    // (z.B. local-Filesystem-Provider in Production faelschlich gemountet)
+    // → 422 statt 404. DPO sieht im Log "unprocessable" + spezifischen
+    // i18nKey, kann den Konfig-Bug diagnostizieren.
+    const { jobId, plainToken } = await seedDoneJobWithToken();
+    // Switch tenant-config auf den no-signed-url-Provider
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "file-foundation:config:provider", value: "no-signed-url" },
+      tenantAdmin,
+    );
+
+    const res = await stack.http.query(
+      "user-data-rights:query:download-by-token",
+      { token: plainToken },
+      aliceUser,
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error: { code: string; i18nKey: string } };
+    expect(body.error.code).toBe("unprocessable");
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.signedUrlNotSupported");
+
+    // Sanity: Job-Row ist immer noch done — Operator-Bug aendert nicht den Job-State
+    const [row] = (await stack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id = ${jobId}`)) as Array<{ status: string }>;
+    expect(row?.status).toBe("done");
   });
 });
 
