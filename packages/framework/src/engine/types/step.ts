@@ -68,6 +68,14 @@ export type StepDef<TArgs = unknown, TResult = unknown> = {
   // step doesn't surface a result. The first-position name on the call
   // (e.g. r.step.compute("startedAt", fn) → "startedAt") becomes the key.
   readonly resultKey?: (args: TArgs) => string | undefined;
+  // Sub-pipeline arg-paths — names of `args.<path>` entries that hold a
+  // readonly StepInstance[] (e.g. branch's `["onTrue", "onFalse"]`, forEach's
+  // `["do"]`). The boot-validator reads these at registration time so it
+  // can recurse into nested pipelines without a hardcoded kind-list. Steps
+  // that don't carry sub-pipelines omit the field. Followup #15 self-
+  // registration: prevents future sub-step-builders from silently bypassing
+  // the unsafeProjection allowlist by forgetting to update a central map.
+  readonly subPaths?: readonly string[];
   // Runtime: resolve the args against the ctx, perform the work, return
   // the value to land in steps.{resultKey}. Thrown errors propagate to
   // the dispatcher's catch (M.1.1 supports "throw"-strategy only).

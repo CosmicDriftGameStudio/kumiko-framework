@@ -176,6 +176,29 @@ describe("pipeline engine (return / compute / registry guards)", () => {
     ).rejects.toThrow(/Unknown step kind "this-step-does-not-exist"/);
   });
 
+  it("defineWriteHandler throws a clear runtime error when both handler+perform are set (#3)", () => {
+    // Type-system rejects this via discriminated union (handler?: never /
+    // perform?: never), but the error message ('Type X not assignable to
+    // undefined') is opaque. The runtime guard fires regardless of how
+    // the type-error was bypassed (any-cast, generated code, JS-call) and
+    // names BOTH fields explicitly.
+    // Deliberately bypass the discriminated union via `as never` so the
+    // runtime guard is what's under test (the type-system path already
+    // rejects the conflict).
+    const conflictingDef = {
+      name: "demo:both",
+      schema: z.object({}),
+      access: { roles: ["User"] },
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+        r.step.return({ isSuccess: true as const, data: { ok: true } }),
+      ]),
+    } as unknown as Parameters<typeof defineWriteHandler>[0];
+    expect(() => defineWriteHandler(conflictingDef)).toThrow(
+      /both `handler` and `perform` are set/,
+    );
+  });
+
   it("defineStep throws when the same kind is registered with a different definition", () => {
     // Unique-per-run kind so this test is safe under vitest --watch
     // (where the file may re-execute in the same process). Without the

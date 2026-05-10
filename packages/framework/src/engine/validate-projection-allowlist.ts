@@ -24,6 +24,7 @@
 // statically; today it lives in this comment + the StepBuilder doc.
 
 import { getTableName, type Table } from "drizzle-orm";
+import { getStep } from "./define-step";
 import { buildPipelineSteps } from "./pipeline";
 import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types";
 import type { PipelineDef, StepInstance } from "./types/step";
@@ -34,32 +35,17 @@ import type { PipelineDef, StepInstance } from "./types/step";
 // for scenarios that can't happen).
 const UNSAFE_PROJECTION_KINDS = new Set(["unsafeProjectionUpsert", "unsafeProjectionDelete"]);
 
-// Step-kinds that carry sub-pipelines (M.1.6). Walk into their args to
-// extract nested StepInstance arrays so the validator can scan
-// unsafeProjection-* nested in branch/forEach (Q17). Without this,
-// `r.step.forEach({ do: [r.step.unsafeProjectionUpsert(...)] })`
-// would bypass the allowlist gate.
-//
-// !! REGISTRATION GATE !!
-// Every NEW sub-step-builder added in M.2+ MUST register its sub-array-
-// arg-paths here, otherwise nested unsafeProjection-* steps escape this
-// validator silently. There is no auto-discovery; the test
-// "walkAllSteps does NOT recurse into unknown step-kind sub-arrays" in
-// pipeline-vertical-slice.test.ts pins that behaviour explicitly so
-// the gap is visible.
-//
-// Self-registration via `defineStep({ subPaths: [...] })` is M.2-Vorlauf
-// (Followup #15) — premature with only 2 entries today.
-const SUB_PIPELINE_KINDS: Record<string, readonly string[]> = {
-  branch: ["onTrue", "onFalse"],
-  forEach: ["do"],
-};
-
+// Sub-pipeline arg-paths come from `defineStep({ subPaths: [...] })` —
+// each builder declares its own (e.g. branch's onTrue/onFalse, forEach's
+// do). Walking via the registry means nested unsafeProjection-* in NEW
+// sub-step-builders is automatically caught the moment the builder
+// registers itself; no central map to keep in sync. Followup #15.
 function* walkAllSteps(steps: readonly StepInstance[]): Generator<StepInstance, void, void> {
   for (const step of steps) {
     yield step;
-    const subPaths = SUB_PIPELINE_KINDS[step.kind];
-    if (!subPaths) continue;
+    const def = getStep(step.kind);
+    const subPaths = def?.subPaths;
+    if (!subPaths || subPaths.length === 0) continue;
     const args = step.args as Record<string, unknown>;
     for (const path of subPaths) {
       const subSteps = args[path];
@@ -88,10 +74,24 @@ const DUMMY_USER: SessionUser = {
  */
 export function validateProjectionAllowlist(features: readonly FeatureDefinition[]): void {
   // Aggregate-tables across all features. Map table-name → owning feature.
+  // Two features registering r.entity on the same table is always a bug —
+  // physical PG-collision aside, the second feature's writes would replay
+  // the first feature's projections (and vice-versa). Detect and surface
+  // here so the error names BOTH owners; without this, the silent-set
+  // would point any later unsafeProjection-error at the wrong feature.
+  // Followup #8.
   const aggregateTables = new Map<string, string>();
   for (const f of features) {
     for (const [entityName, entity] of Object.entries(f.entities)) {
       const tableName = entity.table ?? entityName;
+      const existing = aggregateTables.get(tableName);
+      if (existing && existing !== f.name) {
+        throw new Error(
+          `Aggregate-table "${tableName}" is registered by both feature "${existing}" and feature "${f.name}" via r.entity. ` +
+            `Each aggregate-table must have a single owning feature — pick distinct table names ` +
+            `(via createEntity({ table: "..." })) or remove the duplicate r.entity registration.`,
+        );
+      }
       aggregateTables.set(tableName, f.name);
     }
   }

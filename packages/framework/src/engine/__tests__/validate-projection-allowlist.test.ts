@@ -1,13 +1,16 @@
 // Boot-validator tests for r.step.unsafeProjection-* allowlist enforcement.
 // Recursive walk through sub-pipelines (branch.onTrue/onFalse, forEach.do)
-// is included here, as is the SUB_PIPELINE_KINDS registration-gate.
+// is included here, plus the self-registration via defineStep({ subPaths })
+// gate (Followup #15).
 
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
+import { defineStep } from "../define-step";
 import { createEntity, createTextField } from "../factories";
 import { pipeline } from "../pipeline";
 import { validateProjectionAllowlist } from "../validate-projection-allowlist";
@@ -251,17 +254,14 @@ describe("validateProjectionAllowlist", () => {
     );
   });
 
-  it("does NOT recurse into unknown step-kind sub-arrays — SUB_PIPELINE_KINDS is the registration gate", () => {
-    // Pins the Followup #15 risk: when M.2+ adds a new sub-step-builder
-    // (e.g. r.step.workflow.race), its sub-arrays escape this validator
-    // unless its kind is registered in SUB_PIPELINE_KINDS. This test
-    // demonstrates the gap with a hand-crafted unknown-kind step. If
-    // walkAllSteps' generator ever loses its kind-check (eager-recurse
-    // refactor), this test breaks — the contract is intentional, not
-    // accidental.
+  it("does NOT recurse into unregistered step-kind sub-arrays — defineStep is the registration gate (#15)", () => {
+    // Pins the Followup #15 contract: walkAllSteps recurses ONLY into
+    // sub-arrays whose step-kind is registered with `subPaths` via
+    // defineStep. Hand-crafted instances with unregistered kinds are
+    // walked as a single node — their nested arrays are invisible.
+    // This is the SHAPE of the gate, demonstrated explicitly so the
+    // contract is testable, not accidental.
     const featureWithUnknownSubBuilder = defineFeature("vproj-future-builder", (r) => {
-      // Allowlist is satisfied; the only thing that could trip the
-      // validator is the nested step inside the unknown kind.
       r.requires.projection("validate_demo_log");
       r.writeHandler(
         defineWriteHandler({
@@ -270,7 +270,7 @@ describe("validateProjectionAllowlist", () => {
           access: { roles: ["User"] },
           perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
             // Hand-crafted StepInstance simulating a future builder
-            // whose kind isn't in SUB_PIPELINE_KINDS yet.
+            // whose kind isn't registered via defineStep yet.
             {
               kind: "future-sub-builder",
               args: {
@@ -289,11 +289,88 @@ describe("validateProjectionAllowlist", () => {
       );
     });
 
-    // Validator does NOT throw — proves the unknown-kind sub-array
-    // was not walked. (If it walked, the nested unsafeProjectionUpsert
-    // would still pass because the table is declared. The point is
-    // the SHAPE of the gate, demonstrated explicitly.)
     expect(() => validateProjectionAllowlist([featureWithUnknownSubBuilder])).not.toThrow();
+  });
+
+  it("DOES recurse into sub-arrays of step-kinds registered with subPaths via defineStep (#15)", () => {
+    // Inverse of the previous test: when a NEW sub-step-builder
+    // self-registers via defineStep({ subPaths: [...] }), the boot-
+    // validator picks up the recursion automatically — no central
+    // map to update. This is the value of self-registration.
+    const futureKind = `test:future-builder:${randomUUID()}`;
+    defineStep({
+      kind: futureKind,
+      defaultFailureStrategy: "throw",
+      subPaths: ["children"],
+      run: () => undefined,
+    });
+
+    const undeclaredTable = pgTable(`undeclared_${randomUUID().replace(/-/g, "")}`, {
+      id: uuid("id").primaryKey().defaultRandom(),
+      message: text("message").notNull(),
+    });
+
+    const feature = defineFeature(`vproj-future-builder-${randomUUID()}`, (r) => {
+      // Note: NO r.requires.projection for the undeclared table.
+      r.writeHandler(
+        defineWriteHandler({
+          name: "futureBuilder",
+          schema: z.object({}),
+          access: { roles: ["User"] },
+          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+            {
+              kind: futureKind,
+              args: {
+                children: [
+                  r.step.unsafeProjectionUpsert({
+                    table: undeclaredTable,
+                    on: ["id"],
+                    row: () => ({ message: "deeply nested" }),
+                  }),
+                ],
+              },
+            },
+            r.step.return({ isSuccess: true as const, data: { ok: true } }),
+          ]),
+        }),
+      );
+    });
+
+    // Walker descended into `children` because the registered StepDef
+    // declared it as a subPath, and the inner unsafeProjection trips
+    // the allowlist check.
+    expect(() => validateProjectionAllowlist([feature])).toThrow(
+      /did not declare it via r\.requires\.projection/,
+    );
+  });
+
+  it("rejects two features registering r.entity on the same table (#8)", () => {
+    // Without this guard, the second r.entity() silently overwrites the
+    // first in the validator's aggregate-tables map — and a later
+    // unsafeProjection error against that table would name the WRONG
+    // feature as owner. Surfacing the collision here names both parties.
+    const featureA = defineFeature("dup-aggregate-a", (r) => {
+      r.entity(
+        "thing",
+        createEntity({
+          table: "shared_table",
+          fields: { label: createTextField({ required: true }) },
+        }),
+      );
+    });
+    const featureB = defineFeature("dup-aggregate-b", (r) => {
+      r.entity(
+        "thing",
+        createEntity({
+          table: "shared_table",
+          fields: { label: createTextField({ required: true }) },
+        }),
+      );
+    });
+
+    expect(() => validateProjectionAllowlist([featureA, featureB])).toThrow(
+      /both feature "dup-aggregate-a" and feature "dup-aggregate-b"/,
+    );
   });
 
   it("accepts unsafeProjectionUpsert when the table is declared and not an aggregate", () => {

@@ -51,6 +51,9 @@ type ForEachArgs<TItem = unknown> = {
 defineStep<ForEachArgs, void>({
   kind: "forEach",
   defaultFailureStrategy: "throw",
+  // Self-register the sub-pipeline arg-path for the boot-validator's
+  // recursive walk. Followup #15.
+  subPaths: ["do"],
   run: async (args, ctx: PipelineCtx) => {
     const items = resolveRequired(args.over, ctx);
     if (!Array.isArray(items)) {

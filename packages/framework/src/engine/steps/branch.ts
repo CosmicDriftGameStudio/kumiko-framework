@@ -41,6 +41,10 @@ type BranchArgs = {
 defineStep<BranchArgs, void>({
   kind: "branch",
   defaultFailureStrategy: "throw",
+  // Self-register the sub-pipeline arg-paths so the boot-validator's
+  // walkAllSteps can recurse into branches without a hardcoded list.
+  // Followup #15.
+  subPaths: ["onTrue", "onFalse"],
   run: async (args, ctx: PipelineCtx) => {
     const condition = resolveRequired(args.if, ctx);
     const branchSteps = condition ? args.onTrue : (args.onFalse ?? []);

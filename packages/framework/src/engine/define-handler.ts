@@ -84,6 +84,28 @@ export function defineWriteHandler<
 >(
   def: WriteHandlerInput<TName, TSchema, TData, TMap>,
 ): WriteHandlerDefinition<TName, TSchema, TData, TMap> {
+  // Runtime-guard against accidentally setting BOTH handler+perform.
+  // The discriminated-union type-error
+  //   "Type 'PipelineDef<...>' is not assignable to type 'undefined'."
+  // is functional but cryptic for less TS-experienced users; this throws
+  // a name-and-explanation error message instead. Followup #3.
+  // The cast is necessary because the discriminated union narrows
+  // `handler` away once `perform` is present (and vice-versa) — at this
+  // boundary we want to read both regardless of the narrowing.
+  const probe = def as {
+    readonly handler?: unknown;
+    readonly perform?: unknown;
+    readonly name: TName;
+  };
+  if (probe.handler !== undefined && probe.perform !== undefined) {
+    throw new Error(
+      `defineWriteHandler("${def.name}"): both \`handler\` and \`perform\` are set. ` +
+        `Pick one — \`handler\` for the free-form async function, ` +
+        `\`perform: pipeline(...)\` for the step-pipeline form. ` +
+        `(See step-vocabulary.md for which form fits.)`,
+    );
+  }
+
   // Conditional spreads (`...(def.access && { access: def.access })`)
   // mirror the existing convention in entity-handlers.ts /
   // define-feature.ts — optional fields stay absent rather than being
