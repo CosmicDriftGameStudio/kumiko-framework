@@ -6,6 +6,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFileProviderForTenant } from "../file-foundation";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
+import { downloadByJobQuery } from "./handlers/download-by-job.query";
+import { downloadByTokenQuery } from "./handlers/download-by-token.query";
 import { exportStatusQuery } from "./handlers/export-status.query";
 import { requestDeletionWrite } from "./handlers/request-deletion.write";
 import { requestExportWrite } from "./handlers/request-export.write";
@@ -25,23 +27,6 @@ import { exportJobEntity } from "./schema/export-job";
 //   - Forget-Job: iteriert alle, ruft delete-Hook mit Strategy aus
 //                 retention.policyFor (data-retention)
 //   - Restriction: status-Flip auf user-Schema, Auth-Middleware-Guard
-//
-// Sprint 2.U2 (this commit): Feature scaffold + EXT_USER_DATA-Extension-
-// Marker via r.extendsRegistrar. Andere features in Sprint 2.H1+H2
-// haengen sich via useExtension an.
-//
-// Sprint 2.U3+U4: Async-Export-Job + Endpoints
-// Sprint 2.U5: Forget-Pfad mit Grace + Cron-Cleanup
-// Sprint 2.U6: Restriction (Art. 18) + Auth-Middleware-Guard
-// Sprint 2.U7: audit-log + data-summary Queries
-//
-// Cross-Feature-API:
-//   r.exposesApi("userDataRights.runForget") — Sprint 2.U5
-//   r.exposesApi("userDataRights.runExport") — Sprint 2.U3
-//
-// Cross-Feature-Reads:
-//   r.usesApi("compliance.forTenant")  — Forget-Grace aus Profile
-//   r.usesApi("retention.policyFor")    — blockDelete-Konsultation
 export function createUserDataRightsFeature(): FeatureDefinition {
   return defineFeature("user-data-rights", (r) => {
     r.requires("user", "data-retention", "compliance-profiles");
@@ -49,61 +34,101 @@ export function createUserDataRightsFeature(): FeatureDefinition {
     r.usesApi("retention.policyFor");
     // file-foundation ist soft-dep: nur der Export-Worker (Atom 3b)
     // braucht ihn fuer Storage-Schreiben. Apps die nur Forget nutzen
-    // (kein Export) muessen file-foundation nicht mounten — Worker
-    // wirft zur Runtime einen klaren Error wenn der Provider fehlt.
+    // (kein Export) muessen file-foundation nicht mounten.
 
-    // EXT_USER_DATA — Schema-Marker fuer userData-Hooks. Andere features
-    // (Sprint 2.H1+H2) registrieren via:
-    //   r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })
-    //
-    // Hooks-Signatur: framework/src/engine/extensions/user-data.ts
-    // (UserDataExtensionHooks-Type aus S1.9 Z1).
-    //
-    // Boot-Validation der Hook-Shape kommt in S2.U3 wenn der Export-Runner
-    // die Hooks zur Laufzeit ruft — dann faengt boot-validator falsch
-    // typed Hooks frueh ab.
     r.extendsRegistrar(EXT_USER_DATA, {});
 
-    // S2.U3+U4 Atom 1 — ExportJob-Lifecycle-Entity. Foundation fuer den
-    // Async-Export-Pipeline. Worker (Atom 3) laeuft pro pending-Row durch
-    // `runUserExport` + ZIP-Build, setzt status=done + downloadStorageKey.
-    // Spec: docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
+    // S2.U3 Atom 1b — ExportJob-Lifecycle-Entity.
     r.entity("export-job", exportJobEntity);
 
     // S2.U3 Atom 4a — Download-Token-Entity. Worker generiert Token beim
     // Flip auf done (siehe run-export-jobs.ts). Hash in DB, plain im
     // RunExportJobsResult fuer Atom 5 (Notification per Email).
-    // Atom 4b's Download-Endpoint verifiziert hash + streamt ZIP.
     r.entity("export-download-token", exportDownloadTokenEntity);
 
     // S2.U5a — Endpoints fuer DSGVO Art. 17 Forget-Pfad mit Grace.
-    //   POST /api/user/request-deletion — status-Flip "active" →
-    //                                     "deletionRequested" + gracePeriodEnd
-    //   POST /api/user/cancel-deletion  — Reversal innerhalb der Grace-Period
     r.writeHandler(requestDeletionWrite);
     r.writeHandler(cancelDeletionWrite);
 
-    // S2.U5b — Cleanup-Runner als privileged-Handler. Cron triggert das
-    // mit createSystemUser(...) als executor.
+    // S2.U5b — Cleanup-Runner als privileged-Handler.
     r.writeHandler(runForgetCleanupWrite);
     r.exposesApi("userDataRights.runForget");
 
-    // S2.U3 Atom 2 — User-Touchpoints fuer Async Export-Pipeline:
-    //   POST /api/user/request-export   — Job-Trigger mit App-side-Pre-
-    //                                     Check + crud.create (ES-Pattern)
-    //   GET  /api/user/export-status    — Polling fuer den meist-aktuellen
-    //                                     Job des Users
-    //
-    // Worker (Atom 3b), Download-Endpoint (Atom 4b) folgen.
+    // S2.U3 Atom 2 — User-Touchpoints fuer Async Export-Pipeline.
     r.writeHandler(requestExportWrite);
     r.queryHandler(exportStatusQuery);
     r.exposesApi("userDataRights.runExport");
 
-    // S2.U3 Atom 3b — Worker fuer Async Export-Pipeline. Cron-getriggert
-    // (default 1× pro Minute; App-Author kann via config-key haerter
-    // setzen). 3 Passes pro Run: stale-detection, pending-pickup, storage-
-    // cleanup. concurrency:"skip" verhindert Cron-Overlap (Pass-internal
-    // sequenziell wegen ZIP-Memory-Footprint pro Job).
+    // S2.U3 Atom 4b — Download-Endpoints (Token-Pfad + Session-Pfad).
+    // Beide query-handlers verifizieren Token/Session, holen signed-URL
+    // vom Storage-Provider, und persistieren Audit-Felder am Token-Row.
+    // r.httpRoute-Wrapper unten machen den 302-Redirect zu signedUrl.
+    r.queryHandler(downloadByTokenQuery);
+    r.queryHandler(downloadByJobQuery);
+
+    // r.httpRoute-Wrapper: Magic-Link-Pfad (anonymous) + UI-Klick-Pfad.
+    //
+    // Beide rufen via app.fetch /api/query → wenn success: 302-Redirect
+    // zur signed-URL → Browser folgt → Download startet beim Object-Store.
+    // Bei error: passthrough (404/410/501) als JSON.
+    //
+    // **Token-Pfad (anonymous):** GET /user-export/by-token?token=<plain>
+    //
+    // Path liegt AUSSERHALB /api/* weil r.httpRoute den /api-namespace
+    // nicht claimen darf (reserved fuer write/query/batch/auth/sse-
+    // dispatcher).
+    r.httpRoute({
+      method: "GET",
+      path: "/user-export/by-token",
+      anonymous: true,
+      handler: async (c, { app }) => {
+        const url = new URL(c.req.url);
+        const token = url.searchParams.get("token");
+        if (!token) {
+          return c.json({ error: "missing_token" }, 400);
+        }
+        const queryRes = await app.fetch(
+          new Request(`${url.origin}/api/query`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              type: "user-data-rights:query:download-by-token",
+              payload: { token, auditMeta: extractAuditMeta(c.req.raw.headers) },
+            }),
+          }),
+        );
+        return mapQueryResponseToRedirect(c, queryRes);
+      },
+    });
+
+    // **Session-Pfad (auth):** GET /user-export/by-job/:jobId
+    r.httpRoute({
+      method: "GET",
+      path: "/user-export/by-job/:jobId",
+      handler: async (c, { app }) => {
+        const url = new URL(c.req.url);
+        const jobId = c.req.param("jobId");
+        if (!jobId) {
+          return c.json({ error: "missing_job_id" }, 400);
+        }
+        const queryRes = await app.fetch(
+          new Request(`${url.origin}/api/query`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              ...forwardAuthHeaders(c.req.raw.headers),
+            },
+            body: JSON.stringify({
+              type: "user-data-rights:query:download-by-job",
+              payload: { jobId, auditMeta: extractAuditMeta(c.req.raw.headers) },
+            }),
+          }),
+        );
+        return mapQueryResponseToRedirect(c, queryRes);
+      },
+    });
+
+    // S2.U3 Atom 3b — Worker fuer Async Export-Pipeline. Cron-getriggert.
     r.job(
       "run-export-jobs",
       { trigger: { cron: "0 * * * * *" }, concurrency: "skip" },
@@ -114,14 +139,9 @@ export function createUserDataRightsFeature(): FeatureDefinition {
           );
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-        // FileProviderContext explizit zusammenstellen — ctx ist AppContext,
-        // hat config/registry/secrets, aber _userId ist im Job-Pfad nicht
-        // automatisch gesetzt (dispatcher setzt es nur im request-Pfad).
-        // Audit-Identity fuer Provider-Plugins die secrets lesen (z.B. S3):
         // SYSTEM_USER_ID ist die framework-weite Konvention. Der job-
         // Discriminator wird via handlerName="user-data-rights:run-export-
-        // jobs" im Secret-Read-Audit erfasst (siehe createFileProviderForTenant-
-        // Aufruf unten + secrets/feature.ts:requireSecretsContext).
+        // jobs" im Secret-Read-Audit erfasst.
         const providerCtx = {
           config: ctx.config,
           registry: ctx.registry,
@@ -129,9 +149,6 @@ export function createUserDataRightsFeature(): FeatureDefinition {
           _userId: ctx._userId ?? SYSTEM_USER_ID,
         };
         await runExportJobs({
-          // ctx.db ist DbConnection|TenantDb in AppContext-Type; im Job-
-          // Pfad ist es die rohe Connection. Cast zu DbConnection legitim
-          // weil JobContext-Wiring die rohe Connection liefert.
           db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection,
           registry: ctx.registry,
           buildStorageProvider: async (tenantId) =>
@@ -141,4 +158,51 @@ export function createUserDataRightsFeature(): FeatureDefinition {
       },
     );
   });
+}
+
+// Map /api/query-Response auf 302-Redirect oder Error-Passthrough.
+async function mapQueryResponseToRedirect(
+  c: import("hono").Context,
+  queryRes: Response,
+): Promise<Response> {
+  if (!queryRes.ok) {
+    const errorBody = await queryRes.text();
+    return c.body(errorBody, queryRes.status as 400 | 401 | 404 | 410 | 500, {
+      "content-type": queryRes.headers.get("content-type") ?? "application/json",
+    });
+  }
+  const body = (await queryRes.json()) as { data?: { url?: string } };
+  if (!body.data?.url) {
+    return c.json({ error: "download_resolution_failed" }, 500);
+  }
+  return c.redirect(body.data.url, 302);
+}
+
+function forwardAuthHeaders(headers: Headers): Record<string, string> {
+  const out: Record<string, string> = {};
+  const auth = headers.get("authorization");
+  if (auth) out["authorization"] = auth;
+  const cookie = headers.get("cookie");
+  if (cookie) out["cookie"] = cookie;
+  return out;
+}
+
+// Extract Audit-Meta (IP + UA) aus den HTTP-Headers + steck es in die
+// query-payload. Der httpRoute-Wrapper ist trusted-source — er hat den
+// raw-request gesehen, nicht der direkter /api/query-Caller. User der
+// /api/query direkt mit eigenem auditMeta aufruft kann luegen, aber
+// auditMeta ist nicht security-relevant (operator kann mit server-logs
+// crossreferencen wenn forensik gebraucht).
+function extractAuditMeta(headers: Headers): { ip: string | null; userAgent: string | null } {
+  const xff = headers.get("x-forwarded-for");
+  let ip: string | null = null;
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first && first.length > 0) ip = first;
+  }
+  if (!ip) {
+    const real = headers.get("x-real-ip");
+    if (real && real.length > 0) ip = real;
+  }
+  return { ip, userAgent: headers.get("user-agent") };
 }

@@ -72,9 +72,14 @@ const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
 // emittiert `exportDownloadToken.created`-Event in den event-store +
 // projected synchron auf read_export_download_tokens. KEIN direct-INSERT
 // (Memory `feedback_no_fake_dispatcher`).
-const tokenCrud = createEventStoreExecutor(exportDownloadTokensTable, exportDownloadTokenEntity, {
-  entityName: "export-download-token",
-});
+//
+// Exportiert weil Atom 4b's download-handler tokenCrud.update fuer
+// Audit-Felder (useCount, lastUsedAt, IP, UA) nutzt — ES-konsistent.
+export const tokenCrud = createEventStoreExecutor(
+  exportDownloadTokensTable,
+  exportDownloadTokenEntity,
+  { entityName: "export-download-token" },
+);
 
 export interface RunExportJobsArgs {
   readonly db: DbConnection;
