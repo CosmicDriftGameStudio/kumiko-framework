@@ -17,29 +17,43 @@
       "addLabels": ["major"]
     },
     {
-      "matchPackagePatterns": ["^@types/"],
       "groupName": "type definitions",
-      "automerge": true
+      "automerge": true,
+      "matchPackageNames": [
+        "/^@types//"
+      ]
     },
     {
-      "matchPackagePatterns": ["^drizzle"],
-      "groupName": "drizzle"
+      "groupName": "drizzle",
+      "matchPackageNames": [
+        "/^drizzle/"
+      ]
     },
     {
-      "matchPackagePatterns": ["^@biomejs/"],
-      "groupName": "biome"
+      "groupName": "biome",
+      "matchPackageNames": [
+        "/^@biomejs//"
+      ]
     },
     {
-      "matchPackagePatterns": ["^vitest$", "^@vitest/"],
-      "groupName": "vitest"
+      "groupName": "vitest",
+      "matchPackageNames": [
+        "/^vitest$/",
+        "/^@vitest//"
+      ]
     },
     {
-      "matchPackagePatterns": ["^@testing-library/"],
-      "groupName": "testing-library"
+      "groupName": "testing-library",
+      "matchPackageNames": [
+        "/^@testing-library//"
+      ]
     },
     {
-      "matchPackagePatterns": ["^react", "^@types/react"],
-      "groupName": "react"
+      "groupName": "react",
+      "matchPackageNames": [
+        "/^react/",
+        "/^@types/react/"
+      ]
     },
     {
       "matchManagers": ["github-actions"],
@@ -47,9 +61,12 @@
       "automerge": true
     },
     {
-      "matchPackagePatterns": ["^@cosmicdrift/", "^@cosmicdriftgamestudio/"],
       "automerge": true,
-      "minimumReleaseAge": "0 days"
+      "minimumReleaseAge": "0 days",
+      "matchPackageNames": [
+        "/^@cosmicdrift//",
+        "/^@cosmicdriftgamestudio//"
+      ]
     }
   ],
   "ignoreDeps": ["@cosmicdriftgamestudio/kumiko-guards"],
