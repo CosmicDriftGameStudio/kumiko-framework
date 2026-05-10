@@ -9,14 +9,18 @@ import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { downloadByJobQuery } from "./handlers/download-by-job.query";
 import { downloadByTokenQuery } from "./handlers/download-by-token.query";
 import { exportStatusQuery } from "./handlers/export-status.query";
-import { requestDeletionWrite } from "./handlers/request-deletion.write";
+import {
+  createRequestDeletionHandler,
+  type SendDeletionRequestedEmailFn,
+} from "./handlers/request-deletion.write";
 import { requestExportWrite } from "./handlers/request-export.write";
-import { runForgetCleanupWrite } from "./handlers/run-forget-cleanup.write";
+import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write";
 import {
   runExportJobs,
   type SendExportFailedEmailFn,
   type SendExportReadyEmailFn,
 } from "./run-export-jobs";
+import type { SendDeletionExecutedEmailFn } from "./run-forget-cleanup";
 import { exportDownloadTokenEntity } from "./schema/download-token";
 import { exportJobEntity } from "./schema/export-job";
 
@@ -59,6 +63,16 @@ export type UserDataRightsOptions = {
    *  sendExportReadyEmail gesetzt. Per-Tenant via reverse-proxy host
    *  routing — nicht via per-Tenant-config-key (App-Author-Decision). */
   readonly appExportDownloadUrl?: string;
+  /** Atom 5b — Email-Notification beim deletion-requested-flip
+   *  ("Account-Loeschung in 30 Tagen"). Best-effort: send-failure killt
+   *  den Status-Flip nicht (siehe handlers/request-deletion.write.ts). */
+  readonly sendDeletionRequestedEmail?: SendDeletionRequestedEmailFn;
+  /** Atom 5b — Email-Notification beim Cleanup-Runner-done-Pfad
+   *  ("Account wurde geloescht"). Best-effort. Der Versand passiert NACH
+   *  dem User-Hook-Anonymisieren, deshalb cached der Worker
+   *  userEmail+tenantIds PRE-tx und reicht sie ephemeral an die
+   *  Callback-Implementation (siehe run-forget-cleanup.ts). */
+  readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
 };
 
 export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
@@ -81,11 +95,26 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     r.entity("export-download-token", exportDownloadTokenEntity);
 
     // S2.U5a — Endpoints fuer DSGVO Art. 17 Forget-Pfad mit Grace.
-    r.writeHandler(requestDeletionWrite);
+    r.writeHandler(
+      createRequestDeletionHandler(
+        opts.sendDeletionRequestedEmail
+          ? { sendDeletionRequestedEmail: opts.sendDeletionRequestedEmail }
+          : {},
+      ),
+    );
     r.writeHandler(cancelDeletionWrite);
 
-    // S2.U5b — Cleanup-Runner als privileged-Handler.
-    r.writeHandler(runForgetCleanupWrite);
+    // S2.U5b — Cleanup-Runner als privileged-Handler. Atom 5b: Wenn
+    // sendDeletionExecutedEmail gesetzt, reicht der Handler den Callback
+    // an runForgetCleanup weiter (Worker cached userEmail+tenantIds
+    // PRE-tx, siehe run-forget-cleanup.ts).
+    r.writeHandler(
+      createRunForgetCleanupHandler(
+        opts.sendDeletionExecutedEmail
+          ? { sendDeletionExecutedEmail: opts.sendDeletionExecutedEmail }
+          : {},
+      ),
+    );
     r.exposesApi("userDataRights.runForget");
 
     // S2.U3 Atom 2 — User-Touchpoints fuer Async Export-Pipeline.

@@ -14,39 +14,48 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
-import { runForgetCleanup } from "../run-forget-cleanup";
+import { runForgetCleanup, type SendDeletionExecutedEmailFn } from "../run-forget-cleanup";
 
-export const runForgetCleanupWrite = defineWriteHandler({
-  name: "run-forget-cleanup",
-  schema: z.object({}),
-  access: { roles: access.privileged },
-  handler: async (_event, ctx) => {
-    if (!ctx.registry) {
-      return writeFailure(
-        new InternalError({
-          message: "run-forget-cleanup: ctx.registry missing",
+export type RunForgetCleanupOptions = {
+  readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
+};
+
+export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}) {
+  return defineWriteHandler({
+    name: "run-forget-cleanup",
+    schema: z.object({}),
+    access: { roles: access.privileged },
+    handler: async (_event, ctx) => {
+      if (!ctx.registry) {
+        return writeFailure(
+          new InternalError({
+            message: "run-forget-cleanup: ctx.registry missing",
+          }),
+        );
+      }
+
+      // ctx.db.raw ist DbRunner. runForgetCleanup oeffnet pro User eine
+      // Sub-Tx (SAVEPOINT wenn Outer-Dispatcher-Tx aktiv) — siehe
+      // run-forget-cleanup.ts Header. Kein DbConnection-Cast noetig.
+      const T = getTemporal();
+      const result = await runForgetCleanup({
+        db: ctx.db.raw,
+        registry: ctx.registry,
+        now: T.Now.instant(),
+        ...(opts.sendDeletionExecutedEmail && {
+          sendDeletionExecutedEmail: opts.sendDeletionExecutedEmail,
         }),
-      );
-    }
+      });
 
-    // ctx.db.raw ist DbRunner. runForgetCleanup oeffnet pro User eine
-    // Sub-Tx (SAVEPOINT wenn Outer-Dispatcher-Tx aktiv) — siehe
-    // run-forget-cleanup.ts Header. Kein DbConnection-Cast noetig.
-    const T = getTemporal();
-    const result = await runForgetCleanup({
-      db: ctx.db.raw,
-      registry: ctx.registry,
-      now: T.Now.instant(),
-    });
-
-    return {
-      isSuccess: true as const,
-      data: {
-        processedUserIds: result.processedUserIds,
-        hookCallsAttempted: result.hookCallsAttempted,
-        errorCount: result.errors.length,
-        errors: result.errors,
-      },
-    };
-  },
-});
+      return {
+        isSuccess: true as const,
+        data: {
+          processedUserIds: result.processedUserIds,
+          hookCallsAttempted: result.hookCallsAttempted,
+          errorCount: result.errors.length,
+          errors: result.errors,
+        },
+      };
+    },
+  });
+}

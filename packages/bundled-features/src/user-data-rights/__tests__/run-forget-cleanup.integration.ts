@@ -398,6 +398,214 @@ describe("runForgetCleanup :: 0-Memberships orphan-Pfad", () => {
   });
 });
 
+describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () => {
+  test("happy: callback fires mit userEmail PRE-tx + tenantIds + executedAt nach success", async () => {
+    const ORIGINAL_EMAIL = "alice.callback@example.com";
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: ORIGINAL_EMAIL,
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+    await seedMembership(ALICE_ID, TENANT_B);
+
+    type CallbackCall = {
+      userId: string;
+      userEmail: string;
+      tenantIds: readonly string[];
+      executedAt: string;
+    };
+    const calls: CallbackCall[] = [];
+    const sendDeletionExecutedEmail = async (args: CallbackCall): Promise<void> => {
+      calls.push(args);
+    };
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+      sendDeletionExecutedEmail,
+    });
+
+    expect(result.processedUserIds).toContain(ALICE_ID);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.userId).toBe(ALICE_ID);
+    // PRE-tx-Cache: Original-Email gereicht, NICHT die anonymized-Version
+    // die der user-Hook waehrend der Tx setzt.
+    expect(calls[0]?.userEmail).toBe(ORIGINAL_EMAIL);
+    // Cross-Tenant-Beweis: callback bekommt beide Tenants.
+    expect(calls[0]?.tenantIds).toHaveLength(2);
+    expect(calls[0]?.tenantIds).toContain(TENANT_A);
+    expect(calls[0]?.tenantIds).toContain(TENANT_B);
+    expect(calls[0]?.executedAt).toBeTruthy();
+
+    // Anonymisierung lief trotzdem durch (Callback ist nach success).
+    const aliceRow = await fetchUser(ALICE_ID);
+    expect(aliceRow?.email).not.toBe(ORIGINAL_EMAIL);
+    expect(aliceRow?.email).toContain("anonymized.invalid");
+  });
+
+  test("kein callback-Optional → success ohne crash, processedUserIds enthaelt User", async () => {
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+      // KEIN sendDeletionExecutedEmail
+    });
+
+    expect(result.processedUserIds).toContain(ALICE_ID);
+    expect(result.errors).toEqual([]);
+  });
+
+  test("failed Sub-Tx (synthetic Hook-Throw) → callback NICHT gefeuert", async () => {
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    type CallbackCall = { userId: string };
+    const calls: CallbackCall[] = [];
+
+    const usages = stack.registry.getExtensionUsages("userData");
+    const userUsage = usages.find((u) => u.entityName === "user");
+    if (!userUsage?.options) throw new Error("user usage not found");
+    const originalUserDelete = (
+      userUsage.options as {
+        delete: (
+          ctx: { userId: string; tenantId: string; db: unknown },
+          strategy: string,
+        ) => Promise<void>;
+      }
+    ).delete;
+    (
+      userUsage.options as {
+        delete: (
+          ctx: { userId: string; tenantId: string; db: unknown },
+          strategy: string,
+        ) => Promise<void>;
+      }
+    ).delete = async () => {
+      throw new Error("synthetic hook failure");
+    };
+
+    try {
+      const result = await runForgetCleanup({
+        db: stack.db,
+        registry: stack.registry,
+        now: NOW(),
+        sendDeletionExecutedEmail: async (args) => {
+          calls.push({ userId: args.userId });
+        },
+      });
+
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.processedUserIds).not.toContain(ALICE_ID);
+      // Kern-Aussage: failed-Sub-Tx → keine Notification (sonst kommen
+      // Email-Versendungen fuer User die *nicht* tatsaechlich geloescht
+      // wurden, was DSGVO-Mismatch zwischen User-Erwartung + DB-State
+      // verursacht).
+      expect(calls).toHaveLength(0);
+    } finally {
+      (
+        userUsage.options as {
+          delete: (
+            ctx: { userId: string; tenantId: string; db: unknown },
+            strategy: string,
+          ) => Promise<void>;
+        }
+      ).delete = originalUserDelete;
+    }
+  });
+
+  test("best-effort: callback-Throw fuer User A killt Batch NICHT — User B trotzdem verarbeitet", async () => {
+    // Asymmetrie-Schutz analog request-deletion (Atom 5b): wenn sendEmail
+    // fuer User A throwt, Batch-Cleanup laeuft fuer User B weiter. Der
+    // erste User wurde bereits geloescht (Sub-Tx committed), Throw waere
+    // ein Bug — r.job-Wrap markiert den Run failed, retry findet keine
+    // expired-User mehr (alle Deleted) → silent miss.
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: "alice.throws@example.com",
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+    await seedUser(BOB_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: "bob.success@example.com",
+    });
+    await seedMembership(BOB_ID, TENANT_A);
+
+    const calls: Array<{ userId: string }> = [];
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+      sendDeletionExecutedEmail: async (args) => {
+        calls.push({ userId: args.userId });
+        if (args.userId === ALICE_ID) {
+          throw new Error("synthetic email transport failure for alice");
+        }
+      },
+    });
+
+    // Beide User wurden processed — Throw bei Alice hat Bob nicht
+    // mitgerissen. Beweis dass try/catch das Bubbling stoppt.
+    expect(result.processedUserIds).toContain(ALICE_ID);
+    expect(result.processedUserIds).toContain(BOB_ID);
+    expect(result.errors).toEqual([]);
+
+    // Beide Callbacks angerufen.
+    expect(calls.map((c) => c.userId).sort()).toEqual([ALICE_ID, BOB_ID].sort());
+
+    // Beide DB-Rows tatsaechlich geloescht (callback-throw hat den
+    // Cleanup nicht zurueckgerollt — Sub-Tx ist VOR dem callback-call
+    // committed).
+    expect((await fetchUser(ALICE_ID))?.status).toBe(USER_STATUS.Deleted);
+    expect((await fetchUser(BOB_ID))?.status).toBe(USER_STATUS.Deleted);
+  });
+
+  test("User ohne email-Field (NULL) → callback NICHT gefeuert (skip ohne crash)", async () => {
+    // Edge-Case: Email-Spalte ist NULL (kann passieren wenn user-Hook in
+    // einem vorigen Run schon anonymisiert hat aber status haengen blieb,
+    // oder durch external Migration). Skip schuetzt vor crashing-callback
+    // mit invaliden Args.
+    await stack.db.insert(userTable).values({
+      id: ALICE_ID,
+      tenantId: TENANT_SYSTEM,
+      email: "",
+      passwordHash: "hashed",
+      displayName: "Alice",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    const calls: Array<{ userId: string }> = [];
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+      sendDeletionExecutedEmail: async (args) => {
+        calls.push({ userId: args.userId });
+      },
+    });
+
+    expect(result.processedUserIds).toContain(ALICE_ID);
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architektur)", () => {
   // Pinst die load-bearing Property: ein failing Hook bei User A darf
   // nicht User B mit zurueckrollen. Wenn jemand die Sub-Tx in

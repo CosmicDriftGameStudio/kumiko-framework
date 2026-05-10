@@ -48,6 +48,27 @@ import { USER_STATUS, userTable } from "../user";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
+/**
+ * Notification-Callback fuer den Forget-Cleanup-Pfad (Atom 5b). Pattern
+ * matched Atom 5 (Export). Throw bubbelt zum r.job-Wrap; jobs-feature
+ * persistiert den failed-Run in jobRunsTable (siehe
+ * jobs/__tests__/jobs-feature.integration.ts Scenario 2 — der throw-
+ * Pfad eines r.job-handlers wird dort gepinnt).
+ *
+ * **executedAt:** Zeitpunkt des delete-Flips. Wird als ISO-String
+ * uebergeben damit App-Author den frei in Email-Template einbauen kann.
+ *
+ * **tenantIds:** alle Memberships die der User vor dem Delete hatte.
+ * Email-Template kann das nutzen ("dein Account in Tenant X+Y wurde
+ * geloescht"). Bei orphan-User (0 Memberships) ist die Liste leer.
+ */
+export type SendDeletionExecutedEmailFn = (args: {
+  readonly userId: string;
+  readonly userEmail: string;
+  readonly tenantIds: readonly TenantId[];
+  readonly executedAt: string;
+}) => Promise<void>;
+
 export interface RunForgetCleanupArgs {
   readonly db: DbRunner;
   readonly registry: Registry;
@@ -56,6 +77,11 @@ export interface RunForgetCleanupArgs {
    * Pattern aus data-retention/keep-for.ts (advisor-pinned).
    */
   readonly now: Instant;
+
+  /** Atom 5b — Email-Notification beim delete-flip. Optional;
+   *  ohne Callback laeuft Worker still (User hatte schon
+   *  request-deletion-Email + grace-period-Erinnerung). */
+  readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
 }
 
 export interface ForgetCleanupError {
@@ -82,7 +108,7 @@ interface HookEntry {
 export async function runForgetCleanup(
   args: RunForgetCleanupArgs,
 ): Promise<RunForgetCleanupResult> {
-  const { db, registry, now } = args;
+  const { db, registry, now, sendDeletionExecutedEmail } = args;
 
   // Step 1: Find users with expired grace period.
   // @cast-boundary db-row — drizzle-select gibt Record-Shape zurueck.
@@ -126,6 +152,33 @@ export async function runForgetCleanup(
     errors.push(...userResult.errors);
     if (userResult.success) {
       processedUserIds.push(user.id);
+
+      // Atom 5b — Email-Notification nach success-flip. userEmail wurde
+      // VOR der Tx gecacht (user-Hook anonymisiert in der Tx).
+      //
+      // Best-effort: ein Email-Throw fuer User A darf nicht den Batch
+      // killen — User A ist bereits geloescht (Sub-Tx committed), und
+      // die Users B, C, ... muessen noch verarbeitet werden. Throw waere
+      // hier ein Bug: r.job-Wrap markiert den Run failed, retry findet
+      // keine User mehr im DeletionRequested+grace-expired-Status (alle
+      // schon Deleted) → silent miss. console.warn ist die einzige
+      // Operator-Sichtbarkeit — runForgetCleanup-args fuehren AppContext.
+      // log aktuell nicht durch (pure-function-Pattern).
+      if (sendDeletionExecutedEmail && userResult.userEmailBeforeDelete) {
+        try {
+          await sendDeletionExecutedEmail({
+            userId: user.id,
+            userEmail: userResult.userEmailBeforeDelete,
+            tenantIds: userResult.tenantIdsBeforeDelete,
+            executedAt: now.toString(),
+          });
+        } catch (err) {
+          // biome-ignore lint/suspicious/noConsole: operator-visibility for email-send-failure
+          console.warn(
+            `[user-data-rights:run-forget-cleanup] sendDeletionExecutedEmail failed userId=${user.id} err=${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
     }
   }
 
@@ -136,6 +189,12 @@ interface ProcessUserResult {
   readonly success: boolean;
   readonly hookCallsAttempted: number;
   readonly errors: readonly ForgetCleanupError[];
+  /** Atom 5b: userEmail VOR Tx gecacht (user-Hook anonymisiert in Tx).
+   *  null wenn user-Row beim Pre-Tx-Lookup nicht (mehr) existiert oder
+   *  email leer ist. */
+  readonly userEmailBeforeDelete: string | null;
+  /** Tenant-Memberships VOR Tx — Email-Template kann das nutzen. */
+  readonly tenantIdsBeforeDelete: readonly TenantId[];
 }
 
 async function processUser(args: {
@@ -148,6 +207,20 @@ async function processUser(args: {
   const errors: ForgetCleanupError[] = [];
   let hookCallsAttempted = 0;
 
+  // Atom 5b — userEmail VOR der Tx cachen. user-Hook (user-data-rights-
+  // defaults) anonymisiert email/displayName/passwordHash IN der Tx.
+  // Nach der Tx ist email = "deleted-{id}@{tenant}.example" oder NULL.
+  // Memory-cache laesst Atom-5b-Callback nach success-flip den
+  // ORIGINAL-email an App-Author-Callback geben.
+  // @cast-boundary db-row.
+  const userPreTx = (await db
+    .select({ email: userTable["email"] })
+    .from(userTable)
+    .where(eq(userTable["id"], userId))
+    .limit(1)) as Array<{ email: string | null }>;
+  const userEmailBeforeDelete =
+    userPreTx[0]?.email && userPreTx[0].email.length > 0 ? userPreTx[0].email : null;
+
   // Memberships fuer diesen User holen — alle Tenants in denen er Mitglied ist.
   // @cast-boundary db-row.
   const memberships = (await db
@@ -156,6 +229,10 @@ async function processUser(args: {
     .where(eq(tenantMembershipsTable["userId"], userId))) as Array<{
     tenantId: TenantId;
   }>;
+  // tenant-Liste fuer Atom 5b Email — Memberships VOR Tx, weil hooks
+  // memberships in der Tx loeschen. Orphan-User (0 memberships) liefert
+  // [] in Email-args; App-Author-Template kann das case-handlen.
+  const tenantIdsBeforeDelete: readonly TenantId[] = memberships.map((m) => m.tenantId);
 
   // Edge-Case "0 Memberships": User hat alle Tenants schon verlassen
   // bevor Forget triggerte. Wir laufen den Hook-Loop trotzdem mit einem
@@ -224,7 +301,13 @@ async function processUser(args: {
     });
   }
 
-  return { success: txSucceeded, hookCallsAttempted, errors };
+  return {
+    success: txSucceeded,
+    hookCallsAttempted,
+    errors,
+    userEmailBeforeDelete,
+    tenantIdsBeforeDelete,
+  };
 }
 
 // Pseudo-Tenant fuer User ohne aktive Memberships. RFC4122-konforme
