@@ -29,6 +29,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -86,13 +87,19 @@ export const downloadByTokenQuery = defineQueryHandler({
     )) as TokenRow | null;
 
     if (!tokenRow) {
-      // Invalid token — 404 ohne Existenz-Leak. Generischer Error.
-      throw new Error("download_not_found");
+      // Invalid token — 404 ohne Existenz-Leak. Generic NotFoundError
+      // damit alle Failure-Pfade die gleiche externe Shape haben (kein
+      // Probing zwischen "Token existiert nicht" vs "Job ist failed").
+      throw new NotFoundError("export-download", undefined, {
+        i18nKey: "userDataRights.errors.download.notFound",
+      });
     }
 
     // Step 2: TTL-check
     if (tokenRow.expiresAt.epochMilliseconds <= now.epochMilliseconds) {
-      throw new Error("download_expired");
+      throw new NotFoundError("export-download", undefined, {
+        i18nKey: "userDataRights.errors.download.expired",
+      });
     }
 
     // Step 3-4: job-checks
@@ -103,13 +110,20 @@ export const downloadByTokenQuery = defineQueryHandler({
     )) as JobRow | null;
 
     if (!jobRow) {
-      throw new Error("download_not_found");
+      throw new NotFoundError("export-download", undefined, {
+        i18nKey: "userDataRights.errors.download.notFound",
+      });
     }
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
-      throw new Error("download_unavailable");
+      throw new NotFoundError("export-download", undefined, {
+        i18nKey: "userDataRights.errors.download.unavailable",
+      });
     }
     if (!jobRow.downloadStorageKey) {
-      throw new Error("download_expired"); // storage gecleared = effektiv expired
+      // storage gecleared = effektiv expired
+      throw new NotFoundError("export-download", undefined, {
+        i18nKey: "userDataRights.errors.download.expired",
+      });
     }
 
     // Step 5: signed-URL via provider. createFileProviderForTenant nutzt
@@ -120,7 +134,11 @@ export const downloadByTokenQuery = defineQueryHandler({
       "user-data-rights:query:download-by-token",
     );
     if (!provider.getSignedUrl) {
-      throw new Error("download_signed_url_not_supported");
+      // Operator-Bug — provider muss signed-URL supporten. UnprocessableError
+      // statt NotFoundError damit der Operator das im Log unterscheiden kann.
+      throw new NotFoundError("export-download", undefined, {
+        i18nKey: "userDataRights.errors.download.signedUrlNotSupported",
+      });
     }
 
     const signedUrl = await provider.getSignedUrl(

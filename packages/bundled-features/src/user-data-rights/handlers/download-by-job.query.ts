@@ -26,6 +26,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -80,15 +81,21 @@ export const downloadByJobQuery = defineQueryHandler({
 
     if (!jobRow || jobRow.userId !== userId) {
       // Generischer 404 — kein Existenz-Leak gegen cross-user-Probing.
-      throw new Error("download_not_found");
+      throw new NotFoundError("export-download", jobId, {
+        i18nKey: "userDataRights.errors.download.notFound",
+      });
     }
 
     // Step 3-4: status + storage-key
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
-      throw new Error("download_unavailable");
+      throw new NotFoundError("export-download", jobId, {
+        i18nKey: "userDataRights.errors.download.unavailable",
+      });
     }
     if (!jobRow.downloadStorageKey) {
-      throw new Error("download_expired");
+      throw new NotFoundError("export-download", jobId, {
+        i18nKey: "userDataRights.errors.download.expired",
+      });
     }
 
     // Step 5: signed-URL via provider
@@ -98,7 +105,9 @@ export const downloadByJobQuery = defineQueryHandler({
       "user-data-rights:query:download-by-job",
     );
     if (!provider.getSignedUrl) {
-      throw new Error("download_signed_url_not_supported");
+      throw new NotFoundError("export-download", jobId, {
+        i18nKey: "userDataRights.errors.download.signedUrlNotSupported",
+      });
     }
 
     const signedUrl = await provider.getSignedUrl(

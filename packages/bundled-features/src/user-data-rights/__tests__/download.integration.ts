@@ -78,6 +78,12 @@ beforeAll(async () => {
       configEncryption: encryption,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
+    // Anonymous-Access fuer den Magic-Link-Pfad (Atom 4b httpRoute-Wrapper).
+    // tenant-context kommt von job.requestedFromTenantId nach Token-Lookup;
+    // defaultTenantId hier ist nur Fallback wenn kein X-Tenant-Header da ist.
+    anonymousAccess: {
+      defaultTenantId: tenantA,
+    },
   });
   await createEntityTable(stack.db, exportJobEntity);
   await createEntityTable(stack.db, exportDownloadTokenEntity);
@@ -237,20 +243,21 @@ describe("download-by-token :: happy path", () => {
 });
 
 describe("download-by-token :: error paths", () => {
-  test("invalid Token → 404", async () => {
+  test("invalid Token → 404 not_found", async () => {
     await seedDoneJobWithToken();
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
       { token: "definitely-not-a-real-token-xxxxx" },
       aliceUser,
     );
-    // Generic error — kein Existenz-Leak.
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string; i18nKey: string } };
+    expect(body.error.code).toBe("not_found");
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.notFound");
   });
 
-  test("expired Token (expiresAt past) → error", async () => {
+  test("expired Token → 404 download.expired", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
-    // Force expiresAt auf Vergangenheit (Test-Exemption: direct-UPDATE)
     const longAgo = getTemporal().Instant.fromEpochMilliseconds(
       Date.now() - 365 * 24 * 60 * 60 * 1000,
     );
@@ -264,12 +271,13 @@ describe("download-by-token :: error paths", () => {
       { token: plainToken },
       aliceUser,
     );
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { i18nKey: string } };
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.expired");
   });
 
-  test("failed Job (status != done) → error", async () => {
+  test("failed Job → 404 download.unavailable", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
-    // Force Job auf failed
     await stack.db.update(exportJobsTable).set({ status: "failed" }).where(sql`id = ${jobId}`);
 
     const res = await stack.http.query(
@@ -277,10 +285,12 @@ describe("download-by-token :: error paths", () => {
       { token: plainToken },
       aliceUser,
     );
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { i18nKey: string } };
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.unavailable");
   });
 
-  test("storage cleared (downloadStorageKey null) → error", async () => {
+  test("storage cleared → 404 download.expired", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
     await stack.db
       .update(exportJobsTable)
@@ -292,7 +302,9 @@ describe("download-by-token :: error paths", () => {
       { token: plainToken },
       aliceUser,
     );
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { i18nKey: string } };
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.expired");
   });
 });
 
@@ -324,8 +336,74 @@ describe("download-by-job :: happy path", () => {
   });
 });
 
+describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
+  test("happy: 302-Redirect mit Location-Header zur signed-URL", async () => {
+    const { plainToken } = await seedDoneJobWithToken();
+
+    const res = await stack.app.fetch(
+      new Request(`http://test/user-export/by-token?token=${plainToken}`, {
+        method: "GET",
+        headers: {
+          "user-agent": "e2e-test/1.0",
+          "x-forwarded-for": "203.0.113.42",
+        },
+      }),
+    );
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location");
+    expect(location).toBeTruthy();
+    expect(location).toMatch(/^memory:\/\//);
+  });
+
+  test("invalid token → 404 passthrough mit i18nKey", async () => {
+    const res = await stack.app.fetch(
+      new Request("http://test/user-export/by-token?token=fake-xxxxx", {
+        method: "GET",
+      }),
+    );
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error?: { i18nKey?: string } };
+    expect(body.error?.i18nKey).toBe("userDataRights.errors.download.notFound");
+  });
+
+  test("missing token query-param → 400", async () => {
+    const res = await stack.app.fetch(
+      new Request("http://test/user-export/by-token", { method: "GET" }),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("missing_token");
+  });
+
+  test("Audit-Update: useCount + IP/UA aus httpRoute-Headers (nicht aus payload)", async () => {
+    const { jobId, plainToken } = await seedDoneJobWithToken();
+    await stack.app.fetch(
+      new Request(`http://test/user-export/by-token?token=${plainToken}`, {
+        method: "GET",
+        headers: {
+          "user-agent": "e2e-test/2.0",
+          "x-forwarded-for": "198.51.100.7, 10.0.0.1",
+        },
+      }),
+    );
+
+    const [row] = (await stack.db
+      .select()
+      .from(exportDownloadTokensTable)
+      .where(sql`job_id = ${jobId}`)) as Array<{
+      useCount: number;
+      lastUsedFromIp: string | null;
+      lastUsedUserAgent: string | null;
+    }>;
+    expect(row?.useCount).toBe(1);
+    // X-Forwarded-For: erster Wert, comma-trimmed
+    expect(row?.lastUsedFromIp).toBe("198.51.100.7");
+    expect(row?.lastUsedUserAgent).toBe("e2e-test/2.0");
+  });
+});
+
 describe("download-by-job :: cross-user + cross-tenant", () => {
-  test("cross-user: Bob requests Alice's Job → 404 (no existence leak)", async () => {
+  test("cross-user: Bob requests Alice's Job → 404 not_found (no existence leak)", async () => {
     const { jobId } = await seedDoneJobWithToken();
 
     const res = await stack.http.query(
@@ -333,7 +411,11 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
       { jobId },
       bobUser,
     );
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string; i18nKey: string } };
+    expect(body.error.code).toBe("not_found");
+    // Selber i18nKey wie invalid-token → keine Probing-Differenz
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.notFound");
   });
 
   test("cross-tenant same-user: Alice from Tenant B downloadet Tenant-A-Job → success", async () => {
