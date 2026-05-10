@@ -223,7 +223,28 @@ export type StepNamespace = {
       readonly headers?: StepResolver<Readonly<Record<string, string | number | boolean>>>;
     }) => StepInstance;
   };
-  // Pending: branch, forEach
+  // Conditional sub-pipeline. `onTrue` (required) and `onFalse`
+  // (optional) are static StepInstance arrays; `r` for sub-step builders
+  // is captured from the outer pipeline closure. Naming-Q14: `onTrue`/
+  // `onFalse` over `then`/`else` because Biome's noThenProperty lint
+  // flags `then` as a thenable-trap. Q12: r.step.return inside
+  // onTrue/onFalse is rejected at build time (would trigger
+  // discriminated-union TData trap). Q13: no resultKey — branch is
+  // side-effect-only.
+  readonly branch: (args: {
+    readonly if: StepResolver<boolean>;
+    readonly onTrue: readonly StepInstance[];
+    readonly onFalse?: readonly StepInstance[];
+  }) => StepInstance;
+  // Iterate a sub-pipeline over an array. `as` is required (Q15);
+  // current item lands under `scope[as]` for resolvers in `do`.
+  // Sequential only in M.1.6; concurrency is Followup #12.
+  readonly forEach: <TItem = unknown>(args: {
+    readonly over: StepResolver<readonly TItem[]>;
+    readonly as: string;
+    readonly do: readonly StepInstance[];
+    readonly concurrency?: 1;
+  }) => StepInstance;
 };
 
 // SaveContext is the result-type of aggregate.create / aggregate.update;

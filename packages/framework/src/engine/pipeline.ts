@@ -11,7 +11,9 @@
 import { buildAggregateAppendEventStep } from "./steps/aggregate-append-event";
 import { buildAggregateCreateStep } from "./steps/aggregate-create";
 import { buildAggregateUpdateStep } from "./steps/aggregate-update";
+import { buildBranchStep } from "./steps/branch";
 import { buildComputeStep } from "./steps/compute";
+import { buildForEachStep } from "./steps/for-each";
 import { buildReadFindManyStep } from "./steps/read-find-many";
 import { buildReadFindOneStep } from "./steps/read-find-one";
 import { buildReturnStep } from "./steps/return";
@@ -24,6 +26,8 @@ const stepBuilder: StepBuilder = {
   step: {
     return: buildReturnStep,
     compute: buildComputeStep,
+    branch: buildBranchStep,
+    forEach: buildForEachStep,
     unsafeProjectionUpsert: buildUnsafeProjectionUpsertStep,
     unsafeProjectionDelete: buildUnsafeProjectionDeleteStep,
     aggregate: {

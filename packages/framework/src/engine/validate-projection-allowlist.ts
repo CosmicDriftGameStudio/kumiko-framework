@@ -34,6 +34,31 @@ import type { PipelineDef, StepInstance } from "./types/step";
 // for scenarios that can't happen).
 const UNSAFE_PROJECTION_KINDS = new Set(["unsafeProjectionUpsert", "unsafeProjectionDelete"]);
 
+// Step-kinds that carry sub-pipelines (M.1.6). Walk into their args to
+// extract nested StepInstance arrays so the validator can scan
+// unsafeProjection-* nested in branch/forEach (Q17). Without this,
+// `r.step.forEach({ do: [r.step.unsafeProjectionUpsert(...)] })`
+// would bypass the allowlist gate.
+const SUB_PIPELINE_KINDS: Record<string, readonly string[]> = {
+  branch: ["onTrue", "onFalse"],
+  forEach: ["do"],
+};
+
+function* walkAllSteps(steps: readonly StepInstance[]): Generator<StepInstance, void, void> {
+  for (const step of steps) {
+    yield step;
+    const subPaths = SUB_PIPELINE_KINDS[step.kind];
+    if (!subPaths) continue;
+    const args = step.args as Record<string, unknown>;
+    for (const path of subPaths) {
+      const subSteps = args[path];
+      if (Array.isArray(subSteps)) {
+        yield* walkAllSteps(subSteps as readonly StepInstance[]);
+      }
+    }
+  }
+}
+
 type UnsafeProjectionStepArgs = { readonly table: Table };
 
 const DUMMY_USER: SessionUser = {
@@ -82,7 +107,7 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
         );
       }
 
-      for (const step of steps) {
+      for (const step of walkAllSteps(steps)) {
         if (!UNSAFE_PROJECTION_KINDS.has(step.kind)) continue;
         const stepArgs = step.args as UnsafeProjectionStepArgs;
         if (!stepArgs.table) {

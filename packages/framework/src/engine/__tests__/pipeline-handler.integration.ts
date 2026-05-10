@@ -36,6 +36,10 @@
 //     - unsafeProjectionDelete deletes via real Postgres
 //     - boot-validation rejects unsafeProjectionDelete on undeclared table
 //
+//   M.1.6 (branch / forEach):
+//     - branch.onTrue runs side-effects against real Postgres conditionally
+//     - forEach.do iterates side-effects per item against real Postgres
+//
 // Unit-side tests in pipeline-vertical-slice.test.ts cover the same
 // surface against an empty ctx mock; this file is the real-stack gate.
 
@@ -338,6 +342,60 @@ const purgeLogHandler = defineWriteHandler({
   ]),
 });
 
+// M.1.6 — branch: log only when the message is non-empty.
+const conditionalLogSchema = z.object({ correlationId: z.string(), message: z.string() });
+const conditionalLogHandler = defineWriteHandler({
+  name: "log:conditional",
+  schema: conditionalLogSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof conditionalLogSchema>, { ok: true }>(({ event, r }) => [
+    r.step.branch({
+      if: () => event.payload.message.length > 0,
+      onTrue: [
+        r.step.unsafeProjectionUpsert({
+          table: pipelineDemoLogTable,
+          on: ["correlationId"],
+          row: () => ({
+            tenantId: event.user.tenantId,
+            correlationId: event.payload.correlationId,
+            message: event.payload.message,
+          }),
+        }),
+      ],
+    }),
+    r.step.return({ isSuccess: true as const, data: { ok: true } }),
+  ]),
+});
+
+// M.1.6 — forEach: bulk-log a list of correlationIds in one handler-call.
+const bulkLogSchema = z.object({ correlationIds: z.array(z.string()) });
+const bulkLogHandler = defineWriteHandler({
+  name: "log:bulk",
+  schema: bulkLogSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof bulkLogSchema>, { count: number }>(({ event, r }) => [
+    r.step.forEach({
+      over: () => event.payload.correlationIds,
+      as: "correlationId",
+      do: [
+        r.step.unsafeProjectionUpsert({
+          table: pipelineDemoLogTable,
+          on: ["correlationId"],
+          row: ({ scope }) => ({
+            tenantId: event.user.tenantId,
+            correlationId: scope["correlationId"] as string,
+            message: "bulk",
+          }),
+        }),
+      ],
+    }),
+    r.step.return(() => ({
+      isSuccess: true as const,
+      data: { count: event.payload.correlationIds.length },
+    })),
+  ]),
+});
+
 const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.requires.projection("pipeline_demo_log");
   r.entity("widget", widgetEntity);
@@ -354,6 +412,8 @@ const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.writeHandler(listAllHandler);
   r.writeHandler(listLimitedHandler);
   r.writeHandler(purgeLogHandler);
+  r.writeHandler(conditionalLogHandler);
+  r.writeHandler(bulkLogHandler);
 });
 
 let stack: TestStack;
@@ -675,6 +735,51 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
       .from(pipelineDemoLogTable)
       .where(eq(pipelineDemoLogTable.correlationId, "to-purge"));
     expect(after).toHaveLength(0);
+  });
+
+  test("branch.onTrue runs the side-effect when the condition is truthy", async () => {
+    const res = await stack.http.write(
+      "demo-pipeline:write:log:conditional",
+      { correlationId: "branch-truthy", message: "real" },
+      admin,
+    );
+    expect(res.status).toBe(200);
+    const rows = await stack.db
+      .select()
+      .from(pipelineDemoLogTable)
+      .where(eq(pipelineDemoLogTable.correlationId, "branch-truthy"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.message).toBe("real");
+  });
+
+  test("branch.onTrue is skipped when the condition is falsy (no row written)", async () => {
+    const res = await stack.http.write(
+      "demo-pipeline:write:log:conditional",
+      { correlationId: "branch-falsy", message: "" },
+      admin,
+    );
+    expect(res.status).toBe(200);
+    const rows = await stack.db
+      .select()
+      .from(pipelineDemoLogTable)
+      .where(eq(pipelineDemoLogTable.correlationId, "branch-falsy"));
+    expect(rows).toHaveLength(0);
+  });
+
+  test("forEach.do iterates side-effects per item against real Postgres", async () => {
+    const ids = ["bulk-a", "bulk-b", "bulk-c"];
+    const res = await stack.http.write(
+      "demo-pipeline:write:log:bulk",
+      { correlationIds: ids },
+      admin,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isSuccess: true; data: { count: number } };
+    expect(body.data.count).toBe(3);
+
+    const rows = await stack.db.select().from(pipelineDemoLogTable);
+    const correlationIds = rows.map((r) => r["correlationId"]).sort();
+    expect(correlationIds).toEqual(ids.slice().sort());
   });
 
   test("a step that throws maps to a standard write-failure (dispatcher catch)", async () => {
