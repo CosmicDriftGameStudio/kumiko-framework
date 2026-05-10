@@ -402,6 +402,39 @@ describe("download-by-job :: happy path", () => {
     expect(row?.useCount).toBe(1);
     expect(row?.lastUsedFromIp).toBe("10.0.0.5");
   });
+
+  test("failed Job (status != done) → 404 download.unavailable (job-Pfad)", async () => {
+    // Symmetrisch zum token-Test: gleicher Code-Pfad muss auch im job-
+    // handler 404 + unavailable raus, nicht 500.
+    const { jobId } = await seedDoneJobWithToken();
+    await stack.db.update(exportJobsTable).set({ status: "failed" }).where(sql`id = ${jobId}`);
+
+    const res = await stack.http.query(
+      "user-data-rights:query:download-by-job",
+      { jobId },
+      aliceUser,
+    );
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { i18nKey: string } };
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.unavailable");
+  });
+
+  test("storage cleared (downloadStorageKey null) → 404 download.expired (job-Pfad)", async () => {
+    const { jobId } = await seedDoneJobWithToken();
+    await stack.db
+      .update(exportJobsTable)
+      .set({ downloadStorageKey: null })
+      .where(sql`id = ${jobId}`);
+
+    const res = await stack.http.query(
+      "user-data-rights:query:download-by-job",
+      { jobId },
+      aliceUser,
+    );
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { i18nKey: string } };
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.expired");
+  });
 });
 
 describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
@@ -484,6 +517,27 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
     expect(body.error.code).toBe("not_found");
     // Selber i18nKey wie invalid-token → keine Probing-Differenz
     expect(body.error.i18nKey).toBe("userDataRights.errors.download.notFound");
+  });
+
+  test("provider ohne getSignedUrl → 422 unprocessable signedUrlNotSupported (job-Pfad)", async () => {
+    // Symmetrisch zum token-Pfad: derselbe Operator-Konfig-Bug muss auch
+    // beim UI-Klick-Pfad als 422 raus, nicht 404.
+    const { jobId } = await seedDoneJobWithToken();
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "file-foundation:config:provider", value: "no-signed-url" },
+      tenantAdmin,
+    );
+
+    const res = await stack.http.query(
+      "user-data-rights:query:download-by-job",
+      { jobId },
+      aliceUser,
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error: { code: string; i18nKey: string } };
+    expect(body.error.code).toBe("unprocessable");
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.signedUrlNotSupported");
   });
 
   test("cross-tenant same-user: Alice from Tenant B downloadet Tenant-A-Job → success", async () => {

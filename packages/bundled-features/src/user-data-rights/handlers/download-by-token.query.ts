@@ -144,6 +144,10 @@ export const downloadByTokenQuery = defineQueryHandler({
       // damit DPO/Operator das im Log unterscheiden kann; 404 wuerde
       // wie User-Probing aussehen + alle 4 echten not-found-Pfade
       // verschmieren.
+      //
+      // **Audit-Skip:** Throw VOR recordDownloadUse — kein effektiver
+      // Download stattgefunden, useCount=0 ist semantisch richtig.
+      // Operator-Bug-Pfad ist nicht User-Brute-Force.
       throw new UnprocessableError("storage_provider_signed_url_not_supported", {
         i18nKey: "userDataRights.errors.download.signedUrlNotSupported",
       });
