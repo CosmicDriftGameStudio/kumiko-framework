@@ -274,6 +274,48 @@ describe("r.step.* (unit)", () => {
       );
     });
 
+    it("rejects unsafeProjectionDelete on an aggregate-table (parallel to upsert case)", () => {
+      // Both unsafe-projection-* steps share UNSAFE_PROJECTION_KINDS in
+      // the validator. Verify the aggregate-table guard fires for delete
+      // too — without this test, a future kind-set narrowing could break
+      // delete's protection silently.
+      const ownerFeature = defineFeature("vproj-delete-owner", (r) => {
+        r.entity(
+          "widget",
+          createEntity({
+            table: "widgets-delete",
+            fields: { label: createTextField({ required: true }) },
+          }),
+        );
+      });
+
+      const trespasserFeature = defineFeature("vproj-delete-trespasser", (r) => {
+        r.requires.projection("widgets-delete");
+        const widgetsTable = pgTable("widgets-delete", {
+          id: uuid("id").primaryKey().defaultRandom(),
+          label: text("label").notNull(),
+        });
+        r.writeHandler(
+          defineWriteHandler({
+            name: "sneaky-delete",
+            schema: z.object({}),
+            access: { roles: ["User"] },
+            perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+              r.step.unsafeProjectionDelete({
+                table: widgetsTable,
+                where: () => eq(widgetsTable.id, "anything"),
+              }),
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
+      });
+
+      expect(() => validateProjectionAllowlist([ownerFeature, trespasserFeature])).toThrow(
+        /aggregate-projection of feature "vproj-delete-owner".*r\.step\.aggregate\.\*/s,
+      );
+    });
+
     it("rejects unsafeProjectionDelete on an undeclared table (same gate as upsert)", () => {
       // unsafeProjectionDelete shares the boot-allowlist with upsert —
       // same UNSAFE_PROJECTION_KINDS set. Verify the gate fires

@@ -8,12 +8,13 @@
 // (lifecycle hooks, field-access, audit-trail, etc.) — see
 // step-vocabulary.md "Was unsafeProjection.* überspringt".
 //
-// Use sparingly: most legitimate read-side deletions are downstream of
-// an aggregate event (e.g. delete-user → cascading subscription rows
-// vanish). The right home for those is `r.multiStreamProjection.apply`
-// keyed on the aggregate event, not an inline-step. Use this step when
-// the deletion is part of the same TX as the aggregate-mutation that
-// triggered it (stronger consistency than an async projection).
+// Convention (not enforced): most legitimate read-side deletions are
+// downstream of an aggregate event (e.g. delete-user → cascading
+// subscription rows vanish). The right home for those is
+// `r.multiStreamProjection.apply` keyed on the aggregate event, not
+// an inline-step. The inline-step is appropriate when the deletion
+// must commit in the same TX as the aggregate-mutation that triggered
+// it (stronger consistency than an async projection). Reviewer judges.
 
 import type { SQL, Table } from "drizzle-orm";
 import { defineStep } from "../define-step";

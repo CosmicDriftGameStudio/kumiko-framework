@@ -4,9 +4,10 @@
 // same drizzle-boundary cast. Resolves to a row-array (possibly empty),
 // landed under steps.<name>.
 //
-// Optional `limit` for guard-rails — defaults to no-limit so the caller
-// chooses. Most legitimate uses iterate via r.step.forEach (M.1.6) over
-// the result, where unbounded arrays would be the bug.
+// Optional `limit` — defaults to no-limit (caller-chosen, NOT a
+// guard-rail). Most legitimate uses iterate via r.step.forEach (M.1.6)
+// over the result, where unbounded arrays would be the bug. Set
+// `limit` explicitly when the row-count could grow without bound.
 
 import type { SQL, Table } from "drizzle-orm";
 import { defineStep } from "../define-step";

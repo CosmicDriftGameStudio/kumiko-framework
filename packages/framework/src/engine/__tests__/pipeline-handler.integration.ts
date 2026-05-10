@@ -375,7 +375,12 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
   });
 
   beforeEach(async () => {
+    // Truncate per-test so widget-related tests don't accumulate state
+    // across runs — order-independent assertions are the only kind that
+    // stay green when test-files grow (Memory `feedback_jsdom_lies_*`
+    // analog: order-dependent tests are flaky-in-waiting).
     await stack.db.delete(pipelineDemoLogTable);
+    await stack.db.delete(widgetTable);
   });
 
   test("HTTP write call goes through dispatcher → pipeline-runner → r.step.return", async () => {
@@ -624,6 +629,25 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     expect(res.status).toBe(200);
     const body = (await res.json()) as { isSuccess: true; data: { count: number } };
     expect(body.data.count).toBe(1);
+  });
+
+  test("unsafeProjectionDelete is a silent no-op when the where-clause matches no rows", async () => {
+    // Precondition: nothing with this correlation-id exists.
+    const before = await stack.db
+      .select()
+      .from(pipelineDemoLogTable)
+      .where(eq(pipelineDemoLogTable.correlationId, "no-match-id"));
+    expect(before).toHaveLength(0);
+
+    // Purge anyway — drizzle's DELETE-WHERE with no match commits silently.
+    const res = await stack.http.write(
+      "demo-pipeline:write:log:purge",
+      { correlationId: "no-match-id" },
+      admin,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isSuccess: true };
+    expect(body.isSuccess).toBe(true);
   });
 
   test("unsafeProjectionDelete removes matching rows from the read-side table", async () => {
