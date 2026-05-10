@@ -11,9 +11,9 @@
 //     fileRef-Forget beruehrt Tenant B's Files nicht)
 
 import {
-  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";

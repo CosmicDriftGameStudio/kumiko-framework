@@ -8,12 +8,12 @@ import {
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  unsafeCreateEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";

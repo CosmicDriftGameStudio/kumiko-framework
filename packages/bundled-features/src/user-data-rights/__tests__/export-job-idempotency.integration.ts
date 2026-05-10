@@ -10,9 +10,9 @@
 // reale Postgres + Drizzle-customType-Codec-Path braucht.
 
 import {
-  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq, sql } from "drizzle-orm";
@@ -113,6 +113,9 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
       insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending),
       IDEMPOTENCY_CONSTRAINT,
     );
+
+    const rows = await stack.db.select().from(exportJobsTable);
+    expect(rows).toHaveLength(1);
   });
 
   test("pending + running fuer denselben User → DB lehnt running ab", async () => {
@@ -124,6 +127,9 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
       insertJob(ALICE_ID, EXPORT_JOB_STATUS.Running),
       IDEMPOTENCY_CONSTRAINT,
     );
+
+    const rows = await stack.db.select().from(exportJobsTable);
+    expect(rows).toHaveLength(1);
   });
 
   test("pending fuer User A + pending fuer User B → beide erlaubt (per-User-scoped)", async () => {

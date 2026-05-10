@@ -1,11 +1,11 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  unsafeCreateEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature";
@@ -270,7 +270,7 @@ describe("compliance-profiles :: sub-processors (S1.4)", () => {
 });
 
 describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", () => {
-  test("Tenant ohne Profile-Wahl → needsSelection=true, reason=no-profile-selected", async () => {
+  test("Tenant ohne Profile-Wahl → needsSelection=true, reason=no_profile_selected", async () => {
     // Frischer Tenant-Admin (eigener Tenant ID damit kein Profile gesetzt
     // ist — sonst sieht er den Eintrag aus den vorherigen set-profile-Tests).
     const freshTenantAdmin = createIsolatedTenantAdmin(99);
@@ -281,7 +281,7 @@ describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", ()
     }>(NEEDS_PROFILE, {}, freshTenantAdmin);
     expect(result.needsSelection).toBe(true);
     expect(result.currentProfile).toBeNull();
-    expect(result.reason).toBe("no-profile-selected");
+    expect(result.reason).toBe("no_profile_selected");
   });
 
   test("Tenant mit eu-dsgvo-Wahl → needsSelection=false", async () => {

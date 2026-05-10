@@ -27,11 +27,11 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  unsafeCreateEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { sql } from "drizzle-orm";

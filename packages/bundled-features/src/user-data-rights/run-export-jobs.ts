@@ -727,14 +727,12 @@ async function* bundleToZipEntries(
   mtime: Instant,
   getProvider: (tenantId: TenantId) => Promise<FileStorageProvider>,
 ): AsyncIterable<ZipEntry> {
-  const mtimeDate = new Date(mtime.epochMilliseconds);
-
   // bundle.json zuerst — Reader-Tools koennen das frueh parsen.
   const bundleJson = JSON.stringify(bundle, null, 2);
   yield {
     path: "bundle.json",
     data: oneShot(new TextEncoder().encode(bundleJson)),
-    mtime: mtimeDate,
+    mtime,
   };
 
   // File-Binaries: pro fileRef einen ZIP-Entry. data ist der readStream
@@ -748,7 +746,7 @@ async function* bundleToZipEntries(
     yield {
       path: ref.zipPath,
       data: provider.readStream(ref.storageKey),
-      mtime: mtimeDate,
+      mtime,
     };
   }
 }
@@ -833,6 +831,7 @@ async function fireExportReadyCallback(args: {
     console.warn(
       `[user-data-rights:run-export-jobs] userId=${args.job.userId} hat kein userEmail — sendExportReadyEmail skipped`,
     );
+    // skip: missing user-email row; console.warn above provides operator visibility
     return;
   }
   const baseUrl = args.appExportDownloadUrl;
@@ -866,6 +865,7 @@ async function fireExportFailedCallback(args: {
     console.warn(
       `[user-data-rights:run-export-jobs] userId=${args.job.userId} hat kein userEmail — sendExportFailedEmail skipped`,
     );
+    // skip: missing user-email row; console.warn above provides operator visibility
     return;
   }
   await args.send({

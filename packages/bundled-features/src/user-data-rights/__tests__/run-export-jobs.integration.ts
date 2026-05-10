@@ -22,11 +22,11 @@ import {
   type FileStorageProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import {
-  unsafeCreateEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { sql } from "drizzle-orm";

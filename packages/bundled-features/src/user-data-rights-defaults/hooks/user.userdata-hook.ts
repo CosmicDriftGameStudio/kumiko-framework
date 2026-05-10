@@ -9,7 +9,7 @@ import {
   USER_DELETED_EMAIL_PREFIX,
   USER_STATUS,
   userTable,
-} from "../../user/schema/user";
+} from "../../user";
 
 // userData-Hook fuer user-entity (S2.H1).
 //

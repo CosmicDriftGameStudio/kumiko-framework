@@ -49,8 +49,8 @@ import type {
   DefineEventPattern,
   EntityHookPattern,
   EntityPattern,
-  ExposesApiPattern,
   EventMigrationPattern,
+  ExposesApiPattern,
   ExtendsRegistrarPattern,
   HookPattern,
   HttpRoutePattern,
@@ -2572,7 +2572,7 @@ export function extractUsesApi(
     return fail(
       "usesApi",
       sourceLocationFromNode(call, sourceFile),
-      "expected a single string-literal API name (e.g. \"sessions.revokeAllForUser\")",
+      'expected a single string-literal API name (e.g. "sessions.revokeAllForUser")',
     );
   }
   return ok({
@@ -2591,7 +2591,7 @@ export function extractExposesApi(
     return fail(
       "exposesApi",
       sourceLocationFromNode(call, sourceFile),
-      "expected a single string-literal API name (e.g. \"sessions.revokeAllForUser\")",
+      'expected a single string-literal API name (e.g. "sessions.revokeAllForUser")',
     );
   }
   return ok({

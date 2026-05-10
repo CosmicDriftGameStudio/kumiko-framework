@@ -11,12 +11,12 @@
 
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  unsafeCreateEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
   testUserId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq, sql } from "drizzle-orm";

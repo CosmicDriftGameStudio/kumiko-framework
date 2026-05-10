@@ -7,9 +7,9 @@
 // Sicherheitsnetz.
 
 import {
-  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";

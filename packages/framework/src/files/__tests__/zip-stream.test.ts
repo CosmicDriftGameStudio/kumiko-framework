@@ -16,6 +16,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { getTemporal } from "../../time";
 import { createZipStream, type ZipEntry } from "../zip-stream";
 
 async function* fromString(s: string): AsyncIterable<Uint8Array> {
@@ -149,17 +150,9 @@ describe("createZipStream :: UTF-8 filename support", () => {
 });
 
 describe("createZipStream :: format limits (ZIP64-Pre-Check)", () => {
-  test("Entry >4 GB wirft mit klarer Begruendung", async () => {
-    // Synthetisch: wir koennen keinen 4-GB-Body in Test allocieren.
-    // Stattdessen: Mocked-Source mit `byteLength`-Lie. Aber Uint8Array
-    // hat byteLength als read-only property. Echte 4-GB-allocation ist
-    // im Test nicht praktisch. Wir testen den Branch als Refactor-
-    // Sicherheits-Pfad NICHT — die Code-Path-Existenz ist visuell durch
-    // den Code bestaetigt + der 65535-Test (unten) deckt die andere
-    // Constraint-Variante ab. Bei einem realen >4-GB-Bug fällt der Worker
-    // mit einem klaren Error statt silent-corrupt-ZIP.
-    expect(true).toBe(true);
-  });
+  // Entry >4 GB Pre-Check ist im Code aktiv (siehe createZipStream Source);
+  // ein echter 4-GB-Body ist im Test nicht allozierbar. Der 65535-Entry-Test
+  // unten deckt die parallele Constraint-Variante ab — Refactor-Schutz.
 
   test("Archive >65535 Entries wirft mit klarer Begruendung", async () => {
     // 65535 Entries sind langsam (jedes hat einen Header). 65536 reicht
@@ -306,7 +299,7 @@ describe("createZipStream :: mtime in UTC (Audit-Drift-Schutz)", () => {
     // 2026-05-09 14:30:00 UTC = 16:30:00 CEST. Wenn die Implementation
     // auf lokal-Zeitzone (CEST-Server) liefe, kaeme als DOS-Time 16:30
     // raus. Wir pinnen 14:30 — UTC.
-    const fixedUtc = new Date(Date.UTC(2026, 4, 9, 14, 30, 0)); // 2026-05-09 14:30:00 UTC
+    const fixedUtc = getTemporal().Instant.fromEpochMilliseconds(Date.UTC(2026, 4, 9, 14, 30, 0)); // 2026-05-09 14:30:00 UTC
     const zip = await collect(
       createZipStream(fromEntries([{ path: "x.txt", data: fromString("x"), mtime: fixedUtc }])),
     );

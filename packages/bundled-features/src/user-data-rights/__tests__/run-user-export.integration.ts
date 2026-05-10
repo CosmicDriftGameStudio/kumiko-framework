@@ -15,9 +15,9 @@
 //     ueber Pseudo-Tenant.
 
 import {
-  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { sql } from "drizzle-orm";

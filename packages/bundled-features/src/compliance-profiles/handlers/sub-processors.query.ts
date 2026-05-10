@@ -5,6 +5,7 @@ import {
   type SubProcessor,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 
 // Public Sub-Processor-Liste — anonymous accessible (Memory:
@@ -28,7 +29,7 @@ export const subProcessorsQuery = defineQueryHandler({
     return {
       active: [...getActiveSubProcessors()],
       planned: [...getPlannedSubProcessors()],
-      generatedAt: new Date().toISOString(),
+      generatedAt: getTemporal().Now.instant().toString(),
       total: KUMIKO_SUB_PROCESSORS.length,
     };
   },

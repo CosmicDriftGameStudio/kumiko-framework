@@ -1,3 +1,5 @@
+import { getTemporal } from "../time";
+
 // Streaming-ZIP-Builder (S2.U3 Atom 3a) — pure-JS, dependency-frei.
 //
 // **Format-Wahl: STORE (kein DEFLATE).** Compression-frei + minimal —
@@ -61,7 +63,7 @@ export interface ZipEntry {
    * (2-Sek-Aufloesung). Wer Audit-Trail-Zeitpunkte haben will, setzt
    * den Generation-Timestamp ueber alle Entries.
    */
-  readonly mtime?: Date;
+  readonly mtime?: InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 }
 
 /**
@@ -115,7 +117,7 @@ export async function* createZipStream(
     const crc = crc32(body);
     const size = body.byteLength;
     const filenameBytes = new TextEncoder().encode(entry.path);
-    const dosTime = toDosTime(entry.mtime ?? new Date());
+    const dosTime = toDosTime(entry.mtime ?? getTemporal().Now.instant());
 
     // Local File Header
     const lfh = new Uint8Array(30 + filenameBytes.byteLength);
@@ -235,17 +237,15 @@ function crc32(data: Uint8Array): number {
 // wuerden sonst verschiedene mtime-Werte fuer denselben Generation-
 // Instant produzieren — Audit-Drift. UTC ist der Standard fuer alle
 // server-side-Timestamps im Repo (Temporal.Instant ueberall).
-function toDosTime(d: Date): { date: number; time: number } {
-  const year = d.getUTCFullYear();
+function toDosTime(i: InstanceType<ReturnType<typeof getTemporal>["Instant"]>): {
+  date: number;
+  time: number;
+} {
+  const dt = i.toZonedDateTimeISO("UTC");
+  const year = dt.year;
   const date =
-    (((Math.max(year - 1980, 0) & 0x7f) << 9) |
-      (((d.getUTCMonth() + 1) & 0x0f) << 5) |
-      (d.getUTCDate() & 0x1f)) >>>
-    0;
+    (((Math.max(year - 1980, 0) & 0x7f) << 9) | ((dt.month & 0x0f) << 5) | (dt.day & 0x1f)) >>> 0;
   const time =
-    (((d.getUTCHours() & 0x1f) << 11) |
-      ((d.getUTCMinutes() & 0x3f) << 5) |
-      ((d.getUTCSeconds() >> 1) & 0x1f)) >>>
-    0;
+    (((dt.hour & 0x1f) << 11) | ((dt.minute & 0x3f) << 5) | ((dt.second >> 1) & 0x1f)) >>> 0;
   return { date, time };
 }

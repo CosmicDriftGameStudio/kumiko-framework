@@ -1023,7 +1023,9 @@ const extendsRegistrarSchema: PatternFormSchema = {
 const usesApiSchema: PatternFormSchema = {
   kind: "usesApi",
   label: { en: "Uses API", de: "Nutzt API" },
-  summary: { en: "Cross-feature handler-ID dependency. Boot fails if no other feature exposes it." },
+  summary: {
+    en: "Cross-feature handler-ID dependency. Boot fails if no other feature exposes it.",
+  },
   category: "advanced",
   editability: "static",
   fields: [

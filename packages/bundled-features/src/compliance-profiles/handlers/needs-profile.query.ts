@@ -33,7 +33,7 @@ export const needsProfileQuery = defineQueryHandler({
       return {
         needsSelection: true,
         currentProfile: null,
-        reason: "no-profile-selected",
+        reason: "no_profile_selected",
       };
     }
 
@@ -52,5 +52,5 @@ export const needsProfileQuery = defineQueryHandler({
 interface NeedsProfileResponse {
   readonly needsSelection: boolean;
   readonly currentProfile: ComplianceProfileKey | null;
-  readonly reason?: "no-profile-selected";
+  readonly reason?: "no_profile_selected";
 }
