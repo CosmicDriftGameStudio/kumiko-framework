@@ -63,13 +63,31 @@ Two patterns the pipeline form catches that the free-form does not:
 ## Running
 
 ```bash
-# From this sample directory (uses the local vitest.config.ts):
+# From THIS sample directory — uses the local vitest.config.ts which
+# aliases @cosmicdrift/kumiko-framework to the worktree source.
 cd samples/recipes/pipeline-basics
 bunx vitest run
 ```
 
 The test relies on Postgres + Redis from `docker compose up`
 (framework dev stack — not the published image).
+
+### Why a sample-local vitest config (and CI consequence)
+
+Running this sample's tests via the worktree-wide
+`vitest.integration.config.ts` would crash at import time
+(`r.requires.projection is not a function`): the worktree's
+`node_modules/` is symlinked to the main framework's, so
+`@cosmicdrift/kumiko-framework` resolves to **main** — which doesn't
+yet have the M.1 step-engine.
+
+The sample-local `vitest.config.ts` aliases
+`@cosmicdrift/kumiko-framework` → `packages/framework/src` so the
+tests see the worktree code. The worktree-wide config explicitly
+**excludes** `samples/recipes/pipeline-basics/**`, so CI runs cleanly
+without picking these up. **Until M.1 lands in main, these tests
+run only locally.** Once M.1 is published, the exclude + sample-
+local config can both go away.
 
 ## Caveats / things to know
 

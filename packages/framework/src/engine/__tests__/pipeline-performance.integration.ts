@@ -12,6 +12,15 @@
 // Anything beyond that is either a real perf bug or a load-flake worth
 // inspecting. The test logs the actual numbers (bun test stdout) so
 // the baseline is visible in CI without re-running locally.
+//
+// Scope caveat: this measures dispatcher + handler-form combined over
+// a SINGLE-step handler (just r.step.return). The dispatcher dominates
+// the wall-time, which is what makes the bar useful — a real per-step
+// regression would have to be massive to show up. To isolate per-step
+// overhead specifically, you'd want a 5+-step handler so the per-step
+// cost has room to accumulate. Out of scope for the M.1 prod-ready
+// gate; if a future regression suspect needs that breakdown, extend
+// here with a longer-pipeline handler variant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";

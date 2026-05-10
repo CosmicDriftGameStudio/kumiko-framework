@@ -6,6 +6,14 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["packages/**/*.integration.ts", "samples/**/*.integration.ts"],
+    // pipeline-basics needs the worktree's framework source (M.1 step-
+    // engine isn't in main yet). It ships its own vitest.config.ts with
+    // a worktree-source alias — running it via the root config crashes
+    // at import-time with `r.requires.projection is not a function`.
+    // Exclude here, run locally via:
+    //   cd samples/recipes/pipeline-basics && bunx vitest run
+    // Once M.1 lands in main, this exclude can go away.
+    exclude: ["samples/recipes/pipeline-basics/**"],
     setupFiles: ["./vitest.setup.ts"],
     reporters: ["dot"],
     passWithNoTests: true,

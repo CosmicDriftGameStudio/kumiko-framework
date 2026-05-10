@@ -117,18 +117,26 @@ describe("pipeline-engine observability inheritance", () => {
     });
   });
 
-  test("step-emitted spans share the same trace as the dispatcher's handler-span", async () => {
+  test("step-emitted spans are explicit children of the dispatcher's handler span", async () => {
     // Trace-correlation: a span emitted from inside step.run must
-    // belong to the same trace as the dispatcher's outer
-    // write.handler span. Otherwise, ops staring at a trace tree
-    // would see the step-span detached and miss the connection to
-    // the inbound HTTP request.
+    // belong to the same trace as the dispatcher's outer handler
+    // span AND be a child of it (parentSpanId resolves to a span
+    // whose name contains "handler"). The earlier weaker assertion
+    // (sameTrace.length > 1) would have passed even if a future
+    // regression gave step-spans a fresh traceId — multiple spans
+    // in the same trace can be coincidence.
     await stack.http.writeOk("obstest:write:observed", {}, TestUsers.admin);
 
     const stepSpan = provider.spansByName("test:step.compute.traced")[0];
     expect(stepSpan).toBeDefined();
+    expect(stepSpan!.parentSpanId).toBeDefined();
 
-    const sameTrace = provider.spansByTraceId(stepSpan!.traceId);
-    expect(sameTrace.length).toBeGreaterThan(1);
+    // Resolve the parent span explicitly — it must exist within the
+    // same trace AND name a handler-related concept.
+    const parent = provider
+      .spansByTraceId(stepSpan!.traceId)
+      .find((s) => s.spanId === stepSpan!.parentSpanId);
+    expect(parent).toBeDefined();
+    expect(parent!.name).toMatch(/handler/);
   });
 });

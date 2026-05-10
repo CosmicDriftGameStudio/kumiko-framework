@@ -290,6 +290,40 @@ const widgetCreateThenThrowHandler = defineWriteHandler({
   ]),
 });
 
+// forEach mid-iteration rollback: items[0] commits an aggregate.create,
+// items[1] throws. The whole TX must roll back — including items[0]'s
+// already-committed aggregate. This is a different code-path from the
+// linear rollback test above because forEach has its own scope save/
+// restore + sub-step-list runner, and a regression there would let
+// iteration-1's writes leak past the iteration-2 throw.
+const forEachThenThrowSchema = z.object({
+  labels: z.array(z.string()).min(2),
+});
+const forEachThenThrowHandler = defineWriteHandler({
+  name: "widget:foreach-then-throw",
+  schema: forEachThenThrowSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<{ labels: string[] }, never>(({ event, r }) => [
+    r.step.forEach({
+      over: () => event.payload.labels,
+      as: "label",
+      do: [
+        r.step.aggregate.create("widget", {
+          executor: widgetExecutor,
+          data: ({ scope }) => ({ label: scope["label"] as string }),
+        }),
+        r.step.compute("checkBoom", ({ scope }) => {
+          if (scope["label"] === "BOOM") {
+            throw new Error("rollback-test: forEach iteration threw mid-loop");
+          }
+          return null;
+        }),
+      ],
+    }),
+    r.step.return({ isSuccess: true as const, data: undefined as never }),
+  ]),
+});
+
 // M.1.5 handlers — read + projection-delete. lookup-then-update reads
 // from widgetTable (an aggregate-projection — fine for read.*, only
 // writes are blocked by the boot-validator). delete-log purges old
@@ -428,6 +462,7 @@ const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.writeHandler(widgetCreateHandler);
   r.writeHandler(widgetBrokenHandler);
   r.writeHandler(widgetCreateThenThrowHandler);
+  r.writeHandler(forEachThenThrowHandler);
   r.writeHandler(widgetUpdateHandler);
   r.writeHandler(annotateHandler);
   r.writeHandler(lookupHandler);
@@ -837,5 +872,23 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     const afterEvents = await stack.db.select().from(eventsTable);
     expect(afterWidgets.length).toBe(beforeWidgets.length);
     expect(afterEvents.length).toBe(beforeEvents.length);
+  });
+
+  test("forEach mid-iteration throw rolls back ALL prior iterations", async () => {
+    // Different code-path from the linear-rollback test: forEach has
+    // its own scope save/restore + sub-step-list runner. A regression
+    // there would let iteration-1's aggregate.create commit while
+    // iteration-2's throw aborts the rest, leaving partial state.
+    const beforeWidgets = await stack.db.select().from(widgetTable);
+
+    const res = await stack.http.write(
+      "demo-pipeline:write:widget:foreach-then-throw",
+      { labels: ["first-ok", "BOOM", "third-never-runs"] },
+      admin,
+    );
+    expect(res.status).toBe(500);
+
+    const afterWidgets = await stack.db.select().from(widgetTable);
+    expect(afterWidgets.length).toBe(beforeWidgets.length);
   });
 });
