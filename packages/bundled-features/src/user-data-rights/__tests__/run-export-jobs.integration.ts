@@ -244,6 +244,48 @@ describe("runExportJobs :: stale-detection", () => {
       .where(sql`id = ${jobId}`)) as Array<{ status: string }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Running);
   });
+
+  test("stale-Job mit downloadStorageKey (real-Pfad nach 4a.fix path-pre-claim) → ZIP cleanup im selben Pass", async () => {
+    // Real-prod-Pfad-Pin (Atom 4a.fix2): nach path-pre-claim hat ein
+    // running-Job downloadStorageKey gesetzt. Wenn Stale-Detection den
+    // Job auf failed flippt, sollte storageCleanupPass im selben Worker-
+    // Pass den orphan-ZIP entfernen.
+    const jobId = await seedPendingJob();
+    const T = getTemporal();
+    const twoHoursAgo = T.Instant.fromEpochMilliseconds(Date.now() - 2 * 60 * 60 * 1000);
+    const storageKey = `${tenantA}/exports/${jobId}.zip`;
+
+    // Simuliert real-Pfad: claim-update hatte status=running + storageKey
+    // gesetzt + ZIP geschrieben. Worker dann gecrashed (kein done-flip).
+    const provider = await buildProvider(tenantA);
+    await provider.write(storageKey, new Uint8Array([1, 2, 3]));
+    await stack.db
+      .update(exportJobsTable)
+      .set({
+        status: EXPORT_JOB_STATUS.Running,
+        startedAt: twoHoursAgo,
+        downloadStorageKey: storageKey,
+      })
+      .where(sql`id = ${jobId}`);
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+
+    expect(result.staleFailedJobIds).toContain(jobId);
+    expect(result.cleanedJobIds).toContain(jobId);
+    expect(await provider.exists(storageKey)).toBe(false);
+
+    const [row] = (await stack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id = ${jobId}`)) as Array<{ status: string; downloadStorageKey: string | null }>;
+    expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
+    expect(row?.downloadStorageKey).toBeNull();
+  });
 });
 
 describe("runExportJobs :: storage-cleanup", () => {

@@ -55,7 +55,7 @@ import {
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { and, asc, eq, or } from "drizzle-orm";
+import { and, asc, eq, isNotNull, or } from "drizzle-orm";
 import { resolveProfileForTenant } from "../compliance-profiles";
 import { runUserExport, type UserExportBundle } from "./run-user-export";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token";
@@ -464,9 +464,26 @@ async function storageCleanupPass(args: {
   //   2. **Failed-Jobs mit downloadStorageKey** (Atom 4a.fix orphan-cleanup):
   //      Worker hat ZIP geschrieben, dann ist VOR done-flip etwas
   //      schiefgegangen (Token-Create-Fail, done-flip-Fail, Stale-
-  //      Detection). Job=failed mit gesetztem downloadStorageKey =
-  //      ZIP-Orphan in Storage, kein User-Pfad zum download. Sofortige
-  //      cleanup ohne Grace — der ZIP ist nutzlos.
+  //      Detection mid-write). Job=failed mit gesetztem downloadStorageKey =
+  //      ZIP-Orphan in Storage, kein User-Pfad zum download.
+  //
+  // **Strategie failed-Jobs: SOFORTIGE Cleanup ohne Grace.**
+  //
+  // Trade-off (DSGVO vs Audit-Forensik):
+  //   - DSGVO: User-Daten-ZIP einer failed-export-Anfrage hat keinen
+  //     legitimen Aufbewahrungs-Grund — hier ueberwiegt das Recht auf
+  //     Loeschung
+  //   - Audit-Forensik: forensische Untersuchung ("was ist im ZIP gelandet,
+  //     warum failed der Job") wuerde von einer Grace-Periode profitieren —
+  //     ABER: Token wurde nie ausgegeben (kein User hat das ZIP gesehen),
+  //     also keine User-Schaden-Forensik. Operator-Audit hat job.errorMessage
+  //     + Stack-Trace, das reicht
+  // → Trade-off zugunsten DSGVO entschieden. Wenn ein Operator forensik
+  // braucht, muss er das vor dem Cleanup-Pass capturen (out-of-band).
+  //
+  // **SQL-Filter:** WHERE-clause auf downloadStorageKey IS NOT NULL filtert
+  // bereits in der DB statt im Loop. Bei skalierender DB-Historie (10k+
+  // done-jobs nach 30 Tagen) reduziert das den Worker-Roundtrip drastisch.
   //
   // @cast-boundary db-row.
   const candidates = (await db
@@ -488,11 +505,7 @@ async function storageCleanupPass(args: {
           eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Done),
           eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Failed),
         ),
-        // downloadStorageKey != NULL: nach Atom 4a.fix wird der Pfad
-        // bereits beim claim persistiert, also fast alle running/done-
-        // Jobs haben ihn. failed-Jobs ohne ZIP (claim hat funktioniert
-        // aber bundle/zip-write nie erreicht): downloadStorageKey
-        // bleibt set, provider.delete ist no-op auf non-existent-key.
+        isNotNull(exportJobsTable["downloadStorageKey"]),
       ),
     )) as readonly {
     id: string;
