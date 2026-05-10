@@ -16,7 +16,7 @@ DSGVO requests work end-to-end:
 
 | Article | Endpoint / Runner | What it does |
 |---------|-----------|----------------|
-| **Art. 15** | `user-data-rights:query:my-audit-log` | User sees own event history (account-wide across tenants) |
+| **Art. 15** | `user-data-rights:query:my-audit-log` | User sees own framework events (auth, deletion-request, restriction). Domain entities like todos appear in the **export bundle** (Art. 20), not the audit-log — only handlers using `ctx.appendEvent` show up here. |
 | **Art. 15+20** | `user-data-rights:write:request-export` | ZIP with user-profile + fileRefs + todos + signed download magic-link |
 | **Art. 17** | `user-data-rights:write:request-deletion` | Soft-delete with grace period; cron anonymizes user + deletes todos |
 | **Art. 18** | `user-data-rights:write:restrict-account` | Auth-middleware blocks logins until lift-restriction |

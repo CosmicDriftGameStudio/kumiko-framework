@@ -45,7 +45,9 @@ export const todoEntity = createEntity({
   table: "read_todos",
   idType: "uuid",
   fields: {
-    authorId: createTextField({ required: true }),
+    // nullable: bei DSGVO-anonymize wird authorId auf null gesetzt
+    // (Row bleibt, Personenbezug raus). Pattern matched fileRef.
+    authorId: createTextField({}),
     title: createTextField({ required: true, maxLength: 200 }),
     body: createTextField({ maxLength: 4000 }),
   },
@@ -122,13 +124,20 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
     };
   };
 
-  // Strategy = "delete" → hard-delete; "anonymize" → authorId=null,
-  // Row bleibt fuer Multi-User-Scenarios. Fuer todos macht only-author
-  // wenig Sinn → wir delete'n immer.
-  const deleteTodos: UserDataDeleteHook = async (ctx, _strategy) => {
-    await ctx.db
-      .delete(todosTable)
-      .where(and(eq(todosTable["tenantId"], ctx.tenantId), eq(todosTable["authorId"], ctx.userId)));
+  // Strategy-aware: bei "anonymize" bleibt die Row (authorId=null) damit
+  // Multi-User-Refs intakt bleiben; bei "delete" hard-delete. Compliance-
+  // Profile (DE-HR, Steuer) koennen via retention.strategy=anonymize den
+  // anonymize-Pfad triggern statt hardDelete. Pattern matched fileRef-hook.
+  const deleteTodos: UserDataDeleteHook = async (ctx, strategy) => {
+    const where = and(
+      eq(todosTable["tenantId"], ctx.tenantId),
+      eq(todosTable["authorId"], ctx.userId),
+    );
+    if (strategy === "anonymize") {
+      await ctx.db.update(todosTable).set({ authorId: null }).where(where);
+    } else {
+      await ctx.db.delete(todosTable).where(where);
+    }
   };
 
   r.useExtension(EXT_USER_DATA, "todo", {

@@ -27,6 +27,11 @@ export const downloadAttemptEntity = createEntity({
     userAgent: createTextField({ maxLength: 256 }),
     attemptedAt: createTimestampField({ required: true }),
   },
+  // 90d hardDelete: unbounded growth = disk-bomb genau gegen das System
+  // das den Brute-Force erkennen soll. Brute-Force-Patterns sind kurzfristig
+  // (Stunden bis Tage) — 90d Window deckt forensik-Reviews + DPO-quartal-
+  // Audits. Tenant kann via override verlängern (HR-Compliance).
+  retention: { keepFor: "90d", strategy: "hardDelete", reference: "attemptedAt" },
 });
 
 export const downloadAttemptsTable = buildDrizzleTable("downloadAttempt", downloadAttemptEntity);

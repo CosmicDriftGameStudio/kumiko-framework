@@ -25,6 +25,7 @@ import {
   runForgetCleanup,
   runUserExport,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntityTable,
   createTestUser,
@@ -223,5 +224,47 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     // und unique-Constraint bleiben intakt.
     expect(rows[0]?.email).toMatch(/^deleted-.*@anonymized\.invalid$/);
     expect(rows[0]?.email).not.toContain("alice@demo.local");
+  });
+
+  test("anonymize-Strategy: todoDeleteHook setzt authorId=null statt hard-delete", async () => {
+    // Direct-Hook-Test: belegt dass deleteTodos die Strategy respektiert.
+    // (runForgetCleanup waehlt Strategy via retention.policyFor; hier
+    // pinnen wir den Hook-Vertrag — App-Author kopiert das Pattern.)
+    await seedAlice();
+    await stack.http.writeOk(
+      TODO_CREATE_QN,
+      { title: "anonymize-me", body: "row should remain" },
+      alice,
+    );
+
+    const todoUsage = stack.registry
+      .getExtensionUsages(EXT_USER_DATA)
+      .find((u) => u.entityName === "todo");
+    const hooks = todoUsage?.options as
+      | {
+          delete?: (
+            ctx: { db: typeof stack.db; tenantId: string; userId: string },
+            s: "delete" | "anonymize",
+          ) => Promise<void>;
+        }
+      | undefined;
+    await hooks?.delete?.(
+      { db: stack.db, tenantId: alice.tenantId, userId: alice.id },
+      "anonymize",
+    );
+
+    // Row existiert weiter, authorId=null.
+    const after = await stack.db.execute(sql`
+      SELECT id, title, author_id FROM read_todos
+    `);
+    // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
+    const todoRows = ((after as any).rows ?? after) as Array<{
+      id: string;
+      title: string;
+      author_id: string | null;
+    }>;
+    expect(todoRows).toHaveLength(1);
+    expect(todoRows[0]?.title).toBe("anonymize-me");
+    expect(todoRows[0]?.author_id).toBeNull();
   });
 });

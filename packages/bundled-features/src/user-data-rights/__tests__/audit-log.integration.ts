@@ -137,6 +137,15 @@ describe("my-audit-log", () => {
   });
 });
 
+describe("download-attempt retention :: disk-bomb-Schutz bei Brute-Force", () => {
+  test("Entity-Default ist 90d hardDelete (kein unbounded growth)", () => {
+    expect(downloadAttemptEntity.retention).toBeDefined();
+    expect(downloadAttemptEntity.retention?.keepFor).toBe("90d");
+    expect(downloadAttemptEntity.retention?.strategy).toBe("hardDelete");
+    expect(downloadAttemptEntity.retention?.reference).toBe("attemptedAt");
+  });
+});
+
 describe("list-download-attempts (DPO operator-query)", () => {
   test("Admin kann queryen, Member nicht", async () => {
     await seedUser(alice, "alice@example.com");
