@@ -1020,6 +1020,38 @@ const extendsRegistrarSchema: PatternFormSchema = {
   ],
 };
 
+const usesApiSchema: PatternFormSchema = {
+  kind: "usesApi",
+  label: { en: "Uses API", de: "Nutzt API" },
+  summary: { en: "Cross-feature handler-ID dependency. Boot fails if no other feature exposes it." },
+  category: "advanced",
+  editability: "static",
+  fields: [
+    {
+      path: "apiName",
+      label: { en: "API name", de: "API-Name" },
+      input: "text",
+      required: true,
+    },
+  ],
+};
+
+const exposesApiSchema: PatternFormSchema = {
+  kind: "exposesApi",
+  label: { en: "Exposes API", de: "Stellt API bereit" },
+  summary: { en: "Declares this feature provides a handler matching the cross-feature contract." },
+  category: "advanced",
+  editability: "static",
+  fields: [
+    {
+      path: "apiName",
+      label: { en: "API name", de: "API-Name" },
+      input: "text",
+      required: true,
+    },
+  ],
+};
+
 const unknownSchema: PatternFormSchema = {
   kind: "unknown",
   label: { en: "Unknown call", de: "Unbekannter Call" },
@@ -1077,6 +1109,8 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   defineEvent: defineEventSchema,
   eventMigration: eventMigrationSchema,
   extendsRegistrar: extendsRegistrarSchema,
+  usesApi: usesApiSchema,
+  exposesApi: exposesApiSchema,
   unknown: unknownSchema,
 };
 

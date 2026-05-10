@@ -9,11 +9,13 @@ import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { downloadByJobQuery } from "./handlers/download-by-job.query";
 import { downloadByTokenQuery } from "./handlers/download-by-token.query";
 import { exportStatusQuery } from "./handlers/export-status.query";
+import { liftRestrictionWrite } from "./handlers/lift-restriction.write";
 import {
   createRequestDeletionHandler,
   type SendDeletionRequestedEmailFn,
 } from "./handlers/request-deletion.write";
 import { requestExportWrite } from "./handlers/request-export.write";
+import { restrictAccountWrite } from "./handlers/restrict-account.write";
 import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write";
 import {
   runExportJobs,
@@ -82,6 +84,11 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     r.requires("user", "data-retention", "compliance-profiles");
     r.usesApi("compliance.forTenant");
     r.usesApi("retention.policyFor");
+    // S2.U6 — restrict-account ruft sessions.revokeAllForUser cross-feature.
+    // r.usesApi sorgt fuer Boot-Validation: App ohne sessions-feature wirft
+    // beim Boot, statt erst beim ersten Restrict-Call ein opaque "handler
+    // not found" zu werfen.
+    r.usesApi("sessions.revokeAllForUser");
     // file-foundation ist soft-dep: nur der Export-Worker (Atom 3b)
     // braucht ihn fuer Storage-Schreiben. Apps die nur Forget nutzen
     // (kein Export) muessen file-foundation nicht mounten.
@@ -95,6 +102,12 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // Flip auf done (siehe run-export-jobs.ts). Hash in DB, plain im
     // RunExportJobsResult fuer Atom 5 (Notification per Email).
     r.entity("export-download-token", exportDownloadTokenEntity);
+
+    // S2.U6 — DSGVO Art. 18 Account-Freeze (Verarbeitungs-Pause).
+    // Endpoints fuer Restrict + Lift. Login-Block fuer Restricted Users
+    // lebt in auth-email-password/login.write.ts.
+    r.writeHandler(restrictAccountWrite);
+    r.writeHandler(liftRestrictionWrite);
 
     // S2.U5a — Endpoints fuer DSGVO Art. 17 Forget-Pfad mit Grace.
     r.writeHandler(
