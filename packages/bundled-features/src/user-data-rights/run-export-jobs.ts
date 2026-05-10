@@ -95,14 +95,20 @@ export const tokenCrud = createEventStoreExecutor(
  *   - `mailFoundation.send` direkt
  *   - Custom Resend/SES/etc.
  *
- * **Best-effort:** Throw vom Callback faengt der Worker; Job bleibt
- * `done`, aber Worker-Run wird als failed in jobRunsTable gemerkt
- * (Operator sieht's im /jobs-Dashboard, kann via jobs:write:retry
- * neu triggern). Plain-Token wird beim retry NICHT neu generiert —
- * 4a hat UNIQUE-jobId-Constraint, retry liefert denselben hash; aber
- * der ALTE plain-token ist verloren weil ephemeral. → operator-Eingriff
+ * **Best-effort:** Throw vom Callback bubbelt zum r.job-Wrap; jobs-
+ * Feature persistiert den Worker-Run als failed in jobRunsTable. Der
+ * Failed-Pfad wird in `jobs/__tests__/jobs-feature.integration.ts`
+ * Scenario 2 gepinnt — wir verweisen darauf statt end-zu-end zu
+ * duplizieren. Operator sieht's im /jobs-Dashboard, kann via
+ * jobs:write:retry den Worker-Run erneut anstossen (Job selbst bleibt
+ * done; retry findet keinen pending mehr, aber Audit-Log zeigt den
+ * Failure).
+ *
+ * **Plain-Token-Recovery bei Email-Fail:** plain ist ephemeral. Wenn
+ * der Callback throwt, ist der plain verloren. Operator-Eingriff
  * noetig (Token in DB nullen + Job auf pending → next Worker-Run
- * generiert neuen Token).
+ * generiert neuen Token). Atom 5b (Re-issue-handler) wird das
+ * automatisieren.
  */
 export type SendExportReadyEmailFn = (args: {
   readonly userId: string;
@@ -744,9 +750,19 @@ function countingStream(source: AsyncIterable<Uint8Array>): {
   };
 }
 
-// Atom 5 — userEmail-Lookup fuer notification-callback. Pattern matched
-// runUserExport's Cross-Tenant-Iteration: tenant-agnostic db.raw weil
-// User-Row nicht tenant-scoped.
+// Atom 5 — userEmail-Lookup fuer notification-callback.
+//
+// **Direct-DB statt queryAs:** Worker-AppContext hat kein queryAs
+// (anders als HandlerContext im request-Pfad). Pattern matched
+// runUserExport's Cross-Tenant-Iteration die ebenso direkt
+// tenantMembershipsTable liest. Cross-feature-API via dispatcher
+// haette einen JobContext-Wrapper gebraucht den der framework noch
+// nicht hat — wenn das mal kommt, ist der hier Refactor-Kandidat.
+//
+// **tenant-agnostic:** userTable.id ist UNIQUE (PK). Cross-Tenant
+// (Alice in Tenant A+B) hat trotzdem nur 1 user-Row mit ihrer
+// Heim-Tenant als tenantId. Lookup ohne tenantId-filter findet sie
+// aus jedem Worker-Tenant-Context.
 async function lookupUserEmail(db: DbConnection, userId: string): Promise<string | null> {
   // @cast-boundary db-row.
   const row = (await fetchOne(db, userTable, eq(userTable["id"], userId))) as {
@@ -775,6 +791,9 @@ async function fireExportReadyCallback(args: {
     // User-Row fehlt (z.B. forget-Pfad mid-export). Skip-Notification mit
     // Operator-Alert via job-run-Log statt Throw — Job bleibt done, User
     // hat ja seinen Token via export-status.query erreichbar (UI-Pfad).
+    // TODO(structured-log): replace console.warn with ctx.log when the
+    // r.job-Wrap threads AppContext.log into runExportJobs-args. Currently
+    // operator sieht das in stdout, nicht in structured-log-pipeline.
     // biome-ignore lint/suspicious/noConsole: operator-visibility for missing-user edge-case
     console.warn(
       `[user-data-rights:run-export-jobs] userId=${args.job.userId} hat kein userEmail — sendExportReadyEmail skipped`,

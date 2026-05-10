@@ -45,8 +45,11 @@ import { exportJobEntity } from "./schema/export-job";
  */
 export type UserDataRightsOptions = {
   /** Email-Notification beim Export-done. App-Author wired das an seinen
-   *  Email-Provider. Throw bubbelt → Worker-Run failed in jobRunsTable
-   *  → Operator sieht's via /jobs-Dashboard + jobs:write:retry. */
+   *  Email-Provider. Throw bubbelt zum r.job-Wrap; jobs-Feature
+   *  persistiert den failed-Run in jobRunsTable (siehe
+   *  jobs/__tests__/jobs-feature.integration.ts Scenario 2 — der
+   *  Failed-Pfad wird dort gepinnt; wir verweisen darauf statt
+   *  end-zu-end zu duplizieren). */
   readonly sendExportReadyEmail?: SendExportReadyEmailFn;
   /** Email-Notification beim Export-failed. Best-effort. */
   readonly sendExportFailedEmail?: SendExportFailedEmailFn;
