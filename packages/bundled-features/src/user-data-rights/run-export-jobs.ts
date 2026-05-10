@@ -184,6 +184,17 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
   const { db, registry, buildStorageProvider, now, sendExportReadyEmail, sendExportFailedEmail } =
     args;
 
+  // Boot-Misconfig-Check: wer sendExportReadyEmail setzt aber URL
+  // vergisst, soll einen klaren Error sehen — VOR dem Pass-Loop, damit
+  // der Throw nicht vom per-Job-try/catch (Atom 5.fix3) geschluckt wird.
+  // Runtime-Callback-Failures sind best-effort, Boot-Misconfig ist hard-
+  // fail (App-Author-Bug, kein Network-Hiccup).
+  if (sendExportReadyEmail && args.appExportDownloadUrl === undefined) {
+    throw new Error(
+      "user-data-rights: sendExportReadyEmail gesetzt aber appExportDownloadUrl fehlt — beide muessen zusammen konfiguriert sein",
+    );
+  }
+
   // Pass 1: Stale-Detection — running jobs die laenger als das tenant-
   // spezifische exportStaleTimeoutMinutes haengen werden gefailed.
   // Wird VOR dem pickup-pass ausgefuehrt damit ein neuer Worker-Run
@@ -212,34 +223,56 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
       // NICHT in Logs/Telemetry/jobRunsTable.
       tokenByJobId.set(job.id, outcome.tokenPlain);
 
-      // Atom 5: Email-Notification beim done-flip. Best-effort —
-      // Throw bubbelt zum r.job-handler hoch + macht Worker-Run als
-      // failed in jobRunsTable. Operator sieht's, kann via
-      // jobs:write:retry neu triggern.
+      // Atom 5: Email-Notification beim done-flip.
+      //
+      // Best-effort (Atom 5.fix3): Throw fuer Job A darf den Batch nicht
+      // abwuergen — Job-Status ist bereits done committed, restliche
+      // pending-Jobs muessen noch verarbeitet werden. Throw waere ein
+      // Bug: r.job-Wrap markiert den Run failed, retry findet keinen
+      // pending-Job mehr (Status=done) → silent miss + ZIP laeuft nach
+      // TTL ab ohne dass der User die Email je bekommt. console.warn ist
+      // die einzige Operator-Sichtbarkeit (runExportJobs-args fuehren
+      // AppContext.log nicht durch — pure-function-Pattern).
       if (sendExportReadyEmail) {
-        await fireExportReadyCallback({
-          db,
-          job,
-          plainToken: outcome.tokenPlain,
-          bytesWritten: outcome.bytesWritten,
-          expiresAt: outcome.expiresAt,
-          appExportDownloadUrl: args.appExportDownloadUrl,
-          send: sendExportReadyEmail,
-        });
+        try {
+          await fireExportReadyCallback({
+            db,
+            job,
+            plainToken: outcome.tokenPlain,
+            bytesWritten: outcome.bytesWritten,
+            expiresAt: outcome.expiresAt,
+            appExportDownloadUrl: args.appExportDownloadUrl,
+            send: sendExportReadyEmail,
+          });
+        } catch (err) {
+          // biome-ignore lint/suspicious/noConsole: operator-visibility for email-send-failure
+          console.warn(
+            `[user-data-rights:run-export-jobs] sendExportReadyEmail failed jobId=${job.id} userId=${job.userId} err=${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
       }
     } else if (outcome.kind === "failed") {
       failedJobIds.push(job.id);
       errors.push(outcome.error);
 
       // Atom 5: Email-Notification beim failed-flip — User soll wissen
-      // dass er neuen Export anfordern muss.
+      // dass er neuen Export anfordern muss. Best-effort analog
+      // sendExportReadyEmail (Atom 5.fix3) — Email-Send-Throw darf den
+      // Batch nicht killen.
       if (sendExportFailedEmail) {
-        await fireExportFailedCallback({
-          db,
-          job,
-          errorMessage: outcome.error.message,
-          send: sendExportFailedEmail,
-        });
+        try {
+          await fireExportFailedCallback({
+            db,
+            job,
+            errorMessage: outcome.error.message,
+            send: sendExportFailedEmail,
+          });
+        } catch (err) {
+          // biome-ignore lint/suspicious/noConsole: operator-visibility for email-send-failure
+          console.warn(
+            `[user-data-rights:run-export-jobs] sendExportFailedEmail failed jobId=${job.id} userId=${job.userId} err=${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
       }
     }
     // "skipped" (claim race lost) wird still passiert — kein error,

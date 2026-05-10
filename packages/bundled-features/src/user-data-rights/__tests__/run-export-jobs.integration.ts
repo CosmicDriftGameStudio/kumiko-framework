@@ -1062,4 +1062,63 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
       .where(sql`id = ${jobId}`)) as Array<{ status: string }>;
     expect(row?.status).toBe("done");
   });
+
+  test("Atom 5.fix3 best-effort: callback-Throw fuer Job A killt Batch NICHT — Job B trotzdem verarbeitet", async () => {
+    // Vor fix3 wuerde ein Throw aus sendExportReadyEmail die for-Schleife
+    // abwuergen. Job A's Status ist bereits done committed, retry findet
+    // niemand mehr (alle pending-Jobs done) → silent miss + ZIP laeuft
+    // nach TTL ab ohne dass User je die Email bekommt.
+    //
+    // Mit fix3: try/catch faengt den Throw, console.warn macht's
+    // operator-sichtbar, Schleife laeuft weiter zu Job B.
+    const bobUser = createTestUser({
+      id: 7,
+      tenantId: tenantA,
+      roles: ["Member"],
+    });
+    await stack.db.insert(userTable).values({
+      id: String(bobUser.id),
+      tenantId: tenantA,
+      email: "bob@example.com",
+      passwordHash: "h",
+      displayName: "Bob",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.Active,
+    });
+
+    const jobAId = await seedPendingJob();
+    const jobBId = await seedPendingJob({ user: bobUser });
+
+    const calls: string[] = [];
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      sendExportReadyEmail: async (sentArgs) => {
+        calls.push(sentArgs.jobId);
+        if (sentArgs.jobId === jobAId) {
+          throw new Error("synthetic email transport failure for job A");
+        }
+      },
+      appExportDownloadUrl: "https://app.example.com/user-export/by-token",
+    });
+
+    // Beide Jobs durchgegangen — Throw bei Job A hat Job B nicht
+    // mitgerissen. Beweis fuer try/catch-Continuation.
+    expect(result.completedJobIds).toContain(jobAId);
+    expect(result.completedJobIds).toContain(jobBId);
+    expect(calls.sort()).toEqual([jobAId, jobBId].sort());
+
+    // Beide DB-Rows tatsaechlich done (Job A's Status wurde VOR dem
+    // Email-Versand committed — der Throw aenderte daran nichts).
+    const rows = (await stack.db
+      .select()
+      .from(exportJobsTable)
+      .where(sql`id IN (${jobAId}, ${jobBId})`)) as Array<{ id: string; status: string }>;
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.status === "done")).toBe(true);
+  });
 });

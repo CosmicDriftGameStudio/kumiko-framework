@@ -49,13 +49,15 @@ import { exportJobEntity } from "./schema/export-job";
  */
 export type UserDataRightsOptions = {
   /** Email-Notification beim Export-done. App-Author wired das an seinen
-   *  Email-Provider. Throw bubbelt zum r.job-Wrap; jobs-Feature
-   *  persistiert den failed-Run in jobRunsTable (siehe
-   *  jobs/__tests__/jobs-feature.integration.ts Scenario 2 — der
-   *  Failed-Pfad wird dort gepinnt; wir verweisen darauf statt
-   *  end-zu-end zu duplizieren). */
+   *  Email-Provider. Best-effort (Atom 5.fix3): send-Throw fuer Job A
+   *  killt den Batch nicht — restliche pending-Jobs werden weiter
+   *  verarbeitet, Failure wird via console.warn sichtbar. (Vorher
+   *  bubbelte der Throw zum r.job-Wrap, was bei mehreren pending Jobs
+   *  zum silent-miss fuehrte: Job A done committed, B/C/D nie
+   *  verarbeitet, retry findet niemand.) */
   readonly sendExportReadyEmail?: SendExportReadyEmailFn;
-  /** Email-Notification beim Export-failed. Best-effort. */
+  /** Email-Notification beim Export-failed. Best-effort analog
+   *  sendExportReadyEmail. */
   readonly sendExportFailedEmail?: SendExportFailedEmailFn;
   /** Base-URL fuer den Magic-Link, z.B.
    *  "https://app.example.com/user-export/by-token". Worker bauen
