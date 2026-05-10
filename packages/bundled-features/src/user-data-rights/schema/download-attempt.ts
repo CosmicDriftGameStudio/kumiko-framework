@@ -29,7 +29,4 @@ export const downloadAttemptEntity = createEntity({
   },
 });
 
-export const downloadAttemptsTable = buildDrizzleTable(
-  "downloadAttempt",
-  downloadAttemptEntity,
-);
+export const downloadAttemptsTable = buildDrizzleTable("downloadAttempt", downloadAttemptEntity);
