@@ -8,6 +8,7 @@
 import { defineStep } from "../define-step";
 import type { WriteResult } from "../types/handlers";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { resolveRequired } from "./_resolver-utils";
 
 type ReturnStepArgs = {
   readonly resolver: StepResolver<WriteResult<unknown>>;
@@ -22,14 +23,7 @@ defineStep<ReturnStepArgs, WriteResult<unknown>>({
   kind: "return",
   defaultFailureStrategy: "throw",
   resultKey: () => RETURN_RESULT_KEY,
-  run: (args, ctx: PipelineCtx) => {
-    // Local alias so the `typeof === "function"` narrowing kicks in —
-    // narrowing on a property access (args.resolver) doesn't always.
-    // Avoid `r` as the local name; `r` is the step-builder elsewhere
-    // in this file-set and shadowing reads confusing.
-    const resolver = args.resolver;
-    return typeof resolver === "function" ? resolver(ctx) : resolver;
-  },
+  run: (args, ctx: PipelineCtx) => resolveRequired(args.resolver, ctx),
 });
 
 export function buildReturnStep<TData>(resolver: StepResolver<WriteResult<TData>>): StepInstance {

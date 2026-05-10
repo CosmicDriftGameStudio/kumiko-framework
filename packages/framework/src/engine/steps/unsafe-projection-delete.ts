@@ -19,6 +19,8 @@
 import type { SQL, Table } from "drizzle-orm";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { asQueryTarget } from "./_drizzle-boundary";
+import { resolveRequired } from "./_resolver-utils";
 
 // `where` is REQUIRED — table-wide DELETE without a clause is a TRUNCATE
 // in disguise, exactly the footgun the `unsafe`-prefix is meant to
@@ -34,9 +36,8 @@ defineStep<UnsafeProjectionDeleteArgs, void>({
   kind: "unsafeProjectionDelete",
   defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
-    const where = typeof args.where === "function" ? args.where(ctx) : args.where;
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle type-boundary
-    await ctx.db.delete(args.table as any).where(where);
+    const where = resolveRequired(args.where, ctx);
+    await ctx.db.delete(asQueryTarget(args.table)).where(where);
   },
 });
 

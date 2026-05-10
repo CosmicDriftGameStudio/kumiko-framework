@@ -19,6 +19,7 @@ import { defineStep } from "../define-step";
 import type { SaveContext } from "../types/hooks";
 import type { EntityId } from "../types/identifiers";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { resolveOptional, resolveRequired } from "./_resolver-utils";
 
 type AggregateUpdateArgs = {
   readonly name: string;
@@ -34,9 +35,9 @@ defineStep<AggregateUpdateArgs, SaveContext>({
   defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
-    const id = typeof args.id === "function" ? args.id(ctx) : args.id;
-    const changes = typeof args.changes === "function" ? args.changes(ctx) : args.changes;
-    const version = typeof args.version === "function" ? args.version(ctx) : args.version;
+    const id = resolveRequired(args.id, ctx);
+    const changes = resolveRequired(args.changes, ctx);
+    const version = resolveOptional(args.version, ctx);
     const result = await args.executor.update(
       { id, version, changes },
       ctx.event.user,

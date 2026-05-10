@@ -23,6 +23,7 @@
 
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { resolveOptional, resolveRequired } from "./_resolver-utils";
 
 type AggregateAppendEventArgs = {
   readonly aggregateId: StepResolver<string>;
@@ -36,15 +37,9 @@ defineStep<AggregateAppendEventArgs, void>({
   kind: "aggregate.appendEvent",
   defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
-    const aggregateId =
-      typeof args.aggregateId === "function" ? args.aggregateId(ctx) : args.aggregateId;
-    const payload = typeof args.payload === "function" ? args.payload(ctx) : args.payload;
-    const headers =
-      args.headers === undefined
-        ? undefined
-        : typeof args.headers === "function"
-          ? args.headers(ctx)
-          : args.headers;
+    const aggregateId = resolveRequired(args.aggregateId, ctx);
+    const payload = resolveRequired(args.payload, ctx);
+    const headers = resolveOptional(args.headers, ctx);
 
     await ctx.unsafeAppendEvent({
       aggregateId,

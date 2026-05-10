@@ -23,6 +23,8 @@
 import type { SQL, Table } from "drizzle-orm";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { asQueryTarget } from "./_drizzle-boundary";
+import { resolveRequired } from "./_resolver-utils";
 
 type ReadFindOneArgs = {
   readonly name: string;
@@ -35,11 +37,8 @@ defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
   defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
-    const where = typeof args.where === "function" ? args.where(ctx) : args.where;
-    // Drizzle's PgTable type-system mismatch (enableRLS) — same boundary
-    // cast as in unsafe-projection-upsert. Runtime-equivalent.
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle type-boundary
-    const query = ctx.db.select().from(args.table as any);
+    const where = resolveRequired(args.where, ctx);
+    const query = ctx.db.select().from(asQueryTarget(args.table));
     const rows = where === undefined ? await query.limit(1) : await query.where(where).limit(1);
     return (rows[0] as Record<string, unknown> | undefined) ?? null;
   },

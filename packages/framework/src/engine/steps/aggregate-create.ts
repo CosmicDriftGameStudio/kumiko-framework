@@ -20,6 +20,7 @@ import { reraiseAsKumikoError } from "../../errors/write-error-info";
 import { defineStep } from "../define-step";
 import type { SaveContext } from "../types/hooks";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { resolveRequired } from "./_resolver-utils";
 
 type AggregateCreateArgs = {
   readonly name: string;
@@ -32,7 +33,7 @@ defineStep<AggregateCreateArgs, SaveContext>({
   defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
-    const data = typeof args.data === "function" ? args.data(ctx) : args.data;
+    const data = resolveRequired(args.data, ctx);
     const result = await args.executor.create(data, ctx.event.user, ctx.db);
     if (!result.isSuccess) {
       throw reraiseAsKumikoError(result.error);

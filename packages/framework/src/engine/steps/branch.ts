@@ -30,6 +30,7 @@ import { defineStep } from "../define-step";
 import { runStepList } from "../run-pipeline";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { validateNoReturnSteps } from "./_no-return-guard";
+import { resolveRequired } from "./_resolver-utils";
 
 type BranchArgs = {
   readonly if: StepResolver<boolean>;
@@ -41,7 +42,7 @@ defineStep<BranchArgs, void>({
   kind: "branch",
   defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
-    const condition = typeof args.if === "function" ? args.if(ctx) : args.if;
+    const condition = resolveRequired(args.if, ctx);
     const branchSteps = condition ? args.onTrue : (args.onFalse ?? []);
 
     // Recursive sub-step execution. The acc-maps in ctx are typed

@@ -12,6 +12,8 @@
 import type { SQL, Table } from "drizzle-orm";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { asQueryTarget } from "./_drizzle-boundary";
+import { resolveOptional } from "./_resolver-utils";
 
 type ReadFindManyArgs = {
   readonly name: string;
@@ -25,14 +27,8 @@ defineStep<ReadFindManyArgs, readonly Record<string, unknown>[]>({
   defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
-    const where =
-      args.where === undefined
-        ? undefined
-        : typeof args.where === "function"
-          ? args.where(ctx)
-          : args.where;
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle type-boundary
-    const baseQuery = ctx.db.select().from(args.table as any);
+    const where = resolveOptional(args.where, ctx);
+    const baseQuery = ctx.db.select().from(asQueryTarget(args.table));
     const filteredQuery = where === undefined ? baseQuery : baseQuery.where(where);
     const finalQuery = args.limit === undefined ? filteredQuery : filteredQuery.limit(args.limit);
     const rows = await finalQuery;

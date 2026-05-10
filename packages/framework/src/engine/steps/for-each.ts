@@ -37,6 +37,7 @@ import { defineStep } from "../define-step";
 import { runStepList } from "../run-pipeline";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { validateNoReturnSteps } from "./_no-return-guard";
+import { resolveRequired } from "./_resolver-utils";
 
 type ForEachArgs<TItem = unknown> = {
   readonly over: StepResolver<readonly TItem[]>;
@@ -51,7 +52,7 @@ defineStep<ForEachArgs, void>({
   kind: "forEach",
   defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
-    const items = typeof args.over === "function" ? args.over(ctx) : args.over;
+    const items = resolveRequired(args.over, ctx);
     if (!Array.isArray(items)) {
       throw new Error(`r.step.forEach: 'over' resolver must return an array (got ${typeof items})`);
     }
