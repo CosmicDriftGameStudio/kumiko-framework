@@ -30,6 +30,12 @@
 //     - aggregate.appendEvent writes an additional domain-event onto an
 //       existing aggregate stream (alongside the auto-generated CRUD events)
 //
+//   M.1.5 (read.findOne / read.findMany / unsafeProjectionDelete):
+//     - read.findOne returns a single row or null
+//     - read.findMany returns row[] (with optional limit)
+//     - unsafeProjectionDelete deletes via real Postgres
+//     - boot-validation rejects unsafeProjectionDelete on undeclared table
+//
 // Unit-side tests in pipeline-vertical-slice.test.ts cover the same
 // surface against an empty ctx mock; this file is the real-stack gate.
 
@@ -259,6 +265,79 @@ const widgetBrokenHandler = defineWriteHandler({
   ]),
 });
 
+// M.1.5 handlers — read + projection-delete. lookup-then-update reads
+// from widgetTable (an aggregate-projection — fine for read.*, only
+// writes are blocked by the boot-validator). delete-log purges old
+// rows from the demo-log read-side table.
+// Single shape (no narrowing union) so the pipeline's TData generic
+// matches the resolver's return type cleanly — sidesteps the
+// M.1-Followup #4 inference limit. The `label: string | null` shape is
+// idiomatic anyway: caller checks `label !== null` to distinguish hit/miss.
+const lookupSchema = z.object({ id: z.uuid() });
+const lookupHandler = defineWriteHandler({
+  name: "widget:lookup",
+  schema: lookupSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof lookupSchema>, { found: boolean; label: string | null }>(
+    ({ event, r }) => [
+      r.step.read.findOne("widget", {
+        table: widgetTable,
+        where: () => eq(widgetTable.id, event.payload.id),
+      }),
+      r.step.return(({ steps }) => {
+        const row = steps["widget"] as { label?: string } | null;
+        return {
+          isSuccess: true as const,
+          data: { found: row !== null, label: row?.label ?? null },
+        };
+      }),
+    ],
+  ),
+});
+
+const listAllHandler = defineWriteHandler({
+  name: "widget:list",
+  schema: z.object({}),
+  access: { roles: ["Admin"] },
+  perform: pipeline<Record<string, never>, { count: number }>(({ r }) => [
+    r.step.read.findMany("widgets", { table: widgetTable }),
+    r.step.return(({ steps }) => ({
+      isSuccess: true as const,
+      data: { count: (steps["widgets"] as readonly unknown[]).length },
+    })),
+  ]),
+});
+
+// Limit-1 listing exercises BOTH the limit-clause path in findMany AND
+// (transitively) the same query-builder code-path that findOne with no
+// where-clause would walk — closes both ungated branches with one test.
+const listLimitedHandler = defineWriteHandler({
+  name: "widget:list-one",
+  schema: z.object({}),
+  access: { roles: ["Admin"] },
+  perform: pipeline<Record<string, never>, { count: number }>(({ r }) => [
+    r.step.read.findMany("widgets", { table: widgetTable, limit: 1 }),
+    r.step.return(({ steps }) => ({
+      isSuccess: true as const,
+      data: { count: (steps["widgets"] as readonly unknown[]).length },
+    })),
+  ]),
+});
+
+const purgeLogSchema = z.object({ correlationId: z.string() });
+const purgeLogHandler = defineWriteHandler({
+  name: "log:purge",
+  schema: purgeLogSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof purgeLogSchema>, { ok: true }>(({ event, r }) => [
+    r.step.unsafeProjectionDelete({
+      table: pipelineDemoLogTable,
+      where: () => eq(pipelineDemoLogTable.correlationId, event.payload.correlationId),
+    }),
+    r.step.return({ isSuccess: true as const, data: { ok: true } }),
+  ]),
+});
+
 const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.requires.projection("pipeline_demo_log");
   r.entity("widget", widgetEntity);
@@ -271,6 +350,10 @@ const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.writeHandler(widgetBrokenHandler);
   r.writeHandler(widgetUpdateHandler);
   r.writeHandler(annotateHandler);
+  r.writeHandler(lookupHandler);
+  r.writeHandler(listAllHandler);
+  r.writeHandler(listLimitedHandler);
+  r.writeHandler(purgeLogHandler);
 });
 
 let stack: TestStack;
@@ -485,6 +568,89 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
 
     const after = await stack.db.select().from(widgetTable);
     expect(after).toHaveLength(before.length);
+  });
+
+  test("read.findOne returns the row when present and null when not", async () => {
+    // Seed a widget so we have something to look up.
+    const created = await stack.http.write(
+      "demo-pipeline:write:widget:create",
+      { label: "lookup-target" },
+      admin,
+    );
+    const createdBody = (await created.json()) as { isSuccess: true; data: { id: string } };
+    const widgetId = createdBody.data.id;
+
+    // Hit: row exists.
+    const hit = await stack.http.write(
+      "demo-pipeline:write:widget:lookup",
+      { id: widgetId },
+      admin,
+    );
+    const hitBody = (await hit.json()) as {
+      isSuccess: true;
+      data: { found: boolean; label: string | null };
+    };
+    expect(hitBody.data).toEqual({ found: true, label: "lookup-target" });
+
+    // Miss: random uuid → null → found:false, label:null.
+    const miss = await stack.http.write(
+      "demo-pipeline:write:widget:lookup",
+      { id: "00000000-0000-4000-8000-000000000000" },
+      admin,
+    );
+    const missBody = (await miss.json()) as {
+      isSuccess: true;
+      data: { found: boolean; label: string | null };
+    };
+    expect(missBody.data).toEqual({ found: false, label: null });
+  });
+
+  test("read.findMany returns the row array (count matches table state)", async () => {
+    const before = await stack.db.select().from(widgetTable);
+    const res = await stack.http.write("demo-pipeline:write:widget:list", {}, admin);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isSuccess: true; data: { count: number } };
+    expect(body.data.count).toBe(before.length);
+  });
+
+  test("read.findMany honours the limit argument", async () => {
+    // Seed enough widgets so a limit-1 result is verifiably truncated.
+    await stack.http.write("demo-pipeline:write:widget:create", { label: "limit-test-1" }, admin);
+    await stack.http.write("demo-pipeline:write:widget:create", { label: "limit-test-2" }, admin);
+    const total = await stack.db.select().from(widgetTable);
+    expect(total.length).toBeGreaterThanOrEqual(2);
+
+    const res = await stack.http.write("demo-pipeline:write:widget:list-one", {}, admin);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isSuccess: true; data: { count: number } };
+    expect(body.data.count).toBe(1);
+  });
+
+  test("unsafeProjectionDelete removes matching rows from the read-side table", async () => {
+    // Seed a row via the existing log-handler, then purge it.
+    await stack.http.write(
+      "demo-pipeline:write:log",
+      { correlationId: "to-purge", message: "delete-me" },
+      admin,
+    );
+    const seeded = await stack.db
+      .select()
+      .from(pipelineDemoLogTable)
+      .where(eq(pipelineDemoLogTable.correlationId, "to-purge"));
+    expect(seeded).toHaveLength(1);
+
+    const res = await stack.http.write(
+      "demo-pipeline:write:log:purge",
+      { correlationId: "to-purge" },
+      admin,
+    );
+    expect(res.status).toBe(200);
+
+    const after = await stack.db
+      .select()
+      .from(pipelineDemoLogTable)
+      .where(eq(pipelineDemoLogTable.correlationId, "to-purge"));
+    expect(after).toHaveLength(0);
   });
 
   test("a step that throws maps to a standard write-failure (dispatcher catch)", async () => {

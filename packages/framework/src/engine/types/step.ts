@@ -9,7 +9,7 @@
 // (see TS-typing notes in the design doc). M.1 uses unsafeAppendEvent
 // semantics under the hood for r.step.aggregate.appendEvent.
 
-import type { Table } from "drizzle-orm";
+import type { SQL, Table } from "drizzle-orm";
 import type { EventStoreExecutor } from "../../db/event-store-executor";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type { HandlerContext, WriteEvent, WriteResult } from "./handlers";
@@ -168,6 +168,31 @@ export type StepNamespace = {
     readonly on: readonly string[];
     readonly row: StepResolver<Record<string, unknown>>;
   }) => StepInstance;
+  // Sibling: delete row(s) from a read-side projection table. Same
+  // boot-validation contract as unsafeProjectionUpsert.
+  readonly unsafeProjectionDelete: (args: {
+    readonly table: Table;
+    readonly where: StepResolver<SQL>;
+  }) => StepInstance;
+  // Read sub-namespace — thin wrapper on ctx.db.select(). Caller-owned
+  // tenant-filter (does NOT auto-inject like ctx.queryProjection does).
+  readonly read: {
+    readonly findOne: (
+      name: string,
+      opts: {
+        readonly table: Table;
+        readonly where: StepResolver<SQL | undefined>;
+      },
+    ) => StepInstance;
+    readonly findMany: (
+      name: string,
+      opts: {
+        readonly table: Table;
+        readonly where?: StepResolver<SQL | undefined>;
+        readonly limit?: number;
+      },
+    ) => StepInstance;
+  };
   // Aggregate-mutation sub-namespace — wraps the existing event-store-
   // executor surface. Every method goes through the full ES pipeline
   // (events + projections + lifecycle hooks + audit). The default and
@@ -198,7 +223,7 @@ export type StepNamespace = {
       readonly headers?: StepResolver<Readonly<Record<string, string | number | boolean>>>;
     }) => StepInstance;
   };
-  // Pending: branch, forEach, read.findOne, read.findMany, unsafeProjectionDelete
+  // Pending: branch, forEach
 };
 
 // SaveContext is the result-type of aggregate.create / aggregate.update;

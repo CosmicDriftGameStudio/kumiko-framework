@@ -12,7 +12,10 @@ import { buildAggregateAppendEventStep } from "./steps/aggregate-append-event";
 import { buildAggregateCreateStep } from "./steps/aggregate-create";
 import { buildAggregateUpdateStep } from "./steps/aggregate-update";
 import { buildComputeStep } from "./steps/compute";
+import { buildReadFindManyStep } from "./steps/read-find-many";
+import { buildReadFindOneStep } from "./steps/read-find-one";
 import { buildReturnStep } from "./steps/return";
+import { buildUnsafeProjectionDeleteStep } from "./steps/unsafe-projection-delete";
 import { buildUnsafeProjectionUpsertStep } from "./steps/unsafe-projection-upsert";
 import type { WriteEvent } from "./types/handlers";
 import type { PipelineBuildCtx, PipelineDef, StepBuilder, StepInstance } from "./types/step";
@@ -22,10 +25,15 @@ const stepBuilder: StepBuilder = {
     return: buildReturnStep,
     compute: buildComputeStep,
     unsafeProjectionUpsert: buildUnsafeProjectionUpsertStep,
+    unsafeProjectionDelete: buildUnsafeProjectionDeleteStep,
     aggregate: {
       create: buildAggregateCreateStep,
       update: buildAggregateUpdateStep,
       appendEvent: buildAggregateAppendEventStep,
+    },
+    read: {
+      findOne: buildReadFindOneStep,
+      findMany: buildReadFindManyStep,
     },
   },
 };

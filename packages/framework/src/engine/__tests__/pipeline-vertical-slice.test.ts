@@ -11,6 +11,7 @@
 // step-vocabulary.md M.1-Followup #7 splits per-step files after M.1.5.
 
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -270,6 +271,33 @@ describe("r.step.* (unit)", () => {
 
       expect(() => validateProjectionAllowlist([ownerFeature, trespasserFeature])).toThrow(
         /aggregate-projection of feature "vproj-owner".*r\.step\.aggregate\.\*/s,
+      );
+    });
+
+    it("rejects unsafeProjectionDelete on an undeclared table (same gate as upsert)", () => {
+      // unsafeProjectionDelete shares the boot-allowlist with upsert —
+      // same UNSAFE_PROJECTION_KINDS set. Verify the gate fires
+      // identically.
+      const featureWithoutDecl = defineFeature("vproj-delete-missing", (r) => {
+        // Note: NO r.requires.projection("validate_demo_log") here.
+        r.writeHandler(
+          defineWriteHandler({
+            name: "purge",
+            schema: z.object({}),
+            access: { roles: ["User"] },
+            perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+              r.step.unsafeProjectionDelete({
+                table: demoLogTable,
+                where: () => eq(demoLogTable.id, "anything"),
+              }),
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
+      });
+
+      expect(() => validateProjectionAllowlist([featureWithoutDecl])).toThrow(
+        /did not declare it via r\.requires\.projection\("validate_demo_log"\)/,
       );
     });
 

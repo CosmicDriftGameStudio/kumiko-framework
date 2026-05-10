@@ -32,7 +32,7 @@ import type { PipelineDef, StepInstance } from "./types/step";
 // r.requires.projection allowlist. Extend as further unsafeProjection.*
 // steps land — don't pre-list hypothetical kinds (CLAUDE.md: don't design
 // for scenarios that can't happen).
-const UNSAFE_PROJECTION_KINDS = new Set(["unsafeProjectionUpsert"]);
+const UNSAFE_PROJECTION_KINDS = new Set(["unsafeProjectionUpsert", "unsafeProjectionDelete"]);
 
 type UnsafeProjectionStepArgs = { readonly table: Table };
 
