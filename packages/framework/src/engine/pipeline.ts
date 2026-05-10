@@ -8,6 +8,9 @@
 // the resolver-side PipelineCtx (run-pipeline.ts). Resolvers that need
 // prior step results destructure them from the resolver's ctx.
 
+import { buildAggregateAppendEventStep } from "./steps/aggregate-append-event";
+import { buildAggregateCreateStep } from "./steps/aggregate-create";
+import { buildAggregateUpdateStep } from "./steps/aggregate-update";
 import { buildComputeStep } from "./steps/compute";
 import { buildReturnStep } from "./steps/return";
 import { buildUnsafeProjectionUpsertStep } from "./steps/unsafe-projection-upsert";
@@ -19,6 +22,11 @@ const stepBuilder: StepBuilder = {
     return: buildReturnStep,
     compute: buildComputeStep,
     unsafeProjectionUpsert: buildUnsafeProjectionUpsertStep,
+    aggregate: {
+      create: buildAggregateCreateStep,
+      update: buildAggregateUpdateStep,
+      appendEvent: buildAggregateAppendEventStep,
+    },
   },
 };
 

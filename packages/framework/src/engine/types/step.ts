@@ -10,8 +10,11 @@
 // semantics under the hood for r.step.aggregate.appendEvent.
 
 import type { Table } from "drizzle-orm";
+import type { EventStoreExecutor } from "../../db/event-store-executor";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type { HandlerContext, WriteEvent, WriteResult } from "./handlers";
+import type { SaveContext } from "./hooks";
+import type { EntityId } from "./identifiers";
 
 /**
  * The kind discriminator for a step instance — matches the step's
@@ -149,7 +152,8 @@ export type StepBuilder = {
 /**
  * The collection of step factory functions. Grown incrementally —
  * landed: return (M.1.1), compute (M.1.2), unsafeProjectionUpsert
- * (M.1.3). Pending: branch, forEach, read.*, aggregate.*,
+ * (M.1.3), aggregate.create (M.1.4). Pending: branch, forEach,
+ * read.*, aggregate.update, aggregate.appendEvent,
  * unsafeProjectionDelete.
  */
 export type StepNamespace = {
@@ -164,5 +168,39 @@ export type StepNamespace = {
     readonly on: readonly string[];
     readonly row: StepResolver<Record<string, unknown>>;
   }) => StepInstance;
-  // M.1.4+: branch, forEach, read, aggregate, unsafeProjectionDelete
+  // Aggregate-mutation sub-namespace — wraps the existing event-store-
+  // executor surface. Every method goes through the full ES pipeline
+  // (events + projections + lifecycle hooks + audit). The default and
+  // intended path for domain mutation; contrast with unsafeProjection.*.
+  readonly aggregate: {
+    readonly create: (
+      name: string,
+      opts: {
+        readonly executor: EventStoreExecutor;
+        readonly data: StepResolver<Record<string, unknown>>;
+      },
+    ) => StepInstance;
+    readonly update: (
+      name: string,
+      opts: {
+        readonly executor: EventStoreExecutor;
+        readonly id: StepResolver<EntityId>;
+        readonly changes: StepResolver<Record<string, unknown>>;
+        readonly version?: StepResolver<number | undefined>;
+        readonly skipOptimisticLock?: boolean;
+      },
+    ) => StepInstance;
+    readonly appendEvent: (args: {
+      readonly aggregateId: StepResolver<string>;
+      readonly aggregateType: string;
+      readonly type: string;
+      readonly payload: StepResolver<unknown>;
+      readonly headers?: StepResolver<Readonly<Record<string, string | number | boolean>>>;
+    }) => StepInstance;
+  };
+  // Pending: branch, forEach, read.findOne, read.findMany, unsafeProjectionDelete
 };
+
+// SaveContext is the result-type of aggregate.create / aggregate.update;
+// re-exported for step authors who want to type their resolver bindings.
+export type AggregateStepResult = SaveContext;

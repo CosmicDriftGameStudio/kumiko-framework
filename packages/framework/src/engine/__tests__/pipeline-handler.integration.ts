@@ -21,6 +21,15 @@
 //     - is idempotent on the conflict-key — second write updates,
 //       not duplicates
 //
+//   M.1.4 (aggregate.create / update / appendEvent):
+//     - aggregate.create opens an event-sourced aggregate stream via real
+//       event-store
+//     - executor failure (e.g. validation) maps to standard write-failure
+//     - aggregate.update writes a delta event + projection-row update on
+//       an existing stream
+//     - aggregate.appendEvent writes an additional domain-event onto an
+//       existing aggregate stream (alongside the auto-generated CRUD events)
+//
 // Unit-side tests in pipeline-vertical-slice.test.ts cover the same
 // surface against an empty ctx mock; this file is the real-stack gate.
 
@@ -28,9 +37,19 @@ import { eq } from "drizzle-orm";
 import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
-import { setupTestStack, type TestStack, TestUsers, unsafePushTables } from "../../stack";
+import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { buildDrizzleTable } from "../../db/table-builder";
+import { eventsTable } from "../../event-store";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "../../stack";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
+import { createEntity, createTextField } from "../factories";
 import { pipeline } from "../pipeline";
 
 const echoSchema = z.object({ greeting: z.string() });
@@ -81,8 +100,12 @@ const compoundHandler = defineWriteHandler({
     ({ event, r }) => [
       r.step.compute("offset", () => 100),
       r.step.compute("doubledBase", () => event.payload.base * 2),
-      // Capture `event` from outer scope (typed); `ctx.event.user.id` would
-      // type-erase. See note above on M.1-Followup #4.
+      // Resolvers capture `event` from the outer build-closure scope rather
+      // than reading it via the resolver's PipelineCtx — `PipelineCtx<TPayload>`
+      // does not propagate the pipeline's TPayload generic to per-call
+      // resolvers (M.1-Followup #4), so `ctx.event.user.id` would type-erase.
+      // Outer-capture preserves the typed payload. Same pattern in logHandler
+      // and widgetCreateHandler below.
       r.step.return(({ steps }) => ({
         isSuccess: true as const,
         data: {
@@ -113,11 +136,7 @@ const logHandler = defineWriteHandler({
   name: "log",
   schema: logSchema,
   access: { roles: ["Admin"] },
-  // Resolvers capture `event` from the outer build-closure scope rather
-  // than reading it via the resolver's PipelineCtx — `PipelineCtx<TPayload>`
-  // does not propagate the pipeline's TPayload generic to per-call
-  // resolvers (M.1-Followup #4), so `ctx.event.payload` would land as
-  // `unknown`. Outer-capture preserves the typed payload.
+  // Outer-`event`-capture pattern — see compoundHandler above for the why.
   perform: pipeline<z.infer<typeof logSchema>, { correlationId: string }>(({ event, r }) => [
     r.step.unsafeProjectionUpsert({
       table: pipelineDemoLogTable,
@@ -135,12 +154,123 @@ const logHandler = defineWriteHandler({
   ]),
 });
 
+// Aggregate-entity for the M.1.4 aggregate.create test. Registered via
+// r.entity inside the demoPipeline feature so the framework knows the
+// table belongs to an aggregate stream (boot-validator would reject any
+// unsafeProjection.* that targets it).
+const widgetEntity = createEntity({
+  table: "pipeline_widget",
+  fields: { label: createTextField({ required: true }) },
+});
+const widgetTable = buildDrizzleTable("widget", widgetEntity);
+const widgetExecutor = createEventStoreExecutor(widgetTable, widgetEntity, {
+  entityName: "widget",
+});
+
+const widgetSchema = z.object({ label: z.string() });
+const widgetCreateHandler = defineWriteHandler({
+  name: "widget:create",
+  schema: widgetSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof widgetSchema>, { id: string }>(({ event, r }) => [
+    r.step.aggregate.create("widget", {
+      executor: widgetExecutor,
+      data: () => ({ label: event.payload.label }),
+    }),
+    r.step.return(({ steps }) => ({
+      isSuccess: true as const,
+      data: { id: (steps["widget"] as { id: string }).id },
+    })),
+  ]),
+});
+
+// Annotate-handler for the M.1.4 aggregate.appendEvent test. Creates a
+// widget AND appends a custom "widget.annotated" event onto the same
+// aggregate stream — verifies multi-event-per-handler-call works.
+const annotateSchema = z.object({ label: z.string(), note: z.string() });
+const annotateHandler = defineWriteHandler({
+  name: "widget:annotate",
+  schema: annotateSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof annotateSchema>, { id: string }>(({ event, r }) => [
+    r.step.aggregate.create("widget", {
+      executor: widgetExecutor,
+      data: () => ({ label: event.payload.label }),
+    }),
+    r.step.aggregate.appendEvent({
+      aggregateId: ({ steps }) => (steps["widget"] as { id: string }).id,
+      aggregateType: "widget",
+      // Type below is registered via r.defineEvent in the feature
+      // registration further down — keeps the demo feature self-
+      // contained for the test stack.
+      type: "demo-pipeline:event:annotated",
+      payload: () => ({ note: event.payload.note }),
+    }),
+    r.step.return(({ steps }) => ({
+      isSuccess: true as const,
+      data: { id: (steps["widget"] as { id: string }).id },
+    })),
+  ]),
+});
+
+// Update-handler for the M.1.4 aggregate.update test. Takes an
+// existing widget id and rewrites the label.
+const widgetUpdateSchema = z.object({ id: z.uuid(), label: z.string() });
+const widgetUpdateHandler = defineWriteHandler({
+  name: "widget:update",
+  schema: widgetUpdateSchema,
+  access: { roles: ["Admin"] },
+  perform: pipeline<z.infer<typeof widgetUpdateSchema>, { id: string }>(({ event, r }) => [
+    r.step.aggregate.update("widget", {
+      executor: widgetExecutor,
+      id: () => event.payload.id,
+      changes: () => ({ label: event.payload.label }),
+      // skipOptimisticLock — test uses a single user, last-write-wins
+      // is fine; full version-check exercise belongs to a dedicated
+      // optimistic-lock test elsewhere.
+      skipOptimisticLock: true,
+    }),
+    r.step.return(({ steps }) => ({
+      isSuccess: true as const,
+      data: { id: (steps["widget"] as { id: string }).id },
+    })),
+  ]),
+});
+
+// Companion handler that triggers an executor-failure path: missing
+// required field → UnprocessableError → re-raised by the step → mapped
+// to write-failure by the dispatcher.
+const widgetBrokenHandler = defineWriteHandler({
+  name: "widget:create-broken",
+  schema: z.object({}),
+  access: { roles: ["Admin"] },
+  perform: pipeline<Record<string, never>, { id: string }>(({ r }) => [
+    r.step.aggregate.create("widget", {
+      executor: widgetExecutor,
+      // Intentionally omits the `label` field that the entity declares
+      // as required — executor.create returns WriteFailure, the step
+      // re-raises as KumikoError.
+      data: () => ({}),
+    }),
+    r.step.return(({ steps }) => ({
+      isSuccess: true as const,
+      data: { id: (steps["widget"] as { id: string }).id },
+    })),
+  ]),
+});
+
 const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.requires.projection("pipeline_demo_log");
+  r.entity("widget", widgetEntity);
+  r.defineEvent("annotated", z.object({ note: z.string() }));
   r.writeHandler(echoHandler);
   r.writeHandler(explodeHandler);
   r.writeHandler(compoundHandler);
   r.writeHandler(logHandler);
+  r.writeHandler(widgetCreateHandler);
+  r.writeHandler(widgetBrokenHandler);
+  r.writeHandler(widgetUpdateHandler);
+  r.writeHandler(annotateHandler);
 });
 
 let stack: TestStack;
@@ -152,6 +282,9 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // Push the read-side-projection table — not registered as an entity,
     // so push-entity-projection-tables doesn't pick it up automatically.
     await unsafePushTables(stack.db, { pipeline_demo_log: pipelineDemoLogTable });
+    // Aggregate-projection table for the widget entity. setupTestStack
+    // doesn't push entity-tables out of the box for ad-hoc test entities.
+    await unsafeCreateEntityTable(stack.db, widgetEntity);
   });
 
   afterAll(async () => {
@@ -260,6 +393,98 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
       .where(eq(pipelineDemoLogTable.correlationId, "corr-2"));
     expect(rows).toHaveLength(1);
     expect(rows[0]?.message).toBe("v2 — overwritten");
+  });
+
+  test("aggregate.create opens a stream via the real event-store and lands the SaveContext under steps.<name>", async () => {
+    const res = await stack.http.write(
+      "demo-pipeline:write:widget:create",
+      { label: "first widget" },
+      admin,
+    );
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { isSuccess: true; data: { id: string } };
+    expect(body.isSuccess).toBe(true);
+    expect(body.data.id).toMatch(/^[0-9a-f-]{36}$/i);
+
+    // Verify the projection-row landed too — the executor's inline
+    // projection writes into the widget table in the same TX.
+    const rows = await stack.db.select().from(widgetTable);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ label: "first widget", id: body.data.id });
+  });
+
+  test("aggregate.update writes a delta event + projection-row update on an existing stream", async () => {
+    // Seed: create a widget first.
+    const created = await stack.http.write(
+      "demo-pipeline:write:widget:create",
+      { label: "before" },
+      admin,
+    );
+    const createdBody = (await created.json()) as { isSuccess: true; data: { id: string } };
+    const widgetId = createdBody.data.id;
+
+    // Update its label.
+    const updated = await stack.http.write(
+      "demo-pipeline:write:widget:update",
+      { id: widgetId, label: "after" },
+      admin,
+    );
+    expect(updated.status).toBe(200);
+    const updatedBody = (await updated.json()) as { isSuccess: true; data: { id: string } };
+    expect(updatedBody.data.id).toBe(widgetId);
+
+    // Projection-row reflects the new label.
+    const rows = await stack.db.select().from(widgetTable).where(eq(widgetTable.id, widgetId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: widgetId, label: "after" });
+  });
+
+  test("aggregate.appendEvent writes an additional domain event onto the same aggregate stream", async () => {
+    const res = await stack.http.write(
+      "demo-pipeline:write:widget:annotate",
+      { label: "annotated widget", note: "first note" },
+      admin,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isSuccess: true; data: { id: string } };
+    const widgetId = body.data.id;
+
+    // The aggregate stream should carry both the auto-generated CRUD
+    // event (widget.created) AND the appended annotated event. Direct
+    // event-store query is the simplest assertion.
+    const events = await stack.db
+      .select()
+      .from(eventsTable)
+      .where(eq(eventsTable.aggregateId, widgetId));
+    const types = events.map((e) => e["type"]);
+    expect(types).toContain("demo-pipeline:event:annotated");
+    expect(types.length).toBeGreaterThanOrEqual(2); // created + annotated
+  });
+
+  test("aggregate.create executor-failure surfaces as a write-failure (non-2xx, isSuccess: false)", async () => {
+    // widgetBrokenHandler intentionally drops the required `label` —
+    // executor.create runs into a NOT NULL constraint violation. The
+    // step re-raises (or the executor returns WriteFailure), and the
+    // dispatcher catches + serialises to the standard failure shape.
+    // We don't pin the exact status — schema-level validation is a
+    // 4xx, DB-constraint mapping in the executor lands as 5xx
+    // depending on driver. The point is: failure visible, no leaked row.
+
+    // Capture row-count before — beforeEach doesn't truncate widget,
+    // earlier tests in this run leave rows. We assert "broken did not
+    // add a new row" by comparing before/after.
+    const before = await stack.db.select().from(widgetTable);
+
+    const res = await stack.http.write("demo-pipeline:write:widget:create-broken", {}, admin);
+    expect(res.status).not.toBe(200);
+
+    const body = (await res.json()) as { isSuccess: false; error: { code: string } };
+    expect(body.isSuccess).toBe(false);
+    expect(body.error.code).toBeDefined();
+
+    const after = await stack.db.select().from(widgetTable);
+    expect(after).toHaveLength(before.length);
   });
 
   test("a step that throws maps to a standard write-failure (dispatcher catch)", async () => {
