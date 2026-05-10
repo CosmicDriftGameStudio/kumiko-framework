@@ -28,6 +28,7 @@
     "runtime": "runtime"
   },
   "exports": {
+    "./compliance": "./src/compliance/index.ts",
     "./engine": "./src/engine/index.ts",
     "./engine/types": "./src/engine/types/index.ts",
     "./errors": "./src/errors/index.ts",
