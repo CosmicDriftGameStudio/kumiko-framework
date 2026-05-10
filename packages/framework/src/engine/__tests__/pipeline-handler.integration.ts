@@ -269,6 +269,27 @@ const widgetBrokenHandler = defineWriteHandler({
   ]),
 });
 
+// Rollback test: aggregate.create succeeds, then a later compute step
+// throws. The dispatcher's TX wraps the whole handler — both the
+// aggregate event AND the projection row from create() must roll back.
+// Without TX-rollback, the handler-form would silently leak partial
+// state on a mid-pipeline failure.
+const widgetCreateThenThrowHandler = defineWriteHandler({
+  name: "widget:create-then-throw",
+  schema: z.object({ label: z.string() }),
+  access: { roles: ["Admin"] },
+  perform: pipeline<{ label: string }, never>(({ event, r }) => [
+    r.step.aggregate.create("widget", {
+      executor: widgetExecutor,
+      data: () => ({ label: event.payload.label }),
+    }),
+    r.step.compute("explode", () => {
+      throw new Error("rollback-test: throwing AFTER aggregate.create");
+    }),
+    r.step.return({ isSuccess: true as const, data: undefined as never }),
+  ]),
+});
+
 // M.1.5 handlers — read + projection-delete. lookup-then-update reads
 // from widgetTable (an aggregate-projection — fine for read.*, only
 // writes are blocked by the boot-validator). delete-log purges old
@@ -406,6 +427,7 @@ const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.writeHandler(logHandler);
   r.writeHandler(widgetCreateHandler);
   r.writeHandler(widgetBrokenHandler);
+  r.writeHandler(widgetCreateThenThrowHandler);
   r.writeHandler(widgetUpdateHandler);
   r.writeHandler(annotateHandler);
   r.writeHandler(lookupHandler);
@@ -792,5 +814,28 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     const body = (await res.json()) as { isSuccess: false; error: { code: string } };
     expect(body.isSuccess).toBe(false);
     expect(body.error.code).toBe("internal_error");
+  });
+
+  test("aggregate.create rolls back when a later step throws (no event, no projection-row)", async () => {
+    // Critical correctness check: pipeline-form handlers must obey the
+    // dispatcher's TX boundary. aggregate.create succeeds, then a
+    // compute step throws — both the event-store append AND the
+    // projection-row insert that aggregate.create performed must
+    // disappear with the rollback. Otherwise pipeline-form handlers
+    // silently leak partial state on mid-pipeline failures.
+    const beforeWidgets = await stack.db.select().from(widgetTable);
+    const beforeEvents = await stack.db.select().from(eventsTable);
+
+    const res = await stack.http.write(
+      "demo-pipeline:write:widget:create-then-throw",
+      { label: "should-not-persist" },
+      admin,
+    );
+    expect(res.status).toBe(500);
+
+    const afterWidgets = await stack.db.select().from(widgetTable);
+    const afterEvents = await stack.db.select().from(eventsTable);
+    expect(afterWidgets.length).toBe(beforeWidgets.length);
+    expect(afterEvents.length).toBe(beforeEvents.length);
   });
 });
