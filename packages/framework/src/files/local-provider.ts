@@ -60,8 +60,16 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
       return {
         async *[Symbol.asyncIterator]() {
           for await (const chunk of stream) {
-            // @cast-boundary node-stream — Buffer extends Uint8Array.
-            yield chunk as Uint8Array;
+            // Stream ohne encoding liefert Buffer. Buffer extends Uint8Array,
+            // aber @types/node typt asyncIterator als string|Buffer. View
+            // ohne copy auf dasselbe ArrayBuffer; runtime-check schliesst
+            // den string-Branch aus (Stream wurde nicht mit encoding= gesetzt).
+            if (typeof chunk === "string") {
+              throw new Error(
+                "local-provider readStream: unexpected string chunk (encoding leaked)",
+              );
+            }
+            yield new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
           }
         },
       };
