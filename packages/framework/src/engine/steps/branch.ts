@@ -29,6 +29,7 @@
 import { defineStep } from "../define-step";
 import { runStepList } from "../run-pipeline";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { validateNoReturnSteps } from "./_no-return-guard";
 
 type BranchArgs = {
   readonly if: StepResolver<boolean>;
@@ -67,19 +68,4 @@ export function buildBranchStep(args: BranchArgs): StepInstance {
   validateNoReturnSteps(args.onTrue, "r.step.branch.onTrue");
   if (args.onFalse) validateNoReturnSteps(args.onFalse, "r.step.branch.onFalse");
   return { kind: "branch", args };
-}
-
-// Build-time guard for Q12 — sub-pipelines may not contain r.step.return.
-// Checked at builder-call so authoring mistakes surface at module-load,
-// not at runtime. (Boot-validator does the recursive walk for
-// unsafeProjection-allowlist; this guard is per-builder + return-only.)
-function validateNoReturnSteps(steps: readonly StepInstance[], where: string): void {
-  for (const step of steps) {
-    if (step.kind === "return") {
-      throw new Error(
-        `r.step.return is not allowed inside ${where} — branch/forEach are side-effect containers (Q12). ` +
-          `Restructure the pipeline so the return happens at the top level.`,
-      );
-    }
-  }
 }

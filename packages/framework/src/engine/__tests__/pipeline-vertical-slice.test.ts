@@ -402,6 +402,44 @@ describe("r.step.* (unit)", () => {
       ).toThrow(/concurrency=5 not supported in M\.1\.6/);
     });
 
+    it("propagates a thrown error from a sub-step (try/finally restores scope)", async () => {
+      // Pipeline aborts on first sub-step throw — no further iterations
+      // and no subsequent top-level steps run. The try/finally in
+      // forEach.run also restores scope[as] (verified by the cleanup
+      // test above). This test pins the error-propagation half.
+      let postForEachRan = false;
+      const handlerDef = defineWriteHandler({
+        name: "demo:foreach-throws",
+        schema: z.object({}),
+        access: { roles: ["User"] },
+        perform: pipeline<Record<string, never>, never>(({ r }) => [
+          r.step.forEach({
+            over: () => [1, 2, 3],
+            as: "item",
+            do: [
+              r.step.compute("check", ({ scope }) => {
+                if (scope["item"] === 2) throw new Error("item-2-bang");
+                return null;
+              }),
+            ],
+          }),
+          r.step.compute("after", () => {
+            postForEachRan = true;
+            return null;
+          }),
+          r.step.return({ isSuccess: true as const, data: undefined as never }),
+        ]),
+      });
+
+      await expect(
+        handlerDef.handler(
+          { type: "demo:foreach-throws", payload: {}, user: TestUsers.admin },
+          buildMinimalCtx(),
+        ),
+      ).rejects.toThrow(/item-2-bang/);
+      expect(postForEachRan).toBe(false);
+    });
+
     it("throws when the over-resolver returns a non-array at runtime", async () => {
       const handlerDef = defineWriteHandler({
         name: "demo:foreach-bad-over",
@@ -690,6 +728,51 @@ describe("r.step.* (unit)", () => {
       expect(() => validateProjectionAllowlist([featureWithLoopedUnsafe])).toThrow(
         /did not declare it via r\.requires\.projection\("validate_demo_log"\)/,
       );
+    });
+
+    it("does NOT recurse into unknown step-kind sub-arrays — SUB_PIPELINE_KINDS is the registration gate", () => {
+      // Pins the Followup #15 risk: when M.2+ adds a new sub-step-builder
+      // (e.g. r.step.workflow.race), its sub-arrays escape this validator
+      // unless its kind is registered in SUB_PIPELINE_KINDS. This test
+      // demonstrates the gap with a hand-crafted unknown-kind step. If
+      // walkAllSteps' generator ever loses its kind-check (eager-recurse
+      // refactor), this test breaks — the contract is intentional, not
+      // accidental.
+      const featureWithUnknownSubBuilder = defineFeature("vproj-future-builder", (r) => {
+        // Allowlist is satisfied; the only thing that could trip the
+        // validator is the nested step inside the unknown kind.
+        r.requires.projection("validate_demo_log");
+        r.writeHandler(
+          defineWriteHandler({
+            name: "futureBuilder",
+            schema: z.object({}),
+            access: { roles: ["User"] },
+            perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+              // Hand-crafted StepInstance simulating a future builder
+              // whose kind isn't in SUB_PIPELINE_KINDS yet.
+              {
+                kind: "future-sub-builder",
+                args: {
+                  children: [
+                    r.step.unsafeProjectionUpsert({
+                      table: demoLogTable,
+                      on: ["id"],
+                      row: () => ({ message: "should escape allowlist" }),
+                    }),
+                  ],
+                },
+              },
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
+      });
+
+      // Validator does NOT throw — proves the unknown-kind sub-array
+      // was not walked. (If it walked, the nested unsafeProjectionUpsert
+      // would still pass because the table is declared. The point is
+      // the SHAPE of the gate, demonstrated explicitly.)
+      expect(() => validateProjectionAllowlist([featureWithUnknownSubBuilder])).not.toThrow();
     });
 
     it("accepts unsafeProjectionUpsert when the table is declared and not an aggregate", () => {

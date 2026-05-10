@@ -36,6 +36,7 @@
 import { defineStep } from "../define-step";
 import { runStepList } from "../run-pipeline";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { validateNoReturnSteps } from "./_no-return-guard";
 
 type ForEachArgs<TItem = unknown> = {
   readonly over: StepResolver<readonly TItem[]>;
@@ -94,19 +95,4 @@ export function buildForEachStep<TItem = unknown>(args: ForEachArgs<TItem>): Ste
     );
   }
   return { kind: "forEach", args };
-}
-
-// Mirrors the Q12 guard in branch.ts. Kept inline rather than shared
-// because both files are small and the guard's wording is step-specific
-// (different error-message location string). Extract when a third
-// sub-step-builder lands.
-function validateNoReturnSteps(steps: readonly StepInstance[], where: string): void {
-  for (const step of steps) {
-    if (step.kind === "return") {
-      throw new Error(
-        `r.step.return is not allowed inside ${where} — branch/forEach are side-effect containers (Q12). ` +
-          `Restructure the pipeline so the return happens at the top level.`,
-      );
-    }
-  }
 }

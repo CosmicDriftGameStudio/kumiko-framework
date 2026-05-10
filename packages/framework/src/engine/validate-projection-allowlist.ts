@@ -39,6 +39,17 @@ const UNSAFE_PROJECTION_KINDS = new Set(["unsafeProjectionUpsert", "unsafeProjec
 // unsafeProjection-* nested in branch/forEach (Q17). Without this,
 // `r.step.forEach({ do: [r.step.unsafeProjectionUpsert(...)] })`
 // would bypass the allowlist gate.
+//
+// !! REGISTRATION GATE !!
+// Every NEW sub-step-builder added in M.2+ MUST register its sub-array-
+// arg-paths here, otherwise nested unsafeProjection-* steps escape this
+// validator silently. There is no auto-discovery; the test
+// "walkAllSteps does NOT recurse into unknown step-kind sub-arrays" in
+// pipeline-vertical-slice.test.ts pins that behaviour explicitly so
+// the gap is visible.
+//
+// Self-registration via `defineStep({ subPaths: [...] })` is M.2-Vorlauf
+// (Followup #15) — premature with only 2 entries today.
 const SUB_PIPELINE_KINDS: Record<string, readonly string[]> = {
   branch: ["onTrue", "onFalse"],
   forEach: ["do"],
