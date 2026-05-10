@@ -22,7 +22,7 @@ import {
   type FileStorageProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
@@ -58,10 +58,10 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
     ],
   });
-  await createEntityTable(stack.db, exportJobEntity);
-  await createEntityTable(stack.db, exportDownloadTokenEntity);
-  await createEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, exportJobEntity);
+  await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
+  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
   await createEventsTable(stack.db);
   // tenant-membership-table fuer runUserExport's Cross-Tenant-Iteration.
   // Pattern matched user-data-rights-defaults integration-test.
@@ -736,9 +736,9 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
         testFileExporter,
       ],
     });
-    await createEntityTable(localStack.db, exportJobEntity);
-    await createEntityTable(localStack.db, exportDownloadTokenEntity);
-    await createEntityTable(localStack.db, tenantComplianceProfileEntity);
+    await unsafeCreateEntityTable(localStack.db, exportJobEntity);
+    await unsafeCreateEntityTable(localStack.db, exportDownloadTokenEntity);
+    await unsafeCreateEntityTable(localStack.db, tenantComplianceProfileEntity);
     await createEventsTable(localStack.db);
     await localStack.db.execute(sql`
       CREATE TABLE IF NOT EXISTS read_tenant_memberships (

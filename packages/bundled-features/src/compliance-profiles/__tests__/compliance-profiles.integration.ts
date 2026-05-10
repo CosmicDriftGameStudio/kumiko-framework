@@ -1,7 +1,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
@@ -34,7 +34,7 @@ const feature = createComplianceProfilesFeature();
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   db = stack.db;
-  await createEntityTable(db, tenantComplianceProfileEntity);
+  await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await createEventsTable(db);
 });
 

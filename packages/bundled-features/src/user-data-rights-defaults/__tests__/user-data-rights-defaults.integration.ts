@@ -11,7 +11,7 @@
 //     fileRef-Forget beruehrt Tenant B's Files nicht)
 
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -49,7 +49,7 @@ beforeAll(async () => {
   // userEntity via Framework-Helper migrieren (kennt softDelete +
   // automatische tenant_id-Spalte — die manuell-CREATE wuerde mit
   // Drizzle-Generated-Queries kollidieren).
-  await createEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
 
   // file_refs ist framework-pgTable (nicht entity-getrieben, S1.5 hat
   // die Schema-Sicht ohne buildDrizzleTable-Auto-Generation). Manuelle

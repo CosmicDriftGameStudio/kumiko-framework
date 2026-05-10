@@ -7,7 +7,7 @@
 // Sicherheitsnetz.
 
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -20,7 +20,7 @@ const feature = createDataRetentionFeature();
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
-  await createEntityTable(stack.db, tenantRetentionOverrideEntity);
+  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
 });
 
 afterAll(async () => {

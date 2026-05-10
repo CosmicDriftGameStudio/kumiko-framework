@@ -8,7 +8,7 @@ import {
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
@@ -58,7 +58,7 @@ async function seedOverride(
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   db = stack.db;
-  await createEntityTable(db, tenantRetentionOverrideEntity);
+  await unsafeCreateEntityTable(db, tenantRetentionOverrideEntity);
 });
 
 afterAll(async () => {

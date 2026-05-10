@@ -16,9 +16,9 @@ import {
   type FileStorageProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   createTestUser,
-  pushTables,
+  unsafePushTables,
   setupTestStack,
   type TestStack,
   testTenantId,
@@ -122,10 +122,10 @@ beforeAll(async () => {
       defaultTenantId: tenantA,
     },
   });
-  await createEntityTable(stack.db, exportJobEntity);
-  await createEntityTable(stack.db, exportDownloadTokenEntity);
-  await createEntityTable(stack.db, tenantComplianceProfileEntity);
-  await pushTables(stack.db, { configValuesTable });
+  await unsafeCreateEntityTable(stack.db, exportJobEntity);
+  await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
+  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
+  await unsafePushTables(stack.db, { configValuesTable });
   await createEventsTable(stack.db);
   await stack.db.execute(sql`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (

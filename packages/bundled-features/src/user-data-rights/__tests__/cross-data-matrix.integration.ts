@@ -19,7 +19,7 @@ import {
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -104,9 +104,9 @@ beforeAll(async () => {
     ],
   });
 
-  await createEntityTable(stack.db, userEntity);
-  await createEntityTable(stack.db, tenantRetentionOverrideEntity);
-  await createEntityTable(stack.db, tenantComplianceProfileEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
+  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await stack.db.execute(sql`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

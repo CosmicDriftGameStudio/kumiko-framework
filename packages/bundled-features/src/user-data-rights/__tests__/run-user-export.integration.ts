@@ -15,7 +15,7 @@
 //     ueber Pseudo-Tenant.
 
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -56,7 +56,7 @@ beforeAll(async () => {
     ],
   });
 
-  await createEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
   await stack.db.execute(sql`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

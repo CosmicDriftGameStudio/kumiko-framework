@@ -16,7 +16,7 @@
 // der end-to-end-Default-Pfad (delete).
 
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -66,8 +66,8 @@ beforeAll(async () => {
     ],
   });
 
-  await createEntityTable(stack.db, userEntity);
-  await createEntityTable(stack.db, tenantRetentionOverrideEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   // tenant-membership-Tabelle (von tenant-feature) manuell anlegen weil
   // wir ohne tenant-feature im stack arbeiten — minimaler Setup.
   await stack.db.execute(sql`

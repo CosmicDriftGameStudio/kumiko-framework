@@ -15,8 +15,8 @@ import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
-  pushTables,
+  unsafeCreateEntityTable,
+  unsafePushTables,
   setupTestStack,
   type TestStack,
   TestUsers,
@@ -84,12 +84,12 @@ beforeAll(async () => {
   });
   callbacks.set(createSessionCallbacks({ db: stack.db }));
 
-  await createEntityTable(stack.db, userEntity);
-  await createEntityTable(stack.db, tenantEntity);
-  await createEntityTable(stack.db, userSessionEntity);
-  await createEntityTable(stack.db, tenantComplianceProfileEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
+  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await createEventsTable(stack.db);
-  await pushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {

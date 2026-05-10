@@ -19,7 +19,7 @@
 
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
@@ -54,7 +54,7 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
     ],
   });
-  await createEntityTable(stack.db, exportJobEntity);
+  await unsafeCreateEntityTable(stack.db, exportJobEntity);
   await createEventsTable(stack.db);
 });
 

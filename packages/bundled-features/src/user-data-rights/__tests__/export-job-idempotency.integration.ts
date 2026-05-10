@@ -10,7 +10,7 @@
 // reale Postgres + Drizzle-customType-Codec-Path braucht.
 
 import {
-  createEntityTable,
+  unsafeCreateEntityTable,
   setupTestStack,
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -44,7 +44,7 @@ beforeAll(async () => {
     ],
   });
 
-  await createEntityTable(stack.db, exportJobEntity);
+  await unsafeCreateEntityTable(stack.db, exportJobEntity);
 });
 
 afterAll(async () => {
