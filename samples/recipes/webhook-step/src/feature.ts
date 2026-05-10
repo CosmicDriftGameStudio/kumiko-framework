@@ -32,6 +32,8 @@ const incidentExecutor = createEventStoreExecutor(incidentTable, incidentEntity,
 export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
   r.entity("incident", incidentEntity);
   r.requires.step("webhook.send");
+  r.requires.step("mail.send");
+  r.requires.step("callFeature");
 
   r.writeHandler(
     defineWriteHandler({
@@ -65,6 +67,66 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
           data: { id: (steps["incident"] as { id: string }).id },
         })),
       ]),
+    }),
+  );
+
+  // mail.send variant — same deferred shape, different stepKind.
+  // Step-dispatcher MSP routes to performMailDispatch.
+  r.writeHandler(
+    defineWriteHandler({
+      name: "incident:notify-via-mail",
+      schema: z.object({
+        to: z.string(),
+        title: z.string(),
+        severity: z.enum(["low", "medium", "high"]),
+      }),
+      access: { roles: ["Admin"] },
+      perform: pipeline<
+        { to: string; title: string; severity: "low" | "medium" | "high" },
+        { id: string }
+      >(({ event, r }) => [
+        r.step.aggregate.create("incident", {
+          executor: incidentExecutor,
+          data: () => ({ title: event.payload.title, severity: event.payload.severity }),
+        }),
+        r.step.mail.send({
+          to: () => event.payload.to,
+          subject: () => `Incident: ${event.payload.title}`,
+          body: () => `Severity ${event.payload.severity}`,
+          mode: "deferred",
+        }),
+        r.step.return(({ steps }) => ({
+          isSuccess: true as const,
+          data: { id: (steps["incident"] as { id: string }).id },
+        })),
+      ]),
+    }),
+  );
+
+  // callFeature variant — sync sub-command on the same feature's
+  // incident:open. Threads the result of the callFeature step into
+  // the wrapper's response.
+  r.writeHandler(
+    defineWriteHandler({
+      name: "incident:open-via-call",
+      schema: z.object({ title: z.string(), severity: z.enum(["low", "medium", "high"]) }),
+      access: { roles: ["Admin"] },
+      perform: pipeline<{ title: string; severity: "low" | "medium" | "high" }, { id: string }>(
+        ({ event, r }) => [
+          r.step.callFeature("inner", {
+            handler: "webhook-demo:write:incident:open",
+            payload: () => ({
+              title: event.payload.title,
+              severity: event.payload.severity,
+              webhookUrl: "https://hooks.example/from-callFeature",
+            }),
+          }),
+          r.step.return(({ steps }) => ({
+            isSuccess: true as const,
+            data: { id: (steps["inner"] as { id: string }).id },
+          })),
+        ],
+      ),
     }),
   );
 

@@ -398,6 +398,52 @@ describe("validateProjectionAllowlist", () => {
     );
   });
 
+  it("rejects mail.send without r.requires.step(...) declaration", () => {
+    const sneakyMail = defineFeature("step-discovery-mail-missing", (r) => {
+      r.writeHandler(
+        defineWriteHandler({
+          name: "sneak",
+          schema: z.object({}),
+          access: { roles: ["Admin"] },
+          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+            r.step.mail.send({
+              to: "x@y.com",
+              subject: "hi",
+              body: "hello",
+              mode: "deferred",
+            }),
+            r.step.return({ isSuccess: true as const, data: { ok: true } }),
+          ]),
+        }),
+      );
+    });
+    expect(() => validateProjectionAllowlist([sneakyMail])).toThrow(
+      /did not declare it via r\.requires\.step\("mail\.send"\)/,
+    );
+  });
+
+  it("rejects callFeature without r.requires.step(...) declaration", () => {
+    const sneakyCall = defineFeature("step-discovery-call-missing", (r) => {
+      r.writeHandler(
+        defineWriteHandler({
+          name: "sneak",
+          schema: z.object({}),
+          access: { roles: ["Admin"] },
+          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+            r.step.callFeature("subResult", {
+              handler: "other:write:do",
+              payload: () => ({}),
+            }),
+            r.step.return({ isSuccess: true as const, data: { ok: true } }),
+          ]),
+        }),
+      );
+    });
+    expect(() => validateProjectionAllowlist([sneakyCall])).toThrow(
+      /did not declare it via r\.requires\.step\("callFeature"\)/,
+    );
+  });
+
   it("accepts a tier-2 step when r.requires.step(...) is declared", () => {
     const happyFeature = defineFeature("step-discovery-happy", (r) => {
       r.requires.step("webhook.send");

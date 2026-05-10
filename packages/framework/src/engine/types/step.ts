@@ -271,6 +271,23 @@ export type StepNamespace = {
       readonly retry?: { readonly times: number; readonly backoff: "exponential" | "linear" };
     }) => StepInstance;
   };
+  readonly mail: {
+    readonly send: (args: {
+      readonly to: StepResolver<string | readonly string[]>;
+      readonly subject: StepResolver<string>;
+      readonly body: StepResolver<string>;
+      readonly from?: StepResolver<string>;
+      readonly mode: "deferred";
+    }) => StepInstance;
+  };
+  readonly callFeature: (
+    name: string,
+    opts: {
+      readonly handler: string;
+      readonly payload: StepResolver<unknown>;
+      readonly as?: import("./handlers").SessionUser;
+    },
+  ) => StepInstance;
 };
 
 // SaveContext is the result-type of aggregate.create / aggregate.update;

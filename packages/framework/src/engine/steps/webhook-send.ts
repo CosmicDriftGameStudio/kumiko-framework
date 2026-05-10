@@ -9,15 +9,19 @@ import { randomUUID } from "node:crypto";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveOptional, resolveRequired } from "./_resolver-utils";
+import {
+  STEP_DISPATCH_AGGREGATE_TYPE,
+  STEP_DISPATCH_REQUESTED_TYPE,
+} from "./_step-dispatch-constants";
 
-export const STEP_DISPATCH_AGGREGATE_TYPE = "step-dispatch";
-// System-event namespace (kumiko:system:*) — bypasses registry +
-// ownership checks in append-event-core. Reserved for framework-internal
-// step-engine coordination. The bundled step-dispatcher MSP listens
-// for the literal type-string.
-export const STEP_DISPATCH_REQUESTED_TYPE = "kumiko:system:step.dispatch-requested";
-export const STEP_DISPATCHED_TYPE = "kumiko:system:step.dispatched";
-export const STEP_DISPATCH_FAILED_TYPE = "kumiko:system:step.dispatch-failed";
+// Re-export for back-compat callers (bundled step-dispatcher imports
+// these). The canonical home is _step-dispatch-constants.ts.
+export {
+  STEP_DISPATCH_AGGREGATE_TYPE,
+  STEP_DISPATCH_FAILED_TYPE,
+  STEP_DISPATCH_REQUESTED_TYPE,
+  STEP_DISPATCHED_TYPE,
+} from "./_step-dispatch-constants";
 
 type WebhookHttpMethod = "POST" | "PUT" | "PATCH";
 

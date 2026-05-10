@@ -5,6 +5,7 @@
 
 import {
   createStepDispatcherFeature,
+  setMailRunner,
   setWebhookFetch,
 } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import {
@@ -22,9 +23,17 @@ let stack: TestStack;
 const admin = createTestUser({ roles: ["Admin"] });
 
 const fetchMock = vi.fn<typeof fetch>();
+const mailMock =
+  vi.fn<
+    (spec: { to: string | readonly string[]; subject: string; body: string }) => Promise<{
+      ok: true;
+      status: number;
+    }>
+  >();
 
 beforeAll(async () => {
   setWebhookFetch(fetchMock);
+  setMailRunner(async (spec) => mailMock(spec));
   stack = await setupTestStack({
     features: [createStepDispatcherFeature(), webhookDemoFeature],
     systemHooks: [],
@@ -38,6 +47,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   fetchMock.mockReset();
+  mailMock.mockReset();
+  mailMock.mockResolvedValue({ ok: true, status: 202 });
   await resetEventStore(stack, ["read_webhook_demo_incidents"]);
   await stack.redis.flushNamespace();
   await stack.eventDispatcher?.ensureRegistered();
@@ -68,6 +79,47 @@ describe("webhook-step Sample", () => {
     expect(init?.method).toBe("POST");
     const body = JSON.parse(init?.body as string);
     expect(body).toMatchObject({ event: "incident-opened", id, severity: "high" });
+  });
+
+  test("incident:notify-via-mail dispatches mail.send through the same MSP", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      "webhook-demo:write:incident:notify-via-mail",
+      { to: "ops@example.com", title: "DB outage", severity: "high" },
+      admin,
+    );
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+
+    await stack.eventDispatcher?.runOnce();
+
+    expect(mailMock).toHaveBeenCalledTimes(1);
+    expect(mailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "ops@example.com",
+        subject: "Incident: DB outage",
+        body: "Severity high",
+      }),
+    );
+    // webhook didn't fire — different stepKind
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("incident:open-via-call invokes incident:open via callFeature and threads the result", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      "webhook-demo:write:incident:open-via-call",
+      { title: "Network hiccup", severity: "low" },
+      admin,
+    );
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+
+    // The inner incident:open ran and committed an aggregate
+    const [row] = await stack.db.select().from(incidentTable).where(eq(incidentTable.id, id));
+    expect(row).toMatchObject({ title: "Network hiccup", severity: "low" });
+
+    // And the inner handler's webhook fired
+    await stack.eventDispatcher?.runOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   test("rollback: webhook does NOT fire when a later step throws", async () => {

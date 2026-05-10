@@ -8,6 +8,7 @@
 // the audit trail lives in the event log only — no separate status table.
 
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { type MailSpec, performMailDispatch } from "./mail-runner";
 import { performWebhookDispatch, type WebhookSpec } from "./webhook-runner";
 
 export const STEP_DISPATCH_AGGREGATE_TYPE = "step-dispatch";
@@ -15,11 +16,16 @@ export const STEP_DISPATCH_REQUESTED_TYPE = "kumiko:system:step.dispatch-request
 export const STEP_DISPATCHED_TYPE = "kumiko:system:step.dispatched";
 export const STEP_DISPATCH_FAILED_TYPE = "kumiko:system:step.dispatch-failed";
 
-type DispatchRequestedPayload = {
-  readonly stepKind: "webhook.send";
-  readonly spec: WebhookSpec;
-  readonly retry: { readonly times: number; readonly backoff: "exponential" | "linear" };
-};
+type DispatchRequestedPayload =
+  | {
+      readonly stepKind: "webhook.send";
+      readonly spec: WebhookSpec;
+      readonly retry?: { readonly times: number; readonly backoff: "exponential" | "linear" };
+    }
+  | {
+      readonly stepKind: "mail.send";
+      readonly spec: MailSpec;
+    };
 
 export function createStepDispatcherFeature(): FeatureDefinition {
   return defineFeature("step-dispatcher", (r) => {
@@ -30,8 +36,10 @@ export function createStepDispatcherFeature(): FeatureDefinition {
       apply: {
         [STEP_DISPATCH_REQUESTED_TYPE]: async (event, _tx, ctx) => {
           const payload = event.payload as DispatchRequestedPayload;
-          if (payload.stepKind !== "webhook.send") return;
-          const result = await performWebhookDispatch(payload.spec);
+          const result =
+            payload.stepKind === "webhook.send"
+              ? await performWebhookDispatch(payload.spec)
+              : await performMailDispatch(payload.spec);
           if (result.ok) {
             await ctx.unsafeAppendEvent({
               aggregateId: event.aggregateId,
