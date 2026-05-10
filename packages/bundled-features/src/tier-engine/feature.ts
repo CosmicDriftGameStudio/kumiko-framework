@@ -253,12 +253,22 @@ export function createTierEngineFeature<
           if (!ctx.db) return;
 
           // ctx.db ist im inTransaction-phase eine TenantDb (tenant-scoped
-          // proxy auf die echte TX). Für event-store-reads (cross-tenant
-          // stream-lookup via aggregate-id) brauchen wir die rohe TX —
-          // TenantDb wrapped die echte DbConnection, der select-call
-          // funktioniert structural identisch. Cast als DbConnection ist
-          // boundary-cast für event-store-API, kein narrowing-escape.
-          const rawDb = ctx.db as DbConnection;
+          // proxy auf die echte TX). Für event-store-Pfade brauchen wir
+          // die rohe DbConnection — TenantDb exposes nur select/insert/
+          // update/delete, NICHT execute (event-store-append.ts:102 ruft
+          // db.execute(sql`SELECT pg_notify(...)`) → TypeError sonst).
+          // Pattern matched signup-confirm.write.ts:107 (.raw), nicht
+          // `as DbConnection` — das ist Type-Lie der erst beim ersten
+          // .execute()-Call crashed.
+          //
+          // AppContext.db ist union (DbConnection | TenantDb). Im
+          // inTransaction-phase garantiert TenantDb — der dispatcher
+          // wrapped vorher (siehe pipeline/dispatcher.ts createTenantDb-
+          // Aufruf). TypeGuard via `"raw" in ...` ist robuster als
+          // `as TenantDb` gegen future refactor.
+          // skip: defensive — sollte im inTransaction nie greifen.
+          if (!("raw" in ctx.db)) return;
+          const rawDb = ctx.db.raw as DbConnection;
 
           // Idempotency: stream-existence-check vor create. Pattern aus
           // seedTenant.ts. Bei re-replay (rebuild) nicht versionsbumpen.

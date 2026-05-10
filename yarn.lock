@@ -1606,6 +1606,26 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@cosmicdrift/kumiko-sample-user-data-rights-demo@workspace:samples/apps/user-data-rights-demo":
+  version: 0.0.0-use.local
+  resolution: "@cosmicdrift/kumiko-sample-user-data-rights-demo@workspace:samples/apps/user-data-rights-demo"
+  dependencies:
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*"
+    "@cosmicdrift/kumiko-dev-server": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+    zod: "npm:^4.3.6"
+  languageName: unknown
+  linkType: soft
+
+"@cosmicdrift/kumiko-sample-user-data-rights@workspace:samples/recipes/user-data-rights":
+  version: 0.0.0-use.local
+  resolution: "@cosmicdrift/kumiko-sample-user-data-rights@workspace:samples/recipes/user-data-rights"
+  dependencies:
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  languageName: unknown
+  linkType: soft
+
 "@cosmicdrift/kumiko-sample-ui-walkthrough@workspace:samples/apps/ui-walkthrough":
   version: 0.0.0-use.local
   resolution: "@cosmicdrift/kumiko-sample-ui-walkthrough@workspace:samples/apps/ui-walkthrough"
