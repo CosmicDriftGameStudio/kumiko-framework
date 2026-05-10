@@ -9,7 +9,7 @@ Deklariert `r.entity("fileRef", ...)` für die DB-Tabelle die das
 Framework via `createFileRoutes` (multipart-Upload + binary-Download)
 bewirtschaftet. Das öffnet die Tür für Cross-Feature-Hooks:
 
-- **Sprint 2** (`user-data-rights`) wird `r.useExtension(EXT_USER_DATA, "fileRef", { export, delete })` registrieren — Forget-Flow + Daten-Export fassen die Files automatisch an.
+- **Sprint 2** (`user-data-rights-defaults`) registriert `r.useExtension(EXT_USER_DATA, "fileRef", { export, delete })` — Forget-Flow + Daten-Export fassen die Files automatisch an. ✅ done
 - **Sprint 5** (`tenant-lifecycle`) wird `r.useExtension(EXT_TENANT_DATA, "fileRef", { destroy })` registrieren — Tenant-Destroy löscht alle FileRefs.
 
 ## Was es NICHT macht
