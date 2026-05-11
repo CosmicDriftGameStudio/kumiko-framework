@@ -55,6 +55,7 @@ export type {
   FieldRenderer,
   ListColumnSpec,
   PlatformComponent,
+  RowAction,
   ScreenDefinition,
   ScreenFilter,
   ScreenFilterOp,

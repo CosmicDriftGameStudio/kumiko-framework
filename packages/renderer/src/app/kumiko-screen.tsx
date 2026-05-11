@@ -4,6 +4,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  RowAction,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
@@ -82,7 +83,7 @@ export function KumikoScreen({
 }: KumikoScreenProps): ReactNode {
   const { Banner, Text } = usePrimitives();
   const screen = useMemo(
-    () => schema.screens.find((s) => qualifyScreenId(schema.featureName, s.id) === qn),
+    () => schema.screens.find((s: ScreenDefinition) => qualifyScreenId(schema.featureName, s.id) === qn),
     [schema.featureName, schema.screens, qn],
   );
 
@@ -162,7 +163,7 @@ function entityWriteCommand(
 function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () => void {
   const nav = useNav();
   return useCallback(() => {
-    const list = schema.screens.find((s) => s.type === "entityList" && s.entity === entityName);
+    const list = schema.screens.find((s: ScreenDefinition) => s.type === "entityList" && s.entity === entityName);
     if (!list) return;
     // schema.screens.id ist QN-form (registry-stamped); nav.navigate
     // erwartet Short-Form. Sonst landet die URL doppelt-qualifiziert.
@@ -184,7 +185,7 @@ function useNavigateToCreateFor(
 ): (() => void) | undefined {
   const nav = useNav();
   const editScreenId = useMemo(() => {
-    const edit = schema.screens.find((s) => s.type === "entityEdit" && s.entity === entityName);
+    const edit = schema.screens.find((s: ScreenDefinition) => s.type === "entityEdit" && s.entity === entityName);
     return edit !== undefined ? lastSegment(edit.id) : undefined;
   }, [schema.screens, entityName]);
   const navigate = useCallback(() => {
@@ -643,7 +644,7 @@ function EntityListBody({
   const rowActions = useMemo(() => {
     if (screen.rowActions === undefined) return undefined;
     return screen.rowActions
-      .map((action) => {
+      .map((action: RowAction) => {
         // navigate-Variante braucht keinen Dispatcher; nav ist
         // immer da (Provider von createKumikoApp).
         if (action.kind === "navigate") {
@@ -695,7 +696,7 @@ function EntityListBody({
           }),
         };
       })
-      .filter((a): a is NonNullable<typeof a> => a !== null);
+      .filter((a: RowAction | null): a is RowAction => a !== null);
   }, [screen.rowActions, effectiveTranslate, dispatcher, nav]);
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
@@ -707,7 +708,7 @@ function EntityListBody({
     return screen.toolbarActions
       .map(
         (
-          action,
+          action: RowAction,
         ): {
           id: string;
           label: string;
@@ -743,7 +744,7 @@ function EntityListBody({
           };
         },
       )
-      .filter((a): a is NonNullable<typeof a> => a !== null);
+      .filter((a: { id: string; label: string; style?: "primary" | "secondary" | "danger"; confirm?: string; confirmLabel?: string; onTrigger: () => Promise<void> | void } | null): a is { id: string; label: string; style?: "primary" | "secondary" | "danger"; confirm?: string; confirmLabel?: string; onTrigger: () => Promise<void> | void } => a !== null);
   }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
