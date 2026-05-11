@@ -7,7 +7,7 @@ import {
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
-import { UserQueries } from "../../user";
+import { USER_STATUS, UserQueries } from "../../user";
 import { parseAuthUserRow } from "../auth-user-row";
 import {
   AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
@@ -49,6 +49,19 @@ function accountLocked(retryAfterSeconds: number) {
       // schedule a retry. Rounded up so the UI never shows 0 while the
       // lock is still active.
       details: { retryAfterSeconds },
+    }),
+  );
+}
+
+// S2.U6 — DSGVO Art. 18 Account-Freeze. Distinct error code (nicht zu
+// invalid_credentials collapsen) damit UI klar sagen kann "Account ist
+// pausiert, hier klicken zum Aufheben". User weiss schon dass sein Konto
+// restricted ist (er hat selbst die Restriction gesetzt), also kein
+// Enumeration-Leak.
+function accountRestricted() {
+  return writeFailure(
+    new UnprocessableError(AuthErrors.accountRestricted, {
+      i18nKey: "auth.errors.accountRestricted",
     }),
   );
 }
@@ -143,6 +156,23 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       // leak because the signup flow already told the user "check your email".
       if (strictVerification && found.emailVerified !== true) {
         return emailNotVerified();
+      }
+
+      // S2.U6 — DSGVO Art. 18 Account-Freeze. Restricted users koennen sich
+      // nicht einloggen; lift-restriction-Endpoint ist der einzige Ausgang
+      // (siehe lift-restriction.write.ts Header — typisch via Magic-Link
+      // oder Operator-Tool, da Login geblockt). Auth-side Block ist hard-
+      // requirement; ohne den koennte der User mit Login-Sessions trotz
+      // Restriction-Flag durchschreiben.
+      //
+      // DeletionRequested + Deleted kollabieren bewusst auf invalid_creds
+      // (anti-enumeration im Forget-Pfad) — Restricted ist user-initiiert,
+      // distinct error ist hier safe.
+      if (found.status === USER_STATUS.Restricted) {
+        return accountRestricted();
+      }
+      if (found.status === USER_STATUS.DeletionRequested || found.status === USER_STATUS.Deleted) {
+        return invalidCredentials();
       }
 
       // Resolve tenant + roles via the tenant feature's memberships query.

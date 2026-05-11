@@ -1,8 +1,4 @@
-import {
-  defineFeature,
-  type FeatureDefinition,
-  type HandlerContext,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { deleteWrite } from "./handlers/delete.write";
@@ -24,7 +20,15 @@ export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./
 // wraps that raw context so every `.get(...)` call auto-includes the
 // current user + handler as audit metadata — feature code can't forget
 // to log the read (silent bypass of audit was the v1 gap).
-export function requireSecretsContext(ctx: HandlerContext, handlerName: string): SecretsContext {
+//
+// Surface bewusst minimal: HandlerContext-Pfade (Set/Delete-Handler) +
+// FileProviderContext-Pfade (S3-Plugin im Worker) liefern dieselben
+// zwei Felder, also reicht die schmale ctx-shape — kein voller
+// HandlerContext-Import noetig.
+export function requireSecretsContext(
+  ctx: { readonly secrets?: SecretsContext; readonly _userId?: string | undefined },
+  handlerName: string,
+): SecretsContext {
   if (!ctx.secrets) {
     throw new InternalError({
       message:
