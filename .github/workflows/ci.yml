@@ -47,6 +47,15 @@ jobs:
           restore-keys: |
             yarn-${{ runner.os }}-
 
+      - name: Cache TS Build Info
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/*.tsbuildinfo
+          key: tsbuildinfo-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            tsbuildinfo-${{ runner.os }}-
+
       # Yarn-Berry routet @scope→registry NUR via .yarnrc.yml's npmScopes,
       # NICHT via .npmrc. scope-Mapping kommt aus dem committed
       # .yarnrc.yml im Repo, der Auth-Token wird hier per ENV expandiert

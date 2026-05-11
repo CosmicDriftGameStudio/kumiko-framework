@@ -56,10 +56,10 @@ describe("r.rawTable — declaration", () => {
       });
     });
     expect(feature.rawTables).toHaveProperty("cache");
-    expect(feature.rawTables.cache?.reason).toBe(
+    expect(feature.rawTables["cache"]?.reason).toBe(
       "external Stripe webhook cache, write-only by webhook handler",
     );
-    expect(feature.rawTables.cache?.table).toBe(probeTable);
+    expect(feature.rawTables["cache"]?.table).toBe(probeTable);
   });
 });
 
