@@ -1,4 +1,6 @@
-# CI für kumiko-framework. Pattern: test + auto-publish via Changesets.
+# CI für kumiko-framework. Inline-Jobs (kein Cross-Repo-Reusable mehr) —
+# das verhindert dass infra public sein muss damit dieses public-Repo
+# seine Workflows ausführen kann.
 
 name: CI
 
@@ -14,26 +16,105 @@ concurrency:
 
 jobs:
   test:
-    # Full check: yarn kumiko check ruft alle 19 Guards via bunx
-    # (kumiko-guard-X bin-entries aus @cosmicdriftgamestudio/kumiko-guards).
-    # Standalone-CI-Detection in resolveRepoRoots() (siehe guards@0.1.2)
-    # erkennt cwd-basename als single root — keine ENV-Override nötig.
-    uses: cosmicdriftgamestudio/infra/.github/workflows/_test.yml@main
-    with:
-      test-command: "yarn kumiko check"
-      enable-gh-packages: true
-    secrets: inherit
+    runs-on: cdgs-runner
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.20"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Cache Yarn
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.yarn/cache
+            ~/.yarn/berry/cache
+            .yarn/cache
+          key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            yarn-${{ runner.os }}-
+
+      # Yarn-Berry routet @scope→registry NUR via .yarnrc.yml's npmScopes,
+      # NICHT via .npmrc. scope-Mapping kommt aus dem committed
+      # .yarnrc.yml im Repo, der Auth-Token wird hier per ENV expandiert
+      # (über `${GITHUB_TOKEN:-}` im yarnrc).
+      - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+          # GH-Packages-Read auf @cosmicdriftgamestudio/kumiko-guards aus
+          # dem private infra-Repo: default-GITHUB_TOKEN ist scoped auf
+          # eigenen Repo → cross-repo 403. GH_PACKAGES_PAT (PAT mit
+          # read:packages-Scope) fallback.
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: yarn install
+
+      - name: Run tests
+        run: yarn kumiko check
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
-    # Caller-Permissions sind die Obergrenze für reusable workflows. Das
-    # reusable braucht id-token:write für OIDC Trusted Publishing — wenn
-    # der Caller das nicht grantet, scheitert die Workflow-Validation
-    # vor dem ersten Step.
+    # github-hosted, NICHT cdgs-runner: npm akzeptiert sigstore-provenance-
+    # attestations nur von github-hosted runners (HTTP 422 sonst). Public
+    # Repo → github-hosted free. Test-Job bleibt auf cdgs-runner (resources).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
       pull-requests: write
       id-token: write
-    uses: cosmicdriftgamestudio/infra/.github/workflows/_npm-publish.yml@main
-    secrets: inherit
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.20"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: yarn install
+
+      - name: Build
+        run: yarn build
+
+      # OIDC Trusted Publishing + Provenance via npm-CLI (yarn-berry kann
+      # kein OIDC). scripts/publish-with-oidc.sh iteriert publishable
+      # workspaces, ruft `npm publish --provenance --access public`.
+      - uses: changesets/action@v1
+        with:
+          version: yarn changeset version
+          publish: bash scripts/publish-with-oidc.sh
+          commit: "chore: version packages"
+          title: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

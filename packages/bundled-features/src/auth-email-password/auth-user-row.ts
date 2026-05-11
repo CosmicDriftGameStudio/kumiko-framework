@@ -21,6 +21,12 @@ export type AuthUserRow = {
   // roles gelten (z.B. SystemAdmin, BillingAdmin). Caller deserialisiert via
   // parseRoles() vor dem Merge in die Session.
   readonly roles?: string | null;
+  // user.status (S2.U1) — "active" | "restricted" | "deletion_requested" |
+  // "deleted". Login.write.ts blockt Restricted (DSGVO Art. 18) sowie
+  // DeletionRequested + Deleted. Untyped string hier weil die Quelle
+  // user-feature-internes Enum ist; auth importiert den Constants-Wert
+  // an der Verwendungsstelle.
+  readonly status?: string | null;
 };
 
 // Returns the narrowed row or null — mirrors findForAuth's contract where
