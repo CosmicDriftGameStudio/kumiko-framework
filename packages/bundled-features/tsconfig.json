@@ -1,14 +1,13 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": "..",
+    "rootDir": "src",
     "outDir": "dist",
-    "paths": {
-      "@cosmicdrift/kumiko-framework/*": ["../framework/src/*/index.ts"]
-    },
     "noEmit": true,
     "jsx": "react-jsx",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "composite": true
   },
+  "references": [{ "path": "../framework" }],
   "include": ["src"]
 }

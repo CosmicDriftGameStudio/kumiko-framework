@@ -52,7 +52,7 @@ jobs:
         with:
           path: |
             **/*.tsbuildinfo
-          key: tsbuildinfo-${{ runner.os }}-${{ github.run_id }}
+          key: tsbuildinfo-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             tsbuildinfo-${{ runner.os }}-
 
