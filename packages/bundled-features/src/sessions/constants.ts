@@ -5,6 +5,10 @@ export const SESSIONS_FEATURE = "sessions" as const;
 export const SessionHandlers = {
   revoke: "sessions:write:user-session:revoke",
   revokeAllOthers: "sessions:write:user-session:revoke-all-others",
+  /** Privileged: System-Caller (cross-feature) revokes ALL live sessions
+   *  fuer einen User. Genutzt von user-data-rights:restrict-account
+   *  (DSGVO Art. 18 Account-Freeze). */
+  revokeAllForUser: "sessions:write:user-session:revoke-all-for-user",
 } as const;
 
 export const SessionQueries = {

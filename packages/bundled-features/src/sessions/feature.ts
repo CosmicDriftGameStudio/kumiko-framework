@@ -3,6 +3,7 @@ import { cleanupJob } from "./handlers/cleanup.job";
 import { listQuery } from "./handlers/list.query";
 import { mineQuery } from "./handlers/mine.query";
 import { revokeWrite } from "./handlers/revoke.write";
+import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write";
 import { userSessionEntity } from "./schema/user-session";
 import type { SessionMassRevoker } from "./session-callbacks";
@@ -42,7 +43,9 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     const handlers = {
       revoke: r.writeHandler(revokeWrite),
       revokeAllOthers: r.writeHandler(revokeAllOthersWrite),
+      revokeAllForUser: r.writeHandler(revokeAllForUserWrite),
     };
+    r.exposesApi("sessions.revokeAllForUser");
 
     const queries = {
       mine: r.queryHandler(mineQuery),
