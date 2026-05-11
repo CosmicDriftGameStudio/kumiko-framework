@@ -7,6 +7,7 @@ import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
 import { parseQn, qn } from "../engine/qualified-name";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import type {
   AggregateStreamHandle,
   AppContext,
@@ -338,7 +339,7 @@ export type DispatcherOptions = {
   // Returning a non-superset for SYSTEM_TENANT_ID will cause silent
   // event-skips and a confusing operator-UI — the framework cannot
   // enforce this contract, but the recipe-test pins the convention.
-  effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
+  effectiveFeatures?: EffectiveFeaturesResolver;
 };
 
 type HandlerType = string | HandlerRef;

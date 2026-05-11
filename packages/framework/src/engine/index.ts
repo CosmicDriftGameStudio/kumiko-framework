@@ -41,7 +41,25 @@ export {
 } from "./entity-handlers";
 export type { EmitCtx } from "./event-helpers";
 export { emitEvent, typedPayload } from "./event-helpers";
+export type { KumikoExtensionName } from "./extension-names";
 export {
+  EXT_EXTERNAL_RESOURCE,
+  EXT_INFRA_RESOURCE,
+  EXT_SEARCH_ADAPTER,
+  EXT_STORAGE_PROVIDER,
+  EXT_TENANT_DATA,
+  EXT_USER_DATA,
+} from "./extension-names";
+export type {
+  UserDataDeleteHook,
+  UserDataDeleteStrategy,
+  UserDataExportHook,
+  UserDataExportSnippet,
+  UserDataExtensionHooks,
+  UserDataHookCtx,
+} from "./extensions/user-data";
+export {
+  createBigIntField,
   createBooleanField,
   createDateField,
   createEmbeddedField,
@@ -126,6 +144,12 @@ export {
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
 } from "./system-user";
+export {
+  type EffectiveFeaturesResolver,
+  findTierResolverUsage,
+  TENANT_TIER_RESOLVER_EXT,
+  type TierResolverPlugin,
+} from "./tier-resolver-extension";
 // Types
 export type {
   AccessRule,
@@ -138,6 +162,7 @@ export type {
   AuthClaimsFn,
   AuthClaimsHookDef,
   BelongsToRelation,
+  BigIntFieldDef,
   BooleanFieldDef,
   CamelToKebab,
   ClaimKeyDefinition,
@@ -214,6 +239,7 @@ export type {
   NotifyPriority,
   NumberFieldDef,
   OnDeleteStrategy,
+  PiiAnnotations,
   PlatformComponent,
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -228,6 +254,7 @@ export type {
   QueryHandlerFn,
   Registry,
   RelationDefinition,
+  RetentionDef,
   RowAction,
   SaveContext,
   ScreenDefinition,
