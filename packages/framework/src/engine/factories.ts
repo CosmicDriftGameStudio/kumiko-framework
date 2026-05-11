@@ -1,8 +1,10 @@
 import type {
+  BigIntFieldDef,
   BooleanFieldDef,
   DateFieldDef,
   EmbeddedFieldDef,
   EntityDefinition,
+  EntityIndexDef,
   FieldsMap,
   FileFieldDef,
   FilesFieldDef,
@@ -13,6 +15,7 @@ import type {
   MoneyFieldDef,
   MultiSelectFieldDef,
   NumberFieldDef,
+  RetentionDef,
   SelectFieldDef,
   TextFieldDef,
   TimestampFieldDef,
@@ -124,6 +127,16 @@ export function createNumberField<R extends true | false = false>(
     required: false,
     ...overrides,
   } as NumberFieldDef & { required: R };
+}
+
+export function createBigIntField<R extends true | false = false>(
+  overrides?: Partial<Omit<BigIntFieldDef, "type" | "required">> & { required?: R },
+): BigIntFieldDef & { required: R } {
+  return {
+    type: "bigInt",
+    required: false,
+    ...overrides,
+  } as BigIntFieldDef & { required: R };
 }
 
 export function createMoneyField<R extends true | false = false>(
@@ -309,13 +322,10 @@ export function createEntity<F>(def: {
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
   readonly transitions?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
-  readonly indexes?: readonly {
-    readonly columns: readonly [string, ...string[]];
-    readonly unique?: boolean;
-    readonly name?: string;
-  }[];
+  readonly indexes?: readonly EntityIndexDef[];
   readonly idType?: "serial" | "uuid";
   readonly access?: EntityDefinition["access"];
+  readonly retention?: RetentionDef;
 }): F extends FieldsMap ? EntityDefinition<F> : never {
   return {
     softDelete: false,
