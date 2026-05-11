@@ -3,8 +3,53 @@ import {
   access,
   createBooleanField,
   createEntity,
+  createSelectField,
   createTextField,
+  createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
+
+/**
+ * User-Lifecycle-Status (S2.U1). Single source of truth — Auth-Middleware
+ * (S2.U6), Forget-Job (S2.U5) und Restriction-Handler nutzen diese
+ * Constants statt Magic-Strings (Memory feedback_role_naming_drift —
+ * gleiches Pattern wie ROLES.SystemAdmin).
+ */
+export const USER_STATUS = {
+  Active: "active",
+  Restricted: "restricted",
+  DeletionRequested: "deletionRequested",
+  Deleted: "deleted",
+} as const;
+
+export type UserStatus = (typeof USER_STATUS)[keyof typeof USER_STATUS];
+
+/**
+ * Anonymize-Display-Strings fuer userDeleteHook (S2.H1). Constants statt
+ * Magic-Strings damit i18n-Mapping moeglich + drift-fest. Default-DE,
+ * App-Author kann via i18n-System uebersetzen wenn gewuenscht.
+ */
+export const USER_DELETED_DISPLAY_NAME = "[Geloescht]";
+export const USER_ANONYMIZED_DISPLAY_NAME = "[Anonymisiert]";
+
+/**
+ * Email-Pseudonyme nach Forget. `<prefix>-<userId>@anonymized.invalid`
+ * — der userId-Suffix ist als Pseudo-Audit-Marker fuer Operator
+ * (Tracing-fall) erlaubt; user-id selbst ist UUID, kein PII.
+ * `.invalid`-TLD ist RFC2606-reserviert — niemals deliverbare Email.
+ */
+export const USER_DELETED_EMAIL_PREFIX = "deleted";
+export const USER_ANONYMIZED_EMAIL_PREFIX = "anonymized";
+export const USER_ANONYMIZED_EMAIL_DOMAIN = "anonymized.invalid";
+
+// Tuple form fuer createSelectField (erfordert non-empty readonly tuple).
+// Object.values(USER_STATUS) waere string[] — statisches Tuple ist
+// type-sicher.
+const USER_STATUS_OPTIONS = [
+  USER_STATUS.Active,
+  USER_STATUS.Restricted,
+  USER_STATUS.DeletionRequested,
+  USER_STATUS.Deleted,
+] as const;
 
 // User entity — tenant-agnostic. A single user can belong to multiple tenants
 // via tenantMemberships. No tenantId column on this table.
@@ -61,6 +106,37 @@ export const userEntity = createEntity({
     roles: createTextField({
       required: true,
       default: "[]",
+      access: { write: access.privileged },
+    }),
+
+    // S2.U1: User-Lifecycle-Status für user-data-rights (Sprint 2).
+    //   - "active":            Normaler State, alle Operationen erlaubt
+    //   - "restricted":        Art. 18 Restriction — Auth-Middleware blockiert
+    //                          Schreib-Endpoints, Read bleibt erlaubt damit
+    //                          User das Banner sieht + lift-restriction klicken kann
+    //   - "deletionRequested": delete-account aufgerufen, gracePeriodEnd
+    //                          gesetzt, User kann via cancel-deletion zurueck
+    //                          auf "active". Auth-Middleware blockiert wie
+    //                          "restricted".
+    //   - "deleted":           Forget executed nach Grace, Row anonymisiert via
+    //                          softDelete. Auth-Middleware blockt Login.
+    //
+    // Schreibrecht privileged: nur die request-deletion / restrict / lift /
+    // execute-forget-Handler (alle SYSTEM-context) duerfen status flippen.
+    status: createSelectField({
+      required: true,
+      default: USER_STATUS.Active,
+      options: USER_STATUS_OPTIONS,
+      access: { write: access.privileged },
+    }),
+
+    // Wann darf der pending-Forget tatsaechlich ausgefuehrt werden?
+    // Cron-Job in user-data-rights checkt taeglich gracePeriodEnd < now()
+    // und triggert dann die EXT_USER_DATA-Hooks. NULL solange kein
+    // Forget pending — wird beim delete-account-Call gesetzt
+    // (= now() + Compliance-Profile.userRights.gracePeriod), beim
+    // cancel-deletion zurueckgesetzt.
+    gracePeriodEnd: createTimestampField({
       access: { write: access.privileged },
     }),
   },
