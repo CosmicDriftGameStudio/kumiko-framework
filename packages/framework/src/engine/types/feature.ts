@@ -164,6 +164,21 @@ export type FeatureDefinition = {
   readonly jobs: Readonly<Record<string, JobDefinition>>;
   readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
   readonly extensionUsages: readonly RegistrarExtensionRegistration[];
+  /**
+   * Cross-feature API names this feature exposes via `r.exposesApi(name)`.
+   * Pure Marker-Deklaration — die echte Implementation wird als
+   * Query-/Write-Handler unter dem QN-Pattern registriert (z.B.
+   * `compliance-profiles:query:effective-profile`). Boot-Validator prüft
+   * dass jedes `r.usesApi(name)` einen passenden Exposer hier findet —
+   * Tippfehler oder Drop-Refactorings werden zu Boot-Fail statt Runtime-Crash.
+   */
+  readonly exposedApis: ReadonlySet<string>;
+  /**
+   * Cross-feature API names this feature calls. Pflicht-Boot-Check:
+   * jeder Eintrag muss in `exposedApis` irgendeines Features auftauchen
+   * UND das Provider-Feature muss in requires/optionalRequires sein.
+   */
+  readonly usedApis: ReadonlySet<string>;
   readonly referenceData: readonly ReferenceDataDef[];
   readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;
@@ -359,6 +374,42 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
   useExtension(extensionName: string, entity: NameOrRef, options?: Record<string, unknown>): void;
+
+  /**
+   * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API
+   * unter dem genannten Namen bereit. Die eigentliche Implementation
+   * wird separat als Query- oder Write-Handler unter dem QN-Pattern
+   * registriert; `r.exposesApi` ist reine Boot-Check-Surface.
+   *
+   * Boot-Validator prüft, dass jedes `r.usesApi(name)` einen passenden
+   * Exposer findet, dass das Exposer-Feature in requires/optionalRequires
+   * gelisted ist und dass kein API-Name doppelt exposed wird.
+   *
+   * ```ts
+   * defineFeature("compliance-profiles", (r) => {
+   *   r.exposesApi("compliance.forTenant");
+   *   r.queryHandler({
+   *     name: "compliance:query:for-tenant",
+   *     // ... echte Implementation
+   *   });
+   * });
+   * ```
+   */
+  exposesApi(apiName: string): void;
+
+  /**
+   * Declares that this feature calls a cross-feature API. Boot-Validator
+   * checkt dass irgendein anderes Feature `r.exposesApi(apiName)` macht
+   * und dass dieses Feature `r.requires/optionalRequires` darauf hat.
+   *
+   * ```ts
+   * defineFeature("user-data-rights", (r) => {
+   *   r.requires("compliance-profiles");
+   *   r.usesApi("compliance.forTenant");
+   * });
+   * ```
+   */
+  usesApi(apiName: string): void;
 
   // Declare a metric. Short name (without kumiko_<feature>_ prefix) — Framework
   // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.

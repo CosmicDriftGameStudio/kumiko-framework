@@ -19,4 +19,8 @@ export {
 } from "./compose-app";
 export { TIER_ENGINE_FEATURE, TierEngineHandlers, TierEngineQueries } from "./constants";
 export { tierAssignmentEntity } from "./entity";
-export { tierEngineFeature } from "./feature";
+export {
+  type CreateTierEngineOptions,
+  createTierEngineFeature,
+  tierEngineFeature,
+} from "./feature";
