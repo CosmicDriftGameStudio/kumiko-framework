@@ -97,7 +97,13 @@ function banner(): void {
 // --- Commands ---
 
 const REPO_ROOT = resolvePath(import.meta.dir, "..", "..");
-const BIN_PATH = join(REPO_ROOT, "node_modules", ".bin");
+const BIN_PATH = (() => {
+  const rootBin = join(REPO_ROOT, "node_modules", ".bin");
+  if (existsSync(rootBin)) return rootBin;
+  const localBin = join(process.cwd(), "node_modules", ".bin");
+  if (existsSync(localBin)) return localBin;
+  return rootBin; // Fallback
+})();
 const BIOME = join(BIN_PATH, "biome");
 const TSC = join(BIN_PATH, "tsc");
 const VITEST = join(BIN_PATH, "vitest");
