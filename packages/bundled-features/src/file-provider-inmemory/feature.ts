@@ -17,8 +17,11 @@
 // **NICHT für Production.** Buffer ist Process-Memory, geht beim
 // Restart verloren + wächst monoton mit jedem write.
 
-import type { FileProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { defineFeature, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  FileProviderContext,
+  FileProviderPlugin,
+} from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -63,7 +66,7 @@ export const fileProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("file-foundation");
 
   const plugin: FileProviderPlugin = {
-    build: async (_ctx: HandlerContext, tenantId: string): Promise<FileStorageProvider> => {
+    build: async (_ctx: FileProviderContext, tenantId: string): Promise<FileStorageProvider> => {
       // Returnt den per-tenant Storage. Identitätsstabil zwischen calls
       // damit accumulated state erhalten bleibt.
       return getOrCreateProviderForTenant(tenantId);

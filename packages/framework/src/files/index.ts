@@ -25,5 +25,8 @@ export type {
   FileStorageProvider,
   FileValidationOptions,
   SignedUrlOptions,
+  WriteStreamOptions,
 } from "./types";
 export { buildStorageKey, parseMaxSize, validateFile } from "./types";
+export type { ZipEntry } from "./zip-stream";
+export { createZipStream } from "./zip-stream";
