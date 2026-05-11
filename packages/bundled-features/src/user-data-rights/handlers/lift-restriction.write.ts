@@ -1,0 +1,68 @@
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+import { USER_STATUS, userTable } from "../../user";
+
+// POST /api/user/lift-restriction (S2.U6) — DSGVO Art. 18 Reverse.
+//
+// **Wichtige Eigenheit:** Der User kann diesen Endpoint NICHT selber
+// aufrufen weil sein Login geblockt ist (Restricted-Status, siehe
+// login.write.ts Atom 3). Wer ein Restricted-Konto wieder aktiviert,
+// muss dafuer einen anderen Pfad nutzen — typisch Operator-Tool oder
+// Email-Magic-Link an die User-Email. App-Author entscheidet das per
+// access-Konfig oder Custom-Wrapper.
+//
+// MVP-Default: openToAll mit Self-Service-Semantik. Die Asymmetrie
+// (User koennte sich selbst freischalten WENN er einen Weg ohne Login
+// hat — z.B. valid Magic-Link aus pre-Restriction) ist akzeptabel:
+// Restriction ist *Verarbeitungs-Pause*, nicht *Sperre durch Operator*.
+// User der "ich will doch wieder mitmachen" sagt, soll das koennen.
+//
+// State-Transitions:
+//   Restricted → Active        ✓
+//   Active → ...               ✗ 422 not_restricted (Idempotenz-Guard)
+//   DeletionRequested → ...    ✗ 422 not_restricted
+//   Deleted → ...              ✗ 422 not_restricted
+export const liftRestrictionWrite = defineWriteHandler({
+  name: "lift-restriction",
+  schema: z.object({}),
+  access: { openToAll: true },
+  handler: async (event, ctx) => {
+    const userRow = await ctx.db.raw
+      .select({ status: userTable["status"] })
+      .from(userTable)
+      .where(eq(userTable["id"], event.user.id))
+      .limit(1);
+
+    if (userRow.length === 0) {
+      return writeFailure(
+        new UnprocessableError("user_not_found", {
+          details: { reason: "user_not_found", userId: event.user.id },
+        }),
+      );
+    }
+
+    const currentStatus = userRow[0]?.status;
+    if (currentStatus !== USER_STATUS.Restricted) {
+      return writeFailure(
+        new UnprocessableError("not_restricted", {
+          details: { reason: "not_restricted", currentStatus },
+        }),
+      );
+    }
+
+    await ctx.db.raw
+      .update(userTable)
+      .set({ status: USER_STATUS.Active })
+      .where(eq(userTable["id"], event.user.id));
+
+    return {
+      isSuccess: true as const,
+      data: {
+        userId: event.user.id,
+        status: USER_STATUS.Active,
+      },
+    };
+  },
+});

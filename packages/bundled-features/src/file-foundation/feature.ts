@@ -24,9 +24,10 @@
 import { requireDefined } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
   access,
+  type ConfigAccessor,
   createTenantConfig,
   defineFeature,
-  type HandlerContext,
+  type Registry,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 
@@ -37,12 +38,51 @@ const FEATURE_NAME = "file-foundation";
 // =============================================================================
 
 /**
+ * Schmaler Surface-Type fuer Provider-Plugins. HandlerContext ist zu
+ * fett (haelt tx, actor, signal etc.) — Provider sollen sich auf die
+ * read-Felder beschraenken die fuer Tenant-Config + Secret-Lookup
+ * gebraucht werden.
+ *
+ * **Warum nicht voller HandlerContext?** Im Worker-Pfad (r.job) gibt
+ * es keinen request-bezogenen `tx`/`actor`/`signal`. Wenn ein Provider
+ * `ctx.tx` lesen wuerde, wuerde der ganze Worker-Pfad zur Runtime
+ * brechen — und das wuerde NUR mit S3 und nur in production auffallen.
+ * Die schmale Surface zwingt Provider zur expliziten Erweiterung
+ * (extra-arg) statt silent ctx-feld-ausnutzen.
+ *
+ * **Felder:**
+ *   config  — fuer tenant-config-reads (bucket/region/endpoint/...)
+ *   registry — fuer extension-Lookup in der Factory (nicht Plugin-intern)
+ *   secrets — fuer tenant-secret-reads (s3.secretAccessKey)
+ *   _userId — Audit-Identity fuer secret-reads. Im Handler-Pfad setzt
+ *             der dispatcher das auf die Caller-User-ID; im Worker-Pfad
+ *             muss der r.job-Wrap das explizit auf eine System-Identity
+ *             setzen (z.B. "system:user-data-rights:run-export-jobs").
+ */
+export type FileProviderContext = {
+  readonly config?: ConfigAccessor;
+  readonly registry?: Registry;
+  readonly secrets?: import("@cosmicdrift/kumiko-framework/secrets").SecretsContext;
+  readonly _userId?: string | undefined;
+};
+
+/**
  * File-Storage-Plugin contract. Each provider-feature (file-provider-s3,
  * file-provider-azure-blob, ...) registers an implementation via
  * `r.useExtension("fileProvider", "<name>", { build })`.
+ *
+ * **Plugin-Author-Warnung:** `ctx` ist EXPLIZIT ein FileProviderContext,
+ * nicht ein voller HandlerContext. Felder ausserhalb der schmalen
+ * Surface (z.B. `ctx.tx`, `ctx.actor`, `ctx.signal`, `ctx.notify`) sind
+ * im Worker-Pfad (r.job-getriggerte Provider-Builds) NICHT vorhanden.
+ * Cast `ctx as unknown as HandlerContext` macht den Compiler happy aber
+ * fliegt zur Runtime im Worker — und der Crash kommt erst in production
+ * mit dem ersten S3-Tenant. Wenn ein Plugin Felder braucht die nicht in
+ * FileProviderContext sind: lieber FileProviderContext explizit erweitern
+ * (sichtbarer breaking change) als ctx-cast.
  */
 export type FileProviderPlugin = {
-  readonly build: (ctx: HandlerContext, tenantId: string) => Promise<FileStorageProvider>;
+  readonly build: (ctx: FileProviderContext, tenantId: string) => Promise<FileStorageProvider>;
 };
 
 // =============================================================================
@@ -77,7 +117,7 @@ export const fileFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
 // =============================================================================
 
 export async function createFileProviderForTenant(
-  ctx: HandlerContext,
+  ctx: FileProviderContext,
   tenantId: string,
   handlerName = "file-foundation:provider-factory",
 ): Promise<FileStorageProvider> {
