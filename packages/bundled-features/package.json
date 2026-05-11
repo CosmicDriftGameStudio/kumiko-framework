@@ -77,11 +77,11 @@
     "@node-rs/argon2": "^2.0.2",
     "@types/nodemailer": "^8.0.0",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.11.0",
-    "marked": "^14.1.4",
+    "lucide-react": "^1.14.0",
+    "marked": "^18.0.3",
     "nodemailer": "^8.0.7",
-    "react": "^19.2.0",
-    "stripe": "^22.1.0",
+    "stripe": "^22.1.1",
+    "react": "^19.2.6",
     "tailwind-merge": "^3.0.2"
   },
   "publishConfig": {
