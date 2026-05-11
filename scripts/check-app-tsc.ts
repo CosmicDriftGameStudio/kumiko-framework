@@ -70,8 +70,26 @@ function checkApp(appRoot: string): AppResult {
   // yarn 4 doesn't auto-fallback to root .bin from a workspace, so we
   // invoke the binary directly with the workspace as cwd — that gives
   // tsc the workspace's tsconfig as the project root.
-  const tscBin = join(REPO_ROOT, "node_modules", ".bin", "tsc");
-  const result = spawnSync(tscBin, ["--noEmit"], {
+  const tscBin = (() => {
+    // 1. Check workspace node_modules
+    const workspaceBin = join(REPO_ROOT, "node_modules", ".bin", "tsc");
+    if (existsSync(workspaceBin)) return workspaceBin;
+    
+    // 2. Check hoisted node_modules
+    const rootBin = join(REPO_ROOT, "..", "node_modules", ".bin", "tsc");
+    if (existsSync(rootBin)) return rootBin;
+    
+    // 3. Check local node_modules
+    const localBin = join(appRoot, "node_modules", ".bin", "tsc");
+    if (existsSync(localBin)) return localBin;
+    
+    return null;
+  })();
+
+  const tscCommand = tscBin ?? "yarn";
+  const tscArgs = tscBin ? ["--noEmit"] : ["tsc", "--noEmit"];
+  
+  const result = spawnSync(tscCommand, tscArgs, {
     cwd: appRoot,
     encoding: "utf8",
   });
@@ -81,7 +99,7 @@ function checkApp(appRoot: string): AppResult {
     name,
     ok: result.status === 0,
     errorCount: errorLines.length,
-    output: errorLines.join("\n"),
+    output: errorLines.length > 0 ? errorLines.join("\n") : combined,
   };
 }
 

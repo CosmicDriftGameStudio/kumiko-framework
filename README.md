@@ -93,6 +93,7 @@ yarn kumiko check    # Biome + TypeScript + Tests + Guards
 yarn kumiko status   # What's running?
 yarn kumiko stop     # Stop services
 yarn kumiko reset    # Wipe + restart everything
+
 ```
 
 To explore feature patterns hands-on, run any sample:
