@@ -107,6 +107,7 @@ const BIN_PATH = (() => {
 const BIOME = join(BIN_PATH, "biome");
 const TSC = join(BIN_PATH, "tsc");
 const VITEST = join(BIN_PATH, "vitest");
+const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-tsc.ts");
 
 // Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
 // danach noch Unit + Integration Tests an; `kumiko check:fast` hängt nur
@@ -130,7 +131,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // sichtbare Errors auch im check rot werden. Auto-discovery über
   // samples/<category>/<app>/tsconfig.json: neue Apps werden ohne
   // Konfig-Pflege gefunden.
-  { name: "TypeScript (Samples)", cmd: "bun scripts/check-app-tsc.ts" },
+  { name: "TypeScript (Samples)", cmd: `bun ${CHECK_APP_TSC}` },
   // Guards leben jetzt im Sibling-Repo `infra/guards/` (Phase O.11) —
   // multi-root-aware, scannen alle 4 Repos (kumiko-framework,
   // -enterprise, -studio, publicstatus). Aufruf via Pfad relativ zur
