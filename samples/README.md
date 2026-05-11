@@ -47,6 +47,7 @@ an open-source statuspage clone built with Kumiko.
 | Feature toggles (per-tenant on/off) | [recipes/feature-toggles](recipes/feature-toggles/) | Integration |
 | File upload + post-processing (resize, virus scan, etc.) | [recipes/files-post-processing](recipes/files-post-processing/) | Integration |
 | Legal pages (terms, privacy, imprint) with versioned acceptance | [recipes/legal-pages](recipes/legal-pages/) | Integration |
+| DSGVO Art. 15+17+20 für deine Domain (`EXT_USER_DATA`-Hooks) | [recipes/user-data-rights](recipes/user-data-rights/) | Integration |
 | Rate limiting per user / IP / endpoint | [recipes/rate-limiting](recipes/rate-limiting/) | Integration |
 | Secrets management (env-var → encrypted DB row) | [recipes/secrets-demo](recipes/secrets-demo/) | Integration |
 | Session revocation (logout-all, force-logout, audit) | [recipes/session-revocation](recipes/session-revocation/) | Integration |
@@ -61,6 +62,7 @@ an open-source statuspage clone built with Kumiko.
 | [apps/marketing-demo](apps/marketing-demo/) | Asset tracker + helpdesk on one Kumiko instance — internal-tools showcase with translated select options, deterministically seeded. |
 | [apps/showcase](apps/showcase/) | Generic showcase app to exercise the full feature surface in one place. |
 | [apps/cap-billing-demo](apps/cap-billing-demo/) | Billing-foundation + cap engine + Stripe + Mollie integration on one app. |
+| [apps/user-data-rights-demo](apps/user-data-rights-demo/) | DSGVO Art. 15+17+18+20 end-to-end: todos-Domain mit `EXT_USER_DATA`-Hooks, request-export → ZIP-Bundle, request-deletion → Forget-Cleanup, Restriction-Auth-Block. |
 
 ## Running tests
 

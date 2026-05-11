@@ -23,6 +23,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.accountLocked": "Konto vorübergehend gesperrt.",
     "auth.errors.accountLockedRetry": "Konto gesperrt. Neuer Versuch in {minutes} Minuten.",
     "auth.errors.emailNotVerified": "E-Mail-Adresse noch nicht bestätigt.",
+    "auth.errors.accountRestricted":
+      "Konto pausiert (Datenschutz Art. 18). Bitte Pause aufheben um wieder einzuloggen.",
     "auth.errors.rateLimited": "Zu viele Login-Versuche. Bitte kurz warten.",
     "auth.errors.invalidBody": "Ungültige Eingabe.",
     "auth.errors.loginFailed": "Login fehlgeschlagen.",
@@ -116,6 +118,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.accountLocked": "Account temporarily locked.",
     "auth.errors.accountLockedRetry": "Account locked. Try again in {minutes} minutes.",
     "auth.errors.emailNotVerified": "Email address not yet verified.",
+    "auth.errors.accountRestricted":
+      "Account paused (GDPR Art. 18). Please lift the restriction to sign in again.",
     "auth.errors.rateLimited": "Too many login attempts. Please wait briefly.",
     "auth.errors.invalidBody": "Invalid input.",
     "auth.errors.loginFailed": "Login failed.",
