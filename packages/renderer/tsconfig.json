@@ -21,9 +21,6 @@
     "types": ["bun-types"],
     "composite": true
   },
-  "references": [
-    { "path": "../framework" },
-    { "path": "../headless" }
-  ],
+  "references": [{ "path": "../framework" }, { "path": "../headless" }],
   "include": ["src/**/*"]
 }
