@@ -18,19 +18,17 @@
 //
 // **Boot-Dependencies:** config + secrets + file-foundation.
 
-import type { FileProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import type {
+  FileProviderContext,
+  FileProviderPlugin,
+} from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { createS3Provider } from "@cosmicdrift/kumiko-bundled-features/files-provider-s3";
 import {
   requireDefined,
   requireNonEmpty,
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import {
-  access,
-  createTenantConfig,
-  defineFeature,
-  type HandlerContext,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 
 const FEATURE_NAME = "file-provider-s3";
@@ -89,7 +87,7 @@ export const fileProviderS3Feature = defineFeature(FEATURE_NAME, (r) => {
   // Plugin-Registration. entityName "s3" ist was tenants in
   // file-foundation's `provider` config-key setzen.
   const plugin: FileProviderPlugin = {
-    build: async (ctx: HandlerContext, tenantId: string) => buildS3Provider(ctx, tenantId),
+    build: async (ctx: FileProviderContext, tenantId: string) => buildS3Provider(ctx, tenantId),
   };
   r.useExtension("fileProvider", "s3", plugin);
 
@@ -104,7 +102,7 @@ export const S3_SECRET_ACCESS_KEY = fileProviderS3Feature.exports.secretAccessKe
 // =============================================================================
 
 async function buildS3Provider(
-  ctx: HandlerContext,
+  ctx: FileProviderContext,
   tenantId: string,
 ): Promise<FileStorageProvider> {
   const ctxConfig = ctx.config;
@@ -157,7 +155,7 @@ async function buildS3Provider(
   });
 }
 
-async function readSecretAccessKey(ctx: HandlerContext, tenantId: string): Promise<string> {
+async function readSecretAccessKey(ctx: FileProviderContext, tenantId: string): Promise<string> {
   const secrets = requireSecretsContext(ctx, FEATURE_NAME);
   const branded = await secrets.get(tenantId, S3_SECRET_ACCESS_KEY);
   if (!branded) {
