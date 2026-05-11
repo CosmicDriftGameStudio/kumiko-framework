@@ -9,6 +9,7 @@ import {
   type PreSaveHookFn,
   type SaveContext,
 } from "../../engine";
+import type { TenantId } from "../../engine/types/identifiers";
 import { buildEventId, createLifecycleHooks, type SystemHooks } from "../lifecycle-pipeline";
 
 function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHookFn[] }) {
@@ -397,6 +398,105 @@ describe("runPostSave phase routing", () => {
     calls.length = 0;
     await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
     expect(calls).toEqual(["sse"]);
+  });
+});
+
+// =============================================================================
+// Sprint 8a: per-tenant entity-hook filter
+// =============================================================================
+//
+// Setup: Feature A owns the entity. Feature B registers an entity-hook
+// on A's entity (cross-feature pattern). lifecycle-pipeline must filter
+// B's hook based on the active tenant's effectiveFeatures-set.
+
+describe("Sprint 8a: per-tenant entity-hook filter", () => {
+  function setupTwoFeatures() {
+    const calls: Array<{ tenant: string }> = [];
+
+    const featureA = defineFeature("feat-a", (r) => {
+      r.entity("widget", createEntity({ table: "Widgets", fields: { name: createTextField() } }));
+      r.writeHandler(
+        "widget:create",
+        z.object({ name: z.string() }),
+        async () => ({ isSuccess: true as const, data: null }),
+        { access: { openToAll: true } },
+      );
+    });
+
+    const featureB = defineFeature("feat-b", (r) => {
+      r.entityHook("postSave", "widget", async (_result, ctx) => {
+        calls.push({ tenant: ctx._tenantId ?? "no-tenant" });
+      });
+    });
+
+    return { registry: createRegistry([featureA, featureB]), calls };
+  }
+
+  const tenantA = "00000000-0000-4000-8000-0000000000a1" as TenantId;
+  const tenantB = "00000000-0000-4000-8000-0000000000b2" as TenantId;
+
+  const baseSaveCtx: SaveContext = {
+    kind: "save",
+    id: 1,
+    data: { name: "x", tenantId: tenantA },
+    changes: { name: "x" },
+    previous: {},
+    isNew: true,
+    entityName: "widget",
+  };
+
+  test("Tenant A (feat-b enabled) → hook fires; Tenant B (feat-b disabled) → hook skipped", async () => {
+    const { registry, calls } = setupTwoFeatures();
+    const pipeline = createLifecycleHooks(registry);
+    const effectiveFeatures = (tenantId: TenantId) =>
+      tenantId === tenantA ? new Set(["feat-a", "feat-b"]) : new Set(["feat-a"]);
+
+    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {
+      _tenantId: tenantA,
+      effectiveFeatures,
+    });
+    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {
+      _tenantId: tenantB,
+      effectiveFeatures,
+    });
+
+    expect(calls).toEqual([{ tenant: tenantA }]);
+  });
+
+  test("ctx without _tenantId → hook fires (legacy back-compat: undefined = skip filter)", async () => {
+    // System-jobs / boot-time pipeline-calls have no user → no _tenantId.
+    // currentEffectiveFeatures returns undefined; registry filterByPhase
+    // treats undefined as "skip filter" → all hooks fire (back-compat).
+    const { registry, calls } = setupTwoFeatures();
+    const pipeline = createLifecycleHooks(registry);
+
+    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {});
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.tenant).toBe("no-tenant");
+  });
+
+  test("effectiveFeatures wird PRO call konsultiert (kein staler Cache zwischen runPostSave-aufrufen)", async () => {
+    // Pin: currentEffectiveFeatures-helper ruft effectiveFeatures jedes
+    // mal neu — keine pipeline-internal Memoization. Toggle-flips müssen
+    // sofort greifen, nicht erst nach pipeline-restart.
+    const { registry, calls } = setupTwoFeatures();
+    const pipeline = createLifecycleHooks(registry);
+    const enabled = new Set<string>(["feat-a", "feat-b"]);
+    const effectiveFeatures = (_tenantId: TenantId) => enabled;
+
+    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {
+      _tenantId: tenantA,
+      effectiveFeatures,
+    });
+    enabled.delete("feat-b");
+    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {
+      _tenantId: tenantA,
+      effectiveFeatures,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.tenant).toBe(tenantA);
   });
 });
 

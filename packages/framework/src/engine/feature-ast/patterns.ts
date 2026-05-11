@@ -318,6 +318,24 @@ export type ExtendsRegistrarPattern = {
   readonly defBody: SourceLocation;
 };
 
+// r.usesApi("a.b") — declarative cross-feature handler-ID dependency.
+// Boot-validation throws if no other feature exposes the handler. Single
+// string argument; pattern is purely declarative.
+export type UsesApiPattern = {
+  readonly kind: "usesApi";
+  readonly source: SourceLocation;
+  readonly apiName: string;
+};
+
+// r.exposesApi("a.b") — declarative announcement that this feature
+// provides a handler matching the cross-feature contract `a.b`. Single
+// string argument; pattern is purely declarative.
+export type ExposesApiPattern = {
+  readonly kind: "exposesApi";
+  readonly source: SourceLocation;
+  readonly apiName: string;
+};
+
 // =============================================================================
 // Catch-all — r.* calls the visitor doesn't recognise. Designer renders
 // "unknown call (cannot edit)", AI patcher leaves them unchanged. When
@@ -354,6 +372,8 @@ export type FeaturePattern =
   | ReferenceDataPattern
   | ReadsConfigPattern
   | UseExtensionPattern
+  | UsesApiPattern
+  | ExposesApiPattern
   // Mixed
   | ScreenPattern
   | WriteHandlerPattern
@@ -406,6 +426,8 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "referenceData":
     case "readsConfig":
     case "useExtension":
+    case "usesApi":
+    case "exposesApi":
       return "static";
     case "screen":
     case "writeHandler":
