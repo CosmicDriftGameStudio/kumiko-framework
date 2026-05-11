@@ -33,6 +33,7 @@ import {
   extractEntity,
   extractEntityHook,
   extractEventMigration,
+  extractExposesApi,
   extractExtendsRegistrar,
   extractHook,
   extractHttpRoute,
@@ -54,6 +55,7 @@ import {
   extractToggleable,
   extractTranslations,
   extractUseExtension,
+  extractUsesApi,
   extractWorkspace,
   extractWriteHandler,
 } from "./extractors";
@@ -346,6 +348,10 @@ function dispatchExtractor(
     // Round 5 — opaque patterns
     case "extendsRegistrar":
       return extractExtendsRegistrar(call, sourceFile);
+    case "usesApi":
+      return extractUsesApi(call, sourceFile);
+    case "exposesApi":
+      return extractExposesApi(call, sourceFile);
     // Unknown method — UnknownPattern signal so Designer/AI surface it
     // as "custom call" without losing the source location.
     default:
