@@ -71,16 +71,25 @@ function checkApp(appRoot: string): AppResult {
   // invoke the binary directly with the workspace as cwd — that gives
   // tsc the workspace's tsconfig as the project root.
   const tscBin = (() => {
+    // 1. Check workspace node_modules
+    const workspaceBin = join(REPO_ROOT, "node_modules", ".bin", "tsc");
+    if (existsSync(workspaceBin)) return workspaceBin;
+    
+    // 2. Check hoisted node_modules
     const rootBin = join(REPO_ROOT, "..", "node_modules", ".bin", "tsc");
     if (existsSync(rootBin)) return rootBin;
+    
+    // 3. Check local node_modules
     const localBin = join(appRoot, "node_modules", ".bin", "tsc");
     if (existsSync(localBin)) return localBin;
-    return rootBin;
+    
+    return null;
   })();
-  if (!existsSync(tscBin)) {
-    console.error(`tsc binary not found at ${tscBin}`);
-  }
-  const result = spawnSync(tscBin, ["--noEmit"], {
+
+  const tscCommand = tscBin ?? "yarn";
+  const tscArgs = tscBin ? ["--noEmit"] : ["tsc", "--noEmit"];
+  
+  const result = spawnSync(tscCommand, tscArgs, {
     cwd: appRoot,
     encoding: "utf8",
   });
