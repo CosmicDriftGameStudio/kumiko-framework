@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-compliance-profiles-demo",
+  "description": "Two-tenant demo: EU + Swiss compliance profiles deliver different authority contacts, languages, and grace periods through the same App-code.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

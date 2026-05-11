@@ -29,10 +29,48 @@ export function createInMemoryFileProvider(): InMemoryFileProvider {
       store.set(key, { data: new Uint8Array(data), mimeType });
     },
 
+    async writeStream(key, source, options) {
+      // In-Memory hat kein "Streaming" im real-physikalischen Sinn —
+      // wir collecten chunks in einen Uint8Array. Test-Tauglich, kein
+      // Production-Pfad.
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for await (const chunk of source) {
+        chunks.push(chunk);
+        total += chunk.byteLength;
+      }
+      const data = new Uint8Array(total);
+      let offset = 0;
+      for (const c of chunks) {
+        data.set(c, offset);
+        offset += c.byteLength;
+      }
+      store.set(key, { data, mimeType: options?.mimeType });
+    },
+
     async read(key) {
       const entry = store.get(key);
       if (!entry) throw new Error(`in-memory file not found: ${key}`);
       return new Uint8Array(entry.data);
+    },
+
+    readStream(key) {
+      // In-Memory hat technisch keine Chunks, aber das Surface muss
+      // identisch zu echten Streamern (Local/S3) sein damit Test-Code
+      // den Pfad genauso geht. Wir yielden die Bytes als single-chunk.
+      // Map-lookup ist O(1), also kein Verlust durch eager-resolve.
+      // Throw passiert beim ersten chunk-pull — gleicher Lazy-Pattern
+      // wie S3 (request abgesetzt beim ersten Iterator-Step).
+      const entry = store.get(key);
+      const captured = entry ? new Uint8Array(entry.data) : null;
+      return {
+        async *[Symbol.asyncIterator]() {
+          if (captured === null) {
+            throw new Error(`in-memory file not found: ${key}`);
+          }
+          yield captured;
+        },
+      };
     },
 
     async delete(key) {

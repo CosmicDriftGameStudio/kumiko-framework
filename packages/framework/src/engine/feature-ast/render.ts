@@ -24,6 +24,7 @@ import type {
   EntityHookPattern,
   EntityPattern,
   EventMigrationPattern,
+  ExposesApiPattern,
   ExtendsRegistrarPattern,
   FeaturePattern,
   HookPattern,
@@ -47,6 +48,7 @@ import type {
   TranslationsPattern,
   UnknownPattern,
   UseExtensionPattern,
+  UsesApiPattern,
   WorkspacePattern,
   WriteHandlerPattern,
 } from "./patterns";
@@ -122,6 +124,10 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderEventMigration(pattern);
     case "extendsRegistrar":
       return renderExtendsRegistrar(pattern);
+    case "usesApi":
+      return renderUsesApi(pattern);
+    case "exposesApi":
+      return renderExposesApi(pattern);
     case "unknown":
       return renderUnknown(pattern);
     default: {
@@ -471,6 +477,14 @@ function renderEventMigration(p: EventMigrationPattern): string {
 
 function renderExtendsRegistrar(p: ExtendsRegistrarPattern): string {
   return `r.extendsRegistrar(${JSON.stringify(p.extensionName)}, ${p.defBody.raw});`;
+}
+
+function renderUsesApi(p: UsesApiPattern): string {
+  return `r.usesApi(${JSON.stringify(p.apiName)});`;
+}
+
+function renderExposesApi(p: ExposesApiPattern): string {
+  return `r.exposesApi(${JSON.stringify(p.apiName)});`;
 }
 
 function renderUnknown(p: UnknownPattern): string {
