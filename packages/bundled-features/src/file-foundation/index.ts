@@ -2,6 +2,7 @@
 
 export {
   createFileProviderForTenant,
+  type FileProviderContext,
   type FileProviderPlugin,
   fileFoundationFeature,
 } from "./feature";
