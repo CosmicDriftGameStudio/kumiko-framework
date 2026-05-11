@@ -57,11 +57,19 @@ for pkg_json in packages/*/package.json; do
   fi
 
   echo "[publish] $name@$version (registry has '${registry_version:-<none>}')"
-  if (cd "$pkg_dir" && npm publish --provenance --access public); then
+  # Wir packen via `yarn pack` (rewrited workspace:* → echte Versionen)
+  # und publishen die Tarball via `npm publish` (für OIDC + provenance).
+  # Direkt `npm publish` würde workspace:* in registry schreiben → Konsumenten
+  # bekommen "Workspace not found" beim install. Direkt `yarn npm publish`
+  # rewrited richtig, unterstützt aber kein OIDC.
+  TARBALL="$(mktemp -t cdgs-pack-XXXXXX.tgz)"
+  if (cd "$pkg_dir" && yarn pack -o "$TARBALL") \
+     && npm publish "$TARBALL" --provenance --access public; then
     published=$((published + 1))
   else
     failed+=("$name@$version")
   fi
+  rm -f "$TARBALL"
 done
 
 echo ""
