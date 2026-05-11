@@ -55,6 +55,8 @@ const ALL_KINDS: readonly FeaturePatternKind[] = [
   "defineEvent",
   "eventMigration",
   "extendsRegistrar",
+  "usesApi",
+  "exposesApi",
   "unknown",
 ];
 
@@ -340,6 +342,9 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
       };
     case "unknown":
       return { kind, source: PLACEHOLDER_LOC, methodName: "x" };
+    case "usesApi":
+    case "exposesApi":
+      return { kind, source: PLACEHOLDER_LOC, apiName: "demo.api" };
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
