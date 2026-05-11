@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.2.3
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.2.3
+
+## 0.2.2
+
+### Patch Changes
+
+- 7a7da3e: Re-publish 0.2.1 → 0.2.2 mit korrekt aufgelösten cross-package-Versionen.
+  0.2.1 hatte `workspace:*` als Wert in den dependencies (npm publish ohne
+  yarn-pack rewrite), Konsumenten bekamen "Workspace not found".
+
+  publish-with-oidc.sh nutzt jetzt `yarn pack` (rewrited workspace:\*) +
+  `npm publish <tarball>` (OIDC + provenance).
+
+- Updated dependencies [7a7da3e]
+  - @cosmicdrift/kumiko-framework@0.2.2
+
+## 0.2.1
+
+### Patch Changes
+
+- 48b7f6a: CI: switch publish to npm-CLI with OIDC Trusted Publishing + provenance.
+  No source changes — verifies the new publish path produces a verified-
+  provenance attestation on npmjs.com instead of token-based publish.
+- Updated dependencies [48b7f6a]
+  - @cosmicdrift/kumiko-framework@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes

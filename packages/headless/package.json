@@ -1,16 +1,16 @@
 {
   "name": "@cosmicdrift/kumiko-headless",
-  "version": "0.2.0",
+  "version": "0.2.3",
   "description": "Headless UI logic for Kumiko — Dispatcher contract, Form-Controller, View-Model, Nav-Resolver. Plattform- und React-frei; jeder Renderer (renderer, renderer-web, renderer-native, …) komponiert darauf.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cosmicdriftgamestudio/kumiko-framework.git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
     "directory": "packages/headless"
   },
   "bugs": {
-    "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
   },
   "homepage": "https://kumiko.so",
   "type": "module",
