@@ -5,6 +5,7 @@
 // accepted at the type layer during migration: features that pass an
 // array are auto-normalized to { [role]: "all" } at registry build.
 // Long-term: string[] disappears.
+import type { SQL } from "drizzle-orm";
 import type { OwnershipMap } from "../ownership";
 
 export type FieldAccess = {
@@ -19,6 +20,76 @@ export type FieldAccess = {
 // unhashed PII, bank details, tax IDs. The trade-off: event-replay and
 // custom projections cannot read sensitive field values. See
 // docs/plans/architecture/projections.md.
+
+// --- PII / Subject-Key Annotations (DSGVO Art. 17 — Crypto-Shredding) ---
+//
+// Felder die PII enthalten werden in Sprint 3 (crypto-shredding) mit einem
+// Subject-Schluessel encrypted gespeichert. Subject = die natuerliche Person
+// oder der Tenant der die Daten "besitzt". Loeschung erfolgt durch Vernichten
+// des Subject-Keys ("Crypto-Shredding") — der Datensatz bleibt physisch
+// (Audit-Trail bewahrt), ist aber nicht mehr entschluesselbar. Sprint 0
+// fuegt nur die Schema-Marker + Boot-Validation ein; Encrypt/Decrypt-Mechanik
+// kommt in Sprint 3.
+//
+// Drei orthogonale Markierungen:
+//   - `pii: true`              — Subject = die Entity selbst.
+//                                Beispiel: user.email gehoert User Marc.
+//   - `userOwned: { ownerField }` — Subject = der User der im genannten
+//                                Field referenziert ist.
+//                                Beispiel: comment.body gehoert
+//                                comment.authorId.
+//   - `tenantOwned: true`      — Subject = der aktuelle Tenant
+//                                (ctx.tenantId zur Schreibzeit).
+//                                Beispiel: tenantBranding.brandColor.
+//
+// `anonymize` ist die Pro-Feld-Funktion die der retention-Cleanup-Job
+// (Sprint 2) aufruft wenn die Entity-Strategy "anonymize" lautet oder die
+// `blockDelete`-Frist abgelaufen ist. Beispiel: `() => "[ANONYMIZED]"` oder
+// `() => null`.
+//
+// `allowPlaintext` unterdrueckt PII-Heuristik-Boot-Warnings fuer Felder die
+// zwar PII-Naming haben (email, name, body) aber bewusst Klartext bleiben
+// sollen — z.B. ticket.title als Geschaeftsdaten. Wert ist eine Begruendung
+// wie "is-business-data".
+//
+// `anonymize` darf sync oder async sein — der Cleanup-Job (Sprint 2)
+// awaited den Return. Async-Funktionen sind sinnvoll wenn die Anonymisierung
+// einen Lookup braucht (z.B. konsistente Pseudonyme aus separater Tabelle).
+//
+// Siehe docs/plans/datenschutz/crypto-shredding.md und docs/plans/datenschutz/roadmap.md.
+export type PiiAnnotations = {
+  readonly pii?: boolean;
+  readonly userOwned?: { readonly ownerField: string };
+  readonly tenantOwned?: boolean;
+  readonly anonymize?: () => unknown | Promise<unknown>;
+  readonly allowPlaintext?: string;
+};
+
+// --- Retention (DSGVO Art. 5(1)(e) + HGB/AO Aufbewahrungspflichten) ---
+//
+// Pro Entity definiert der Author eine Default-Retention-Policy. Tenant-
+// Admin uebersteuert sie via Compliance-Profile + Tenant-Override (Sprint 2).
+// Vier Strategien:
+//
+//   - "hardDelete"  — Row physisch weg nach `keepFor`. Logs, Sessions.
+//   - "softDelete"  — `deletedAt = now()`. Erlaubt spaetere Restore.
+//   - "anonymize"   — Felder mit `anonymize`-Funktion ueberschrieben,
+//                     Row bleibt. Order/Invoice mit gemischter PII +
+//                     Geschaeftsdaten.
+//   - "blockDelete" — Cleanup-Job ignoriert; User-Forget loest stattdessen
+//                     `anonymize` aus. Buchhaltung, Mandate, Patientenakten.
+//
+// `keepFor` ist eine Duration-String wie "30d", "10y", "6m". Parser
+// kommt im Cleanup-Job (Sprint 2). `reference` ist das Field das den
+// Lebenszeit-Anker liefert (Default: `createdAt`). Sessions z.B. nutzen
+// `lastSeenAt` damit aktive Sessions nicht weggemueht werden.
+//
+// Siehe docs/plans/features/core-data-retention.md und Sprint 2 in roadmap.md.
+export type RetentionDef = {
+  readonly keepFor: string;
+  readonly strategy: "hardDelete" | "softDelete" | "anonymize" | "blockDelete";
+  readonly reference?: string;
+};
 
 export type TextFieldDef = {
   readonly type: "text";
@@ -40,7 +111,7 @@ export type TextFieldDef = {
    *  explizite Höhe. Search/sort/encrypt verhalten sich unverändert
    *  identisch zu single-line — nur die Render-Surface wechselt. */
   readonly multiline?: boolean | { readonly rows?: number };
-};
+} & PiiAnnotations;
 
 /**
  * Long-form text content — source-code, markdown, blog-posts, email-
@@ -74,7 +145,7 @@ export type LongTextFieldDef = {
   readonly default?: string;
   readonly access?: FieldAccess;
   readonly multiline?: boolean | { readonly rows?: number };
-};
+} & PiiAnnotations;
 
 export type BooleanFieldDef = {
   readonly type: "boolean";
@@ -95,7 +166,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly sensitive?: boolean;
   readonly default?: TOptions[number];
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 // Mehrere Werte aus einer festen Options-Liste — UI rendert als
 // Checkbox-/Multi-Select-Kontrolle. Storage: jsonb-Array<string>;
@@ -119,7 +190,7 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   /** Default-Auswahl. Jeder Eintrag muss in `options` sein (Boot-Validator). */
   readonly default?: readonly TOptions[number][];
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 export type NumberFieldDef = {
   readonly type: "number";
@@ -129,7 +200,29 @@ export type NumberFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
+
+/**
+ * 64-bit-Integer-Spalte fuer Audit-Counter, Byte-Sizes, Event-IDs und
+ * andere Werte die >2^31 (~2.1 Mrd) wandern koennen. Storage als
+ * Postgres `bigint`, JS-Round-trip als `number` (mode:"number" — sicher
+ * bis 2^53 ≈ 9 PB, JSON-serialisierbar). Wer >2^53 braucht (rare),
+ * nutzt einen `text`-Field mit eigenem Codec.
+ *
+ * Vorrang vor `NumberFieldDef`-(integer 32-bit-Cap, ~2.1 GB) immer dann
+ * wenn der Wert physisch ueber dieses Limit klettern kann: Bytes,
+ * Events, Counters in High-Throughput-Apps, Cumulative-Sums. Money
+ * hat dafuer den eigenen `MoneyFieldDef` (mit Currency-Spalte).
+ */
+export type BigIntFieldDef = {
+  readonly type: "bigInt";
+  readonly required?: boolean;
+  readonly sortable?: boolean;
+  readonly filterable?: boolean;
+  readonly sensitive?: boolean;
+  readonly default?: number;
+  readonly access?: FieldAccess;
+} & PiiAnnotations;
 
 export type MoneyFieldDef = {
   readonly type: "money";
@@ -207,7 +300,7 @@ export type EmbeddedFieldDef = {
   readonly sensitive?: boolean;
   readonly schema: Readonly<Record<string, EmbeddedSubFieldDef>>;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 // Legacy "date" — JS-Date-Object, semantisch unklar (Wall-Clock vs Instant).
 // Für neue Felder bevorzuge:
@@ -223,7 +316,7 @@ export type DateFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 // UTC-Instant (Temporal.Instant). Für Ereignisse die zu einem bestimmten
 // Augenblick passieren, ohne Location-Bezug: createdAt, loginAt, actualPickupAt.
@@ -251,7 +344,7 @@ export type TimestampFieldDef = {
    *   { pickupAt: { type: "timestamp", locatedBy: "pickupTz" }, pickupTz: { type: "tz" } }
    */
   readonly locatedBy?: string;
-};
+} & PiiAnnotations;
 
 // IANA-Zonenname (z.B. "Europe/Berlin", "America/Los_Angeles").
 // Wird via `Intl.supportedValuesOf("timeZone")` validiert (kommt im
@@ -262,7 +355,7 @@ export type TzFieldDef = {
   readonly required?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 // Wall-Clock-Termin an einem Ort als ATOMARES Konzept.
 // EIN Feld in der Schema-Definition, ZWEI Spalten in der DB
@@ -289,7 +382,7 @@ export type LocatedTimestampFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-};
+} & PiiAnnotations;
 
 export type FileFieldDef = {
   readonly type: "file";
@@ -332,6 +425,7 @@ export type FieldDefinition =
   | SelectFieldDef
   | MultiSelectFieldDef
   | NumberFieldDef
+  | BigIntFieldDef
   | MoneyFieldDef
   | ReferenceFieldDef
   | EmbeddedFieldDef
@@ -380,6 +474,20 @@ export type EntityIndexDef = {
   readonly columns: readonly [string, ...string[]];
   readonly unique?: boolean;
   readonly name?: string;
+  /**
+   * Optional SQL-Fragment fuer Partial-Index — `CREATE [UNIQUE] INDEX
+   * ... WHERE <condition>`. Postgres-Pattern fuer "Index nur unter
+   * bestimmten Bedingungen", typisches Beispiel: ExportJob-Idempotency
+   * `UNIQUE(userId) WHERE status IN ('pending', 'running')`.
+   *
+   * Caller baut das Fragment via drizzle-orm `sql\`...\``-Tagged-
+   * Template. table-builder.ts emittiert `.where(def.where)` auf den
+   * Drizzle-IndexBuilder — wirkt sowohl fuer unique- als auch fuer
+   * non-unique-Indexes (PG erlaubt beides; non-unique partial nutzt
+   * man z.B. fuer scharfe BTREE-Indexes nur auf einer Status-Teilmenge
+   * statt voller Tabelle).
+   */
+  readonly where?: SQL;
 };
 
 export type FieldsMap = Readonly<Record<string, FieldDefinition>>;
@@ -419,4 +527,20 @@ export type EntityDefinition<F extends FieldsMap = FieldsMap> = {
     readonly read?: OwnershipMap;
     readonly write?: OwnershipMap;
   };
+  /**
+   * Default-Retention-Policy fuer diese Entity. Tenant-Admin kann via
+   * Compliance-Profile + Tenant-Override (Sprint 2) uebersteuern.
+   * Cleanup-Job (Sprint 2) verarbeitet die Strategy:
+   *
+   *   - "hardDelete" → Row physisch weg nach keepFor
+   *   - "softDelete" → deletedAt = now() (mit core-soft-delete-Feature)
+   *   - "anonymize"  → Felder mit `anonymize`-Funktion ueberschrieben,
+   *                    Row bleibt
+   *   - "blockDelete" → Cleanup-Job ignoriert; User-Forget loest
+   *                     stattdessen anonymize aus. Buchhaltung, Mandate,
+   *                     Patientenakten.
+   *
+   * Siehe docs/plans/features/core-data-retention.md.
+   */
+  readonly retention?: RetentionDef;
 };

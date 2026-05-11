@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-user-data-rights",
+  "description": "DSGVO-compliant in 5 LOC: r.useExtension(EXT_USER_DATA, ...) haengt eine Domain an Forget+Export-Pipeline. Forget-Cron, Export-ZIP, Magic-Link kommen alle aus user-data-rights.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

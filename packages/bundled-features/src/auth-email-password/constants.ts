@@ -73,6 +73,17 @@ export const AuthErrors = {
   // deliberate enumeration trade-off: the lockout event itself is already
   // observable to the attacker, and legit users benefit from a clear signal.
   accountLocked: "account_locked",
+  // S2.U6 (DSGVO Art. 18) — Account ist im Restricted-Status. Login wird
+  // explicit verweigert mit eigenem Code (nicht zu invalid_credentials
+  // collapsen) damit UI sagen kann "Account ist aktuell pausiert, hier
+  // klicken zum Aufheben". Enumeration-leak akzeptiert: Restriction ist
+  // user-initiiert, der User weiss dass sein Konto restricted ist.
+  accountRestricted: "account_restricted",
+  // Account ist im DeletionRequested- oder Deleted-Status. Anders als
+  // Restricted ist das nicht reversibel via Login → wir collapsen auf
+  // invalid_credentials damit Forget-Pfad nicht via Login enumerierbar
+  // wird (User der "Konto loeschen" geklickt hat soll nicht erneut sehen
+  // dass die Email-Adresse noch in der DB existiert).
 } as const;
 
 // Account-lockout defaults — overridable via

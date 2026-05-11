@@ -8,9 +8,75 @@ import type {
   NavDefinition,
   WorkspaceDefinition,
 } from "./types";
+import type { PiiAnnotations } from "./types/fields";
 import { normalizeEditField, normalizeListColumn } from "./types/screen";
 
 const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
+
+// Field-Namen die typischerweise PII enthalten. Ohne `pii: true` /
+// `userOwned` / `tenantOwned` / `allowPlaintext`-Marker → Boot-Warning.
+// Lower-case compare für case-insensitive Match (displayName vs displayname).
+//
+// Bewusst NICHT in der Liste:
+//   - `name` allein — zu viele Geschäfts-Kontexte (product.name,
+//     tenant.name, role.name) sind kein PII. Personen-Namen werden
+//     ueber displayName / firstName / lastName / fullName erfasst.
+//
+// Quelle: docs/plans/datenschutz/crypto-shredding.md Boot-Validation-Sektion.
+const PII_DIRECT_NAME_HINTS: ReadonlySet<string> = new Set([
+  "email",
+  "phone",
+  "phonenumber",
+  "mobile",
+  "address",
+  "street",
+  "postalcode",
+  "zipcode",
+  "zip",
+  "city",
+  "displayname",
+  "firstname",
+  "lastname",
+  "fullname",
+  "birthday",
+  "birthdate",
+  "dateofbirth",
+  "dob",
+  "ssn",
+  "taxid",
+  "vatid",
+  "passport",
+  "iban",
+  "bic",
+]);
+
+// Field-Namen die typischerweise User-Generated-Content enthalten —
+// User-Forget muss diese mit Author-Subject-Key encrypten.
+const PII_USER_OWNED_NAME_HINTS: ReadonlySet<string> = new Set([
+  "body",
+  "text",
+  "content",
+  "message",
+  "comment",
+  "description",
+  "note",
+  "notes",
+]);
+
+// Framework-managed Timestamp-Spalten — dürfen als retention.reference
+// genutzt werden auch wenn nicht in entity.fields deklariert.
+const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
+  "createdAt",
+  "updatedAt",
+  "lastSeenAt",
+  "deletedAt",
+]);
+
+// Erlaubtes Format fuer retention.keepFor — Zahlen + Suffix (h/d/w/m/y).
+// Echtes Parsen kommt mit dem Cleanup-Job in Sprint 2; Boot-Validator
+// macht nur den Sanity-Check damit Tippfehler ("30days") frueh sichtbar
+// werden statt erst beim ersten Cleanup-Run.
+const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 
 /**
  * Validates all feature configurations at boot time.
@@ -71,6 +137,24 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   const allWorkspaceQns = collectWorkspaceQns(features);
   const allWriteHandlerQns = collectWriteHandlerQns(features);
 
+  // Cross-feature API exposure-map — jedes Feature deklariert Marker via
+  // r.exposesApi(name). Per-feature validateApiExposureMatching walkt
+  // usedApis-Set und checkt dass jeder Eintrag hier einen Match findet.
+  // Verhindert dass typo-getroffene oder gedroppte QN-Aufrufe zu
+  // Runtime-Crash statt Boot-Fail werden.
+  const allExposedApis = new Map<string, string>(); // apiName → providerFeature
+  for (const f of features) {
+    for (const apiName of f.exposedApis) {
+      const existing = allExposedApis.get(apiName);
+      if (existing && existing !== f.name) {
+        throw new Error(
+          `Cross-feature API "${apiName}" exposed by both "${existing}" and "${f.name}" — API names must be globally unique.`,
+        );
+      }
+      allExposedApis.set(apiName, f.name);
+    }
+  }
+
   let hasEncryptedFields = false;
   let hasFileFields = false;
 
@@ -78,6 +162,8 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateCircularDeps(feature.name, featureMap);
     if (validateEncryptedFields(feature)) hasEncryptedFields = true;
     if (validateFileFields(feature)) hasFileFields = true;
+    validatePiiAndRetention(feature);
+    validateApiExposureMatching(feature, allExposedApis, featureMap);
     validateEmbeddedFields(feature);
     validateMultiSelectFields(feature);
     validateReferenceFields(feature, featureMap);
@@ -496,6 +582,196 @@ function validateFileFields(feature: FeatureDefinition): boolean {
     }
   }
   return false;
+}
+
+// --- PII / Subject-Key Annotations + Retention validation ---
+//
+// Drei Klassen von Checks:
+//
+// 1. Mutual exclusion: pro Field nur EINE der drei Subject-Annotations
+//    (pii / userOwned / tenantOwned). Mehr ist semantisch widersprüchlich
+//    weil pro Field genau ein Subject-Key gehört.
+//
+// 2. Reference-Integrity: userOwned.ownerField muss auf ein existierendes
+//    reference-Field zeigen (das auf user-Entity zeigen sollte). Erkennt
+//    Tippfehler und Drop-Refactorings beim Boot statt beim ersten
+//    Encrypt-Aufruf.
+//
+// 3. Heuristik-Warnings: Field-Namen die typischerweise PII enthalten
+//    (email, name, phone, body, etc.) ohne Annotation → Boot-Warning.
+//    Mit `allowPlaintext: "<reason>"` unterdrückbar (geht in Audit).
+//
+// 4. Retention-Integrity: retention.reference (wenn gesetzt) muss auf
+//    ein bestehendes Field zeigen (oder Framework-Timestamp). retention.
+//    strategy="blockDelete" ohne anonymize-Felder ist sinnlos — User-
+//    Forget kann nichts machen, Warning.
+//
+// Encrypt/Decrypt-Mechanik landet in Sprint 3 (crypto-shredding); diese
+// Validation greift schon ab Sprint 0 damit Schema-Drift früh auffällt.
+function validatePiiAndRetention(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities)) {
+    const fieldsByName = entity.fields;
+
+    for (const [fieldName, field] of Object.entries(fieldsByName)) {
+      // PiiAnnotations-Properties sind type-level optional. Auf Field-
+      // Defs die nicht via "& PiiAnnotations" erweitert sind (Boolean,
+      // Money, Reference, Embedded, Tz, LocatedTimestamp, File*, Image*)
+      // liefert property-access undefined zur Runtime. Die TS-Compile-
+      // Time-Validation hat dort schon abgelehnt → Cast ist safe.
+      const annot = field as PiiAnnotations;
+
+      const hasPii = Boolean(annot.pii);
+      const hasUserOwned = Boolean(annot.userOwned);
+      const hasTenantOwned = Boolean(annot.tenantOwned);
+      const annotCount = (hasPii ? 1 : 0) + (hasUserOwned ? 1 : 0) + (hasTenantOwned ? 1 : 0);
+
+      if (annotCount > 1) {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has multiple subject-key annotations (pii / userOwned / tenantOwned). Pick one — each field belongs to exactly one subject.`,
+        );
+      }
+
+      if (annot.userOwned) {
+        const ownerName = annot.userOwned.ownerField;
+        if (!ownerName || typeof ownerName !== "string") {
+          throw new Error(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has userOwned without ownerField name`,
+          );
+        }
+        const ownerField = fieldsByName[ownerName];
+        if (!ownerField) {
+          const known = Object.keys(fieldsByName).sort().join(", ");
+          throw new Error(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" references userOwned.ownerField "${ownerName}" but no such field exists. Known fields: ${known}`,
+          );
+        }
+        if (ownerField.type !== "reference") {
+          throw new Error(
+            `[Feature ${feature.name}] userOwned.ownerField "${ownerName}" on entity "${entityName}" must be a reference field, got type "${ownerField.type}"`,
+          );
+        }
+        // Soft-Warning wenn das reference-target nicht offensichtlich user
+        // ist — custom subject-entities (HR-Mitarbeiter, Patient) sind
+        // erlaubt, müssen aber bewusste Wahl sein.
+        const refTarget = ownerField.entity;
+        const targetEntity = refTarget.includes(":") ? refTarget.split(":")[1] : refTarget;
+        if (targetEntity !== "user") {
+          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+          console.warn(
+            `[kumiko:boot] [Feature ${feature.name}] userOwned.ownerField "${ownerName}" on entity "${entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
+          );
+        }
+      }
+
+      // PII-Heuristik: nur wenn keine Annotation gesetzt UND kein
+      // allowPlaintext-Marker. Ergibt false positives auf Geschäftsdaten
+      // mit personenartigem Namen (z.B. company.legalName) — Author
+      // unterdrückt mit { allowPlaintext: "is-business-data" }.
+      const noAnnotation = annotCount === 0 && !annot.allowPlaintext;
+      if (noAnnotation) {
+        const lower = fieldName.toLowerCase();
+        if (PII_DIRECT_NAME_HINTS.has(lower)) {
+          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+          console.warn(
+            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a PII-typical name but no { pii: true } annotation. If this is PII, mark it. If business data, set { allowPlaintext: "is-business-data" } to silence.`,
+          );
+        } else if (PII_USER_OWNED_NAME_HINTS.has(lower)) {
+          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+          console.warn(
+            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-content-typical name but no { userOwned } annotation. If this contains user-generated content, mark it { userOwned: { ownerField: "<authorIdField>" }}. If business data, set { allowPlaintext: "..." } to silence.`,
+          );
+        }
+      }
+    }
+
+    // --- Entity-level retention ---
+    const retention = entity.retention;
+    if (retention) {
+      if (!KEEP_FOR_PATTERN.test(retention.keepFor)) {
+        // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+        console.warn(
+          `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.keepFor="${retention.keepFor}" hat ungueltiges Format. Erwartet: <Zahl><h|d|w|m|y> (z.B. "30d", "10y", "6m"). Cleanup-Job (Sprint 2) wird das nicht parsen koennen.`,
+        );
+      }
+
+      if (retention.reference !== undefined) {
+        const refName = retention.reference;
+        if (!fieldsByName[refName] && !FRAMEWORK_TIMESTAMP_FIELDS.has(refName)) {
+          const known = Object.keys(fieldsByName).sort().join(", ");
+          const framework = [...FRAMEWORK_TIMESTAMP_FIELDS].sort().join(", ");
+          throw new Error(
+            `[Feature ${feature.name}] Entity "${entityName}" retention.reference "${refName}" does not exist. Known fields: ${known} — framework-managed timestamps also accepted: ${framework}`,
+          );
+        }
+      }
+
+      if (retention.strategy === "blockDelete") {
+        const hasAnonymize = Object.values(fieldsByName).some((f) => {
+          const a = f as PiiAnnotations;
+          return Boolean(a.anonymize);
+        });
+        if (!hasAnonymize) {
+          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+          console.warn(
+            `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. User-Forget cannot anonymize — Forget will return error. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
+          );
+        }
+      }
+    }
+  }
+}
+
+// --- Cross-feature API exposure / usage matching ---
+//
+// `r.exposesApi(name, impl)` registers a callable; `r.usesApi(name)`
+// declares a caller. Boot-Validator prüft drei Invarianten:
+//   1. Jeder usesApi(name) findet einen exposesApi(name) in irgendeinem
+//      Feature.
+//   2. Das exposing-Feature ist in requires/optionalRequires des callers
+//      gelisted (sonst klappt die Cross-Feature-Aufruf-Reihenfolge nicht).
+//   3. Self-exposure ist erlaubt (Feature ruft eigene API), wird aber
+//      mit Warning markiert weil es typisch ein Refactor-Restbestand ist.
+//
+// Globale Eindeutigkeit der apiNames (kein Dublicate über Features)
+// wird in validateBoot() vor dem Per-Feature-Walk geprüft.
+function validateApiExposureMatching(
+  feature: FeatureDefinition,
+  allExposedApis: ReadonlyMap<string, string>,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  for (const apiName of feature.usedApis) {
+    const providerFeature = allExposedApis.get(apiName);
+    if (!providerFeature) {
+      const known = [...allExposedApis.keys()].sort().join(", ") || "(none)";
+      throw new Error(
+        `[Feature ${feature.name}] r.usesApi("${apiName}") but no feature exposes that API. Known exposed APIs: ${known}`,
+      );
+    }
+
+    if (providerFeature === feature.name) {
+      // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+      console.warn(
+        `[kumiko:boot] [Feature ${feature.name}] r.usesApi("${apiName}") on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
+      );
+      continue;
+    }
+
+    const allDeps = [...feature.requires, ...feature.optionalRequires];
+    if (!allDeps.includes(providerFeature)) {
+      throw new Error(
+        `[Feature ${feature.name}] r.usesApi("${apiName}") is exposed by "${providerFeature}" but feature is not in requires/optionalRequires. Add r.requires("${providerFeature}").`,
+      );
+    }
+
+    // Sanity: provider feature actually exists in this app's feature set.
+    // Should always be true if allExposedApis was built from `features`,
+    // aber defensiv für unklare Constructor-Pfade.
+    if (!featureMap.has(providerFeature)) {
+      throw new Error(
+        `[Feature ${feature.name}] internal: r.usesApi("${apiName}") points to provider "${providerFeature}" which is not in feature map`,
+      );
+    }
+  }
 }
 
 // --- Extension usage validation ---
