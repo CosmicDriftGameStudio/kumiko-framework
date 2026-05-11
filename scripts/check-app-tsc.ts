@@ -70,7 +70,7 @@ function checkApp(appRoot: string): AppResult {
   // yarn 4 doesn't auto-fallback to root .bin from a workspace, so we
   // invoke the binary directly with the workspace as cwd — that gives
   // tsc the workspace's tsconfig as the project root.
-  const tscBin = join(REPO_ROOT, "node_modules", ".bin", "tsc");
+  const tscBin = join(REPO_ROOT, "..", "node_modules", ".bin", "tsc");
   const result = spawnSync(tscBin, ["--noEmit"], {
     cwd: appRoot,
     encoding: "utf8",

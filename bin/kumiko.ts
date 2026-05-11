@@ -96,6 +96,12 @@ function banner(): void {
 
 // --- Commands ---
 
+const REPO_ROOT = resolvePath(import.meta.dir, "..", "..");
+const BIN_PATH = join(REPO_ROOT, "node_modules", ".bin");
+const BIOME = join(BIN_PATH, "biome");
+const TSC = join(BIN_PATH, "tsc");
+const VITEST = join(BIN_PATH, "vitest");
+
 // Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
 // danach noch Unit + Integration Tests an; `kumiko check:fast` hängt nur
 // `vitest run --changed` an und skipt Integration komplett.
@@ -106,13 +112,13 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // error im scan-Pfad. Die biome.json `files.includes` filtert nur
   // Lint-Targets, nicht den Discovery-Walk. (`app/` war in O.1 #18
   // archiviert.)
-  { name: "Biome", cmd: "yarn biome check packages samples" },
+  { name: "Biome", cmd: `${BIOME} check packages samples` },
   // tsc -b nutzt .tsbuildinfo-Caches — Re-Runs bei unverändertem Code
   // sind nahezu instant. Project-References im root tsconfig ziehen alle
   // Workspaces mit (framework, bundled-features, headless, dispatcher-
   // live, renderer, renderer-web, app). --noEmit funktioniert nicht mit
   // composite-projects (TS6310), dist-Output ist via .gitignore ignoriert.
-  { name: "TypeScript", cmd: "yarn tsc -b" },
+  { name: "TypeScript", cmd: `${TSC} -b` },
   // Sample-Apps werden NICHT von tsc -b erfasst (sind nicht in
   // root.references) — eigener Check pro sample workspace damit IDE-
   // sichtbare Errors auch im check rot werden. Auto-discovery über
@@ -394,7 +400,7 @@ const commands = {
       // `yarn workspaces foreach -A run test:run` über alle 4 Repos
       // — das deckt Unit-Tests parent-weit ab.
       const slowSteps: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
-        { name: "Unit Tests", cmd: "KUMIKO_CHECK=1 yarn vitest run" },
+        { name: "Unit Tests", cmd: `KUMIKO_CHECK=1 ${VITEST} run` },
       ];
       for (const step of slowSteps) {
         logBoth(`--- ${step.name} ---`, logPath);
