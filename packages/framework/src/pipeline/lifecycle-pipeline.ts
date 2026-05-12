@@ -14,6 +14,7 @@ import type {
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
 import { getFallbackTracer, type Tracer } from "../observability";
+import { createFallbackLogger } from "../logging/utils";
 import type { EventDedup } from "./event-dedup";
 
 function resolveTracer(context: AppContext): Tracer {
@@ -253,14 +254,9 @@ export function createLifecycleHooks(
     }
 
     if (errors.length > 0) {
-      const log = opts.context.log;
+      const logError = createFallbackLogger("lifecycle", opts.context.log);
       const msg = `${opts.phaseLabel} errors for ${opts.handlerName}`;
-      const details = errors.map((e) => `${e.name}: ${e.error}`);
-      if (log) {
-        log.error(msg, { errors: details });
-      } else {
-        console.error(`[lifecycle] ${msg}:`, details);
-      }
+      logError.error(msg, { details: errors.map((e) => `${e.name}: ${e.error}`) });
     }
   }
 
@@ -397,11 +393,9 @@ export function createLifecycleHooks(
     // skip: all batch hooks succeeded, nothing to log
     if (failures.length === 0) return;
 
-    const log = opts.context.log;
+    const logError = createFallbackLogger("lifecycle", opts.context.log);
     const msg = `${opts.phaseLabel} errors`;
-    const details = failures.map((f) => `${f.name}: ${f.outcome.reason}`);
-    if (log) log.error(msg, { errors: details });
-    else console.error(`[lifecycle] ${msg}:`, details);
+    logError.error(msg, { details: failures.map((f) => `${f.name}: ${f.outcome.reason}`) });
   }
 }
 

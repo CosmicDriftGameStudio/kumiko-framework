@@ -146,15 +146,11 @@ export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
   };
 }
 
-// Builds a single error-log closure once per lifecycle instance. Structured
-// logger wins when present; otherwise plain stderr via console.error so we
-// never eat a failure silently.
 function makeErrorLogger(
   logger: Pick<Logger, "error"> | undefined,
 ): (msg: string, err: unknown) => void {
   if (logger) {
     return (msg, err) => logger.error(`[lifecycle] ${msg}`, { err });
   }
-  // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
   return (msg, err) => console.error(`[lifecycle] ${msg}:`, err);
 }

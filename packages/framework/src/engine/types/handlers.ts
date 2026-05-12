@@ -175,7 +175,7 @@ export function withResponseData<T>(result: WriteResult<unknown>, data: T): Writ
 
 // --- Context Types ---
 
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { TenantId } from "./identifiers";
 // Forward import: Registry is in feature.ts (circular type import — fine in TS)
 import type { Registry } from "./feature";
 

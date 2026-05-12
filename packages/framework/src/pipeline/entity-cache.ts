@@ -1,4 +1,4 @@
-import type { EntityId, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { EntityId, TenantId } from "../engine/types/identifiers";
 import type Redis from "ioredis";
 import { RedisKeys } from "./redis-keys";
 

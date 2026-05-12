@@ -1,4 +1,4 @@
-import type { EntityId, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { EntityId, TenantId } from "../engine/types/identifiers";
 import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types";
 
 type StoredDoc = {

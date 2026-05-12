@@ -1,4 +1,5 @@
 import { type AnyColumn, eq } from "drizzle-orm";
+import { createFallbackLogger } from "../logging/utils";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
 import { buildDrizzleTable } from "../db/table-builder";
@@ -759,7 +760,6 @@ export function createDispatcher(
     // from the dispatcher's own closure to win.
     // ctx.tz ist immer da. Tenant + User-Defaults kommen aus dem
     // SessionUser sobald die Felder existieren — bis dahin "UTC".
-    // TODO(Iteration 6): tenant.timezone + user.timezone aus session/db lesen.
     const tz = createTzContext();
 
     return {
@@ -1414,14 +1414,13 @@ export function createDispatcher(
     // (one hook pushing multiple sub-calls) rather than relying on the
     // flush-loop order.
     const flushAfterCommit = async () => {
+      const logError = createFallbackLogger("dispatcher", context.log);
       const outcomes = await Promise.allSettled(afterCommitHooks.map((hook) => hook()));
       for (const outcome of outcomes) {
         if (outcome.status === "rejected") {
           const detail =
             outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
-          const msg = "afterCommit hook failed";
-          if (context.log) context.log.error(msg, { error: detail });
-          else console.error(`[dispatcher] ${msg}: ${detail}`);
+          logError.error("afterCommit hook failed", { error: detail });
         }
       }
     };
@@ -1445,9 +1444,8 @@ export function createDispatcher(
         // Batch hooks must never fail the batch — the commit already happened.
         // Pass the raw error so the logger preserves stack + cause chain;
         // collapsing to .message hides exactly what ops needs to debug.
-        const msg = "batch hook flush failed";
-        if (context.log) context.log.error(msg, { error: e });
-        else console.error(`[dispatcher] ${msg}:`, e);
+        const logError = createFallbackLogger("dispatcher", context.log);
+        logError.error("batch hook flush failed", { error: e });
       }
     };
 
