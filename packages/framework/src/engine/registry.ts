@@ -984,7 +984,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const allHandlerNames = new Set([...writeHandlerMap.keys(), ...queryHandlerMap.keys()]);
   for (const [qualifiedName, notifDef] of notificationMap) {
     // Both maps are populated in lockstep — same key-set by construction.
-    const featureName = notificationFeatureMap.get(qualifiedName) as string;
+    const featureName = notificationFeatureMap.get(qualifiedName) as string; // @cast-boundary engine-bridge
     // I'll try the easy path first: if the trigger is already a fully qualified QN
     // (cross-feature), I take it as-is. Otherwise I qualify with the own feature —
     // as a write handler first (the common case), then as a query. If nothing
@@ -1124,7 +1124,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     },
 
     getRelations(entityName: string): EntityRelations {
-      return (relationMap.get(entityName) ?? {}) as EntityRelations;
+      return (relationMap.get(entityName) ?? {}) as EntityRelations; // @cast-boundary schema-walk
     },
 
     getSearchIncludes(entityName: string): ReadonlyMap<string, readonly string[]> {

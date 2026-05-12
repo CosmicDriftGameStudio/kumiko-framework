@@ -61,7 +61,7 @@ export function applyCursorQuery<T extends PgSelect>(
       // werfen.
       conditions.push(sql`false`);
     } else {
-      conditions.push(inArray(table.id, options.filterIds as readonly string[]));
+      conditions.push(inArray(table.id, options.filterIds as readonly string[])); // @cast-boundary db-operator
     }
   }
 

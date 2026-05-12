@@ -10,23 +10,13 @@ import type {
 // --- Access Presets ---
 
 export const access = {
-  all: ["all"] as readonly string[],
-  admin: ["Admin", "SystemAdmin"] as readonly string[],
-  systemAdmin: ["SystemAdmin"] as readonly string[],
-  system: ["system"] as readonly string[],
-  // system + SystemAdmin — use for field-access on identity columns that
-  // framework auth code (SYSTEM_USER) writes during login/registration, but
-  // that a SystemAdmin should also be able to fix manually.
-  privileged: ["system", "SystemAdmin"] as readonly string[],
-  // Any signed-in user role. Use on authenticated-but-not-privileged handlers
-  // (change-password, logout, me-style queries). Does NOT include "system"
-  // since an unauthenticated system call shouldn't be able to hit these.
-  authenticated: ["User", "Admin", "SystemAdmin"] as readonly string[],
-  // Unauthenticated callers reaching public endpoints (server must opt in
-  // via `anonymousAccess`). Combine with authenticated roles when an
-  // endpoint should serve both — e.g. `roles: ["anonymous", "customer"]`
-  // for a product-listing that personalises when a session is present.
-  anonymous: ["anonymous"] as readonly string[],
+  all: ["all"] as readonly string[], // @cast-boundary schema-walk
+  admin: ["Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
+  systemAdmin: ["SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
+  system: ["system"] as readonly string[], // @cast-boundary schema-walk
+  privileged: ["system", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
+  authenticated: ["User", "Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
+  anonymous: ["anonymous"] as readonly string[], // @cast-boundary schema-walk
   roles: (...roles: string[]): readonly string[] => roles,
 } as const;
 
@@ -83,7 +73,7 @@ function createConfigKey<T extends ConfigKeyType>(
     default: opts.default,
     ...(opts.encrypted ? { encrypted: true } : {}),
     ...(opts.options ? { options: opts.options } : {}),
-    bounds: opts.bounds as ConfigBounds | undefined,
+    bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
     computed: opts.computed,
     ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
   };

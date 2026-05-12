@@ -136,7 +136,7 @@ export async function loadLatestSnapshot<
     tenantId: row.tenantId,
     aggregateType: row.aggregateType,
     version: row.version,
-    state: row.state as TState,
+    state: row.state as TState, // @cast-boundary engine-payload
     createdAt: row.createdAt,
   };
 }

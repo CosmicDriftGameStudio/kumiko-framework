@@ -142,7 +142,7 @@ export async function rebuildMultiStreamProjection(
       // msp.table is narrowed by the upfront guard; the assertion here is
       // for TS inside the async closure (narrowing doesn't cross the
       // transaction boundary).
-      const tableName = getTableName(msp.table as NonNullable<typeof msp.table>);
+      const tableName = getTableName(msp.table as NonNullable<typeof msp.table>); // @cast-boundary db-operator
       await tx.execute(sql.raw(`TRUNCATE TABLE ${quoteIdent(tableName)}`));
 
       const subscribedTypes = Object.keys(msp.apply);
@@ -151,7 +151,7 @@ export async function rebuildMultiStreamProjection(
           .select()
           .from(eventsTable)
           .where(inArray(eventsTable.type, subscribedTypes))
-          .orderBy(asc(eventsTable.id))) as ReadonlyArray<typeof eventsTable.$inferSelect>;
+          .orderBy(asc(eventsTable.id))) as ReadonlyArray<typeof eventsTable.$inferSelect>; // @cast-boundary db-row
 
         const upcasters = registry.getEventUpcasters();
         for (const row of events) {
@@ -170,11 +170,11 @@ export async function rebuildMultiStreamProjection(
           };
           const storedEvent = await upcastStoredEvent(raw, upcasters, {
             db: tx,
-            tenantId: row.tenantId as TenantId,
+            tenantId: row.tenantId as TenantId, // @cast-boundary db-row
           });
           const applyFn = msp.apply[row.type];
           if (!applyFn) continue;
-          const rebuildCtx = createRebuildCtx(registry, tx, row.tenantId as TenantId);
+          const rebuildCtx = createRebuildCtx(registry, tx, row.tenantId as TenantId); // @cast-boundary db-row
           await applyFn(storedEvent, tx, rebuildCtx);
           eventsProcessed++;
           lastProcessedEventId = row.id;

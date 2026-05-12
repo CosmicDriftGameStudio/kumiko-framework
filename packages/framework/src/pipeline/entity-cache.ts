@@ -86,7 +86,7 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
         const raw = values[i];
         if (raw) {
           const parsed = parseCached(raw);
-          if (parsed) result.set(ids[i] as EntityId, parsed);
+          if (parsed) result.set(ids[i] as EntityId, parsed); // @cast-boundary engine-payload
         }
       }
       return result;

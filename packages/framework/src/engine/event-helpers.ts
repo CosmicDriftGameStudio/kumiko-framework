@@ -69,5 +69,5 @@ export function typedPayload<TPayload>(
         `Check the projection-apply / reducer mapping — the event was routed to the wrong handler.`,
     );
   }
-  return event.payload as TPayload;
+  return event.payload as TPayload; // @cast-boundary engine-payload
 }

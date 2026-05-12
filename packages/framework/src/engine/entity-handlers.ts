@@ -151,17 +151,17 @@ export function defineEntityWriteHandler(
         changes: buildUpdateSchema(entity),
       });
       handler = async (event, ctx) =>
-        executor.update(event.payload as UpdatePayload, event.user, ctx.db);
+        executor.update(event.payload as UpdatePayload, event.user, ctx.db); // @cast-boundary engine-payload
       break;
     case "delete":
       schema = idSchema;
       handler = async (event, ctx) =>
-        executor.delete(event.payload as IdPayload, event.user, ctx.db);
+        executor.delete(event.payload as IdPayload, event.user, ctx.db); // @cast-boundary engine-payload
       break;
     case "restore":
       schema = idSchema;
       handler = async (event, ctx) =>
-        executor.restore(event.payload as IdPayload, event.user, ctx.db);
+        executor.restore(event.payload as IdPayload, event.user, ctx.db); // @cast-boundary engine-payload
       break;
     default:
       assertUnreachable(verb, "write verb");
@@ -205,7 +205,7 @@ export function defineEntityQueryHandler(
         // läuft (Remote-Combobox-Search). Der executor wird beim
         // Definition-Time gebaut, kennt den Adapter also nicht —
         // Runtime-Override holt das.
-        const result = await executor.list(query.payload as ListPayload, query.user, ctx.db, {
+        const result = await executor.list(query.payload as ListPayload, query.user, ctx.db, { // @cast-boundary engine-payload
           ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
         });
         if (!hasRefFields) return result;
@@ -221,7 +221,7 @@ export function defineEntityQueryHandler(
     case "detail":
       schema = idSchema;
       handler = async (query, ctx) => {
-        const row = await executor.detail(query.payload as IdPayload, query.user, ctx.db);
+        const row = await executor.detail(query.payload as IdPayload, query.user, ctx.db); // @cast-boundary engine-payload
         if (row === null || !hasRefFields) return row;
         return enrichRowWithReferences(row, entity, (name) => ctx.registry.getEntity(name), ctx.db);
       };

@@ -198,7 +198,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     for (const list of results) {
       for (const j of list) {
         if (j.name !== jobName) continue;
-        const t = (j.data as { _tenantId?: string } | undefined)?._tenantId;
+        const t = (j.data as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary dynamic-key
         if (t === tenantId) {
           count += 1;
           if (count >= max) return true;
@@ -274,8 +274,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // without peeking at BullMQ internals.
     const rawData = bullJob.data as DbRow;
     const meta: JobMeta = {
-      triggeredById: rawData["_triggeredById"] as string | undefined,
-      payload: rawData["_payload"] as string | undefined,
+      triggeredById: rawData["_triggeredById"] as string | undefined, // @cast-boundary dynamic-key
+      payload: rawData["_payload"] as string | undefined, // @cast-boundary dynamic-key
       attempt: bullJob.attemptsMade + 1,
     };
 
@@ -287,16 +287,16 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
     // Determine tenantId and triggeredBy from meta
     const tenantId =
-      (rawData["_tenantId"] as string | undefined) ??
-      (payload["tenantId"] as string | undefined) ??
+      (rawData["_tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
+      (payload["tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
       SYSTEM_TENANT_ID;
-    const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null;
+    const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null; // @cast-boundary dynamic-key
 
     // _triggerName aus rawData übernehmen falls gesetzt — handleEvent
     // packt das beim Multi-Trigger-Dispatch rein (siehe unten). Über
     // jobContext.triggerName freigegeben damit der Handler nicht selbst
     // im rohen Payload kramen muss.
-    const triggerName = rawData["_triggerName"] as string | undefined;
+    const triggerName = rawData["_triggerName"] as string | undefined; // @cast-boundary dynamic-key
     const jobContext: AppContext = {
       ...context,
       systemUser: createSystemUser(tenantId),
@@ -317,7 +317,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // so event writes during this job stamp the same correlation as the
     // request that scheduled it. Cron/boot jobs (no scheduler) start fresh
     // — correlationId = new requestId, no parent causation.
-    const inheritedCorrelationId = (rawData["_correlationId"] as string | undefined) ?? undefined;
+    const inheritedCorrelationId = (rawData["_correlationId"] as string | undefined) ?? undefined; // @cast-boundary dynamic-key
     const jobRequestId = requestContext.generateId();
     const jobCorrelationId = inheritedCorrelationId ?? jobRequestId;
 
@@ -460,7 +460,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // dispatch). Fan-out children of perTenant jobs land here on their
       // recursive queue.add and DO carry _tenantId.
       if (jobDef.maxPerTenant !== undefined) {
-        const tenantId = (payload as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary engine-payload
+        const tenantId = (payload as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary dynamic-key
         if (
           tenantId !== undefined &&
           (await isOverPerTenantLimit(jobName, tenantId, jobDef.maxPerTenant))

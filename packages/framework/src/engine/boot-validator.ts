@@ -254,7 +254,7 @@ function validateConfigKeyBounds(feature: FeatureDefinition): void {
     }
 
     if (keyDef.default !== undefined) {
-      const defaultNum = keyDef.default as number;
+      const defaultNum = keyDef.default as number; // @cast-boundary engine-payload
       if (min !== undefined && defaultNum < min) {
         throw new Error(
           `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is below bounds.min (${min})`,
@@ -1067,7 +1067,7 @@ function checkFieldAccess(args: {
     // validation is n/a here (no claim refs in this shape), but the
     // role-existence check applies.
     checkLegacyRoleList(
-      args.access as readonly string[],
+      args.access as readonly string[], // @cast-boundary schema-walk
       args.knownRoles,
       args.scope,
       args.featureName,
@@ -1076,7 +1076,7 @@ function checkFieldAccess(args: {
     return;
   }
   checkOwnershipMap({
-    map: args.access as OwnershipMap,
+    map: args.access as OwnershipMap, // @cast-boundary schema-walk
     columnNames: args.columnNames,
     allClaimKeys: args.allClaimKeys,
     knownRoles: args.knownRoles,

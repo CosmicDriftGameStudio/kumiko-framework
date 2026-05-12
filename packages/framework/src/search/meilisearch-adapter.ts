@@ -92,8 +92,8 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
 
       return results.hits.map(
         (hit: Record<string, unknown>): SearchResult => ({
-          entityType: hit["_type"] as string,
-          entityId: hit["_entityId"] as EntityId,
+          entityType: hit["_type"] as string, // @cast-boundary engine-bridge
+          entityId: hit["_entityId"] as EntityId, // @cast-boundary engine-bridge
         }),
       );
     },

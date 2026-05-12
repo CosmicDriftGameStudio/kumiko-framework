@@ -422,6 +422,6 @@ export function buildEventId(handlerName: string, payload: unknown, phase: strin
   if (typeof rawId !== "string" && typeof rawId !== "number") return null;
   if (rawId === 0 || rawId === "") return null;
   const data = p["data"] as Record<string, unknown> | undefined; // @cast-boundary engine-payload
-  const version = data?.["version"] as number | undefined;
+  const version = data?.["version"] as number | undefined; // @cast-boundary engine-payload
   return `${handlerName}:${rawId}:${version ?? 0}:${phase}`;
 }

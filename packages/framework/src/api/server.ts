@@ -383,7 +383,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     // can pause this consumer when the feature is globally disabled. Events
     // queue up in the store and replay cleanly from the same cursor on resume.
     ...(options.registry.getMultiStreamProjectionFeature(msp.name) && {
-      featureName: options.registry.getMultiStreamProjectionFeature(msp.name) as string,
+      featureName: options.registry.getMultiStreamProjectionFeature(msp.name) as string, // @cast-boundary engine-bridge
     }),
     // Copy the continuous-lifecycle error policy straight onto the consumer.
     // Rebuild uses its own policy (rebuildProjection reads msp.errorMode.rebuild
@@ -560,7 +560,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   app.route("/api", createSseRoute(sseBroker));
 
   if (options.files) {
-    const fileDb = options.files.db ?? (options.context.db as FileRoutesOptions["db"]);
+    const fileDb = options.files.db ?? (options.context.db as FileRoutesOptions["db"]); // @cast-boundary engine-bridge
     if (!fileDb) throw new Error("files option requires db in context or files.db");
     app.route(
       "/api",

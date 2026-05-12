@@ -11,7 +11,7 @@ export type LoggerOptions = {
 };
 
 export function createLogger(options: LoggerOptions = {}): Logger {
-  const level = options.level ?? (process.env["LOG_LEVEL"] as LoggerOptions["level"]) ?? "info";
+  const level = options.level ?? (process.env["LOG_LEVEL"] as LoggerOptions["level"]) ?? "info"; // @cast-boundary dynamic-key
   const pretty = options.pretty ?? process.env["LOG_FORMAT"] === "pretty";
 
   const pinoConfig = {

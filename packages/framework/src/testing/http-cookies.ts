@@ -22,7 +22,7 @@ export type ParsedSetCookie = {
 // is acceptable here because tests that set multiple cookies run on a
 // runtime that supports getSetCookie.
 export function getSetCookies(res: Response): Map<string, ParsedSetCookie> {
-  const getter = (res.headers as { getSetCookie?: () => string[] }).getSetCookie;
+  const getter = (res.headers as { getSetCookie?: () => string[] }).getSetCookie; // @cast-boundary engine-bridge
   const raws = getter ? getter.call(res.headers) : [res.headers.get("set-cookie") ?? ""];
   const out = new Map<string, ParsedSetCookie>();
   for (const raw of raws) {

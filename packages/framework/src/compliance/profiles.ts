@@ -379,7 +379,7 @@ function resolveExtends(key: ComplianceProfileKey): ComplianceProfile {
 export const COMPLIANCE_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfile>> =
   Object.fromEntries(
     (Object.keys(RAW_PROFILES) as ComplianceProfileKey[]).map((k) => [k, resolveExtends(k)]),
-  ) as Readonly<Record<ComplianceProfileKey, ComplianceProfile>>;
+  ) as Readonly<Record<ComplianceProfileKey, ComplianceProfile>>; // @cast-boundary dynamic-key
 
 // --- Effective-Profile-Resolver ---
 
@@ -421,7 +421,7 @@ export function resolveComplianceProfile(args: {
 
   const merged = deepMerge(
     base as unknown as Record<string, unknown>,
-    args.override as Record<string, unknown>,
+    args.override as Record<string, unknown>, // @cast-boundary engine-payload
   ) as unknown as ComplianceProfile;
   return { profile: merged };
 }
