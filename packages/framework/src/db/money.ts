@@ -51,9 +51,9 @@ export function flattenMoney(
       typeof raw === "object" &&
       raw !== null &&
       "amount" in raw &&
-      typeof (raw as MoneyPair).amount === "number"
+      typeof (raw as MoneyPair).amount === "number" // @cast-boundary schema-walk
     ) {
-      const pair = raw as MoneyPair;
+      const pair = raw as MoneyPair; // @cast-boundary schema-walk
       amount = pair.amount;
       currency = pair.currency ?? fallbackCurrency;
     } else if (typeof raw === "number") {

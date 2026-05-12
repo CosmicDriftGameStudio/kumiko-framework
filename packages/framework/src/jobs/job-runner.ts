@@ -104,7 +104,7 @@ const TRACE_CONTEXT_KEY = "_traceContext";
 function readTraceContext(data: Record<string, unknown>): SerializedTraceContext | undefined {
   const raw = data[TRACE_CONTEXT_KEY];
   if (!raw || typeof raw !== "object") return undefined;
-  const ctx = raw as Partial<SerializedTraceContext>;
+  const ctx = raw as Partial<SerializedTraceContext>; // @cast-boundary engine-payload
   if (!ctx.traceId || !ctx.spanId) return undefined;
   return { traceId: ctx.traceId, spanId: ctx.spanId };
 }
@@ -460,7 +460,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // dispatch). Fan-out children of perTenant jobs land here on their
       // recursive queue.add and DO carry _tenantId.
       if (jobDef.maxPerTenant !== undefined) {
-        const tenantId = (payload as { _tenantId?: string } | undefined)?._tenantId;
+        const tenantId = (payload as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary engine-payload
         if (
           tenantId !== undefined &&
           (await isOverPerTenantLimit(jobName, tenantId, jobDef.maxPerTenant))

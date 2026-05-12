@@ -20,7 +20,7 @@ export function extractPgError(e: unknown): PgErrorInfo | null {
   for (const layer of layers) {
     // @cast-boundary error-details — postgres-js error shape (code, constraint_name)
     const code = (layer as { code?: string }).code;
-    const constraintName = (layer as { constraint_name?: string }).constraint_name;
+    const constraintName = (layer as { constraint_name?: string }).constraint_name; // @cast-boundary error-details
     if (code !== undefined || constraintName !== undefined) {
       return { code, constraint_name: constraintName };
     }

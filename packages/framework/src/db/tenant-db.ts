@@ -148,7 +148,7 @@ export function createTenantDb(
   // types don't include PromiseLike. Cast via this helper so the double-
   // cast is named and lives in exactly one place per scope.
   function asDrizzleThenable<T>(builder: unknown): PromiseLike<T> {
-    return builder as PromiseLike<T>;
+    return builder as PromiseLike<T>; // @cast-boundary engine-bridge
   }
 
   // Wrap a DB query promise in a `db.query` span + emit the DB duration

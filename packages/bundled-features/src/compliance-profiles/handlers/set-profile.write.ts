@@ -1,6 +1,5 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
-  type ComplianceProfileKey,
   complianceProfileOverrideSchema,
   SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
@@ -27,9 +26,7 @@ const crud = createEventStoreExecutor(tenantComplianceProfileTable, tenantCompli
 // X1) — minimal-no-region ist Default-Fallback fuer "noch keine Wahl",
 // nicht eine waehlbare Production-Option. Symmetrisch zu
 // SELECTABLE_PROFILE_KEYS aus der framework/compliance-Liste.
-const profileKeySchema = z.enum(
-  SELECTABLE_PROFILE_KEYS as readonly [ComplianceProfileKey, ...ComplianceProfileKey[]],
-);
+const profileKeySchema = z.enum(SELECTABLE_PROFILE_KEYS);
 
 // Tenant-Admin setzt Profile-Key + optional Override-JSON.
 //

@@ -79,5 +79,5 @@ export function applyCursorQuery<T extends PgSelect>(
       options.sortDirection === "desc" ? result.orderBy(desc(column)) : result.orderBy(asc(column));
   }
 
-  return result as T;
+  return result as T; // @cast-boundary engine-bridge
 }

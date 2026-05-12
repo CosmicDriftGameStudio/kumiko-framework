@@ -112,8 +112,8 @@ function parseHandlerName<TVerb extends string>(
   if (!entityName) {
     throw new Error(`Handler name "${name}" is missing the entity part before the colon.`);
   }
-  // @cast-boundary engine-bridge — verbCandidate validated against validVerbs union
-  if (!(validVerbs as readonly string[]).includes(verbCandidate)) {
+  const verbs = validVerbs as readonly string[]; // @cast-boundary engine-bridge
+  if (!verbs.includes(verbCandidate)) {
     throw new Error(
       `Unknown verb "${verbCandidate}" in handler name "${name}". Standard verbs: ${validVerbs.join("/")}. For custom verbs use the explicit r.writeHandler / r.queryHandler form.`,
     );

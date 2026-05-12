@@ -262,11 +262,11 @@ type ComplianceProfileRaw = Partial<Omit<ComplianceProfile, "key" | "region" | "
  * Default-Fallback fuer "noch keine Wahl getroffen", mit sichtbarer
  * Warning. Production-Tenants sollen ein echtes Profile waehlen.
  */
-export const SELECTABLE_PROFILE_KEYS: readonly ComplianceProfileKey[] = [
+export const SELECTABLE_PROFILE_KEYS = [
   "eu-dsgvo",
   "swiss-dsg",
   "de-hr-dsgvo-hgb",
-];
+] as const satisfies readonly ComplianceProfileKey[];
 
 /**
  * Top-Level-Properties des `ComplianceProfile`-Type, die ein Tenant-
@@ -339,7 +339,7 @@ function deepMerge<T extends Record<string, unknown>>(
       out[k] = v;
     }
   }
-  return out as T;
+  return out as T; // @cast-boundary generic-record
 }
 
 /**
@@ -355,7 +355,7 @@ function deepMerge<T extends Record<string, unknown>>(
 function resolveExtends(key: ComplianceProfileKey): ComplianceProfile {
   const raw = RAW_PROFILES[key];
   if (!raw.extends) {
-    return raw as ComplianceProfile;
+    return raw as ComplianceProfile; // @cast-boundary schema-walk
   }
 
   const base = RAW_PROFILES[raw.extends];
@@ -366,7 +366,7 @@ function resolveExtends(key: ComplianceProfileKey): ComplianceProfile {
   }
 
   return deepMerge(
-    base as Record<string, unknown>,
+    base as Record<string, unknown>, // @cast-boundary generic-record
     raw as unknown as Record<string, unknown>,
   ) as unknown as ComplianceProfile;
 }

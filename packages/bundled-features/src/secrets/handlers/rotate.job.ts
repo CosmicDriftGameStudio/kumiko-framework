@@ -51,7 +51,7 @@ export type RotateJobResult = {
 };
 
 export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
-  const payload = rawPayload as RotateJobPayload;
+  const payload = rawPayload as RotateJobPayload; // @cast-boundary engine-payload
   if (!ctx.masterKeyProvider) {
     throw new InternalError({
       message:

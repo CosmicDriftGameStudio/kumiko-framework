@@ -39,7 +39,7 @@ export type SessionCleanupResult = {
 };
 
 export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
-  const payload = rawPayload as SessionCleanupPayload;
+  const payload = rawPayload as SessionCleanupPayload; // @cast-boundary engine-payload
   if (!ctx.db) {
     throw new InternalError({
       message: "[sessions:cleanup] ctx.db missing — job context requires a database connection.",

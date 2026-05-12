@@ -115,5 +115,5 @@ export async function listDeadLetters(
           .from(upcasterDeadLetterTable)
           .orderBy(desc(upcasterDeadLetterTable.createdAt))
           .limit(limit);
-  return rows as readonly DeadLetterRow[];
+  return rows as readonly DeadLetterRow[]; // @cast-boundary db-row
 }

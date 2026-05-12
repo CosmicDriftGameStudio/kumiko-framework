@@ -51,7 +51,7 @@ function parseOverride(
   if (!raw || raw.trim() === "") return undefined;
   try {
     const parsed: unknown = JSON.parse(raw);
-    return parsed as ComplianceProfileOverride;
+    return parsed as ComplianceProfileOverride; // @cast-boundary engine-payload
   } catch (e: unknown) {
     const reason = e instanceof Error ? e.message : String(e);
     // biome-ignore lint/suspicious/noConsole: operator visibility for DB-corruption edge-case

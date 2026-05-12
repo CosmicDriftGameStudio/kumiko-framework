@@ -449,7 +449,7 @@ async function processJob(args: {
       // persistiert).
       throw new Error(
         `Job ${job.id}: Token-Creation failed before done-flip. ` +
-          `${(tokenCreateResult as { error?: { code?: string } }).error?.code ?? "unknown"}`,
+          `${(tokenCreateResult as { error?: { code?: string } }).error?.code ?? "unknown"}`, // @cast-boundary engine-payload
       );
     }
 
@@ -479,7 +479,7 @@ async function processJob(args: {
       // gecleared.
       throw new Error(
         `Job ${job.id}: failed to flip status=done after successful Token-Create. ` +
-          `${(doneResult as { error?: { code?: string } }).error?.code ?? "unknown"}`,
+          `${(doneResult as { error?: { code?: string } }).error?.code ?? "unknown"}`, // @cast-boundary engine-payload
       );
     }
 

@@ -137,7 +137,7 @@ export async function upsertPreference(
 // minor driver-version shifts without drifting wide.
 function isUniqueViolation(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
-  const e = err as { code?: unknown; cause?: { code?: unknown }; message?: unknown };
+  const e = err as { code?: unknown; cause?: { code?: unknown }; message?: unknown }; // @cast-boundary error-details
   if (e.code === "23505") return true;
   if (e.cause && typeof e.cause === "object" && e.cause.code === "23505") return true;
   if (typeof e.message === "string" && e.message.includes("23505")) return true;

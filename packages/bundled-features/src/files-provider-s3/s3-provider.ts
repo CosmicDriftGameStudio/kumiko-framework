@@ -174,7 +174,7 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
         // S3 SDK throws either NotFound or a generic 404. Check both the
         // `.name` property (newer SDKs) and the `$metadata.httpStatusCode`
         // (what the SDK guarantees on every error).
-        const err = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+        const err = error as { name?: string; $metadata?: { httpStatusCode?: number } }; // @cast-boundary error-details
         if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) {
           return false;
         }

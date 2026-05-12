@@ -179,7 +179,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
 
       const result = new Map<string, ConfigRow>();
       for (const row of rows) {
-        const r = row as ConfigRow;
+        const r = row as ConfigRow; // @cast-boundary db-row
         // Higher specificity wins: user > tenant > system. Under the ES
         // schema system rows carry SYSTEM_TENANT_ID instead of NULL, so the
         // "tenant set" check compares against the sentinel rather than null.

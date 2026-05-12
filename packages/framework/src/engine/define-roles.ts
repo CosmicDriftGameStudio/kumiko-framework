@@ -15,5 +15,5 @@ export function defineRoles<const T extends readonly string[]>(roles: T): RoleMa
   for (const role of roles) {
     map[role] = role;
   }
-  return map as RoleMap<T>;
+  return map as RoleMap<T>; // @cast-boundary schema-walk
 }

@@ -27,5 +27,5 @@ export function readClaim<T extends ClaimKeyType>(
   if (!claims) return undefined;
   const raw = claims[handle.name];
   if (raw === undefined || raw === null) return undefined;
-  return raw as ClaimKeyJsType<T>;
+  return raw as ClaimKeyJsType<T>; // @cast-boundary schema-walk
 }

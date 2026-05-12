@@ -735,8 +735,7 @@ export function createDispatcher(
         } else {
           rows = (await dbSource.select().from(projTable)) as readonly Record<string, unknown>[]; // @cast-boundary db-row
         }
-        // @cast-boundary engine-payload — generic queryProjection<T> return
-        return rows as readonly T[];
+        return rows as readonly T[]; // @cast-boundary engine-payload
       },
       // Thin pass-through: one resolve impl lives on the dispatcher, the
       // handler surface just forwards the call so both entry points (login

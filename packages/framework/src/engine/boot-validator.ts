@@ -618,7 +618,7 @@ function validatePiiAndRetention(feature: FeatureDefinition): void {
       // Money, Reference, Embedded, Tz, LocatedTimestamp, File*, Image*)
       // liefert property-access undefined zur Runtime. Die TS-Compile-
       // Time-Validation hat dort schon abgelehnt → Cast ist safe.
-      const annot = field as PiiAnnotations;
+      const annot = field as PiiAnnotations; // @cast-boundary schema-walk
 
       const hasPii = Boolean(annot.pii);
       const hasUserOwned = Boolean(annot.userOwned);
@@ -707,7 +707,7 @@ function validatePiiAndRetention(feature: FeatureDefinition): void {
 
       if (retention.strategy === "blockDelete") {
         const hasAnonymize = Object.values(fieldsByName).some((f) => {
-          const a = f as PiiAnnotations;
+          const a = f as PiiAnnotations; // @cast-boundary schema-walk
           return Boolean(a.anonymize);
         });
         if (!hasAnonymize) {

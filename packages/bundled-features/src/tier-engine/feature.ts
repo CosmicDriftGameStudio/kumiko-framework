@@ -235,7 +235,7 @@ export function createTierEngineFeature<
         "tenant",
         async (result, ctx) => {
           // result-shape: kumiko-framework's SaveContext mit isNew + data
-          const saveResult = result as { isNew?: unknown; data?: unknown };
+          const saveResult = result as { isNew?: unknown; data?: unknown }; // @cast-boundary engine-payload
           // skip: nur bei tenant-create (initial) — tenant-updates feuern
           // auch postSave aber wir wollen kein neues tier-assignment bei
           // re-keying oder name-update.

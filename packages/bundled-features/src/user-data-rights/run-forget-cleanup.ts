@@ -259,36 +259,35 @@ async function processUser(args: {
   let currentTenantId: TenantId | null = null;
   let currentEntityName: string | null = null;
   try {
-    await (
-      db as { transaction: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }
-    ).transaction(async (tx) => {
-      for (const tenantId of tenantList) {
-        currentTenantId = tenantId;
-        for (const entry of hookEntries) {
-          currentEntityName = entry.entityName;
-          const policy = await resolveRetentionPolicyForTenant({
-            db: tx,
-            registry,
-            tenantId,
-            entityName: entry.entityName,
-          });
-          const strategy = policyToStrategy(policy.policy?.strategy ?? null);
+    await (db as { transaction: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }) // @cast-boundary db-runner
+      .transaction(async (tx) => {
+        for (const tenantId of tenantList) {
+          currentTenantId = tenantId;
+          for (const entry of hookEntries) {
+            currentEntityName = entry.entityName;
+            const policy = await resolveRetentionPolicyForTenant({
+              db: tx,
+              registry,
+              tenantId,
+              entityName: entry.entityName,
+            });
+            const strategy = policyToStrategy(policy.policy?.strategy ?? null);
 
-          hookCallsAttempted++;
-          await entry.deleteHook({ db: tx, tenantId, userId }, strategy);
+            hookCallsAttempted++;
+            await entry.deleteHook({ db: tx, tenantId, userId }, strategy);
+          }
         }
-      }
 
-      // Status-Flip in derselben Sub-Tx. Falls einer der Hooks oben
-      // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
-      // alles, der User bleibt im DeletionRequested-Status, naechster
-      // Run retried.
-      await tx
-        .update(userTable)
-        .set({ status: USER_STATUS.Deleted })
-        .where(eq(userTable["id"], userId));
-      txSucceeded = true;
-    });
+        // Status-Flip in derselben Sub-Tx. Falls einer der Hooks oben
+        // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
+        // alles, der User bleibt im DeletionRequested-Status, naechster
+        // Run retried.
+        await tx
+          .update(userTable)
+          .set({ status: USER_STATUS.Deleted })
+          .where(eq(userTable["id"], userId));
+        txSucceeded = true;
+      });
   } catch (e) {
     // currentTenantId/currentEntityName tracken den Failing-Hook —
     // Operator sieht "Hook fileRef in Tenant A failed for user X" statt

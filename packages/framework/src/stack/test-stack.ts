@@ -209,7 +209,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     const { getTableName } = await import("drizzle-orm");
     const missing: Record<string, unknown> = {};
     for (const [key, tbl] of Object.entries(projectionTables)) {
-      const physical = getTableName(tbl as Parameters<typeof getTableName>[0]);
+      const physical = getTableName(tbl as Parameters<typeof getTableName>[0]); // @cast-boundary drizzle-bridge
       if (await tableExists(testDb.db, `public.${physical}`)) continue;
       missing[key] = tbl;
     }

@@ -211,7 +211,7 @@ async function extractSubscriptionFromEvent(
       // full subscription-Object damit der downstream-mapping
       // (status, tier via priceId, period-end) konsistent funktioniert.
       const invoice = event.data.object as Stripe.Invoice;
-      const subRef = (invoice as { subscription?: string | Stripe.Subscription | null })
+      const subRef = (invoice as { subscription?: string | Stripe.Subscription | null }) // @cast-boundary engine-payload
         .subscription;
       if (!subRef) {
         // Invoice ohne subscription-reference (= one-shot-invoice, nicht

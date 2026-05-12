@@ -346,7 +346,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       .select()
       .from(fileRefsTable)
       .where(and(eq(fileRefsTable.id, id), eq(fileRefsTable.tenantId, tenantId)));
-    return (row as FileRef | undefined) ?? null;
+    return (row as FileRef | undefined) ?? null; // @cast-boundary db-row
   }
 
   return api;
