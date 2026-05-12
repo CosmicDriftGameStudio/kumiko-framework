@@ -148,7 +148,7 @@ export function createStaticLocaleResolver(
   const locale = options.locale ?? "en";
   const timeZone = options.timeZone ?? "UTC";
   return {
-    translate: (key) => key,
+    translate: (key: string) => key,
     locale: () => locale,
     timeZone: () => timeZone,
     // No-op subscribe: unsere Locale ist statisch, es gibt nie ein

@@ -21,6 +21,9 @@
   },
   "references": [
     {
+      "path": "packages/framework"
+    },
+    {
       "path": "packages/bundled-features"
     },
     {
@@ -34,6 +37,9 @@
     },
     {
       "path": "packages/renderer-web"
+    },
+    {
+      "path": "packages/dev-server"
     }
   ],
   "files": []
