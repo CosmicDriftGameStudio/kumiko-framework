@@ -205,7 +205,8 @@ export function defineEntityQueryHandler(
         // läuft (Remote-Combobox-Search). Der executor wird beim
         // Definition-Time gebaut, kennt den Adapter also nicht —
         // Runtime-Override holt das.
-        const result = await executor.list(query.payload as ListPayload, query.user, ctx.db, { // @cast-boundary engine-payload
+        const listPayload = query.payload as ListPayload; // @cast-boundary engine-payload
+        const result = await executor.list(listPayload, query.user, ctx.db, {
           ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
         });
         if (!hasRefFields) return result;

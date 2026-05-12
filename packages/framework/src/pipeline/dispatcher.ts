@@ -994,15 +994,18 @@ export function createDispatcher(
           result = result.map((row: Record<string, unknown>) =>
             filterReadFields(entity, row, user),
           );
-        } else if ("rows" in (result as DbRow)) { // @cast-boundary engine-payload
-          // generic handler-result shape narrow
-          const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null }; // @cast-boundary engine-payload
-          result = {
-            ...r,
-            rows: r.rows.map((row) => filterReadFields(entity, row, user)),
-          };
         } else {
-          result = filterReadFields(entity, result as DbRow, user); // @cast-boundary engine-payload
+          const resultAsDbRow = result as DbRow; // @cast-boundary engine-payload
+          if ("rows" in resultAsDbRow) {
+            // generic handler-result shape narrow
+            const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null }; // @cast-boundary engine-payload
+            result = {
+              ...r,
+              rows: r.rows.map((row) => filterReadFields(entity, row, user)),
+            };
+          } else {
+            result = filterReadFields(entity, result as DbRow, user); // @cast-boundary engine-payload
+          }
         }
       }
     }
@@ -1300,7 +1303,8 @@ export function createDispatcher(
           // Skip guard for soft-deleted rows — they shouldn't be transitioning
           // at all; a handler that wants to move a deleted row should use
           // skipTransitionGuard or restore first.
-          if (entity.softDelete && (row as DbRow)["isDeleted"] === true) { // @cast-boundary engine-payload
+          const rowAsRow = row as DbRow; // @cast-boundary engine-payload
+          if (entity.softDelete && rowAsRow["isDeleted"] === true) {
             continue;
           }
           const currentValue = (row as DbRow)[fieldName] as string; // @cast-boundary engine-bridge
@@ -1353,8 +1357,9 @@ export function createDispatcher(
       // jobRunner has external side-effects (BullMQ enqueue) — must NOT
       // fire for rolled-back writes. Defer to afterCommit.
       if (jobRunner) {
+        const eventData = (parsed.data ?? {}) as DbRow; // @cast-boundary engine-payload
         afterCommitHooks.push(() =>
-          jobRunner.handleEvent(type, (parsed.data ?? {}) as DbRow, user), // @cast-boundary engine-payload
+          jobRunner.handleEvent(type, eventData, user),
         );
       }
     }
