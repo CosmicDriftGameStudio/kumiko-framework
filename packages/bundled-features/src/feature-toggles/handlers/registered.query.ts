@@ -31,7 +31,14 @@ export const registeredQuery = defineQueryHandler({
     // dokumentiert in DispatcherOptions.effectiveFeatures.
     const effective = ctx.effectiveFeatures?.(SYSTEM_TENANT_ID);
 
-    const items = [];
+    const items: Array<{
+      name: string;
+      toggleable: boolean;
+      default: boolean | null;
+      override: boolean | null;
+      requires: readonly string[];
+      effective: boolean | null;
+    }> = [];
     for (const feature of ctx.registry.features.values()) {
       const toggleable = feature.toggleableDefault !== undefined;
       const override = overrides.get(feature.name);

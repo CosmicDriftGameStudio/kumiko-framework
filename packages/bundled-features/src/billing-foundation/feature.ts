@@ -41,7 +41,7 @@
 // (z.B. für analytics: "wie viele Wechsel im Monat?"), kommt ein
 // `subscription-provider-changed`-event-type später.
 
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
 import {
   INVOICE_PAID_EVENT_QN,
@@ -70,53 +70,50 @@ import {
   subscriptionsProjectionTable,
 } from "./projection";
 
-export const billingFoundationFeature: FeatureDefinition = defineFeature(
-  BILLING_FOUNDATION_FEATURE,
-  (r) => {
-    // 5 fine-grained domain-events. Alle 5 nutzen denselben payload-
-    // shape (= subscription-state-snapshot); der event-type taggt was
-    // passiert ist. Future-consumer (billing-history, accounting)
-    // listenen direkt auf den event-type ohne payload-discriminator.
-    r.defineEvent(SUBSCRIPTION_CREATED_EVENT_SHORT, subscriptionEventPayloadSchema);
-    r.defineEvent(SUBSCRIPTION_UPDATED_EVENT_SHORT, subscriptionEventPayloadSchema);
-    r.defineEvent(SUBSCRIPTION_CANCELED_EVENT_SHORT, subscriptionEventPayloadSchema);
-    r.defineEvent(INVOICE_PAID_EVENT_SHORT, subscriptionEventPayloadSchema);
-    r.defineEvent(INVOICE_PAYMENT_FAILED_EVENT_SHORT, subscriptionEventPayloadSchema);
+export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE, (r) => {
+  // 5 fine-grained domain-events. Alle 5 nutzen denselben payload-
+  // shape (= subscription-state-snapshot); der event-type taggt was
+  // passiert ist. Future-consumer (billing-history, accounting)
+  // listenen direkt auf den event-type ohne payload-discriminator.
+  r.defineEvent(SUBSCRIPTION_CREATED_EVENT_SHORT, subscriptionEventPayloadSchema);
+  r.defineEvent(SUBSCRIPTION_UPDATED_EVENT_SHORT, subscriptionEventPayloadSchema);
+  r.defineEvent(SUBSCRIPTION_CANCELED_EVENT_SHORT, subscriptionEventPayloadSchema);
+  r.defineEvent(INVOICE_PAID_EVENT_SHORT, subscriptionEventPayloadSchema);
+  r.defineEvent(INVOICE_PAYMENT_FAILED_EVENT_SHORT, subscriptionEventPayloadSchema);
 
-    // Inline projection: materialized current state in `read_subscriptions`.
-    // Apply läuft in derselben TX wie ctx.appendEventUnsafe — read-your-
-    // own-write ohne dispatcher-tick.
-    r.projection({
-      name: "subscription",
-      source: SUBSCRIPTION_AGGREGATE_TYPE,
-      table: subscriptionsProjectionTable,
-      apply: {
-        [SUBSCRIPTION_CREATED_EVENT_QN]: applySubscriptionCreated,
-        [SUBSCRIPTION_UPDATED_EVENT_QN]: applySubscriptionUpdated,
-        [SUBSCRIPTION_CANCELED_EVENT_QN]: applySubscriptionCanceled,
-        [INVOICE_PAID_EVENT_QN]: applyInvoicePaid,
-        [INVOICE_PAYMENT_FAILED_EVENT_QN]: applyInvoicePaymentFailed,
-      },
-    });
+  // Inline projection: materialized current state in `read_subscriptions`.
+  // Apply läuft in derselben TX wie ctx.appendEventUnsafe — read-your-
+  // own-write ohne dispatcher-tick.
+  r.projection({
+    name: "subscription",
+    source: SUBSCRIPTION_AGGREGATE_TYPE,
+    table: subscriptionsProjectionTable,
+    apply: {
+      [SUBSCRIPTION_CREATED_EVENT_QN]: applySubscriptionCreated,
+      [SUBSCRIPTION_UPDATED_EVENT_QN]: applySubscriptionUpdated,
+      [SUBSCRIPTION_CANCELED_EVENT_QN]: applySubscriptionCanceled,
+      [INVOICE_PAID_EVENT_QN]: applyInvoicePaid,
+      [INVOICE_PAYMENT_FAILED_EVENT_QN]: applyInvoicePaymentFailed,
+    },
+  });
 
-    // Plugin extension-point. Provider-Plugins registrieren sich hier.
-    r.extendsRegistrar(SUBSCRIPTION_PROVIDER_EXTENSION, {
-      onRegister: () => {
-        // No side-effects at register-time.
-      },
-    });
+  // Plugin extension-point. Provider-Plugins registrieren sich hier.
+  r.extendsRegistrar(SUBSCRIPTION_PROVIDER_EXTENSION, {
+    onRegister: () => {
+      // No side-effects at register-time.
+    },
+  });
 
-    // Custom write-handlers:
-    //   - process-event: programmatic entry-point vom webhook-handler;
-    //     dispatcht zu type-passendem appendEvent
-    //   - create-checkout-session: Tenant-Admin "Upgrade to Pro"-flow
-    //   - create-portal-session: Tenant-Admin "Manage Subscription"-flow
-    r.writeHandler(processEventHandler);
-    r.writeHandler(createCheckoutSessionHandler);
-    r.writeHandler(createPortalSessionHandler);
+  // Custom write-handlers:
+  //   - process-event: programmatic entry-point vom webhook-handler;
+  //     dispatcht zu type-passendem appendEvent
+  //   - create-checkout-session: Tenant-Admin "Upgrade to Pro"-flow
+  //   - create-portal-session: Tenant-Admin "Manage Subscription"-flow
+  r.writeHandler(processEventHandler);
+  r.writeHandler(createCheckoutSessionHandler);
+  r.writeHandler(createPortalSessionHandler);
 
-    // Custom list-query auf der subscription-projection (raw drizzle-
-    // table; kein r.entity weil Schreiben via projection-apply läuft).
-    r.queryHandler(listSubscriptionsQuery);
-  },
-);
+  // Custom list-query auf der subscription-projection (raw drizzle-
+  // table; kein r.entity weil Schreiben via projection-apply läuft).
+  r.queryHandler(listSubscriptionsQuery);
+});

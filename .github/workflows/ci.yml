@@ -52,7 +52,8 @@ jobs:
         with:
           path: |
             **/*.tsbuildinfo
-          key: tsbuildinfo-${{ runner.os }}-${{ github.run_id }}
+            **/dist
+          key: tsbuildinfo-${{ runner.os }}-${{ hashFiles('**/yarn.lock', '**/tsconfig.json') }}
           restore-keys: |
             tsbuildinfo-${{ runner.os }}-
 
