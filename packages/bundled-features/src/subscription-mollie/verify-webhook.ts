@@ -185,8 +185,12 @@ export function extractMollieId(rawBody: string, headers: Record<string, string>
   const contentType = headers["content-type"] ?? "";
   if (contentType.includes("application/json")) {
     try {
-      const parsed = JSON.parse(rawBody) as { id?: unknown };
-      return typeof parsed.id === "string" ? parsed.id : null;
+      const parsed: unknown = JSON.parse(rawBody);
+      const id =
+        typeof parsed === "object" && parsed !== null && "id" in parsed
+          ? (parsed as Record<string, unknown>)["id"]
+          : undefined;
+      return typeof id === "string" ? id : null;
     } catch {
       return null;
     }

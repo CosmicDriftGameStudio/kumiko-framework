@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gt, inArray, lt, ne, type SQL, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { requestContext } from "../api/request-context";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
@@ -54,8 +55,11 @@ type Table = TableColumns<any>;
 // vs-Type-Compat ohnehin Kontrolle was reinkommt.
 //
 // Empty-array IN ist explizit "no match" (SQL false), nicht "match all".
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle-Column ist generic; siehe oben.
-function buildFilterCondition(col: any, op: "eq" | "ne" | "lt" | "gt" | "in", value: unknown): SQL {
+function buildFilterCondition(
+  col: AnyPgColumn,
+  op: "eq" | "ne" | "lt" | "gt" | "in",
+  value: unknown,
+): SQL {
   switch (op) {
     case "eq":
       return eq(col, value as never); // @cast-boundary db-operator
