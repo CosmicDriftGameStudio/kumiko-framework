@@ -140,12 +140,12 @@ async function buildSmtpTransport(ctx: HandlerContext, tenantId: string): Promis
     await ctxConfig(mailTransportSmtpFeature.exports.configKeys.port),
     FEATURE_NAME,
     "port",
-  ) as number;
+  ) as number; // @cast-boundary engine-payload
   const secure = requireDefined(
     await ctxConfig(mailTransportSmtpFeature.exports.configKeys.secure),
     FEATURE_NAME,
     "secure",
-  ) as boolean;
+  ) as boolean; // @cast-boundary engine-payload
   const from = requireNonEmpty(
     await ctxConfig(mailTransportSmtpFeature.exports.configKeys.from),
     FEATURE_NAME,

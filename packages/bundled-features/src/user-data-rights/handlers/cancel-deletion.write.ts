@@ -77,7 +77,7 @@ export const cancelDeletionWrite = defineWriteHandler({
       data: {
         userId: event.user.id,
         status: USER_STATUS.Active,
-        gracePeriodEnd: null as string | null,
+        gracePeriodEnd: null as string | null, // @cast-boundary generic-record
       },
     };
   },

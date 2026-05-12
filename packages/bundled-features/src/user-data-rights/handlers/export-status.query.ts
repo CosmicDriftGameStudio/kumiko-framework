@@ -55,7 +55,7 @@ export const exportStatusQuery = defineQueryHandler({
       .from(exportJobsTable)
       .where(eq(exportJobsTable["userId"], query.user.id))
       .orderBy(desc(exportJobsTable["requestedAt"]))
-      .limit(1)) as ExportJobRow[];
+      .limit(1)) as ExportJobRow[]; // @cast-boundary db-row
 
     const latest = rows[0];
     if (!latest) return { hasJob: false as const };

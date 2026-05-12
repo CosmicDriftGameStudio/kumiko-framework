@@ -131,7 +131,7 @@ export async function runForgetCleanup(
   const usages = registry.getExtensionUsages(EXT_USER_DATA);
   const hookEntries: HookEntry[] = usages
     .map((u): HookEntry | null => {
-      const opts = (u.options ?? {}) as { delete?: UserDataDeleteHook };
+      const opts = (u.options ?? {}) as { delete?: UserDataDeleteHook }; // @cast-boundary engine-payload
       return opts.delete ? { entityName: u.entityName, deleteHook: opts.delete } : null;
     })
     .filter((x): x is HookEntry => x !== null);

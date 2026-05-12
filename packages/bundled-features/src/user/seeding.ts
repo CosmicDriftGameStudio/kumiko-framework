@@ -57,7 +57,7 @@ export async function seedUser(db: DbConnection, options: SeedUserOptions): Prom
   const tdb = createTenantDb(db, by.tenantId, "system");
 
   const existing = await fetchOne(db, userTable, eq(userTable["email"], options.email));
-  if (existing) return existing["id"] as string;
+  if (existing) return existing["id"] as string; // @cast-boundary db-row
 
   const result = await userExecutor.create(
     {

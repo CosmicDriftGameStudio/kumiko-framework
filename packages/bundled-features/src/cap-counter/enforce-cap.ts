@@ -118,7 +118,7 @@ export async function enforceCap(
     .limit(1);
 
   const row = rows[0];
-  const value = row ? (row["value"] as number) : 0;
+  const value = row ? (row["value"] as number) : 0; // @cast-boundary db-row
 
   if (value >= hardThreshold) {
     throw new CapExceededError(options.capName, options.limit, value, tolerance);

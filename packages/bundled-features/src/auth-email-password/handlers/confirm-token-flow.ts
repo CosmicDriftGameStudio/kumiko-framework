@@ -152,7 +152,7 @@ async function resolveStreamTenants(
 ): Promise<readonly TenantId[]> {
   const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
     userId: me.id,
-  })) as Array<{ tenantId: TenantId }>;
+  })) as Array<{ tenantId: TenantId }>; // @cast-boundary db-runner
   return orderTenantsByPreference(memberships, me.lastActiveTenantId);
 }
 

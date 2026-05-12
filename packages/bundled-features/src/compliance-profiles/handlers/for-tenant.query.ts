@@ -26,7 +26,7 @@ export const forTenantQuery = defineQueryHandler({
       ctx.db,
       tenantComplianceProfileTable,
       eq(tenantComplianceProfileTable["tenantId"], query.user.tenantId),
-    )) as { profileKey: string; override: string | null } | null;
+    )) as { profileKey: string; override: string | null } | null; // @cast-boundary db-runner
 
     if (!row) {
       return resolveComplianceProfile({});
@@ -34,7 +34,7 @@ export const forTenantQuery = defineQueryHandler({
 
     const override = parseOverride(row.override, query.user.tenantId);
     return resolveComplianceProfile({
-      selection: row.profileKey as ComplianceProfileKey,
+      selection: row.profileKey as ComplianceProfileKey, // @cast-boundary engine-payload
       override,
     });
   },

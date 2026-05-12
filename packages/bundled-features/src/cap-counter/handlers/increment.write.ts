@@ -46,7 +46,7 @@ export const incrementCapHandler: WriteHandlerDef = {
   // which subsystem incremented.
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    const payload = event.payload as IncrementPayload;
+    const payload = event.payload as IncrementPayload; // @cast-boundary engine-payload
     const aggregateId = capCounterAggregateId(
       event.user.tenantId,
       payload.capName,
@@ -77,8 +77,8 @@ export const incrementCapHandler: WriteHandlerDef = {
       // clearer than a possibly-null deref later.
       throw new Error("cap-counter:increment: row vanished between length-check and read");
     }
-    const currentValue = currentRow["value"] as number;
-    const currentVersion = currentRow["version"] as number;
+    const currentValue = currentRow["value"] as number; // @cast-boundary db-row
+    const currentVersion = currentRow["version"] as number; // @cast-boundary db-row
     return executor.update(
       {
         id: aggregateId,

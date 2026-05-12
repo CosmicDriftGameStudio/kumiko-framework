@@ -30,7 +30,7 @@ export const findForAuthQuery = defineQueryHandler({
     const condition =
       query.payload.email !== undefined
         ? eq(userTable["email"], query.payload.email)
-        : eq(userTable["id"], query.payload.id as string);
+        : eq(userTable["id"], query.payload.id as string); // @cast-boundary engine-payload
 
     const [row] = await ctx.db.select().from(userTable).where(condition).limit(1);
     return (row as DbRow) ?? null;

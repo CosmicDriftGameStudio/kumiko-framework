@@ -38,7 +38,7 @@ export const userExportHook: UserDataExportHook = async (ctx) => {
     displayName: string;
     locale: string;
     emailVerified: boolean;
-  } | null;
+  } | null; // @cast-boundary db-runner
 
   if (!row) return null;
 

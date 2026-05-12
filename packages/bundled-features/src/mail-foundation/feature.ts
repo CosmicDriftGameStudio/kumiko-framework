@@ -134,7 +134,7 @@ export async function createTransportForTenant(
     await ctxConfig(mailFoundationFeature.exports.configKeys.provider),
     FEATURE_NAME,
     "provider",
-  ) as string;
+  ) as string; // @cast-boundary engine-payload
   if (provider.length === 0) {
     const usages = ctx.registry.getExtensionUsages("mailTransport");
     const known = usages.map((u) => u.entityName).join(", ") || "<none>";

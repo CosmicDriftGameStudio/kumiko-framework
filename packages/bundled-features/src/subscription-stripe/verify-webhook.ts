@@ -203,14 +203,14 @@ async function extractSubscriptionFromEvent(
     case StripeEventTypes.customerSubscriptionCreated:
     case StripeEventTypes.customerSubscriptionUpdated:
     case StripeEventTypes.customerSubscriptionDeleted:
-      return event.data.object as Stripe.Subscription;
+      return event.data.object as Stripe.Subscription; // @cast-boundary engine-bridge
     case StripeEventTypes.invoicePaid:
     case StripeEventTypes.invoicePaymentFailed: {
       // Lazy-fetch der subscription. invoice.subscription ist eine
       // string-id (Stripe-Webhooks expanden nicht auto). Wir holen das
       // full subscription-Object damit der downstream-mapping
       // (status, tier via priceId, period-end) konsistent funktioniert.
-      const invoice = event.data.object as Stripe.Invoice;
+      const invoice = event.data.object as Stripe.Invoice; // @cast-boundary engine-bridge
       const subRef = (invoice as { subscription?: string | Stripe.Subscription | null }) // @cast-boundary engine-payload
         .subscription;
       if (!subRef) {

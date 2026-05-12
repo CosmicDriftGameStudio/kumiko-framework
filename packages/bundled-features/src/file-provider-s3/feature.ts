@@ -129,13 +129,13 @@ async function buildS3Provider(
     await ctxConfig(fileProviderS3Feature.exports.configKeys.endpoint),
     FEATURE_NAME,
     "endpoint",
-  ) as string;
+  ) as string; // @cast-boundary engine-payload
   const endpoint = endpointRaw.length > 0 ? endpointRaw : undefined;
   const forcePathStyle = requireDefined(
     await ctxConfig(fileProviderS3Feature.exports.configKeys.forcePathStyle),
     FEATURE_NAME,
     "forcePathStyle",
-  ) as boolean;
+  ) as boolean; // @cast-boundary engine-payload
   const accessKeyId = requireNonEmpty(
     await ctxConfig(fileProviderS3Feature.exports.configKeys.accessKeyId),
     FEATURE_NAME,

@@ -197,7 +197,7 @@ export function createTierEngineFeature<
     // Invalidation: tier-assignment events update the cache.
     r.entityHook("postSave", "tier-assignment", async (result) => {
       // result.data has tenantId + tier (after entity-update merge)
-      const data = result.data as { tenantId?: unknown; tier?: unknown };
+      const data = result.data as { tenantId?: unknown; tier?: unknown }; // @cast-boundary engine-payload
       // skip: defensive type-guard auf payload-shape. Bei korrekt gerenderten
       // entity-events sind beide fields immer strings; ein malformed-payload
       // (custom-handler-bug) würde hier silent zum cache-skip führen statt
@@ -210,7 +210,7 @@ export function createTierEngineFeature<
       );
     });
     r.entityHook("postDelete", "tier-assignment", async (payload) => {
-      const data = payload.data as { tenantId?: unknown };
+      const data = payload.data as { tenantId?: unknown }; // @cast-boundary engine-payload
       // skip: gleiche type-guard semantik wie postSave-hook oben.
       if (typeof data.tenantId !== "string") return;
       cache.delete(data.tenantId as TenantId);
@@ -240,11 +240,11 @@ export function createTierEngineFeature<
           // auch postSave aber wir wollen kein neues tier-assignment bei
           // re-keying oder name-update.
           if (saveResult.isNew !== true) return;
-          const data = saveResult.data as { id?: unknown };
+          const data = saveResult.data as { id?: unknown }; // @cast-boundary engine-payload
           // skip: defensive type-guard. Tenant-entity hat id zwingend, aber
           // CrudExecutor's payload-shape ist runtime-unknown.
           if (typeof data.id !== "string") return;
-          const newTenantId = data.id as TenantId;
+          const newTenantId = data.id as TenantId; // @cast-boundary engine-payload
           const aggregateId = tierAssignmentAggregateId(newTenantId);
 
           // skip: defensive — inTransaction phase hat ctx.db immer gesetzt,
@@ -268,7 +268,7 @@ export function createTierEngineFeature<
           // `as TenantDb` gegen future refactor.
           // skip: defensive — sollte im inTransaction nie greifen.
           if (!("raw" in ctx.db)) return;
-          const rawDb = ctx.db.raw as DbConnection;
+          const rawDb = ctx.db.raw as DbConnection; // @cast-boundary db-runner
 
           // Idempotency: stream-existence-check vor create. Pattern aus
           // seedTenant.ts. Bei re-replay (rebuild) nicht versionsbumpen.
@@ -276,7 +276,7 @@ export function createTierEngineFeature<
           const [streamRow] = (await rawDb
             .select({ v: maxFn(eventsTable.version) })
             .from(eventsTable)
-            .where(eq(eventsTable.aggregateId, aggregateId))) as StreamRow[];
+            .where(eq(eventsTable.aggregateId, aggregateId))) as StreamRow[]; // @cast-boundary db-row
           // skip: idempotency — aggregate-stream existiert schon (re-replay
           // nach projection-rebuild oder hook-retry). create() würde
           // version_conflict werfen + tenant-create rollback'n. Pattern aus
@@ -336,7 +336,7 @@ export function createTierEngineFeature<
         // Skalierungs-Pfad (lazy-load + LRU) ist Sprint-8b wenn echtes
         // Bedürfnis entsteht.
         type AssignmentRow = { tenantId: string; tier: string };
-        const rows = (await deps.db.select().from(tierAssignmentTable)) as AssignmentRow[];
+        const rows = (await deps.db.select().from(tierAssignmentTable)) as AssignmentRow[]; // @cast-boundary db-row
         for (const row of rows) {
           cache.set(
             row.tenantId as TenantId,

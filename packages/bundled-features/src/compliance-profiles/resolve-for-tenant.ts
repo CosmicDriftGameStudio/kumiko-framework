@@ -31,7 +31,7 @@ export async function resolveProfileForTenant(
     args.db,
     tenantComplianceProfileTable,
     eq(tenantComplianceProfileTable["tenantId"], args.tenantId),
-  )) as { profileKey: string; override: string | null } | null;
+  )) as { profileKey: string; override: string | null } | null; // @cast-boundary db-runner
 
   if (!row) {
     return resolveComplianceProfile({});
@@ -39,7 +39,7 @@ export async function resolveProfileForTenant(
 
   const override = parseOverride(row.override, args.tenantId);
   return resolveComplianceProfile({
-    selection: row.profileKey as ComplianceProfileKey,
+    selection: row.profileKey as ComplianceProfileKey, // @cast-boundary engine-payload
     override,
   });
 }

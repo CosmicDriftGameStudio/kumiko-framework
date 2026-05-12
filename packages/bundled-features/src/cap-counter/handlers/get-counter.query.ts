@@ -22,7 +22,7 @@ export const getCounterQuery: QueryHandlerDef = {
   schema: getCounterSchema,
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (query, ctx) => {
-    const { capName, periodStartIso } = query.payload as z.infer<typeof getCounterSchema>;
+    const { capName, periodStartIso } = query.payload as z.infer<typeof getCounterSchema>; // @cast-boundary engine-payload
 
     // ctx.db is tenant-scoped; filter by capName + periodStart explicitly.
     const rows = await ctx.db

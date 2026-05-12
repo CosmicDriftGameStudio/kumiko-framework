@@ -180,7 +180,7 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       // invitation, so we refuse with a dedicated error.
       const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
         userId: found.id,
-      })) as Array<{ tenantId: TenantId; roles: readonly string[] }>;
+      })) as Array<{ tenantId: TenantId; roles: readonly string[] }>; // @cast-boundary db-runner
 
       if (memberships.length === 0) {
         return noMembership();

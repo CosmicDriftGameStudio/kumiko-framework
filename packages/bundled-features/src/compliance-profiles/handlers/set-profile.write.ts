@@ -66,7 +66,7 @@ export const setProfileWrite = defineWriteHandler({
         }),
       );
     }
-    const tenantId = (tenantOverride ?? event.user.tenantId) as TenantId;
+    const tenantId = (tenantOverride ?? event.user.tenantId) as TenantId; // @cast-boundary engine-payload
     const executorUser = tenantOverride !== undefined ? { ...event.user, tenantId } : event.user;
 
     // Override-Validation: muss parseables JSON-Object sein UND dem
@@ -104,7 +104,7 @@ export const setProfileWrite = defineWriteHandler({
       ctx.db,
       tenantComplianceProfileTable,
       eq(tenantComplianceProfileTable["tenantId"], tenantId),
-    )) as { id: string; version: number } | null;
+    )) as { id: string; version: number } | null; // @cast-boundary db-runner
 
     if (existing) {
       const result = await crud.update(

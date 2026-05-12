@@ -238,7 +238,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           _userId: ctx._userId ?? SYSTEM_USER_ID,
         };
         await runExportJobs({
-          db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection,
+          db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator
           registry: ctx.registry,
           buildStorageProvider: async (tenantId) =>
             createFileProviderForTenant(providerCtx, tenantId, "user-data-rights:run-export-jobs"),
@@ -268,11 +268,12 @@ async function mapQueryResponseToRedirect(
 ): Promise<Response> {
   if (!queryRes.ok) {
     const errorBody = await queryRes.text();
-    return c.body(errorBody, queryRes.status as 400 | 401 | 404 | 410 | 500, {
+    const statusCode = queryRes.status as 400 | 401 | 404 | 410 | 500; // @cast-boundary engine-payload
+    return c.body(errorBody, statusCode, {
       "content-type": queryRes.headers.get("content-type") ?? "application/json",
     });
   }
-  const body = (await queryRes.json()) as { data?: { url?: string } };
+  const body = (await queryRes.json()) as { data?: { url?: string } }; // @cast-boundary engine-payload
   if (!body.data?.url) {
     return c.json({ error: "download_resolution_failed" }, 500);
   }

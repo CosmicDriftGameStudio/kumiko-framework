@@ -28,7 +28,7 @@ export const createPortalSessionHandler: WriteHandlerDef = {
   schema: createPortalSessionSchema,
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (event, ctx) => {
-    const payload = event.payload as CreatePortalSessionPayload;
+    const payload = event.payload as CreatePortalSessionPayload; // @cast-boundary engine-payload
     const tenantId = event.user.tenantId;
 
     // 1. Hol current subscription-row für den Tenant. Aggregate-id ist
@@ -41,8 +41,8 @@ export const createPortalSessionHandler: WriteHandlerDef = {
         "subscription-foundation: no active subscription for this tenant. Create one via create-checkout-session first.",
       );
     }
-    const providerName = row["providerName"] as string;
-    const providerCustomerId = row["providerCustomerId"] as string;
+    const providerName = row["providerName"] as string; // @cast-boundary db-row
+    const providerCustomerId = row["providerCustomerId"] as string; // @cast-boundary db-row
 
     // 2. Plugin-Lookup
     const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);

@@ -45,7 +45,7 @@ export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =
       message: "[sessions:cleanup] ctx.db missing — job context requires a database connection.",
     });
   }
-  const db = ctx.db as DbConnection;
+  const db = ctx.db as DbConnection; // @cast-boundary db-operator
 
   // Coerce-and-validate: BullMQ payloads arrive as opaque JSON, so TS types
   // don't survive. Guard before the value is interpolated into SQL.

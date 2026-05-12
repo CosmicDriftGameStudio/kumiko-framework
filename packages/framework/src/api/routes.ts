@@ -73,7 +73,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
             failedIndex: result.failedIndex,
             results: result.results,
           },
-          err.httpStatus as ContentfulStatusCode,
+          err.httpStatus as ContentfulStatusCode, // @cast-boundary engine-payload
         );
       }
       return c.json(result);

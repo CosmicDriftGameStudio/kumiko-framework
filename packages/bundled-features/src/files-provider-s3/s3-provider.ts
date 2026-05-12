@@ -154,7 +154,7 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
           }
           // SdkStream is AsyncIterable<Buffer> on node. Buffer extends
           // Uint8Array; cast sichert die Surface ohne neue runtime-deps.
-          const body = response.Body as AsyncIterable<Uint8Array>;
+          const body = response.Body as AsyncIterable<Uint8Array>; // @cast-boundary engine-bridge
           for await (const chunk of body) {
             yield chunk;
           }

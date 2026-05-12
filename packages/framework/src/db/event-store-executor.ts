@@ -285,7 +285,7 @@ export function createEventStoreExecutor(
     }
     // Drizzle's variadic `and()` is typed `SQL | undefined`; conditions is
     // guaranteed non-empty above (we pushed at least one).
-    return and(...conditions) as SQL;
+    return and(...conditions) as SQL; // @cast-boundary db-operator
   }
 
   async function loadById(id: EntityId, db: TenantDb): Promise<Record<string, unknown> | null> {
@@ -299,7 +299,7 @@ export function createEventStoreExecutor(
       // Respect an explicit id in the payload (seed pattern, SCIM import). Without
       // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
       // event payload so defaults + downstream consumers don't see a redundant id field.
-      const explicitId = typeof payload["id"] === "string" ? (payload["id"] as string) : undefined;
+      const explicitId = typeof payload["id"] === "string" ? (payload["id"] as string) : undefined; // @cast-boundary engine-payload
       const aggregateId = explicitId ?? generateId();
       const { id: _id, ...payloadWithoutId } = payload;
       const data = applyDefaults(payloadWithoutId);
@@ -565,7 +565,7 @@ export function createEventStoreExecutor(
           isSuccess: true,
           data: {
             kind: "save",
-            id: data["id"] as EntityId,
+            id: data["id"] as EntityId, // @cast-boundary engine-payload
             data,
             changes: payload.changes,
             previous,
@@ -797,7 +797,7 @@ export function createEventStoreExecutor(
         }
       }
 
-      const whereClause = conditions.length > 0 ? (and(...conditions) as SQL) : undefined;
+      const whereClause = conditions.length > 0 ? (and(...conditions) as SQL) : undefined; // @cast-boundary db-operator
       let query = whereClause
         ? db.select().from(table).where(whereClause)
         : db.select().from(table);
@@ -826,13 +826,13 @@ export function createEventStoreExecutor(
         await entityCache.mset(
           user.tenantId,
           entityName,
-          rows.map((r) => ({ id: r["id"] as EntityId, data: r })),
+          rows.map((r) => ({ id: r["id"] as EntityId, data: r })), // @cast-boundary engine-payload
         );
       }
 
       const lastRow = rows[rows.length - 1];
       const nextCursor =
-        rows.length === limit && lastRow ? encodeCursor(lastRow["id"] as string) : null;
+        rows.length === limit && lastRow ? encodeCursor(lastRow["id"] as string) : null; // @cast-boundary engine-payload
 
       // total: extra COUNT(*) — nur wenn explizit angefordert (Pager-UI).
       // Postgres-Cost ist O(table-scan) ohne Filter, mit Filter so teuer
@@ -846,7 +846,7 @@ export function createEventStoreExecutor(
           const countQuery = whereClause
             ? db.select({ count: sql<number>`count(*)::int` }).from(table).where(whereClause)
             : db.select({ count: sql<number>`count(*)::int` }).from(table);
-          const countRow = (await countQuery) as Array<{ count: number }>;
+          const countRow = (await countQuery) as Array<{ count: number }>; // @cast-boundary db-row
           total = countRow[0]?.count ?? 0;
         }
       }
@@ -876,7 +876,7 @@ export function createEventStoreExecutor(
             const checked = await db
               .select()
               .from(table)
-              .where(and(idFilter(payload.id), ownership.sql) as SQL)
+              .where(and(idFilter(payload.id), ownership.sql) as SQL) // @cast-boundary db-operator
               .limit(1);
             if (checked.length === 0) return null;
           }
@@ -891,11 +891,11 @@ export function createEventStoreExecutor(
       // thread the ownership clause.
       const baseFilter = idFilter(payload.id);
       const whereClause =
-        ownership.kind === "sql" ? (and(baseFilter, ownership.sql) as SQL) : baseFilter;
+        ownership.kind === "sql" ? (and(baseFilter, ownership.sql) as SQL) : baseFilter; // @cast-boundary db-operator
       const rows = (await db.select().from(table).where(whereClause).limit(1)) as Record<
         string,
         unknown
-      >[];
+      >[]; // @cast-boundary db-row
       const raw = rows[0];
       if (!raw) return null;
       const row = rehydrateCompoundTypes(raw, entity);

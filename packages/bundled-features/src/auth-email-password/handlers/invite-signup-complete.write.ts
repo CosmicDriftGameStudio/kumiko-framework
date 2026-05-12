@@ -114,10 +114,10 @@ export function createInviteSignupCompleteHandler() {
         if (!invitation || invitation["status"] !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
-        const invitationTenantId = invitation["tenantId"] as TenantId;
-        const invitationEmail = invitation["email"] as string;
-        const invitationRole = invitation["role"] as string;
-        const invitationVersion = invitation["version"] as number;
+        const invitationTenantId = invitation["tenantId"] as TenantId; // @cast-boundary db-row
+        const invitationEmail = invitation["email"] as string; // @cast-boundary db-row
+        const invitationRole = invitation["role"] as string; // @cast-boundary db-row
+        const invitationVersion = invitation["version"] as number; // @cast-boundary db-row
 
         // User-Not-Exists-Check: wenn die Email schon registriert ist,
         // muss der User Branch 2 (acceptWithLogin) nutzen. Hier ist

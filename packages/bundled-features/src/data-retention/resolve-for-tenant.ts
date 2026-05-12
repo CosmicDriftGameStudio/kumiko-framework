@@ -28,7 +28,7 @@ export async function resolveRetentionPolicyForTenant(
     tenantRetentionOverrideTable,
     eq(tenantRetentionOverrideTable["tenantId"], args.tenantId),
     eq(tenantRetentionOverrideTable["entityName"], args.entityName),
-  )) as { config: string | null } | null;
+  )) as { config: string | null } | null; // @cast-boundary db-runner
 
   const tenantOverride = parseRetentionOverrideOrNull(
     overrideRow?.config ?? null,

@@ -128,7 +128,7 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
   const usages = registry.getExtensionUsages(EXT_USER_DATA);
   const hookEntries: HookEntry[] = usages
     .map((u): HookEntry | null => {
-      const opts = (u.options ?? {}) as { export?: UserDataExportHook };
+      const opts = (u.options ?? {}) as { export?: UserDataExportHook }; // @cast-boundary engine-payload
       return opts.export ? { entityName: u.entityName, exportHook: opts.export } : null;
     })
     .filter((x): x is HookEntry => x !== null);

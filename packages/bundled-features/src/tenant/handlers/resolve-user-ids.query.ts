@@ -27,7 +27,7 @@ export const resolveUserIdsQuery = defineQueryHandler({
         .select({ userId: tenantMembershipsTable.userId })
         .from(tenantMembershipsTable)
         .where(eq(tenantMembershipsTable.tenantId, tenantId));
-      return rows.map((r) => r["userId"] as number);
+      return rows.map((r) => r["userId"] as number); // @cast-boundary db-row
     }
 
     if (userId !== undefined) {

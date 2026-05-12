@@ -30,7 +30,7 @@ export const changePasswordWrite = defineWriteHandler({
     // Load self with passwordHash — only visible to the privileged caller.
     const me = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
       id: event.user.id,
-    })) as { id: number; passwordHash: string | null; version: number } | null;
+    })) as { id: number; passwordHash: string | null; version: number } | null; // @cast-boundary db-runner
 
     if (!me?.passwordHash) {
       return invalidCredentials();

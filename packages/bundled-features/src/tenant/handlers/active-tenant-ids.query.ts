@@ -14,6 +14,6 @@ export const activeTenantIdsQuery = defineQueryHandler({
       .from(tenantTable)
       .where(eq(tenantTable["isEnabled"], true));
 
-    return rows.map((row) => (row as DbRow)["id"] as number);
+    return rows.map((row) => (row as DbRow)["id"] as number); // @cast-boundary db-row
   },
 });

@@ -50,8 +50,8 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
       const { payload } = await jose.jwtVerify(token, encodedSecret, { issuer });
       const result: JwtPayload = {
         sub: String(payload.sub),
-        tenantId: payload["tenantId"] as string,
-        roles: payload["roles"] as string[],
+        tenantId: payload["tenantId"] as string, // @cast-boundary dynamic-key
+        roles: payload["roles"] as string[], // @cast-boundary dynamic-key
       };
       const claims = payload["claims"];
       if (claims && typeof claims === "object") {

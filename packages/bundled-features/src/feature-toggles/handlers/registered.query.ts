@@ -21,7 +21,7 @@ export const registeredQuery = defineQueryHandler({
         featureName: globalFeatureStateTable.featureName,
         enabled: globalFeatureStateTable.enabled,
       })
-      .from(globalFeatureStateTable)) as OverrideRow[];
+      .from(globalFeatureStateTable)) as OverrideRow[]; // @cast-boundary db-row
     const overrides = new Map(overrideRows.map((r) => [r.featureName, r.enabled]));
 
     // SystemAdmin operator-tooling: das listing soll die PLATTFORM-truth

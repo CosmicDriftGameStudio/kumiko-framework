@@ -56,7 +56,7 @@ export async function seedComplianceProfile(
     db,
     tenantComplianceProfileTable,
     eq(tenantComplianceProfileTable["tenantId"], opts.tenantId),
-  )) as { id: string; version: number } | null;
+  )) as { id: string; version: number } | null; // @cast-boundary db-runner
 
   if (existing) {
     const result = await executor.update(
