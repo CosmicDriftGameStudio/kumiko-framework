@@ -17,7 +17,6 @@
   "kumiko": {
     "runtime": "client"
   },
-  
   "exports": {
     ".": {
       "types": "./src/index.ts",
