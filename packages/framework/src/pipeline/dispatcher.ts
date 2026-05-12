@@ -1358,9 +1358,7 @@ export function createDispatcher(
       // fire for rolled-back writes. Defer to afterCommit.
       if (jobRunner) {
         const eventData = (parsed.data ?? {}) as DbRow; // @cast-boundary engine-payload
-        afterCommitHooks.push(() =>
-          jobRunner.handleEvent(type, eventData, user),
-        );
+        afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user));
       }
     }
 

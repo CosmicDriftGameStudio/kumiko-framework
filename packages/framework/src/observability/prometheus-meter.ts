@@ -260,21 +260,18 @@ export function serializeOpenMetrics(meter: PrometheusMeter): string {
       }
     } else {
       const histSlots = entry.slots as HistogramState[]; // @cast-boundary engine-bridge
-        // Cumulative bucket counts + +Inf terminator + sum/count suffixes.
-        let cumulative = 0;
-        for (let i = 0; i < s.boundaries.length; i++) {
-          // biome-ignore lint/style/noNonNullAssertion: bounded by loop guard
-          cumulative = s.buckets[i]!;
-          // biome-ignore lint/style/noNonNullAssertion: bounded by loop guard
-          const le = String(s.boundaries[i]!);
-          lines.push(
-            `${name}_bucket${renderLabelsWithExtra(s.labels, [["le", le]])} ${cumulative}`,
-          );
-        }
-        lines.push(`${name}_bucket${renderLabelsWithExtra(s.labels, [["le", "+Inf"]])} ${s.count}`);
-        lines.push(`${name}_sum${renderLabels(s.labels)} ${s.sum}`);
-        lines.push(`${name}_count${renderLabels(s.labels)} ${s.count}`);
+      // Cumulative bucket counts + +Inf terminator + sum/count suffixes.
+      let cumulative = 0;
+      for (let i = 0; i < s.boundaries.length; i++) {
+        // biome-ignore lint/style/noNonNullAssertion: bounded by loop guard
+        cumulative = s.buckets[i]!;
+        // biome-ignore lint/style/noNonNullAssertion: bounded by loop guard
+        const le = String(s.boundaries[i]!);
+        lines.push(`${name}_bucket${renderLabelsWithExtra(s.labels, [["le", le]])} ${cumulative}`);
       }
+      lines.push(`${name}_bucket${renderLabelsWithExtra(s.labels, [["le", "+Inf"]])} ${s.count}`);
+      lines.push(`${name}_sum${renderLabels(s.labels)} ${s.sum}`);
+      lines.push(`${name}_count${renderLabels(s.labels)} ${s.count}`);
     }
   }
 

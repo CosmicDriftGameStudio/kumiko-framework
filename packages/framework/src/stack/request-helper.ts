@@ -113,7 +113,8 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
       // wire-body shape direkt nach JSON.parse — Caller-Code prüft danach
       // selber ob isSuccess/error/data tatsächlich da sind.
       const rawBody = await res.json();
-      const body = rawBody as { // @cast-boundary engine-bridge
+      const body = rawBody as {
+        // @cast-boundary engine-bridge
         isSuccess?: boolean;
         data?: unknown;
         error?: { code?: string } | string;
@@ -137,7 +138,8 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
     ): Promise<import("../errors").WriteErrorInfo> {
       const res = await writeRaw(type, payload, user);
       const rawErrorBody = await res.json();
-      const body = rawErrorBody as { // @cast-boundary engine-bridge
+      const body = rawErrorBody as {
+        // @cast-boundary engine-bridge
         isSuccess?: boolean;
         error?: Omit<import("../errors").WriteErrorInfo, "httpStatus">;
       };
