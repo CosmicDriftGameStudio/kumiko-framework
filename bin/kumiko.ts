@@ -119,13 +119,13 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // error im scan-Pfad. Die biome.json `files.includes` filtert nur
   // Lint-Targets, nicht den Discovery-Walk. (`app/` war in O.1 #18
   // archiviert.)
-  { name: "Biome", cmd: `${BIOME} check packages samples` },
+  { name: "Biome", cmd: `cd kumiko-framework && ${BIOME} check packages samples` },
   // tsc -b nutzt .tsbuildinfo-Caches — Re-Runs bei unverändertem Code
   // sind nahezu instant. Project-References im root tsconfig ziehen alle
   // Workspaces mit (framework, bundled-features, headless, dispatcher-
   // live, renderer, renderer-web, app). --noEmit funktioniert nicht mit
   // composite-projects (TS6310), dist-Output ist via .gitignore ignoriert.
-  { name: "TypeScript", cmd: `${TSC} -b` },
+  { name: "TypeScript", cmd: `cd kumiko-framework && ${TSC} -b` },
   // Sample-Apps werden NICHT von tsc -b erfasst (sind nicht in
   // root.references) — eigener Check pro sample workspace damit IDE-
   // sichtbare Errors auch im check rot werden. Auto-discovery über

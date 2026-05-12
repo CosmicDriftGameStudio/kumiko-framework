@@ -74,6 +74,15 @@ export function qualifyNavId(featureName: string, navId: string): string {
   return `${featureName}:nav:${navId}`;
 }
 
+type ToolbarAction = {
+  id: string;
+  label: string;
+  style?: "primary" | "secondary" | "danger";
+  confirm?: string;
+  confirmLabel?: string;
+  onTrigger: () => Promise<void> | void;
+};
+
 export function KumikoScreen({
   schema,
   qn,
@@ -83,7 +92,10 @@ export function KumikoScreen({
 }: KumikoScreenProps): ReactNode {
   const { Banner, Text } = usePrimitives();
   const screen = useMemo(
-    () => schema.screens.find((s: ScreenDefinition) => qualifyScreenId(schema.featureName, s.id) === qn),
+    () =>
+      schema.screens.find(
+        (s: ScreenDefinition) => qualifyScreenId(schema.featureName, s.id) === qn,
+      ),
     [schema.featureName, schema.screens, qn],
   );
 
@@ -163,7 +175,9 @@ function entityWriteCommand(
 function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () => void {
   const nav = useNav();
   return useCallback(() => {
-    const list = schema.screens.find((s: ScreenDefinition) => s.type === "entityList" && s.entity === entityName);
+    const list = schema.screens.find(
+      (s: ScreenDefinition) => s.type === "entityList" && s.entity === entityName,
+    );
     if (!list) return;
     // schema.screens.id ist QN-form (registry-stamped); nav.navigate
     // erwartet Short-Form. Sonst landet die URL doppelt-qualifiziert.
@@ -185,7 +199,9 @@ function useNavigateToCreateFor(
 ): (() => void) | undefined {
   const nav = useNav();
   const editScreenId = useMemo(() => {
-    const edit = schema.screens.find((s: ScreenDefinition) => s.type === "entityEdit" && s.entity === entityName);
+    const edit = schema.screens.find(
+      (s: ScreenDefinition) => s.type === "entityEdit" && s.entity === entityName,
+    );
     return edit !== undefined ? lastSegment(edit.id) : undefined;
   }, [schema.screens, entityName]);
   const navigate = useCallback(() => {
@@ -744,7 +760,7 @@ function EntityListBody({
           };
         },
       )
-      .filter((a: { id: string; label: string; style?: "primary" | "secondary" | "danger"; confirm?: string; confirmLabel?: string; onTrigger: () => Promise<void> | void } | null): a is { id: string; label: string; style?: "primary" | "secondary" | "danger"; confirm?: string; confirmLabel?: string; onTrigger: () => Promise<void> | void } => a !== null);
+      .filter((a: ToolbarAction | null): a is ToolbarAction => a !== null);
   }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
