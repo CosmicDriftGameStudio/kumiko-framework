@@ -9,7 +9,10 @@
     "runtime": "client"
   },
   "exports": {
-    ".": "./src/index.ts",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    },
     "./styles.css": "./src/styles.css"
   },
   "dependencies": {

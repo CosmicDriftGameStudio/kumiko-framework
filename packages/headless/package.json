@@ -18,8 +18,14 @@
     "runtime": "client"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./dispatcher": "./src/dispatcher/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    },
+    "./dispatcher": {
+      "types": "./dist/dispatcher/index.d.ts",
+      "default": "./src/dispatcher/index.ts"
+    }
   },
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*",

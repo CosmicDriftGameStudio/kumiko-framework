@@ -18,12 +18,30 @@
     "runtime": "dev"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./build": "./src/build.ts",
-    "./compose-features": "./src/compose-features.ts",
-    "./drizzle-config": "./src/drizzle-config.ts",
-    "./drizzle-tables-auth-mode": "./src/drizzle-tables-auth-mode.ts",
-    "./drizzle-tables-minimal": "./src/drizzle-tables-minimal.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    },
+    "./build": {
+      "types": "./dist/build.d.ts",
+      "default": "./src/build.ts"
+    },
+    "./compose-features": {
+      "types": "./dist/compose-features.d.ts",
+      "default": "./src/compose-features.ts"
+    },
+    "./drizzle-config": {
+      "types": "./dist/drizzle-config.d.ts",
+      "default": "./src/drizzle-config.ts"
+    },
+    "./drizzle-tables-auth-mode": {
+      "types": "./dist/drizzle-tables-auth-mode.d.ts",
+      "default": "./src/drizzle-tables-auth-mode.ts"
+    },
+    "./drizzle-tables-minimal": {
+      "types": "./dist/drizzle-tables-minimal.d.ts",
+      "default": "./src/drizzle-tables-minimal.ts"
+    }
   },
   "bin": {
     "kumiko-build": "./bin/kumiko-build.ts",

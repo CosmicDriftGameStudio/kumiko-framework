@@ -18,7 +18,10 @@
     "runtime": "client"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    }
   },
   "dependencies": {
     "@cosmicdrift/kumiko-headless": "workspace:*"
