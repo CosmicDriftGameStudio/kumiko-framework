@@ -56,10 +56,13 @@ export type {
   ListColumnSpec,
   PlatformComponent,
   RowAction,
+  RowActionNavigate,
+  RowActionWriteHandler,
   ScreenDefinition,
   ScreenFilter,
   ScreenFilterOp,
   ScreenSlots,
+  ToolbarAction,
 } from "../engine/types/screen";
 export { normalizeEditField, normalizeListColumn } from "../engine/types/screen";
 export type { WorkspaceDefinition } from "../engine/types/workspace";

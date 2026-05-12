@@ -26,6 +26,11 @@ const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
  *
  * Pure — mutiert nicht.
  */
+interface MoneyPair {
+  amount: number;
+  currency?: string;
+}
+
 export function flattenMoney(
   payload: Record<string, unknown>,
   entity: EntityDefinition,
@@ -42,8 +47,13 @@ export function flattenMoney(
     let amount: number;
     let currency: string;
 
-    if (typeof raw === "object" && "amount" in raw) {
-      const pair = raw as { amount: number; currency?: string };
+    if (
+      typeof raw === "object" &&
+      raw !== null &&
+      "amount" in raw &&
+      typeof (raw as MoneyPair).amount === "number"
+    ) {
+      const pair = raw as MoneyPair;
       amount = pair.amount;
       currency = pair.currency ?? fallbackCurrency;
     } else if (typeof raw === "number") {
