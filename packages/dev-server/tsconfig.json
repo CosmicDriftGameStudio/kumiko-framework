@@ -4,7 +4,7 @@
     "rootDir": "src",
     "outDir": "dist",
     "noEmit": false,
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM"],
     "composite": true
   },
   "references": [{ "path": "../framework" }, { "path": "../bundled-features" }],

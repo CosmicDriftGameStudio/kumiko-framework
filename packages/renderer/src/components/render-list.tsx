@@ -3,7 +3,11 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { ListColumnViewModel, ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
+import type {
+  ListColumnViewModel,
+  ListRowViewModel,
+  Translate,
+} from "@cosmicdrift/kumiko-headless";
 import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { ListSort } from "../hooks/use-list-url-state";
@@ -284,21 +288,18 @@ export function RenderList(props: RenderListProps): ReactNode {
   // ListSort = DataTableSort (use-list-url-state aliased) — kein Cast nötig.
   return (
     <>
-      {referenceColumns.map((rc: {
-        field: string;
-        refEntity: string;
-        refFeature: string;
-        labelField: string;
-      }) => (
-        <ReferenceLookupBridge
-          key={rc.field}
-          field={rc.field}
-          refEntity={rc.refEntity}
-          labelField={rc.labelField}
-          featureName={rc.refFeature}
-          onMap={handleLookupMap}
-        />
-      ))}
+      {referenceColumns.map(
+        (rc: { field: string; refEntity: string; refFeature: string; labelField: string }) => (
+          <ReferenceLookupBridge
+            key={rc.field}
+            field={rc.field}
+            refEntity={rc.refEntity}
+            labelField={rc.labelField}
+            featureName={rc.refFeature}
+            onMap={handleLookupMap}
+          />
+        ),
+      )}
       <DataTable
         columns={enrichedVm.columns}
         rows={enrichedVm.rows}
