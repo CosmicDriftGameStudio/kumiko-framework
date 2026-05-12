@@ -5,7 +5,9 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   RowAction,
+  RowActionWriteHandler,
   ScreenDefinition,
+  ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
@@ -17,12 +19,12 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit";
-import { RenderList } from "../components/render-list";
+import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useListUrlState } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
+import { type DataTableRowAction, usePrimitives } from "../primitives";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
 import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
 import { useCustomScreenComponent } from "./custom-screens";
@@ -73,15 +75,6 @@ export function qualifyScreenId(featureName: string, screenId: string): string {
 export function qualifyNavId(featureName: string, navId: string): string {
   return `${featureName}:nav:${navId}`;
 }
-
-type ToolbarAction = {
-  id: string;
-  label: string;
-  style?: "primary" | "secondary" | "danger";
-  confirm?: string;
-  confirmLabel?: string;
-  onTrigger: () => Promise<void> | void;
-};
 
 export function KumikoScreen({
   schema,
@@ -660,7 +653,7 @@ function EntityListBody({
   const rowActions = useMemo(() => {
     if (screen.rowActions === undefined) return undefined;
     return screen.rowActions
-      .map((action: RowAction) => {
+      .map((action: RowAction): DataTableRowAction | null => {
         // navigate-Variante braucht keinen Dispatcher; nav ist
         // immer da (Provider von createKumikoApp).
         if (action.kind === "navigate") {
@@ -688,31 +681,32 @@ function EntityListBody({
             }),
           };
         }
-        // writeHandler-Variante (default kind, Backwards-Compat).
-        // Braucht Dispatcher — null returnen → filter unten dropt es,
-        // damit das useEffect-Warning oben einmal feuert + die Action
-        // einfach nicht rendert (statt Crash).
         if (dispatcher === undefined) return null;
+        if (action.kind !== "writeHandler" && action.kind !== undefined) return null;
+        const writeAction = action as RowActionWriteHandler;
         return {
-          id: action.id,
-          label: effectiveTranslate(action.label),
-          ...(action.style !== undefined && { style: action.style }),
-          ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
-          ...(action.confirmLabel !== undefined && {
-            confirmLabel: effectiveTranslate(action.confirmLabel),
-          }),
+          id: writeAction.id,
+          label: effectiveTranslate(writeAction.label),
+          style: writeAction.style,
+          confirm:
+            writeAction.confirm !== undefined ? effectiveTranslate(writeAction.confirm) : undefined,
+          confirmLabel:
+            writeAction.confirmLabel !== undefined
+              ? effectiveTranslate(writeAction.confirmLabel)
+              : undefined,
           onTrigger: async (row: ListRowViewModel) => {
-            const buildPayload = action.payload;
+            const buildPayload = writeAction.payload;
             const payload =
               buildPayload !== undefined ? buildPayload(row.values) : { id: row.values["id"] };
-            await dispatcher.write(action.handler, payload);
+            await dispatcher.write(writeAction.handler, payload);
           },
-          ...(action.visible !== undefined && {
-            isVisible: (row: ListRowViewModel) => action.visible?.(row.values, undefined) ?? true,
-          }),
+          isVisible:
+            writeAction.visible !== undefined
+              ? (row: ListRowViewModel) => writeAction.visible?.(row.values, undefined) ?? true
+              : undefined,
         };
       })
-      .filter((a: RowAction | null): a is RowAction => a !== null);
+      .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
   }, [screen.rowActions, effectiveTranslate, dispatcher, nav]);
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
@@ -722,45 +716,34 @@ function EntityListBody({
   const toolbarActions = useMemo(() => {
     if (screen.toolbarActions === undefined) return undefined;
     return screen.toolbarActions
-      .map(
-        (
-          action: RowAction,
-        ): {
-          id: string;
-          label: string;
-          style?: "primary" | "secondary" | "danger";
-          confirm?: string;
-          confirmLabel?: string;
-          onTrigger: () => Promise<void> | void;
-        } | null => {
-          if (action.kind === "navigate") {
-            return {
-              id: action.id,
-              label: effectiveTranslate(action.label),
-              ...(action.style !== undefined && { style: action.style }),
-              onTrigger: () => nav.navigate({ screenId: action.screen }),
-            };
-          }
-          // writeHandler — braucht Dispatcher. Wenn keiner mounted ist,
-          // skippen wir die Action statt zu crashen (gleiche Logik wie
-          // bei rowActions; einmaliger Warn-Log dort reicht).
-          if (dispatcher === undefined) return null;
+      .map((action: ToolbarAction): ToolbarActionButton | null => {
+        if (action.kind === "navigate") {
           return {
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
-            ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
-            ...(action.confirmLabel !== undefined && {
-              confirmLabel: effectiveTranslate(action.confirmLabel),
-            }),
-            onTrigger: async () => {
-              const payload = action.payload?.() ?? {};
-              await dispatcher.write(action.handler, payload);
-            },
+            onTrigger: () => nav.navigate({ screenId: action.screen }),
           };
-        },
-      )
-      .filter((a: ToolbarAction | null): a is ToolbarAction => a !== null);
+        }
+        // writeHandler — braucht Dispatcher. Wenn keiner mounted ist,
+        // skippen wir die Action statt zu crashen (gleiche Logik wie
+        // bei rowActions; einmaliger Warn-Log dort reicht).
+        if (dispatcher === undefined) return null;
+        return {
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
+          ...(action.confirmLabel !== undefined && {
+            confirmLabel: effectiveTranslate(action.confirmLabel),
+          }),
+          onTrigger: async () => {
+            const payload = action.payload?.() ?? {};
+            await dispatcher.write(action.handler, payload);
+          },
+        };
+      })
+      .filter((a: ToolbarActionButton | null): a is ToolbarActionButton => a !== null);
   }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
