@@ -243,7 +243,7 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
     },
     tenantDestroyGracePeriod: { days: 30 },
   },
-};
+} satisfies Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>;
 
 // Raw-Profile (vor extends-Resolution) — `extends`-Profile dürfen
 // Required-Felder weglassen, sie kommen vom Base-Profile dazu.

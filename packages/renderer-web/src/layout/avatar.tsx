@@ -43,7 +43,7 @@ const SIZE_CLASSES: Record<AvatarSize, string> = {
   sm: "size-5 text-[10px]",
   md: "size-6 text-[11px]",
   lg: "size-8 text-xs",
-};
+} satisfies Record<AvatarSize, string>;
 
 function hashCode(str: string): number {
   // djb2-Variante — schnell, deterministic, gut genug verteilt für

@@ -63,7 +63,7 @@ const SCOPE_DEFAULTS: Record<ConfigScope, { write: readonly string[]; read: read
   tenant: { write: access.admin, read: access.all },
   system: { write: access.system, read: access.admin },
   user: { write: access.all, read: access.all },
-};
+} satisfies Record<ConfigScope, { write: readonly string[]; read: readonly string[] }>;
 
 // --- Factory ---
 

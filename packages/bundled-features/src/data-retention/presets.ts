@@ -58,7 +58,7 @@ export const RETENTION_PRESETS: Readonly<Record<RetentionPresetKey, RetentionPre
     session: { keepFor: "30d", strategy: "hardDelete", reference: "lastSeenAt" },
     invoice: { keepFor: "10y", strategy: "blockDelete", reference: "createdAt" },
   },
-};
+} satisfies Readonly<Record<RetentionPresetKey, RetentionPreset>>;
 
 /**
  * Auswählbare Presets für den Onboarding-Banner. "default" ist Migration-

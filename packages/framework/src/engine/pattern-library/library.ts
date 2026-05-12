@@ -1114,7 +1114,7 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   usesApi: usesApiSchema,
   exposesApi: exposesApiSchema,
   unknown: unknownSchema,
-};
+} satisfies Readonly<Record<FeaturePatternKind, PatternFormSchema>>;
 
 /**
  * Lookup helper — convenience over `PATTERN_LIBRARY[kind]`. Throws when
