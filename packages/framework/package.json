@@ -29,111 +29,111 @@
   },
   "exports": {
     "./compliance": {
-      "types": "./dist/compliance/index.d.ts",
+      "types": "./src/compliance/index.ts",
       "default": "./src/compliance/index.ts"
     },
     "./engine": {
-      "types": "./dist/engine/index.d.ts",
+      "types": "./src/engine/index.ts",
       "default": "./src/engine/index.ts"
     },
     "./engine/types": {
-      "types": "./dist/engine/types/index.d.ts",
+      "types": "./src/engine/types/index.ts",
       "default": "./src/engine/types/index.ts"
     },
     "./errors": {
-      "types": "./dist/errors/index.d.ts",
+      "types": "./src/errors/index.ts",
       "default": "./src/errors/index.ts"
     },
     "./db": {
-      "types": "./dist/db/index.d.ts",
+      "types": "./src/db/index.ts",
       "default": "./src/db/index.ts"
     },
     "./event-store": {
-      "types": "./dist/event-store/index.d.ts",
+      "types": "./src/event-store/index.ts",
       "default": "./src/event-store/index.ts"
     },
     "./event-store/admin-api": {
-      "types": "./dist/event-store/admin-api.d.ts",
+      "types": "./src/event-store/admin-api.ts",
       "default": "./src/event-store/admin-api.ts"
     },
     "./pipeline": {
-      "types": "./dist/pipeline/index.d.ts",
+      "types": "./src/pipeline/index.ts",
       "default": "./src/pipeline/index.ts"
     },
     "./api": {
-      "types": "./dist/api/index.d.ts",
+      "types": "./src/api/index.ts",
       "default": "./src/api/index.ts"
     },
     "./i18n": {
-      "types": "./dist/i18n/index.d.ts",
+      "types": "./src/i18n/index.ts",
       "default": "./src/i18n/index.ts"
     },
     "./auth": {
-      "types": "./dist/auth/index.d.ts",
+      "types": "./src/auth/index.ts",
       "default": "./src/auth/index.ts"
     },
     "./files": {
-      "types": "./dist/files/index.d.ts",
+      "types": "./src/files/index.ts",
       "default": "./src/files/index.ts"
     },
     "./jobs": {
-      "types": "./dist/jobs/index.d.ts",
+      "types": "./src/jobs/index.ts",
       "default": "./src/jobs/index.ts"
     },
     "./migrations": {
-      "types": "./dist/migrations/index.d.ts",
+      "types": "./src/migrations/index.ts",
       "default": "./src/migrations/index.ts"
     },
     "./entrypoint": {
-      "types": "./dist/entrypoint/index.d.ts",
+      "types": "./src/entrypoint/index.ts",
       "default": "./src/entrypoint/index.ts"
     },
     "./random": {
-      "types": "./dist/random/index.d.ts",
+      "types": "./src/random/index.ts",
       "default": "./src/random/index.ts"
     },
     "./redis": {
-      "types": "./dist/redis/index.d.ts",
+      "types": "./src/redis/index.ts",
       "default": "./src/redis/index.ts"
     },
     "./search": {
-      "types": "./dist/search/index.d.ts",
+      "types": "./src/search/index.ts",
       "default": "./src/search/index.ts"
     },
     "./search/meilisearch": {
-      "types": "./dist/search/meilisearch-adapter.d.ts",
+      "types": "./src/search/meilisearch-adapter.ts",
       "default": "./src/search/meilisearch-adapter.ts"
     },
     "./secrets": {
-      "types": "./dist/secrets/index.d.ts",
+      "types": "./src/secrets/index.ts",
       "default": "./src/secrets/index.ts"
     },
     "./stack": {
-      "types": "./dist/stack/index.d.ts",
+      "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"
     },
     "./testing": {
-      "types": "./dist/testing/index.d.ts",
+      "types": "./src/testing/index.ts",
       "default": "./src/testing/index.ts"
     },
     "./testing/handler-context": {
-      "types": "./dist/testing/handler-context.d.ts",
+      "types": "./src/testing/handler-context.ts",
       "default": "./src/testing/handler-context.ts"
     },
     "./testing/e2e-generator": {
-      "types": "./dist/testing/e2e-generator.d.ts",
+      "types": "./src/testing/e2e-generator.ts",
       "default": "./src/testing/e2e-generator.ts"
     },
     "./time": {
-      "types": "./dist/time/index.d.ts",
+      "types": "./src/time/index.ts",
       "default": "./src/time/index.ts"
     },
     "./ui-types": {
-      "types": "./dist/ui-types/index.d.ts",
+      "types": "./src/ui-types/index.ts",
       "default": "./src/ui-types/index.ts"
     },
     "./utils": {
-      "types": "./dist/utils/index.d.ts",
+      "types": "./src/utils/index.ts",
       "default": "./src/utils/index.ts"
     }
   },
