@@ -1,5 +1,5 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { type JobRunStatus, jobRunsTable } from "../job-run-table";
 
@@ -13,7 +13,7 @@ export const listQuery = defineQueryHandler({
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
     const db = ctx.db;
-    const conditions = [];
+    const conditions: SQL[] = [];
 
     if (query.payload.jobName) {
       conditions.push(eq(jobRunsTable.jobName, query.payload.jobName));

@@ -17,16 +17,16 @@ function makeStatefulResolver(initial: string): LocaleResolver {
   let current = initial;
   const listeners = new Set<() => void>();
   return {
-    translate: (key) => key,
+    translate: (key: string) => key,
     locale: () => current,
     timeZone: () => "UTC",
-    subscribe: (l) => {
+    subscribe: (l: () => void) => {
       listeners.add(l);
       return () => {
         listeners.delete(l);
       };
     },
-    setLocale: (next) => {
+    setLocale: (next: string) => {
       current = next;
       for (const l of listeners) l();
     },
@@ -45,7 +45,7 @@ describe("useTranslation — lookup order", () => {
   test("App-Resolver wins when it returns a non-key value", () => {
     const resolver: LocaleResolver = {
       ...createStaticLocaleResolver({ locale: "de" }),
-      translate: (key) => (key === "hello" ? "Resolved by app" : key),
+      translate: (key: string) => (key === "hello" ? "Resolved by app" : key),
     };
     const { result } = renderHook(() => useTranslation(), { wrapper: wrap(resolver) });
     expect(result.current("hello")).toBe("Resolved by app");

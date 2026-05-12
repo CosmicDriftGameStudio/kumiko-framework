@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { RateLimitError } from "../../errors";
 import { createTestRedis, type TestRedis } from "../../stack";
-import { createRateLimitResolver, type RateLimitResolver } from "../resolver";
+import {
+  createRateLimitResolver,
+  type RateLimitDecision,
+  type RateLimitResolver,
+} from "../resolver";
 
 let testRedis: TestRedis;
 let resolver: RateLimitResolver;
@@ -32,7 +36,7 @@ beforeEach(async () => {
 describe("createRateLimitResolver — token bucket basics", () => {
   test("first N requests within limit are allowed, N+1 is rejected", async () => {
     const config = { limit: 5, windowSeconds: 60 };
-    const decisions = [];
+    const decisions: RateLimitDecision[] = [];
     for (let i = 0; i < 5; i++) {
       decisions.push(await resolver.check("user:42", config));
     }
@@ -66,7 +70,7 @@ describe("createRateLimitResolver — token bucket basics", () => {
 
     // Advance 5s = window/2 → ~5 tokens refilled
     mockNowMs += 5000;
-    const decisions = [];
+    const decisions: RateLimitDecision[] = [];
     for (let i = 0; i < 5; i++) {
       decisions.push(await resolver.check("refill:user", config));
     }
@@ -84,7 +88,7 @@ describe("createRateLimitResolver — token bucket basics", () => {
     // Advance 10× the window → bucket would overflow without the cap.
     mockNowMs += 10 * 10 * 1000;
 
-    const decisions = [];
+    const decisions: RateLimitDecision[] = [];
     for (let i = 0; i < 5; i++) {
       decisions.push(await resolver.check("idle:user", config));
     }

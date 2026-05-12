@@ -6,6 +6,7 @@ import { normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   DispatcherError,
   EditFieldViewModel,
+  EditSectionViewModel,
   FieldConditions,
   FieldIssue,
   FormSnapshot,
@@ -252,10 +253,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       actions={formActions}
       testId="render-edit-form"
     >
-      {vm.sections.map((section) => (
+      {vm.sections.map((section: EditSectionViewModel) => (
         <Section key={section.title} title={section.title} testId={`section-${section.title}`}>
           <Grid columns={section.columns}>
-            {section.fields.map((field) => (
+            {section.fields.map((field: EditFieldViewModel) => (
               <GridCellForField
                 key={field.field}
                 field={field}

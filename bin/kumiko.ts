@@ -99,8 +99,10 @@ function banner(): void {
 const REPO_ROOT = resolvePath(import.meta.dir, "..", "..");
 const BIN_PATH = (() => {
   const rootBin = join(REPO_ROOT, "node_modules", ".bin");
+  console.error("DEBUG: BIN_PATH rootBin", rootBin, existsSync(rootBin));
   if (existsSync(rootBin)) return rootBin;
   const localBin = join(process.cwd(), "node_modules", ".bin");
+  console.error("DEBUG: BIN_PATH localBin", localBin, existsSync(localBin));
   if (existsSync(localBin)) return localBin;
   return rootBin; // Fallback
 })();
@@ -112,56 +114,114 @@ const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-t
 // Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
 // danach noch Unit + Integration Tests an; `kumiko check:fast` hängt nur
 // `vitest run --changed` an und skipt Integration komplett.
-const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
-  // Biome explizit auf packages/samples — `.` triggert FS-walk durch
-  // docs/plans/marketing/* die im local-dev als symlinks auf kumiko-
-  // platform zeigen. CI hat den Nachbar-Repo nicht → broken-symlink-
-  // error im scan-Pfad. Die biome.json `files.includes` filtert nur
-  // Lint-Targets, nicht den Discovery-Walk. (`app/` war in O.1 #18
-  // archiviert.)
-  { name: "Biome", cmd: `${BIOME} check packages samples` },
-  // tsc -b nutzt .tsbuildinfo-Caches — Re-Runs bei unverändertem Code
-  // sind nahezu instant. Project-References im root tsconfig ziehen alle
-  // Workspaces mit (framework, bundled-features, headless, dispatcher-
-  // live, renderer, renderer-web, app). --noEmit funktioniert nicht mit
-  // composite-projects (TS6310), dist-Output ist via .gitignore ignoriert.
-  { name: "TypeScript", cmd: `${TSC} -b` },
-  // Sample-Apps werden NICHT von tsc -b erfasst (sind nicht in
-  // root.references) — eigener Check pro sample workspace damit IDE-
-  // sichtbare Errors auch im check rot werden. Auto-discovery über
-  // samples/<category>/<app>/tsconfig.json: neue Apps werden ohne
-  // Konfig-Pflege gefunden.
-  { name: "TypeScript (Samples)", cmd: `bun ${CHECK_APP_TSC}` },
-  // Guards leben jetzt im Sibling-Repo `infra/guards/` (Phase O.11) —
-  // multi-root-aware, scannen alle 4 Repos (kumiko-framework,
-  // -enterprise, -studio, publicstatus). Aufruf via Pfad relativ zur
-  // framework-Repo-Wurzel.
-  { name: "Silent-Skip Guard", cmd: "bunx kumiko-guard-silent-skip" },
-  { name: "Admin-API Guard", cmd: "bunx kumiko-guard-admin-api" },
-  { name: "Unsafe-JSON-Parse Guard", cmd: "bunx kumiko-guard-unsafe-json-parse" },
-  { name: "No-Date-API Guard", cmd: "bunx kumiko-guard-no-date-api" },
-  { name: "Pre-ES-Patterns Guard", cmd: "bunx kumiko-guard-pre-es-patterns" },
-  { name: "Direct-Entity-Writes Guard", cmd: "bunx kumiko-guard-direct-entity-writes" },
-  { name: "Cross-Feature-Import Guard", cmd: "bunx kumiko-guard-cross-feature-imports" },
-  { name: "Renderer-Boundaries Guard", cmd: "bunx kumiko-guard-renderer-boundaries" },
-  {
+const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = (() => {
+  const steps: Array<{ name: string; cmd: string }> = [];
+
+  const siblings = [
+    { name: "kumiko-framework", kind: "framework" },
+    { name: "kumiko-enterprise", kind: "enterprise" },
+    { name: "kumiko-studio", kind: "studio" },
+    { name: "kumiko-platform", kind: "platform" },
+    { name: "publicstatus", kind: "publicstatus" },
+  ];
+
+  for (const root of siblings) {
+    const absPath = join(REPO_ROOT, root.name);
+    if (!existsSync(absPath)) continue;
+
+    // 1. Biome Check
+    if (root.kind === "framework") {
+      // Framework layout is special (packages/samples)
+      steps.push({
+        name: `Biome (${root.kind})`,
+        cmd: `cd ${absPath} && ${BIOME} check packages samples`,
+      });
+    } else {
+      steps.push({ name: `Biome (${root.kind})`, cmd: `cd ${absPath} && ${BIOME} check .` });
+    }
+
+    // 2. TypeScript Check
+    if (root.kind === "framework") {
+      steps.push({ name: `TypeScript (${root.kind})`, cmd: `cd ${absPath} && ${TSC} -b .` });
+      steps.push({
+        name: `TypeScript (Samples)`,
+        cmd: `cd ${absPath} && bun scripts/check-app-tsc.ts`,
+      });
+    } else if (existsSync(join(absPath, "tsconfig.json"))) {
+      steps.push({
+        name: `TypeScript (${root.kind})`,
+        cmd: `cd ${absPath} && ${TSC} --noEmit`,
+      });
+    } else if (root.kind === "platform") {
+      // Platform has nested workspaces, call tsc directly to avoid yarn state issues
+      steps.push({
+        name: "TypeScript (platform/docs)",
+        cmd: `cd ${join(absPath, "apps/docs")} && ${TSC} --noEmit`,
+      });
+      steps.push({
+        name: "TypeScript (platform/marketing)",
+        cmd: `cd ${join(absPath, "apps/marketing")} && ${TSC} --noEmit`,
+      });
+      steps.push({
+        name: "TypeScript (platform/docgen)",
+        cmd: `cd ${join(absPath, "tools/docgen")} && ${TSC} --noEmit`,
+      });
+    }
+  }
+
+  // 3. Guards (already cross-repo aware via roots.ts)
+  steps.push({ name: "Silent-Skip Guard", cmd: "bunx kumiko-guard-silent-skip" });
+  steps.push({ name: "Admin-API Guard", cmd: "bunx kumiko-guard-admin-api" });
+  steps.push({ name: "Unsafe-JSON-Parse Guard", cmd: "bunx kumiko-guard-unsafe-json-parse" });
+  steps.push({ name: "No-Date-API Guard", cmd: "bunx kumiko-guard-no-date-api" });
+  steps.push({ name: "Pre-ES-Patterns Guard", cmd: "bunx kumiko-guard-pre-es-patterns" });
+  steps.push({ name: "Direct-Entity-Writes Guard", cmd: "bunx kumiko-guard-direct-entity-writes" });
+  steps.push({ name: "Cross-Feature-Import Guard", cmd: "bunx kumiko-guard-cross-feature-imports" });
+  steps.push({ name: "Renderer-Boundaries Guard", cmd: "bunx kumiko-guard-renderer-boundaries" });
+  steps.push({
     name: "Primitives-Discipline Guard",
     cmd: "bunx kumiko-guard-primitives-discipline --strict-bundled",
-  },
-  { name: "Fake-Test Guard", cmd: "bunx kumiko-guard-fake-tests" },
-  {
+  });
+  steps.push({ name: "Fake-Test Guard", cmd: "bunx kumiko-guard-fake-tests" });
+  steps.push({
     name: "Feature-Integration-Test Guard",
     cmd: "bunx kumiko-guard-feature-integration-tests",
-  },
-  { name: "i18n-Keys Guard", cmd: "bunx kumiko-guard-i18n-keys" },
-  { name: "Test-Stack-Drift Guard", cmd: "bunx kumiko-guard-test-stack-drift" },
-  { name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" },
-  { name: "Error-Reasons Guard", cmd: "bunx kumiko-guard-error-reasons" },
-  { name: "Predicate Extraction Check", cmd: "bunx kumiko-check-predicates" },
-  { name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" },
-  { name: "Table-DDL Guard", cmd: "bunx kumiko-guard-table-ddl" },
-  { name: "License Check", cmd: "bunx kumiko-check-licenses" },
-];
+  });
+  steps.push({ name: "i18n-Keys Guard", cmd: "bunx kumiko-guard-i18n-keys" });
+  steps.push({ name: "Test-Stack-Drift Guard", cmd: "bunx kumiko-guard-test-stack-drift" });
+  steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
+  steps.push({ name: "Error-Reasons Guard", cmd: "bunx kumiko-guard-error-reasons" });
+  steps.push({ name: "Predicate Extraction Check", cmd: "bunx kumiko-check-predicates" });
+  steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
+  steps.push({ name: "Table-DDL Guard", cmd: "bunx kumiko-guard-table-ddl" });
+  steps.push({ name: "License Check", cmd: "bunx kumiko-check-licenses" });
+
+  return steps;
+})();
+
+const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = (() => {
+  const steps: Array<{ name: string; cmd: string }> = [];
+  const siblings = [
+    { name: "kumiko-framework", kind: "framework" },
+    { name: "kumiko-enterprise", kind: "enterprise" },
+    { name: "kumiko-studio", kind: "studio" },
+    { name: "kumiko-platform", kind: "platform" },
+    { name: "publicstatus", kind: "publicstatus" },
+  ];
+
+  for (const root of siblings) {
+    const absPath = join(REPO_ROOT, root.name);
+    if (!existsSync(absPath)) continue;
+
+    if (existsSync(join(absPath, "vitest.config.ts"))) {
+      steps.push({
+        name: `Unit Tests (${root.kind})`,
+        cmd: `cd ${absPath} && KUMIKO_CHECK=1 ${VITEST} run`,
+      });
+    }
+  }
+  return steps;
+})();
 
 const commands = {
   dev: {
@@ -402,14 +462,8 @@ const commands = {
       //
       // Phase O.11: Integration-Tests aus dem Default-`check`-Run
       // entfernt — sie brauchen DB/Redis/Meilisearch und gehören in
-      // einen separaten `check:integration`-Lauf bzw. CI-Job. Der
-      // Parent-Workspace-`yarn check` triggert vorher schon
-      // `yarn workspaces foreach -A run test:run` über alle 4 Repos
-      // — das deckt Unit-Tests parent-weit ab.
-      const slowSteps: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = [
-        { name: "Unit Tests", cmd: `KUMIKO_CHECK=1 ${VITEST} run` },
-      ];
-      for (const step of slowSteps) {
+      // einen separaten `check:integration`-Lauf bzw. CI-Job.
+      for (const step of UNIT_TEST_STEPS) {
         logBoth(`--- ${step.name} ---`, logPath);
         const code = await runWithTee(step.cmd, logPath);
         results.push({ name: step.name, ok: code === 0 });
