@@ -3,7 +3,7 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "noEmit": true,
+    "noEmit": false,
     "lib": ["ESNext"],
     "composite": true
   },
