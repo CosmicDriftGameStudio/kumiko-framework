@@ -1,5 +1,5 @@
-import type { TenantId } from "../engine/types/identifiers";
 import { and, eq, type SQL } from "drizzle-orm";
+import type { TenantId } from "../engine/types/identifiers";
 import { NotFoundError } from "../errors";
 import type { DbConnection } from "./connection";
 import type { TenantDb } from "./tenant-db";

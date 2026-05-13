@@ -1,5 +1,5 @@
-import type { TenantId } from "./types/identifiers";
 import type { SessionUser } from "./types";
+import type { TenantId } from "./types/identifiers";
 
 // Stringified so it round-trips through SessionUser.id (string UUID-shape).
 // Not a real UUID — SYSTEM acts as an alias for "no human caller" and event-

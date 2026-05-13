@@ -13,8 +13,8 @@ import type {
   SaveContext,
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
-import { getFallbackTracer, type Tracer } from "../observability";
 import { createFallbackLogger } from "../logging/utils";
+import { getFallbackTracer, type Tracer } from "../observability";
 import type { EventDedup } from "./event-dedup";
 
 function resolveTracer(context: AppContext): Tracer {

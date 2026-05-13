@@ -1,12 +1,10 @@
 import { type AnyColumn, eq } from "drizzle-orm";
-import { createFallbackLogger } from "../logging/utils";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
 import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
-import { parseQn, qn } from "../engine/qualified-name";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import type {
@@ -18,9 +16,7 @@ import type {
   DeleteContext,
   FetchForWritingArgs,
   HandlerContext,
-  HandlerRef,
   JobRunnerRef,
-  LifecycleResult,
   Registry,
   SaveContext,
   SessionUser,
@@ -28,6 +24,7 @@ import type {
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
+import { createFallbackLogger } from "../logging/utils";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
@@ -41,7 +38,6 @@ import {
   FrameworkReasons,
   InternalError,
   isKumikoError,
-  type KumikoError,
   NotFoundError,
   reraiseAsKumikoError,
   toWriteErrorInfo,
@@ -84,224 +80,23 @@ import { createTzContext } from "../time";
 import { parseJsonSafe } from "../utils/safe-json";
 import { appendDomainEventCore } from "./append-event-core";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver";
+import {
+  type AfterCommitHook,
+  BatchRollback,
+  describeShape,
+  dispatcherSpanAttributes,
+  extractNestedSpecs,
+  type HandlerType,
+  isFailedWriteResult,
+  isLifecycleResult,
+  isWriteResultShape,
+  prefixValidationPath,
+  resolveType,
+  wrapToKumiko,
+} from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { runProjections } from "./projections-runner";
-
-type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
-
-// Write handlers report failure via `WriteResult.isSuccess === false`. Query
-// handlers return arbitrary shapes, so `result` is typed as `unknown` here.
-function isFailedWriteResult(result: unknown): result is FailedWriteResult {
-  return (
-    !!result && typeof result === "object" && "isSuccess" in result && result.isSuccess === false
-  );
-}
-
-// Handler result is a lifecycle payload when it's an object carrying `kind`
-// (save/delete). Query handlers return arbitrary shapes that don't match.
-function isLifecycleResult(data: unknown): data is LifecycleResult {
-  return !!data && typeof data === "object" && "kind" in data;
-}
-
-// Shape-check for write-handler returns. The compile-time type already
-// requires WriteResult, but the inline form (r.writeHandler(name, schema,
-// fn, opts)) sometimes lets a wrong shape through structural widening —
-// the runtime guard below turns the obscure crash that follows into a
-// clear, actionable error message.
-function isWriteResultShape(result: unknown): boolean {
-  return (
-    !!result &&
-    typeof result === "object" &&
-    "isSuccess" in result &&
-    typeof result.isSuccess === "boolean"
-  );
-}
-
-// Compact, log-safe shape description for the shape-guard error message.
-// We don't dump JSON of arbitrary user data — just the keys + type so the
-// developer can spot the missing isSuccess at a glance.
-function describeShape(result: unknown): string {
-  if (result === null) return "null";
-  if (result === undefined) return "undefined";
-  if (typeof result !== "object") return typeof result;
-  return `object with keys [${Object.keys(result).slice(0, 6).join(", ")}]`;
-}
-
-// Standard span attributes for a dispatcher call. Feature may be undefined
-// for internal handlers that weren't registered via defineFeature.
-function dispatcherSpanAttributes(
-  type: string,
-  operation: "query" | "write",
-  user: SessionUser,
-  feature: string | undefined,
-) {
-  const attrs: Record<string, string | number | boolean> = {
-    "kumiko.handler": type,
-    "kumiko.operation": operation,
-    "kumiko.user_id": user.id,
-    "kumiko.tenant_id": user.tenantId,
-  };
-  if (feature) attrs["kumiko.feature"] = feature;
-  return attrs;
-}
-
-// Deferred afterCommit callback — collected during transaction execution,
-// fired sequentially once the transaction commits successfully.
-type AfterCommitHook = () => Promise<void>;
-
-// Specification for one nested-write expansion. The parent write's payload
-// carries items under `key`; each is dispatched as a separate write against
-// `subType`, with the foreign-key column `foreignKey` bound to the parent's
-// new id. Built by extractNestedSpecs from the parent payload + registry
-// relations. See executeNestedWrite for orchestration.
-type NestedSpec = {
-  readonly key: string;
-  readonly subType: string;
-  readonly foreignKey: string;
-  readonly items: readonly unknown[];
-};
-
-// Field-level issue collected by extractNestedSpecs and surfaced as a
-// ValidationError by the caller. Shape matches ValidationFieldIssue so we
-// can hand it directly to `new ValidationError({ fields })`.
-type NestedTypeIssue = {
-  readonly path: string;
-  readonly code: string;
-  readonly i18nKey: string;
-};
-
-// Separates a parent payload into a "clean" shape (without nested-relation
-// keys) plus the list of expansion specs. Returns null when the payload has
-// no nested relations to expand — callers short-circuit to the regular write
-// path without paying the overhead of nested orchestration.
-//
-// Expansion only applies to `:create` handlers (v1). For `:update` / `:delete`
-// we return null so the parent write runs unchanged. When a future iteration
-// adds update/delete-nested, this is the single point to extend.
-//
-// Sub-writes run through regular executeWrite, NOT recursively through
-// executeNestedWrite — deeper nesting (`tasks[0].subtasks`) is out of scope
-// for v1. Those keys reach the sub-handler's zod schema and are silently
-// stripped by default zod semantics. Documented limitation; a sub-handler
-// that wants to reject depth-2 payloads can use `.strict()` on its schema.
-function extractNestedSpecs(
-  parentType: string,
-  payload: unknown,
-  registry: Registry,
-): {
-  cleanPayload: Record<string, unknown>;
-  specs: readonly NestedSpec[];
-  typeIssues: readonly NestedTypeIssue[];
-} | null {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
-
-  let parsed: ReturnType<typeof parseQn>;
-  try {
-    parsed = parseQn(parentType);
-  } catch {
-    return null;
-  }
-  // v1 scope: only create. Update/delete-nested are explicit future work —
-  // they'd need different sub-types and id-handling semantics.
-  if (!parsed.name.endsWith(":create")) return null;
-
-  const entityName = registry.getHandlerEntity(parentType);
-  if (!entityName) return null;
-
-  const relations = registry.getRelations(entityName);
-  const source = payload as Record<string, unknown>; // @cast-boundary engine-payload — generic dispatch über alle Entity-Types
-  const clean: Record<string, unknown> = { ...source };
-  const specs: NestedSpec[] = [];
-  const typeIssues: NestedTypeIssue[] = [];
-
-  for (const [relKey, rel] of Object.entries(relations)) {
-    if (rel.type !== "hasMany" || !rel.nestedWrite) continue;
-    if (!(relKey in source)) continue;
-    const value = source[relKey];
-
-    // Non-array under a nested-write key is a client shape error. Silent
-    // strip (via default zod stripping) would hide it — a client sending
-    // `tasks: "bogus"` or `tasks: null` has to know the field was ignored,
-    // or they'll wonder why their data never showed up. Fail loud.
-    if (!Array.isArray(value)) {
-      typeIssues.push({
-        path: relKey,
-        code: "invalid_type",
-        i18nKey: "errors.validation.invalid_type",
-      });
-      // Still strip from clean payload — we're not letting the parent handler
-      // see a malformed value either.
-      delete clean[relKey];
-      continue;
-    }
-
-    // Strip the relation key from the clean payload — the parent handler
-    // only sees columns it actually owns.
-    delete clean[relKey];
-
-    // Sub-type composition: derive scope + operation from the parent qn,
-    // swap the entity segment. "feat:write:project:create" → "feat:write:task:create".
-    // Assumes target entity has a `:create` handler in the SAME feature scope
-    // as the parent. Cross-feature nested-writes are out of scope for v1;
-    // when needed, the registry would have to carry a back-pointer from
-    // entity → defining feature.
-    const subType = qn(parsed.scope, parsed.type, `${rel.target}:create`);
-
-    specs.push({
-      key: relKey,
-      subType,
-      foreignKey: rel.foreignKey,
-      items: value,
-    });
-  }
-
-  if (specs.length === 0 && typeIssues.length === 0) return null;
-  return { cleanPayload: clean, specs, typeIssues };
-}
-
-// Prefix ValidationError paths so a failure on a nested sub-write maps back
-// to the client-visible field path. Example: sub-write fails on `title` with
-// path="title"; this prefixes to "tasks.2.title" so the form-controller in
-// the UI can highlight the right sub-line's field.
-//
-// Non-validation errors pass through unchanged — they carry no field paths.
-function prefixValidationPath(info: WriteErrorInfo, prefix: string): WriteErrorInfo {
-  if (info.code !== "validation_error") return info;
-  const details = info.details as // @cast-boundary error-details
-    | {
-        fields?: readonly {
-          path: string;
-          code: string;
-          i18nKey: string;
-          params?: Readonly<Record<string, unknown>>;
-        }[];
-      }
-    | undefined;
-  const fields = details?.fields;
-  if (!fields) return info;
-  return {
-    ...info,
-    details: {
-      ...details,
-      fields: fields.map((f) => ({ ...f, path: `${prefix}.${f.path}` })),
-    },
-  };
-}
-
-// Sentinel thrown inside a Drizzle transaction to force a rollback while
-// carrying the command failure context back out. Drizzle rolls back iff the
-// transaction callback throws — this class lets us distinguish an expected
-// rollback (command returned isSuccess: false) from an unexpected error.
-class BatchRollback extends Error {
-  constructor(
-    readonly failedIndex: number,
-    readonly failureError: WriteErrorInfo,
-  ) {
-    super(`batch rollback at command ${failedIndex}: ${failureError.code}`);
-    this.name = "BatchRollback";
-  }
-}
 
 export type BatchCommand = {
   readonly type: string;
@@ -342,12 +137,6 @@ export type DispatcherOptions = {
   // enforce this contract, but the recipe-test pins the convention.
   effectiveFeatures?: EffectiveFeaturesResolver;
 };
-
-type HandlerType = string | HandlerRef;
-
-function resolveType(type: HandlerType): string {
-  return typeof type === "string" ? type : type.name;
-}
 
 export type Dispatcher = {
   write(
@@ -1593,12 +1382,4 @@ export function createDispatcher(
 
     resolveAuthClaims: resolveAuthClaimsFn,
   };
-}
-
-// Non-KumikoError → InternalError with cause preserved for the log. Kumiko
-// errors pass through untouched so their code/httpStatus survives.
-function wrapToKumiko(e: unknown): KumikoError {
-  if (isKumikoError(e)) return e;
-  if (e instanceof Error) return new InternalError({ cause: e });
-  return new InternalError({ message: String(e) });
 }

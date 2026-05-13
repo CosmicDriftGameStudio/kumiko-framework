@@ -1,5 +1,5 @@
-import type { EntityId, TenantId } from "../engine/types/identifiers";
 import { Meilisearch } from "meilisearch";
+import type { EntityId, TenantId } from "../engine/types/identifiers";
 import type { SearchAdapter, SearchResult } from "./types";
 
 export type MeilisearchAdapterOptions = {
