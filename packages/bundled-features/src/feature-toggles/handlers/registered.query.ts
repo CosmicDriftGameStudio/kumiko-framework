@@ -1,4 +1,4 @@
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 
@@ -24,9 +24,21 @@ export const registeredQuery = defineQueryHandler({
       .from(globalFeatureStateTable)) as OverrideRow[];
     const overrides = new Map(overrideRows.map((r) => [r.featureName, r.enabled]));
 
-    const effective = ctx.effectiveFeatures?.();
+    // SystemAdmin operator-tooling: das listing soll die PLATTFORM-truth
+    // zeigen (alle features im Registry), nicht den eigenen tier-cut.
+    // Sprint-8a per-tenant signature → wir rufen mit SYSTEM_TENANT_ID,
+    // App-resolver returnt union-of-all-tier-features. Sentinel-Convention
+    // dokumentiert in DispatcherOptions.effectiveFeatures.
+    const effective = ctx.effectiveFeatures?.(SYSTEM_TENANT_ID);
 
-    const items = [];
+    const items: Array<{
+      name: string;
+      toggleable: boolean;
+      default: boolean | null;
+      override: boolean | null;
+      requires: readonly string[];
+      effective: boolean | null;
+    }> = [];
     for (const feature of ctx.registry.features.values()) {
       const toggleable = feature.toggleableDefault !== undefined;
       const override = overrides.get(feature.name);

@@ -46,11 +46,7 @@
 // config, kein secrets, kein tenant-feature nötig. Tenant-Scoping kommt
 // vom Framework-Default (Base-Column tenantId).
 
-import {
-  defineEntityListHandler,
-  defineFeature,
-  type FeatureDefinition,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineEntityListHandler, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { CAP_COUNTER_FEATURE, ROLLING_INCREMENTED_EVENT_SHORT } from "./constants";
 import { capCounterEntity } from "./entity";
 import { getCounterQuery } from "./handlers/get-counter.query";
@@ -63,7 +59,7 @@ import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write";
 
 const sysadminAccess = { access: { roles: ["SystemAdmin"] } } as const;
 
-export const capCounterFeature: FeatureDefinition = defineFeature(CAP_COUNTER_FEATURE, (r) => {
+export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   r.entity("cap-counter", capCounterEntity);
 
   // Custom Domain-Event für Rolling-Counter. r.defineEvent registriert

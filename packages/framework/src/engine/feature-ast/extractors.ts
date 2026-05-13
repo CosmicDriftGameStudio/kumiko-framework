@@ -50,6 +50,7 @@ import type {
   EntityHookPattern,
   EntityPattern,
   EventMigrationPattern,
+  ExposesApiPattern,
   ExtendsRegistrarPattern,
   HookPattern,
   HttpRoutePattern,
@@ -72,6 +73,7 @@ import type {
   ToggleablePattern,
   TranslationsPattern,
   UseExtensionPattern,
+  UsesApiPattern,
   WorkspacePattern,
   WriteHandlerPattern,
 } from "./patterns";
@@ -2558,5 +2560,43 @@ export function extractExtendsRegistrar(
     source: sourceLocationFromNode(call, sourceFile),
     extensionName: nameArg.getLiteralValue(),
     defBody: sourceLocationFromNode(defArg, sourceFile),
+  });
+}
+
+export function extractUsesApi(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<UsesApiPattern> {
+  const arg = call.getArguments()[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!arg) {
+    return fail(
+      "usesApi",
+      sourceLocationFromNode(call, sourceFile),
+      'expected a single string-literal API name (e.g. "sessions.revokeAllForUser")',
+    );
+  }
+  return ok({
+    kind: "usesApi",
+    source: sourceLocationFromNode(call, sourceFile),
+    apiName: arg.getLiteralValue(),
+  });
+}
+
+export function extractExposesApi(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<ExposesApiPattern> {
+  const arg = call.getArguments()[0]?.asKind(SyntaxKind.StringLiteral);
+  if (!arg) {
+    return fail(
+      "exposesApi",
+      sourceLocationFromNode(call, sourceFile),
+      'expected a single string-literal API name (e.g. "sessions.revokeAllForUser")',
+    );
+  }
+  return ok({
+    kind: "exposesApi",
+    source: sourceLocationFromNode(call, sourceFile),
+    apiName: arg.getLiteralValue(),
   });
 }

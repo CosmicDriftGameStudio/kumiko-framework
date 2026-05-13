@@ -1,0 +1,15 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-user-data-rights-demo",
+  "description": "Sample-App: user-data-rights + EXT_USER_DATA-Hooks am Beispiel einer Todos-Domain. Demonstriert DSGVO Art. 15 (Auskunft / Export) + Art. 17 (Forget mit Grace) + Art. 18 (Restriction) end-to-end — App-Author registriert pro Domain-Entity einen export- + delete-Hook, der Rest kommt aus user-data-rights.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "PORT=4291 bun --env-file=../../../.env run kumiko-dev bin/server.ts"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

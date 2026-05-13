@@ -15,13 +15,14 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "dist",
-    "rootDir": "src",
     "types": [
       "bun-types"
     ]
   },
   "references": [
+    {
+      "path": "packages/framework"
+    },
     {
       "path": "packages/bundled-features"
     },
@@ -36,6 +37,9 @@
     },
     {
       "path": "packages/renderer-web"
+    },
+    {
+      "path": "packages/dev-server"
     }
   ],
   "files": []

@@ -2,6 +2,7 @@ import { and, asc, eq, gt, sql } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import {
   EVENTS_PUBSUB_CHANNEL,
   eventsTable,
@@ -487,7 +488,15 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     // Feature-toggle snapshot taken once per pass (not per consumer): all
     // consumers see the same disabled-set even if an operator flips a
     // toggle mid-pass, so "this event batch" decisions stay consistent.
-    const effective = context.effectiveFeatures?.();
+    //
+    // Sprint-8a tier-composition: per-tenant resolver per-pass-konsultiert
+    // mit SYSTEM_TENANT_ID. Async-events sind tier-agnostic — wenn ein
+    // Tenant downgrade'd, sollen seine queued events trotzdem verarbeitet
+    // werden (events sind immutable, projection ist eventually-consistent).
+    // Tier-cuts wirken request-time im sync-dispatcher + lifecycle-pipeline,
+    // nicht im async-replay. App-level resolver entscheidet was er bei
+    // SYSTEM_TENANT_ID returnt (typisch: union-of-all-tier-features).
+    const effective = context.effectiveFeatures?.(SYSTEM_TENANT_ID);
 
     // Seriell pro consumer. Parallelisierung wäre möglich (je eigene TX), aber
     // das einfache Modell reicht für v1 — jeder consumer hat geringe

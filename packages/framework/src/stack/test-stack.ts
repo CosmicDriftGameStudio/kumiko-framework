@@ -89,7 +89,7 @@ export type TestStackOptions = {
    *  GlobalFeatureToggleRuntime.effectiveFeatures for real DB-backed
    *  toggles, or a plain `() => new Set<string>(registry.features.keys())`
    *  to force a specific snapshot in a unit-style setup. */
-  effectiveFeatures?: () => ReadonlySet<string>;
+  effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
   /** Pin the underlying Postgres DB name instead of the default
    *  `kumiko_test_<8chars>`. Forwarded to createTestDb. Primary use
    *  case: dev servers that want persistent storage across restarts —

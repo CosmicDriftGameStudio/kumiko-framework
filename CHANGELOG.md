@@ -8,6 +8,7 @@ with migration notes in the relevant commit message.
 
 ## Unreleased
 
+
 ### Added
 - **Async event-dispatcher (AsyncDaemon pattern).** Cursor-based delivery of
   events to consumers, per-consumer checkpoints in `kumiko_event_consumers`,

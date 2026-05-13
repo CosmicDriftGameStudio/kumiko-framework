@@ -1,16 +1,16 @@
 {
   "name": "@cosmicdrift/kumiko-framework",
-  "version": "0.2.0",
+  "version": "0.2.3",
   "description": "Framework core — engine, pipeline, API, DB, and every other bit that makes Kumiko go.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cosmicdriftgamestudio/kumiko-framework.git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
     "directory": "packages/framework"
   },
   "bugs": {
-    "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
   },
   "homepage": "https://kumiko.so",
   "keywords": [
@@ -28,55 +28,137 @@
     "runtime": "runtime"
   },
   "exports": {
-    "./engine": "./src/engine/index.ts",
-    "./engine/types": "./src/engine/types/index.ts",
-    "./errors": "./src/errors/index.ts",
-    "./db": "./src/db/index.ts",
-    "./event-store": "./src/event-store/index.ts",
-    "./event-store/admin-api": "./src/event-store/admin-api.ts",
-    "./pipeline": "./src/pipeline/index.ts",
-    "./api": "./src/api/index.ts",
-    "./i18n": "./src/i18n/index.ts",
-    "./auth": "./src/auth/index.ts",
-    "./files": "./src/files/index.ts",
-    "./jobs": "./src/jobs/index.ts",
-    "./migrations": "./src/migrations/index.ts",
-    "./entrypoint": "./src/entrypoint/index.ts",
-    "./random": "./src/random/index.ts",
-    "./redis": "./src/redis/index.ts",
-    "./search": "./src/search/index.ts",
-    "./search/meilisearch": "./src/search/meilisearch-adapter.ts",
-    "./secrets": "./src/secrets/index.ts",
-    "./stack": "./src/stack/index.ts",
-    "./testing": "./src/testing/index.ts",
-    "./testing/handler-context": "./src/testing/handler-context.ts",
-    "./testing/e2e-generator": "./src/testing/e2e-generator.ts",
-    "./time": "./src/time/index.ts",
-    "./ui-types": "./src/ui-types/index.ts",
-    "./utils": "./src/utils/index.ts"
+    "./compliance": {
+      "types": "./dist/compliance/index.d.ts",
+      "default": "./src/compliance/index.ts"
+    },
+    "./engine": {
+      "types": "./dist/engine/index.d.ts",
+      "default": "./src/engine/index.ts"
+    },
+    "./engine/types": {
+      "types": "./dist/engine/types/index.d.ts",
+      "default": "./src/engine/types/index.ts"
+    },
+    "./errors": {
+      "types": "./dist/errors/index.d.ts",
+      "default": "./src/errors/index.ts"
+    },
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "default": "./src/db/index.ts"
+    },
+    "./event-store": {
+      "types": "./dist/event-store/index.d.ts",
+      "default": "./src/event-store/index.ts"
+    },
+    "./event-store/admin-api": {
+      "types": "./dist/event-store/admin-api.d.ts",
+      "default": "./src/event-store/admin-api.ts"
+    },
+    "./pipeline": {
+      "types": "./dist/pipeline/index.d.ts",
+      "default": "./src/pipeline/index.ts"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "default": "./src/api/index.ts"
+    },
+    "./i18n": {
+      "types": "./dist/i18n/index.d.ts",
+      "default": "./src/i18n/index.ts"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "default": "./src/auth/index.ts"
+    },
+    "./files": {
+      "types": "./dist/files/index.d.ts",
+      "default": "./src/files/index.ts"
+    },
+    "./jobs": {
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./src/jobs/index.ts"
+    },
+    "./migrations": {
+      "types": "./dist/migrations/index.d.ts",
+      "default": "./src/migrations/index.ts"
+    },
+    "./entrypoint": {
+      "types": "./dist/entrypoint/index.d.ts",
+      "default": "./src/entrypoint/index.ts"
+    },
+    "./random": {
+      "types": "./dist/random/index.d.ts",
+      "default": "./src/random/index.ts"
+    },
+    "./redis": {
+      "types": "./dist/redis/index.d.ts",
+      "default": "./src/redis/index.ts"
+    },
+    "./search": {
+      "types": "./dist/search/index.d.ts",
+      "default": "./src/search/index.ts"
+    },
+    "./search/meilisearch": {
+      "types": "./dist/search/meilisearch-adapter.d.ts",
+      "default": "./src/search/meilisearch-adapter.ts"
+    },
+    "./secrets": {
+      "types": "./dist/secrets/index.d.ts",
+      "default": "./src/secrets/index.ts"
+    },
+    "./stack": {
+      "types": "./dist/stack/index.d.ts",
+      "default": "./src/stack/index.ts"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./src/testing/index.ts"
+    },
+    "./testing/handler-context": {
+      "types": "./dist/testing/handler-context.d.ts",
+      "default": "./src/testing/handler-context.ts"
+    },
+    "./testing/e2e-generator": {
+      "types": "./dist/testing/e2e-generator.d.ts",
+      "default": "./src/testing/e2e-generator.ts"
+    },
+    "./time": {
+      "types": "./dist/time/index.d.ts",
+      "default": "./src/time/index.ts"
+    },
+    "./ui-types": {
+      "types": "./dist/ui-types/index.d.ts",
+      "default": "./src/ui-types/index.ts"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "default": "./src/utils/index.ts"
+    }
   },
   "dependencies": {
-    "bullmq": "^5.73.5",
-    "bun-types": "^1.3.12",
+    "bullmq": "^5.76.7",
+    "bun-types": "^1.3.13",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.12",
-    "i18next": "^26.0.4",
-    "ioredis": "^5.6.0",
-    "jose": "^6.0.11",
-    "meilisearch": "^0.57.0",
+    "hono": "^4.12.18",
+    "i18next": "^26.1.0",
+    "ioredis": "^5.10.1",
+    "jose": "^6.2.3",
+    "meilisearch": "^0.58.0",
     "pino": "^10.3.1",
     "postgres": "^3.4.9",
     "temporal-polyfill": "^0.3.2",
     "ts-morph": "^28.0.0",
     "uuid": "^14.0.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
     "@types/uuid": "^11.0.0",
-    "bun-types": "^1.2.9",
-    "drizzle-kit": "^0.31.0",
+    "bun-types": "^1.3.13",
+    "drizzle-kit": "^0.31.10",
     "pino-pretty": "^13.1.3"
   },
   "publishConfig": {

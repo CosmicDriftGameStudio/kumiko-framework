@@ -249,7 +249,7 @@ function renderInput({
       const labels = field.optionLabels;
       const selectOptions =
         labels !== undefined
-          ? rawOptions.map((value) => ({ value, label: labels[value] ?? value }))
+          ? rawOptions.map((value: string) => ({ value, label: labels[value] ?? value }))
           : rawOptions;
       return (
         <Input

@@ -1,16 +1,16 @@
 {
   "name": "@cosmicdrift/kumiko-dispatcher-live",
-  "version": "0.2.0",
+  "version": "0.2.3",
   "description": "HTTP-only Dispatcher for Kumiko UIs. Always-online; failures surface immediately. Default client for web admin/cockpit apps.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cosmicdriftgamestudio/kumiko-framework.git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
     "directory": "packages/dispatcher-live"
   },
   "bugs": {
-    "url": "https://github.com/cosmicdriftgamestudio/kumiko-framework/issues"
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
   },
   "homepage": "https://kumiko.so",
   "type": "module",
@@ -18,7 +18,10 @@
     "runtime": "client"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    }
   },
   "dependencies": {
     "@cosmicdrift/kumiko-headless": "workspace:*"
