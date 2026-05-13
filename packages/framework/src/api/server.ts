@@ -42,7 +42,7 @@ import {
   globalIpRateLimit,
 } from "../rate-limit";
 import type { SearchAdapter } from "../search/types";
-import { generateId } from "../utils";
+import { assertUnreachable, generateId } from "../utils";
 import { PUBLIC_API_PATHS } from "./api-constants";
 import { type AnonymousAccessConfig, authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
@@ -602,6 +602,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
           // Hono-on() für die Methoden ohne Convenience-Method.
           app.on(route.method, route.path, honoHandler);
           break;
+        default:
+          assertUnreachable(route.method, "http method");
       }
     }
   }

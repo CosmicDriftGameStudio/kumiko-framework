@@ -33,7 +33,7 @@ import {
 } from "../event-store";
 import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
-import { generateId } from "../utils";
+import { assertUnreachable, generateId } from "../utils";
 import { applyEntityEvent } from "./apply-entity-event";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 import type { DbRow } from "./connection";
@@ -74,6 +74,8 @@ function buildFilterCondition(
         return inArray(col, value as never); // @cast-boundary db-operator
       }
       return sql`false`;
+    default:
+      assertUnreachable(op, "filter op");
   }
 }
 
