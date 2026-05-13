@@ -30,7 +30,7 @@ export const productEntity = createEntity({
     // text required → .fill() + erscheint als Identifying-Value in der Liste
     name: createTextField({ required: true, maxLength: 200 }),
     // text optional → .fill(), kein Validation-Check
-    description: createTextField({ maxLength: 2000 }),
+    description: createTextField({ maxLength: 2000, allowPlaintext: "is-business-data" }),
     // number → .fill() mit String("1")
     price: createNumberField({ required: true }),
     // select → .selectOption(erste Option), NICHT .fill() (Bug-Falle!)

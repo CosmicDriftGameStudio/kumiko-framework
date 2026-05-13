@@ -15,7 +15,7 @@ export const orderEntity = {
   fields: {
     label: { type: "text", required: true, sortable: true },
     status: { type: "text", sortable: true },
-    notes: { type: "text" },
+    notes: { type: "text", allowPlaintext: "is-business-data" },
   },
 } as unknown as EntityDefinition;
 
