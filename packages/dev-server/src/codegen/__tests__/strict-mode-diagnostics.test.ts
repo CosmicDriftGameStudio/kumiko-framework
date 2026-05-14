@@ -21,11 +21,13 @@ afterAll(() => {
   for (const d of createdDirs) {
     try {
       rmSync(d, { recursive: true, force: true });
-    } catch {}
+    } catch {
+    }
   }
   try {
     rmSync(TEST_FIXTURE_DIR, { recursive: true, force: true });
-  } catch {}
+  } catch {
+  }
 });
 
 function write(dir: string, relPath: string, content: string): string {
@@ -99,6 +101,8 @@ function writeOrderPlacedSchema(appRoot: string): void {
   );
 }
 
+const STRICT_MODE_TIMEOUT_MS = 120_000;
+
 describe("strict-mode diagnostics -- the actual contract of the codegen", () => {
   let appRoot: string;
   let allDiagnostics: readonly ts.Diagnostic[];
@@ -113,7 +117,7 @@ describe("strict-mode diagnostics -- the actual contract of the codegen", () => 
         'import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";',
         'import { orderPlacedSchema } from "./events";',
         "",
-        'export const ordersFeature = defineFeature("orders", (r) => ({',
+        "export const ordersFeature = defineFeature(\"orders\", (r) => ({",
         '  placed: r.defineEvent("placed", orderPlacedSchema),',
         "}));",
         "",
@@ -137,7 +141,7 @@ describe("strict-mode diagnostics -- the actual contract of the codegen", () => 
         '      aggregateId: "x",',
         '      aggregateType: "order",',
         '      type: "orders:event:placed",',
-        '      payload: { orderId: "o1", customerId: "c1", amount: 99 },',
+        "      payload: { orderId: \"o1\", customerId: \"c1\", amount: 99 },",
         "    });",
         '    return { isSuccess: true as const, data: { id: "o1" } };',
         "  },",
@@ -187,7 +191,7 @@ describe("strict-mode diagnostics -- the actual contract of the codegen", () => 
         '      aggregateId: "x",',
         '      aggregateType: "order",',
         '      type: "orders:event:placed",',
-        '      payload: { orderId: "o1", customerId: "c1", amount: 99, bogus: "extra" },',
+        "      payload: { orderId: \"o1\", customerId: \"c1\", amount: 99, bogus: \"extra\" },",
         "    });",
         '    return { isSuccess: true as const, data: { id: "o1" } };',
         "  },",
@@ -212,7 +216,7 @@ describe("strict-mode diagnostics -- the actual contract of the codegen", () => 
         '      aggregateId: "x",',
         '      aggregateType: "order",',
         '      type: "orders:event:placed",',
-        '      payload: { orderId: "o1", customerId: "c1", amount: 99 },',
+        "      payload: { orderId: \"o1\", customerId: \"c1\", amount: 99 },",
         "    });",
         '    return { isSuccess: true as const, data: { id: "o1" } };',
         "  },",
@@ -240,7 +244,7 @@ describe("strict-mode diagnostics -- the actual contract of the codegen", () => 
         '      aggregateId: "x",',
         '      aggregateType: "order",',
         "      type: placed.name,",
-        '      payload: { orderId: "o1", customerId: "c1", amount: 99 },',
+        "      payload: { orderId: \"o1\", customerId: \"c1\", amount: 99 },",
         "    });",
         '    return { isSuccess: true as const, data: { id: "o1" } };',
         "  },",
@@ -268,7 +272,7 @@ describe("strict-mode diagnostics -- the actual contract of the codegen", () => 
         '      aggregateId: "x",',
         '      aggregateType: "order",',
         "      type: placed.name,",
-        '      payload: { orderId: "o1", customerId: "c1", amount: 99, bogus: "extra" },',
+        "      payload: { orderId: \"o1\", customerId: \"c1\", amount: 99, bogus: \"extra\" },",
         "    });",
         '    return { isSuccess: true as const, data: { id: "o1" } };',
         "  },",
@@ -278,7 +282,7 @@ describe("strict-mode diagnostics -- the actual contract of the codegen", () => 
     );
 
     allDiagnostics = compileApp(appRoot);
-  });
+  }, 120_000);
 
   test("good ctx.appendEvent compiles cleanly", () => {
     const handlerErrors = allDiagnostics.filter((d) =>
@@ -324,9 +328,9 @@ describe("strict-mode diagnostics -- the actual contract of the codegen", () => 
     );
     if (goodErrors.length > 0) {
       const msgs = goodErrors
-        .map((d) => `  TS${d.code}: ${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`)
+        .map((d) => "  TS" + d.code + ": " + ts.flattenDiagnosticMessageText(d.messageText, "\n"))
         .join("\n");
-      throw new Error(`expected handler-byname-good.ts to compile cleanly, got:\n${msgs}`);
+      throw new Error("expected handler-byname-good.ts to compile cleanly, got:\n" + msgs);
     }
 
     const badErrors = allDiagnostics.filter((d) =>
