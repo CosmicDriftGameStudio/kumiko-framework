@@ -1,6 +1,31 @@
 import { defineConfig } from "vitest/config";
+import path from "node:path";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@cosmicdrift/kumiko-framework/engine": path.resolve(
+        __dirname,
+        "packages/framework/src/engine",
+      ),
+      "@cosmicdrift/kumiko-framework/db": path.resolve(
+        __dirname,
+        "packages/framework/src/db",
+      ),
+      "@cosmicdrift/kumiko-framework/event-store": path.resolve(
+        __dirname,
+        "packages/framework/src/event-store",
+      ),
+      "@cosmicdrift/kumiko-framework/stack": path.resolve(
+        __dirname,
+        "packages/framework/src/stack",
+      ),
+      "@cosmicdrift/kumiko-framework/errors": path.resolve(
+        __dirname,
+        "packages/framework/src/errors",
+      ),
+    },
+  },
   test: {
     name: "integration",
     globals: true,

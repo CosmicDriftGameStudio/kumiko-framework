@@ -31,6 +31,9 @@ import { buildReadFindOneStep } from "./steps/read-find-one";
 import { buildReturnStep } from "./steps/return";
 import { buildUnsafeProjectionDeleteStep } from "./steps/unsafe-projection-delete";
 import { buildUnsafeProjectionUpsertStep } from "./steps/unsafe-projection-upsert";
+import { buildRetryStep } from "./steps/retry";
+import { buildWaitForEventStep } from "./steps/wait-for-event";
+import { buildWaitStep } from "./steps/wait";
 import { buildWebhookSendStep } from "./steps/webhook-send";
 import type { WriteEvent } from "./types/handlers";
 import type { PipelineBuildCtx, PipelineDef, StepBuilder, StepInstance } from "./types/step";
@@ -59,6 +62,10 @@ const stepBuilder: StepBuilder = {
       send: buildMailSendStep,
     },
     callFeature: buildCallFeatureStep,
+    // Tier-3 / Workflow-only steps
+    wait: buildWaitStep,
+    waitForEvent: buildWaitForEventStep,
+    retry: buildRetryStep,
   },
 };
 

@@ -31,6 +31,7 @@ import { runStepList } from "../run-pipeline";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { validateNoReturnSteps } from "./_no-return-guard";
 import { resolveRequired } from "./_resolver-utils";
+import { SUSPEND_SENTINEL } from "./_step-dispatch-constants";
 
 type BranchArgs = {
   readonly if: StepResolver<boolean>;
@@ -38,12 +39,9 @@ type BranchArgs = {
   readonly onFalse?: readonly StepInstance[];
 };
 
-defineStep<BranchArgs, void>({
+defineStep<BranchArgs, undefined | typeof SUSPEND_SENTINEL>({
   kind: "branch",
   defaultFailureStrategy: "throw",
-  // Self-register the sub-pipeline arg-paths so the boot-validator's
-  // walkAllSteps can recurse into branches without a hardcoded list.
-  // Followup #15.
   subPaths: ["onTrue", "onFalse"],
   run: async (args, ctx: PipelineCtx) => {
     const condition = resolveRequired(args.if, ctx);
@@ -57,7 +55,14 @@ defineStep<BranchArgs, void>({
     const stepsAcc = ctx.steps as Record<string, unknown>;
     const scopeAcc = ctx.scope as Record<string, unknown>;
 
-    const outcome = await runStepList(branchSteps, ctx.event, ctx, stepsAcc, scopeAcc);
+    const outcome = await runStepList(
+      branchSteps,
+      ctx.event,
+      ctx,
+      stepsAcc,
+      scopeAcc,
+      ctx.workflow,
+    );
     if (outcome.kind === "return") {
       // Build-time guard (validateNoReturnSteps) rejects any return-step
       // inside onTrue/onFalse. If we land here at runtime, someone
@@ -65,6 +70,9 @@ defineStep<BranchArgs, void>({
       // builder. Fail loud rather than silently bubbling the return up to
       // the outer pipeline (would shadow Q12).
       throw new Error("r.step.return is not allowed inside r.step.branch onTrue/onFalse (Q12)");
+    }
+    if (outcome.kind === "suspended") {
+      return SUSPEND_SENTINEL;
     }
   },
 });

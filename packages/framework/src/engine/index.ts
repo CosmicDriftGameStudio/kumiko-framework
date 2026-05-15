@@ -297,3 +297,19 @@ export type {
   StepResolver,
 } from "./types/step";
 export { runValidation } from "./validation";
+export { computeDefinitionFingerprint, defineWorkflow } from "./define-workflow";
+export { runPipeline, runStepList } from "./run-pipeline";
+export type { StepListOutcome } from "./run-pipeline";
+export { buildPipelineSteps } from "./pipeline";
+export type { WorkflowDefinition, WorkflowTrigger, WorkflowInput } from "./define-workflow";
+export {
+  SUSPEND_SENTINEL,
+  WORKFLOW_AGGREGATE_TYPE,
+  WORKFLOW_RESUMED_TYPE,
+  WORKFLOW_RETRY_SCHEDULED_TYPE,
+  WORKFLOW_RUN_COMPLETED_TYPE,
+  WORKFLOW_RUN_FAILED_TYPE,
+  WORKFLOW_RUN_STARTED_TYPE,
+  WORKFLOW_WAITING_FOR_EVENT_TYPE,
+  WORKFLOW_WAITING_TYPE,
+} from "./steps/_step-dispatch-constants";

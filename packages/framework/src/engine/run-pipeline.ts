@@ -25,6 +25,7 @@
 import { getStep } from "./define-step";
 import { buildPipelineSteps } from "./pipeline";
 import { RETURN_RESULT_KEY } from "./steps/return";
+import { SUSPEND_SENTINEL } from "./steps/_step-dispatch-constants";
 import type { KumikoEventTypeMap } from "./types/event-type-map";
 import type { HandlerContext, WriteEvent, WriteResult } from "./types/handlers";
 import type { PipelineCtx, PipelineDef, StepInstance } from "./types/step";
@@ -33,20 +34,25 @@ import type { PipelineCtx, PipelineDef, StepInstance } from "./types/step";
 // r.step.return; "exhausted" means all steps ran without hitting a return
 // — the caller (top-level pipeline) treats that as an error, sub-step
 // callers (branch/forEach) treat it as normal completion.
+// "suspended" means a Tier-3 step returned SUSPEND_SENTINEL — the pipeline
+// is paused pending external (time/event) and must be resumed later.
 export type StepListOutcome =
   | { readonly kind: "return"; readonly result: WriteResult<unknown> }
+  | { readonly kind: "suspended"; readonly stepIndex: number }
   | { readonly kind: "exhausted" };
 
 export async function runPipeline<TPayload, TData, TMap extends object = KumikoEventTypeMap>(
   pipelineDef: PipelineDef<TPayload, TData>,
   event: WriteEvent<TPayload>,
   handlerCtx: HandlerContext<TMap>,
+  workflow?: PipelineCtx["workflow"],
+  resumeFrom?: number,
 ): Promise<WriteResult<TData>> {
   const steps = buildPipelineSteps(pipelineDef, event);
   const stepsAcc: Record<string, unknown> = {};
   const scopeAcc: Record<string, unknown> = {};
 
-  const outcome = await runStepList(steps, event, handlerCtx, stepsAcc, scopeAcc);
+  const outcome = await runStepList(steps, event, handlerCtx, stepsAcc, scopeAcc, workflow, resumeFrom);
   if (outcome.kind === "return") {
     // RETURN_RESULT_KEY is only produced by r.step.return, whose run()
     // returns WriteResult<unknown>. The pipeline's generic TData is
@@ -54,6 +60,21 @@ export async function runPipeline<TPayload, TData, TMap extends object = KumikoE
     // matching the runtime value to that compile-time type is the
     // contract user-side. Cast crosses that boundary.
     return outcome.result as WriteResult<TData>;
+  }
+
+  if (outcome.kind === "suspended") {
+    // Suspension is only valid when running inside a workflow context.
+    // The caller (workflow-engine) handles the suspension lifecycle;
+    // we throw here because runPipeline's contract requires a WriteResult.
+    // The workflow engine calls runStepList directly to detect suspension.
+    if (!workflow) {
+      throw new Error(
+        "Pipeline suspended without a workflow context — Tier-3 steps are only allowed inside defineWorkflow.",
+      );
+    }
+    // Return a minimal WriteResult signalling suspension. The workflow
+    // engine extracts the outcome from runStepList directly.
+    return { isSuccess: true, data: undefined } as unknown as WriteResult<TData>;
   }
 
   throw new Error(
@@ -78,8 +99,25 @@ export async function runStepList<TPayload, TMap extends object = KumikoEventTyp
   handlerCtx: HandlerContext<TMap>,
   stepsAcc: Record<string, unknown>,
   scopeAcc: Record<string, unknown>,
+  workflow?: PipelineCtx["workflow"],
+  resumeFrom?: number,
 ): Promise<StepListOutcome> {
   for (const [i, instance] of steps.entries()) {
+    // On resume, skip steps at or before the resume point — their
+    // effects (waiting/retry-scheduled events) were already written
+    // during the original pipeline run. The next unexecuted step
+    // is at resumeFrom + 1.
+    if (resumeFrom !== undefined && i < resumeFrom) {
+      continue;
+    }
+
+    // When resuming, re-execute the suspended step itself. Steps
+    // like wait/waitForEvent detect resumption by checking if a
+    // waiting event for their stepIndex already exists; retry
+    // uses retryAttempt from the workflow context.
+    // Steps that don't handle resumption (read/compute/aggregate)
+    // re-execute naturally — idempotent reads are safe, and
+    // event-sourced writes append new positions.
     const stepDef = getStep(instance.kind);
     if (!stepDef) {
       throw new Error(`Unknown step kind "${instance.kind}" at step index ${i}`);
@@ -90,9 +128,19 @@ export async function runStepList<TPayload, TMap extends object = KumikoEventTyp
       event,
       steps: stepsAcc,
       scope: scopeAcc,
-    };
+      ...(workflow && {
+        workflow: { ...workflow, stepIndex: i },
+      }),
+    } as PipelineCtx<TPayload, TMap>;
 
     const value = await stepDef.run(instance.args, pipelineCtx as unknown as PipelineCtx);
+
+    // Tier-3 suspension: the step wrote a waiting event and returned
+    // SUSPEND_SENTINEL to signal the pipeline should stop. The caller
+    // (defineWorkflow/workflow-engine) persists the suspension state.
+    if (value === SUSPEND_SENTINEL) {
+      return { kind: "suspended", stepIndex: i };
+    }
 
     const key = stepDef.resultKey?.(instance.args);
     if (key === RETURN_RESULT_KEY) {

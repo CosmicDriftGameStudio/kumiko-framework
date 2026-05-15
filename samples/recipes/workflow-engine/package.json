@@ -1,0 +1,9 @@
+{
+  "name": "@samples/workflow-engine",
+  "private": true,
+  "description": "M.4 Tier-3 step-vocabulary showcase: defineWorkflow with wait/waitForEvent/retry steps",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run"
+  }
+}

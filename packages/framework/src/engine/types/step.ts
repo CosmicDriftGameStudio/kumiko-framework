@@ -43,6 +43,30 @@ export type PipelineCtx<
   readonly event: WriteEvent<TPayload>;
   readonly steps: Readonly<Record<string, unknown>>;
   readonly scope: Readonly<Record<string, unknown>>;
+  // Workflow-run context — present only when running inside defineWorkflow.
+  // Tier-3 steps use this to write suspension events onto the correct
+  // aggregate stream and for the Resume-Loop to re-hydrate state.
+  readonly workflow?: {
+    readonly runId: string;
+    readonly workflowName: string;
+    /** Current step index in the pipeline — set by the executor before each step. */
+    readonly stepIndex: number;
+    /**
+     * Retry attempt counter for the current workflow.retry step.
+     * Set by the workflow-engine resume-loop on re-entry; starts at 1.
+     * Absent (undefined) means first attempt.
+     */
+    readonly retryAttempt?: number;
+    /**
+     * Q7 Snapshot-at-Start fingerprint of the workflow definition that
+     * started this run. Propagated into every suspension event payload so
+     * the resume-loop can detect library-upgrades that changed the closure
+     * source and surface them as a typed failure instead of running a
+     * stale-vs-new mix of steps. Optional only for legacy callers; the
+     * workflow-runner sets it on every newly-started run.
+     */
+    readonly definitionFingerprint?: string;
+  };
 };
 
 /**
@@ -78,7 +102,8 @@ export type StepDef<TArgs = unknown, TResult = unknown> = {
   readonly subPaths?: readonly string[];
   // Step-vocabulary tier (Q9). Tier-1 implicit, Tier-2+ requires
   // r.requires.step("<kind>") in the owning feature. Default 1 (implicit).
-  readonly tier?: 1 | 2;
+  // Tier-3 is only available inside defineWorkflow.
+  readonly tier?: 1 | 2 | 3;
   // Runtime: resolve the args against the ctx, perform the work, return
   // the value to land in steps.{resultKey}. Thrown errors propagate to
   // the dispatcher's catch (M.1.1 supports "throw"-strategy only).
@@ -288,6 +313,22 @@ export type StepNamespace = {
       readonly as?: import("./handlers").SessionUser;
     },
   ) => StepInstance;
+  // --- Tier-3 / Workflow-only steps ---
+  // Only available inside defineWorkflow ({ steps: pipeline(...) }).
+  // Runtime guard: throws when used inside sync defineWriteHandler.
+  readonly wait: (args: {
+    readonly for: StepResolver<string>;
+  }) => StepInstance;
+  readonly waitForEvent: (args: {
+    readonly event: string;
+    readonly match?: StepResolver<(payload: unknown) => boolean>;
+    readonly timeout: StepResolver<string>;
+  }) => StepInstance;
+  readonly retry: (args: {
+    readonly times: number;
+    readonly backoff: "exponential" | "linear";
+    readonly do: readonly StepInstance[];
+  }) => StepInstance;
 };
 
 // SaveContext is the result-type of aggregate.create / aggregate.update;

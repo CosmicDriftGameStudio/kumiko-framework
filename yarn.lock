@@ -1506,6 +1506,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@cosmicdrift/kumiko-sample-pipeline-basics@workspace:samples/recipes/pipeline-basics":
+  version: 0.0.0-use.local
+  resolution: "@cosmicdrift/kumiko-sample-pipeline-basics@workspace:samples/recipes/pipeline-basics"
+  dependencies:
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  languageName: unknown
+  linkType: soft
+
 "@cosmicdrift/kumiko-sample-rate-limiting@workspace:samples/recipes/rate-limiting":
   version: 0.0.0-use.local
   resolution: "@cosmicdrift/kumiko-sample-rate-limiting@workspace:samples/recipes/rate-limiting"
