@@ -14,7 +14,7 @@ export const triggerWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     const registry = ctx.registry;
     // `jobRunner` is a dynamic context extension — not a core HandlerContext field.
-    const jobRunner = ctx["jobRunner"] as JobRunner;
+    const jobRunner = ctx["jobRunner"] as JobRunner; // @cast-boundary dynamic-key
 
     const jobDef = registry.getJob(event.payload.jobName);
     if (!jobDef) {

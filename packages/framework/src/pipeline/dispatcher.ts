@@ -5,7 +5,6 @@ import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
-import { parseQn, qn } from "../engine/qualified-name";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import type {
@@ -17,9 +16,7 @@ import type {
   DeleteContext,
   FetchForWritingArgs,
   HandlerContext,
-  HandlerRef,
   JobRunnerRef,
-  LifecycleResult,
   Registry,
   SaveContext,
   SessionUser,
@@ -27,6 +24,7 @@ import type {
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
+import { createFallbackLogger } from "../logging/utils";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
@@ -40,7 +38,6 @@ import {
   FrameworkReasons,
   InternalError,
   isKumikoError,
-  type KumikoError,
   NotFoundError,
   reraiseAsKumikoError,
   toWriteErrorInfo,
@@ -83,224 +80,23 @@ import { createTzContext } from "../time";
 import { parseJsonSafe } from "../utils/safe-json";
 import { appendDomainEventCore } from "./append-event-core";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver";
+import {
+  type AfterCommitHook,
+  BatchRollback,
+  describeShape,
+  dispatcherSpanAttributes,
+  extractNestedSpecs,
+  type HandlerType,
+  isFailedWriteResult,
+  isLifecycleResult,
+  isWriteResultShape,
+  prefixValidationPath,
+  resolveType,
+  wrapToKumiko,
+} from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { runProjections } from "./projections-runner";
-
-type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
-
-// Write handlers report failure via `WriteResult.isSuccess === false`. Query
-// handlers return arbitrary shapes, so `result` is typed as `unknown` here.
-function isFailedWriteResult(result: unknown): result is FailedWriteResult {
-  return (
-    !!result && typeof result === "object" && "isSuccess" in result && result.isSuccess === false
-  );
-}
-
-// Handler result is a lifecycle payload when it's an object carrying `kind`
-// (save/delete). Query handlers return arbitrary shapes that don't match.
-function isLifecycleResult(data: unknown): data is LifecycleResult {
-  return !!data && typeof data === "object" && "kind" in data;
-}
-
-// Shape-check for write-handler returns. The compile-time type already
-// requires WriteResult, but the inline form (r.writeHandler(name, schema,
-// fn, opts)) sometimes lets a wrong shape through structural widening —
-// the runtime guard below turns the obscure crash that follows into a
-// clear, actionable error message.
-function isWriteResultShape(result: unknown): boolean {
-  return (
-    !!result &&
-    typeof result === "object" &&
-    "isSuccess" in result &&
-    typeof result.isSuccess === "boolean"
-  );
-}
-
-// Compact, log-safe shape description for the shape-guard error message.
-// We don't dump JSON of arbitrary user data — just the keys + type so the
-// developer can spot the missing isSuccess at a glance.
-function describeShape(result: unknown): string {
-  if (result === null) return "null";
-  if (result === undefined) return "undefined";
-  if (typeof result !== "object") return typeof result;
-  return `object with keys [${Object.keys(result).slice(0, 6).join(", ")}]`;
-}
-
-// Standard span attributes for a dispatcher call. Feature may be undefined
-// for internal handlers that weren't registered via defineFeature.
-function dispatcherSpanAttributes(
-  type: string,
-  operation: "query" | "write",
-  user: SessionUser,
-  feature: string | undefined,
-) {
-  const attrs: Record<string, string | number | boolean> = {
-    "kumiko.handler": type,
-    "kumiko.operation": operation,
-    "kumiko.user_id": user.id,
-    "kumiko.tenant_id": user.tenantId,
-  };
-  if (feature) attrs["kumiko.feature"] = feature;
-  return attrs;
-}
-
-// Deferred afterCommit callback — collected during transaction execution,
-// fired sequentially once the transaction commits successfully.
-type AfterCommitHook = () => Promise<void>;
-
-// Specification for one nested-write expansion. The parent write's payload
-// carries items under `key`; each is dispatched as a separate write against
-// `subType`, with the foreign-key column `foreignKey` bound to the parent's
-// new id. Built by extractNestedSpecs from the parent payload + registry
-// relations. See executeNestedWrite for orchestration.
-type NestedSpec = {
-  readonly key: string;
-  readonly subType: string;
-  readonly foreignKey: string;
-  readonly items: readonly unknown[];
-};
-
-// Field-level issue collected by extractNestedSpecs and surfaced as a
-// ValidationError by the caller. Shape matches ValidationFieldIssue so we
-// can hand it directly to `new ValidationError({ fields })`.
-type NestedTypeIssue = {
-  readonly path: string;
-  readonly code: string;
-  readonly i18nKey: string;
-};
-
-// Separates a parent payload into a "clean" shape (without nested-relation
-// keys) plus the list of expansion specs. Returns null when the payload has
-// no nested relations to expand — callers short-circuit to the regular write
-// path without paying the overhead of nested orchestration.
-//
-// Expansion only applies to `:create` handlers (v1). For `:update` / `:delete`
-// we return null so the parent write runs unchanged. When a future iteration
-// adds update/delete-nested, this is the single point to extend.
-//
-// Sub-writes run through regular executeWrite, NOT recursively through
-// executeNestedWrite — deeper nesting (`tasks[0].subtasks`) is out of scope
-// for v1. Those keys reach the sub-handler's zod schema and are silently
-// stripped by default zod semantics. Documented limitation; a sub-handler
-// that wants to reject depth-2 payloads can use `.strict()` on its schema.
-function extractNestedSpecs(
-  parentType: string,
-  payload: unknown,
-  registry: Registry,
-): {
-  cleanPayload: Record<string, unknown>;
-  specs: readonly NestedSpec[];
-  typeIssues: readonly NestedTypeIssue[];
-} | null {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
-
-  let parsed: ReturnType<typeof parseQn>;
-  try {
-    parsed = parseQn(parentType);
-  } catch {
-    return null;
-  }
-  // v1 scope: only create. Update/delete-nested are explicit future work —
-  // they'd need different sub-types and id-handling semantics.
-  if (!parsed.name.endsWith(":create")) return null;
-
-  const entityName = registry.getHandlerEntity(parentType);
-  if (!entityName) return null;
-
-  const relations = registry.getRelations(entityName);
-  const source = payload as Record<string, unknown>; // @cast-boundary engine-payload — generic dispatch über alle Entity-Types
-  const clean: Record<string, unknown> = { ...source };
-  const specs: NestedSpec[] = [];
-  const typeIssues: NestedTypeIssue[] = [];
-
-  for (const [relKey, rel] of Object.entries(relations)) {
-    if (rel.type !== "hasMany" || !rel.nestedWrite) continue;
-    if (!(relKey in source)) continue;
-    const value = source[relKey];
-
-    // Non-array under a nested-write key is a client shape error. Silent
-    // strip (via default zod stripping) would hide it — a client sending
-    // `tasks: "bogus"` or `tasks: null` has to know the field was ignored,
-    // or they'll wonder why their data never showed up. Fail loud.
-    if (!Array.isArray(value)) {
-      typeIssues.push({
-        path: relKey,
-        code: "invalid_type",
-        i18nKey: "errors.validation.invalid_type",
-      });
-      // Still strip from clean payload — we're not letting the parent handler
-      // see a malformed value either.
-      delete clean[relKey];
-      continue;
-    }
-
-    // Strip the relation key from the clean payload — the parent handler
-    // only sees columns it actually owns.
-    delete clean[relKey];
-
-    // Sub-type composition: derive scope + operation from the parent qn,
-    // swap the entity segment. "feat:write:project:create" → "feat:write:task:create".
-    // Assumes target entity has a `:create` handler in the SAME feature scope
-    // as the parent. Cross-feature nested-writes are out of scope for v1;
-    // when needed, the registry would have to carry a back-pointer from
-    // entity → defining feature.
-    const subType = qn(parsed.scope, parsed.type, `${rel.target}:create`);
-
-    specs.push({
-      key: relKey,
-      subType,
-      foreignKey: rel.foreignKey,
-      items: value,
-    });
-  }
-
-  if (specs.length === 0 && typeIssues.length === 0) return null;
-  return { cleanPayload: clean, specs, typeIssues };
-}
-
-// Prefix ValidationError paths so a failure on a nested sub-write maps back
-// to the client-visible field path. Example: sub-write fails on `title` with
-// path="title"; this prefixes to "tasks.2.title" so the form-controller in
-// the UI can highlight the right sub-line's field.
-//
-// Non-validation errors pass through unchanged — they carry no field paths.
-function prefixValidationPath(info: WriteErrorInfo, prefix: string): WriteErrorInfo {
-  if (info.code !== "validation_error") return info;
-  const details = info.details as
-    | {
-        fields?: readonly {
-          path: string;
-          code: string;
-          i18nKey: string;
-          params?: Readonly<Record<string, unknown>>;
-        }[];
-      }
-    | undefined;
-  const fields = details?.fields;
-  if (!fields) return info;
-  return {
-    ...info,
-    details: {
-      ...details,
-      fields: fields.map((f) => ({ ...f, path: `${prefix}.${f.path}` })),
-    },
-  };
-}
-
-// Sentinel thrown inside a Drizzle transaction to force a rollback while
-// carrying the command failure context back out. Drizzle rolls back iff the
-// transaction callback throws — this class lets us distinguish an expected
-// rollback (command returned isSuccess: false) from an unexpected error.
-class BatchRollback extends Error {
-  constructor(
-    readonly failedIndex: number,
-    readonly failureError: WriteErrorInfo,
-  ) {
-    super(`batch rollback at command ${failedIndex}: ${failureError.code}`);
-    this.name = "BatchRollback";
-  }
-}
 
 export type BatchCommand = {
   readonly type: string;
@@ -341,12 +137,6 @@ export type DispatcherOptions = {
   // enforce this contract, but the recipe-test pins the convention.
   effectiveFeatures?: EffectiveFeaturesResolver;
 };
-
-type HandlerType = string | HandlerRef;
-
-function resolveType(type: HandlerType): string {
-  return typeof type === "string" ? type : type.name;
-}
 
 export type Dispatcher = {
   write(
@@ -426,7 +216,7 @@ export function createDispatcher(
     callerFeature: string | undefined,
   ): Promise<void> {
     const dbSource: DbConnection | DbTx | undefined =
-      tx ?? (context.db as DbConnection | undefined);
+      tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
     if (!dbSource) {
       throw new InternalError({
         message: `ctx.appendEvent("${args.type}") requires a database connection — none is configured.`,
@@ -456,7 +246,7 @@ export function createDispatcher(
     // AppContext's `db` union also allows TenantDb (for downstream hook calls),
     // but at this point we're the root of the pipeline — cast is safe.
     const dbSource: DbConnection | DbTx | undefined =
-      tx ?? (context.db as DbConnection | undefined);
+      tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
     const reqCtx = requestContext.get();
     const db = dbSource
       ? createTenantDb(
@@ -516,16 +306,15 @@ export function createDispatcher(
       // Strict + unsafe share the same runtime — only the type-surface
       // differs. The strict signature is what's exposed to typed callers;
       // unsafe is the explicit escape-hatch for runtime-pluggable events.
-      // @cast-boundary engine-bridge — concrete impl conforms to AppendEventFn overload
       appendEvent: (async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
-      }) as AppendEventFn,
+      }) as AppendEventFn, // @cast-boundary engine-bridge
       appendEventUnsafe: async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
       },
       fetchForWriting: async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {
         const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined);
+          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.fetchForWriting("${args.aggregateId}") requires a database connection — none is configured.`,
@@ -589,7 +378,7 @@ export function createDispatcher(
         loadOptions?: { readonly asOf?: Temporal.Instant },
       ): Promise<readonly StoredEvent[]> => {
         const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined);
+          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.loadAggregate("${aggregateId}") requires a database connection — none is configured.`,
@@ -608,7 +397,7 @@ export function createDispatcher(
         archiveArgs: { readonly aggregateType: string; readonly reason?: string },
       ): Promise<void> => {
         const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined);
+          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.archiveStream("${aggregateId}") requires a database connection — none is configured.`,
@@ -624,7 +413,7 @@ export function createDispatcher(
       },
       restoreStream: async (aggregateId: string): Promise<void> => {
         const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined);
+          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.restoreStream("${aggregateId}") requires a database connection — none is configured.`,
@@ -634,7 +423,7 @@ export function createDispatcher(
       },
       isStreamArchived: async (aggregateId: string): Promise<boolean> => {
         const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined);
+          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.isStreamArchived("${aggregateId}") requires a database connection — none is configured.`,
@@ -649,7 +438,7 @@ export function createDispatcher(
         readonly state: Record<string, unknown>;
       }): Promise<void> => {
         const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined);
+          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.snapshotAggregate("${snapshotArgs.aggregateId}") requires a database connection — none is configured.`,
@@ -669,7 +458,7 @@ export function createDispatcher(
         initial: TState,
       ): Promise<LoadAggregateWithSnapshotResult<TState>> => {
         const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined);
+          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.loadAggregateWithSnapshot("${aggregateId}") requires a database connection — none is configured.`,
@@ -714,7 +503,7 @@ export function createDispatcher(
           });
         }
         const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined);
+          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.queryProjection("${qualifiedName}") requires a database connection — none is configured.`,
@@ -725,7 +514,7 @@ export function createDispatcher(
         // opts in. Works with any drizzle-table whose tenant column is named
         // tenantId on the JS side.
         // @cast-boundary dynamic-key — drizzle's PgTable columns are schema-dependent
-        const tenantCol = (projTable as Record<string, AnyColumn | undefined>)["tenantId"];
+        const tenantCol = (projTable as Record<string, AnyColumn | undefined>)["tenantId"]; // @cast-boundary dynamic-key
         let rows: readonly Record<string, unknown>[];
         if (tenantCol && !queryOptions?.allTenants) {
           rows = (await dbSource
@@ -735,8 +524,7 @@ export function createDispatcher(
         } else {
           rows = (await dbSource.select().from(projTable)) as readonly Record<string, unknown>[]; // @cast-boundary db-row
         }
-        // @cast-boundary engine-payload — generic queryProjection<T> return
-        return rows as readonly T[];
+        return rows as readonly T[]; // @cast-boundary engine-payload
       },
       // Thin pass-through: one resolve impl lives on the dispatcher, the
       // handler surface just forwards the call so both entry points (login
@@ -761,7 +549,6 @@ export function createDispatcher(
     // from the dispatcher's own closure to win.
     // ctx.tz ist immer da. Tenant + User-Defaults kommen aus dem
     // SessionUser sobald die Felder existieren — bis dahin "UTC".
-    // TODO(Iteration 6): tenant.timezone + user.timezone aus session/db lesen.
     const tz = createTzContext();
 
     return {
@@ -792,7 +579,7 @@ export function createDispatcher(
       _tenantId: user.tenantId,
       _handlerType: type,
       ...bridge,
-    } as HandlerContext;
+    } as HandlerContext; // @cast-boundary engine-bridge
   }
 
   const dispatcherTracer = context.tracer ?? getFallbackTracer();
@@ -996,15 +783,18 @@ export function createDispatcher(
           result = result.map((row: Record<string, unknown>) =>
             filterReadFields(entity, row, user),
           );
-        } else if ("rows" in (result as DbRow)) {
-          // @cast-boundary engine-payload — generic handler-result shape narrow
-          const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null };
-          result = {
-            ...r,
-            rows: r.rows.map((row) => filterReadFields(entity, row, user)),
-          };
         } else {
-          result = filterReadFields(entity, result as DbRow, user);
+          const resultAsDbRow = result as DbRow; // @cast-boundary engine-payload
+          if ("rows" in resultAsDbRow) {
+            // generic handler-result shape narrow
+            const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null }; // @cast-boundary engine-payload
+            result = {
+              ...r,
+              rows: r.rows.map((row) => filterReadFields(entity, row, user)),
+            };
+          } else {
+            result = filterReadFields(entity, result as DbRow, user); // @cast-boundary engine-payload
+          }
         }
       }
     }
@@ -1227,7 +1017,7 @@ export function createDispatcher(
       return writeFailure(validationErrorFromZod(parsed.error));
     }
 
-    const hookErrors = runValidation(registry, type, parsed.data as DbRow);
+    const hookErrors = runValidation(registry, type, parsed.data as DbRow); // @cast-boundary engine-payload
     if (hookErrors) {
       return writeFailure(
         new ValidationError({
@@ -1247,8 +1037,8 @@ export function createDispatcher(
       if (entity) {
         const fieldsToCheck = (parsed.data as DbRow)["changes"] as
           | Record<string, unknown>
-          | undefined;
-        const writePayload = fieldsToCheck ?? (parsed.data as DbRow);
+          | undefined; // @cast-boundary engine-payload
+        const writePayload = fieldsToCheck ?? (parsed.data as DbRow); // @cast-boundary engine-payload
         // Pre-handler check: role-only gate. Ownership-level row-match runs
         // later in the executor where oldRow is loaded — that split lets
         // updates with partial changes still pass the pre-handler check and
@@ -1276,12 +1066,12 @@ export function createDispatcher(
     if (entityName && !handler.skipTransitionGuard) {
       const entity = registry.getEntity(entityName);
       if (entity?.transitions && handlerContext.db) {
-        const parsedData = parsed.data as DbRow;
-        const changes = (parsedData["changes"] as DbRow) ?? parsedData;
-        const id = (parsedData["id"] as number) ?? undefined;
+        const parsedData = parsed.data as DbRow; // @cast-boundary engine-payload
+        const changes = (parsedData["changes"] as DbRow) ?? parsedData; // @cast-boundary engine-payload
+        const id = (parsedData["id"] as number) ?? undefined; // @cast-boundary engine-payload
 
         for (const [fieldName, transitionMap] of Object.entries(entity.transitions)) {
-          const newValue = changes[fieldName] as string | undefined;
+          const newValue = changes[fieldName] as string | undefined; // @cast-boundary engine-bridge
           if (!newValue || !id) continue;
 
           const table = getTable(entityName);
@@ -1302,10 +1092,11 @@ export function createDispatcher(
           // Skip guard for soft-deleted rows — they shouldn't be transitioning
           // at all; a handler that wants to move a deleted row should use
           // skipTransitionGuard or restore first.
-          if (entity.softDelete && (row as DbRow)["isDeleted"] === true) {
+          const rowAsRow = row as DbRow; // @cast-boundary engine-payload
+          if (entity.softDelete && rowAsRow["isDeleted"] === true) {
             continue;
           }
-          const currentValue = (row as DbRow)[fieldName] as string;
+          const currentValue = (row as DbRow)[fieldName] as string; // @cast-boundary engine-bridge
           guardTransition(
             getTransitions({ entityName, fieldName, map: transitionMap }),
             currentValue,
@@ -1355,9 +1146,8 @@ export function createDispatcher(
       // jobRunner has external side-effects (BullMQ enqueue) — must NOT
       // fire for rolled-back writes. Defer to afterCommit.
       if (jobRunner) {
-        afterCommitHooks.push(() =>
-          jobRunner.handleEvent(type, (parsed.data ?? {}) as DbRow, user),
-        );
+        const eventData = (parsed.data ?? {}) as DbRow; // @cast-boundary engine-payload
+        afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user));
       }
     }
 
@@ -1413,14 +1203,13 @@ export function createDispatcher(
     // (one hook pushing multiple sub-calls) rather than relying on the
     // flush-loop order.
     const flushAfterCommit = async () => {
+      const logError = createFallbackLogger("dispatcher", context.log);
       const outcomes = await Promise.allSettled(afterCommitHooks.map((hook) => hook()));
       for (const outcome of outcomes) {
         if (outcome.status === "rejected") {
           const detail =
             outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
-          const msg = "afterCommit hook failed";
-          if (context.log) context.log.error(msg, { error: detail });
-          else console.error(`[dispatcher] ${msg}: ${detail}`);
+          logError.error("afterCommit hook failed", { error: detail });
         }
       }
     };
@@ -1444,13 +1233,12 @@ export function createDispatcher(
         // Batch hooks must never fail the batch — the commit already happened.
         // Pass the raw error so the logger preserves stack + cause chain;
         // collapsing to .message hides exactly what ops needs to debug.
-        const msg = "batch hook flush failed";
-        if (context.log) context.log.error(msg, { error: e });
-        else console.error(`[dispatcher] ${msg}:`, e);
+        const logError = createFallbackLogger("dispatcher", context.log);
+        logError.error("batch hook flush failed", { error: e });
       }
     };
 
-    const db = context.db as DbConnection | undefined;
+    const db = context.db as DbConnection | undefined; // @cast-boundary db-operator
     if (!db) {
       // Without a DB connection there is no transaction to open. Fall back to
       // sequential execution — useful for unit tests that don't touch the DB.
@@ -1540,7 +1328,7 @@ export function createDispatcher(
   // scoped as "tenant" and no tx is threaded through. Hooks that need
   // cross-tenant lookups opt in explicitly via queryAs(systemUser, ...).
   function buildAuthClaimsContext(user: SessionUser): AuthClaimsContext {
-    const dbSource: DbConnection | undefined = context.db as DbConnection | undefined;
+    const dbSource: DbConnection | undefined = context.db as DbConnection | undefined; // @cast-boundary db-operator
     if (!dbSource) {
       throw new InternalError({
         message:
@@ -1594,12 +1382,4 @@ export function createDispatcher(
 
     resolveAuthClaims: resolveAuthClaimsFn,
   };
-}
-
-// Non-KumikoError → InternalError with cause preserved for the log. Kumiko
-// errors pass through untouched so their code/httpStatus survives.
-function wrapToKumiko(e: unknown): KumikoError {
-  if (isKumikoError(e)) return e;
-  if (e instanceof Error) return new InternalError({ cause: e });
-  return new InternalError({ message: String(e) });
 }

@@ -112,8 +112,8 @@ function parseHandlerName<TVerb extends string>(
   if (!entityName) {
     throw new Error(`Handler name "${name}" is missing the entity part before the colon.`);
   }
-  // @cast-boundary engine-bridge — verbCandidate validated against validVerbs union
-  if (!(validVerbs as readonly string[]).includes(verbCandidate)) {
+  const verbs = validVerbs as readonly string[]; // @cast-boundary engine-bridge
+  if (!verbs.includes(verbCandidate)) {
     throw new Error(
       `Unknown verb "${verbCandidate}" in handler name "${name}". Standard verbs: ${validVerbs.join("/")}. For custom verbs use the explicit r.writeHandler / r.queryHandler form.`,
     );
@@ -151,17 +151,17 @@ export function defineEntityWriteHandler(
         changes: buildUpdateSchema(entity),
       });
       handler = async (event, ctx) =>
-        executor.update(event.payload as UpdatePayload, event.user, ctx.db);
+        executor.update(event.payload as UpdatePayload, event.user, ctx.db); // @cast-boundary engine-payload
       break;
     case "delete":
       schema = idSchema;
       handler = async (event, ctx) =>
-        executor.delete(event.payload as IdPayload, event.user, ctx.db);
+        executor.delete(event.payload as IdPayload, event.user, ctx.db); // @cast-boundary engine-payload
       break;
     case "restore":
       schema = idSchema;
       handler = async (event, ctx) =>
-        executor.restore(event.payload as IdPayload, event.user, ctx.db);
+        executor.restore(event.payload as IdPayload, event.user, ctx.db); // @cast-boundary engine-payload
       break;
     default:
       assertUnreachable(verb, "write verb");
@@ -205,7 +205,8 @@ export function defineEntityQueryHandler(
         // läuft (Remote-Combobox-Search). Der executor wird beim
         // Definition-Time gebaut, kennt den Adapter also nicht —
         // Runtime-Override holt das.
-        const result = await executor.list(query.payload as ListPayload, query.user, ctx.db, {
+        const listPayload = query.payload as ListPayload; // @cast-boundary engine-payload
+        const result = await executor.list(listPayload, query.user, ctx.db, {
           ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
         });
         if (!hasRefFields) return result;
@@ -221,7 +222,7 @@ export function defineEntityQueryHandler(
     case "detail":
       schema = idSchema;
       handler = async (query, ctx) => {
-        const row = await executor.detail(query.payload as IdPayload, query.user, ctx.db);
+        const row = await executor.detail(query.payload as IdPayload, query.user, ctx.db); // @cast-boundary engine-payload
         if (row === null || !hasRefFields) return row;
         return enrichRowWithReferences(row, entity, (name) => ctx.registry.getEntity(name), ctx.db);
       };

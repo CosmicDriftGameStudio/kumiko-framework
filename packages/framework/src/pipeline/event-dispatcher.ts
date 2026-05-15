@@ -189,7 +189,7 @@ async function acquireConsumerState(
         eq(eventConsumerStateTable.instanceId, instanceId),
       ),
     )
-    .for("update", { skipLocked: true })) as [ConsumerStateRow | undefined];
+    .for("update", { skipLocked: true })) as [ConsumerStateRow | undefined]; // @cast-boundary db-row
 
   if (!state) {
     // Either the row never existed (no pre-reg, no ensureRegistered) or
@@ -270,7 +270,7 @@ async function fetchPendingEvents(
     .from(eventsTable)
     .where(gt(eventsTable.id, cursor))
     .orderBy(asc(eventsTable.id))
-    .limit(batchSize)) as ReadonlyArray<typeof eventsTable.$inferSelect>;
+    .limit(batchSize)) as ReadonlyArray<typeof eventsTable.$inferSelect>; // @cast-boundary db-row
 }
 
 type DeliveryOutcome = {
@@ -407,7 +407,7 @@ async function emitLagFromTx(
     sql`SELECT COALESCE(MAX(id), 0)::bigint AS head FROM kumiko_events`,
   );
   // @cast-boundary db-row — raw drizzle.execute() COALESCE-aggregate row
-  const rows = Array.isArray(result) ? (result as Array<{ head?: bigint | string | null }>) : [];
+  const rows = Array.isArray(result) ? (result as Array<{ head?: bigint | string | null }>) : []; // @cast-boundary db-row
   const raw = rows[0]?.head;
   const head = typeof raw === "bigint" ? raw : BigInt(raw ?? 0);
   const lag = head > cursor ? Number(head - cursor) : 0;
@@ -852,7 +852,7 @@ export async function skipPoisonEvent(
       .from(eventsTable)
       .where(gt(eventsTable.id, before.lastProcessedEventId))
       .orderBy(asc(eventsTable.id))
-      .limit(1)) as ReadonlyArray<{ id: bigint }>;
+      .limit(1)) as ReadonlyArray<{ id: bigint }>; // @cast-boundary db-row
     if (!poison) {
       const [unchanged] = await tx
         .select()

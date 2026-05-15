@@ -53,7 +53,7 @@ function uint8ArrayToBase64Url(bytes: Uint8Array): string {
   // btoa erwartet binary-string. atob/btoa sind universal in Bun + Node + Browser.
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i] as number);
+    binary += String.fromCharCode(bytes[i] as number); // @cast-boundary dynamic-key
   }
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
@@ -61,7 +61,7 @@ function uint8ArrayToBase64Url(bytes: Uint8Array): string {
 function uint8ArrayToHex(bytes: Uint8Array): string {
   let out = "";
   for (let i = 0; i < bytes.length; i++) {
-    out += (bytes[i] as number).toString(16).padStart(2, "0");
+    out += (bytes[i] as number).toString(16).padStart(2, "0"); // @cast-boundary dynamic-key
   }
   return out;
 }

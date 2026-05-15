@@ -141,6 +141,10 @@ export async function resolveConfigOrParam<T extends ConfigKeyType>(
       // The caller is signalling intent; we honour the constraint instead.
       return ctx.config(handle);
     }
+    default: {
+      const _exhaustive: never = keyDef.type;
+      throw new Error(`resolveConfigOrParam: unhandled config key type "${_exhaustive}"`);
+    }
   }
 }
 

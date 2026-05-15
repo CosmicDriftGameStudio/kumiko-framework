@@ -112,7 +112,9 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
       const res = await writeRaw(type, payload, user, requestId);
       // wire-body shape direkt nach JSON.parse — Caller-Code prüft danach
       // selber ob isSuccess/error/data tatsächlich da sind.
-      const body = (await res.json()) as {
+      const rawBody = await res.json();
+      const body = rawBody as {
+        // @cast-boundary engine-bridge
         isSuccess?: boolean;
         data?: unknown;
         error?: { code?: string } | string;
@@ -126,7 +128,7 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
           (typeof body.error === "string" ? body.error : "unknown");
         throw new Error(`Expected write "${type}" to succeed but got error: ${code}`);
       }
-      return body.data as T;
+      return body.data as T; // @cast-boundary engine-bridge
     },
 
     async writeErr(
@@ -135,7 +137,9 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
       user: SessionUser,
     ): Promise<import("../errors").WriteErrorInfo> {
       const res = await writeRaw(type, payload, user);
-      const body = (await res.json()) as {
+      const rawErrorBody = await res.json();
+      const body = rawErrorBody as {
+        // @cast-boundary engine-bridge
         isSuccess?: boolean;
         error?: Omit<import("../errors").WriteErrorInfo, "httpStatus">;
       };
@@ -156,8 +160,8 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
 
     async queryOk<T = unknown>(type: string, payload: unknown, user: SessionUser): Promise<T> {
       const res = await queryRaw(type, payload, user);
-      const body = (await res.json()) as { data: unknown };
-      return body.data as T;
+      const body = (await res.json()) as { data: unknown }; // @cast-boundary engine-bridge
+      return body.data as T; // @cast-boundary engine-bridge
     },
 
     async writeWithHeaders(type, payload, user, extraHeaders) {

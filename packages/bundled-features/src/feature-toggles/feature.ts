@@ -78,7 +78,7 @@ export function createFeatureTogglesFeature(options: FeatureTogglesOptions): Fea
           // (validated on append). Shallow-cast to a typed shape rather
           // than re-parsing — the payload round-trips through JSON and is
           // fixed at the source.
-          const payload = event.payload as { featureName: string; enabled: boolean };
+          const payload = event.payload as { featureName: string; enabled: boolean }; // @cast-boundary engine-payload
           options.getRuntime().apply(payload.featureName, payload.enabled);
         },
       },

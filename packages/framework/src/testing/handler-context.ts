@@ -68,12 +68,12 @@ export function bridgeStub(opts?: {
   // SessionUser hier und bekommt ihn am ctx zurück.
   const stubUser: SessionUser = opts?.user ?? {
     id: "00000000-0000-0000-0000-000000000000",
-    tenantId: "00000000-0000-0000-0000-000000000000" as SessionUser["tenantId"],
+    tenantId: "00000000-0000-0000-0000-000000000000" as SessionUser["tenantId"], // @cast-boundary engine-bridge
     roles: ["all"],
   };
   return {
     user: stubUser,
-    query: notAvailable("query") as HandlerContext["query"],
+    query: notAvailable("query") as HandlerContext["query"], // @cast-boundary engine-bridge
     queryAs: notAvailable("queryAs") as unknown as (
       user: SessionUser,
       qn: string,

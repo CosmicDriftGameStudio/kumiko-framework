@@ -19,11 +19,11 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
     "./dispatcher": {
-      "types": "./dist/dispatcher/index.d.ts",
+      "types": "./src/dispatcher/index.ts",
       "default": "./src/dispatcher/index.ts"
     }
   },

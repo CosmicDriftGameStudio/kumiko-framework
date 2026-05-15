@@ -83,19 +83,6 @@ export const ConsumerStatuses = {
 } as const;
 export type ConsumerStatus = (typeof ConsumerStatuses)[keyof typeof ConsumerStatuses];
 
-/**
- * @deprecated Use `ConsumerStatuses` (object form) or the `ConsumerStatus`
- * union type. The tuple form is kept as a back-compat alias for callers
- * that were using it with `z.enum(...)` or runtime iteration — scheduled
- * for removal once downstream consumers have migrated.
- */
-export const CONSUMER_STATUSES = [
-  "idle",
-  "processing",
-  "dead",
-  "disabled",
-] as const satisfies readonly ConsumerStatus[];
-
 // Idempotent bootstrap. Called by setupTestStack + production boot path —
 // same pattern as createProjectionStateTable / createEventsTable. If the
 // table is already present (second stack in the same test DB, prod boot

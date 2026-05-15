@@ -80,11 +80,11 @@ export const downloadByJobQuery = defineQueryHandler({
       ctx.db.raw,
       exportJobsTable,
       eq(exportJobsTable["id"], jobId),
-    )) as JobRow | null;
+    )) as JobRow | null; // @cast-boundary db-row
 
     if (!jobRow || jobRow.userId !== userId) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection,
+        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
         tenantId,
         now,
         result: "notFound",
@@ -102,7 +102,7 @@ export const downloadByJobQuery = defineQueryHandler({
 
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection,
+        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
         tenantId,
         now,
         result: "failed",
@@ -119,7 +119,7 @@ export const downloadByJobQuery = defineQueryHandler({
     }
     if (!jobRow.downloadStorageKey) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection,
+        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
         tenantId,
         now,
         result: "expired",
@@ -142,7 +142,7 @@ export const downloadByJobQuery = defineQueryHandler({
     );
     if (!provider.getSignedUrl) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection,
+        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
         tenantId,
         now,
         result: "signedUrlNotSupported",
@@ -177,20 +177,17 @@ export const downloadByJobQuery = defineQueryHandler({
       ctx.db.raw,
       exportDownloadTokensTable,
       eq(exportDownloadTokensTable["jobId"], jobId),
-    )) as TokenRow | null;
+    )) as TokenRow | null; // @cast-boundary db-row
 
     if (tokenRow) {
       await recordDownloadUse({
-        // @cast-boundary db: ctx.db.raw ist DbRunner, im query-pfad immer
-        // Connection. Cast legit weil recordDownloadUse intern createTenantDb
-        // braucht.
-        db: ctx.db.raw as DbConnection,
+        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
         tokenId: tokenRow.id,
         tokenVersion: tokenRow.version,
         tokenUseCount: tokenRow.useCount ?? 0,
         tenantId: jobRow.requestedFromTenantId as Parameters<
           typeof recordDownloadUse
-        >[0]["tenantId"],
+        >[0]["tenantId"], // @cast-boundary engine-bridge
         now,
         ip: query.payload.auditMeta?.ip ?? null,
         userAgent: query.payload.auditMeta?.userAgent ?? null,

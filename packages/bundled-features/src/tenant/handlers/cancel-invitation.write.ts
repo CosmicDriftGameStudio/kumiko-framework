@@ -61,7 +61,7 @@ export const cancelInvitationWrite = defineWriteHandler({
     const updateResult = await executor.update(
       {
         id: event.payload.invitationId,
-        version: invitation["version"] as number,
+        version: invitation["version"] as number, // @cast-boundary db-row
         changes: { status: INVITATION_STATUS.cancelled },
       },
       event.user,

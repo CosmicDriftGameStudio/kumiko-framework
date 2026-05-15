@@ -11,7 +11,7 @@ export type LoggerOptions = {
 };
 
 export function createLogger(options: LoggerOptions = {}): Logger {
-  const level = options.level ?? (process.env["LOG_LEVEL"] as LoggerOptions["level"]) ?? "info";
+  const level = options.level ?? (process.env["LOG_LEVEL"] as LoggerOptions["level"]) ?? "info"; // @cast-boundary dynamic-key
   const pretty = options.pretty ?? process.env["LOG_FORMAT"] === "pretty";
 
   const pinoConfig = {
@@ -43,22 +43,26 @@ function wrapPino(p: pino.Logger): Logger {
   return {
     info(msg, data) {
       const merged = mergeTraceFields(data);
-      merged ? p.info(merged, msg) : p.info(msg);
+      if (merged) p.info(merged, msg);
+      else p.info(msg);
     },
     warn(msg, data) {
       const merged = mergeTraceFields(data);
-      merged ? p.warn(merged, msg) : p.warn(msg);
+      if (merged) p.warn(merged, msg);
+      else p.warn(msg);
     },
     error(msg, data) {
       const merged = mergeTraceFields(data);
-      merged ? p.error(merged, msg) : p.error(msg);
+      if (merged) p.error(merged, msg);
+      else p.error(msg);
     },
     debug(msg, data) {
       const merged = mergeTraceFields(data);
-      merged ? p.debug(merged, msg) : p.debug(msg);
+      if (merged) p.debug(merged, msg);
+      else p.debug(msg);
     },
-    child(context) {
-      return wrapPino(p.child(context));
+    child(ctx) {
+      return wrapPino(p.child(ctx));
     },
   };
 }

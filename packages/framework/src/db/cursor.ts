@@ -1,5 +1,5 @@
-import type { EntityId, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { and, asc, desc, eq, gt, inArray, type SQL, sql } from "drizzle-orm";
+import type { EntityId, TenantId } from "../engine/types/identifiers";
 import type { SelectQuery as PgSelect } from "./dialect";
 
 export type CursorQueryOptions = {
@@ -61,7 +61,7 @@ export function applyCursorQuery<T extends PgSelect>(
       // werfen.
       conditions.push(sql`false`);
     } else {
-      conditions.push(inArray(table.id, options.filterIds as readonly string[]));
+      conditions.push(inArray(table.id, options.filterIds as readonly string[])); // @cast-boundary db-operator
     }
   }
 
@@ -79,5 +79,5 @@ export function applyCursorQuery<T extends PgSelect>(
       options.sortDirection === "desc" ? result.orderBy(desc(column)) : result.orderBy(asc(column));
   }
 
-  return result as T;
+  return result as T; // @cast-boundary engine-bridge
 }

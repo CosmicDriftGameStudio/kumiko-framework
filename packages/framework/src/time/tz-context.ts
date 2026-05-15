@@ -11,9 +11,8 @@
 // kommt in einer späteren Iteration, wenn alle existing usages migriert sind.
 //
 // `tenant` + `user` sind die TZ-Defaults für den aktuellen Request. Aktueller
-// Stand (Iteration 4): beide default auf "UTC" — sobald tenant.timezone +
+// Stand: beide default auf "UTC" — sobald tenant.timezone +
 // user.timezone Felder existieren, lese ich sie aus dem Request-Context.
-// TODO(Iteration 6): aus tenant entity / user profile lesen.
 
 import { ensureTemporalPolyfill, getTemporal } from "./polyfill";
 

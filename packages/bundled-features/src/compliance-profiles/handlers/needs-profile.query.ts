@@ -27,7 +27,7 @@ export const needsProfileQuery = defineQueryHandler({
       ctx.db,
       tenantComplianceProfileTable,
       eq(tenantComplianceProfileTable["tenantId"], query.user.tenantId),
-    )) as { profileKey: ComplianceProfileKey } | null;
+    )) as { profileKey: ComplianceProfileKey } | null; // @cast-boundary db-runner
 
     if (!row) {
       return {

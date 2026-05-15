@@ -69,7 +69,7 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
         createSystemUser(event.user.tenantId),
         "compliance-profiles:query:for-tenant",
         {},
-      )) as { profile: { userRights: { gracePeriod: DurationSpec } } };
+      )) as { profile: { userRights: { gracePeriod: DurationSpec } } }; // @cast-boundary engine-payload
 
       // addDurationSpec deckt `{days}` und `{hours}` ab. App-Server-Clock
       // ist authoritative — instant() customType nimmt Temporal.Instant

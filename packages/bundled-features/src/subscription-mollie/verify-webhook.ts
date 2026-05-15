@@ -102,7 +102,7 @@ export function verifyAndParseMollieWebhook(
       return null;
     }
 
-    const metadata = (subscription.metadata as Record<string, string> | null) ?? {};
+    const metadata = (subscription.metadata as Record<string, string> | null) ?? {}; // @cast-boundary engine-bridge
     const tenantId = metadata["tenantId"];
     if (!tenantId || tenantId.length === 0) return null;
     const priceId = metadata["priceId"];
@@ -153,7 +153,7 @@ async function ensureSubscriptionForMandate(
 ): Promise<MollieSubscription | null> {
   const customerId = payment.customerId;
   if (!customerId) return null;
-  const paymentMetadata = (payment.metadata as Record<string, string> | null) ?? {};
+  const paymentMetadata = (payment.metadata as Record<string, string> | null) ?? {}; // @cast-boundary engine-bridge
   const tenantId = paymentMetadata["tenantId"];
   const priceId = paymentMetadata["priceId"];
   if (!tenantId || !priceId) return null;
@@ -163,7 +163,7 @@ async function ensureSubscriptionForMandate(
   const existing = await client.customerSubscriptions.list(customerId);
   const matchingExisting = existing.find(
     (sub) =>
-      (sub.metadata as Record<string, string> | null)?.["priceId"] === priceId &&
+      (sub.metadata as Record<string, string> | null)?.["priceId"] === priceId && // @cast-boundary engine-bridge
       (sub.status === "active" || sub.status === "pending"),
   );
   if (matchingExisting) return matchingExisting;
@@ -185,8 +185,12 @@ export function extractMollieId(rawBody: string, headers: Record<string, string>
   const contentType = headers["content-type"] ?? "";
   if (contentType.includes("application/json")) {
     try {
-      const parsed = JSON.parse(rawBody) as { id?: unknown };
-      return typeof parsed.id === "string" ? parsed.id : null;
+      const parsed: unknown = JSON.parse(rawBody);
+      const id =
+        typeof parsed === "object" && parsed !== null && "id" in parsed
+          ? (parsed as Record<string, unknown>)["id"] // @cast-boundary engine-payload
+          : undefined;
+      return typeof id === "string" ? id : null;
     } catch {
       return null;
     }

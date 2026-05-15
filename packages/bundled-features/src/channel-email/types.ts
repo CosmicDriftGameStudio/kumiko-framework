@@ -20,7 +20,7 @@ export function createInMemoryTransport(): EmailTransport & {
   const sent: EmailMessage[] = [];
   const transport = {
     sent,
-    failNext: null as null | { message: string },
+    failNext: null as null | { message: string }, // @cast-boundary generic-record
     async send(message: EmailMessage) {
       if (transport.failNext) {
         const err = new Error(transport.failNext.message);

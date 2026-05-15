@@ -173,10 +173,8 @@ export function buildUpdateSchema(
     // data via the event-store-executor's `changes` payload.
     // Cast widens the discriminated union so destructure works for variants
     // without a `default` field; remainder is structurally a FieldDefinition.
-    const { default: _default, ...stripped } = field as FieldDefinition & {
-      default?: unknown;
-    };
-    shape[name] = fieldToZod(stripped as FieldDefinition, currencies).optional();
+    const { default: _default, ...stripped } = field as FieldDefinition & { default?: unknown }; // @cast-boundary schema-walk
+    shape[name] = fieldToZod(stripped as FieldDefinition, currencies).optional(); // @cast-boundary schema-walk
   }
 
   return z.object(shape);

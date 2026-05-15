@@ -49,5 +49,5 @@ export async function fetchOne<TRow = DbRow>(
 ): Promise<TRow | undefined> {
   const where = conditions.length === 1 ? conditions[0] : and(...conditions);
   const rows = await db.select().from(table).where(where).limit(1);
-  return rows[0] as TRow | undefined;
+  return rows[0] as TRow | undefined; // @cast-boundary db-row
 }

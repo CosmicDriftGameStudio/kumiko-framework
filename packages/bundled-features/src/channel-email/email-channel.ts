@@ -34,7 +34,7 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
         template: message.notificationType,
         variables,
       });
-      const subject = (variables["subject"] as string) ?? message.title;
+      const subject = (variables["subject"] as string) ?? message.title; // @cast-boundary dynamic-key
 
       await transport.send({
         to: address,

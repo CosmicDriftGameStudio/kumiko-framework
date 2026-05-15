@@ -14,10 +14,11 @@ export function parseRetentionOverrideOrNull(
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch (e) {
+  } catch (e: unknown) {
+    const reason = e instanceof Error ? e.message : String(e);
     // biome-ignore lint/suspicious/noConsole: operator visibility for DB-corruption edge-case
     console.warn(
-      `[${callerLabel}] tenant ${tenantId}: stored override is not valid JSON, ignoring. Reason: ${(e as Error).message}`,
+      `[${callerLabel}] tenant ${tenantId}: stored override is not valid JSON, ignoring. Reason: ${reason}`,
     );
     return null;
   }

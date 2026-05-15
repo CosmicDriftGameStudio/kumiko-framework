@@ -185,7 +185,7 @@ function ensureCommand(redis: Redis): CommandClient {
     });
     REGISTERED.add(redis);
   }
-  return redis as CommandClient;
+  return redis as CommandClient; // @cast-boundary engine-bridge
 }
 
 export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLimitResolver {

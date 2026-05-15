@@ -33,7 +33,7 @@ export const policyForQuery = defineQueryHandler({
       tenantRetentionOverrideTable,
       eq(tenantRetentionOverrideTable["tenantId"], query.user.tenantId),
       eq(tenantRetentionOverrideTable["entityName"], entityName),
-    )) as { config: string | null } | null;
+    )) as { config: string | null } | null; // @cast-boundary db-runner
 
     const tenantOverride = parseRetentionOverrideOrNull(
       overrideRow?.config ?? null,

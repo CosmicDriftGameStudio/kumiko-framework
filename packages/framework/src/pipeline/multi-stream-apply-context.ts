@@ -74,7 +74,6 @@ export function createMultiStreamApplyContext(
 ): MultiStreamApplyContext {
   return {
     ...(deps.files ? { files: deps.files } : {}),
-    // @cast-boundary engine-bridge — concrete impl conforms to AppendEventFn overload
     appendEvent: (async (args: AppendEventArgs) => {
       await appendDomainEventCore(
         {
@@ -87,7 +86,7 @@ export function createMultiStreamApplyContext(
         },
         args,
       );
-    }) as AppendEventFn,
+    }) as AppendEventFn, // @cast-boundary engine-bridge
     appendEventUnsafe: async (args) => {
       await appendDomainEventCore(
         {

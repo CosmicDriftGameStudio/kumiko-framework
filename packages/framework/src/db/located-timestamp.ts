@@ -51,7 +51,7 @@ export function flattenLocatedTimestamp(
         `flattenLocatedTimestamp: field "${name}" expects { at, tz } or { utc, tz } object, got ${typeof raw}`,
       );
     }
-    const pair = raw as { at?: string; tz?: string; utc?: string };
+    const pair = raw as { at?: string; tz?: string; utc?: string }; // @cast-boundary schema-walk
 
     delete result[name];
 

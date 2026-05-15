@@ -1,5 +1,5 @@
-import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { and, type Column, eq, getTableName, or, type SQL } from "drizzle-orm";
+import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
@@ -148,7 +148,7 @@ export function createTenantDb(
   // types don't include PromiseLike. Cast via this helper so the double-
   // cast is named and lives in exactly one place per scope.
   function asDrizzleThenable<T>(builder: unknown): PromiseLike<T> {
-    return builder as PromiseLike<T>;
+    return builder as PromiseLike<T>; // @cast-boundary engine-bridge
   }
 
   // Wrap a DB query promise in a `db.query` span + emit the DB duration
@@ -229,7 +229,7 @@ export function createTenantDb(
     const ownOrGlobal = or(
       eq(table["tenantId"], tenantId),
       eq(table["tenantId"], SYSTEM_TENANT_ID),
-    ) as SQL;
+    ) as SQL; // @cast-boundary db-operator
     return extra.length > 0 ? and(ownOrGlobal, ...extra) : ownOrGlobal;
   }
 
@@ -309,7 +309,7 @@ export function createTenantDb(
           reject ?? undefined,
         );
       },
-    } as TenantSelectQuery;
+    } as TenantSelectQuery; // @cast-boundary drizzle-bridge
   }
 
   // --- Where helper for update/delete ---
@@ -342,7 +342,7 @@ export function createTenantDb(
               return withDbSpan<Record<string, unknown>[]>(
                 "insert",
                 table,
-                () => q.returning() as PromiseLike<Record<string, unknown>[]>,
+                () => q.returning() as PromiseLike<Record<string, unknown>[]>, // @cast-boundary db-runner
               );
             },
             onConflictDoUpdate(spec: ConflictUpdate) {
@@ -370,7 +370,7 @@ export function createTenantDb(
                 reject,
               );
             },
-          } as TenantInsertValues;
+          } as TenantInsertValues; // @cast-boundary drizzle-bridge
         },
       };
     },
@@ -387,7 +387,7 @@ export function createTenantDb(
                   return withDbSpan<Record<string, unknown>[]>(
                     "update",
                     table,
-                    () => wq.returning() as PromiseLike<Record<string, unknown>[]>,
+                    () => wq.returning() as PromiseLike<Record<string, unknown>[]>, // @cast-boundary db-runner
                   );
                 },
                 // biome-ignore lint/suspicious/noThenProperty: thenable for await
@@ -397,7 +397,7 @@ export function createTenantDb(
                     reject,
                   );
                 },
-              } as TenantUpdateWhere;
+              } as TenantUpdateWhere; // @cast-boundary drizzle-bridge
             },
             returning(): PromiseLike<Record<string, unknown>[]> {
               return Promise.reject(
@@ -416,7 +416,7 @@ export function createTenantDb(
                 ),
               ).then(resolve, reject);
             },
-          } as TenantUpdateSet;
+          } as TenantUpdateSet; // @cast-boundary drizzle-bridge
         },
       };
     },

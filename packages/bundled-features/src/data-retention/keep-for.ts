@@ -19,7 +19,7 @@ const UNIT_TO_DAYS: Readonly<Record<string, number>> = {
   w: 7,
   m: 30,
   y: 365,
-};
+} satisfies Readonly<Record<string, number>>;
 
 export class InvalidKeepForError extends Error {
   constructor(spec: string) {

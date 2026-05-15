@@ -650,7 +650,7 @@ export function createAuthRoutes(
       }
       const result = await dispatcher.write(inv.acceptWithLoginHandler, parsed.data, GUEST_USER);
       if (!result.isSuccess) {
-        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
         return c.json({ isSuccess: false, error: result.error }, status);
       }
       const data = result.data as {
@@ -658,7 +658,7 @@ export function createAuthRoutes(
         session: SessionUser;
         tenantId: TenantId;
         role: string;
-      };
+      }; // @cast-boundary engine-payload
       let sessionForJwt: SessionUser = data.session;
       if (config.sessionCreator) {
         const sid = await config.sessionCreator(data.session, requestMeta(c));
@@ -690,7 +690,7 @@ export function createAuthRoutes(
       }
       const result = await dispatcher.write(inv.signupCompleteHandler, parsed.data, GUEST_USER);
       if (!result.isSuccess) {
-        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
         return c.json({ isSuccess: false, error: result.error }, status);
       }
       const data = result.data as {
@@ -698,7 +698,7 @@ export function createAuthRoutes(
         session: SessionUser;
         tenantId: TenantId;
         role: string;
-      };
+      }; // @cast-boundary engine-payload
       let sessionForJwt: SessionUser = data.session;
       if (config.sessionCreator) {
         const sid = await config.sessionCreator(data.session, requestMeta(c));
@@ -967,7 +967,7 @@ function registerTokenConfirmRoute(opts: {
     }
     const result = await opts.dispatcher.write(opts.confirmHandler, parsed.data, GUEST_USER);
     if (!result.isSuccess) {
-      const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+      const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
       return c.json({ isSuccess: false, error: result.error }, status);
     }
     return c.json({ isSuccess: true });

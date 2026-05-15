@@ -31,7 +31,7 @@ export const removeMemberWrite = defineWriteHandler({
     }
 
     const result = await executor.delete(
-      { id: (existing as DbRow)["id"] as string },
+      { id: (existing as DbRow)["id"] as string }, // @cast-boundary db-row
       event.user,
       db,
     );

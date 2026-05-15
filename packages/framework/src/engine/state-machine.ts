@@ -36,7 +36,7 @@ export function defineTransitions<const TMap extends Record<string, readonly str
     canTransition: (from, to) => internal.get(from)?.has(to) === true,
     allowedFrom: (from) => {
       const set = internal.get(from);
-      return set ? ([...set] as TStates[]) : [];
+      return set ? ([...set] as TStates[]) : []; // @cast-boundary schema-walk
     },
     assertTransition: (from, to) => {
       const set = internal.get(from);

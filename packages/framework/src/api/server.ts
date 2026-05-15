@@ -42,7 +42,7 @@ import {
   globalIpRateLimit,
 } from "../rate-limit";
 import type { SearchAdapter } from "../search/types";
-import { generateId } from "../utils";
+import { assertUnreachable, generateId } from "../utils";
 import { PUBLIC_API_PATHS } from "./api-constants";
 import { type AnonymousAccessConfig, authMiddleware } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
@@ -383,7 +383,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     // can pause this consumer when the feature is globally disabled. Events
     // queue up in the store and replay cleanly from the same cursor on resume.
     ...(options.registry.getMultiStreamProjectionFeature(msp.name) && {
-      featureName: options.registry.getMultiStreamProjectionFeature(msp.name) as string,
+      featureName: options.registry.getMultiStreamProjectionFeature(msp.name) as string, // @cast-boundary engine-bridge
     }),
     // Copy the continuous-lifecycle error policy straight onto the consumer.
     // Rebuild uses its own policy (rebuildProjection reads msp.errorMode.rebuild
@@ -409,10 +409,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
       // Hand the raw DbRunner to apply(): MSPs write to their projection
       // table directly, they don't go through the TenantDb wrapper.
       const rawRunner =
-        event.tenantId === SYSTEM_TENANT_ID
-          ? baseDb
-          : // @cast-boundary engine-bridge — TenantDb exposes its raw DbRunner via .raw
-            (scopedDb as { raw: typeof baseDb }).raw;
+        event.tenantId === SYSTEM_TENANT_ID ? baseDb : (scopedDb as { raw: typeof baseDb }).raw; // @cast-boundary engine-bridge
       // Saga/process-manager ctx: apply can call ctx.appendEvent to cascade
       // a follow-up event onto another aggregate. Uses the triggering event's
       // tenantId + userId so the causal chain stays tenant-consistent.
@@ -563,7 +560,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   app.route("/api", createSseRoute(sseBroker));
 
   if (options.files) {
-    const fileDb = options.files.db ?? (options.context.db as FileRoutesOptions["db"]);
+    const fileDb = options.files.db ?? (options.context.db as FileRoutesOptions["db"]); // @cast-boundary engine-bridge
     if (!fileDb) throw new Error("files option requires db in context or files.db");
     app.route(
       "/api",
@@ -605,6 +602,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
           // Hono-on() für die Methoden ohne Convenience-Method.
           app.on(route.method, route.path, honoHandler);
           break;
+        default:
+          assertUnreachable(route.method, "http method");
       }
     }
   }

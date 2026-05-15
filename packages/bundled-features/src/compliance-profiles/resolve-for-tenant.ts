@@ -31,7 +31,7 @@ export async function resolveProfileForTenant(
     args.db,
     tenantComplianceProfileTable,
     eq(tenantComplianceProfileTable["tenantId"], args.tenantId),
-  )) as { profileKey: string; override: string | null } | null;
+  )) as { profileKey: string; override: string | null } | null; // @cast-boundary db-runner
 
   if (!row) {
     return resolveComplianceProfile({});
@@ -39,7 +39,7 @@ export async function resolveProfileForTenant(
 
   const override = parseOverride(row.override, args.tenantId);
   return resolveComplianceProfile({
-    selection: row.profileKey as ComplianceProfileKey,
+    selection: row.profileKey as ComplianceProfileKey, // @cast-boundary engine-payload
     override,
   });
 }
@@ -50,11 +50,13 @@ function parseOverride(
 ): ComplianceProfileOverride | undefined {
   if (!raw || raw.trim() === "") return undefined;
   try {
-    return JSON.parse(raw) as ComplianceProfileOverride;
-  } catch (e) {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed as ComplianceProfileOverride; // @cast-boundary engine-payload
+  } catch (e: unknown) {
+    const reason = e instanceof Error ? e.message : String(e);
     // biome-ignore lint/suspicious/noConsole: operator visibility for DB-corruption edge-case
     console.warn(
-      `[compliance-profiles:resolve-for-tenant] tenant ${tenantId}: stored override is not valid JSON, ignoring. Reason: ${(e as Error).message}`,
+      `[compliance-profiles:resolve-for-tenant] tenant ${tenantId}: stored override is not valid JSON, ignoring. Reason: ${reason}`,
     );
     return undefined;
   }

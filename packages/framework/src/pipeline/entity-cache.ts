@@ -1,5 +1,5 @@
-import type { EntityId, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type Redis from "ioredis";
+import type { EntityId, TenantId } from "../engine/types/identifiers";
 import { RedisKeys } from "./redis-keys";
 
 // JSON.stringify turns Date into an ISO string, but DB reads return Date
@@ -86,7 +86,7 @@ export function createEntityCache(redis: Redis, options: EntityCacheOptions = {}
         const raw = values[i];
         if (raw) {
           const parsed = parseCached(raw);
-          if (parsed) result.set(ids[i] as EntityId, parsed);
+          if (parsed) result.set(ids[i] as EntityId, parsed); // @cast-boundary engine-payload
         }
       }
       return result;

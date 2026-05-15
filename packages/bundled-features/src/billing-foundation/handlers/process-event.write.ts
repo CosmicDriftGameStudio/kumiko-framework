@@ -69,7 +69,7 @@ const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
   [SubscriptionEventTypes.canceled]: SUBSCRIPTION_CANCELED_EVENT_QN,
   [SubscriptionEventTypes.invoicePaid]: INVOICE_PAID_EVENT_QN,
   [SubscriptionEventTypes.invoicePaymentFailed]: INVOICE_PAYMENT_FAILED_EVENT_QN,
-};
+} satisfies Readonly<Record<string, string>>;
 
 // =============================================================================
 // Handler

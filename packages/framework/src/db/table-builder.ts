@@ -133,10 +133,8 @@ function fieldToColumns(
       // wrapper-feld mit boolean-flag oder discriminierte-union.
       return { [name]: jsonb(snakeName).default({}).notNull() };
     case "date": {
-      // TODO(Sprint G): semantisch falsch — `type:"date"` sollte
-      // Temporal.PlainDate sein (PG `date` Spalte, kein TZ). Heute aliased auf
-      // instant() = TIMESTAMPTZ damit Caller die gleiche API nutzen wie für
-      // type:"timestamp". Echte PlainDate-Migration kommt nach Sprint F.
+      // `type:"date"` aliased auf instant() = TIMESTAMPTZ. Echte
+      // PlainDate-Migration (PG `date` Spalte, kein TZ) kommt später.
       const col = instant(snakeName);
       return { [name]: field.required ? col.notNull() : col };
     }
@@ -478,7 +476,7 @@ export function buildDrizzleTable<E extends EntityDefinition>(
           def.name ?? `${tableName}_${def.columns.map((c) => toSnakeCase(c)).join("_")}_${suffix}`;
         const builder = def.unique === true ? uniqueIndex(indexName) : index(indexName);
         // biome-ignore lint/suspicious/noExplicitAny: drizzle's .on(...cols) is variadic generic
-        let chain = (builder.on as any)(...cols);
+        let chain = (builder.on as any)(...cols); // @cast-boundary drizzle-bridge
         if (def.where !== undefined) {
           // Partial-Index: drizzle's IndexBuilder.where(SQL) emittiert das
           // `WHERE <condition>` ans Ende der `CREATE [UNIQUE] INDEX`-DDL.

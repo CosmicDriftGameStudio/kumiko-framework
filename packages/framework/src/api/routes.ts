@@ -73,7 +73,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
             failedIndex: result.failedIndex,
             results: result.results,
           },
-          err.httpStatus as ContentfulStatusCode,
+          err.httpStatus as ContentfulStatusCode, // @cast-boundary engine-payload
         );
       }
       return c.json(result);
@@ -121,7 +121,7 @@ function toKumiko(e: unknown): KumikoError {
 function writeErrorResponse(c: Context, err: KumikoError, statusOverride?: number) {
   const requestId = requestContext.get()?.requestId;
   const { error } = serializeError(err, requestId);
-  const status = (statusOverride ?? err.httpStatus) as ContentfulStatusCode;
+  const status = (statusOverride ?? err.httpStatus) as ContentfulStatusCode; // @cast-boundary engine-payload
   return c.json({ isSuccess: false, error }, status);
 }
 
@@ -130,6 +130,6 @@ function writeErrorResponse(c: Context, err: KumikoError, statusOverride?: numbe
 function queryErrorResponse(c: Context, err: KumikoError, statusOverride?: number) {
   const requestId = requestContext.get()?.requestId;
   const body = serializeError(err, requestId);
-  const status = (statusOverride ?? err.httpStatus) as ContentfulStatusCode;
+  const status = (statusOverride ?? err.httpStatus) as ContentfulStatusCode; // @cast-boundary engine-payload
   return c.json(body, status);
 }

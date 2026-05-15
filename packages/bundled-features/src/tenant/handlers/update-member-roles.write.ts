@@ -39,11 +39,11 @@ export const updateMemberRolesWrite = defineWriteHandler({
     // between this read and append) surfaces as version_conflict rather than
     // silent overwrite. Per-membership parallelism is rare; if it happens,
     // the client retries on the error.
-    const row = existing as DbRow;
+    const row = existing as DbRow; // @cast-boundary generic-record
     const result = await executor.update(
       {
-        id: row["id"] as string,
-        version: row["version"] as number,
+        id: row["id"] as string, // @cast-boundary db-row
+        version: row["version"] as number, // @cast-boundary db-row
         changes: { roles: JSON.stringify(event.payload.roles) },
       },
       event.user,

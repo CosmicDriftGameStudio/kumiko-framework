@@ -26,7 +26,7 @@ export const forTenantQuery = defineQueryHandler({
       ctx.db,
       tenantComplianceProfileTable,
       eq(tenantComplianceProfileTable["tenantId"], query.user.tenantId),
-    )) as { profileKey: string; override: string | null } | null;
+    )) as { profileKey: string; override: string | null } | null; // @cast-boundary db-runner
 
     if (!row) {
       return resolveComplianceProfile({});
@@ -34,7 +34,7 @@ export const forTenantQuery = defineQueryHandler({
 
     const override = parseOverride(row.override, query.user.tenantId);
     return resolveComplianceProfile({
-      selection: row.profileKey as ComplianceProfileKey,
+      selection: row.profileKey as ComplianceProfileKey, // @cast-boundary engine-payload
       override,
     });
   },
@@ -46,9 +46,10 @@ function parseOverride(
 ): ComplianceProfileOverride | undefined {
   if (!raw || raw.trim() === "") return undefined;
   try {
-    const parsed = JSON.parse(raw) as ComplianceProfileOverride;
-    return parsed;
-  } catch (e) {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed as ComplianceProfileOverride; // @cast-boundary engine-payload
+  } catch (e: unknown) {
+    const reason = e instanceof Error ? e.message : String(e);
     // Defensiv: ungültiges JSON wird als "kein Override" behandelt. Der
     // set-profile-Handler validiert Zod das Override schon — invalides
     // JSON in der DB ist also nur möglich bei manueller DB-Manipulation
@@ -56,7 +57,7 @@ function parseOverride(
     // Operator-Sichtbarkeit via console.warn — Telemetry-Hook spaeter.
     // biome-ignore lint/suspicious/noConsole: operator visibility for DB-corruption edge-case
     console.warn(
-      `[compliance-profiles:for-tenant] tenant ${tenantId}: stored override is not valid JSON, falling back to base profile. Reason: ${(e as Error).message}`,
+      `[compliance-profiles:for-tenant] tenant ${tenantId}: stored override is not valid JSON, falling back to base profile. Reason: ${reason}`,
     );
     return undefined;
   }

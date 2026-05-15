@@ -137,7 +137,7 @@ export async function createFileProviderForTenant(
     await ctxConfig(fileFoundationFeature.exports.configKeys.provider),
     FEATURE_NAME,
     "provider",
-  ) as string;
+  ) as string; // @cast-boundary engine-payload
   if (provider.length === 0) {
     const usages = ctx.registry.getExtensionUsages("fileProvider");
     const known = usages.map((u) => u.entityName).join(", ") || "<none>";

@@ -76,7 +76,7 @@ export function setFields(
     // strict about the concrete row, so we feed it the erased value; the
     // type-safety guarantee for `values` lives at the setFields call-site.
     // biome-ignore lint/suspicious/noExplicitAny: see note above.
-    const set = values as any;
+    const set = values as any; // @cast-boundary engine-bridge
     await tx
       .update(table)
       .set(set)

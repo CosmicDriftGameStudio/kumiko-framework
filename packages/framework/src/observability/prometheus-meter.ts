@@ -249,15 +249,18 @@ export function serializeOpenMetrics(meter: PrometheusMeter): string {
     lines.push(`# TYPE ${name} ${def.type}`);
 
     if (def.type === "counter") {
-      for (const s of entry.slots as CounterState[]) {
+      const counterSlots = entry.slots as CounterState[]; // @cast-boundary engine-bridge
+      for (const s of counterSlots) {
         lines.push(`${name}${renderLabels(s.labels)} ${s.value}`);
       }
     } else if (def.type === "gauge") {
-      for (const s of entry.slots as GaugeState[]) {
+      const gaugeSlots = entry.slots as GaugeState[]; // @cast-boundary engine-bridge
+      for (const s of gaugeSlots) {
         lines.push(`${name}${renderLabels(s.labels)} ${s.value}`);
       }
     } else {
-      for (const s of entry.slots as HistogramState[]) {
+      const histSlots = entry.slots as HistogramState[]; // @cast-boundary engine-bridge
+      for (const s of histSlots) {
         // Cumulative bucket counts + +Inf terminator + sum/count suffixes.
         let cumulative = 0;
         for (let i = 0; i < s.boundaries.length; i++) {

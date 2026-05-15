@@ -19,27 +19,27 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
     "./build": {
-      "types": "./dist/build.d.ts",
+      "types": "./src/build.ts",
       "default": "./src/build.ts"
     },
     "./compose-features": {
-      "types": "./dist/compose-features.d.ts",
+      "types": "./src/compose-features.ts",
       "default": "./src/compose-features.ts"
     },
     "./drizzle-config": {
-      "types": "./dist/drizzle-config.d.ts",
+      "types": "./src/drizzle-config.ts",
       "default": "./src/drizzle-config.ts"
     },
     "./drizzle-tables-auth-mode": {
-      "types": "./dist/drizzle-tables-auth-mode.d.ts",
+      "types": "./src/drizzle-tables-auth-mode.ts",
       "default": "./src/drizzle-tables-auth-mode.ts"
     },
     "./drizzle-tables-minimal": {
-      "types": "./dist/drizzle-tables-minimal.d.ts",
+      "types": "./src/drizzle-tables-minimal.ts",
       "default": "./src/drizzle-tables-minimal.ts"
     }
   },

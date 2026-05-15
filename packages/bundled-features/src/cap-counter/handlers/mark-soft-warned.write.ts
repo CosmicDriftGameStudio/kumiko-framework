@@ -25,7 +25,7 @@ export const markSoftWarnedHandler: WriteHandlerDef = {
   schema: markSoftWarnedSchema,
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    const payload = event.payload as z.infer<typeof markSoftWarnedSchema>;
+    const payload = event.payload as z.infer<typeof markSoftWarnedSchema>; // @cast-boundary engine-payload
     const aggregateId = capCounterAggregateId(
       event.user.tenantId,
       payload.capName,
@@ -42,7 +42,7 @@ export const markSoftWarnedHandler: WriteHandlerDef = {
     if (!row) {
       throw new Error("cap-counter:mark-soft-warned: row vanished between length-check and read");
     }
-    const currentVersion = row["version"] as number;
+    const currentVersion = row["version"] as number; // @cast-boundary db-row
 
     return executor.update(
       {

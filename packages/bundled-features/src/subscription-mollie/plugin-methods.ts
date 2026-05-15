@@ -66,7 +66,7 @@ export function createMollieCheckoutSession(
         tenantId: options.tenantId,
         priceId: options.priceId,
       },
-    }) as Promise<Payment>)) satisfies Payment;
+    }) as Promise<Payment>)) satisfies Payment; // @cast-boundary engine-bridge
 
     const checkoutHref = payment.getCheckoutUrl();
     if (!checkoutHref) {

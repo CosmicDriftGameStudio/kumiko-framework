@@ -51,7 +51,7 @@ export type RotateJobResult = {
 };
 
 export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
-  const payload = rawPayload as RotateJobPayload;
+  const payload = rawPayload as RotateJobPayload; // @cast-boundary engine-payload
   if (!ctx.masterKeyProvider) {
     throw new InternalError({
       message:
@@ -64,7 +64,7 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
       message: "[secrets:rotate] ctx.db missing — job context requires a database connection.",
     });
   }
-  const db = ctx.db as DbConnection;
+  const db = ctx.db as DbConnection; // @cast-boundary db-operator
   const batchSize = payload.batchSize ?? DEFAULT_BATCH_SIZE;
   const maxFailures = payload.maxFailures ?? DEFAULT_MAX_FAILURES;
   const deadline = payload.maxDurationMs

@@ -169,7 +169,7 @@ export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) 
       );
     }
 
-    return c.json({ processed: true, ...((dispatched.data as object) ?? {}) }, 200);
+    return c.json({ processed: true, ...((dispatched.data as object) ?? {}) }, 200); // @cast-boundary engine-bridge
   };
 }
 

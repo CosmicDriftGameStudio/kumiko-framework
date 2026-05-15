@@ -68,7 +68,7 @@ function constantTimeEqual(a: string, b: string): boolean {
 // Prometheus-compatible meter (future OTLP bridge) works without an
 // explicit union — if it exposes `snapshot()` it's serialisable.
 function isPrometheusMeter(m: Meter): m is PrometheusMeter {
-  return typeof (m as { snapshot?: unknown }).snapshot === "function";
+  return typeof (m as { snapshot?: unknown }).snapshot === "function"; // @cast-boundary schema-walk
 }
 
 // Mount `/metrics` (or the caller-supplied path). Takes just the Meter —

@@ -87,8 +87,8 @@ export function createInviteCreateHandler(opts: InviteCreateOptions = {}) {
       let invitationId: string;
       let token: string;
       if (existing) {
-        invitationId = existing["id"] as string;
-        const existingVersion = existing["version"] as number;
+        invitationId = existing["id"] as string; // @cast-boundary db-row
+        const existingVersion = existing["version"] as number; // @cast-boundary db-row
         // Resend-Idempotenz: Token aus Redis re-use wenn noch lebend.
         // Sonst neuen mintinen (alter ist abgelaufen).
         const existingToken = await getTokenForInvitation(ctx.redis, invitationId);
@@ -122,7 +122,7 @@ export function createInviteCreateHandler(opts: InviteCreateOptions = {}) {
           ctx.db,
         );
         if (!createResult.isSuccess) return createResult;
-        invitationId = (createResult.data as { id: string }).id;
+        invitationId = (createResult.data as { id: string }).id; // @cast-boundary engine-payload
         token = generateToken();
       }
 

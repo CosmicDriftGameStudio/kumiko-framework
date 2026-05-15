@@ -127,7 +127,7 @@ export async function rebuildProjection(
               subscribed,
             )}`,
           )
-          .orderBy(asc(eventsTable.id))) as ReadonlyArray<typeof eventsTable.$inferSelect>;
+          .orderBy(asc(eventsTable.id))) as ReadonlyArray<typeof eventsTable.$inferSelect>; // @cast-boundary db-row
 
         // Upcasters run at read time: older stored payloads get walked
         // through the registered r.eventMigration chain until their shape
@@ -151,7 +151,7 @@ export async function rebuildProjection(
           };
           const storedEvent = await upcastStoredEvent(raw, upcasters, {
             db: tx,
-            tenantId: row.tenantId as TenantId,
+            tenantId: row.tenantId as TenantId, // @cast-boundary db-row
           });
           const applyFn = projection.apply[row.type];
           // skip: apply-key validation ensures every subscribed type has a

@@ -88,7 +88,7 @@ async function upcastStoredEventWithPolicy(
   if (!info) return event;
   if (event.eventVersion >= info.currentVersion) return event;
 
-  let payload = event.payload as unknown;
+  let payload = event.payload as unknown; // @cast-boundary engine-payload
   let v = event.eventVersion;
   const startVersion = event.eventVersion;
   while (v < info.currentVersion) {

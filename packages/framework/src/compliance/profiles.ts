@@ -243,7 +243,7 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
     },
     tenantDestroyGracePeriod: { days: 30 },
   },
-};
+} satisfies Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>;
 
 // Raw-Profile (vor extends-Resolution) — `extends`-Profile dürfen
 // Required-Felder weglassen, sie kommen vom Base-Profile dazu.
@@ -262,11 +262,11 @@ type ComplianceProfileRaw = Partial<Omit<ComplianceProfile, "key" | "region" | "
  * Default-Fallback fuer "noch keine Wahl getroffen", mit sichtbarer
  * Warning. Production-Tenants sollen ein echtes Profile waehlen.
  */
-export const SELECTABLE_PROFILE_KEYS: readonly ComplianceProfileKey[] = [
+export const SELECTABLE_PROFILE_KEYS = [
   "eu-dsgvo",
   "swiss-dsg",
   "de-hr-dsgvo-hgb",
-];
+] as const satisfies readonly ComplianceProfileKey[];
 
 /**
  * Top-Level-Properties des `ComplianceProfile`-Type, die ein Tenant-
@@ -339,7 +339,7 @@ function deepMerge<T extends Record<string, unknown>>(
       out[k] = v;
     }
   }
-  return out as T;
+  return out as T; // @cast-boundary generic-record
 }
 
 /**
@@ -355,7 +355,7 @@ function deepMerge<T extends Record<string, unknown>>(
 function resolveExtends(key: ComplianceProfileKey): ComplianceProfile {
   const raw = RAW_PROFILES[key];
   if (!raw.extends) {
-    return raw as ComplianceProfile;
+    return raw as ComplianceProfile; // @cast-boundary schema-walk
   }
 
   const base = RAW_PROFILES[raw.extends];
@@ -366,7 +366,7 @@ function resolveExtends(key: ComplianceProfileKey): ComplianceProfile {
   }
 
   return deepMerge(
-    base as Record<string, unknown>,
+    base as Record<string, unknown>, // @cast-boundary generic-record
     raw as unknown as Record<string, unknown>,
   ) as unknown as ComplianceProfile;
 }
@@ -379,7 +379,7 @@ function resolveExtends(key: ComplianceProfileKey): ComplianceProfile {
 export const COMPLIANCE_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfile>> =
   Object.fromEntries(
     (Object.keys(RAW_PROFILES) as ComplianceProfileKey[]).map((k) => [k, resolveExtends(k)]),
-  ) as Readonly<Record<ComplianceProfileKey, ComplianceProfile>>;
+  ) as Readonly<Record<ComplianceProfileKey, ComplianceProfile>>; // @cast-boundary dynamic-key
 
 // --- Effective-Profile-Resolver ---
 
@@ -421,7 +421,7 @@ export function resolveComplianceProfile(args: {
 
   const merged = deepMerge(
     base as unknown as Record<string, unknown>,
-    args.override as Record<string, unknown>,
+    args.override as Record<string, unknown>, // @cast-boundary engine-payload
   ) as unknown as ComplianceProfile;
   return { profile: merged };
 }

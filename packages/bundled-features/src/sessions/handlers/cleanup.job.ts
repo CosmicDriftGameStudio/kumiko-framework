@@ -39,13 +39,13 @@ export type SessionCleanupResult = {
 };
 
 export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
-  const payload = rawPayload as SessionCleanupPayload;
+  const payload = rawPayload as SessionCleanupPayload; // @cast-boundary engine-payload
   if (!ctx.db) {
     throw new InternalError({
       message: "[sessions:cleanup] ctx.db missing — job context requires a database connection.",
     });
   }
-  const db = ctx.db as DbConnection;
+  const db = ctx.db as DbConnection; // @cast-boundary db-operator
 
   // Coerce-and-validate: BullMQ payloads arrive as opaque JSON, so TS types
   // don't survive. Guard before the value is interpolated into SQL.

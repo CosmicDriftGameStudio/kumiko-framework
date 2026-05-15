@@ -71,7 +71,7 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
         .select()
         .from(globalFeatureStateTable)
         .where(eq(globalFeatureStateTable.featureName, featureName))
-        .limit(1)) as StateRow[];
+        .limit(1)) as StateRow[]; // @cast-boundary db-row
 
       const previousEnabled = existing?.enabled ?? null;
 

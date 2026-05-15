@@ -11,9 +11,9 @@ type RoleMap<T extends readonly string[]> = {
 };
 
 export function defineRoles<const T extends readonly string[]>(roles: T): RoleMap<T> {
-  const map = {} as Record<string, string>;
+  const map = {} as Record<string, string>; // @cast-boundary schema-walk
   for (const role of roles) {
     map[role] = role;
   }
-  return map as RoleMap<T>;
+  return map as RoleMap<T>; // @cast-boundary schema-walk
 }

@@ -50,7 +50,7 @@ function isActiveJobConflict(failure: WriteFailure): boolean {
   const error = failure.error as {
     code?: string;
     details?: { constraintName?: string };
-  };
+  }; // @cast-boundary error-details
   return (
     error.code === "unique_violation" && error.details?.constraintName === ACTIVE_JOB_CONSTRAINT
   );
@@ -124,7 +124,7 @@ export const requestExportWrite = defineWriteHandler({
     // Happy path: neuer Job. SaveContext.id ist EntityId (number | string);
     // exportJobEntity hat idType:"uuid" → garantiert string, String()
     // schuetzt vor Drift falls jemand die Entity auf serial migriert.
-    const created = result.data as SaveContext;
+    const created = result.data as SaveContext; // @cast-boundary engine-payload
     return {
       isSuccess: true as const,
       data: {

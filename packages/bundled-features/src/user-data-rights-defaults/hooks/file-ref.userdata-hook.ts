@@ -45,7 +45,7 @@ export const fileRefExportHook: UserDataExportHook = async (ctx) => {
   // .toString() funktioniert sowohl auf Temporal.Instant als auch
   // Date.
   const rows = rawRows.map((r) => {
-    const row = r as Record<string, unknown>;
+    const row = r as Record<string, unknown>; // @cast-boundary recursive-walk
     return {
       id: String(row["id"]),
       storageKey: String(row["storageKey"]),

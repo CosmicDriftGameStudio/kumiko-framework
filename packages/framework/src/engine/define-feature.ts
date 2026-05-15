@@ -187,7 +187,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           name: def.name,
           schema: def.schema,
           // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
-          handler: def.handler as WriteHandlerFn,
+          handler: def.handler as WriteHandlerFn, // @cast-boundary engine-bridge
           ...(def.access && { access: def.access }),
           ...(def.skipTransitionGuard && { skipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
@@ -220,7 +220,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           name: def.name,
           schema: def.schema,
           // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
-          handler: def.handler as QueryHandlerFn,
+          handler: def.handler as QueryHandlerFn, // @cast-boundary engine-bridge
           ...(def.access && { access: def.access }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
         };
@@ -345,7 +345,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           ? {
               on: Array.isArray(options.trigger.on)
                 ? options.trigger.on.map(resolveName)
-                : resolveName(options.trigger.on as NameOrRef),
+                : resolveName(options.trigger.on as NameOrRef), // @cast-boundary engine-bridge
             }
           : options.trigger;
       jobs[jobName] = { ...options, trigger, name: jobName, handler };
@@ -725,7 +725,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     },
   };
 
-  const exports = setup(registrar) as TExports;
+  const exports = setup(registrar) as TExports; // @cast-boundary engine-bridge
 
   return {
     name,
@@ -746,7 +746,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       preDelete: phasedLifecycleHooks.preDelete,
       postDelete: phasedLifecycleHooks.postDelete,
       preQuery: lifecycleHooks["preQuery"] ?? {},
-    } as HookMap,
+    } as HookMap, // @cast-boundary engine-payload
     entityHooks: {
       postSave: entityPostSave,
       preDelete: entityPreDelete,

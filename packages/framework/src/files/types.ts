@@ -1,4 +1,4 @@
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { TenantId } from "../engine/types/identifiers";
 
 export type FileMetadata = {
   readonly fileName: string;
@@ -99,7 +99,7 @@ const EXTENSION_MIME_WHITELIST: Record<string, readonly string[]> = {
   csv: ["text/csv", "application/csv", "text/plain"],
   json: ["application/json", "text/json"],
   md: ["text/markdown", "text/plain"],
-};
+} satisfies Record<string, readonly string[]>;
 
 export function validateFile(
   metadata: FileMetadata,

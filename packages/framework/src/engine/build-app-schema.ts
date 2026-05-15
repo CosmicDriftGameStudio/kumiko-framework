@@ -115,7 +115,7 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (isLiteral(def["default"])) out["default"] = def["default"];
   // Select: options-Liste ist plain JSON, durchschicken.
   if (Array.isArray(def["options"])) out["options"] = def["options"];
-  return out as FieldDefinition;
+  return out as FieldDefinition; // @cast-boundary schema-walk
 }
 
 function isLiteral(value: unknown): boolean {

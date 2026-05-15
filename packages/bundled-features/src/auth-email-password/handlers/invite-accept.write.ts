@@ -107,16 +107,17 @@ export function createInviteAcceptHandler() {
         if (!invitation || invitation["status"] !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
-        const invitationTenantId = invitation["tenantId"] as TenantId;
-        const invitationEmail = invitation["email"] as string;
-        const invitationRole = invitation["role"] as string;
-        const invitationVersion = invitation["version"] as number;
+        const invitationTenantId = invitation["tenantId"] as TenantId; // @cast-boundary db-row
+        const invitationEmail = invitation["email"] as string; // @cast-boundary db-row
+        const invitationRole = invitation["role"] as string; // @cast-boundary db-row
+        const invitationVersion = invitation["version"] as number; // @cast-boundary db-row
 
         // Email-Match: User muss mit der eingeladenen Email matchen.
         // Sonst kann ein Angreifer mit Zugriff zur invitee-Mail seinen
         // eigenen Account dem Tenant zuschlagen.
         const userRow = await fetchOne(ctx.db.raw, userTable, eq(userTable.id, event.user.id));
-        if (!userRow || (userRow["email"] as string).toLowerCase() !== invitationEmail) {
+        const userEmail = userRow?.["email"] as string | undefined; // @cast-boundary db-row
+        if (!userRow || !userEmail || userEmail.toLowerCase() !== invitationEmail) {
           return writeFailure(
             new UnprocessableError(AuthErrors.inviteEmailMismatch, {
               i18nKey: "auth.errors.inviteEmailMismatch",
@@ -131,7 +132,7 @@ export function createInviteAcceptHandler() {
           createSystemUser(invitationTenantId),
           "tenant:query:memberships",
           { userId: event.user.id },
-        )) as Array<{ tenantId: string }>;
+        )) as Array<{ tenantId: string }>; // @cast-boundary db-row
         const alreadyMember = memberships.some((m) => m.tenantId === invitationTenantId);
 
         // @cast-boundary db-runner — TenantDb.raw is DbRunner

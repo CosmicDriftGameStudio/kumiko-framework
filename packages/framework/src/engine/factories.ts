@@ -39,7 +39,7 @@ export function createTextField<R extends true | false = false>(
     searchable: false,
     sortable: false,
     ...overrides,
-  } as TextFieldDef & { required: R };
+  } as TextFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 /**
@@ -59,7 +59,7 @@ export function createLongTextField<R extends true | false = false>(
     type: "longText",
     required: false,
     ...overrides,
-  } as LongTextFieldDef & { required: R };
+  } as LongTextFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 export function createBooleanField<R extends true | false = false>(
@@ -70,7 +70,7 @@ export function createBooleanField<R extends true | false = false>(
     required: false,
     default: false,
     ...overrides,
-  } as BooleanFieldDef & { required: R };
+  } as BooleanFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 export function createSelectField<
@@ -85,7 +85,7 @@ export function createSelectField<
     type: "select",
     required: false,
     ...opts,
-  } as SelectFieldDef<TOptions> & { required: R };
+  } as SelectFieldDef<TOptions> & { required: R }; // @cast-boundary engine-payload
 }
 
 /**
@@ -126,7 +126,7 @@ export function createNumberField<R extends true | false = false>(
     type: "number",
     required: false,
     ...overrides,
-  } as NumberFieldDef & { required: R };
+  } as NumberFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 export function createBigIntField<R extends true | false = false>(
@@ -136,7 +136,7 @@ export function createBigIntField<R extends true | false = false>(
     type: "bigInt",
     required: false,
     ...overrides,
-  } as BigIntFieldDef & { required: R };
+  } as BigIntFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 export function createMoneyField<R extends true | false = false>(
@@ -145,7 +145,7 @@ export function createMoneyField<R extends true | false = false>(
   return {
     type: "money",
     ...overrides,
-  } as MoneyFieldDef & { required: R };
+  } as MoneyFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 export function createEmbeddedField(
@@ -166,7 +166,7 @@ export function createDateField<R extends true | false = false>(
     type: "date",
     required: false,
     ...overrides,
-  } as DateFieldDef & { required: R };
+  } as DateFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 /**
@@ -186,7 +186,7 @@ export function createTimestampField<R extends true | false = false>(
   return {
     ...overrides,
     type: "timestamp",
-    required: (overrides?.required ?? false) as R,
+    required: (overrides?.required ?? false) as R, // @cast-boundary engine-payload
   };
 }
 
@@ -201,7 +201,7 @@ export function createTzField<R extends true | false = false>(
     type: "tz",
     required: false,
     ...overrides,
-  } as TzFieldDef & { required: R };
+  } as TzFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 /**
@@ -241,7 +241,7 @@ export function createLocatedTimestampField<R extends true | false = false>(
     type: "locatedTimestamp",
     required: false,
     ...overrides,
-  } as LocatedTimestampFieldDef & { required: R };
+  } as LocatedTimestampFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 /**
@@ -334,5 +334,5 @@ export function createEntity<F>(def: {
     // aggregate-ids are UUID. Opt-out with `idType: "serial"` for pre-ES
     // legacy tables (should be rare).
     ...def,
-  } as F extends FieldsMap ? EntityDefinition<F> : never;
+  } as F extends FieldsMap ? EntityDefinition<F> : never; // @cast-boundary engine-payload
 }

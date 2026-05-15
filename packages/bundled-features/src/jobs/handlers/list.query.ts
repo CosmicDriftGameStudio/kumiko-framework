@@ -19,7 +19,7 @@ export const listQuery = defineQueryHandler({
       conditions.push(eq(jobRunsTable.jobName, query.payload.jobName));
     }
     if (query.payload.status) {
-      conditions.push(eq(jobRunsTable.status, query.payload.status as JobRunStatus));
+      conditions.push(eq(jobRunsTable.status, query.payload.status as JobRunStatus)); // @cast-boundary engine-payload
     }
 
     const limit = query.payload.limit ?? 50;

@@ -244,7 +244,7 @@ export async function confirmSignup(
     body: JSON.stringify({ token, password }),
   });
   if (res.ok) {
-    const body = (await res.json()) as SignupConfirmSuccess;
+    const body = (await res.json()) as SignupConfirmSuccess; // @cast-boundary engine-payload
     return { ok: true, data: body };
   }
   return { ok: false, error: await parseTokenFailure(res) };

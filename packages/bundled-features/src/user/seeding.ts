@@ -57,7 +57,7 @@ export async function seedUser(db: DbConnection, options: SeedUserOptions): Prom
   const tdb = createTenantDb(db, by.tenantId, "system");
 
   const existing = await fetchOne(db, userTable, eq(userTable["email"], options.email));
-  if (existing) return existing["id"] as string;
+  if (existing) return existing["id"] as string; // @cast-boundary db-row
 
   const result = await userExecutor.create(
     {
@@ -86,7 +86,7 @@ export async function seedUser(db: DbConnection, options: SeedUserOptions): Prom
 // als ehrlicher Throw rauskommt statt downstream als undefined-Bug.
 function extractId(data: unknown, who: string): string {
   if (typeof data === "object" && data !== null && "id" in data) {
-    const id = (data as { id: unknown }).id;
+    const id = (data as { id: unknown }).id; // @cast-boundary engine-bridge
     if (typeof id === "string") return id;
   }
   throw new Error(`${who}: executor.create result has no string id (got ${JSON.stringify(data)})`);

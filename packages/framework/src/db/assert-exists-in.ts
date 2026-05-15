@@ -1,5 +1,5 @@
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { and, eq, type SQL } from "drizzle-orm";
+import type { TenantId } from "../engine/types/identifiers";
 import { NotFoundError } from "../errors";
 import type { DbConnection } from "./connection";
 import type { TenantDb } from "./tenant-db";
@@ -43,7 +43,7 @@ export async function assertExistsIn(
   const [row] = await db
     .select()
     .from(entity)
-    .where(and(...conditions) as SQL);
+    .where(and(...conditions) as SQL); // @cast-boundary db-operator
 
   if (!row) {
     const entityName = options.entityName ?? String(options.field).replace(/Id$/, "");

@@ -38,7 +38,7 @@ export const simpleRenderer: NotificationRenderer = {
   name: "simple",
 
   async render(input) {
-    const data = input.variables as EmailTemplateData;
+    const data = input.variables as EmailTemplateData; // @cast-boundary render-helper
 
     // Fallback: if no structured fields, use title + body as header + single text section
     const header = data.header ?? data.title;

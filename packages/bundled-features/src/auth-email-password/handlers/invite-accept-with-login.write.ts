@@ -114,10 +114,10 @@ export function createInviteAcceptWithLoginHandler() {
         if (!invitation || invitation["status"] !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
-        const invitationTenantId = invitation["tenantId"] as TenantId;
-        const invitationEmail = invitation["email"] as string;
-        const invitationRole = invitation["role"] as string;
-        const invitationVersion = invitation["version"] as number;
+        const invitationTenantId = invitation["tenantId"] as TenantId; // @cast-boundary db-row
+        const invitationEmail = invitation["email"] as string; // @cast-boundary db-row
+        const invitationRole = invitation["role"] as string; // @cast-boundary db-row
+        const invitationVersion = invitation["version"] as number; // @cast-boundary db-row
 
         // Email-Match vom User-Input (nicht aus session — User ist anon)
         if (event.payload.email.toLowerCase() !== invitationEmail) {
@@ -134,19 +134,19 @@ export function createInviteAcceptWithLoginHandler() {
         const userRow = await fetchOne(ctx.db.raw, userTable, eq(userTable.email, invitationEmail));
         if (!userRow?.["passwordHash"]) return invalidInviteToken();
         const passwordValid = await verifyPassword(
-          userRow["passwordHash"] as string,
+          userRow["passwordHash"] as string, // @cast-boundary db-row
           event.payload.password,
         );
         if (!passwordValid) return invalidInviteToken();
 
-        const userId = userRow["id"] as string;
+        const userId = userRow["id"] as string; // @cast-boundary db-row
 
         // Already-Member-Check (idempotent)
         const memberships = (await ctx.queryAs(
           createSystemUser(invitationTenantId),
           "tenant:query:memberships",
           { userId },
-        )) as Array<{ tenantId: string }>;
+        )) as Array<{ tenantId: string }>; // @cast-boundary db-row
         const alreadyMember = memberships.some((m) => m.tenantId === invitationTenantId);
 
         // @cast-boundary db-runner — TenantDb.raw is DbRunner

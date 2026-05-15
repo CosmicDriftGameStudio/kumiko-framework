@@ -91,7 +91,7 @@ export const downloadByTokenQuery = defineQueryHandler({
       ctx.db.raw,
       exportDownloadTokensTable,
       eq(exportDownloadTokensTable["tokenHash"], hash),
-    )) as TokenRow | null;
+    )) as TokenRow | null; // @cast-boundary db-row
 
     if (!tokenRow) {
       // Invalid token — 404 ohne Existenz-Leak. Generic NotFoundError
@@ -120,13 +120,14 @@ export const downloadByTokenQuery = defineQueryHandler({
         ctx.db.raw,
         exportJobsTable,
         eq(exportJobsTable["id"], tokenRow.jobId),
-      )) as { requestedFromTenantId: string } | null;
+      )) as { requestedFromTenantId: string } | null; // @cast-boundary db-row
       if (jobForAudit) {
+        const auditDb = ctx.db.raw as DbConnection; // @cast-boundary db-runner
         await recordInvalidAttempt({
-          db: ctx.db.raw as DbConnection,
+          db: auditDb,
           tenantId: jobForAudit.requestedFromTenantId as Parameters<
             typeof recordInvalidAttempt
-          >[0]["tenantId"],
+          >[0]["tenantId"], // @cast-boundary engine-bridge
           now,
           result: "expired",
           via: "token",
@@ -147,7 +148,7 @@ export const downloadByTokenQuery = defineQueryHandler({
       ctx.db.raw,
       exportJobsTable,
       eq(exportJobsTable["id"], tokenRow.jobId),
-    )) as JobRow | null;
+    )) as JobRow | null; // @cast-boundary db-row
 
     if (!jobRow) {
       throw new NotFoundError("export-download", undefined, {
@@ -156,10 +157,10 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection,
+        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
         tenantId: jobRow.requestedFromTenantId as Parameters<
           typeof recordInvalidAttempt
-        >[0]["tenantId"],
+        >[0]["tenantId"], // @cast-boundary engine-bridge
         now,
         result: "failed",
         via: "token",
@@ -175,10 +176,10 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
     if (!jobRow.downloadStorageKey) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection,
+        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
         tenantId: jobRow.requestedFromTenantId as Parameters<
           typeof recordInvalidAttempt
-        >[0]["tenantId"],
+        >[0]["tenantId"], // @cast-boundary engine-bridge
         now,
         result: "expired",
         via: "token",
@@ -202,10 +203,10 @@ export const downloadByTokenQuery = defineQueryHandler({
     );
     if (!provider.getSignedUrl) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection,
+        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
         tenantId: jobRow.requestedFromTenantId as Parameters<
           typeof recordInvalidAttempt
-        >[0]["tenantId"],
+        >[0]["tenantId"], // @cast-boundary engine-bridge
         now,
         result: "signedUrlNotSupported",
         via: "token",
@@ -235,14 +236,11 @@ export const downloadByTokenQuery = defineQueryHandler({
     // Wrapper (trusted-source). Direct-API-caller koennen luegen, aber
     // Audit ist nicht security-relevant.
     await recordDownloadUse({
-      // @cast-boundary db: ctx.db.raw ist DbRunner (Connection|Tx),
-      // im query-handler-Pfad ist es immer Connection. Cast legit weil
-      // recordDownloadUse intern createTenantDb braucht (DbConnection).
-      db: ctx.db.raw as DbConnection,
+      db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
       tokenId: tokenRow.id,
       tokenVersion: tokenRow.version,
       tokenUseCount: tokenRow.useCount ?? 0,
-      tenantId: jobRow.requestedFromTenantId as Parameters<typeof recordDownloadUse>[0]["tenantId"],
+      tenantId: jobRow.requestedFromTenantId as Parameters<typeof recordDownloadUse>[0]["tenantId"], // @cast-boundary engine-bridge
       now,
       ip: query.payload.auditMeta?.ip ?? null,
       userAgent: query.payload.auditMeta?.userAgent ?? null,

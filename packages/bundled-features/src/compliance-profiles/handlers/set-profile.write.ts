@@ -1,6 +1,5 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
-  type ComplianceProfileKey,
   complianceProfileOverrideSchema,
   SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
@@ -27,9 +26,7 @@ const crud = createEventStoreExecutor(tenantComplianceProfileTable, tenantCompli
 // X1) — minimal-no-region ist Default-Fallback fuer "noch keine Wahl",
 // nicht eine waehlbare Production-Option. Symmetrisch zu
 // SELECTABLE_PROFILE_KEYS aus der framework/compliance-Liste.
-const profileKeySchema = z.enum(
-  SELECTABLE_PROFILE_KEYS as readonly [ComplianceProfileKey, ...ComplianceProfileKey[]],
-);
+const profileKeySchema = z.enum(SELECTABLE_PROFILE_KEYS);
 
 // Tenant-Admin setzt Profile-Key + optional Override-JSON.
 //
@@ -69,7 +66,7 @@ export const setProfileWrite = defineWriteHandler({
         }),
       );
     }
-    const tenantId = (tenantOverride ?? event.user.tenantId) as TenantId;
+    const tenantId = (tenantOverride ?? event.user.tenantId) as TenantId; // @cast-boundary engine-payload
     const executorUser = tenantOverride !== undefined ? { ...event.user, tenantId } : event.user;
 
     // Override-Validation: muss parseables JSON-Object sein UND dem
@@ -85,12 +82,13 @@ export const setProfileWrite = defineWriteHandler({
       let parsed: unknown;
       try {
         parsed = JSON.parse(event.payload.override);
-      } catch (e) {
+      } catch (e: unknown) {
+        const parseError = e instanceof Error ? e.message : String(e);
         return writeFailure(
           new UnprocessableError("compliance_override_invalid_json", {
             details: {
               reason: "compliance_override_invalid_json",
-              parseError: (e as Error).message,
+              parseError,
             },
           }),
         );
@@ -106,7 +104,7 @@ export const setProfileWrite = defineWriteHandler({
       ctx.db,
       tenantComplianceProfileTable,
       eq(tenantComplianceProfileTable["tenantId"], tenantId),
-    )) as { id: string; version: number } | null;
+    )) as { id: string; version: number } | null; // @cast-boundary db-runner
 
     if (existing) {
       const result = await crud.update(

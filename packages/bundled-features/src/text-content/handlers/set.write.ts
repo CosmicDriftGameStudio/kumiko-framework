@@ -68,7 +68,7 @@ export const setWrite = defineWriteHandler({
     // Symmetrisch zu seedTextBlock, das TestUsers.systemAdmin (tenantId =
     // SYSTEM_TENANT) als by verwendet.
     const executorUser =
-      override !== undefined ? { ...event.user, tenantId: override as TenantId } : event.user;
+      override !== undefined ? { ...event.user, tenantId: override as TenantId } : event.user; // @cast-boundary engine-bridge
 
     const existing = await fetchOne<TextBlockRow>(
       db,

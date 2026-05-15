@@ -117,7 +117,7 @@ export function createSignupConfirmHandler() {
           },
         });
 
-        const tenantId = generateId() as TenantId;
+        const tenantId = generateId() as TenantId; // @cast-boundary engine-payload
         // Display-Name aus email-prefix als sinnvolles Default; User kann
         // den Tenant-Namen + sein eigenes displayName später ändern.
         const displayName = email.split("@")[0] ?? email;

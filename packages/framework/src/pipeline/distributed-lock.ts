@@ -30,7 +30,7 @@ export function createDistributedLock(
 
     async release(key, token) {
       // Atomic: only release if we own the lock (compare token via Lua)
-      const result = (await redis.eval(releaseScript, 1, `${prefix}${key}`, token)) as number;
+      const result = (await redis.eval(releaseScript, 1, `${prefix}${key}`, token)) as number; // @cast-boundary db-operator
       return result === 1;
     },
   };

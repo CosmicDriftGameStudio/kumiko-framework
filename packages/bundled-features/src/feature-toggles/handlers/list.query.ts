@@ -12,7 +12,7 @@ export const listQuery = defineQueryHandler({
   access: { roles: ["SystemAdmin", "Admin"] },
   handler: async (_event, ctx) => {
     type Row = typeof globalFeatureStateTable.$inferSelect;
-    const rows = (await ctx.db.select().from(globalFeatureStateTable)) as Row[];
+    const rows = (await ctx.db.select().from(globalFeatureStateTable)) as Row[]; // @cast-boundary db-row
     return {
       items: rows.map((r) => ({
         featureName: r.featureName,

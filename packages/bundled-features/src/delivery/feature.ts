@@ -31,7 +31,7 @@ export function createDeliveryFeature(): FeatureDefinition {
       table: deliveryAttemptsTable,
       apply: {
         [DELIVERY_ATTEMPT_EVENT]: async (event, tx) => {
-          const p = event.payload as z.infer<typeof deliveryAttemptSchema>;
+          const p = event.payload as z.infer<typeof deliveryAttemptSchema>; // @cast-boundary engine-payload
           // PK = aggregateId — replaying the same event twice conflicts on
           // the PK rather than silently duplicating the log row.
           await tx.insert(deliveryAttemptsTable).values({
