@@ -1166,6 +1166,44 @@ const commands = {
       console.log();
     },
   },
+
+  codemod: {
+    description:
+      "Code-Migrationen — kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]",
+    run: async () => {
+      const subcommand = Bun.argv[3];
+      if (subcommand !== "pipeline") {
+        console.log(
+          "\n  Usage: yarn kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]\n" +
+            "    --dry-run    Preview changes without writing\n" +
+            "    --verbose    Show per-file conversion details\n" +
+            "    --dir        Target directory (default: current directory)\n",
+        );
+        return;
+      }
+
+      const dryRun = Bun.argv.includes("--dry-run");
+      const verbose = Bun.argv.includes("--verbose");
+      const dirIdx = Bun.argv.indexOf("--dir");
+      const targetDir = dirIdx >= 0 ? resolvePath(Bun.argv[dirIdx + 1]!) : process.cwd();
+
+      const { runCodemod } = await import(
+        "../packages/framework/src/engine/codemod/index.ts"
+      );
+
+      console.log(dryRun ? "\n  🔍 DRY RUN — no files will be modified\n" : "");
+      console.log(`  Codemod: convert free-form write handlers → pipeline form`);
+
+      const report = await runCodemod(targetDir, { dryRun, verbose });
+
+      if (report.converted > 0) {
+        console.log(`\n  ${dryRun ? "Would convert" : "Converted"} ${report.converted} handler(s).`);
+      }
+      if (report.errors > 0) {
+        console.log(`\n  ${report.errors} error(s) during conversion. Use --verbose for details.`);
+      }
+    },
+  },
 } satisfies Record<string, { description: string; run: () => Promise<void> }>;
 
 // --- Interactive menu ---

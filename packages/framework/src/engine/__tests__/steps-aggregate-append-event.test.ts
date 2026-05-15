@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getStep } from "../define-step";
 import { buildAggregateAppendEventStep } from "../steps/aggregate-append-event";
 import type { PipelineCtx } from "../types/step";

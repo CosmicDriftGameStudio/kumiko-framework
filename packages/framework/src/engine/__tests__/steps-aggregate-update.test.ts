@@ -1,9 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getStep } from "../define-step";
 import { buildAggregateUpdateStep } from "../steps/aggregate-update";
 import type { PipelineCtx } from "../types/step";
+import type { EventStoreExecutor } from "../../db/event-store-executor";
 
-const mockExecutor = { update: vi.fn() };
+const mockUpdate = vi.fn();
+const mockExecutor = { update: mockUpdate } as unknown as EventStoreExecutor & { update: typeof mockUpdate };
 const mockDb = {};
 
 const mockCtx = {
@@ -62,7 +64,7 @@ describe("aggregate.update run", () => {
 
   it("resolves id, changes, version and calls executor.update", async () => {
     const stepDef = getStep("aggregate.update");
-    mockExecutor.update.mockResolvedValue({
+    mockUpdate.mockResolvedValue({
       isSuccess: true,
       data: { id: "abc", changes: { label: "updated" }, previous: { label: "old" } },
     });
@@ -78,7 +80,7 @@ describe("aggregate.update run", () => {
     );
 
     expect(mockExecutor.update).toHaveBeenCalled();
-    const [input, user, db] = mockExecutor.update.mock.calls[0]!;
+    const [input, user, db] = mockUpdate.mock.calls[0]!;
     expect(input).toMatchObject({ id: "abc-123", changes: { label: "updated" } });
     expect(user).toBe(mockCtx.event.user);
     expect(db).toBe(mockDb);
@@ -86,7 +88,7 @@ describe("aggregate.update run", () => {
 
   it("passes skipOptimisticLock when set", async () => {
     const stepDef = getStep("aggregate.update");
-    mockExecutor.update.mockResolvedValue({
+    mockUpdate.mockResolvedValue({
       isSuccess: true,
       data: { id: "abc", changes: {} },
     });
@@ -102,13 +104,13 @@ describe("aggregate.update run", () => {
       mockCtx,
     );
 
-    const [, , , opts] = mockExecutor.update.mock.calls[0]!;
+    const [, , , opts] = mockUpdate.mock.calls[0]!;
     expect(opts).toEqual({ skipOptimisticLock: true });
   });
 
   it("re-throws executor WriteFailure as a KumikoError", async () => {
     const stepDef = getStep("aggregate.update");
-    mockExecutor.update.mockResolvedValue({
+    mockUpdate.mockResolvedValue({
       isSuccess: false,
       error: { code: "not_found", message: "aggregate not found" },
     });

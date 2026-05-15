@@ -1,6 +1,6 @@
 import type { SQL } from "drizzle-orm";
 import { pgTable, text, uuid } from "drizzle-orm/pg-core";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getStep } from "../define-step";
 import { buildUnsafeProjectionDeleteStep } from "../steps/unsafe-projection-delete";
 import type { PipelineCtx } from "../types/step";

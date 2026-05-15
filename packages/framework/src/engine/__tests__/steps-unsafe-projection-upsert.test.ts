@@ -1,5 +1,5 @@
 import { pgTable, text, uuid } from "drizzle-orm/pg-core";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getStep } from "../define-step";
 import { buildUnsafeProjectionUpsertStep } from "../steps/unsafe-projection-upsert";
 import type { PipelineCtx } from "../types/step";
@@ -42,7 +42,7 @@ describe("buildUnsafeProjectionUpsertStep", () => {
       on: ["externalId"],
       row: { tenantId: "t1", externalId: "e1" },
     });
-    expect(step.args.row).toEqual({ tenantId: "t1", externalId: "e1" });
+    expect((step.args as { row: unknown }).row).toEqual({ tenantId: "t1", externalId: "e1" });
   });
 
   it("accepts a function row resolver", () => {
@@ -52,7 +52,7 @@ describe("buildUnsafeProjectionUpsertStep", () => {
       on: ["externalId"],
       row: resolver,
     });
-    expect(typeof step.args.row).toBe("function");
+    expect(typeof (step.args as { row: unknown }).row).toBe("function");
   });
 
   it("accepts multiple conflict key columns", () => {
@@ -61,7 +61,7 @@ describe("buildUnsafeProjectionUpsertStep", () => {
       on: ["tenantId", "externalId"],
       row: { tenantId: "t1", externalId: "e1" },
     });
-    expect(step.args.on).toEqual(["tenantId", "externalId"]);
+    expect((step.args as { on: string[] }).on).toEqual(["tenantId", "externalId"]);
   });
 });
 

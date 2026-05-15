@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { resolveOptional, resolveRequired } from "../steps/_resolver-utils";
 import type { PipelineCtx } from "../types/step";
 
-const dummyCtx = {} as PipelineCtx;
+const dummyCtx = {} as unknown as PipelineCtx;
 
 describe("resolveRequired", () => {
   it("returns a static value as-is", () => {
@@ -20,7 +20,7 @@ describe("resolveRequired", () => {
   });
 
   it("passes the full ctx to the resolver function", () => {
-    const ctx = { event: { type: "test" }, steps: { x: 1 }, scope: {} } as PipelineCtx;
+    const ctx = { event: { type: "test" }, steps: { x: 1 }, scope: {} } as unknown as PipelineCtx;
     const fn = vi.fn((c: PipelineCtx) => c.event.type);
     expect(resolveRequired(fn, ctx)).toBe("test");
   });
