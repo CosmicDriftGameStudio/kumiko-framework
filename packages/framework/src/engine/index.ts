@@ -3,6 +3,7 @@
 export { hasAccess } from "./access";
 export { validateBoot } from "./boot-validator";
 export { buildAppSchema } from "./build-app-schema";
+export { buildTarget } from "./build-target";
 export { access, createSystemConfig, createTenantConfig, createUserConfig } from "./config-helpers";
 export type { SystemHookName } from "./constants";
 export {
@@ -261,11 +262,20 @@ export type {
   ScreenSlots,
   SelectFieldDef,
   SessionUser,
+  Subscribe,
+  TargetRef,
   TenantId,
   TextFieldDef,
   ToolbarAction,
   TranslationKeys,
   TranslationsDef,
+  TreeAction,
+  TreeActionDef,
+  TreeActionsHandle,
+  TreeChildrenSubscribe,
+  TreeContext,
+  TreeNode,
+  TreeNodeState,
   ValidationError,
   ValidationHookFn,
   WorkspaceDefinition,

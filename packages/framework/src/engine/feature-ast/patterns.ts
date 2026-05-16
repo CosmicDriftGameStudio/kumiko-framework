@@ -26,6 +26,28 @@
 // **Naming convention.** Pattern `kind` matches the r.* method name
 // 1:1 (e.g. `r.writeHandler` → `kind: "writeHandler"`). No kebab/camel
 // translation layer.
+//
+// **Adding a new FeaturePattern kind — full consumer cascade.** The
+// extension-point is wider than just this file + the parser. Update
+// ALL of these when introducing a new r.* API, otherwise tests/checks
+// catch the drift but the call-site jumps across files:
+//   1. patterns.ts (this file): Pattern type + add to FeaturePattern
+//      union + getEditability switch
+//   2. feature-ast/extractors.ts: extract<Kind> function + import in
+//      patterns-import-block
+//   3. feature-ast/parse.ts: dispatcher case + import
+//   4. feature-ast/render.ts: render<Kind> function + import + switch
+//      case
+//   5. feature-ast/patch.ts: PatternId variant; if singleton-per-feature
+//      add to SINGLETON_KINDS; callMatchesId case
+//   6. pattern-library/library.ts: <kind>Schema + entry in
+//      PATTERN_LIBRARY map
+//   7. pattern-library/__tests__/library.test.ts: ALL_KINDS array +
+//      makePlaceholderPattern case
+// TS-exhaustiveness catches most omissions automatically (1, 3, 4, 5,
+// 7-via-makePlaceholderPattern), but the runtime-checked maps in 6 +
+// the ALL_KINDS array in 7 are silent if forgotten — pin them with the
+// library.test.ts coverage tests.
 
 import type { LifecycleHookType } from "../constants";
 import type {
@@ -45,6 +67,7 @@ import type { NavDefinition } from "../types/nav";
 import type { MspErrorMode } from "../types/projection";
 import type { RelationDefinition } from "../types/relations";
 import type { ScreenDefinition } from "../types/screen";
+import type { TreeActionDef } from "../types/tree-node";
 import type { WorkspaceDefinition } from "../types/workspace";
 import type { SourceLocation } from "./source-location";
 
@@ -158,6 +181,17 @@ export type UseExtensionPattern = {
   readonly options?: Readonly<Record<string, unknown>>;
 };
 
+// r.treeActions({ ... }) — Schema-Map für Visual-Tree-Action-Verben.
+// Static: Args sind Type-Samples (kein Runtime-Validator), Designer
+// rendert das als nested form pro Action. Compile-Time-Validation
+// passiert via setup-export-Handle (TreeActionsHandle), nicht über
+// dieses Pattern — das hier ist reine Runtime-Repräsentation.
+export type TreeActionsPattern = {
+  readonly kind: "treeActions";
+  readonly source: SourceLocation;
+  readonly definitions: Readonly<Record<string, TreeActionDef>>;
+};
+
 // =============================================================================
 // Mixed patterns — header (name/access/etc.) is declarative, body
 // (handler/hook/apply/transform fn) is opaque. Designer renders the
@@ -260,6 +294,16 @@ export type AuthClaimsPattern = {
   readonly kind: "authClaims";
   readonly source: SourceLocation;
   readonly fnBody: SourceLocation;
+};
+
+// r.tree(provider) — Top-Level-Tree-Provider-Function. Closure-only,
+// kein Header-Form. Designer rendert als read-only Code-Block, AI-
+// Patcher überschreibt span verbatim. Konsistent mit r.authClaims —
+// auch da ist die Function-Body die einzige Information.
+export type TreePattern = {
+  readonly kind: "tree";
+  readonly source: SourceLocation;
+  readonly providerBody: SourceLocation;
 };
 
 export type HttpRoutePattern = {
@@ -374,6 +418,7 @@ export type FeaturePattern =
   | UseExtensionPattern
   | UsesApiPattern
   | ExposesApiPattern
+  | TreeActionsPattern
   // Mixed
   | ScreenPattern
   | WriteHandlerPattern
@@ -389,6 +434,7 @@ export type FeaturePattern =
   | DefineEventPattern
   | EventMigrationPattern
   | ExtendsRegistrarPattern
+  | TreePattern
   // Catch-all
   | UnknownPattern;
 
@@ -428,6 +474,7 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "useExtension":
     case "usesApi":
     case "exposesApi":
+    case "treeActions":
       return "static";
     case "screen":
     case "writeHandler":
@@ -444,6 +491,7 @@ export function getEditability(pattern: FeaturePattern): Editability {
       return "mixed";
     case "authClaims":
     case "extendsRegistrar":
+    case "tree":
     case "unknown":
       return "opaque";
     default: {

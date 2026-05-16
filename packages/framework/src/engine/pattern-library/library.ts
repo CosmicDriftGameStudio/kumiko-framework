@@ -1054,6 +1054,44 @@ const exposesApiSchema: PatternFormSchema = {
   ],
 };
 
+// Visual-Tree pattern schemas. treeActions is a static map (Designer
+// renders the action-name → ActionDef pairs as a nested form), tree is
+// closure-only (Designer shows the provider body as read-only code).
+const treeActionsSchema: PatternFormSchema = {
+  kind: "treeActions",
+  label: { en: "Tree actions", de: "Tree-Actions" },
+  summary: { en: "Action verbs the Visual-Tree dispatches via buildTarget." },
+  category: "ui",
+  editability: "static",
+  singleton: true,
+  fields: [
+    {
+      path: "definitions",
+      label: { en: "Action definitions", de: "Action-Definitionen" },
+      input: "json-readonly",
+      readOnly: true,
+    },
+  ],
+};
+
+const treeSchema: PatternFormSchema = {
+  kind: "tree",
+  label: { en: "Tree provider", de: "Tree-Provider" },
+  summary: { en: "Subscribe-Function emitting top-level Visual-Tree nodes." },
+  category: "ui",
+  editability: "opaque",
+  singleton: true,
+  fields: [
+    {
+      path: "providerBody",
+      label: { en: "Provider body (source)", de: "Provider-Body (Source)" },
+      input: "code-block",
+      language: "typescript",
+      readOnly: true,
+    },
+  ],
+};
+
 const unknownSchema: PatternFormSchema = {
   kind: "unknown",
   label: { en: "Unknown call", de: "Unbekannter Call" },
@@ -1113,6 +1151,8 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   extendsRegistrar: extendsRegistrarSchema,
   usesApi: usesApiSchema,
   exposesApi: exposesApiSchema,
+  treeActions: treeActionsSchema,
+  tree: treeSchema,
   unknown: unknownSchema,
 } satisfies Readonly<Record<FeaturePatternKind, PatternFormSchema>>;
 

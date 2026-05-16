@@ -211,4 +211,15 @@ export type {
   ToolbarAction,
 } from "./screen";
 export { normalizeEditField, normalizeListColumn } from "./screen";
+export type { TargetRef } from "./target-ref";
+export type {
+  Subscribe,
+  TreeAction,
+  TreeActionDef,
+  TreeActionsHandle,
+  TreeChildrenSubscribe,
+  TreeContext,
+  TreeNode,
+  TreeNodeState,
+} from "./tree-node";
 export type { WorkspaceDefinition } from "./workspace";

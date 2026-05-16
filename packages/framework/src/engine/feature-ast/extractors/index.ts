@@ -54,6 +54,10 @@ export {
   extractExtendsRegistrar,
   extractUsesApi,
 } from "./round5";
+export {
+  extractTree,
+  extractTreeActions,
+} from "./round6";
 export type { ExtractOutput } from "./shared";
 export {
   fail,

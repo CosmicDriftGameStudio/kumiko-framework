@@ -57,6 +57,8 @@ const ALL_KINDS: readonly FeaturePatternKind[] = [
   "extendsRegistrar",
   "usesApi",
   "exposesApi",
+  "treeActions",
+  "tree",
   "unknown",
 ];
 
@@ -340,6 +342,10 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
         extensionName: "x",
         defBody: PLACEHOLDER_BODY_LOC,
       };
+    case "treeActions":
+      return { kind, source: PLACEHOLDER_LOC, definitions: {} };
+    case "tree":
+      return { kind, source: PLACEHOLDER_LOC, providerBody: PLACEHOLDER_BODY_LOC };
     case "unknown":
       return { kind, source: PLACEHOLDER_LOC, methodName: "x" };
     case "usesApi":

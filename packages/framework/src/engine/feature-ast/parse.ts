@@ -54,6 +54,8 @@ import {
   extractSystemScope,
   extractToggleable,
   extractTranslations,
+  extractTree,
+  extractTreeActions,
   extractUseExtension,
   extractUsesApi,
   extractWorkspace,
@@ -352,6 +354,11 @@ function dispatchExtractor(
       return extractUsesApi(call, sourceFile);
     case "exposesApi":
       return extractExposesApi(call, sourceFile);
+    // Round 6 — Visual-Tree patterns
+    case "treeActions":
+      return extractTreeActions(call, sourceFile);
+    case "tree":
+      return extractTree(call, sourceFile);
     // Unknown method — UnknownPattern signal so Designer/AI surface it
     // as "custom call" without losing the source location.
     default:

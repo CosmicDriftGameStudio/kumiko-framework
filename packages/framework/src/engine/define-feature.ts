@@ -56,6 +56,9 @@ import type {
   SecretOptions,
   TranslationKeys,
   TranslationsDef,
+  TreeActionDef,
+  TreeActionsHandle,
+  TreeChildrenSubscribe,
   ValidationHookFn,
   WriteHandlerDef,
   WriteHandlerFn,
@@ -135,6 +138,14 @@ export function defineFeature<const TName extends string, TExports = undefined>(
 
   let isSystemScoped = false;
   let toggleableDefault: boolean | undefined;
+  // Visual-Tree-Slots — at-most-one per feature, only-once-guard im
+  // registrar (siehe r.treeActions / r.tree). Undefined wenn das Feature
+  // keinen Visual-Tree-Beitrag liefert (Zero-Whitelist-Filter).
+  // Name-Collision-Sicherheit: object-literal-method-Names im registrar
+  // sind keine bindings im closure-scope, daher kollidiert die `treeActions`
+  // closure-let-var nicht mit der `treeActions(...)` registrar-Methode.
+  let treeActions: Readonly<Record<string, TreeActionDef>> | undefined;
+  let treeProvider: TreeChildrenSubscribe | undefined;
 
   // Map handler name to entity via colon convention.
   // "task:create" → entity "task". No colon → standalone handler, no mapping.
@@ -723,6 +734,38 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       };
       return { name: qualifiedName, type: options.type };
     },
+
+    treeActions<const TActions extends Record<string, TreeActionDef>>(
+      actions: TActions,
+    ): TreeActionsHandle<TName, TActions> {
+      // Only-once-guard: zweiter Aufruf ist Author-Bug, soll am
+      // Feature-File aufschlagen (gleicher Stil wie r.toggleable).
+      if (treeActions !== undefined) {
+        throw new Error(
+          `[Feature ${name}] r.treeActions() already called. ` +
+            `Each feature may declare a single tree-actions schema.`,
+        );
+      }
+      treeActions = actions;
+      // Return typed handle für setup-export. Frozen damit Caller die
+      // Map nicht nachträglich mutieren (würde Pattern-AST + Runtime-
+      // Lookup divergieren lassen).
+      return Object.freeze({
+        id: name,
+        treeActions: actions,
+      });
+    },
+
+    tree(provider: TreeChildrenSubscribe): void {
+      // Only-once-guard analog zu r.treeActions.
+      if (treeProvider !== undefined) {
+        throw new Error(
+          `[Feature ${name}] r.tree() already called. ` +
+            `Each feature may declare a single tree-provider.`,
+        );
+      }
+      treeProvider = provider;
+    },
   };
 
   const exports = setup(registrar) as TExports; // @cast-boundary engine-bridge
@@ -775,5 +818,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     workspaces,
     httpRoutes,
     rawTables,
+    ...(treeActions !== undefined && { treeActions }),
+    ...(treeProvider !== undefined && { treeProvider }),
   };
 }

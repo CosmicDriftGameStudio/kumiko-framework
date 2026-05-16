@@ -54,6 +54,7 @@ import type { NavDefinition } from "./nav";
 import type { MultiStreamProjectionDefinition, ProjectionDefinition } from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
 import type { ScreenDefinition } from "./screen";
+import type { TreeActionDef, TreeActionsHandle, TreeChildrenSubscribe } from "./tree-node";
 import type { WorkspaceDefinition } from "./workspace";
 
 // --- Metrics (declared by features via r.metric()) ---
@@ -224,6 +225,21 @@ export type FeatureDefinition = {
   // shellWorkspaces consumes the resolved per-workspace nav list at mount
   // time; engine validates roles + nav refs at boot.
   readonly workspaces: Readonly<Record<string, WorkspaceDefinition>>;
+  // Tree-Actions-Map declared via r.treeActions(). At-most-one per feature
+  // (only-once-guard at registration). Erased to `Record<string,
+  // TreeActionDef>` for runtime registry-lookup (Visual-Tree-Component
+  // dispatching, Pattern-AST consumers). The compile-time-typed surface
+  // is the registrar's return value (TreeActionsHandle) which the
+  // feature exports via setup-return — buildTarget consumes the handle,
+  // not this slot. See visual-tree.md A5 + A7.
+  readonly treeActions?: Readonly<Record<string, TreeActionDef>>;
+  // Tree-Provider declared via r.tree(). At-most-one per feature.
+  // Provider liefert die Top-Level-Knoten dieses Features im Visual-
+  // Workspace (navigation: "tree"). Subscribe-Form mit lazy-Eval: erst
+  // beim Mount des Workspaces aufgerufen, kann Updates emittieren.
+  // Feature ohne treeProvider ist im Visual-Workspace unsichtbar
+  // (Zero-Whitelist-Filter aus visual-tree.md A2).
+  readonly treeProvider?: TreeChildrenSubscribe;
   // HTTP-Routes declared via r.httpRoute(). Index is "METHOD path"
   // (z.B. "GET /feed.xml") — eindeutig pro Feature. Die App-Server-
   // Boot-Stage iteriert getAllHttpRoutes() und mountet jede Route auf
@@ -506,6 +522,44 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // a non-empty string is the contract. If you can't write a reason,
   // declare data via `r.entity()` instead.
   rawTable(name: string, table: PgTable, options: RawTableOptions): void;
+
+  // Register the tree-actions schema for this feature — a map of
+  // action-name → action-definition (with optional typed args). At-most-
+  // one call per feature.
+  //
+  // Returns a TreeActionsHandle that the feature exports via setup-return
+  // (Memory `[EventDef-Exports-Pattern]`). The handle carries the
+  // literal-typed action-map that `buildTarget` consumes for compile-
+  // time validation:
+  //
+  //   const handle = r.treeActions({
+  //     edit: { args: { slug: "" as string } },
+  //     list: {},
+  //   });
+  //   return { handle };
+  //
+  // Without this typed return, the action-map collapses to
+  // `Record<string, TreeActionDef>` at the buildTarget call-site and
+  // every action becomes accept-anything-string. See visual-tree.md A5.
+  //
+  // The runtime FeatureDefinition.treeActions slot stores the same map
+  // as erased Record (registry lookup, Pattern-AST consumers).
+  treeActions<const TActions extends Record<string, TreeActionDef>>(
+    actions: TActions,
+  ): TreeActionsHandle<TFeature, TActions>;
+
+  // Register the tree-provider for this feature — the Subscribe-Function
+  // that emits the top-level Tree-Knoten when the Visual-Workspace
+  // (navigation: "tree") mounts. At-most-one call per feature.
+  //
+  // Provider receives a TreeContext (Phase-0-stub, opaque) and an
+  // emit-function; returns an unsubscribe-function. Initial-emit synchron
+  // oder async, weitere Emits beliebig oft (e.g. on entity-update SSE).
+  //
+  // A feature without r.tree() is invisible in `navigation: "tree"`-
+  // workspaces — that's the Zero-Whitelist-Filter from visual-tree.md A2:
+  // provider-Vorhandensein ist der Filter, kein Workspace-Mapping.
+  tree(provider: TreeChildrenSubscribe): void;
 };
 
 // --- Registry (created from features) ---
@@ -677,4 +731,20 @@ export type Registry = {
   // validator rejects more than one. Apps without a default fall back to
   // the first workspace the user has access to.
   getDefaultWorkspace(): WorkspaceDefinition | undefined;
+
+  // Tree-Providers declared via r.tree() across all features. Keyed by
+  // declaring feature name (NOT qualified — Provider sind feature-bound,
+  // ein Feature liefert genau eine Provider-Function). The Visual-Tree
+  // component (renderer-web) iteriert getTreeProviders() beim Mount des
+  // navigation: "tree"-Workspaces, ruft jeden Provider mit ctx auf,
+  // sammelt die emitted TreeNode[] und merged sie zur Top-Level-Liste.
+  // See visual-tree.md A2 (Zero-Whitelist) + A4 (Subscribe-Form).
+  getTreeProviders(): ReadonlyMap<string, TreeChildrenSubscribe>;
+
+  // Tree-Actions-Map des Features. Returns the erased Record (compile-
+  // time-typed handle wandert über setup-export, nicht hier). Visual-
+  // Tree-Component nutzt das für Runtime-Action-Lookup beim Klick auf
+  // einen TreeNode.target — der Resolver findet das Feature via
+  // TargetRef.featureId und holt sich die zugehörige Action-Definition.
+  getTreeActions(featureName: string): Readonly<Record<string, TreeActionDef>> | undefined;
 };
