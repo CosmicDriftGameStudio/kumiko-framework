@@ -1,5 +1,62 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.3.0
+
+### Minor Changes
+
+- 0.3.0 bringt zwei neue Subsysteme (Step-Engine Tier-3 + Visual-Tree) plus
+  eine AST-Codemod-Pipeline als Vorarbeit für den L2-AI-Layer.
+
+  ### Breaking Changes
+
+  - `skipTransitionGuard` → `unsafeSkipTransitionGuard` (Rename in
+    feature-ast + engine). Der `unsafe`-Prefix macht die Tragweite des
+    Casts sichtbar und ist konsistent zur `unsafeProjectionUpsert`- und
+    `r.rawTable`-Konvention. Migration: 1:1-Ersetzung, keine Verhaltens-Änderung.
+
+  ### Features
+
+  - **Step-Engine M.4 — Tier-3 Workflow-Engine.** Neue Step-Vocabulary
+    `wait`, `waitForEvent`, `retry` ermöglicht persistierte Long-Running-Flows
+    über Job-Boundaries hinweg. Q7 Snapshot-at-Start hängt jedem Step-Run
+    einen SHA-256-Fingerprint des Aggregat-Zustands an, sodass Replays
+    deterministisch gegen den ursprünglichen Eingangszustand laufen.
+  - **Visual-Tree V.1.x — Tree-API + Editor-Panel.** Neue `VisualTree`-
+    Component plus TreeProvider-Pattern; erste TreeProviders für
+    `text-content` und `legal-pages` (CMS-light + Impressum/Privacy).
+    Fundament für den späteren No-Code-Designer (~3000 LOC, 98 Tests).
+  - **Codemod-Pipeline.** AST-basierte Patcher-Module für strukturelle
+    Feature-Edits — wird vom kommenden L2-AI-Layer als Tool-Surface
+    verwendet, ist aber eigenständig nutzbar für ts-morph-style Migrationen.
+  - **user-data-rights Sample-Recipe.** DSGVO Art. 15/17/18/20 vollständig
+    als Sample-Recipe (`samples/recipes/`) inklusive README — zeigt die
+    Export- und Forget-Pipeline gegen den `compliance-profiles`-Default
+    (`eu-dsgvo`).
+
+  ### Fixes
+
+  - `tier-engine`: auto-default-tier-Hook benutzt jetzt `ctx.db.raw` für
+    Event-Store-Operationen (#37, vorher: stiller Bug, 22 Tage live).
+  - `engine`: unsafe-projection-upsert nutzt `as never` statt `as any` —
+    schmaler Cast-Surface, weniger Compiler-Knebel.
+  - `visual-tree`: runtime-isolation marker für client-konsumierte Files,
+    damit der Multi-Entry-Build den richtigen Bundle-Split bekommt.
+  - `feature-ast`: vollständiger `unsafeSkipTransitionGuard`-Rename (war
+    in zwei Modulen noch der alte Name).
+  - `framework`: Error-Reasons + `noConsole`-Lint + No-Date-API-Guard
+    wieder push-ready.
+
+  ### Library-Updates
+
+  hono 4.12, jose 6.2, stripe 22.1, meilisearch 0.58, marked 18,
+  bun-types 1.3.13, lucide-react 1.14, bullmq 5.76, ioredis 5.10,
+  i18next 26.0, react + radix-ui-primitives auf aktuelle Minors.
+
+### Patch Changes
+
+- Updated dependencies
+  - @cosmicdrift/kumiko-framework@0.3.0
+
 ## 0.2.3
 
 ### Patch Changes
