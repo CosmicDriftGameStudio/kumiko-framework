@@ -28,9 +28,14 @@ export function nextCronDate(schedule: string, since: Temporal.Instant): Tempora
 
   // Move to the same-day candidate at cronHour:cronMin (UTC), then bump
   // by one day until strictly after `since`.
-  let candidate = since
-    .toZonedDateTimeISO("UTC")
-    .with({ hour: cronHour, minute: cronMin, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 });
+  let candidate = since.toZonedDateTimeISO("UTC").with({
+    hour: cronHour,
+    minute: cronMin,
+    second: 0,
+    millisecond: 0,
+    microsecond: 0,
+    nanosecond: 0,
+  });
   while (Temporal.Instant.compare(candidate.toInstant(), since) <= 0) {
     candidate = candidate.add({ days: 1 });
   }

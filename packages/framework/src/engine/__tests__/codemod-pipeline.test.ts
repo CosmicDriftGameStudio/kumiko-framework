@@ -149,7 +149,7 @@ describe("analyzeFile", () => {
     expect(result).not.toBeNull();
     expect(result!.pattern).toBe("free-form-write");
     expect(result!.convertible).toBe(true);
-    expect(result!.reason).toBe("free-form write handler");
+    expect(result!.reason).toBe("free_form_write_handler");
   });
 
   it("detects already-converted pipeline write handler", () => {
@@ -158,7 +158,7 @@ describe("analyzeFile", () => {
     expect(result).not.toBeNull();
     expect(result!.pattern).toBe("pipeline-write");
     expect(result!.convertible).toBe(false);
-    expect(result!.reason).toBe("already uses pipeline form");
+    expect(result!.reason).toBe("already_uses_pipeline_form");
   });
 
   it("detects query handler as non-convertible", () => {
@@ -167,7 +167,7 @@ describe("analyzeFile", () => {
     expect(result).not.toBeNull();
     expect(result!.pattern).toBe("query-handler");
     expect(result!.convertible).toBe(false);
-    expect(result!.reason).toBe("query handlers not convertible");
+    expect(result!.reason).toBe("query_handlers_not_convertible");
   });
 });
 
