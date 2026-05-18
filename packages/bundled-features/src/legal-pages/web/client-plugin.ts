@@ -20,7 +20,7 @@ import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framew
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { LEGAL_OPTIONAL_BLOCKS, LEGAL_REQUIRED_BLOCKS } from "../constants";
 
-const treeProvider: TreeChildrenSubscribe = (_ctx) => (emit) => {
+const treeProvider: TreeChildrenSubscribe = () => (emit) => {
   const allBlocks = [...LEGAL_REQUIRED_BLOCKS, ...LEGAL_OPTIONAL_BLOCKS];
   const nodes: readonly TreeNode[] = allBlocks.map((b) => ({
     label: `${b.slug} (${b.lang})`,

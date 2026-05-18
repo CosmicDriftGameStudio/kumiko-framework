@@ -573,9 +573,10 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // that emits the top-level Tree-Knoten when the Visual-Workspace
   // (navigation: "tree") mounts. At-most-one call per feature.
   //
-  // Provider receives a TreeContext (Phase-0-stub, opaque) and an
-  // emit-function; returns an unsubscribe-function. Initial-emit synchron
-  // oder async, weitere Emits beliebig oft (e.g. on entity-update SSE).
+  // Provider returns a Subscribe-Function (emit-fn → unsubscribe-fn).
+  // Initial-emit synchron oder async, weitere Emits beliebig oft (e.g.
+  // on entity-update SSE). Provider sind session-bound; tenantId fließt
+  // über die Backend-Session bei fetch/dispatch, nicht über ein ctx-Arg.
   //
   // A feature without r.tree() is invisible in `navigation: "tree"`-
   // workspaces — that's the Zero-Whitelist-Filter from visual-tree.md A2:

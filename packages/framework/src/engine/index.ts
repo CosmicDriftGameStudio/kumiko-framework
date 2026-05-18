@@ -293,7 +293,6 @@ export type {
   TreeActionDef,
   TreeActionsHandle,
   TreeChildrenSubscribe,
-  TreeContext,
   TreeNode,
   TreeNodeState,
   UnsafeAppendEventFn,

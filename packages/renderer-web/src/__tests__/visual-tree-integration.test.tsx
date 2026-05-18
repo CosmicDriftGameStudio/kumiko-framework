@@ -18,9 +18,9 @@
 //      zeigt VisualTree mit beiden Provider-Beiträgen
 //
 // **Memory `[Kein Fake-Dispatcher]`-Note**: V.1.1 hat keine HTTP-Calls
-// (Tree-Provider sind reine Client-Functions die nur ctx.tenantId
-// lesen). Echtes setupTestStack kommt mit V.1.2 wenn text-content's
-// Slug-Liste durch die Server-Pipeline geht.
+// (Tree-Provider sind reine Client-Functions ohne Args). Echtes
+// setupTestStack kommt mit V.1.2 wenn text-content's Slug-Liste durch
+// die Server-Pipeline geht.
 
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import type { FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";

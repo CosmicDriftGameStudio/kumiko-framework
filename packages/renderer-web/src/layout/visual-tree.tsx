@@ -14,36 +14,20 @@
 // silent fallback). Apps die navigation:"tree" deklarieren aber keinen
 // clientFeatures.treeProvider liefern, kriegen eine sichtbare Diagnose.
 //
-// **Tenant-Source V.1.1**: TreeContext.tenantId ist auf SYSTEM_TENANT_ID
-// gepinnt. Provider die echten Tenant brauchen kommen V.1.2 (text-content)
-// — dann wird der Tenant-Source via Auth-Layer / TenantContext / Prop
-// verdrahtet. V.1.1 zeigt das Wiring durch, kein konkreter Tenant-Bedarf.
+// **Tenant-Source**: Provider sind session-bound; Backend liest tenantId
+// aus session bei jedem fetch/dispatch. V.1.1 hatte ein TreeContext-Arg
+// mit hardcoded pinned tenantId, das vom einzigen Consumer (text-content)
+// ignoriert wurde. SR2-Rip 2026-05-18: Dead-API entfernt. Tenant-aware
+// Provider re-introduce wenn realer Bedarf (siehe tree-node.ts comment).
 //
 // Siehe visual-tree.md V.1.1-A.
 
-import type {
-  TenantId,
-  TreeChildrenSubscribe,
-  TreeContext,
-  TreeNode,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTreeProviders } from "../app/tree-providers-context";
 import { TreeNodeRenderer } from "./tree-node-renderer";
 
 const EXPANDED_STORAGE_PREFIX = "kumiko:visual-tree:expanded:";
-
-// V.1.1-Pin: TenantId für die Default-Tree-Context. Lokal als Branded-
-// Type-Construction (Memory `[Type Assertions]`) statt Value-Import aus
-// /engine — der engine-Barrel ist `runtime`-klassifiziert und ein client-
-// Modul darf ihn nicht als Wert konsumieren. **Sync-Pflicht**: muss mit
-// SYSTEM_TENANT_ID aus engine/types/identifiers.ts identisch bleiben;
-// ein Mismatch zeigt sich als „falscher Tenant" in Provider-Requests.
-// V.1.2 ersetzt den Pin durch echten Tenant-Source (TenantContext oder
-// Auth-Layer) sobald der erste Provider tenant-spezifische Daten braucht.
-const SYSTEM_TENANT_ID_PIN = "00000000-0000-4000-8000-000000000000" as TenantId;
-
-const DEFAULT_TREE_CTX: TreeContext = Object.freeze({ tenantId: SYSTEM_TENANT_ID_PIN });
 
 export type VisualTreeProps = {
   /** Workspace-ID des aktiven `navigation:"tree"`-Workspaces. Wird als
@@ -101,7 +85,6 @@ export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
           key={featureName}
           featureName={featureName}
           provider={provider}
-          ctx={DEFAULT_TREE_CTX}
           expanded={expanded}
           onToggle={handleToggle}
         />
@@ -116,13 +99,11 @@ export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
 function ProviderBranch({
   featureName,
   provider,
-  ctx,
   expanded,
   onToggle,
 }: {
   readonly featureName: string;
   readonly provider: TreeChildrenSubscribe;
-  readonly ctx: TreeContext;
   readonly expanded: ReadonlySet<string>;
   readonly onToggle: (path: string) => void;
 }): ReactNode {
@@ -132,18 +113,15 @@ function ProviderBranch({
   const [nodes, setNodes] = useState<readonly TreeNode[] | null>(null);
 
   useEffect(() => {
-    // TODO V.1.2: Subscribe-Error-Handling. Drei Error-Surfaces sind heute
-    // nicht abgedeckt: (1) provider(ctx) wirft synchron, (2) subscribe(emit)
+    // TODO V.1.3: Subscribe-Error-Handling. Drei Error-Surfaces sind heute
+    // nicht abgedeckt: (1) provider() wirft synchron, (2) subscribe(emit)
     // wirft synchron, (3) Provider-internes SSE/fetch wirft → emit nie
-    // gefeuert, „lädt …" bleibt unendlich. Fix-Shape hängt vom
-    // V.1.2-Consumer (text-content) ab — transient-network-blip vs.
-    // tenant-misconfig haben unterschiedliche Recovery-Pfade. Reload-
-    // Action im Knoten (state="error" + retry-Button) als minimaler
-    // Plan, aber ohne konkreten Failure-Mode-Anker keine richtige Spec.
-    const subscribe = provider(ctx);
+    // gefeuert, „lädt …" bleibt unendlich. Reload-Action im Knoten
+    // (state="error" + retry-Button) als minimaler Plan.
+    const subscribe = provider();
     const unsubscribe = subscribe(setNodes);
     return unsubscribe;
-  }, [provider, ctx]);
+  }, [provider]);
 
   if (nodes === null) {
     return (
@@ -166,7 +144,6 @@ function ProviderBranch({
           <TreeNodeRenderer
             key={nodePath}
             node={node}
-            ctx={ctx}
             path={nodePath}
             expanded={expanded}
             onToggle={onToggle}

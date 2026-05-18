@@ -218,7 +218,6 @@ export type {
   TreeActionDef,
   TreeActionsHandle,
   TreeChildrenSubscribe,
-  TreeContext,
   TreeNode,
   TreeNodeState,
 } from "./tree-node";

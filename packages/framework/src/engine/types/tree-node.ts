@@ -23,7 +23,6 @@
 //
 // Siehe docs/plans/architecture/visual-tree.md A4.
 
-import type { TenantId } from "./identifiers";
 import type { TargetRef } from "./target-ref";
 
 export type TreeNodeState = "filled" | "stub" | "empty" | "loading" | "error";
@@ -78,22 +77,16 @@ export type TreeNode = {
 export type Subscribe<T> = (emit: (value: T) => void) => () => void;
 
 // TreeChildrenSubscribe — Lazy-Variante für dynamic Children. Wird
-// erst aufgerufen wenn der Knoten im UI ausgeklappt wird. ctx ist
-// für Phase 0 ein opaque empty Type; V.1.1 erweitert ihn um Query-/
-// Subscribe-Helpers (entity-list, slug-list etc.).
-export type TreeChildrenSubscribe = (ctx: TreeContext) => Subscribe<readonly TreeNode[]>;
-
-// TreeContext — Provider erhält context-Objekt mit den minimal-nötigen
-// React-Tree-State-Bridges. V.1.1 startet mit `tenantId` only (Provider
-// braucht tenant-awareness sonst stale-tenant-Bug bei Tenant-Switch);
-// `query` und `subscribe` werden additiv ergänzt wenn ein konkreter
-// Konsument sie braucht (V.1.2: text-content slug-list-query, später
-// SSE-driven re-emit). Memory `[Keine Optionen ohne Bedarf]` — surface
-// wächst mit Bedarfen, nicht mit Spekulation. Siehe visual-tree.md
-// V.1.1-Decision D1.
-export type TreeContext = Readonly<{
-  readonly tenantId: TenantId;
-}>;
+// erst aufgerufen wenn der Knoten im UI ausgeklappt wird. Kein ctx-
+// Argument: Provider sind session-bound; Backend liest tenantId aus
+// session bei jedem fetch/dispatch. V.1.1 hatte ein ctx mit tenantId,
+// das aber im Browser nie echten Tenant trug (war auf SYSTEM_TENANT_ID
+// gepinnt) und vom einzigen V.1.2-Consumer (text-content) ignoriert
+// wurde. SR2-Rip 2026-05-18: Dead-API entfernt; wenn später ein
+// Provider tenant-aware-rendern muss (z.B. cross-tenant-Dashboards
+// für SystemAdmin), wird ctx mit echtem Tenant-Source aus dem Auth-
+// Layer re-introduziert. YAGNI bis dahin.
+export type TreeChildrenSubscribe = () => Subscribe<readonly TreeNode[]>;
 
 // TreeActionDef — Schema-Eintrag pro Action in der treeActions-Map
 // eines Features. Phase 0: Args sind ein optionales Type-Sample

@@ -85,7 +85,7 @@ function groupBlocksBySlugPrefix(blocks: readonly BlockSummary[]): readonly Tree
   return rootNodes;
 }
 
-const treeProvider: TreeChildrenSubscribe = (_ctx) => (emit) => {
+const treeProvider: TreeChildrenSubscribe = () => (emit) => {
   fetch("/api/query", {
     method: "POST",
     headers: { "content-type": "application/json" },

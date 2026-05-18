@@ -21,7 +21,6 @@
 import type {
   TreeAction,
   TreeChildrenSubscribe,
-  TreeContext,
   TreeNode,
   TreeNodeState,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -51,7 +50,6 @@ function isSubscribeFn(c: readonly TreeNode[] | TreeChildrenSubscribe): c is Tre
 
 export type TreeNodeRendererProps = {
   readonly node: TreeNode;
-  readonly ctx: TreeContext;
   readonly path: string;
   readonly expanded: ReadonlySet<string>;
   readonly onToggle: (path: string) => void;
@@ -60,7 +58,6 @@ export type TreeNodeRendererProps = {
 
 export function TreeNodeRenderer({
   node,
-  ctx,
   path,
   expanded,
   onToggle,
@@ -84,10 +81,10 @@ export function TreeNodeRenderer({
     if (!isExpanded) return;
     if (node.children === undefined) return;
     if (!isSubscribeFn(node.children)) return; // static-Array-Pfad in ChildrenView
-    const subscribe = node.children(ctx);
+    const subscribe = node.children();
     const unsubscribe = subscribe(setDynamicChildren);
     return unsubscribe;
-  }, [isExpanded, node.children, ctx]);
+  }, [isExpanded, node.children]);
 
   const stateClass = STATE_CLASSES[node.state ?? "filled"];
   const indentStyle = { paddingLeft: `${depth * 12 + 8}px` };
@@ -142,7 +139,6 @@ export function TreeNodeRenderer({
       {isExpanded && (
         <ChildrenView
           node={node}
-          ctx={ctx}
           path={path}
           expanded={expanded}
           onToggle={onToggle}
@@ -216,7 +212,6 @@ function ActionButton({
 
 function ChildrenView({
   node,
-  ctx,
   path,
   expanded,
   onToggle,
@@ -224,7 +219,6 @@ function ChildrenView({
   dynamicChildren,
 }: {
   readonly node: TreeNode;
-  readonly ctx: TreeContext;
   readonly path: string;
   readonly expanded: ReadonlySet<string>;
   readonly onToggle: (path: string) => void;
@@ -248,7 +242,6 @@ function ChildrenView({
             <TreeNodeRenderer
               key={childPath}
               node={child}
-              ctx={ctx}
               path={childPath}
               expanded={expanded}
               onToggle={onToggle}
@@ -279,7 +272,6 @@ function ChildrenView({
           <TreeNodeRenderer
             key={childPath}
             node={child}
-            ctx={ctx}
             path={childPath}
             expanded={expanded}
             onToggle={onToggle}

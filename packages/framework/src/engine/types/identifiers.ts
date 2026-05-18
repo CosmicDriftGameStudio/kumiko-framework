@@ -1,4 +1,3 @@
-// @runtime client
 // Domain-identifier type aliases. Used everywhere a tenantId/userId/aggregateId
 // travels through the framework. One declaration per concept so future
 // representation changes (branded types, UUID validation, opaque wrappers)
