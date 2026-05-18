@@ -24,10 +24,22 @@ import type {
   TreeNode,
   TreeNodeState,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, File, Folder, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn";
 import { dispatchTarget } from "./target-resolver-stub";
+
+// Icon-Registry (V.1.2-Stub): Provider liefern symbolische String-Keys
+// (`node.icon = "folder"`), Renderer mappt auf das lucide-Component.
+// Unknown Keys → kein Render (sauber leerer Slot, kein plain-string-
+// Overlap im 14px-Container). V.1.3+ erweitert Registry um App-
+// erweiterbare Custom-Icons; aktuelles Set deckt Tree-Folder/File-Bedarf
+// vom V.1.2-Consumer (text-content groupBlocksBySlugPrefix → "folder")
+// und legal-pages-Slugs (no icon set).
+const NODE_ICONS: Readonly<Record<string, typeof Folder>> = {
+  folder: Folder,
+  file: File,
+};
 
 // State → Tailwind-Klassen-Mapping. „filled" ist no-op (default-text).
 // Restliche Werte signalisieren visuell: stub = leise, empty = stark
@@ -125,11 +137,12 @@ export function TreeNodeRenderer({
         aria-expanded={hasChildren ? isExpanded : undefined}
       >
         <ChevronGlyph hasChildren={hasChildren} expanded={isExpanded} />
-        {node.icon !== undefined && (
-          <span aria-hidden className="size-3.5">
-            {node.icon}
-          </span>
-        )}
+        {node.icon !== undefined &&
+          (() => {
+            const IconComponent = NODE_ICONS[node.icon];
+            if (IconComponent === undefined) return null;
+            return <IconComponent aria-hidden className="size-3.5 shrink-0" />;
+          })()}
         <span className="flex-1 truncate text-sm">{node.label}</span>
         <HoverActions
           actions={node.actions}

@@ -18,6 +18,7 @@
 // ist no-op. V.1.3+ kann SSE-driven Re-Emit einbauen wenn text-block-
 // updated-Events propagiert werden.
 
+import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import type {
   TargetRef,
   TreeChildrenSubscribe,
@@ -86,9 +87,15 @@ function groupBlocksBySlugPrefix(blocks: readonly BlockSummary[]): readonly Tree
 }
 
 const treeProvider: TreeChildrenSubscribe = () => (emit) => {
+  // CSRF-Header bei authenticated requests pflicht (auth-middleware
+  // double-submit pattern). Anonymous/Pre-Login wäre csrf-token=undefined
+  // → header weggelassen → server lässt die anonymous-Variante durch.
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  const csrf = readCsrfToken();
+  if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
   fetch("/api/query", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify({
       type: TextContentQueries.byTenant,
       payload: {},
