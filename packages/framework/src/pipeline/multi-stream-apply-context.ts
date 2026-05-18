@@ -2,10 +2,10 @@ import type { DbRunner } from "../db/connection";
 import type {
   AppendEventArgs,
   AppendEventFn,
-  UnsafeAppendEventFn,
   KumikoEventTypeMap,
   Registry,
   TenantId,
+  UnsafeAppendEventFn,
 } from "../engine/types";
 import { loadAggregate, loadAggregateAsOf, type StoredEvent } from "../event-store/event-store";
 import { upcastStoredEvents } from "../event-store/upcaster";

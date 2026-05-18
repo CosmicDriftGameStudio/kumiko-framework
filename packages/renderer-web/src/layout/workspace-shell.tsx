@@ -33,12 +33,12 @@ import type { AccessRule } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import { qualifyNavId, toAppSchema, useNav } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
+import { useResolvers } from "../app/resolvers-context";
 import { AppLayout } from "./app-layout";
+import { EditorPanel } from "./editor-panel";
 import { lastSegment, NavTree } from "./nav-tree";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
-import { useResolvers } from "../app/resolvers-context";
-import { EditorPanel } from "./editor-panel";
 import { VisualTree } from "./visual-tree";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 

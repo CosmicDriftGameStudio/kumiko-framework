@@ -3,10 +3,18 @@
   "compilerOptions": {
     "outDir": "dist",
     "paths": {
-      "@cosmicdrift/kumiko-framework/engine": ["../../../packages/framework/src/engine"],
-      "@cosmicdrift/kumiko-framework/db": ["../../../packages/framework/src/db"],
-      "@cosmicdrift/kumiko-framework/pipeline": ["../../../packages/framework/src/pipeline"],
-      "@cosmicdrift/kumiko-framework/errors": ["../../../packages/framework/src/errors"]
+      "@cosmicdrift/kumiko-framework/engine": [
+        "../../../packages/framework/src/engine"
+      ],
+      "@cosmicdrift/kumiko-framework/db": [
+        "../../../packages/framework/src/db"
+      ],
+      "@cosmicdrift/kumiko-framework/pipeline": [
+        "../../../packages/framework/src/pipeline"
+      ],
+      "@cosmicdrift/kumiko-framework/errors": [
+        "../../../packages/framework/src/errors"
+      ]
     }
   },
   "include": ["src"]

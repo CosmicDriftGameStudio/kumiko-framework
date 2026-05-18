@@ -36,7 +36,7 @@ import { useBrowserTokensApi } from "../tokens";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { useBrowserNavApi } from "./nav";
-import { ResolversProvider, type ResolverComponent } from "./resolvers-context";
+import { type ResolverComponent, ResolversProvider } from "./resolvers-context";
 import { TreeProvidersProvider } from "./tree-providers-context";
 
 // Web-Bootstrap. Mounted den ganzen Kumiko-Render-Stack im Browser:
@@ -253,9 +253,9 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
                 <ColumnRenderersProvider value={columnRenderers}>
                   <TreeProvidersProvider value={treeProviders}>
                     <ResolversProvider resolvers={resolvers}>
-                    <ToastProvider>
-                      {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                    </ToastProvider>
+                      <ToastProvider>
+                        {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                      </ToastProvider>
                     </ResolversProvider>
                   </TreeProvidersProvider>
                 </ColumnRenderersProvider>

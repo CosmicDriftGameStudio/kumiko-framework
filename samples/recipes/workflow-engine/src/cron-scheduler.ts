@@ -14,26 +14,27 @@ export type CronWorkflow = WorkflowDefinition & {
 };
 
 // Parse a cron expression in the format "minute hour * * *" and return
-// the next scheduled Date (UTC), or null if the expression is invalid.
-// Wildcards for day/month/weekday are accepted; numeric minute+hour required.
-export function nextCronDate(schedule: string, since: Date): Date | null {
+// the next scheduled Instant (UTC), or null if invalid. Wildcards for
+// day/month/weekday are accepted; numeric minute+hour required.
+export function nextCronDate(schedule: string, since: Temporal.Instant): Temporal.Instant | null {
   const parts = schedule.trim().split(/\s+/);
   if (parts.length < 5) return null;
+  const [minStr, hourStr] = parts;
+  if (minStr === undefined || hourStr === undefined) return null;
 
-  const cronMin = parseInt(parts[0]!, 10);
-  const cronHour = parseInt(parts[1]!, 10);
+  const cronMin = parseInt(minStr, 10);
+  const cronHour = parseInt(hourStr, 10);
   if (Number.isNaN(cronMin) || Number.isNaN(cronHour)) return null;
 
-  const candidate = new Date(since);
-  candidate.setUTCSeconds(0, 0);
-  candidate.setUTCMinutes(candidate.getUTCMinutes() + 1);
-  candidate.setUTCHours(cronHour, cronMin, 0, 0);
-
-  while (candidate.getTime() <= since.getTime()) {
-    candidate.setUTCDate(candidate.getUTCDate() + 1);
+  // Move to the same-day candidate at cronHour:cronMin (UTC), then bump
+  // by one day until strictly after `since`.
+  let candidate = since
+    .toZonedDateTimeISO("UTC")
+    .with({ hour: cronHour, minute: cronMin, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 });
+  while (Temporal.Instant.compare(candidate.toInstant(), since) <= 0) {
+    candidate = candidate.add({ days: 1 });
   }
-
-  return candidate;
+  return candidate.toInstant();
 }
 
 /**
@@ -42,8 +43,8 @@ export function nextCronDate(schedule: string, since: Date): Date | null {
  */
 export async function runDueCronWorkflows(
   workflows: readonly CronWorkflow[],
-  lastRuns: Map<string, Date>,
-  now: Date,
+  lastRuns: Map<string, Temporal.Instant>,
+  now: Temporal.Instant,
   handlerCtx: HandlerContext,
 ): Promise<number> {
   let count = 0;
@@ -52,7 +53,7 @@ export async function runDueCronWorkflows(
     const lastRun = lastRuns.get(wf.name) ?? now;
     const next = nextCronDate(wf.trigger.schedule, lastRun);
 
-    if (next && next.getTime() <= now.getTime()) {
+    if (next && Temporal.Instant.compare(next, now) <= 0) {
       const runId = `wf-${wf.name}-cron-${uuid()}`;
       await startAndRunWorkflow({
         runId,
@@ -77,7 +78,7 @@ export function startCronScheduler(
   handlerCtx: HandlerContext,
   intervalMs = 60_000,
 ): { stop: () => void } {
-  const lastRuns = new Map<string, Date>();
+  const lastRuns = new Map<string, Temporal.Instant>();
   let running = false;
   let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -85,7 +86,7 @@ export function startCronScheduler(
     if (running) return;
     running = true;
     try {
-      await runDueCronWorkflows(workflows, lastRuns, new Date(), handlerCtx);
+      await runDueCronWorkflows(workflows, lastRuns, Temporal.Now.instant(), handlerCtx);
     } catch {
       // Logged by the caller
     } finally {
@@ -94,7 +95,7 @@ export function startCronScheduler(
   }
 
   timer = setInterval(tick, intervalMs);
-  tick();
+  void tick();
 
   return {
     stop: () => {

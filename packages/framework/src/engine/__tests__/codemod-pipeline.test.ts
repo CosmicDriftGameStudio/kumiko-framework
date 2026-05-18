@@ -15,6 +15,7 @@ vi.mock("bun", () => {
   }
   return { Glob: StubGlob };
 });
+
 import {
   analyzeFile,
   analyzeHandlerArrow,
@@ -270,7 +271,7 @@ export const h = defineWriteHandler({
       const result = await convertFile(p);
       expect(result.status).toBe("converted");
       const content = readFileSync(p, "utf8");
-      expect(content).toContain('import { access, defineWriteHandler, pipeline }');
+      expect(content).toContain("import { access, defineWriteHandler, pipeline }");
     });
 
     it("does not duplicate pipeline import when already present", async () => {
@@ -287,9 +288,7 @@ export const h = defineWriteHandler({
       const result = await convertFile(p);
       expect(result.status).toBe("converted");
       const final = readFileSync(p, "utf8").split("\n");
-      const pipelineImports = final.filter((l) =>
-        l.includes("import") && l.includes("pipeline"),
-      );
+      const pipelineImports = final.filter((l) => l.includes("import") && l.includes("pipeline"));
       // Only one import line should contain "pipeline"
       expect(pipelineImports.length).toBe(1);
     });
@@ -403,7 +402,7 @@ export const h = defineWriteHandler({
 
 describe("analyzeHandlerArrow", () => {
   it("detects static return handler", () => {
-    const result = analyzeHandlerArrow('async () => ({ isSuccess: true, data: { ok: true } })');
+    const result = analyzeHandlerArrow("async () => ({ isSuccess: true, data: { ok: true } })");
     expect(result.isStaticReturn).toBe(true);
     expect(result.isSimpleExecutorCreate).toBe(false);
     expect(result.isSimpleExecutorUpdate).toBe(false);
@@ -462,7 +461,9 @@ describe("analyzeHandlerArrow", () => {
   });
 
   it("detects expression-body executor.create", () => {
-    const result = analyzeHandlerArrow("async (event, ctx) => invoiceExecutor.create(event.payload)");
+    const result = analyzeHandlerArrow(
+      "async (event, ctx) => invoiceExecutor.create(event.payload)",
+    );
     expect(result.isExpressionBodyCreate).toBe(true);
     expect(result.executorName).toBe("invoiceExecutor");
     expect(result.expressionBodyArgs).toEqual(["event.payload"]);
@@ -510,14 +511,14 @@ describe("analyzeHandlerArrow", () => {
 
 describe("generatePerformBlock", () => {
   it("generates pipeline block for static return", () => {
-    const analysis = analyzeHandlerArrow('async () => ({ isSuccess: true, data: { ok: true } })');
+    const analysis = analyzeHandlerArrow("async () => ({ isSuccess: true, data: { ok: true } })");
     const block = generatePerformBlock(analysis, "", "  ");
     expect(block).toContain("perform: pipeline(");
     expect(block).toContain("r.step.return((ctx) => ({ isSuccess: true, data: { ok: true } })");
   });
 
   it("generates pipeline block with schema type parameter", () => {
-    const analysis = analyzeHandlerArrow('async () => ({ isSuccess: true, data: { ok: true } })');
+    const analysis = analyzeHandlerArrow("async () => ({ isSuccess: true, data: { ok: true } })");
     const block = generatePerformBlock(analysis, "typeof InvoiceSchema", "  ");
     expect(block).toContain("pipeline<typeof InvoiceSchema, unknown>");
   });
@@ -541,7 +542,7 @@ describe("generatePerformBlock", () => {
     }`);
     const block = generatePerformBlock(analysis, "", "  ");
     expect(block).toContain("r.step.aggregate.create");
-    expect(block).toContain("r.step.compute(\"outcome\"");
+    expect(block).toContain('r.step.compute("outcome"');
     expect(block).toContain("ctx.steps.result.isSuccess");
     expect(block).toContain("return { isSuccess: false, error: ctx.steps.result.error }");
     expect(block).toContain("return { isSuccess: true, data: ctx.steps.result.data }");

@@ -36,7 +36,7 @@ function buildTestWorkflow(name: string): WorkflowDefinition {
     trigger: { kind: "event", eventType: "demo.fired" },
     steps: pipeline(({ r }) => [
       r.step.wait({ for: "PT1H" }),
-      r.step.return({ resolver: { isSuccess: true, data: undefined } }),
+      r.step.return({ isSuccess: true, data: undefined }),
     ]),
   });
 }

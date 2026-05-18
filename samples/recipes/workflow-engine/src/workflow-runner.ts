@@ -29,7 +29,6 @@ import {
 export type WorkflowRunStartedPayload = {
   readonly workflowName: string;
   readonly triggerEventType: string;
-  readonly triggerAggregateId: string;
   readonly triggerPayload: unknown;
   readonly definitionFingerprint: string;
   readonly idempotencyKey?: string;
@@ -56,7 +55,6 @@ export async function startAndRunWorkflow(args: {
   const startedPayload: WorkflowRunStartedPayload = {
     workflowName: args.workflow.name,
     triggerEventType: args.triggerEvent.type,
-    triggerAggregateId: args.triggerEvent.aggregateId,
     triggerPayload: args.triggerEvent.payload,
     definitionFingerprint: fingerprint,
     ...(args.idempotencyKey && { idempotencyKey: args.idempotencyKey }),

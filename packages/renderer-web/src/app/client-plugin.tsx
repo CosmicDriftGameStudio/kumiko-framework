@@ -9,7 +9,11 @@
 // ganz außen gestackt, dann alle Gates nach innen. So hat jeder Gate
 // Zugriff auf jeden Provider, egal welches Feature ihn gebracht hat.
 
-import type { TargetRef, TreeActionDef, TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  TargetRef,
+  TreeActionDef,
+  TreeChildrenSubscribe,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type { ColumnRendererComponent, TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 
@@ -68,7 +72,9 @@ export type ClientFeatureDefinition = {
    *  (mit args) und eine onClose-Callback. Ohne registrierten Resolver
    *  zeigt der EditorPanel einen Info-Fallback.
    *  Siehe visual-tree.md V.1.2. */
-  readonly resolvers?: Readonly<Record<string, ComponentType<{ readonly target: TargetRef; readonly onClose: () => void }>>>;
+  readonly resolvers?: Readonly<
+    Record<string, ComponentType<{ readonly target: TargetRef; readonly onClose: () => void }>>
+  >;
 };
 
 /** Wickelt einen ReactNode durch eine Liste von Providern/Gates von

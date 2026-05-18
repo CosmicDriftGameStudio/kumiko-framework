@@ -5,6 +5,7 @@
 
 import {
   createStepDispatcherFeature,
+  type MailSpec,
   setMailRunner,
   setWebhookFetch,
 } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
@@ -33,7 +34,7 @@ const mailMock =
 
 beforeAll(async () => {
   setWebhookFetch(fetchMock);
-  setMailRunner(async (spec) => mailMock(spec));
+  setMailRunner(async (spec: MailSpec) => mailMock(spec));
   stack = await setupTestStack({
     features: [createStepDispatcherFeature(), webhookDemoFeature],
     systemHooks: [],

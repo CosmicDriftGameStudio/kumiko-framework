@@ -65,7 +65,8 @@
     "./text-content/seeding": "./src/text-content/seeding.ts",
     "./text-content/web": "./src/text-content/web/index.ts",
     "./legal-pages": "./src/legal-pages/index.ts",
-    "./legal-pages/web": "./src/legal-pages/web/index.ts"
+    "./legal-pages/web": "./src/legal-pages/web/index.ts",
+    "./step-dispatcher": "./src/step-dispatcher/index.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",

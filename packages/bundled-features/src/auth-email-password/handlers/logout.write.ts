@@ -8,7 +8,5 @@ export const logoutWrite = defineWriteHandler({
   name: "logout",
   schema: z.object({}),
   access: { roles: access.authenticated },
-  perform: pipeline(({ event, r }) => [
-    r.step.return((ctx) => ({ isSuccess: true, data: { kind: "logged-out" } }))
-  ]),
+  perform: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: { kind: "logged-out" } })]),
 });

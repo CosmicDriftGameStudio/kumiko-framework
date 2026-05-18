@@ -2,6 +2,7 @@ import {
   computeDefinitionFingerprint,
   defineWorkflow,
   pipeline,
+  type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
 import { describe, expect, it, vi } from "vitest";
@@ -23,7 +24,7 @@ function makeWaitWorkflow(name: string) {
     trigger: { kind: "event", eventType: "demo.fired" },
     steps: pipeline(({ r }) => [
       r.step.wait({ for: "PT1H" }),
-      r.step.return({ resolver: { isSuccess: true, data: { result: "resumed" } } }),
+      r.step.return({ isSuccess: true, data: { result: "resumed" } }),
     ]),
   });
 }
@@ -32,7 +33,7 @@ function makeReturnOnlyWorkflow(name: string) {
   return defineWorkflow({
     name,
     trigger: { kind: "event", eventType: "demo.fired" },
-    steps: pipeline(({ r }) => [r.step.return({ resolver: { isSuccess: true, data: undefined } })]),
+    steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
   });
 }
 
@@ -40,22 +41,26 @@ describe("workflow-engine", () => {
   it("defineWorkflow returns a valid WorkflowDefinition", () => {
     expect(userOnboardingWorkflow.__kind).toBe("workflow");
     expect(userOnboardingWorkflow.name).toBe("user-onboarding");
-    expect(userOnboardingWorkflow.trigger.kind).toBe("event");
-    expect(userOnboardingWorkflow.trigger.eventType).toBe("user.signed-up");
+    const trigger = userOnboardingWorkflow.trigger;
+    if (trigger.kind !== "event") throw new Error("expected event trigger");
+    expect(trigger.eventType).toBe("user.signed-up");
     expect(typeof userOnboardingWorkflow.idempotencyKey).toBe("function");
   });
 
   it("defines a resilient-webhook workflow with event trigger", () => {
     expect(resilientWebhookWorkflow.__kind).toBe("workflow");
     expect(resilientWebhookWorkflow.name).toBe("resilient-webhook");
-    expect(resilientWebhookWorkflow.trigger.eventType).toBe("data.processed");
+    const trigger = resilientWebhookWorkflow.trigger;
+    if (trigger.kind !== "event") throw new Error("expected event trigger");
+    expect(trigger.eventType).toBe("data.processed");
   });
 
   it("defines a daily-report workflow with cron trigger", () => {
     expect(dailyReportWorkflow.__kind).toBe("workflow");
     expect(dailyReportWorkflow.name).toBe("daily-report");
-    expect(dailyReportWorkflow.trigger.kind).toBe("cron");
-    expect(dailyReportWorkflow.trigger.schedule).toBe("0 9 * * *");
+    const trigger = dailyReportWorkflow.trigger;
+    if (trigger.kind !== "cron") throw new Error("expected cron trigger");
+    expect(trigger.schedule).toBe("0 9 * * *");
   });
 
   it("workflow stores an idempotency key resolver for event-triggered workflows", () => {
@@ -77,9 +82,7 @@ describe("workflow-runner", () => {
     const workflow = defineWorkflow({
       name: "demo-sync",
       trigger: { kind: "event", eventType: "demo.fired" },
-      steps: pipeline(({ r }) => [
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
-      ]),
+      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const ctx = makeAppendOnlyCtx();
 
@@ -109,7 +112,7 @@ describe("workflow-runner", () => {
       trigger: { kind: "event", eventType: "demo.fired" },
       steps: pipeline(({ r }) => [
         r.step.wait({ for: "PT1H" }),
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
+        r.step.return({ isSuccess: true, data: undefined }),
       ]),
     });
     const ctx = makeAppendOnlyCtx();
@@ -137,9 +140,7 @@ describe("workflow-runner", () => {
       name: "demo-idem",
       trigger: { kind: "event", eventType: "demo.fired" },
       idempotencyKey: ({ payload }) => `id:${(payload as { x: string }).x}`,
-      steps: pipeline(({ r }) => [
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
-      ]),
+      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const ctx = makeAppendOnlyCtx();
 
@@ -162,7 +163,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
 
     const result = await startAndRunWorkflow({
       runId: "wf-onboarding-active-42",
-      workflow: userOnboardingWorkflow,
+      workflow: userOnboardingWorkflow as unknown as WorkflowDefinition,
       triggerEvent: {
         aggregateId: "agg_user_42",
         type: "user.signed-up",
@@ -189,7 +190,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
     expect((mailCall.payload as { stepKind: string }).stepKind).toBe("mail.send");
     expect(waitingCall.type).toBe("kumiko:system:workflow.step.waiting");
     expect(waitingCall.payload["definitionFingerprint"]).toBe(
-      computeDefinitionFingerprint(userOnboardingWorkflow),
+      computeDefinitionFingerprint(userOnboardingWorkflow as unknown as WorkflowDefinition),
     );
 
     // Re-feed the run through the resume-loop using the fingerprint the
@@ -203,9 +204,9 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       runId: "wf-onboarding-active-42",
       workflowName: "user-onboarding",
       stepIndex: waitingCall.payload["stepIndex"] as number,
-      wakeAt: new Date(Date.now() - 1000).toISOString(),
+      wakeAt: Temporal.Now.instant().subtract({ seconds: 1 }).toString(),
       suspensionEventType: "kumiko:system:workflow.step.waiting",
-      workflow: userOnboardingWorkflow,
+      workflow: userOnboardingWorkflow as unknown as WorkflowDefinition,
       triggerEvent: triggerSnapshot as never,
       definitionFingerprint: waitingCall.payload["definitionFingerprint"] as string,
     };
@@ -239,7 +240,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
     const ctx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
     await startAndRunWorkflow({
       runId: "wf-onboarding-cold-1",
-      workflow: userOnboardingWorkflow,
+      workflow: userOnboardingWorkflow as unknown as WorkflowDefinition,
       triggerEvent: {
         aggregateId: "agg_user_cold",
         type: "user.signed-up",
@@ -252,9 +253,9 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       runId: "wf-onboarding-cold-1",
       workflowName: "user-onboarding",
       stepIndex: waiting.payload["stepIndex"] as number,
-      wakeAt: new Date(Date.now() - 1000).toISOString(),
+      wakeAt: Temporal.Now.instant().subtract({ seconds: 1 }).toString(),
       suspensionEventType: "kumiko:system:workflow.step.waiting",
-      workflow: userOnboardingWorkflow,
+      workflow: userOnboardingWorkflow as unknown as WorkflowDefinition,
       triggerEvent: {
         aggregateId: waiting.payload["triggerAggregateId"] as string,
         type: waiting.payload["triggerEventType"] as string,
@@ -277,16 +278,12 @@ describe("computeDefinitionFingerprint", () => {
     const a = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
-      steps: pipeline(({ r }) => [
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
-      ]),
+      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const b = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
-      steps: pipeline(({ r }) => [
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
-      ]),
+      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     expect(computeDefinitionFingerprint(a)).toBe(computeDefinitionFingerprint(b));
   });
@@ -295,16 +292,14 @@ describe("computeDefinitionFingerprint", () => {
     const a = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
-      steps: pipeline(({ r }) => [
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
-      ]),
+      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const b = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
       steps: pipeline(({ r }) => [
         r.step.compute("noop", () => 1),
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
+        r.step.return({ isSuccess: true, data: undefined }),
       ]),
     });
     expect(computeDefinitionFingerprint(a)).not.toBe(computeDefinitionFingerprint(b));
@@ -314,16 +309,12 @@ describe("computeDefinitionFingerprint", () => {
     const a = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
-      steps: pipeline(({ r }) => [
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
-      ]),
+      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const b = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "y" },
-      steps: pipeline(({ r }) => [
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
-      ]),
+      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     expect(computeDefinitionFingerprint(a)).not.toBe(computeDefinitionFingerprint(b));
   });
@@ -338,12 +329,15 @@ describe("event-trigger", () => {
       },
     };
 
-    registerEventTrigger(mockRegistrar as never, userOnboardingWorkflow);
+    registerEventTrigger(
+      mockRegistrar as never,
+      userOnboardingWorkflow as unknown as WorkflowDefinition,
+    );
 
     expect(registrations).toHaveLength(1);
     const msp = registrations[0] as Record<string, unknown>;
-    expect(msp.name).toBe("workflow-user-onboarding");
-    expect(typeof (msp.apply as Record<string, unknown>)["user.signed-up"]).toBe("function");
+    expect(msp["name"]).toBe("workflow-user-onboarding");
+    expect(typeof (msp["apply"] as Record<string, unknown>)["user.signed-up"]).toBe("function");
   });
 
   it("registerEventTrigger skips non-event workflows", () => {
@@ -354,7 +348,10 @@ describe("event-trigger", () => {
       },
     };
 
-    registerEventTrigger(mockRegistrar as never, dailyReportWorkflow);
+    registerEventTrigger(
+      mockRegistrar as never,
+      dailyReportWorkflow as unknown as WorkflowDefinition,
+    );
 
     expect(registrations).toHaveLength(0);
   });
@@ -367,48 +364,47 @@ describe("event-trigger", () => {
 
 describe("cron-scheduler", () => {
   it("nextCronDate computes the next run time", () => {
-    const base = new Date("2025-06-01T00:00:00Z");
+    const base = Temporal.Instant.from("2025-06-01T00:00:00Z");
     const next = nextCronDate("30 9 * * *", base);
     expect(next).not.toBeNull();
-    expect(next!.getUTCHours()).toBe(9);
-    expect(next!.getUTCMinutes()).toBe(30);
-    // Should be on the same day at 09:30
-    expect(next!.getUTCDate()).toBe(1);
+    const zdt = next!.toZonedDateTimeISO("UTC");
+    expect(zdt.hour).toBe(9);
+    expect(zdt.minute).toBe(30);
+    expect(zdt.day).toBe(1);
   });
 
   it("nextCronDate returns null for invalid cron expressions", () => {
-    expect(nextCronDate("invalid", new Date())).toBeNull();
-    expect(nextCronDate("", new Date())).toBeNull();
+    expect(nextCronDate("invalid", Temporal.Now.instant())).toBeNull();
+    expect(nextCronDate("", Temporal.Now.instant())).toBeNull();
   });
 
   it("nextCronDate advances to next day if time already passed", () => {
-    const base = new Date("2025-06-01T10:00:00Z");
+    const base = Temporal.Instant.from("2025-06-01T10:00:00Z");
     const next = nextCronDate("30 9 * * *", base);
+    const zdt = next!.toZonedDateTimeISO("UTC");
     // 09:30 already passed on June 1 → next is June 2 at 09:30
-    expect(next!.getUTCDate()).toBe(2);
-    expect(next!.getUTCHours()).toBe(9);
-    expect(next!.getUTCMinutes()).toBe(30);
+    expect(zdt.day).toBe(2);
+    expect(zdt.hour).toBe(9);
+    expect(zdt.minute).toBe(30);
   });
 
   it("runDueCronWorkflows skips not-yet-due workflows", async () => {
-    const pipelineDef = {
-      __kind: "pipeline" as const,
-      build: ({ r }: { r: { step: { return: (args: { resolver: unknown }) => unknown } } }) => [
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
-      ],
-    };
-    const wf = {
+    const wf = defineWorkflow({
       name: "test-daily",
-      __kind: "workflow" as const,
-      trigger: { kind: "cron" as const, schedule: "0 9 * * *" },
-      pipelineDef,
-    };
+      trigger: { kind: "cron", schedule: "0 9 * * *" },
+      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+    });
 
     const handlerCtx = { unsafeAppendEvent: vi.fn() };
-    const lastRuns = new Map<string, Date>();
-    const now = new Date("2025-06-01T08:00:00Z");
+    const lastRuns = new Map<string, Temporal.Instant>();
+    const now = Temporal.Instant.from("2025-06-01T08:00:00Z");
 
-    const count = await runDueCronWorkflows([wf as never], lastRuns, now, handlerCtx as never);
+    const count = await runDueCronWorkflows(
+      [wf as CronWorkflow],
+      lastRuns,
+      now,
+      handlerCtx as never,
+    );
 
     expect(count).toBe(0);
     expect(handlerCtx.unsafeAppendEvent).not.toHaveBeenCalled();
@@ -418,16 +414,14 @@ describe("cron-scheduler", () => {
     const wf = defineWorkflow({
       name: "test-daily",
       trigger: { kind: "cron", schedule: "0 9 * * *" },
-      steps: pipeline(({ r }) => [
-        r.step.return({ resolver: { isSuccess: true, data: undefined } }),
-      ]),
+      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
 
     const handlerCtx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
-    const lastRuns = new Map<string, Date>();
-    const lastRun = new Date("2025-05-31T08:00:00Z");
+    const lastRuns = new Map<string, Temporal.Instant>();
+    const lastRun = Temporal.Instant.from("2025-05-31T08:00:00Z");
     lastRuns.set("test-daily", lastRun);
-    const now = new Date("2025-06-01T09:01:00Z");
+    const now = Temporal.Instant.from("2025-06-01T09:01:00Z");
 
     const count = await runDueCronWorkflows(
       [wf as CronWorkflow],
@@ -440,9 +434,9 @@ describe("cron-scheduler", () => {
     // run.started + run-completed (no suspension, pipeline returns immediately).
     expect(handlerCtx.unsafeAppendEvent).toHaveBeenCalledTimes(2);
     const started = handlerCtx.unsafeAppendEvent.mock.calls[0]![0] as Record<string, unknown>;
-    expect(started.type).toBe("kumiko:system:workflow.run-started");
+    expect(started["type"]).toBe("kumiko:system:workflow.run-started");
     const completed = handlerCtx.unsafeAppendEvent.mock.calls[1]![0] as Record<string, unknown>;
-    expect(completed.type).toBe("kumiko:system:workflow.run-completed");
+    expect(completed["type"]).toBe("kumiko:system:workflow.run-completed");
   });
 });
 
@@ -463,7 +457,7 @@ describe("resume-loop", () => {
       runId: "wf-test-run_123",
       workflowName: "test-workflow",
       stepIndex: 0,
-      wakeAt: new Date(Date.now() - 1000).toISOString(),
+      wakeAt: Temporal.Now.instant().subtract({ seconds: 1 }).toString(),
       suspensionEventType: "kumiko:system:workflow.step.waiting",
       workflow,
       triggerEvent: { aggregateId: "agg_1", type: "demo.fired", payload: {} } as never,
@@ -497,7 +491,7 @@ describe("resume-loop", () => {
       runId: "wf-drift-run",
       workflowName: "test-workflow-drift",
       stepIndex: 0,
-      wakeAt: new Date(Date.now() - 1000).toISOString(),
+      wakeAt: Temporal.Now.instant().subtract({ seconds: 1 }).toString(),
       suspensionEventType: "kumiko:system:workflow.step.waiting",
       workflow,
       triggerEvent: { aggregateId: "agg_y", type: "demo.fired", payload: {} } as never,
@@ -526,7 +520,7 @@ describe("resume-loop", () => {
       runId: "wf-conflict-run",
       workflowName: "test-workflow-conflict",
       stepIndex: 0,
-      wakeAt: new Date(Date.now() - 1000).toISOString(),
+      wakeAt: Temporal.Now.instant().subtract({ seconds: 1 }).toString(),
       suspensionEventType: "kumiko:system:workflow.step.waiting",
       workflow,
       triggerEvent: { aggregateId: "agg_x", type: "demo.fired", payload: {} } as never,
@@ -537,7 +531,7 @@ describe("resume-loop", () => {
     const handlerCtx = {
       unsafeAppendEvent: vi
         .fn()
-        .mockRejectedValueOnce(new VersionConflictError("wf-conflict-run", 1, 2))
+        .mockRejectedValueOnce(new VersionConflictError("wf-conflict-run", 1))
         .mockResolvedValue(undefined),
     };
 

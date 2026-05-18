@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { EventStoreExecutor } from "../../db/event-store-executor";
 import { getStep } from "../define-step";
 import { buildAggregateCreateStep } from "../steps/aggregate-create";
 import type { PipelineCtx } from "../types/step";
-import type { EventStoreExecutor } from "../../db/event-store-executor";
 
 const mockCreate = vi.fn();
-const mockExecutor = { create: mockCreate } as unknown as EventStoreExecutor & { create: typeof mockCreate };
+const mockExecutor = { create: mockCreate } as unknown as EventStoreExecutor & {
+  create: typeof mockCreate;
+};
 const mockDb = {};
 
 const mockCtx = {

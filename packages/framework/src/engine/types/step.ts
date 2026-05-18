@@ -316,9 +316,7 @@ export type StepNamespace = {
   // --- Tier-3 / Workflow-only steps ---
   // Only available inside defineWorkflow ({ steps: pipeline(...) }).
   // Runtime guard: throws when used inside sync defineWriteHandler.
-  readonly wait: (args: {
-    readonly for: StepResolver<string>;
-  }) => StepInstance;
+  readonly wait: (args: { readonly for: StepResolver<string> }) => StepInstance;
   readonly waitForEvent: (args: {
     readonly event: string;
     readonly match?: StepResolver<(payload: unknown) => boolean>;

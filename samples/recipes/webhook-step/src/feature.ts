@@ -12,6 +12,7 @@ import {
   createTextField,
   defineFeature,
   defineWriteHandler,
+  type PipelineCtx,
   pipeline,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
@@ -55,7 +56,7 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
         r.step.webhook.send({
           url: () => event.payload.webhookUrl,
           mode: "deferred",
-          body: ({ steps }) => ({
+          body: ({ steps }: PipelineCtx) => ({
             event: "incident-opened",
             id: (steps["incident"] as { id: string }).id,
             title: event.payload.title,

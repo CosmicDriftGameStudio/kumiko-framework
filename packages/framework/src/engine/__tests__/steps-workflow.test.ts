@@ -7,8 +7,8 @@ import {
   WORKFLOW_WAITING_TYPE,
 } from "../steps/_step-dispatch-constants";
 import { buildRetryStep, calculateBackoff } from "../steps/retry";
-import { buildWaitForEventStep } from "../steps/wait-for-event";
 import { buildWaitStep } from "../steps/wait";
+import { buildWaitForEventStep } from "../steps/wait-for-event";
 import type { PipelineCtx } from "../types/step";
 
 const mockUnsafeAppendEvent = vi.fn();
@@ -52,9 +52,9 @@ describe("workflow.wait run", () => {
   it("throws when used outside defineWorkflow (no ctx.workflow)", async () => {
     const stepDef = getStep("workflow.wait");
     expect(stepDef).toBeDefined();
-    await expect(
-      stepDef!.run({ for: "PT1H" }, nonWorkflowCtx),
-    ).rejects.toThrow(/only allowed inside defineWorkflow/);
+    await expect(stepDef!.run({ for: "PT1H" }, nonWorkflowCtx)).rejects.toThrow(
+      /only allowed inside defineWorkflow/,
+    );
   });
 
   it("writes a workflow.step.waiting event and returns SUSPEND_SENTINEL", async () => {
@@ -177,10 +177,7 @@ describe("workflow.retry run", () => {
     const stepDef = getStep("workflow.retry");
     expect(stepDef).toBeDefined();
 
-    const result = await stepDef!.run(
-      { times: 3, backoff: "exponential", do: [] },
-      workflowCtx,
-    );
+    const result = await stepDef!.run({ times: 3, backoff: "exponential", do: [] }, workflowCtx);
 
     expect(result).toBeUndefined();
   });

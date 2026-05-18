@@ -24,8 +24,8 @@
 
 import { getStep } from "./define-step";
 import { buildPipelineSteps } from "./pipeline";
-import { RETURN_RESULT_KEY } from "./steps/return";
 import { SUSPEND_SENTINEL } from "./steps/_step-dispatch-constants";
+import { RETURN_RESULT_KEY } from "./steps/return";
 import type { KumikoEventTypeMap } from "./types/event-type-map";
 import type { HandlerContext, WriteEvent, WriteResult } from "./types/handlers";
 import type { PipelineCtx, PipelineDef, StepInstance } from "./types/step";
@@ -52,7 +52,15 @@ export async function runPipeline<TPayload, TData, TMap extends object = KumikoE
   const stepsAcc: Record<string, unknown> = {};
   const scopeAcc: Record<string, unknown> = {};
 
-  const outcome = await runStepList(steps, event, handlerCtx, stepsAcc, scopeAcc, workflow, resumeFrom);
+  const outcome = await runStepList(
+    steps,
+    event,
+    handlerCtx,
+    stepsAcc,
+    scopeAcc,
+    workflow,
+    resumeFrom,
+  );
   if (outcome.kind === "return") {
     // RETURN_RESULT_KEY is only produced by r.step.return, whose run()
     // returns WriteResult<unknown>. The pipeline's generic TData is

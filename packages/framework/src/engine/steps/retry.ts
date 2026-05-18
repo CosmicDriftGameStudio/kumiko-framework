@@ -48,7 +48,7 @@ defineStep<RetryStepArgs, undefined | typeof SUSPEND_SENTINEL>({
       }
 
       const backoffMs = calculateBackoff(attempt, args.backoff);
-      const wakeAt = new Date(Date.now() + backoffMs).toISOString();
+      const wakeAt = Temporal.Now.instant().add({ milliseconds: backoffMs }).toString();
 
       await ctx.unsafeAppendEvent({
         aggregateId: ctx.workflow.runId,

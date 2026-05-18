@@ -37,7 +37,12 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
           if (!matches) return;
         }
 
-        const triggerEvent = event as WriteEvent;
+        // @cast-boundary msp-to-write-event — MSP receives StoredEvent
+        // (event-store shape), workflow runner expects WriteEvent (handler
+        // shape). The fields workflow steps read (type, payload) overlap
+        // exactly; the missing `.user` field on StoredEvent is acceptable
+        // because workflow triggers run system-level, not user-scoped.
+        const triggerEvent = event as unknown as WriteEvent;
         let idempotencyKey: string | undefined;
         if (typeof workflow.idempotencyKey === "function") {
           idempotencyKey = workflow.idempotencyKey(triggerEvent);

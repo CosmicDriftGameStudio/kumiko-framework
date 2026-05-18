@@ -23,7 +23,7 @@
 //     is safe via the event-store version-conflict path; performance is
 //     adequate for the demo, not for high-volume production.
 
-import type { WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { PipelineCtx, WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature, defineWorkflow, pipeline } from "@cosmicdrift/kumiko-framework/engine";
 import { registerEventTrigger } from "./event-trigger";
 
@@ -86,14 +86,14 @@ export const userOnboardingWorkflow: WorkflowDefinition<{ email: string; userId:
       r.step.webhook.send({
         url: "https://hooks.example.com/crm-onboarding",
         method: "POST",
-        body: (ctx) => ({
+        body: (ctx: PipelineCtx) => ({
           userId: (ctx.event.payload as { userId: string }).userId,
           stage: "day8",
         }),
         mode: "deferred",
       }),
 
-      r.step.return({ resolver: { isSuccess: true, data: undefined } }),
+      r.step.return({ isSuccess: true, data: undefined }),
     ]),
   });
 
@@ -115,13 +115,13 @@ export const resilientWebhookWorkflow: WorkflowDefinition<
       backoff: "exponential",
       do: [
         r.step.webhook.send({
-          url: (ctx) => (ctx.event.payload as { webhookUrl: string }).webhookUrl,
-          body: (ctx) => (ctx.event.payload as { data: unknown }).data,
+          url: (ctx: PipelineCtx) => (ctx.event.payload as { webhookUrl: string }).webhookUrl,
+          body: (ctx: PipelineCtx) => (ctx.event.payload as { data: unknown }).data,
           mode: "deferred",
         }),
       ],
     }),
-    r.step.return({ resolver: { isSuccess: true, data: undefined } }),
+    r.step.return({ isSuccess: true, data: undefined }),
   ]),
 });
 
@@ -135,10 +135,10 @@ export const dailyReportWorkflow: WorkflowDefinition<void, void> = defineWorkflo
   steps: pipeline<void, void>(({ r }) => [
     r.step.webhook.send({
       url: "https://hooks.example.com/daily-report",
-      body: { ts: new Date().toISOString() },
+      body: () => ({ ts: Temporal.Now.instant().toString() }),
       mode: "deferred",
     }),
-    r.step.return({ resolver: { isSuccess: true, data: undefined } }),
+    r.step.return({ isSuccess: true, data: undefined }),
   ]),
 });
 
@@ -149,8 +149,13 @@ export const dailyReportWorkflow: WorkflowDefinition<void, void> = defineWorkflo
  * own them.
  */
 export const workflowEngineFeature = defineFeature("workflowEngine", (r) => {
-  registerEventTrigger(r, userOnboardingWorkflow);
-  registerEventTrigger(r, resilientWebhookWorkflow);
+  // @cast-boundary workflow-payload-variance — registerEventTrigger's
+  // WorkflowDefinition<unknown> can't directly accept WorkflowDefinition<{...}>
+  // because the embedded pipeline closure is contravariant in TPayload.
+  // The runtime only touches trigger/name/idempotencyKey + executes
+  // the closure with the real event payload — payload-agnostic.
+  registerEventTrigger(r, userOnboardingWorkflow as unknown as WorkflowDefinition);
+  registerEventTrigger(r, resilientWebhookWorkflow as unknown as WorkflowDefinition);
   // dailyReportWorkflow is cron-triggered — skip MSP registration
 });
 

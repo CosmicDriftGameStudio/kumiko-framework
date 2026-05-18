@@ -37,7 +37,7 @@ defineStep<WaitStepArgs, undefined | typeof SUSPEND_SENTINEL>({
 
     const duration = resolveRequired(args.for, ctx);
 
-    const now = new Date().toISOString();
+    const now = Temporal.Now.instant().toString();
     const wakeAt =
       duration.startsWith("P") || duration.startsWith("PT") ? addDuration(now, duration) : duration;
 

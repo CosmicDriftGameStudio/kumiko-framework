@@ -41,7 +41,7 @@ defineStep<WaitForEventArgs, undefined | typeof SUSPEND_SENTINEL>({
 
     const timeout = resolveRequired(args.timeout, ctx);
 
-    const now = new Date().toISOString();
+    const now = Temporal.Now.instant().toString();
     const timeoutAt =
       timeout.startsWith("P") || timeout.startsWith("PT") ? addDuration(now, timeout) : timeout;
 

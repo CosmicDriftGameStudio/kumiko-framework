@@ -27,6 +27,8 @@ export type {
 export { defineQueryHandler, defineWriteHandler } from "./define-handler";
 export { defineRoles } from "./define-roles";
 export { defineStep, getStep, listStepKinds } from "./define-step";
+export type { WorkflowDefinition, WorkflowInput, WorkflowTrigger } from "./define-workflow";
+export { computeDefinitionFingerprint, defineWorkflow } from "./define-workflow";
 export type { ToggleReader } from "./effective-features";
 export { computeEffectiveFeatures } from "./effective-features";
 export {
@@ -131,7 +133,7 @@ export {
 } from "./field-access";
 export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
 export { from } from "./ownership";
-export { pipeline } from "./pipeline";
+export { buildPipelineSteps, pipeline } from "./pipeline";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";
@@ -140,9 +142,22 @@ export { createRegistry } from "./registry";
 export type { ClampInfo, ResolveOptions } from "./resolve-config-or-param";
 export { resolveConfigOrParam } from "./resolve-config-or-param";
 export { runsInLane } from "./run-in";
+export type { StepListOutcome } from "./run-pipeline";
+export { runPipeline, runStepList } from "./run-pipeline";
 export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 export type { TransitionGraph } from "./state-machine";
 export { defineTransitions, guardTransition } from "./state-machine";
+export {
+  SUSPEND_SENTINEL,
+  WORKFLOW_AGGREGATE_TYPE,
+  WORKFLOW_RESUMED_TYPE,
+  WORKFLOW_RETRY_SCHEDULED_TYPE,
+  WORKFLOW_RUN_COMPLETED_TYPE,
+  WORKFLOW_RUN_FAILED_TYPE,
+  WORKFLOW_RUN_STARTED_TYPE,
+  WORKFLOW_WAITING_FOR_EVENT_TYPE,
+  WORKFLOW_WAITING_TYPE,
+} from "./steps/_step-dispatch-constants";
 export {
   ANONYMOUS_ROLE,
   ANONYMOUS_USER_ID,
@@ -307,19 +322,3 @@ export type {
   StepResolver,
 } from "./types/step";
 export { runValidation } from "./validation";
-export { computeDefinitionFingerprint, defineWorkflow } from "./define-workflow";
-export { runPipeline, runStepList } from "./run-pipeline";
-export type { StepListOutcome } from "./run-pipeline";
-export { buildPipelineSteps } from "./pipeline";
-export type { WorkflowDefinition, WorkflowTrigger, WorkflowInput } from "./define-workflow";
-export {
-  SUSPEND_SENTINEL,
-  WORKFLOW_AGGREGATE_TYPE,
-  WORKFLOW_RESUMED_TYPE,
-  WORKFLOW_RETRY_SCHEDULED_TYPE,
-  WORKFLOW_RUN_COMPLETED_TYPE,
-  WORKFLOW_RUN_FAILED_TYPE,
-  WORKFLOW_RUN_STARTED_TYPE,
-  WORKFLOW_WAITING_FOR_EVENT_TYPE,
-  WORKFLOW_WAITING_TYPE,
-} from "./steps/_step-dispatch-constants";

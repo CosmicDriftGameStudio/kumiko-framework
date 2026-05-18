@@ -41,10 +41,7 @@ export const byTenantQuery = defineQueryHandler({
     }
     const tenantId = override ?? query.user.tenantId;
     const rows = castTenantRows<TextBlockRow>(
-      await ctx.db
-        .select()
-        .from(textBlocksTable)
-        .where(eq(textBlocksTable["tenantId"], tenantId)),
+      await ctx.db.select().from(textBlocksTable).where(eq(textBlocksTable["tenantId"], tenantId)),
     );
     return {
       blocks: rows.map((row) => ({

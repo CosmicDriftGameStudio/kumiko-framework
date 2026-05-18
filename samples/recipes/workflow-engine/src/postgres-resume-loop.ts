@@ -8,7 +8,8 @@
 // from the suspension event payload (the wait/waitForEvent/retry steps
 // stamp them there), avoiding a per-run lookup against run.started.
 
-import type { DbRunner, WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   WORKFLOW_RETRY_SCHEDULED_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,

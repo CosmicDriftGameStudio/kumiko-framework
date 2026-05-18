@@ -50,7 +50,11 @@ function EditorPanelInner({
       </div>
       <div className="text-sm text-muted-foreground space-y-2">
         <p>
-          Kein Editor f&uuml;r <code>{target.featureId}:{target.action}</code> registriert.
+          Kein Editor f&uuml;r{" "}
+          <code>
+            {target.featureId}:{target.action}
+          </code>{" "}
+          registriert.
         </p>
         <pre className="bg-muted p-2 rounded text-xs overflow-auto">
           {JSON.stringify(target.args, null, 2)}

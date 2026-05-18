@@ -1,3 +1,6 @@
+// biome-ignore-all lint/suspicious/noConsole: CLI tool — console.log is the output
+// biome-ignore-all lint/style/noNonNullAssertion: regex capture-group indexing — match-success implies non-null capture
+
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { Glob } from "bun";
@@ -122,7 +125,13 @@ export function analyzeHandlerArrow(arrowText: string): ParsedHandlerInfo {
         }
       }
 
-      if (updateMatch && hasSimpleReturn && !hasConditionalLogic && !isSimpleExecutorCreate && !isGuardedCreate) {
+      if (
+        updateMatch &&
+        hasSimpleReturn &&
+        !hasConditionalLogic &&
+        !isSimpleExecutorCreate &&
+        !isGuardedCreate
+      ) {
         isSimpleExecutorUpdate = true;
         executorName = updateMatch[2];
         executorUpdateVar = updateMatch[1];
@@ -246,10 +255,7 @@ function transpileGuardRefs(body: string, varName: string): string {
   return body.replace(new RegExp(`\\b${escapeRegex(varName)}\\b`, "g"), "ctx.steps.result");
 }
 
-function extractGuardedPattern(
-  body: string,
-  varName: string,
-): GuardConfig | undefined {
+function extractGuardedPattern(body: string, varName: string): GuardConfig | undefined {
   const escaped = escapeRegex(varName);
   // Match: if (!<varName>.isSuccess) { return ... }
   const ifOpenPattern = new RegExp(`if\\s*\\(!${escaped}\\.isSuccess\\)\\s*\\{`);
@@ -313,19 +319,30 @@ export function generatePerformBlock(
       `r.step.aggregate.update("result", { executor: ${analysis.executorName}, id: event.payload.id, changes: event.payload.changes })`,
     );
     steps.push(`r.step.return((ctx) => ({ isSuccess: true, data: ctx.steps.result }))`);
-  } else if (analysis.isExpressionBodyCreate && analysis.executorName && analysis.expressionBodyArgs) {
+  } else if (
+    analysis.isExpressionBodyCreate &&
+    analysis.executorName &&
+    analysis.expressionBodyArgs
+  ) {
     const dataArg = transpileEventRefs(analysis.expressionBodyArgs[0] ?? "{}");
     steps.push(
       `r.step.aggregate.create("result", { executor: ${analysis.executorName}, data: (ctx) => ${dataArg} })`,
     );
     steps.push(`r.step.return((ctx) => ({ isSuccess: true, data: ctx.steps.result }))`);
-  } else if (analysis.isExpressionBodyUpdate && analysis.executorName && analysis.expressionBodyArgs) {
+  } else if (
+    analysis.isExpressionBodyUpdate &&
+    analysis.executorName &&
+    analysis.expressionBodyArgs
+  ) {
     const argStr = transpileEventRefs(analysis.expressionBodyArgs[0] ?? "{}");
-    steps.push(
-      `r.step.compute("result", (ctx) => ${analysis.executorName}.update(${argStr}))`,
-    );
+    steps.push(`r.step.compute("result", (ctx) => ${analysis.executorName}.update(${argStr}))`);
     steps.push(`r.step.return((ctx) => ({ isSuccess: true, data: ctx.steps.result }))`);
-  } else if (analysis.isGuardedCreate && analysis.executorName && analysis.executorCreateArgs && analysis.guardConfig) {
+  } else if (
+    analysis.isGuardedCreate &&
+    analysis.executorName &&
+    analysis.executorCreateArgs &&
+    analysis.guardConfig
+  ) {
     const varName = analysis.executorCreateVar ?? "result";
     const dataArg = analysis.executorCreateArgs[0] ?? "{}";
     const guard = analysis.guardConfig;

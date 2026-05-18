@@ -11,7 +11,6 @@ export function addDuration(baseIso: string, duration: string): string {
     );
   }
 
-  const base = new Date(baseIso);
   const parts = match.slice(1).map((n) => Number(n) || 0);
   const years = parts[0] ?? 0;
   const months = parts[1] ?? 0;
@@ -20,13 +19,15 @@ export function addDuration(baseIso: string, duration: string): string {
   const minutes = parts[4] ?? 0;
   const seconds = parts[5] ?? 0;
 
-  let ms = base.getTime();
-  ms += years * 365 * 24 * 60 * 60 * 1000;
+  // Compute in ms (Temporal.Instant.add accepts only smaller units below
+  // hours for calendar-agnostic shifts; we approximate years/months as
+  // fixed-length days, see file header).
+  let ms = years * 365 * 24 * 60 * 60 * 1000;
   ms += months * 30 * 24 * 60 * 60 * 1000;
   ms += days * 24 * 60 * 60 * 1000;
   ms += hours * 60 * 60 * 1000;
   ms += minutes * 60 * 1000;
   ms += seconds * 1000;
 
-  return new Date(ms).toISOString();
+  return Temporal.Instant.from(baseIso).add({ milliseconds: ms }).toString();
 }

@@ -31,7 +31,9 @@ describe("buildAggregateAppendEventStep", () => {
       payload: {},
       headers: { correlationId: "corr-1" },
     });
-    expect((step.args as { headers: Record<string, string> }).headers).toEqual({ correlationId: "corr-1" });
+    expect((step.args as { headers: Record<string, string> }).headers).toEqual({
+      correlationId: "corr-1",
+    });
   });
 });
 
