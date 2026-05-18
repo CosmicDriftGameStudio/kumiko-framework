@@ -220,8 +220,7 @@ export function WorkspaceShell({
         </Sidebar>
       }
     >
-      {isTreeMode && <EditorPanel resolvers={resolvers} />}
-      {children}
+      {isTreeMode ? <EditorPanel resolvers={resolvers} /> : children}
     </AppLayout>
   );
 }

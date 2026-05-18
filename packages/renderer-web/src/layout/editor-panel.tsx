@@ -1,7 +1,8 @@
-// EditorPanel — V.1.2: Right-side editor panel für Target-Dispatch.
-// Wird sichtbar wenn ein TreeNode mit target angeklickt wird. Zeigt
-// das passende Editor-Component aus dem Resolver-Registry, oder eine
-// Fallback-Info wenn kein Resolver registriert ist.
+// EditorPanel — V.1.2: Main-area editor für Target-Dispatch im
+// Visual-Tree-Workspace. VS-Code-Style-Layout: Tree links, Editor füllt
+// den Main-Bereich; kein floating-Right-Panel. Resolver liefert die
+// Editor-Component für `${featureId}:${action}`, Fallback-Info zeigt
+// die Args wenn nichts registriert ist, Empty-State wenn nichts gewählt.
 // Siehe visual-tree.md V.1.2 + V.1.1-B.
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
@@ -78,14 +79,21 @@ export function EditorPanel({ resolvers }: EditorPanelProps): ReactNode {
     setTarget(undefined);
   }, []);
 
-  if (target === undefined) return null;
-
   return (
-    <div
-      data-kumiko-layout="editor-panel"
-      className="fixed inset-y-0 right-0 z-50 w-[480px] max-w-[90vw] border-l bg-background shadow-xl overflow-y-auto"
-    >
-      <EditorPanelInner target={target} resolvers={resolvers} onClose={handleClose} />
+    <div data-kumiko-layout="editor-main" className="flex-1 overflow-y-auto">
+      {target === undefined ? (
+        <EditorEmptyState />
+      ) : (
+        <EditorPanelInner target={target} resolvers={resolvers} onClose={handleClose} />
+      )}
+    </div>
+  );
+}
+
+function EditorEmptyState(): ReactNode {
+  return (
+    <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
+      <p>W&auml;hle einen Knoten links zum Bearbeiten.</p>
     </div>
   );
 }

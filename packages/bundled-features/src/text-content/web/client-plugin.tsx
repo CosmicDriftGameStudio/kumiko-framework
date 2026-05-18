@@ -18,8 +18,14 @@
 // ist no-op. V.1.3+ kann SSE-driven Re-Emit einbauen wenn text-block-
 // updated-Events propagiert werden.
 
-import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  TargetRef,
+  TreeChildrenSubscribe,
+  TreeNode,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import type { ReactNode } from "react";
 import { TextContentQueries } from "../constants";
 
 type BlockSummary = {
@@ -100,6 +106,48 @@ const treeProvider: TreeChildrenSubscribe = (_ctx) => (emit) => {
   return () => {};
 };
 
+// Stub-Editor V.1.2 — zeigt slug/lang aus den TargetRef-args plus den
+// V.1.3-TODO-Hinweis. Echte Edit-Form (title, body-textarea, save-button
+// via TextContentHandlers.set) kommt in V.1.3 wenn der Resolver-Slot
+// Form-Component-Pattern + dispatch-Wiring eingebaut hat. Bis dahin
+// validiert der Stub das End-to-End-Wiring (TreeNode → buildTarget →
+// dispatch → ResolversContext lookup → Render).
+function TextContentEditor({
+  target,
+  onClose,
+}: {
+  readonly target: TargetRef;
+  readonly onClose: () => void;
+}): ReactNode {
+  // @cast-boundary visual-tree-args — TargetRef.args ist erased zu
+  // Record<string, unknown>; der Resolver kennt das Action-Shape (siehe
+  // treeActions.edit-Definition unten) und de-erased pro Action analog
+  // zu Event-Payloads. Optional-Chain absorbiert fehlende Felder ohne
+  // throw, damit der Stub-Editor auch bei manuellem URL-Tampering nicht
+  // crasht (TargetRef könnte aus old localStorage / URL-State stammen).
+  const args = target.args as { slug?: string; lang?: string } | undefined;
+  const { Button } = usePrimitives();
+  return (
+    <div className="flex h-full flex-col">
+      <header className="flex items-center justify-between border-b px-6 py-4">
+        <div>
+          <h2 className="text-lg font-semibold">Text-Block bearbeiten</h2>
+          <p className="text-xs text-muted-foreground">
+            {args?.slug ?? "—"} ({args?.lang ?? "—"})
+          </p>
+        </div>
+        <Button variant="secondary" onClick={onClose}>
+          schlie&szlig;en
+        </Button>
+      </header>
+      <div className="flex-1 space-y-4 p-6 text-sm text-muted-foreground">
+        <p>Editor-Stub (V.1.2). Echte Edit-Form folgt in V.1.3.</p>
+        <pre className="rounded bg-muted p-2 text-xs">{JSON.stringify(target, null, 2)}</pre>
+      </div>
+    </div>
+  );
+}
+
 export function textContentClient(): ClientFeatureDefinition {
   return {
     name: "text-content",
@@ -108,6 +156,9 @@ export function textContentClient(): ClientFeatureDefinition {
       edit: { args: { slug: "" as string, lang: "" as string } },
       list: {},
       create: { args: { folder: "" as string } },
+    },
+    resolvers: {
+      "text-content:edit": TextContentEditor,
     },
   };
 }
