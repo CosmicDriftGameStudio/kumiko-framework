@@ -29,7 +29,10 @@ import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
 import { TextContentQueries } from "../constants";
 
-type BlockSummary = {
+// Exported für Unit-Test (groupBlocksBySlugPrefix ist pure-function ohne
+// fetch/DOM). Public-API für externe Konsumenten ist nicht intendiert —
+// sub-path-Export endet bei textContentClient().
+export type BlockSummary = {
   readonly slug: string;
   readonly lang: string;
   readonly title: string;
@@ -49,7 +52,7 @@ function getFolderName(slug: string): string | undefined {
   return slug.slice(0, sepIdx);
 }
 
-function groupBlocksBySlugPrefix(blocks: readonly BlockSummary[]): readonly TreeNode[] {
+export function groupBlocksBySlugPrefix(blocks: readonly BlockSummary[]): readonly TreeNode[] {
   const rootNodes: TreeNode[] = [];
   const folders = new Map<string, TreeNode[]>();
 
