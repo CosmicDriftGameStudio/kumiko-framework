@@ -218,10 +218,10 @@ describe("Schicht-1↔Schicht-2 Bridge — buildTarget against real defineFeatur
     // @ts-expect-error — "delet" ist keine Action im Handle
     buildTarget({ target: textContent.exports.handle, action: "delet", args: { slug: "x" } });
 
+    // @ts-expect-error — slug muss string sein, nicht number
     buildTarget({
       target: textContent.exports.handle,
       action: "edit",
-      // @ts-expect-error — slug muss string sein, nicht number
       args: { slug: 42 },
     });
 

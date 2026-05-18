@@ -36,6 +36,7 @@ import { useBrowserTokensApi } from "../tokens";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { useBrowserNavApi } from "./nav";
+import { ResolversProvider, type ResolverComponent } from "./resolvers-context";
 import { TreeProvidersProvider } from "./tree-providers-context";
 
 // Web-Bootstrap. Mounted den ganzen Kumiko-Render-Stack im Browser:
@@ -211,7 +212,22 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
     treeProviders.set(f.name, f.treeProvider);
   }
 
-  const resolver = options.locale ?? createBrowserLocaleResolver();
+  // Editor-Resolver aggregieren — keyed by "featureId:action". Gleiche
+  // Last-Wins-Semantik wie columnRenderers. Warnung bei Kollision.
+  const resolvers = new Map<string, ResolverComponent>();
+  for (const f of clientFeatures) {
+    if (f.resolvers === undefined) continue;
+    for (const [key, component] of Object.entries(f.resolvers)) {
+      if (resolvers.has(key)) {
+        console.warn(
+          `[kumiko] resolver "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
+        );
+      }
+      resolvers.set(key, component);
+    }
+  }
+
+  const localeResolver = options.locale ?? createBrowserLocaleResolver();
 
   const navAdapter = options.navAdapter ?? useBrowserNavApi;
   const hasWorkspaces = (app.workspaces?.length ?? 0) > 0;
@@ -229,16 +245,18 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
 
   const tree = (
     <TokensBoot>
-      <LocaleProvider resolver={resolver} fallbackBundles={fallbackBundles}>
+      <LocaleProvider resolver={localeResolver} fallbackBundles={fallbackBundles}>
         <PrimitivesProvider value={primitives}>
           <DispatcherProvider dispatcher={dispatcher}>
             <LiveEventsProvider value={liveEvents}>
               <CustomScreensProvider value={customScreens}>
                 <ColumnRenderersProvider value={columnRenderers}>
                   <TreeProvidersProvider value={treeProviders}>
+                    <ResolversProvider resolvers={resolvers}>
                     <ToastProvider>
                       {stackWrappers(providers, stackWrappers(gates, screenNode))}
                     </ToastProvider>
+                    </ResolversProvider>
                   </TreeProvidersProvider>
                 </ColumnRenderersProvider>
               </CustomScreensProvider>

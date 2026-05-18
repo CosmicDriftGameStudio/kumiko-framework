@@ -84,10 +84,10 @@ describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", 
   });
 
   test("falsche args-shape wird vom Compiler abgelehnt", () => {
+    // @ts-expect-error — slug muss string sein, nicht number
     buildTarget({
       target: textContentStub,
       action: "edit",
-      // @ts-expect-error — slug muss string sein, nicht number
       args: { slug: 42 },
     });
   });

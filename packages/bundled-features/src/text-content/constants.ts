@@ -9,6 +9,7 @@ export const TextContentHandlers = {
 // Qualified query handler names (QN format: scope:type:name)
 export const TextContentQueries = {
   bySlug: "text-content:query:by-slug",
+  byTenant: "text-content:query:by-tenant",
 } as const;
 
 // Error codes

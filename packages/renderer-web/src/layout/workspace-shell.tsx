@@ -37,6 +37,8 @@ import { AppLayout } from "./app-layout";
 import { lastSegment, NavTree } from "./nav-tree";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { useResolvers } from "../app/resolvers-context";
+import { EditorPanel } from "./editor-panel";
 import { VisualTree } from "./visual-tree";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
@@ -195,6 +197,9 @@ export function WorkspaceShell({
   // Prop hier nötig. Workspace-ID wird durchgereicht für die
   // localStorage-Persistenz des expanded-Set.
   // Siehe docs/plans/architecture/visual-tree.md A1 + V.1.1-A.
+  const resolvers = useResolvers();
+  const isTreeMode = activeWorkspace?.definition.navigation === "tree";
+
   const sidebarContent =
     activeWorkspace?.definition.navigation === "tree" ? (
       <VisualTree workspaceId={activeWorkspace.definition.id} />
@@ -215,6 +220,7 @@ export function WorkspaceShell({
         </Sidebar>
       }
     >
+      {isTreeMode && <EditorPanel resolvers={resolvers} />}
       {children}
     </AppLayout>
   );

@@ -3,7 +3,7 @@ import type { TreeActionDef } from "../../types/tree-node";
 import type { TreeActionsPattern, TreePattern } from "../patterns";
 import { sourceLocationFromNode } from "../source-location";
 import {
-  ExtractOutput,
+  type ExtractOutput,
   fail,
   findFunctionLiteral,
   isPlainObject,
