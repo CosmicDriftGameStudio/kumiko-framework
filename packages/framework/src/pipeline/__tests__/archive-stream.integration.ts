@@ -49,7 +49,7 @@ const archFeature = defineFeature("archtest", (r) => {
     "item:relabel",
     z.object({ id: z.uuid(), label: z.string() }),
     async (event, ctx) => {
-      await ctx.appendEventUnsafe({
+      await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "arch-item",
         type: labelChanged.name,

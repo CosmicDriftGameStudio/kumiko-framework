@@ -1,4 +1,4 @@
-import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineWriteHandler, pipeline } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // Logout — JWT is stateless, so server-side we only return OK. A future
@@ -8,5 +8,7 @@ export const logoutWrite = defineWriteHandler({
   name: "logout",
   schema: z.object({}),
   access: { roles: access.authenticated },
-  handler: async () => ({ isSuccess: true, data: { kind: "logged-out" } }),
+  perform: pipeline(({ event, r }) => [
+    r.step.return((ctx) => ({ isSuccess: true, data: { kind: "logged-out" } }))
+  ]),
 });

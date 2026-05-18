@@ -12,7 +12,7 @@ export const CAP_COUNTER_ROLLING_AGGREGATE_TYPE = "cap-counter-rolling" as const
 // Custom event-type für Rolling-Window-Counter. Symmetrisches Paar:
 //   _SHORT  — passt zu `r.defineEvent(short, schema)` im Registrar
 //             (Framework prefixt automatisch zu QN)
-//   _QN     — qualifizierte Form für `ctx.appendEventUnsafe({type})`
+//   _QN     — qualifizierte Form für `ctx.unsafeAppendEvent({type})`
 //             + `events.type`-Spalte + `registry.getEvent(qn)`-Lookup
 // Beide MÜSSEN konsistent sein (drift-pin im feature-test).
 export const ROLLING_INCREMENTED_EVENT_SHORT = "rolling-incremented" as const;

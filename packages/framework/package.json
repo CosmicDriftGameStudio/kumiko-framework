@@ -40,6 +40,10 @@
       "types": "./src/engine/types/index.ts",
       "default": "./src/engine/types/index.ts"
     },
+    "./engine/codemod": {
+      "types": "./src/engine/codemod/index.ts",
+      "default": "./src/engine/codemod/index.ts"
+    },
     "./errors": {
       "types": "./src/errors/index.ts",
       "default": "./src/errors/index.ts"

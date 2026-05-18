@@ -123,11 +123,11 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
       // and filtering by payload.featureName is trivial at query time.
       // This mirrors how `config` handles the same constraint for
       // its config-changed events.
-      // appendEventUnsafe — bundled-features ohne lokalen Wrapper. Apps
+      // unsafeAppendEvent — bundled-features ohne lokalen Wrapper. Apps
       // mit `yarn kumiko codegen` kriegen `.kumiko/define.ts` als strict-
       // path; bundled-features bleibt bei der unsafe-Variante. Schema-
       // Validation läuft trotzdem via r.defineEvent("toggle-set", ...).
-      await ctx.appendEventUnsafe({
+      await ctx.unsafeAppendEvent({
         aggregateId: SYSTEM_TENANT_ID,
         aggregateType: FEATURE_TOGGLE_AGGREGATE_TYPE,
         type: FEATURE_TOGGLE_SET_EVENT_NAME,

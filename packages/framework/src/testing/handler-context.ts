@@ -45,7 +45,7 @@ export function bridgeStub(opts?: {
   | "write"
   | "writeAs"
   | "appendEvent"
-  | "appendEventUnsafe"
+  | "unsafeAppendEvent"
   | "fetchForWriting"
   | "loadAggregate"
   | "archiveStream"
@@ -89,7 +89,7 @@ export function bridgeStub(opts?: {
       payload: unknown,
     ) => Promise<WriteResult>,
     appendEvent: notAvailable("appendEvent") as unknown as (args: AppendEventArgs) => Promise<void>,
-    appendEventUnsafe: notAvailable("appendEventUnsafe") as unknown as (
+    unsafeAppendEvent: notAvailable("unsafeAppendEvent") as unknown as (
       args: AppendEventArgs,
     ) => Promise<void>,
     fetchForWriting: notAvailable("fetchForWriting") as unknown as (

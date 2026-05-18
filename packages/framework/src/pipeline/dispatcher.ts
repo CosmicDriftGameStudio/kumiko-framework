@@ -309,7 +309,7 @@ export function createDispatcher(
       appendEvent: (async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
       }) as AppendEventFn, // @cast-boundary engine-bridge
-      appendEventUnsafe: async (args: AppendEventArgs) => {
+      unsafeAppendEvent: async (args: AppendEventArgs) => {
         await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
       },
       fetchForWriting: async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {
@@ -482,7 +482,7 @@ export function createDispatcher(
       },
       queryProjection: async <T = Record<string, unknown>>(
         qualifiedName: string,
-        queryOptions?: { readonly allTenants?: boolean },
+        queryOptions?: { readonly unsafeAllTenants?: boolean },
       ): Promise<readonly T[]> => {
         // queryProjection works against both single-stream and multi-stream
         // projections. MSPs without a table cannot be queried — those are
@@ -516,7 +516,7 @@ export function createDispatcher(
         // @cast-boundary dynamic-key — drizzle's PgTable columns are schema-dependent
         const tenantCol = (projTable as Record<string, AnyColumn | undefined>)["tenantId"]; // @cast-boundary dynamic-key
         let rows: readonly Record<string, unknown>[];
-        if (tenantCol && !queryOptions?.allTenants) {
+        if (tenantCol && !queryOptions?.unsafeAllTenants) {
           rows = (await dbSource
             .select()
             .from(projTable)
@@ -1063,7 +1063,7 @@ export function createDispatcher(
     const handlerContext = buildHandlerContext(type, user, tx, afterCommitHooks);
 
     // Auto transition guard: if entity has transitions and handler doesn't skip it
-    if (entityName && !handler.skipTransitionGuard) {
+    if (entityName && !handler.unsafeSkipTransitionGuard) {
       const entity = registry.getEntity(entityName);
       if (entity?.transitions && handlerContext.db) {
         const parsedData = parsed.data as DbRow; // @cast-boundary engine-payload
@@ -1091,7 +1091,7 @@ export function createDispatcher(
           if (!row) continue;
           // Skip guard for soft-deleted rows — they shouldn't be transitioning
           // at all; a handler that wants to move a deleted row should use
-          // skipTransitionGuard or restore first.
+          // unsafeSkipTransitionGuard or restore first.
           const rowAsRow = row as DbRow; // @cast-boundary engine-payload
           if (entity.softDelete && rowAsRow["isDeleted"] === true) {
             continue;

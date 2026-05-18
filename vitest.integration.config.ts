@@ -1,11 +1,44 @@
 import { defineConfig } from "vitest/config";
+import path from "node:path";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@cosmicdrift/kumiko-framework/engine": path.resolve(
+        __dirname,
+        "packages/framework/src/engine",
+      ),
+      "@cosmicdrift/kumiko-framework/db": path.resolve(
+        __dirname,
+        "packages/framework/src/db",
+      ),
+      "@cosmicdrift/kumiko-framework/event-store": path.resolve(
+        __dirname,
+        "packages/framework/src/event-store",
+      ),
+      "@cosmicdrift/kumiko-framework/stack": path.resolve(
+        __dirname,
+        "packages/framework/src/stack",
+      ),
+      "@cosmicdrift/kumiko-framework/errors": path.resolve(
+        __dirname,
+        "packages/framework/src/errors",
+      ),
+    },
+  },
   test: {
     name: "integration",
     globals: true,
     environment: "node",
     include: ["packages/**/*.integration.ts", "samples/**/*.integration.ts"],
+    // pipeline-basics needs the worktree's framework source (M.1 step-
+    // engine isn't in main yet). It ships its own vitest.config.ts with
+    // a worktree-source alias — running it via the root config crashes
+    // at import-time with `r.requires.projection is not a function`.
+    // Exclude here, run locally via:
+    //   cd samples/recipes/pipeline-basics && bunx vitest run
+    // Once M.1 lands in main, this exclude can go away.
+    exclude: ["samples/recipes/pipeline-basics/**", "samples/recipes/webhook-step/**"],
     setupFiles: ["./vitest.setup.ts"],
     reporters: ["dot"],
     passWithNoTests: true,

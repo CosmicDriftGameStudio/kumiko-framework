@@ -9,7 +9,7 @@
 //      kein zweiter append.
 //   2. Type-mapping: SubscriptionEvent.type (= normalisiert vom Plugin)
 //      → einer der 5 ES-event-typen.
-//   3. ctx.appendEventUnsafe — Inline-projection materialisiert die
+//   3. ctx.unsafeAppendEvent — Inline-projection materialisiert die
 //      `read_subscriptions`-row in derselben TX.
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
@@ -141,7 +141,7 @@ export const processEventHandler: WriteHandlerDef = {
       providerName: payload.providerName,
       rawPayload: payload.rawPayload,
     };
-    await ctx.appendEventUnsafe({
+    await ctx.unsafeAppendEvent({
       aggregateId: aggId,
       aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       type: esEventType,

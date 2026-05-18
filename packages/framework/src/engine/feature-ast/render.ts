@@ -352,7 +352,7 @@ function renderWriteHandler(p: WriteHandlerPattern): string {
   lines.push(`  handler: ${reindentBody(p.handlerBody.raw, PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
-  if (p.skipTransitionGuard === true) lines.push("  skipTransitionGuard: true,");
+  if (p.unsafeSkipTransitionGuard === true) lines.push("  unsafeSkipTransitionGuard: true,");
   lines.push("});");
   return lines.join("\n");
 }

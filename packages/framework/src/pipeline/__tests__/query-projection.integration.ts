@@ -96,10 +96,10 @@ const qpFeature = defineFeature("qp", (r) => {
 
   r.queryHandler(
     "widget:list-system",
-    z.object({ allTenants: z.boolean().optional() }),
+    z.object({ unsafeAllTenants: z.boolean().optional() }),
     async (query, ctx) =>
       ctx.queryProjection("qp:projection:widget-audit", {
-        allTenants: query.payload.allTenants ?? false,
+        unsafeAllTenants: query.payload.unsafeAllTenants ?? false,
       }),
     { access: { openToAll: true } },
   );
@@ -172,8 +172,8 @@ describe("ctx.queryProjection", () => {
     expect(rows.map((r) => r.label).sort()).toEqual(["X", "Y"]);
   });
 
-  test("allTenants=true bypasses tenant filter on tenant-scoped projection", async () => {
-    // Repurpose list-system by passing allTenants=true — but list-system is
+  test("unsafeAllTenants=true bypasses tenant filter on tenant-scoped projection", async () => {
+    // Repurpose list-system by passing unsafeAllTenants=true — but list-system is
     // already no-tenant-column. The semantic matters when a projection HAS
     // tenant_id but the handler wants a cross-tenant sweep (audit). We
     // exercise that contract via a direct queryProjection call here.
@@ -186,7 +186,7 @@ describe("ctx.queryProjection", () => {
     //  surface small — assert against the two query handlers we have.)
     const sys = await stack.http.queryOk<Array<{ label: string }>>(
       "qp:query:widget:list-system",
-      { allTenants: true },
+      { unsafeAllTenants: true },
       admin,
     );
     expect(sys).toHaveLength(2);

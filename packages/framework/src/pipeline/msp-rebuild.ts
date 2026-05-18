@@ -67,7 +67,7 @@ function createRebuildCtx(
   };
   return {
     appendEvent: refuseAppend as MultiStreamApplyContext["appendEvent"], // @cast-boundary engine-bridge
-    appendEventUnsafe: refuseAppend,
+    unsafeAppendEvent: refuseAppend,
     loadAggregate: async (aggregateId, options) => {
       const events = options?.asOf
         ? await loadAggregateAsOf(db, aggregateId, tenantId, options.asOf)

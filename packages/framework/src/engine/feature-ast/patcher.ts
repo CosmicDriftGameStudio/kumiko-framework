@@ -93,7 +93,7 @@ export type AddWriteHandlerArgs = {
   readonly handlerSource: string;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
-  readonly skipTransitionGuard?: boolean;
+  readonly unsafeSkipTransitionGuard?: boolean;
 };
 
 export type AddQueryHandlerArgs = {
@@ -364,7 +364,14 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       add({ kind: "screen", source: SYNTHETIC_LOC, definition, opaqueProps });
     },
 
-    addWriteHandler({ name, schemaSource, handlerSource, access, rateLimit, skipTransitionGuard }) {
+    addWriteHandler({
+      name,
+      schemaSource,
+      handlerSource,
+      access,
+      rateLimit,
+      unsafeSkipTransitionGuard,
+    }) {
       add({
         kind: "writeHandler",
         source: SYNTHETIC_LOC,
@@ -373,7 +380,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         handlerBody: rawLoc(handlerSource),
         ...(access !== undefined && { access }),
         ...(rateLimit !== undefined && { rateLimit }),
-        ...(skipTransitionGuard === true && { skipTransitionGuard: true }),
+        ...(unsafeSkipTransitionGuard === true && { unsafeSkipTransitionGuard: true }),
       });
     },
 

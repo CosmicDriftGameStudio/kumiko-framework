@@ -64,10 +64,12 @@ import type {
   WriteHandlerFn,
 } from "./types";
 import { HookPhases } from "./types";
+import type { RequiresApi } from "./types/feature";
 import { resolveName } from "./types/handlers";
 import type { HttpRouteDefinition } from "./types/http-route";
 import type { NavDefinition } from "./types/nav";
 import type { ScreenDefinition } from "./types/screen";
+import type { PipelineDef } from "./types/step";
 import type { WorkspaceDefinition } from "./types/workspace";
 
 const LIFECYCLE_TYPES = Object.values(LifecycleHookTypes);
@@ -90,6 +92,11 @@ export function defineFeature<const TName extends string, TExports = undefined>(
 ): FeatureDefinition & { readonly exports: TExports } {
   const requires: string[] = [];
   const optionalRequires: string[] = [];
+  // Read-side projection-tables declared via r.requires.projection("table").
+  // Boot-validator checks unsafeProjection-* step calls against this set.
+  const requiredProjections = new Set<string>();
+  // Tier-2 step kinds declared via r.requires.step("webhook.send"). Q9.
+  const requiredSteps = new Set<string>();
   const entities: Record<string, EntityDefinition> = {};
   const relations: Record<string, Record<string, RelationDefinition>> = {};
   const writeHandlers: Record<string, WriteHandlerDef> = {};
@@ -164,9 +171,18 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       isSystemScoped = true;
     },
 
-    requires(...featureNames: string[]): void {
-      requires.push(...featureNames);
-    },
+    requires: (() => {
+      const fn = (...featureNames: string[]) => {
+        requires.push(...featureNames);
+      };
+      fn.projection = (tableName: string) => {
+        requiredProjections.add(tableName);
+      };
+      fn.step = (stepKind: string) => {
+        requiredSteps.add(stepKind);
+      };
+      return fn as RequiresApi;
+    })(),
 
     optionalRequires(...featureNames: string[]): void {
       optionalRequires.push(...featureNames);
@@ -197,11 +213,27 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         writeHandlers[def.name] = {
           name: def.name,
           schema: def.schema,
-          // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
-          handler: def.handler as WriteHandlerFn, // @cast-boundary engine-bridge
+          // @cast-boundary engine-bridge — typed Dev-API's handler is
+          // generic over the schema's parsed payload (`WriteEvent<output<TSchema>>`),
+          // the storage form WriteHandlerFn carries `WriteEvent<unknown>`.
+          // Function-arg variance: TS sees the typed handler as stricter
+          // than the loose storage shape and rejects direct assignment.
+          // The runtime value is identical — the cast crosses that boundary.
+          // `satisfies` does not work here (it asserts assignability, which
+          // is what fails). Explicit cast is the right tool.
+          handler: def.handler as WriteHandlerFn,
           ...(def.access && { access: def.access }),
-          ...(def.skipTransitionGuard && { skipTransitionGuard: true }),
+          ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
+          // Forward the pipeline-build closure so boot-validators and
+          // Designer/AI tooling can inspect the step list. Absent on
+          // free-form handlers — defineWriteHandler only sets `perform`
+          // when the author used the pipeline form. Variance cast
+          // mirrors the handler-cast above: PipelineDef<output<TSchema>>
+          // is stricter than PipelineDef<unknown> for the same reason.
+          ...(def.perform !== undefined && {
+            perform: def.perform as PipelineDef,
+          }),
         };
         tryMapEntity(def.name);
         return { name: def.name };
@@ -776,6 +808,8 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     exports,
     requires,
     optionalRequires,
+    requiredProjections,
+    requiredSteps,
     ...(toggleableDefault !== undefined && { toggleableDefault }),
     entities,
     relations,

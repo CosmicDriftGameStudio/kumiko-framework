@@ -149,6 +149,14 @@ export type FeatureDefinition = {
   readonly exports?: unknown;
   readonly requires: readonly string[];
   readonly optionalRequires: readonly string[];
+  // Read-side projection-tables this feature is allowed to write via
+  // r.step.unsafeProjectionUpsert / unsafeProjectionDelete. Declared via
+  // r.requires.projection("table_name"). Hard requirement — boot-error
+  // if a step targets a non-listed table or one that's already an
+  // r.entity-registered aggregate-table. See step-vocabulary.md Q10.
+  readonly requiredProjections: ReadonlySet<string>;
+  // Tier-2 step kinds opted-in via r.requires.step("webhook.send"). Q9.
+  readonly requiredSteps: ReadonlySet<string>;
   // Declared via r.toggleable({ default }). Presence makes the feature
   // operator-switchable via the feature-toggles bundled feature; absence
   // means the feature is always-on (e.g. auth, tenant, user — core infra
@@ -266,9 +274,22 @@ type RefOrRefs = NameOrRef | readonly NameOrRef[];
  * keeping strict-mode alive even when handlers route via `eventDef.name`
  * instead of hand-typed string literals.
  */
+/**
+ * `r.requires` is a callable+namespace: existing call form takes feature
+ * names (`r.requires("auth", "tenant")`), the `.projection` extension
+ * declares read-side projection tables that this feature's pipeline
+ * steps are allowed to write via `r.step.unsafeProjectionUpsert`.
+ * Hard-required for any unsafeProjection-* step usage (see Q10).
+ */
+export type RequiresApi = ((...featureNames: string[]) => void) & {
+  readonly projection: (tableName: string) => void;
+  // Tier-2 step opt-in (Q9). Tier-1 implicit, Tier-2 must be declared.
+  readonly step: (stepKind: string) => void;
+};
+
 export type FeatureRegistrar<TFeature extends string = string> = {
   systemScope(): void;
-  requires(...featureNames: string[]): void;
+  requires: RequiresApi;
   optionalRequires(...featureNames: string[]): void;
   // Declare the feature as operator-togglable. `default` is the effective
   // state when no global-toggle row exists. Must be called at most once per

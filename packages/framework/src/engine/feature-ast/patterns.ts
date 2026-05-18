@@ -236,7 +236,7 @@ export type WriteHandlerPattern = {
   readonly handlerBody: SourceLocation;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
-  readonly skipTransitionGuard?: boolean;
+  readonly unsafeSkipTransitionGuard?: boolean;
 };
 
 export type QueryHandlerPattern = {

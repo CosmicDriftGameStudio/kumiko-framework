@@ -19,9 +19,14 @@ export {
 export type { App, AppConfig } from "./create-app";
 export { createApp } from "./create-app";
 export { defineFeature } from "./define-feature";
-export type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
+export type {
+  QueryHandlerDefinition,
+  WriteHandlerDefinition,
+  WriteHandlerInput,
+} from "./define-handler";
 export { defineQueryHandler, defineWriteHandler } from "./define-handler";
 export { defineRoles } from "./define-roles";
+export { defineStep, getStep, listStepKinds } from "./define-step";
 export type { ToggleReader } from "./effective-features";
 export { computeEffectiveFeatures } from "./effective-features";
 export {
@@ -126,6 +131,7 @@ export {
 } from "./field-access";
 export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
 export { from } from "./ownership";
+export { pipeline } from "./pipeline";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";
@@ -158,7 +164,6 @@ export type {
   AppContext,
   AppendEventArgs,
   AppendEventFn,
-  AppendEventUnsafeFn,
   AuthClaimsContext,
   AuthClaimsFn,
   AuthClaimsHookDef,
@@ -276,6 +281,7 @@ export type {
   TreeContext,
   TreeNode,
   TreeNodeState,
+  UnsafeAppendEventFn,
   ValidationError,
   ValidationHookFn,
   WorkspaceDefinition,
@@ -288,4 +294,32 @@ export { DEFAULT_CURRENCIES, HookPhases } from "./types";
 export { resolveName, withResponseData } from "./types/handlers";
 export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
 export { normalizeEditField, normalizeListColumn } from "./types/screen";
+export type {
+  PipelineBuildCtx,
+  PipelineCtx,
+  PipelineDef,
+  StepBuilder,
+  StepDef,
+  StepFailureStrategy,
+  StepInstance,
+  StepKind,
+  StepNamespace,
+  StepResolver,
+} from "./types/step";
 export { runValidation } from "./validation";
+export { computeDefinitionFingerprint, defineWorkflow } from "./define-workflow";
+export { runPipeline, runStepList } from "./run-pipeline";
+export type { StepListOutcome } from "./run-pipeline";
+export { buildPipelineSteps } from "./pipeline";
+export type { WorkflowDefinition, WorkflowTrigger, WorkflowInput } from "./define-workflow";
+export {
+  SUSPEND_SENTINEL,
+  WORKFLOW_AGGREGATE_TYPE,
+  WORKFLOW_RESUMED_TYPE,
+  WORKFLOW_RETRY_SCHEDULED_TYPE,
+  WORKFLOW_RUN_COMPLETED_TYPE,
+  WORKFLOW_RUN_FAILED_TYPE,
+  WORKFLOW_RUN_STARTED_TYPE,
+  WORKFLOW_WAITING_FOR_EVENT_TYPE,
+  WORKFLOW_WAITING_TYPE,
+} from "./steps/_step-dispatch-constants";

@@ -63,7 +63,7 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   r.entity("cap-counter", capCounterEntity);
 
   // Custom Domain-Event für Rolling-Counter. r.defineEvent registriert
-  // das Schema beim Registry; ctx.appendEventUnsafe im Handler nutzt
+  // das Schema beim Registry; ctx.unsafeAppendEvent im Handler nutzt
   // dasselbe Schema für Append-Time-Validation. QN nach Prefixing:
   // "cap-counter:event:rolling-incremented" (siehe
   // ROLLING_INCREMENTED_EVENT_QN).

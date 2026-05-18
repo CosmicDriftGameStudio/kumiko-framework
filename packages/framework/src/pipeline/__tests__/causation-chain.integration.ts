@@ -65,7 +65,7 @@ const causationFeature = defineFeature("causation", (r) => {
     async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
-      await ctx.appendEventUnsafe({
+      await ctx.unsafeAppendEvent({
         aggregateId: String(created.data.id),
         aggregateType: "causation-order",
         type: placed.name,
