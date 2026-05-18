@@ -1,3 +1,4 @@
+// @runtime client
 // Feature name
 export const LEGAL_PAGES_FEATURE = "legal-pages" as const;
 

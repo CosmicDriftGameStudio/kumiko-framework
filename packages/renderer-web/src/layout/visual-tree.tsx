@@ -1,3 +1,4 @@
+// @runtime client
 // VisualTree — Top-Level-Component für `r.workspace({ navigation: "tree" })`-
 // Workspaces. Ersetzt VisualTreeStub aus Phase 0 Schicht 3.
 //
@@ -20,11 +21,11 @@
 //
 // Siehe visual-tree.md V.1.1-A.
 
-import {
-  SYSTEM_TENANT_ID,
-  type TreeChildrenSubscribe,
-  type TreeContext,
-  type TreeNode,
+import type {
+  TenantId,
+  TreeChildrenSubscribe,
+  TreeContext,
+  TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTreeProviders } from "../app/tree-providers-context";
@@ -32,11 +33,17 @@ import { TreeNodeRenderer } from "./tree-node-renderer";
 
 const EXPANDED_STORAGE_PREFIX = "kumiko:visual-tree:expanded:";
 
-// Default-TreeContext für V.1.1: tenantId pinned auf SYSTEM_TENANT_ID.
-// Kein Stub im Test-Sinn — das ist der legitime V.1.1-Default-Wert.
-// V.1.2 ersetzt den Wert durch echten Tenant-Source (TenantContext oder
+// V.1.1-Pin: TenantId für die Default-Tree-Context. Lokal als Branded-
+// Type-Construction (Memory `[Type Assertions]`) statt Value-Import aus
+// /engine — der engine-Barrel ist `runtime`-klassifiziert und ein client-
+// Modul darf ihn nicht als Wert konsumieren. **Sync-Pflicht**: muss mit
+// SYSTEM_TENANT_ID aus engine/types/identifiers.ts identisch bleiben;
+// ein Mismatch zeigt sich als „falscher Tenant" in Provider-Requests.
+// V.1.2 ersetzt den Pin durch echten Tenant-Source (TenantContext oder
 // Auth-Layer) sobald der erste Provider tenant-spezifische Daten braucht.
-const DEFAULT_TREE_CTX: TreeContext = Object.freeze({ tenantId: SYSTEM_TENANT_ID });
+const SYSTEM_TENANT_ID_PIN = "00000000-0000-4000-8000-000000000000" as TenantId;
+
+const DEFAULT_TREE_CTX: TreeContext = Object.freeze({ tenantId: SYSTEM_TENANT_ID_PIN });
 
 export type VisualTreeProps = {
   /** Workspace-ID des aktiven `navigation:"tree"`-Workspaces. Wird als

@@ -1,3 +1,4 @@
+// @runtime client
 // Feature name
 export const TEXT_CONTENT_FEATURE = "text-content" as const;
 
