@@ -1,0 +1,93 @@
+{
+  "$schema": "Exceptions-Datei fuer scripts/check-licenses.ts. Jede Exception braucht Grund + Reviewer + Ablaufdatum.",
+  "exceptions": [
+    {
+      "package": "lightningcss",
+      "version": "*",
+      "license": "MPL-2.0",
+      "reason": "Transitive Dependency via Expo/Metro CSS-Tooling. MPL-2.0 ist file-level Copyleft — betrifft nur Modifikationen an lightningcss selbst, nicht unseren Code. Nur als Dependency genutzt, nicht modifiziert.",
+      "reviewedBy": "Marc, 2026-04-15",
+      "expires": "2027-04-15"
+    },
+    {
+      "package": "lightningcss-*",
+      "version": "*",
+      "license": "MPL-2.0",
+      "reason": "Platform-Binaries zu lightningcss (darwin-arm64/darwin-x64/linux-x64-gnu/linux-x64-musl/linux-arm64-gnu/linux-arm64-musl/linux-arm-gnueabihf/android-arm64/freebsd-x64/win32-x64-msvc/win32-arm64-msvc). Wildcard-Match — neue Plattform-Binary kommt automatisch durch ohne weiteren Eintrag.",
+      "reviewedBy": "Marc, 2026-04-26",
+      "expires": "2027-04-26"
+    },
+    {
+      "package": "spdx-exceptions",
+      "version": "*",
+      "license": "CC-BY-3.0",
+      "reason": "Transitive Dep via SPDX-License-Tooling selbst. CC-BY-3.0 deckt nur die SPDX-Exception-Daten (eine Liste von License-IDs), keine Code-Verteilung — wir nutzen das Package nur zur Laufzeit für Dep-Scanning, kein Re-Distribute.",
+      "reviewedBy": "Marc, 2026-05-01",
+      "expires": "2027-05-01"
+    },
+    {
+      "package": "@logdna/tail-file",
+      "version": "*",
+      "license": "SEE LICENSE IN LICENSE",
+      "reason": "License-File ist im Package selbst (LICENSE), npm-metadata zeigt nur den Pointer. Apache-2.0 ist die echte Lizenz (siehe node_modules/@logdna/tail-file/LICENSE). Transitive Dep.",
+      "reviewedBy": "Marc, 2026-05-01",
+      "expires": "2027-05-01"
+    },
+    {
+      "package": "spawndamnit",
+      "version": "*",
+      "license": "SEE LICENSE IN LICENSE",
+      "reason": "Transitive Dep via @changesets/cli. License-File im Package: MIT (Copyright James Kyle, Mitautor von Changesets). npm-metadata zeigt nur den Pointer. Pattern wie @logdna/tail-file.",
+      "reviewedBy": "Marc, 2026-05-06",
+      "expires": "2027-05-06"
+    },
+    {
+      "package": "@cosmicdriftgamestudio/*",
+      "version": "*",
+      "license": "UNLICENSED",
+      "reason": "Eigene private CDGS-Workspace-Packages (kumiko-guards, später kumiko-ai-*, kumiko-designer etc.). UNLICENSED = proprietary, kein Public-License-Risk weil intern in der Org bleibt (GH-Packages access:restricted).",
+      "reviewedBy": "Marc, 2026-05-06",
+      "expires": "2030-05-06"
+    },
+    {
+      "package": "@cosmicdrift/*",
+      "version": "*",
+      "license": "BUSL-1.1",
+      "reason": "Eigene Public-Workspace-Packages (kumiko-framework + 6 weitere). Wir sind der Licensor — BUSL-1.1 ist unser eigener Lizenz-Choice für die public NPM-Pakete. Der License-Check denied BUSL-1.1 als generic-Pattern (für Third-Party-Deps korrekt), aber für eigene Packages ist's der designierte Lizenz.",
+      "reviewedBy": "Marc, 2026-05-06",
+      "expires": "2030-05-06"
+    },
+    {
+      "package": "@kumiko-platform/*",
+      "version": "*",
+      "license": "UNLICENSED",
+      "reason": "Eigene private Kumiko-Platform-Workspace-Packages. Analog zu @cosmicdriftgamestudio/*.",
+      "reviewedBy": "Marc, 2026-05-12",
+      "expires": "2030-05-12"
+    },
+    {
+      "package": "@fontsource-variable/*",
+      "version": "*",
+      "license": "OFL-1.1",
+      "reason": "SIL Open Font License. Standard für Webfonts, sicher für die Verwendung in Web-Apps.",
+      "reviewedBy": "Marc, 2026-05-12",
+      "expires": "2027-05-12"
+    },
+    {
+      "package": "@img/sharp-libvips-*",
+      "version": "*",
+      "license": "LGPL-3.0-or-later",
+      "reason": "Native Binaries für Sharp. LGPL-3.0 betrifft nur die Library selbst, unsere Nutzung via Sharp ist safe.",
+      "reviewedBy": "Marc, 2026-05-12",
+      "expires": "2027-05-12"
+    },
+    {
+      "package": "zod-to-ts",
+      "version": "*",
+      "license": "MIT",
+      "reason": "MIT-Lizenz (siehe GitHub-Repo). Der License-Scanner erkennt 'null' aus den Metadata.",
+      "reviewedBy": "Marc, 2026-05-12",
+      "expires": "2027-05-12"
+    }
+  ]
+}
