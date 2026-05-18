@@ -412,7 +412,7 @@ export type ParsedHandlerCall = {
   readonly handlerBody: SourceLocation;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
-  readonly skipTransitionGuard?: boolean;
+  readonly unsafeSkipTransitionGuard?: boolean;
 };
 
 export function parseHandlerCall(
@@ -486,7 +486,7 @@ export function parseHandlerCall(
     const rateLimit = rateLimitInit
       ? readOptionalRateLimit(readDataLiteralNode(rateLimitInit))
       : undefined;
-    const skip = readBooleanProperty(obj, "skipTransitionGuard");
+    const skip = readBooleanProperty(obj, "unsafeSkipTransitionGuard");
     return ok({
       source: sourceLocationFromNode(call, sourceFile),
       handlerName: nameLiteral.getLiteralValue(),
@@ -494,7 +494,7 @@ export function parseHandlerCall(
       handlerBody: sourceLocationFromNode(fn, sourceFile),
       ...(access !== undefined && { access }),
       ...(rateLimit !== undefined && { rateLimit }),
-      ...(skip === true && { skipTransitionGuard: true }),
+      ...(skip === true && { unsafeSkipTransitionGuard: true }),
     });
   }
 
@@ -564,7 +564,7 @@ export function extractWriteHandler(
     handlerBody: parsed.pattern.handlerBody,
     ...(parsed.pattern.access !== undefined && { access: parsed.pattern.access }),
     ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
-    ...(parsed.pattern.skipTransitionGuard === true && { skipTransitionGuard: true }),
+    ...(parsed.pattern.unsafeSkipTransitionGuard === true && { unsafeSkipTransitionGuard: true }),
   });
 }
 
