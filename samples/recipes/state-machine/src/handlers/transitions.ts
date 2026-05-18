@@ -120,7 +120,7 @@ export const invoiceForceStatus = defineWriteHandler({
     status: z.enum(INVOICE_STATES),
   }),
   access: adminOnly,
-  skipTransitionGuard: true,
+  unsafeSkipTransitionGuard: true,
   handler: async (event, ctx) => {
     const state = await loadInvoiceState(ctx, event.payload.id);
     if (!state) return failNotFound(ENTITY_NAME, event.payload.id);

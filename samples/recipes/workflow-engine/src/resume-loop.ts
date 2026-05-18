@@ -48,7 +48,7 @@ export type SuspendableRun = {
   /** Fingerprint stamped on the suspension event when the run started.
    *  Resume-loop compares this against the current workflow definition's
    *  fingerprint; a mismatch surfaces as RUN_FAILED with the reason
-   *  `workflow-definition-changed`. */
+   *  `workflow_definition_changed`. */
   definitionFingerprint?: string;
 };
 
@@ -105,7 +105,7 @@ export async function runResumeLoop(
               run.definitionFingerprint,
               currentFingerprint,
             ).message,
-            reason: "workflow-definition-changed",
+            reason: "workflow_definition_changed",
           },
         });
         continue;

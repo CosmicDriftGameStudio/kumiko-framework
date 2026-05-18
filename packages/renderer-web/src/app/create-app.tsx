@@ -219,6 +219,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
     if (f.resolvers === undefined) continue;
     for (const [key, component] of Object.entries(f.resolvers)) {
       if (resolvers.has(key)) {
+        // biome-ignore lint/suspicious/noConsole: client-bundle has no logger; collision is a dev-time warning that must surface in the browser DevTools.
         console.warn(
           `[kumiko] resolver "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
         );

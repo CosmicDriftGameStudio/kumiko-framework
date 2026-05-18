@@ -431,7 +431,7 @@ export function analyzeFile(filePath: string): FileAnalysis | null {
         filePath,
         pattern: "pipeline-write",
         convertible: false,
-        reason: "already uses pipeline form",
+        reason: "already_uses_pipeline_form",
       };
     }
 
@@ -440,7 +440,7 @@ export function analyzeFile(filePath: string): FileAnalysis | null {
         filePath,
         pattern: "free-form-write",
         convertible: true,
-        reason: "free-form write handler",
+        reason: "free_form_write_handler",
       };
     }
 
@@ -449,7 +449,7 @@ export function analyzeFile(filePath: string): FileAnalysis | null {
         filePath,
         pattern: "query-handler",
         convertible: false,
-        reason: "query handlers not convertible",
+        reason: "query_handlers_not_convertible",
       };
     }
 
@@ -552,7 +552,7 @@ export async function convertFile(
 
     const handlerCalls = findDefineWriteHandlerCalls(sourceFile);
     if (handlerCalls.length === 0) {
-      return { filePath, status: "skipped", reason: "no defineWriteHandler calls" };
+      return { filePath, status: "skipped", reason: "no_define_write_handler_calls" };
     }
 
     let content = contentBefore;

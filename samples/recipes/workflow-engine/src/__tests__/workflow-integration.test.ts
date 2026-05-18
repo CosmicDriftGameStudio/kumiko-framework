@@ -485,7 +485,7 @@ describe("resume-loop", () => {
     });
   });
 
-  it("fails loud (RUN_FAILED + reason workflow-definition-changed) when the fingerprint diverges", async () => {
+  it("fails loud (RUN_FAILED + reason workflow_definition_changed) when the fingerprint diverges", async () => {
     const workflow = makeWaitWorkflow("test-workflow-drift");
     const suspendedRun: SuspendableRun = {
       runId: "wf-drift-run",
@@ -510,7 +510,7 @@ describe("resume-loop", () => {
       payload: Record<string, unknown>;
     };
     expect(failed.type).toBe("kumiko:system:workflow.run-failed");
-    expect(failed.payload["reason"]).toBe("workflow-definition-changed");
+    expect(failed.payload["reason"]).toBe("workflow_definition_changed");
     expect(failed.payload["error"]).toContain("definition changed");
   });
 
