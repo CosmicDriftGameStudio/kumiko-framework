@@ -12,6 +12,7 @@
 // r.step.aggregate.*.
 
 import { getTableColumns, type Table } from "drizzle-orm";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { asQueryTarget } from "./_drizzle-boundary";
@@ -45,17 +46,21 @@ defineStep<UnsafeProjectionUpsertArgs, void>({
       if (!args.on.includes(k)) updateSet[k] = v;
     }
 
-    // The values + set + target casts cross the drizzle type-boundary
-    // for the same reason as asQueryTarget — resolvedRow is
-    // Record<string, unknown> by design (M.1 phantom-typing limit),
-    // drizzle's typed-builder expects table-specific shapes. Step-author
-    // owns shape correctness.
+    // @cast-boundary drizzle-bridge — The values + set + target casts
+    // cross the drizzle type-boundary for the same reason as
+    // asQueryTarget: resolvedRow is Record<string, unknown> by design
+    // (M.1 phantom-typing limit), drizzle's typed-builder expects
+    // table-specific shapes. Step-author owns shape correctness.
+    // `as never` (not `as any`) — never is contravariantly assignable to
+    // every drizzle Insert-shape; explicit "this bypass cannot be made
+    // type-safe without lifting <TTable extends Table>" marker.
     await ctx.db
       .insert(asQueryTarget(args.table))
-      // biome-ignore lint/suspicious/noExplicitAny: drizzle type-boundary
-      .values(resolvedRow as any)
-      // biome-ignore lint/suspicious/noExplicitAny: drizzle type-boundary
-      .onConflictDoUpdate({ target: conflictTargets as any, set: updateSet as any });
+      .values(resolvedRow as never)
+      .onConflictDoUpdate({
+        target: conflictTargets as unknown as PgColumn[],
+        set: updateSet as never,
+      });
   },
 });
 
