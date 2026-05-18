@@ -234,5 +234,18 @@ describe("Schicht-1↔Schicht-2 Bridge — buildTarget against real defineFeatur
 
     // @ts-expect-error — edit braucht args, fehlt
     buildTarget({ target: textContent.exports.handle, action: "edit" });
+
+    // Runtime-Coverage (Memory `[Keine Fake-Tests]`): der korrespondierende
+    // Happy-Path über denselben typed Handle liefert valid TargetRef.
+    // Beweist dass die Bridge nicht nur compile-time funktioniert sondern
+    // runtime den richtigen TargetRef konstruiert.
+    const validRef = buildTarget({
+      target: textContent.exports.handle,
+      action: "edit",
+      args: { slug: "imprint" },
+    });
+    expect(validRef.featureId).toBe("text-content");
+    expect(validRef.action).toBe("edit");
+    expect(validRef.args).toEqual({ slug: "imprint" });
   });
 });

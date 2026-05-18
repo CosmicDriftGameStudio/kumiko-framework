@@ -78,9 +78,19 @@ describe("buildTarget — WithArgs-Action", () => {
 });
 
 describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", () => {
+  // Jeder Test paart ein @ts-expect-error-Block (compile-time-validation
+  // via TypeScript) mit einem runtime-expect über den korrespondierenden
+  // Happy-Path. Doppelt-Coverage: Compiler prüft Rejection, vitest prüft
+  // dass die korrekte Form bei valid input das richtige Ergebnis liefert.
+  // Memory `[Keine Fake-Tests]` — Tests müssen runtime-Verhalten prüfen,
+  // nicht nur Compile-Time (Fake-Test-Guard).
+
   test("unbekannte action wird vom Compiler abgelehnt", () => {
     // @ts-expect-error — "delet" ist keine Action von textContentStub
     buildTarget({ target: textContentStub, action: "delet" });
+    // Runtime: bekannte Action liefert valid TargetRef
+    const ref = buildTarget({ target: textContentStub, action: "list" });
+    expect(ref.action).toBe("list");
   });
 
   test("falsche args-shape wird vom Compiler abgelehnt", () => {
@@ -90,6 +100,13 @@ describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", 
       action: "edit",
       args: { slug: 42 },
     });
+    // Runtime: korrekt-typed args liefern valid TargetRef
+    const ref = buildTarget({
+      target: textContentStub,
+      action: "edit",
+      args: { slug: "imprint" },
+    });
+    expect(ref.args).toEqual({ slug: "imprint" });
   });
 
   test("args bei NoArgs-Action wird vom Compiler abgelehnt", () => {
@@ -99,10 +116,20 @@ describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", 
       // @ts-expect-error — list hat keine args, args-Feld nicht erlaubt
       args: { x: 1 },
     });
+    // Runtime: NoArgs-Action ohne args-Feld liefert valid TargetRef
+    const ref = buildTarget({ target: textContentStub, action: "list" });
+    expect("args" in ref).toBe(false);
   });
 
   test("fehlende args bei WithArgs-Action wird vom Compiler abgelehnt", () => {
     // @ts-expect-error — edit braucht args, fehlt
     buildTarget({ target: textContentStub, action: "edit" });
+    // Runtime: WithArgs-Action mit args liefert valid TargetRef
+    const ref = buildTarget({
+      target: textContentStub,
+      action: "edit",
+      args: { slug: "imprint" },
+    });
+    expect(ref.args).toBeDefined();
   });
 });
