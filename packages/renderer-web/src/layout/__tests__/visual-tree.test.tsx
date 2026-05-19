@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
+import { NavProvider } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { useBrowserNavApi } from "../../app/nav";
 import { TreeProvidersProvider } from "../../app/tree-providers-context";
 import { setDispatchListener } from "../target-resolver-stub";
 import { VisualTree } from "../visual-tree";
@@ -45,7 +47,15 @@ function renderTree(
   providers: ReadonlyMap<string, TreeChildrenSubscribe>,
 ): ReturnType<typeof render> {
   function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
-    return <TreeProvidersProvider value={providers}>{children}</TreeProvidersProvider>;
+    // V.1.4b: TreeNodeRenderer + ActionButton nutzen useDispatchTarget,
+    // das useNav greift — Tests brauchen NavProvider. Browser-nav reset
+    // erfolgt im beforeEach (window.history.replaceState).
+    const nav = useBrowserNavApi();
+    return (
+      <NavProvider value={nav}>
+        <TreeProvidersProvider value={providers}>{children}</TreeProvidersProvider>
+      </NavProvider>
+    );
   }
   return render(<VisualTree workspaceId="test-ws" />, { wrapper: Wrapper });
 }
@@ -56,6 +66,9 @@ function renderTree(
 // Test-Isolation sauber ist. Production-Code nutzt nur die Standard-
 // Schnittstelle, daher transparent.
 beforeEach(() => {
+  // V.1.4b: URL-State leakt sonst zwischen Tests (useBrowserNavApi
+  // liest window.location). Plus localStorage-Mock unten.
+  window.history.replaceState(null, "", "/");
   const store = new Map<string, string>();
   Object.defineProperty(window, "localStorage", {
     configurable: true,

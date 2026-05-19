@@ -27,7 +27,7 @@ import type {
 import { ChevronDown, ChevronRight, File, Folder, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn";
-import { dispatchTarget } from "./target-resolver-stub";
+import { useDispatchTarget } from "./target-resolver-stub";
 
 // Icon-Registry (V.1.2-Stub): Provider liefern symbolische String-Keys
 // (`node.icon = "folder"`), Renderer mappt auf das lucide-Component.
@@ -100,6 +100,7 @@ export function TreeNodeRenderer({
 
   const stateClass = STATE_CLASSES[node.state ?? "filled"];
   const indentStyle = { paddingLeft: `${depth * 12 + 8}px` };
+  const dispatch = useDispatchTarget();
 
   const handleRowClick = (): void => {
     if (hasChildren) {
@@ -107,7 +108,7 @@ export function TreeNodeRenderer({
       return;
     }
     if (node.target !== undefined) {
-      dispatchTarget(node.target);
+      dispatch(node.target);
     }
   };
 
@@ -206,6 +207,7 @@ function ActionButton({
   readonly action: TreeAction;
   readonly icon: ReactNode;
 }): ReactNode {
+  const dispatch = useDispatchTarget();
   return (
     <button
       type="button"
@@ -215,7 +217,7 @@ function ActionButton({
         // Stop the event so the parent-row's onClick (which would
         // toggle / dispatch the row's own target) doesn't fire.
         e.stopPropagation();
-        dispatchTarget(action.target);
+        dispatch(action.target);
       }}
     >
       {icon}

@@ -1,9 +1,9 @@
 // TargetResolver — V.1.2: Multi-Listener-TargetDispatch mit Test-Hook.
-// Der V.1.1-Stub (console.debug) wird durch Production-Subscriber
-// ersetzt — EditorPanel, URL-State-Bridge, etc. registrieren sich
-// via subscribeTargetDispatches().
+// V.1.4b: URL-State-Bridge via useDispatchTarget-Hook. Production schreibt
+// target in nav.searchParams (F5-recovery); Subscribe-Stream bleibt für
+// Test-Hooks (setDispatchListener) und Apps die kein NavProvider haben.
 //
-// Dispatch-Priority:
+// Dispatch-Priority (V.1.2):
 //   1. Test-Listener (setDispatchListener) — exklusiv, kein Production-
 //      Subscriber läuft während Tests (Test-Isolation).
 //   2. Production-Subscriber (subscribeTargetDispatches) — alle
@@ -11,9 +11,17 @@
 //   3. Kein Test-Listener + keine Subscriber → console.debug fallback
 //      (damit unhandled Klicks sichtbar bleiben).
 //
-// Siehe visual-tree.md V.1.2.
+// **useDispatchTarget (V.1.4b)** ist der empfohlene Production-Pfad.
+// TreeNodeRenderer ruft den Hook in seinem Click-Handler — er schreibt
+// URL via nav.setSearchParams UND ruft den globalen dispatchTarget für
+// Test-Listener-Kompatibilität.
+//
+// Siehe visual-tree.md V.1.2 + V.1.4b.
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
+import { useNav } from "@cosmicdrift/kumiko-renderer";
+import { useCallback } from "react";
+import { serializeTarget } from "./target-url";
 
 type DispatchListener = (target: TargetRef) => void;
 
@@ -50,4 +58,18 @@ export function subscribeTargetDispatches(fn: DispatchListener): () => void {
   return () => {
     subscribers.delete(fn);
   };
+}
+
+/** V.1.4b: empfohlener Production-Dispatch. Schreibt target in
+ *  nav.searchParams (URL-State, F5-fähig) UND ruft dispatchTarget für
+ *  Test-Listener + legacy-Subscribers. */
+export function useDispatchTarget(): (target: TargetRef) => void {
+  const nav = useNav();
+  return useCallback(
+    (target: TargetRef) => {
+      nav.setSearchParams(serializeTarget(target, nav.searchParams));
+      dispatchTarget(target);
+    },
+    [nav],
+  );
 }
