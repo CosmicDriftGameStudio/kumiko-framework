@@ -27,6 +27,8 @@ import { createChannelPushFeature } from "../../channel-push/feature";
 import { createInMemoryPushTransport } from "../../channel-push/types";
 import { createConfigFeature } from "../../config/feature";
 import { configValuesTable } from "../../config/table";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
+import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createRendererSimpleFeature } from "../../renderer-simple/feature";
 import { simpleRenderer } from "../../renderer-simple/simple-renderer";
 import { TenantQueries } from "../../tenant/constants";
@@ -241,6 +243,8 @@ const ticketFeature = defineFeature("tickets", (r) => {
 
 const configFeature = createConfigFeature();
 const tenantFeature = createTenantFeature();
+const templateResolverFeature = createTemplateResolverFeature();
+const rendererFoundationFeature = createRendererFoundationFeature();
 const deliveryFeature = createDeliveryFeature();
 const channelInAppFeature = createChannelInAppFeature();
 const rendererSimpleFeature = createRendererSimpleFeature();
@@ -256,6 +260,8 @@ const channelPushFeature = createChannelPushFeature({
 const features = [
   configFeature,
   tenantFeature,
+  templateResolverFeature,
+  rendererFoundationFeature,
   deliveryFeature,
   channelInAppFeature,
   rendererSimpleFeature,

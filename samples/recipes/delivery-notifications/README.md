@@ -21,7 +21,7 @@ delivery      → core: ctx.notify, DeliveryLog, Preferences, extension points
 channel-inApp → r.useExtension("deliveryChannel", "inApp", ...)
 channel-email → r.useExtension("deliveryChannel", "email", ...) + renderer + transport
 channel-push  → r.useExtension("deliveryChannel", "push", ...) + transport
-renderer-simple → r.useExtension("notificationRenderer", "simple", ...)
+renderer-simple → r.useExtension("renderer", "simple", { kinds: ["notification"], render })
 support       → our business logic (tickets + notification definitions)
 ```
 

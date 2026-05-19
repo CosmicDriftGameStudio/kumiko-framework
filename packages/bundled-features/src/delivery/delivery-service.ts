@@ -18,7 +18,6 @@ import type {
   DeliveryChannel,
   DeliveryLogEntry,
   DeliveryService,
-  NotificationRenderer,
 } from "./types";
 
 export type RateLimitConfig = {
@@ -56,17 +55,10 @@ export function collectChannels(registry: Registry): DeliveryChannel[] {
   });
 }
 
-// Build renderer map from registry extension usages
-export function collectRenderers(registry: Registry): Map<string, NotificationRenderer> {
-  const usages = registry.getExtensionUsages("notificationRenderer");
-  const map = new Map<string, NotificationRenderer>();
-  for (const usage of usages) {
-    // @cast-boundary engine-payload — extension-usage carries unknown options
-    const opts = usage.options as { render: NotificationRenderer["render"] };
-    map.set(usage.entityName, { name: usage.entityName, render: opts.render });
-  }
-  return map;
-}
+// `collectRenderers` entfernt 2026-05-19: notificationRenderer-Extension-Point
+// wurde nie konsumiert (channel-email nimmt renderer als Konstruktor-Option,
+// nicht aus Extension-Usages). Multi-Kind-Plugin-Pool lebt jetzt im
+// `renderer-foundation`-Bundle via `collectRendererPlugins`.
 
 export function createDeliveryService(options: DeliveryServiceOptions): DeliveryService {
   const {

@@ -1032,6 +1032,14 @@ __metadata:
     react-dom: "npm:^19.2.6"
     tailwind-merge: "npm:^3.6.0"
     tailwindcss: "npm:^4.3.0"
+  peerDependencies:
+    "@tailwindcss/cli": ^4.3.0
+    tailwindcss: ^4.3.0
+  peerDependenciesMeta:
+    "@tailwindcss/cli":
+      optional: false
+    tailwindcss:
+      optional: false
   languageName: unknown
   linkType: soft
 

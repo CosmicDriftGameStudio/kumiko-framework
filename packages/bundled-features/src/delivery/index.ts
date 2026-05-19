@@ -8,7 +8,6 @@ export {
 } from "./constants";
 export {
   collectChannels,
-  collectRenderers,
   createDeliveryService,
   type DeliveryServiceOptions,
   type KillSwitchResolver,

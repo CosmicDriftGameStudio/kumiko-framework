@@ -48,11 +48,13 @@ export function createDeliveryFeature(): FeatureDefinition {
       },
     });
 
-    // Extension points: channels and renderers register as features
+    // Extension point: delivery-channels (email/in-app/push). Renderer-
+    // Extension-Point lebt jetzt im `renderer-foundation`-Bundle als
+    // `renderer` (Multi-Kind-Plugin-Contract). delivery hostet keinen
+    // eigenen mehr — channel-email nimmt renderer als direkte
+    // Konstruktor-Option (siehe email-channel.ts), nicht via Extension-
+    // Usage. Migration 2026-05-19.
     r.extendsRegistrar("deliveryChannel", {
-      onRegister: () => {},
-    });
-    r.extendsRegistrar("notificationRenderer", {
       onRegister: () => {},
     });
 
