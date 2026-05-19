@@ -199,17 +199,25 @@ function TextContentEditor({
     setSubmitting(true);
     setSaveError(null);
     setSavedMsg(null);
-    const result = await dispatcher.write<SetResponse>(TextContentHandlers.set, {
-      slug,
-      lang,
-      title,
-      body: body.length > 0 ? body : null,
-    });
-    setSubmitting(false);
-    if (result.isSuccess) {
-      setSavedMsg(result.data.isNew ? "Neu angelegt." : "Gespeichert.");
-    } else {
-      setSaveError(result.error.message ?? result.error.code ?? "Speichern fehlgeschlagen.");
+    try {
+      const result = await dispatcher.write<SetResponse>(TextContentHandlers.set, {
+        slug,
+        lang,
+        title,
+        body: body.length > 0 ? body : null,
+      });
+      if (result.isSuccess) {
+        setSavedMsg(result.data.isNew ? "Neu angelegt." : "Gespeichert.");
+      } else {
+        setSaveError(result.error.message ?? result.error.code ?? "Speichern fehlgeschlagen.");
+      }
+    } catch (e) {
+      // Network-blip / dispatcher-throw — sonst bleibt submitting=true,
+      // Save-Button locked-forever, User klickt repeat ohne Feedback.
+      // Generic message reicht: konkreter Recovery-Pfad ist Retry.
+      setSaveError(e instanceof Error ? e.message : "Netzwerkfehler beim Speichern.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
