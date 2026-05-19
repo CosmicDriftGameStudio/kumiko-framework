@@ -1,12 +1,12 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
-  testTenantId,
   type TestStack,
   TestUsers,
+  testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
@@ -380,7 +380,13 @@ describe("template-resolver :: list query", () => {
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "filter-active", locale: "es", kind: "notification", status: "active" },
+      {
+        ...basePayload,
+        slug: "filter-active",
+        locale: "es",
+        kind: "notification",
+        status: "active",
+      },
       tenantA_Admin,
     );
     const drafts = (await stack.http.queryOk(

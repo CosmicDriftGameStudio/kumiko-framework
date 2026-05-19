@@ -5,6 +5,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResolverApi } from "../api";
 import {
   type ContentFormat,
   FALLBACK_LOCALE,
@@ -13,11 +14,6 @@ import {
   type TemplateScope,
   type TemplateStatus,
 } from "../constants";
-import {
-  createTemplateResolverApi,
-  TemplateNotFoundError,
-  type TemplateResolverApi,
-} from "../api";
 import { createTemplateResolverFeature } from "../feature";
 import { templateResourceEntity, templateResourcesTable } from "../table";
 

@@ -1,6 +1,9 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineWriteHandler,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
 import type { TemplateResourceRow } from "../table";
 import { templateResourcesTable } from "../table";

@@ -5,12 +5,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  CONTENT_FORMATS,
-  RENDER_KINDS,
-  TEMPLATE_SCOPES,
-  TEMPLATE_STATUSES,
-} from "./constants";
+import { CONTENT_FORMATS, RENDER_KINDS, TEMPLATE_SCOPES, TEMPLATE_STATUSES } from "./constants";
 
 // TemplateResource — strukturierte Template-Definition mit Tenant-
 // Override-Hierarchie, Locale-Fallback und Resource-Linking via

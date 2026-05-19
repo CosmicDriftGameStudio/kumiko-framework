@@ -6,11 +6,9 @@ import { templateResourceEntity, templateResourcesTable } from "../table";
 // Single executor pro Bundle — Pattern aus text-content. Wird von allen
 // 4 Handlers geteilt für create/update-Operationen mit Event-Store +
 // Optimistic-Lock.
-export const executor = createEventStoreExecutor(
-  templateResourcesTable,
-  templateResourceEntity,
-  { entityName: "template-resource" },
-);
+export const executor = createEventStoreExecutor(templateResourcesTable, templateResourceEntity, {
+  entityName: "template-resource",
+});
 
 // Slug-Regex symmetrisch zu text-content + plan-doc naming-convention.
 export const slugSchema = z

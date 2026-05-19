@@ -1,5 +1,9 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler, SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineWriteHandler,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -43,8 +47,7 @@ export const upsertTenantWrite = defineWriteHandler({
       );
     }
     const tenantId = (override ?? event.user.tenantId) as TenantId;
-    const executorUser =
-      override !== undefined ? { ...event.user, tenantId } : event.user;
+    const executorUser = override !== undefined ? { ...event.user, tenantId } : event.user;
 
     const existing = await fetchOne<TemplateResourceRow>(
       db,

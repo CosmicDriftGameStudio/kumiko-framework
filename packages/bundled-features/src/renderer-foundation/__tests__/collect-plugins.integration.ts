@@ -1,16 +1,12 @@
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createRendererFoundationApi } from "../api";
-import {
-  collectRendererPlugins,
-  createRendererFoundationFeature,
-} from "../feature";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { collectRendererPlugins, createRendererFoundationFeature } from "../feature";
 import type { RenderRequest, RenderResponse } from "../types";
 
 const TEST_TENANT = "11111111-1111-4111-8111-111111111111" as TenantId;
-import { createTemplateResolverFeature } from "../../template-resolver/feature";
 
 let stack: TestStack;
 
@@ -23,10 +19,22 @@ function createTestPluginFeature(name: string, kinds: ReadonlyArray<string>) {
       kinds,
       render: async (req: RenderRequest): Promise<RenderResponse> => {
         if (req.kind === "notification") return { kind: "notification", html: `via:${name}` };
-        if (req.kind === "mail-html") return { kind: "mail-html", html: `via:${name}`, text: `via:${name}` };
+        if (req.kind === "mail-html")
+          return { kind: "mail-html", html: `via:${name}`, text: `via:${name}` };
         if (req.kind === "document-pdf")
-          return { kind: "document-pdf", pdfBytes: new Uint8Array([1]), pageCount: 1, sizeBytes: 1 };
-        return { kind: "image-snapshot", imageBytes: new Uint8Array([1]), format: "png", width: 1, height: 1 };
+          return {
+            kind: "document-pdf",
+            pdfBytes: new Uint8Array([1]),
+            pageCount: 1,
+            sizeBytes: 1,
+          };
+        return {
+          kind: "image-snapshot",
+          imageBytes: new Uint8Array([1]),
+          format: "png",
+          width: 1,
+          height: 1,
+        };
       },
     });
   });

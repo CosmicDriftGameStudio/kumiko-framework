@@ -2,11 +2,11 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
 import { createRendererFoundationApi } from "../api";
 import {
+  type RendererContext,
+  RendererError,
+  type RendererPlugin,
   type RenderRequest,
   type RenderResponse,
-  RendererError,
-  type RendererContext,
-  type RendererPlugin,
 } from "../types";
 
 // Stub-Context für Plugin-Render-Calls in Unit-Tests. makePlugin ignoriert
@@ -34,9 +34,20 @@ function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugi
         case "mail-html":
           return { kind: "mail-html", html: `from:${name}`, text: `from:${name}` };
         case "document-pdf":
-          return { kind: "document-pdf", pdfBytes: new Uint8Array([1, 2, 3]), pageCount: 1, sizeBytes: 3 };
+          return {
+            kind: "document-pdf",
+            pdfBytes: new Uint8Array([1, 2, 3]),
+            pageCount: 1,
+            sizeBytes: 3,
+          };
         case "image-snapshot":
-          return { kind: "image-snapshot", imageBytes: new Uint8Array([1]), format: "png", width: 1, height: 1 };
+          return {
+            kind: "image-snapshot",
+            imageBytes: new Uint8Array([1]),
+            format: "png",
+            width: 1,
+            height: 1,
+          };
       }
     },
   };
@@ -73,10 +84,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
 
   test("Tenant-Override gewinnt vor Default", async () => {
     const api = createRendererFoundationApi(
-      [
-        makePlugin("simple", ["notification"]),
-        makePlugin("custom-notif", ["notification"]),
-      ],
+      [makePlugin("simple", ["notification"]), makePlugin("custom-notif", ["notification"])],
       (tid) => (tid === TENANT ? { notification: "custom-notif" } : null),
     );
     const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
@@ -84,10 +92,9 @@ describe("renderer-foundation :: Plugin-Selection", () => {
   });
 
   test("Tenant-Override auf nicht-registriertes Plugin → fällt durch auf Default", async () => {
-    const api = createRendererFoundationApi(
-      [makePlugin("simple", ["notification"])],
-      () => ({ notification: "ghost-plugin" }),
-    );
+    const api = createRendererFoundationApi([makePlugin("simple", ["notification"])], () => ({
+      notification: "ghost-plugin",
+    }));
     const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
     expect(plugin.name).toBe("simple");
   });
@@ -100,9 +107,9 @@ describe("renderer-foundation :: Plugin-Selection", () => {
 
   test("kein Plugin für kind → RendererError", () => {
     const api = createRendererFoundationApi([makePlugin("simple", ["notification"])]);
-    expect(() =>
-      api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" }),
-    ).toThrow(RendererError);
+    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" })).toThrow(
+      RendererError,
+    );
   });
 
   test("leerer Plugin-Pool → RendererError für jeden kind", () => {
@@ -135,9 +142,13 @@ describe("renderer-foundation :: Plugin-Selection", () => {
   test("Plugin mit mehreren kinds wird für jeden passend gewählt", async () => {
     const multi = makePlugin("multi", ["notification", "mail-html", "document-pdf"]);
     const api = createRendererFoundationApi([multi]);
-    expect(api.createRendererForTenant({ tenantId: TENANT, kind: "notification" }).name).toBe("multi");
+    expect(api.createRendererForTenant({ tenantId: TENANT, kind: "notification" }).name).toBe(
+      "multi",
+    );
     expect(api.createRendererForTenant({ tenantId: TENANT, kind: "mail-html" }).name).toBe("multi");
-    expect(api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" }).name).toBe("multi");
+    expect(api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" }).name).toBe(
+      "multi",
+    );
   });
 
   test("Plugin mit leeren kinds wird nie ausgewählt", () => {
@@ -153,10 +164,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     // Tenant config sagt "puppeteer" für notification, aber puppeteer kann
     // nur document-pdf. Foundation muss den falsche-kind-Eintrag ignorieren.
     const api = createRendererFoundationApi(
-      [
-        makePlugin("simple", ["notification"]),
-        makePlugin("puppeteer", ["document-pdf"]),
-      ],
+      [makePlugin("simple", ["notification"]), makePlugin("puppeteer", ["document-pdf"])],
       () => ({ notification: "puppeteer" }),
     );
     const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });

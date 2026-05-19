@@ -61,8 +61,8 @@ export function createRendererFoundationApi(
       }
 
       // 3. Erstes Plugin im Pool das das kind bedient
-      const fallback = byKind.get(kind);
-      if (fallback && fallback.length > 0) return fallback[0]!;
+      const first = byKind.get(kind)?.[0];
+      if (first) return first;
 
       // 4. Kein Plugin → Error
       throw new RendererError(

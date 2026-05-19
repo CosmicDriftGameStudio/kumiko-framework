@@ -15,7 +15,13 @@ export type RenderResponse =
   | { kind: "notification"; html: string }
   | { kind: "mail-html"; html: string; text: string }
   | { kind: "document-pdf"; pdfBytes: Uint8Array; pageCount: number; sizeBytes: number }
-  | { kind: "image-snapshot"; imageBytes: Uint8Array; format: "png" | "jpg"; width: number; height: number };
+  | {
+      kind: "image-snapshot";
+      imageBytes: Uint8Array;
+      format: "png" | "jpg";
+      width: number;
+      height: number;
+    };
 
 export type NotificationPayload = {
   readonly template?: string;

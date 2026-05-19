@@ -1,5 +1,5 @@
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { and, eq, inArray, or, type SQL } from "drizzle-orm";
+import { and, eq, or, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { RENDER_KINDS, TEMPLATE_STATUSES } from "../constants";
 import { type TemplateResourceRow, templateResourcesTable } from "../table";

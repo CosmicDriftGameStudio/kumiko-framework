@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { RendererError } from "../../renderer-foundation/types";
+import { RendererError } from "../../renderer-foundation";
 import { adaptToFoundation } from "../feature";
 
 describe("renderer-simple :: adaptToFoundation", () => {

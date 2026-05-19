@@ -1,5 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { RendererError, type RenderRequest, type RenderResponse } from "../renderer-foundation/types";
+import { RendererError, type RenderRequest, type RenderResponse } from "../renderer-foundation";
 import { simpleRenderer } from "./simple-renderer";
 
 // Adapter: simpleRenderer.render hat `Promise<string>`-Signatur (Legacy

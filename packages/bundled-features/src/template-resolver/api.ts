@@ -7,8 +7,8 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { and, eq } from "drizzle-orm";
-import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants";
 import type { ContentFormat, RenderKind } from "./constants";
+import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants";
 import { type TemplateResourceRow, templateResourcesTable } from "./table";
 
 // Public TemplateResource — was Konsumenten sehen. Versteckt DB-interne
@@ -151,9 +151,7 @@ function parseJson(raw: string | null): Record<string, unknown> {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);
-    return typeof parsed === "object" && parsed !== null
-      ? (parsed as Record<string, unknown>)
-      : {};
+    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
   } catch {
     return {};
   }
