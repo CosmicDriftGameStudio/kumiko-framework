@@ -412,4 +412,58 @@ describe("text-content :: seedTextBlock", () => {
     });
     expect(a.id).toBe(b.id);
   });
+
+  // Drift-Documentation: seedTextBlock geht direkt durch den Executor
+  // OHNE slugSchema-Validation, set.write läuft DURCH die Validation.
+  // Folge: seedTextBlock akzeptiert Slugs mit ":" oder "/" (legal-pages
+  // Plattform-Seeds nutzen das für "page:index:hero.title" etc.), aber
+  // ein User-Edit derselben Block über set.write würde mit
+  // validation_error fail (regex `^[a-z0-9][a-z0-9-]*$`). Drift ist
+  // **bewusst** in V.1.3 — seedTextBlock ist system-trusted (boot-fixture,
+  // kein User-Input). V.1.4 plant ein echtes `folder`-Field statt
+  // `:`-Separator-im-Slug, dann fällt die Drift weg.
+  //
+  // Dieser Test pinnt den Status quo: Editor-Form via set.write rejected
+  // ":"-Slugs auch wenn seedTextBlock sie angelegt hat. Plus-Test
+  // verhindert dass jemand silent seedTextBlock-Validation hinzufügt
+  // ohne app-side seed-Slugs (z.B. legal-pages-Plattform-Seeds) zu
+  // konvertieren.
+  test("seedTextBlock + set.write drift: `:`-slugs sind seed-only, set.write rejected sie", async () => {
+    // Seed mit `:`-Slug funktioniert (legal-pages-Pattern)
+    const seeded = await seedTextBlock(db, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "page:hero",
+      lang: "de",
+      title: "Seeded",
+      body: "from-seed",
+    });
+    expect(seeded.id).toBeDefined();
+
+    // Set.write auf demselben Slug → validation_error (kebab-only regex)
+    const error = await stack.http.writeErr(
+      TextContentHandlers.set,
+      { slug: "page:hero", lang: "de", title: "User-edit", body: "from-write" },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "validation_error");
+  });
+
+  test("seedTextBlock + set.write parity: kebab-only Slugs durchlaufen beide Pfade", async () => {
+    // Inverse-Test: für kebab-only Slugs (`page-hero`) klappen beide
+    // Pfade. App-Builder die Edit-Form-fähige Seeds wollen, müssen
+    // kebab-only verwenden (siehe publicstatus/bin/seed-demo.ts).
+    await seedTextBlock(db, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "page-hero",
+      lang: "de",
+      title: "Seeded",
+      body: "from-seed",
+    });
+    const result = await stack.http.writeOk<{ slug: string; lang: string }>(
+      TextContentHandlers.set,
+      { slug: "page-hero", lang: "de", title: "User-edit", body: "from-write" },
+      tenantAdmin,
+    );
+    expect(result.slug).toBe("page-hero");
+  });
 });
