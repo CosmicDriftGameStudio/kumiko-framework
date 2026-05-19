@@ -1,3 +1,4 @@
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
 import { createRendererFoundationApi } from "../api";
 import {
@@ -8,9 +9,16 @@ import {
   type RendererPlugin,
 } from "../types";
 
-// Stub-Context für Plugin-Render-Calls in Unit-Tests. Echte ctx-Felder
-// (db, registry) sind hier nicht relevant — makePlugin ignoriert ctx eh.
-const STUB_CTX = {} as unknown as RendererContext;
+// Stub-Context für Plugin-Render-Calls in Unit-Tests. makePlugin ignoriert
+// ctx; db+registry sind hier null-cast weil Unit-Tests keinen echten
+// Stack haben — Integration-Tests (collect-plugins.integration.ts) nutzen
+// echte stack.db / stack.registry. tenantId ist valid UUID (Memory-Lesson
+// feedback_system_tenant_id_is_uuid).
+const STUB_CTX: RendererContext = {
+  db: null as never,
+  registry: null as never,
+  tenantId: "11111111-1111-4111-8111-111111111111" as TenantId,
+};
 
 // Test-Helper: minimal Plugin mit fix-Response. Mehrere im Pool für
 // Multi-Kind- + Tenant-Override-Tests.

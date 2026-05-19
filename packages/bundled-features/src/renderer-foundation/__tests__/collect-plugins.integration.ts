@@ -6,7 +6,10 @@ import {
   collectRendererPlugins,
   createRendererFoundationFeature,
 } from "../feature";
-import type { RenderRequest, RenderResponse, RendererContext } from "../types";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { RenderRequest, RenderResponse } from "../types";
+
+const TEST_TENANT = "11111111-1111-4111-8111-111111111111" as TenantId;
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 
 let stack: TestStack;
@@ -63,13 +66,13 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
   test("API findet Default-Plugin pro kind aus echtem Pool", () => {
     const plugins = collectRendererPlugins(stack.registry);
     const api = createRendererFoundationApi(plugins);
-    expect(api.createRendererForTenant({ tenantId: "any", kind: "notification" }).name).toBe(
+    expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "notification" }).name).toBe(
       "simple",
     );
-    expect(api.createRendererForTenant({ tenantId: "any", kind: "mail-html" }).name).toBe(
+    expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "mail-html" }).name).toBe(
       "mail-html",
     );
-    expect(api.createRendererForTenant({ tenantId: "any", kind: "document-pdf" }).name).toBe(
+    expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "document-pdf" }).name).toBe(
       "puppeteer",
     );
   });
@@ -77,10 +80,10 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
   test("Plugin.render mit echtem Pool fließt end-to-end durch", async () => {
     const plugins = collectRendererPlugins(stack.registry);
     const api = createRendererFoundationApi(plugins);
-    const plugin = api.createRendererForTenant({ tenantId: "any", kind: "notification" });
+    const plugin = api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "notification" });
     const result = await plugin.render(
       { kind: "notification", payload: { content: "hello", contentFormat: "markdown" } },
-      { db: stack.db, registry: stack.registry, tenantId: "any" } as unknown as RendererContext,
+      { db: stack.db, registry: stack.registry, tenantId: TEST_TENANT },
     );
     expect(result.kind).toBe("notification");
     if (result.kind === "notification") {
