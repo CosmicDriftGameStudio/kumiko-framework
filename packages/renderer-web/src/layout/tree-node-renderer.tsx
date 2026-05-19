@@ -114,15 +114,15 @@ export function TreeNodeRenderer({
 
   return (
     <div data-kumiko-tree-node={path}>
-      {/* Outer Row als <div role="button"> statt <button>: native <button>
-          darf laut HTML-Spec keine geschachtelten <button>-Children
-          enthalten — die HoverActions würden sonst ungültiges HTML
-          erzeugen. role+tabIndex+keyDown gibt äquivalente a11y. TODO V.1.2:
-          Arrow-key-navigation zwischen Tree-Siblings (ARIA-tree-Pattern). */}
-      {/* biome-ignore lint/a11y/useSemanticElements: nested <button> wäre invalid HTML — siehe HoverActions */}
+      {/* Outer Row als <div role="treeitem">: V.1.5a ARIA-tree-Pattern.
+          role + tabIndex=0 + aria-expanded gibt Screenreader Tree-
+          Semantik. Arrow-Key-Navigation läuft auf dem aside-Container
+          via querySelectorAll('[role=treeitem]') — siehe visual-tree.tsx.
+          div+role statt native button weil nested <button> in
+          HoverActions invalid HTML wäre. */}
       <div
         className={cn(
-          "group flex w-full items-center gap-1.5 py-1 pr-2 cursor-pointer hover:bg-accent/30 rounded-sm",
+          "group flex w-full items-center gap-1.5 py-1 pr-2 cursor-pointer hover:bg-accent/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-inset",
           stateClass,
         )}
         style={indentStyle}
@@ -133,9 +133,11 @@ export function TreeNodeRenderer({
             handleRowClick();
           }
         }}
-        role="button"
+        role="treeitem"
         tabIndex={0}
         aria-expanded={hasChildren ? isExpanded : undefined}
+        data-kumiko-tree-path={path}
+        data-kumiko-tree-has-children={hasChildren ? "true" : "false"}
       >
         <ChevronGlyph hasChildren={hasChildren} expanded={isExpanded} />
         {node.icon !== undefined &&

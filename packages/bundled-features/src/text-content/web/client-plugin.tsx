@@ -318,6 +318,10 @@ export function textContentClient(): ClientFeatureDefinition {
   return {
     name: "text-content",
     treeProvider,
+    // V.1.5b: SSE-driven Tree-Refresh. Bei jedem text-block-Event
+    // (created/updated/deleted) ruft ProviderBranch den treeProvider
+    // neu auf → Tree-State spiegelt save sofort wider (Stale-Tree-Fix).
+    treeEntities: ["text-block"],
     treeActions: {
       edit: { args: { slug: "" as string, lang: "" as string } },
       list: {},

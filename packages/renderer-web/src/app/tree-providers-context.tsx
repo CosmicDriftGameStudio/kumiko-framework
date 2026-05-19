@@ -22,17 +22,36 @@ import type { TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine
 import { createContext, type ReactNode, useContext } from "react";
 
 const EMPTY_PROVIDERS: ReadonlyMap<string, TreeChildrenSubscribe> = new Map();
+const EMPTY_ENTITIES: ReadonlyMap<string, readonly string[]> = new Map();
 
 const TreeProvidersContext =
   createContext<ReadonlyMap<string, TreeChildrenSubscribe>>(EMPTY_PROVIDERS);
 
+// V.1.5b separater Context für SSE-Entity-Lists pro Provider. Parallel-
+// Context statt Entry-Tuple weil bestehende TreeProvidersProvider-Konsumenten
+// (tests, integration) sonst alle Migrations-Effort hätten.
+const TreeEntitiesContext = createContext<ReadonlyMap<string, readonly string[]>>(EMPTY_ENTITIES);
+
 export type TreeProvidersProviderProps = {
   readonly value: ReadonlyMap<string, TreeChildrenSubscribe>;
+  /** Optional: pro Provider die Entity-Liste für SSE-Live-Refresh.
+   *  Default: leere Map → kein Provider refresht via SSE. */
+  readonly entities?: ReadonlyMap<string, readonly string[]>;
   readonly children: ReactNode;
 };
 
-export function TreeProvidersProvider({ value, children }: TreeProvidersProviderProps): ReactNode {
-  return <TreeProvidersContext.Provider value={value}>{children}</TreeProvidersContext.Provider>;
+export function TreeProvidersProvider({
+  value,
+  entities,
+  children,
+}: TreeProvidersProviderProps): ReactNode {
+  return (
+    <TreeProvidersContext.Provider value={value}>
+      <TreeEntitiesContext.Provider value={entities ?? EMPTY_ENTITIES}>
+        {children}
+      </TreeEntitiesContext.Provider>
+    </TreeProvidersContext.Provider>
+  );
 }
 
 /** Hook für TreeProvider-Map-Konsumenten (VisualTree im WorkspaceShell).
@@ -41,4 +60,9 @@ export function TreeProvidersProvider({ value, children }: TreeProvidersProvider
  *  Crash. */
 export function useTreeProviders(): ReadonlyMap<string, TreeChildrenSubscribe> {
   return useContext(TreeProvidersContext);
+}
+
+/** V.1.5b SSE-Entity-Map pro Provider. Empty Map default. */
+export function useTreeEntities(): ReadonlyMap<string, readonly string[]> {
+  return useContext(TreeEntitiesContext);
 }

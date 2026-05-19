@@ -23,11 +23,17 @@
 // Siehe visual-tree.md V.1.1-A.
 
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
+import { useLiveEvents } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { useTreeProviders } from "../app/tree-providers-context";
+import { useTreeEntities, useTreeProviders } from "../app/tree-providers-context";
 import { TreeNodeRenderer } from "./tree-node-renderer";
 
 const EXPANDED_STORAGE_PREFIX = "kumiko:visual-tree:expanded:";
+
+// Stable-reference empty-list — vermeidet useEffect-deps-Trigger durch
+// jedes Render (sonst würde `[].length === 0` short-circuit doch der
+// Identity-Vergleich subscribeLive-effect destabilisieren).
+const EMPTY_ENTITY_LIST: readonly string[] = [];
 
 export type VisualTreeProps = {
   /** Workspace-ID des aktiven `navigation:"tree"`-Workspaces. Wird als
@@ -39,6 +45,7 @@ export type VisualTreeProps = {
 
 export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
   const providers = useTreeProviders();
+  const treeEntities = useTreeEntities();
   const sortedProviders = useMemo(
     () => [...providers.entries()].sort(([a], [b]) => a.localeCompare(b)),
     [providers],
@@ -74,17 +81,86 @@ export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
     return <EmptyState />;
   }
 
+  // V.1.5a ARIA-Tree-Keyboard-Nav: arrow-keys navigieren zwischen
+  // sichtbaren treeitems via DOM-query (Source of Truth = was im DOM
+  // sichtbar ist, inkl. expand/collapse-State). Tab kommt aus dem Tree
+  // heraus (kein Trap); innerhalb wird Arrow-Key erwartet.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>): void => {
+    const target = e.target as HTMLElement;
+    if (target.getAttribute("role") !== "treeitem") return;
+
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="treeitem"]'));
+    const idx = items.indexOf(target);
+    if (idx < 0) return;
+    const path = target.dataset["kumikoTreePath"];
+    const hasChildren = target.dataset["kumikoTreeHasChildren"] === "true";
+    const isExpanded = target.getAttribute("aria-expanded") === "true";
+
+    switch (e.key) {
+      case "ArrowDown": {
+        if (idx < items.length - 1) {
+          e.preventDefault();
+          items[idx + 1]?.focus();
+        }
+        break;
+      }
+      case "ArrowUp": {
+        if (idx > 0) {
+          e.preventDefault();
+          items[idx - 1]?.focus();
+        }
+        break;
+      }
+      case "ArrowRight": {
+        if (hasChildren && !isExpanded && path !== undefined) {
+          e.preventDefault();
+          handleToggle(path);
+        } else if (hasChildren && isExpanded && idx < items.length - 1) {
+          // Already expanded → move to first child (next visible item
+          // ist by DOM-order der erste child).
+          e.preventDefault();
+          items[idx + 1]?.focus();
+        }
+        break;
+      }
+      case "ArrowLeft": {
+        if (hasChildren && isExpanded && path !== undefined) {
+          e.preventDefault();
+          handleToggle(path);
+        }
+        // V.1.5a: kein parent-jump (würde flat-list-traversal brauchen,
+        // ARIA-Tree-Pattern would expect that — geht V.1.5b mit roving-
+        // tabindex). Aktuell ArrowLeft auf collapsed-item: no-op.
+        break;
+      }
+      case "Home": {
+        e.preventDefault();
+        items[0]?.focus();
+        break;
+      }
+      case "End": {
+        e.preventDefault();
+        items[items.length - 1]?.focus();
+        break;
+      }
+    }
+  };
+
   return (
     <aside
       aria-label="Visual Tree"
       data-kumiko-layout="visual-tree"
       className="flex flex-col text-sm overflow-y-auto"
+      // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: ARIA-tree pattern requires role=tree on container; <aside> is the right semantic outer element for a sidebar
+      role="tree"
+      onKeyDown={handleKeyDown}
     >
       {sortedProviders.map(([featureName, provider]) => (
         <ProviderBranch
           key={featureName}
           featureName={featureName}
           provider={provider}
+          entities={treeEntities.get(featureName) ?? EMPTY_ENTITY_LIST}
           expanded={expanded}
           onToggle={handleToggle}
         />
@@ -110,11 +186,13 @@ export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
 function ProviderBranch({
   featureName,
   provider,
+  entities,
   expanded,
   onToggle,
 }: {
   readonly featureName: string;
   readonly provider: TreeChildrenSubscribe;
+  readonly entities: readonly string[];
   readonly expanded: ReadonlySet<string>;
   readonly onToggle: (path: string) => void;
 }): ReactNode {
@@ -124,6 +202,20 @@ function ProviderBranch({
   const [nodes, setNodes] = useState<readonly TreeNode[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+
+  // V.1.5b SSE-Tree-Refresh: subscribe live-events für die gelisteten
+  // entities, increment attempt → useEffect re-fires → provider re-mountet.
+  // Gleiche Mechanik wie der retry-button, daher single trigger.
+  const subscribeLive = useLiveEvents();
+  useEffect(() => {
+    if (entities.length === 0) return;
+    const unsubs = entities.map((entityName) =>
+      subscribeLive(entityName, () => setAttempt((n) => n + 1)),
+    );
+    return () => {
+      for (const u of unsubs) u();
+    };
+  }, [entities, subscribeLive]);
 
   // `attempt` ist absichtlich in den deps: Retry-Button increments
   // attempt → useEffect re-fires → provider neu aufgerufen. Biome's

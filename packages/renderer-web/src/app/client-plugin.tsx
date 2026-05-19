@@ -66,6 +66,13 @@ export type ClientFeatureDefinition = {
    *  features liefern beide Seiten konsistent. */
   readonly treeActions?: Readonly<Record<string, TreeActionDef>>;
 
+  /** V.1.5b SSE-Tree-Refresh: Liste der Entity-Namen die der Provider
+   *  abdeckt. Bei Live-Events für eine dieser Entities (created/updated/
+   *  deleted/restored) wird der Provider neu aufgerufen → Tree refresht.
+   *  Optional + leer/undefined → kein SSE-Refresh (static Provider, z.B.
+   *  legal-pages). Beispiel text-content: `["text-block"]`. */
+  readonly treeEntities?: readonly string[];
+
   /** Editor-Resolver-Komponenten pro featureId:action-Key. Wenn ein
    *  TreeNode mit target angeklickt wird, schlägt der EditorPanel das
    *  Component hier nach und rendert es. Komponenten erhalten target

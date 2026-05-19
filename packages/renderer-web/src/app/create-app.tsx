@@ -201,6 +201,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
   // den Provider eines Features durch den eines anderen überschreiben);
   // wir warnen einmal pro Kollision. Visual-Tree.md V.1.1-Distribution.
   const treeProviders = new Map<string, TreeChildrenSubscribe>();
+  const treeEntities = new Map<string, readonly string[]>();
   for (const f of clientFeatures) {
     if (f.treeProvider === undefined) continue;
     if (treeProviders.has(f.name)) {
@@ -210,6 +211,9 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
       );
     }
     treeProviders.set(f.name, f.treeProvider);
+    if (f.treeEntities !== undefined && f.treeEntities.length > 0) {
+      treeEntities.set(f.name, f.treeEntities);
+    }
   }
 
   // Editor-Resolver aggregieren — keyed by "featureId:action". Gleiche
@@ -252,7 +256,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
             <LiveEventsProvider value={liveEvents}>
               <CustomScreensProvider value={customScreens}>
                 <ColumnRenderersProvider value={columnRenderers}>
-                  <TreeProvidersProvider value={treeProviders}>
+                  <TreeProvidersProvider value={treeProviders} entities={treeEntities}>
                     <ResolversProvider resolvers={resolvers}>
                       <ToastProvider>
                         {stackWrappers(providers, stackWrappers(gates, screenNode))}
