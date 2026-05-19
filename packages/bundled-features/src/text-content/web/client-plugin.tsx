@@ -18,16 +18,17 @@
 // ist no-op. V.1.3+ kann SSE-driven Re-Emit einbauen wenn text-block-
 // updated-Events propagiert werden.
 
+import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import type {
   TargetRef,
   TreeChildrenSubscribe,
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import { useDispatcher, usePrimitives, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import type { ReactNode } from "react";
-import { TextContentQueries } from "../constants";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { TextContentHandlers, TextContentQueries } from "../constants";
 
 // Exported für Unit-Test (groupBlocksBySlugPrefix ist pure-function ohne
 // fetch/DOM). Public-API für externe Konsumenten ist nicht intendiert —
@@ -116,12 +117,29 @@ const treeProvider: TreeChildrenSubscribe = () => (emit) => {
   return () => {};
 };
 
-// Stub-Editor V.1.2 — zeigt slug/lang aus den TargetRef-args plus den
-// V.1.3-TODO-Hinweis. Echte Edit-Form (title, body-textarea, save-button
-// via TextContentHandlers.set) kommt in V.1.3 wenn der Resolver-Slot
-// Form-Component-Pattern + dispatch-Wiring eingebaut hat. Bis dahin
-// validiert der Stub das End-to-End-Wiring (TreeNode → buildTarget →
-// dispatch → ResolversContext lookup → Render).
+// V.1.3 echte Edit-Form: lädt aktuelle Werte via by-slug-query, lässt
+// TenantAdmin/SystemAdmin title + body editieren, dispatcht set-write
+// bei Submit. Non-Admin-User sehen die Form read-only mit Hint-Banner —
+// das ist der Kumiko-Weg (Memory `[Sicherheit > Convenience]`: write-
+// permission bleibt opinionated TenantAdmin-only, App-Roles erweitern
+// per Dual-Role-Mapping wenn gewollt).
+//
+// **Stale-Tree-Caveat (V.1.4-Followup)**: TreeProvider ist fetch-once.
+// Nach erfolgreichem Save flippt der visual state="stub"→"filled" in
+// der Sidebar NICHT, bis der User den Workspace re-mountet. Editor selbst
+// ist konsistent (lokaler Form-State trägt die neuen Werte). Echte
+// Lösung: SSE-driven Tree-Refresh oder explicit cache-bust nach set-write.
+
+type TextBlock = {
+  readonly slug: string;
+  readonly lang: string;
+  readonly title: string;
+  readonly body: string | null;
+  readonly updatedAt: string;
+};
+
+type SetResponse = { readonly slug: string; readonly lang: string; readonly isNew: boolean };
+
 function TextContentEditor({
   target,
   onClose,
@@ -133,26 +151,129 @@ function TextContentEditor({
   // Record<string, unknown>; der Resolver kennt das Action-Shape (siehe
   // treeActions.edit-Definition unten) und de-erased pro Action analog
   // zu Event-Payloads. Optional-Chain absorbiert fehlende Felder ohne
-  // throw, damit der Stub-Editor auch bei manuellem URL-Tampering nicht
+  // throw, damit der Editor auch bei manuellem URL-Tampering nicht
   // crasht (TargetRef könnte aus old localStorage / URL-State stammen).
   const args = target.args as { slug?: string; lang?: string } | undefined;
-  const { Button } = usePrimitives();
+  const slug = args?.slug ?? "";
+  const lang = args?.lang ?? "";
+
+  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const dispatcher = useDispatcher();
+  const user = useShellUser();
+  const canWrite =
+    user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
+
+  // Load existing block via by-slug-query. Result ist entweder TextBlock
+  // oder null (slug existiert nicht — create-flow). useQuery returnt
+  // `data: T | null`, initial-loading: data=null + loading=true.
+  const {
+    data: loaded,
+    loading,
+    error: loadError,
+  } = useQuery<TextBlock | null>(
+    TextContentQueries.bySlug,
+    { slug, lang },
+    { enabled: slug !== "" && lang !== "" },
+  );
+
+  // Form-State unabhängig vom geladenen Block. Sync nur initial oder
+  // wenn target.slug+lang wechselt (User springt zwischen Knoten).
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+
+  // Sync loaded data → form state. Trigger sobald loaded-shape eindeutig
+  // ist (data ≠ undefined). loaded === null heißt "Block existiert noch
+  // nicht" — leere Form für create-flow.
+  useEffect(() => {
+    if (loading) return;
+    setTitle(loaded?.title ?? "");
+    setBody(loaded?.body ?? "");
+    setSaveError(null);
+    setSavedMsg(null);
+  }, [loading, loaded]);
+
+  const handleSave = async (): Promise<void> => {
+    setSubmitting(true);
+    setSaveError(null);
+    setSavedMsg(null);
+    const result = await dispatcher.write<SetResponse>(TextContentHandlers.set, {
+      slug,
+      lang,
+      title,
+      body: body.length > 0 ? body : null,
+    });
+    setSubmitting(false);
+    if (result.isSuccess) {
+      setSavedMsg(result.data.isNew ? "Neu angelegt." : "Gespeichert.");
+    } else {
+      setSaveError(result.error.message ?? result.error.code ?? "Speichern fehlgeschlagen.");
+    }
+  };
+
+  const onSubmit = (e?: FormEvent): void => {
+    e?.preventDefault();
+    void handleSave();
+  };
+
+  const disabled = submitting || loading || !canWrite;
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b px-6 py-4">
         <div>
           <h2 className="text-lg font-semibold">Text-Block bearbeiten</h2>
           <p className="text-xs text-muted-foreground">
-            {args?.slug ?? "—"} ({args?.lang ?? "—"})
+            {slug || "—"} ({lang || "—"})
           </p>
         </div>
         <Button variant="secondary" onClick={onClose}>
           schlie&szlig;en
         </Button>
       </header>
-      <div className="flex-1 space-y-4 p-6 text-sm text-muted-foreground">
-        <p>Editor-Stub (V.1.2). Echte Edit-Form folgt in V.1.3.</p>
-        <pre className="rounded bg-muted p-2 text-xs">{JSON.stringify(target, null, 2)}</pre>
+      <div className="flex-1 overflow-y-auto px-6 py-6">
+        <Form onSubmit={onSubmit}>
+          {loading && <Banner variant="loading">Lädt aktuellen Stand…</Banner>}
+          {loadError !== null && (
+            <Banner variant="error">Konnte Block nicht laden: {loadError.code}</Banner>
+          )}
+          {!canWrite && !loading && (
+            <Banner variant="info">
+              Read-only — TenantAdmin- oder SystemAdmin-Rolle f&uuml;r &Auml;nderungen erforderlich.
+            </Banner>
+          )}
+          <Field id="text-content-title" label="Titel" required>
+            <Input
+              kind="text"
+              id="text-content-title"
+              name="text-content-title"
+              value={title}
+              onChange={setTitle}
+              disabled={disabled}
+              required
+            />
+          </Field>
+          <Field id="text-content-body" label="Inhalt">
+            <Input
+              kind="textarea"
+              id="text-content-body"
+              name="text-content-body"
+              value={body}
+              onChange={setBody}
+              disabled={disabled}
+              rows={14}
+            />
+          </Field>
+          {saveError !== null && <Banner variant="error">{saveError}</Banner>}
+          {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}
+          {canWrite && (
+            <Button type="submit" loading={submitting} disabled={disabled}>
+              {submitting ? "Speichern…" : "Speichern"}
+            </Button>
+          )}
+        </Form>
       </div>
     </div>
   );
