@@ -150,8 +150,26 @@ export function TreeNodeRenderer({
     }
   };
 
+  // VS-Code-style indent-guides: ein 1px vertikaler border per
+  // ancestor-depth. Outer wrapper ist relative + die Lines sind absolute
+  // mit position pro depth-step (12px); top=0 bottom=0 streckt sie über
+  // Row + alle children (rekursiv wrapper wrappt children mit drin).
+  const indentGuides =
+    depth > 0
+      ? Array.from({ length: depth }, (_, i) => (
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: stable index = depth-level
+            key={i}
+            aria-hidden
+            className="absolute top-0 bottom-0 w-px bg-border/60 pointer-events-none"
+            style={{ left: `${i * 12 + 13}px` }}
+          />
+        ))
+      : null;
+
   return (
-    <div data-kumiko-tree-node={path}>
+    <div data-kumiko-tree-node={path} className="relative">
+      {indentGuides}
       {/* Outer Row als <div role="treeitem">: V.1.5a ARIA-tree-Pattern.
           role + tabIndex=0 + aria-expanded gibt Screenreader Tree-
           Semantik. Arrow-Key-Navigation läuft auf dem aside-Container
@@ -164,9 +182,14 @@ export function TreeNodeRenderer({
           // VS-Code-ähnlich: compact spacing, full-row click-area,
           // hover subtle, active filled. Active sticky über hover via
           // class-order. focus-ring nur bei Keyboard (focus-visible).
-          "group flex w-full items-center gap-1.5 py-0.5 pr-2 cursor-pointer rounded-sm",
+          "group flex w-full items-center gap-1.5 py-0.5 pr-2 cursor-pointer rounded-sm relative",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-          isActive ? "bg-accent text-accent-foreground" : cn("hover:bg-accent/30", stateClass),
+          // Explicit VS-Code-Blau für active (statt theme-`bg-accent`,
+          // weil publicstatus's accent near-white ist → kaum sichtbar).
+          // border-l-2 als VS-Code-Marker-Bar links.
+          isActive
+            ? "bg-blue-100 dark:bg-blue-900/40 border-l-2 border-l-blue-500"
+            : cn("hover:bg-muted/60", stateClass),
         )}
         style={indentStyle}
         onClick={handleRowClick}
@@ -189,7 +212,10 @@ export function TreeNodeRenderer({
           (() => {
             const IconComponent = NODE_ICONS[node.icon];
             if (IconComponent === undefined) return null;
-            return <IconComponent aria-hidden className="size-3.5 shrink-0" />;
+            // VS-Code-typische Icon-Color: folder yellow/amber, file
+            // muted. Plus fill für folder gibt geschlossenem-Folder-Look.
+            const iconColor = node.icon === "folder" ? "text-amber-500" : "text-muted-foreground";
+            return <IconComponent aria-hidden className={cn("size-3.5 shrink-0", iconColor)} />;
           })()}
         <span className="flex-1 truncate text-sm">{node.label}</span>
         <HoverActions

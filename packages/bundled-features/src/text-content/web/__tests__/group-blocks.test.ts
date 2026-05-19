@@ -13,6 +13,16 @@ function childrenArray(children: TreeNode["children"] | undefined): readonly Tre
   return children;
 }
 
+// V.1.5d-Helper: groupBlocksByFolder gibt jetzt einen "Content"-Wrapper-
+// Folder zurück. Tests wollen den Inhalt UNTER dem Wrapper prüfen.
+function inside(result: readonly TreeNode[]): readonly TreeNode[] {
+  expect(result).toHaveLength(1);
+  const wrapper = result[0];
+  expect(wrapper?.label).toBe("Content");
+  expect(wrapper?.icon).toBe("folder");
+  return childrenArray(wrapper?.children);
+}
+
 // Helper: BlockSummary mit defaults für die nicht-test-relevanten Felder.
 function block(opts: {
   slug: string;
@@ -36,8 +46,8 @@ describe("groupBlocksByFolder", () => {
     expect(groupBlocksByFolder([])).toEqual([]);
   });
 
-  test("folder=null → Root-Node ohne Folder", () => {
-    const nodes = groupBlocksByFolder([block({ slug: "imprint", folder: null })]);
+  test("folder=null → Root-Node ohne Folder (innerhalb Content-Wrapper)", () => {
+    const nodes = inside(groupBlocksByFolder([block({ slug: "imprint", folder: null })]));
     expect(nodes).toHaveLength(1);
     const root = nodes[0];
     expect(root).toBeDefined();
@@ -53,7 +63,9 @@ describe("groupBlocksByFolder", () => {
   });
 
   test('folder="page" → Folder-Container mit child', () => {
-    const nodes = groupBlocksByFolder([block({ slug: "hero", folder: "page", title: "Hero" })]);
+    const nodes = inside(
+      groupBlocksByFolder([block({ slug: "hero", folder: "page", title: "Hero" })]),
+    );
     expect(nodes).toHaveLength(1);
     const folder = nodes[0];
     expect(folder).toBeDefined();
@@ -70,11 +82,13 @@ describe("groupBlocksByFolder", () => {
   });
 
   test("mehrere Slugs gleicher Folder → ein Folder mit mehreren children", () => {
-    const nodes = groupBlocksByFolder([
-      block({ slug: "hero", folder: "page", title: "Hero" }),
-      block({ slug: "cta", folder: "page", title: "CTA" }),
-      block({ slug: "footer", folder: "page", title: "Footer" }),
-    ]);
+    const nodes = inside(
+      groupBlocksByFolder([
+        block({ slug: "hero", folder: "page", title: "Hero" }),
+        block({ slug: "cta", folder: "page", title: "CTA" }),
+        block({ slug: "footer", folder: "page", title: "Footer" }),
+      ]),
+    );
     expect(nodes).toHaveLength(1);
     const folder = nodes[0];
     expect(folder).toBeDefined();
@@ -87,11 +101,13 @@ describe("groupBlocksByFolder", () => {
   });
 
   test("mixed root + folder → root-nodes zuerst, dann Folders", () => {
-    const nodes = groupBlocksByFolder([
-      block({ slug: "imprint", folder: null }),
-      block({ slug: "hero", folder: "page" }),
-      block({ slug: "cta", folder: "page" }),
-    ]);
+    const nodes = inside(
+      groupBlocksByFolder([
+        block({ slug: "imprint", folder: null }),
+        block({ slug: "hero", folder: "page" }),
+        block({ slug: "cta", folder: "page" }),
+      ]),
+    );
     expect(nodes).toHaveLength(2);
     expect(nodes[0]?.label).toBe("imprint");
     expect(nodes[0]?.icon).toBeUndefined();
@@ -100,27 +116,29 @@ describe("groupBlocksByFolder", () => {
   });
 
   test("Folders alphabetisch sortiert (deterministisch gegen Map-order)", () => {
-    const nodes = groupBlocksByFolder([
-      block({ slug: "x", folder: "zebra" }),
-      block({ slug: "y", folder: "apple" }),
-      block({ slug: "z", folder: "mango" }),
-    ]);
+    const nodes = inside(
+      groupBlocksByFolder([
+        block({ slug: "x", folder: "zebra" }),
+        block({ slug: "y", folder: "apple" }),
+        block({ slug: "z", folder: "mango" }),
+      ]),
+    );
     const folderLabels = nodes.map((n) => n.label);
     expect(folderLabels).toEqual(["apple", "mango", "zebra"]);
   });
 
   test('body=null → state="stub" (Designer-Hinweis dass Slug existiert aber leer)', () => {
-    const nodes = groupBlocksByFolder([block({ slug: "draft", body: null })]);
+    const nodes = inside(groupBlocksByFolder([block({ slug: "draft", body: null })]));
     expect(nodes[0]?.state).toBe("stub");
   });
 
   test('body=string → state="filled"', () => {
-    const nodes = groupBlocksByFolder([block({ slug: "imprint", body: "content" })]);
+    const nodes = inside(groupBlocksByFolder([block({ slug: "imprint", body: "content" })]));
     expect(nodes[0]?.state).toBe("filled");
   });
 
   test("title leer → fallback auf slug als label", () => {
-    const nodes = groupBlocksByFolder([block({ slug: "untitled-block", title: "" })]);
+    const nodes = inside(groupBlocksByFolder([block({ slug: "untitled-block", title: "" })]));
     expect(nodes[0]?.label).toBe("untitled-block");
   });
 
@@ -128,11 +146,23 @@ describe("groupBlocksByFolder", () => {
     // V.1.4-Convention: folderSchema akzeptiert kebab + "/" als
     // nested-pfad, aber groupBlocksByFolder rendert flach (single-level
     // Container mit dem ganzen Pfad als Label). V.1.5 kann das splitten.
-    const nodes = groupBlocksByFolder([
-      block({ slug: "hero", folder: "page/marketing", title: "Hero" }),
-    ]);
+    const nodes = inside(
+      groupBlocksByFolder([block({ slug: "hero", folder: "page/marketing", title: "Hero" })]),
+    );
     expect(nodes).toHaveLength(1);
     expect(nodes[0]?.label).toBe("page/marketing");
     expect(nodes[0]?.icon).toBe("folder");
+  });
+
+  test("Wrapper-Folder 'Content' umschließt alle blocks", () => {
+    // V.1.5d Wrapper-Convention: groupBlocksByFolder gibt EINEN Knoten
+    // zurück (den Wrapper), Inhalt liegt eine Ebene tiefer.
+    const result = groupBlocksByFolder([block({ slug: "imprint" })]);
+    expect(result).toHaveLength(1);
+    const wrapper = result[0];
+    expect(wrapper?.label).toBe("Content");
+    expect(wrapper?.icon).toBe("folder");
+    expect(wrapper?.target).toBeUndefined();
+    expect(childrenArray(wrapper?.children)).toHaveLength(1);
   });
 });

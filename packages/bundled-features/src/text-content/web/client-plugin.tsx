@@ -51,6 +51,11 @@ type ByTenantResponse = {
 // gegen Map-iteration-order, plus visuell-stable für User). Multi-level
 // folders ("page/marketing") werden in V.1.4 noch flat gerendert —
 // V.1.5 kann recursive Hierarchie einführen wenn gebraucht.
+//
+// **V.1.5d Wrapper-Folder**: alle text-content-Blocks landen unter
+// einem expliziten "Content"-Folder (statt direkt an Root). Schafft
+// visuelle Trennung zu anderen Provider-Branches (z.B. legal-pages)
+// und macht klar dass diese Items aus text-content kommen.
 export function groupBlocksByFolder(blocks: readonly BlockSummary[]): readonly TreeNode[] {
   const rootNodes: TreeNode[] = [];
   const folders = new Map<string, TreeNode[]>();
@@ -86,7 +91,17 @@ export function groupBlocksByFolder(blocks: readonly BlockSummary[]): readonly T
     });
   }
 
-  return rootNodes;
+  // Wenn keine Blocks → kein Wrapper. Empty Tree zeigt sonst einen
+  // leeren "Content"-Folder, was als Provider-Bug wahrgenommen wird.
+  if (rootNodes.length === 0) return [];
+  return [
+    {
+      label: "Content",
+      icon: "folder",
+      state: "filled",
+      children: rootNodes,
+    },
+  ];
 }
 
 const treeProvider: TreeChildrenSubscribe = () => (emit, emitError) => {

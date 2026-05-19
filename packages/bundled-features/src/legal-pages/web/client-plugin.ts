@@ -21,16 +21,56 @@ import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { LEGAL_OPTIONAL_BLOCKS, LEGAL_REQUIRED_BLOCKS } from "../constants";
 
 const treeProvider: TreeChildrenSubscribe = () => (emit) => {
-  const allBlocks = [...LEGAL_REQUIRED_BLOCKS, ...LEGAL_OPTIONAL_BLOCKS];
-  const nodes: readonly TreeNode[] = allBlocks.map((b) => ({
-    label: `${b.slug} (${b.lang})`,
-    target: {
-      featureId: "text-content",
-      action: "edit",
-      args: { slug: b.slug, lang: b.lang },
+  // V.1.5d Slug-first Verschachtelung (Variante C):
+  //   📁 Legal
+  //     📁 imprint
+  //       de
+  //       en
+  //     📁 privacy
+  //       de
+  //       en
+  //
+  // Slug ist der Übersetzungs-Anker — User pflegt DE+EN-Versionen
+  // desselben Inhalts zusammen statt nach Sprache zu gruppieren.
+  // Sub-Items sind reine Sprach-Leaves; Label = Sprache, target zeigt
+  // auf text-content:edit mit slug+lang.
+
+  // Group all blocks by slug, collect set of langs per slug.
+  const bySlug = new Map<string, string[]>();
+  for (const b of [...LEGAL_REQUIRED_BLOCKS, ...LEGAL_OPTIONAL_BLOCKS]) {
+    const langs = bySlug.get(b.slug) ?? [];
+    if (!langs.includes(b.lang)) langs.push(b.lang);
+    bySlug.set(b.slug, langs);
+  }
+
+  const slugFolders: TreeNode[] = [];
+  for (const slug of [...bySlug.keys()].sort()) {
+    const langs = bySlug.get(slug);
+    if (langs === undefined) continue;
+    const langLeaves: TreeNode[] = langs.sort().map((lang) => ({
+      label: lang,
+      target: {
+        featureId: "text-content",
+        action: "edit",
+        args: { slug, lang },
+      },
+    }));
+    slugFolders.push({
+      label: slug,
+      icon: "folder",
+      state: "filled",
+      children: langLeaves,
+    });
+  }
+
+  emit([
+    {
+      label: "Legal",
+      icon: "folder",
+      state: "filled",
+      children: slugFolders,
     },
-  }));
-  emit(nodes);
+  ]);
   return () => {};
 };
 
