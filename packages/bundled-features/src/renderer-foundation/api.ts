@@ -3,6 +3,7 @@
 // Render-Call den passenden Plugin via `createRendererForTenant`.
 // Pattern symmetrisch zu ai-foundation's `createLLMProviderForTenant`.
 
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { DEFAULT_PLUGIN_BY_KIND, type RenderKind } from "./constants";
 import { RendererError, type RendererPlugin } from "./types";
@@ -26,7 +27,7 @@ export type RendererFoundationApi = {
    * Plugins ohne Service-Deps (z.B. `renderer-simple`) ignorieren ctx.
    */
   readonly createRendererForTenant: (args: {
-    readonly tenantId: string;
+    readonly tenantId: TenantId;
     readonly kind: RenderKind;
   }) => RendererPlugin;
 };
@@ -37,7 +38,7 @@ export type RendererFoundationApi = {
 // Result in extraContext.
 export function createRendererFoundationApi(
   plugins: ReadonlyArray<RendererPlugin>,
-  tenantConfigLookup: (tenantId: string) => Record<string, string> | null = () => null,
+  tenantConfigLookup: (tenantId: TenantId) => Record<string, string> | null = () => null,
 ): RendererFoundationApi {
   const byKind = indexByKind(plugins);
   return {

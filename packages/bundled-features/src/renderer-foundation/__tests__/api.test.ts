@@ -42,7 +42,7 @@ function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugi
   };
 }
 
-const TENANT = "tenant-a";
+const TENANT: TenantId = "22222222-2222-4222-8222-222222222222" as TenantId;
 
 describe("renderer-foundation :: Plugin-Selection", () => {
   test("default-plugin für notification = 'simple'", async () => {
