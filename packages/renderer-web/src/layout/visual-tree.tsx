@@ -24,7 +24,7 @@
 
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { useLiveEvents } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useTreeEntities, useTreeProviders } from "../app/tree-providers-context";
 import { TreeNodeRenderer } from "./tree-node-renderer";
 
@@ -52,6 +52,36 @@ export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
   );
 
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => loadExpanded(workspaceId));
+
+  // V.1.6c Roving-tabindex: nur ein treeitem hat tabIndex=0, Tab cyclt
+  // damit aus dem Tree heraus statt durch alle Items. focusedPath
+  // tracked welches item current-focused ist; Arrow-Keys updaten es via
+  // native onFocus-event (siehe TreeNodeRenderer).
+  const [focusedPath, setFocusedPath] = useState<string | undefined>(undefined);
+  const asideRef = useRef<HTMLElement | null>(null);
+
+  // Beim ersten Render (oder content-Change) ist focusedPath
+  // undefined → ALLE Rows hätten tabIndex=-1 und Tab könnte Tree nicht
+  // betreten. Post-mount setzen wir das erste sichtbare treeitem als
+  // initial focus. Plus: wenn focusedPath einen Pfad zeigt der nicht
+  // mehr existiert (Tree-Refresh), fall back to first.
+  useEffect(() => {
+    if (asideRef.current === null) return;
+    const items = asideRef.current.querySelectorAll<HTMLElement>('[role="treeitem"]');
+    if (items.length === 0) return;
+    if (focusedPath === undefined) {
+      const firstPath = items[0]?.dataset["kumikoTreePath"];
+      if (firstPath !== undefined) setFocusedPath(firstPath);
+      return;
+    }
+    const stillExists = Array.from(items).some(
+      (el) => el.dataset["kumikoTreePath"] === focusedPath,
+    );
+    if (!stillExists) {
+      const firstPath = items[0]?.dataset["kumikoTreePath"];
+      if (firstPath !== undefined) setFocusedPath(firstPath);
+    }
+  });
 
   // localStorage-Persistenz: jeder Toggle persistiert sofort. Workspace-
   // Switch lädt anderen Set neu (siehe 2nd useEffect).
@@ -148,12 +178,22 @@ export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
 
   return (
     <aside
+      ref={asideRef}
       aria-label="Visual Tree"
       data-kumiko-layout="visual-tree"
       className="flex flex-col text-sm overflow-y-auto"
       // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: ARIA-tree pattern requires role=tree on container; <aside> is the right semantic outer element for a sidebar
       role="tree"
       onKeyDown={handleKeyDown}
+      onFocus={(e) => {
+        // Native focus auf einem treeitem (via Mouse-Click oder Arrow-
+        // Key's focus()) → setze focusedPath. Bubble-up vom child-row
+        // landet hier, e.target ist das treeitem.
+        const target = e.target as HTMLElement;
+        if (target.getAttribute("role") !== "treeitem") return;
+        const path = target.dataset["kumikoTreePath"];
+        if (path !== undefined && path !== focusedPath) setFocusedPath(path);
+      }}
     >
       {sortedProviders.map(([featureName, provider]) => (
         <ProviderBranch
@@ -163,6 +203,7 @@ export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
           entities={treeEntities.get(featureName) ?? EMPTY_ENTITY_LIST}
           expanded={expanded}
           onToggle={handleToggle}
+          focusedPath={focusedPath}
         />
       ))}
     </aside>
@@ -189,12 +230,14 @@ function ProviderBranch({
   entities,
   expanded,
   onToggle,
+  focusedPath,
 }: {
   readonly featureName: string;
   readonly provider: TreeChildrenSubscribe;
   readonly entities: readonly string[];
   readonly expanded: ReadonlySet<string>;
   readonly onToggle: (path: string) => void;
+  readonly focusedPath: string | undefined;
 }): ReactNode {
   // null = noch nicht emitted (initial-Loading). Ein Provider der
   // niemals emittet bleibt damit sichtbar als „lädt …" und nicht
@@ -287,6 +330,7 @@ function ProviderBranch({
             expanded={expanded}
             onToggle={onToggle}
             depth={0}
+            focusedPath={focusedPath}
           />
         );
       })}

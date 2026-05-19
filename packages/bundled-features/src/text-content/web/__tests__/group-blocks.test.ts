@@ -142,16 +142,69 @@ describe("groupBlocksByFolder", () => {
     expect(nodes[0]?.label).toBe("untitled-block");
   });
 
-  test('multi-level folder ("page/marketing") wird in V.1.4 flat gerendert', () => {
-    // V.1.4-Convention: folderSchema akzeptiert kebab + "/" als
-    // nested-pfad, aber groupBlocksByFolder rendert flach (single-level
-    // Container mit dem ganzen Pfad als Label). V.1.5 kann das splitten.
+  test('V.1.6a multi-level folder ("page/marketing") wird genested gerendert', () => {
     const nodes = inside(
       groupBlocksByFolder([block({ slug: "hero", folder: "page/marketing", title: "Hero" })]),
     );
     expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.label).toBe("page/marketing");
-    expect(nodes[0]?.icon).toBe("folder");
+    const pageFolder = nodes[0];
+    expect(pageFolder?.label).toBe("page");
+    expect(pageFolder?.icon).toBe("folder");
+    const pageChildren = childrenArray(pageFolder?.children);
+    expect(pageChildren).toHaveLength(1);
+    const marketingFolder = pageChildren[0];
+    expect(marketingFolder?.label).toBe("marketing");
+    expect(marketingFolder?.icon).toBe("folder");
+    const marketingChildren = childrenArray(marketingFolder?.children);
+    expect(marketingChildren).toHaveLength(1);
+    expect(marketingChildren[0]?.label).toBe("Hero");
+    expect(marketingChildren[0]?.target?.args).toEqual({ slug: "hero", lang: "de" });
+  });
+
+  test("V.1.6a shared folder-prefix → ein gemeinsamer parent", () => {
+    // Zwei blocks mit verschachteltem Pfad teilen die ersten Segmente.
+    // page/hero + page/cta + page/marketing/banner → 1× page-folder mit
+    // 3 children (2 leaves + 1 sub-folder).
+    const nodes = inside(
+      groupBlocksByFolder([
+        block({ slug: "hero", folder: "page", title: "Hero" }),
+        block({ slug: "cta", folder: "page", title: "CTA" }),
+        block({ slug: "banner", folder: "page/marketing", title: "Banner" }),
+      ]),
+    );
+    expect(nodes).toHaveLength(1);
+    const pageFolder = nodes[0];
+    expect(pageFolder?.label).toBe("page");
+    const pageChildren = childrenArray(pageFolder?.children);
+    // Leaves first (Hero, CTA), dann sub-folder (marketing alphabetisch).
+    expect(pageChildren.map((c) => c.label)).toEqual(["Hero", "CTA", "marketing"]);
+    expect(pageChildren[2]?.icon).toBe("folder");
+    const marketingChildren = childrenArray(pageChildren[2]?.children);
+    expect(marketingChildren).toHaveLength(1);
+    expect(marketingChildren[0]?.label).toBe("Banner");
+  });
+
+  test("V.1.6a folder/leaf-collision: gleicher Name auf gleicher Ebene", () => {
+    // Edge-Case (advisor-flagged): block mit folder=null, slug="page"
+    // + block mit folder="page" → "page" existiert als Leaf-Root UND
+    // als Folder. Beide bleiben sichtbar; Folder hat Chevron + Folder-
+    // Icon, Leaf hat target + ist klickbar. Renderer-Pattern macht
+    // visuell klar dass es zwei verschiedene Dinge sind.
+    const nodes = inside(
+      groupBlocksByFolder([
+        block({ slug: "page", folder: null, title: "Page-Root" }),
+        block({ slug: "hero", folder: "page", title: "Hero" }),
+      ]),
+    );
+    expect(nodes).toHaveLength(2);
+    const leaf = nodes[0];
+    const folder = nodes[1];
+    expect(leaf?.label).toBe("Page-Root");
+    expect(leaf?.icon).toBeUndefined();
+    expect(leaf?.target).toBeDefined();
+    expect(folder?.label).toBe("page");
+    expect(folder?.icon).toBe("folder");
+    expect(folder?.target).toBeUndefined();
   });
 
   test("Wrapper-Folder 'Content' umschließt alle blocks", () => {

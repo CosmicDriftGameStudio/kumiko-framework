@@ -45,61 +45,90 @@ type ByTenantResponse = {
   readonly data: { readonly blocks: readonly BlockSummary[] };
 };
 
-// V.1.4-Grouping: explicit folder-Field statt Slug-Prefix-Heuristik.
-// block.folder === null → root-node; sonst Container-Knoten mit folder-
-// Label. Folder-Knoten sind alphabetisch sortiert (deterministisch
-// gegen Map-iteration-order, plus visuell-stable für User). Multi-level
-// folders ("page/marketing") werden in V.1.4 noch flat gerendert —
-// V.1.5 kann recursive Hierarchie einführen wenn gebraucht.
+// V.1.6a Multi-level Folder-Splitting: `folder` ist ein `/`-separierter
+// Pfad (z.B. "page/marketing"). Der Tree splittet pro Segment und
+// erzeugt nested Folder-Knoten:
+//   block.folder = null              → root-leaf
+//   block.folder = "page"            → 📁 page > leaf
+//   block.folder = "page/marketing"  → 📁 page > 📁 marketing > leaf
 //
-// **V.1.5d Wrapper-Folder**: alle text-content-Blocks landen unter
-// einem expliziten "Content"-Folder (statt direkt an Root). Schafft
-// visuelle Trennung zu anderen Provider-Branches (z.B. legal-pages)
-// und macht klar dass diese Items aus text-content kommen.
-export function groupBlocksByFolder(blocks: readonly BlockSummary[]): readonly TreeNode[] {
-  const rootNodes: TreeNode[] = [];
-  const folders = new Map<string, TreeNode[]>();
+// Walk-or-create-pattern: pro Block durch die Folder-Hierarchie laufen,
+// Folder-Knoten anlegen wo nötig, Leaf am Ende anhängen. Folders pro
+// Ebene alphabetisch sortiert (deterministisch).
+//
+// **Folder/Leaf-Collision** (advisor-Edge-Case): wenn ein Block
+// `folder=null, slug="page"` UND ein anderer `folder="page", slug=...`
+// existieren, leben beide an derselben Ebene — der Folder mit children
+// + ein klickbarer Leaf "page" als root. Visual unterscheidbar (Folder
+// hat Chevron + Folder-Icon, Leaf nicht). Kein Crash, keine Surprise.
+//
+// **V.1.5d Wrapper-Folder "Content"**: alle text-content-Blocks landen
+// unter einem expliziten Top-Level-Folder. Empty-Tree → kein Wrapper.
 
-  for (const block of blocks) {
-    const node: TreeNode = {
-      label: block.title || block.slug,
-      target: {
-        featureId: "text-content",
-        action: "edit",
-        args: { slug: block.slug, lang: block.lang },
-      },
-      state: block.body ? "filled" : "stub",
-    };
+type FolderNode = {
+  readonly leaves: TreeNode[];
+  readonly subFolders: Map<string, FolderNode>;
+};
 
-    if (block.folder === null) {
-      rootNodes.push(node);
-    } else {
-      const existing = folders.get(block.folder) ?? [];
-      existing.push(node);
-      folders.set(block.folder, existing);
-    }
+function newFolderNode(): FolderNode {
+  return { leaves: [], subFolders: new Map() };
+}
+
+function attachBlock(root: FolderNode, block: BlockSummary): void {
+  const leaf: TreeNode = {
+    label: block.title || block.slug,
+    target: {
+      featureId: "text-content",
+      action: "edit",
+      args: { slug: block.slug, lang: block.lang },
+    },
+    state: block.body ? "filled" : "stub",
+  };
+  if (block.folder === null) {
+    root.leaves.push(leaf);
+    return;
   }
+  let cur = root;
+  for (const segment of block.folder.split("/")) {
+    let next = cur.subFolders.get(segment);
+    if (next === undefined) {
+      next = newFolderNode();
+      cur.subFolders.set(segment, next);
+    }
+    cur = next;
+  }
+  cur.leaves.push(leaf);
+}
 
-  for (const name of [...folders.keys()].sort()) {
-    const children = folders.get(name);
-    if (children === undefined) continue;
-    rootNodes.push({
-      label: name,
+function renderFolderNode(node: FolderNode): TreeNode[] {
+  // Leaves first (root-items), dann Folders alphabetisch.
+  const result: TreeNode[] = [...node.leaves];
+  for (const folderName of [...node.subFolders.keys()].sort()) {
+    const subNode = node.subFolders.get(folderName);
+    if (subNode === undefined) continue;
+    result.push({
+      label: folderName,
       icon: "folder",
       state: "filled",
-      children,
+      children: renderFolderNode(subNode),
     });
   }
+  return result;
+}
 
-  // Wenn keine Blocks → kein Wrapper. Empty Tree zeigt sonst einen
-  // leeren "Content"-Folder, was als Provider-Bug wahrgenommen wird.
-  if (rootNodes.length === 0) return [];
+export function groupBlocksByFolder(blocks: readonly BlockSummary[]): readonly TreeNode[] {
+  const root = newFolderNode();
+  for (const block of blocks) {
+    attachBlock(root, block);
+  }
+  const rendered = renderFolderNode(root);
+  if (rendered.length === 0) return [];
   return [
     {
       label: "Content",
       icon: "folder",
       state: "filled",
-      children: rootNodes,
+      children: rendered,
     },
   ];
 }

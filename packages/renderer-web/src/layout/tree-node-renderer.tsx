@@ -86,6 +86,10 @@ export type TreeNodeRendererProps = {
   readonly expanded: ReadonlySet<string>;
   readonly onToggle: (path: string) => void;
   readonly depth?: number;
+  /** V.1.6c Roving-tabindex: nur das focused-Treeitem hat tabIndex=0,
+   *  alle anderen tabIndex=-1. Wenn undefined → kein item focused
+   *  (transient bei mount, VisualTree useEffect setzt's). */
+  readonly focusedPath?: string;
 };
 
 export function TreeNodeRenderer({
@@ -94,6 +98,7 @@ export function TreeNodeRenderer({
   expanded,
   onToggle,
   depth = 0,
+  focusedPath,
 }: TreeNodeRendererProps): ReactNode {
   const isExpanded = expanded.has(path);
   const hasChildren = node.children !== undefined;
@@ -200,7 +205,12 @@ export function TreeNodeRenderer({
           }
         }}
         role="treeitem"
-        tabIndex={0}
+        // V.1.6c Roving-tabindex: nur das focused-treeitem hat
+        // tabIndex=0, alle anderen tabIndex=-1. focusedPath=undefined
+        // ist transient (VisualTree useEffect setzt's post-mount auf
+        // erstes treeitem); während dieser Phase haben alle tabIndex=-1
+        // und Tab-Reach geht nicht durch — minimal-Window, akzeptabel.
+        tabIndex={focusedPath === path ? 0 : -1}
         aria-expanded={hasChildren ? isExpanded : undefined}
         aria-selected={isActive ? true : undefined}
         data-kumiko-tree-path={path}
@@ -231,6 +241,7 @@ export function TreeNodeRenderer({
           onToggle={onToggle}
           depth={depth}
           dynamicChildren={dynamicChildren}
+          focusedPath={focusedPath}
         />
       )}
     </div>
@@ -305,6 +316,7 @@ function ChildrenView({
   onToggle,
   depth,
   dynamicChildren,
+  focusedPath,
 }: {
   readonly node: TreeNode;
   readonly path: string;
@@ -312,6 +324,7 @@ function ChildrenView({
   readonly onToggle: (path: string) => void;
   readonly depth: number;
   readonly dynamicChildren: readonly TreeNode[] | null;
+  readonly focusedPath: string | undefined;
 }): ReactNode {
   // Array.isArray narrow't TS automatisch auf readonly TreeNode[] — kein
   // as-Cast nötig (Memory `[Type Assertions]`).
@@ -334,6 +347,7 @@ function ChildrenView({
               expanded={expanded}
               onToggle={onToggle}
               depth={depth + 1}
+              focusedPath={focusedPath}
             />
           );
         })}
