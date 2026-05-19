@@ -74,7 +74,16 @@ export type TreeNode = {
 // Subscribe<T> — Provider implementiert: emit(initial); ...emit(updated);
 // und gibt unsubscribe-Function zurück. Caller (Tree-Component) ruft
 // unsubscribe auf wenn Knoten unmounted/eingeklappt wird.
-export type Subscribe<T> = (emit: (value: T) => void) => () => void;
+//
+// **V.1.4 emitError**: optional callback für async-error-Pfade (fetch-
+// fail, SSE-disconnect). Provider die explizit Errors signalisieren
+// wollen rufen `emitError(e)` statt empty-emit; VisualTree zeigt
+// Error-Banner mit Retry-Button. Sync-Throws im Provider-Body werden
+// vom useEffect-try/catch abgefangen — emitError ist nur für async.
+export type Subscribe<T> = (
+  emit: (value: T) => void,
+  emitError?: (error: Error) => void,
+) => () => void;
 
 // TreeChildrenSubscribe — Lazy-Variante für dynamic Children. Wird
 // erst aufgerufen wenn der Knoten im UI ausgeklappt wird. Kein ctx-

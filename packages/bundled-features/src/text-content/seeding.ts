@@ -24,6 +24,11 @@ export type SeedTextBlockOptions = {
   readonly lang: string;
   readonly title: string;
   readonly body?: string | null;
+  /** V.1.4: Folder-Pfad für Visual-Tree-Gruppierung. Optional + null =
+   *  root-node. Seed-Pfad bypasst slugSchema/folderSchema-Validation
+   *  (system-trusted), aber App-Builder sollten kebab-only nutzen damit
+   *  set.write die geseedete Row später überschreiben kann. */
+  readonly folder?: string | null;
   readonly by?: SessionUser;
 };
 
@@ -50,12 +55,14 @@ export async function seedTextBlock(
     eq(textBlocksTable["lang"], opts.lang),
   );
 
+  const folder = opts.folder ?? null;
+
   if (existing) {
     const result = await executor.update(
       {
         id: existing.id,
         version: existing.version,
-        changes: { title: opts.title, body: opts.body ?? null },
+        changes: { title: opts.title, body: opts.body ?? null, folder },
       },
       by,
       tdb,
@@ -72,6 +79,7 @@ export async function seedTextBlock(
       lang: opts.lang,
       title: opts.title,
       body: opts.body ?? null,
+      folder,
       tenantId: opts.tenantId,
     },
     by,

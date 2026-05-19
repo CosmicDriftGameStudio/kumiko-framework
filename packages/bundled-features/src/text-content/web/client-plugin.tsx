@@ -2,21 +2,20 @@
 // Client-Feature-Factory für text-content Visual-Tree. Wird vom App-Code
 // in createKumikoApp({ clientFeatures: [textContentClient()] }) eingehängt
 // und liefert den treeProvider der Text-Blocks aus der by-tenant Query
-// lädt, nach Slug-Prefix gruppiert und als TreeNode[] emitted.
+// lädt, nach `folder`-Field gruppiert und als TreeNode[] emitted.
 //
-// **Slug-Gruppierung**: Slugs der Form `<prefix>:<rest>` oder `<prefix>/<rest>`
-// werden unter einem `<prefix>`-Container-Knoten gruppiert. Slugs ohne
-// Trenner landen als Top-Level-Knoten. Beispiele:
-//   - "page:index:hero.title" → folder "page", label "index:hero.title"
-//   - "imprint"               → root-node, label "imprint"
-// V.1.3+ kann mehrstufige Hierarchien einführen wenn realer Bedarf zeigt.
+// **Folder-Gruppierung V.1.4**: Block.folder !== null → Knoten landet
+// unter einem Container-Knoten mit Label folder. folder === null →
+// Top-Level (root-node). Slug bleibt kebab-only validiert. Beispiele:
+//   - folder="page", slug="hero"  → Folder "page", child "hero"
+//   - folder=null,   slug="imprint" → root-node "imprint"
 //
 // **State**: TreeNode.state = "filled" wenn body gesetzt ist, sonst
 // "stub" (hellgrau, Designer-Hinweis dass Slug existiert aber leer ist).
 //
-// **Fetch statt Subscribe**: V.1.1 ist Fetch-once beim Mount. Unsubscribe
-// ist no-op. V.1.3+ kann SSE-driven Re-Emit einbauen wenn text-block-
-// updated-Events propagiert werden.
+// **Fetch statt Subscribe**: V.1.4 ist Fetch-once beim Mount. Unsubscribe
+// ist no-op. V.1.5+ kann SSE-driven Re-Emit einbauen wenn text-block-
+// updated-Events propagiert werden (Stale-Tree-Fix nach save).
 
 import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
@@ -30,7 +29,7 @@ import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { TextContentHandlers, TextContentQueries } from "../constants";
 
-// Exported für Unit-Test (groupBlocksBySlugPrefix ist pure-function ohne
+// Exported für Unit-Test (groupBlocksByFolder ist pure-function ohne
 // fetch/DOM). Public-API für externe Konsumenten ist nicht intendiert —
 // sub-path-Export endet bei textContentClient().
 export type BlockSummary = {
@@ -38,6 +37,7 @@ export type BlockSummary = {
   readonly lang: string;
   readonly title: string;
   readonly body: string | null;
+  readonly folder: string | null;
   readonly updatedAt: string;
 };
 
@@ -45,15 +45,13 @@ type ByTenantResponse = {
   readonly data: { readonly blocks: readonly BlockSummary[] };
 };
 
-// Folder-Name = alles vor dem ersten ":" oder "/", oder undefined wenn
-// der Slug keinen Trenner enthält (dann landet er als Root-Node).
-function getFolderName(slug: string): string | undefined {
-  const sepIdx = slug.search(/[:/]/);
-  if (sepIdx === -1) return undefined;
-  return slug.slice(0, sepIdx);
-}
-
-export function groupBlocksBySlugPrefix(blocks: readonly BlockSummary[]): readonly TreeNode[] {
+// V.1.4-Grouping: explicit folder-Field statt Slug-Prefix-Heuristik.
+// block.folder === null → root-node; sonst Container-Knoten mit folder-
+// Label. Folder-Knoten sind alphabetisch sortiert (deterministisch
+// gegen Map-iteration-order, plus visuell-stable für User). Multi-level
+// folders ("page/marketing") werden in V.1.4 noch flat gerendert —
+// V.1.5 kann recursive Hierarchie einführen wenn gebraucht.
+export function groupBlocksByFolder(blocks: readonly BlockSummary[]): readonly TreeNode[] {
   const rootNodes: TreeNode[] = [];
   const folders = new Map<string, TreeNode[]>();
 
@@ -68,17 +66,18 @@ export function groupBlocksBySlugPrefix(blocks: readonly BlockSummary[]): readon
       state: block.body ? "filled" : "stub",
     };
 
-    const folderName = getFolderName(block.slug);
-    if (folderName === undefined) {
+    if (block.folder === null) {
       rootNodes.push(node);
     } else {
-      const existing = folders.get(folderName) ?? [];
+      const existing = folders.get(block.folder) ?? [];
       existing.push(node);
-      folders.set(folderName, existing);
+      folders.set(block.folder, existing);
     }
   }
 
-  for (const [name, children] of folders) {
+  for (const name of [...folders.keys()].sort()) {
+    const children = folders.get(name);
+    if (children === undefined) continue;
     rootNodes.push({
       label: name,
       icon: "folder",
@@ -90,7 +89,7 @@ export function groupBlocksBySlugPrefix(blocks: readonly BlockSummary[]): readon
   return rootNodes;
 }
 
-const treeProvider: TreeChildrenSubscribe = () => (emit) => {
+const treeProvider: TreeChildrenSubscribe = () => (emit, emitError) => {
   // CSRF-Header bei authenticated requests pflicht (auth-middleware
   // double-submit pattern). Anonymous/Pre-Login wäre csrf-token=undefined
   // → header weggelassen → server lässt die anonymous-Variante durch.
@@ -105,14 +104,27 @@ const treeProvider: TreeChildrenSubscribe = () => (emit) => {
       payload: {},
     }),
   })
-    .then((r) => r.json())
+    .then(async (r) => {
+      if (!r.ok) {
+        // 403 (CSRF/auth) oder 5xx — explicit error statt silent empty.
+        const text = await r.text().catch(() => r.statusText);
+        throw new Error(`text-content load failed: ${r.status} ${text}`);
+      }
+      return r.json();
+    })
     .then((data: ByTenantResponse) => {
-      const nodes = groupBlocksBySlugPrefix(data.data.blocks);
+      const nodes = groupBlocksByFolder(data.data.blocks);
       emit(nodes);
     })
-    .catch(() => {
-      // V.1.3+ TODO: state="error"-Knoten + Reload-Action statt empty.
-      emit([]);
+    .catch((e) => {
+      // V.1.4: explicit error-Signal via emitError. ProviderBranch zeigt
+      // Banner + Retry-Button. Fallback auf emit([]) wenn der Consumer
+      // kein emitError unterstützt (Tests etc.).
+      if (emitError) {
+        emitError(e instanceof Error ? e : new Error(String(e)));
+      } else {
+        emit([]);
+      }
     });
   return () => {};
 };
@@ -135,6 +147,7 @@ type TextBlock = {
   readonly lang: string;
   readonly title: string;
   readonly body: string | null;
+  readonly folder: string | null;
   readonly updatedAt: string;
 };
 
@@ -180,6 +193,7 @@ function TextContentEditor({
   // wenn target.slug+lang wechselt (User springt zwischen Knoten).
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [folder, setFolder] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -191,6 +205,7 @@ function TextContentEditor({
     if (loading) return;
     setTitle(loaded?.title ?? "");
     setBody(loaded?.body ?? "");
+    setFolder(loaded?.folder ?? "");
     setSaveError(null);
     setSavedMsg(null);
   }, [loading, loaded]);
@@ -205,6 +220,7 @@ function TextContentEditor({
         lang,
         title,
         body: body.length > 0 ? body : null,
+        folder: folder.length > 0 ? folder : null,
       });
       if (result.isSuccess) {
         setSavedMsg(result.data.isNew ? "Neu angelegt." : "Gespeichert.");
@@ -261,6 +277,17 @@ function TextContentEditor({
               onChange={setTitle}
               disabled={disabled}
               required
+            />
+          </Field>
+          <Field id="text-content-folder" label="Ordner (optional)">
+            <Input
+              kind="text"
+              id="text-content-folder"
+              name="text-content-folder"
+              value={folder}
+              onChange={setFolder}
+              disabled={disabled}
+              placeholder="z.B. page oder legal"
             />
           </Field>
           <Field id="text-content-body" label="Inhalt">

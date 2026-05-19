@@ -11,6 +11,17 @@ const slugSchema = z
   .max(64)
   .regex(/^[a-z0-9][a-z0-9-]*$/, "slug must be kebab-case (lowercase, digits, dashes)");
 
+// Folder-Convention V.1.4: gleiches kebab-Pattern wie slug, optional
+// `/`-Separator für nested folders ("legal/imprint", "page/marketing").
+// Multi-level wird vom Visual-Tree-Grouping flat-rendered bis V.1.5
+// rekursive Hierarchie braucht — dann erweitert sich nur der UI-Render,
+// nicht das Schema.
+const folderSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/, "folder must be kebab-case path");
+
 const langSchema = z
   .string()
   .min(2)
@@ -36,6 +47,11 @@ export const setWrite = defineWriteHandler({
     lang: langSchema,
     title: z.string().min(1).max(200),
     body: z.string().max(100_000).nullable(),
+    /** V.1.4: Folder-Pfad für Visual-Tree-Gruppierung. Optional + null
+     *  → root-node (kein Folder). Tree groupt nach diesem Field, slug
+     *  bleibt flach + kebab-validiert. Beispiele: "page", "legal",
+     *  "page/marketing". */
+    folder: folderSchema.nullable().optional(),
     /** Optional cross-tenant write — nur für SystemAdmin. Typischer
      *  use-case: legal-pages-Edit-UI lässt SystemAdmin auf
      *  SYSTEM_TENANT_ID schreiben (sonst landet der text auf seinem
@@ -78,6 +94,11 @@ export const setWrite = defineWriteHandler({
       eq(textBlocksTable["lang"], event.payload.lang),
     );
 
+    // V.1.4 folder: optional + null erlaubt (root-node). Optional-Chain
+    // mapped undefined → null damit drizzle nullable-column konsistent
+    // schreibt (sonst SQL-default kicked-in vs. explicit-null Unterschied).
+    const folder = event.payload.folder ?? null;
+
     if (existing) {
       const result = await executor.update(
         {
@@ -86,6 +107,7 @@ export const setWrite = defineWriteHandler({
           changes: {
             title: event.payload.title,
             body: event.payload.body,
+            folder,
           },
         },
         executorUser,
@@ -104,6 +126,7 @@ export const setWrite = defineWriteHandler({
         lang: event.payload.lang,
         title: event.payload.title,
         body: event.payload.body,
+        folder,
         tenantId,
       },
       executorUser,

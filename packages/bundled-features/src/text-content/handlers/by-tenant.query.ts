@@ -20,6 +20,7 @@ export type TextBlockSummary = {
   readonly lang: string;
   readonly title: string;
   readonly body: string | null;
+  readonly folder: string | null;
   readonly updatedAt: Date;
 };
 
@@ -49,6 +50,7 @@ export const byTenantQuery = defineQueryHandler({
         lang: row.lang,
         title: row.title,
         body: row.body,
+        folder: row.folder,
         updatedAt: row.updatedAt,
       })),
     };

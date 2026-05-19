@@ -16,6 +16,11 @@ export const textBlockEntity = createEntity({
     lang: createTextField({ required: true }),
     title: createTextField({ required: true }),
     body: createTextField({}),
+    // V.1.4: explicit folder-Hierarchie statt `:`-Encoding im Slug.
+    // Visual-Tree gruppiert nach diesem Field; null/undefined → root.
+    // Pflicht-Constraint im set.write-Schema (kebab-only wie slug,
+    // damit App-Builder konsistente Naming-Conventions haben).
+    folder: createTextField({}),
   },
   indexes: [
     { unique: true, columns: ["tenantId", "slug", "lang"], name: "read_text_blocks_unique" },
@@ -38,6 +43,7 @@ export type TextBlockRow = {
   readonly lang: string;
   readonly title: string;
   readonly body: string | null;
+  readonly folder: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdBy: string;

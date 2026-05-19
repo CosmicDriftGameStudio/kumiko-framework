@@ -96,6 +96,17 @@ export function VisualTree({ workspaceId }: VisualTreeProps): ReactNode {
 // ProviderBranch — eine Sub-Section pro registrertem TreeProvider.
 // Jeder Provider liefert eine readonly TreeNode[] über Subscribe; jeder
 // Top-Level-Knoten wird via TreeNodeRenderer gerendert.
+//
+// **V.1.4 Subscribe-Error-Handling**: drei Error-Surfaces sind abgedeckt:
+//   1. provider() throws synchron → try/catch im useEffect setzt error
+//   2. subscribe(emit) throws synchron → same try/catch
+//   3. Provider-interner SSE/fetch fail't async → Provider muss
+//      `emit({ error: ... })` rufen statt empty-emit. Heutige Convention:
+//      Provider können einen Marker-TreeNode mit state="error" emitten
+//      (siehe text-content client-plugin: catch + emit([])). Recovery-
+//      Pfad ist Retry-Button im error-banner, der `attempt` increments
+//      → useEffect re-fires (deps haben attempt drin) → provider neu
+//      aufgerufen.
 function ProviderBranch({
   featureName,
   provider,
@@ -111,17 +122,53 @@ function ProviderBranch({
   // niemals emittet bleibt damit sichtbar als „lädt …" und nicht
   // unsichtbar — Memory `[Sicherheit > Convenience]`.
   const [nodes, setNodes] = useState<readonly TreeNode[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
+  // `attempt` ist absichtlich in den deps: Retry-Button increments
+  // attempt → useEffect re-fires → provider neu aufgerufen. Biome's
+  // static-analysis sieht attempt nicht im body und meldet es als
+  // unnecessary — semantisch ist es der Trigger.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt triggers retry
   useEffect(() => {
-    // TODO V.1.3: Subscribe-Error-Handling. Drei Error-Surfaces sind heute
-    // nicht abgedeckt: (1) provider() wirft synchron, (2) subscribe(emit)
-    // wirft synchron, (3) Provider-internes SSE/fetch wirft → emit nie
-    // gefeuert, „lädt …" bleibt unendlich. Reload-Action im Knoten
-    // (state="error" + retry-Button) als minimaler Plan.
-    const subscribe = provider();
-    const unsubscribe = subscribe(setNodes);
-    return unsubscribe;
-  }, [provider]);
+    setError(null);
+    setNodes(null);
+    try {
+      const subscribe = provider();
+      try {
+        const unsubscribe = subscribe(setNodes, (e) =>
+          setError(e instanceof Error ? e.message : String(e)),
+        );
+        return unsubscribe;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Subscribe fehlgeschlagen.");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Provider-Init fehlgeschlagen.");
+    }
+    return undefined;
+  }, [provider, attempt]);
+
+  if (error !== null) {
+    return (
+      <div
+        data-kumiko-tree-branch={featureName}
+        data-kumiko-tree-state="error"
+        className="flex items-center gap-2 px-2 py-1 text-xs text-destructive"
+      >
+        <span className="flex-1">
+          {featureName}: {error}
+        </span>
+        <button
+          type="button"
+          onClick={() => setAttempt((n) => n + 1)}
+          className="rounded border border-destructive/40 px-2 py-0.5 hover:bg-destructive/10"
+        >
+          Neu laden
+        </button>
+      </div>
+    );
+  }
 
   if (nodes === null) {
     return (

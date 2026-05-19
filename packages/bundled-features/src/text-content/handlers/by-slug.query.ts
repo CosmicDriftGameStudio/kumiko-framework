@@ -49,6 +49,7 @@ export const bySlugQuery = defineQueryHandler({
       lang: row.lang,
       title: row.title,
       body: row.body,
+      folder: row.folder,
       updatedAt: row.updatedAt,
     };
   },

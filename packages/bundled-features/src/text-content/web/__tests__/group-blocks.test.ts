@@ -2,11 +2,11 @@
 
 import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
-import { type BlockSummary, groupBlocksBySlugPrefix } from "../client-plugin";
+import { type BlockSummary, groupBlocksByFolder } from "../client-plugin";
 
 // TreeNode.children ist `readonly TreeNode[] | TreeChildrenSubscribe` —
 // im Provider-Output ist die Subscribe-Form nur für deferred-children
-// gedacht, groupBlocksBySlugPrefix produziert ausschließlich statische
+// gedacht, groupBlocksByFolder produziert ausschließlich statische
 // Array-Children. TypeGuard statt as-Cast (Memory `[Type Assertions]`).
 function childrenArray(children: TreeNode["children"] | undefined): readonly TreeNode[] {
   if (!Array.isArray(children)) throw new Error("expected static children-array");
@@ -14,24 +14,30 @@ function childrenArray(children: TreeNode["children"] | undefined): readonly Tre
 }
 
 // Helper: BlockSummary mit defaults für die nicht-test-relevanten Felder.
-function block(opts: { slug: string; body?: string | null; title?: string }): BlockSummary {
+function block(opts: {
+  slug: string;
+  folder?: string | null;
+  body?: string | null;
+  title?: string;
+}): BlockSummary {
   return {
     slug: opts.slug,
     lang: "de",
     title: opts.title ?? opts.slug,
     // Nicht ?? — null soll durchgereicht werden (state="stub"-Test).
     body: opts.body === undefined ? "irgendwas" : opts.body,
-    updatedAt: "2026-05-18T00:00:00Z",
+    folder: opts.folder === undefined ? null : opts.folder,
+    updatedAt: "2026-05-19T00:00:00Z",
   };
 }
 
-describe("groupBlocksBySlugPrefix", () => {
+describe("groupBlocksByFolder", () => {
   test("leeres Array → leeres Array", () => {
-    expect(groupBlocksBySlugPrefix([])).toEqual([]);
+    expect(groupBlocksByFolder([])).toEqual([]);
   });
 
-  test("solo-slug ohne separator → Root-Node ohne Folder", () => {
-    const nodes = groupBlocksBySlugPrefix([block({ slug: "imprint" })]);
+  test("folder=null → Root-Node ohne Folder", () => {
+    const nodes = groupBlocksByFolder([block({ slug: "imprint", folder: null })]);
     expect(nodes).toHaveLength(1);
     const root = nodes[0];
     expect(root).toBeDefined();
@@ -43,10 +49,11 @@ describe("groupBlocksBySlugPrefix", () => {
       args: { slug: "imprint", lang: "de" },
     });
     expect(root.children).toBeUndefined();
+    expect(root.icon).toBeUndefined();
   });
 
-  test('slug mit ":" → Folder mit child', () => {
-    const nodes = groupBlocksBySlugPrefix([block({ slug: "page:hero", title: "Hero" })]);
+  test('folder="page" → Folder-Container mit child', () => {
+    const nodes = groupBlocksByFolder([block({ slug: "hero", folder: "page", title: "Hero" })]);
     expect(nodes).toHaveLength(1);
     const folder = nodes[0];
     expect(folder).toBeDefined();
@@ -59,24 +66,14 @@ describe("groupBlocksBySlugPrefix", () => {
     expect(child).toBeDefined();
     if (!child) return;
     expect(child.label).toBe("Hero");
-    expect(child.target?.args).toEqual({ slug: "page:hero", lang: "de" });
+    expect(child.target?.args).toEqual({ slug: "hero", lang: "de" });
   });
 
-  test('slug mit "/" → Folder mit child (gleicher Separator-Cases wie ":")', () => {
-    const nodes = groupBlocksBySlugPrefix([block({ slug: "marketing/landing" })]);
-    expect(nodes).toHaveLength(1);
-    const folder = nodes[0];
-    expect(folder).toBeDefined();
-    if (!folder) return;
-    expect(folder.label).toBe("marketing");
-    expect(childrenArray(folder.children)).toHaveLength(1);
-  });
-
-  test("mehrere Slugs gleicher Prefix → ein Folder mit mehreren children", () => {
-    const nodes = groupBlocksBySlugPrefix([
-      block({ slug: "page:hero", title: "Hero" }),
-      block({ slug: "page:cta", title: "CTA" }),
-      block({ slug: "page:footer", title: "Footer" }),
+  test("mehrere Slugs gleicher Folder → ein Folder mit mehreren children", () => {
+    const nodes = groupBlocksByFolder([
+      block({ slug: "hero", folder: "page", title: "Hero" }),
+      block({ slug: "cta", folder: "page", title: "CTA" }),
+      block({ slug: "footer", folder: "page", title: "Footer" }),
     ]);
     expect(nodes).toHaveLength(1);
     const folder = nodes[0];
@@ -89,60 +86,53 @@ describe("groupBlocksBySlugPrefix", () => {
     expect(labels).toEqual(["Hero", "CTA", "Footer"]);
   });
 
-  test("mixed solo + folder → beide nebeneinander", () => {
-    const nodes = groupBlocksBySlugPrefix([
-      block({ slug: "imprint" }),
-      block({ slug: "page:hero" }),
-      block({ slug: "page:cta" }),
+  test("mixed root + folder → root-nodes zuerst, dann Folders", () => {
+    const nodes = groupBlocksByFolder([
+      block({ slug: "imprint", folder: null }),
+      block({ slug: "hero", folder: "page" }),
+      block({ slug: "cta", folder: "page" }),
     ]);
     expect(nodes).toHaveLength(2);
-    const labels = nodes.map((n) => n.label);
-    // Reihenfolge: root-nodes zuerst (in input-order), dann folder-nodes
-    // (in Map-insertion-order).
-    expect(labels).toContain("imprint");
-    expect(labels).toContain("page");
+    expect(nodes[0]?.label).toBe("imprint");
+    expect(nodes[0]?.icon).toBeUndefined();
+    expect(nodes[1]?.label).toBe("page");
+    expect(nodes[1]?.icon).toBe("folder");
   });
 
-  test("verschiedene Folder-Prefixes → mehrere Folders, korrekt gruppiert", () => {
-    const nodes = groupBlocksBySlugPrefix([
-      block({ slug: "page:hero" }),
-      block({ slug: "legal:imprint" }),
-      block({ slug: "page:cta" }),
+  test("Folders alphabetisch sortiert (deterministisch gegen Map-order)", () => {
+    const nodes = groupBlocksByFolder([
+      block({ slug: "x", folder: "zebra" }),
+      block({ slug: "y", folder: "apple" }),
+      block({ slug: "z", folder: "mango" }),
     ]);
-    const folderLabels = nodes.map((n) => n.label).sort();
-    expect(folderLabels).toEqual(["legal", "page"]);
-    const pageFolder = nodes.find((n) => n.label === "page");
-    const legalFolder = nodes.find((n) => n.label === "legal");
-    expect(childrenArray(pageFolder?.children)).toHaveLength(2);
-    expect(childrenArray(legalFolder?.children)).toHaveLength(1);
+    const folderLabels = nodes.map((n) => n.label);
+    expect(folderLabels).toEqual(["apple", "mango", "zebra"]);
   });
 
   test('body=null → state="stub" (Designer-Hinweis dass Slug existiert aber leer)', () => {
-    const nodes = groupBlocksBySlugPrefix([block({ slug: "draft", body: null })]);
+    const nodes = groupBlocksByFolder([block({ slug: "draft", body: null })]);
     expect(nodes[0]?.state).toBe("stub");
   });
 
   test('body=string → state="filled"', () => {
-    const nodes = groupBlocksBySlugPrefix([block({ slug: "imprint", body: "content" })]);
+    const nodes = groupBlocksByFolder([block({ slug: "imprint", body: "content" })]);
     expect(nodes[0]?.state).toBe("filled");
   });
 
   test("title leer → fallback auf slug als label", () => {
-    const nodes = groupBlocksBySlugPrefix([block({ slug: "untitled-block", title: "" })]);
+    const nodes = groupBlocksByFolder([block({ slug: "untitled-block", title: "" })]);
     expect(nodes[0]?.label).toBe("untitled-block");
   });
 
-  test('ersten Separator splittet (slug "a:b:c" → Folder "a", child "a:b:c")', () => {
-    // Memory-Pattern: search(/[:/]/) findet FIRST occurrence. Multi-
-    // segment-slugs werden in V.1.2 nicht weiter zerlegt — Folder ist
-    // immer single-level. Plan-doc V.1.3+ kann recursive Hierarchie
-    // einführen wenn realer Bedarf zeigt.
-    const nodes = groupBlocksBySlugPrefix([block({ slug: "a:b:c", title: "Deep" })]);
+  test('multi-level folder ("page/marketing") wird in V.1.4 flat gerendert', () => {
+    // V.1.4-Convention: folderSchema akzeptiert kebab + "/" als
+    // nested-pfad, aber groupBlocksByFolder rendert flach (single-level
+    // Container mit dem ganzen Pfad als Label). V.1.5 kann das splitten.
+    const nodes = groupBlocksByFolder([
+      block({ slug: "hero", folder: "page/marketing", title: "Hero" }),
+    ]);
     expect(nodes).toHaveLength(1);
-    const folder = nodes[0];
-    expect(folder?.label).toBe("a");
-    const children = childrenArray(folder?.children);
-    expect(children).toHaveLength(1);
-    expect(children[0]?.target?.args).toEqual({ slug: "a:b:c", lang: "de" });
+    expect(nodes[0]?.label).toBe("page/marketing");
+    expect(nodes[0]?.icon).toBe("folder");
   });
 });
