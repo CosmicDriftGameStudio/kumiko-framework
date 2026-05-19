@@ -123,7 +123,7 @@ async function fetchTemplate(
       ),
     )
     .limit(1);
-  // @cast-boundary db-bridge — db.select returnt unbenanntes unknown[],
+  // @cast-boundary db-row — db.select returnt unbenanntes unknown[],
   // Row-Shape ist via templateResourcesTable + buildBaseColumns garantiert.
   return (rows[0] as TemplateResourceRow | undefined) ?? null;
 }
