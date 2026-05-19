@@ -10,7 +10,7 @@ import { RendererError, type RendererPlugin } from "./types";
 export type RendererFoundationApi = {
   /**
    * Wählt + returnt ein RendererPlugin für (tenantId × kind). Caller
-   * rufen anschließend `plugin.render(req)`.
+   * rufen anschließend `plugin.render(req, ctx)`.
    *
    * **Auswahl-Reihenfolge:**
    *   1. Tenant-spezifische Config (config-Bundle: `rendererPluginByKind`)
@@ -18,10 +18,12 @@ export type RendererFoundationApi = {
    *   3. Erstes Plugin im Pool das das kind bedient
    *   4. `RendererError("no_plugin_for_kind")` wenn nichts passt
    *
-   * **Caller-Invariante:** `tenantId` MUSS vom Server kommen (typisch
-   * `ctx.user.tenantId`). Plugins erhalten den Tenant nicht — sie sind
-   * zustandslos. Tenant-spezifische Resources (Templates, Bilder) löst
-   * der Caller VOR `render()` auf via template-resolver.
+   * **Caller-Pattern:** `tenantId` MUSS vom Server kommen (typisch
+   * `ctx.user.tenantId`). Plugins, die Service-Access brauchen (z.B.
+   * `renderer-mail-html` für Layout-Resolve via `template-resolver`),
+   * erhalten `RendererContext` als zweites Argument zu `render()` —
+   * matcht das Pattern von `DeliveryChannel.send(addr, msg, ctx)`.
+   * Plugins ohne Service-Deps (z.B. `renderer-simple`) ignorieren ctx.
    */
   readonly createRendererForTenant: (args: {
     readonly tenantId: string;

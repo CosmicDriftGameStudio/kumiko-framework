@@ -18,6 +18,7 @@ export {
   type MailHtmlPayload,
   type NotificationPayload,
   type PdfOptions,
+  type RendererContext,
   type RendererPlugin,
   type RenderRequest,
   type RenderResponse,

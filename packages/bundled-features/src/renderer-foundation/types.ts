@@ -1,3 +1,5 @@
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { ContentFormat, RenderKind } from "./constants";
 
 // RenderRequest — Plugins erhalten das. Resource-Mode wählt der Caller
@@ -56,19 +58,32 @@ export type ImageOptions = {
   readonly quality?: number;
 };
 
+// RendererContext — vom Foundation-Caller übergeben beim `render`-Call.
+// Matcht `ChannelContext` aus delivery — Plugins, die Service-Access brauchen
+// (template-resolver via registry, DB-Lookups, tenant-scoping), kriegen das
+// hier. Plugins ohne Service-Deps (renderer-simple) ignorieren ctx.
+export type RendererContext = {
+  readonly db: DbConnection;
+  readonly registry: Registry;
+  readonly tenantId: TenantId;
+};
+
 // RendererPlugin-Contract — pro Plugin (renderer-simple, renderer-mail-html,
 // renderer-puppeteer-client). Plugin deklariert welche kinds es bedienen
 // kann; Foundation-Resolver wählt basierend auf Tenant-Config + kind.
 //
 // **Plugin-Invarianten:**
 // - `kinds` muss min. 1 Element haben (sonst nie ausgewählt)
-// - `render(req)`-Response.kind MUSS req.kind matchen
+// - `render(req, ctx)`-Response.kind MUSS req.kind matchen
 // - Plugin ist zustandslos: kein internal-state zwischen render-Calls
 // - Plugin wirft `RendererError` für domain-Fehler (nicht bare Error)
+// - `ctx` ist optional in der Signatur: Plugins ohne Service-Deps (z.B.
+//   renderer-simple) ignorieren ihn. Foundation übergibt ihn IMMER —
+//   die Optionalität ist nur für die Plugin-Author-Bequemlichkeit.
 export type RendererPlugin = {
   readonly name: string;
   readonly kinds: ReadonlyArray<RenderKind>;
-  render(req: RenderRequest): Promise<RenderResponse>;
+  render(req: RenderRequest, ctx?: RendererContext): Promise<RenderResponse>;
 };
 
 export class RendererError extends Error {

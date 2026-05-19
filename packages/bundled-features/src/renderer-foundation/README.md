@@ -39,13 +39,18 @@ import { requireRendererFoundation } from "@cosmicdrift/kumiko-bundled-features/
 async function sendMail(ctx, tenantId) {
   const foundation = requireRendererFoundation(ctx, "sendMail");
   const renderer = foundation.createRendererForTenant({ tenantId, kind: "mail-html" });
-  const result = await renderer.render({
-    kind: "mail-html",
-    payload: { content: "Hello {{name}}", contentFormat: "markdown", variables: { name: "Frau Schmidt" } },
-  });
+  const result = await renderer.render(
+    {
+      kind: "mail-html",
+      payload: { content: "Hello {{name}}", contentFormat: "markdown", variables: { name: "Frau Schmidt" } },
+    },
+    { db: ctx.db, registry: ctx.registry, tenantId },
+  );
   // result.html, result.text
 }
 ```
+
+Plugins ohne Service-Deps (`renderer-simple`) ignorieren den zweiten `ctx`-Parameter.
 
 ## Plugin-Auswahl-Reihenfolge
 
@@ -63,7 +68,9 @@ export const myRendererFeature = defineFeature("renderer-myown", (r) => {
   r.requires("renderer-foundation");
   r.useExtension("renderer", "myown", {
     kinds: ["document-pdf"],
-    render: async (req) => {
+    // ctx ist optional — nur nehmen wenn Service-Access nötig
+    render: async (req, ctx) => {
+      // ctx.db, ctx.registry, ctx.tenantId verfügbar
       // eigene PDF-Logik
       return { kind: "document-pdf", pdfBytes: ..., pageCount: 1, sizeBytes: ... };
     },
