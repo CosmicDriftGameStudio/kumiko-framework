@@ -1,6 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { createRendererFoundationApi } from "../api";
-import { type RenderRequest, type RenderResponse, RendererError, type RendererPlugin } from "../types";
+import {
+  type RenderRequest,
+  type RenderResponse,
+  RendererError,
+  type RendererContext,
+  type RendererPlugin,
+} from "../types";
+
+// Stub-Context für Plugin-Render-Calls in Unit-Tests. Echte ctx-Felder
+// (db, registry) sind hier nicht relevant — makePlugin ignoriert ctx eh.
+const STUB_CTX = {} as unknown as RendererContext;
 
 // Test-Helper: minimal Plugin mit fix-Response. Mehrere im Pool für
 // Multi-Kind- + Tenant-Override-Tests.
@@ -150,10 +160,10 @@ describe("renderer-foundation :: Plugin executes render", () => {
   test("Plugin.render returnt RenderResponse mit gleichem kind", async () => {
     const api = createRendererFoundationApi([makePlugin("simple", ["notification"])]);
     const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
-    const response = await plugin.render({
-      kind: "notification",
-      payload: { content: "hello", contentFormat: "markdown" },
-    });
+    const response = await plugin.render(
+      { kind: "notification", payload: { content: "hello", contentFormat: "markdown" } },
+      STUB_CTX,
+    );
     expect(response.kind).toBe("notification");
     if (response.kind === "notification") {
       expect(response.html).toBe("from:simple");

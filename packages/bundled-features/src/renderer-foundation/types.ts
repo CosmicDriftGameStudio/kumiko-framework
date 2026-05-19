@@ -58,10 +58,16 @@ export type ImageOptions = {
   readonly quality?: number;
 };
 
-// RendererContext — vom Foundation-Caller übergeben beim `render`-Call.
-// Matcht `ChannelContext` aus delivery — Plugins, die Service-Access brauchen
-// (template-resolver via registry, DB-Lookups, tenant-scoping), kriegen das
-// hier. Plugins ohne Service-Deps (renderer-simple) ignorieren ctx.
+// RendererContext — schmale Surface (Kumiko-Style, matcht FileProviderContext
+// + ChannelContext). Plugins, die Service-Access brauchen, holen sich
+// templateResolver/etc. via direkten Bundle-Import + ctx.db (cross-feature-
+// public-API). KEIN extraContext-Pass-Through — Plugin importiert pure-
+// Function-Factories statt App-ctx zu casten.
+//
+// **Beispiel renderer-mail-html:**
+//   import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+//   const tplApi = createTemplateResolverApi(ctx.db);
+//   const layout = await tplApi.resolveTemplate({ tenantId: ctx.tenantId, slug, kind });
 export type RendererContext = {
   readonly db: DbConnection;
   readonly registry: Registry;
@@ -77,13 +83,13 @@ export type RendererContext = {
 // - `render(req, ctx)`-Response.kind MUSS req.kind matchen
 // - Plugin ist zustandslos: kein internal-state zwischen render-Calls
 // - Plugin wirft `RendererError` für domain-Fehler (nicht bare Error)
-// - `ctx` ist optional in der Signatur: Plugins ohne Service-Deps (z.B.
-//   renderer-simple) ignorieren ihn. Foundation übergibt ihn IMMER —
-//   die Optionalität ist nur für die Plugin-Author-Bequemlichkeit.
+// - `ctx` ist required. Plugins ohne Service-Deps (z.B. renderer-simple)
+//   ignorieren ihn einfach — TS function-arg variance erlaubt `(req) => ...`-
+//   Implementations weiterhin (Implementation-Args ≤ Contract-Args ist OK).
 export type RendererPlugin = {
   readonly name: string;
   readonly kinds: ReadonlyArray<RenderKind>;
-  render(req: RenderRequest, ctx?: RendererContext): Promise<RenderResponse>;
+  render(req: RenderRequest, ctx: RendererContext): Promise<RenderResponse>;
 };
 
 export class RendererError extends Error {

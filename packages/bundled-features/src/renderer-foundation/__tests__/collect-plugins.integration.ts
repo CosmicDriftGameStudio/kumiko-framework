@@ -6,7 +6,7 @@ import {
   collectRendererPlugins,
   createRendererFoundationFeature,
 } from "../feature";
-import type { RenderRequest, RenderResponse } from "../types";
+import type { RenderRequest, RenderResponse, RendererContext } from "../types";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 
 let stack: TestStack;
@@ -78,10 +78,10 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
     const plugins = collectRendererPlugins(stack.registry);
     const api = createRendererFoundationApi(plugins);
     const plugin = api.createRendererForTenant({ tenantId: "any", kind: "notification" });
-    const result = await plugin.render({
-      kind: "notification",
-      payload: { content: "hello", contentFormat: "markdown" },
-    });
+    const result = await plugin.render(
+      { kind: "notification", payload: { content: "hello", contentFormat: "markdown" } },
+      { db: stack.db, registry: stack.registry, tenantId: "any" } as unknown as RendererContext,
+    );
     expect(result.kind).toBe("notification");
     if (result.kind === "notification") {
       expect(result.html).toBe("via:simple");
