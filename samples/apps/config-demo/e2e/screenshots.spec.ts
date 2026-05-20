@@ -5,7 +5,10 @@ import { SCENARIOS } from "./scenarios";
 
 const SCREENSHOT_DIR =
   process.env["SCREENSHOT_DIR"] ??
-  resolve(import.meta.dirname, "../../../../../kumiko-platform/apps/docs/public/screenshots/config-demo");
+  resolve(
+    import.meta.dirname,
+    "../../../../../kumiko-platform/apps/docs/public/screenshots/config-demo",
+  );
 
 mkdirSync(SCREENSHOT_DIR, { recursive: true });
 

@@ -27,7 +27,14 @@ export type RenderFieldProps = {
   readonly fieldAppendix?: ReactNode;
 };
 
-export function RenderField({ field, issues, onChange, featureName, labelAppendix, fieldAppendix }: RenderFieldProps): ReactNode {
+export function RenderField({
+  field,
+  issues,
+  onChange,
+  featureName,
+  labelAppendix,
+  fieldAppendix,
+}: RenderFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   if (!field.visible) return null;
 

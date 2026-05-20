@@ -38,7 +38,6 @@ import {
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
-import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -66,6 +65,7 @@ import {
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import Redis from "ioredis";
+import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { injectSchema } from "./inject-schema";

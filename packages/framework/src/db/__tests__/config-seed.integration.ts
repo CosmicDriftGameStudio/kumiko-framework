@@ -2,17 +2,17 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createEntity,
-  createTextField,
   createSystemConfig,
   createTenantConfig,
+  createTextField,
   createUserConfig,
   SYSTEM_TENANT_ID,
 } from "../../engine";
 import type { ConfigSeedDef, Registry } from "../../engine/types";
 import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
-import { buildDrizzleTable } from "../table-builder";
 import { seedConfigValues } from "../config-seed";
 import { createEncryptionProvider } from "../encryption";
+import { buildDrizzleTable } from "../table-builder";
 
 // --- Test Entity ---
 // Mirrors the config-value entity from bundled-features with a unique
@@ -69,12 +69,6 @@ async function countEvents(): Promise<number> {
   return r?.count ?? 0;
 }
 
-async function getEventPayloads(): Promise<{ type: string; payload: Record<string, unknown> }[]> {
-  return testDb.db.execute<{ type: string; payload: Record<string, unknown> }>(
-    sql`SELECT type, payload FROM kumiko_events ORDER BY id`,
-  );
-}
-
 // --- Setup ---
 beforeAll(async () => {
   testDb = await createTestDb();
@@ -86,9 +80,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(
-    sql`TRUNCATE kumiko_events, read_cfg_seed_test RESTART IDENTITY CASCADE`,
-  );
+  await testDb.db.execute(sql`TRUNCATE kumiko_events, read_cfg_seed_test RESTART IDENTITY CASCADE`);
 });
 
 // --- Tests ---
@@ -99,7 +91,13 @@ describe("seedConfigValues", () => {
     const seeds: ConfigSeedDef[] = [
       { key: "test:config:service-url", value: "https://prod.example.com", scope: "system" },
       { key: "test:config:max-upload", value: 50, scope: "tenant" },
-      { key: "test:config:theme", value: "dark", scope: "user", tenantId: TENANT_A, userId: "u-123" },
+      {
+        key: "test:config:theme",
+        value: "dark",
+        scope: "user",
+        tenantId: TENANT_A,
+        userId: "u-123",
+      },
     ];
 
     const result = await seedConfigValues(
@@ -135,9 +133,7 @@ describe("seedConfigValues", () => {
   });
 
   test("insert-only — value change ignored on re-boot", async () => {
-    const seeds: ConfigSeedDef[] = [
-      { key: "test:config:max-upload", value: 10, scope: "tenant" },
-    ];
+    const seeds: ConfigSeedDef[] = [{ key: "test:config:max-upload", value: 10, scope: "tenant" }];
 
     await seedConfigValues(seeds, configTable, configEntity, mockRegistry, testDb.db);
 
@@ -277,13 +273,7 @@ describe("seedConfigValues", () => {
   });
 
   test("empty seeds returns 0/0", async () => {
-    const result = await seedConfigValues(
-      [],
-      configTable,
-      configEntity,
-      mockRegistry,
-      testDb.db,
-    );
+    const result = await seedConfigValues([], configTable, configEntity, mockRegistry, testDb.db);
     expect(result).toEqual({ created: 0, skipped: 0 });
   });
 });

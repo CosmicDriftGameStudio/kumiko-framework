@@ -924,10 +924,7 @@ function ActionFormBody({
 // für das ConfigSourceBadge. Type wird lokal gehalten da er nur hier
 // relevant ist — kein eigener Export nötig.
 type ConfigValueResponse = Readonly<
-  Record<
-    string,
-    { value: string | number | boolean | undefined; scope: string; source: string }
-  >
+  Record<string, { value: string | number | boolean | undefined; scope: string; source: string }>
 >;
 
 function ConfigEditBody({
@@ -1092,8 +1089,8 @@ function ConfigEditBody({
                 qualifiedKey={screen.configKeys[fieldName]}
                 onReset={async (key, scope) => {
                   await dispatcher.write("config:write:reset", { key, scope });
-                  valuesQuery.refetch?.();
-                  cascadeQuery.refetch?.();
+                  await valuesQuery.refetch?.();
+                  await cascadeQuery.refetch?.();
                 }}
               />
             ) : null}

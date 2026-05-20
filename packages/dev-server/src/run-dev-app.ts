@@ -19,13 +19,11 @@ import {
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
-import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import {
   createSessionCallbacks,
   type SessionCallbacks,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
-
 import type { SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
 import {
   type EffectiveFeaturesResolver,
@@ -36,6 +34,7 @@ import {
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { applyBootSeeds } from "./boot/apply-boot-seeds";
 
 import { watchAndRegenerate } from "./codegen";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";

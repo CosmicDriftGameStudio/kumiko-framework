@@ -1,5 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider, seedConfigValues, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEncryptionProvider,
+  type DbConnection,
+  seedConfigValues,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSeed,
@@ -8,6 +12,7 @@ import {
   createTenantConfig,
   createUserConfig,
   defineFeature,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -1273,28 +1278,22 @@ describe("scenario 10: getWithSource reports source-of-truth", () => {
 describe("scenario 11: config seeding", () => {
   const SEED_THEME = "seeddemo:config:theme-color";
   const SEED_MAINT = "seeddemo:config:maintenance-mode";
-  const T1 = "00000000-0000-4000-8000-0000000000aa";
-  const T2 = "00000000-0000-4000-8000-0000000000bb";
-  const T3 = "00000000-0000-4000-8000-0000000000cc";
+  const T1 = "00000000-0000-4000-8000-0000000000aa" as TenantId;
+  const T2 = "00000000-0000-4000-8000-0000000000bb" as TenantId;
+  const T3 = "00000000-0000-4000-8000-0000000000cc" as TenantId;
 
   beforeAll(async () => {
     const seedDefs = stack.registry
       .getAllConfigSeeds()
       .filter((s) => s.key.startsWith("seeddemo:"));
-    await seedConfigValues(
-      seedDefs,
-      configValuesTable,
-      configValueEntity,
-      stack.registry,
-      db,
-    );
+    await seedConfigValues(seedDefs, configValuesTable, configValueEntity, stack.registry, db);
   });
 
   test("returns seed value when no row exists", async () => {
     const configFn = createConfigAccessor(
       stack.registry,
       resolver,
-      T1 as any,
+      T1,
       "00000000-0000-4000-8000-0000000000aa",
       db,
     );
@@ -1305,7 +1304,7 @@ describe("scenario 11: config seeding", () => {
     const configFn = createConfigAccessor(
       stack.registry,
       resolver,
-      T1 as any,
+      T1,
       "00000000-0000-4000-8000-0000000000aa",
       db,
     );
@@ -1318,7 +1317,7 @@ describe("scenario 11: config seeding", () => {
     const traced = await resolver.getWithSource(
       SEED_THEME,
       keyDef,
-      T2 as any,
+      T2,
       "00000000-0000-4000-8000-0000000000bb",
       db,
     );
@@ -1333,7 +1332,7 @@ describe("scenario 11: config seeding", () => {
     const configFn = createConfigAccessor(
       stack.registry,
       resolverWithOverride,
-      T3 as any,
+      T3,
       "00000000-0000-4000-8000-0000000000cc",
       db,
     );
@@ -1341,11 +1340,7 @@ describe("scenario 11: config seeding", () => {
   });
 
   test("admin override beats seed (tenant-row > system-row)", async () => {
-    await stack.http.writeOk(
-      ConfigHandlers.set,
-      { key: SEED_THEME, value: "red" },
-      tenantAdmin,
-    );
+    await stack.http.writeOk(ConfigHandlers.set, { key: SEED_THEME, value: "red" }, tenantAdmin);
     const configFn = createConfigAccessor(
       stack.registry,
       resolver,

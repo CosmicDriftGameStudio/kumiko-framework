@@ -1,3 +1,4 @@
+import type { ConfigScope } from "./constants";
 import type {
   ConfigBounds,
   ConfigComputedFn,
@@ -9,7 +10,6 @@ import type {
   CreateTenantSeedOptions,
   CreateUserSeedOptions,
 } from "./types";
-import type { ConfigScope } from "./constants";
 
 // --- Access Presets ---
 

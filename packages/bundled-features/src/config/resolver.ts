@@ -78,7 +78,10 @@ async function buildCascade(
   tenantId: string,
   userId: string,
   db: DbConnection | TenantDb,
-  fetchRow: (tenantId: string, userId: string | null) => Promise<ConfigRow | null> | ConfigRow | null,
+  fetchRow: (
+    tenantId: string,
+    userId: string | null,
+  ) => Promise<ConfigRow | null> | ConfigRow | null,
   appOverrides: AppConfigOverrides | undefined,
   encryption: EncryptionProvider | undefined,
 ): Promise<ConfigCascade> {
@@ -145,11 +148,12 @@ async function buildCascade(
     }
   }
 
-  const hasOverride = appOverrides?.has(qualifiedKey) === true;
+  const overrideValue = appOverrides?.get(qualifiedKey);
+  const hasOverride = overrideValue !== undefined;
   if (activeIndex === -1 && hasOverride) activeIndex = levels.length;
   levels.push({
     label: "App-Override",
-    value: hasOverride ? appOverrides!.get(qualifiedKey) : undefined,
+    value: overrideValue,
     source: "app-override",
     isActive: false,
     hasValue: hasOverride,
@@ -361,8 +365,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
 
       for (const [key, keyRows] of groups) {
         const specificityOf = (candidate: ConfigRow) =>
-          (candidate.userId !== null ? 2 : 0) +
-          (candidate.tenantId !== SYSTEM_TENANT_ID ? 1 : 0);
+          (candidate.userId !== null ? 2 : 0) + (candidate.tenantId !== SYSTEM_TENANT_ID ? 1 : 0);
 
         const first = keyRows[0];
         if (!first) continue;
@@ -422,7 +425,10 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
           and(
             inArray(configValuesTable.key, [...keys]),
             or(
-              and(eq(configValuesTable.tenantId, SYSTEM_TENANT_ID), isNull(configValuesTable.userId)),
+              and(
+                eq(configValuesTable.tenantId, SYSTEM_TENANT_ID),
+                isNull(configValuesTable.userId),
+              ),
               and(eq(configValuesTable.tenantId, tenantId), isNull(configValuesTable.userId)),
               and(eq(configValuesTable.tenantId, tenantId), eq(configValuesTable.userId, userId)),
             ),

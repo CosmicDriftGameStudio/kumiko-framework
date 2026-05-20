@@ -23,7 +23,10 @@ export const cascadeQuery = defineQueryHandler({
     const allKeys = registry.getAllConfigKeys();
     const keys = query.payload.keys ?? Array.from(allKeys.keys());
 
-    const keyDefs = new Map<string, import("@cosmicdrift/kumiko-framework/engine").ConfigKeyDefinition>();
+    const keyDefs = new Map<
+      string,
+      import("@cosmicdrift/kumiko-framework/engine").ConfigKeyDefinition
+    >();
     const filteredKeys: string[] = [];
 
     for (const key of keys) {

@@ -130,7 +130,16 @@ function DefaultBanner({
 
 // ---- Field (Label + Error) ----
 
-function DefaultField({ id, label, required, issues, labelAppendix, fieldAppendix, children, testId }: FieldProps): ReactNode {
+function DefaultField({
+  id,
+  label,
+  required,
+  issues,
+  labelAppendix,
+  fieldAppendix,
+  children,
+  testId,
+}: FieldProps): ReactNode {
   const t = useTranslation();
   const hasError = issues !== undefined && issues.length > 0;
   return (

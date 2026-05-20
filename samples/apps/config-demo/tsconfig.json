@@ -2,19 +2,39 @@
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "paths": {
-      "@cosmicdrift/kumiko-framework/*": ["../../../packages/framework/src/*/index.ts"],
-      "@cosmicdrift/kumiko-bundled-features/*": ["../../../packages/bundled-features/src/*/index.ts"],
-      "@cosmicdrift/kumiko-dev-server": ["../../../packages/dev-server/src/index.ts"],
-      "@cosmicdrift/kumiko-dev-server/*": ["../../../packages/dev-server/src/*"],
-      "@cosmicdrift/kumiko-renderer-web": ["../../../packages/renderer-web/src/index.ts"],
-      "@cosmicdrift/kumiko-renderer-web/*": ["../../../packages/renderer-web/src/*"],
-      "@cosmicdrift/kumiko-dispatcher-live": ["../../../packages/dispatcher-live/src/index.ts"],
-      "@cosmicdrift/kumiko-headless": ["../../../packages/headless/src/index.ts"],
-      "@cosmicdrift/kumiko-renderer": ["../../../packages/renderer/src/index.ts"],
+      "@cosmicdrift/kumiko-framework/*": [
+        "../../../packages/framework/src/*/index.ts"
+      ],
+      "@cosmicdrift/kumiko-bundled-features/*": [
+        "../../../packages/bundled-features/src/*/index.ts"
+      ],
+      "@cosmicdrift/kumiko-dev-server": [
+        "../../../packages/dev-server/src/index.ts"
+      ],
+      "@cosmicdrift/kumiko-dev-server/*": [
+        "../../../packages/dev-server/src/*"
+      ],
+      "@cosmicdrift/kumiko-renderer-web": [
+        "../../../packages/renderer-web/src/index.ts"
+      ],
+      "@cosmicdrift/kumiko-renderer-web/*": [
+        "../../../packages/renderer-web/src/*"
+      ],
+      "@cosmicdrift/kumiko-dispatcher-live": [
+        "../../../packages/dispatcher-live/src/index.ts"
+      ],
+      "@cosmicdrift/kumiko-headless": [
+        "../../../packages/headless/src/index.ts"
+      ],
+      "@cosmicdrift/kumiko-renderer": [
+        "../../../packages/renderer/src/index.ts"
+      ],
       "@cosmicdrift/kumiko-renderer/*": ["../../../packages/renderer/src/*"]
     },
     "noEmit": true,
     "rootDir": "../../..",
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["bun-types"]
   },
   "include": ["bin", "src"]

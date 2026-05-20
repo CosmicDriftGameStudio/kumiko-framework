@@ -23,7 +23,11 @@ export const valuesQuery = defineQueryHandler({
 
     const result: Record<
       string,
-      { value: string | number | boolean | undefined; scope: ConfigScope; source: ConfigValueSource }
+      {
+        value: string | number | boolean | undefined;
+        scope: ConfigScope;
+        source: ConfigValueSource;
+      }
     > = {};
 
     for (const [qualifiedKey, keyDef] of allKeys) {

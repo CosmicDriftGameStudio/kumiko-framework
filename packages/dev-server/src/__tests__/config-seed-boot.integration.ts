@@ -18,7 +18,6 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { applyBootSeeds } from "../boot/apply-boot-seeds";
 import {
   access,
   createSystemConfig,
@@ -34,6 +33,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { applyBootSeeds } from "../boot/apply-boot-seeds";
 
 const bootSeedsFeature = defineFeature("boot-seeds-test", (r) => {
   r.requires("config");

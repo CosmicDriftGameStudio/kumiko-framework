@@ -24,11 +24,11 @@ const settingsScreen: ConfigEditScreenDefinition = {
     autoApprove: "config-demo:config:auto-approve",
   },
   fields: {
-    siteName: createTextField({ label: "Site Name" }),
-    themeColor: createTextField({ label: "Theme Color" }),
-    maxUploadSize: createNumberField({ label: "Max Upload Size (MB)" }),
-    emailNotifications: createBooleanField({ label: "Email Notifications" }),
-    autoApprove: createBooleanField({ label: "Auto-Approve Orders" }),
+    siteName: createTextField({}),
+    themeColor: createTextField({}),
+    maxUploadSize: createNumberField({}),
+    emailNotifications: createBooleanField({}),
+    autoApprove: createBooleanField({}),
   },
   layout: {
     sections: [

@@ -1,10 +1,10 @@
 import { v5 as uuidv5 } from "uuid";
-import type { EncryptionProvider } from "../db/encryption";
-import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
 import type { EntityDefinition } from "../engine";
 import { createSystemUser, SYSTEM_TENANT_ID } from "../engine";
 import type { ConfigSeedDef, Registry } from "../engine/types";
 import type { DbConnection } from "./connection";
+import type { EncryptionProvider } from "./encryption";
+import { createEventStoreExecutor } from "./event-store-executor";
 import type { DrizzleTable } from "./table-builder";
 import { createTenantDb } from "./tenant-db";
 

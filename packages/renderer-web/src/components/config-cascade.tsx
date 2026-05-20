@@ -86,7 +86,9 @@ export function ConfigCascadeView({
         {activeLevel ? (
           <>
             <SourceBadge source={activeLevel.source} />
-            <span className="text-gray-400">{formatValue(activeLevel.value, activeLevel.hasValue)}</span>
+            <span className="text-gray-400">
+              {formatValue(activeLevel.value, activeLevel.hasValue)}
+            </span>
           </>
         ) : (
           <span className="text-gray-400">{t("config.cascade.noValue")}</span>
@@ -117,7 +119,9 @@ export function ConfigCascadeView({
 function CascadeLevelRow({ level }: { level: ConfigCascadeLevel }): ReactNode {
   const t = useTranslation();
   return (
-    <div className={`flex items-center gap-1.5 ${level.isActive ? "font-medium" : "text-gray-400"}`}>
+    <div
+      className={`flex items-center gap-1.5 ${level.isActive ? "font-medium" : "text-gray-400"}`}
+    >
       <SourceBadge source={level.source} />
       <span>{formatValue(level.value, level.hasValue)}</span>
       {level.isActive ? (

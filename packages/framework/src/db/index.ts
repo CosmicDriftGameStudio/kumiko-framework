@@ -1,5 +1,6 @@
 export { assertExistsIn } from "./assert-exists-in";
 export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
+export { seedConfigValues } from "./config-seed";
 export type { DbConnection, DbConnectionOptions, DbRow, DbRunner, DbTx } from "./connection";
 export { createDbConnection, dbConnectionOptionsFromEnv } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
@@ -41,7 +42,6 @@ export {
   isUniqueViolation,
   type PgErrorInfo,
 } from "./pg-error";
-export { seedConfigValues } from "./config-seed";
 export { seedReferenceData } from "./reference-data";
 export { fetchOne } from "./row-helpers";
 export { tableExists } from "./schema-inspection";

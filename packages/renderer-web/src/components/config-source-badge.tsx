@@ -1,10 +1,7 @@
 import type { ConfigValueSource } from "@cosmicdrift/kumiko-framework/engine";
 import type { ReactNode } from "react";
 
-const SOURCE_CONFIG: Record<
-  ConfigValueSource,
-  { label: string; bg: string; text: string }
-> = {
+const SOURCE_CONFIG: Record<ConfigValueSource, { label: string; bg: string; text: string }> = {
   "user-row": { label: "User", bg: "#dbeafe", text: "#1e40af" },
   "tenant-row": { label: "Tenant", bg: "#dcfce7", text: "#166534" },
   "system-row": { label: "System", bg: "#f3e8ff", text: "#6b21a8" },
@@ -14,11 +11,7 @@ const SOURCE_CONFIG: Record<
   missing: { label: "Missing", bg: "#fee2e2", text: "#991b1b" },
 };
 
-export function ConfigSourceBadge({
-  source,
-}: {
-  readonly source: ConfigValueSource;
-}): ReactNode {
+export function ConfigSourceBadge({ source }: { readonly source: ConfigValueSource }): ReactNode {
   const cfg = SOURCE_CONFIG[source];
 
   return (
