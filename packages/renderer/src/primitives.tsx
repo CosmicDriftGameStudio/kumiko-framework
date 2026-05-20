@@ -88,6 +88,8 @@ export type FieldProps = {
   readonly label: string;
   readonly required?: boolean;
   readonly issues?: readonly FieldIssue[];
+  readonly labelAppendix?: ReactNode;
+  readonly fieldAppendix?: ReactNode;
   readonly children: ReactNode;
   readonly testId?: string;
 };

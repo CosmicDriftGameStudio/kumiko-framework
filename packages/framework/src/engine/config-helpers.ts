@@ -1,11 +1,15 @@
-import type { ConfigScope } from "./constants";
 import type {
   ConfigBounds,
   ConfigComputedFn,
   ConfigKeyDefinition,
   ConfigKeyType,
+  ConfigSeedDef,
   ConfigValue,
+  CreateSeedOptions,
+  CreateTenantSeedOptions,
+  CreateUserSeedOptions,
 } from "./types";
+import type { ConfigScope } from "./constants";
 
 // --- Access Presets ---
 
@@ -102,4 +106,53 @@ export function createUserConfig<T extends ConfigKeyType>(
   opts?: ConfigKeyOptions<T>,
 ): ConfigKeyDefinition<T> {
   return createConfigKey("user", type, opts);
+}
+
+// --- Seed Factories ---
+//
+// `key` is set to "" here — define-feature.ts fills in the qualified name
+// from the seeds-record-key during r.config() processing.
+
+// Scope-agnostic seed. The scope is derived from the matching keyDef in
+// define-feature.ts (via `seed.scope ?? keyDef.scope`). NOT usable for
+// user-scope keys — those need an explicit tenantId+userId, use
+// `createUserSeed` instead.
+export function createSeed(opts: CreateSeedOptions): ConfigSeedDef {
+  return { value: opts.value, key: "" };
+}
+
+// System-scope seed. Always writes under SYSTEM_TENANT_ID.
+export function createSystemSeed(opts: CreateSeedOptions): ConfigSeedDef {
+  return { value: opts.value, scope: "system", key: "" };
+}
+
+// Tenant-scope seed. `tenantId` omitted → fallback row under
+// SYSTEM_TENANT_ID (visible to all tenants via the resolver cascade).
+// Explicit `tenantId` → seed targets that one tenant only.
+export function createTenantSeed(
+  opts: CreateSeedOptions,
+  options?: CreateTenantSeedOptions,
+): ConfigSeedDef {
+  return {
+    value: opts.value,
+    scope: "tenant",
+    key: "",
+    tenantId: options?.tenantId,
+  };
+}
+
+// User-scope seed. Both tenantId AND userId are required — the resolver
+// matches against the user's actual tenantId, so a seed under
+// SYSTEM_TENANT_ID would never resolve.
+export function createUserSeed(
+  opts: CreateSeedOptions,
+  options: CreateUserSeedOptions,
+): ConfigSeedDef {
+  return {
+    value: opts.value,
+    scope: "user",
+    key: "",
+    tenantId: options.tenantId,
+    userId: options.userId,
+  };
 }

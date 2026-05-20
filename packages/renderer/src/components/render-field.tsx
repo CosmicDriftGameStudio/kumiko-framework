@@ -14,14 +14,20 @@ import { usePrimitives } from "../primitives";
 export type RenderFieldProps = {
   readonly field: EditFieldViewModel;
   readonly issues?: readonly FieldIssue[];
-  readonly onChange: (value: unknown) => void;
+  readonly onChange: (val: unknown) => void;
   /** Nur bei type:"reference" relevant — Feature-Name für die Lookup-
    *  Query-QN (`<feature>:query:<refEntity>:list`). Andere Field-Types
    *  ignorieren das Prop. */
   readonly featureName?: string;
+  /** Optionaler Zusatz-Inhalt der nach dem Label gerendert wird (z.B.
+   *  ConfigSourceBadge). */
+  readonly labelAppendix?: ReactNode;
+  /** Optionaler Zusatz-Inhalt der nach dem Input gerendert wird (z.B.
+   *  ConfigCascade). */
+  readonly fieldAppendix?: ReactNode;
 };
 
-export function RenderField({ field, issues, onChange, featureName }: RenderFieldProps): ReactNode {
+export function RenderField({ field, issues, onChange, featureName, labelAppendix, fieldAppendix }: RenderFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   if (!field.visible) return null;
 
@@ -51,6 +57,8 @@ export function RenderField({ field, issues, onChange, featureName }: RenderFiel
       label={field.label}
       required={field.required}
       {...(issues !== undefined && { issues })}
+      {...(labelAppendix !== undefined && { labelAppendix })}
+      {...(fieldAppendix !== undefined && { fieldAppendix })}
       testId={`field-${field.field}`}
     >
       {control}

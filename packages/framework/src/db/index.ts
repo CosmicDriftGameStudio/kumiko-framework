@@ -41,6 +41,7 @@ export {
   isUniqueViolation,
   type PgErrorInfo,
 } from "./pg-error";
+export { seedConfigValues } from "./config-seed";
 export { seedReferenceData } from "./reference-data";
 export { fetchOne } from "./row-helpers";
 export { tableExists } from "./schema-inspection";

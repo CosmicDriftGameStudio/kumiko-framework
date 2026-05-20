@@ -1,3 +1,4 @@
+import type { ConfigCascade, ConfigValueSource } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
@@ -18,6 +19,8 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConfigCascadeView } from "../components/config-cascade";
+import { ConfigSourceBadge } from "../components/config-source-badge";
 import { RenderEdit } from "../components/render-edit";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
@@ -918,8 +921,15 @@ function ActionFormBody({
 // Banner/Submit-Button-State sind identisch zu entityEdit. Der einzige
 // Pfad-Unterschied ist customSubmit das mehrere config:write:set-Calls
 // orchestriert.
+//
+// Response enthält seit config-seeding auch `source` (z.B. "system-row")
+// für das ConfigSourceBadge. Type wird lokal gehalten da er nur hier
+// relevant ist — kein eigener Export nötig.
 type ConfigValueResponse = Readonly<
-  Record<string, { value: string | number | boolean | undefined; scope: string }>
+  Record<
+    string,
+    { value: string | number | boolean | undefined; scope: string; source: string }
+  >
 >;
 
 function ConfigEditBody({
@@ -938,6 +948,8 @@ function ConfigEditBody({
   // Wir mappen via screen.configKeys von short → qualified-name auf
   // unsere Form-Field-Werte.
   const valuesQuery = useQuery<ConfigValueResponse>("config:query:values", {});
+
+  const cascadeQuery = useQuery<Record<string, ConfigCascade>>("config:query:cascade", {});
 
   const synthEntity = useMemo(() => synthesizeConfigEditEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeConfigEditScreen(screen), [screen]);
@@ -977,6 +989,34 @@ function ConfigEditBody({
     }
     return out as FormValues;
   }, [valuesQuery.data, screen.fields, screen.configKeys]);
+
+  // Sources-Lookup: qualifiedKey → ConfigValueSource für das
+  // ConfigSourceBadge. Wird via fieldAppendix an RenderEdit
+  // durchgereicht.
+  const sources = useMemo<Record<string, string>>(() => {
+    if (valuesQuery.data === null) return {};
+    const out: Record<string, string> = {};
+    for (const [shortName, qualified] of Object.entries(screen.configKeys)) {
+      const source = valuesQuery.data[qualified]?.source;
+      if (source !== undefined) out[shortName] = source;
+    }
+    return out;
+  }, [valuesQuery.data, screen.configKeys]);
+
+  // Cascade-Lookup: qualifiedKey → ConfigCascade für die
+  // Cascade-Anzeige unter jedem Feld. Defensive `levels`-Shape-Check
+  // damit fremde Query-Mocks (z.B. configEdit-Unit-Tests die nur
+  // `config:query:values` mocken) nicht durch das Cascade-Rendering
+  // crashen.
+  const cascades = useMemo<Record<string, ConfigCascade>>(() => {
+    if (!cascadeQuery.data) return {};
+    const out: Record<string, ConfigCascade> = {};
+    for (const [shortName, qualified] of Object.entries(screen.configKeys)) {
+      const cascade = cascadeQuery.data[qualified];
+      if (cascade && Array.isArray(cascade.levels)) out[shortName] = cascade;
+    }
+    return out;
+  }, [cascadeQuery.data, screen.configKeys]);
 
   // Multi-Write Submit: ein einzelner /api/batch Call mit N
   // config:write:set Commands. Server-side ist batch atomic
@@ -1041,6 +1081,27 @@ function ConfigEditBody({
       customSubmit={customSubmit}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
+      fieldAppendix={(fieldName: string) => {
+        const source = sources[fieldName];
+        const cascade = cascades[fieldName];
+        return (
+          <>
+            {source !== undefined ? <ConfigSourceBadge source={source as ConfigValueSource} /> : null}
+            {cascade !== undefined ? (
+              <ConfigCascadeView
+                cascade={cascade}
+                screenScope={screen.scope}
+                qualifiedKey={screen.configKeys[fieldName]}
+                onReset={async (key, scope) => {
+                  await dispatcher.write("config:write:reset", { key, scope });
+                  valuesQuery.refetch?.();
+                  cascadeQuery.refetch?.();
+                }}
+              />
+            ) : null}
+          </>
+        );
+      }}
     />
   );
 }

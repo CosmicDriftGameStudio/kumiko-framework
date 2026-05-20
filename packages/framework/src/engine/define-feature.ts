@@ -13,6 +13,7 @@ import type {
   ConfigKeyDefinition,
   ConfigKeyHandle,
   ConfigKeyType,
+  ConfigSeedDef,
   EntityDefinition,
   EntityRef,
   EventDef,
@@ -112,6 +113,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     Record<string, PhasedHook<LifecycleHookFn>[]>
   > = { postSave: {}, preDelete: {}, postDelete: {} };
   const configKeys: Record<string, ConfigKeyDefinition> = {};
+  const configSeeds: ConfigSeedDef[] = [];
   const jobs: Record<string, JobDefinition> = {};
   const events: Record<string, { name: string; schema: ZodType; version: number }> = {};
   const eventMigrations: Record<string, EventMigrationDef[]> = {};
@@ -358,6 +360,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
 
     config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
       readonly keys: TKeys;
+      readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
     }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> } {
       // Qualify eagerly (same as defineEvent) so the handle name matches what
       // the registry stores — lazy qualification would break compile-time
@@ -369,6 +372,22 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           name: qn(toKebab(name), "config", toKebab(key)),
           type: keyDef.type,
         };
+      }
+      // Parse seeds: resolve qualified key names and validate scope
+      if (definition.seeds) {
+        for (const [shortKey, seedDef] of Object.entries(definition.seeds)) {
+          const keyDef = definition.keys[shortKey];
+          if (!keyDef) continue; // skip — boot-validator reports unknown keys
+          const qualifiedKey = qn(toKebab(name), "config", toKebab(shortKey));
+          const scope = seedDef.scope ?? keyDef.scope;
+          configSeeds.push({
+            key: qualifiedKey,
+            value: seedDef.value,
+            scope,
+            tenantId: seedDef.tenantId,
+            userId: seedDef.userId,
+          });
+        }
       }
       return handles as {
         readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]>;
@@ -830,6 +849,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       postDelete: entityPostDelete,
     },
     configKeys,
+    configSeeds,
     jobs,
     notifications,
     registrarExtensions,

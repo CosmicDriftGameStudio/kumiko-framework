@@ -18,7 +18,7 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createConfigResolver, seedAllConfigValues } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createSessionCallbacks,
   type SessionCallbacks,
@@ -325,6 +325,10 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       if (options.auth) {
         await seedAdmin(stack.db, options.auth.admin);
       }
+      // Apply r.config({ seeds }) declared by any registered feature.
+      // Runs before user-supplied seed callbacks so those can read /
+      // override the deploy-defaults.
+      await seedAllConfigValues(stack.registry, stack.db);
       for (const seed of options.seeds ?? []) {
         await seed(stack);
       }

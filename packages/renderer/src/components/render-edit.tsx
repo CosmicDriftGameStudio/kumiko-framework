@@ -56,6 +56,10 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  damit "Speichern" durch domain-spezifischere Strings ersetzt
    *  werden kann ("Genehmigen" / "Versenden" / etc.). */
   readonly submitLabel?: string;
+  /** Pro-Field-Zusatz-Inhalt nach dem Label (z.B. ConfigSourceBadge).
+   *  Wird mit dem Field-Namen aufgerufen, returnt ReactNode oder
+   *  undefined. */
+  readonly fieldAppendix?: (fieldName: string) => ReactNode | undefined;
 };
 
 function deriveFormFields<TValues extends FormValues, TCtx>(
@@ -100,6 +104,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onCancel,
     onReload,
     submitLabel,
+    fieldAppendix,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -267,6 +272,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 }}
                 GridCell={GridCell}
                 featureName={featureName}
+                {...(fieldAppendix !== undefined && {
+                  labelAppendix: fieldAppendix(field.field),
+                  fieldAppendix: fieldAppendix(field.field),
+                })}
               />
             ))}
           </Grid>
@@ -323,6 +332,8 @@ type GridCellForFieldProps = {
   /** Tier 2.7e-3: durchgereicht damit Reference-Felder die richtige
    *  Lookup-Query-QN bauen können (`<feature>:query:<refEntity>:list`). */
   readonly featureName: string;
+  readonly labelAppendix?: ReactNode;
+  readonly fieldAppendix?: ReactNode;
 };
 
 function GridCellForField({
@@ -332,6 +343,8 @@ function GridCellForField({
   onChange,
   GridCell,
   featureName,
+  labelAppendix,
+  fieldAppendix,
 }: GridCellForFieldProps): ReactNode {
   const effectiveSpan = field.span !== undefined ? Math.min(field.span, columns) : 1;
   return (
@@ -341,6 +354,8 @@ function GridCellForField({
         {...(issues !== undefined && { issues })}
         onChange={onChange}
         featureName={featureName}
+        {...(labelAppendix !== undefined && { labelAppendix })}
+        {...(fieldAppendix !== undefined && { fieldAppendix })}
       />
     </GridCell>
   );

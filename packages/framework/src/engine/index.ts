@@ -4,7 +4,7 @@ export { hasAccess } from "./access";
 export { validateBoot } from "./boot-validator";
 export { buildAppSchema } from "./build-app-schema";
 export { buildTarget } from "./build-target";
-export { access, createSystemConfig, createTenantConfig, createUserConfig } from "./config-helpers";
+export { access, createSeed, createSystemConfig, createSystemSeed, createTenantConfig, createTenantSeed, createUserConfig, createUserSeed } from "./config-helpers";
 export type { SystemHookName } from "./constants";
 export {
   ConcurrencyModes,
@@ -193,6 +193,8 @@ export type {
   ConcurrencyMode,
   ConfigAccessor,
   ConfigAccessorFactory,
+  ConfigCascade,
+  ConfigCascadeLevel,
   ConfigDefinition,
   ConfigEditScreenDefinition,
   ConfigKeyAccess,
@@ -201,10 +203,15 @@ export type {
   ConfigKeyType,
   ConfigResolver,
   ConfigScope,
+  ConfigSeedDef,
   ConfigStoredRow,
+  ConfigStoredRowWithSource,
   ConfigValue,
   ConfigValueSource,
   ConfigValueWithSource,
+  CreateSeedOptions,
+  CreateTenantSeedOptions,
+  CreateUserSeedOptions,
   CustomScreenDefinition,
   CustomScreenRoute,
   DateFieldDef,

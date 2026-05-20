@@ -12,6 +12,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { cascadeQuery } from "./handlers/cascade.query";
 import { resetWrite } from "./handlers/reset.write";
 import { schemaQuery } from "./handlers/schema.query";
 import { setWrite } from "./handlers/set.write";
@@ -38,6 +39,7 @@ export function createConfigFeature(): FeatureDefinition {
     };
 
     const queries = {
+      cascade: r.queryHandler(cascadeQuery),
       values: r.queryHandler(valuesQuery),
       schema: r.queryHandler(schemaQuery),
     };

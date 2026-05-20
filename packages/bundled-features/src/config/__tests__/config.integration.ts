@@ -1,8 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createEncryptionProvider, seedConfigValues, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
+  createSeed,
   createSystemConfig,
+  createSystemSeed,
   createTenantConfig,
   createUserConfig,
   defineFeature,
@@ -22,7 +24,7 @@ import { z } from "zod";
 import { ConfigHandlers, ConfigQueries } from "../constants";
 import { createConfigAccessor, createConfigAccessorFactory, createConfigFeature } from "../feature";
 import { type ConfigResolver, createConfigResolver, validateAppOverrides } from "../resolver";
-import { configValuesTable } from "../table";
+import { configValueEntity, configValuesTable } from "../table";
 
 // --- Setup ---
 
@@ -173,6 +175,22 @@ const integrationFeature = defineFeature("integration", (r) => {
 });
 
 const configFeature = createConfigFeature();
+
+// Scenario 11: Config seeding — feature with deploy-time defaults
+const seedFeature = defineFeature("seeddemo", (r) => {
+  r.requires("config");
+  return r.config({
+    keys: {
+      themeColor: createTenantConfig("text", { default: "blue" }),
+      maintenanceMode: createSystemConfig("boolean", { default: false }),
+    },
+    seeds: {
+      themeColor: createSeed({ value: "dark" }),
+      maintenanceMode: createSystemSeed({ value: true }),
+    },
+  });
+});
+
 const testEncryptionKey = randomBytes(32).toString("base64");
 
 beforeAll(async () => {
@@ -188,6 +206,7 @@ beforeAll(async () => {
       ordersFeature,
       integrationFeature,
       probeFeature,
+      seedFeature,
     ],
     // Wire `ctx.config()` for real handlers: pass the resolver-bound factory
     // so the dispatcher can mint a per-user accessor inside buildHandlerContext.
@@ -1242,5 +1261,98 @@ describe("scenario 10: getWithSource reports source-of-truth", () => {
       db,
     );
     expect(traced.value).toBe(flat);
+  });
+});
+
+// --- Scenario 11: Config Seeding ---
+//
+// Seeds are deploy-time defaults written as system-rows via the event-store
+// executor. They sit at cascade level 4 (system-row) — above app-override
+// and default but below any explicit user/tenant row.
+
+describe("scenario 11: config seeding", () => {
+  const SEED_THEME = "seeddemo:config:theme-color";
+  const SEED_MAINT = "seeddemo:config:maintenance-mode";
+  const T1 = "00000000-0000-4000-8000-0000000000aa";
+  const T2 = "00000000-0000-4000-8000-0000000000bb";
+  const T3 = "00000000-0000-4000-8000-0000000000cc";
+
+  beforeAll(async () => {
+    const seedDefs = stack.registry
+      .getAllConfigSeeds()
+      .filter((s) => s.key.startsWith("seeddemo:"));
+    await seedConfigValues(
+      seedDefs,
+      configValuesTable,
+      configValueEntity,
+      stack.registry,
+      db,
+    );
+  });
+
+  test("returns seed value when no row exists", async () => {
+    const configFn = createConfigAccessor(
+      stack.registry,
+      resolver,
+      T1 as any,
+      "00000000-0000-4000-8000-0000000000aa",
+      db,
+    );
+    expect(await configFn(SEED_THEME)).toBe("dark");
+  });
+
+  test("system-scope seed produces system-row in cascade", async () => {
+    const configFn = createConfigAccessor(
+      stack.registry,
+      resolver,
+      T1 as any,
+      "00000000-0000-4000-8000-0000000000aa",
+      db,
+    );
+    expect(await configFn(SEED_MAINT)).toBe(true);
+  });
+
+  test("getWithSource reports source=system-row for seeded values", async () => {
+    const keyDef = stack.registry.getConfigKey(SEED_THEME);
+    if (!keyDef) throw new Error("key missing");
+    const traced = await resolver.getWithSource(
+      SEED_THEME,
+      keyDef,
+      T2 as any,
+      "00000000-0000-4000-8000-0000000000bb",
+      db,
+    );
+    expect(traced.value).toBe("dark");
+    expect(traced.source).toBe("system-row");
+  });
+
+  test("seed + app-override: seed wins (system-row > app-override)", async () => {
+    const resolverWithOverride = createConfigResolver({
+      appOverrides: validateAppOverrides(stack.registry, { [SEED_THEME]: "pink" }),
+    });
+    const configFn = createConfigAccessor(
+      stack.registry,
+      resolverWithOverride,
+      T3 as any,
+      "00000000-0000-4000-8000-0000000000cc",
+      db,
+    );
+    expect(await configFn(SEED_THEME)).toBe("dark");
+  });
+
+  test("admin override beats seed (tenant-row > system-row)", async () => {
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: SEED_THEME, value: "red" },
+      tenantAdmin,
+    );
+    const configFn = createConfigAccessor(
+      stack.registry,
+      resolver,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+    expect(await configFn(SEED_THEME)).toBe("red");
   });
 });

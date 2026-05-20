@@ -5,14 +5,17 @@ import {
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  ConfigCascade,
+  ConfigCascadeLevel,
   ConfigKeyDefinition,
   ConfigResolver,
+  ConfigStoredRowWithSource,
   ConfigValueSource,
   ConfigValueWithSource,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { configValuesTable } from "./table";
 
 type ConfigRow = {
@@ -65,6 +68,144 @@ export type ConfigResolverOptions = {
   encryption?: EncryptionProvider;
   appOverrides?: AppConfigOverrides;
 };
+
+// Shared cascade-builder. Single-key path passes a `findRow`-bound row
+// fetcher (one SQL per lookup); batch path passes a closure over
+// pre-loaded rows. The builder itself is unaware of which.
+async function buildCascade(
+  qualifiedKey: string,
+  keyDef: ConfigKeyDefinition,
+  tenantId: string,
+  userId: string,
+  db: DbConnection | TenantDb,
+  fetchRow: (tenantId: string, userId: string | null) => Promise<ConfigRow | null> | ConfigRow | null,
+  appOverrides: AppConfigOverrides | undefined,
+  encryption: EncryptionProvider | undefined,
+): Promise<ConfigCascade> {
+  type Lookup = {
+    tenantId: string;
+    userId: string | null;
+    source: ConfigValueSource;
+    label: string;
+  };
+  const lookups: Lookup[] = [];
+
+  switch (keyDef.scope) {
+    case "user":
+      lookups.push({ tenantId, userId, source: "user-row", label: "User" });
+      lookups.push({ tenantId, userId: null, source: "tenant-row", label: "Tenant" });
+      break;
+    case "tenant":
+      lookups.push({ tenantId, userId: null, source: "tenant-row", label: "Tenant" });
+      lookups.push({
+        tenantId: SYSTEM_TENANT_ID,
+        userId: null,
+        source: "system-row",
+        label: "System",
+      });
+      break;
+    case "system":
+      lookups.push({
+        tenantId: SYSTEM_TENANT_ID,
+        userId: null,
+        source: "system-row",
+        label: "System",
+      });
+      break;
+    default:
+      assertUnreachable(keyDef.scope, "config scope");
+  }
+
+  const levels: ConfigCascadeLevel[] = [];
+  let activeIndex = -1;
+
+  for (const lookup of lookups) {
+    const row = await fetchRow(lookup.tenantId, lookup.userId);
+    if (row?.value !== null && row?.value !== undefined) {
+      let raw = row.value;
+      if (keyDef.encrypted && encryption) {
+        raw = encryption.decrypt(raw);
+      }
+      if (activeIndex === -1) activeIndex = levels.length;
+      levels.push({
+        label: lookup.label,
+        value: deserializeValue(raw, keyDef.type),
+        source: lookup.source,
+        isActive: false,
+        hasValue: true,
+      });
+    } else {
+      levels.push({
+        label: lookup.label,
+        value: undefined,
+        source: lookup.source,
+        isActive: false,
+        hasValue: false,
+      });
+    }
+  }
+
+  const hasOverride = appOverrides?.has(qualifiedKey) === true;
+  if (activeIndex === -1 && hasOverride) activeIndex = levels.length;
+  levels.push({
+    label: "App-Override",
+    value: hasOverride ? appOverrides!.get(qualifiedKey) : undefined,
+    source: "app-override",
+    isActive: false,
+    hasValue: hasOverride,
+  });
+
+  if (keyDef.computed) {
+    const value = await keyDef.computed({ tenantId, userId, db });
+    if (activeIndex === -1) activeIndex = levels.length;
+    levels.push({
+      label: "Computed",
+      value,
+      source: "computed",
+      isActive: false,
+      hasValue: true,
+    });
+  } else {
+    levels.push({
+      label: "Computed",
+      value: undefined,
+      source: "computed",
+      isActive: false,
+      hasValue: false,
+    });
+  }
+
+  if (keyDef.default !== undefined) {
+    if (activeIndex === -1) activeIndex = levels.length;
+    levels.push({
+      label: "Default",
+      value: keyDef.default,
+      source: "default",
+      isActive: false,
+      hasValue: true,
+    });
+  } else {
+    if (activeIndex === -1) activeIndex = levels.length;
+    levels.push({
+      label: "Default",
+      value: undefined,
+      source: "missing",
+      isActive: false,
+      hasValue: false,
+    });
+  }
+
+  const active = activeIndex >= 0 ? levels[activeIndex] : undefined;
+  if (active !== undefined) {
+    levels[activeIndex] = { ...active, isActive: true };
+  }
+
+  return {
+    value: active?.value,
+    source: active?.source ?? "missing",
+    levels,
+  };
+}
 
 export function createConfigResolver(options: ConfigResolverOptions = {}): ConfigResolver {
   const { encryption, appOverrides } = options;
@@ -189,6 +330,131 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
         if (!existing || specificityOf(r) > specificityOf(existing)) {
           result.set(r.key, r);
         }
+      }
+
+      return result;
+    },
+
+    async getAllWithSource(tenantId, userId, db) {
+      // Load ALL potentially relevant rows (user + tenant + system)
+      const rows = await db
+        .select()
+        .from(configValuesTable)
+        .where(
+          or(
+            and(eq(configValuesTable.tenantId, SYSTEM_TENANT_ID), isNull(configValuesTable.userId)),
+            and(eq(configValuesTable.tenantId, tenantId), isNull(configValuesTable.userId)),
+            and(eq(configValuesTable.tenantId, tenantId), eq(configValuesTable.userId, userId)),
+          ),
+        );
+
+      const result = new Map<string, ConfigStoredRowWithSource>();
+
+      // Group rows by key so we can determine the winner and its source
+      const groups = new Map<string, ConfigRow[]>();
+      for (const row of rows) {
+        const r = row as ConfigRow; // @cast-boundary db-row
+        const g = groups.get(r.key) ?? [];
+        g.push(r);
+        groups.set(r.key, g);
+      }
+
+      for (const [key, keyRows] of groups) {
+        const specificityOf = (candidate: ConfigRow) =>
+          (candidate.userId !== null ? 2 : 0) +
+          (candidate.tenantId !== SYSTEM_TENANT_ID ? 1 : 0);
+
+        const first = keyRows[0];
+        if (!first) continue;
+        let winner: ConfigRow = first;
+        for (const r of keyRows) {
+          if (specificityOf(r) > specificityOf(winner)) {
+            winner = r;
+          }
+        }
+
+        let source: ConfigValueSource;
+        if (winner.userId !== null) {
+          source = "user-row";
+        } else if (winner.tenantId !== SYSTEM_TENANT_ID) {
+          source = "tenant-row";
+        } else {
+          source = "system-row";
+        }
+
+        result.set(key, { ...winner, source });
+      }
+
+      return result;
+    },
+
+    async getCascade(qualifiedKey, keyDef, tenantId, userId, db): Promise<ConfigCascade> {
+      // Single-key path uses findRow per cascade step. The batch path
+      // bulk-loads all rows up-front; both build identical levels arrays.
+      return buildCascade(
+        qualifiedKey,
+        keyDef,
+        tenantId,
+        userId,
+        db,
+        (tid, uid) => findRow(qualifiedKey, tid, uid, db),
+        appOverrides,
+        encryption,
+      );
+    },
+
+    async getCascadeBatch(
+      keys,
+      keyDefs,
+      tenantId,
+      userId,
+      db,
+    ): Promise<ReadonlyMap<string, ConfigCascade>> {
+      if (keys.length === 0) return new Map();
+
+      // One SQL query for all keys + every scope (user-row,
+      // tenant-row, system-row). The cascade-builder then matches
+      // per-key from this preloaded set instead of querying again.
+      const rows = await db
+        .select()
+        .from(configValuesTable)
+        .where(
+          and(
+            inArray(configValuesTable.key, [...keys]),
+            or(
+              and(eq(configValuesTable.tenantId, SYSTEM_TENANT_ID), isNull(configValuesTable.userId)),
+              and(eq(configValuesTable.tenantId, tenantId), isNull(configValuesTable.userId)),
+              and(eq(configValuesTable.tenantId, tenantId), eq(configValuesTable.userId, userId)),
+            ),
+          ),
+        );
+
+      const grouped = new Map<string, ConfigRow[]>();
+      for (const row of rows) {
+        const r = row as ConfigRow; // @cast-boundary db-row
+        const g = grouped.get(r.key) ?? [];
+        g.push(r);
+        grouped.set(r.key, g);
+      }
+
+      const result = new Map<string, ConfigCascade>();
+      for (const key of keys) {
+        const keyDef = keyDefs.get(key);
+        if (!keyDef) continue;
+
+        const keyRows = grouped.get(key) ?? [];
+        const cascade = await buildCascade(
+          key,
+          keyDef,
+          tenantId,
+          userId,
+          db,
+          (tid, uid) =>
+            keyRows.find((r) => r.tenantId === tid && (r.userId ?? null) === uid) ?? null,
+          appOverrides,
+          encryption,
+        );
+        result.set(key, cascade);
       }
 
       return result;

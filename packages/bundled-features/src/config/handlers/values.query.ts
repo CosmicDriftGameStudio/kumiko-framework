@@ -1,4 +1,8 @@
-import { type ConfigScope, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type ConfigScope,
+  type ConfigValueSource,
+  defineQueryHandler,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../feature";
 import { deserializeValue } from "../resolver";
@@ -15,11 +19,11 @@ export const valuesQuery = defineQueryHandler({
     const resolver = requireConfigResolver(ctx, "config:query:values");
 
     const allKeys = registry.getAllConfigKeys();
-    const storedValues = await resolver.getAll(query.user.tenantId, query.user.id, db);
+    const storedValues = await resolver.getAllWithSource(query.user.tenantId, query.user.id, db);
 
     const result: Record<
       string,
-      { value: string | number | boolean | undefined; scope: ConfigScope }
+      { value: string | number | boolean | undefined; scope: ConfigScope; source: ConfigValueSource }
     > = {};
 
     for (const [qualifiedKey, keyDef] of allKeys) {
@@ -27,6 +31,8 @@ export const valuesQuery = defineQueryHandler({
 
       const stored = storedValues.get(qualifiedKey);
       let value: string | number | boolean | undefined;
+      const source: ConfigValueSource = stored?.source ?? "default";
+
       if (keyDef.encrypted) {
         value = stored ? "••••••" : undefined;
       } else if (stored?.value !== null && stored?.value !== undefined) {
@@ -35,7 +41,7 @@ export const valuesQuery = defineQueryHandler({
         value = keyDef.default;
       }
 
-      result[qualifiedKey] = { value, scope: keyDef.scope };
+      result[qualifiedKey] = { value, scope: keyDef.scope, source };
     }
 
     return result;

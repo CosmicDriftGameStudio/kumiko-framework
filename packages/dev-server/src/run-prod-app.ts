@@ -37,7 +37,7 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createConfigResolver, seedAllConfigValues } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -589,13 +589,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // statt eines fixed JSON-Strings. Heute: registry-static, also OK.
   const appSchemaJson = JSON.stringify(buildAppSchema(registry));
 
-  // 9. Seeds: admin first, then app-specific. Both expected to be
-  //    idempotent — runProdApp doesn't gate "first boot" via flag,
-  //    seeds check their own preconditions. seedAdmin checks email,
-  //    app seeds typically check "is my fixture row there?".
+  // 9. Seeds: admin first, then config-seeds from r.config({seeds}),
+  //    then app-specific. All idempotent — runProdApp doesn't gate
+  //    "first boot" via flag, every seed-step checks its own
+  //    preconditions. Config-seeds rely on a deterministic
+  //    aggregate-id so re-boot becomes a version_conflict skip.
   if (options.auth) {
     await seedAdmin(db, options.auth.admin);
   }
+  await seedAllConfigValues(registry, db);
   for (const seed of options.seeds ?? []) {
     await seed({ db });
   }
