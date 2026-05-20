@@ -1116,6 +1116,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@cosmicdrift/kumiko-sample-config-demo@workspace:samples/apps/config-demo":
+  version: 0.0.0-use.local
+  resolution: "@cosmicdrift/kumiko-sample-config-demo@workspace:samples/apps/config-demo"
+  dependencies:
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*"
+    "@cosmicdrift/kumiko-dev-server": "workspace:*"
+    "@cosmicdrift/kumiko-dispatcher-live": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+    "@cosmicdrift/kumiko-headless": "workspace:*"
+    "@cosmicdrift/kumiko-renderer-web": "workspace:*"
+    react: "npm:^19.2.6"
+    react-dom: "npm:^19.2.6"
+  languageName: unknown
+  linkType: soft
+
 "@cosmicdrift/kumiko-sample-cross-feature-events@workspace:samples/recipes/cross-feature-events":
   version: 0.0.0-use.local
   resolution: "@cosmicdrift/kumiko-sample-cross-feature-events@workspace:samples/recipes/cross-feature-events"
