@@ -1,0 +1,66 @@
+{
+  "format": 2,
+  "generated": "2026-05-20",
+  "totalSuspect": 34,
+  "perFile": {
+    "packages/bundled-features/src/step-dispatcher/feature.ts": {
+      "DispatchRequestedPayload": 1
+    },
+    "packages/bundled-features/src/text-content/feature.ts": {
+      "string": 3
+    },
+    "packages/framework/src/engine/codemod/pipeline-codemod.ts": {
+      "import(\"ts-morph\").PropertyAssignment": 1,
+      "string": 4
+    },
+    "packages/framework/src/engine/define-feature.ts": {
+      "PipelineDef": 1,
+      "RequiresApi": 1,
+      "WriteHandlerFn": 1
+    },
+    "packages/framework/src/engine/define-handler.ts": {
+      "{\n    readonly handler?: unknown;\n    readonly perform?: unk": 1
+    },
+    "packages/framework/src/engine/define-step.ts": {
+      "StepDef": 1
+    },
+    "packages/framework/src/engine/run-pipeline.ts": {
+      "PipelineCtx<TPayload, TMap>": 1,
+      "WriteResult<TData>": 1,
+      "WriteResult<unknown>": 1
+    },
+    "packages/framework/src/engine/steps/_resolver-utils.ts": {
+      "(c: PipelineCtx) => T": 1
+    },
+    "packages/framework/src/engine/steps/branch.ts": {
+      "Record<string, unknown>": 2
+    },
+    "packages/framework/src/engine/steps/call-feature.ts": {
+      "Error & { cause?: unknown }": 1
+    },
+    "packages/framework/src/engine/steps/for-each.ts": {
+      "Record<string, unknown>": 2
+    },
+    "packages/framework/src/engine/steps/read-find-many.ts": {
+      "readonly Record<string, unknown>[]": 1
+    },
+    "packages/framework/src/engine/steps/read-find-one.ts": {
+      "Record<string, unknown> | undefined": 1
+    },
+    "packages/framework/src/engine/steps/retry.ts": {
+      "Record<string, unknown>": 2
+    },
+    "packages/framework/src/engine/steps/unsafe-projection-upsert.ts": {
+      "Record<string, unknown>": 1
+    },
+    "packages/framework/src/engine/validate-projection-allowlist.ts": {
+      "{ readonly perform?: PipelineDef }": 1,
+      "readonly StepInstance[]": 1,
+      "Record<string, unknown>": 1,
+      "UnsafeProjectionStepArgs": 1
+    },
+    "packages/framework/src/pipeline/append-event-core.ts": {
+      "Record<string, unknown>": 2
+    }
+  }
+}
