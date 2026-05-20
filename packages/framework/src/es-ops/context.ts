@@ -46,15 +46,13 @@ export function createSeedMigrationContext(
             WHERE email = ${email}
             LIMIT 1`,
       );
-      // @cast-boundary db-row — drizzle execute(sql) returns provider-shaped result
-      const rows = (result as { rows?: readonly Record<string, unknown>[] }).rows ?? [];
+      // @cast-boundary db-row — drizzle execute(sql) returns provider-shaped result; column-types kommen vom SQL-cast oben
+      const rows =
+        (result as { rows?: readonly { id: string; email: string; tenant_id: string }[] }).rows ??
+        [];
       const row = rows[0];
       if (!row) return null;
-      return {
-        id: row["id"] as string,
-        email: row["email"] as string,
-        tenantId: row["tenant_id"] as string,
-      };
+      return { id: row.id, email: row.email, tenantId: row.tenant_id };
     },
 
     findMembershipsOfUser: async (userId) => {
@@ -63,15 +61,19 @@ export function createSeedMigrationContext(
             FROM read_tenant_memberships
             WHERE user_id = ${userId}`,
       );
-      // @cast-boundary db-row — roles ist als JSON-string gespeichert
-      // (Memory: tenant-membership.created payload "[\"User\"]" — text-Spalte,
-      // JSON-encoded). Parse hier zentral.
-      const rows = (result as { rows?: readonly Record<string, unknown>[] }).rows ?? [];
+      // @cast-boundary db-row — roles ist JSON-string in der text-Spalte
+      // (Memory: tenant-membership.created payload "[\"User\"]"), wird unten geparst
+      const rows =
+        (
+          result as {
+            rows?: readonly { user_id: string; tenant_id: string; roles: string }[];
+          }
+        ).rows ?? [];
       return rows.map(
         (r): SeedMembershipRow => ({
-          userId: r["user_id"] as string,
-          tenantId: r["tenant_id"] as string,
-          roles: safeParseRolesJson(r["roles"] as string),
+          userId: r.user_id,
+          tenantId: r.tenant_id,
+          roles: safeParseRolesJson(r.roles),
         }),
       );
     },
@@ -83,13 +85,14 @@ export function createSeedMigrationContext(
             ORDER BY inserted_at`,
       );
       // @cast-boundary db-row
-      const rows = (result as { rows?: readonly Record<string, unknown>[] }).rows ?? [];
+      const rows =
+        (
+          result as {
+            rows?: readonly { id: string; name: string; tenant_key: string }[];
+          }
+        ).rows ?? [];
       return rows.map(
-        (r): SeedTenantRow => ({
-          id: r["id"] as string,
-          name: r["name"] as string,
-          tenantKey: r["tenant_key"] as string,
-        }),
+        (r): SeedTenantRow => ({ id: r.id, name: r.name, tenantKey: r.tenant_key }),
       );
     },
 
