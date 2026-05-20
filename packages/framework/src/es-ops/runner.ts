@@ -160,7 +160,7 @@ async function loadSeedModule(filePath: string): Promise<SeedMigration> {
 
 function isSeedMigration(value: unknown): value is SeedMigration {
   if (typeof value !== "object" || value === null) return false;
-  // @cast-boundary type-guard — narrowing unknown to property-bag for shape-check
+  // @cast-boundary generic-record — narrowing unknown to property-bag for shape-check
   const v = value as Partial<SeedMigration>;
   return typeof v.description === "string" && typeof v.run === "function";
 }
