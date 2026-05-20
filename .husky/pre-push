@@ -3,11 +3,15 @@
 #
 # Logic:
 #   1. If running inside the cosmicdriftgamestudio Parent-Workspace,
-#      delegate to its `yarn check` with KUMIKO_GUARD_ROOTS set to
-#      THIS sub-repo only — so a push from kumiko-framework doesn't
-#      also run kumiko-studio/-enterprise/-platform/publicstatus
-#      checks. The cross-repo guards (infra/guards) honor the same
-#      env-var via resolveRepoRoots().
+#      delegate to its `yarn check` with KUMIKO_CLI_SCOPE set to THIS
+#      sub-repo only — so a push from kumiko-framework doesn't run
+#      Biome/TS/Tests for kumiko-studio/-enterprise/-platform/
+#      publicstatus as well.
+#
+#      NB: cross-repo Guards (infra/guards) keep their full scan, so
+#      Drift introduced in another repo still surfaces here. Use
+#      `KUMIKO_GUARD_ROOTS` to scope guard scan explicitly when you
+#      know what you're doing.
 #   2. Else (standalone clone outside the parent workspace): run the
 #      sub-repo's own `yarn test:run`.
 #
@@ -25,7 +29,7 @@ PARENT_DIR="$(cd "$REPO_ROOT/.." && pwd)"
 if [ -f "$PARENT_DIR/package.json" ] \
    && grep -q '"name": *"cosmicdriftgamestudio"' "$PARENT_DIR/package.json" 2>/dev/null; then
   echo "[pre-push] yarn check (scoped: $REPO_NAME)…"
-  cd "$PARENT_DIR" && KUMIKO_GUARD_ROOTS="$REPO_NAME" yarn check
+  cd "$PARENT_DIR" && KUMIKO_CLI_SCOPE="$REPO_NAME" yarn check
 else
   echo "[pre-push] yarn test:run (standalone)…"
   cd "$REPO_ROOT" && yarn test:run
