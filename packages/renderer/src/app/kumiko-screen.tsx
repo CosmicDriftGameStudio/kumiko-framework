@@ -19,8 +19,6 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ConfigCascadeView } from "../components/config-cascade";
-import { ConfigSourceBadge } from "../components/config-source-badge";
 import { RenderEdit } from "../components/render-edit";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
@@ -941,7 +939,7 @@ function ConfigEditBody({
   readonly screen: ConfigEditScreenDefinition;
   readonly translate?: Translate;
 }): ReactNode {
-  const { Banner } = usePrimitives();
+  const { Banner, ConfigSourceBadge, ConfigCascadeView } = usePrimitives();
   const dispatcher = useDispatcher();
 
   // Detail-Load: config:query:values returnt ALLE Keys des Tenants.
@@ -993,11 +991,11 @@ function ConfigEditBody({
   // Sources-Lookup: qualifiedKey → ConfigValueSource für das
   // ConfigSourceBadge. Wird via fieldAppendix an RenderEdit
   // durchgereicht.
-  const sources = useMemo<Record<string, string>>(() => {
+  const sources = useMemo<Record<string, ConfigValueSource>>(() => {
     if (valuesQuery.data === null) return {};
-    const out: Record<string, string> = {};
+    const out: Record<string, ConfigValueSource> = {};
     for (const [shortName, qualified] of Object.entries(screen.configKeys)) {
-      const source = valuesQuery.data[qualified]?.source;
+      const source = valuesQuery.data[qualified]?.source as ConfigValueSource | undefined; // @cast-boundary engine-payload
       if (source !== undefined) out[shortName] = source;
     }
     return out;
@@ -1086,7 +1084,7 @@ function ConfigEditBody({
         const cascade = cascades[fieldName];
         return (
           <>
-            {source !== undefined ? <ConfigSourceBadge source={source as ConfigValueSource} /> : null}
+            {source ? <ConfigSourceBadge source={source} /> : null}
             {cascade !== undefined ? (
               <ConfigCascadeView
                 cascade={cascade}

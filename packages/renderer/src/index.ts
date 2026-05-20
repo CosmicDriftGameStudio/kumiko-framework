@@ -26,8 +26,6 @@ export type { NavApi, NavProviderProps, NavRoute, NavTarget } from "./app/nav";
 export { formatPath, NavProvider, parsePath, useNav } from "./app/nav";
 export { lastSegment } from "./app/qn";
 export type { RenderEditProps } from "./components/render-edit";
-export { ConfigSourceBadge } from "./components/config-source-badge";
-export { ConfigCascadeView } from "./components/config-cascade";
 export { RenderEdit } from "./components/render-edit";
 export type { RenderFieldProps } from "./components/render-field";
 export { RenderField } from "./components/render-field";

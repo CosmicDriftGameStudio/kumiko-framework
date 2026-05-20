@@ -1257,6 +1257,9 @@ function DefaultHeading({ variant = "page", children, testId }: HeadingProps): R
   );
 }
 
+import { ConfigCascadeView as DefaultConfigCascadeView } from "../components/config-cascade";
+import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/config-source-badge";
+
 export const defaultPrimitives: CorePrimitives = {
   Button: DefaultButton,
   Banner: DefaultBanner,
@@ -1270,4 +1273,6 @@ export const defaultPrimitives: CorePrimitives = {
   Text: DefaultText,
   Heading: DefaultHeading,
   Dialog: DefaultDialog,
+  ConfigSourceBadge: DefaultConfigSourceBadge,
+  ConfigCascadeView: DefaultConfigCascadeView,
 };

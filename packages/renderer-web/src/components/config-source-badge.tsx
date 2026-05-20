@@ -1,6 +1,5 @@
 import type { ConfigValueSource } from "@cosmicdrift/kumiko-framework/engine";
 import type { ReactNode } from "react";
-import { usePrimitives } from "../primitives";
 
 const SOURCE_CONFIG: Record<
   ConfigValueSource,
@@ -20,8 +19,7 @@ export function ConfigSourceBadge({
 }: {
   readonly source: ConfigValueSource;
 }): ReactNode {
-  const { Text } = usePrimitives();
-  const cfg = SOURCE_CONFIG[source] ?? SOURCE_CONFIG.default;
+  const cfg = SOURCE_CONFIG[source];
 
   return (
     <span
