@@ -114,6 +114,26 @@ const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-t
 // Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
 // danach noch Unit + Integration Tests an; `kumiko check:fast` hängt nur
 // `vitest run --changed` an und skipt Integration komplett.
+// Optional scope-down via env-var: `KUMIKO_GUARD_ROOTS=kumiko-framework`
+// (or comma-separated list) limits both Biome/TypeScript per-repo steps
+// and the Unit-Tests-loop to those repos. Same env-var name and parsing
+// as `infra/guards/_lib/roots.ts` — so the per-repo guards (cross-repo
+// aware) and this CLI agree on scope. Used by the pre-push hook to keep
+// "push from kumiko-framework" from running all 5 repos' checks.
+const SCOPED_GUARD_ROOTS: ReadonlySet<string> | null = (() => {
+  const env = process.env["KUMIKO_GUARD_ROOTS"];
+  if (!env) return null;
+  const names = env
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return names.length > 0 ? new Set(names) : null;
+})();
+
+function inScope(repoName: string): boolean {
+  return SCOPED_GUARD_ROOTS === null || SCOPED_GUARD_ROOTS.has(repoName);
+}
+
 const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = (() => {
   const steps: Array<{ name: string; cmd: string }> = [];
 
@@ -126,6 +146,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   ];
 
   for (const root of siblings) {
+    if (!inScope(root.name)) continue;
     const absPath = join(REPO_ROOT, root.name);
     if (!existsSync(absPath)) continue;
 
@@ -210,6 +231,7 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
   ];
 
   for (const root of siblings) {
+    if (!inScope(root.name)) continue;
     const absPath = join(REPO_ROOT, root.name);
     if (!existsSync(absPath)) continue;
 
