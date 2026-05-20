@@ -18,7 +18,8 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { createConfigResolver, seedAllConfigValues } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import {
   createSessionCallbacks,
   type SessionCallbacks,
@@ -327,8 +328,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       }
       // Apply r.config({ seeds }) declared by any registered feature.
       // Runs before user-supplied seed callbacks so those can read /
-      // override the deploy-defaults.
-      await seedAllConfigValues(stack.registry, stack.db);
+      // override the deploy-defaults. The helper indirection is what
+      // config-seed-boot.integration.ts pins — keep it as a single call.
+      await applyBootSeeds({ registry: stack.registry, db: stack.db });
       for (const seed of options.seeds ?? []) {
         await seed(stack);
       }

@@ -37,7 +37,8 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { createConfigResolver, seedAllConfigValues } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -597,7 +598,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   if (options.auth) {
     await seedAdmin(db, options.auth.admin);
   }
-  await seedAllConfigValues(registry, db);
+  await applyBootSeeds({ registry, db });
   for (const seed of options.seeds ?? []) {
     await seed({ db });
   }

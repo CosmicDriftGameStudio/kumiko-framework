@@ -1,24 +1,24 @@
 // Pins the boot-wiring contract for config-seeds. runDevApp's onAfterSetup
-// and runProdApp's seed-block both call `seedAllConfigValues(registry, db)`
-// — this test simulates that boot moment with a feature declared via
-// r.config({ seeds }) and verifies:
+// and runProdApp's seed-block both call `applyBootSeeds(...)` — this test
+// calls the SAME helper, so if someone removes the call site from
+// runDevApp / runProdApp the helper still has at least one caller (this
+// test). Code review then sees an orphaned helper, not a silently broken
+// boot. For a stricter end-to-end pin you'd start an actual runDevApp;
+// that's heavy and not done here.
 //
-//   1. seed rows land in the projection after the boot hook runs,
-//   2. a re-boot is a no-op (no duplicate rows, no errors),
-//   3. an admin set on top of a seed wins the resolver cascade.
-//
-// If someone ever removes the seedAllConfigValues call from runDevApp /
-// runProdApp this test still passes (it calls the helper directly) — but
-// the seedAllConfigValues export+wiring is the contract being pinned, so
-// dropping it would surface as an import-not-found error here first.
+// Tests:
+//   1. seed rows land in the projection after applyBootSeeds runs,
+//   2. a re-boot is a no-op (idempotent),
+//   3. an admin set on top of a seed wins the resolver cascade; coexistence
+//      vs. override semantics depend on the admin user's tenantId.
 
 import {
   configValuesTable,
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
-  seedAllConfigValues,
 } from "@cosmicdrift/kumiko-bundled-features/config";
+import { applyBootSeeds } from "../boot/apply-boot-seeds";
 import {
   access,
   createSystemConfig,
@@ -79,10 +79,8 @@ afterAll(async () => {
 });
 
 describe("config-seed boot wiring", () => {
-  test("first boot: seedAllConfigValues writes one row per seed", async () => {
-    const result = await seedAllConfigValues(stack.registry, stack.db);
-    expect(result.created).toBe(2);
-    expect(result.skipped).toBe(0);
+  test("first boot: applyBootSeeds writes one row per seed", async () => {
+    await applyBootSeeds({ registry: stack.registry, db: stack.db });
 
     const rows = await stack.db.select().from(configValuesTable);
     expect(rows.length).toBe(2);
@@ -110,28 +108,31 @@ describe("config-seed boot wiring", () => {
     expect(maintPeek).toBe(true);
   });
 
-  test("re-boot: idempotent — every seed already on disk → all skipped", async () => {
-    const result = await seedAllConfigValues(stack.registry, stack.db);
-    expect(result.created).toBe(0);
-    expect(result.skipped).toBe(2);
+  test("re-boot: idempotent — every seed already on disk → no extra rows", async () => {
+    await applyBootSeeds({ registry: stack.registry, db: stack.db });
 
     const rows = await stack.db.select().from(configValuesTable);
     expect(rows.length).toBe(2);
   });
 
-  test("admin set overrides seed; subsequent boot keeps admin value", async () => {
+  test("admin set on top of seed wins resolver — Re-Boot preserves admin", async () => {
+    // siteName is a TENANT-scope key. The seed writes a row under
+    // SYSTEM_TENANT_ID (= "for all tenants"). An admin on a real tenant
+    // writes a row under THAT tenantId — higher specificity. Both rows
+    // coexist; the resolver returns the more specific one.
+    //
+    // If the admin happens to write as SYSTEM_TENANT_ID (e.g. test user
+    // is the system-admin on the system-tenant), the admin write hits
+    // the seed-row directly and updates the same aggregate stream. Both
+    // paths end up with the admin value winning — the row-count
+    // assertion makes the path explicit.
     await stack.http.writeOk(
       "config:write:set",
       { key: SITE_KEY, value: "admin-override", scope: "tenant" },
       TestUsers.systemAdmin,
     );
 
-    // Re-boot — seed-row already exists with a different aggregate stream
-    // (admin wrote via random-id), so seedAllConfigValues sees the unique
-    // (key, tenantId, userId) collision and skips. The admin value wins
-    // because higher-version stream owns the projection row.
-    const result = await seedAllConfigValues(stack.registry, stack.db);
-    expect(result.skipped).toBe(2);
+    await applyBootSeeds({ registry: stack.registry, db: stack.db });
 
     const siteKeyDef = stack.registry.getConfigKey(SITE_KEY);
     expect(siteKeyDef).toBeDefined();
@@ -143,5 +144,14 @@ describe("config-seed boot wiring", () => {
       stack.db,
     );
     expect(peek).toBe("admin-override");
+
+    // Row-count tells us which path was hit:
+    //   - 2 rows = override path (admin tenantId === SYSTEM_TENANT_ID,
+    //     updated the seed-stream in place).
+    //   - 3 rows = coexistence path (admin tenantId !== SYSTEM_TENANT_ID,
+    //     new specific-tenant row sits next to the seed system-row).
+    // Either is correct as long as the resolver picks the admin value.
+    const rows = await stack.db.select().from(configValuesTable);
+    expect([2, 3]).toContain(rows.length);
   });
 });
