@@ -174,17 +174,18 @@ export function LoginScreen({
                 {error.reason === "email_not_verified" &&
                   email.trim().length > 0 &&
                   email === failedLoginEmail && (
-                  <button
-                    type="button"
-                    onClick={() => void onResend()}
-                    disabled={resendStatus.kind === "sending"}
-                    className={`${authMutedLinkClass} self-start text-left disabled:opacity-50`}
-                  >
-                    {resendStatus.kind === "sending"
-                      ? t("auth.login.submitting")
-                      : t("auth.login.resendVerification")}
-                  </button>
-                )}
+                    // kumiko-lint-ignore primitives-discipline Inline-Link im Banner (UX-Choice); Button-Primitive hat keinen link-Variant
+                    <button
+                      type="button"
+                      onClick={() => void onResend()}
+                      disabled={resendStatus.kind === "sending"}
+                      className={`${authMutedLinkClass} self-start text-left disabled:opacity-50`}
+                    >
+                      {resendStatus.kind === "sending"
+                        ? t("auth.login.submitting")
+                        : t("auth.login.resendVerification")}
+                    </button>
+                  )}
                 {resendStatus.kind === "rateLimited" && (
                   <span className="text-xs">{t("auth.login.resendRateLimited")}</span>
                 )}
