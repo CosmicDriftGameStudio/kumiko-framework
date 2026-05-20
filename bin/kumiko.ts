@@ -1193,6 +1193,15 @@ const commands = {
     },
   },
 
+  ops: {
+    description:
+      "ES-Operations — kumiko ops seed:new <slug> | seed:status | seed:apply [--dry-run]",
+    run: async () => {
+      const { runOpsCommand } = await import("./ops.ts");
+      await runOpsCommand(Bun.argv.slice(3));
+    },
+  },
+
   codemod: {
     description:
       "Code-Migrationen — kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]",

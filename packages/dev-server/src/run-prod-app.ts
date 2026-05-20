@@ -42,7 +42,7 @@ import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/ses
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createSseBroker, type SseBroker } from "@cosmicdrift/kumiko-framework/api";
-import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createDbConnection, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
   createRegistry,
@@ -60,10 +60,16 @@ import {
 } from "@cosmicdrift/kumiko-framework/entrypoint";
 import { assertSchemaCurrent, SchemaDriftError } from "@cosmicdrift/kumiko-framework/migrations";
 import {
+  createDispatcher,
   createEntityCache,
   createEventDedup,
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createEsOperationsTable,
+  createSeedMigrationContext,
+  runPendingSeedMigrations,
+} from "@cosmicdrift/kumiko-framework/es-ops";
 import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { ASSETS_DIR } from "./build-prod-bundle";
@@ -275,6 +281,12 @@ export type RunProdAppOptions = {
   readonly auth?: RunProdAppAuthOptions;
   /** Custom seed functions, run after the admin seed (when auth-mode). */
   readonly seeds?: readonly ProdSeedFn[];
+  /** Pfad zum seeds-Directory für ES-Operations / Seed-Migrations
+   *  (file-basiert wie drizzle-migrate). Wenn gesetzt + KUMIKO_SKIP_ES_OPS
+   *  != "1": runProdApp scannt das Verzeichnis nach `<id>.ts` Files,
+   *  diff vs kumiko_es_operations-Table, läuft pending in Tx.
+   *  Plan: kumiko-platform/docs/plans/features/es-ops.md */
+  readonly seedsDir?: string;
   /** Anonymous-access for public endpoints (same shape as runDevApp).
    *  Akzeptiert entweder einen statischen Config-Object ODER eine
    *  Factory `({db, redis, registry}) => Config` — die Factory wird
@@ -601,6 +613,25 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   await applyBootSeeds({ registry, db });
   for (const seed of options.seeds ?? []) {
     await seed({ db });
+  }
+
+  // ES-Operations / Seed-Migrations (Phase 1). Läuft NACH applyBootSeeds +
+  // existing seeds-array — die deklarativen Seeds sind die "always-insert-
+  // if-missing"-Schicht; seed-migrations sind die "diff-and-update"-
+  // Schicht für Drift den existing Seeds nicht erfassen können (z.B.
+  // Membership-Roles-Change nach initialer Seed-Erstellung).
+  if (options.seedsDir !== undefined && process.env["KUMIKO_SKIP_ES_OPS"] !== "1") {
+    await createEsOperationsTable(db);
+    const seedDispatcher = createDispatcher(registry, {
+      db, redis, entityCache, registry, ...extraContext,
+    });
+    await runPendingSeedMigrations({
+      db,
+      seedsDir: options.seedsDir,
+      appliedBy: "boot",
+      createContext: (dbRunner: DbRunner) =>
+        createSeedMigrationContext({ dispatcher: seedDispatcher, dbRunner }),
+    });
   }
 
   await entrypoint.start();
