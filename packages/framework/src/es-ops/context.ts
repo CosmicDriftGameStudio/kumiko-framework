@@ -91,9 +91,7 @@ export function createSeedMigrationContext(
             rows?: readonly { id: string; name: string; tenant_key: string }[];
           }
         ).rows ?? [];
-      return rows.map(
-        (r): SeedTenantRow => ({ id: r.id, name: r.name, tenantKey: r.tenant_key }),
-      );
+      return rows.map((r): SeedTenantRow => ({ id: r.id, name: r.name, tenantKey: r.tenant_key }));
     },
 
     db: args.dbRunner,
