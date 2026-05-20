@@ -11,9 +11,18 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import type { LoginFailure } from "./auth-client";
+import { type LoginFailure, requestEmailVerification } from "./auth-client";
 import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";
 import { useSession } from "./session";
+
+// Resend-Status für den "Bestätigungs-Mail erneut senden"-Flow, der bei
+// reason=email_not_verified unter dem Fehler-Banner angeboten wird.
+type ResendStatus =
+  | { readonly kind: "idle" }
+  | { readonly kind: "sending" }
+  | { readonly kind: "success" }
+  | { readonly kind: "rateLimited" }
+  | { readonly kind: "error" };
 
 export type LoginScreenProps = {
   /** Overridet den `auth.login.title`-i18n-Key. Nur setzen wenn der
@@ -77,18 +86,47 @@ export function LoginScreen({
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<LoginFailure | null>(null);
+  const [resendStatus, setResendStatus] = useState<ResendStatus>({ kind: "idle" });
+  // Tracked, damit der Resend-Button verschwindet sobald der User die
+  // Email-Eingabe ändert — sonst würde Resend silent an die geänderte
+  // (potentiell typoed) Adresse gehen ohne User-Feedback.
+  const [failedLoginEmail, setFailedLoginEmail] = useState<string | null>(null);
 
   const doSubmit = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
+    setResendStatus({ kind: "idle" });
     const res = await session.login({ email, password });
     setSubmitting(false);
-    if (!res.ok) setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      setFailedLoginEmail(email);
+    }
   };
 
   const onSubmit = (e?: FormEvent): void => {
     e?.preventDefault();
     void doSubmit();
+  };
+
+  // Resend-Bestätigungsmail bei reason=email_not_verified. requestEmail-
+  // Verification ist silent-success (200 auch wenn kein User existiert),
+  // sodass kein anti-enumeration-Branching nötig ist; 429 → rate-limit-
+  // Hint inline, sonstige Fehler → generischer Inline-Hint.
+  const onResend = async (): Promise<void> => {
+    setResendStatus({ kind: "sending" });
+    try {
+      const res = await requestEmailVerification(email);
+      if (res.ok) {
+        setResendStatus({ kind: "success" });
+        return;
+      }
+      setResendStatus({
+        kind: res.error.reason === "rate_limited" ? "rateLimited" : "error",
+      });
+    } catch {
+      setResendStatus({ kind: "error" });
+    }
   };
 
   const effectiveTitle = title ?? t("auth.login.title");
@@ -122,14 +160,41 @@ export function LoginScreen({
               autoComplete="current-password"
             />
           </Field>
-          {error !== null && (
+          {resendStatus.kind === "success" ? (
+            <Banner variant="info">{t("auth.login.resendSuccess")}</Banner>
+          ) : error !== null ? (
             <Banner variant="error">
-              {(() => {
-                const { key, params } = reasonToKey(error);
-                return t(key, params);
-              })()}
+              <div className="flex flex-col gap-1">
+                <span>
+                  {(() => {
+                    const { key, params } = reasonToKey(error);
+                    return t(key, params);
+                  })()}
+                </span>
+                {error.reason === "email_not_verified" &&
+                  email.trim().length > 0 &&
+                  email === failedLoginEmail && (
+                    // kumiko-lint-ignore primitives-discipline Inline-Link im Banner (UX-Choice); Button-Primitive hat keinen link-Variant
+                    <button
+                      type="button"
+                      onClick={() => void onResend()}
+                      disabled={resendStatus.kind === "sending"}
+                      className={`${authMutedLinkClass} self-start text-left disabled:opacity-50`}
+                    >
+                      {resendStatus.kind === "sending"
+                        ? t("auth.login.submitting")
+                        : t("auth.login.resendVerification")}
+                    </button>
+                  )}
+                {resendStatus.kind === "rateLimited" && (
+                  <span className="text-xs">{t("auth.login.resendRateLimited")}</span>
+                )}
+                {resendStatus.kind === "error" && (
+                  <span className="text-xs">{t("auth.login.resendError")}</span>
+                )}
+              </div>
             </Banner>
-          )}
+          ) : null}
           <Button type="submit" loading={submitting} disabled={submitting}>
             {submitting ? t("auth.login.submitting") : effectiveSubmit}
           </Button>
