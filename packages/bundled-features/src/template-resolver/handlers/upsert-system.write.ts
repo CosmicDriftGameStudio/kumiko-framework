@@ -19,6 +19,8 @@ export const upsertSystemWrite = defineWriteHandler({
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;
+    // @cast-boundary engine-payload — SYSTEM_TENANT_ID ist UUID-Literal,
+    // assert auf TenantId-Branded-Type (parseTenantId-Equivalent).
     const tenantId = SYSTEM_TENANT_ID as TenantId;
     // executor-user muss SYSTEM_TENANT als tenantId haben, sonst sucht
     // event-store stream unter user.tenantId statt SYSTEM_TENANT → conflict.
@@ -63,10 +65,14 @@ export const upsertSystemWrite = defineWriteHandler({
 
     const result = await executor.create({ ...fields, tenantId }, executorUser, db);
     if (!result.isSuccess) return result;
+    // @cast-boundary db-row — executor.create returnt Record-row aus
+    // INSERT RETURNING; shape { id } ist garantiert weil PK in der
+    // Returning-Klausel ist.
+    const createdRow = result.data as { id: string | number };
     return {
       isSuccess: true as const,
       data: {
-        id: String((result.data as { id: string | number }).id),
+        id: String(createdRow.id),
         slug: event.payload.slug,
         isNew: true,
       },

@@ -129,20 +129,34 @@ async function fetchTemplate(
 }
 
 function toPublic(row: TemplateResourceRow): TemplateResource {
+  // @cast-boundary db-row — Drizzle-Schema typisiert kind/contentFormat/
+  // scope/status als generic text. CHECK-Constraints in der DB schränken
+  // sie auf die Union-Types ein; Cast assertet das Schema-Wissen.
+  // linkedResources ist ein text-column mit JSON-payload (string→string map).
+  const kind = row.kind as RenderKind;
+  // @cast-boundary db-row — siehe kind.
+  const contentFormat = row.contentFormat as ContentFormat;
+  // @cast-boundary db-row — siehe kind.
+  const scope = row.scope as "system" | "tenant";
+  // @cast-boundary db-row — siehe kind.
+  const status = row.status as "draft" | "active" | "archived";
+  // @cast-boundary db-row — parseJson returnt Record<string, unknown>;
+  // linkedResources-Spalte enthält per Schema {key: signedUrl}-Map.
+  const linkedResources = parseJson(row.linkedResources) as Record<string, string>;
   return {
     id: String(row.id),
     version: row.version,
     tenantId: row.tenantId,
     slug: row.slug,
-    kind: row.kind as RenderKind,
+    kind,
     locale: row.locale,
     content: row.content ?? "",
-    contentFormat: row.contentFormat as ContentFormat,
+    contentFormat,
     variableSchema: parseJson(row.variableSchema),
-    linkedResources: parseJson(row.linkedResources) as Record<string, string>,
-    scope: row.scope as "system" | "tenant",
+    linkedResources,
+    scope,
     parentTemplateId: row.parentTemplateId,
-    status: row.status as "draft" | "active" | "archived",
+    status,
     updatedAt: row.updatedAt,
   };
 }
@@ -151,6 +165,8 @@ function parseJson(raw: string | null): Record<string, unknown> {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);
+    // @cast-boundary engine-payload — JSON.parse returnt unknown, typeof-Guard
+    // grenzt auf object ein; Record<string, unknown> ist der minimale common-shape.
     return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
   } catch {
     return {};

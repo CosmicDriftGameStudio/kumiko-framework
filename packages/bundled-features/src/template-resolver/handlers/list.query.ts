@@ -48,6 +48,8 @@ export const listQuery = defineQueryHandler({
 
     const whereExpr = conditions.length > 0 ? and(...conditions) : undefined;
 
+    // @cast-boundary db-row — db.select returnt unknown[]; Row-Shape ist
+    // durch templateResourcesTable + buildBaseColumns garantiert.
     const rows = (await ctx.db
       .select()
       .from(templateResourcesTable)

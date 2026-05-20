@@ -46,6 +46,9 @@ export const upsertTenantWrite = defineWriteHandler({
         }),
       );
     }
+    // @cast-boundary engine-payload — override aus Zod-parsed string,
+    // event.user.tenantId schon TenantId-branded; union als TenantId casten
+    // ist legit (override ist UUID-Format-validiert in schema).
     const tenantId = (override ?? event.user.tenantId) as TenantId;
     const executorUser = override !== undefined ? { ...event.user, tenantId } : event.user;
 
@@ -86,10 +89,14 @@ export const upsertTenantWrite = defineWriteHandler({
 
     const result = await executor.create({ ...fields, tenantId }, executorUser, db);
     if (!result.isSuccess) return result;
+    // @cast-boundary db-row — executor.create returnt Record-row aus
+    // INSERT RETURNING; shape { id } ist garantiert weil PK in der
+    // Returning-Klausel ist.
+    const createdRow = result.data as { id: string | number };
     return {
       isSuccess: true as const,
       data: {
-        id: String((result.data as { id: string | number }).id),
+        id: String(createdRow.id),
         slug: event.payload.slug,
         isNew: true,
       },
