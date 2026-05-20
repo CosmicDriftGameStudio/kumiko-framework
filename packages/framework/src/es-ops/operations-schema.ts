@@ -15,15 +15,13 @@ import { type DbConnection, tableExists } from "../db";
 import { index, integer, table as pgTable, text, timestamp } from "../db/dialect";
 import { unsafePushTables } from "../stack";
 
-export type EsOperationType =
-  | "seed-migration"
-  // Phase 2+ extensions — append here when implemented:
-  // | "projection-rebuild"
-  // | "event-replay"
-  // | "stream-migration"
-  // | "aggregate-rebuild"
-  // | "archived-stream-purge"
-  ;
+export type EsOperationType = "seed-migration";
+// Phase 2+ extensions — append here when implemented:
+// | "projection-rebuild"
+// | "event-replay"
+// | "stream-migration"
+// | "aggregate-rebuild"
+// | "archived-stream-purge"
 
 export type EsOperationAppliedBy = "boot" | "cli" | "ci-pipeline";
 

@@ -7,11 +7,11 @@
 // config-seed.ts:40). Events haben createdBy = SYSTEM_TENANT_ID-User
 // → audit-fähig.
 
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import type { DbRunner } from "../db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "../engine";
 import type { Dispatcher } from "../pipeline/dispatcher";
-import type { SeedMembershipRow, SeedMigrationContext, SeedTenantRow, SeedUserRow } from "./types";
+import type { SeedMembershipRow, SeedMigrationContext, SeedTenantRow } from "./types";
 
 export type CreateSeedMigrationContextArgs = {
   readonly dispatcher: Dispatcher;

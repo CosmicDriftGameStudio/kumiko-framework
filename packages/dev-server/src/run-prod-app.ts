@@ -58,6 +58,11 @@ import {
   type ApiEntrypointOptions,
   createApiEntrypoint,
 } from "@cosmicdrift/kumiko-framework/entrypoint";
+import {
+  createEsOperationsTable,
+  createSeedMigrationContext,
+  runPendingSeedMigrations,
+} from "@cosmicdrift/kumiko-framework/es-ops";
 import { assertSchemaCurrent, SchemaDriftError } from "@cosmicdrift/kumiko-framework/migrations";
 import {
   createDispatcher,
@@ -65,11 +70,6 @@ import {
   createEventDedup,
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import {
-  createEsOperationsTable,
-  createSeedMigrationContext,
-  runPendingSeedMigrations,
-} from "@cosmicdrift/kumiko-framework/es-ops";
 import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { ASSETS_DIR } from "./build-prod-bundle";
@@ -623,7 +623,11 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   if (options.seedsDir !== undefined && process.env["KUMIKO_SKIP_ES_OPS"] !== "1") {
     await createEsOperationsTable(db);
     const seedDispatcher = createDispatcher(registry, {
-      db, redis, entityCache, registry, ...extraContext,
+      db,
+      redis,
+      entityCache,
+      registry,
+      ...extraContext,
     });
     await runPendingSeedMigrations({
       db,

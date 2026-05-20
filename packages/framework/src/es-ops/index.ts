@@ -11,12 +11,20 @@
 // Plan-Doc: kumiko-platform/docs/plans/features/es-ops.md
 
 export {
+  type CreateSeedMigrationContextArgs,
+  createSeedMigrationContext,
+} from "./context";
+export {
   createEsOperationsTable,
-  esOperationsTable,
-  type EsOperationType,
   type EsOperationAppliedBy,
+  type EsOperationType,
+  esOperationsTable,
 } from "./operations-schema";
-
+export {
+  type RunPendingSeedMigrationsArgs,
+  type RunPendingSeedMigrationsResult,
+  runPendingSeedMigrations,
+} from "./runner";
 export type {
   SeedMembershipRow,
   SeedMigration,
@@ -24,14 +32,3 @@ export type {
   SeedTenantRow,
   SeedUserRow,
 } from "./types";
-
-export {
-  type CreateSeedMigrationContextArgs,
-  createSeedMigrationContext,
-} from "./context";
-
-export {
-  type RunPendingSeedMigrationsArgs,
-  type RunPendingSeedMigrationsResult,
-  runPendingSeedMigrations,
-} from "./runner";

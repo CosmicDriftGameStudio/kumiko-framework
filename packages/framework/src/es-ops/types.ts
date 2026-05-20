@@ -68,10 +68,7 @@ export type SeedMigrationContext = {
    *  Typ-Signatur folgt existing ctx.writeAs (payload als unknown) — Type-
    *  Safety kommt über handler-spezifische Wrapper im Aufrufer ("ich weiß
    *  was updateMemberRoles braucht"). Versucht NICHT Generic-Magic. */
-  readonly systemWriteAs: (
-    handlerQualifiedName: string,
-    payload: unknown,
-  ) => Promise<WriteResult>;
+  readonly systemWriteAs: (handlerQualifiedName: string, payload: unknown) => Promise<WriteResult>;
 
   // Read-helpers für die häufigsten Lookups. Wachsen on-demand —
   // Phase 1 deckt den admin-roles-Driver-Use-Case ab; weitere Lookups

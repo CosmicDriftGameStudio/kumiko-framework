@@ -105,7 +105,9 @@ export async function runPendingSeedMigrations(
     } catch (err) {
       const elapsed = Date.now() - start;
       log(`${LOG_PREFIX} ✗ ${entry.id} (${elapsed}ms) — ${stringifyError(err)}`);
-      log(`${LOG_PREFIX} ABORT — ${pending.length - appliedIds.length - skippedIds.length - 1} pending migrations were NOT attempted`);
+      log(
+        `${LOG_PREFIX} ABORT — ${pending.length - appliedIds.length - skippedIds.length - 1} pending migrations were NOT attempted`,
+      );
       throw err;
     }
   }
@@ -158,6 +160,7 @@ async function loadSeedModule(filePath: string): Promise<SeedMigration> {
 
 function isSeedMigration(value: unknown): value is SeedMigration {
   if (typeof value !== "object" || value === null) return false;
+  // @cast-boundary type-guard — narrowing unknown to property-bag for shape-check
   const v = value as Partial<SeedMigration>;
   return typeof v.description === "string" && typeof v.run === "function";
 }
