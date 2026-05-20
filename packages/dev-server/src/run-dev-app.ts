@@ -24,7 +24,6 @@ import {
   type SessionCallbacks,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
-
 import type { SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
 import {
   type EffectiveFeaturesResolver,
@@ -35,6 +34,7 @@ import {
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { applyBootSeeds } from "./boot/apply-boot-seeds";
 
 import { watchAndRegenerate } from "./codegen";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
@@ -325,6 +325,11 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       if (options.auth) {
         await seedAdmin(stack.db, options.auth.admin);
       }
+      // Apply r.config({ seeds }) declared by any registered feature.
+      // Runs before user-supplied seed callbacks so those can read /
+      // override the deploy-defaults. The helper indirection is what
+      // config-seed-boot.integration.ts pins — keep it as a single call.
+      await applyBootSeeds({ registry: stack.registry, db: stack.db });
       for (const seed of options.seeds ?? []) {
         await seed(stack);
       }

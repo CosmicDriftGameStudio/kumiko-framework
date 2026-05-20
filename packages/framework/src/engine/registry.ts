@@ -6,6 +6,7 @@ import type {
   AuthClaimsHookDef,
   ClaimKeyDefinition,
   ConfigKeyDefinition,
+  ConfigSeedDef,
   EntityDefinition,
   EntityRelations,
   EventDef,
@@ -136,6 +137,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const extensionMap = new Map<string, RegistrarExtensionDef>();
   const extensionUsages: RegistrarExtensionRegistration[] = [];
   const allReferenceData: ReferenceDataDef[] = [];
+  const allConfigSeeds: ConfigSeedDef[] = [];
   const mergedTranslations: Record<string, Record<string, string>> = {};
   // Metric registry — keyed by fully qualified name (kumiko_<feature>_<short>).
   // Boot-time validation rejects bad names; dashboards then safely rely on shape.
@@ -425,6 +427,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
     extensionUsages.push(...feature.extensionUsages);
     allReferenceData.push(...feature.referenceData);
+    allConfigSeeds.push(...feature.configSeeds);
 
     // Metrics: validate + qualify per feature. Collisions across features are
     // rejected here — two features can't both register "created_total" under
@@ -1286,6 +1289,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getAllReferenceData(): readonly ReferenceDataDef[] {
       return allReferenceData;
+    },
+
+    getAllConfigSeeds(): readonly ConfigSeedDef[] {
+      return allConfigSeeds;
     },
 
     getProjectionsForSource(entityName: string): readonly ProjectionDefinition[] {

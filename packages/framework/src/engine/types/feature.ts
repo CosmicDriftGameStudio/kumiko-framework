@@ -5,6 +5,7 @@ import type {
   ConfigKeyDefinition,
   ConfigKeyHandle,
   ConfigKeyType,
+  ConfigSeedDef,
   JobDefinition,
   JobHandlerFn,
   NotificationDataFn,
@@ -170,6 +171,7 @@ export type FeatureDefinition = {
   readonly hooks: HookMap;
   readonly entityHooks: EntityHookMap;
   readonly configKeys: Readonly<Record<string, ConfigKeyDefinition>>;
+  readonly configSeeds: readonly ConfigSeedDef[];
   readonly jobs: Readonly<Record<string, JobDefinition>>;
   readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
   readonly extensionUsages: readonly RegistrarExtensionRegistration[];
@@ -356,8 +358,11 @@ export type FeatureRegistrar<TFeature extends string = string> = {
 
   // Returns a handle map keyed exactly like the input. Pass any handle to
   // `ctx.config(handle)` to get the value type narrowed by the key's `type`.
+  // Optional `seeds` declare boot-time system-rows that are written via the
+  // event-store executor — idempotent, skipped when the stream already exists.
   config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
     readonly keys: TKeys;
+    readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
   }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
 
   job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
@@ -656,6 +661,7 @@ export type Registry = {
   getAllTranslations(): TranslationKeys;
   getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined;
   getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition>;
+  getAllConfigSeeds(): readonly ConfigSeedDef[];
   // Feature-declared secrets, aggregated across all registered features.
   // Keyed by qualified name ("<feature>:<shortName>"). Used by the rotation
   // job (to iterate "known" secrets) and admin-UIs to list available keys.

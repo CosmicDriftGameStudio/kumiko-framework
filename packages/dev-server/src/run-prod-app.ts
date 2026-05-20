@@ -65,6 +65,7 @@ import {
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import Redis from "ioredis";
+import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { injectSchema } from "./inject-schema";
@@ -589,13 +590,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // statt eines fixed JSON-Strings. Heute: registry-static, also OK.
   const appSchemaJson = JSON.stringify(buildAppSchema(registry));
 
-  // 9. Seeds: admin first, then app-specific. Both expected to be
-  //    idempotent — runProdApp doesn't gate "first boot" via flag,
-  //    seeds check their own preconditions. seedAdmin checks email,
-  //    app seeds typically check "is my fixture row there?".
+  // 9. Seeds: admin first, then config-seeds from r.config({seeds}),
+  //    then app-specific. All idempotent — runProdApp doesn't gate
+  //    "first boot" via flag, every seed-step checks its own
+  //    preconditions. Config-seeds rely on a deterministic
+  //    aggregate-id so re-boot becomes a version_conflict skip.
   if (options.auth) {
     await seedAdmin(db, options.auth.admin);
   }
+  await applyBootSeeds({ registry, db });
   for (const seed of options.seeds ?? []) {
     await seed({ db });
   }

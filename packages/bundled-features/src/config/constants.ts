@@ -9,6 +9,7 @@ export const ConfigHandlers = {
 
 // Qualified query handler names (QN format: scope:type:name)
 export const ConfigQueries = {
+  cascade: "config:query:cascade",
   values: "config:query:values",
   schema: "config:query:schema",
 } as const;

@@ -30,6 +30,11 @@
 // über Core + Custom.
 
 import type {
+  ConfigCascade,
+  ConfigScope,
+  ConfigValueSource,
+} from "@cosmicdrift/kumiko-framework/engine";
+import type {
   FieldIssue,
   ListColumnViewModel,
   ListRowViewModel,
@@ -88,6 +93,8 @@ export type FieldProps = {
   readonly label: string;
   readonly required?: boolean;
   readonly issues?: readonly FieldIssue[];
+  readonly labelAppendix?: ReactNode;
+  readonly fieldAppendix?: ReactNode;
   readonly children: ReactNode;
   readonly testId?: string;
 };
@@ -466,6 +473,22 @@ export type DialogProps = {
   readonly testId?: string;
 };
 
+/** Source-badge for one cascade step (User / Tenant / System / …).
+ *  Used inline next to a config value to indicate where it came from. */
+export type ConfigSourceBadgeProps = {
+  readonly source: ConfigValueSource;
+};
+
+/** Collapsible cascade-view that lives under a config-edit input.
+ *  Shows the active level inline; click expands the full cascade and
+ *  exposes a Reset-button if the active level matches `screenScope`. */
+export type ConfigCascadeViewProps = {
+  readonly cascade: ConfigCascade;
+  readonly screenScope: ConfigScope;
+  readonly onReset?: (key: string, scope: ConfigScope) => void;
+  readonly qualifiedKey?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -481,6 +504,8 @@ export type CorePrimitives = {
   readonly Text: ComponentType<TextProps>;
   readonly Heading: ComponentType<HeadingProps>;
   readonly Dialog: ComponentType<DialogProps>;
+  readonly ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
+  readonly ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

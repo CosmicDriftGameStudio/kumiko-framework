@@ -123,6 +123,12 @@ export type ConfigStoredRow = {
   readonly userId: string | null;
 };
 
+// Extended row returned by ConfigResolver.getAllWithSource — includes the
+// resolution source so the UI can display where each value came from.
+export type ConfigStoredRowWithSource = ConfigStoredRow & {
+  readonly source: ConfigValueSource;
+};
+
 // Which layer of the cascade actually produced a value. Emitted only by
 // `getWithSource` — regular `get` hides this to keep the hot-path simple.
 // Use-case: Ops-debugging ("warum ist mein Wert 50 und nicht 100?") without
@@ -139,6 +145,22 @@ export type ConfigValueSource =
 export type ConfigValueWithSource = {
   readonly value: string | number | boolean | undefined;
   readonly source: ConfigValueSource;
+};
+
+/// Full cascade for a single config key — every level the resolver
+/// walks through, with the winning level marked.
+export type ConfigCascadeLevel = {
+  readonly label: string;
+  readonly value: string | number | boolean | undefined;
+  readonly source: ConfigValueSource;
+  readonly isActive: boolean;
+  readonly hasValue: boolean;
+};
+
+export type ConfigCascade = {
+  readonly value: string | number | boolean | undefined;
+  readonly source: ConfigValueSource;
+  readonly levels: readonly ConfigCascadeLevel[];
 };
 
 // Minimal contract handlers (set/reset/values.query) call against the
@@ -176,6 +198,39 @@ export type ConfigResolver = {
     userId: string,
     db: DbConnection | TenantDb,
   ): Promise<ReadonlyMap<string, ConfigStoredRow>>;
+
+  // Like getAll() but also reports the resolution source for each key.
+  // Use when the caller needs to display the cascade origin (e.g. the
+  // values.query handler serves the UI's hierarchy badge). Hot-path
+  // callers should prefer getAll() for the narrower return type.
+  getAllWithSource(
+    tenantId: TenantId,
+    userId: string,
+    db: DbConnection | TenantDb,
+  ): Promise<ReadonlyMap<string, ConfigStoredRowWithSource>>;
+
+  // Returns ALL cascade levels for a single key — not just the winner.
+  // Each level shows its value (or undefined if not set) and whether it
+  // is the active/winning level. Levels are ordered by specificity
+  // descending (most specific first).
+  getCascade(
+    qualifiedKey: string,
+    keyDef: ConfigKeyDefinition,
+    tenantId: TenantId,
+    userId: string,
+    db: DbConnection | TenantDb,
+  ): Promise<ConfigCascade>;
+
+  // Batch variant: resolves cascades for N keys in one DB round-trip.
+  // keyDefs must contain definitions for every key in the keys array.
+  // Returns a map of qualifiedKey → ConfigCascade.
+  getCascadeBatch(
+    keys: readonly string[],
+    keyDefs: ReadonlyMap<string, ConfigKeyDefinition>,
+    tenantId: TenantId,
+    userId: string,
+    db: DbConnection | TenantDb,
+  ): Promise<ReadonlyMap<string, ConfigCascade>>;
 };
 
 // --- Process-Placement (runIn) ---
@@ -303,4 +358,45 @@ export type ReferenceDataDef = {
   readonly entityName: string;
   readonly data: readonly Record<string, unknown>[];
   readonly upsertKey?: string | undefined;
+};
+
+// --- Config Seeding ---
+
+// A deploy-time default for a config key, written via the event-store
+// executor at boot. Idempotent — if the stream already exists the executor
+// returns version_conflict and seedConfigValues counts it as skipped.
+// See config-seeding.md.
+//
+// `scope` is optional on the factory-output: createSeed leaves it unset
+// (define-feature derives it from keyDef.scope). createSystemSeed /
+// createTenantSeed / createUserSeed always set it explicitly.
+//
+// `tenantId` / `userId` semantics:
+//   - system scope: both stay undefined (row stored under SYSTEM_TENANT_ID).
+//   - tenant scope: tenantId optional (undefined → fallback row under
+//     SYSTEM_TENANT_ID, visible to all tenants via resolver cascade).
+//   - user scope: BOTH tenantId AND userId required, otherwise the resolver
+//     can never match the row (user-scope cascade looks up the user's actual
+//     tenantId, not SYSTEM_TENANT_ID).
+export type ConfigSeedDef = {
+  readonly key: string; // fully-qualified config key name (set by define-feature)
+  readonly value: string | number | boolean;
+  readonly scope?: ConfigScope;
+  readonly tenantId?: string;
+  readonly userId?: string;
+};
+
+// Factory types for ergonomic seed creation in r.config({ seeds }).
+
+export type CreateSeedOptions = {
+  readonly value: string | number | boolean;
+};
+
+export type CreateTenantSeedOptions = {
+  readonly tenantId?: string;
+};
+
+export type CreateUserSeedOptions = {
+  readonly tenantId: string;
+  readonly userId: string;
 };

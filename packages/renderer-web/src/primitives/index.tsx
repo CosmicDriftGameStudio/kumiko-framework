@@ -130,7 +130,16 @@ function DefaultBanner({
 
 // ---- Field (Label + Error) ----
 
-function DefaultField({ id, label, required, issues, children, testId }: FieldProps): ReactNode {
+function DefaultField({
+  id,
+  label,
+  required,
+  issues,
+  labelAppendix,
+  fieldAppendix,
+  children,
+  testId,
+}: FieldProps): ReactNode {
   const t = useTranslation();
   const hasError = issues !== undefined && issues.length > 0;
   return (
@@ -148,9 +157,11 @@ function DefaultField({ id, label, required, issues, children, testId }: FieldPr
         )}
       >
         {label}
+        {labelAppendix !== undefined && <>{labelAppendix}</>}
         {required === true && <span className="ml-0.5 text-destructive">*</span>}
       </LabelPrimitive.Root>
       {children}
+      {fieldAppendix !== undefined && <div className="mt-1">{fieldAppendix}</div>}
       {hasError && (
         <div
           role="alert"
@@ -1255,6 +1266,9 @@ function DefaultHeading({ variant = "page", children, testId }: HeadingProps): R
   );
 }
 
+import { ConfigCascadeView as DefaultConfigCascadeView } from "../components/config-cascade";
+import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/config-source-badge";
+
 export const defaultPrimitives: CorePrimitives = {
   Button: DefaultButton,
   Banner: DefaultBanner,
@@ -1268,4 +1282,6 @@ export const defaultPrimitives: CorePrimitives = {
   Text: DefaultText,
   Heading: DefaultHeading,
   Dialog: DefaultDialog,
+  ConfigSourceBadge: DefaultConfigSourceBadge,
+  ConfigCascadeView: DefaultConfigCascadeView,
 };
