@@ -160,7 +160,12 @@ async function listSeedFiles(seedsDir: string): Promise<readonly SeedFileEntry[]
     .sort() // filename = chronologische ID (date-prefix-convention)
     .map((name) => ({
       id: name.replace(/\.(ts|mts|js)$/, ""),
-      filePath: path.join(seedsDir, name),
+      // resolve, nicht join: Bun's await import() braucht absolute Pfade.
+      // Wenn seedsDir relativ ist (z.B. "./seeds" aus runProdApp-Option),
+      // wäre der join-Pfad auch relativ → Bun's import-resolver such
+      // relativ zum runner.ts-Modul, nicht zu process.cwd() → fail mit
+      // "Cannot find module 'seeds/...' from '<runner-path>'".
+      filePath: path.resolve(seedsDir, name),
     }));
 }
 
