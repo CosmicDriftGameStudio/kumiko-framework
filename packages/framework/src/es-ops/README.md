@@ -1,6 +1,8 @@
 # es-ops
 
-ES-Operations für Kumiko-Apps. Phase 1 liefert `seed-migrations` als file-basiertes Diff-and-Apply für Aggregate-State-Updates, die idempotent-Seeder nicht erfassen können.
+ES-Operations für Kumiko-Apps. Phase 1+1.5 liefert `seed-migrations` als file-basiertes Diff-and-Apply für Aggregate-State-Updates, die idempotent-Seeder nicht erfassen können.
+
+> **Phase 1 vs 1.5:** Phase 1 hatte den Foundation-Code, Phase 1.5 hat den ersten realen Driver-Use-Case durch (publicstatus admin-roles) und brachte: `tenantIdOverride` für Tenant-scope-Aggregates, Dry-Run-Validator für Handler-QNs, Deploy-Doku, lokales Smoke-Pattern. Pflicht-Lesen: [Retro](../../../../kumiko-platform/docs/plans/features/es-ops-phase1-retro.md).
 
 ## Quick API
 
@@ -27,15 +29,71 @@ export default {
     if (!admin) return;
     for (const m of await ctx.findMembershipsOfUser(admin.id)) {
       if (m.roles.includes("TenantAdmin")) continue;
-      await ctx.systemWriteAs("tenant:write:updateMemberRoles", {
-        userId: admin.id,
-        tenantId: m.tenantId,
-        roles: [...m.roles, "TenantAdmin"],
-      });
+      await ctx.systemWriteAs(
+        "tenant:write:update-member-roles",
+        { userId: admin.id, tenantId: m.tenantId, roles: [...m.roles, "TenantAdmin"] },
+        m.tenantId, // ← tenantIdOverride: Aggregate lebt im Tenant-Stream, NICHT SYSTEM
+      );
     }
   },
 } satisfies SeedMigration;
 ```
+
+### Wann brauche ich `tenantIdOverride`?
+
+Faustregel: **wenn das Ziel-Aggregate via Tenant-User erstellt wurde, brauchst Du den Override.**
+
+| Aggregate-Typ | Stream-Tenant | `tenantIdOverride` |
+|---|---|---|
+| config-values (system-scope) | SYSTEM_TENANT | weglassen |
+| system text-content | SYSTEM_TENANT | weglassen |
+| tenant-membership | jeweiliger Tenant-Stream | ✅ `m.tenantId` |
+| App-Entity (orders, tasks, …) | Tenant-Stream | ✅ Tenant-Id aus dem Lookup |
+
+Ohne `tenantIdOverride` sucht der Executor den Stream gegen SYSTEM_TENANT → `version_conflict`. Memory: `feedback_event_store_tenant_consistency.md`.
+
+## Deployment-Anforderungen
+
+Wichtig — wird gerne übersehen:
+
+### Docker / Bun-Bundle
+
+Seeds werden zur Runtime via `await import(absolutePath)` geladen. Bun's Bundler strippt dynamic-import-Targets → seeds/-Tree muss **als raw-TS-Tree** ins Image kopiert werden:
+
+```dockerfile
+# Nach dem dist-server/-COPY:
+COPY --from=build --chown=app:app /app/seeds ./seeds
+```
+
+Plus: in der `bun build` Stage NICHT mit `--minify` durch die seed-Files laufen (sie sind keine Eingabe — der Bundler bundlet `bin/main.ts`, nicht das seeds-Verzeichnis).
+
+### Idempotenz-Pflicht
+
+Seed-Body läuft **NICHT** atomic mit dem Marker (siehe „Was NICHT garantiert ist" unten). Wenn ein Seed mid-way thrown wirft, sind die schon committed Events drin, der Marker aber nicht → Retry beim nächsten Boot. **Seeds müssen idempotent sein.**
+
+Standard-Pattern:
+```ts
+const memberships = await ctx.findMembershipsOfUser(adminId);
+for (const m of memberships) {
+  if (m.roles.includes("TenantAdmin")) continue; // ← check-then-write
+  await ctx.systemWriteAs(...);
+}
+```
+
+Anti-Pattern (NICHT idempotent):
+```ts
+for (let i = 0; i < 5; i++) {
+  await ctx.systemWriteAs("create-something", { ... }); // ← Re-Run produziert Duplikate
+}
+```
+
+### Multi-Replica-Boot
+
+`pg_advisory_xact_lock` sequentialisiert parallele Pod-Boots. Lock-Key ist global (`0x65736f70` / „esop"), nicht migration-spezifisch → bei N pending Migrationen läuft N-mal sequentiell, nicht parallel. Für die typische seed-Migration-Workload ist das schnell genug; bei sehr langen Migrationen (>30s) auf einem Multi-Replica-Stack: erst manuell als CLI-Step laufen lassen (`bunx kumiko ops seed:apply`), dann Pod-Rollout.
+
+### Lokaler Smoke vor Push
+
+Pflicht-Pattern: bevor Du seeds in main pushst, einmal lokal gegen Dev-DB den Boot-Loop laufen lassen. Siehe `samples/recipes/seed-migration/scripts/smoke.ts` als copy-paste-Template.
 
 ## CLI
 

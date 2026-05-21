@@ -18,11 +18,15 @@ export default {
     for (const m of await ctx.findMembershipsOfUser(admin.id)) {
       if (m.roles.includes("TenantAdmin")) continue; // bereits korrigiert
 
-      await ctx.systemWriteAs("tenant:write:updateMemberRoles", {
-        userId: admin.id,
-        tenantId: m.tenantId,
-        roles: Array.from(new Set([...m.roles, "TenantAdmin"])),
-      });
+      await ctx.systemWriteAs(
+        "tenant:write:update-member-roles", // kebab-case QN — wird vom Dry-Run-Validator gecheckt
+        {
+          userId: admin.id,
+          tenantId: m.tenantId,
+          roles: Array.from(new Set([...m.roles, "TenantAdmin"])),
+        },
+        m.tenantId, // ← tenantIdOverride: membership-aggregate lebt im Tenant-Stream
+      );
     }
   },
 } satisfies SeedMigration;

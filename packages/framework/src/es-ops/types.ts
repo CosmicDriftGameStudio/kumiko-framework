@@ -13,7 +13,7 @@
 // (Source-of-Truth + Projection läuft automatisch).
 
 import type { DbRunner } from "../db";
-import type { WriteResult } from "../engine";
+import type { TenantId, WriteResult } from "../engine";
 
 export type EsOperationAppliedBy = "boot" | "cli" | "ci-pipeline";
 
@@ -67,8 +67,27 @@ export type SeedMigrationContext = {
    *
    *  Typ-Signatur folgt existing ctx.writeAs (payload als unknown) — Type-
    *  Safety kommt über handler-spezifische Wrapper im Aufrufer ("ich weiß
-   *  was updateMemberRoles braucht"). Versucht NICHT Generic-Magic. */
-  readonly systemWriteAs: (handlerQualifiedName: string, payload: unknown) => Promise<WriteResult>;
+   *  was updateMemberRoles braucht"). Versucht NICHT Generic-Magic.
+   *
+   *  **tenantIdOverride (Phase 1.5):** wenn das Ziel-Aggregate in einem
+   *  spezifischen Tenant-Stream lebt (nicht SYSTEM_TENANT_ID, was Default
+   *  ist), MUSS der Caller die Stream-tenantId mitgeben — sonst sucht der
+   *  Event-Store-Executor den Aggregate-Stream gegen `SYSTEM_TENANT_ID`
+   *  und liefert `version_conflict` (siehe Memory
+   *  `feedback_event_store_tenant_consistency.md` + Driver-Use-Case
+   *  publicstatus-admin-roles in `project_es_ops_phase1_retro.md`).
+   *
+   *  Typische Pattern:
+   *    - System-scope-Aggregate (config-values, system text-content) →
+   *      tenantIdOverride weglassen (Default SYSTEM_TENANT_ID).
+   *    - Tenant-scope-Aggregate (memberships, tenant-config, app-data) →
+   *      `tenantIdOverride: m.tenantId` (oder den Stream-Tenant aus
+   *      einem find*-Helper). */
+  readonly systemWriteAs: (
+    handlerQualifiedName: string,
+    payload: unknown,
+    tenantIdOverride?: TenantId,
+  ) => Promise<WriteResult>;
 
   // Read-helpers für die häufigsten Lookups. Wachsen on-demand —
   // Phase 1 deckt den admin-roles-Driver-Use-Case ab; weitere Lookups

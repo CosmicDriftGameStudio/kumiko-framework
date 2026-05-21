@@ -16,6 +16,10 @@ export const createWrite = defineWriteHandler({
     key: z.string().min(1).max(50),
     name: z.string().min(1).max(200),
   }),
-  access: { roles: ["SystemAdmin"] },
+  // "system" + "SystemAdmin" — symmetrisch zu update-member-roles.
+  // ops-tooling (seed-migrations + sample-recipes) nutzen System-User
+  // (roles=["system"]) als Executor; "SystemAdmin" bleibt der echte
+  // human-Operator-Pfad über die UI.
+  access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => crud.create(event.payload, event.user, ctx.db),
 });
