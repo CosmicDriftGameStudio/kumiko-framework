@@ -1,3 +1,10 @@
+// @no-server-stack: seed-runner ist boot-time-Code, kein HTTP-route.
+// setupTestStack/buildServer würden eine Hono-app aufziehen die wir nicht
+// brauchen — der seed-runner ruft dispatcher.write direkt vor dem
+// entrypoint.start(). Pattern matched die echte run-prod-app.ts-Integration
+// (siehe run-prod-app.ts:632 — createDispatcher mit identical ctx-shape
+// inline gebaut bevor entrypoint.start()).
+//
 // End-to-End-Integration-Test gegen real-Stack (Phase 1.5 / A3).
 // Catched die Bug-Klassen die runner.integration.ts mit Mock-Dispatcher
 // NICHT abdeckt:

@@ -23,12 +23,6 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-  createRegistry,
-  createSystemUser,
-  SYSTEM_TENANT_ID,
-} from "@cosmicdrift/kumiko-framework/engine";
-
 // App-spezifisch: nimm die EFFEKTIVEN Features die deine App zur Runtime
 // nutzt. Im typischen Setup mit `runProdApp({ features, auth })`:
 //
@@ -43,6 +37,12 @@ import {
 // gegen sein eigenes Feature-Set.
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import {
+  createRegistry,
+  createSystemUser,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
+
 const features = [createConfigFeature(), createTenantFeature()];
 
 const seedsDir = (() => {
