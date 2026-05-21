@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.5.2
+
+### Patch Changes
+
+- 4f0d781: fix(tenant): updateMemberRoles erlaubt "system"-Rolle (symmetrisch zu create)
+
+  Drift innerhalb des tenant-Features: `tenant:write:create` akzeptierte
+  `["system", "SystemAdmin"]`, `tenant:write:update-member-roles` aber
+  nur `["SystemAdmin"]`. Konsequenz: ops-tooling und seed-migrations
+  (`createSystemUser` mit `roles: ["system"]`) konnten den Handler nicht
+  aufrufen — `access_denied`.
+
+  Live entdeckt beim ersten Driver-Sample der es-ops Phase 1: publicstatus
+  seed `2026-05-20-fix-admin-roles.ts` rief `update-member-roles` via
+  `systemWriteAs` → access_denied → Pod CrashLoopBackOff.
+
+  Plus access-rule-Pinning-Test in `tenant.integration.ts`-scenario-7.
+
+- Updated dependencies [4f0d781]
+  - @cosmicdrift/kumiko-framework@0.5.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.5.2
+  - @cosmicdrift/kumiko-renderer@0.5.2
+  - @cosmicdrift/kumiko-renderer-web@0.5.2
+
 ## 0.5.1
 
 ### Patch Changes
