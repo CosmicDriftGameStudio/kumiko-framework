@@ -10,6 +10,31 @@ File-based migrations for Event-Sourcing operations — the drizzle-migrate equi
 - **Tx-Atomicity** — Jede Migration läuft in eigener Transaction; Failure rollt zurück + bricht Boot ab (kein Partial-Apply).
 - **Chronologische File-IDs** — Filename `<date>-<slug>.ts` (z.B. `2026-05-20-fix-admin-roles.ts`) ist die ID. Drizzle-Style.
 
+### Phase 1.5 hinzugefügt
+
+- **`tenantIdOverride`** in `ctx.systemWriteAs(qn, payload, tenantId)` — Pflicht wenn das Aggregate in einem Tenant-Stream lebt (sonst `version_conflict`).
+- **Dry-Run-Validator** — Runner parsed seed-files vor Run + checked alle handler-QNs gegen registry. camelCase-typos & andere QN-Drift werden BEFORE the write erkannt.
+- **`scripts/smoke.ts`** — copy-paste-Template für lokalen Pre-Push-Smoke. Bun-runnable, validiert Module-Load + QN-Resolution + Access offline. **Pflicht-Pattern vor Push.**
+- **Docker-COPY-Pflicht** dokumentiert in `framework/src/es-ops/README.md`.
+
+## Lokaler Smoke vor Push (Pflicht)
+
+```bash
+# Im App-Root:
+bun samples/recipes/seed-migration/scripts/smoke.ts --seeds-dir ./seeds
+```
+
+Erwarteter Output:
+```
+seed: 2026-05-20-fix-admin-roles.ts
+  ✓ loads: "ergänze TenantAdmin-Rolle"
+  ✓ "tenant:write:update-member-roles" registered + accessible
+
+✓ all 1 seed-file(s) pass smoke.
+```
+
+Bei typo / drift fail-t mit klarer message + exit-code 1 — CI nutzt es als prä-build-step. App-Author muss in `smoke.ts` den `features`-Array gegen die eigene App-Feature-Set tauschen (siehe TODO im File).
+
 ## When to reach for it
 
 Du hast einen idempotent-Seeder der bei initialer Erstellung „Insert wenn nicht existiert" macht (z.B. `auth.admin.memberships`), und dann ändern sich die Soll-Daten — neue Rolle, anderer Tier, korrigierte Bezeichnung. Idempotent-Seeder skippen die existing Rows → DB driftet vom Code-Stand ab.

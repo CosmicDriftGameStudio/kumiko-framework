@@ -29,11 +29,20 @@ export type CreateSeedMigrationContextArgs = {
 export function createSeedMigrationContext(
   args: CreateSeedMigrationContextArgs,
 ): SeedMigrationContext {
-  const systemUser = createSystemUser(SYSTEM_TENANT_ID);
+  // Default-Executor für System-scope-Aggregates (config-values, system
+  // text-content, etc.). Bei Tenant-scope-Aggregates muss der Caller
+  // explizit `tenantIdOverride` übergeben — siehe types.ts Doku.
+  const defaultSystemUser = createSystemUser(SYSTEM_TENANT_ID);
 
   return {
-    systemWriteAs: async (handlerQualifiedName, payload) => {
-      const result = await args.dispatcher.write(handlerQualifiedName, payload, systemUser);
+    systemWriteAs: async (handlerQualifiedName, payload, tenantIdOverride) => {
+      // tenantIdOverride: baut einen System-User mit der Stream-tenantId
+      // damit der Event-Store-Executor das Aggregate im richtigen Stream
+      // findet. Verhindert die version_conflict-Falle (siehe Memory
+      // feedback_event_store_tenant_consistency.md).
+      const executor =
+        tenantIdOverride !== undefined ? createSystemUser(tenantIdOverride) : defaultSystemUser;
+      const result = await args.dispatcher.write(handlerQualifiedName, payload, executor);
       // Critical: WriteResult{isSuccess: false} würde sonst silent durchlaufen
       // → Marker landet trotz failed-Write → Migration falsch als "applied"
       // markiert. Hier throw damit der Runner's outer-tx rollback macht und

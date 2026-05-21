@@ -327,7 +327,9 @@ describe("scenario 6: config integration with tenant", () => {
 
 describe("scenario 7: access rules on handlers", () => {
   test("all handlers have correct access rules", async () => {
+    // "system" für seed-migrations + ops-tooling, "SystemAdmin" für UI-Operator
     expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.create)?.access)).toEqual([
+      "system",
       "SystemAdmin",
     ]);
     expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.update)?.access)).toEqual([

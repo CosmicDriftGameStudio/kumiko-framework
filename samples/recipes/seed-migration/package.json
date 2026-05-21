@@ -3,8 +3,8 @@
   "description": "ES-Operations seed-migrations — file-based diff-and-apply für Aggregate-Updates die idempotent-Seeder nicht erfassen.",
   "private": true,
   "dependencies": {
-    "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-    "@cosmicdrift/kumiko-dev-server": "workspace:*"
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

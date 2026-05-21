@@ -20,10 +20,11 @@
 // überspringen ohne ihr Code touchen zu müssen. NICHT als
 // Standard-Workflow — wirklich Notfall.
 
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { eq, sql } from "drizzle-orm";
 import type { DbConnection, DbRunner } from "../db";
+import type { Registry } from "../engine";
 import { esOperationsTable } from "./operations-schema";
 import type { EsOperationAppliedBy, SeedMigration, SeedMigrationContext } from "./types";
 
@@ -45,6 +46,14 @@ export type RunPendingSeedMigrationsArgs = {
   readonly createContext: (dbRunner: DbRunner) => SeedMigrationContext;
   /** Trace-marker: boot | cli | ci-pipeline. Landet in applied_by. */
   readonly appliedBy: EsOperationAppliedBy;
+  /** Optional registry für Dry-Run-Validation: parsed jeden seed-file und
+   *  checkt dass alle referenzierten handler-QNs in der Registry existieren
+   *  BEVOR die Migration läuft. Catched camelCase-typos + andere QN-Drift
+   *  zur Boot-Zeit statt mitten im write-cycle (Phase 1.5 / A2).
+   *
+   *  Wenn weggelassen → kein Dry-Run (backward-compat für tests die ohne
+   *  Registry arbeiten). runProdApp reicht den richtigen Registry rein. */
+  readonly registry?: Registry;
   /** Optional log-prefix override, default "[es-ops/seed-migration]". */
   readonly logger?: (line: string) => void;
 };
@@ -83,6 +92,31 @@ export async function runPendingSeedMigrations(
 
   const appliedIds: string[] = [];
   const skippedIds: string[] = [];
+
+  // Dry-Run-Pass (Phase 1.5 / A2): vor JEDER migration alle handler-QNs aus
+  // den seed-files parsen + gegen registry checken. Fail-fast vor erstem
+  // write — gibt klare error-message mit Datei + qn statt zur runtime
+  // "handler not found" mitten im migration-flow.
+  if (args.registry !== undefined) {
+    const unknownQns: Array<{ id: string; qn: string }> = [];
+    for (const entry of pending) {
+      const source = await readFile(entry.filePath, "utf-8");
+      for (const qn of extractWriteHandlerQns(source)) {
+        if (!args.registry.getWriteHandler(qn)) {
+          unknownQns.push({ id: entry.id, qn });
+        }
+      }
+    }
+    if (unknownQns.length > 0) {
+      const lines = unknownQns.map((u) => `  - ${u.id}: "${u.qn}" not registered`);
+      throw new Error(
+        `[es-ops/seed-migration] dry-run found ${unknownQns.length} unknown handler-QN(s):\n${lines.join(
+          "\n",
+        )}\n  Check spelling against your TenantHandlers/AuthHandlers constants (kebab-case after the colon).`,
+      );
+    }
+    log(`${LOG_PREFIX} dry-run ok — all referenced handler-QNs registered`);
+  }
 
   for (const entry of pending) {
     const migration = await loadSeedModule(entry.filePath);
@@ -201,6 +235,26 @@ function isSeedMigration(value: unknown): value is SeedMigration {
 // "2026-05-20-fix-admin-roles" → "2026_05_20_FIX_ADMIN_ROLES"
 function sanitizeForEnv(id: string): string {
   return id.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+}
+
+// Parse seed-file source + extract handler-QNs aus `systemWriteAs(...)`-
+// Calls. Reine regex (kein AST) — fängt die häufigen Inline-String-Cases:
+//   ctx.systemWriteAs("foo:write:bar", payload)
+//   systemWriteAs("foo:write:bar", ...)  (destructured)
+//
+// Edge-Cases die NICHT geguckt werden:
+//   - QN aus Variable: `const qn = "..."; ctx.systemWriteAs(qn, ...)`
+//   - String-Concat / Template-Literals mit dynamic vars
+// Diese Pattern sind selten in real seed-migrations + bleibt als known-
+// limitation dokumentiert. Wer dynamic-QN braucht, weiß was er tut.
+function extractWriteHandlerQns(source: string): readonly string[] {
+  const pattern = /systemWriteAs\s*\(\s*["']([^"']+)["']/g;
+  const out = new Set<string>();
+  for (const match of source.matchAll(pattern)) {
+    const qn = match[1];
+    if (qn) out.add(qn);
+  }
+  return [...out];
 }
 
 function stringifyError(err: unknown): string {
