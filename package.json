@@ -37,6 +37,9 @@
     "samples/recipes/*",
     "samples/apps/*"
   ],
+  "bin": {
+    "kumiko": "./bin/kumiko.ts"
+  },
   "scripts": {
     "kumiko": "NODE_OPTIONS=--no-deprecation bun run bin/kumiko.ts",
     "test": "vitest",
@@ -65,5 +68,11 @@
   "resolutions": {
     "react": "19.2.6",
     "react-dom": "19.2.6"
+  },
+  "dependencies": {
+    "ink": "^7.0.3",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0"
   }
 }

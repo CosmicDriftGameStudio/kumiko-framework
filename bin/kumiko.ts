@@ -1295,6 +1295,21 @@ async function runMigrateApply(appCwd: string, drizzleKitBin: string): Promise<v
 }
 
 async function interactiveMenu(): Promise<void> {
+  // Sprint A spike: Ink-TUI für interactive Browsing. Wenn das Modul
+  // nicht installiert oder Ink lädt fehlschlägt, fallback auf das alte
+  // Number-Input-Menü (keep working-on-any-machine garantie).
+  if (process.stdout.isTTY) {
+    try {
+      const { runTui } = await import("./kumiko-tui/index.tsx");
+      await runTui();
+      return;
+    } catch (e) {
+      console.warn(
+        `\n  Ink-TUI nicht verfügbar (${e instanceof Error ? e.message : "?"}), fallback to legacy menu.\n`,
+      );
+    }
+  }
+
   const entries = Object.entries(commands);
 
   banner();
