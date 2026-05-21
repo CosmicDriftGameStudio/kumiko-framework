@@ -1362,6 +1362,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@cosmicdrift/kumiko-sample-seed-migration@workspace:samples/recipes/seed-migration":
+  version: 0.0.0-use.local
+  resolution: "@cosmicdrift/kumiko-sample-seed-migration@workspace:samples/recipes/seed-migration"
+  dependencies:
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*"
+    "@cosmicdrift/kumiko-dev-server": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  languageName: unknown
+  linkType: soft
+
 "@cosmicdrift/kumiko-sample-session-revocation@workspace:samples/recipes/session-revocation":
   version: 0.0.0-use.local
   resolution: "@cosmicdrift/kumiko-sample-session-revocation@workspace:samples/recipes/session-revocation"
