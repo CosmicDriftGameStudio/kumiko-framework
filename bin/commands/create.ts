@@ -9,7 +9,6 @@ export const createCommand = defineCommand({
   category: "code",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
-    const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server");
     const args = parseArgs(ctx.argv);
     const name = args.positional[0];
     if (!name) {
@@ -19,6 +18,7 @@ export const createCommand = defineCommand({
       return 1;
     }
     const destination = getStringFlag(args, "path");
+    const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server");
     try {
       const result = scaffoldFeature({
         name,
