@@ -32,6 +32,10 @@
       "types": "./src/compliance/index.ts",
       "default": "./src/compliance/index.ts"
     },
+    "./es-ops": {
+      "types": "./src/es-ops/index.ts",
+      "default": "./src/es-ops/index.ts"
+    },
     "./engine": {
       "types": "./src/engine/index.ts",
       "default": "./src/engine/index.ts"
