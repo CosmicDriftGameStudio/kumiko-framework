@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.7.0
+
+### Minor Changes
+
+- bcf43b6: es-ops: `SeedMembershipRow` exposes `streamTenantId` (stream-tenant aus `kumiko_events.v1`) neben dem payload-`tenantId`. Seed-Authors müssen den `kumiko_events`-JOIN nicht mehr selbst bauen — `m.streamTenantId` ist der korrekte Wert für `systemWriteAs`'s `tenantIdOverride` wenn das Aggregate von einem fremden Executor angelegt wurde (typisches `seedTenantMembership(by=systemAdmin)`-Pattern).
+
+### Patch Changes
+
+- Updated dependencies [bcf43b6]
+  - @cosmicdrift/kumiko-framework@0.7.0
+  - @cosmicdrift/kumiko-headless@0.7.0
+
 ## 0.6.0
 
 ### Minor Changes
