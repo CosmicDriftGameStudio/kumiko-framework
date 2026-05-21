@@ -37,6 +37,9 @@
     "samples/recipes/*",
     "samples/apps/*"
   ],
+  "bin": {
+    "kumiko": "./bin/kumiko.ts"
+  },
   "scripts": {
     "kumiko": "NODE_OPTIONS=--no-deprecation bun run bin/kumiko.ts",
     "test": "vitest",
