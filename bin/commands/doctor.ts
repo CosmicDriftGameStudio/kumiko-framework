@@ -26,8 +26,8 @@ type Check = { readonly name: string; readonly ok: boolean; readonly hint?: stri
 export const doctorCommand = defineCommand({
   id: "doctor",
   label: "doctor",
-  description: "Health check. Vermutlich alles okay.",
-  help: "Prüft .env, env-vars, node_modules, docker services, postgres-ready.\nGibt Hints was zu tun ist wenn was nicht stimmt.",
+  description: "Health check. Probably everything is fine.",
+  help: "Checks .env, env vars, node_modules, docker services, postgres readiness.\nPrints hints when something is off.",
   category: "lifecycle",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {

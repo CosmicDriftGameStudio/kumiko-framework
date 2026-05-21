@@ -4,8 +4,8 @@ import { defineCommand } from "./registry";
 export const statusCommand = defineCommand({
   id: "status",
   label: "status",
-  description: "Was geht? Services, Git, alles auf einen Blick",
-  help: "Zeigt Docker-Services (compose ps) + aktuellen Git-Branch + working-tree-Änderungen.",
+  description: "What's running? Services, git, all at a glance",
+  help: "Shows docker services (compose ps) + current git branch + working-tree changes.",
   category: "lifecycle",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {

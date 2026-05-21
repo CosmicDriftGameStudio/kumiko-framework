@@ -11,6 +11,7 @@ import "./codemod";
 import "./consumer";
 import "./create";
 import "./dev";
+import "./docs";
 import "./doctor";
 import "./eval";
 import "./events";

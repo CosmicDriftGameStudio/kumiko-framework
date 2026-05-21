@@ -17,12 +17,12 @@ async function waitForPostgres(cwd: string, retries = 30): Promise<boolean> {
 export const resetCommand = defineCommand({
   id: "reset",
   label: "reset",
-  description: "Tabula rasa. Alles platt, alles neu",
-  help: "DESTRUKTIV: docker compose down -v (= Volume-Wipe) + frischer up -d.\nAlle lokalen Daten weg. Nutze für tests oder corruption-recovery.",
+  description: "Tabula rasa. Wipe everything, start fresh",
+  help: "DESTRUCTIVE: docker compose down -v (= volume wipe) + fresh up -d.\nAll local data is gone. Use for tests or corruption recovery.",
   category: "lifecycle",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
-    ctx.out.log("Loesche alles und starte frisch...");
+    ctx.out.log("Wiping everything and starting fresh...");
     const down = await run("docker", ["compose", "down", "-v"], { cwd: ctx.cwd });
     if (down.status !== 0) {
       ctx.out.err(`docker compose down -v failed: ${down.stderr}`);
@@ -35,10 +35,10 @@ export const resetCommand = defineCommand({
     }
     const ok = await waitForPostgres(ctx.cwd);
     if (!ok) {
-      ctx.out.err("Postgres antwortet nicht nach Reset");
+      ctx.out.err("Postgres is not responding after reset");
       return 1;
     }
-    ctx.out.log("Wie neu. Kein Byte ueberlebt.");
+    ctx.out.log("Good as new. Not a byte survived.");
     return 0;
   },
 });

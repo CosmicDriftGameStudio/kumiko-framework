@@ -26,7 +26,9 @@ const EXPECTED_IDS = [
   "consumer",
   "create",
   "dev",
+  "docs",
   "doctor",
+  "eval",
   "events",
   "migrate",
   "ops",
@@ -37,7 +39,7 @@ const EXPECTED_IDS = [
   "test",
 ] as const;
 
-const ALLOWED_CATEGORIES: ReadonlyArray<Category> = ["lifecycle", "quality", "code", "ops"];
+const ALLOWED_CATEGORIES: ReadonlyArray<Category> = ["help", "lifecycle", "quality", "code", "ops"];
 const ALLOWED_ROLES: ReadonlyArray<Role> = ["maintainer", "app-dev"];
 
 describe("commands — registry coverage", () => {

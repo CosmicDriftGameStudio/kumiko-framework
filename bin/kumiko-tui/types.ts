@@ -3,7 +3,7 @@
 // `bin/commands/index.ts`-Registry, gefiltert nach Role.
 
 export type Role = "maintainer" | "app-dev";
-export type Category = "lifecycle" | "quality" | "code" | "ops";
+export type Category = "help" | "lifecycle" | "quality" | "code" | "ops";
 
 /** TUI-side view-model. Vom registry's Command abgeleitet, ohne run-fn
  *  (das ist die responsibility der CLI-bootstrap, nicht des UIs).

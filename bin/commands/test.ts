@@ -7,14 +7,14 @@ import { defineCommand } from "./registry";
 export const testCommand = defineCommand({
   id: "test",
   label: "test",
-  description: "Tests laufen lassen (test | integration | e2e | all | <path>)",
-  help: "Vitest-Runner mit scope-shortcuts:\n  test         Unit-Tests\n  integration  vitest.integration.config.ts (Docker erforderlich)\n  e2e          Playwright pro package/sample mit playwright.config.ts\n  all          Unit + Integration\n  <path>       Vitest mit Pfad-Filter",
+  description: "Run tests (test | integration | e2e | all | <path>)",
+  help: "Vitest runner with scope shortcuts:\n  test         Unit tests\n  integration  vitest.integration.config.ts (docker required)\n  e2e          Playwright per package/sample with playwright.config.ts\n  all          Unit + integration\n  <path>       Vitest with a path filter",
   category: "quality",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
     const scope = ctx.argv[0];
     if (scope === "all") {
-      ctx.out.log("Volle Breitseite — Unit + Integration...");
+      ctx.out.log("Full broadside — unit + integration...");
       ctx.out.log("");
       const guard = await runStreaming("node", ["vitest.integration.guard.js"], ctx.out, { cwd: ctx.cwd });
       if (guard !== 0) return guard;
@@ -23,7 +23,7 @@ export const testCommand = defineCommand({
       return await runStreaming("yarn", ["vitest", "run", "--config", "vitest.integration.config.ts"], ctx.out, { cwd: ctx.cwd });
     }
     if (scope === "integration") {
-      ctx.out.log("Integration Tests (Docker muss laufen)...");
+      ctx.out.log("Integration tests (docker must be running)...");
       ctx.out.log("");
       const guard = await runStreaming("node", ["vitest.integration.guard.js"], ctx.out, { cwd: ctx.cwd });
       if (guard !== 0) return guard;
@@ -43,11 +43,11 @@ export const testCommand = defineCommand({
         }
       }
       if (targets.length === 0) {
-        ctx.out.log("Keine E2E-Configs gefunden.");
+        ctx.out.log("No E2E configs found.");
         return 0;
       }
       const labels = targets.map((t) => `${t.root}/${t.name}`).join(", ");
-      ctx.out.log(`E2E via Playwright — ${targets.length} Target(s): ${labels}`);
+      ctx.out.log(`E2E via Playwright — ${targets.length} target(s): ${labels}`);
       ctx.out.log("");
       const playwrightBin = join(ctx.cwd, "node_modules/.bin/playwright");
       let lastCode = 0;

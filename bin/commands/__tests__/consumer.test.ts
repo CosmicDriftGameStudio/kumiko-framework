@@ -22,6 +22,6 @@ describe("consumer command", () => {
       makeContext({ cwd: t.cwd, argv: ["list"], out: spy.out }),
     );
     expect(exit).toBe(1);
-    expect(spy.errs.join("\n")).toMatch(/kumiko\.config\.ts nicht gefunden/);
+    expect(spy.errs.join("\n")).toMatch(/kumiko\.config\.ts not found/);
   });
 });

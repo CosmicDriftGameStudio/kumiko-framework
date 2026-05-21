@@ -4,8 +4,8 @@ import { defineCommand } from "./registry";
 export const buildCommand = defineCommand({
   id: "build",
   label: "build",
-  description: "Production-Build für eine App (dist/) — nimmt path oder $INIT_CWD",
-  help: "Bun.build + Tailwind + Public-Folder-Copy. Convention-driven.\n\nUsage: kumiko build [<path>]\nCWD-Resolution: arg → $INIT_CWD → process.cwd()",
+  description: "Build an app for production (dist/) — takes path or $INIT_CWD",
+  help: "Bun.build + Tailwind + public-folder copy. Convention-driven.\n\nUsage: kumiko build [<path>]\nCWD resolution: arg → $INIT_CWD → process.cwd()",
   category: "code",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {

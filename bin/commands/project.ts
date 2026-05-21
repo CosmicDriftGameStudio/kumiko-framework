@@ -5,8 +5,8 @@ import { defineCommand } from "./registry";
 export const projectCommand = defineCommand({
   id: "project",
   label: "project",
-  description: "Projections verwalten (list | status <name> | rebuild <name>)",
-  help: "Liest kumiko.config.ts im cwd, baut Registry, dispatched gegen die\nProjection-State-Tabelle in DATABASE_URL.\n\nSubcommands:\n  list                 Alle Projections + ihr State\n  status <name>        Detail-State einer Projection\n  rebuild <name>       Full rebuild + report",
+  description: "Manage projections (list | status <name> | rebuild <name>)",
+  help: "Reads kumiko.config.ts in cwd, builds the registry, dispatches against the\nprojection-state table in DATABASE_URL.\n\nSubcommands:\n  list                 List all projections and their state\n  status <name>        Show detail state for one projection\n  rebuild <name>       Full rebuild + report",
   category: "ops",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
@@ -16,9 +16,9 @@ export const projectCommand = defineCommand({
     const configPath = join(ctx.cwd, "kumiko.config.ts");
     if (!existsSync(configPath)) {
       ctx.out.err("");
-      ctx.out.err(`  kumiko.config.ts nicht gefunden: ${configPath}`);
+      ctx.out.err(`  kumiko.config.ts not found at: ${configPath}`);
       ctx.out.err("");
-      ctx.out.err("  Erstelle eine Datei, die deine features exportiert:");
+      ctx.out.err("  Create a file that exports your features:");
       ctx.out.err("    // kumiko.config.ts");
       ctx.out.err('    import { myFeature } from "./src/features/my-feature";');
       ctx.out.err("    export default { features: [myFeature] };");
@@ -56,12 +56,12 @@ export const projectCommand = defineCommand({
           const entries = await listProjectionsWithState(db, registry);
           if (entries.length === 0) {
             ctx.out.log("");
-            ctx.out.log("  Keine Projections registriert.");
+            ctx.out.log("  No projections registered.");
             ctx.out.log("");
             return 0;
           }
           ctx.out.log("");
-          ctx.out.log("  Registrierte Projections:");
+          ctx.out.log("  Registered projections:");
           ctx.out.log("");
           for (const e of entries) {
             const when = e.lastRebuildAt ? e.lastRebuildAt.toISOString() : "never";
@@ -84,7 +84,7 @@ export const projectCommand = defineCommand({
             const registered = registry.getAllProjections().has(arg);
             if (!registered) {
               ctx.out.err("");
-              ctx.out.err(`  Projection "${arg}" ist nicht registriert.`);
+              ctx.out.err(`  Projection "${arg}" is not registered.`);
               ctx.out.err("");
               return 1;
             }

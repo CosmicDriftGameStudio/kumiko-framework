@@ -17,12 +17,12 @@ async function waitForPostgres(cwd: string, retries = 30): Promise<boolean> {
 export const devCommand = defineCommand({
   id: "dev",
   label: "dev",
-  description: "Feuer frei! Docker Services hochfahren",
-  help: "Bootet Postgres + Redis + Meilisearch via docker compose up -d.\nIdempotent — wenn schon laufen, no-op.",
+  description: "Bring up local Docker services (Postgres, Redis, Meilisearch)",
+  help: "Boots Postgres + Redis + Meilisearch via docker compose up -d.\nIdempotent — no-op if already running.",
   category: "lifecycle",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
-    ctx.out.log("Wecke PostgreSQL und Redis auf...");
+    ctx.out.log("Starting PostgreSQL and Redis...");
     const up = await run("docker", ["compose", "up", "-d"], { cwd: ctx.cwd });
     if (up.status !== 0) {
       ctx.out.err(`docker compose failed: ${up.stderr}`);
@@ -30,7 +30,7 @@ export const devCommand = defineCommand({
     }
     const ok = await waitForPostgres(ctx.cwd);
     if (!ok) {
-      ctx.out.err("Postgres antwortet nicht — siehe `docker compose logs postgres`");
+      ctx.out.err("Postgres is not responding — check `docker compose logs postgres`");
       return 1;
     }
     const pg = process.env["KUMIKO_PG_PORT"] ?? "15432";
@@ -40,7 +40,7 @@ export const devCommand = defineCommand({
     ctx.out.log(`  Redis        localhost:${redis}`);
     ctx.out.log(`  Meilisearch  localhost:${meili}`);
     ctx.out.log("");
-    ctx.out.log("Laeuft! Happy coding.");
+    ctx.out.log("Up and running. Happy coding.");
     return 0;
   },
 });

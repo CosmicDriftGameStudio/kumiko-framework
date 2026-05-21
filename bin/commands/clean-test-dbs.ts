@@ -7,8 +7,8 @@ import { defineCommand } from "./registry";
 export const cleanTestDbsCommand = defineCommand({
   id: "clean-test-dbs",
   label: "clean-test-dbs",
-  description: "Verwaiste kumiko_test_* DBs loeschen (SIGKILLed Tests, abgebrochene Runs)",
-  help: "Aufruf: kumiko clean-test-dbs [--dry-run]\nRuft scripts/cleanup-test-dbs.ts auf — listet (dry-run) oder droppt (default) stale Test-DBs.",
+  description: "Drop orphan kumiko_test_* DBs (from SIGKILLed tests or aborted runs)",
+  help: "Usage: kumiko clean-test-dbs [--dry-run]\nLists (dry-run) or drops (default) stale test DBs.",
   category: "ops",
   roles: ["maintainer"],
   run: async (ctx) => {

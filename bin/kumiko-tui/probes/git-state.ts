@@ -7,7 +7,7 @@ export const gitStateProbe = defineProbe({
   roles: ["maintainer", "app-dev"],
   collect: async () => {
     const status = await run("git", ["status", "--porcelain"], { timeoutMs: 3000 });
-    if (status.status !== 0) return { level: "warn", summary: "kein git" };
+    if (status.status !== 0) return { level: "warn", summary: "no git" };
 
     const lines = status.stdout.split("\n").filter((l: string) => l.length > 0);
     const modified = lines.filter((l: string) => l.startsWith(" M") || l.startsWith("M")).length;

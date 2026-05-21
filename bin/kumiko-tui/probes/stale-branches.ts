@@ -11,7 +11,7 @@ export const staleBranchesProbe = defineProbe({
       ["branch", "--merged", "origin/main", "--format=%(refname:short)"],
       { timeoutMs: 3000 },
     );
-    if (r.status !== 0) return { level: "warn", summary: "kein git" };
+    if (r.status !== 0) return { level: "warn", summary: "no git" };
     const branches = r.stdout
       .split("\n")
       .map((b: string) => b.trim())

@@ -5,7 +5,7 @@
 
 export type Role = "maintainer" | "app-dev";
 
-export type Category = "lifecycle" | "quality" | "code" | "ops";
+export type Category = "help" | "lifecycle" | "quality" | "code" | "ops";
 
 /** Was an stdout/stderr geht — pluggable damit Tests den Output
  *  einsammeln können statt direkt aufs Terminal zu schreiben. */

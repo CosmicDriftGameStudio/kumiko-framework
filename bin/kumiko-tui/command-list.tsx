@@ -20,13 +20,14 @@ function loadCommands(role: Role): ReadonlyArray<TuiCommand> {
 }
 
 const CATEGORY_LABEL: Record<Category, string> = {
+  help: "Help",
   lifecycle: "Lifecycle",
   quality: "Quality",
   code: "Code",
   ops: "Ops",
 };
 
-const CATEGORY_ORDER: ReadonlyArray<Category> = ["lifecycle", "quality", "code", "ops"];
+const CATEGORY_ORDER: ReadonlyArray<Category> = ["help", "lifecycle", "quality", "code", "ops"];
 
 export function CommandList({
   role,
