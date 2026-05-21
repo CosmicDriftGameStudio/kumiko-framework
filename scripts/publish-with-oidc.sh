@@ -23,12 +23,15 @@
 
 #
 # Output-Contract für changesets/action@v1:
-#   - stdout: GENAU EIN JSON-Array `[{"name":"@scope/x","version":"y.z.w"},…]`
-#     (kein verbose-output drumherum, sonst kann die Action es nicht parsen).
+#   - stdout: pro publisheter package EINE Zeile `New tag: <name>@<version>`
+#     (matched action-source-Regex /New tag:\s+(@[^/]+\/[^@]+|[^/]+)@([^\s]+)/
+#     — identisch zu dem was `yarn changeset publish` selbst emitted).
+#   - stdout (zusätzlich, optional): JSON-Summary für eigene downstream-tools.
 #   - stderr: alle Logs.
-# Wenn dieses Array nicht-leer ist, erstellt changesets/action automatisch
-# Git-Tags + GitHub Releases pro Package — sonst nicht (das war das Drift-
-# Problem 0.2.1..0.2.3: ohne Output keine Tags/Releases).
+# Ohne die "New tag:"-Marker erstellt changesets/action KEINE git-tags +
+# GitHub-Releases, auch wenn die packages erfolgreich auf npm landen
+# (Drift-Problem 0.2.1..0.2.3 + 0.4.0..0.7.0 — letzteres weil ein früherer
+# Fix-Versuch nur die JSON-Summary emitted hat, was die Action nicht parst).
 
 set -euo pipefail
 
@@ -79,6 +82,14 @@ for pkg_json in packages/*/package.json; do
     published_json="$(jq -c \
       --arg name "$name" --arg version "$version" \
       '. + [{name: $name, version: $version}]' <<<"$published_json")"
+    # changesets/action@v1 parsed pro-package eine "New tag: <name>@<version>"-
+    # Zeile aus stdout (Regex: /New tag:\s+(@[^/]+\/[^@]+|[^/]+)@([^\s]+)/) und
+    # erstellt darauf basierend git-tags + GitHub-Releases. Die später emittierte
+    # JSON-Summary ist als Trace gedacht, NICHT als action-Input. Ohne diese
+    # Marker-Lines (release 0.4.0..0.7.0) gab es zwar npm-publish, aber keine
+    # Tags/Releases. Pattern matched 1:1 was `yarn changeset publish` selbst
+    # emitted (action source: packages/action-utils/src/run.ts).
+    echo "New tag: $name@$version"
   else
     failed+=("$name@$version")
   fi
