@@ -55,9 +55,33 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await testDb.db.execute(sql`
-    TRUNCATE kumiko_es_operations, read_users, read_tenant_memberships, read_tenants
+    TRUNCATE kumiko_es_operations, kumiko_events, read_users, read_tenant_memberships, read_tenants
+    RESTART IDENTITY CASCADE
   `);
 });
+
+// Helper: simulate `seedTenantMembership` writing both the read-row and
+// its v1-event with a custom stream-tenant. Tests use this to construct
+// the stream-vs-payload-tenant scenarios that drive the JOIN-helper.
+async function insertMembershipWithEvent(args: {
+  readonly id: string;
+  readonly userId: string;
+  readonly payloadTenantId: string;
+  readonly streamTenantId: string;
+  readonly roles: string;
+}): Promise<void> {
+  await testDb.db.execute(sql`
+    INSERT INTO read_tenant_memberships (id, user_id, tenant_id, roles)
+    VALUES (${args.id}::uuid, ${args.userId}, ${args.payloadTenantId}::uuid, ${args.roles})
+  `);
+  await testDb.db.execute(sql`
+    INSERT INTO kumiko_events
+      (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
+    VALUES
+      (${args.id}::uuid, 'tenant-membership', ${args.streamTenantId}::uuid, 1,
+       'tenant-membership.created', '{}'::jsonb, '{"userId":"system"}'::jsonb, 'system')
+  `);
+}
 
 function makeMockDispatcher() {
   return {
@@ -107,13 +131,24 @@ describe("SeedMigrationContext.findUserByEmail (integration)", () => {
 describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
   test("parst JSON-encoded roles-Spalte zu string[]", async () => {
     const userId = "01900000-0000-7000-8000-000000000001";
+    const aggId1 = "00000000-0000-4000-8000-0000000000a1";
+    const aggId2 = "00000000-0000-4000-8000-0000000000a2";
     const tenantId1 = "00000000-0000-4000-8000-000000000001";
     const tenantId2 = "00000000-0000-4000-8000-000000000002";
-    await testDb.db.execute(sql`
-      INSERT INTO read_tenant_memberships (user_id, tenant_id, roles) VALUES
-        (${userId}, ${tenantId1}::uuid, '["Admin", "TenantAdmin"]'),
-        (${userId}, ${tenantId2}::uuid, '["User"]')
-    `);
+    await insertMembershipWithEvent({
+      id: aggId1,
+      userId,
+      payloadTenantId: tenantId1,
+      streamTenantId: tenantId1,
+      roles: '["Admin", "TenantAdmin"]',
+    });
+    await insertMembershipWithEvent({
+      id: aggId2,
+      userId,
+      payloadTenantId: tenantId2,
+      streamTenantId: tenantId2,
+      roles: '["User"]',
+    });
 
     const ctx = createSeedMigrationContext({
       dispatcher: makeMockDispatcher() as never,
@@ -129,14 +164,49 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
     expect(m2?.roles).toEqual(["User"]);
   });
 
+  test("stream-tenant != payload-tenant wird korrekt ausgewiesen (Driver-Bug)", async () => {
+    // Reproduziert den publicstatus-Driver-Fall: seedTenantMembership
+    // wurde mit by=systemAdmin aufgerufen → executor.tenantId=
+    // SYSTEM_TENANT_ID landet als events.tenant_id, während payload.
+    // tenantId der target-Tenant ist. Die beiden divergieren.
+    const userId = "01900000-0000-7000-8000-000000000001";
+    const aggId = "00000000-0000-4000-8000-0000000000b1";
+    const payloadTenant = "00000000-0000-4000-8000-000000000042";
+    const streamTenant = "00000000-0000-4000-8000-000000000001"; // SYSTEM_TENANT-Stil
+    await insertMembershipWithEvent({
+      id: aggId,
+      userId,
+      payloadTenantId: payloadTenant,
+      streamTenantId: streamTenant,
+      roles: '["Admin"]',
+    });
+
+    const ctx = createSeedMigrationContext({
+      dispatcher: makeMockDispatcher() as never,
+      dbRunner: testDb.db,
+    });
+    const [m] = await ctx.findMembershipsOfUser(userId);
+    expect(m).toEqual({
+      userId,
+      tenantId: payloadTenant,
+      streamTenantId: streamTenant,
+      roles: ["Admin"],
+    });
+  });
+
   test("malformed roles-JSON → leeres Array (defensive, no throw)", async () => {
     // Defensive: wenn ein corrupted row kommt, soll der Seed nicht
     // explodieren — kann selbst entscheiden was zu tun ist.
     const userId = "01900000-0000-7000-8000-000000000002";
-    await testDb.db.execute(sql`
-      INSERT INTO read_tenant_memberships (user_id, tenant_id, roles) VALUES
-        (${userId}, '00000000-0000-4000-8000-000000000003'::uuid, 'not-json')
-    `);
+    const aggId = "00000000-0000-4000-8000-0000000000c1";
+    const tenantId = "00000000-0000-4000-8000-000000000003";
+    await insertMembershipWithEvent({
+      id: aggId,
+      userId,
+      payloadTenantId: tenantId,
+      streamTenantId: tenantId,
+      roles: "not-json",
+    });
     const ctx = createSeedMigrationContext({
       dispatcher: makeMockDispatcher() as never,
       dbRunner: testDb.db,
@@ -151,6 +221,26 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
       dbRunner: testDb.db,
     });
     const memberships = await ctx.findMembershipsOfUser("01900000-0000-7000-8000-000000000099");
+    expect(memberships).toEqual([]);
+  });
+
+  test("membership ohne v1-Event wird vom INNER JOIN ausgefiltert (Drift-Detection)", async () => {
+    // Schutz vor Data-Drift: read-row ohne event-row ist kein legitimer
+    // Zustand für ein ES-Aggregate. Statt einer Half-Row zurückzugeben
+    // verschwindet die Row aus dem Result — Seed-Author sieht "0 memberships"
+    // statt einer mit fehlendem stream-tenant zu arbeiten und schwer
+    // diagnostizierbare version_conflict-Errors zu produzieren.
+    const userId = "01900000-0000-7000-8000-000000000003";
+    await testDb.db.execute(sql`
+      INSERT INTO read_tenant_memberships (id, user_id, tenant_id, roles) VALUES
+        ('00000000-0000-4000-8000-0000000000d1'::uuid, ${userId},
+         '00000000-0000-4000-8000-000000000005'::uuid, '["Admin"]')
+    `);
+    const ctx = createSeedMigrationContext({
+      dispatcher: makeMockDispatcher() as never,
+      dbRunner: testDb.db,
+    });
+    const memberships = await ctx.findMembershipsOfUser(userId);
     expect(memberships).toEqual([]);
   });
 });
