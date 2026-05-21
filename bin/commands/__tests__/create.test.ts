@@ -31,7 +31,9 @@ describe("create command", () => {
     expect(spy.errs.join("\n")).toMatch(/Usage: kumiko create/);
   });
 
-  test("with name + --path scaffolds the feature", async () => {
+  // 15s timeout: dynamic import of `@cosmicdrift/kumiko-dev-server` can
+  // exceed vitest's 5s default under heavy parallel test load.
+  test("with name + --path scaffolds the feature", { timeout: 15000 }, async () => {
     const cwd = tmp();
     const dest = join(cwd, "my-feature-pkg");
     const spy = makeSpyOutput();
