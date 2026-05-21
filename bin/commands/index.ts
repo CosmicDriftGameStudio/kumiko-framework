@@ -12,6 +12,7 @@ import "./consumer";
 import "./create";
 import "./dev";
 import "./doctor";
+import "./eval";
 import "./events";
 import "./migrate";
 import "./ops";
