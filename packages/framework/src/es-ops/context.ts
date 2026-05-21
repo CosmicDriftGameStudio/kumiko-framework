@@ -53,35 +53,27 @@ export function createSeedMigrationContext(
       // Direct DB-Read via read_users-Projection (gleicher Pfad wie
       // UserQueries.findForAuth aber ohne Dispatcher-Roundtrip; Seeds
       // greifen oft 1-N Lookups → direkt schneller).
-      const result = await args.dbRunner.execute(
+      // @cast-boundary db-row — drizzle execute(sql) returns row-array
+      // direkt (kein { rows }-Wrapper); column-types vom SQL-Cast oben
+      const rows = (await args.dbRunner.execute(
         sql`SELECT id::text AS id, email, tenant_id::text AS tenant_id
             FROM read_users
             WHERE email = ${email}
             LIMIT 1`,
-      );
-      // @cast-boundary db-row — drizzle execute(sql) returns provider-shaped result; column-types kommen vom SQL-cast oben
-      const rows =
-        (result as { rows?: readonly { id: string; email: string; tenant_id: string }[] }).rows ??
-        [];
+      )) as unknown as readonly { id: string; email: string; tenant_id: string }[];
       const row = rows[0];
       if (!row) return null;
       return { id: row.id, email: row.email, tenantId: row.tenant_id };
     },
 
     findMembershipsOfUser: async (userId) => {
-      const result = await args.dbRunner.execute(
+      // @cast-boundary db-row — roles ist JSON-string in der text-Spalte
+      // (Memory: tenant-membership.created payload "[\"User\"]"), wird unten geparst
+      const rows = (await args.dbRunner.execute(
         sql`SELECT user_id::text AS user_id, tenant_id::text AS tenant_id, roles
             FROM read_tenant_memberships
             WHERE user_id = ${userId}`,
-      );
-      // @cast-boundary db-row — roles ist JSON-string in der text-Spalte
-      // (Memory: tenant-membership.created payload "[\"User\"]"), wird unten geparst
-      const rows =
-        (
-          result as {
-            rows?: readonly { user_id: string; tenant_id: string; roles: string }[];
-          }
-        ).rows ?? [];
+      )) as unknown as readonly { user_id: string; tenant_id: string; roles: string }[];
       return rows.map(
         (r): SeedMembershipRow => ({
           userId: r.user_id,
@@ -92,18 +84,12 @@ export function createSeedMigrationContext(
     },
 
     findTenants: async () => {
-      const result = await args.dbRunner.execute(
+      // @cast-boundary db-row
+      const rows = (await args.dbRunner.execute(
         sql`SELECT id::text AS id, name, tenant_key
             FROM read_tenants
             ORDER BY inserted_at`,
-      );
-      // @cast-boundary db-row
-      const rows =
-        (
-          result as {
-            rows?: readonly { id: string; name: string; tenant_key: string }[];
-          }
-        ).rows ?? [];
+      )) as unknown as readonly { id: string; name: string; tenant_key: string }[];
       return rows.map((r): SeedTenantRow => ({ id: r.id, name: r.name, tenantKey: r.tenant_key }));
     },
 

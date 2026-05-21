@@ -14,9 +14,9 @@ function makeTempSeedsDir(files: readonly { name: string; content: string }[]): 
   return dir;
 }
 
-// Minimal DB-Stub — Runner ruft nur transaction() + select() + insert() auf.
-// Wir simulieren beide so dass der applied-set-Path leer ist und Inserts
-// erfasst werden für Assertions.
+// Minimal DB-Stub — Runner ruft transaction() + select() + insert() +
+// execute() auf. execute() liefert ein leeres array für den
+// re-check-inside-lock (= "nicht applied, weiter mit Run").
 function makeStubDb(initialApplied: readonly string[] = []) {
   const inserts: Array<Record<string, unknown>> = [];
   const applied = new Set(initialApplied);
@@ -35,6 +35,10 @@ function makeStubDb(initialApplied: readonly string[] = []) {
         if (typeof row["id"] === "string") applied.add(row["id"]);
       },
     }),
+    // execute: für pg_advisory_xact_lock + re-check. Leere Liste = "nicht
+    // applied im Inner-Lock-Scope, weiter mit Run". applied-set check via
+    // select() oben wird sowieso schon angewendet.
+    execute: async (_q: unknown) => [],
   };
   return { db, inserts, applied };
 }

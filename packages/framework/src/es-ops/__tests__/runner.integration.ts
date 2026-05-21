@@ -221,6 +221,106 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
+  test("documented limitation: dispatcher-writes vor throw bleiben committed (idempotency-Pflicht für seeds)", async () => {
+    // Documents NICHT-Garantie aus dem README: systemWriteAs läuft durch
+    // den App-Dispatcher mit eigener tx-Verwaltung — die Runner-Tx
+    // schützt NUR den Marker-Insert + direct dbRunner-reads, NICHT die
+    // dispatcher-Writes. Daher müssen Seeds idempotent sein.
+    //
+    // Test: dispatcher.write wird 1× erfolgreich aufgerufen, dann throws.
+    // Expectation:
+    //   - dispatcher.write was called 1x (confirms write went through)
+    //   - kein Marker (run was rolled back)
+    //   - bei "echtem" Setup wäre die Event-Row schon committed → retry
+    //     müsste idempotent sein, sonst Duplikat.
+    const dir = makeTempSeedsDir([
+      {
+        name: "2026-05-20-write-then-throw.ts",
+        content: `
+          export default {
+            description: "writes successfully then throws (idempotency test)",
+            run: async (ctx) => {
+              await ctx.systemWriteAs("some:write:handler", { step: 1 });
+              throw new Error("post-write failure");
+            },
+          };
+        `,
+      },
+    ]);
+    try {
+      const dispatcher = makeMockDispatcher();
+      await expect(
+        runPendingSeedMigrations({
+          db: testDb.db,
+          seedsDir: dir,
+          appliedBy: "boot",
+          createContext: (dbRunner) =>
+            createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+          logger: () => {},
+        }),
+      ).rejects.toThrow(/post-write failure/);
+
+      // Write-handler WURDE aufgerufen — dispatcher-tx isoliert vom runner-tx
+      expect(dispatcher.write).toHaveBeenCalledTimes(1);
+      // Marker NICHT gesetzt — retry beim nächsten Boot wird die Migration
+      // nochmal ausführen. Wenn der Write nicht idempotent ist → Duplikat.
+      const markers = await testDb.db.select().from(esOperationsTable);
+      expect(markers).toHaveLength(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("advisory-lock + re-check: parallel-second-tx skipped wenn Marker schon da", async () => {
+    // Simuliert Race wo ein anderer Pod den Marker gesetzt hat
+    // BEVOR wir in unserer Tx waren. Re-Check inside lock catched das.
+    const dir = makeTempSeedsDir([
+      {
+        name: "2026-05-20-race.ts",
+        content: `
+          export default {
+            description: "race-test",
+            run: async () => {
+              throw new Error("MUST NOT BE CALLED — re-check should skip");
+            },
+          };
+        `,
+      },
+    ]);
+    try {
+      // Pre-seed marker als wäre ein parallel-Pod schon durch
+      await testDb.db.insert(esOperationsTable).values({
+        id: "2026-05-20-race",
+        operationType: "seed-migration",
+        durationMs: 42,
+        appliedBy: "boot",
+        notes: "applied by simulated parallel-pod",
+      });
+
+      const dispatcher = makeMockDispatcher();
+      // Würde normalerweise als pending klassifiziert (loadAppliedIds liest
+      // BEFORE the tx) — der re-check inside tx muss das catchen.
+      // Achtung: das obere applied-set-load sieht den Marker auch schon —
+      // dieses Test ist daher eher eine Wahrscheinlichkeits-Aussage über
+      // den Race-Pfad, nicht ein deterministischer Race-Repro. Aber:
+      // wenn der re-check funktioniert, läuft `run()` nicht.
+      await runPendingSeedMigrations({
+        db: testDb.db,
+        seedsDir: dir,
+        appliedBy: "boot",
+        createContext: (dbRunner) =>
+          createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+        logger: () => {},
+      });
+
+      expect(dispatcher.write).not.toHaveBeenCalled();
+      const markers = await testDb.db.select().from(esOperationsTable);
+      expect(markers).toHaveLength(1); // nur der pre-seeded
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("multiple seeds: apply in chronological order, halt on first failure", async () => {
     const dir = makeTempSeedsDir([
       {

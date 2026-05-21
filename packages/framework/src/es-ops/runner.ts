@@ -22,10 +22,18 @@
 
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { DbConnection, DbRunner } from "../db";
 import { esOperationsTable } from "./operations-schema";
 import type { EsOperationAppliedBy, SeedMigration, SeedMigrationContext } from "./types";
+
+// Stabiler 32-bit-Integer-Lock-Key für pg_advisory_xact_lock. Multi-Replica-
+// Boots gegen den selben Stack greifen denselben Lock — sequentialisiert
+// die Migration ohne dass jedes Pod alle pending Files parallel anwendet.
+// Ohne Lock: Pod A + Pod B sehen beide dieselbe pending-Liste → beide
+// laufen migration.run() → events DOUBLED, marker-unique-constraint
+// catched zu spät (nur den Marker, nicht die schon-committed Events).
+const ES_OPS_LOCK_KEY = 0x65_73_6f_70; // 'esop' als hex
 
 export type RunPendingSeedMigrationsArgs = {
   readonly db: DbConnection;
@@ -89,6 +97,24 @@ export async function runPendingSeedMigrations(
     const start = Date.now();
     try {
       await args.db.transaction(async (tx) => {
+        // Advisory-Lock: sequentialisiert Multi-Replica-Boots. Zweiter
+        // Pod blockt bis erster fertig ist, dann re-checked sein
+        // applied-set (außerhalb dieser Funktion in nächster Iteration)
+        // und findet den Marker → skip. Lock wird beim Tx-Commit
+        // automatisch released (xact-scope).
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(${ES_OPS_LOCK_KEY})`);
+
+        // Re-check applied-set INSIDE Tx + Lock — verhindert Race
+        // wo Pod-A schon committed hat während Pod-B vor dem Lock
+        // war. Sonst würde Pod-B die Migration nochmal ausführen.
+        const reCheck = (await tx.execute(
+          sql`SELECT 1 FROM kumiko_es_operations WHERE id = ${entry.id} LIMIT 1`,
+        )) as unknown as readonly unknown[];
+        if (reCheck.length > 0) {
+          log(`${LOG_PREFIX} race-skip "${entry.id}" — applied by parallel boot`);
+          return;
+        }
+
         const ctx = args.createContext(tx);
         await migration.run(ctx);
         await tx.insert(esOperationsTable).values({
