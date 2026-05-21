@@ -33,7 +33,20 @@ export function createSeedMigrationContext(
 
   return {
     systemWriteAs: async (handlerQualifiedName, payload) => {
-      return args.dispatcher.write(handlerQualifiedName, payload, systemUser);
+      const result = await args.dispatcher.write(handlerQualifiedName, payload, systemUser);
+      // Critical: WriteResult{isSuccess: false} würde sonst silent durchlaufen
+      // → Marker landet trotz failed-Write → Migration falsch als "applied"
+      // markiert. Hier throw damit der Runner's outer-tx rollback macht und
+      // Marker NICHT geschrieben wird. Seed-Author kann via try/catch eigene
+      // Fehler-Behandlung machen wenn ein soft-failure erwartet ist.
+      if (!result.isSuccess) {
+        const code = result.error?.code ?? "unknown";
+        const message = result.error?.message ?? "(no message)";
+        throw new Error(
+          `[es-ops/seed-migration] systemWriteAs("${handlerQualifiedName}") failed: ${code} — ${message}`,
+        );
+      }
+      return result;
     },
 
     findUserByEmail: async (email) => {

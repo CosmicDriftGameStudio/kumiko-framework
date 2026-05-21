@@ -173,6 +173,54 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
+  test("WriteResult{isSuccess:false} → throw + Marker NICHT geschrieben", async () => {
+    // Critical: ohne diese Garantie würde ein silent-failed Write den Seed
+    // als "applied" markieren → beim nächsten Boot kein retry → DB-Drift
+    // bleibt unbemerkt.
+    const dir = makeTempSeedsDir([
+      {
+        name: "2026-05-20-write-fails.ts",
+        content: `
+          export default {
+            description: "tries a handler that returns isSuccess:false",
+            run: async (ctx) => {
+              await ctx.systemWriteAs("some:write:handler", { foo: "bar" });
+            },
+          };
+        `,
+      },
+    ]);
+    try {
+      const dispatcher = {
+        write: vi.fn(async () => ({
+          isSuccess: false as const,
+          error: { code: "version_conflict", message: "stream changed" },
+        })),
+        query: vi.fn(),
+        command: vi.fn(),
+        batch: vi.fn(),
+        resolveAuthClaims: vi.fn(),
+      };
+
+      await expect(
+        runPendingSeedMigrations({
+          db: testDb.db,
+          seedsDir: dir,
+          appliedBy: "boot",
+          createContext: (dbRunner) =>
+            createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+          logger: () => {},
+        }),
+      ).rejects.toThrow(/version_conflict/);
+
+      // Kein Marker — bei nächstem Boot würde der Seed retried
+      const markers = await testDb.db.select().from(esOperationsTable);
+      expect(markers).toHaveLength(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("multiple seeds: apply in chronological order, halt on first failure", async () => {
     const dir = makeTempSeedsDir([
       {
