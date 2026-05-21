@@ -337,6 +337,11 @@ describe("scenario 7: access rules on handlers", () => {
     expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.disable)?.access)).toEqual([
       "SystemAdmin",
     ]);
+    // updateMemberRoles akzeptiert "system" (für seed-migrations + ops-tooling)
+    // PLUS "SystemAdmin" (echter Operator-Pfad). Symmetrisch zu create.
+    expect(
+      rolesOf(stack.registry.getWriteHandler(TenantHandlers.updateMemberRoles)?.access),
+    ).toEqual(["system", "SystemAdmin"]);
     expect(rolesOf(stack.registry.getQueryHandler(TenantQueries.list)?.access)).toEqual([
       "SystemAdmin",
     ]);
