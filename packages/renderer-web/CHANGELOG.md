@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.5.1
+
+### Patch Changes
+
+- 0e00015: fix(es-ops): path.resolve statt path.join für seedsDir → seed-files
+
+  Bun's `await import()` braucht absolute Pfade. Wenn der App-Author
+  `runProdApp({ seedsDir: "./seeds" })` setzt (relativ), würde
+  `path.join("./seeds", "foo.ts")` einen relativen Pfad liefern → Bun's
+  Import-Resolver such relativ zum `runner.ts`-Modul (nicht zum
+  `process.cwd()`) → `Cannot find module 'seeds/...' from '<runner-path>'`.
+
+  `path.resolve` löst gegen `process.cwd()` auf → absolute Pfade →
+  Import funktioniert. Aufgedeckt beim ersten Live-Boot der publicstatus-
+  Driver-Migration (Pod CrashLoopBackOff).
+
+- Updated dependencies [0e00015]
+  - @cosmicdrift/kumiko-dispatcher-live@0.5.1
+  - @cosmicdrift/kumiko-headless@0.5.1
+  - @cosmicdrift/kumiko-renderer@0.5.1
+
 ## 0.5.0
 
 ### Minor Changes
