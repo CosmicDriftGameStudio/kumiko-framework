@@ -112,6 +112,8 @@ export async function runPendingSeedMigrations(
         )) as unknown as readonly unknown[];
         if (reCheck.length > 0) {
           log(`${LOG_PREFIX} race-skip "${entry.id}" — applied by parallel boot`);
+          // skip: race-detected — other replica committed marker between
+          // loadAppliedIds() and this tx; their run already covered the work.
           return;
         }
 
