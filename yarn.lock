@@ -5934,6 +5934,8 @@ __metadata:
     typescript: "npm:^6.0.3"
     vitest: "npm:^4.1.6"
     yaml: "npm:^2.9.0"
+  bin:
+    kumiko: ./bin/kumiko.ts
   languageName: unknown
   linkType: soft
 

@@ -99,10 +99,8 @@ function banner(): void {
 const REPO_ROOT = resolvePath(import.meta.dir, "..", "..");
 const BIN_PATH = (() => {
   const rootBin = join(REPO_ROOT, "node_modules", ".bin");
-  console.error("DEBUG: BIN_PATH rootBin", rootBin, existsSync(rootBin));
   if (existsSync(rootBin)) return rootBin;
   const localBin = join(process.cwd(), "node_modules", ".bin");
-  console.error("DEBUG: BIN_PATH localBin", localBin, existsSync(localBin));
   if (existsSync(localBin)) return localBin;
   return rootBin; // Fallback
 })();
