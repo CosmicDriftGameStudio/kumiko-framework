@@ -32,7 +32,7 @@ export default {
       await ctx.systemWriteAs(
         "tenant:write:update-member-roles",
         { userId: admin.id, tenantId: m.tenantId, roles: [...m.roles, "TenantAdmin"] },
-        m.tenantId, // ← tenantIdOverride: Aggregate lebt im Tenant-Stream, NICHT SYSTEM
+        m.streamTenantId, // ← tenantIdOverride aus dem JOIN auf kumiko_events.v1
       );
     }
   },
@@ -47,8 +47,10 @@ Faustregel: **wenn das Ziel-Aggregate via Tenant-User erstellt wurde, brauchst D
 |---|---|---|
 | config-values (system-scope) | SYSTEM_TENANT | weglassen |
 | system text-content | SYSTEM_TENANT | weglassen |
-| tenant-membership | jeweiliger Tenant-Stream | ✅ `m.tenantId` |
+| tenant-membership | jeweiliger Stream-Tenant aus events.v1 | ✅ `m.streamTenantId` (NICHT `m.tenantId` — die beiden können divergieren!) |
 | App-Entity (orders, tasks, …) | Tenant-Stream | ✅ Tenant-Id aus dem Lookup |
+
+**Warum nicht `m.tenantId`?** read_tenant_memberships.tenant_id ist der payload-tenant (logisches Mitgliedschafts-Ziel), kumiko_events.tenant_id der v1-Row ist der stream-tenant (wo das Aggregate physisch lebt). seedTenantMembership mit `by=systemAdmin` lässt die zwei auseinanderlaufen — der Helper `findMembershipsOfUser` liefert beide getrennt, damit Seeds den richtigen wählen können.
 
 Ohne `tenantIdOverride` sucht der Executor den Stream gegen SYSTEM_TENANT → `version_conflict`. Memory: `feedback_event_store_tenant_consistency.md`.
 

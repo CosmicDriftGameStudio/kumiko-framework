@@ -76,17 +76,34 @@ export function createSeedMigrationContext(
     },
 
     findMembershipsOfUser: async (userId) => {
+      // INNER JOIN auf kumiko_events um den stream-tenant (events.tenant_id
+      // der v1-Row) neben dem payload-tenant (memberships.tenant_id) zu
+      // liefern. Die beiden divergieren wenn das Aggregate von einem
+      // Executor mit fremder tenantId angelegt wurde (seedTenantMembership
+      // by=systemAdmin) — typischer publicstatus-Driver-Use-Case.
+      // INNER (nicht LEFT): kein v1-Event bei vorhandener Read-Row wäre
+      // Data-Drift, kein legitimer Zustand für Seed-Migrations.
       // @cast-boundary db-row — roles ist JSON-string in der text-Spalte
       // (Memory: tenant-membership.created payload "[\"User\"]"), wird unten geparst
       const rows = (await args.dbRunner.execute(
-        sql`SELECT user_id::text AS user_id, tenant_id::text AS tenant_id, roles
-            FROM read_tenant_memberships
-            WHERE user_id = ${userId}`,
-      )) as unknown as readonly { user_id: string; tenant_id: string; roles: string }[];
+        sql`SELECT m.user_id::text AS user_id,
+                   m.tenant_id::text AS tenant_id,
+                   e.tenant_id::text AS stream_tenant_id,
+                   m.roles
+            FROM read_tenant_memberships m
+            JOIN kumiko_events e ON e.aggregate_id = m.id AND e.version = 1
+            WHERE m.user_id = ${userId}`,
+      )) as unknown as readonly {
+        user_id: string;
+        tenant_id: string;
+        stream_tenant_id: string;
+        roles: string;
+      }[];
       return rows.map(
         (r): SeedMembershipRow => ({
           userId: r.user_id,
           tenantId: r.tenant_id,
+          streamTenantId: r.stream_tenant_id,
           roles: safeParseRolesJson(r.roles),
         }),
       );

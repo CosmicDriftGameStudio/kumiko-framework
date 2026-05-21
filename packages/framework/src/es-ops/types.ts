@@ -46,10 +46,23 @@ export type SeedUserRow = {
   readonly tenantId: string;
 };
 
-/** Read-shape eines Membership-Eintrags wie an Seed-Helpers exposed. */
+/** Read-shape eines Membership-Eintrags wie an Seed-Helpers exposed.
+ *  Unterscheidet zwei tenantIds: die "logische" aus dem Read-Projektion
+ *  (`tenantId`) und die "physische" aus dem Aggregate-Stream
+ *  (`streamTenantId`). Die beiden weichen voneinander ab wenn das
+ *  Aggregate von einem Executor mit anderer tenantId angelegt wurde
+ *  (z.B. seedTenantMembership-by=systemAdmin) — typischer
+ *  publicstatus-Driver-Use-Case. */
 export type SeedMembershipRow = {
   readonly userId: string;
+  /** Payload-tenant aus `read_tenant_memberships.tenant_id`. Geht ins
+   *  write-payload als `tenantId`. */
   readonly tenantId: string;
+  /** Stream-tenant aus `kumiko_events.tenant_id` der v1-Row. MUSS als
+   *  `tenantIdOverride` an `systemWriteAs` durchgereicht werden, sonst
+   *  sucht der Event-Store-Executor den Stream im falschen Tenant und
+   *  liefert `version_conflict`. */
+  readonly streamTenantId: string;
   readonly roles: readonly string[];
 };
 

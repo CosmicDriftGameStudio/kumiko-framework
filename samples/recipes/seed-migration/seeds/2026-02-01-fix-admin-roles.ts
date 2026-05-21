@@ -25,7 +25,13 @@ export default {
           tenantId: m.tenantId,
           roles: Array.from(new Set([...m.roles, "TenantAdmin"])),
         },
-        m.tenantId, // ← tenantIdOverride: membership-aggregate lebt im Tenant-Stream
+        // tenantIdOverride: stream-tenant aus kumiko_events.v1 — NICHT
+        // m.tenantId (payload-tenant). Beide stimmen oft überein, weichen
+        // aber ab wenn das Aggregate ursprünglich von einem fremden
+        // Executor angelegt wurde (seedTenantMembership by=systemAdmin —
+        // publicstatus-Pattern). findMembershipsOfUser liefert beide,
+        // kein eigener JOIN nötig.
+        m.streamTenantId,
       );
     }
   },
