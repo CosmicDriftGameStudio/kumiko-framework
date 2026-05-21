@@ -33,7 +33,7 @@ import { runStreaming } from "./_spawn";
 export const evalCommand = defineCommand({
   id: "eval",
   label: "eval",
-  description: "L2 AI-Eval (live + smoke + drift) — delegiert in kumiko-enterprise/scripts",
+  description: "L2 AI eval (live + smoke + drift) — delegates to kumiko-enterprise/scripts",
   help: [
     "L2 AI-Eval runner — wraps the enterprise eval-pipeline.",
     "",

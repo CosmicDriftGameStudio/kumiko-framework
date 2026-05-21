@@ -4,12 +4,11 @@ import { defineCommand } from "./registry";
 export const createCommand = defineCommand({
   id: "create",
   label: "create",
-  description: "Scaffold eine leere Feature-Workspace",
-  help: "Usage: kumiko create <camelCaseName> [--path <dir>]\n\n<name> ist required, camelCase-validiert.\n--path Override für destination, default samples/recipes/<kebab-name>/",
+  description: "Scaffold an empty feature workspace",
+  help: "Usage: kumiko create <camelCaseName> [--path <dir>]\n\n<name> is required, camelCase-validated.\n--path overrides destination, default samples/recipes/<kebab-name>/",
   category: "code",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
-    const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server");
     const args = parseArgs(ctx.argv);
     const name = args.positional[0];
     if (!name) {
@@ -19,6 +18,7 @@ export const createCommand = defineCommand({
       return 1;
     }
     const destination = getStringFlag(args, "path");
+    const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server");
     try {
       const result = scaffoldFeature({
         name,

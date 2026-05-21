@@ -5,8 +5,8 @@ import { defineCommand } from "./registry";
 export const consumerCommand = defineCommand({
   id: "consumer",
   label: "consumer",
-  description: "Event-Consumer verwalten (list | status | restart | disable | enable | skip)",
-  help: "Subcommands:\n  list                 Alle Consumer + ihr State\n  status <name>        Detail-State\n  restart <name>       Lock release + retry\n  disable <name>       Pausiert den Consumer\n  enable <name>        Reaktiviert\n  skip <name>          Springt das aktuell-feststeckende Event\n",
+  description: "Manage event consumers (list | status | restart | disable | enable | skip)",
+  help: "Subcommands:\n  list                 List all consumers and their state\n  status <name>        Show detail state for one consumer\n  restart <name>       Release lock and retry\n  disable <name>       Pause the consumer\n  enable <name>        Reactivate\n  skip <name>          Skip the currently-stuck event\n",
   category: "ops",
   roles: ["maintainer"],
   run: async (ctx) => {
@@ -16,7 +16,7 @@ export const consumerCommand = defineCommand({
     const configPath = join(ctx.cwd, "kumiko.config.ts");
     if (!existsSync(configPath)) {
       ctx.out.err("");
-      ctx.out.err(`  kumiko.config.ts nicht gefunden: ${configPath}`);
+      ctx.out.err(`  kumiko.config.ts not found at: ${configPath}`);
       ctx.out.err("");
       return 1;
     }
@@ -68,12 +68,12 @@ export const consumerCommand = defineCommand({
           const entries = await listConsumersWithState(db, registeredConsumerNames);
           if (entries.length === 0) {
             ctx.out.log("");
-            ctx.out.log("  Keine Event-Consumer registriert.");
+            ctx.out.log("  No event consumers registered.");
             ctx.out.log("");
             return 0;
           }
           ctx.out.log("");
-          ctx.out.log("  Registrierte Event-Consumer:");
+          ctx.out.log("  Registered event consumers:");
           ctx.out.log("");
           for (const e of entries) {
             const errHint = e.lastError ? ` error=${e.lastError.slice(0, 60)}` : "";
@@ -95,7 +95,7 @@ export const consumerCommand = defineCommand({
           if (!state) {
             if (!registeredConsumerNames.includes(arg)) {
               ctx.out.err("");
-              ctx.out.err(`  Consumer "${arg}" ist nicht registriert.`);
+              ctx.out.err(`  Consumer "${arg}" is not registered.`);
               ctx.out.err("");
               return 1;
             }

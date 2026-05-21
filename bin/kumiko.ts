@@ -11,6 +11,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { getCommand, getCommands } from "./commands";
+import { getWelcomeBlock } from "./commands/welcome";
 import { detectRole } from "./role";
 import type { CommandContext, Output, Role } from "./commands/types";
 
@@ -48,7 +49,7 @@ async function main(): Promise<number> {
         return 0;
       } catch (e) {
         console.warn(
-          `Ink-TUI nicht verfügbar (${e instanceof Error ? e.message : "?"}), zeige Help.\n`,
+          `Ink TUI unavailable (${e instanceof Error ? e.message : "?"}), showing help.\n`,
         );
       }
     }
@@ -69,7 +70,7 @@ async function main(): Promise<number> {
 
   const cmd = getCommand(commandName);
   if (!cmd) {
-    console.error(`\n  I don't know "${commandName}". Maybe a typo? Try: kumiko help\n`);
+    console.error(`\n  Unknown command: "${commandName}". Try: kumiko help\n`);
     return 1;
   }
   if (!cmd.roles.includes(role)) {
@@ -113,11 +114,13 @@ function stripAsOverride(argv: ReadonlyArray<string>): string[] {
 
 function printHelp(role: Role): void {
   console.log("");
-  console.log(`  kumiko — role: ${role}`);
+  for (const line of getWelcomeBlock(role)) console.log(line);
+  console.log("");
+  console.log(`  Commands (role: ${role}):`);
   console.log("");
   const cmds = getCommands(role);
   for (const cmd of cmds) {
-    console.log(`  ${cmd.id.padEnd(18)} ${cmd.description}`);
+    console.log(`    ${cmd.id.padEnd(18)} ${cmd.description}`);
   }
   console.log("");
 }

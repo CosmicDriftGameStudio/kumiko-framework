@@ -3,8 +3,8 @@ import { defineCommand } from "./registry";
 export const opsCommand = defineCommand({
   id: "ops",
   label: "ops",
-  description: "ES-Operations — kumiko ops seed:new <slug> | seed:status | seed:apply [--dry-run]",
-  help: "Event-Store Seed-Workflow:\n  seed:new <slug>     Erstellt neue Seed-Datei mit Template\n  seed:status         Listet pending/applied seeds\n  seed:apply [--dry-run]   Applied pending seeds als events",
+  description: "ES operations — kumiko ops seed:new <slug> | seed:status | seed:apply [--dry-run]",
+  help: "Event-store seed workflow:\n  seed:new <slug>          Create a new seed file from template\n  seed:status              List pending/applied seeds\n  seed:apply [--dry-run]   Apply pending seeds as events",
   category: "ops",
   roles: ["maintainer"],
   run: async (ctx) => {

@@ -7,8 +7,8 @@ const LEGACY_BIN = "bin/kumiko-legacy.ts";
 export const checkFastCommand = defineCommand({
   id: "check:fast",
   label: "check:fast",
-  description: "Schneller Check (skip Integration, Unit-Tests nur --changed)",
-  help: "Fast iteration loop: parallel Biome/TS/Guards + vitest --changed.\nFür Pre-Commit / Pre-Push, NICHT für CI.\n\n(Sprint B: subprocess-delegation. Sprint C: extract.)",
+  description: "Fast check (skip integration, unit tests --changed only)",
+  help: "Fast iteration loop: parallel Biome/TS/guards + vitest --changed.\nFor pre-commit / pre-push, NOT for CI.\n\n(Sprint B: subprocess delegation. Sprint C: extract.)",
   category: "quality",
   roles: ["maintainer"],
   run: async (ctx) => {

@@ -4,8 +4,8 @@ import { defineCommand } from "./registry";
 export const codegenCommand = defineCommand({
   id: "codegen",
   label: "codegen",
-  description: "App-Codegen — schreibt .kumiko/define.ts + types.generated.d.ts aus r.defineEvent",
-  help: "Liest r.defineEvent-Aufrufe + schreibt .kumiko/define.ts + types.generated.d.ts.\nIdempotent. CI-friendly für Sync-Checks.\n\nUsage: kumiko codegen [<path>]\nCWD-Resolution: arg → $INIT_CWD → process.cwd()",
+  description: "App codegen — emit .kumiko/define.ts + types.generated.d.ts from r.defineEvent",
+  help: "Reads r.defineEvent calls and writes .kumiko/define.ts + types.generated.d.ts.\nIdempotent. CI-friendly for sync checks.\n\nUsage: kumiko codegen [<path>]\nCWD resolution: arg → $INIT_CWD → process.cwd()",
   category: "code",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {

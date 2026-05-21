@@ -4,8 +4,8 @@ import { defineCommand } from "./registry";
 export const eventsCommand = defineCommand({
   id: "events",
   label: "events",
-  description: "Events-Tabelle verwalten (prune [--older-than <days>] [--dry-run])",
-  help: "Subcommand:\n  prune [--older-than <days>] [--dry-run]\n    Default: 30 Tage. Schützt vor Konsumenten-Lag via ConsumerLagError.",
+  description: "Manage the events table (prune [--older-than <days>] [--dry-run])",
+  help: "Subcommand:\n  prune [--older-than <days>] [--dry-run]\n    Default: 30 days. Guards against consumer lag via ConsumerLagError.",
   category: "ops",
   roles: ["maintainer"],
   run: async (ctx) => {

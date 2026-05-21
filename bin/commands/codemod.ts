@@ -5,7 +5,7 @@ import { defineCommand } from "./registry";
 export const codemodCommand = defineCommand({
   id: "codemod",
   label: "codemod",
-  description: "Code-Migrationen — kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]",
+  description: "Run code migrations — kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]",
   help: "Subcommand:\n  pipeline   Convert free-form write-handlers → pipeline form\n\nFlags:\n  --dry-run   Preview changes\n  --verbose   Per-file details\n  --dir       Target dir (default: cwd)",
   category: "code",
   roles: ["maintainer"],

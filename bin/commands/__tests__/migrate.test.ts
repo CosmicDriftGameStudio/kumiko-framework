@@ -26,7 +26,7 @@ describe("migrate command", () => {
         makeContext({ cwd: t.cwd, argv: ["status"], out: spy.out }),
       );
       expect(exit).toBe(1);
-      expect(spy.errs.join("\n")).toMatch(/Kein drizzle\.config\.ts/);
+      expect(spy.errs.join("\n")).toMatch(/No drizzle\.config\.ts/);
     } finally {
       if (prevInit !== undefined) process.env["INIT_CWD"] = prevInit;
       else delete process.env["INIT_CWD"];

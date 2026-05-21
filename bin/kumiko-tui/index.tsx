@@ -17,8 +17,8 @@ const BROWSE_HOTKEYS: ReadonlyArray<Hotkey> = [
 ];
 
 const RUN_HOTKEYS: ReadonlyArray<Hotkey> = [
-  { key: "q/Esc", label: "abbrechen" },
-  { key: "Enter", label: "zurück (nach Exit)" },
+  { key: "q/Esc", label: "cancel" },
+  { key: "Enter", label: "back (after exit)" },
 ];
 
 function detectRole(): Role {

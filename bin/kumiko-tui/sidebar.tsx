@@ -57,7 +57,7 @@ export function Sidebar({
 
 function BrowseSidebar({ hovered }: { readonly hovered: TuiCommand | undefined }): ReactNode {
   if (!hovered) {
-    return <Text dimColor>Wähle einen Command…</Text>;
+    return <Text dimColor>Pick a command…</Text>;
   }
   return (
     <Box flexDirection="column">
@@ -99,9 +99,9 @@ function RunSidebar({ state }: { readonly state: RunState }): ReactNode {
     state.status === "running" ? icons.running : state.status === "done" ? icons.done : icons.fail;
   const statusLabel =
     state.status === "running"
-      ? "läuft"
+      ? "running"
       : state.status === "done"
-        ? "fertig"
+        ? "done"
         : `failed (exit ${state.exitCode ?? "?"})`;
 
   return (
