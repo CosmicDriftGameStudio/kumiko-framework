@@ -16,7 +16,11 @@ export const updateMemberRolesWrite = defineWriteHandler({
     tenantId: z.string(),
     roles: z.array(z.string()).min(1),
   }),
-  access: { roles: ["SystemAdmin"] },
+  // "system" + "SystemAdmin" — symmetrisch zu tenant:write:create. System-
+  // User (createSystemUser, roles=["system"]) braucht den Access für seed-
+  // migrations + andere ops-tooling-Pfade. SystemAdmin ist der echte
+  // human-Operator-Pfad über die UI.
+  access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;
     const existing = await fetchOne(
