@@ -1,7 +1,23 @@
 import { Box, Text, useInput } from "ink";
 import { type ReactNode, useEffect, useState } from "react";
+import { getCommands } from "../commands";
 import { icons, theme } from "./theme";
-import { type Category, type Role, SPIKE_COMMANDS, type TuiCommand } from "./types";
+import type { Category, Role, TuiCommand } from "./types";
+
+function loadCommands(role: Role): ReadonlyArray<TuiCommand> {
+  // Registry returns the full Command-objects (mit run-fn) — die TUI
+  // braucht aber nur die view-model-Subset. Mappen here so the rest
+  // of the TUI bleibt unverändert.
+  return getCommands(role).map((c) => ({
+    id: c.id,
+    label: c.label,
+    description: c.description,
+    help: c.help,
+    category: c.category as Category,
+    roles: c.roles as ReadonlyArray<Role>,
+    argv: [c.id],
+  }));
+}
 
 const CATEGORY_LABEL: Record<Category, string> = {
   lifecycle: "Lifecycle",
@@ -23,7 +39,7 @@ export function CommandList({
 }): ReactNode {
   // Filter by role + group by category. Stable flat index across groups
   // so ↑↓ navigation feels continuous (no reset between sections).
-  const visible = SPIKE_COMMANDS.filter((c) => c.roles.includes(role));
+  const visible = loadCommands(role);
   const grouped = CATEGORY_ORDER.map((cat) => ({
     cat,
     items: visible.filter((c) => c.category === cat),

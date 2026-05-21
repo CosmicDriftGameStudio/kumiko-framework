@@ -26,6 +26,7 @@ export default defineConfig({
       "packages/**/*.test.{ts,tsx}",
       "samples/**/*.test.{ts,tsx}",
       "scripts/**/*.test.ts",
+      "bin/**/*.test.ts",
     ],
     exclude: ["**/*.integration.ts", "**/*.e2e.ts"],
     setupFiles: ["./vitest.setup.ts"],
