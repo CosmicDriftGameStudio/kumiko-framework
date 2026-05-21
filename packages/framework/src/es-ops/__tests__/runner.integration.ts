@@ -271,9 +271,13 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
-  test("advisory-lock + re-check: parallel-second-tx skipped wenn Marker schon da", async () => {
-    // Simuliert Race wo ein anderer Pod den Marker gesetzt hat
-    // BEVOR wir in unserer Tx waren. Re-Check inside lock catched das.
+  test("applied-set filter: entries already in kumiko_es_operations werden geskipped", async () => {
+    // Test deckt den loadAppliedIds-Filter ab (pending = files \ applied).
+    // Der pg_advisory_xact_lock + inner-tx re-check ist eine zweite Defense-
+    // Linie für echte parallel-Pod-Races zwischen loadAppliedIds und der
+    // pro-Migration Tx — diese Race ist empirisch nicht reproduzierbar in
+    // einem Single-Process-Test ohne extra Lock-Coordination. Wir verifizieren
+    // hier nur die obere Filter-Schicht (häufigster Pfad).
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-race.ts",
