@@ -150,7 +150,10 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
 
   // Framework-core first so a feature that accidentally declares the same
   // var (e.g. PORT) gets a clear conflict error citing "framework-core"
-  // rather than silently overwriting a deploy-critical default.
+  // rather than silently overwriting a deploy-critical default. The
+  // conflict-detection makes the order safe in both directions — both
+  // throw — but downstream tools that consume `sources` (e.g. the
+  // upcoming Phase-5 lint-guard) may rely on this insertion order.
   if (options.core) {
     for (const [key, field] of Object.entries(zodShape(options.core))) {
       merged[key] = field;

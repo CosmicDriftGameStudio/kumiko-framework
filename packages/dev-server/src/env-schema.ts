@@ -14,7 +14,11 @@
 import { z } from "zod";
 
 /** Env-vars read by framework-core (api/server, db/connection,
- *  dev-server/run-prod-app). NOT including feature-specific vars. */
+ *  dev-server/run-prod-app). NOT including feature-specific vars.
+ *
+ *  PORT-default "3000" is the same fallback as
+ *  `packages/dev-server/src/run-prod-app.ts:533` — keep in sync when the
+ *  call-site is refactored to consume parsed env (Sprint 9.5 Phase 4). */
 export const frameworkCoreEnvSchema = z.object({
   PORT: z
     .string()
@@ -42,18 +46,19 @@ export const frameworkCoreEnvSchema = z.object({
         "(SSE) don't accumulate orphaned cursor-rows on restart.",
     ),
 
+  // `z.string().optional()` (not `z.literal("1")`) — the run-prod-app
+  // call-site (`process.env["KUMIKO_SKIP_ES_OPS"] !== "1"`) ignores any
+  // value other than literal "1". A stricter schema would reject e.g.
+  // "true" / "yes" that the runtime silently ignores, surfacing
+  // boot-errors for inputs the framework doesn't actually care about.
   KUMIKO_SKIP_ES_OPS: z
-    .literal("1")
+    .string()
     .optional()
     .describe(
       "Set to '1' to skip event-store ops (seed/migrate) at boot. " +
+        "Any other value is treated as 'not set' by run-prod-app. " +
         "Used by integration-test stacks that manage ES-ops out-of-band.",
     ),
-
-  NODE_ENV: z
-    .enum(["production", "development", "test"])
-    .optional()
-    .describe("Standard Node convention. Build-prod-bundle inlines 'production'."),
 });
 
 export type FrameworkCoreEnv = z.infer<typeof frameworkCoreEnvSchema>;

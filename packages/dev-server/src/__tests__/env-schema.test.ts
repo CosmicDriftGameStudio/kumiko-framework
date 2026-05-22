@@ -15,7 +15,6 @@ describe("frameworkCoreEnvSchema", () => {
     expect(env.REDIS_URL).toBe("redis://localhost:6379");
     expect(env.KUMIKO_INSTANCE_ID).toBeUndefined();
     expect(env.KUMIKO_SKIP_ES_OPS).toBeUndefined();
-    expect(env.NODE_ENV).toBeUndefined();
   });
 
   it("aggregates missing required vars (DATABASE_URL + REDIS_URL)", () => {
@@ -48,18 +47,15 @@ describe("frameworkCoreEnvSchema", () => {
     }
   });
 
-  it("rejects NODE_ENV outside the enum", () => {
-    try {
-      parseEnv(frameworkCoreEnvSchema, {
-        DATABASE_URL: "postgres://localhost:5432/db",
-        REDIS_URL: "redis://localhost:6379",
-        NODE_ENV: "staging",
-      });
-      throw new Error("should have thrown");
-    } catch (err) {
-      const nodeEnv = (err as KumikoBootError).errors.find((e) => e.name === "NODE_ENV");
-      expect(nodeEnv?.kind).toBe("invalid");
-    }
+  it("KUMIKO_SKIP_ES_OPS accepts any string (matches runtime semantics)", () => {
+    // Runtime check is `!== "1"` — non-"1" values are silently ignored.
+    // The schema mirrors that: validate string-or-unset, not "1"-only.
+    const env = parseEnv(frameworkCoreEnvSchema, {
+      DATABASE_URL: "postgres://localhost:5432/db",
+      REDIS_URL: "redis://localhost:6379",
+      KUMIKO_SKIP_ES_OPS: "true",
+    });
+    expect(env.KUMIKO_SKIP_ES_OPS).toBe("true");
   });
 
   it("composes into an app-wide schema with source attribution", () => {
@@ -91,7 +87,6 @@ describe("frameworkCoreEnvSchema", () => {
       REDIS_URL: "redis://localhost",
       KUMIKO_INSTANCE_ID: "pod-7",
       KUMIKO_SKIP_ES_OPS: "1",
-      NODE_ENV: "production",
     };
     expect(env.PORT).toBe("3000");
   });
