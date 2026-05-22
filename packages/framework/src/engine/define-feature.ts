@@ -124,7 +124,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const entityPreDelete: Record<string, PhasedHook<PreDeleteHookFn>[]> = {};
   const entityPostDelete: Record<string, PhasedHook<PostDeleteHookFn>[]> = {};
   const entityPostQuery: Record<string, OwnedFn<PostQueryHookFn>[]> = {};
-  const searchPayloadExtensions: Record<string, SearchPayloadContributorFn[]> = {};
+  const searchPayloadExtensions: Record<string, OwnedFn<SearchPayloadContributorFn>[]> = {};
   const notifications: Record<string, NotificationDefinition> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
@@ -377,7 +377,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     searchPayloadExtension(entityRef: NameOrRef, fn: SearchPayloadContributorFn): void {
       const entityName = resolveName(entityRef);
       if (!searchPayloadExtensions[entityName]) searchPayloadExtensions[entityName] = [];
-      searchPayloadExtensions[entityName].push(fn);
+      searchPayloadExtensions[entityName].push({ fn, featureName: name });
     },
 
     config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {

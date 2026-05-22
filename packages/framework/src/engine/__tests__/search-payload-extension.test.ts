@@ -90,6 +90,31 @@ describe("Contributor-Function-Signature", () => {
   });
 });
 
+describe("effectiveFeatures filtering", () => {
+  test("getSearchPayloadExtensions filters contributors of feature-toggle-disabled bundles", () => {
+    const fnA: SearchPayloadContributorFn = () => ({ a: 1 });
+    const fnB: SearchPayloadContributorFn = () => ({ b: 2 });
+
+    const featureA = defineFeature("bundleA", (r) => {
+      r.entity("thing", createEntity({ table: "things", fields: {} }));
+      r.searchPayloadExtension("thing", fnA);
+    });
+    const featureB = defineFeature("bundleB", (r) => {
+      r.searchPayloadExtension("thing", fnB);
+    });
+
+    const registry = createRegistry([featureA, featureB]);
+
+    // both effective → both fire
+    expect(registry.getSearchPayloadExtensions("thing")).toHaveLength(2);
+
+    // only bundleA effective → only fnA returned (bundleB filtered out)
+    const onlyA = registry.getSearchPayloadExtensions("thing", new Set(["bundleA"]));
+    expect(onlyA).toHaveLength(1);
+    expect(onlyA[0]).toBe(fnA);
+  });
+});
+
 describe("Boot-Validation", () => {
   test("rejects searchPayloadExtension on unknown entity-name (sibling to entity-hooks)", () => {
     expect(() =>

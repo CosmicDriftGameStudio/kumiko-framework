@@ -121,7 +121,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const entityPreDeleteHooks = new Map<string, PhasedHook<PreDeleteHookFn>[]>();
   const entityPostDeleteHooks = new Map<string, PhasedHook<PostDeleteHookFn>[]>();
   const entityPostQueryHooks = new Map<string, OwnedFn<PostQueryHookFn>[]>();
-  const searchPayloadExtensions = new Map<string, SearchPayloadContributorFn[]>();
+  const searchPayloadExtensions = new Map<string, OwnedFn<SearchPayloadContributorFn>[]>();
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
   const jobMap = new Map<string, JobDefinition>();
   const notificationMap = new Map<string, NotificationDefinition>();
@@ -1281,8 +1281,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     // F3 — Search-Payload-Extension contributors for an entity. Used by
     // `buildSearchDocument` in system-hooks.ts to enrich the indexed payload.
-    getSearchPayloadExtensions(entityName: string): readonly SearchPayloadContributorFn[] {
-      return searchPayloadExtensions.get(entityName) ?? [];
+    // `effectiveFeatures` filters out contributors owned by feature-toggle-
+    // disabled features (parallel to getEntityPostQueryHooks etc.).
+    getSearchPayloadExtensions(
+      entityName: string,
+      effectiveFeatures?: ReadonlySet<string>,
+    ): readonly SearchPayloadContributorFn[] {
+      return filterOwned(searchPayloadExtensions.get(entityName), effectiveFeatures);
     },
 
     getAllTranslations(): TranslationKeys {

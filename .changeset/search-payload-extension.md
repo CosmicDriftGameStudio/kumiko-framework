@@ -13,4 +13,8 @@ Contributor receives `{entityName, entityId, state}`, returns extras to merge. A
 
 Boot-validation: typo'd entity-names fail-fast at registry-build (sibling to entity-hooks boot-validation).
 
+**Behavior-change**: entities without any stammfeld `searchable: true` now get a search-doc indexed when at least one extension registers contributors for them. Before this PR, such entities were skipped entirely. This enables custom-fields-only-indexing (the customFields-bundle use-case) but slightly increases Meilisearch-Index-Membership.
+
+Ownership-tracking: contributors are stored as `OwnedFn` and filtered by `effectiveFeatures` in the getter — feature-toggle-disabled bundles' contributors don't fire (consistent with postQuery-Hooks).
+
 Part of custom-fields-bundle Sprint Phase F3.

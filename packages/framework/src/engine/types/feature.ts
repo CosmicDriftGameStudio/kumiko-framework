@@ -43,6 +43,7 @@ import type {
   EntityHookMap,
   HookMap,
   HookPhase,
+  OwnedFn,
   PostDeleteHookFn,
   PostQueryHookFn,
   PostSaveHookFn,
@@ -173,8 +174,11 @@ export type FeatureDefinition = {
   readonly hooks: HookMap;
   readonly entityHooks: EntityHookMap;
   // F3 search-payload-extension — per-entity contributors that add flat fields
-  // to the search-index payload during indexing. Keyed by entityName.
-  readonly searchPayloadExtensions: Readonly<Record<string, readonly SearchPayloadContributorFn[]>>;
+  // to the search-index payload during indexing. Keyed by entityName. Wrapped
+  // in OwnedFn for feature-toggle filtering (consistent with postQuery-Hooks).
+  readonly searchPayloadExtensions: Readonly<
+    Record<string, readonly OwnedFn<SearchPayloadContributorFn>[]>
+  >;
   readonly configKeys: Readonly<Record<string, ConfigKeyDefinition>>;
   readonly configSeeds: readonly ConfigSeedDef[];
   readonly jobs: Readonly<Record<string, JobDefinition>>;
@@ -692,7 +696,12 @@ export type Registry = {
   ): readonly PostQueryHookFn[];
   // F3 — contributors for an entity's search-doc-payload, fired during
   // buildSearchDocument indexing. See `SearchPayloadContributorFn`.
-  getSearchPayloadExtensions(entityName: string): readonly SearchPayloadContributorFn[];
+  // `effectiveFeatures` filters out contributors owned by feature-toggle-
+  // disabled features (parallel to other getters' filtering semantic).
+  getSearchPayloadExtensions(
+    entityName: string,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly SearchPayloadContributorFn[];
   getHandlerEntity(qualifiedHandler: string): string | undefined;
   isHandlerSystemScoped(qualifiedHandler: string): boolean;
   getHandlerFeature(qualifiedHandler: string): string | undefined;
