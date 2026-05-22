@@ -36,6 +36,19 @@ import {
 //     columns + events.
 export const fieldDefinitionEntity = createEntity({
   table: "read_custom_field_definitions",
+  // B1.5 retention-policy — fieldDefinitions sind tenant-Schema-Metadaten,
+  // keine PII-Daten. Lange Retention für Audit (Compliance kann "wann hat
+  // Tenant das Feld definiert / geändert / gelöscht" fragen). Strategy
+  // softDelete: row bleibt als marker, value-cleanup (in B2's MSP) macht
+  // die eigentliche Anonymisierung wenn customFields PII enthielten.
+  //
+  // 10-Jahre keepFor ist konservativer Default; per-Tenant kann via
+  // tenantRetentionOverride für eigene Edge-Cases gesetzt werden
+  // (z.B. shorter für test-tenants).
+  retention: {
+    keepFor: "10y",
+    strategy: "softDelete",
+  },
   fields: {
     // Ziel-Entity-Name, für die dieses Field definiert wird (z.B. "property",
     // "customer"). Max 64 char passt zu Kumiko's entity-name-Convention.
