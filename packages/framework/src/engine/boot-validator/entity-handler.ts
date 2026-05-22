@@ -224,7 +224,11 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
           );
         }
       }
-      if (def.columns.length === 1 && def.columns[0] === "tenantId") {
+      // UNIQUE-constraint auf tenantId ist semantisch (1:1 tenant→entity)
+      // und NICHT redundant — buildDrizzleTable's auto-Index ist nur ein
+      // Performance-Hint, kein constraint. Nur die rein-tenantId-Single-
+      // column-non-unique-Form blockieren.
+      if (def.columns.length === 1 && def.columns[0] === "tenantId" && !def.unique) {
         throw new Error(
           `${where}: single-column index on "tenantId" is redundant — ` +
             `buildDrizzleTable always creates one automatically. Remove this entry.`,
