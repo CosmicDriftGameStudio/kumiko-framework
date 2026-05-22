@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.10.0
+
+### Minor Changes
+
+- 753d392: Add `postQuery` lifecycle-hook. Fires after query-handler-execute, before field-access-read-filter (dispatcher.ts). Supports two registration paths:
+
+  - `r.hook("postQuery", "ns:query:handler", fn)` — handler-keyed, fires only for that specific query-handler
+  - `r.entityHook("postQuery", entity, fn)` — entity-keyed, fires for ALL query-handlers of the entity
+
+  Hook receives `{ entityName, rows }` and returns `{ rows }` (possibly modified). Each hook is responsible for its own field-access on values it adds — the built-in field-access-filter only knows the entity's stammfields.
+
+  Use-cases: tags/comments-count/computed-fields/custom-fields-merge. Part of custom-fields-bundle Sprint Phase F1 (see `kumiko-platform/docs/plans/custom-fields-sprint.md`).
+
+### Patch Changes
+
+- d06f029: `validateExtensionUsages` allows self-extension (feature provides AND consumes the same extension).
+
+  Previously a feature like tier-engine — which defines the `tenantTierResolver` extension-point AND ships a default plugin against it — failed boot-validation with `Feature "tier-engine" uses extension "tenantTierResolver" but missing requires("tier-engine")`. `r.requires(self)` would be a circular declaration that the registry-build rejects too, so the only escape was to not validate self-extension. That's now the contract: providerFeature === feature.name short-circuits the dependency check.
+
+  Surfaced when studio.kumiko.so booted in production-bundle for the first time (Sprint 9.8). The same source had run for months in monorepo-dev-mode because composeFeatures' bundled-additions happen to come BEFORE the validate step in a different order — only a real `bun build`-bundled boot triggers the path. Memory `feedback_audit_drift_root_cause_now`: framework-bug, not per-app workaround.
+
 ## 0.9.0
 
 ### Patch Changes
