@@ -1,5 +1,55 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.9.0
+
+### Minor Changes
+
+- 51e22f5: Add deploy-template scaffolding (Sprint 9.6).
+
+  **New API:**
+
+  - `scaffoldDeploy({ appName, port?, githubOrg?, destination?, force? })` exported from `@cosmicdrift/kumiko-dev-server`. Generates `deploy/Dockerfile`, `deploy/Dockerfile.dockerignore`, and `deploy/migrate-step.sh` from canonical templates shipped with the package. Substitutes `{{appName}}`, `{{port}}`, `{{githubOrg}}` placeholders.
+  - New CLI command: `kumiko init-deploy --app <name> [--port <n>] [--github-org <org>] [--out <dir>] [--force]`.
+
+  The templates are extracted from publicstatus's production-tested `deploy/Dockerfile` (node-alpine build stage → bun-alpine runtime, drizzle migrations baked in, healthcheck wired). Refuses to overwrite existing files unless `--force` is passed so a tuned per-app Dockerfile isn't clobbered.
+
+  **Templates are a starting point, not a contract.** Apps should review and adjust:
+
+  - **Image tag** is hardcoded `:latest` in `migrate-step.sh.template`. Swap to `:${BUILD_SHA}` for atomic deploys.
+  - **DB defaults** in `migrate-step.sh.template` assume `db user = db name = appName`, host `db`, port `5432`. Adjust to your stack.
+  - **`COPY /app/seeds`** assumes the app uses ES-Operations seed migrations. Comment out if your app has no `seeds/` directory (otherwise `docker build` fails).
+  - **`docker build`-smoke-test:** the templates run untested against a non-publicstatus app-tree. Verify locally before pushing to CI.
+
+  **Deferred to Sprint 9.7+:** `.github/workflows/build-image.yml.suggested`, `pulumi/secrets-bootstrap.sh`, `pulumi/extraEnv.snippet.ts`.
+
+  **Plan-Doc drift (for 9.9 update):** Plan-Doc-Tabelle nennt `start.sh` (in-container migrate-then-run); diese Implementation liefert `migrate-step.sh` (host-side deploy-pipeline). Beide Konzepte sind gültig — Plan-Doc-Update sollte das klarstellen.
+
+- 37fe758: `scaffoldDeploy()` inspects the app source-tree and emits Dockerfile blocks conditionally (Sprint 9.6 follow-up).
+
+  **Why this exists:** Sprint 9.6's first Dockerfile.template hardcoded `COPY --from=build /app/seeds ./seeds` with a "comment out if you don't use it" note in the changeset. Apps without a `seeds/` directory (e.g. studio.kumiko.so) crashed in Docker-build with `failed to compute cache key: "/app/seeds": not found`. Root-cause was a framework issue (template too rigid), not a per-app symptom — the framework should detect what the app actually has.
+
+  **Detection:**
+
+  - `hasSeeds` — `exists(sourceDir/seeds)`. Drives the ES-Ops `COPY ./seeds` block in the runtime stage.
+  - `hasPrivateGhPackages` — scan `package.json` `dependencies` + `devDependencies` for any `@cosmicdriftgamestudio/*` entry. Drives the `ARG GITHUB_TOKEN` blocks (multi-stage with explicit re-declaration inside the build-stage) and the `ENV GITHUB_TOKEN=${GITHUB_TOKEN}` re-export before `yarn install --immutable`.
+
+  **Template syntax:** mustache-style block conditionals `{{#flag}}…{{/flag}}` (multi-line via `[\s\S]`, surrounding line stripped on falsy). Plain `{{key}}` placeholder substitution is unchanged.
+
+  **New API:**
+
+  - `ScaffoldDeployOptions.sourceDir?: string` — defaults to `destination`. Lets the caller scaffold into one dir while detecting optional surfaces in another (rare).
+  - `ScaffoldDeployResult.detected: { hasSeeds, hasPrivateGhPackages }` — surfaced so the CLI can report what was emitted.
+
+  **6 new tests:** seeds detection (with + without), GH-Packages detection (private + public-only + malformed package.json).
+
+  Sprint 9.6's "starting point not contract" disclaimer in the original changeset is now obsolete for these two surfaces — apps no longer need to manually comment out lines.
+
+### Patch Changes
+
+- Updated dependencies [51e22f5]
+  - @cosmicdrift/kumiko-framework@0.9.0
+  - @cosmicdrift/kumiko-bundled-features@0.9.0
+
 ## 0.8.1
 
 ### Patch Changes
