@@ -260,6 +260,12 @@ export type FeatureDefinition = {
   // system. Keyed by feature-local short name. The registry attaches
   // featureName on aggregation, lifting RawTableEntry → RawTableDef.
   readonly rawTables: Readonly<Record<string, RawTableEntry>>;
+  // Optional Zod-schema for env-vars this feature reads at runtime.
+  // Declared via `r.envSchema(z.object({...}))`. `composeEnvSchema` reads
+  // this to build one app-wide schema for boot-validation + dry-run
+  // rendering. Absence means the feature reads no env-vars (or hasn't
+  // been migrated yet — Sprint-9 migration is add-only per phase).
+  readonly envSchema?: z.ZodObject<z.ZodRawShape>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -573,6 +579,19 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   treeActions<const TActions extends Record<string, TreeActionDef>>(
     actions: TActions,
   ): TreeActionsHandle<TFeature, TActions>;
+
+  // Declare the Zod-schema for env-vars this feature reads at runtime.
+  // At-most-one call per feature. composeEnvSchema reads it across all
+  // features to build one app-wide schema, which runProdApp parses
+  // process.env against at boot. App-Authors can also call
+  // `KUMIKO_DRY_RUN_ENV=human|json|pulumi|k8s` to introspect the
+  // required env-vars without booting.
+  //
+  // Convention: keys are SHOUTING_SNAKE_CASE env-var names. Per-var
+  // metadata (Pulumi-config-key override, openssl-generator suggestion,
+  // k8s-secret hints) goes into `.meta({ kumiko: { pulumi: {...} } })`
+  // — see framework/env/index.ts for the meta-shape.
+  envSchema(schema: z.ZodObject<z.ZodRawShape>): void;
 
   // Register the tree-provider for this feature — the Subscribe-Function
   // that emits the top-level Tree-Knoten when the Visual-Workspace

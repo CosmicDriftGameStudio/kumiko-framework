@@ -59,6 +59,12 @@ import {
   createApiEntrypoint,
 } from "@cosmicdrift/kumiko-framework/entrypoint";
 import {
+  type ComposedEnvSchema,
+  KumikoBootError,
+  parseEnv,
+} from "@cosmicdrift/kumiko-framework/env";
+import { type DryRunMode, renderDryRun } from "@cosmicdrift/kumiko-framework/env/dry-run";
+import {
   createEsOperationsTable,
   createSeedMigrationContext,
   runPendingSeedMigrations,
@@ -118,6 +124,48 @@ function requireEnv(name: string): string {
 function readEnv(name: string): string | undefined {
   const value = process.env[name];
   return value === undefined || value === "" ? undefined : value;
+}
+
+// Parse `KUMIKO_DRY_RUN_ENV=…` into a DryRunMode. Truthy "1" aliases
+// "human" — the most common deploy-Q quick-look. Unknown values are
+// warned-and-ignored: a typo like `=humans` would otherwise look like
+// a confused boot 30 seconds later when the schema fails.
+function parseDryRunMode(raw: string | undefined): DryRunMode | null {
+  if (!raw) return null;
+  const v = raw.toLowerCase();
+  if (v === "1" || v === "true" || v === "human") return "human";
+  if (v === "json" || v === "pulumi" || v === "k8s") return v;
+  // biome-ignore lint/suspicious/noConsole: boot-time warn for typo discovery
+  console.warn(
+    `[runProdApp] KUMIKO_DRY_RUN_ENV="${raw}" unrecognized ` +
+      `(expected 1|human|json|pulumi|k8s); continuing with normal boot.`,
+  );
+  return null;
+}
+
+function defaultBootErrorReporter(err: KumikoBootError): never {
+  // biome-ignore lint/suspicious/noConsole: boot-time error, no logger configured yet
+  console.error(err.format());
+  process.exit(1);
+}
+
+// Returned from runProdApp when KUMIKO_DRY_RUN_ENV is set AND envSource
+// was passed (= test-mode). The handle is intentionally inert — listen()
+// and stop() are no-ops; tests inspect the dry-run console output and
+// move on.
+function makeDryRunHandle(): ProdAppHandle {
+  const noop = async () => {
+    /* dry-run handle: no server was constructed */
+  };
+  return {
+    // @cast-boundary dry-run-mode: no ApiEntrypoint exists because no
+    // boot ran; the handle only surfaces test/CLI inspection and the
+    // entrypoint is never reached by callers in dry-run.
+    entrypoint: undefined as unknown as ApiEntrypoint,
+    fetch: () => new Response("dry-run", { status: 503 }),
+    listen: noop,
+    stop: noop,
+  };
 }
 
 /** Wrapper-API für den Password-Reset-Flow.
@@ -374,9 +422,39 @@ export type RunProdAppOptions = {
    *  createLateBoundHolder + post-boot runtime.initialize in einem
    *  seed-fn (db ist erst nach migrations + features ready). */
   readonly effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
+  /** Composed Zod-schema for env-validation (from `composeEnvSchema({
+   *  features, extend })` in @cosmicdrift/kumiko-framework/env). When set:
+   *  - `process.env` is parsed against it BEFORE any boot work; missing
+   *    or invalid vars throw a `KumikoBootError` listing ALL problems
+   *    at once (not first-fail).
+   *  - `KUMIKO_DRY_RUN_ENV=human|json|pulumi|k8s` introspects the schema
+   *    and prints the env-var inventory, then exits without booting.
+   *
+   *  9.1 is additive: features that still read `process.env` directly
+   *  keep working. Migration to the schema is Sprint-9.2-9.5. */
+  readonly envSchema?: ComposedEnvSchema;
+  /** Prefix for `pulumi config set <prefix><CamelCase(VAR)>` in dry-run
+   *  output and boot-error suggestions. Without this, suggestions use
+   *  bare `camelCase(VAR)` and ops has to guess the app prefix. */
+  readonly pulumiPrefix?: string;
+  /** Handler for KumikoBootError. Default: print formatted error to
+   *  stderr and `process.exit(1)` so the container restarts with a
+   *  visible log line. Override in tests that drive runProdApp directly
+   *  (avoid the exit). Return type is `void` rather than `never` to keep
+   *  test-overrides honest — if a reporter returns, runProdApp falls
+   *  through to a regular `throw err` as the safety net. */
+  readonly bootErrorReporter?: (err: KumikoBootError) => void;
+  /** Override `process.env` for env-validation. Default: `process.env`.
+   *  Tests use this to feed crafted env-maps without polluting the
+   *  global. */
+  readonly envSource?: Record<string, string | undefined>;
 };
 
 export type ProdAppHandle = {
+  /** The composed ApiEntrypoint. In KUMIKO_DRY_RUN_ENV mode WITH
+   *  `envSource` injected (test path), no boot ran and this slot is an
+   *  undefined-cast — do not access. Production dry-run hits
+   *  `process.exit(0)` before returning a handle. */
   readonly entrypoint: ApiEntrypoint;
   /** The fetch-handler — wired into Bun.serve in production, called
    *  directly in tests. Composes Hono + static-fallback. */
@@ -390,6 +468,56 @@ export type ProdAppHandle = {
 };
 
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
+  // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
+  //    - operators can introspect env-requirements without a real boot
+  //      (no DB connection needed, KUMIKO_DRY_RUN_ENV=… → render + exit)
+  //    - missing/invalid env-vars produce a structured KumikoBootError
+  //      with ALL problems aggregated (not first-fail), before we waste
+  //      seconds on a Postgres connection that was never configured.
+  //
+  //    Both code paths are no-ops when no envSchema is passed — Sprint-9
+  //    migration is per-feature additive; pre-migration apps keep the
+  //    legacy `requireEnv("DATABASE_URL")` checks below.
+  //
+  //    Ordering invariant: this step runs BEFORE the Temporal polyfill,
+  //    so env-schemas MUST use only Temporal-free Zod types. Don't author
+  //    `z.iso.date()`/`Temporal.Instant` fields on env-vars — they'd crash
+  //    at parse-time before the polyfill loads. Plain strings + .regex /
+  //    .min / .email / .url cover every env-var shape we've actually
+  //    needed in 9.1's audit (37 references, 25 distinct vars).
+  if (options.envSchema) {
+    const envSource = options.envSource ?? process.env;
+    const dryRunMode = parseDryRunMode(envSource["KUMIKO_DRY_RUN_ENV"]);
+    if (dryRunMode !== null) {
+      // biome-ignore lint/suspicious/noConsole: dry-run output IS the deliverable
+      console.log(
+        renderDryRun(options.envSchema, dryRunMode, {
+          ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
+          sources: options.envSchema.sources,
+        }),
+      );
+      // Tests inject envSource and want a return-value, not exit. Detecting
+      // "this is a test" via envSource is brittle; instead exit when running
+      // against the real process.env (the deploy-flow), return otherwise.
+      if (options.envSource === undefined) {
+        process.exit(0);
+      }
+      return makeDryRunHandle();
+    }
+    try {
+      parseEnv(options.envSchema.schema, envSource, {
+        sources: options.envSchema.sources,
+        ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
+      });
+    } catch (err) {
+      if (err instanceof KumikoBootError) {
+        const reporter = options.bootErrorReporter ?? defaultBootErrorReporter;
+        reporter(err);
+      }
+      throw err;
+    }
+  }
+
   // 1. Polyfill before anything else — feature code references Temporal.
   const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
   await ensureTemporalPolyfill();

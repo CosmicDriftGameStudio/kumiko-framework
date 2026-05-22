@@ -24,6 +24,14 @@ export default defineConfig({
         __dirname,
         "packages/framework/src/errors",
       ),
+      "@cosmicdrift/kumiko-framework/env/dry-run": path.resolve(
+        __dirname,
+        "packages/framework/src/env/dry-run.ts",
+      ),
+      "@cosmicdrift/kumiko-framework/env": path.resolve(
+        __dirname,
+        "packages/framework/src/env",
+      ),
     },
   },
   test: {
