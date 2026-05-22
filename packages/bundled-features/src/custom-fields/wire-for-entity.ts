@@ -86,8 +86,9 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
     name: `custom-fields-${entityName}-projection`,
     apply: {
       [setEventType]: async (event, tx) => {
-        // Filter — MSP feuert für ALLE aggregate-types, wir wollen nur
-        // events auf unsere host-entity.
+        // skip: MSP feuert für ALLE aggregate-types die customField.set
+        // emittieren — wir wollen nur die unserer wired host-entity.
+        // Andere consumers haben eigene MSPs für ihre Entities.
         if (event.aggregateType !== entityName) return;
         const payload = event.payload as CustomFieldSetPayload; // @cast-boundary engine-payload
 
@@ -103,6 +104,8 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
           .where(eq(idCol, event.aggregateId));
       },
       [clearedEventType]: async (event, tx) => {
+        // skip: MSP feuert für alle aggregate-types — nur unsere host-entity
+        // verarbeiten.
         if (event.aggregateType !== entityName) return;
         const payload = event.payload as CustomFieldClearedPayload; // @cast-boundary engine-payload
 
@@ -120,6 +123,9 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         // (NICHT per-entity). Wir entfernen den key aus ALLEN rows der host-
         // entity falls die deleted-fieldDef für diese entity galt.
         const payload = event.payload as { entityName: string; fieldKey: string }; // @cast-boundary engine-payload
+        // skip: fieldDefinition.deleted feuert für ALLE fieldDefs cross-entity;
+        // nur wenn die deleted-fieldDef diese host-entity betraf, cleanen wir
+        // ihre Rows.
         if (payload.entityName !== entityName) return;
 
         await tx.update(entityTable).set({
