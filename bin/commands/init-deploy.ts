@@ -16,7 +16,7 @@ export const initDeployCommand = defineCommand({
     "against clobbering a tuned Dockerfile.",
   ].join("\n"),
   category: "code",
-  roles: ["app-dev"],
+  roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
     const args = parseArgs(ctx.argv);
     const appName = getStringFlag(args, "app");
