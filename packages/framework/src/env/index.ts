@@ -16,6 +16,7 @@
 
 import { z } from "zod";
 import type { FeatureDefinition } from "../engine/types/feature";
+import { zodDef, zodDescription, zodMeta, zodShape, zodShapeField } from "./_zod-introspect";
 
 // --- Per-env-var metadata (attach via Zod's `.meta()`) ---
 
@@ -37,9 +38,11 @@ export type KumikoEnvMeta = {
 
 function isKumikoMeta(value: unknown): value is KumikoEnvMeta {
   if (value === null || typeof value !== "object") return false;
+  // @cast-boundary schema-walk — runtime-shape narrowing of zod-meta payload
   const v = value as { pulumi?: unknown };
   if (v.pulumi === undefined) return true;
   if (v.pulumi === null || typeof v.pulumi !== "object") return false;
+  // @cast-boundary schema-walk
   const p = v.pulumi as { name?: unknown; generator?: unknown; secret?: unknown };
   if (p.name !== undefined && typeof p.name !== "string") return false;
   if (p.generator !== undefined && typeof p.generator !== "string") return false;
@@ -48,11 +51,9 @@ function isKumikoMeta(value: unknown): value is KumikoEnvMeta {
 }
 
 export function readKumikoMeta(field: z.ZodType): KumikoEnvMeta {
-  // Zod v4 `.meta()` returns the metadata object set via `.meta({...})`.
-  // Older schemas without meta return undefined.
-  const metaFn = (field as { meta?: () => unknown }).meta;
-  const meta = typeof metaFn === "function" ? metaFn.call(field) : undefined;
+  const meta = zodMeta(field);
   if (meta && typeof meta === "object" && meta !== null && "kumiko" in meta) {
+    // @cast-boundary schema-walk
     const k = (meta as { kumiko?: unknown }).kumiko;
     if (isKumikoMeta(k)) return k;
   }
@@ -71,7 +72,7 @@ export function classifyField(field: z.ZodType): EnvFieldClass {
     if (current instanceof z.ZodOptional || current instanceof z.ZodNullable) {
       return "optional";
     }
-    const inner = (current as { _def?: { innerType?: z.ZodType; in?: z.ZodType } })._def;
+    const inner = zodDef(current);
     if (inner?.innerType) {
       current = inner.innerType;
       continue;
@@ -91,11 +92,11 @@ export function getDefaultValue(field: z.ZodType): unknown {
     if (current instanceof z.ZodDefault) {
       // Zod v4: defaultValue is the raw value (v3 was a factory function).
       // Support both shapes for forward/backward safety.
-      const def = (current as unknown as { _def: { defaultValue: unknown } })._def;
-      const raw = def.defaultValue;
+      const raw = zodDef(current)?.defaultValue;
+      // @cast-boundary schema-walk — Zod v3 stored a thunk, v4 a raw value
       return typeof raw === "function" ? (raw as () => unknown)() : raw;
     }
-    const inner = (current as { _def?: { innerType?: z.ZodType } })._def;
+    const inner = zodDef(current);
     if (inner?.innerType) {
       current = inner.innerType;
       continue;
@@ -106,9 +107,7 @@ export function getDefaultValue(field: z.ZodType): unknown {
 }
 
 export function getFieldDescription(field: z.ZodType): string | undefined {
-  // Zod v4 exposes the `.describe()` value via the `description` getter.
-  const desc = (field as { description?: string }).description;
-  return typeof desc === "string" && desc.length > 0 ? desc : undefined;
+  return zodDescription(field);
 }
 
 // --- Compose ---
@@ -144,7 +143,7 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
 
   for (const feature of options.features) {
     if (!feature.envSchema) continue;
-    const shape = feature.envSchema.shape;
+    const shape = zodShape(feature.envSchema);
     const wrap = optionalSet.has(feature.name);
     for (const [key, field] of Object.entries(shape)) {
       if (merged[key] !== undefined) {
@@ -158,13 +157,13 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
           },
         ]);
       }
-      merged[key] = wrap ? (field as z.ZodType).optional() : (field as z.ZodType);
+      merged[key] = wrap ? field.optional() : field;
       sources[key] = feature.name;
     }
   }
 
   if (options.extend) {
-    for (const [key, field] of Object.entries(options.extend.shape)) {
+    for (const [key, field] of Object.entries(zodShape(options.extend))) {
       if (merged[key] !== undefined) {
         throw new KumikoBootError([
           {
@@ -176,7 +175,7 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
           },
         ]);
       }
-      merged[key] = field as z.ZodType;
+      merged[key] = field;
       sources[key] = "app";
     }
   }
@@ -261,16 +260,14 @@ export function parseEnv<S extends z.ZodObject<z.ZodRawShape>>(
 
   const result = schema.safeParse(cleaned);
   if (result.success) {
+    // @cast-boundary schema-walk — z.infer<S> erasure across safeParse result
     return result.data as z.infer<S>;
   }
 
   // Map Zod-issues → EnvError[], augmenting with suggestions when meta+prefix.
-  // Zod v4 typing: `schema.shape[k]` is `$ZodType` (core); helpers expect
-  // `ZodType` (wrapper class). Both are the same runtime instance — cast
-  // at this single boundary.
   const errors: EnvError[] = result.error.issues.map((issue) => {
     const name = String(issue.path[0] ?? "<unknown>");
-    const field = schema.shape[name] as z.ZodType | undefined;
+    const field = zodShapeField(schema, name);
     // Zod v4 dropped the `received` property on invalid_type issues; the
     // canonical signal for "value was missing" is now "the key isn't in
     // the input object". Use input-presence as the missing/invalid switch.

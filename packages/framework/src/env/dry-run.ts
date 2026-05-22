@@ -9,6 +9,7 @@
 // by parseEnv drives the output here — single source of truth.
 
 import type { z } from "zod";
+import { zodShape } from "./_zod-introspect";
 import {
   type ComposedEnvSchema,
   classifyField,
@@ -46,10 +47,7 @@ function collectFields(
   sources: Readonly<Record<string, string>>,
 ): readonly EnvField[] {
   const out: EnvField[] = [];
-  // @cast-boundary schema-walk — Zod v4 typing exposes `shape` values as
-  // $ZodType (core) but the helpers consume ZodType (wrapper class); same
-  // runtime instance.
-  for (const [name, field] of Object.entries(schema.shape as Record<string, z.ZodType>)) {
+  for (const [name, field] of Object.entries(zodShape(schema))) {
     const f = field;
     const klass = classifyField(f);
     out.push({
