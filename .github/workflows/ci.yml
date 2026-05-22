@@ -8,7 +8,9 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # `feat/**` covers stacked PRs (e.g. Sprint-9-style `feat/env-migration-core`
+    # based on `feat/env-schemas`) — those used to silently skip CI.
+    branches: [main, "feat/**"]
 
 concurrency:
   group: ci-${{ github.ref }}
