@@ -49,6 +49,7 @@ import type {
   PreDeleteHookFn,
   PreQueryHookFn,
   PreSaveHookFn,
+  SearchPayloadContributorFn,
   ValidationHookFn,
 } from "./hooks";
 import type { HttpRouteDefinition } from "./http-route";
@@ -171,6 +172,9 @@ export type FeatureDefinition = {
   readonly translations: TranslationKeys;
   readonly hooks: HookMap;
   readonly entityHooks: EntityHookMap;
+  // F3 search-payload-extension — per-entity contributors that add flat fields
+  // to the search-index payload during indexing. Keyed by entityName.
+  readonly searchPayloadExtensions: Readonly<Record<string, readonly SearchPayloadContributorFn[]>>;
   readonly configKeys: Readonly<Record<string, ConfigKeyDefinition>>;
   readonly configSeeds: readonly ConfigSeedDef[];
   readonly jobs: Readonly<Record<string, JobDefinition>>;
@@ -368,6 +372,13 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // No phase semantics (synchronous after handler-execute, before field-
   // access-filter).
   entityHook(type: "postQuery", entity: NameOrRef, fn: PostQueryHookFn): void;
+
+  // F3 — Search-Payload-Extension: contributor function adds flat fields to
+  // an entity's search-index document. Fires synchronously during
+  // buildSearchDocument indexing. Use-case: custom-fields-bundle merging
+  // customFields-jsonb-keys flat into search-doc; tags-bundle projecting
+  // tags-array as searchable. See `SearchPayloadContributorFn`.
+  searchPayloadExtension(entity: NameOrRef, fn: SearchPayloadContributorFn): void;
 
   // Returns a handle map keyed exactly like the input. Pass any handle to
   // `ctx.config(handle)` to get the value type narrowed by the key's `type`.
@@ -679,6 +690,9 @@ export type Registry = {
     entityName: string,
     effectiveFeatures?: ReadonlySet<string>,
   ): readonly PostQueryHookFn[];
+  // F3 — contributors for an entity's search-doc-payload, fired during
+  // buildSearchDocument indexing. See `SearchPayloadContributorFn`.
+  getSearchPayloadExtensions(entityName: string): readonly SearchPayloadContributorFn[];
   getHandlerEntity(qualifiedHandler: string): string | undefined;
   isHandlerSystemScoped(qualifiedHandler: string): boolean;
   getHandlerFeature(qualifiedHandler: string): string | undefined;

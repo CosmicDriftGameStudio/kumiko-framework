@@ -156,3 +156,22 @@ export type EntityHookMap = {
   readonly postDelete: Readonly<Record<string, readonly PhasedHook<PostDeleteHookFn>[]>>;
   readonly postQuery: Readonly<Record<string, readonly OwnedFn<PostQueryHookFn>[]>>;
 };
+
+// Search-Payload-Extension (F3) — contributor function that adds flat
+// fields to an entity's search-document. Fires synchronously during
+// buildSearchDocument (in `system-hooks.ts`), receives current entity
+// state, returns extra fields to merge into the search-index payload.
+//
+// Use-cases: custom-fields-bundle (merge customFields-jsonb-keys flat
+// into index), tags-bundle (project tags-array as searchable), computed-
+// fields (denormalize related-counts).
+//
+// IMPORTANT: contributor must be deterministic per (entityName, entityId,
+// state). Async-allowed for future-proofing but discouraged — the
+// indexing path runs once per entity-write, sync extension is
+// near-zero-cost.
+export type SearchPayloadContributorFn = (args: {
+  readonly entityName: string;
+  readonly entityId: EntityId;
+  readonly state: Record<string, unknown>;
+}) => Record<string, unknown> | Promise<Record<string, unknown>>;
