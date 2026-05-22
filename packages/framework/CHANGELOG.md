@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.8.1
+
+### Patch Changes
+
+- 4b5f91e: Expose `./package.json` via subpath export so downstream tooling (publish/materialize, app-templates) can derive the installed framework version at runtime without manual version-pin drift.
+
 ## 0.8.0
 
 ### Minor Changes
