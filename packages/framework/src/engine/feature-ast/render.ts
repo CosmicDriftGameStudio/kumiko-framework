@@ -23,6 +23,7 @@ import type {
   DefineEventPattern,
   EntityHookPattern,
   EntityPattern,
+  EnvSchemaPattern,
   EventMigrationPattern,
   ExposesApiPattern,
   ExtendsRegistrarPattern,
@@ -134,6 +135,8 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderTreeActions(pattern);
     case "tree":
       return renderTree(pattern);
+    case "envSchema":
+      return renderEnvSchema(pattern);
     case "unknown":
       return renderUnknown(pattern);
     default: {
@@ -493,6 +496,10 @@ function renderEventMigration(p: EventMigrationPattern): string {
 
 function renderExtendsRegistrar(p: ExtendsRegistrarPattern): string {
   return `r.extendsRegistrar(${JSON.stringify(p.extensionName)}, ${p.defBody.raw});`;
+}
+
+function renderEnvSchema(p: EnvSchemaPattern): string {
+  return `r.envSchema(${p.schemaBody.raw});`;
 }
 
 function renderUsesApi(p: UsesApiPattern): string {

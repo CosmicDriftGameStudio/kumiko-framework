@@ -387,6 +387,15 @@ export type ExposesApiPattern = {
 // API exists and needs its own pattern type here.
 // =============================================================================
 
+// r.envSchema(z.object({...})) — the env-vars contract for a feature.
+// Argument is a Zod-expression (computed); we keep the source-location of
+// the schema body so Designer / AI render the raw TS code (opaque).
+export type EnvSchemaPattern = {
+  readonly kind: "envSchema";
+  readonly source: SourceLocation;
+  readonly schemaBody: SourceLocation;
+};
+
 export type UnknownPattern = {
   readonly kind: "unknown";
   readonly source: SourceLocation;
@@ -435,6 +444,7 @@ export type FeaturePattern =
   | EventMigrationPattern
   | ExtendsRegistrarPattern
   | TreePattern
+  | EnvSchemaPattern
   // Catch-all
   | UnknownPattern;
 
@@ -492,6 +502,7 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "authClaims":
     case "extendsRegistrar":
     case "tree":
+    case "envSchema":
     case "unknown":
       return "opaque";
     default: {

@@ -1092,6 +1092,24 @@ const treeSchema: PatternFormSchema = {
   ],
 };
 
+const envSchemaSchema: PatternFormSchema = {
+  kind: "envSchema",
+  label: { en: "Env schema", de: "Env-Schema" },
+  summary: {
+    en: "Zod-object declaring this feature's required env-vars. Apps merge it via composeEnvSchema for boot-validation.",
+  },
+  category: "advanced",
+  editability: "opaque",
+  fields: [
+    {
+      path: "schemaBody",
+      label: { en: "Schema", de: "Schema" },
+      input: "json-readonly",
+      readOnly: true,
+    },
+  ],
+};
+
 const unknownSchema: PatternFormSchema = {
   kind: "unknown",
   label: { en: "Unknown call", de: "Unbekannter Call" },
@@ -1153,6 +1171,7 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   exposesApi: exposesApiSchema,
   treeActions: treeActionsSchema,
   tree: treeSchema,
+  envSchema: envSchemaSchema,
   unknown: unknownSchema,
 } satisfies Readonly<Record<FeaturePatternKind, PatternFormSchema>>;
 

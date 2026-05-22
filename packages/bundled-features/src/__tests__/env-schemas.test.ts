@@ -202,9 +202,7 @@ describe("compose across all Phase-2 features", () => {
     } catch (err) {
       const out = (err as KumikoBootError).format();
       expect(out).toContain("✗ JWT_SECRET (auth-email-password, required, missing)");
-      expect(out).toContain(
-        "✗ KUMIKO_SECRETS_MASTER_KEY_V1 (secrets, required, missing)",
-      );
+      expect(out).toContain("✗ KUMIKO_SECRETS_MASTER_KEY_V1 (secrets, required, missing)");
       expect(out).toContain("✗ STRIPE_API_KEY (subscription-stripe, required, missing)");
       expect(out).toContain("✗ MOLLIE_API_KEY (subscription-mollie, required, missing)");
     }
