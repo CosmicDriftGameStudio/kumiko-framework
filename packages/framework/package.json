@@ -151,7 +151,8 @@
     "./utils": {
       "types": "./src/utils/index.ts",
       "default": "./src/utils/index.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "dependencies": {
     "bullmq": "^5.76.7",
