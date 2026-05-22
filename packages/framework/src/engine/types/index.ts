@@ -165,6 +165,7 @@ export type {
   PreQueryHookFn,
   PreSaveHookFn,
   SaveContext,
+  SearchPayloadContributorFn,
   ValidationError,
   ValidationHookFn,
 } from "./hooks";

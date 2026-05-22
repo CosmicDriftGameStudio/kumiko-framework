@@ -62,7 +62,7 @@ export function createSearchEventConsumer(
       }
 
       const state = reconstructStateForSearch(event.payload, verb);
-      const doc = buildSearchDocument(entityName, event.aggregateId, state, registry);
+      const doc = await buildSearchDocument(entityName, event.aggregateId, state, registry);
       if (!doc) {
         // skip: entity isn't searchable (no searchable fields declared)
         return;
@@ -98,17 +98,22 @@ function reconstructStateForSearch(
 // Build a SearchDocument from raw field-state. Parallel to the old
 // buildSearchDocument that took a SaveContext — same selector logic, just
 // a different input shape.
-function buildSearchDocument(
+async function buildSearchDocument(
   entityName: string,
   entityId: EntityId,
   state: Record<string, unknown>,
   registry: Registry,
-): SearchDocument | null {
+): Promise<SearchDocument | null> {
   const entity = registry.getEntity(entityName);
   if (!entity) return null;
 
   const searchableFields = registry.getSearchableFields(entityName);
-  if (searchableFields.length === 0) return null;
+  const extensions = registry.getSearchPayloadExtensions(entityName);
+  // Skip-Guard: kein indexable payload UND keine Extensions → kein doc.
+  // Extensions können auch ohne searchable-Stammfields den index befüllen
+  // (z.B. customFields-only-indexierung), daher muss die check beide
+  // berücksichtigen.
+  if (searchableFields.length === 0 && extensions.length === 0) return null;
 
   const embeddedFields = new Set<string>();
   for (const [fname, fdef] of Object.entries(entity.fields)) {
@@ -133,6 +138,17 @@ function buildSearchDocument(
     if (state[f] !== undefined) {
       fields[f] = state[f];
     }
+  }
+
+  // F3 — Search-Payload-Extensions: contributors merge flat fields into the
+  // search-doc (customFields-bundle / tags / computed-counts / etc.).
+  // Sequential await — extensions are expected sync or sub-millisecond async;
+  // sequential keeps the path simple and deterministic. If parallel ever
+  // matters, switch to Promise.all but bind contributor-output-precedence
+  // (last-wins vs. merge-conflict) explicitly.
+  for (const contribute of extensions) {
+    const contributed = await contribute({ entityName, entityId, state });
+    Object.assign(fields, contributed);
   }
 
   return {
