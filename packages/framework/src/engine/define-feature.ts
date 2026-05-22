@@ -39,6 +39,7 @@ import type {
   OwnedFn,
   PhasedHook,
   PostDeleteHookFn,
+  PostQueryHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
   ProjectionDefinition,
@@ -121,6 +122,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const entityPostSave: Record<string, PhasedHook<PostSaveHookFn>[]> = {};
   const entityPreDelete: Record<string, PhasedHook<PreDeleteHookFn>[]> = {};
   const entityPostDelete: Record<string, PhasedHook<PostDeleteHookFn>[]> = {};
+  const entityPostQuery: Record<string, OwnedFn<PostQueryHookFn>[]> = {};
   const notifications: Record<string, NotificationDefinition> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
@@ -313,13 +315,17 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         return;
       }
 
-      if (type === LifecycleHookTypes.preSave || type === LifecycleHookTypes.preQuery) {
+      if (
+        type === LifecycleHookTypes.preSave ||
+        type === LifecycleHookTypes.preQuery ||
+        type === LifecycleHookTypes.postQuery
+      ) {
         if (!lifecycleHooks[type]) lifecycleHooks[type] = {};
         for (const n of names) {
           if (!lifecycleHooks[type][n]) lifecycleHooks[type][n] = [];
           lifecycleHooks[type][n].push({ fn: fn as LifecycleHookFn, featureName: name }); // @cast-boundary engine-bridge
         }
-        // skip: pre-hooks have no phase, stored and done
+        // skip: pre/post-hooks without phase semantics, stored and done
         return;
       }
 
@@ -337,7 +343,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     },
 
     entityHook(
-      type: "postSave" | "preDelete" | "postDelete",
+      type: "postSave" | "preDelete" | "postDelete" | "postQuery",
       entityRef: NameOrRef,
       fn: LifecycleHookFn,
       options?: { phase?: HookPhase },
@@ -358,6 +364,11 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         const phase = options?.phase ?? HookPhases.afterCommit;
         if (!entityPostDelete[entityName]) entityPostDelete[entityName] = [];
         entityPostDelete[entityName].push({ fn: fn as PostDeleteHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
+      } else if (type === LifecycleHookTypes.postQuery) {
+        // postQuery is unphased (no inTransaction/afterCommit semantics — fires
+        // synchronously after query-handler-execute, before field-access-filter)
+        if (!entityPostQuery[entityName]) entityPostQuery[entityName] = [];
+        entityPostQuery[entityName].push({ fn: fn as PostQueryHookFn, featureName: name }); // @cast-boundary engine-bridge
       }
     },
 
@@ -854,11 +865,13 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       preDelete: phasedLifecycleHooks.preDelete,
       postDelete: phasedLifecycleHooks.postDelete,
       preQuery: lifecycleHooks["preQuery"] ?? {},
+      postQuery: lifecycleHooks["postQuery"] ?? {},
     } as HookMap, // @cast-boundary engine-payload
     entityHooks: {
       postSave: entityPostSave,
       preDelete: entityPreDelete,
       postDelete: entityPostDelete,
+      postQuery: entityPostQuery,
     },
     configKeys,
     configSeeds,

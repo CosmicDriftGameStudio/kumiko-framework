@@ -44,6 +44,7 @@ import type {
   HookMap,
   HookPhase,
   PostDeleteHookFn,
+  PostQueryHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
   PreQueryHookFn,
@@ -347,6 +348,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     options?: { phase?: HookPhase },
   ): void;
   hook(type: "preQuery", target: RefOrRefs, fn: PreQueryHookFn): void;
+  hook(type: "postQuery", target: RefOrRefs, fn: PostQueryHookFn): void;
 
   entityHook(
     type: "postSave",
@@ -361,6 +363,11 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     fn: PostDeleteHookFn,
     options?: { phase?: HookPhase },
   ): void;
+  // postQuery-entityHook: fires for ALL query-handlers of this entity (e.g.,
+  // for customFields-bundle to merge custom-fields-jsonb into every read).
+  // No phase semantics (synchronous after handler-execute, before field-
+  // access-filter).
+  entityHook(type: "postQuery", entity: NameOrRef, fn: PostQueryHookFn): void;
 
   // Returns a handle map keyed exactly like the input. Pass any handle to
   // `ctx.config(handle)` to get the value type narrowed by the key's `type`.
@@ -649,6 +656,10 @@ export type Registry = {
     name: string,
     effectiveFeatures?: ReadonlySet<string>,
   ): readonly PreQueryHookFn[];
+  getPostQueryHooks(
+    name: string,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly PostQueryHookFn[];
   getEntityPostSaveHooks(
     entityName: string,
     phase?: HookPhase,
@@ -664,6 +675,10 @@ export type Registry = {
     phase?: HookPhase,
     effectiveFeatures?: ReadonlySet<string>,
   ): readonly PostDeleteHookFn[];
+  getEntityPostQueryHooks(
+    entityName: string,
+    effectiveFeatures?: ReadonlySet<string>,
+  ): readonly PostQueryHookFn[];
   getHandlerEntity(qualifiedHandler: string): string | undefined;
   isHandlerSystemScoped(qualifiedHandler: string): boolean;
   getHandlerFeature(qualifiedHandler: string): string | undefined;

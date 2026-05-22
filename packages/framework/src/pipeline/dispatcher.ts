@@ -774,9 +774,48 @@ export function createDispatcher(
     const handlerContext = buildHandlerContext(type, user, tx);
     let result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
-    // Field-level read filter
+    // postQuery-Hooks: fire BEFORE field-access-filter so hooks see raw data
+    // and can merge custom-fields/computed-counts/tags/etc. Each hook is
+    // responsible for its own field-access on values it adds (the filter
+    // below only knows the entity's stammfields).
+    //
+    // Two firing-pfade kombiniert in dieser Reihenfolge:
+    //   1. Handler-keyed hooks via r.hook("postQuery", "ns:query:list", fn)
+    //      — feuern nur für genau diesen handler
+    //   2. Entity-keyed hooks via r.entityHook("postQuery", "property", fn)
+    //      — feuern für ALLE query-handlers des entity
     const entityName = registry.getHandlerEntity(type);
     if (entityName) {
+      const handlerHooks = registry.getPostQueryHooks(type);
+      const entityHooks = registry.getEntityPostQueryHooks(entityName);
+      const postQueryHooks = [...handlerHooks, ...entityHooks];
+      if (postQueryHooks.length > 0 && result && typeof result === "object") {
+        if (Array.isArray(result)) {
+          let rows = result as Record<string, unknown>[];
+          for (const hook of postQueryHooks) {
+            const out = await hook({ entityName, rows }, handlerContext);
+            rows = [...out.rows];
+          }
+          result = rows;
+        } else if ("rows" in (result as Record<string, unknown>)) {
+          const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null }; // @cast-boundary engine-payload
+          let rows = r.rows;
+          for (const hook of postQueryHooks) {
+            const out = await hook({ entityName, rows }, handlerContext);
+            rows = [...out.rows];
+          }
+          result = { ...r, rows };
+        } else {
+          let rows: Record<string, unknown>[] = [result as Record<string, unknown>]; // @cast-boundary engine-payload
+          for (const hook of postQueryHooks) {
+            const out = await hook({ entityName, rows }, handlerContext);
+            rows = [...out.rows];
+          }
+          result = rows[0] ?? result;
+        }
+      }
+
+      // Field-level read filter
       const entity = registry.getEntity(entityName);
       if (entity && result && typeof result === "object") {
         if (Array.isArray(result)) {
