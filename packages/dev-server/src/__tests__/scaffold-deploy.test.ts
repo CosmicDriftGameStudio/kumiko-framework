@@ -140,6 +140,7 @@ describe("scaffoldDeploy", () => {
       const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
       expect(df).toContain("ARG GITHUB_TOKEN=");
       expect(df).toContain("ARG GITHUB_TOKEN\n");
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: shell variable expansion, not a JS template
       expect(df).toContain("ENV GITHUB_TOKEN=${GITHUB_TOKEN}");
     });
 
