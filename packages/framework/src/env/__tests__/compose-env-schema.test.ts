@@ -98,6 +98,52 @@ describe("composeEnvSchema", () => {
     expect(Object.keys(schema.shape)).toEqual([]);
     expect(sources).toEqual({});
   });
+
+  it("tags `core` vars with source 'framework-core'", () => {
+    const core = z.object({
+      PORT: z.string().default("3000"),
+      DATABASE_URL: z.url(),
+    });
+    const feature = defineFeature("auth", (r) => {
+      r.envSchema(z.object({ JWT_SECRET: z.string().min(32) }));
+    });
+    const { schema, sources } = composeEnvSchema({
+      core,
+      features: [feature],
+      extend: z.object({ STUDIO_ADMIN_EMAIL: z.email() }),
+    });
+    expect(Object.keys(schema.shape).sort()).toEqual([
+      "DATABASE_URL",
+      "JWT_SECRET",
+      "PORT",
+      "STUDIO_ADMIN_EMAIL",
+    ]);
+    expect(sources).toEqual({
+      DATABASE_URL: "framework-core",
+      JWT_SECRET: "auth",
+      PORT: "framework-core",
+      STUDIO_ADMIN_EMAIL: "app",
+    });
+  });
+
+  it("detects core/feature env-var conflicts (feature shadows core)", () => {
+    const core = z.object({ PORT: z.string() });
+    const sneaky = defineFeature("sneaky", (r) => {
+      r.envSchema(z.object({ PORT: z.string() }));
+    });
+    expect(() => composeEnvSchema({ core, features: [sneaky] })).toThrow(KumikoBootError);
+  });
+
+  it("detects core/extend env-var conflicts (app shadows core)", () => {
+    const core = z.object({ DATABASE_URL: z.url() });
+    expect(() =>
+      composeEnvSchema({
+        core,
+        features: [],
+        extend: z.object({ DATABASE_URL: z.string() }),
+      }),
+    ).toThrow(KumikoBootError);
+  });
 });
 
 describe("r.envSchema()", () => {

@@ -122,6 +122,12 @@ export type ComposeEnvSchemaOptions = {
    *  Lets an app opt out of e.g. `channel-email-smtp`'s vars without
    *  manually `.partial()`-ing each shape at the call-site. */
   readonly optionalFeatures?: readonly string[];
+  /** Framework-core env-vars (PORT, DATABASE_URL, REDIS_URL, …) from
+   *  `@cosmicdrift/kumiko-dev-server`. Keys here are tagged as source
+   *  "framework-core" in error output. Conflict-detection runs across
+   *  core/features/extend as one merged pool — same key declared in two
+   *  layers throws KumikoBootError at compose-time. */
+  readonly core?: z.ZodObject<z.ZodRawShape>;
 };
 
 export type ComposedEnvSchema = {
@@ -132,7 +138,8 @@ export type ComposedEnvSchema = {
    *  `kumiko-studio/docs/plans/sprint-9-env-schemas.md` → API-Design)
    *  and only pass `composed.schema` to `runProdApp` for validation. */
   readonly schema: z.ZodObject<z.ZodRawShape>;
-  /** env-var-name → declaring feature-name (or "app" when from `extend`). */
+  /** env-var-name → declaring source-name: feature-name from `r.envSchema()`,
+   *  "app" from `extend`, or "framework-core" from `core`. */
   readonly sources: Readonly<Record<string, string>>;
 };
 
@@ -140,6 +147,16 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
   const optionalSet = new Set(options.optionalFeatures ?? []);
   const merged: Record<string, z.ZodType> = {};
   const sources: Record<string, string> = {};
+
+  // Framework-core first so a feature that accidentally declares the same
+  // var (e.g. PORT) gets a clear conflict error citing "framework-core"
+  // rather than silently overwriting a deploy-critical default.
+  if (options.core) {
+    for (const [key, field] of Object.entries(zodShape(options.core))) {
+      merged[key] = field;
+      sources[key] = "framework-core";
+    }
+  }
 
   for (const feature of options.features) {
     if (!feature.envSchema) continue;
@@ -170,8 +187,8 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
             name: key,
             kind: "invalid",
             message:
-              `env-var conflict: "${key}" declared by both feature ` +
-              `"${sources[key]}" and the app's extend block — rename one.`,
+              `env-var conflict: "${key}" declared by both "${sources[key]}" ` +
+              `and the app's extend block — rename one.`,
           },
         ]);
       }
@@ -194,10 +211,11 @@ export type EnvError = {
   readonly name: string;
   readonly kind: EnvErrorKind;
   readonly message: string;
-  /** Declaring feature-name from `composeEnvSchema`'s sources map (or "app"
-   *  if from `extend`). Populated when parseEnv received `options.sources`.
-   *  Surfaced by `KumikoBootError.format()` so operators see WHICH feature
-   *  wants the missing var, not just the var name. */
+  /** Declaring source-name from `composeEnvSchema`'s sources map:
+   *  feature-name, "app" from `extend`, or "framework-core" from `core`.
+   *  Populated when parseEnv received `options.sources`. Surfaced by
+   *  `KumikoBootError.format()` so operators see WHICH source wants the
+   *  missing var, not just the var name. */
   readonly source?: string;
   /** "Set via: pulumi config set ..." line. Computed when pulumiPrefix is
    *  passed to parseEnv. */
