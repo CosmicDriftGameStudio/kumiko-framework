@@ -32,6 +32,7 @@ export {
   type KumikoServerHandle,
   resolveStylesheet,
 } from "./create-kumiko-server";
+export { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "./env-schema";
 export type {
   AuthoringStyle,
   BuildFewShotCorpusOptions,

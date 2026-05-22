@@ -8,6 +8,8 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { frameworkCoreEnvSchema } from "../env-schema";
+import * as devServerPublicApi from "../index";
 import { runProdApp } from "../run-prod-app";
 
 const secretsFeature = defineFeature("secrets", (r) => {
@@ -34,6 +36,12 @@ const composed = composeEnvSchema({
   extend: z.object({
     STUDIO_ADMIN_EMAIL: z.email(),
   }),
+});
+
+describe("public-export smoke", () => {
+  it("re-exports frameworkCoreEnvSchema via dev-server's package entry", () => {
+    expect(devServerPublicApi.frameworkCoreEnvSchema).toBe(frameworkCoreEnvSchema);
+  });
 });
 
 describe("runProdApp envSchema integration", () => {
@@ -117,6 +125,44 @@ describe("runProdApp envSchema integration", () => {
     } finally {
       console.log = realLog;
     }
+  });
+
+  it("composes frameworkCoreEnvSchema with feature schemas; reports core-source on missing PORT/DATABASE_URL", async () => {
+    const composedWithCore = composeEnvSchema({
+      core: frameworkCoreEnvSchema,
+      features: [secretsFeature, authFeature],
+      extend: z.object({ STUDIO_ADMIN_EMAIL: z.email() }),
+    });
+    let captured: KumikoBootError | undefined;
+    try {
+      await runProdApp({
+        features: [],
+        envSchema: composedWithCore,
+        pulumiPrefix: "studio",
+        envSource: {
+          // DATABASE_URL + REDIS_URL missing (framework-core)
+          // JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1 missing (features)
+          // STUDIO_ADMIN_EMAIL missing (app)
+          PORT: "invalid-port",
+        },
+        bootErrorReporter: (err) => {
+          captured = err;
+          throw err;
+        },
+      });
+    } catch (err) {
+      expect(err).toBeInstanceOf(KumikoBootError);
+    }
+    expect(captured).toBeDefined();
+    const port = captured!.errors.find((e) => e.name === "PORT");
+    expect(port?.source).toBe("framework-core");
+    expect(port?.kind).toBe("invalid");
+    const db = captured!.errors.find((e) => e.name === "DATABASE_URL");
+    expect(db?.source).toBe("framework-core");
+    expect(db?.kind).toBe("missing");
+    const formatted = captured!.format();
+    expect(formatted).toContain("✗ DATABASE_URL (framework-core, required, missing)");
+    expect(formatted).toContain("✗ REDIS_URL (framework-core, required, missing)");
   });
 
   it("KUMIKO_DRY_RUN_ENV=1 aliases to human-mode", async () => {

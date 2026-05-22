@@ -15,6 +15,7 @@
 
 import { defineFeature } from "../packages/framework/src/engine";
 import { composeEnvSchema } from "../packages/framework/src/env";
+import { frameworkCoreEnvSchema } from "../packages/dev-server/src/env-schema";
 import { runProdApp } from "../packages/dev-server/src/run-prod-app";
 import { z } from "zod";
 
@@ -42,6 +43,7 @@ const authFeature = defineFeature("auth-email-password", (r) => {
 });
 
 const composed = composeEnvSchema({
+  core: frameworkCoreEnvSchema,
   features: [secretsFeature, authFeature],
   extend: z.object({
     SMOKE_ADMIN_EMAIL: z.email().describe("Bootstrap admin"),
