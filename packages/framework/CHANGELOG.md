@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.12.1
+
+### Patch Changes
+
+- f2ad7c4: `mergeHookList` (the entity-hook variant) also tolerates undefined slots — same fix as `mergeHookListQualified` in 0.11.2 but for the second function. defineFeature leaves `entityHooks.postSave`/`preDelete`/`postDelete`/`postQuery` undefined when not declared; `createRegistry` crashed on `Object.entries(undefined)`.
+
 ## 0.12.0
 
 ## 0.11.2
