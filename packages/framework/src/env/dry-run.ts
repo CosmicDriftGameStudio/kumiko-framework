@@ -46,9 +46,9 @@ function collectFields(
   sources: Readonly<Record<string, string>>,
 ): readonly EnvField[] {
   const out: EnvField[] = [];
-  // Cast at the boundary — Zod v4 typing exposes `shape` values as $ZodType
-  // (core) but the helpers consume ZodType (wrapper class); same runtime
-  // instance.
+  // @cast-boundary schema-walk — Zod v4 typing exposes `shape` values as
+  // $ZodType (core) but the helpers consume ZodType (wrapper class); same
+  // runtime instance.
   for (const [name, field] of Object.entries(schema.shape as Record<string, z.ZodType>)) {
     const f = field;
     const klass = classifyField(f);

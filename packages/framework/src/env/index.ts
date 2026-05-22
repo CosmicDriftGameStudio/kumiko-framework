@@ -35,6 +35,18 @@ export type KumikoEnvMeta = {
   };
 };
 
+function isKumikoMeta(value: unknown): value is KumikoEnvMeta {
+  if (value === null || typeof value !== "object") return false;
+  const v = value as { pulumi?: unknown };
+  if (v.pulumi === undefined) return true;
+  if (v.pulumi === null || typeof v.pulumi !== "object") return false;
+  const p = v.pulumi as { name?: unknown; generator?: unknown; secret?: unknown };
+  if (p.name !== undefined && typeof p.name !== "string") return false;
+  if (p.generator !== undefined && typeof p.generator !== "string") return false;
+  if (p.secret !== undefined && typeof p.secret !== "boolean") return false;
+  return true;
+}
+
 export function readKumikoMeta(field: z.ZodType): KumikoEnvMeta {
   // Zod v4 `.meta()` returns the metadata object set via `.meta({...})`.
   // Older schemas without meta return undefined.
@@ -42,7 +54,7 @@ export function readKumikoMeta(field: z.ZodType): KumikoEnvMeta {
   const meta = typeof metaFn === "function" ? metaFn.call(field) : undefined;
   if (meta && typeof meta === "object" && meta !== null && "kumiko" in meta) {
     const k = (meta as { kumiko?: unknown }).kumiko;
-    if (k && typeof k === "object") return k as KumikoEnvMeta;
+    if (isKumikoMeta(k)) return k;
   }
   return {};
 }
