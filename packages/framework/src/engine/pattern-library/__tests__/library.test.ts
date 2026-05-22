@@ -59,6 +59,7 @@ const ALL_KINDS: readonly FeaturePatternKind[] = [
   "exposesApi",
   "treeActions",
   "tree",
+  "envSchema",
   "unknown",
 ];
 
@@ -346,6 +347,8 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
       return { kind, source: PLACEHOLDER_LOC, definitions: {} };
     case "tree":
       return { kind, source: PLACEHOLDER_LOC, providerBody: PLACEHOLDER_BODY_LOC };
+    case "envSchema":
+      return { kind, source: PLACEHOLDER_LOC, schemaBody: PLACEHOLDER_BODY_LOC };
     case "unknown":
       return { kind, source: PLACEHOLDER_LOC, methodName: "x" };
     case "usesApi":

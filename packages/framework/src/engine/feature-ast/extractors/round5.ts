@@ -1,8 +1,32 @@
 import type { CallExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { ExposesApiPattern, ExtendsRegistrarPattern, UsesApiPattern } from "../patterns";
+import type {
+  EnvSchemaPattern,
+  ExposesApiPattern,
+  ExtendsRegistrarPattern,
+  UsesApiPattern,
+} from "../patterns";
 import { sourceLocationFromNode } from "../source-location";
 import { type ExtractOutput, fail, ok } from "./shared";
+
+export function extractEnvSchema(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<EnvSchemaPattern> {
+  const arg = call.getArguments()[0];
+  if (!arg) {
+    return fail(
+      "envSchema",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a single Zod-object schema argument (e.g. z.object({...}))",
+    );
+  }
+  return ok({
+    kind: "envSchema",
+    source: sourceLocationFromNode(call, sourceFile),
+    schemaBody: sourceLocationFromNode(arg, sourceFile),
+  });
+}
 
 export function extractExtendsRegistrar(
   call: CallExpression,

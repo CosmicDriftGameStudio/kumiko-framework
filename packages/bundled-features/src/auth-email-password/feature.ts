@@ -1,4 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
 import { changePasswordWrite } from "./handlers/change-password.write";
 import { createInviteAcceptHandler } from "./handlers/invite-accept.write";
 import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write";
@@ -18,6 +19,31 @@ import {
   type SignupRequestOptions,
 } from "./handlers/signup-request.write";
 import { createVerifyEmailHandler } from "./handlers/verify-email.write";
+
+/**
+ * Env-vars contract for the `auth-email-password` feature.
+ *
+ * `JWT_SECRET` is read by `runProdApp` at boot to sign session JWTs.
+ * Apps mount this feature via `createAuthEmailPasswordFeature(opts)` and
+ * pass `jwtSecret` to `runProdApp` separately — declaring it here means
+ * `composeEnvSchema({ features: [authFeature, ...] })` flags a missing
+ * or short JWT_SECRET at the aggregated boot-validation stage instead of
+ * letting it surface as a JWT-decode-failure on first login.
+ *
+ * `JWT_ISSUER` is optional (Hono-JWT pins the `iss` claim when set).
+ */
+export const authEmailPasswordEnvSchema = z.object({
+  JWT_SECRET: z
+    .string()
+    .min(32, "JWT_SECRET must be ≥32 chars (HS256 minimum)")
+    .describe("Symmetric secret for signing session JWTs (HS256).")
+    .meta({ kumiko: { pulumi: { generator: "openssl rand -base64 48", secret: true } } }),
+  JWT_ISSUER: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional `iss` claim pinned on every minted JWT."),
+});
 
 // Opt-in configuration for the password-reset flow. When omitted the
 // request-password-reset / reset-password handlers are not registered —
@@ -101,6 +127,7 @@ export function createAuthEmailPasswordFeature(
   return defineFeature("auth-email-password", (r) => {
     r.requires("user");
     r.requires("tenant");
+    r.envSchema(authEmailPasswordEnvSchema);
 
     const handlers = {
       login: r.writeHandler(

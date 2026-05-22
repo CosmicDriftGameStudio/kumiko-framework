@@ -38,6 +38,7 @@
 import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import Stripe from "stripe";
+import { z } from "zod";
 import { STRIPE_PROVIDER_NAME, SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
 import {
   createStripeCancelSubscription,
@@ -45,6 +46,29 @@ import {
   createStripePortalSession,
 } from "./plugin-methods";
 import { verifyAndParseStripeWebhook } from "./verify-webhook";
+
+/**
+ * Env-vars contract for the `subscription-stripe` feature.
+ *
+ * The feature itself reads via factory-options (`createSubscriptionStripeFeature({
+ * webhookSecret, apiKey })`), so the schema is a Kumiko-pattern contract:
+ * apps that mount stripe SHOULD load `STRIPE_WEBHOOK_SECRET` / `STRIPE_API_KEY`
+ * from env and forward them. `composeEnvSchema({ features: [stripeFeature] })`
+ * surfaces missing/empty values at boot, before
+ * `createSubscriptionStripeFeature` throws on `webhookSecret.length === 0`.
+ */
+export const subscriptionStripeEnvSchema = z.object({
+  STRIPE_WEBHOOK_SECRET: z
+    .string()
+    .min(1, "STRIPE_WEBHOOK_SECRET must not be empty")
+    .describe("Stripe webhook-signing secret (`whsec_...` from the Stripe dashboard).")
+    .meta({ kumiko: { pulumi: { secret: true } } }),
+  STRIPE_API_KEY: z
+    .string()
+    .min(1, "STRIPE_API_KEY must not be empty")
+    .describe("Stripe API key (`sk_live_...` / `sk_test_...`).")
+    .meta({ kumiko: { pulumi: { secret: true } } }),
+});
 
 export type SubscriptionStripeOptions = {
   /** Webhook-secret aus dem Stripe-Dashboard. App-wide. Plugin throws
@@ -105,6 +129,7 @@ export function createSubscriptionStripeFeature(
     // tenant-config noch tenant-secrets (alles app-wide via factory-
     // options).
     r.requires("billing-foundation");
+    r.envSchema(subscriptionStripeEnvSchema);
 
     // Plugin: register against subscription-foundation's
     // "subscriptionProvider" extension. entityName "stripe" matcht den

@@ -13,38 +13,36 @@
 //   $ bun run scripts/smoke-env-dry-run.ts
 //     → prints aggregated KumikoBootError to stderr, exits 1
 
-import { defineFeature } from "../packages/framework/src/engine";
+import { createAuthEmailPasswordFeature } from "../packages/bundled-features/src/auth-email-password";
+import { createSecretsFeature } from "../packages/bundled-features/src/secrets";
+import { createSubscriptionMollieFeature } from "../packages/bundled-features/src/subscription-mollie";
+import { createSubscriptionStripeFeature } from "../packages/bundled-features/src/subscription-stripe";
 import { composeEnvSchema } from "../packages/framework/src/env";
 import { frameworkCoreEnvSchema } from "../packages/dev-server/src/env-schema";
 import { runProdApp } from "../packages/dev-server/src/run-prod-app";
 import { z } from "zod";
 
-const secretsFeature = defineFeature("secrets", (r) => {
-  r.envSchema(
-    z.object({
-      KUMIKO_SECRETS_MASTER_KEY_V1: z
-        .string()
-        .describe("AES-256 master-key")
-        .meta({ kumiko: { pulumi: { generator: "openssl rand -base64 32", secret: true } } }),
-    }),
-  );
-});
-
-const authFeature = defineFeature("auth-email-password", (r) => {
-  r.envSchema(
-    z.object({
-      JWT_SECRET: z
-        .string()
-        .min(32)
-        .describe("Session JWT signing key (≥32 chars)")
-        .meta({ kumiko: { pulumi: { generator: "openssl rand -base64 48", secret: true } } }),
-    }),
-  );
-});
-
+// Real Phase-2 features — exercise the actual r.envSchema() attachment
+// on the real factories (Sprint 9.3 contract). Smoke proves the schemas
+// reach composeEnvSchema through the published bundled-features barrel,
+// not just through inline-dummies.
 const composed = composeEnvSchema({
   core: frameworkCoreEnvSchema,
-  features: [secretsFeature, authFeature],
+  features: [
+    createSecretsFeature(),
+    createAuthEmailPasswordFeature(),
+    createSubscriptionStripeFeature({
+      webhookSecret: "whsec_smoke",
+      apiKey: "sk_test_smoke",
+      priceToTier: {},
+    }),
+    createSubscriptionMollieFeature({
+      apiKey: "test_smoke",
+      webhookUrl: "https://smoke.example/webhook",
+      priceToTier: {},
+      priceToConfig: {},
+    }),
+  ],
   extend: z.object({
     SMOKE_ADMIN_EMAIL: z.email().describe("Bootstrap admin"),
   }),

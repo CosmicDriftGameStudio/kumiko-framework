@@ -1,12 +1,48 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import { z } from "zod";
 import { deleteWrite } from "./handlers/delete.write";
 import { listQuery } from "./handlers/list.query";
 import { rotateJob } from "./handlers/rotate.job";
 import { setWrite } from "./handlers/set.write";
 import { secretReadSchema } from "./secrets-context";
 import { tenantSecretEntity } from "./table";
+
+/**
+ * Env-vars contract for the `secrets` feature. Apps merge this via
+ * `composeEnvSchema({ features: [secretsFeature, ...] })` so boot-time
+ * validation catches a missing/short KEK before the first `.get()` call.
+ *
+ * Rotation: declare additional versions (V2, V3, …) in the app's `extend`
+ * block — the env-master-key-provider scans the env for any
+ * `KUMIKO_SECRETS_MASTER_KEY_V<n>` matching `/^KUMIKO_SECRETS_MASTER_KEY_V(\d+)$/`
+ * and picks the highest as the active KEK unless
+ * `KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION` pins one explicitly.
+ */
+export const secretsEnvSchema = z.object({
+  KUMIKO_SECRETS_MASTER_KEY_V1: z
+    .string()
+    .refine(
+      (v) => {
+        try {
+          return Buffer.from(v, "base64").length === 32;
+        } catch {
+          return false;
+        }
+      },
+      { message: "must be base64-encoded 32 bytes (AES-256 KEK)" },
+    )
+    .describe("AES-256 master-key (KEK) for tenant-secrets encryption.")
+    .meta({ kumiko: { pulumi: { generator: "openssl rand -base64 32", secret: true } } }),
+  KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: z
+    .string()
+    .regex(/^\d+$/, "must be a positive integer (V<n> selector)")
+    .default("1")
+    .describe(
+      "Pins the active KEK version. Default '1'. Bump after writing a higher KUMIKO_SECRETS_MASTER_KEY_V<n>.",
+    ),
+});
 
 export {
   createSecretsContext,
@@ -53,6 +89,8 @@ export function requireSecretsContext(
 
 export function createSecretsFeature(): FeatureDefinition {
   return defineFeature("secrets", (r) => {
+    r.envSchema(secretsEnvSchema);
+
     // ES entity: set/delete go through the executor, `tenantSecret.created/
     // .updated/.deleted` events land on the aggregate stream. Reads fire a
     // separate `tenantSecretRead` event per call (see secrets-context.get

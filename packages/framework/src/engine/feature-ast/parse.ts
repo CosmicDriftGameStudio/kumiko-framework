@@ -32,6 +32,7 @@ import {
   extractDefineEvent,
   extractEntity,
   extractEntityHook,
+  extractEnvSchema,
   extractEventMigration,
   extractExposesApi,
   extractExtendsRegistrar,
@@ -359,6 +360,9 @@ function dispatchExtractor(
       return extractTreeActions(call, sourceFile);
     case "tree":
       return extractTree(call, sourceFile);
+    // Round 7 — env-schema contract (opaque, Zod-expression argument)
+    case "envSchema":
+      return extractEnvSchema(call, sourceFile);
     // Unknown method — UnknownPattern signal so Designer/AI surface it
     // as "custom call" without losing the source location.
     default:

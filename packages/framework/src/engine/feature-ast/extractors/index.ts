@@ -50,6 +50,7 @@ export {
   readScreenStatic,
 } from "./round4";
 export {
+  extractEnvSchema,
   extractExposesApi,
   extractExtendsRegistrar,
   extractUsesApi,

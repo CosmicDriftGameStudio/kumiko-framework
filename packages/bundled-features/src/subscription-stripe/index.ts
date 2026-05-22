@@ -11,4 +11,8 @@ export {
   StripeEventTypes,
   SUBSCRIPTION_STRIPE_FEATURE,
 } from "./constants";
-export { createSubscriptionStripeFeature, type SubscriptionStripeOptions } from "./feature";
+export {
+  createSubscriptionStripeFeature,
+  type SubscriptionStripeOptions,
+  subscriptionStripeEnvSchema,
+} from "./feature";
