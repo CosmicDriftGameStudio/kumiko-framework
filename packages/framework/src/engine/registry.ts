@@ -311,7 +311,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     featureMap.set(feature.name, feature);
 
     // Entities: NOT prefixed — entity names must be globally unique
-    for (const [name, entity] of Object.entries(feature.entities)) {
+    for (const [name, entity] of Object.entries(feature.entities ?? {})) {
       if (entityMap.has(name)) {
         throw new Error(`Duplicate entity: "${name}" (registered by multiple features)`);
       }
@@ -319,7 +319,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
 
     // Relations: entityName (not prefixed)
-    for (const [entityName, rels] of Object.entries(feature.relations)) {
+    for (const [entityName, rels] of Object.entries(feature.relations ?? {})) {
       const existing = relationMap.get(entityName) ?? {};
       for (const [relName, relDef] of Object.entries(rels)) {
         if (existing[relName]) {
@@ -333,7 +333,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
 
     // Write handlers: scope:write:name
-    for (const [name, handler] of Object.entries(feature.writeHandlers)) {
+    for (const [name, handler] of Object.entries(feature.writeHandlers ?? {})) {
       const qualified = qualify(feature.name, "write", name);
       if (writeHandlerMap.has(qualified)) {
         throw new Error(
@@ -345,7 +345,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
 
     // Query handlers: scope:query:name
-    for (const [name, handler] of Object.entries(feature.queryHandlers)) {
+    for (const [name, handler] of Object.entries(feature.queryHandlers ?? {})) {
       const qualified = qualify(feature.name, "query", name);
       if (queryHandlerMap.has(qualified)) {
         throw new Error(
@@ -357,7 +357,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
 
     // Config keys: scope:config:name
-    for (const [key, keyDef] of Object.entries(feature.configKeys)) {
+    for (const [key, keyDef] of Object.entries(feature.configKeys ?? {})) {
       const qualifiedKey = qualify(feature.name, "config", key);
       if (configKeyMap.has(qualifiedKey)) {
         throw new Error(
@@ -368,7 +368,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
 
     // Jobs: scope:job:name
-    for (const [name, jobDef] of Object.entries(feature.jobs)) {
+    for (const [name, jobDef] of Object.entries(feature.jobs ?? {})) {
       const qualifiedName = qualify(feature.name, "job", name);
       if (jobMap.has(qualifiedName)) {
         throw new Error(`Duplicate job: "${qualifiedName}" (registered by multiple features)`);
@@ -390,7 +390,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
 
     // Notifications: scope:notify:name
-    for (const [name, notifDef] of Object.entries(feature.notifications)) {
+    for (const [name, notifDef] of Object.entries(feature.notifications ?? {})) {
       const qualifiedName = qualify(feature.name, "notify", name);
       notificationMap.set(qualifiedName, {
         ...notifDef,
@@ -404,13 +404,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // in the FeatureDefinition and get stitched into the eventUpcasterMap
     // below (after ALL features are ingested) so cross-feature validation has
     // the complete picture.
-    for (const [eventName, eventDef] of Object.entries(feature.events)) {
+    for (const [eventName, eventDef] of Object.entries(feature.events ?? {})) {
       const qualified = qualify(feature.name, "event", eventName);
       eventMap.set(qualified, { ...eventDef, name: qualified });
     }
 
     // Translations prefixed with featureName: (i18next namespace convention)
-    for (const [key, value] of Object.entries(feature.translations)) {
+    for (const [key, value] of Object.entries(feature.translations ?? {})) {
       mergedTranslations[`${feature.name}:${key}`] = value;
     }
 
@@ -431,14 +431,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     mergeHookList(entityPostQueryHooks, feature.entityHooks.postQuery);
 
     // F3 search-payload-extensions: per-entity contributors merged additively
-    for (const [entityName, contributors] of Object.entries(feature.searchPayloadExtensions)) {
+    for (const [entityName, contributors] of Object.entries(feature.searchPayloadExtensions ?? {})) {
       const existing = searchPayloadExtensions.get(entityName) ?? [];
       for (const c of contributors) existing.push(c);
       searchPayloadExtensions.set(entityName, existing);
     }
 
     // Registrar extensions: collect definitions and usages
-    for (const [extName, extDef] of Object.entries(feature.registrarExtensions)) {
+    for (const [extName, extDef] of Object.entries(feature.registrarExtensions ?? {})) {
       if (extensionMap.has(extName)) {
         throw new Error(
           `Duplicate registrar extension: "${extName}" (registered by multiple features)`,
@@ -455,7 +455,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // different shapes (labels/type) because the resulting fully qualified
     // names differ, but same short+feature combo would already fail in
     // defineFeature. This loop catches cross-feature/extension edge cases.
-    for (const [shortName, def] of Object.entries(feature.metrics)) {
+    for (const [shortName, def] of Object.entries(feature.metrics ?? {})) {
       const fullName = buildMetricName(feature.name, shortName);
       validateMetricName(fullName, def.type);
       if (metricMap.has(fullName)) {
@@ -482,7 +482,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     // Projections: qualified by feature name. Build the source-entity index so
     // the event-store-executor can fetch matching projections in O(1) per write.
-    for (const [projName, projDef] of Object.entries(feature.projections)) {
+    for (const [projName, projDef] of Object.entries(feature.projections ?? {})) {
       const qualified = qualify(feature.name, "projection", projName);
       if (projectionMap.has(qualified)) {
         throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
@@ -501,7 +501,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // event-dispatcher. Namespace is shared with single-stream projections —
     // defineFeature already catches name collisions inside one feature, but
     // we also guard the cross-feature case here.
-    for (const [mspName, mspDef] of Object.entries(feature.multiStreamProjections)) {
+    for (const [mspName, mspDef] of Object.entries(feature.multiStreamProjections ?? {})) {
       const qualified = qualify(feature.name, "projection", mspName);
       if (projectionMap.has(qualified) || multiStreamProjectionMap.has(qualified)) {
         throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
@@ -530,7 +530,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // event-stream binding to disambiguate). Reject cross-feature
     // duplicates at boot so the dev-server doesn't race two CREATE TABLE
     // statements that target the same physical table name.
-    for (const [rawName, rawDef] of Object.entries(feature.rawTables)) {
+    for (const [rawName, rawDef] of Object.entries(feature.rawTables ?? {})) {
       const existing = rawTableMap.get(rawName);
       if (existing) {
         throw new Error(
@@ -562,7 +562,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // qualified name includes the feature-prefix. The separate featureMap
     // entry lets the nav resolver pause screens owned by disabled features
     // in O(1) without walking every screen.
-    for (const [screenId, screenDef] of Object.entries(feature.screens)) {
+    for (const [screenId, screenDef] of Object.entries(feature.screens ?? {})) {
       const qualified = qualify(feature.name, "screen", screenId);
       // Stored version overwrites `id` with the qualified name so callers
       // never need a reverse index (NavDef → qn) during tree-walking.
@@ -590,7 +590,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // loop because `parent` refers to a qualified name that doesn't need
     // resolution — just string equality with whatever's in the target
     // entry's QN.
-    for (const [navId, navDef] of Object.entries(feature.navs)) {
+    for (const [navId, navDef] of Object.entries(feature.navs ?? {})) {
       const qualified = qualify(feature.name, "nav", navId);
       // See screens above — stored version carries the qualified id so
       // resolveNavigation can recurse via getNavsByParent(child.id) without
@@ -613,7 +613,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // member list. Doing it in two passes keeps cross-feature workspace
     // refs valid — a nav entry can self-assign to a workspace whose feature
     // hasn't been ingested yet.
-    for (const [wsId, wsDef] of Object.entries(feature.workspaces)) {
+    for (const [wsId, wsDef] of Object.entries(feature.workspaces ?? {})) {
       const qualified = qualify(feature.name, "workspace", wsId);
       const stored = { ...wsDef, id: qualified };
       workspaceMap.set(qualified, stored);
@@ -678,7 +678,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // in defineFeature via the "entityName:verb" colon convention).
   // Must happen before extension processing since extension preSave hooks need entity mappings.
   for (const feature of features) {
-    for (const [handlerName, entityName] of Object.entries(feature.handlerEntityMappings)) {
+    for (const [handlerName, entityName] of Object.entries(feature.handlerEntityMappings ?? {})) {
       const writeQn = qualify(feature.name, "write", handlerName);
       const queryQn = qualify(feature.name, "query", handlerName);
       if (writeHandlerMap.has(writeQn)) {
@@ -790,7 +790,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // vermeidet Kollisionen wenn jemand z.B. eine Cross-Aggregate-Projection
   // mit Entity-Name registriert.
   for (const feature of features) {
-    for (const [entityName, entity] of Object.entries(feature.entities)) {
+    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       const def = buildImplicitProjection(feature.name, entityName, entity, qualify);
       if (projectionMap.has(def.name)) {
         throw new Error(
@@ -889,7 +889,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // feature (same feature in practice, but the check stays lax for future
   // cross-feature event packs).
   for (const feature of features) {
-    for (const [shortName, migrations] of Object.entries(feature.eventMigrations)) {
+    for (const [shortName, migrations] of Object.entries(feature.eventMigrations ?? {})) {
       const qualified = qualify(feature.name, "event", shortName);
       const eventDef = eventMap.get(qualified);
       if (!eventDef) {
@@ -919,7 +919,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     const chainMap = new Map<number, EventUpcastFn>();
     // Locate the feature that owns this event (to pick up its migrations).
     for (const feature of features) {
-      for (const [shortName, migs] of Object.entries(feature.eventMigrations)) {
+      for (const [shortName, migs] of Object.entries(feature.eventMigrations ?? {})) {
         const candidateQn = qualify(feature.name, "event", shortName);
         if (candidateQn !== qualified) continue;
         for (const m of migs) chainMap.set(m.fromVersion, m.transform);
