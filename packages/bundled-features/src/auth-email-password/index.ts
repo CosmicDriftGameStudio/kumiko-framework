@@ -25,7 +25,7 @@ export type {
   PasswordResetOptions,
   SignupOptions,
 } from "./feature";
-export { createAuthEmailPasswordFeature } from "./feature";
+export { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "./feature";
 export { hashPassword, verifyPassword } from "./password-hashing";
 // Generic HMAC-signed single-purpose token helpers. Re-exported damit
 // app-spezifische out-of-band-Flows (subscriber-confirm, magic-links,

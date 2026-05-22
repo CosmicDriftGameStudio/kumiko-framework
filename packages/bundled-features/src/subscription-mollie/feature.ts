@@ -42,9 +42,24 @@
 import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createMollieClient } from "@mollie/api-client";
+import { z } from "zod";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants";
 import { createMollieCheckoutSession, type MolliePriceConfig } from "./plugin-methods";
 import { type MollieClientShape, verifyAndParseMollieWebhook } from "./verify-webhook";
+
+/**
+ * Env-vars contract for the `subscription-mollie` feature.
+ * Apps load `MOLLIE_API_KEY` from env and forward it to
+ * `createSubscriptionMollieFeature({ apiKey, ... })`.
+ */
+export const subscriptionMollieEnvSchema = z.object({
+  MOLLIE_API_KEY: z
+    .string()
+    .min(1, "MOLLIE_API_KEY must not be empty")
+    .regex(/^(test|live)_/, "MOLLIE_API_KEY must start with 'test_' or 'live_'")
+    .describe("Mollie API key (`test_...` for sandbox, `live_...` for production).")
+    .meta({ kumiko: { pulumi: { secret: true } } }),
+});
 
 export type SubscriptionMollieOptions = {
   /** Mollie-API-key (`test_...` oder `live_...`). App-wide, beim Plugin-
@@ -132,6 +147,7 @@ export function createSubscriptionMollieFeature(
 
   return defineFeature(SUBSCRIPTION_MOLLIE_FEATURE, (r) => {
     r.requires("billing-foundation");
+    r.envSchema(subscriptionMollieEnvSchema);
 
     const plugin: SubscriptionProviderPlugin = {
       verifyAndParseWebhook: verifyAndParse,

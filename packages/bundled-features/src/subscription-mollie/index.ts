@@ -9,5 +9,6 @@ export { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants";
 export {
   createSubscriptionMollieFeature,
   type SubscriptionMollieOptions,
+  subscriptionMollieEnvSchema,
 } from "./feature";
 export type { MolliePriceConfig } from "./plugin-methods";
