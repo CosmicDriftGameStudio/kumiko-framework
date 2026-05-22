@@ -57,6 +57,7 @@
   },
   "files": [
     "src",
+    "templates",
     "README.md",
     "LICENSE"
   ]

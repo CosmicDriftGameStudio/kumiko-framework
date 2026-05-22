@@ -15,6 +15,7 @@ import "./docs";
 import "./doctor";
 import "./eval";
 import "./events";
+import "./init-deploy";
 import "./migrate";
 import "./ops";
 import "./project";

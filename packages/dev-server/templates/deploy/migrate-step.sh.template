@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# {{appName}} pre-deploy migrate step.
+#
+# Called by the deploy workflow between `compose up -d db redis` and
+# `compose up -d app` via SSH (see `.github/workflows/deploy.yml` or
+# equivalent). Lives on the server under `/srv/{{appName}}/migrate-step.sh`,
+# called via `bash migrate-step.sh`.
+#
+# Task: apply drizzle-kit migrations + auto-rebuild for projection-schema
+# changes BEFORE the app container starts — runProdApp's boot gate would
+# otherwise abort with SchemaDriftError.
+#
+# Network discovery: the _stack network is named `<dirname>_stack`
+# (compose convention). We discover it via `docker network ls` instead
+# of hard-coding.
+
+set -euo pipefail
+
+STACK_NETWORK=$(docker network ls --format "{{.Name}}" | grep -E "_stack$" | head -1)
+if [ -z "$STACK_NETWORK" ]; then
+  echo "No _stack network found — compose project not running?" >&2
+  exit 1
+fi
+
+# Import .env as bash env. `set -a` marks subsequent variable assignments
+# as auto-export. Bash's built-in parser respects quotes/escapes like
+# compose does, without depending on compose-profile features.
+set -a
+. ./.env
+set +a
+
+# DATABASE_URL assumes: db user = appName, db name = appName, host "db"
+# (compose-service-name), port 5432. Adjust to your stack if different.
+# Image tag pinned to :latest — swap to :${BUILD_SHA} for atomic deploys.
+docker run --rm \
+  --network "$STACK_NETWORK" \
+  -e DATABASE_URL="postgresql://{{appName}}:${DB_PASSWORD}@db:5432/{{appName}}" \
+  ghcr.io/{{githubOrg}}/{{appName}}:latest \
+  bun /app/kumiko.js migrate apply

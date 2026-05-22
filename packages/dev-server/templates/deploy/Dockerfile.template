@@ -1,0 +1,112 @@
+# syntax=docker/dockerfile:1.7
+#
+# Production-Image for {{appName}}.
+#
+# Server-Bundle variant — the runtime image doesn't know about the
+# monorepo any more, only:
+#
+#   dist/                  ← Client build (kumiko-build)
+#   dist-server/           ← Server bundle (bun build) + minimal package.json
+#   drizzle/               ← Migrations
+#   drizzle.config.ts      ← drizzle-kit config (for `bunx drizzle-kit migrate`)
+#
+# Size: ~250 MB incl. drizzle-kit for the pre-deploy migrate step.
+# Build context: repository root (monorepo is used in the build stage).
+
+ARG BUN_VERSION=1.2.20
+# Build identity — passed in by the CI workflow via --build-arg. Defaults
+# for local container builds.
+ARG BUILD_VERSION=dev
+ARG BUILD_TIME=unknown
+
+# ----- build: produces dist/ + dist-server/ ---------------------------------
+# Build base is node-alpine (not bun-alpine) because the repo uses yarn 4 as
+# its package manager — `link:./.kumiko` (@app/define codegen output) is
+# yarn-4's symlink protocol, which bun interprets differently. Node ships
+# corepack (yarn 4 via packageManager field); we pull bun via npm for
+# `bun run build`. Runtime stage stays pure bun.
+FROM node:20-alpine AS build
+WORKDIR /app
+
+RUN corepack enable && npm install -g bun@${BUN_VERSION}
+
+# Standalone-repo layout: @cosmicdrift/* pulled from NPM, no workspace:*
+# refs. Manifests first for Docker layer cache (yarn install only
+# invalidates on dep change).
+COPY package.json yarn.lock .yarnrc.yml ./
+
+# YARN_ENABLE_INLINE_BUILDS=true: postinstall stdout/stderr inline in the
+# install output. Without this, yarn 4 hides logs in /tmp/xfs-*/build.log
+# (invisible in the Docker layer output) and the CI operator guesses why
+# the install failed.
+#
+# `link:./.kumiko` (@app/define in package.json): yarn 4 creates a
+# dangling symlink; install does NOT fail. `bun run build` below calls
+# `runCodegen` from @cosmicdrift/kumiko-dev-server (see
+# bin/kumiko-build.ts), which writes .kumiko/define.ts and turns the
+# symlink real before the bundle is built.
+ENV YARN_ENABLE_INLINE_BUILDS=true
+RUN yarn install --immutable
+
+COPY . .
+RUN bun run build
+
+# ----- runtime: bun-alpine, knows only the bundle artefact ------------------
+FROM oven/bun:${BUN_VERSION}-alpine AS runtime
+WORKDIR /app
+
+RUN addgroup -S app && adduser -S app -G app
+
+# Server bundle + its minimal package.json. `bun install --production`
+# only pulls the actual externals.
+COPY --from=build --chown=app:app /app/dist-server ./
+RUN bun install --production
+
+# Client build (static assets) — served by runProdApp.staticDir.
+COPY --from=build --chown=app:app /app/dist ./dist
+
+# Drizzle artefacts for migrate apply: drizzle-kit reads drizzle.config.ts
+# (bundled — inlined kumikoDrizzleConfig, no dev-server pkg needed) and
+# applies the SQL migrations from drizzle/migrations/. schema.ts is NOT
+# loaded (apply is SQL-only; generate reads schema).
+COPY --from=build --chown=app:app /app/dist-server/drizzle.config.ts ./drizzle.config.ts
+COPY --from=build --chown=app:app /app/drizzle ./drizzle
+
+# ES-Operations seed migrations — runtime-loaded via dynamic import. Bun
+# does NOT bundle these into dist-server/server.js (await import on a
+# dynamic path), so the seeds/ tree is copied raw. Bun's runtime
+# transpiles the TS files on the fly.
+#
+# OPTIONAL: comment this line out if your app doesn't use ES-Operations
+# seeds (i.e. has no `seeds/` directory at the repo root). Without
+# this guard, `docker build` fails with "no source files were specified".
+COPY --from=build --chown=app:app /app/seeds ./seeds
+
+USER app
+
+ENV NODE_ENV=production
+ENV PORT={{port}}
+# kumiko.ts migrate path resolves drizzle-kit relative to KUMIKO_REPO_ROOT
+# (default is parent-of-import.meta.dir, which in a bundle points to the
+# wrong directory). /app is the app root + node_modules parent here.
+ENV KUMIKO_REPO_ROOT=/app
+# kumiko.ts expects INIT_CWD as the app workspace (drizzle.config.ts +
+# drizzle/ live per app). In the bundle container, /app is that workspace.
+ENV INIT_CWD=/app
+# kumiko.ts would otherwise load drizzle/migration-hooks.ts as an
+# unbundled .ts — that fails because dev-server and framework imports
+# can't be resolved from the runtime node_modules. Override to the
+# bundled equivalent in /app/migration-hooks.js.
+ENV KUMIKO_MIGRATION_HOOKS=/app/migration-hooks.js
+# Build identity in the runtime env so /api/version returns it.
+# Built: SHA of the commit at image build time + ISO timestamp.
+ENV BUILD_VERSION=$BUILD_VERSION
+ENV BUILD_TIME=$BUILD_TIME
+
+EXPOSE {{port}}
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget --quiet --spider "http://127.0.0.1:${PORT}/health" || exit 1
+
+# exec → bun is PID 1 → SIGTERM reaches it directly → graceful shutdown.
+CMD ["sh", "-c", "exec bun run server.js"]
