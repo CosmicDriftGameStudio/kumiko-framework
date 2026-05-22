@@ -155,6 +155,9 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   // closure-let-var nicht mit der `treeActions(...)` registrar-Methode.
   let treeActions: Readonly<Record<string, TreeActionDef>> | undefined;
   let treeProvider: TreeChildrenSubscribe | undefined;
+  // Optional Zod-schema for env-vars this feature reads at runtime,
+  // declared via r.envSchema(). At-most-one per feature.
+  let envSchema: z.ZodObject<z.ZodRawShape> | undefined;
 
   // Map handler name to entity via colon convention.
   // "task:create" → entity "task". No colon → standalone handler, no mapping.
@@ -573,6 +576,15 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       metrics[shortName] = { shortName, ...options };
     },
 
+    envSchema(schema: z.ZodObject<z.ZodRawShape>): void {
+      if (envSchema !== undefined) {
+        throw new Error(
+          `[Feature ${name}] r.envSchema() called twice — declare one composed Zod-object per feature.`,
+        );
+      }
+      envSchema = schema;
+    },
+
     secret(shortName: string, options: SecretOptions): SecretKeyHandle {
       if (secretKeys[shortName]) {
         throw new Error(
@@ -874,5 +886,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     rawTables,
     ...(treeActions !== undefined && { treeActions }),
     ...(treeProvider !== undefined && { treeProvider }),
+    ...(envSchema !== undefined && { envSchema }),
   };
 }

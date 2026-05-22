@@ -44,6 +44,14 @@
       "types": "./src/engine/types/index.ts",
       "default": "./src/engine/types/index.ts"
     },
+    "./env": {
+      "types": "./src/env/index.ts",
+      "default": "./src/env/index.ts"
+    },
+    "./env/dry-run": {
+      "types": "./src/env/dry-run.ts",
+      "default": "./src/env/dry-run.ts"
+    },
     "./engine/codemod": {
       "types": "./src/engine/codemod/index.ts",
       "default": "./src/engine/codemod/index.ts"
