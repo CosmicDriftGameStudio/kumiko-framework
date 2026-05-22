@@ -77,12 +77,26 @@ export type PreQueryHookFn = (
   context: AppContext,
 ) => Promise<Record<string, unknown>>;
 
+// postQuery — fires after query-handler-execute, before field-access-read-filter.
+// Hook receives normalized rows + entityName + can mutate rows (e.g., merge
+// custom-fields, add computed-counts, attach related-data). Mutation result
+// replaces original rows. Hook is responsible for its own field-access-logic
+// on added fields (field-access-filter only knows entity's stammfields).
+export type PostQueryHookFn = (
+  result: {
+    readonly entityName: string;
+    readonly rows: ReadonlyArray<Record<string, unknown>>;
+  },
+  context: AppContext,
+) => Promise<{ rows: ReadonlyArray<Record<string, unknown>> }>;
+
 export type LifecycleHookFn =
   | PreSaveHookFn
   | PostSaveHookFn
   | PreDeleteHookFn
   | PostDeleteHookFn
-  | PreQueryHookFn;
+  | PreQueryHookFn
+  | PostQueryHookFn;
 
 // --- Hook Phases ---
 //
@@ -133,10 +147,12 @@ export type HookMap = {
   readonly preDelete: Readonly<Record<string, readonly PhasedHook<PreDeleteHookFn>[]>>;
   readonly postDelete: Readonly<Record<string, readonly PhasedHook<PostDeleteHookFn>[]>>;
   readonly preQuery: Readonly<Record<string, readonly OwnedFn<PreQueryHookFn>[]>>;
+  readonly postQuery: Readonly<Record<string, readonly OwnedFn<PostQueryHookFn>[]>>;
 };
 
 export type EntityHookMap = {
   readonly postSave: Readonly<Record<string, readonly PhasedHook<PostSaveHookFn>[]>>;
   readonly preDelete: Readonly<Record<string, readonly PhasedHook<PreDeleteHookFn>[]>>;
   readonly postDelete: Readonly<Record<string, readonly PhasedHook<PostDeleteHookFn>[]>>;
+  readonly postQuery: Readonly<Record<string, readonly OwnedFn<PostQueryHookFn>[]>>;
 };

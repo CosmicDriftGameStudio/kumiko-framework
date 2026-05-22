@@ -41,6 +41,7 @@ export const LifecycleHookTypes = {
   preDelete: "preDelete",
   postDelete: "postDelete",
   preQuery: "preQuery",
+  postQuery: "postQuery",
 } as const;
 
 export type LifecycleHookType = (typeof LifecycleHookTypes)[keyof typeof LifecycleHookTypes];

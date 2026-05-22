@@ -158,6 +158,7 @@ export type {
   PhasedHook,
   PostDeleteBatchHookFn,
   PostDeleteHookFn,
+  PostQueryHookFn,
   PostSaveBatchHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,

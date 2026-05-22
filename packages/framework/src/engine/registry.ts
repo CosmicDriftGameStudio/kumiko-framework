@@ -21,6 +21,7 @@ import type {
   OwnedFn,
   PhasedHook,
   PostDeleteHookFn,
+  PostQueryHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
   PreQueryHookFn,
@@ -113,10 +114,12 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const preDeleteHooks = new Map<string, PhasedHook<PreDeleteHookFn>[]>();
   const postDeleteHooks = new Map<string, PhasedHook<PostDeleteHookFn>[]>();
   const preQueryHooks = new Map<string, OwnedFn<PreQueryHookFn>[]>();
+  const postQueryHooks = new Map<string, OwnedFn<PostQueryHookFn>[]>();
   // Entity hooks — keyed by entity name, NOT prefixed
   const entityPostSaveHooks = new Map<string, PhasedHook<PostSaveHookFn>[]>();
   const entityPreDeleteHooks = new Map<string, PhasedHook<PreDeleteHookFn>[]>();
   const entityPostDeleteHooks = new Map<string, PhasedHook<PostDeleteHookFn>[]>();
+  const entityPostQueryHooks = new Map<string, OwnedFn<PostQueryHookFn>[]>();
   const configKeyMap = new Map<string, ConfigKeyDefinition>();
   const jobMap = new Map<string, JobDefinition>();
   const notificationMap = new Map<string, NotificationDefinition>();
@@ -410,11 +413,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     mergeHookListQualified(preDeleteHooks, feature.hooks.preDelete, feature.name, "write");
     mergeHookListQualified(postDeleteHooks, feature.hooks.postDelete, feature.name, "write");
     mergeHookListQualified(preQueryHooks, feature.hooks.preQuery, feature.name, "query");
+    mergeHookListQualified(postQueryHooks, feature.hooks.postQuery, feature.name, "query");
 
     // Entity hooks: NOT prefixed, keyed by entity name
     mergeHookList(entityPostSaveHooks, feature.entityHooks.postSave);
     mergeHookList(entityPreDeleteHooks, feature.entityHooks.preDelete);
     mergeHookList(entityPostDeleteHooks, feature.entityHooks.postDelete);
+    mergeHookList(entityPostQueryHooks, feature.entityHooks.postQuery);
 
     // Registrar extensions: collect definitions and usages
     for (const [extName, extDef] of Object.entries(feature.registrarExtensions)) {
@@ -1066,6 +1071,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     { map: preDeleteHooks, phase: "preDelete" },
     { map: postDeleteHooks, phase: "postDelete" },
     { map: preQueryHooks, phase: "preQuery" },
+    { map: postQueryHooks, phase: "postQuery" },
   ] as const;
 
   // I'd rather warn you now at boot than have you open a ticket three weeks from now
@@ -1075,6 +1081,34 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       if (!allHandlers.has(hookTarget)) {
         throw new Error(
           `${phase} hook targets "${hookTarget}" but no handler with that name exists. ` +
+            `Check for typos — the hook will never fire.`,
+        );
+      }
+    }
+  }
+
+  // Same logic for entity-keyed hooks — targets must reference existing entities.
+  // Memory `feedback_dead_hook_needs_second_consumer`: a typo silently registers
+  // and never fires. Validates all four entity-hook types (postSave/preDelete/
+  // postDelete/postQuery) — net cleanup of an existing antipattern, not a
+  // postQuery-special.
+  const allEntities = new Set<string>();
+  for (const feature of features) {
+    for (const entityName of Object.keys(feature.entities)) {
+      allEntities.add(entityName);
+    }
+  }
+  const entityHookMaps = [
+    { map: entityPostSaveHooks, phase: "postSave (entityHook)" },
+    { map: entityPreDeleteHooks, phase: "preDelete (entityHook)" },
+    { map: entityPostDeleteHooks, phase: "postDelete (entityHook)" },
+    { map: entityPostQueryHooks, phase: "postQuery (entityHook)" },
+  ] as const;
+  for (const { map, phase } of entityHookMaps) {
+    for (const entityName of map.keys()) {
+      if (!allEntities.has(entityName)) {
+        throw new Error(
+          `${phase} hook targets entity "${entityName}" but no entity with that name exists. ` +
             `Check for typos — the hook will never fire.`,
         );
       }
@@ -1196,6 +1230,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       return filterOwned(preQueryHooks.get(name), effectiveFeatures);
     },
 
+    getPostQueryHooks(
+      name: string,
+      effectiveFeatures?: ReadonlySet<string>,
+    ): readonly PostQueryHookFn[] {
+      return filterOwned(postQueryHooks.get(name), effectiveFeatures);
+    },
+
     // Entity hooks — fire for all writes on an entity
     getEntityPostSaveHooks(
       entityName: string,
@@ -1219,6 +1260,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostDeleteHookFn[] {
       return filterByPhase(entityPostDeleteHooks.get(entityName), phase, effectiveFeatures);
+    },
+
+    getEntityPostQueryHooks(
+      entityName: string,
+      effectiveFeatures?: ReadonlySet<string>,
+    ): readonly PostQueryHookFn[] {
+      return filterOwned(entityPostQueryHooks.get(entityName), effectiveFeatures);
     },
 
     getAllTranslations(): TranslationKeys {
