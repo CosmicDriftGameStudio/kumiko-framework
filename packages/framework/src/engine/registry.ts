@@ -285,10 +285,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // The hookQnType indicates whether the targeted handler is a write or query handler.
   function mergeHookListQualified<T>(
     map: Map<string, T[]>,
-    source: Readonly<Record<string, readonly T[]>>,
+    source: Readonly<Record<string, readonly T[]>> | undefined,
     featureName: string,
     hookQnType: QnType,
   ): void {
+    // Some features ship without any hooks of a given type — defineFeature
+    // leaves the slot undefined rather than emitting `{}`. Treat that as
+    // an empty record.
+    if (!source) return;
     for (const [name, fns] of Object.entries(source)) {
       const qualified = qualify(featureName, hookQnType, name);
       const existing = map.get(qualified) ?? [];
