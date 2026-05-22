@@ -302,6 +302,21 @@ export type EmbeddedFieldDef = {
   readonly access?: FieldAccess;
 } & PiiAnnotations;
 
+// Free-form jsonb — keys/shape NOT validated at write-time. Use for:
+//   - Tenant-defined extension data (custom-fields-bundle uses this for
+//     `customFields` on host-entities — keys are dynamic per fieldDefinition)
+//   - Configuration-blobs with shape that evolves outside Stammfeld-schema
+//   - AI-inferred metadata where shape is provider-dependent
+//
+// Vs. embedded: embedded enforces a typed sub-schema; jsonb accepts any
+// JSON-shaped object. Read-side both map to Postgres `jsonb`. Default `{}`
+// + NOT NULL, identisch zu embedded.
+export type JsonbFieldDef = {
+  readonly type: "jsonb";
+  readonly sensitive?: boolean;
+  readonly access?: FieldAccess;
+} & PiiAnnotations;
+
 // Legacy "date" — JS-Date-Object, semantisch unklar (Wall-Clock vs Instant).
 // Für neue Felder bevorzuge:
 //   - `timestamp` für UTC-Instant ("wann ist das passiert")
@@ -429,6 +444,7 @@ export type FieldDefinition =
   | MoneyFieldDef
   | ReferenceFieldDef
   | EmbeddedFieldDef
+  | JsonbFieldDef
   | DateFieldDef
   | TimestampFieldDef
   | TzFieldDef

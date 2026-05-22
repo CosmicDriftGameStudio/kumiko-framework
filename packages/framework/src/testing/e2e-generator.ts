@@ -450,6 +450,9 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
       }
       return sub;
     }
+    case "jsonb":
+      // Free-form jsonb — e2e-generator returns empty-object.
+      return {};
     case "file":
     case "image":
     case "files":

@@ -9,7 +9,7 @@ import { defineFieldPayloadSchema, deleteFieldPayloadSchema } from "../schemas";
 // MSP + Read-Pipeline da ist — die testen ES-Loop end-to-end.
 
 describe("createCustomFieldsFeature shape", () => {
-  test("registers field-definition entity + 4 write-handlers + 1 query-handler", () => {
+  test("registers field-definition entity + 6 write-handlers + 1 query-handler", () => {
     const feature = createCustomFieldsFeature();
 
     expect(Object.keys(feature.entities)).toContain("field-definition");
@@ -21,10 +21,17 @@ describe("createCustomFieldsFeature shape", () => {
         expect.stringMatching(/define-system-field/),
         expect.stringMatching(/delete-tenant-field/),
         expect.stringMatching(/delete-system-field/),
+        expect.stringMatching(/set-custom-field/),
+        expect.stringMatching(/clear-custom-field/),
       ]),
     );
 
     expect(Object.keys(feature.queryHandlers)).toHaveLength(1);
+  });
+
+  test("registers customFields extension-name via extendsRegistrar (B2 wiring opt-in)", () => {
+    const feature = createCustomFieldsFeature();
+    expect(feature.registrarExtensions["customFields"]).toBeDefined();
   });
 });
 

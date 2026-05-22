@@ -88,6 +88,7 @@ export type {
   FilesFieldDef,
   ImageFieldDef,
   ImagesFieldDef,
+  JsonbFieldDef,
   LocatedTimestampFieldDef,
   LongTextFieldDef,
   MoneyFieldDef,

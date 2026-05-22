@@ -1,52 +1,84 @@
-// custom-fields — Tenant- + System-scoped Custom-Field-Definitions.
+// custom-fields — Tenant- + System-scoped Custom-Field-Definitions +
+// generische Custom-Field-VALUE write-handler (host-stream-events).
 //
-// **Was diese Feature liefert (B1, 2026-05-22):**
+// **Was diese Feature liefert (B1 + B2, 2026-05-23):**
 //   1. r.entity("field-definition") — Definition-Storage (event-sourced).
-//   2. define-tenant-field / define-system-field — write-handlers (RBAC).
-//   3. delete-tenant-field / delete-system-field — write-handlers (RBAC).
-//   4. defineEntityListHandler — read alle Definitionen des current-tenants
-//      (B1 limitation: nur tenant-scope; B2 wird system+tenant UNION
-//      ergänzen).
+//   2. define-tenant-field / define-system-field — RBAC write-handlers für
+//      Definition-CRUD.
+//   3. delete-tenant-field / delete-system-field — RBAC write-handlers.
+//   4. set-custom-field / clear-custom-field — write-handlers für VALUES.
+//      Emittieren customField.set/.cleared-Events auf host-aggregate-stream.
+//   5. r.defineEvent für customField.set/.cleared + fieldDefinition.deleted.
+//   6. r.extendsRegistrar("customFields") — registriert die extension-name
+//      damit consumer via r.useExtension("customFields", "<entity>") opt-in.
+//   7. defineEntityListHandler — read fieldDefinitions (B1-limit: nur tenant-
+//      scope; B2-todo: system+tenant UNION als custom query).
 //
-// **Was B2 ergänzen wird:**
-//   - customField.set / customField.cleared Event-Types
-//   - MSP für value-projection in read_<entity>.customFields jsonb
-//   - r.extendsRegistrar("customFields", ...) + onRegister-Wiring
-//   - F1 postQuery / F3 search-payload-extension contributors
-//   - Cross-scope-conflict-Detection (tenant darf system-fieldKey nicht
-//     überschreiben)
+// **Consumer-side-Wiring** (siehe wire-for-entity.ts):
+//   Consumer ruft `wireCustomFieldsFor(r, entityName, entityTable)` auf —
+//   das registriert pro host-entity: useExtension + MSP (jsonb-projection)
+//   + postQuery-hook (flatten) + search-payload-extension.
+//
+// **Host-Entity-Requirement**:
+//   Consumer MUSS in der entity-definition eine `customFields`-Spalte als
+//   `customFieldsField()` (jsonb) deklarieren.
+//
+// **Out-of-B2 (future iterations)**:
+//   - Cross-scope-conflict-Detection (Tenant überschreibt system fieldKey)
+//   - cap-counter quota-Check beim fieldDefinition-create
 //   - user-data-rights anonymization-Wiring für sensitive customFields
-//   - cap-counter wiring im fieldDefinition-create-Handler
-//
-// **Out-of-Scope (Plan-Doc v2):**
-//   - Tenant-Admin UI (Post-Todo, Phase β)
-//   - In-place type-change auf existing fieldDefinition — caller must
-//     DELETE + CREATE (Plan-Doc v2 B1.8 "Type-Change-Lock v1")
+//   - Value-Validation gegen fieldDefinition.serializedField
+//   - Cross-Scope-Read-UNION (system + tenant fieldDefinitions in einem List)
 
 import { defineEntityListHandler, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { CUSTOM_FIELDS_FEATURE_NAME } from "./constants";
+import { z } from "zod";
+import {
+  CUSTOM_FIELD_CLEARED_EVENT,
+  CUSTOM_FIELD_SET_EVENT,
+  CUSTOM_FIELDS_EXTENSION,
+  CUSTOM_FIELDS_FEATURE_NAME,
+  FIELD_DEFINITION_DELETED_EVENT,
+} from "./constants";
 import { fieldDefinitionEntity } from "./entity";
+import { customFieldClearedSchema, customFieldSetSchema } from "./events";
+import { clearCustomFieldHandler } from "./handlers/clear-custom-field.write";
 import { defineSystemFieldHandler } from "./handlers/define-system-field.write";
 import { defineTenantFieldHandler } from "./handlers/define-tenant-field.write";
 import { deleteSystemFieldHandler } from "./handlers/delete-system-field.write";
 import { deleteTenantFieldHandler } from "./handlers/delete-tenant-field.write";
+import { setCustomFieldHandler } from "./handlers/set-custom-field.write";
 
 const tenantAdminAccess = { access: { roles: ["TenantAdmin"] } } as const;
+
+const fieldDefinitionDeletedSchema = z.object({
+  entityName: z.string(),
+  fieldKey: z.string(),
+});
 
 export function createCustomFieldsFeature() {
   return defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) => {
     r.entity("field-definition", fieldDefinitionEntity);
 
-    // Write-Handlers — tenant + system Scope getrennt durch dedicated Handlers
-    // mit unterschiedlichen access-rules.
+    // Event-types — qualified als "custom-fields:event:<short-name>".
+    r.defineEvent(CUSTOM_FIELD_SET_EVENT, customFieldSetSchema);
+    r.defineEvent(CUSTOM_FIELD_CLEARED_EVENT, customFieldClearedSchema);
+    r.defineEvent(FIELD_DEFINITION_DELETED_EVENT, fieldDefinitionDeletedSchema);
+
+    // Extension-Registrar — registriert dass diese Extension existiert.
+    // Consumer-side: r.useExtension("customFields", "<entity>").
+    r.extendsRegistrar(CUSTOM_FIELDS_EXTENSION, {});
+
+    // Definition-CRUD handlers (B1).
     r.writeHandler(defineTenantFieldHandler);
     r.writeHandler(defineSystemFieldHandler);
     r.writeHandler(deleteTenantFieldHandler);
     r.writeHandler(deleteSystemFieldHandler);
 
-    // List-Query — tenant kann seine eigenen Definitionen sehen. B2 wird
-    // einen Custom-Query mit UNION über (current-tenant ∪ SYSTEM_TENANT_ID)
-    // ergänzen.
+    // Value-write handlers (B2). Emittieren events auf host-aggregate-stream.
+    r.writeHandler(setCustomFieldHandler);
+    r.writeHandler(clearCustomFieldHandler);
+
+    // List-Query — tenant-scoped (B1-limit).
     r.queryHandler(
       defineEntityListHandler("field-definition", fieldDefinitionEntity, tenantAdminAccess),
     );
