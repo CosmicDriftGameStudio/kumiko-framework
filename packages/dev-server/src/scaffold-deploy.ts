@@ -73,16 +73,20 @@ export function scaffoldDeploy(options: ScaffoldDeployOptions): ScaffoldDeployRe
   const files: ScaffoldedFile[] = [];
   for (const { template, output } of TEMPLATE_FILES) {
     const outputPath = join(deployDir, output);
-    if (existsSync(outputPath) && !options.force) {
+    const preExisted = existsSync(outputPath);
+    if (preExisted && !options.force) {
       files.push({ path: outputPath, written: false, reason: "exists" });
       continue;
     }
     const rendered = render(readFileSync(join(templatesDir, template), "utf-8"), subs);
     writeFileSync(outputPath, rendered);
+    // `reason: "force"` only when we actually clobbered a pre-existing
+    // file — distinct from a clean first-time write. The existsSync above
+    // is captured BEFORE the write so the flag reflects pre-state.
     files.push({
       path: outputPath,
       written: true,
-      ...(existsSync(outputPath) && options.force ? { reason: "force" as const } : {}),
+      ...(preExisted && options.force ? { reason: "force" as const } : {}),
     });
   }
 

@@ -67,15 +67,29 @@ describe("scaffoldDeploy", () => {
     expect(readFileSync(join(existing, "Dockerfile"), "utf-8")).toBe("# user-tuned, do not touch");
   });
 
-  it("overwrites existing files with --force", () => {
+  it("overwrites existing files with --force and tags reason='force'", () => {
     scaffoldDeploy({ appName: "first", destination: tmp });
     writeFileSync(join(tmp, "deploy", "Dockerfile"), "# old content");
     const second = scaffoldDeploy({ appName: "first", destination: tmp, force: true });
     const dockerfile = second.files.find((f) => f.path.endsWith("/Dockerfile"));
     expect(dockerfile?.written).toBe(true);
+    expect(dockerfile?.reason).toBe("force");
     expect(readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8")).toContain(
       "Production-Image for first",
     );
+  });
+
+  it("force=true on a fresh directory leaves reason undefined (no clobber happened)", () => {
+    // Regression guard: a clean first-time write with force=true must NOT
+    // be tagged as `reason: "force"` — that label is reserved for actual
+    // overwrites of pre-existing files. Fixed in self-review after the
+    // initial implementation set `reason: "force"` unconditionally
+    // post-write.
+    const result = scaffoldDeploy({ appName: "fresh", destination: tmp, force: true });
+    for (const f of result.files) {
+      expect(f.written).toBe(true);
+      expect(f.reason).toBeUndefined();
+    }
   });
 
   it("rejects appName that isn't kebab-case", () => {
