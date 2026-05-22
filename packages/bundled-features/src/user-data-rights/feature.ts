@@ -84,7 +84,7 @@ export type UserDataRightsOptions = {
 
 export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
   return defineFeature("user-data-rights", (r) => {
-    r.requires("user", "data-retention", "compliance-profiles");
+    r.requires("user", "data-retention", "compliance-profiles", "sessions");
     r.usesApi("compliance.forTenant");
     r.usesApi("retention.policyFor");
     // S2.U6 — restrict-account ruft sessions.revokeAllForUser cross-feature.
