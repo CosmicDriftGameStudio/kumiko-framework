@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -103,5 +103,68 @@ describe("scaffoldDeploy", () => {
     expect(() => scaffoldDeploy({ appName: "x", port: 70000, destination: tmp })).toThrow(
       /1\.\.65535/,
     );
+  });
+
+  describe("source-tree detection", () => {
+    it("emits seeds-COPY block only when seeds/ exists", () => {
+      // Without seeds/: block stripped
+      const without = scaffoldDeploy({ appName: "noseeds", destination: tmp });
+      expect(without.detected.hasSeeds).toBe(false);
+      const dfNo = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+      expect(dfNo).not.toContain("COPY --from=build --chown=app:app /app/seeds ./seeds");
+      expect(dfNo).not.toContain("ES-Operations seed migrations");
+    });
+
+    it("emits seeds-COPY block when seeds/ exists", () => {
+      mkdirSync(join(tmp, "seeds"), { recursive: true });
+      writeFileSync(join(tmp, "seeds", ".keep"), "");
+      const result = scaffoldDeploy({ appName: "withseeds", destination: tmp });
+      expect(result.detected.hasSeeds).toBe(true);
+      const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+      expect(df).toContain("COPY --from=build --chown=app:app /app/seeds ./seeds");
+      expect(df).toContain("ES-Operations seed migrations");
+    });
+
+    it("emits GITHUB_TOKEN blocks when @cosmicdriftgamestudio/* dep is present", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({
+          name: "ghapp",
+          dependencies: {
+            "@cosmicdriftgamestudio/kumiko-ai-foundation": "^0.2.0",
+          },
+        }),
+      );
+      const result = scaffoldDeploy({ appName: "ghapp", destination: tmp });
+      expect(result.detected.hasPrivateGhPackages).toBe(true);
+      const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+      expect(df).toContain("ARG GITHUB_TOKEN=");
+      expect(df).toContain("ARG GITHUB_TOKEN\n");
+      expect(df).toContain("ENV GITHUB_TOKEN=${GITHUB_TOKEN}");
+    });
+
+    it("skips GITHUB_TOKEN blocks when only public @cosmicdrift/* deps are present", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({
+          name: "publicapp",
+          dependencies: {
+            "@cosmicdrift/kumiko-framework": "^0.8.0",
+            "@cosmicdrift/kumiko-bundled-features": "^0.8.0",
+          },
+        }),
+      );
+      const result = scaffoldDeploy({ appName: "publicapp", destination: tmp });
+      expect(result.detected.hasPrivateGhPackages).toBe(false);
+      const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+      expect(df).not.toContain("ARG GITHUB_TOKEN");
+      expect(df).not.toContain("ENV GITHUB_TOKEN");
+    });
+
+    it("malformed package.json doesn't crash detection (defaults to no private deps)", () => {
+      writeFileSync(join(tmp, "package.json"), "{ this is not json");
+      const result = scaffoldDeploy({ appName: "broken", destination: tmp });
+      expect(result.detected.hasPrivateGhPackages).toBe(false);
+    });
   });
 });

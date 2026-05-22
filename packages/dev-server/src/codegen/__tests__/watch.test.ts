@@ -52,7 +52,10 @@ async function waitFor(
   predicate: () => boolean,
   opts: { timeout?: number; interval?: number; label?: string } = {},
 ): Promise<void> {
-  const timeout = opts.timeout ?? 2000;
+  // Default 5000ms — fchokidar-FS-watch events take >2s under CI load on
+  // the cdgs-runner (Memory feedback_watch_test_flaky, observed 3× in
+  // a row on PR #80). 5s gives headroom without slowing the happy-path.
+  const timeout = opts.timeout ?? 5000;
   const interval = opts.interval ?? 25;
   const deadline = Date.now() + timeout;
   while (!predicate()) {
@@ -122,7 +125,7 @@ export default defineFeature("orders", (r) => {
     // polling adapts to the actual schedule instead of guessing a fixed
     // sleep.
     await waitFor(() => results.length >= 2, {
-      timeout: 2000,
+      timeout: 5000,
       label: "second codegen result",
     });
 
@@ -174,7 +177,7 @@ export default defineFeature("orders", (r) => {
     // soon as the new result lands, confirming the watcher is alive.
     writeFile(appRoot, "src/feature.ts", FEATURE_TEMPLATE("ignore-css", "after"));
     await waitFor(() => results.length > afterNonTs, {
-      timeout: 2000,
+      timeout: 5000,
       label: "ts-change result after non-ts noise",
     });
 

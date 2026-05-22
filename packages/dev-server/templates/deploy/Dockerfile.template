@@ -18,6 +18,12 @@ ARG BUN_VERSION=1.2.20
 # for local container builds.
 ARG BUILD_VERSION=dev
 ARG BUILD_TIME=unknown
+{{#hasPrivateGhPackages}}
+# Private @cosmicdriftgamestudio/* GH-Packages dep detected — yarn-4
+# reads the token via `npmAuthToken: "${GITHUB_TOKEN:-…}"` in .yarnrc.yml.
+# Without this build-arg, yarn install aborts with YN0041 anonymous-auth.
+ARG GITHUB_TOKEN=
+{{/hasPrivateGhPackages}}
 
 # ----- build: produces dist/ + dist-server/ ---------------------------------
 # Build base is node-alpine (not bun-alpine) because the repo uses yarn 4 as
@@ -26,6 +32,12 @@ ARG BUILD_TIME=unknown
 # corepack (yarn 4 via packageManager field); we pull bun via npm for
 # `bun run build`. Runtime stage stays pure bun.
 FROM node:20-alpine AS build
+{{#hasPrivateGhPackages}}
+# Multi-stage ARG inheritance: globals declared before FROM need an
+# `ARG <name>` line in every stage that uses them. Without this,
+# ${GITHUB_TOKEN} below resolves to empty and yarn install hits YN0041.
+ARG GITHUB_TOKEN
+{{/hasPrivateGhPackages}}
 WORKDIR /app
 
 RUN corepack enable && npm install -g bun@${BUN_VERSION}
@@ -46,6 +58,11 @@ COPY package.json yarn.lock .yarnrc.yml ./
 # bin/kumiko-build.ts), which writes .kumiko/define.ts and turns the
 # symlink real before the bundle is built.
 ENV YARN_ENABLE_INLINE_BUILDS=true
+{{#hasPrivateGhPackages}}
+# Re-export GITHUB_TOKEN as env so yarn-4's `${GITHUB_TOKEN:-…}` expansion
+# in .yarnrc.yml finds it during the install step.
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
+{{/hasPrivateGhPackages}}
 RUN yarn install --immutable
 
 COPY . .
@@ -72,15 +89,16 @@ COPY --from=build --chown=app:app /app/dist ./dist
 COPY --from=build --chown=app:app /app/dist-server/drizzle.config.ts ./drizzle.config.ts
 COPY --from=build --chown=app:app /app/drizzle ./drizzle
 
+{{#hasSeeds}}
 # ES-Operations seed migrations — runtime-loaded via dynamic import. Bun
 # does NOT bundle these into dist-server/server.js (await import on a
 # dynamic path), so the seeds/ tree is copied raw. Bun's runtime
 # transpiles the TS files on the fly.
 #
-# OPTIONAL: comment this line out if your app doesn't use ES-Operations
-# seeds (i.e. has no `seeds/` directory at the repo root). Without
-# this guard, `docker build` fails with "no source files were specified".
+# This block is emitted because scaffoldDeploy detected a `seeds/`
+# directory at the source root. Apps without it skip the block entirely.
 COPY --from=build --chown=app:app /app/seeds ./seeds
+{{/hasSeeds}}
 
 USER app
 
