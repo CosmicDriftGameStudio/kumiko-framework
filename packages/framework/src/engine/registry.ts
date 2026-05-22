@@ -271,8 +271,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // bookkeeping — just append.
   function mergeHookList<T>(
     map: Map<string, T[]>,
-    source: Readonly<Record<string, readonly T[]>>,
+    source: Readonly<Record<string, readonly T[]>> | undefined,
   ): void {
+    // skip: optionaler entityHook-slot — features ohne postSave/preDelete/
+    // postDelete/postQuery lassen das slot undefined.
+    if (!source) return;
     for (const [name, fns] of Object.entries(source)) {
       const existing = map.get(name) ?? [];
       existing.push(...fns);
