@@ -797,9 +797,9 @@ export function createDispatcher(
             rows = [...out.rows];
           }
           result = rows;
-        } else if ("rows" in (result as Record<string, unknown>)) {
+        } else if ("rows" in result) {
           // @cast-boundary engine-payload
-          const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null }; // @cast-boundary engine-payload
+          const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null };
           let rows = r.rows;
           for (const hook of postQueryHooks) {
             const out = await hook({ entityName, rows }, handlerContext);
