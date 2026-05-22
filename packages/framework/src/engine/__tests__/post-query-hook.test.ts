@@ -20,12 +20,7 @@ describe("postQuery hook registration", () => {
   test("r.hook('postQuery', handlerQn, fn) lands in handler-keyed lifecycleHooks map", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.queryHandler(
-        "thing:list",
-        z.object({}),
-        async () => [],
-        { access: { openToAll: true } },
-      );
+      r.queryHandler("thing:list", z.object({}), async () => [], { access: { openToAll: true } });
       r.hook("postQuery", "thing:list", noop);
     });
 
@@ -67,12 +62,7 @@ describe("Registry getters", () => {
 
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.queryHandler(
-        "thing:list",
-        z.object({}),
-        async () => [],
-        { access: { openToAll: true } },
-      );
+      r.queryHandler("thing:list", z.object({}), async () => [], { access: { openToAll: true } });
       r.hook("postQuery", "thing:list", fn);
     });
 

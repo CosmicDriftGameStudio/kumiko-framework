@@ -791,13 +791,14 @@ export function createDispatcher(
       const postQueryHooks = [...handlerHooks, ...entityHooks];
       if (postQueryHooks.length > 0 && result && typeof result === "object") {
         if (Array.isArray(result)) {
-          let rows = result as Record<string, unknown>[];
+          let rows = result as Record<string, unknown>[]; // @cast-boundary engine-payload
           for (const hook of postQueryHooks) {
             const out = await hook({ entityName, rows }, handlerContext);
             rows = [...out.rows];
           }
           result = rows;
         } else if ("rows" in (result as Record<string, unknown>)) {
+          // @cast-boundary engine-payload
           const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null }; // @cast-boundary engine-payload
           let rows = r.rows;
           for (const hook of postQueryHooks) {

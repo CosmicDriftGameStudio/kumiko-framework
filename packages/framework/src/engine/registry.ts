@@ -1087,6 +1087,34 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
+  // Same logic for entity-keyed hooks — targets must reference existing entities.
+  // Memory `feedback_dead_hook_needs_second_consumer`: a typo silently registers
+  // and never fires. Validates all four entity-hook types (postSave/preDelete/
+  // postDelete/postQuery) — net cleanup of an existing antipattern, not a
+  // postQuery-special.
+  const allEntities = new Set<string>();
+  for (const feature of features) {
+    for (const entityName of Object.keys(feature.entities)) {
+      allEntities.add(entityName);
+    }
+  }
+  const entityHookMaps = [
+    { map: entityPostSaveHooks, phase: "postSave (entityHook)" },
+    { map: entityPreDeleteHooks, phase: "preDelete (entityHook)" },
+    { map: entityPostDeleteHooks, phase: "postDelete (entityHook)" },
+    { map: entityPostQueryHooks, phase: "postQuery (entityHook)" },
+  ] as const;
+  for (const { map, phase } of entityHookMaps) {
+    for (const entityName of map.keys()) {
+      if (!allEntities.has(entityName)) {
+        throw new Error(
+          `${phase} hook targets entity "${entityName}" but no entity with that name exists. ` +
+            `Check for typos — the hook will never fire.`,
+        );
+      }
+    }
+  }
+
   // Validate: job event triggers must reference existing handlers.
   // Multi-Trigger-Form: jeden Eintrag im Array gegen allHandlers prüfen,
   // auch wenn nur einer fehlt fail-fast.
