@@ -431,7 +431,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     mergeHookList(entityPostQueryHooks, feature.entityHooks.postQuery);
 
     // F3 search-payload-extensions: per-entity contributors merged additively
-    for (const [entityName, contributors] of Object.entries(feature.searchPayloadExtensions ?? {})) {
+    for (const [entityName, contributors] of Object.entries(
+      feature.searchPayloadExtensions ?? {},
+    )) {
       const existing = searchPayloadExtensions.get(entityName) ?? [];
       for (const c of contributors) existing.push(c);
       searchPayloadExtensions.set(entityName, existing);
