@@ -4,9 +4,16 @@ import {
   type JsonbFieldDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { getTableName } from "drizzle-orm";
-import type { PgTable } from "drizzle-orm/pg-core";
 import { CUSTOM_FIELDS_EXTENSION } from "./constants";
+
+const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+function getTableName(table: unknown): string {
+  if (typeof table === "object" && table !== null) {
+    const sym = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+    if (typeof sym === "string") return sym;
+  }
+  throw new Error("wire-for-entity: table missing drizzle:Name symbol");
+}
 import type { CustomFieldClearedPayload, CustomFieldSetPayload } from "./events";
 import { customFieldsFeature } from "./feature";
 
@@ -67,7 +74,7 @@ export function customFieldsField(): JsonbFieldDef {
 export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
   r: TReg,
   entityName: string,
-  entityTable: PgTable,
+  entityTable: unknown,
 ): void {
   // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar-API method, not a React hook — false positive on the "use"-prefix heuristic.
   r.useExtension(CUSTOM_FIELDS_EXTENSION, entityName);

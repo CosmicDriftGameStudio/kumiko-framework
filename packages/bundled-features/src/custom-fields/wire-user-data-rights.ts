@@ -36,15 +36,22 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { EXT_USER_DATA, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { getTableName } from "drizzle-orm";
-import type { PgTable } from "drizzle-orm/pg-core";
 import { parseSerializedField } from "./lib/parse-serialized-field";
+
+const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+function getTableName(table: unknown): string {
+  if (typeof table === "object" && table !== null) {
+    const sym = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+    if (typeof sym === "string") return sym;
+  }
+  throw new Error("wire-user-data-rights: table missing drizzle:Name symbol");
+}
 
 export interface WireCustomFieldsUserDataRightsOptions {
   /** Host entity name as registered with wireCustomFieldsFor. */
   readonly entityName: string;
   /** Drizzle table for the host entity. Must have a `customFields` jsonb column. */
-  readonly entityTable: PgTable;
+  readonly entityTable: unknown;
   /**
    * Snake-case DB column that holds the owning user's id (e.g. `inserted_by_id`,
    * `author_id`, `assignee_id`). The hooks filter rows on this + tenant_id.

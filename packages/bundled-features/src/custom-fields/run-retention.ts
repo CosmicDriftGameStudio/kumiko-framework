@@ -18,9 +18,16 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { getTableName } from "drizzle-orm";
-import type { PgTable } from "drizzle-orm/pg-core";
 import { parseSerializedField } from "./lib/parse-serialized-field";
+
+const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+function getTableName(table: unknown): string {
+  if (typeof table === "object" && table !== null) {
+    const sym = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+    if (typeof sym === "string") return sym;
+  }
+  throw new Error("custom-fields/run-retention: table missing drizzle:Name symbol");
+}
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -49,7 +56,7 @@ export interface RunCustomFieldsRetentionOptions {
   readonly db: DbRunner;
   readonly tenantId: string;
   readonly entityName: string;
-  readonly entityTable: PgTable;
+  readonly entityTable: unknown;
   /** Current time, injected for time-travel-tests. */
   readonly now: Instant;
 }

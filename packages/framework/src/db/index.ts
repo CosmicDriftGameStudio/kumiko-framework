@@ -4,7 +4,7 @@ export { seedConfigValues } from "./config-seed";
 export type { DbConnection, DbConnectionOptions, DbRow, DbRunner, DbTx } from "./connection";
 export { createDbConnection, dbConnectionOptionsFromEnv } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
-export { applyCursorQuery, decodeCursor, encodeCursor } from "./cursor";
+export { decodeCursor, encodeCursor } from "./cursor";
 export type { SelectQuery, TableColumns } from "./dialect";
 export {
   boolean,

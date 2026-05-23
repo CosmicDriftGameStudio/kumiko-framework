@@ -1,6 +1,8 @@
-import { and, asc, desc, eq, gt, inArray, lt, ne, type SQL, sql } from "drizzle-orm";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { asRawClient, selectMany } from "../bun-db/query";
+import type { WhereObject } from "../bun-db/query";
 import { requestContext } from "../api/request-context";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
+import { toSnakeCase } from "./table-builder";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
   buildOwnershipClause,
@@ -41,40 +43,35 @@ import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
 import type { CursorResult } from "./index";
 import { constraintOf, isUniqueViolation } from "./pg-error";
+import { shiftParams } from "../engine/ownership";
 import type { TenantDb } from "./tenant-db";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
 
-// Screen-Filter (Tier 2.7c) — Op-Mapping zur Drizzle-WHERE-Clause.
-// Lebt isoliert hier (statt inline im list-Body) damit der einzige
-// Wire-Boundary `as never`-Cast lokal bleibt: payload.filter.value ist
-// `unknown` (Wire-Boundary), Drizzle's eq/ne/lt/gt/inArray verlangen
-// den Column-Type. Type-Mismatch wirft erst der PostgreSQL-Driver zur
-// Laufzeit; Author hat über `filterable: true` + Boot-Validator op-
-// vs-Type-Compat ohnehin Kontrolle was reinkommt.
-//
-// Empty-array IN ist explizit "no match" (SQL false), nicht "match all".
-function buildFilterCondition(
-  col: AnyPgColumn,
+// Screen-Filter (Tier 2.7c) — Op-Mapping als Where-Operator. Boot-
+// Validator pinst field-Existenz + filterable + op-vs-Type-Compat.
+// `op` ist auf {eq,ne,lt,gt,in} normalisiert; "in" mit empty-array ist
+// explizit no-match.
+function buildFilterWhere(
+  field: string,
   op: "eq" | "ne" | "lt" | "gt" | "in",
   value: unknown,
-): SQL {
+): WhereObject | null {
   switch (op) {
     case "eq":
-      return eq(col, value as never); // @cast-boundary db-operator
+      return { [field]: value };
     case "ne":
-      return ne(col, value as never); // @cast-boundary db-operator
+      return { [field]: { ne: value } };
     case "lt":
-      return lt(col, value as never); // @cast-boundary db-operator
+      return { [field]: { lt: value } };
     case "gt":
-      return gt(col, value as never); // @cast-boundary db-operator
+      return { [field]: { gt: value } };
     case "in":
       if (Array.isArray(value) && value.length > 0) {
-        return inArray(col, value as never); // @cast-boundary db-operator
+        return { [field]: value };
       }
-      return sql`false`;
+      return null; // no-match short-circuit
     default:
       assertUnreachable(op, "filter op");
   }
@@ -281,20 +278,57 @@ export function createEventStoreExecutor(
     return result;
   }
 
-  function idFilter(id: EntityId) {
-    const conditions = [eq(table["id"], id)];
-    if (softDelete && table["isDeleted"]) {
-      conditions.push(eq(table["isDeleted"], false));
-    }
-    // Drizzle's variadic `and()` is typed `SQL | undefined`; conditions is
-    // guaranteed non-empty above (we pushed at least one).
-    return and(...conditions) as SQL; // @cast-boundary db-operator
+  function idFilter(id: EntityId): WhereObject {
+    const filter: WhereObject = { id };
+    if (softDelete && table["isDeleted"]) filter["isDeleted"] = false;
+    return filter;
   }
 
   async function loadById(id: EntityId, db: TenantDb): Promise<Record<string, unknown> | null> {
-    const [row] = await db.select().from(table).where(idFilter(id));
+    const row = await db.fetchOne(table, idFilter(id));
     if (!row) return null;
     return rehydrateCompoundTypes(row as DbRow, entity);
+  }
+
+  // SELECT a row by id with the ownership clause applied at the DB layer.
+  // Detail() uses this both on cold path and as a cache-revalidation probe.
+  async function loadWithOwnership(
+    db: TenantDb,
+    idWhere: WhereObject,
+    ownership:
+      | { kind: "pass" }
+      | { kind: "empty" }
+      | { kind: "sql"; sqlText: string; params: readonly unknown[] },
+  ): Promise<Record<string, unknown>[]> {
+    if (ownership.kind === "empty") return [];
+    if (ownership.kind === "pass") {
+      const row = await db.fetchOne(table, idWhere);
+      return row ? [row as Record<string, unknown>] : [];
+    }
+    // ownership has raw SQL — splice it into a raw query alongside the
+    // idFilter + tenant-filter that TenantDb would have added.
+    const tableName = String((table as unknown as Record<symbol, unknown>)[Symbol.for("drizzle:Name")]);
+    const colSql = (field: string): string =>
+      `"${(table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field)}"`;
+    const whereParts: string[] = [];
+    const params: unknown[] = [];
+    if (table["tenantId"] !== undefined && db.mode === "tenant") {
+      params.push(db.tenantId, SYSTEM_TENANT_ID);
+      whereParts.push(`${colSql("tenantId")} IN ($${params.length - 1}, $${params.length})`);
+    }
+    for (const [field, value] of Object.entries(idWhere)) {
+      if (typeof value === "boolean") {
+        whereParts.push(`${colSql(field)} = ${value ? "TRUE" : "FALSE"}`);
+      } else {
+        params.push(value);
+        whereParts.push(`${colSql(field)} = $${params.length}`);
+      }
+    }
+    const shifted = shiftParams(ownership, params.length);
+    whereParts.push(shifted.sqlText);
+    for (const p of shifted.params) params.push(p);
+    const sqlText = `SELECT * FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
+    return (await asRawClient(db.raw).unsafe(sqlText, params)) as Record<string, unknown>[];
   }
 
   return {
@@ -666,7 +700,7 @@ export function createEventStoreExecutor(
         );
       }
 
-      const [row] = await selectMany(db, table, { id: payload.id });
+      const [row] = await selectMany(db.raw, table, { id: payload.id });
       if (!row) return writeFailure(new NotFoundError(entityName, payload.id));
       const data = row as DbRow;
       if (!data["isDeleted"]) {
@@ -771,56 +805,99 @@ export function createEventStoreExecutor(
         }
       }
 
-      const conditions: SQL[] = [];
-      if (softDelete && table["isDeleted"]) {
-        conditions.push(eq(table["isDeleted"], false));
+      // Build the WHERE clause as raw SQL — ownership produces a
+      // parameterised fragment that we splice in alongside simple WhereObject
+      // conditions (cursor, search-filter-IDs, screen-filter, tenant-scope).
+      const tableName = String(
+        (table as unknown as Record<symbol, unknown>)[Symbol.for("drizzle:Name")],
+      );
+      const whereSql: string[] = [];
+      const params: unknown[] = [];
+      const colSql = (field: string): string =>
+        `"${(table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field)}"`;
+
+      // Tenant-Filter (replicates TenantDb's readWhere semantics).
+      if (table["tenantId"] !== undefined && db.mode === "tenant") {
+        params.push(db.tenantId, SYSTEM_TENANT_ID);
+        whereSql.push(`${colSql("tenantId")} IN ($${params.length - 1}, $${params.length})`);
       }
-      // Cursor und Offset schließen sich aus: Cursor ist DB-stable (gt id),
-      // Offset ist für klassische Page-Navigation. Wenn beide gesetzt sind,
-      // gewinnt Cursor — Caller hätte eh nicht gleichzeitig beide nutzen
-      // sollen, das pinnt die Verteidigung.
+      if (softDelete && table["isDeleted"]) {
+        whereSql.push(`${colSql("isDeleted")} = FALSE`);
+      }
       if (payload.cursor) {
-        conditions.push(gt(table["id"], decodeCursor(payload.cursor)));
+        params.push(decodeCursor(payload.cursor));
+        whereSql.push(`${colSql("id")} > $${params.length}`);
       }
       if (filterIds) {
-        conditions.push(inArray(table["id"], filterIds));
+        const placeholders = filterIds.map((id) => {
+          params.push(id);
+          return `$${params.length}`;
+        });
+        whereSql.push(`${colSql("id")} IN (${placeholders.join(", ")})`);
       }
       if (ownership.kind === "sql") {
-        conditions.push(ownership.sql);
+        const shifted = shiftParams(
+          { sqlText: ownership.sqlText, params: ownership.params },
+          params.length,
+        );
+        whereSql.push(shifted.sqlText);
+        for (const p of shifted.params) params.push(p);
       }
-      // Screen-Filter (Tier 2.7c) — Boot-Validator hat field-Existenz
-      // + filterable + op-vs-Type-Compat schon gepinnt. Runtime-Defense:
-      // undefined-column → silent skip (kein Crash). Op-Mapping läuft
-      // durch buildFilterCondition() — da lebt auch der einzige
-      // `as never`-Cast (Wire-Boundary).
       if (payload.filter !== undefined) {
         const col = table[payload.filter.field];
         if (col !== undefined) {
-          conditions.push(buildFilterCondition(col, payload.filter.op, payload.filter.value));
+          const screen = buildFilterWhere(
+            payload.filter.field,
+            payload.filter.op,
+            payload.filter.value,
+          );
+          if (screen === null) {
+            whereSql.push("FALSE");
+          } else {
+            for (const [field, value] of Object.entries(screen)) {
+              if (Array.isArray(value)) {
+                const placeholders = value.map((v) => {
+                  params.push(v);
+                  return `$${params.length}`;
+                });
+                whereSql.push(`${colSql(field)} IN (${placeholders.join(", ")})`);
+              } else if (typeof value === "object" && value !== null) {
+                const opMap: Record<string, string> = {
+                  gt: ">",
+                  gte: ">=",
+                  lt: "<",
+                  lte: "<=",
+                  ne: "<>",
+                };
+                for (const [opKey, opSym] of Object.entries(opMap)) {
+                  if (!(opKey in value)) continue;
+                  params.push((value as Record<string, unknown>)[opKey]);
+                  whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
+                }
+              } else {
+                params.push(value);
+                whereSql.push(`${colSql(field)} = $${params.length}`);
+              }
+            }
+          }
         }
       }
 
-      const whereClause = conditions.length > 0 ? (and(...conditions) as SQL) : undefined; // @cast-boundary db-operator
-      let query = whereClause
-        ? db.select().from(table).where(whereClause)
-        : db.select().from(table);
+      const orderByClause =
+        payload.sort && table[payload.sort]
+          ? ` ORDER BY ${colSql(payload.sort)} ${payload.sortDirection === "desc" ? "DESC" : "ASC"}`
+          : "";
+      const useOffset = !payload.cursor && offset > 0;
+      const offsetClause = useOffset ? ` OFFSET ${offset}` : "";
 
-      query = query.limit(limit);
-      // Offset NUR wenn kein Cursor — sonst kombinieren wir zwei
-      // Pagination-Schemes und der Caller bekommt unverhoffte Skips.
-      if (!payload.cursor && offset > 0) {
-        query = query.offset(offset);
-      }
+      const whereClauseSqlText =
+        whereSql.length > 0 ? ` WHERE ${whereSql.join(" AND ")}` : "";
+      const listSql = `SELECT * FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
-      if (payload.sort && table[payload.sort]) {
-        const column = table[payload.sort];
-        query =
-          payload.sortDirection === "desc"
-            ? query.orderBy(desc(column))
-            : query.orderBy(asc(column));
-      }
-
-      const rawRows = (await query) as Record<string, unknown>[]; // @cast-boundary engine-payload
+      const rawRows = (await asRawClient(db.raw).unsafe(listSql, params)) as Record<
+        string,
+        unknown
+      >[]; // @cast-boundary engine-payload
       // Read-Side rehydrate pro Row. Cache speichert die hydrated Form,
       // damit Cache-Hits dieselbe API-Form liefern.
       const rows = rawRows.map((r) => rehydrateCompoundTypes(r, entity));
@@ -846,11 +923,11 @@ export function createEventStoreExecutor(
         if (filterIds) {
           total = filterIds.length;
         } else {
-          const countQuery = whereClause
-            ? db.select({ count: sql<number>`count(*)::int` }).from(table).where(whereClause)
-            : db.select({ count: sql<number>`count(*)::int` }).from(table);
-          const countRow = (await countQuery) as Array<{ count: number }>; // @cast-boundary db-row
-          total = countRow[0]?.count ?? 0;
+          const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
+          const countRows = (await asRawClient(db.raw).unsafe(countSql, params)) as Array<{
+            count: number;
+          }>;
+          total = countRows[0]?.count ?? 0;
         }
       }
 
@@ -864,41 +941,22 @@ export function createEventStoreExecutor(
       const ownership = buildOwnershipClause(user, entity.access?.read, table);
       if (ownership.kind === "empty") return null;
 
+      const idWhere = idFilter(payload.id);
+
       if (entityCache && entityName) {
         const cached = await entityCache.get(user.tenantId, entityName, payload.id);
         if (cached) {
-          // Even with a cache hit the ownership predicate must hold. The
-          // cache is keyed only by tenant + id, not by role, so a cached
-          // row may be visible to caller A but not caller B — re-check
-          // per request.
           if (ownership.kind === "sql") {
-            // Reuse the clause by querying the row with it. Cheaper than
-            // SQL-parsing the predicate: just re-issue detail-by-id with
-            // the ownership-AND and see if the DB returns it. idFilter()
-            // handles the soft-delete guard.
-            const checked = await db
-              .select()
-              .from(table)
-              .where(and(idFilter(payload.id), ownership.sql) as SQL) // @cast-boundary db-operator
-              .limit(1);
-            if (checked.length === 0) return null;
+            // Re-check ownership predicate against the live row — the cache
+            // is keyed only by tenant + id, not by role.
+            const checkRows = await loadWithOwnership(db, idWhere, ownership);
+            if (checkRows.length === 0) return null;
           }
           return cached;
         }
       }
 
-      // Cold path: load the row with the ownership predicate applied so the
-      // DB does the filtering (cheaper than load-then-filter-in-JS). Reuse
-      // idFilter() — it handles the soft-delete guard consistently with
-      // loadById(), which we can't just call directly because it doesn't
-      // thread the ownership clause.
-      const baseFilter = idFilter(payload.id);
-      const whereClause =
-        ownership.kind === "sql" ? (and(baseFilter, ownership.sql) as SQL) : baseFilter; // @cast-boundary db-operator
-      const rows = (await db.select().from(table).where(whereClause).limit(1)) as Record<
-        string,
-        unknown
-      >[]; // @cast-boundary db-row
+      const rows = await loadWithOwnership(db, idWhere, ownership);
       const raw = rows[0];
       if (!raw) return null;
       const row = rehydrateCompoundTypes(raw, entity);
