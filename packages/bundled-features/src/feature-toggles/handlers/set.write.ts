@@ -15,7 +15,7 @@ import {
 } from "../constants";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Factory: binds a runtime accessor to the handler at registration time.
 // The runtime holds the in-memory snapshot that the dispatcher's gate

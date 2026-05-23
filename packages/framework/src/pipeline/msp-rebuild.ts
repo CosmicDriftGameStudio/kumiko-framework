@@ -10,7 +10,7 @@ import type { Meter } from "../observability/types/metric";
 import { eventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context";
 import type { RebuildResult } from "./projection-rebuild";
-import { updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Rebuild a multi-stream projection (MSP) from the event log. Symmetric to
 // `rebuildProjection` for single-stream projections — same single-TX

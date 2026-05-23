@@ -2,7 +2,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { tenantMembershipsTable } from "../membership-table";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export const membersQuery = defineQueryHandler({
   name: "members",

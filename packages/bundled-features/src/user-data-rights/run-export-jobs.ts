@@ -48,8 +48,7 @@ import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEventStoreExecutor,
-  createTenantDb,
-  fetchOne,
+  createTenantDb
 } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
@@ -66,6 +65,7 @@ import { runUserExport, type UserExportBundle } from "./run-user-export";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/export-job";
 import { generateDownloadToken } from "./token-helpers";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

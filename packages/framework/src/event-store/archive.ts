@@ -4,7 +4,7 @@ import { instant, table as pgTable, text, uniqueIndex, uuid } from "../db/dialec
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { unsafePushTables } from "../stack";
-import { deleteMany } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Marten-aligned stream archival. Archived streams become read-only: fresh
 // appendEvent on an archived aggregate throws, and loadAggregate returns

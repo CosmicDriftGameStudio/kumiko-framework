@@ -1,8 +1,9 @@
-import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "../table";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const slugSchema = z
   .string()

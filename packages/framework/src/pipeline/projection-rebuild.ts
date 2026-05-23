@@ -10,7 +10,7 @@ import {
 import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
 import { projectionStateTable } from "./projection-state";
-import { updateMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { updateMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Rebuild a projection from the event log.
 //

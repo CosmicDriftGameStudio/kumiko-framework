@@ -6,11 +6,12 @@
 // HandlerContext. Beide Pfade nutzen denselben `parseRetentionOverrideOrNull`
 // + `resolveRetentionPolicy`, also kein Drift-Risiko.
 
-import { type DbRunner, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRetentionOverrideOrNull } from "./_internal/parse-override";
 import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "./resolver";
 import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export interface ResolveForTenantArgs {
   readonly db: DbRunner;

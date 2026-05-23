@@ -15,7 +15,7 @@
 // invite-create.
 
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
-import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
@@ -28,6 +28,7 @@ import {
 } from "../../tenant/invitation-table";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants";
 import { getTokenForInvitation, storeInviteToken } from "../invite-token-store";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const InviteCreateSchema = z.object({
   email: z.email(),

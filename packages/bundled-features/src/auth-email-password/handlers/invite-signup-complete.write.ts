@@ -20,8 +20,7 @@
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
-  fetchOne,
+  type DbConnection
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -55,6 +54,7 @@ import {
 } from "../invite-token-store";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { seedUserWithPassword } from "../seeding";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const InviteSignupCompleteSchema = z.object({
   token: z.string().min(1),
@@ -131,11 +131,9 @@ export function createInviteSignupCompleteHandler() {
         // muss der User Branch 2 (acceptWithLogin) nutzen. Hier ist
         // explizit "neue Email" — sonst hätten wir zwei Wege ein
         // Password zu setzen für denselben User.
-        const existingUser = await fetchOne(
-          ctx.db.raw,
-          userTable,
-          eq(userTable.email, invitationEmail),
-        );
+        const existingUser = await fetchOne(ctx.db.raw, userTable, {
+          email: invitationEmail,
+        });
         if (existingUser) return invalidInviteToken();
 
         // User anlegen via seedUserWithPassword (gleiches Pattern wie

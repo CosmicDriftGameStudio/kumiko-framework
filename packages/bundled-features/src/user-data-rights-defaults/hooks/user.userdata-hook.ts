@@ -1,4 +1,4 @@
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { sql } from "drizzle-orm";
 import {

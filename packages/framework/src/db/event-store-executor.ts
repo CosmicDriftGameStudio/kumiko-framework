@@ -42,7 +42,7 @@ import type { TableColumns } from "./dialect";
 import type { CursorResult } from "./index";
 import { constraintOf, isUniqueViolation } from "./pg-error";
 import type { TenantDb } from "./tenant-db";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;

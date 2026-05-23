@@ -32,7 +32,7 @@
 // gefailten Hooks bleibt im DeletionRequested-Status (next Lauf
 // retried automatisch).
 
-import { updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,

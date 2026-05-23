@@ -3,7 +3,7 @@
 // runtime aus ctx.templateResolver. Pattern symmetrisch zu textContent
 // (siehe text-content/api.ts).
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";

@@ -5,7 +5,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
-import { updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Atom 5b — Email-Notification beim deletion-requested-flip. Pattern:
 // password-reset-Callback aus auth-routes.ts. Best-effort — Throw beim

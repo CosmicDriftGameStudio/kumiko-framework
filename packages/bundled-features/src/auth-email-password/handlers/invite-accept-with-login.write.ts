@@ -19,8 +19,7 @@
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
-  fetchOne,
+  createTenantDb
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -53,6 +52,7 @@ import {
   unburnInviteToken,
 } from "../invite-token-store";
 import { verifyPassword } from "../password-hashing";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const InviteAcceptWithLoginSchema = z.object({
   token: z.string().min(1),
@@ -139,11 +139,9 @@ export function createInviteAcceptWithLoginHandler() {
         // Password-Check gegen userTable. Anti-enumeration: bei
         // user-not-found ODER wrong-password collapsed beides auf
         // invalidInviteToken (gleicher anti-enum-Trade-off wie reset).
-        const userRow = await fetchOne<UserAuthRow>(
-          ctx.db.raw,
-          userTable,
-          eq(userTable.email, invitationEmail),
-        );
+        const userRow = await fetchOne<UserAuthRow>(ctx.db.raw, userTable, {
+          email: invitationEmail,
+        });
         if (!userRow?.passwordHash) return invalidInviteToken();
         const passwordValid = await verifyPassword(userRow.passwordHash, event.payload.password);
         if (!passwordValid) return invalidInviteToken();

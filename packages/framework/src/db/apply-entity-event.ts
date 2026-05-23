@@ -53,7 +53,7 @@ import { InternalError } from "../errors";
 import type { StoredEvent } from "../event-store";
 import type { DbRow, DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
-import { deleteMany } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle-Tabellen sind generisch typed; framework code erasiert die Spalten-Union absichtlich.
 type Table = TableColumns<any>;

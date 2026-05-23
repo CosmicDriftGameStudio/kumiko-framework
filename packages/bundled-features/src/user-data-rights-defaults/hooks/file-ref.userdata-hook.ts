@@ -1,6 +1,6 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { selectMany, deleteMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany, deleteMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // userData-Hook fuer fileRef-entity (S2.H2).
 //

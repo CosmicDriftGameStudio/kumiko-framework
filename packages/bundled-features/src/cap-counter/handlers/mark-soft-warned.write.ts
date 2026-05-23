@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { capCounterAggregateId } from "../aggregate-id";
 import { capCounterEntity } from "../entity";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
 

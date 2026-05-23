@@ -6,12 +6,12 @@
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
-  fetchOne,
+  type DbConnection
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "./table";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const executor = createEventStoreExecutor(textBlocksTable, textBlockEntity, {
   entityName: "text-block",

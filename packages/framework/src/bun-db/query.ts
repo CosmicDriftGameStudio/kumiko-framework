@@ -21,6 +21,45 @@ import type { EntityTableMeta } from "../db/entity-table-meta";
 import { toSnakeCase } from "../db/table-builder";
 import type { BunDbRunner } from "./connection";
 
+// `db` Input akzeptiert drei Shapes:
+//   1. Bun.SQL connection (BunDbRunner) — neue Welt, native .unsafe + .begin
+//   2. drizzle DbConnection (postgres-js-Wrapper) — legacy compat,
+//      raw postgres-js client liegt unter `db.$client.unsafe / .begin`
+//   3. drizzle tx-handle — client liegt unter `tx.session.client`
+// Shim extrahiert in allen Fällen ein `{unsafe, begin}`-Surface.
+type RawClient = {
+  unsafe: (sql: string, params?: readonly unknown[]) => Promise<unknown>;
+  begin: <T>(fn: (tx: unknown) => Promise<T>) => Promise<T>;
+};
+
+function asRawClient(db: unknown): RawClient {
+  const dbAny = db as Record<string, unknown>;
+  // Bun.SQL: .unsafe() + .begin() direkt auf dem Instance.
+  if (typeof dbAny["unsafe"] === "function" && typeof dbAny["begin"] === "function") {
+    return dbAny as unknown as RawClient;
+  }
+  // Drizzle DbConnection: $client = postgres-js Sql.
+  const $client = dbAny["$client"];
+  if (
+    $client &&
+    typeof ($client as Record<string, unknown>)["unsafe"] === "function"
+  ) {
+    return $client as unknown as RawClient;
+  }
+  // Drizzle pg-transaction: session.client = postgres-js Sql.
+  const session = dbAny["session"] as Record<string, unknown> | undefined;
+  const sessionClient = session?.["client"];
+  if (
+    sessionClient &&
+    typeof (sessionClient as Record<string, unknown>)["unsafe"] === "function"
+  ) {
+    return sessionClient as unknown as RawClient;
+  }
+  throw new Error("bun-db: db argument has no .unsafe() — pass Bun.SQL, drizzle DbConnection, or drizzle tx.");
+}
+
+export type AnyDb = BunDbRunner | unknown;
+
 export type WhereValue = unknown;
 export type WhereObject = Record<string, WhereValue>;
 export type SelectOptions = {
@@ -147,7 +186,7 @@ function buildWhereClause(
 }
 
 export async function selectMany<TRow = Record<string, unknown>>(
-  db: BunDbRunner,
+  db: AnyDb,
   table: TableLike,
   where?: WhereObject,
   options?: SelectOptions,
@@ -168,11 +207,11 @@ export async function selectMany<TRow = Record<string, unknown>>(
   if (options?.limit !== undefined) {
     sqlText += ` LIMIT ${options.limit}`;
   }
-  return (await db.unsafe(sqlText, values)) as readonly TRow[];
+  return (await asRawClient(db).unsafe(sqlText, values)) as readonly TRow[];
 }
 
 export async function fetchOne<TRow = Record<string, unknown>>(
-  db: BunDbRunner,
+  db: AnyDb,
   table: TableLike,
   where: WhereObject,
 ): Promise<TRow | undefined> {
@@ -181,7 +220,7 @@ export async function fetchOne<TRow = Record<string, unknown>>(
 }
 
 export async function insertOne<TRow = Record<string, unknown>>(
-  db: BunDbRunner,
+  db: AnyDb,
   table: TableLike,
   values: Record<string, unknown>,
 ): Promise<TRow | undefined> {
@@ -197,12 +236,12 @@ export async function insertOne<TRow = Record<string, unknown>>(
   const placeholders = entries.map((e, i) => `$${i + 1}${e.cast}`).join(", ");
   const params = entries.map((e) => e.value);
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES (${placeholders}) RETURNING *`;
-  const rows = (await db.unsafe(sqlText, params)) as readonly TRow[];
+  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly TRow[];
   return rows[0];
 }
 
 export async function updateMany<TRow = Record<string, unknown>>(
-  db: BunDbRunner,
+  db: AnyDb,
   table: TableLike,
   set: Record<string, unknown>,
   where: WhereObject,
@@ -229,11 +268,11 @@ export async function updateMany<TRow = Record<string, unknown>>(
     for (const v of w.values) values.push(v);
   }
   sqlText += " RETURNING *";
-  return (await db.unsafe(sqlText, values)) as readonly TRow[];
+  return (await asRawClient(db).unsafe(sqlText, values)) as readonly TRow[];
 }
 
 export async function deleteMany(
-  db: BunDbRunner,
+  db: AnyDb,
   table: TableLike,
   where: WhereObject,
 ): Promise<void> {
@@ -241,12 +280,12 @@ export async function deleteMany(
   const w = buildWhereClause(info, where, 1);
   let sqlText = `DELETE FROM ${quoteIdent(info.name)}`;
   if (w.sqlText) sqlText += ` WHERE ${w.sqlText}`;
-  await db.unsafe(sqlText, w.values);
+  await asRawClient(db).unsafe(sqlText, w.values);
 }
 
 export async function transaction<T>(
-  db: BunDbRunner,
+  db: AnyDb,
   fn: (tx: BunDbRunner) => Promise<T>,
 ): Promise<T> {
-  return (await db.begin(async (tx) => fn(tx as BunDbRunner))) as T;
+  return (await asRawClient(db).begin(async (tx) => fn(tx as BunDbRunner))) as T;
 }

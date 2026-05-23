@@ -3,7 +3,7 @@ import {
   complianceProfileOverrideSchema,
   SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
-import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
@@ -16,6 +16,7 @@ import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../schema/profile-selection";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const crud = createEventStoreExecutor(tenantComplianceProfileTable, tenantComplianceProfileEntity, {
   entityName: "tenant-compliance-profile",

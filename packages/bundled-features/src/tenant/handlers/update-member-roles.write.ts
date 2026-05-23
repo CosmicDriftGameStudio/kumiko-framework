@@ -1,8 +1,9 @@
-import { createEventStoreExecutor, type DbRow, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, withResponseData } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",

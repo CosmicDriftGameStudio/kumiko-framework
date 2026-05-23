@@ -10,7 +10,7 @@
 // invitation = no-op + 200. Cancellen einer non-existent invitation
 // = invitation_not_found.
 
-import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
@@ -24,6 +24,7 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../invitation-table";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const CancelInvitationSchema = z.object({
   invitationId: z.string(),

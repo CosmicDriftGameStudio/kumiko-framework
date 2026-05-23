@@ -26,7 +26,7 @@
 // signedUrl — User klickt 1× Email-Link, Browser folgt redirect, Download
 // startet. Dieser query-handler liefert nur das JSON.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";

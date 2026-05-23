@@ -17,8 +17,7 @@ import type {
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
-  fetchOne,
+  type DbConnection
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
@@ -26,6 +25,7 @@ import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "./schema/profile-selection";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const executor = createEventStoreExecutor(
   tenantComplianceProfileTable,

@@ -34,8 +34,7 @@
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbRunner,
-  fetchOne,
+  type DbRunner
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -43,6 +42,7 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { eq, max as maxFn } from "drizzle-orm";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 import { tenantEntity, tenantTable } from "./schema/tenant";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const tenantExecutor = createEventStoreExecutor(tenantTable, tenantEntity, {
   entityName: "tenant",
@@ -138,12 +138,10 @@ export async function seedTenantMembership(
   // only certain tables get truncated. A plain executor.create would trip
   // the (user_id, tenant_id) unique index; the fixture call-site would then
   // have to juggle try/catch. Lookup-first keeps call-sites clean.
-  const existing = await fetchOne(
-    db,
-    tenantMembershipsTable,
-    eq(tenantMembershipsTable.userId, options.userId),
-    eq(tenantMembershipsTable.tenantId, options.tenantId),
-  );
+  const existing = await fetchOne(db, tenantMembershipsTable, {
+    userId: options.userId,
+    tenantId: options.tenantId,
+  });
   // skip: idempotent no-op — duplicate seed is expected across beforeEach-
   // resets that don't truncate this table. Cheaper than try/catch on the
   // unique-index, and documented in the function JSDoc above.

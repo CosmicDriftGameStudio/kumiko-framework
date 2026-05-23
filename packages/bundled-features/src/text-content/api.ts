@@ -9,7 +9,7 @@
 // umzieht oder die Query-Signatur ändert, muss nur die Factory anpassen.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { type TextBlockRow, textBlocksTable } from "./table";

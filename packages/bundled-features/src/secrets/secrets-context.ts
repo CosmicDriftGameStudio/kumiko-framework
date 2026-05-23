@@ -15,8 +15,7 @@
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
-  fetchOne,
+  type DbConnection
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, type WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
@@ -39,6 +38,7 @@ import {
   tenantSecretEntity,
   tenantSecretsTable,
 } from "./table";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Re-export the framework interface so consumers of bundled-features/secrets
 // don't need to reach into @cosmicdrift/kumiko-framework/secrets separately.

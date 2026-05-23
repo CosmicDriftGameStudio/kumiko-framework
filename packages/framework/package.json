@@ -60,6 +60,10 @@
       "types": "./src/errors/index.ts",
       "default": "./src/errors/index.ts"
     },
+    "./bun-db": {
+      "types": "./src/bun-db/index.ts",
+      "default": "./src/bun-db/index.ts"
+    },
     "./db": {
       "types": "./src/db/index.ts",
       "default": "./src/db/index.ts"

@@ -8,7 +8,7 @@ import {
   ROLLING_INCREMENTED_EVENT_QN,
 } from "./constants";
 import { capCounterEntity } from "./entity";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Temporal globally provided by the framework's polyfill init
 // (ensureTemporalPolyfill() in time/polyfill.ts, called from

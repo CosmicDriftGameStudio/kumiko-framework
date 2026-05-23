@@ -19,7 +19,7 @@ import {
   JOB_RUN_STARTED_EVENT,
 } from "./job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
-import { updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export function createJobsFeature(): FeatureDefinition {
   return defineFeature("jobs", (r) => {

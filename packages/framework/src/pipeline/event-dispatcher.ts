@@ -24,7 +24,7 @@ import {
   eventConsumerStateTable,
   SHARED_INSTANCE_SENTINEL,
 } from "./event-consumer-state";
-import { updateMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { updateMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //

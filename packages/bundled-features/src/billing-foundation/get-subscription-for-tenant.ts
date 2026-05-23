@@ -4,7 +4,7 @@
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { subscriptionAggregateId } from "./aggregate-id";
 import { subscriptionsProjectionTable } from "./projection";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export type SubscriptionView = {
   readonly tier: string;

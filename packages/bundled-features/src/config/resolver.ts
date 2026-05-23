@@ -1,7 +1,6 @@
 import {
   type DbConnection,
   type EncryptionProvider,
-  fetchOne,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type {
@@ -17,6 +16,7 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { configValuesTable } from "./table";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 type ConfigRow = {
   id: string;
@@ -219,16 +219,11 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
     userId: string | null,
     db: DbConnection | TenantDb,
   ): Promise<ConfigRow | null> {
-    const userCond =
-      userId !== null ? eq(configValuesTable.userId, userId) : isNull(configValuesTable.userId);
-
-    const row = await fetchOne<ConfigRow>(
-      db,
-      configValuesTable,
-      eq(configValuesTable.key, key),
-      eq(configValuesTable.tenantId, tenantId),
-      userCond,
-    );
+    const row = await fetchOne<ConfigRow>(db, configValuesTable, {
+      key,
+      tenantId,
+      userId,
+    });
 
     return row ?? null;
   }

@@ -3,7 +3,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
-import { updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // POST /api/user/restrict (S2.U6) — DSGVO Art. 18 Account-Freeze.
 // Flippt status=Active → Restricted und revoked alle live sessions

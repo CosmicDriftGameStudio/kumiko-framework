@@ -17,8 +17,7 @@
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
-  fetchOne,
+  createTenantDb
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -49,6 +48,7 @@ import {
   getInvitationIdForToken,
   unburnInviteToken,
 } from "../invite-token-store";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const InviteAcceptSchema = z.object({
   token: z.string().min(1),
@@ -123,11 +123,9 @@ export function createInviteAcceptHandler() {
         // Email-Match: User muss mit der eingeladenen Email matchen.
         // Sonst kann ein Angreifer mit Zugriff zur invitee-Mail seinen
         // eigenen Account dem Tenant zuschlagen.
-        const userRow = await fetchOne<UserEmailRow>(
-          ctx.db.raw,
-          userTable,
-          eq(userTable.id, event.user.id),
-        );
+        const userRow = await fetchOne<UserEmailRow>(ctx.db.raw, userTable, {
+          id: event.user.id,
+        });
         const userEmail = userRow?.email;
         if (!userRow || !userEmail || userEmail.toLowerCase() !== invitationEmail) {
           return writeFailure(

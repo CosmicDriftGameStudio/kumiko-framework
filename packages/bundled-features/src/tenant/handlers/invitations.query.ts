@@ -1,7 +1,7 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Pending-Invitations-Liste für den aktuellen Tenant. Admin-only.
 // Filter: status="pending" — accepted/cancelled/expired sind für die

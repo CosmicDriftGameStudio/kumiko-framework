@@ -1,6 +1,6 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type { ComplianceProfileKey } from "@cosmicdrift/kumiko-framework/compliance";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { tenantComplianceProfileTable } from "../schema/profile-selection";

@@ -12,12 +12,12 @@
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
-  fetchOne,
+  type DbConnection
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { userEntity, userTable } from "./schema/user";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

@@ -14,9 +14,10 @@ import {
   type EffectiveComplianceProfile,
   resolveComplianceProfile,
 } from "@cosmicdrift/kumiko-framework/compliance";
-import { type DbRunner, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { tenantComplianceProfileTable } from "./schema/profile-selection";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export interface ResolveProfileForTenantArgs {
   readonly db: DbRunner;

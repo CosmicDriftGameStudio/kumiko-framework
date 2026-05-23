@@ -2,7 +2,7 @@
 // Extracted from set.write.ts so reset.write.ts + values.query.ts don't
 // have to cross-import from another handler file.
 
-import { type DbConnection, fetchOne, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigKeyDefinition,
   type ConfigScope,
@@ -26,6 +26,7 @@ import { assertUnreachable } from "@cosmicdrift/kumiko-framework/utils";
 import { eq, isNull } from "drizzle-orm";
 import { ConfigErrors } from "./constants";
 import { configValuesTable } from "./table";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export type ConfigRowLookup = {
   readonly id: string;
@@ -44,15 +45,11 @@ export async function findConfigRow(
   tenantId: TenantId,
   userId: string | null,
 ): Promise<ConfigRowLookup | null> {
-  const userCond =
-    userId !== null ? eq(configValuesTable.userId, userId) : isNull(configValuesTable.userId);
-  const row = await fetchOne<ConfigRowLookup>(
-    db,
-    configValuesTable,
-    eq(configValuesTable.key, key),
-    eq(configValuesTable.tenantId, tenantId),
-    userCond,
-  );
+  const row = await fetchOne<ConfigRowLookup>(db, configValuesTable, {
+    key,
+    tenantId,
+    userId,
+  });
   if (!row) return null;
   return {
     id: row.id,
