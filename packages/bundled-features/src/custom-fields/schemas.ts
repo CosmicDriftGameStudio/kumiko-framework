@@ -4,6 +4,21 @@ import { SUPPORTED_FIELD_TYPES } from "./constants";
 // Field-Type-Validator — pinnt valid type-Werte für fieldDefinition.
 const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
 
+// Per-field access-control. When set, `set/clear-custom-field` handlers
+// require the calling user to hold at least one of the listed roles —
+// in addition to the handler-level RBAC. Absent or empty `write` means
+// the handler-level RBAC is the only gate.
+//
+// `read` is reserved for the postQuery-flatten pipeline (T1.5c+); not
+// enforced in T1.5b.
+export const customFieldAccessSchema = z
+  .object({
+    read: z.array(z.string()).optional(),
+    write: z.array(z.string()).optional(),
+  })
+  .optional();
+export type CustomFieldAccess = z.infer<typeof customFieldAccessSchema>;
+
 // Serialized-field-jsonb — was als `serializedField`-Spalte gespeichert wird.
 // In v1 noch nicht strict-typed pro field-type (das kommt in B2 wenn die
 // Stammfeld-Builder-Schemas exposed sind). Hier nur die Struktur-Garantie.
@@ -18,13 +33,13 @@ const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
 //   money:    { type: "money", required: false, currency: "EUR" }
 //   embedded: { type: "embedded", required: false, schema: { ... } }
 //
-// In B1 akzeptieren wir alle Variants als Generic-jsonb-Payload mit nur dem
-// `type`-Pflichtfeld validiert. B2 wird die volle discriminated-union mit
-// per-type-options anschließen — sobald die Stammfeld-Field-Builder-Schemas
-// exportiert sind.
+// `fieldAccess` is the only B1+ structured key — recognised by the
+// set/clear handlers (T1.5b). Everything else stays loose pending B2's
+// per-type discriminated-union.
 const serializedFieldSchema = z
   .looseObject({
     type: fieldTypeSchema,
+    fieldAccess: customFieldAccessSchema,
   })
   .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`");
 
