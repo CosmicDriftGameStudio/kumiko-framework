@@ -20,7 +20,6 @@ import {
   createChannelEmailFeature,
   type EmailTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import type { NotificationRenderer } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createChannelInAppFeature } from "@cosmicdrift/kumiko-bundled-features/channel-in-app";
 import {
   createChannelPushFeature,
@@ -29,6 +28,7 @@ import {
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import type { NotificationRenderer } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   createFeatureTogglesFeature,
