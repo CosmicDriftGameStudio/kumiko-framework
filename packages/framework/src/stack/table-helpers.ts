@@ -1,5 +1,27 @@
-import { generateDrizzleJson, generateMigration } from "drizzle-kit/api";
 import { getTableName, sql } from "drizzle-orm";
+
+// drizzle-kit/api wird LAZY geladen — nur bei Bedarf importiert. drizzle-kit
+// ist post-Phase-5 ein devDependency; Production-Apps die runProdApp nutzen
+// rufen unsafePushTables nicht zur Runtime auf (Tests/dev-server-bootstrap
+// only). Wenn jemand das in production aufruft → klare Fehlermeldung statt
+// silent-resolution-failure. Lazy-import via dynamic import() im Funktions-
+// Body ist Bun-kompatibel + TS-erlaubt.
+async function loadDrizzleKitApi(): Promise<{
+  generateDrizzleJson: (tables: Record<string, unknown>) => unknown;
+  generateMigration: (prev: unknown, next: unknown) => Promise<readonly string[]>;
+}> {
+  try {
+    return (await import("drizzle-kit/api")) as unknown as {
+      generateDrizzleJson: (tables: Record<string, unknown>) => unknown;
+      generateMigration: (prev: unknown, next: unknown) => Promise<readonly string[]>;
+    };
+  } catch (e) {
+    throw new Error(
+      "unsafePushTables() requires drizzle-kit (devDependency for test/dev-server setup). " +
+        "Production apps should not reach this code path — use `kumiko schema apply` for migrations.",
+    );
+  }
+}
 import type { PgTable } from "drizzle-orm/pg-core";
 import type { drizzle } from "drizzle-orm/postgres-js";
 import { tableExists } from "../db/schema-inspection";
@@ -61,9 +83,10 @@ export async function unsafePushTables(
   tables: Record<string, unknown>,
   prevTables?: Record<string, unknown>,
 ): Promise<void> {
-  const prevJson = generateDrizzleJson(prevTables ?? {});
-  const targetJson = generateDrizzleJson(tables);
-  const statements = await generateMigration(prevJson, targetJson);
+  const api = await loadDrizzleKitApi();
+  const prevJson = api.generateDrizzleJson(prevTables ?? {});
+  const targetJson = api.generateDrizzleJson(tables);
+  const statements = await api.generateMigration(prevJson, targetJson);
   for (const stmt of statements) {
     await db.execute(sql.raw(stmt));
   }
