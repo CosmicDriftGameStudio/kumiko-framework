@@ -115,7 +115,8 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
   let primaryKey = false;
   let defaultSql: string | undefined;
 
-  function literalDefault(value: unknown): string {
+  function literalDefault(value: unknown): string | null {
+    if (value === undefined) return null;
     if (value === null) return "NULL";
     if (typeof value === "string") return `'${value.replace(/'/g, "''")}'`;
     if (typeof value === "number") return String(value);
@@ -124,8 +125,11 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
     if (value && typeof value === "object" && "kind" in value && (value as { kind: string }).kind === "sql-expr") {
       return (value as SqlExpression).text;
     }
+    if (typeof value === "function") return null; // function-defaults stay JS-side
     // Object/array → jsonb literal
-    return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`;
+    const serialised = JSON.stringify(value);
+    if (serialised === undefined) return null;
+    return `'${serialised.replace(/'/g, "''")}'::jsonb`;
   }
 
   const builder: ColumnBuilder<unknown> = {
@@ -149,7 +153,8 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
       return builder;
     },
     default(value: unknown) {
-      defaultSql = literalDefault(value);
+      const rendered = literalDefault(value);
+      defaultSql = rendered === null ? undefined : rendered;
       return builder;
     },
     defaultRandom() {

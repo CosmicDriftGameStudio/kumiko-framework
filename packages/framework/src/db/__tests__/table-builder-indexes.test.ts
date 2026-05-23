@@ -6,7 +6,6 @@
 // Constraint deklarativ in der EntityDefinition; buildDrizzleTable rendert
 // sie via uniqueIndex/index.
 
-import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vitest";
 import {
   createBooleanField,
@@ -16,6 +15,25 @@ import {
   validateBoot,
 } from "../../engine";
 import { buildDrizzleTable } from "../table-builder";
+
+// Native dialect equivalent of drizzle's getTableConfig: reads the
+// EntityTableMeta-shape exposed on every SchemaTable.
+function getTableConfig(table: ReturnType<typeof buildDrizzleTable>): {
+  indexes: Array<{ config: { name: string; unique: boolean; columns: Array<{ name: string }> } }>;
+} {
+  const meta = table as unknown as {
+    indexes: ReadonlyArray<{ name: string; columns: readonly string[]; unique?: boolean }>;
+  };
+  return {
+    indexes: meta.indexes.map((idx) => ({
+      config: {
+        name: idx.name,
+        unique: idx.unique === true,
+        columns: idx.columns.map((c) => ({ name: c })),
+      },
+    })),
+  };
+}
 
 describe("buildDrizzleTable — entity.indexes", () => {
   test("composite unique-index landet als unique=true in Drizzle table-config", () => {

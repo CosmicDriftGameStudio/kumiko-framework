@@ -32,12 +32,10 @@ function refField(args: Omit<ReferenceFieldDef, "type">): ReferenceFieldDef {
 }
 
 function colByName(table: ReturnType<typeof buildDrizzleTable>, dbName: string) {
-  // Drizzle's PgTable proxies columns through both JS-prop-name and the
-  // serialized "name" attribute. We need the underlying column.config to
-  // read .notNull, which lives at runtime under the column instance. Simplest
-  // robust path: iterate Object.values, match by name.
-  for (const col of Object.values(table) as Array<{ name?: string; notNull?: boolean }>) {
-    if (col && typeof col === "object" && col.name === dbName) return col;
+  const cols = (table as unknown as { columns?: ReadonlyArray<{ name: string; notNull?: boolean }> }).columns;
+  if (!cols) throw new Error("Table has no columns metadata");
+  for (const c of cols) {
+    if (c.name === dbName) return { name: c.name, notNull: c.notNull };
   }
   throw new Error(`Column ${dbName} not found in table`);
 }

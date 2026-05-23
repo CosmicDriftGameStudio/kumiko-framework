@@ -21,13 +21,13 @@ import { buildInsertSchema } from "../../engine/schema-builder";
 import { buildDrizzleTable } from "../table-builder";
 
 function colByName(table: ReturnType<typeof buildDrizzleTable>, dbName: string) {
-  for (const col of Object.values(table) as Array<{
-    name?: string;
-    notNull?: boolean;
-    columnType?: string;
-    dataType?: string;
-  }>) {
-    if (col && typeof col === "object" && col.name === dbName) return col;
+  const cols = (table as unknown as { columns?: ReadonlyArray<{ name: string; notNull?: boolean; pgType?: string }> }).columns;
+  if (!cols) throw new Error("Table has no columns metadata");
+  for (const c of cols) {
+    if (c.name === dbName) {
+      // Map EntityTableMeta -> shape the assertions expect.
+      return { name: c.name, notNull: c.notNull, columnType: c.pgType, dataType: c.pgType };
+    }
   }
   throw new Error(`Column ${dbName} not found in table`);
 }
