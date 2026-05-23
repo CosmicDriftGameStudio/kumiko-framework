@@ -1,5 +1,5 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { desc } from "drizzle-orm";
 import { z } from "zod";
 import { deliveryAttemptsTable } from "../tables";
 
@@ -10,12 +10,10 @@ export const logQuery = defineQueryHandler({
   }),
   access: { roles: ["Admin", "SystemAdmin"] },
   handler: async (query, ctx) => {
-    const rows = await ctx.db
-      .select()
-      .from(deliveryAttemptsTable)
-      .orderBy(desc(deliveryAttemptsTable.createdAt))
-      .limit(query.payload.limit);
-
+    const rows = await selectMany(ctx.db, deliveryAttemptsTable, undefined, {
+      orderBy: { col: "createdAt", direction: "desc" },
+      limit: query.payload.limit,
+    });
     return { rows };
   },
 });

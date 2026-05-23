@@ -1,6 +1,5 @@
 import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { and, eq, gte } from "drizzle-orm";
 import { rollingCapAggregateId } from "./aggregate-id";
 import {
   CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
@@ -184,18 +183,13 @@ export async function enforceRollingCap(
   // covers the prefix; the additional aggregate_id eq narrows to the
   // single rolling-stream. Postgres can use the index even with the
   // aggregate_id filter applied as a residual.
-  const rows = await ctx.db
-    .select({ payload: eventsTable.payload })
-    .from(eventsTable)
-    .where(
-      and(
-        eq(eventsTable.tenantId, ctx.user.tenantId),
-        eq(eventsTable.aggregateType, CAP_COUNTER_ROLLING_AGGREGATE_TYPE),
-        eq(eventsTable.aggregateId, aggregateId),
-        eq(eventsTable.type, ROLLING_INCREMENTED_EVENT_QN),
-        gte(eventsTable.createdAt, cutoff),
-      ),
-    );
+  const rows = await selectMany<{ payload: { amount?: number } }>(ctx.db, eventsTable, {
+    tenantId: ctx.user.tenantId,
+    aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
+    aggregateId,
+    type: ROLLING_INCREMENTED_EVENT_QN,
+    createdAt: { gte: cutoff },
+  });
 
   let value = 0;
   for (const row of rows) {

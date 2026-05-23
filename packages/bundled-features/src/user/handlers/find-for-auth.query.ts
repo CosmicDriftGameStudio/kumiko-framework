@@ -1,6 +1,5 @@
-import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { z } from "zod";
 import { userTable } from "../schema/user";
 
@@ -27,12 +26,11 @@ export const findForAuthQuery = defineQueryHandler({
     ),
   access: { roles: access.privileged },
   handler: async (query, ctx) => {
-    const condition =
+    const where =
       query.payload.email !== undefined
-        ? eq(userTable["email"], query.payload.email)
-        : eq(userTable["id"], query.payload.id as string); // @cast-boundary engine-payload
+        ? { email: query.payload.email }
+        : { id: query.payload.id as string }; // @cast-boundary engine-payload
 
-    const [row] = await ctx.db.select().from(userTable).where(condition).limit(1);
-    return (row as DbRow) ?? null;
+    return (await fetchOne(ctx.db, userTable, where)) ?? null;
   },
 });
