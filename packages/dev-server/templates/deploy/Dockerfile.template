@@ -89,6 +89,14 @@ COPY --from=build --chown=app:app /app/dist ./dist
 COPY --from=build --chown=app:app /app/dist-server/drizzle.config.ts ./drizzle.config.ts
 COPY --from=build --chown=app:app /app/drizzle ./drizzle
 
+# Container entrypoint — `infra/pulumi/bun-server.ts` overrides the container
+# command to inject DATABASE_URL from the init-container's /shared/database-url
+# then execs `./start.sh`. We generate it inline so app-source-roots stay
+# clean (no per-app start.sh duplication). Apps that don't go through
+# createBunServer's command-override still boot via the CMD at the bottom
+# (`exec bun run server.js`) — start.sh is dead-code in that case.
+RUN printf '#!/bin/sh\nset -e\nexec bun run server.js\n' > ./start.sh && chmod +x ./start.sh
+
 {{#hasSeeds}}
 # ES-Operations seed migrations — runtime-loaded via dynamic import. Bun
 # does NOT bundle these into dist-server/server.js (await import on a

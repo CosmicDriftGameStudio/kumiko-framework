@@ -56,6 +56,17 @@ describe("scaffoldDeploy", () => {
     expect(migrate).toContain("ghcr.io/cosmicdriftgamestudio/minimal:latest");
   });
 
+  it("Dockerfile emits inline start.sh (createBunServer command-override target)", () => {
+    scaffoldDeploy({ appName: "boot-target", destination: tmp });
+    const dockerfile = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+    // Inline RUN that creates a start.sh inside the runtime image.
+    // bun-server.ts's createBunServer overrides the container command with
+    // `exec ./start.sh` after injecting DATABASE_URL; without this line the
+    // pod exited 127. Memory: `feedback_audit_drift_root_cause_now`.
+    expect(dockerfile).toContain("> ./start.sh && chmod +x ./start.sh");
+    expect(dockerfile).toContain("exec bun run server.js");
+  });
+
   it("skips existing files by default", () => {
     const existing = join(tmp, "deploy");
     scaffoldDeploy({ appName: "first", destination: tmp });
