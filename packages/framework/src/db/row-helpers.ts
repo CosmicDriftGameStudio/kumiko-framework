@@ -65,10 +65,17 @@ export async function fetchOne<TRow = DbRow>(
 ): Promise<TRow | undefined> {
   const first = args[0];
   const conditions: SQL[] = [];
-  if (first !== null && typeof first === "object" && !("queryChunks" in first)) {
+  // Discriminator: drizzle's SQL hat sowohl queryChunks als auch getSQL().
+  // Plain WhereObject hat keins von beiden.
+  const isSqlAst =
+    first !== null &&
+    typeof first === "object" &&
+    ("queryChunks" in first ||
+      typeof (first as { getSQL?: unknown }).getSQL === "function");
+  if (!isSqlAst && first !== null && typeof first === "object") {
     // plain object → expand to eq() for each key
     const tableAny = table as unknown as Record<string, unknown>;
-    for (const [key, value] of Object.entries(first)) {
+    for (const [key, value] of Object.entries(first as WhereObject)) {
       const col = tableAny[key];
       if (col === undefined) {
         throw new Error(`fetchOne: column "${key}" not on table`);

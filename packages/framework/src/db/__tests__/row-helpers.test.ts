@@ -14,8 +14,11 @@ function makeFakeDb(rows: unknown[]) {
 }
 
 const fakeTable = {} as never;
-const fakeCond1 = { __c: 1 } as unknown as SQL;
-const fakeCond2 = { __c: 2 } as unknown as SQL;
+// drizzle's SQL-AST hat queryChunks + getSQL(); WhereObject-Discriminator
+// in fetchOne unterscheidet sie strukturell — Test-mocks müssen einen der
+// beiden marker tragen damit der dispatcher den AST-Pfad nimmt.
+const fakeCond1 = { __c: 1, queryChunks: [] } as unknown as SQL;
+const fakeCond2 = { __c: 2, queryChunks: [] } as unknown as SQL;
 
 describe("fetchOne", () => {
   test("returns the first row when the query yields at least one match", async () => {
