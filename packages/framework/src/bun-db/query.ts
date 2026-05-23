@@ -88,8 +88,29 @@ function asRawClient(db: unknown): RawClient {
 
 export type AnyDb = BunDbRunner | unknown;
 
-export type WhereValue = unknown;
+// WhereValue: primitive für eq, array für IN, null für IS NULL, oder
+// operator-object für range/comparisons.
+export type WhereOperator = {
+  readonly gt?: unknown;
+  readonly gte?: unknown;
+  readonly lt?: unknown;
+  readonly lte?: unknown;
+  readonly ne?: unknown;
+  readonly in?: readonly unknown[];
+  readonly like?: string;
+};
+export type WhereValue = unknown | WhereOperator;
 export type WhereObject = Record<string, WhereValue>;
+
+function isWhereOperator(v: unknown): v is WhereOperator {
+  if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
+  // Don't false-positive on Date / Temporal / other domain-objects.
+  // WhereOperator is plain object literal with at most these keys.
+  const keys = Object.keys(v);
+  if (keys.length === 0) return false;
+  const opKeys = ["gt", "gte", "lt", "lte", "ne", "in", "like"];
+  return keys.every((k) => opKeys.includes(k));
+}
 export type SelectOptions = {
   readonly limit?: number;
   readonly orderBy?: {
@@ -183,13 +204,13 @@ function buildWhereClause(
   let idx = startIndex;
   for (const [field, value] of Object.entries(where)) {
     const col = info.columnOf(field);
+    const pgType = info.pgTypeOf(col);
     if (value === null) {
       conditions.push(`${quoteIdent(col)} IS NULL`);
     } else if (Array.isArray(value)) {
       if (value.length === 0) {
         conditions.push("FALSE");
       } else {
-        const pgType = info.pgTypeOf(col);
         const placeholders = value
           .map(() => {
             const i = idx++;
@@ -202,8 +223,36 @@ function buildWhereClause(
           values.push(p.bound);
         }
       }
+    } else if (isWhereOperator(value)) {
+      const opMap: Record<string, string> = {
+        gt: ">",
+        gte: ">=",
+        lt: "<",
+        lte: "<=",
+        ne: "<>",
+        like: "LIKE",
+      };
+      for (const [opKey, opSym] of Object.entries(opMap)) {
+        const opVal = (value as Record<string, unknown>)[opKey];
+        if (opVal === undefined) continue;
+        const p = prepareValue(opVal, pgType);
+        conditions.push(`${quoteIdent(col)} ${opSym} $${idx++}${p.sql}`);
+        values.push(p.bound);
+      }
+      const inVal = (value as Record<string, unknown>)["in"];
+      if (Array.isArray(inVal)) {
+        if (inVal.length === 0) {
+          conditions.push("FALSE");
+        } else {
+          const placeholders = inVal.map(() => `$${idx++}`).join(", ");
+          conditions.push(`${quoteIdent(col)} IN (${placeholders})`);
+          for (const v of inVal) {
+            const p = prepareValue(v, pgType);
+            values.push(p.bound);
+          }
+        }
+      }
     } else {
-      const pgType = info.pgTypeOf(col);
       const p = prepareValue(value, pgType);
       conditions.push(`${quoteIdent(col)} = $${idx++}${p.sql}`);
       values.push(p.bound);

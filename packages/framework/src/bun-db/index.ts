@@ -9,7 +9,7 @@ export type {
   PgListenClient,
 } from "./connection";
 export { bunDbConnectionOptionsFromEnv, createBunDbConnection } from "./connection";
-export type { SelectOptions, WhereObject, WhereValue } from "./query";
+export type { SelectOptions, WhereObject, WhereOperator, WhereValue } from "./query";
 export {
   deleteMany,
   fetchOne,
