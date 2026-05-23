@@ -19,8 +19,8 @@ import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-coun
 import {
   createChannelEmailFeature,
   type EmailTransport,
-  type NotificationRenderer,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import type { NotificationRenderer } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createChannelInAppFeature } from "@cosmicdrift/kumiko-bundled-features/channel-in-app";
 import {
   createChannelPushFeature,
@@ -60,7 +60,9 @@ import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled
 // Smoke-only stubs. Boot-mode skipt jede operative Methode — diese werden
 // nie aufgerufen, nur typecheck'd.
 const stubEmailTransport: EmailTransport = {
-  send: async () => ({ messageId: "smoke" }),
+  send: async () => {
+    /* smoke-only */
+  },
 };
 const stubPushTransport: PushTransport = {
   send: async () => {
@@ -68,21 +70,16 @@ const stubPushTransport: PushTransport = {
   },
 };
 const stubRenderer: NotificationRenderer = {
+  name: "smoke",
   render: async () => "<smoke/>",
 };
 
 // feature-toggles braucht einen getRuntime-accessor. Boot-mode validiert
 // nur, dass die accessor-Signatur stimmt; runtime-build passiert
-// post-boot in der real app.
-const stubFeatureTogglesRuntime: GlobalFeatureToggleRuntime = {
-  isEnabled: () => true,
-  setEnabled: async () => {
-    /* smoke-only */
-  },
-  refresh: async () => {
-    /* smoke-only */
-  },
-};
+// post-boot in der real app. GlobalFeatureToggleRuntime ist eine class
+// mit privatem state — wir können nur via Stub-cast eine smoke-only
+// Instanz vortäuschen. @cast-boundary smoke-only.
+const stubFeatureTogglesRuntime = null as unknown as GlobalFeatureToggleRuntime;
 
 export const APP_FEATURES = [
   // foundations not in the auto-mounted bundled-set
@@ -126,7 +123,8 @@ export const APP_FEATURES = [
     priceToTier: { price_smoke: "free" },
     priceToConfig: {
       price_smoke: {
-        amount: { currency: "EUR", value: "0.00" },
+        amountValue: "0.00",
+        amountCurrency: "EUR",
         interval: "1 month",
         description: "Smoke",
       },
