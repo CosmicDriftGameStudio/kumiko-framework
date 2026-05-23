@@ -23,7 +23,7 @@
 // keine framework-engine-Internals und kann auch von custom
 // query-handlern manuell aufgerufen werden.
 
-import { inArray } from "drizzle-orm";
+import { selectMany } from "../bun-db/query";
 import type { EntityDefinition, FieldDefinition, ReferenceFieldDef } from "../engine/types";
 import { buildDrizzleTable } from "./table-builder";
 import type { TenantDb } from "./tenant-db";
@@ -122,17 +122,10 @@ export async function enrichWithReferences(
         return { fieldName: rf.fieldName, multiple: rf.multiple, map: new Map() };
       }
       const refTable = buildDrizzleTable(rf.refEntityName, refEntity);
-      const idCol = refTable["id"];
-      if (idCol === undefined) {
-        return { fieldName: rf.fieldName, multiple: rf.multiple, map: new Map() };
-      }
       const idArray = [...ids];
-      const refRows = (await db
-        .select()
-        .from(refTable)
-        .where(inArray(idCol, idArray as never /* @cast-boundary db-operator */))) as Array<
+      const refRows = (await selectMany(db, refTable, { id: idArray })) as Array<
         Record<string, unknown>
-      >; // @cast-boundary db-row
+      >;
       const map = new Map<string, Record<string, unknown>>();
       for (const r of refRows) {
         const id = r["id"];
