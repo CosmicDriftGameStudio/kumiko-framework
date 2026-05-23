@@ -1,4 +1,12 @@
-import { buildDrizzleTable, instant, table as pgTable, serial, text } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildDrizzleTable,
+  buildRawEntityTableMeta,
+  type EntityTableMeta,
+  instant,
+  table as pgTable,
+  serial,
+  text,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createNumberField,
@@ -58,4 +66,21 @@ export const jobRunLogsTable = pgTable("read_job_run_logs", {
   level: text("level").notNull().$type<JobLogLevel>(),
   message: text("message").notNull(),
   timestamp: instant("timestamp").notNull(),
+});
+
+// Raw EntityTableMeta für den Migration-Generator (Phase 3b von drizzle-
+// replacement). Non-standard shape: serial PK (kein uuid), keine
+// EntityDefinition-base-columns (kein tenant_id/version/inserted_at —
+// log-rows sind child von jobRun, tenant-context lebt am parent). Daher
+// kein createEntity, sondern raw-Deklaration. pgTable bleibt unverändert
+// als Query-API-Source; Phase 4 leitet das pgTable aus dieser Meta ab.
+export const jobRunLogsTableMeta: EntityTableMeta = buildRawEntityTableMeta({
+  tableName: "read_job_run_logs",
+  columns: [
+    { name: "id", pgType: "serial", notNull: true, primaryKey: true },
+    { name: "run_id", pgType: "text", notNull: true },
+    { name: "level", pgType: "text", notNull: true },
+    { name: "message", pgType: "text", notNull: true },
+    { name: "timestamp", pgType: "timestamptz", notNull: true },
+  ],
 });

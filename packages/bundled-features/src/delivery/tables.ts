@@ -1,6 +1,8 @@
 import {
   boolean,
   buildBaseColumns,
+  buildRawEntityTableMeta,
+  type EntityTableMeta,
   instant,
   table as pgTable,
   text,
@@ -37,6 +39,29 @@ export const deliveryAttemptsTable = pgTable("read_delivery_attempts", {
   status: text("status").notNull().$type<"sent" | "failed" | "skipped">(),
   error: text("error"),
   createdAt: instant("created_at").default(sql`now()`).notNull(),
+});
+
+// Raw EntityTableMeta für die Migration-Generator-Pipeline (Phase 3b von
+// drizzle-replacement). Diese Tabelle hat ein non-standard-shape: id wird
+// vom Aggregate-Stream geliefert (kein gen_random_uuid()), keine version/
+// modified_by/inserted_by columns, kein softDelete — daher kein
+// createEntity, sondern raw-Deklaration via buildRawEntityTableMeta.
+//
+// Die parallel-pgTable bleibt source-of-truth für Query-API; in Phase 4
+// (Bun.sql) wird das pgTable abgeleitet via Adapter aus dieser Meta.
+export const deliveryAttemptsTableMeta: EntityTableMeta = buildRawEntityTableMeta({
+  tableName: "read_delivery_attempts",
+  columns: [
+    { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
+    { name: "tenant_id", pgType: "uuid", notNull: true },
+    { name: "notification_type", pgType: "text", notNull: true },
+    { name: "channel", pgType: "text", notNull: true },
+    { name: "recipient_id", pgType: "text", notNull: false },
+    { name: "recipient_address", pgType: "text", notNull: false },
+    { name: "status", pgType: "text", notNull: true },
+    { name: "error", pgType: "text", notNull: false },
+    { name: "created_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
+  ],
 });
 
 // User-scoped opt-in/opt-out for (notificationType, channel) pairs. Post-ES

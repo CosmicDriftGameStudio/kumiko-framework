@@ -43,6 +43,17 @@ export {
   type PgErrorInfo,
 } from "./pg-error";
 export { seedReferenceData } from "./reference-data";
+export type {
+  BuildEntityTableMetaOptions,
+  ColumnMeta,
+  CompositePrimaryKeyMeta,
+  EntityTableMeta,
+  IndexMeta,
+  PgType,
+  RawEntityTableMetaInput,
+} from "./entity-table-meta";
+export { buildEntityTableMeta, buildRawEntityTableMeta } from "./entity-table-meta";
+export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export { fetchOne } from "./row-helpers";
 export { tableExists } from "./schema-inspection";
 export {
