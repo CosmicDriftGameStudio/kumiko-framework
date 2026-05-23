@@ -15,7 +15,9 @@ export const textBlockEntity = createEntity({
     slug: createTextField({ required: true }),
     lang: createTextField({ required: true }),
     title: createTextField({ required: true }),
-    body: createTextField({}),
+    // Body is CMS-content authored by TenantAdmin/SystemAdmin (legal pages,
+    // FAQ, ToS, marketing) — business data, not user-generated content.
+    body: createTextField({ allowPlaintext: "is-business-data" }),
     // V.1.4: explicit folder-Hierarchie statt `:`-Encoding im Slug.
     // Visual-Tree gruppiert nach diesem Field; null/undefined → root.
     // Pflicht-Constraint im set.write-Schema (kebab-only wie slug,
