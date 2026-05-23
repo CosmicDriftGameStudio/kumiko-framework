@@ -942,15 +942,27 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@cosmicdrift/kumiko-cli@workspace:packages/cli":
+  version: 0.0.0-use.local
+  resolution: "@cosmicdrift/kumiko-cli@workspace:packages/cli"
+  dependencies:
+    "@cosmicdrift/kumiko-dev-server": "workspace:*"
+  bin:
+    kumiko: ./bin/cli.ts
+  languageName: unknown
+  linkType: soft
+
 "@cosmicdrift/kumiko-dev-server@workspace:*, @cosmicdrift/kumiko-dev-server@workspace:packages/dev-server":
   version: 0.0.0-use.local
   resolution: "@cosmicdrift/kumiko-dev-server@workspace:packages/dev-server"
   dependencies:
     "@cosmicdrift/kumiko-bundled-features": "workspace:*"
     "@cosmicdrift/kumiko-framework": "workspace:*"
+    ts-morph: "npm:^28.0.0"
   bin:
     kumiko-build: ./bin/kumiko-build.ts
     kumiko-dev: ./bin/kumiko-dev.ts
+    kumiko-schema-check: ./bin/kumiko-schema-check.ts
   languageName: unknown
   linkType: soft
 

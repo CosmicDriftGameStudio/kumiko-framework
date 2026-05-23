@@ -6,16 +6,14 @@
 // stub, package.json with @cosmicdrift/* deps, tsconfig, .env.example,
 // README.
 //
-// Intentionally NOT included in DX-1.0:
-// - drizzle/ setup (DX-1.1 — needs FEATURE_IMPORT_REGISTRY decision from DX-4)
-// - deploy/Dockerfile (already covered by scaffoldDeploy — separate cmd)
-// - first feature scaffold (use scaffoldFeature after this)
-//
-// The generated app is born "boots cleanly, mounts nothing fancy". User
-// runs `kumiko add feature` (DX-2) or hand-edits src/run-config.ts to grow.
+// .ts files are built via ts-morph (same tool [[scaffoldAppFeature]] uses
+// to auto-mount features). Means a single AST representation for both
+// generate + later modify — no template-string ↔ ts-morph divergence.
+// Static files (package.json, tsconfig, .env, README) stay text-based.
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
 
 export type ScaffoldAppOptions = {
   /** kebab-case app name (e.g. "my-shop"). Becomes package-name + folder. */
@@ -122,72 +120,143 @@ function renderTsconfig(): string {
   )}\n`;
 }
 
+function newTsProject(): Project {
+  return new Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: { target: 99, module: 99, strict: true },
+    manipulationSettings: { indentationText: IndentationText.TwoSpaces },
+  });
+}
+
 function renderRunConfig(): string {
-  return `// Single source of truth für die Feature-Komposition deiner App.
-// Bundled-Foundation: secrets + sessions. config/user/tenant/auth-email-password
-// werden via composeFeatures(includeBundled:true) automatisch ergänzt
-// wenn runProdApp mit \`auth: {…}\` aufgerufen wird (siehe bin/main.ts).
-//
-// Neue features hinzufügen:
-//   - bunx kumiko add feature <name>  (DX-2, automatisch)
-//   - oder: hand-edit + import unten ergänzen
+  const project = newTsProject();
+  const sf = project.createSourceFile("run-config.ts", "");
 
-import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
+  sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-bundled-features/secrets",
+    namedImports: ["createSecretsFeature"],
+  });
+  sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-bundled-features/sessions",
+    namedImports: ["createSessionsFeature"],
+  });
 
-export const APP_FEATURES = [
-  createSecretsFeature(),
-  createSessionsFeature(),
-] as const;
-`;
+  sf.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    isExported: true,
+    declarations: [
+      {
+        name: "APP_FEATURES",
+        initializer: "[createSecretsFeature(), createSessionsFeature()] as const",
+      },
+    ],
+  });
+
+  sf.insertText(
+    0,
+    [
+      "// Single source of truth für die Feature-Komposition deiner App.",
+      "// Bundled-Foundation: secrets + sessions. config/user/tenant/auth-email-password",
+      "// werden via composeFeatures(includeBundled:true) automatisch ergänzt",
+      "// wenn runProdApp mit `auth: {…}` aufgerufen wird (siehe bin/main.ts).",
+      "//",
+      "// Neue features hinzufügen:",
+      "//   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatisch)",
+      "//   - oder: hand-edit + import unten ergänzen",
+      "",
+      "",
+    ].join("\n"),
+  );
+
+  return sf.getFullText();
 }
 
 function renderMain(appName: string): string {
-  // Deterministic tenant-UUID derived from appName for the seed-admin
-  // membership. Reproducible across boots; tenants table sees the same
-  // ID. Format: 8-4-4-4-12 hex chars, version-4 marker at position 14.
-  // We hash the name into the digits using a tiny PRNG so two apps
-  // get different IDs without bun's crypto dependency.
   const tenantId = deriveTenantId(appName);
-  return `// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
-// composeFeatures + validateBoot + createRegistry without DB/Redis-connect
-// (siehe @cosmicdrift/kumiko-dev-server runProdApp). Echter Dev-Boot
-// passiert via \`bunx kumiko dev\` mit Docker-stack — DX-1.0 deckt nur
-// den boot-mode-Pfad ab; \`kumiko dev\` kommt in einer späteren DX-Phase.
+  const project = newTsProject();
+  const sf = project.createSourceFile("main.ts", "");
 
-import { frameworkCoreEnvSchema, runProdApp } from "@cosmicdrift/kumiko-dev-server";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { APP_FEATURES } from "../src/run-config";
+  sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-dev-server",
+    namedImports: ["frameworkCoreEnvSchema", "runProdApp"],
+  });
+  sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-framework/engine",
+    isTypeOnly: true,
+    namedImports: ["TenantId"],
+  });
+  sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-framework/env",
+    namedImports: ["composeEnvSchema"],
+  });
+  sf.addImportDeclaration({
+    moduleSpecifier: "../src/run-config",
+    namedImports: ["APP_FEATURES"],
+  });
 
-const DEFAULT_TENANT_ID = "${tenantId}" as TenantId;
+  sf.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [
+      {
+        name: "DEFAULT_TENANT_ID",
+        initializer: `"${tenantId}" as TenantId`,
+      },
+    ],
+  });
 
-const envSchema = composeEnvSchema({
-  core: frameworkCoreEnvSchema,
-  features: APP_FEATURES,
-});
+  sf.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [
+      {
+        name: "envSchema",
+        initializer: "composeEnvSchema({ core: frameworkCoreEnvSchema, features: APP_FEATURES })",
+      },
+    ],
+  });
 
-await runProdApp({
-  features: APP_FEATURES,
-  envSchema,
-  migrations: false,
-  auth: {
-    admin: {
-      email: "admin@${appName}.local",
-      password: "change-me-on-first-deploy",
-      displayName: "Admin",
-      memberships: [
-        {
-          tenantId: DEFAULT_TENANT_ID,
-          tenantKey: "${appName}",
-          tenantName: "${appName}",
-          roles: ["TenantAdmin"],
-        },
-      ],
-    },
-  },
-});
-`;
+  sf.addStatements((writer) => {
+    writer
+      .write("await runProdApp(")
+      .inlineBlock(() => {
+        writer.writeLine("features: APP_FEATURES,");
+        writer.writeLine("envSchema,");
+        writer.writeLine("migrations: false,");
+        writer.write("auth: ").inlineBlock(() => {
+          writer.write("admin: ").inlineBlock(() => {
+            writer.writeLine(`email: "admin@${appName}.local",`);
+            writer.writeLine(`password: "change-me-on-first-deploy",`);
+            writer.writeLine(`displayName: "Admin",`);
+            writer.write("memberships: [");
+            writer.indent(() => {
+              writer.inlineBlock(() => {
+                writer.writeLine("tenantId: DEFAULT_TENANT_ID,");
+                writer.writeLine(`tenantKey: "${appName}",`);
+                writer.writeLine(`tenantName: "${appName}",`);
+                writer.writeLine(`roles: ["TenantAdmin"],`);
+              });
+              writer.write(",");
+            });
+            writer.write("],");
+          });
+        });
+      })
+      .write(");");
+  });
+
+  sf.insertText(
+    0,
+    [
+      "// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after",
+      "// composeFeatures + validateBoot + createRegistry without DB/Redis-connect",
+      "// (siehe @cosmicdrift/kumiko-dev-server runProdApp). Echter Dev-Boot",
+      "// passiert via `yarn kumiko dev` (in-repo dev-tool) mit Docker-stack — DX-1.0 deckt nur",
+      "// den boot-mode-Pfad ab; `kumiko dev` kommt in einer späteren DX-Phase.",
+      "",
+      "",
+    ].join("\n"),
+  );
+
+  return sf.getFullText();
 }
 
 function renderEnvExample(): string {
@@ -208,7 +277,7 @@ function renderReadme(appName: string): string {
   return `# ${appName}
 
 Scaffolded by \`kumiko new app\`. Boots out-of-the-box with secrets + sessions
-mounted (foundation set). Add features with \`bunx kumiko add feature <name>\`.
+mounted (foundation set). Add features with \`bunx @cosmicdrift/kumiko-cli add feature <name>\`.
 
 ## First boot
 
@@ -224,7 +293,7 @@ Expected: \`[runProdApp] boot validation OK (… features, … registry entries)
 ## Adding features
 
 \`\`\`sh
-bunx kumiko add feature my-domain
+bunx @cosmicdrift/kumiko-cli add feature my-domain
 # → editiert src/run-config.ts automatisch + scaffolded src/features/my-domain/
 \`\`\`
 
@@ -241,10 +310,6 @@ For full docs see https://docs.kumiko.so.
 // version-marker at the right spot. NOT cryptographically random —
 // just a stable per-app default the user can change later.
 function deriveTenantId(name: string): string {
-  // Tiny xorshift PRNG seeded from the name's char-codes. Same name →
-  // same ID. Sufficient for "give every scaffolded app a deterministic
-  // default tenant" — production sets its own via the create-tenant
-  // flow anyway.
   let state = 2166136261;
   for (const ch of name) {
     state ^= ch.charCodeAt(0);
@@ -255,11 +320,9 @@ function deriveTenantId(name: string): string {
   state ^= state << 13;
   state >>>= 0;
   const b = hex(state, 4);
-  // version-4 marker at first char of 3rd group:
   state ^= state >>> 17;
   state >>>= 0;
   const c = `4${hex(state, 3)}`;
-  // RFC 4122 variant: 10xx (set top two bits of 4th group to 10):
   state ^= state << 5;
   state >>>= 0;
   const d4 = (0x8 | (state & 0x3)).toString(16);
