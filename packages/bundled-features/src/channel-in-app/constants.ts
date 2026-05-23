@@ -1,4 +1,4 @@
-export const CHANNEL_IN_APP_FEATURE = "channelInApp" as const;
+export const CHANNEL_IN_APP_FEATURE = "channel-in-app" as const;
 
 export const InAppHandlers = {
   markRead: "channel-in-app:write:mark-read",

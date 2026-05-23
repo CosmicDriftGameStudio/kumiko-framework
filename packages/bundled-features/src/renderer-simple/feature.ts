@@ -26,7 +26,7 @@ export async function adaptToFoundation(req: RenderRequest): Promise<RenderRespo
 }
 
 export function createRendererSimpleFeature(): FeatureDefinition {
-  return defineFeature("rendererSimple", (r) => {
+  return defineFeature("renderer-simple", (r) => {
     r.requires("renderer-foundation");
 
     r.useExtension("renderer", "simple", {

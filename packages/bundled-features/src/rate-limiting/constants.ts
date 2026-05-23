@@ -1,4 +1,4 @@
-export const RATE_LIMITING_FEATURE = "rateLimiting" as const;
+export const RATE_LIMITING_FEATURE = "rate-limiting" as const;
 
 export const RateLimitQueries = {
   status: "rate-limiting:query:status",
