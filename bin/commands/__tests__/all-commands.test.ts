@@ -32,6 +32,7 @@ const EXPECTED_IDS = [
   "events",
   "init-deploy",
   "migrate",
+  "new",
   "ops",
   "project",
   "reset",
