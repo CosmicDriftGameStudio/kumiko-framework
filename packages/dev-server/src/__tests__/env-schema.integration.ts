@@ -182,4 +182,54 @@ describe("runProdApp envSchema integration", () => {
       console.log = realLog;
     }
   });
+
+  it("KUMIKO_DRY_RUN_ENV=boot runs validators + exits before DB-connect", async () => {
+    const logs: string[] = [];
+    const realLog = console.log;
+    console.log = (...args: unknown[]) => {
+      logs.push(args.map(String).join(" "));
+    };
+    try {
+      const handle = await runProdApp({
+        features: [secretsFeature, authFeature],
+        envSchema: composed,
+        envSource: {
+          KUMIKO_DRY_RUN_ENV: "boot",
+          KUMIKO_SECRETS_MASTER_KEY_V1: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          JWT_SECRET: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          STUDIO_ADMIN_EMAIL: "ops@example.com",
+          DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
+          REDIS_URL: "redis://127.0.0.1:1",
+        },
+        migrations: false,
+      });
+      expect(logs.join("\n")).toContain("boot validation OK");
+      expect(handle).toBeDefined();
+    } finally {
+      console.log = realLog;
+    }
+  });
+
+  it("KUMIKO_DRY_RUN_ENV=boot still aggregates env-errors before exit", async () => {
+    let captured: KumikoBootError | undefined;
+    try {
+      await runProdApp({
+        features: [secretsFeature, authFeature],
+        envSchema: composed,
+        envSource: {
+          KUMIKO_DRY_RUN_ENV: "boot",
+          JWT_SECRET: "short",
+          STUDIO_ADMIN_EMAIL: "not-an-email",
+        },
+        bootErrorReporter: (err) => {
+          captured = err;
+          throw err;
+        },
+      });
+    } catch (err) {
+      expect(err).toBeInstanceOf(KumikoBootError);
+    }
+    expect(captured).toBeDefined();
+    expect(captured!.errors.length).toBeGreaterThanOrEqual(3);
+  });
 });
