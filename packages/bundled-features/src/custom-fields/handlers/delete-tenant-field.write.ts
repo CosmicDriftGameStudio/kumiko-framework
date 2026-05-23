@@ -4,6 +4,7 @@ import {
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
+import { CUSTOM_FIELDS_FEATURE_NAME, FIELD_DEFINITION_DELETED_EVENT } from "../constants";
 import { fieldDefinitionEntity } from "../entity";
 import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas";
 
@@ -35,6 +36,20 @@ export const deleteTenantFieldHandler: WriteHandlerDef = {
 
     const aggregateId = fieldDefinitionAggregateId(tenantId, payload.entityName, payload.fieldKey);
 
-    return executor.delete({ id: aggregateId }, event.user, ctx.db);
+    const result = await executor.delete({ id: aggregateId }, event.user, ctx.db);
+
+    // Emit cascade-cleanup-Event NACH erfolgreichem Delete. host-entity-MSPs
+    // (registriert via wireCustomFieldsFor) konsumieren das + entfernen orphan
+    // values aus ihrer customFields jsonb. Im selben TX = atomic cleanup.
+    if (result.isSuccess) {
+      await ctx.unsafeAppendEvent({
+        aggregateId,
+        aggregateType: "field-definition",
+        type: `${CUSTOM_FIELDS_FEATURE_NAME}:event:${FIELD_DEFINITION_DELETED_EVENT}`,
+        payload: { entityName: payload.entityName, fieldKey: payload.fieldKey },
+      });
+    }
+
+    return result;
   },
 };

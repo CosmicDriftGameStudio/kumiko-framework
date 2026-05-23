@@ -65,7 +65,14 @@ export function createCustomFieldsFeature() {
     r.defineEvent(FIELD_DEFINITION_DELETED_EVENT, fieldDefinitionDeletedSchema);
 
     // Extension-Registrar — registriert dass diese Extension existiert.
-    // Consumer-side: r.useExtension("customFields", "<entity>").
+    // Consumer-side: r.useExtension("customFields", "<entity>") MARKIERT
+    // opt-in, aber wired NICHTS automatisch. Consumer MUSS zusätzlich
+    // `wireCustomFieldsFor(r, entity, table)` aufrufen damit MSP +
+    // postQuery-hook + search-extension tatsächlich registriert werden.
+    // Empty-options-Pattern (`{}`) ist absichtlich — boot-time-onRegister-
+    // wiring würde Closure über Drizzle-Table benötigen, die der Consumer
+    // bei extendsRegistrar-Registration nicht kennt. Daher consumer-side
+    // explicit-wiring statt magic-auto-wiring.
     r.extendsRegistrar(CUSTOM_FIELDS_EXTENSION, {});
 
     // Definition-CRUD handlers (B1).
