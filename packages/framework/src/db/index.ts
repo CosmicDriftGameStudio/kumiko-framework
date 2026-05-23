@@ -55,21 +55,28 @@ export type {
 export { buildEntityTableMeta, defineUnmanagedTable } from "./entity-table-meta";
 export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export { fetchOne } from "./row-helpers";
-export type { SelectOptions, WhereObject, WhereValue } from "./query-api";
+export type { AnyColumn, PgTable, SelectOptions, SQL, Table, WhereObject, WhereValue } from "./query-api";
 export {
   and,
   asc,
   deleteMany,
   desc,
   eq,
+  getTableColumns,
+  getTableName,
+  gt,
   gte,
   inArray,
   insertOne,
   isNull,
   lt,
   lte,
+  max,
+  min,
   ne,
+  or,
   selectMany,
+  sql,
   updateMany,
 } from "./query-api";
 export { tableExists } from "./schema-inspection";

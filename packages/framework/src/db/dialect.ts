@@ -93,14 +93,28 @@ export function instantToDriver(value: Temporal.Instant | string): string {
   return value.toString();
 }
 
+// fromDriver-input dependent on the underlying driver:
+//   - postgres-js: ISO-8601 string (z.B. "2026-05-23 18:32:47.123+02")
+//   - Bun.sql:     JS Date object
+// Plus untyped raw query (db.execute(sql.raw(...))): kann beide liefern.
+// Wir handhaben beide, plus number (epoch-ms) defensive.
+function fromDriverInstant(value: unknown): Temporal.Instant {
+  if (value instanceof Date) {
+    return Temporal.Instant.fromEpochMilliseconds(value.getTime());
+  }
+  if (typeof value === "string") return Temporal.Instant.from(value);
+  if (typeof value === "number") return Temporal.Instant.fromEpochMilliseconds(value);
+  throw new TypeError(`instant.fromDriver: unsupported value type ${typeof value}`);
+}
+
 const instantBuilder = (config?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }) =>
   customType<{ data: Temporal.Instant; driverData: string }>({
     dataType() {
       const p = config?.precision;
       return p !== undefined ? `timestamp(${p}) with time zone` : "timestamptz";
     },
-    fromDriver(value: string): Temporal.Instant {
-      return Temporal.Instant.from(value);
+    fromDriver(value: unknown): Temporal.Instant {
+      return fromDriverInstant(value);
     },
     toDriver: instantToDriver,
   });

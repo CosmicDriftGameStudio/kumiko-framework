@@ -9,7 +9,28 @@
 // API (sql, or, etc.) verfügbar — diese helpers decken die ~80% trivial
 // cases ab.
 
-import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  getTableName,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  max,
+  min,
+  ne,
+  or,
+  type SQL,
+  sql,
+  type Table,
+} from "drizzle-orm";
+import type { AnyPgColumn as AnyColumn, PgTable } from "drizzle-orm/pg-core";
 import type { DbRow } from "./connection";
 import type { TableColumns } from "./dialect";
 
@@ -134,9 +155,28 @@ export async function deleteMany(
   await db.delete(table).where(cond);
 }
 
-// Re-exports der drizzle-Operators für komplexere Queries die nicht in
-// plain-object-where passen. Apps die diese nutzen behalten direct
-// drizzle-Pfad bis sie auf raw-SQL wechseln. Bewusst minimal exposed
-// damit neue features die simpel-Form bevorzugen.
-export { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne };
-export type { SQL };
+// Re-exports der drizzle-Operators + sql template + reflection-API.
+// App-code importiert NUR über @cosmicdrift/kumiko-framework/db —
+// drizzle-orm wird damit zur reinen framework-internen Dependency.
+// Phase 4 (Bun.sql) wechselt die interne Implementation ohne App-code
+// zu touchen.
+export {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  getTableName,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  max,
+  min,
+  ne,
+  or,
+  sql,
+};
+export type { AnyColumn, PgTable, SQL, Table };
