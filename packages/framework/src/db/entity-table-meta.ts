@@ -1,0 +1,330 @@
+// EntityTableMeta — plain-data Schema-Meta für eine Read-Model-Tabelle.
+// Single source of truth statt verheirateter drizzle-pgTable-Builder.
+//
+// Phase 3a (Drizzle-Replacement Plan): Type + Generator existieren parallel
+// zu buildDrizzleTable. Konsumenten bleiben auf DrizzleTable (via Adapter
+// `entityTableMetaToDrizzleTable`), bis Phase 4 die Query-API auf Bun.sql
+// umstellt.
+//
+// Designed für drei Quellen:
+//   1. EntityDefinition (heute): buildEntityTableMeta(name, entity)
+//   2. Raw-Table-Definitionen (heute hardgeschriebene drizzle-pgTables
+//      für projection-tables wie job-run-logs): buildRawEntityTableMeta(...)
+//   3. Phase 5+: Direkt-deklarierte projection.entity-Definitionen, dann
+//      über (1) abgewickelt.
+
+import type {
+  EntityDefinition,
+  EntityIndexDef,
+  EntityRelations,
+  FieldDefinition,
+} from "../engine/types";
+import { READ_MODEL_PREFIX, toSnakeCase, toTableName } from "./table-builder";
+
+// PG-Type-Repertoire das die Read-Model-Tabellen brauchen. Bewusst
+// schmal — keine Vendor-spezifischen Typen (TSVECTOR, HSTORE, etc.).
+// App-Author die solche braucht greift in der reviewten SQL-Migration
+// hand-edit ein, nicht im Generator.
+export type PgType =
+  | "uuid"
+  | "text"
+  | "boolean"
+  | "integer"
+  | "bigint"
+  | "serial"
+  | "bigserial"
+  | "jsonb"
+  | "timestamptz"
+  | "timestamptz(3)";
+
+export type ColumnMeta = {
+  readonly name: string;          // snake_case PG column name
+  readonly pgType: PgType;
+  readonly notNull: boolean;
+  // Raw SQL-default-expression (e.g. `now()`, `gen_random_uuid()`,
+  // `'[]'::jsonb`). undefined = no DEFAULT clause.
+  readonly defaultSql?: string;
+  readonly primaryKey?: boolean;
+};
+
+export type IndexMeta = {
+  readonly name: string;
+  readonly columns: readonly string[];   // snake_case PG column names
+  readonly unique?: boolean;
+  // Raw SQL-where-expression for partial indexes. Caller is responsible
+  // for safety — emitted verbatim.
+  readonly whereSql?: string;
+};
+
+export type CompositePrimaryKeyMeta = {
+  readonly name: string;
+  readonly columns: readonly string[];
+};
+
+export type EntityTableMeta = {
+  readonly tableName: string;
+  readonly columns: readonly ColumnMeta[];
+  readonly indexes: readonly IndexMeta[];
+  // For tables with composite PK (no single id column, e.g. snapshots
+  // keyed by aggregate_id+version). When set, no column should have
+  // primaryKey:true; the constraint is emitted at table-level.
+  readonly compositePrimaryKey?: CompositePrimaryKeyMeta;
+  // Source-hint für Diagnose/Tests — nicht funktional verwendet.
+  readonly source: "entity" | "raw";
+};
+
+// Standard base-columns für event-sourced Read-Model-Tabellen. Spiegelt
+// `buildBaseColumns()` aus table-builder.ts (drizzle-Variante).
+function fullBaseColumns(idType: "uuid" | "serial", softDelete: boolean): readonly ColumnMeta[] {
+  const idCol: ColumnMeta =
+    idType === "uuid"
+      ? { name: "id", pgType: "uuid", notNull: true, defaultSql: "gen_random_uuid()", primaryKey: true }
+      : { name: "id", pgType: "serial", notNull: true, primaryKey: true };
+
+  const cols: ColumnMeta[] = [
+    idCol,
+    { name: "tenant_id", pgType: "uuid", notNull: true },
+    { name: "version", pgType: "integer", notNull: true, defaultSql: "1" },
+    { name: "inserted_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
+    { name: "modified_at", pgType: "timestamptz", notNull: false },
+    { name: "inserted_by_id", pgType: "text", notNull: false },
+    { name: "modified_by_id", pgType: "text", notNull: false },
+  ];
+
+  if (softDelete) {
+    cols.push(
+      { name: "is_deleted", pgType: "boolean", notNull: true, defaultSql: "false" },
+      { name: "deleted_at", pgType: "timestamptz", notNull: false },
+      { name: "deleted_by_id", pgType: "text", notNull: false },
+    );
+  }
+  return cols;
+}
+
+function quoteSql(literal: string): string {
+  return `'${literal.replace(/'/g, "''")}'`;
+}
+
+function fieldDefaultLiteral(field: FieldDefinition): string | undefined {
+  if (!("default" in field) || field.default === undefined) return undefined;
+  const v = field.default;
+  if (typeof v === "string") return quoteSql(v);
+  if (typeof v === "number") return String(v);
+  if (typeof v === "boolean") return v ? "true" : "false";
+  return undefined;
+}
+
+// Spiegelt `fieldToColumns()` aus table-builder.ts (Drizzle-Variante).
+// Lock-step: jeder Field-Type produziert dieselben PG-Spalten wie heute.
+function fieldToColumnMeta(
+  name: string,
+  field: FieldDefinition,
+  entity: EntityDefinition,
+): readonly ColumnMeta[] {
+  const snake = toSnakeCase(name);
+  switch (field.type) {
+    case "text":
+    case "longText": {
+      const def = fieldDefaultLiteral(field);
+      return [
+        {
+          name: snake,
+          pgType: "text",
+          notNull: field.required === true,
+          ...(def !== undefined && { defaultSql: def }),
+        },
+      ];
+    }
+    case "boolean": {
+      const def = fieldDefaultLiteral(field);
+      const hasDefault = def !== undefined;
+      return [
+        {
+          name: snake,
+          pgType: "boolean",
+          notNull: hasDefault || field.required === true,
+          ...(hasDefault && { defaultSql: def }),
+        },
+      ];
+    }
+    case "select": {
+      const def = fieldDefaultLiteral(field);
+      return [
+        {
+          name: snake,
+          pgType: "text",
+          notNull: field.required === true,
+          ...(def !== undefined && { defaultSql: def }),
+        },
+      ];
+    }
+    case "multiSelect":
+      return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'[]'::jsonb" }];
+    case "number": {
+      const def = fieldDefaultLiteral(field);
+      return [
+        {
+          name: snake,
+          pgType: "integer",
+          notNull: field.required === true,
+          ...(def !== undefined && { defaultSql: def }),
+        },
+      ];
+    }
+    case "bigInt": {
+      const def = fieldDefaultLiteral(field);
+      return [
+        {
+          name: snake,
+          pgType: "bigint",
+          notNull: field.required === true,
+          ...(def !== undefined && { defaultSql: def }),
+        },
+      ];
+    }
+    case "reference":
+      if (field.multiple === true) {
+        return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'[]'::jsonb" }];
+      }
+      return [{ name: snake, pgType: "uuid", notNull: field.required === true }];
+    case "money": {
+      const cur = entity.defaultCurrency ?? "EUR";
+      return [
+        { name: snake, pgType: "bigint", notNull: field.required === true },
+        {
+          name: `${snake}_currency`,
+          pgType: "text",
+          notNull: true,
+          defaultSql: quoteSql(cur),
+        },
+      ];
+    }
+    case "embedded":
+      return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'{}'::jsonb" }];
+    case "jsonb":
+      return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'{}'::jsonb" }];
+    case "date":
+    case "timestamp":
+      return [{ name: snake, pgType: "timestamptz", notNull: field.required === true }];
+    case "tz":
+      return [{ name: snake, pgType: "text", notNull: field.required === true }];
+    case "locatedTimestamp":
+      return [
+        {
+          name: `${snake}_utc`,
+          pgType: "timestamptz",
+          notNull: field.required === true,
+        },
+        { name: `${snake}_tz`, pgType: "text", notNull: field.required === true },
+      ];
+    case "file":
+    case "image":
+      return [{ name: snake, pgType: "uuid", notNull: field.required === true }];
+    case "files":
+    case "images":
+      return [];
+    default:
+      return [];
+  }
+}
+
+function resolveTableName(
+  entityName: string,
+  entity: EntityDefinition,
+  featureName: string | undefined,
+): string {
+  const baseName = entity.table ?? toTableName(entityName);
+  if (!featureName) return baseName;
+  if (baseName.startsWith(READ_MODEL_PREFIX)) {
+    return `${READ_MODEL_PREFIX}${featureName}_${baseName.slice(READ_MODEL_PREFIX.length)}`;
+  }
+  return `${featureName}_${baseName}`;
+}
+
+export type BuildEntityTableMetaOptions = {
+  readonly featureName?: string;
+  readonly relations?: EntityRelations;
+};
+
+export function buildEntityTableMeta(
+  entityName: string,
+  entity: EntityDefinition,
+  options?: BuildEntityTableMetaOptions,
+): EntityTableMeta {
+  const tableName = resolveTableName(entityName, entity, options?.featureName);
+  const idType = entity.idType ?? "uuid";
+
+  const columns: ColumnMeta[] = [...fullBaseColumns(idType, entity.softDelete === true)];
+  const fieldNameToSnake = new Map<string, string>();
+  for (const [name, field] of Object.entries(entity.fields)) {
+    const fieldCols = fieldToColumnMeta(name, field, entity);
+    columns.push(...fieldCols);
+    if (fieldCols.length === 1) fieldNameToSnake.set(name, fieldCols[0]!.name);
+  }
+
+  const indexes: IndexMeta[] = [
+    { name: `${tableName}_tenant_id_idx`, columns: ["tenant_id"] },
+  ];
+
+  // FK-Indexes: file/image-Felder + belongsTo-Relations
+  const fkSnakeNames = new Set<string>();
+  for (const [name, field] of Object.entries(entity.fields)) {
+    if (field.type === "file" || field.type === "image") fkSnakeNames.add(toSnakeCase(name));
+  }
+  if (options?.relations) {
+    for (const rel of Object.values(options.relations)) {
+      if (rel.type === "belongsTo") {
+        const snake = fieldNameToSnake.get(rel.foreignKey) ?? toSnakeCase(rel.foreignKey);
+        fkSnakeNames.add(snake);
+      }
+    }
+  }
+  for (const snake of fkSnakeNames) {
+    indexes.push({ name: `${tableName}_${snake}_idx`, columns: [snake] });
+  }
+
+  // Explizit deklarierte indexes (EntityIndexDef)
+  for (const def of (entity.indexes ?? []) as readonly EntityIndexDef[]) {
+    const cols = def.columns.map(
+      (fieldName) => fieldNameToSnake.get(fieldName) ?? toSnakeCase(fieldName),
+    );
+    const suffix = def.unique === true ? "unique" : "idx";
+    const indexName = def.name ?? `${tableName}_${cols.join("_")}_${suffix}`;
+    indexes.push({
+      name: indexName,
+      columns: cols,
+      ...(def.unique === true && { unique: true }),
+      ...(def.where !== undefined && { whereSql: String(def.where) }),
+    });
+  }
+
+  return {
+    tableName,
+    columns,
+    indexes,
+    source: "entity",
+  };
+}
+
+// Für die ~4 handgeschriebenen projection-tables in bundled-features
+// (delivery-attempts, job-runs, job-run-logs, subscriptions) — diese
+// werden später (Phase 3b) auf EntityDefinition migriert; bis dahin
+// liefern sie EntityTableMeta direkt.
+export type RawEntityTableMetaInput = {
+  readonly tableName: string;
+  readonly columns: readonly ColumnMeta[];
+  readonly indexes?: readonly IndexMeta[];
+  readonly compositePrimaryKey?: CompositePrimaryKeyMeta;
+};
+
+export function buildRawEntityTableMeta(input: RawEntityTableMetaInput): EntityTableMeta {
+  return {
+    tableName: input.tableName,
+    columns: input.columns,
+    indexes: input.indexes ?? [],
+    ...(input.compositePrimaryKey !== undefined && {
+      compositePrimaryKey: input.compositePrimaryKey,
+    }),
+    source: "raw",
+  };
+}
