@@ -57,6 +57,11 @@ export { runProdApp } from "./run-prod-app";
 export type { ScaffoldAppOptions, ScaffoldAppResult } from "./scaffold-app";
 export { scaffoldApp } from "./scaffold-app";
 export type {
+  ScaffoldAppFeatureOptions,
+  ScaffoldAppFeatureResult,
+} from "./scaffold-app-feature";
+export { runConfigPathForApp, scaffoldAppFeature } from "./scaffold-app-feature";
+export type {
   ScaffoldDeployOptions,
   ScaffoldDeployResult,
   ScaffoldedFile,

@@ -1,6 +1,7 @@
 // Side-effect imports: each command-file registers itself with the
 // registry on import. Add a line here when a new command is added.
 
+import "./add";
 import "./build";
 import "./check";
 import "./check-fast";
