@@ -272,6 +272,16 @@ function coerceRow<T extends Record<string, unknown>>(row: T, info: TableInfo): 
       } catch {
         // leave as string on parse error — caller decides
       }
+    } else if ((pgType === "bigint" || pgType === "bigserial") && typeof value === "string") {
+      // postgres-js returns BIGINT as string to avoid JS-Number precision
+      // loss past 2^53. Framework contract: bigint columns surface as
+      // JS `bigint`. Drizzle's bigint customType did this conversion
+      // invisibly; the native dialect rebuild needs it explicit.
+      try {
+        coerced = BigInt(value);
+      } catch {
+        // leave as string on parse error
+      }
     }
     const fieldName = info.fieldOf(key);
     if (fieldName !== key) changed = true;
