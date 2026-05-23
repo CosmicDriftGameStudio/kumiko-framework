@@ -10,6 +10,7 @@ import type {
   FilesFieldDef,
   ImageFieldDef,
   ImagesFieldDef,
+  JsonbFieldDef,
   LocatedTimestampFieldDef,
   LongTextFieldDef,
   MoneyFieldDef,
@@ -155,6 +156,17 @@ export function createEmbeddedField(
   return {
     type: "embedded",
     schema,
+    ...overrides,
+  };
+}
+
+// Free-form jsonb-Spalte — siehe `JsonbFieldDef`-Doku. Schema-less, default
+// `{}`, NOT NULL. Hauptnutzer: custom-fields-Bundle (host-entity's
+// `customFields`-Spalte). Andere valid uses: tenant-config-blobs, AI-
+// inferred-metadata, future tags-arrays.
+export function createJsonbField(overrides?: Partial<Omit<JsonbFieldDef, "type">>): JsonbFieldDef {
+  return {
+    type: "jsonb",
     ...overrides,
   };
 }

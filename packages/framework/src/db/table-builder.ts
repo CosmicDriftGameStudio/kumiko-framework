@@ -132,6 +132,11 @@ function fieldToColumns(
       // "Feld komplett weglassen können") modelliert das über ein
       // wrapper-feld mit boolean-flag oder discriminierte-union.
       return { [name]: jsonb(snakeName).default({}).notNull() };
+    case "jsonb":
+      // Free-form jsonb — keys nicht schema-validated. Default `{}`, NOT NULL
+      // (analog zu embedded). Use-case: custom-fields-Bundle's host-entity-
+      // `customFields`-Spalte (tenant-definierte dynamische keys).
+      return { [name]: jsonb(snakeName).default({}).notNull() };
     case "date": {
       // `type:"date"` aliased auf instant() = TIMESTAMPTZ. Echte
       // PlainDate-Migration (PG `date` Spalte, kein TZ) kommt später.

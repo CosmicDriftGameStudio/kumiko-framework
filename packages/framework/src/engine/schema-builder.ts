@@ -84,6 +84,11 @@ function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.Zo
       }
       return z.object(shape);
     }
+    case "jsonb": {
+      // Free-form jsonb — keys sind tenant-/runtime-defined. Validation
+      // passthrough: any plain object passt durch.
+      return z.record(z.string(), z.unknown());
+    }
     case "date": {
       return z.string().date();
     }
