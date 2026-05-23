@@ -1166,6 +1166,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@cosmicdrift/kumiko-sample-custom-fields-basic@workspace:samples/recipes/custom-fields-basic":
+  version: 0.0.0-use.local
+  resolution: "@cosmicdrift/kumiko-sample-custom-fields-basic@workspace:samples/recipes/custom-fields-basic"
+  dependencies:
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  languageName: unknown
+  linkType: soft
+
 "@cosmicdrift/kumiko-sample-custom-handlers@workspace:samples/recipes/custom-handlers":
   version: 0.0.0-use.local
   resolution: "@cosmicdrift/kumiko-sample-custom-handlers@workspace:samples/recipes/custom-handlers"
