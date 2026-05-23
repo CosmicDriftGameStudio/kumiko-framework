@@ -35,7 +35,7 @@ export async function pushEntityProjectionTables(
     if (seen.has(proj.table)) continue;
     seen.add(proj.table);
     const tableRec = proj.table as unknown as Record<symbol, unknown>;
-    const physical = tableRec[Symbol.for("drizzle:Name")] as string;
+    const physical = tableRec[Symbol.for("kumiko:schema:Name")] as string;
     if (await tableExists(stack.db, `public.${physical}`)) {
       logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
       continue;

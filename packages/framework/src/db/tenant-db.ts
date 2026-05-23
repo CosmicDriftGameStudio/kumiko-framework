@@ -61,10 +61,10 @@ export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): rea
   return rows as unknown as readonly T[];
 }
 
-const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 
 function tableNameOf(table: Table): string {
-  const sym = (table as unknown as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+  const sym = (table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
   return typeof sym === "string" ? sym : "<unknown>";
 }
 

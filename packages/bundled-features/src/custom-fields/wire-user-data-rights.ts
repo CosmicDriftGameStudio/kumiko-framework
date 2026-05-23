@@ -38,13 +38,13 @@ import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko
 import { EXT_USER_DATA, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { parseSerializedField } from "./lib/parse-serialized-field";
 
-const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 function getTableName(table: unknown): string {
   if (typeof table === "object" && table !== null) {
-    const sym = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
     if (typeof sym === "string") return sym;
   }
-  throw new Error("wire-user-data-rights: table missing drizzle:Name symbol");
+  throw new Error("wire-user-data-rights: table missing kumiko:schema:Name symbol");
 }
 
 export interface WireCustomFieldsUserDataRightsOptions {

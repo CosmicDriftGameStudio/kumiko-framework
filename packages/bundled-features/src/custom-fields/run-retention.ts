@@ -20,13 +20,13 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { parseSerializedField } from "./lib/parse-serialized-field";
 
-const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 function getTableName(table: unknown): string {
   if (typeof table === "object" && table !== null) {
-    const sym = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
     if (typeof sym === "string") return sym;
   }
-  throw new Error("custom-fields/run-retention: table missing drizzle:Name symbol");
+  throw new Error("custom-fields/run-retention: table missing kumiko:schema:Name symbol");
 }
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;

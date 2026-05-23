@@ -57,7 +57,7 @@ function* walkAllSteps(steps: readonly StepInstance[]): Generator<StepInstance, 
 
 // @cast-boundary drizzle-bridge — reads table name from drizzle Symbol
 // without importing drizzle-orm (bun-db pattern, see bun-db/query.ts).
-const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 
 function resolveTableNameFromStep(table: unknown): string {
   if (typeof table === "object" && table !== null) {
@@ -70,7 +70,7 @@ function resolveTableNameFromStep(table: unknown): string {
       return (table as Record<string, unknown>)["tableName"] as string;
     }
     // drizzle pgTable
-    const name = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+    const name = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
     if (typeof name === "string") return name;
   }
   throw new Error(`validate-projection-allowlist: cannot resolve table name from ${String(table)}`);

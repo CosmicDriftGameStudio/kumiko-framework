@@ -4,14 +4,14 @@ import { setFields } from "../projection-helpers";
 import type { ProjectionTable } from "../types/projection";
 
 // Minimal fake table: only the `id` column is needed for setFields, plus
-// the drizzle:Name + drizzle:Columns symbols that bun-db introspects for
+// the kumiko:schema:Name + kumiko:schema:Columns symbols that bun-db introspects for
 // table-name + column-mapping. We don't run real SQL — unsafe() is mocked.
 const fakeIdCol = { name: "id" };
 const fakeTable = Object.assign(
   { id: fakeIdCol },
   {
-    [Symbol.for("drizzle:Name")]: "fake_table",
-    [Symbol.for("drizzle:Columns")]: { id: fakeIdCol },
+    [Symbol.for("kumiko:schema:Name")]: "fake_table",
+    [Symbol.for("kumiko:schema:Columns")]: { id: fakeIdCol },
   },
 ) as unknown as ProjectionTable;
 

@@ -4,7 +4,7 @@
 //   1. EntityTableMeta shape (source/columns/indexes) for bun-db's
 //      extractTableInfo + the migrate-runner's renderTableDdl
 //   2. drizzle-compatible Symbol metadata so callers that introspect
-//      Symbol.for("drizzle:Name") / Symbol.for("drizzle:Columns") keep
+//      Symbol.for("kumiko:schema:Name") / Symbol.for("kumiko:schema:Columns") keep
 //      working (no caller updates needed)
 //   3. Top-level column-handle properties (table.id, table.tenantId, ...)
 //      so legacy code that does `table[field].name` still resolves to the
@@ -38,14 +38,14 @@ export type ColumnHandle = {
   readonly getSQLType: () => string;
 };
 
-const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
-const DRIZZLE_COLUMNS_SYMBOL = Symbol.for("drizzle:Columns");
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
 
 // SchemaTable — opaque shape with both EntityTableMeta + Symbol-based
 // introspection. Returned by `table(...)`.
 export type SchemaTable = EntityTableMeta & {
-  readonly [DRIZZLE_NAME_SYMBOL]: string;
-  readonly [DRIZZLE_COLUMNS_SYMBOL]: Record<string, ColumnHandle>;
+  readonly [KUMIKO_NAME_SYMBOL]: string;
+  readonly [KUMIKO_COLUMNS_SYMBOL]: Record<string, ColumnHandle>;
   readonly [field: string]: unknown;
 };
 
@@ -450,8 +450,8 @@ export function table<TCols extends ColumnMap>(
     source: "unmanaged",
   };
   const out = Object.assign({}, base, handles, {
-    [DRIZZLE_NAME_SYMBOL]: tableName,
-    [DRIZZLE_COLUMNS_SYMBOL]: handles,
+    [KUMIKO_NAME_SYMBOL]: tableName,
+    [KUMIKO_COLUMNS_SYMBOL]: handles,
   }) as SchemaTable;
   return out;
 }

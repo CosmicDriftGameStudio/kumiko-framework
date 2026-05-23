@@ -275,23 +275,23 @@ export type OwnershipClause =
 const PASS_CLAUSE: OwnershipClause = { kind: "pass" };
 const EMPTY_CLAUSE: OwnershipClause = { kind: "empty" };
 
-const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
-const DRIZZLE_COLUMNS_SYMBOL = Symbol.for("drizzle:Columns");
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
 
 function tableNameOf(table: unknown): string {
   if (table !== null && typeof table === "object") {
-    const sym = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
     if (typeof sym === "string") return sym;
   }
   return "<unknown>";
 }
 
 // Resolve a JS-field name on the table to its underlying SQL column name.
-// Drizzle tables carry the mapping under Symbol.for("drizzle:Columns");
+// Drizzle tables carry the mapping under Symbol.for("kumiko:schema:Columns");
 // we read it without importing drizzle-orm at runtime.
 function columnSqlName(table: unknown, field: string): string | null {
   if (table === null || typeof table !== "object") return null;
-  const cols = (table as Record<symbol, unknown>)[DRIZZLE_COLUMNS_SYMBOL];
+  const cols = (table as Record<symbol, unknown>)[KUMIKO_COLUMNS_SYMBOL];
   if (cols && typeof cols === "object") {
     const col = (cols as Record<string, unknown>)[field];
     if (col && typeof col === "object") {
@@ -322,7 +322,7 @@ export function shiftParams(fragment: SqlFragment, shift: number): SqlFragment {
 // the result into a raw-SQL WHERE (see event-store-executor list/getById).
 //
 // `table` is the (drizzle or compatible) table object; we extract column
-// SQL names via the drizzle:Columns symbol. Unknown column on a from-rule
+// SQL names via the kumiko:schema:Columns symbol. Unknown column on a from-rule
 // is a boot-time misconfiguration; at request time we treat it as empty
 // (safe default) rather than passing silently.
 export function buildOwnershipClause(

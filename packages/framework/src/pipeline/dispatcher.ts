@@ -1115,7 +1115,7 @@ export function createDispatcher(
           // active (tests without a DB connection).
           const rows = tx
             ? ((await asRawClient(handlerContext.db).unsafe(
-                `SELECT * FROM "${(table as { [key: symbol]: unknown })[Symbol.for("drizzle:Name")]}" WHERE "id" = $1 FOR UPDATE`,
+                `SELECT * FROM "${(table as { [key: symbol]: unknown })[Symbol.for("kumiko:schema:Name")]}" WHERE "id" = $1 FOR UPDATE`,
                 [id],
               )) as readonly unknown[])
             : await selectMany(handlerContext.db, table, { id });

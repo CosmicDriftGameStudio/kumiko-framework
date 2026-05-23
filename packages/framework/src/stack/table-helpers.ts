@@ -6,13 +6,13 @@ import { tableExists } from "../db/schema-inspection";
 import { buildEntityTable, toTableName } from "../db/table-builder";
 import type { TestStack } from "./test-stack";
 
-const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 function tableNameOf(table: unknown): string {
   if (typeof table !== "object" || table === null) {
     throw new Error("table-helpers: table is not a SchemaTable object");
   }
   const rec = table as Record<string | symbol, unknown>;
-  if (typeof rec[DRIZZLE_NAME_SYMBOL] === "string") return rec[DRIZZLE_NAME_SYMBOL] as string;
+  if (typeof rec[KUMIKO_NAME_SYMBOL] === "string") return rec[KUMIKO_NAME_SYMBOL] as string;
   if (typeof (rec as { tableName?: unknown }).tableName === "string") {
     return (rec as { tableName: string }).tableName;
   }

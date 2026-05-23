@@ -308,7 +308,7 @@ export function createEventStoreExecutor(
     // ownership has raw SQL — splice it into a raw query alongside the
     // idFilter + tenant-filter that TenantDb would have added.
     const tableName = String(
-      (table as unknown as Record<symbol, unknown>)[Symbol.for("drizzle:Name")],
+      (table as unknown as Record<symbol, unknown>)[Symbol.for("kumiko:schema:Name")],
     );
     const colSql = (field: string): string =>
       `"${(table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field)}"`;
@@ -811,7 +811,7 @@ export function createEventStoreExecutor(
       // parameterised fragment that we splice in alongside simple WhereObject
       // conditions (cursor, search-filter-IDs, screen-filter, tenant-scope).
       const tableName = String(
-        (table as unknown as Record<symbol, unknown>)[Symbol.for("drizzle:Name")],
+        (table as unknown as Record<symbol, unknown>)[Symbol.for("kumiko:schema:Name")],
       );
       const whereSql: string[] = [];
       const params: unknown[] = [];
