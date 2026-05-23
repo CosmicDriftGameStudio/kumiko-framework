@@ -6,14 +6,9 @@ import {
 import type { AnyColumn } from "drizzle-orm";
 import { eq, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
-import {
-  CUSTOM_FIELD_CLEARED_EVENT,
-  CUSTOM_FIELD_SET_EVENT,
-  CUSTOM_FIELDS_EXTENSION,
-  CUSTOM_FIELDS_FEATURE_NAME,
-  FIELD_DEFINITION_DELETED_EVENT,
-} from "./constants";
+import { CUSTOM_FIELDS_EXTENSION } from "./constants";
 import type { CustomFieldClearedPayload, CustomFieldSetPayload } from "./events";
+import { customFieldsFeature } from "./feature";
 
 // Helper für entity-definitions — fügt eine `customFields jsonb`-Spalte
 // hinzu. Consumer:
@@ -77,10 +72,12 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
   // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar-API method, not a React hook — false positive on the "use"-prefix heuristic.
   r.useExtension(CUSTOM_FIELDS_EXTENSION, entityName);
 
-  // SQL-template helpers — qualified event-type-names.
-  const setEventType = `${CUSTOM_FIELDS_FEATURE_NAME}:event:${CUSTOM_FIELD_SET_EVENT}`;
-  const clearedEventType = `${CUSTOM_FIELDS_FEATURE_NAME}:event:${CUSTOM_FIELD_CLEARED_EVENT}`;
-  const fieldDefDeletedType = `${CUSTOM_FIELDS_FEATURE_NAME}:event:${FIELD_DEFINITION_DELETED_EVENT}`;
+  // Qualified event-type-names — sourced from typed EventDef.name handles
+  // (compile-time literal-typed, no Template-Literal-Drift à la toKebab-
+  // collapse-bug die T1 aufgedeckt hat).
+  const setEventType = customFieldsFeature.exports.setEvent.name;
+  const clearedEventType = customFieldsFeature.exports.clearedEvent.name;
+  const fieldDefDeletedType = customFieldsFeature.exports.fieldDefinitionDeletedEvent.name;
 
   r.multiStreamProjection({
     name: `custom-fields-${entityName}-projection`,

@@ -1,11 +1,8 @@
 export { fieldDefinitionAggregateId } from "./aggregate-id";
 export {
-  CUSTOM_FIELD_CLEARED_EVENT,
-  CUSTOM_FIELD_SET_EVENT,
   CUSTOM_FIELDS_EXTENSION,
   CUSTOM_FIELDS_FEATURE_NAME,
   FIELD_DEFINITION_CREATED_EVENT,
-  FIELD_DEFINITION_DELETED_EVENT,
   FIELD_DEFINITION_UPDATED_EVENT,
   SUPPORTED_FIELD_TYPES,
   type SupportedFieldType,
@@ -17,7 +14,7 @@ export {
   customFieldClearedSchema,
   customFieldSetSchema,
 } from "./events";
-export { createCustomFieldsFeature } from "./feature";
+export { createCustomFieldsFeature, customFieldsFeature } from "./feature";
 export {
   type ClearCustomFieldPayload,
   clearCustomFieldPayloadSchema,
