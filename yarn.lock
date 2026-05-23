@@ -948,9 +948,11 @@ __metadata:
   dependencies:
     "@cosmicdrift/kumiko-bundled-features": "workspace:*"
     "@cosmicdrift/kumiko-framework": "workspace:*"
+    ts-morph: "npm:^28.0.0"
   bin:
     kumiko-build: ./bin/kumiko-build.ts
     kumiko-dev: ./bin/kumiko-dev.ts
+    kumiko-schema-check: ./bin/kumiko-schema-check.ts
   languageName: unknown
   linkType: soft
 
