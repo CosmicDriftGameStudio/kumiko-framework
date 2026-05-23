@@ -5,14 +5,15 @@
 import { describe, expect, test } from "vitest";
 import { defineUnmanagedTable } from "../../db/entity-table-meta";
 import { defineFeature } from "../define-feature";
+import { createRegistry } from "../registry";
 
 const probeMeta = defineUnmanagedTable({
   tableName: "ut_probe",
-  columns: { id: { kind: "text", primaryKey: true } },
+  columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
 });
 const probeMetaTwo = defineUnmanagedTable({
   tableName: "ut_probe_two",
-  columns: { id: { kind: "text", primaryKey: true } },
+  columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
 });
 
 describe("r.unmanagedTable — declaration", () => {
@@ -67,5 +68,31 @@ describe("r.unmanagedTable — declaration", () => {
       // no r.unmanagedTable calls
     });
     expect(feat.unmanagedTables).toEqual({});
+  });
+});
+
+describe("createRegistry — unmanagedTable aggregation", () => {
+  test("rejects cross-feature tableName collisions at boot", () => {
+    // Two features can't share the same physical tableName — migrate-runner
+    // would race two CREATE TABLE statements. Boot-validator catches it.
+    const featA = defineFeature("a", (r) => {
+      r.unmanagedTable(probeMeta, { reason: "first" });
+    });
+    const featB = defineFeature("b", (r) => {
+      r.unmanagedTable(probeMeta, { reason: "second" });
+    });
+    expect(() => createRegistry([featA, featB])).toThrow(
+      /Unmanaged-table "ut_probe" registered by both feature "a" and "b"/,
+    );
+  });
+
+  test("two features with distinct tableNames register cleanly", () => {
+    const featA = defineFeature("a", (r) => {
+      r.unmanagedTable(probeMeta, { reason: "first" });
+    });
+    const featB = defineFeature("b", (r) => {
+      r.unmanagedTable(probeMetaTwo, { reason: "second" });
+    });
+    expect(() => createRegistry([featA, featB])).not.toThrow();
   });
 });

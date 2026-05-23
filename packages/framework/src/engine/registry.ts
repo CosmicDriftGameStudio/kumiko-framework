@@ -40,6 +40,7 @@ import type {
   TranslationKeys,
   TreeActionDef,
   TreeChildrenSubscribe,
+  UnmanagedTableDef,
   WorkspaceDefinition,
   WriteHandlerDef,
 } from "./types";
@@ -169,6 +170,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // enforced at ingest below (collisions would race two CREATE TABLE
   // statements at the same physical name and break boot).
   const rawTableMap = new Map<string, RawTableDef>();
+  // Unmanaged tables — declared via r.unmanagedTable() (EntityTableMeta).
+  // Cousin of rawTables: same uniqueness-by-tableName invariant, different
+  // storage shape (post-drizzle migrate-runner consumes EntityTableMeta).
+  const unmanagedTableMap = new Map<string, UnmanagedTableDef>();
   // Auth-claims hooks — tagged with featureName so the login resolver can
   // auto-prefix each hook's returned keys with "<feature>:".
   const authClaimsHooks: AuthClaimsHookDef[] = [];
@@ -541,6 +546,20 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         );
       }
       rawTableMap.set(rawName, { ...rawDef, featureName: feature.name });
+    }
+
+    // Unmanaged tables — same cross-feature uniqueness invariant as rawTables.
+    // Two features registering the same physical tableName would race two
+    // CREATE TABLE statements via migrate-runner.
+    for (const [umName, umDef] of Object.entries(feature.unmanagedTables ?? {})) {
+      const existing = unmanagedTableMap.get(umName);
+      if (existing) {
+        throw new Error(
+          `Unmanaged-table "${umName}" registered by both feature "${existing.featureName}" and ` +
+            `"${feature.name}". Pick a feature-prefixed tableName to disambiguate.`,
+        );
+      }
+      unmanagedTableMap.set(umName, { ...umDef, featureName: feature.name });
     }
 
     // Claim keys: aggregated by qualified name. Two features cannot collide
