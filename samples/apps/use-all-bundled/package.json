@@ -1,0 +1,15 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-use-all-bundled",
+  "description": "Canonical smoke-sample — mounts every bundled-feature so framework-CI catches feature-coverage gaps that real apps (which mount only what they use) miss.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "boot": "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}
