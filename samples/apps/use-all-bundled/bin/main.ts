@@ -3,8 +3,8 @@
 // feature without an actual postgres/redis. See package.json `boot`
 // script + ../README.md.
 
-import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { frameworkCoreEnvSchema, runProdApp } from "@cosmicdrift/kumiko-dev-server";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { APP_FEATURES } from "../src/run-config";
 
 const envSchema = composeEnvSchema({
