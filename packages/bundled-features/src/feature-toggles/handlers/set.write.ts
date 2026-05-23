@@ -25,7 +25,13 @@ import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 // flow: tests + setupTestStack construct the feature definition BEFORE the
 // runtime exists (the runtime needs the registry, which setupTestStack
 // builds from the features). The accessor is resolved lazily, at call time.
-export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRuntime) {
+//
+// `undefined` accessor is legitimate at registration-time for boot-mode
+// smoke-apps (`KUMIKO_DRY_RUN_ENV=boot`) that never dispatch a set-call.
+// We throw lazily on first call with an actionable message — `as
+// GlobalFeatureToggleRuntime`-casts at the registration site are no
+// longer needed.
+export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRuntime) | undefined) {
   return defineWriteHandler({
     name: "set",
     schema: z.object({
@@ -147,6 +153,13 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
       // the `toggle-cache-sync` MSP (see feature-toggles-feature.ts). Both
       // paths are idempotent — Map.set is last-write-wins and the DB is
       // the source of truth after boot-time initialize().
+      if (!getRuntime) {
+        throw new Error(
+          "[feature-toggles] set-handler called but createFeatureTogglesFeature " +
+            "was wired up without `getRuntime`. Wire the accessor in your app-config " +
+            "(production: `() => runtime` after buildServer; tests: createLateBoundHolder.get).",
+        );
+      }
       getRuntime().apply(featureName, enabled);
 
       return {

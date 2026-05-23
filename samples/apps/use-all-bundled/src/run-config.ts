@@ -30,10 +30,7 @@ import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import type { NotificationRenderer } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import {
-  createFeatureTogglesFeature,
-  type GlobalFeatureToggleRuntime,
-} from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
+import { createFeatureTogglesFeature } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 import { fileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
@@ -73,13 +70,6 @@ const stubRenderer: NotificationRenderer = {
   name: "smoke",
   render: async () => "<smoke/>",
 };
-
-// feature-toggles braucht einen getRuntime-accessor. Boot-mode validiert
-// nur, dass die accessor-Signatur stimmt; runtime-build passiert
-// post-boot in der real app. GlobalFeatureToggleRuntime ist eine class
-// mit privatem state — wir können nur via Stub-cast eine smoke-only
-// Instanz vortäuschen. @cast-boundary smoke-only.
-const stubFeatureTogglesRuntime = null as unknown as GlobalFeatureToggleRuntime;
 
 export const APP_FEATURES = [
   // foundations not in the auto-mounted bundled-set
@@ -136,7 +126,9 @@ export const APP_FEATURES = [
   capCounterFeature,
 
   // feature-toggles (smoke-only runtime stub)
-  createFeatureTogglesFeature({ getRuntime: () => stubFeatureTogglesRuntime }),
+  // No `getRuntime`: smoke-app never dispatches set; production wires the
+  // accessor after buildServer returns.
+  createFeatureTogglesFeature(),
 
   // jobs
   createJobsFeature(),
