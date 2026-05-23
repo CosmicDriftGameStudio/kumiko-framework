@@ -4,7 +4,7 @@ import { z } from "zod";
 import { generateToken } from "../../api/tokens";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { generateId } from "../../utils";
@@ -24,7 +24,7 @@ const itemEntity = createEntity({
   table: "dispatcher_live_items",
   fields: { name: createTextField({ required: true }) },
 });
-const itemTable = buildDrizzleTable("item", itemEntity);
+const itemTable = buildEntityTable("item", itemEntity);
 
 const itemFeature = defineFeature("dlive", (r) => {
   r.entity("item", itemEntity);

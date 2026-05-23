@@ -15,11 +15,7 @@
 
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { selectMany } from "../../bun-db/query";
-import {
-  integer as drizzleInteger,
-  table as drizzlePgTable,
-  uuid as drizzleUuid,
-} from "../../db/dialect";
+import { integer, table as pgTable, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature, type FeatureDefinition } from "../../engine";
@@ -40,10 +36,10 @@ import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 // A tiny state table a subscriber mutates so we can observe "the handler was
 // called with this event" without relying on in-memory arrays — the state row
 // survives even if the test framework resets process state.
-const subscriberLogTable = drizzlePgTable("read_dispatcher_subscriber_log", {
-  id: drizzleUuid("id").primaryKey().defaultRandom(),
-  eventId: drizzleInteger("event_id").notNull(),
-  eventType: drizzleUuid("event_type"), // unused, kept to avoid another drizzle type import
+const subscriberLogTable = pgTable("read_dispatcher_subscriber_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventId: integer("event_id").notNull(),
+  eventType: uuid("event_type"), // unused, kept to avoid another drizzle type import
 });
 
 // Per-test capture. The subscriber handlers push here; beforeEach resets.

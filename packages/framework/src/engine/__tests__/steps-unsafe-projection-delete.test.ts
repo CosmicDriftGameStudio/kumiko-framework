@@ -1,10 +1,10 @@
-import { pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { table, text, uuid } from "../../db/dialect";
 import { getStep } from "../define-step";
 import { buildUnsafeProjectionDeleteStep } from "../steps/unsafe-projection-delete";
 import type { PipelineCtx } from "../types/step";
 
-const testTable = pgTable("test_projection", {
+const testTable = table("test_projection", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
   label: text("label"),

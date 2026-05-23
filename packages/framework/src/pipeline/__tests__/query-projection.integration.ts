@@ -13,7 +13,7 @@ import {
   uuid as pgUuid,
 } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
   resetEventStore,
@@ -27,7 +27,7 @@ const widgetEntity = createEntity({
   table: "read_qp_widgets",
   fields: { name: createTextField({ required: true }) },
 });
-const widgetTable = buildDrizzleTable("qp-widget", widgetEntity);
+const widgetTable = buildEntityTable("qp-widget", widgetEntity);
 
 // Tenant-scoped projection — auto-filter by tenant_id.
 const tenantScopedTable = pgTable("read_qp_widget_count_tenant", {

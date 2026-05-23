@@ -13,7 +13,7 @@ import { z } from "zod";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { StoredEvent } from "../../event-store";
@@ -36,7 +36,7 @@ const orderEntity = createEntity({
     customer: createTextField({ required: true }),
   },
 });
-const orderTable = buildDrizzleTable("upcast-order", orderEntity);
+const orderTable = buildEntityTable("upcast-order", orderEntity);
 
 // Projection stores the UPCAST view: the v3 shape expects `totalCents` (int)
 // even though the earliest writes might have stored `totalEuros` (string).

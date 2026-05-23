@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { updateMany } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import {
   createBooleanField,
   createEntity,
@@ -68,9 +68,9 @@ const ticketEntity = createEntity({
   },
 });
 
-const invoiceTable = buildDrizzleTable("invoice", invoiceEntity);
-const orderTable = buildDrizzleTable("order", orderEntity);
-const ticketTable = buildDrizzleTable("ticket", ticketEntity);
+const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+const orderTable = buildEntityTable("order", orderEntity);
+const ticketTable = buildEntityTable("ticket", ticketEntity);
 
 const feature = defineFeature("txguard", (r) => {
   r.entity("invoice", invoiceEntity);

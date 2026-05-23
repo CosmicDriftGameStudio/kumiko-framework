@@ -26,7 +26,7 @@ import type { BunDbRunner } from "./connection";
 const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
 const DRIZZLE_COLUMNS_SYMBOL = Symbol.for("drizzle:Columns");
 
-function getDrizzleTableName(table: unknown): string | null {
+function getTableName(table: unknown): string | null {
   if (typeof table !== "object" || table === null) return null;
   const name = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
   return typeof name === "string" ? name : null;
@@ -157,7 +157,7 @@ function extractTableInfo(table: TableLike): TableInfo {
   // drizzle pgTable: tableName via Symbol.for("drizzle:Name"), columns via
   // enumerable properties (jeder col-object hat .name + .getSQLType()).
   // Wir lesen Beide via raw Symbol/Property-access — kein drizzle-orm import.
-  const name = getDrizzleTableName(table);
+  const name = getTableName(table);
   if (!name) {
     throw new Error(
       "bun-db.extractTableInfo: table-Argument ist weder EntityTableMeta noch drizzle pgTable",

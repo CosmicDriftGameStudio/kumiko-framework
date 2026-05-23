@@ -3,7 +3,7 @@ import type { DbConnection } from "../db/connection";
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { renderTableDdl } from "../db/render-ddl";
 import { tableExists } from "../db/schema-inspection";
-import { buildDrizzleTable, toTableName } from "../db/table-builder";
+import { buildEntityTable, toTableName } from "../db/table-builder";
 import type { TestStack } from "./test-stack";
 
 const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
@@ -29,7 +29,7 @@ export async function unsafeCreateEntityTable(
   entity: import("../engine/types").EntityDefinition,
   entityName?: string,
 ): Promise<void> {
-  const table = buildDrizzleTable(entityName ?? "entity", entity);
+  const table = buildEntityTable(entityName ?? "entity", entity);
   await unsafePushTables(db, { [entityName ?? "entity"]: table });
 }
 

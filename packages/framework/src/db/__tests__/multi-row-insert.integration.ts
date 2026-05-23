@@ -9,7 +9,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { insertOne, selectMany } from "../../bun-db/query";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
 import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack";
 
@@ -20,7 +20,7 @@ const linkEntity = createEntity({
     rightId: createTextField({ required: true }),
   },
 });
-const linkTable = buildDrizzleTable("link", linkEntity);
+const linkTable = buildEntityTable("link", linkEntity);
 
 let stack: TestStack;
 
@@ -42,7 +42,7 @@ describe("instant() customType is forgiving with ISO strings", () => {
     table: "mri_ts",
     fields: { name: createTextField({ required: true }) },
   });
-  const tsTable = buildDrizzleTable("ts-row", tsEntity);
+  const tsTable = buildEntityTable("ts-row", tsEntity);
 
   test("INSERT accepts an ISO string for an instant column (forgiving path)", async () => {
     await unsafeCreateEntityTable(stack.db, tsEntity, "ts-row");

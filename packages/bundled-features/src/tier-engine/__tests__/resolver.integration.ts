@@ -20,7 +20,7 @@ import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   findTierResolverUsage,
@@ -63,7 +63,7 @@ const featProFeature = defineFeature("feat-pro", (r) => {
   );
 });
 
-const tierAssignmentTable = buildDrizzleTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
 const features = composeFeatures(
   [createTierEngineFeature({ tierMap: TEST_TIER_MAP }), featProFeature],

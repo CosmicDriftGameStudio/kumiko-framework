@@ -6,7 +6,7 @@
 // webhook does NOT go out (the step.dispatch-requested event vanishes
 // with the rollback).
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -25,7 +25,7 @@ export const incidentEntity = createEntity({
   },
 });
 
-export const incidentTable = buildDrizzleTable("incident", incidentEntity);
+export const incidentTable = buildEntityTable("incident", incidentEntity);
 const incidentExecutor = createEventStoreExecutor(incidentTable, incidentEntity, {
   entityName: "incident",
 });

@@ -1,11 +1,11 @@
-import { pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { table, text, uuid } from "../../db/dialect";
 import { getStep } from "../define-step";
 import { buildReadFindManyStep } from "../steps/read-find-many";
 import { buildReadFindOneStep } from "../steps/read-find-one";
 import type { PipelineCtx } from "../types/step";
 
-const testTable = pgTable("test_read", {
+const testTable = table("test_read", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
   label: text("label"),

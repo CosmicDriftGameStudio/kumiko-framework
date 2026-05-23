@@ -25,7 +25,7 @@ import type {
 
 // Generic über `R extends true | false` (statt `boolean`) damit
 // `createTextField({ required: true })` literal `required: true` im
-// Return-Type behält. `boolean` würde widenen — DrizzleTable<E>'s
+// Return-Type behält. `boolean` würde widenen — EntityTable<E>'s
 // Mapped-Type könnte dann nicht zwischen `required: true` und
 // `required: false` dispatchen, jede Column würde zu nullable
 // degradieren. Default `R = false` matcht den runtime-default. Pattern

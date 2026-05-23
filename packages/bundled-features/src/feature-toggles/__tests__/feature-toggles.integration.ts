@@ -1,6 +1,6 @@
 import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
-  buildDrizzleTable,
+  buildEntityTable,
   createEventStoreExecutor,
   entityEventName,
   integer,
@@ -44,7 +44,7 @@ const widgetEntity = createEntity({
     active: createBooleanField({ default: true }),
   },
 });
-const widgetTable = buildDrizzleTable("widget", widgetEntity);
+const widgetTable = buildEntityTable("widget", widgetEntity);
 
 const widgetCrud = createEventStoreExecutor(widgetTable, widgetEntity, {
   entityName: "widget",
@@ -79,7 +79,7 @@ const widgetAuditEntity = createEntity({
     widgetName: createTextField({ required: true, maxLength: 100 }),
   },
 });
-const widgetAuditTable = buildDrizzleTable("widget-audit", widgetAuditEntity);
+const widgetAuditTable = buildEntityTable("widget-audit", widgetAuditEntity);
 
 function widgetAuditFeature(): FeatureDefinition {
   return defineFeature("widget-audit", (r) => {

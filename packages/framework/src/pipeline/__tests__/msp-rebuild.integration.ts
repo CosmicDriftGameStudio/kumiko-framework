@@ -21,7 +21,7 @@ import { z } from "zod";
 import { asRawClient, selectMany, updateMany } from "../../bun-db/query";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
   eventConsumerStateTable,
@@ -42,13 +42,13 @@ const invoiceEntity = createEntity({
   table: "read_mspreb_invoices",
   fields: { customer: createTextField({ required: true }) },
 });
-const invoiceTable = buildDrizzleTable("msp-reb-invoice", invoiceEntity);
+const invoiceTable = buildEntityTable("msp-reb-invoice", invoiceEntity);
 
 const paymentEntity = createEntity({
   table: "read_mspreb_payments",
   fields: { customer: createTextField({ required: true }) },
 });
-const paymentTable = buildDrizzleTable("msp-reb-payment", paymentEntity);
+const paymentTable = buildEntityTable("msp-reb-payment", paymentEntity);
 
 // Main read-model: running balance per customer.
 const balanceTable = pgTable("read_mspreb_balance", {

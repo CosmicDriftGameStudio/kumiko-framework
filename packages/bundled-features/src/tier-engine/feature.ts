@@ -42,7 +42,7 @@
 
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
-  buildDrizzleTable,
+  buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
@@ -67,9 +67,9 @@ import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
 
 // Drizzle-table for the tier-assignment-entity. Built once at module-load
-// from the entity definition — same shape buildDrizzleTable would produce
+// from the entity definition — same shape buildEntityTable would produce
 // in the App's drizzle/schema.generated.ts.
-const tierAssignmentTable = buildDrizzleTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
 // Event-store-executor für direct-write aus dem auto-default-tier-hook.
 // Pattern wie tenant/seeding.ts: hook sieht AppContext (kein ctx.write),

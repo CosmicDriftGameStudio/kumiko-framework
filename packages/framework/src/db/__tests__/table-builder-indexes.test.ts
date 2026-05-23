@@ -3,7 +3,7 @@
 // Vorher mussten Apps für unique-indices über mehrere Spalten daneben eine
 // hand-written pgTable-Definition halten — Single-Source-of-Truth gebrochen,
 // Schema-Drift programmiert. Mit entity.indexes pflegen Author die
-// Constraint deklarativ in der EntityDefinition; buildDrizzleTable rendert
+// Constraint deklarativ in der EntityDefinition; buildEntityTable rendert
 // sie via uniqueIndex/index.
 
 import { describe, expect, test } from "vitest";
@@ -14,7 +14,7 @@ import {
   defineFeature,
   validateBoot,
 } from "../../engine";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 
 // Native dialect equivalent of drizzle's getTableConfig: reads the
 // EntityTableMeta-shape exposed on every SchemaTable.
@@ -35,7 +35,7 @@ function getTableConfig(table: any): {
   };
 }
 
-describe("buildDrizzleTable — entity.indexes", () => {
+describe("buildEntityTable — entity.indexes", () => {
   test("composite unique-index landet als unique=true in Drizzle table-config", () => {
     const entity = createEntity({
       fields: {
@@ -44,7 +44,7 @@ describe("buildDrizzleTable — entity.indexes", () => {
       },
       indexes: [{ unique: true, columns: ["key", "tenantId", "userId"] }],
     });
-    const tbl = buildDrizzleTable("config-value", entity);
+    const tbl = buildEntityTable("config-value", entity);
     const { indexes } = getTableConfig(tbl);
     const composite = indexes.find(
       (i) => i.config.name === "read_config_values_key_tenant_id_user_id_unique",
@@ -66,7 +66,7 @@ describe("buildDrizzleTable — entity.indexes", () => {
       },
       indexes: [{ columns: ["startedAt", "endedAt"] }],
     });
-    const tbl = buildDrizzleTable("session", entity);
+    const tbl = buildEntityTable("session", entity);
     const { indexes } = getTableConfig(tbl);
     const composite = indexes.find(
       (i) => i.config.name === "read_sessions_started_at_ended_at_idx",
@@ -80,7 +80,7 @@ describe("buildDrizzleTable — entity.indexes", () => {
       fields: { slug: createTextField({ required: true }) },
       indexes: [{ unique: true, columns: ["slug"], name: "my_custom_idx" }],
     });
-    const tbl = buildDrizzleTable("page", entity);
+    const tbl = buildEntityTable("page", entity);
     const { indexes } = getTableConfig(tbl);
     const idx = indexes.find((i) => i.config.name === "my_custom_idx");
     expect(idx).toBeDefined();
@@ -93,11 +93,11 @@ describe("buildDrizzleTable — entity.indexes", () => {
         title: createTextField({}),
       },
     });
-    expect(() => buildDrizzleTable("widget", entity)).not.toThrow();
+    expect(() => buildEntityTable("widget", entity)).not.toThrow();
   });
 
   test("Spalten die keine DB-Spalte haben (multi-files) werden via Boot-Validator gecatched", () => {
-    // buildDrizzleTable selbst überspringt fehlende Columns silently —
+    // buildEntityTable selbst überspringt fehlende Columns silently —
     // der Boot-Validator wirft.
     const entity = createEntity({
       fields: {
@@ -106,7 +106,7 @@ describe("buildDrizzleTable — entity.indexes", () => {
       indexes: [{ columns: ["attachments"] }],
     });
     // No throw at build time.
-    expect(() => buildDrizzleTable("widget", entity)).not.toThrow();
+    expect(() => buildEntityTable("widget", entity)).not.toThrow();
     // But validateBoot does.
     const feature = defineFeature("widgetFeature", (r) => {
       r.entity("widget", entity);

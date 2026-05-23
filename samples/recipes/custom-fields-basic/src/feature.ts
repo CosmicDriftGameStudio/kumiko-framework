@@ -18,7 +18,7 @@ import {
   customFieldsField,
   wireCustomFieldsFor,
 } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -41,7 +41,7 @@ export const propertyEntity = createEntity({
   },
 });
 
-export const propertyTable = buildDrizzleTable("property", propertyEntity);
+export const propertyTable = buildEntityTable("property", propertyEntity);
 
 function propertyExecutor() {
   return createEventStoreExecutor(propertyTable, propertyEntity, { entityName: "property" });

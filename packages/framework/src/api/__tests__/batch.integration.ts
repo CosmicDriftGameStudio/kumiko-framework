@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { z } from "zod";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import {
   createEntity,
   createNumberField,
@@ -24,7 +24,7 @@ const itemEntity = createEntity({
   },
 });
 
-const itemTable = buildDrizzleTable("item", itemEntity);
+const itemTable = buildEntityTable("item", itemEntity);
 
 // Second entity used by an inTransaction hook to prove that hook DB writes
 // roll back with the main transaction.
@@ -35,7 +35,7 @@ const auditEntity = createEntity({
     itemId: createTextField({ required: true }),
   },
 });
-const auditTable = buildDrizzleTable("audit", auditEntity);
+const auditTable = buildEntityTable("audit", auditEntity);
 
 // Hook invocation logs — reset per test. Captures which phase each hook saw.
 const inTxHookLog: Array<{ id: EntityId; name: string }> = [];

@@ -4,7 +4,7 @@
 // `order:create` would not know about the business rule "new orders start as
 // pending".
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ export const orderEntity = createEntity({
   },
 });
 
-const orderTable = buildDrizzleTable("order", orderEntity);
+const orderTable = buildEntityTable("order", orderEntity);
 
 export const orderFeature = defineFeature("orders", (r) => {
   r.entity("order", orderEntity);

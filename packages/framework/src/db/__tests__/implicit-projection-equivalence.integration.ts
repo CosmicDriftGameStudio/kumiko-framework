@@ -23,7 +23,7 @@ import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
 import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const userEntity = createEntity({
@@ -40,7 +40,7 @@ const userFeature = defineFeature("implicittest", (r) => {
   r.entity("user", userEntity);
 });
 
-const userTable = buildDrizzleTable("user", userEntity);
+const userTable = buildEntityTable("user", userEntity);
 
 let testDb: TestDb;
 let tdb: TenantDb;
@@ -239,7 +239,7 @@ const sensitiveFeature = defineFeature("implicitsensitive", (r) => {
   r.entity("sensitive-user", sensitiveEntity);
 });
 
-const sensitiveDrizzleTable = buildDrizzleTable("sensitive-user", sensitiveEntity);
+const sensitiveEntityTable = buildEntityTable("sensitive-user", sensitiveEntity);
 
 describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
   beforeAll(async () => {
@@ -253,7 +253,7 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
   });
 
   test("Live schreibt sensitive-Felder, Rebuild lässt sie NULL (Welle-3-Roadmap)", async () => {
-    const crud = createEventStoreExecutor(sensitiveDrizzleTable, sensitiveEntity, {
+    const crud = createEventStoreExecutor(sensitiveEntityTable, sensitiveEntity, {
       entityName: "sensitive-user",
     });
 
@@ -266,7 +266,7 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
     );
     if (!created.isSuccess) throw new Error("setup failed");
 
-    const [liveRow] = await selectMany(testDb.db, sensitiveDrizzleTable, {
+    const [liveRow] = await selectMany(testDb.db, sensitiveEntityTable, {
       id: created.data.id as string,
     });
     expect(liveRow?.["apiKey"]).toBe("secret-token-abc");
@@ -290,7 +290,7 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
       registry,
     });
 
-    const [rebuiltRow] = await selectMany(testDb.db, sensitiveDrizzleTable, {
+    const [rebuiltRow] = await selectMany(testDb.db, sensitiveEntityTable, {
       id: created.data.id as string,
     });
     expect(rebuiltRow?.["email"]).toBe("x@test.de");

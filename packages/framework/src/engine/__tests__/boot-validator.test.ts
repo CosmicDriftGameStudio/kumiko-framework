@@ -1,7 +1,7 @@
-import { pgTable, text } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import type { SchemaTable } from "../../db/dialect";
+import { table, text } from "../../db/dialect";
 import { validateBoot } from "../boot-validator";
 import { createSystemConfig, createTenantConfig } from "../config-helpers";
 import {
@@ -905,7 +905,7 @@ describe("boot-validator", () => {
   // --- MultiStreamProjection delivery invariant (Welle 2.7) ---
 
   describe("MultiStreamProjection delivery", () => {
-    const sinkTable = pgTable("sink", { id: text("id").primaryKey() }) as unknown as SchemaTable;
+    const sinkTable = table("sink", { id: text("id").primaryKey() }) as unknown as SchemaTable;
 
     test("rejects delivery='per-instance' combined with a backing table", () => {
       const features = [

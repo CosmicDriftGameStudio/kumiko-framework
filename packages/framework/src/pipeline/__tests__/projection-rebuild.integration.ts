@@ -12,13 +12,9 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
-import {
-  integer as drizzleInteger,
-  table as drizzlePgTable,
-  uuid as drizzleUuid,
-} from "../../db/dialect";
+import { integer, table as pgTable, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import {
   createEntity,
@@ -54,12 +50,12 @@ const itemEntity = createEntity({
   },
   softDelete: true,
 });
-const itemTable = buildDrizzleTable("rebuild-item", itemEntity);
+const itemTable = buildEntityTable("rebuild-item", itemEntity);
 
-const itemsPerGroupTable = drizzlePgTable("read_rebuild_items_per_group", {
-  groupId: drizzleUuid("group_id").primaryKey(),
-  tenantId: drizzleUuid("tenant_id").notNull(),
-  itemCount: drizzleInteger("item_count").notNull().default(0),
+const itemsPerGroupTable = pgTable("read_rebuild_items_per_group", {
+  groupId: uuid("group_id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  itemCount: integer("item_count").notNull().default(0),
 });
 
 async function bump(tx: unknown, groupId: string, tenantId: string, delta: number): Promise<void> {

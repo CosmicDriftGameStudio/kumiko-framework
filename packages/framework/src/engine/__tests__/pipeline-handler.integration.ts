@@ -42,12 +42,13 @@
 //
 // Unit-side tests in pipeline-vertical-slice.test.ts cover the same
 // surface against an empty ctx mock; this file is the real-stack gate.
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { asRawClient, selectMany } from "../../bun-db/query";
+import { table, text, timestamp, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { eventsTable } from "../../event-store";
 import {
   setupTestStack,
@@ -128,7 +129,7 @@ const compoundHandler = defineWriteHandler({
 
 // Read-side projection-table for the unsafeProjectionUpsert handler.
 // Plain pgTable (not r.entity) — it's a read-side log, not an aggregate.
-const pipelineDemoLogTable = pgTable("pipeline_demo_log", {
+const pipelineDemoLogTable = table("pipeline_demo_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
   correlationId: text("correlation_id").notNull().unique(),
@@ -171,7 +172,7 @@ const widgetEntity = createEntity({
   table: "pipeline_widget",
   fields: { label: createTextField({ required: true }) },
 });
-const widgetTable = buildDrizzleTable("widget", widgetEntity);
+const widgetTable = buildEntityTable("widget", widgetEntity);
 const widgetExecutor = createEventStoreExecutor(widgetTable, widgetEntity, {
   entityName: "widget",
 });

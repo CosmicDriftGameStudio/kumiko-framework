@@ -1,4 +1,4 @@
-import { buildDrizzleTable, sql } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, sql } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBigIntField,
   createEntity,
@@ -162,4 +162,4 @@ export const exportJobEntity = createEntity({
   ],
 });
 
-export const exportJobsTable = buildDrizzleTable("exportJob", exportJobEntity);
+export const exportJobsTable = buildEntityTable("exportJob", exportJobEntity);

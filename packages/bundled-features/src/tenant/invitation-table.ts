@@ -22,7 +22,7 @@
 // pending → re-use existing row + refresh Redis-token + send mail
 // (analog zu signup-Resend).
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createSelectField,
@@ -88,7 +88,4 @@ export const tenantInvitationEntity = createEntity({
   ],
 });
 
-export const tenantInvitationsTable = buildDrizzleTable(
-  "tenant-invitation",
-  tenantInvitationEntity,
-);
+export const tenantInvitationsTable = buildEntityTable("tenant-invitation", tenantInvitationEntity);

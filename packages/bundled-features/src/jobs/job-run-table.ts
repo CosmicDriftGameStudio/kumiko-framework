@@ -1,5 +1,5 @@
 import {
-  buildDrizzleTable,
+  buildEntityTable,
   defineUnmanagedTable,
   type EntityTableMeta,
   instant,
@@ -53,7 +53,7 @@ export const jobRunEntity = createEntity({
   },
 });
 
-export const jobRunsTable = buildDrizzleTable("job-run", jobRunEntity);
+export const jobRunsTable = buildEntityTable("job-run", jobRunEntity);
 
 // Child projection keyed by the jobRun aggregate id. Pre-ES used a serial
 // PK + integer runId; post-ES runId is still exposed but now holds the

@@ -9,15 +9,35 @@
 //   - Batch: single INSERT with multi-VALUES; atomic rollback on any
 //     failure; predecessor pre-flight per aggregate in the batch.
 
-import { drizzle } from "drizzle-orm/postgres-js";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { asRawClient } from "../../bun-db/query";
+import type { DbConnection } from "../../db/connection";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
 import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api";
 import { VersionConflictError } from "../errors";
 import { append, loadAggregate } from "../event-store";
 import { createEventsTable } from "../events-schema";
+
+// Test-only spy: wrap a DbConnection's `.unsafe()` to capture the SQL
+// string of every query the framework runs. Used to assert batching
+// behaviour (single multi-VALUES INSERT vs N statements).
+function spyQueries(db: DbConnection): { db: DbConnection; queries: string[] } {
+  const queries: string[] = [];
+  const wrapped = new Proxy(db, {
+    get(target, prop, receiver) {
+      if (prop === "unsafe") {
+        return (sql: string, params?: readonly unknown[]) => {
+          queries.push(sql);
+          // biome-ignore lint/suspicious/noExplicitAny: postgres-js .unsafe signature variance
+          return (target as any).unsafe(sql, params);
+        };
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  return { db: wrapped, queries };
+}
 
 let testDb: TestDb;
 
@@ -209,12 +229,7 @@ describe("appendRaw — single event", () => {
 
 describe("appendRawBatch — multi-event", () => {
   test("writes all events in a single INSERT statement (query-log spy)", async () => {
-    const queries: string[] = [];
-    const loggedDb = drizzle(testDb.client, {
-      logger: {
-        logQuery: (q) => queries.push(q),
-      },
-    });
+    const { db: loggedDb, queries } = spyQueries(testDb.db);
 
     const aggregateId = uuid();
     const events: readonly RawEventToAppend[] = [
@@ -223,7 +238,7 @@ describe("appendRawBatch — multi-event", () => {
       makeEvent({ aggregateId, expectedVersion: 2, type: "legacy.order.canceled" }),
     ];
 
-    await appendRawBatch(loggedDb as any, events);
+    await appendRawBatch(loggedDb, events);
 
     const inserts = queries.filter((q) => /insert\s+into\s+"?kumiko_events"?/i.test(q));
     expect(inserts).toHaveLength(1);
@@ -347,14 +362,9 @@ describe("appendRawBatch — multi-event", () => {
   });
 
   test("empty array is a no-op — no query, no throw", async () => {
-    const queries: string[] = [];
-    const loggedDb = drizzle(testDb.client, {
-      logger: {
-        logQuery: (q) => queries.push(q),
-      },
-    });
+    const { db: loggedDb, queries } = spyQueries(testDb.db);
 
-    await appendRawBatch(loggedDb as any, []);
+    await appendRawBatch(loggedDb, []);
     expect(queries).toHaveLength(0);
   });
 

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { TableColumns } from "../../db/dialect";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import {
   createEntity,
@@ -90,14 +90,14 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, teamEntity);
   await unsafeCreateEntityTable(testDb.db, memberEntity);
 
-  departmentTable = buildDrizzleTable("department", departmentEntity);
-  userTable = buildDrizzleTable("user", userEntity);
-  sessionTable = buildDrizzleTable("session", sessionEntity);
-  groupTable = buildDrizzleTable("group", groupEntity);
-  userGroupRestrictTable = buildDrizzleTable("user-group-restrict", userGroupRestrictEntity);
-  userGroupCascadeTable = buildDrizzleTable("user-group-cascade", userGroupCascadeEntity);
-  teamTable = buildDrizzleTable("team", teamEntity);
-  memberTable = buildDrizzleTable("member", memberEntity);
+  departmentTable = buildEntityTable("department", departmentEntity);
+  userTable = buildEntityTable("user", userEntity);
+  sessionTable = buildEntityTable("session", sessionEntity);
+  groupTable = buildEntityTable("group", groupEntity);
+  userGroupRestrictTable = buildEntityTable("user-group-restrict", userGroupRestrictEntity);
+  userGroupCascadeTable = buildEntityTable("user-group-cascade", userGroupCascadeEntity);
+  teamTable = buildEntityTable("team", teamEntity);
+  memberTable = buildEntityTable("member", memberEntity);
 
   const feature = defineFeature("cascade", (r) => {
     r.entity("department", departmentEntity);

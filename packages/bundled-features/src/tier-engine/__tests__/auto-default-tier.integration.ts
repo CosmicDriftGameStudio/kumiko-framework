@@ -20,7 +20,7 @@
 
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createTestUser,
   setupTestStack,
@@ -39,7 +39,7 @@ const TEST_TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },
 };
 
-const tierAssignmentTable = buildDrizzleTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
 const features = composeFeatures(
   [createTierEngineFeature({ defaultTier: "free", tierMap: TEST_TIER_MAP })],

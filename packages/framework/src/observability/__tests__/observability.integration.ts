@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { insertOne } from "../../bun-db/query";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, SaveContext } from "../../engine/types";
 import { createJobRunner } from "../../jobs";
@@ -66,7 +66,7 @@ const todoEntity = {
 
 let postSaveInvocations = 0;
 const todoFeature = defineFeature("todo", (r) => {
-  const todoTable = buildDrizzleTable("todo", todoEntity);
+  const todoTable = buildEntityTable("todo", todoEntity);
   r.entity("todo", todoEntity);
 
   r.writeHandler(

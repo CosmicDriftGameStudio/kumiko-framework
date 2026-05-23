@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -34,4 +34,4 @@ export const downloadAttemptEntity = createEntity({
   retention: { keepFor: "90d", strategy: "hardDelete", reference: "attemptedAt" },
 });
 
-export const downloadAttemptsTable = buildDrizzleTable("downloadAttempt", downloadAttemptEntity);
+export const downloadAttemptsTable = buildEntityTable("downloadAttempt", downloadAttemptEntity);

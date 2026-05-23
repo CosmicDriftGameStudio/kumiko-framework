@@ -10,7 +10,7 @@ import {
   unsafePushTables,
 } from "../../stack";
 import { table as pgTable, serial, text, timestamp } from "../dialect";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 import { createTenantDb } from "../tenant-db";
 
 // --- Entity table (has tenantId via buildBaseColumns) ---
@@ -25,7 +25,7 @@ const entity = createEntity({
   softDelete: true,
 });
 
-const table = buildDrizzleTable("tenantDbItem", entity);
+const table = buildEntityTable("tenantDbItem", entity);
 
 // --- System table (no tenantId — like job_runs) ---
 

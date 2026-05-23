@@ -6,7 +6,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { getTableConfig } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import {
@@ -83,16 +82,14 @@ describe("role-based vs openToAll", () => {
 
 describe("auto-indices from relations", () => {
   test("task table has an index on project_id because of the belongsTo relation", () => {
-    const { indexes } = getTableConfig(taskTable);
-    const names = indexes.map((i) => i.config.name);
+    const names = taskTable.indexes.map((i) => i.name);
 
     expect(names).toContain("read_ac_tasks_tenant_id_idx");
     expect(names).toContain("read_ac_tasks_project_id_idx");
   });
 
   test("project table has only the tenant_id index (no belongsTo relations)", () => {
-    const { indexes } = getTableConfig(projectTable);
-    expect(indexes.map((i) => i.config.name)).toEqual(["read_ac_projects_tenant_id_idx"]);
+    expect(projectTable.indexes.map((i) => i.name)).toEqual(["read_ac_projects_tenant_id_idx"]);
   });
 });
 

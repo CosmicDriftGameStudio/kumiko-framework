@@ -9,7 +9,7 @@
 //   3. Column-Diff: information_schema-Vergleich gegen Snapshot —
 //      missing-/extra-column, type-mismatch, nullability-mismatch. Fängt
 //      manuelle ALTER TABLEs in Prod sowie doppelte pgTable-Definitionen
-//      pro Tabelle (eine hand-written, eine via buildDrizzleTable), die
+//      pro Tabelle (eine hand-written, eine via buildEntityTable), die
 //      stillschweigend gegen den Snapshot driften.
 //
 // Drizzle-kit's eigene Garantie: nach `migrate apply` ist der DB-Stand

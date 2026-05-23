@@ -8,7 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { z } from "zod";
 import { asRawClient, selectMany } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import {
   ANONYMOUS_USER_ID,
   createEntity,
@@ -29,7 +29,7 @@ const productEntity = createEntity({
     name: createTextField({ required: true }),
   },
 });
-const productTable = buildDrizzleTable("product", productEntity);
+const productTable = buildEntityTable("product", productEntity);
 
 const orderEntity = createEntity({
   table: "anon_orders",
@@ -38,7 +38,7 @@ const orderEntity = createEntity({
     placedBy: createTextField({ default: "" }),
   },
 });
-const orderTable = buildDrizzleTable("order", orderEntity);
+const orderTable = buildEntityTable("order", orderEntity);
 
 const shopFeature = defineFeature("anonshop", (r) => {
   r.entity("product", productEntity);

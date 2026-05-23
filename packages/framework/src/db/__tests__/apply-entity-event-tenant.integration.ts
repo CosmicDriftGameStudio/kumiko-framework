@@ -23,7 +23,7 @@ import type { StoredEvent } from "../../event-store";
 import { createEventsTable } from "../../event-store";
 import { createTestDb, type TestDb } from "../../stack";
 import { applyEntityEvent } from "../apply-entity-event";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 
 const entity = createEntity({
   table: "read_apply_tenant_check",
@@ -31,7 +31,7 @@ const entity = createEntity({
     name: createTextField({ required: true }),
   },
 });
-const table = buildDrizzleTable("apply-tenant-check", entity);
+const table = buildEntityTable("apply-tenant-check", entity);
 
 let testDb: TestDb;
 

@@ -10,7 +10,7 @@ import { createEntity, createNumberField, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const entity = createEntity({
@@ -20,7 +20,7 @@ const entity = createEntity({
     rank: createNumberField({ sortable: true }),
   },
 });
-const table = buildDrizzleTable("pagerItem", entity);
+const table = buildEntityTable("pagerItem", entity);
 
 let testDb: TestDb;
 let tdb: TenantDb;

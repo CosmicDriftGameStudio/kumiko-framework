@@ -3,9 +3,9 @@
 // INSERT/SELECT against the real DB roundtrip. Plan reference:
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { asRawClient, insertOne, selectMany } from "../bun-db/query";
+import { table, text, timestamp } from "../db/dialect";
 import { defineFeature } from "../engine";
 import { setupTestStack, type TestStack, unsafePushTables } from "../stack";
 
@@ -13,7 +13,7 @@ import { setupTestStack, type TestStack, unsafePushTables } from "../stack";
 // write-only by an integration handler, read-only by a query, never
 // event-sourced (the data isn't a domain fact, it's a side-effect
 // snapshot).
-const stripeWebhookCache = pgTable("rt_int_stripe_webhook_cache", {
+const stripeWebhookCache = table("rt_int_stripe_webhook_cache", {
   eventId: text("event_id").primaryKey(),
   payload: text("payload").notNull(),
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
@@ -22,7 +22,7 @@ const stripeWebhookCache = pgTable("rt_int_stripe_webhook_cache", {
 // A second physical table reachable through two distinct r.rawTable
 // registrations — pins the seenTables-by-reference dedupe at push time.
 // Two logical names, one CREATE.
-const sharedSyncCache = pgTable("rt_int_shared_sync_cache", {
+const sharedSyncCache = table("rt_int_shared_sync_cache", {
   syncId: text("sync_id").primaryKey(),
   payload: text("payload").notNull(),
 });

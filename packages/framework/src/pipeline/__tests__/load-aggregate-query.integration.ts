@@ -10,7 +10,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { insertOne } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { append, loadAggregate as loadAggregateRaw } from "../../event-store";
 import {
@@ -30,7 +30,7 @@ const invoiceEntity = createEntity({
     status: createTextField({ required: true }),
   },
 });
-const invoiceTable = buildDrizzleTable("asof-invoice", invoiceEntity);
+const invoiceTable = buildEntityTable("asof-invoice", invoiceEntity);
 
 // --- Feature ---
 

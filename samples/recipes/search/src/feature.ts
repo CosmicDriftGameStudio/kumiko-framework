@@ -3,7 +3,7 @@
 // Each handler builds its executor inline so `ctx.searchAdapter` is read fresh
 // per call — tests swap the adapter between runs.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
@@ -18,7 +18,7 @@ export const productEntity = createEntity({
   searchWeight: 10,
 });
 
-const productTable = buildDrizzleTable("product", productEntity);
+const productTable = buildEntityTable("product", productEntity);
 
 export const productFeature = defineFeature("shop", (r) => {
   r.entity("product", productEntity);

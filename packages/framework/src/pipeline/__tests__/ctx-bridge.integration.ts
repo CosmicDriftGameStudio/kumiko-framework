@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { z } from "zod";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import {
   access,
   createEntity,
@@ -28,7 +28,7 @@ const bagEntity = createEntity({
     counter: createNumberField({ default: 0 }),
   },
 });
-const bagTable = buildDrizzleTable("bag", bagEntity);
+const bagTable = buildEntityTable("bag", bagEntity);
 
 // secret has a system-only read field — proves queryAs(system) reads it,
 // plain query doesn't.
@@ -42,7 +42,7 @@ const secretEntity = createEntity({
     }),
   },
 });
-const secretTable = buildDrizzleTable("secret", secretEntity);
+const secretTable = buildEntityTable("secret", secretEntity);
 
 let stack: TestStack;
 const admin = TestUsers.admin;

@@ -101,7 +101,7 @@ export async function rebuildProjection(
       );
 
       // Wipe the projection table.
-      const tableName = getDrizzleTableName(projection.table);
+      const tableName = getTableName(projection.table);
       await rawTx.unsafe(`TRUNCATE TABLE ${quoteIdent(tableName)}`);
 
       // Stream events in chronological order for every source. The event
@@ -227,7 +227,7 @@ function quoteIdent(name: string): string {
 }
 
 const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
-function getDrizzleTableName(table: unknown): string {
+function getTableName(table: unknown): string {
   if (typeof table !== "object" || table === null) {
     throw new Error("projection-rebuild: projection.table is not a pgTable object");
   }

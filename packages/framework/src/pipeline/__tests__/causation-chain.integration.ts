@@ -20,7 +20,7 @@ import { z } from "zod";
 import { requestContext } from "../../api/request-context";
 import { selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
@@ -40,7 +40,7 @@ const orderEntity = createEntity({
   },
 });
 
-const orderTable = buildDrizzleTable("causation-order", orderEntity);
+const orderTable = buildEntityTable("causation-order", orderEntity);
 
 // MSP-apply observation sink — every apply run pushes its reqCtx snapshot
 // here so the tests can assert what the event-dispatcher wrapped it with.

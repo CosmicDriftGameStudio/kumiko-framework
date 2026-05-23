@@ -14,7 +14,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
@@ -34,7 +34,7 @@ const orderEntity = createEntity({
   },
 });
 
-const orderTable = buildDrizzleTable("mmh-order", orderEntity);
+const orderTable = buildEntityTable("mmh-order", orderEntity);
 
 // Snapshot what each MSP-apply observed via ctx.loadAggregate.
 const confirmLoadCounts: number[] = [];

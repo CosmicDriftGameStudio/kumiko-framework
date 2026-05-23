@@ -25,7 +25,7 @@
 //   3. todoDeleteHook DELETEt alle Rows mit author_id = userId
 //   4. user wird anonymisiert (display_name="(deleted)", email=null)
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -53,7 +53,7 @@ export const todoEntity = createEntity({
   },
 });
 
-export const todosTable = buildDrizzleTable("todo", todoEntity);
+export const todosTable = buildEntityTable("todo", todoEntity);
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),

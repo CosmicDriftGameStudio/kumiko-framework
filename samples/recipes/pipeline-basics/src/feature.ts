@@ -20,7 +20,14 @@
 // `unsafe`-prefix is designed for: framework-author opting into
 // raw projection-writes after seeing the prefix at every call site.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  integer,
+  table,
+  text,
+  uuid,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { PipelineCtx } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntity,
@@ -31,7 +38,6 @@ import {
   pipeline,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eq } from "drizzle-orm";
-import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 const LOW_STOCK_THRESHOLD = 10;
@@ -48,7 +54,7 @@ export const productEntity = createEntity({
 // Custom non-aggregate projection. The boot-validator allows direct
 // upsert/delete only because `r.requires.projection(...)` is declared
 // inside the feature below — without that line, boot fails fast.
-export const lowStockAlertsTable = pgTable("read_inventory_low_stock_alerts", {
+export const lowStockAlertsTable = table("read_inventory_low_stock_alerts", {
   productId: uuid("product_id").primaryKey(),
   sku: text("sku").notNull(),
   currentStock: integer("current_stock").notNull(),
@@ -58,7 +64,7 @@ export const lowStockAlertsTable = pgTable("read_inventory_low_stock_alerts", {
 // Module-level drizzle-table + executor — the steps below capture
 // `productExecutor` from this scope, and the integration test
 // imports `productTable` for raw selects.
-export const productTable = buildDrizzleTable("product", productEntity);
+export const productTable = buildEntityTable("product", productEntity);
 const productExecutor = createEventStoreExecutor(productTable, productEntity, {
   entityName: "product",
 });

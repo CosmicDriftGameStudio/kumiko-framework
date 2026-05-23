@@ -19,7 +19,7 @@ import {
   uuid as pgUuid,
 } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { loadAggregate } from "../../event-store";
 import {
@@ -40,7 +40,7 @@ const shipmentEntity = createEntity({
   },
 });
 
-const shipmentTable = buildDrizzleTable("domain-shipment", shipmentEntity);
+const shipmentTable = buildEntityTable("domain-shipment", shipmentEntity);
 
 // --- Read-model table (fed by the projection below) ---
 

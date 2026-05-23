@@ -10,7 +10,7 @@ import {
 } from "../../engine";
 import type { FeatureDefinition } from "../../engine/types";
 import { createTestDb, type TestDb, unsafePushTables } from "../../stack";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 
 /**
  * Integration tests for the schema migration workflow.
@@ -18,7 +18,7 @@ import { buildDrizzleTable } from "../table-builder";
  *
  * Each test simulates:
  *   1. Developer defines/changes entities
- *   2. buildDrizzleTable creates Drizzle table objects
+ *   2. buildEntityTable creates Drizzle table objects
  *   3. Schema is applied to a real database via unsafePushTables (drizzle-kit push)
  *   4. We verify the DB state matches expectations
  */
@@ -38,7 +38,7 @@ async function applySchema(features: readonly FeatureDefinition[]): Promise<void
   const tables: Record<string, unknown> = {};
   for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities)) {
-      tables[entityName] = buildDrizzleTable(entityName, entity);
+      tables[entityName] = buildEntityTable(entityName, entity);
     }
   }
   await unsafePushTables(testDb.db, tables);
@@ -135,7 +135,7 @@ describe("schema migration workflows", () => {
       table: "wf2_users",
       fields: { email: createTextField() },
     });
-    await unsafePushTables(testDb.db, { user: buildDrizzleTable("user", initialEntity) });
+    await unsafePushTables(testDb.db, { user: buildEntityTable("user", initialEntity) });
 
     // Developer adds a new field
     const updatedEntity = createEntity({
@@ -149,8 +149,8 @@ describe("schema migration workflows", () => {
     // Push updated schema — drizzle-kit generates ALTER TABLE ADD COLUMN
     await unsafePushTables(
       testDb.db,
-      { user: buildDrizzleTable("user", updatedEntity) },
-      { user: buildDrizzleTable("user", initialEntity) },
+      { user: buildEntityTable("user", updatedEntity) },
+      { user: buildEntityTable("user", initialEntity) },
     );
 
     const columns = await getTableColumns("wf2_users");
@@ -165,7 +165,7 @@ describe("schema migration workflows", () => {
       table: "wf3_projects",
       fields: { name: createTextField() },
     });
-    const initialTable = buildDrizzleTable("project", initialEntity);
+    const initialTable = buildEntityTable("project", initialEntity);
     await unsafePushTables(testDb.db, { project: initialTable });
 
     // Insert a row first (to prove ADD COLUMN with default doesn't break existing rows)
@@ -179,7 +179,7 @@ describe("schema migration workflows", () => {
       table: "wf3_projects",
       fields: { name: createTextField(), isArchived: createBooleanField({ default: false }) },
     });
-    const updatedTable = buildDrizzleTable("project", updatedEntity);
+    const updatedTable = buildEntityTable("project", updatedEntity);
     await unsafePushTables(testDb.db, { project: updatedTable }, { project: initialTable });
 
     // Existing row should have the default value
@@ -199,7 +199,7 @@ describe("schema migration workflows", () => {
       table: "wf3b_users",
       fields: { email: createTextField({ required: true }) },
     });
-    const initialTable = buildDrizzleTable("user", initialEntity);
+    const initialTable = buildEntityTable("user", initialEntity);
     await unsafePushTables(testDb.db, { user: initialTable });
 
     await insertOne(testDb.db, initialTable, {
@@ -214,7 +214,7 @@ describe("schema migration workflows", () => {
         roles: createTextField({ required: true, default: "[]" }),
       },
     });
-    const updatedTable = buildDrizzleTable("user", updatedEntity);
+    const updatedTable = buildEntityTable("user", updatedEntity);
     await unsafePushTables(testDb.db, { user: updatedTable }, { user: initialTable });
 
     const rows = await selectMany(testDb.db, updatedTable);

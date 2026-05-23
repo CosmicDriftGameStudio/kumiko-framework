@@ -10,7 +10,7 @@
 // stays green, and we add an explicit covers-the-no-op-path test here too.
 
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -38,7 +38,7 @@ const propertyEntity = createEntity({
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildDrizzleTable("property", propertyEntity);
+const propertyTable = buildEntityTable("property", propertyEntity);
 
 const propertyFeature = defineFeature("property-t15b", (r) => {
   r.entity("property", propertyEntity);

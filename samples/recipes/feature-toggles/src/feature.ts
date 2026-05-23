@@ -9,7 +9,7 @@
 // callback + set-handler) is exercised as documentation, not just in the
 // framework's own tests.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,
@@ -33,7 +33,7 @@ export const productEntity = createEntity({
     active: createBooleanField({ default: true }),
   },
 });
-export const productTable = buildDrizzleTable("product", productEntity);
+export const productTable = buildEntityTable("product", productEntity);
 const productCrud = createEventStoreExecutor(productTable, productEntity, {
   entityName: "product",
 });
@@ -63,7 +63,7 @@ export const productAuditEntity = createEntity({
     productName: createTextField({ required: true, maxLength: 100 }),
   },
 });
-export const productAuditTable = buildDrizzleTable("product-audit", productAuditEntity);
+export const productAuditTable = buildEntityTable("product-audit", productAuditEntity);
 
 export function createProductAuditFeature(): FeatureDefinition {
   return defineFeature("product-audit", (r) => {

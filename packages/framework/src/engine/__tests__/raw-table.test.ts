@@ -2,17 +2,17 @@
 // aggregation. Full DB roundtrip (setupTestStack pushes the table → INSERT
 // / SELECT) lives in src/__tests__/raw-table.integration.ts.
 
-import { pgTable, text } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vitest";
 import type { SchemaTable } from "../../db/dialect";
+import { table, text } from "../../db/dialect";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
 import type { ProjectionDefinition } from "../types";
 
-const probeTable = pgTable("rt_probe_table", {
+const probeTable = table("rt_probe_table", {
   id: text("id").primaryKey(),
 });
-const probeTableTwo = pgTable("rt_probe_table_two", {
+const probeTableTwo = table("rt_probe_table_two", {
   id: text("id").primaryKey(),
 });
 
@@ -108,7 +108,7 @@ describe("createRegistry — rawTable aggregation", () => {
     // when one role writes (primary cache) and a second role reads
     // (alias view). Push-time dedupe keeps the boot to a single CREATE;
     // the registry keeps both entries so callers can resolve either name.
-    const sharedT = pgTable("rt_shared_dedupe", {
+    const sharedT = table("rt_shared_dedupe", {
       id: text("id").primaryKey(),
     }) as unknown as SchemaTable;
     const feat = defineFeature("dedupe", (r) => {
@@ -127,7 +127,7 @@ describe("createRegistry — rawTable aggregation", () => {
     // r.projection() is almost always an authoring bug — two owners on
     // the same physical table, one event-sourced, one bypass. Boot
     // throws so the failure points at the misconfiguration site.
-    const sharedT = pgTable("rt_collision_phys", {
+    const sharedT = table("rt_collision_phys", {
       id: text("id").primaryKey(),
     }) as unknown as SchemaTable;
     const projection: ProjectionDefinition = {

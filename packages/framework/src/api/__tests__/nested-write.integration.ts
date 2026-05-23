@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { z } from "zod";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
@@ -14,7 +14,7 @@ const projectEntity = createEntity({
   table: "nested_projects",
   fields: { name: createTextField({ required: true }) },
 });
-const projectTable = buildDrizzleTable("project", projectEntity);
+const projectTable = buildEntityTable("project", projectEntity);
 
 const taskEntity = createEntity({
   table: "nested_tasks",
@@ -23,7 +23,7 @@ const taskEntity = createEntity({
     title: createTextField({ required: true }),
   },
 });
-const taskTable = buildDrizzleTable("task", taskEntity);
+const taskTable = buildEntityTable("task", taskEntity);
 
 const nestedFeature = defineFeature("nested", (r) => {
   r.entity("project", projectEntity);

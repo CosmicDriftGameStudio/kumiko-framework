@@ -15,7 +15,7 @@
 //     rights hook handles the row delete, jsonb travels with the row.
 
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -52,7 +52,7 @@ const propertyEntity = createEntity({
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildDrizzleTable("property", propertyEntity);
+const propertyTable = buildEntityTable("property", propertyEntity);
 
 // Host entity gets its own EXT_USER_DATA-registration too — that's the
 // canonical setup (host bundle handles row-anonymize/delete, custom-fields

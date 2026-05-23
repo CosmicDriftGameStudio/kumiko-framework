@@ -8,7 +8,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
   ArchivedStreamError,
@@ -27,7 +27,7 @@ const itemEntity = createEntity({
   table: "read_arch_items",
   fields: { label: createTextField({ required: true }) },
 });
-const itemTable = buildDrizzleTable("arch-item", itemEntity);
+const itemTable = buildEntityTable("arch-item", itemEntity);
 
 const archFeature = defineFeature("archtest", (r) => {
   r.entity("arch-item", itemEntity);

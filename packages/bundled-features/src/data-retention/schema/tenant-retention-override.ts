@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createLongTextField,
@@ -41,7 +41,7 @@ export const tenantRetentionOverrideEntity = createEntity({
   indexes: [{ unique: true, columns: ["tenantId", "entityName"] }],
 });
 
-export const tenantRetentionOverrideTable = buildDrizzleTable(
+export const tenantRetentionOverrideTable = buildEntityTable(
   "tenantRetentionOverride",
   tenantRetentionOverrideEntity,
 );

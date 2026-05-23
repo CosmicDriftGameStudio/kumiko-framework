@@ -350,7 +350,7 @@ type SoftDeleteColumnsType = {
   readonly deletedById: NullCol<string>;
 };
 
-export type DrizzleTable<E extends EntityDefinition = EntityDefinition> =
+export type EntityTable<E extends EntityDefinition = EntityDefinition> =
   TableColumns<// biome-ignore lint/suspicious/noExplicitAny: drizzle's internal table-config stays generic; we layer typed columns on top via the intersection below.
   any> &
     BaseColumnsType<E> &
@@ -394,7 +394,7 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
   return base;
 }
 
-export type BuildDrizzleTableOptions = {
+export type BuildEntityTableOptions = {
   readonly featureName?: string;
   // Relations declared for this entity. When present, every belongsTo
   // foreignKey gets an index — otherwise joins and `WHERE fk = ?` filters
@@ -403,11 +403,11 @@ export type BuildDrizzleTableOptions = {
   readonly relations?: EntityRelations;
 };
 
-export function buildDrizzleTable<E extends EntityDefinition>(
+export function buildEntityTable<E extends EntityDefinition>(
   entityName: string,
   entity: E,
-  options?: BuildDrizzleTableOptions,
-): DrizzleTable<E> {
+  options?: BuildEntityTableOptions,
+): EntityTable<E> {
   const baseColumns = buildBaseColumns(entity.softDelete ?? false, entity.idType ?? "uuid");
   const fieldColumns: Record<string, AnyColumnBuilder> = {};
 
@@ -449,7 +449,7 @@ export function buildDrizzleTable<E extends EntityDefinition>(
     }
   }
 
-  // Cast back to DrizzleTable<E>: drizzle-kit's pgTable returns a fully
+  // Cast back to EntityTable<E>: drizzle-kit's pgTable returns a fully
   // inferred PgTableWithColumns over the *exact* column-builder map we
   // hand in. Our typed signature narrows that to the static names from
   // EntityDefinition (kept in sync with fieldToColumns + buildBaseColumns).
@@ -462,7 +462,7 @@ export function buildDrizzleTable<E extends EntityDefinition>(
     },
     // Every multi-tenant query filters by tenant_id. Without this index, list
     // queries scan the whole table across all tenants. Applies to every table
-    // built via buildDrizzleTable since every entity inherits tenantId.
+    // built via buildEntityTable since every entity inherits tenantId.
     (table) => {
       const indexes: Record<string, IndexBuilderWithCols> = {};
       const tHandle = table as unknown as Record<string, ColumnHandle>;
@@ -500,5 +500,5 @@ export function buildDrizzleTable<E extends EntityDefinition>(
       }
       return indexes;
     },
-  ) as unknown as DrizzleTable<E>;
+  ) as unknown as EntityTable<E>;
 }

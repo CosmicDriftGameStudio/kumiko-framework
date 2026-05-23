@@ -80,7 +80,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   // tenant-entity hat den unique-constraint auf .key (siehe
   // tenant.schema.indexes). unsafeCreateEntityTable baut das via
-  // buildDrizzleTable nach — pinst den TOCTOU-Schutz für signup-confirm.
+  // buildEntityTable nach — pinst den TOCTOU-Schutz für signup-confirm.
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });

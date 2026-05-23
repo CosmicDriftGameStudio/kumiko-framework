@@ -52,7 +52,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
 
   // file_refs ist framework-pgTable (nicht entity-getrieben, S1.5 hat
-  // die Schema-Sicht ohne buildDrizzleTable-Auto-Generation). Manuelle
+  // die Schema-Sicht ohne buildEntityTable-Auto-Generation). Manuelle
   // CREATE matched die Spalten aus framework/src/files/file-ref-table.ts
   await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS file_refs (

@@ -15,11 +15,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { asRawClient } from "../../bun-db/query";
-import {
-  integer as drizzleInteger,
-  table as drizzlePgTable,
-  uuid as drizzleUuid,
-} from "../../db/dialect";
+import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
@@ -31,9 +27,9 @@ import { generateId as uuid } from "../../utils";
 // task.updated is a no-op. Enough to exercise the apply path —
 // rebuild cost is dominated by event iteration + apply dispatch,
 // not the projection state shape.
-const taskCountTable = drizzlePgTable("read_perf_rebuild_task_count", {
-  tenantId: drizzleUuid("tenant_id").primaryKey(),
-  count: drizzleInteger("count").notNull().default(0),
+const taskCountTable = pgTable("read_perf_rebuild_task_count", {
+  tenantId: pgUuid("tenant_id").primaryKey(),
+  count: integer("count").notNull().default(0),
 });
 
 const taskCountProjection: ProjectionDefinition = {

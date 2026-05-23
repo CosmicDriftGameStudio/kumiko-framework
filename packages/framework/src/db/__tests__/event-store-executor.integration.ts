@@ -10,7 +10,7 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const entity = createEntity({
@@ -22,7 +22,7 @@ const entity = createEntity({
   },
   softDelete: true,
 });
-const table = buildDrizzleTable("esExecUser", entity);
+const table = buildEntityTable("esExecUser", entity);
 
 let testDb: TestDb;
 let tdb: TenantDb;
@@ -119,7 +119,7 @@ const sensitiveEntity = createEntity({
   },
   softDelete: true,
 });
-const sensitiveTable = buildDrizzleTable("esExecSensitive", sensitiveEntity);
+const sensitiveTable = buildEntityTable("esExecSensitive", sensitiveEntity);
 
 describe("event-store-executor — sensitive fields", () => {
   const crud = createEventStoreExecutor(sensitiveTable, sensitiveEntity, {

@@ -129,7 +129,7 @@ export async function rebuildMultiStreamProjection(
 
       // msp.table is narrowed by the upfront guard.
       const mspTable = msp.table as NonNullable<typeof msp.table>;
-      const tableName = getDrizzleTableName(mspTable);
+      const tableName = getTableName(mspTable);
       await rawTx.unsafe(`TRUNCATE TABLE ${quoteIdent(tableName)}`);
 
       const subscribedTypes = Object.keys(msp.apply);
@@ -234,7 +234,7 @@ function quoteIdent(name: string): string {
 }
 
 const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
-function getDrizzleTableName(table: unknown): string {
+function getTableName(table: unknown): string {
   if (typeof table !== "object" || table === null) {
     throw new InternalError({ message: "msp-rebuild: msp.table is not a pgTable object" });
   }

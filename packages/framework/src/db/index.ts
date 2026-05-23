@@ -75,8 +75,8 @@ export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export { tableExists } from "./schema-inspection";
 export {
   buildBaseColumns,
-  buildDrizzleTable,
-  type DrizzleTable,
+  buildEntityTable,
+  type EntityTable,
   toSnakeCase,
   toTableName,
 } from "./table-builder";

@@ -48,7 +48,7 @@ export function customFieldsField(): JsonbFieldDef {
 //   });
 //
 // Der `entityTable`-Parameter ist die Drizzle-Table-Instance (typically
-// `buildDrizzleTable(name, entity)`-Output). Die Closure über `entityTable`
+// `buildEntityTable(name, entity)`-Output). Die Closure über `entityTable`
 // erspart der MSP-apply-fn einen runtime-table-lookup über die Registry.
 //
 // **Was registriert wird**:

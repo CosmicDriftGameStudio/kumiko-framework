@@ -7,7 +7,7 @@ import {
   enrichWithReferences,
 } from "../db/eagerload";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import { assertUnreachable } from "../utils";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 import type { AccessRule, EntityDefinition, QueryHandlerDef, WriteHandlerDef } from "./types";
@@ -133,7 +133,7 @@ export function defineEntityWriteHandler(
     );
   }
 
-  const table = buildDrizzleTable(entityName, entity);
+  const table = buildEntityTable(entityName, entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
 
   let schema: ZodType;
@@ -182,7 +182,7 @@ export function defineEntityQueryHandler(
 ): QueryHandlerDef {
   const { entityName, verb } = parseHandlerName(name, QUERY_VERBS);
 
-  const table = buildDrizzleTable(entityName, entity);
+  const table = buildEntityTable(entityName, entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
 
   let schema: ZodType;
@@ -319,14 +319,14 @@ type AnyTable = TableColumns<any>;
 //
 //   const { table, executor } = createEntityExecutor("counter", counterEntity);
 //
-// Keep using the explicit buildDrizzleTable / createEventStoreExecutor duo
+// Keep using the explicit buildEntityTable / createEventStoreExecutor duo
 // when you need search-adapter / entity-cache options on the executor — this
 // helper covers the zero-config case.
 export function createEntityExecutor(
   entityName: string,
   entity: EntityDefinition,
 ): { readonly table: AnyTable; readonly executor: EventStoreExecutor } {
-  const table = buildDrizzleTable(entityName, entity);
+  const table = buildEntityTable(entityName, entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
   return { table, executor };
 }

@@ -1,7 +1,7 @@
 import { requestContext } from "../api/request-context";
 import { asRawClient, selectMany } from "../bun-db/query";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
@@ -181,14 +181,14 @@ export function createDispatcher(
   }
 
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
-  const tableCache = new Map<string, ReturnType<typeof buildDrizzleTable>>();
+  const tableCache = new Map<string, ReturnType<typeof buildEntityTable>>();
   const transitionCache = new Map<string, ReturnType<typeof defineTransitions>>();
 
-  function getTable(entityName: string): ReturnType<typeof buildDrizzleTable> | undefined {
+  function getTable(entityName: string): ReturnType<typeof buildEntityTable> | undefined {
     if (tableCache.has(entityName)) return tableCache.get(entityName);
     const entity = registry.getEntity(entityName);
     if (!entity) return undefined;
-    const table = buildDrizzleTable(entityName, entity, {
+    const table = buildEntityTable(entityName, entity, {
       relations: registry.getRelations(entityName),
     });
     tableCache.set(entityName, table);

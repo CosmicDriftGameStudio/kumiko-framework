@@ -11,7 +11,7 @@ import { z } from "zod";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
   createTestUser,
@@ -28,13 +28,13 @@ const shipmentEntity = createEntity({
   table: "read_msp_shipments",
   fields: { customer: createTextField({ required: true }) },
 });
-const shipmentTable = buildDrizzleTable("msp-shipment", shipmentEntity);
+const shipmentTable = buildEntityTable("msp-shipment", shipmentEntity);
 
 const refundEntity = createEntity({
   table: "read_msp_refunds",
   fields: { customer: createTextField({ required: true }) },
 });
-const refundTable = buildDrizzleTable("msp-refund", refundEntity);
+const refundTable = buildEntityTable("msp-refund", refundEntity);
 
 // Cross-cutting MSP: one row per customer, sums shipments − refunds. Key
 // differences from a single-stream projection:

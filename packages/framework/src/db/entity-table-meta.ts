@@ -2,8 +2,8 @@
 // Single source of truth statt verheirateter drizzle-pgTable-Builder.
 //
 // Phase 3a (Drizzle-Replacement Plan): Type + Generator existieren parallel
-// zu buildDrizzleTable. Konsumenten bleiben auf DrizzleTable (via Adapter
-// `entityTableMetaToDrizzleTable`), bis Phase 4 die Query-API auf Bun.sql
+// zu buildEntityTable. Konsumenten bleiben auf EntityTable (via Adapter
+// `entityTableMetaToEntityTable`), bis Phase 4 die Query-API auf Bun.sql
 // umstellt.
 //
 // Designed für zwei Quellen:

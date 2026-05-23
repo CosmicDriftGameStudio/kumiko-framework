@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createLongTextField,
@@ -46,7 +46,7 @@ export const tenantComplianceProfileEntity = createEntity({
   ],
 });
 
-export const tenantComplianceProfileTable = buildDrizzleTable(
+export const tenantComplianceProfileTable = buildEntityTable(
   "tenantComplianceProfile",
   tenantComplianceProfileEntity,
 );

@@ -1,7 +1,7 @@
 // TenantCurrency — which currencies each tenant is allowed to use
 // References currency.code, adds isActive flag per tenant
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,
@@ -16,4 +16,4 @@ export const tenantCurrencyEntity = createEntity({
   },
 });
 
-export const tenantCurrencyTable = buildDrizzleTable("tenant-currency", tenantCurrencyEntity);
+export const tenantCurrencyTable = buildEntityTable("tenant-currency", tenantCurrencyEntity);

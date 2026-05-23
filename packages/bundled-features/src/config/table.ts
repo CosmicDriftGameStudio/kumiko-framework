@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 // Config values are event-sourced. Each (key, scope) is its own aggregate
@@ -7,13 +7,13 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 // projection in one TX. Reads stay O(1) against the projection.
 //
 // System-scope rows use SYSTEM_TENANT_ID (not null) — buildBaseColumns
-// (via buildDrizzleTable) forces tenant_id NOT NULL, so die pre-ES "NULL
+// (via buildEntityTable) forces tenant_id NOT NULL, so die pre-ES "NULL
 // means system" convention is replaced with a fixed sentinel. Der unique
 // index über (key, tenant_id, user_id) prevent duplicate writes at the DB
 // level — deklariert via entity.indexes.
 //
 // Single-Source-of-Truth: `configValueEntity`. Die DB-Tabelle wird über
-// buildDrizzleTable aus der EntityDefinition abgeleitet, der unique-Index
+// buildEntityTable aus der EntityDefinition abgeleitet, der unique-Index
 // ist via entity.indexes deklariert. Plural-Re-Export `configValuesTable`
 // dient handlers (`reset.write.ts` etc.) als typisierte Drizzle-Table-Ref.
 export const configValueEntity = createEntity({
@@ -32,4 +32,4 @@ export const configValueEntity = createEntity({
   ],
 });
 
-export const configValuesTable = buildDrizzleTable("config-value", configValueEntity);
+export const configValuesTable = buildEntityTable("config-value", configValueEntity);

@@ -19,7 +19,7 @@ import { createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const userEntity = createEntity({
@@ -39,7 +39,7 @@ const userEntity = createEntity({
     { columns: ["tenantId", "email"], unique: true, name: "read_unique_users_tenant_email_uniq" },
   ],
 });
-const table = buildDrizzleTable("unique-user", userEntity);
+const table = buildEntityTable("unique-user", userEntity);
 const exec = createEventStoreExecutor(table, userEntity, { entityName: "unique-user" });
 
 let testDb: TestDb;

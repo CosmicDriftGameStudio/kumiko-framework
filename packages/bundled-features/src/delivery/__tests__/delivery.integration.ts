@@ -1,6 +1,6 @@
 import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -176,7 +176,7 @@ const ticketEntity = createEntity({
     status: createTextField({ required: true }),
   },
 });
-const ticketTable = buildDrizzleTable("ticket", ticketEntity);
+const ticketTable = buildEntityTable("ticket", ticketEntity);
 
 function ticketExecutor() {
   return createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" });

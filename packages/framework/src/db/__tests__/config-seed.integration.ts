@@ -12,7 +12,7 @@ import type { ConfigSeedDef, Registry } from "../../engine/types";
 import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
 import { seedConfigValues } from "../config-seed";
 import { createEncryptionProvider } from "../encryption";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 
 // --- Test Entity ---
 // Mirrors the config-value entity from bundled-features with a unique
@@ -32,7 +32,7 @@ const configEntity = createEntity({
     },
   ],
 });
-const configTable = buildDrizzleTable("cfgSeedTest", configEntity);
+const configTable = buildEntityTable("cfgSeedTest", configEntity);
 
 // --- Registry Stub ---
 const KEY_DEFS = {

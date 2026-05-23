@@ -149,10 +149,7 @@
       "compositePrimaryKeys": {
         "kumiko_event_consumers_name_instance_id_pk": {
           "name": "kumiko_event_consumers_name_instance_id_pk",
-          "columns": [
-            "name",
-            "instance_id"
-          ]
+          "columns": ["name", "instance_id"]
         }
       },
       "uniqueConstraints": {},
@@ -460,10 +457,7 @@
       "compositePrimaryKeys": {
         "kumiko_snapshots_aggregate_id_version_pk": {
           "name": "kumiko_snapshots_aggregate_id_version_pk",
-          "columns": [
-            "aggregate_id",
-            "version"
-          ]
+          "columns": ["aggregate_id", "version"]
         }
       },
       "uniqueConstraints": {},
