@@ -16,10 +16,38 @@
 //     drizzle's getTableName + getTableColumns (drizzle weiterhin als type-
 //     reference, NICHT als runtime-API-call)
 
-import { getTableColumns, getTableName } from "drizzle-orm";
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { toSnakeCase } from "../db/table-builder";
 import type { BunDbRunner } from "./connection";
+
+// Drizzle-pgTable-Inspection via raw Symbol-access (kein drizzle-orm import).
+// drizzle stores the table name unter `Symbol.for("drizzle:Name")` und die
+// column-map unter `Symbol.for("drizzle:Columns")`.
+const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+const DRIZZLE_COLUMNS_SYMBOL = Symbol.for("drizzle:Columns");
+
+function getDrizzleTableName(table: unknown): string | null {
+  if (typeof table !== "object" || table === null) return null;
+  const name = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+  return typeof name === "string" ? name : null;
+}
+
+function extractDrizzleColumns(table: unknown): Map<string, { name: string; sqlType?: string }> {
+  const out = new Map<string, { name: string; sqlType?: string }>();
+  if (typeof table !== "object" || table === null) return out;
+  const cols = (table as Record<symbol, unknown>)[DRIZZLE_COLUMNS_SYMBOL];
+  if (typeof cols !== "object" || cols === null) return out;
+  for (const [key, val] of Object.entries(cols as Record<string, unknown>)) {
+    if (typeof val !== "object" || val === null) continue;
+    const colObj = val as { name?: unknown; getSQLType?: () => string };
+    const colName = colObj.name;
+    if (typeof colName !== "string") continue;
+    // Drizzle's getSQLType uses `this` — call as method on colObj.
+    const sqlType = typeof colObj.getSQLType === "function" ? colObj.getSQLType() : undefined;
+    out.set(key, { name: colName, ...(sqlType !== undefined && { sqlType }) });
+  }
+  return out;
+}
 
 // `db` Input akzeptiert drei Shapes:
 //   1. Bun.SQL connection (BunDbRunner) — neue Welt, native .unsafe + .begin
@@ -109,20 +137,19 @@ function extractTableInfo(table: TableLike): TableInfo {
       pgTypeOf: (col) => typeByCol.get(col),
     };
   }
-  // drizzle pgTable: getTableName liefert string, getTableColumns liefert
-  // ein Map<field-name, columnObject>. Wir holen das einmal beim Aufruf
-  // und cachen die mapping.
-  const name = getTableName(table);
-  const cols = getTableColumns(table);
+  // drizzle pgTable: tableName via Symbol.for("drizzle:Name"), columns via
+  // enumerable properties (jeder col-object hat .name + .getSQLType()).
+  // Wir lesen Beide via raw Symbol/Property-access — kein drizzle-orm import.
+  const name = getDrizzleTableName(table);
+  if (!name) {
+    throw new Error(
+      "bun-db.extractTableInfo: table-Argument ist weder EntityTableMeta noch drizzle pgTable",
+    );
+  }
+  const cols = extractDrizzleColumns(table);
   const colByField = new Map<string, string>();
   const typeByCol = new Map<string, string>();
-  for (const [field, colObj] of Object.entries(cols)) {
-    // drizzle column-objects: .name = DB-column-name (snake_case),
-    // .getSQLType() = pg-type string
-    const colName = (colObj as { name: string }).name;
-    const sqlType = typeof (colObj as { getSQLType?: () => string }).getSQLType === "function"
-      ? (colObj as { getSQLType: () => string }).getSQLType()
-      : undefined;
+  for (const [field, { name: colName, sqlType }] of cols) {
     colByField.set(field, colName);
     if (sqlType) typeByCol.set(colName, sqlType);
   }
