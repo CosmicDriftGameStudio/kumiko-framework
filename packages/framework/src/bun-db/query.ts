@@ -181,11 +181,70 @@ function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
+// --- Value coercion at the driver boundary ------------------------------
+//
+// postgres-js returns timestamptz as JS Date (or ISO string depending on
+// driver config). Framework contract says timestamptz surfaces as
+// Temporal.Instant — without coercion every read hands callers a Date and
+// downstream code that does .epochMilliseconds / .add(...) crashes.
+//
+// Symmetric on write: Temporal.Instant doesn't bind directly into postgres-js
+// params — convert to ISO string when the column pgType is timestamptz.
+
+function isTemporalInstant(v: unknown): boolean {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as { epochNanoseconds?: unknown }).epochNanoseconds === "bigint"
+  );
+}
+
+function instantFromDriver(value: unknown): Temporal.Instant | null {
+  if (value === null || value === undefined) return null;
+  if (isTemporalInstant(value)) return value as Temporal.Instant;
+  if (value instanceof Date) return Temporal.Instant.fromEpochMilliseconds(value.getTime());
+  if (typeof value === "string") {
+    try {
+      return Temporal.Instant.from(value);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === "number") return Temporal.Instant.fromEpochMilliseconds(value);
+  return null;
+}
+
+function coerceRow<T extends Record<string, unknown>>(row: T, info: TableInfo): T {
+  let out: Record<string, unknown> | undefined;
+  for (const key of Object.keys(row)) {
+    const pgType = info.pgTypeOf(key);
+    if (pgType === "timestamptz" || pgType === "timestamptz(3)") {
+      const coerced = instantFromDriver(row[key]);
+      if (coerced !== null && coerced !== row[key]) {
+        if (!out) out = { ...row };
+        out[key] = coerced;
+      }
+    }
+  }
+  return (out ?? row) as T;
+}
+
+function coerceRows<T extends Record<string, unknown>>(
+  rows: readonly T[],
+  info: TableInfo,
+): readonly T[] {
+  return rows.map((r) => coerceRow(r, info));
+}
+
 // Helper für jsonb-Werte: Bun.sql kann arrays/objects nicht direkt als
 // jsonb binden — wir JSON.stringify + ::jsonb cast.
+// Plus Temporal.Instant → ISO string coercion for timestamptz columns.
 function prepareValue(value: unknown, pgType: string | undefined): { sql: string; bound: unknown } {
-  if (pgType === "jsonb" && value !== null && typeof value === "object") {
+  if (pgType === "jsonb" && value !== null && typeof value === "object" && !isTemporalInstant(value)) {
     return { sql: "::jsonb", bound: JSON.stringify(value) };
+  }
+  if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
+    return { sql: "", bound: (value as Temporal.Instant).toString() };
   }
   return { sql: "", bound: value };
 }
@@ -280,7 +339,8 @@ export async function selectMany<TRow = any>(
   if (options?.limit !== undefined) {
     sqlText += ` LIMIT ${options.limit}`;
   }
-  return (await asRawClient(db).unsafe(sqlText, values)) as readonly TRow[];
+  const raw = (await asRawClient(db).unsafe(sqlText, values)) as readonly Record<string, unknown>[];
+  return coerceRows(raw, info) as readonly TRow[];
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -324,7 +384,8 @@ export async function insertMany<TRow = any>(
     valuesClauses.push(`(${placeholders.join(", ")})`);
   }
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES ${valuesClauses.join(", ")} RETURNING *`;
-  return (await asRawClient(db).unsafe(sqlText, params)) as readonly TRow[];
+  const raw = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<string, unknown>[];
+  return coerceRows(raw, info) as readonly TRow[];
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -345,8 +406,10 @@ export async function insertOne<TRow = any>(
   const placeholders = entries.map((e, i) => `$${i + 1}${e.cast}`).join(", ");
   const params = entries.map((e) => e.value);
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES (${placeholders}) RETURNING *`;
-  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly TRow[];
-  return rows[0];
+  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<string, unknown>[];
+  const first = rows[0];
+  if (!first) return undefined;
+  return coerceRow(first, info) as TRow;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -378,7 +441,8 @@ export async function updateMany<TRow = any>(
     for (const v of w.values) values.push(v);
   }
   sqlText += " RETURNING *";
-  return (await asRawClient(db).unsafe(sqlText, values)) as readonly TRow[];
+  const raw = (await asRawClient(db).unsafe(sqlText, values)) as readonly Record<string, unknown>[];
+  return coerceRows(raw, info) as readonly TRow[];
 }
 
 export async function deleteMany(db: AnyDb, table: TableLike, where: WhereObject): Promise<void> {
