@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { updateMany } from "../bun-db/query";
 import type { DbRunner } from "../db/connection";
 import type { StoredEvent } from "../event-store/event-store";
 import type { MultiStreamApplyContext } from "../pipeline/multi-stream-apply-context";
@@ -71,15 +71,6 @@ export function setFields(
   }
   return async (event, tx) => {
     const values = typeof fields === "function" ? fields(event) : fields;
-    // ProjectionTable erases its column shape on purpose (the framework
-    // does not know user table shapes). Drizzle's tx.update().set() is
-    // strict about the concrete row, so we feed it the erased value; the
-    // type-safety guarantee for `values` lives at the setFields call-site.
-    // biome-ignore lint/suspicious/noExplicitAny: see note above.
-    const set = values as any; // @cast-boundary engine-bridge
-    await tx
-      .update(table)
-      .set(set)
-      .where(eq(idCol as never, event.aggregateId)); // @cast-boundary db-operator
+    await updateMany(tx, table, values, { id: event.aggregateId });
   };
 }

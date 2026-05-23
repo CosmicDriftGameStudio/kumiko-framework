@@ -1,4 +1,4 @@
-import { and, eq, type SQL } from "drizzle-orm";
+import { fetchOne } from "../bun-db/query";
 import type { TenantId } from "../engine/types/identifiers";
 import { NotFoundError } from "../errors";
 import type { DbConnection } from "./connection";
@@ -28,22 +28,11 @@ export async function assertExistsIn(
     entityName?: string;
   },
 ): Promise<NotFoundError | null> {
-  const conditions = [eq(entity[options.field], options.value)];
+  const where: Record<string, unknown> = { [options.field]: options.value };
+  if (options.tenantId !== undefined) where["tenantId"] = options.tenantId;
+  if (options.where) Object.assign(where, options.where);
 
-  if (options.tenantId !== undefined) {
-    conditions.push(eq(entity["tenantId"], options.tenantId));
-  }
-
-  if (options.where) {
-    for (const [key, val] of Object.entries(options.where)) {
-      conditions.push(eq(entity[key], val));
-    }
-  }
-
-  const [row] = await db
-    .select()
-    .from(entity)
-    .where(and(...conditions) as SQL); // @cast-boundary db-operator
+  const row = await fetchOne(db, entity, where);
 
   if (!row) {
     const entityName = options.entityName ?? String(options.field).replace(/Id$/, "");
