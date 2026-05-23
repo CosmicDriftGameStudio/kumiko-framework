@@ -1,6 +1,6 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { CUSTOM_FIELD_CLEARED_EVENT, CUSTOM_FIELDS_FEATURE_NAME } from "../constants";
+import { customFieldsFeature } from "../feature";
 
 export const clearCustomFieldPayloadSchema = z.object({
   entityName: z.string().min(1).max(64),
@@ -22,7 +22,7 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
     await ctx.unsafeAppendEvent({
       aggregateId: payload.entityId,
       aggregateType: payload.entityName,
-      type: `${CUSTOM_FIELDS_FEATURE_NAME}:event:${CUSTOM_FIELD_CLEARED_EVENT}`,
+      type: customFieldsFeature.exports.clearedEvent.name,
       payload: { fieldKey: payload.fieldKey },
     });
 

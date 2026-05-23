@@ -23,6 +23,13 @@
 //   Consumer MUSS in der entity-definition eine `customFields`-Spalte als
 //   `customFieldsField()` (jsonb) deklarieren.
 //
+// **Exports-Pattern (2026-05-23 refactor)**:
+//   `customFieldsFeature.exports.{setEvent,clearedEvent,fieldDefinitionDeletedEvent}`
+//   liefern typed EventDef-handles. Handler + wire-for-entity nutzen
+//   `<event>.name` als compile-time-literal-typed qualified-string — keine
+//   hand-gebauten Template-Literals mehr (T1 hat den toKebab-collapse-drift
+//   aufgedeckt, siehe Memory feedback_event_def_exports_pattern).
+//
 // **Out-of-B2 (future iterations)**:
 //   - Cross-scope-conflict-Detection (Tenant überschreibt system fieldKey)
 //   - cap-counter quota-Check beim fieldDefinition-create
@@ -55,39 +62,57 @@ const fieldDefinitionDeletedSchema = z.object({
   fieldKey: z.string(),
 });
 
-export function createCustomFieldsFeature() {
-  return defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) => {
-    r.entity("field-definition", fieldDefinitionEntity);
+// Singleton feature-definition mit typed exports. Handler + wire-for-entity
+// importieren diesen `customFieldsFeature` und greifen lazy in ihrer
+// runtime-arrow-fn auf `.exports.<event>.name` zu — der module-cycle
+// (feature.ts -> handlers/*.write.ts -> feature.ts) löst sich auf weil
+// kein top-level-access stattfindet.
+export const customFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) => {
+  r.entity("field-definition", fieldDefinitionEntity);
 
-    // Event-types — qualified als "custom-fields:event:<short-name>".
-    r.defineEvent(CUSTOM_FIELD_SET_EVENT, customFieldSetSchema);
-    r.defineEvent(CUSTOM_FIELD_CLEARED_EVENT, customFieldClearedSchema);
-    r.defineEvent(FIELD_DEFINITION_DELETED_EVENT, fieldDefinitionDeletedSchema);
+  // Event-types — qualified als "custom-fields:event:<short-name>".
+  // Returned EventDefs liefern .name als compile-time literal-typed string,
+  // den Handler + MSP-keys konsumieren statt Template-Literal-Konstruktion.
+  const setEvent = r.defineEvent(CUSTOM_FIELD_SET_EVENT, customFieldSetSchema);
+  const clearedEvent = r.defineEvent(CUSTOM_FIELD_CLEARED_EVENT, customFieldClearedSchema);
+  const fieldDefinitionDeletedEvent = r.defineEvent(
+    FIELD_DEFINITION_DELETED_EVENT,
+    fieldDefinitionDeletedSchema,
+  );
 
-    // Extension-Registrar — registriert dass diese Extension existiert.
-    // Consumer-side: r.useExtension("customFields", "<entity>") MARKIERT
-    // opt-in, aber wired NICHTS automatisch. Consumer MUSS zusätzlich
-    // `wireCustomFieldsFor(r, entity, table)` aufrufen damit MSP +
-    // postQuery-hook + search-extension tatsächlich registriert werden.
-    // Empty-options-Pattern (`{}`) ist absichtlich — boot-time-onRegister-
-    // wiring würde Closure über Drizzle-Table benötigen, die der Consumer
-    // bei extendsRegistrar-Registration nicht kennt. Daher consumer-side
-    // explicit-wiring statt magic-auto-wiring.
-    r.extendsRegistrar(CUSTOM_FIELDS_EXTENSION, {});
+  // Extension-Registrar — registriert dass diese Extension existiert.
+  // Consumer-side: r.useExtension("customFields", "<entity>") MARKIERT
+  // opt-in, aber wired NICHTS automatisch. Consumer MUSS zusätzlich
+  // `wireCustomFieldsFor(r, entity, table)` aufrufen damit MSP +
+  // postQuery-hook + search-extension tatsächlich registriert werden.
+  // Empty-options-Pattern (`{}`) ist absichtlich — boot-time-onRegister-
+  // wiring würde Closure über Drizzle-Table benötigen, die der Consumer
+  // bei extendsRegistrar-Registration nicht kennt. Daher consumer-side
+  // explicit-wiring statt magic-auto-wiring.
+  r.extendsRegistrar(CUSTOM_FIELDS_EXTENSION, {});
 
-    // Definition-CRUD handlers (B1).
-    r.writeHandler(defineTenantFieldHandler);
-    r.writeHandler(defineSystemFieldHandler);
-    r.writeHandler(deleteTenantFieldHandler);
-    r.writeHandler(deleteSystemFieldHandler);
+  // Definition-CRUD handlers (B1).
+  r.writeHandler(defineTenantFieldHandler);
+  r.writeHandler(defineSystemFieldHandler);
+  r.writeHandler(deleteTenantFieldHandler);
+  r.writeHandler(deleteSystemFieldHandler);
 
-    // Value-write handlers (B2). Emittieren events auf host-aggregate-stream.
-    r.writeHandler(setCustomFieldHandler);
-    r.writeHandler(clearCustomFieldHandler);
+  // Value-write handlers (B2). Emittieren events auf host-aggregate-stream.
+  r.writeHandler(setCustomFieldHandler);
+  r.writeHandler(clearCustomFieldHandler);
 
-    // List-Query — tenant-scoped (B1-limit).
-    r.queryHandler(
-      defineEntityListHandler("field-definition", fieldDefinitionEntity, tenantAdminAccess),
-    );
-  });
+  // List-Query — tenant-scoped (B1-limit).
+  r.queryHandler(
+    defineEntityListHandler("field-definition", fieldDefinitionEntity, tenantAdminAccess),
+  );
+
+  return { setEvent, clearedEvent, fieldDefinitionDeletedEvent };
+});
+
+// Backwards-compat-wrapper. Bestehende Caller (z.B. integration-tests,
+// host-apps) nutzen weiterhin `createCustomFieldsFeature()`. Returnt den
+// module-level-Singleton — kein neuer build pro Aufruf, was für consumer
+// nicht erkennbar ist (read-only inspection).
+export function createCustomFieldsFeature(): typeof customFieldsFeature {
+  return customFieldsFeature;
 }
