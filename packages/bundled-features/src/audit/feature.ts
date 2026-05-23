@@ -15,6 +15,12 @@ import { listQuery } from "./handlers/list.query";
 // the framework).
 export function createAuditFeature(): FeatureDefinition {
   return defineFeature("audit", (r) => {
+    // INTENTIONAL BUG INJECTION — C1 M4 Acceptance proof.
+    // The use-all-bundled smoke-job MUST go red because of this.
+    // Will be reverted as soon as CI confirms the gate works.
+    throw new Error(
+      "C1 M4 bug-injection proof — if you see this, the gate worked.",
+    );
     const queries = {
       list: r.queryHandler(listQuery),
     };
