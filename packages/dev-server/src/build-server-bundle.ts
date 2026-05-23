@@ -82,7 +82,23 @@ const RUNTIME_EXTERNALS = [
 // Markierung scheitert bun build an dynamic-imports (z.B. drizzle-kit →
 // @libsql/client). Tree-Shake wirft sie eh aus dem Bundle — der Marker
 // schaltet nur das resolution-during-build ab. NICHT in runtime-deps.
-const BUILD_ONLY_EXTERNALS = ["meilisearch", "pino", "pino-pretty", "@aws-sdk/*"] as const;
+//
+// drizzle-kit's dialect-resolver macht dynamic-imports zu allen DB-driver-
+// packages (planetscale/libsql/sqlite/neon/vercel/mysql2). Wir nutzen nur
+// postgres → diese werden never-loaded zur Runtime, aber der Bundler will
+// sie resolven. Aufgedeckt durch C1 Empfehlung 4 (bundle-smoke).
+const BUILD_ONLY_EXTERNALS = [
+  "meilisearch",
+  "pino",
+  "pino-pretty",
+  "@aws-sdk/*",
+  "@planetscale/database",
+  "@libsql/client",
+  "better-sqlite3",
+  "@neondatabase/serverless",
+  "@vercel/postgres",
+  "mysql2",
+] as const;
 
 export type BuildServerBundleOptions = {
   /** App-Root. Default: process.cwd(). */

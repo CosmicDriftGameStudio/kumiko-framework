@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "boot": "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts"
+    "boot": "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
+    "build": "kumiko-build",
+    "boot:bundled": "KUMIKO_DRY_RUN_ENV=boot bun dist-server/server.js"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
