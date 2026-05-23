@@ -77,9 +77,68 @@ jobs:
       - name: Run tests
         run: yarn kumiko check
 
+  use-all-bundled-smoke:
+    # C1 Sprint 9.8 Phase C, M4: canonical smoke-gate. Bootet
+    # samples/apps/use-all-bundled mit KUMIKO_DRY_RUN_ENV=boot — alle
+    # validators laufen, kein DB/Redis-Connect. Fängt feature-wiring-
+    # Bugs (Object.entries(undefined), self-extension, missing-requires,
+    # …) bevor sie publish + downstream-apps treffen.
+    # Plan: kumiko-platform/docs/plans/features/use-all-features-smoke.md
+    runs-on: cdgs-runner
+    needs: test
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.20"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+      - name: Enable corepack
+        run: corepack enable
+      - name: Cache Yarn
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.yarn/cache
+            ~/.yarn/berry/cache
+            .yarn/cache
+          key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            yarn-${{ runner.os }}-
+      - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: yarn install
+      - name: Verify drizzle/generate.ts is idempotent
+        # Re-run and assert kein Diff. Wenn jemand das schema-generated.ts
+        # ändert ohne generate.ts re-runned zu haben → CI fail.
+        run: |
+          bun samples/apps/use-all-bundled/drizzle/generate.ts
+          git diff --exit-code samples/apps/use-all-bundled/drizzle/schema.generated.ts
+      - name: Boot smoke (no DB)
+        # Stub-secrets: validators check Format (base64 32-byte, min-length),
+        # nicht echte Crypto-Strength. boot-mode exitiert vor jedem
+        # secret-decrypt-Pfad. Konstant gehalten für reproduzierbare runs.
+        env:
+          KUMIKO_DRY_RUN_ENV: boot
+          DATABASE_URL: postgres://smoke:smoke@127.0.0.1:1/smoke
+          REDIS_URL: redis://127.0.0.1:1
+          JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
+          # Random 32-byte base64-encoded stub. Never used as real KEK —
+          # boot-mode exits before any encrypt/decrypt path runs.
+          KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+        run: bun samples/apps/use-all-bundled/bin/main.ts
+
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
+    needs: [test, use-all-bundled-smoke]
     # github-hosted, NICHT cdgs-runner: npm akzeptiert sigstore-provenance-
     # attestations nur von github-hosted runners (HTTP 422 sonst). Public
     # Repo → github-hosted free. Test-Job bleibt auf cdgs-runner (resources).
