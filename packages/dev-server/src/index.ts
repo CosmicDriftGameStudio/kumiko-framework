@@ -54,6 +54,8 @@ export type {
   SignupSetup,
 } from "./run-prod-app";
 export { runProdApp } from "./run-prod-app";
+export type { ScaffoldAppOptions, ScaffoldAppResult } from "./scaffold-app";
+export { scaffoldApp } from "./scaffold-app";
 export type {
   ScaffoldDeployOptions,
   ScaffoldDeployResult,
