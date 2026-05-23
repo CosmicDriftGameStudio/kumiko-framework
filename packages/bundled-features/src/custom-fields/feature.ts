@@ -50,7 +50,10 @@ import { fieldDefinitionEntity } from "./entity";
 import { customFieldClearedSchema, customFieldSetSchema } from "./events";
 import { clearCustomFieldHandler } from "./handlers/clear-custom-field.write";
 import { defineSystemFieldHandler } from "./handlers/define-system-field.write";
-import { defineTenantFieldHandler } from "./handlers/define-tenant-field.write";
+import {
+  createDefineTenantFieldHandler,
+  defineTenantFieldHandler,
+} from "./handlers/define-tenant-field.write";
 import { deleteSystemFieldHandler } from "./handlers/delete-system-field.write";
 import { deleteTenantFieldHandler } from "./handlers/delete-tenant-field.write";
 import { setCustomFieldHandler } from "./handlers/set-custom-field.write";
@@ -113,6 +116,45 @@ export const customFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r)
 // host-apps) nutzen weiterhin `createCustomFieldsFeature()`. Returnt den
 // module-level-Singleton — kein neuer build pro Aufruf, was für consumer
 // nicht erkennbar ist (read-only inspection).
-export function createCustomFieldsFeature(): typeof customFieldsFeature {
-  return customFieldsFeature;
+//
+// **T1.5e options**: when `fieldDefinitionLimitPerTenant` is set, the
+// returned feature carries a fresh `define-tenant-field` handler with the
+// quota baked in. Callers that don't pass options get the singleton — no
+// change in behavior.
+export function createCustomFieldsFeature(
+  opts: { readonly fieldDefinitionLimitPerTenant?: number } = {},
+): typeof customFieldsFeature {
+  if (opts.fieldDefinitionLimitPerTenant === undefined) {
+    return customFieldsFeature;
+  }
+  return defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) => {
+    r.entity("field-definition", fieldDefinitionEntity);
+
+    const setEvent = r.defineEvent(CUSTOM_FIELD_SET_EVENT, customFieldSetSchema);
+    const clearedEvent = r.defineEvent(CUSTOM_FIELD_CLEARED_EVENT, customFieldClearedSchema);
+    const fieldDefinitionDeletedEvent = r.defineEvent(
+      FIELD_DEFINITION_DELETED_EVENT,
+      fieldDefinitionDeletedSchema,
+    );
+
+    r.extendsRegistrar(CUSTOM_FIELDS_EXTENSION, {});
+
+    r.writeHandler(
+      createDefineTenantFieldHandler({
+        fieldDefinitionLimitPerTenant: opts.fieldDefinitionLimitPerTenant,
+      }),
+    );
+    r.writeHandler(defineSystemFieldHandler);
+    r.writeHandler(deleteTenantFieldHandler);
+    r.writeHandler(deleteSystemFieldHandler);
+
+    r.writeHandler(setCustomFieldHandler);
+    r.writeHandler(clearCustomFieldHandler);
+
+    r.queryHandler(
+      defineEntityListHandler("field-definition", fieldDefinitionEntity, tenantAdminAccess),
+    );
+
+    return { setEvent, clearedEvent, fieldDefinitionDeletedEvent };
+  });
 }
