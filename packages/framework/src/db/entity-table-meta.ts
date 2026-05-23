@@ -6,12 +6,17 @@
 // `entityTableMetaToDrizzleTable`), bis Phase 4 die Query-API auf Bun.sql
 // umstellt.
 //
-// Designed für drei Quellen:
-//   1. EntityDefinition (heute): buildEntityTableMeta(name, entity)
-//   2. Raw-Table-Definitionen (heute hardgeschriebene drizzle-pgTables
-//      für projection-tables wie job-run-logs): buildRawEntityTableMeta(...)
-//   3. Phase 5+: Direkt-deklarierte projection.entity-Definitionen, dann
-//      über (1) abgewickelt.
+// Designed für zwei Quellen:
+//   1. **Managed** — EntityDefinition via buildEntityTableMeta(name, entity).
+//      Standard-Pfad mit base-columns (id, tenant_id, version, inserted_at,
+//      modified_at, inserted_by_id, modified_by_id, ggf. softDelete-Cols),
+//      automatischer tenant_id-Index, audit-fähig.
+//   2. **Unmanaged** — defineUnmanagedTable(input). Escape-Hatch für Tabellen
+//      die NICHT durch das Entity-System gemanagt werden — keine erzwungenen
+//      base-columns, kein Standard-Audit-Trail. App-Author trägt Verantwortung
+//      für Tenant-Scoping, Version-Tracking, audit-by-Spalten. Verwendung
+//      auf Sondercases beschränken (child-projection-tables ohne tenant,
+//      append-only-logs mit serial PK, aggregate-ID ohne DEFAULT, …).
 
 import type {
   EntityDefinition,
@@ -70,7 +75,11 @@ export type EntityTableMeta = {
   // primaryKey:true; the constraint is emitted at table-level.
   readonly compositePrimaryKey?: CompositePrimaryKeyMeta;
   // Source-hint für Diagnose/Tests — nicht funktional verwendet.
-  readonly source: "entity" | "raw";
+  // "managed" = aus EntityDefinition (mit base-columns + audit-trail).
+  // "unmanaged" = via defineUnmanagedTable — kein Standard-Audit, App
+  // trägt Verantwortung. Migration-Generator + Tooling können den
+  // discriminator nutzen um Warnungen zu rendern ("X tables are unmanaged").
+  readonly source: "managed" | "unmanaged";
 };
 
 // Standard base-columns für event-sourced Read-Model-Tabellen. Spiegelt
@@ -302,22 +311,31 @@ export function buildEntityTableMeta(
     tableName,
     columns,
     indexes,
-    source: "entity",
+    source: "managed",
   };
 }
 
-// Für die ~4 handgeschriebenen projection-tables in bundled-features
-// (delivery-attempts, job-runs, job-run-logs, subscriptions) — diese
-// werden später (Phase 3b) auf EntityDefinition migriert; bis dahin
-// liefern sie EntityTableMeta direkt.
-export type RawEntityTableMetaInput = {
+// Escape-Hatch für Tabellen die NICHT durch das Entity-System gemanagt
+// werden. Kein Audit-Trail (keine version, inserted_at, modified_by etc.),
+// kein automatischer tenant_id-Index, kein softDelete-Support.
+//
+// **Vorsicht-vor-Use:** wenn du das hier benutzt, gibst du das Standard-
+// Audit-Pattern auf. Begründe im Code WARUM (child-projection ohne tenant-
+// scope, aggregate-id-PK ohne DEFAULT, append-only-log mit serial PK,
+// performance-critical hot-path ohne version-check, …). Reviewer sollten
+// jede neue defineUnmanagedTable-Stelle prüfen.
+//
+// Heutige use-cases im framework:
+//   - `read_delivery_attempts` — id kommt aus dem Aggregate-Stream
+//   - `read_job_run_logs` — child-table, serial PK, kein tenant-scope
+export type UnmanagedTableInput = {
   readonly tableName: string;
   readonly columns: readonly ColumnMeta[];
   readonly indexes?: readonly IndexMeta[];
   readonly compositePrimaryKey?: CompositePrimaryKeyMeta;
 };
 
-export function buildRawEntityTableMeta(input: RawEntityTableMetaInput): EntityTableMeta {
+export function defineUnmanagedTable(input: UnmanagedTableInput): EntityTableMeta {
   return {
     tableName: input.tableName,
     columns: input.columns,
@@ -325,6 +343,6 @@ export function buildRawEntityTableMeta(input: RawEntityTableMetaInput): EntityT
     ...(input.compositePrimaryKey !== undefined && {
       compositePrimaryKey: input.compositePrimaryKey,
     }),
-    source: "raw",
+    source: "unmanaged",
   };
 }

@@ -50,9 +50,9 @@ export type {
   EntityTableMeta,
   IndexMeta,
   PgType,
-  RawEntityTableMetaInput,
+  UnmanagedTableInput,
 } from "./entity-table-meta";
-export { buildEntityTableMeta, buildRawEntityTableMeta } from "./entity-table-meta";
+export { buildEntityTableMeta, defineUnmanagedTable } from "./entity-table-meta";
 export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export { fetchOne } from "./row-helpers";
 export { tableExists } from "./schema-inspection";

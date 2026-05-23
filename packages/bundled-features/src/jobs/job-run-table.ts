@@ -1,6 +1,6 @@
 import {
   buildDrizzleTable,
-  buildRawEntityTableMeta,
+  defineUnmanagedTable,
   type EntityTableMeta,
   instant,
   table as pgTable,
@@ -68,13 +68,14 @@ export const jobRunLogsTable = pgTable("read_job_run_logs", {
   timestamp: instant("timestamp").notNull(),
 });
 
-// Raw EntityTableMeta für den Migration-Generator (Phase 3b von drizzle-
-// replacement). Non-standard shape: serial PK (kein uuid), keine
-// EntityDefinition-base-columns (kein tenant_id/version/inserted_at —
-// log-rows sind child von jobRun, tenant-context lebt am parent). Daher
-// kein createEntity, sondern raw-Deklaration. pgTable bleibt unverändert
-// als Query-API-Source; Phase 4 leitet das pgTable aus dieser Meta ab.
-export const jobRunLogsTableMeta: EntityTableMeta = buildRawEntityTableMeta({
+// **Unmanaged table** — bewusst KEIN createEntity. Begründung:
+//   - serial PK (kein uuid) — pre-ES legacy, kompatibilität mit existing rows
+//   - KEIN tenant_id — child-Tabelle von jobRun, tenant-context lebt am parent
+//   - keine base-columns (kein version/inserted_at/inserted_by_id) — append-
+//     only log, kein in-place-update, keine Audit-Spalten gewünscht
+// pgTable bleibt source-of-truth für Query-API; Phase 4 leitet das pgTable
+// aus dieser Meta ab.
+export const jobRunLogsTableMeta: EntityTableMeta = defineUnmanagedTable({
   tableName: "read_job_run_logs",
   columns: [
     { name: "id", pgType: "serial", notNull: true, primaryKey: true },

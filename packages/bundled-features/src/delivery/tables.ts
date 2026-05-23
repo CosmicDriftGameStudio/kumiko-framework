@@ -1,7 +1,7 @@
 import {
   boolean,
   buildBaseColumns,
-  buildRawEntityTableMeta,
+  defineUnmanagedTable,
   type EntityTableMeta,
   instant,
   table as pgTable,
@@ -41,15 +41,15 @@ export const deliveryAttemptsTable = pgTable("read_delivery_attempts", {
   createdAt: instant("created_at").default(sql`now()`).notNull(),
 });
 
-// Raw EntityTableMeta für die Migration-Generator-Pipeline (Phase 3b von
-// drizzle-replacement). Diese Tabelle hat ein non-standard-shape: id wird
-// vom Aggregate-Stream geliefert (kein gen_random_uuid()), keine version/
-// modified_by/inserted_by columns, kein softDelete — daher kein
-// createEntity, sondern raw-Deklaration via buildRawEntityTableMeta.
-//
-// Die parallel-pgTable bleibt source-of-truth für Query-API; in Phase 4
-// (Bun.sql) wird das pgTable abgeleitet via Adapter aus dieser Meta.
-export const deliveryAttemptsTableMeta: EntityTableMeta = buildRawEntityTableMeta({
+// **Unmanaged table** — bewusst KEIN createEntity. Begründung:
+//   - id kommt aus dem Aggregate-Stream (kein gen_random_uuid()-DEFAULT)
+//   - kein version/inserted_by/modified_by/modified_at — keine in-place-
+//     Edits, keine Audit-Spalten nötig (idempotent-on-replay via PK-Konflikt)
+//   - created_at statt inserted_at — historischer Naming-Drift, kein Bug
+// App trägt Verantwortung für tenant-scoping in Queries + replay-idempotency.
+// pgTable bleibt source-of-truth für Query-API; Phase 4 leitet das pgTable
+// aus dieser Meta ab.
+export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
   tableName: "read_delivery_attempts",
   columns: [
     { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
