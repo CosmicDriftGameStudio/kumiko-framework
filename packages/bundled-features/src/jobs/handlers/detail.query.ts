@@ -1,6 +1,5 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
 
@@ -19,11 +18,9 @@ export const detailQuery = defineQueryHandler({
 
     if (!row) return null;
 
-    const logs = await db
-      .select()
-      .from(jobRunLogsTable)
-      .where(eq(jobRunLogsTable.runId, query.payload.runId))
-      .orderBy(jobRunLogsTable.id);
+    const logs = await selectMany(db, jobRunLogsTable, { runId: query.payload.runId }, {
+      orderBy: { col: "id", direction: "asc" },
+    });
 
     return { ...row, logs };
   },

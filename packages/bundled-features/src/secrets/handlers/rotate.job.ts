@@ -17,6 +17,7 @@
 // that landed the row on the new kekVersion first surfaces here as a
 // version_conflict error (counted as "skipped", not "failed").
 
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
@@ -26,7 +27,6 @@ import {
 import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { rewrapDek } from "@cosmicdrift/kumiko-framework/secrets";
-import { ne } from "drizzle-orm";
 import { type StoredEnvelope, tenantSecretEntity, tenantSecretsTable } from "../table";
 
 const DEFAULT_BATCH_SIZE = 100;
@@ -100,17 +100,13 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
     }
 
     const targetVersion = provider.currentVersion();
-    const batch = await db
-      .select({
-        id: tenantSecretsTable.id,
-        tenantId: tenantSecretsTable.tenantId,
-        version: tenantSecretsTable.version,
-        envelope: tenantSecretsTable.envelope,
-        kekVersion: tenantSecretsTable.kekVersion,
-      })
-      .from(tenantSecretsTable)
-      .where(ne(tenantSecretsTable.kekVersion, targetVersion))
-      .limit(batchSize);
+    const batch = await selectMany<{
+      id: string;
+      tenantId: string;
+      version: number;
+      envelope: StoredEnvelope;
+      kekVersion: number;
+    }>(db, tenantSecretsTable, { kekVersion: { ne: targetVersion } }, { limit: batchSize });
 
     if (batch.length === 0) break;
 
