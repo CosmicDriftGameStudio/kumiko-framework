@@ -142,9 +142,77 @@ jobs:
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
         run: bun samples/apps/use-all-bundled/bin/main.ts
 
+  use-all-bundled-postgres-smoke:
+    # C1 M3: echter boot bis /health gegen postgres + redis service-
+    # containers. Apply drizzle migrations, spawn bun bin/main.ts, curl
+    # /health. Pattern wie Studio's Deploy, gegen alle 30 bundled-features.
+    runs-on: cdgs-runner
+    needs: use-all-bundled-smoke
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: smoke
+          POSTGRES_PASSWORD: smoke
+          POSTGRES_DB: smoke
+        options: >-
+          --health-cmd "pg_isready -U smoke"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:8-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.20"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+      - name: Enable corepack
+        run: corepack enable
+      - name: Cache Yarn
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.yarn/cache
+            ~/.yarn/berry/cache
+            .yarn/cache
+          key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            yarn-${{ runner.os }}-
+      - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: yarn install
+      - name: Postgres-smoke (migrate + boot + /health)
+        env:
+          DATABASE_URL: postgres://smoke:smoke@127.0.0.1:5432/smoke
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
+          KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+          PORT: "3000"
+        run: bash samples/apps/use-all-bundled/scripts/smoke-postgres.sh
+
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, use-all-bundled-smoke]
+    needs: [test, use-all-bundled-smoke, use-all-bundled-postgres-smoke]
     # github-hosted, NICHT cdgs-runner: npm akzeptiert sigstore-provenance-
     # attestations nur von github-hosted runners (HTTP 422 sonst). Public
     # Repo → github-hosted free. Test-Job bleibt auf cdgs-runner (resources).
