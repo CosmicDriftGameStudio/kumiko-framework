@@ -126,21 +126,26 @@ function readEnv(name: string): string | undefined {
   return value === undefined || value === "" ? undefined : value;
 }
 
-// Parse `KUMIKO_DRY_RUN_ENV=…` into a DryRunMode. Truthy "1" aliases
-// "human" — the most common deploy-Q quick-look. Unknown values are
-// warned-and-ignored: a typo like `=humans` would otherwise look like
-// a confused boot 30 seconds later when the schema fails.
-function parseDryRunMode(raw: string | undefined): DryRunMode | null {
+// `boot` is the C1 smoke-test path — validators run, no DB/Redis connect,
+// exit after registry-build. Render-modes (human|json|pulumi|k8s|1)
+// inspect the env-schema and exit before any feature wiring.
+type RunMode = DryRunMode | "boot";
+
+function parseRunMode(raw: string | undefined): RunMode | null {
   if (!raw) return null;
   const v = raw.toLowerCase();
   if (v === "1" || v === "true" || v === "human") return "human";
-  if (v === "json" || v === "pulumi" || v === "k8s") return v;
+  if (v === "json" || v === "pulumi" || v === "k8s" || v === "boot") return v;
   // biome-ignore lint/suspicious/noConsole: boot-time warn for typo discovery
   console.warn(
     `[runProdApp] KUMIKO_DRY_RUN_ENV="${raw}" unrecognized ` +
-      `(expected 1|human|json|pulumi|k8s); continuing with normal boot.`,
+      `(expected 1|human|json|pulumi|k8s|boot); continuing with normal boot.`,
   );
   return null;
+}
+
+function isRenderMode(mode: RunMode | null): mode is DryRunMode {
+  return mode !== null && mode !== "boot";
 }
 
 function defaultBootErrorReporter(err: KumikoBootError): never {
@@ -485,13 +490,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    at parse-time before the polyfill loads. Plain strings + .regex /
   //    .min / .email / .url cover every env-var shape we've actually
   //    needed in 9.1's audit (37 references, 25 distinct vars).
+  const envSource = options.envSource ?? process.env;
+  const runMode = parseRunMode(envSource["KUMIKO_DRY_RUN_ENV"]);
   if (options.envSchema) {
-    const envSource = options.envSource ?? process.env;
-    const dryRunMode = parseDryRunMode(envSource["KUMIKO_DRY_RUN_ENV"]);
-    if (dryRunMode !== null) {
+    if (isRenderMode(runMode)) {
       // biome-ignore lint/suspicious/noConsole: dry-run output IS the deliverable
       console.log(
-        renderDryRun(options.envSchema, dryRunMode, {
+        renderDryRun(options.envSchema, runMode, {
           ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
           sources: options.envSchema.sources,
         }),
@@ -504,6 +509,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       }
       return makeDryRunHandle();
     }
+    // boot-mode AND normal-boot both run env-validation. boot-mode wants
+    // a real env-check (all required vars present + schema-valid) before
+    // it asserts feature-wiring works.
     try {
       parseEnv(options.envSchema.schema, envSource, {
         sources: options.envSchema.sources,
@@ -553,6 +561,22 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   validateBoot(features);
   const registry = createRegistry(features);
+
+  // C1 boot-mode exit: validators ran, registry built, no DB/Redis
+  // operations executed yet (postgres.js + ioredis are lazy). Tear down
+  // the lazy clients so Bun doesn't keep them open, then exit / return.
+  if (runMode === "boot") {
+    // biome-ignore lint/suspicious/noConsole: boot-mode output IS the deliverable
+    console.log(
+      `[runProdApp] boot validation OK (${features.length} features, ${registry.features.size} registry entries)`,
+    );
+    await closeDb();
+    redis.disconnect();
+    if (options.envSource === undefined) {
+      process.exit(0);
+    }
+    return makeDryRunHandle();
+  }
 
   // Sprint-8a Tier-Composition auto-wire: scan features for a
   // tenantTierResolver-extension. If found AND user didn't supply own
