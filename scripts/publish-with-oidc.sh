@@ -89,6 +89,16 @@ for pkg_json in packages/*/package.json; do
     # Marker-Lines (release 0.4.0..0.7.0) gab es zwar npm-publish, aber keine
     # Tags/Releases. Pattern matched 1:1 was `yarn changeset publish` selbst
     # emitted (action source: packages/action-utils/src/run.ts).
+    #
+    # Lokales git-tag selbst erstellen, sonst failed der nachgelagerte
+    # `git push origin <tag>` der action mit "src refspec does not match any":
+    # bei `yarn changeset publish`-default-flow erstellt yarn die tags, bei
+    # unserem custom-script müssen wir das selber tun. Resultat sonst:
+    # release-Job rot trotz erfolgreichem npm publish.
+    # Lightweight (kein -a/-m) → keine user.email/name config nötig.
+    # changesets/action selbst nutzt auch lightweight-tags.
+    git tag "$name@$version" >&2 || \
+      echo "[warn] git tag $name@$version failed (may already exist)" >&2
     echo "New tag: $name@$version"
   else
     failed+=("$name@$version")
