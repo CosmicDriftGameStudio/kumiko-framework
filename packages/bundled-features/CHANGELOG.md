@@ -1,5 +1,111 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.13.0
+
+### Minor Changes
+
+- 7f56b2f: **Framework**: add `JsonbFieldDef` + `createJsonbField()` primitive. Schema-less jsonb-Spalte (default `{}`, NOT NULL) für tenant-defined extension-data, AI-inferred metadata, free-form config-blobs. Vs. `embedded` (typed sub-schema): jsonb akzeptiert beliebige keys. Table-builder + schema-builder + e2e-generator alle aktualisiert.
+
+  **custom-fields-Bundle (B2)**: ergänzt B1 um Custom-Field-VALUES:
+
+  - `customField.set` + `customField.cleared` Event-Types (auf host-aggregate stream)
+  - `set-custom-field` + `clear-custom-field` write-handlers (emit events)
+  - `r.extendsRegistrar("customFields")` für consumer opt-in via `useExtension`
+  - `customFieldsField()` helper für entity-fields-definition
+  - `wireCustomFieldsFor(r, entityName, entityTable)` consumer-side-API registriert:
+    - `r.useExtension("customFields", entity)` opt-in marker
+    - MultiStreamProjection: customField.set/.cleared/fieldDefinition.deleted → UPDATE entityTable.customFields jsonb (jsonb_set / minus-operator)
+    - `r.entityHook("postQuery", entity, ...)` — flatten row.customFields auf API-root (Spec-Promise "indistinguishable von Stammfeldern")
+    - `r.searchPayloadExtension(entity, ...)` — customFields-keys flach ins Meilisearch-Index (F3 wiring)
+
+  **Out-of-B2** (future iterations): cross-scope-conflict (tenant override system fieldKey), cap-counter quota, user-data-rights anonymization, value-validation gegen fieldDefinition.serializedField, system+tenant UNION-read.
+
+  Part of custom-fields-bundle Sprint Phase B2 (Plan-Doc: kumiko-platform/docs/plans/custom-fields-sprint.md).
+
+- 9121928: T1 — integration tests for custom-fields bundle. 6 full-stack scenarios via setupTestStack:
+
+  - Define field → set value → query: customField lands flat in entity-response (postQuery hook + MSP)
+  - Clear: fieldKey gone from response after clear-custom-field
+  - Multiple fields on same entity: all merge flat
+  - Entity without customField values: still queryable
+  - fieldDefinition-delete cascade: orphan values removed from all entity-rows via MSP
+  - Last-Wins on concurrent set: last value wins (unsafeAppendEvent without expectedVersion)
+
+  Plus bugfix: Event-short-name-constants haben jetzt kebab-dashes statt Punkten (toKebab collapsed dots → Registry-Drift bei type-string-templates).
+
+- 72518fa: custom-fields: per-field `fieldAccess.write` enforcement (T1.5b).
+
+  `set-custom-field` and `clear-custom-field` handlers now read `fieldDefinition.serializedField.fieldAccess.write[]` and reject with `unprocessable` + `reason: "field_access_denied"` when the caller's roles do not intersect. Handler-level RBAC (TenantAdmin/Member) keeps applying on top.
+
+  When `fieldAccess.write` is absent or empty, behavior is unchanged — existing consumers stay green without code changes.
+
+  `serializedField` schema gains the optional `fieldAccess: { read?: string[], write?: string[] }` shape (read is reserved for T1.5c).
+
+- 0a00e7b: custom-fields: user-data-rights wiring (T1.5c).
+
+  New `wireCustomFieldsUserDataRightsFor(r, { entityName, entityTable, userIdColumn })` opt-in helper. Registers a second `r.useExtension(EXT_USER_DATA, ...)` for the host entity whose hooks handle the customFields jsonb under DSGVO Art. 15+17+20:
+
+  - **Export**: every row owned by the user contributes its customFields jsonb into the export bundle under `<entity>.customFields`.
+  - **Forget anonymize**: sensitive customFields keys (declared via `serializedField.sensitive: true`) are stripped from the jsonb. Non-sensitive keys stay.
+  - **Forget delete**: no-op — the host entity's own user-data-rights hook removes the row, jsonb travels with it.
+
+  `serializedField` gains optional `sensitive: boolean` alongside `fieldAccess` (T1.5b).
+
+- aca1443: custom-fields: per-field retention sweep (T1.5d).
+
+  New `runCustomFieldsRetention(opts)` walks one host entity's rows and strips/nulls customField values whose host-row `modified_at` is older than the per-field `retention.keepFor` policy. Strategy `delete` removes the key; `anonymize` sets it to `null`.
+
+  `serializedField` gains optional `retention: { keepFor: string; strategy: "delete" | "anonymize" }`.
+
+  Designed to run alongside (or inside) the data-retention bundle's daily cron. No auto-registration — the consumer chooses the schedule and which host entities to sweep.
+
+- c6cb96c: custom-fields: per-tenant fieldDefinition quota (T1.5e).
+
+  `createCustomFieldsFeature({ fieldDefinitionLimitPerTenant: N })` installs a quota-aware `define-tenant-field` handler. The handler runs a `COUNT(*)` on `read_custom_field_definitions` per tenant before insert and rejects with `unprocessable` + `reason: cap_exceeded` once the limit is reached.
+
+  Cap is per-tenant total (across all entity-names), not per entity-name — the natural unit for tier-pricing.
+
+  Without the option, behavior is unchanged: the singleton feature and its handler retain pre-T1.5e semantics.
+
+### Patch Changes
+
+- 68b8118: custom-fields: typed `eventDef.name` pattern statt Template-Literal-Konstruktion.
+
+  `createCustomFieldsFeature()` returnt jetzt typed `exports` (`setEvent`, `clearedEvent`, `fieldDefinitionDeletedEvent`). Handler + `wireCustomFieldsFor` nutzen `customFieldsFeature.exports.<event>.name` als compile-time literal-typed qualified-string — keine hand-gebauten `${FEATURE}:event:${SHORT}`-Strings mehr.
+
+  Rationale: T1 hat den toKebab-collapse-Bug aufgedeckt (Dots in short-names kollabieren zu Dashes → Registry-Mismatch bei hand-gebauten Strings). Mit dem refactor wird die Drift compile-time-strukturell unmöglich (siehe Memory feedback_event_def_exports_pattern).
+
+  Kein API-Change für consumers: `createCustomFieldsFeature()` bleibt unverändert; zusätzlicher named export `customFieldsFeature` (Singleton) ist additiv.
+
+- 3d5e9ef: `kumiko-schema-check` CLI — Empfehlung 3 aus Sprint-9.8-Retro
+  (`luminous-watching-moler.md`). Diff't APP_FEATURES (runtime, aus
+  `src/run-config.ts`) gegen FEATURE_IMPORT_REGISTRY (statisch, aus
+  `drizzle/generate.ts`). Fängt Studio's 9.8-Drama: registry 18 features
+  hinter APP_FEATURES → migrations fehlten für mounted features.
+
+  Usage (im app-workspace):
+
+  ```sh
+  bunx kumiko-schema-check
+  # or with custom paths:
+  bunx kumiko-schema-check --run-config src/run-config.ts --generate drizzle/generate.ts
+  ```
+
+  Plus: 5 bundled-features hatten camelCase feature-names statt kebab-case
+  (Memory `feedback_kebab_aggregates`) — aufgedeckt durch den schema-check
+  gegen use-all-bundled. Fix: `channelEmail` → `channel-email`,
+  `channelInApp` → `channel-in-app`, `channelPush` → `channel-push`,
+  `rateLimiting` → `rate-limiting`, `rendererSimple` → `renderer-simple`.
+
+  Plus `CHANNEL_IN_APP_FEATURE` und `RATE_LIMITING_FEATURE` Konstanten
+  angepasst (waren intern auf camelCase, jetzt kebab-case).
+
+- Updated dependencies [7f56b2f]
+  - @cosmicdrift/kumiko-framework@0.13.0
+  - @cosmicdrift/kumiko-renderer@0.13.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.13.0
+  - @cosmicdrift/kumiko-renderer-web@0.13.0
+
 ## 0.12.2
 
 ### Patch Changes
