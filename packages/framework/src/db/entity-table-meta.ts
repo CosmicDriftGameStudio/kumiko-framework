@@ -59,6 +59,11 @@ export type IndexMeta = {
   // Raw SQL-where-expression for partial indexes. Caller is responsible
   // for safety — emitted verbatim.
   readonly whereSql?: string;
+  // Set wenn die EntityDefinition ein partial-Index hat (def.where als
+  // drizzle SQL-AST), der vom Generator nicht zuverlässig renderbar ist.
+  // Renderer emittiert das Statement dann AUSKOMMENTIERT mit Warn-Hint —
+  // App-Author muss das WHERE manuell im generierten SQL hinzufügen.
+  readonly needsManualWhere?: boolean;
 };
 
 export type CompositePrimaryKeyMeta = {
@@ -263,12 +268,39 @@ export function buildEntityTableMeta(
   const tableName = resolveTableName(entityName, entity, options?.featureName);
   const idType = entity.idType ?? "uuid";
 
-  const columns: ColumnMeta[] = [...fullBaseColumns(idType, entity.softDelete === true)];
+  // Base-columns first, then user-fields. User-fields with the same
+  // pg-name as a base-column OVERRIDE the base-column (last-wins, gleiches
+  // Verhalten wie drizzle's `{ ...base, ...fields }` Spread im table-
+  // builder). Use-case: user-session hat `tenantId` als field um access-
+  // control aufzudrücken, fileRef hat `insertedAt` als field für sortable/
+  // filterable-marker. Die DB-Spalte bleibt die gleiche, nur Application-
+  // Metadata auf der Field-Seite ändert sich.
+  const baseCols = fullBaseColumns(idType, entity.softDelete === true);
+  const colByName = new Map<string, ColumnMeta>();
+  for (const c of baseCols) colByName.set(c.name, c);
+
   const fieldNameToSnake = new Map<string, string>();
   for (const [name, field] of Object.entries(entity.fields)) {
     const fieldCols = fieldToColumnMeta(name, field, entity);
-    columns.push(...fieldCols);
+    for (const c of fieldCols) colByName.set(c.name, c);
     if (fieldCols.length === 1) fieldNameToSnake.set(name, fieldCols[0]!.name);
+  }
+
+  // Preserve base-col order, then any new user-col-names in fields-order.
+  const columns: ColumnMeta[] = [];
+  const seen = new Set<string>();
+  for (const c of baseCols) {
+    const final = colByName.get(c.name);
+    if (final && !seen.has(final.name)) {
+      columns.push(final);
+      seen.add(final.name);
+    }
+  }
+  for (const c of colByName.values()) {
+    if (!seen.has(c.name)) {
+      columns.push(c);
+      seen.add(c.name);
+    }
   }
 
   const indexes: IndexMeta[] = [
@@ -292,7 +324,12 @@ export function buildEntityTableMeta(
     indexes.push({ name: `${tableName}_${snake}_idx`, columns: [snake] });
   }
 
-  // Explizit deklarierte indexes (EntityIndexDef)
+  // Explizit deklarierte indexes (EntityIndexDef). `def.where` ist heute
+  // ein drizzle SQL-AST — wir können daraus keinen zuverlässigen Raw-SQL-
+  // String rendern (queryChunks sind internal). Wenn ein where gesetzt
+  // ist, markieren wir den IndexMeta mit needsManualWhere=true; der DDL-
+  // Renderer emittiert das Statement dann als AUSKOMMENTIERT mit Warn-
+  // Hinweis. App-Author muss das im generierten SQL-File hand-editieren.
   for (const def of (entity.indexes ?? []) as readonly EntityIndexDef[]) {
     const cols = def.columns.map(
       (fieldName) => fieldNameToSnake.get(fieldName) ?? toSnakeCase(fieldName),
@@ -303,7 +340,7 @@ export function buildEntityTableMeta(
       name: indexName,
       columns: cols,
       ...(def.unique === true && { unique: true }),
-      ...(def.where !== undefined && { whereSql: String(def.where) }),
+      ...(def.where !== undefined && { needsManualWhere: true }),
     });
   }
 

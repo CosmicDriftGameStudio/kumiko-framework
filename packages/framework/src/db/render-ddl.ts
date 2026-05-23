@@ -28,6 +28,14 @@ function renderColumn(col: ColumnMeta): string {
 function renderIndex(tableName: string, idx: IndexMeta): string {
   const kind = idx.unique === true ? "UNIQUE INDEX" : "INDEX";
   const colList = idx.columns.map(quoteIdent).join(", ");
+  if (idx.needsManualWhere === true) {
+    return [
+      `-- WARN: partial-index "${idx.name}" needs a WHERE clause that the`,
+      `--       generator can't render (entity uses drizzle sql\`…\` AST).`,
+      `--       Add the WHERE manually before applying:`,
+      `-- CREATE ${kind} IF NOT EXISTS ${quoteIdent(idx.name)} ON ${quoteIdent(tableName)} (${colList}) WHERE <your-condition>;`,
+    ].join("\n");
+  }
   const where = idx.whereSql !== undefined ? ` WHERE ${idx.whereSql}` : "";
   return `CREATE ${kind} IF NOT EXISTS ${quoteIdent(idx.name)} ON ${quoteIdent(tableName)} (${colList})${where};`;
 }
