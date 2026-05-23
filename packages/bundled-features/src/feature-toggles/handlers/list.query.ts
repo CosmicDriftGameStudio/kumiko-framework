@@ -1,3 +1,4 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { globalFeatureStateTable } from "../global-feature-state-table";
@@ -12,7 +13,7 @@ export const listQuery = defineQueryHandler({
   access: { roles: ["SystemAdmin", "Admin"] },
   handler: async (_event, ctx) => {
     type Row = typeof globalFeatureStateTable.$inferSelect;
-    const rows = (await ctx.db.select().from(globalFeatureStateTable)) as Row[]; // @cast-boundary db-row
+    const rows = await selectMany<Row>(ctx.db.raw, globalFeatureStateTable);
     return {
       items: rows.map((r) => ({
         featureName: r.featureName,

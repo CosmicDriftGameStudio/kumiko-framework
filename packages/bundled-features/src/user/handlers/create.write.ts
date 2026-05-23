@@ -1,7 +1,7 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { z } from "zod";
 import { UserErrors } from "../constants";
 import { userEntity, userTable } from "../schema/user";
@@ -33,13 +33,9 @@ export const createWrite = defineWriteHandler({
   }),
   access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {
-    const existing = await ctx.db
-      .select({ id: userTable["id"] })
-      .from(userTable)
-      .where(eq(userTable["email"], event.payload.email))
-      .limit(1);
+    const existing = await fetchOne<{ id: string }>(ctx.db, userTable, { email: event.payload.email });
 
-    if (existing.length > 0) {
+    if (existing) {
       return writeFailure(
         new ConflictError({
           message: "email already exists",

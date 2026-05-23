@@ -3,8 +3,8 @@ import {
   type FeatureRegistrar,
   type JsonbFieldDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { AnyColumn } from "drizzle-orm";
-import { eq, sql } from "drizzle-orm";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { getTableName } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { CUSTOM_FIELDS_EXTENSION } from "./constants";
 import type { CustomFieldClearedPayload, CustomFieldSetPayload } from "./events";
@@ -91,14 +91,13 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
 
         // jsonb_set: setze key auf value. Wenn key noch nicht existiert →
         // wird angelegt (create_missing=true ist default). value muss als
-        // jsonb-literal kommen — Drizzle sql-template stringifiziert für uns.
-        const idCol = (entityTable as unknown as Record<string, AnyColumn>)["id"] as AnyColumn; // @cast-boundary db-row
-        await tx
-          .update(entityTable)
-          .set({
-            customFields: sql`jsonb_set(${sql.identifier("custom_fields")}, ${sql.raw(`'{${payload.fieldKey.replace(/'/g, "''")}}'`)}, ${JSON.stringify(payload.value)}::jsonb, true)`,
-          })
-          .where(eq(idCol, event.aggregateId));
+        // jsonb-literal kommen.
+        const tbl = `"${getTableName(entityTable)}"`;
+        const escapedKey = payload.fieldKey.replace(/'/g, "''");
+        await asRawClient(tx).unsafe(
+          `UPDATE ${tbl} SET custom_fields = jsonb_set(custom_fields, '{${escapedKey}}', $1::jsonb, true) WHERE id = $2`,
+          [JSON.stringify(payload.value), event.aggregateId],
+        );
       },
       [clearedEventType]: async (event, tx) => {
         // skip: MSP feuert für alle aggregate-types — nur unsere host-entity
@@ -107,13 +106,11 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         const payload = event.payload as CustomFieldClearedPayload; // @cast-boundary engine-payload
 
         // jsonb minus operator (`-`) entfernt key aus jsonb-object.
-        const idCol = (entityTable as unknown as Record<string, AnyColumn>)["id"] as AnyColumn; // @cast-boundary db-row
-        await tx
-          .update(entityTable)
-          .set({
-            customFields: sql`${sql.identifier("custom_fields")} - ${payload.fieldKey}`,
-          })
-          .where(eq(idCol, event.aggregateId));
+        const tbl = `"${getTableName(entityTable)}"`;
+        await asRawClient(tx).unsafe(
+          `UPDATE ${tbl} SET custom_fields = custom_fields - $1 WHERE id = $2`,
+          [payload.fieldKey, event.aggregateId],
+        );
       },
       [fieldDefDeletedType]: async (event, tx) => {
         // fieldDefinition.deleted fires nur einmal pro fieldDef-delete
@@ -125,9 +122,11 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         // ihre Rows.
         if (payload.entityName !== entityName) return;
 
-        await tx.update(entityTable).set({
-          customFields: sql`${sql.identifier("custom_fields")} - ${payload.fieldKey}`,
-        });
+        const tbl = `"${getTableName(entityTable)}"`;
+        await asRawClient(tx).unsafe(
+          `UPDATE ${tbl} SET custom_fields = custom_fields - $1`,
+          [payload.fieldKey],
+        );
       },
     },
   });

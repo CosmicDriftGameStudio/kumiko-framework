@@ -14,9 +14,8 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configValuesTable } from "./table";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 type ConfigRow = {
   id: string;
@@ -303,23 +302,17 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
 
     async getAll(tenantId, userId, db) {
       // Only load rows relevant to this user/tenant (system + tenant + user scope)
-      const rows = await db
-        .select()
-        .from(configValuesTable)
-        .where(
-          or(
-            // System-level values
-            and(eq(configValuesTable.tenantId, SYSTEM_TENANT_ID), isNull(configValuesTable.userId)),
-            // Tenant-level values
-            and(eq(configValuesTable.tenantId, tenantId), isNull(configValuesTable.userId)),
-            // User-level values
-            and(eq(configValuesTable.tenantId, tenantId), eq(configValuesTable.userId, userId)),
-          ),
-        );
+      const rows = await asRawClient(db).unsafe<ConfigRow>(
+        `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
+         FROM read_config_values
+         WHERE (tenant_id = $1 AND user_id IS NULL)
+            OR (tenant_id = $2 AND user_id IS NULL)
+            OR (tenant_id = $2 AND user_id = $3)`,
+        [SYSTEM_TENANT_ID, tenantId, userId],
+      );
 
       const result = new Map<string, ConfigRow>();
-      for (const row of rows) {
-        const r = row as ConfigRow; // @cast-boundary db-row
+      for (const r of rows) {
         // Higher specificity wins: user > tenant > system. Under the ES
         // schema system rows carry SYSTEM_TENANT_ID instead of NULL, so the
         // "tenant set" check compares against the sentinel rather than null.
@@ -336,23 +329,20 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
 
     async getAllWithSource(tenantId, userId, db) {
       // Load ALL potentially relevant rows (user + tenant + system)
-      const rows = await db
-        .select()
-        .from(configValuesTable)
-        .where(
-          or(
-            and(eq(configValuesTable.tenantId, SYSTEM_TENANT_ID), isNull(configValuesTable.userId)),
-            and(eq(configValuesTable.tenantId, tenantId), isNull(configValuesTable.userId)),
-            and(eq(configValuesTable.tenantId, tenantId), eq(configValuesTable.userId, userId)),
-          ),
-        );
+      const rows = await asRawClient(db).unsafe<ConfigRow>(
+        `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
+         FROM read_config_values
+         WHERE (tenant_id = $1 AND user_id IS NULL)
+            OR (tenant_id = $2 AND user_id IS NULL)
+            OR (tenant_id = $2 AND user_id = $3)`,
+        [SYSTEM_TENANT_ID, tenantId, userId],
+      );
 
       const result = new Map<string, ConfigStoredRowWithSource>();
 
       // Group rows by key so we can determine the winner and its source
       const groups = new Map<string, ConfigRow[]>();
-      for (const row of rows) {
-        const r = row as ConfigRow; // @cast-boundary db-row
+      for (const r of rows) {
         const g = groups.get(r.key) ?? [];
         g.push(r);
         groups.set(r.key, g);
@@ -413,26 +403,20 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       // One SQL query for all keys + every scope (user-row,
       // tenant-row, system-row). The cascade-builder then matches
       // per-key from this preloaded set instead of querying again.
-      const rows = await db
-        .select()
-        .from(configValuesTable)
-        .where(
-          and(
-            inArray(configValuesTable.key, [...keys]),
-            or(
-              and(
-                eq(configValuesTable.tenantId, SYSTEM_TENANT_ID),
-                isNull(configValuesTable.userId),
-              ),
-              and(eq(configValuesTable.tenantId, tenantId), isNull(configValuesTable.userId)),
-              and(eq(configValuesTable.tenantId, tenantId), eq(configValuesTable.userId, userId)),
-            ),
-          ),
-        );
+      const rows = await asRawClient(db).unsafe<ConfigRow>(
+        `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
+         FROM read_config_values
+         WHERE key = ANY($1)
+           AND (
+             (tenant_id = $2 AND user_id IS NULL)
+             OR (tenant_id = $3 AND user_id IS NULL)
+             OR (tenant_id = $3 AND user_id = $4)
+           )`,
+        [[...keys], SYSTEM_TENANT_ID, tenantId, userId],
+      );
 
       const grouped = new Map<string, ConfigRow[]>();
-      for (const row of rows) {
-        const r = row as ConfigRow; // @cast-boundary db-row
+      for (const r of rows) {
         const g = grouped.get(r.key) ?? [];
         g.push(r);
         grouped.set(r.key, g);

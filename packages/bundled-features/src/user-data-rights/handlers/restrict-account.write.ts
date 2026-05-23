@@ -1,9 +1,8 @@
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
-import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // POST /api/user/restrict (S2.U6) — DSGVO Art. 18 Account-Freeze.
 // Flippt status=Active → Restricted und revoked alle live sessions
@@ -27,13 +26,11 @@ export const restrictAccountWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     // ctx.db.raw weil User-Entity tenant-agnostisch ist (analog
     // request-deletion.write.ts Cross-Tenant-Section).
-    const userRow = await ctx.db.raw
-      .select({ status: userTable["status"] })
-      .from(userTable)
-      .where(eq(userTable["id"], event.user.id))
-      .limit(1);
+    const userRow = await fetchOne<{ status: string }>(ctx.db.raw, userTable, {
+      id: event.user.id,
+    });
 
-    if (userRow.length === 0) {
+    if (!userRow) {
       return writeFailure(
         new UnprocessableError("user_not_found", {
           details: { reason: "user_not_found", userId: event.user.id },
@@ -41,7 +38,7 @@ export const restrictAccountWrite = defineWriteHandler({
       );
     }
 
-    const currentStatus = userRow[0]?.status;
+    const currentStatus = userRow.status;
     if (currentStatus === USER_STATUS.Restricted) {
       return writeFailure(
         new UnprocessableError("already_restricted", {

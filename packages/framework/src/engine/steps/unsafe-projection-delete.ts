@@ -16,10 +16,9 @@
 // must commit in the same TX as the aggregate-mutation that triggered
 // it (stronger consistency than an async projection). Reviewer judges.
 
-import type { SQL, Table } from "drizzle-orm";
+import { type WhereObject, deleteMany } from "../../bun-db/query";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
-import { asQueryTarget } from "./_drizzle-boundary";
 import { resolveRequired } from "./_resolver-utils";
 
 // `where` is REQUIRED — table-wide DELETE without a clause is a TRUNCATE
@@ -28,8 +27,8 @@ import { resolveRequired } from "./_resolver-utils";
 // `r.step.unsafeProjectionTruncate` step rather than loosening this
 // type to `SQL | undefined`.
 type UnsafeProjectionDeleteArgs = {
-  readonly table: Table;
-  readonly where: StepResolver<SQL>;
+  readonly table: unknown;
+  readonly where: StepResolver<WhereObject>;
 };
 
 defineStep<UnsafeProjectionDeleteArgs, void>({
@@ -37,7 +36,7 @@ defineStep<UnsafeProjectionDeleteArgs, void>({
   defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveRequired(args.where, ctx);
-    await ctx.db.delete(asQueryTarget(args.table)).where(where);
+    await deleteMany(ctx.db.raw, args.table, where);
   },
 });
 

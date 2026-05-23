@@ -23,7 +23,6 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { assertUnreachable } from "@cosmicdrift/kumiko-framework/utils";
-import { eq, isNull } from "drizzle-orm";
 import { ConfigErrors } from "./constants";
 import { configValuesTable } from "./table";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";

@@ -59,8 +59,7 @@ import {
   type TenantId,
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { eq, max as maxFn } from "drizzle-orm";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
 import { TIER_ENGINE_FEATURE } from "./constants";
@@ -273,10 +272,10 @@ export function createTierEngineFeature<
           // Idempotency: stream-existence-check vor create. Pattern aus
           // seedTenant.ts. Bei re-replay (rebuild) nicht versionsbumpen.
           type StreamRow = { v: number | null };
-          const [streamRow] = (await rawDb
-            .select({ v: maxFn(eventsTable.version) })
-            .from(eventsTable)
-            .where(eq(eventsTable.aggregateId, aggregateId))) as StreamRow[]; // @cast-boundary db-row
+          const [streamRow] = await asRawClient(rawDb).unsafe<StreamRow>(
+            `SELECT MAX(version) AS v FROM kumiko_events WHERE aggregate_id = $1`,
+            [aggregateId],
+          );
           // skip: idempotency — aggregate-stream existiert schon (re-replay
           // nach projection-rebuild oder hook-retry). create() würde
           // version_conflict werfen + tenant-create rollback'n. Pattern aus
@@ -336,7 +335,7 @@ export function createTierEngineFeature<
         // Skalierungs-Pfad (lazy-load + LRU) ist Sprint-8b wenn echtes
         // Bedürfnis entsteht.
         type AssignmentRow = { tenantId: string; tier: string };
-        const rows = (await deps.db.select().from(tierAssignmentTable)) as AssignmentRow[]; // @cast-boundary db-row
+        const rows = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
         for (const row of rows) {
           cache.set(
             row.tenantId as TenantId,

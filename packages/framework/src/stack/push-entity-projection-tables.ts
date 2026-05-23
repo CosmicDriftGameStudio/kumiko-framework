@@ -1,4 +1,3 @@
-import { getTableName } from "drizzle-orm";
 import { tableExists } from "../db/schema-inspection";
 import type { Registry } from "../engine/types";
 import { unsafePushTables } from "./table-helpers";
@@ -35,9 +34,8 @@ export async function pushEntityProjectionTables(
     if (!proj.isImplicit) continue;
     if (seen.has(proj.table)) continue;
     seen.add(proj.table);
-    // @cast-boundary drizzle-bridge — ProjectionTable + PgTable both round-trip
-    // through getTableName at runtime; the type system can't unify them.
-    const physical = getTableName(proj.table as Parameters<typeof getTableName>[0]);
+    const tableRec = proj.table as unknown as Record<symbol, unknown>;
+    const physical = tableRec[Symbol.for("drizzle:Name")] as string;
     if (await tableExists(stack.db, `public.${physical}`)) {
       logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
       continue;

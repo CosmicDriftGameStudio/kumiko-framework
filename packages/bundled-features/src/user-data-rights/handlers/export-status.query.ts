@@ -13,26 +13,20 @@
 
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { desc, eq } from "drizzle-orm";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { z } from "zod";
 import { exportJobsTable } from "../schema/export-job";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
-// @cast-boundary db-row — drizzle's typed-select gibt korrekte Shapes
-// fuer instant-Spalten zurueck (Temporal.Instant), aber TS-Inference
-// ueber TenantDb-Wrapper kennt das nicht. Cast auf den narrow-Shape
-// macht den Read-Pfad explizit. requestedAt ist `notNull` im Schema
-// → niemals null. Lifecycle-Felder (completedAt/expiresAt) sind
-// nullable bis Worker sie setzt.
 type ExportJobRow = {
   readonly id: string;
   readonly status: string;
-  readonly requestedAt: Instant;
-  readonly completedAt: Instant | null;
-  readonly expiresAt: Instant | null;
-  readonly errorMessage: string | null;
-  readonly bytesWritten: number | null;
+  readonly requested_at: Instant;
+  readonly completed_at: Instant | null;
+  readonly expires_at: Instant | null;
+  readonly error_message: string | null;
+  readonly bytes_written: number | null;
 };
 
 export const exportStatusQuery = defineQueryHandler({
@@ -42,20 +36,12 @@ export const exportStatusQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     // ctx.db.raw weil tenant-agnostisch — ein User der aus Tenant B
     // pollt, sieht den aus Tenant A erstellten Job.
-    const rows = (await ctx.db.raw
-      .select({
-        id: exportJobsTable["id"],
-        status: exportJobsTable["status"],
-        requestedAt: exportJobsTable["requestedAt"],
-        completedAt: exportJobsTable["completedAt"],
-        expiresAt: exportJobsTable["expiresAt"],
-        errorMessage: exportJobsTable["errorMessage"],
-        bytesWritten: exportJobsTable["bytesWritten"],
-      })
-      .from(exportJobsTable)
-      .where(eq(exportJobsTable["userId"], query.user.id))
-      .orderBy(desc(exportJobsTable["requestedAt"]))
-      .limit(1)) as ExportJobRow[]; // @cast-boundary db-row
+    const rows = await selectMany<ExportJobRow>(
+      ctx.db.raw,
+      exportJobsTable,
+      { userId: query.user.id },
+      { limit: 1, orderBy: { col: "requestedAt", direction: "desc" } },
+    );
 
     const latest = rows[0];
     if (!latest) return { hasJob: false as const };
@@ -63,13 +49,13 @@ export const exportStatusQuery = defineQueryHandler({
     return {
       hasJob: true as const,
       job: {
-        id: latest.id,
-        status: latest.status,
-        requestedAt: latest.requestedAt.toString(),
-        completedAt: latest.completedAt?.toString() ?? null,
-        expiresAt: latest.expiresAt?.toString() ?? null,
-        errorMessage: latest.errorMessage,
-        bytesWritten: latest.bytesWritten,
+        id: latest["id"],
+        status: latest["status"],
+        requestedAt: latest["requested_at"].toString(),
+        completedAt: latest["completed_at"]?.toString() ?? null,
+        expiresAt: latest["expires_at"]?.toString() ?? null,
+        errorMessage: latest["error_message"],
+        bytesWritten: latest["bytes_written"],
       },
     };
   },

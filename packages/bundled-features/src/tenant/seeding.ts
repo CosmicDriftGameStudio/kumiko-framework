@@ -37,12 +37,10 @@ import {
   type DbRunner
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { eq, max as maxFn } from "drizzle-orm";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 import { tenantEntity, tenantTable } from "./schema/tenant";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const tenantExecutor = createEventStoreExecutor(tenantTable, tenantEntity, {
   entityName: "tenant",
@@ -99,10 +97,10 @@ export async function seedTenant(db: DbRunner, options: SeedTenantOptions): Prom
   // (Projection-Drift nach rebuild, manuellem DELETE, oder async-lag). Wenn
   // Stream-Version > 0 → kein create() — wäre version_conflict. Caller
   // bekommt die ID, Projection wird beim nächsten Dispatcher-Cycle aufgebaut.
-  const [streamRow] = await db
-    .select({ v: maxFn(eventsTable.version) })
-    .from(eventsTable)
-    .where(eq(eventsTable.aggregateId, options.id));
+  const [streamRow] = await asRawClient(db).unsafe<{ v: number | null }>(
+    `SELECT MAX(version) AS v FROM kumiko_events WHERE aggregate_id = $1`,
+    [options.id],
+  );
   if ((streamRow?.v ?? 0) > 0) return options.id;
 
   const result = await tenantExecutor.create(

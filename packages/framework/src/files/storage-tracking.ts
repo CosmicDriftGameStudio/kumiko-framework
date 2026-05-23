@@ -11,6 +11,7 @@
 // into createApp / setupTestStack alongside their domain features.
 
 import { sql } from "drizzle-orm";
+import { asRawClient } from "../bun-db/query";
 import { bigint, instant, integer, table as pgTable, uuid } from "../db/dialect";
 import { defineFeature, typedPayload } from "../engine";
 import { fileUploadedEvent } from "./file-routes";
@@ -39,21 +40,15 @@ export const filesStorageTrackingFeature = defineFeature("files-storage-tracking
         // The SQL increment guarantees correctness under concurrent dispatcher
         // runs (shouldn't happen with a single consumer, but the invariant is
         // free and cheap — no reason to rely on serial delivery).
-        await tx
-          .insert(tenantStorageUsageTable)
-          .values({
-            tenantId: event.tenantId,
-            totalBytes: payload.size,
-            fileCount: 1,
-          })
-          .onConflictDoUpdate({
-            target: tenantStorageUsageTable.tenantId,
-            set: {
-              totalBytes: sql`${tenantStorageUsageTable.totalBytes} + ${payload.size}`,
-              fileCount: sql`${tenantStorageUsageTable.fileCount} + 1`,
-              lastUpdatedAt: sql`NOW()`,
-            },
-          });
+        await asRawClient(tx).unsafe(
+          `INSERT INTO "read_tenant_storage_usage" ("tenant_id", "total_bytes", "file_count")
+           VALUES ($1, $2, 1)
+           ON CONFLICT ("tenant_id") DO UPDATE SET
+             "total_bytes" = "read_tenant_storage_usage"."total_bytes" + $2,
+             "file_count" = "read_tenant_storage_usage"."file_count" + 1,
+             "last_updated_at" = NOW()`,
+          [event.tenantId, payload.size],
+        );
       },
     },
   });

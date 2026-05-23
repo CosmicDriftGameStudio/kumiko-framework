@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { asRawClient, selectMany } from "../bun-db/query";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
@@ -24,7 +24,6 @@ import {
   eventConsumerStateTable,
   SHARED_INSTANCE_SENTINEL,
 } from "./event-consumer-state";
-import { updateMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -181,16 +180,11 @@ async function acquireConsumerState(
   name: string,
   instanceId: string,
 ): Promise<AcquireOutcome> {
-  const [state] = (await tx
-    .select()
-    .from(eventConsumerStateTable)
-    .where(
-      and(
-        eq(eventConsumerStateTable.name, name),
-        eq(eventConsumerStateTable.instanceId, instanceId),
-      ),
-    )
-    .for("update", { skipLocked: true })) as [ConsumerStateRow | undefined]; // @cast-boundary db-row
+  const stateRows = (await asRawClient(tx).unsafe(
+    `SELECT * FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2 FOR UPDATE SKIP LOCKED`,
+    [name, instanceId],
+  )) as ReadonlyArray<ConsumerStateRow>;
+  const state = stateRows[0];
 
   if (!state) {
     // Either the row never existed (no pre-reg, no ensureRegistered) or
@@ -219,12 +213,11 @@ async function preRegisterConsumers(
 ): Promise<void> {
   for (const consumer of consumers) {
     const instanceId = consumerInstanceId(consumer, dispatcherInstanceId);
-    await db
-      .insert(eventConsumerStateTable)
-      .values({ name: consumer.name, instanceId, status: "idle" })
-      .onConflictDoNothing({
-        target: [eventConsumerStateTable.name, eventConsumerStateTable.instanceId],
-      });
+    await asRawClient(db).unsafe(
+      `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "status") VALUES ($1, $2, 'idle')
+       ON CONFLICT ("name", "instance_id") DO NOTHING`,
+      [consumer.name, instanceId],
+    );
   }
 }
 
@@ -250,7 +243,11 @@ function consumerInstanceId(
 // lock already guarantees single-writer semantics; this is purely
 // informational (and resets on commit to idle/dead via persistConsumerOutcome).
 async function markProcessing(tx: DbTx, name: string, instanceId: string): Promise<void> {
-  await updateMany(tx, eventConsumerStateTable, { status: "processing", updatedAt: sql`now()` }, { name, instanceId });
+  await asRawClient(tx).unsafe(
+    `UPDATE "kumiko_event_consumers" SET "status" = 'processing', "updated_at" = now()
+     WHERE "name" = $1 AND "instance_id" = $2`,
+    [name, instanceId],
+  );
 }
 
 async function fetchPendingEvents(
@@ -258,12 +255,12 @@ async function fetchPendingEvents(
   cursor: bigint,
   batchSize: number,
 ): Promise<ReadonlyArray<typeof eventsTable.$inferSelect>> {
-  return (await tx
-    .select()
-    .from(eventsTable)
-    .where(gt(eventsTable.id, cursor))
-    .orderBy(asc(eventsTable.id))
-    .limit(batchSize)) as ReadonlyArray<typeof eventsTable.$inferSelect>; // @cast-boundary db-row
+  return (await selectMany(
+    tx,
+    eventsTable,
+    { id: { gt: cursor } },
+    { orderBy: { col: "id", direction: "asc" }, limit: batchSize },
+  )) as ReadonlyArray<typeof eventsTable.$inferSelect>; // @cast-boundary db-row
 }
 
 type DeliveryOutcome = {
@@ -369,13 +366,23 @@ async function persistConsumerOutcome(
   instanceId: string,
   outcome: DeliveryOutcome,
 ): Promise<void> {
-  await updateMany(tx, eventConsumerStateTable, {
-      lastProcessedEventId: outcome.cursor,
-      attempts: outcome.attempts,
-      status: outcome.deadLettered ? "dead" : "idle",
-      lastError: outcome.lastError,
-      updatedAt: sql`now()`,
-    }, { name, instanceId });
+  await asRawClient(tx).unsafe(
+    `UPDATE "kumiko_event_consumers" SET
+       "last_processed_event_id" = $1,
+       "attempts" = $2,
+       "status" = $3,
+       "last_error" = $4,
+       "updated_at" = now()
+     WHERE "name" = $5 AND "instance_id" = $6`,
+    [
+      outcome.cursor,
+      outcome.attempts,
+      outcome.deadLettered ? "dead" : "idle",
+      outcome.lastError,
+      name,
+      instanceId,
+    ],
+  );
 }
 
 // Emit the lag gauge inside the consumer pass's tx so ops sees a snapshot
@@ -388,10 +395,10 @@ async function emitLagFromTx(
   cursor: bigint,
   meter: Meter,
 ): Promise<void> {
-  const result = await tx.execute(
-    sql`SELECT COALESCE(MAX(id), 0)::bigint AS head FROM kumiko_events`,
+  const result = await asRawClient(tx).unsafe(
+    `SELECT COALESCE(MAX(id), 0)::bigint AS head FROM kumiko_events`,
   );
-  // @cast-boundary db-row — raw drizzle.execute() COALESCE-aggregate row
+  // @cast-boundary db-row — raw COALESCE-aggregate row
   const rows = Array.isArray(result) ? (result as Array<{ head?: bigint | string | null }>) : []; // @cast-boundary db-row
   const raw = rows[0]?.head;
   const head = typeof raw === "bigint" ? raw : BigInt(raw ?? 0);
@@ -742,16 +749,13 @@ export async function restartConsumer(
       `Consumer "${name}" (instance_id="${instanceId}") is not dead (status="${before.status}"). Restart only applies to dead consumers; use "enable" for a disabled one.`,
     );
   }
-  const [updated] = await db
-    .update(eventConsumerStateTable)
-    .set({ status: "idle", attempts: 0, lastError: null, updatedAt: sql`now()` })
-    .where(
-      and(
-        eq(eventConsumerStateTable.name, name),
-        eq(eventConsumerStateTable.instanceId, instanceId),
-      ),
-    )
-    .returning();
+  const updatedRows = (await asRawClient(db).unsafe(
+    `UPDATE "kumiko_event_consumers" SET "status" = 'idle', "attempts" = 0, "last_error" = NULL, "updated_at" = now()
+     WHERE "name" = $1 AND "instance_id" = $2
+     RETURNING *`,
+    [name, instanceId],
+  )) as ReadonlyArray<ConsumerStateRow>;
+  const updated = updatedRows[0];
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -766,16 +770,13 @@ export async function disableConsumer(
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
   await requireConsumerRow(db, name, instanceId);
-  const [updated] = await db
-    .update(eventConsumerStateTable)
-    .set({ status: "disabled", updatedAt: sql`now()` })
-    .where(
-      and(
-        eq(eventConsumerStateTable.name, name),
-        eq(eventConsumerStateTable.instanceId, instanceId),
-      ),
-    )
-    .returning();
+  const updatedRows = (await asRawClient(db).unsafe(
+    `UPDATE "kumiko_event_consumers" SET "status" = 'disabled', "updated_at" = now()
+     WHERE "name" = $1 AND "instance_id" = $2
+     RETURNING *`,
+    [name, instanceId],
+  )) as ReadonlyArray<ConsumerStateRow>;
+  const updated = updatedRows[0];
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -795,16 +796,13 @@ export async function enableConsumer(
       `Consumer "${name}" (instance_id="${instanceId}") is not disabled (status="${before.status}"). Enable only flips disabled → idle; use "restart" for a dead consumer.`,
     );
   }
-  const [updated] = await db
-    .update(eventConsumerStateTable)
-    .set({ status: "idle", attempts: 0, lastError: null, updatedAt: sql`now()` })
-    .where(
-      and(
-        eq(eventConsumerStateTable.name, name),
-        eq(eventConsumerStateTable.instanceId, instanceId),
-      ),
-    )
-    .returning();
+  const updatedRows = (await asRawClient(db).unsafe(
+    `UPDATE "kumiko_event_consumers" SET "status" = 'idle', "attempts" = 0, "last_error" = NULL, "updated_at" = now()
+     WHERE "name" = $1 AND "instance_id" = $2
+     RETURNING *`,
+    [name, instanceId],
+  )) as ReadonlyArray<ConsumerStateRow>;
+  const updated = updatedRows[0];
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -824,34 +822,29 @@ export async function skipPoisonEvent(
 ): Promise<ConsumerRecoveryState & { readonly skippedEventId: bigint | null }> {
   const before = await requireConsumerRow(db, name, instanceId);
   return db.transaction(async (tx) => {
-    const [poison] = (await tx
-      .select({ id: eventsTable.id })
-      .from(eventsTable)
-      .where(gt(eventsTable.id, before.lastProcessedEventId))
-      .orderBy(asc(eventsTable.id))
-      .limit(1)) as ReadonlyArray<{ id: bigint }>; // @cast-boundary db-row
+    const poisonRows = (await asRawClient(tx).unsafe(
+      `SELECT "id" FROM "kumiko_events" WHERE "id" > $1 ORDER BY "id" ASC LIMIT 1`,
+      [before.lastProcessedEventId],
+    )) as ReadonlyArray<{ id: bigint }>;
+    const poison = poisonRows[0];
     if (!poison) {
       const [unchanged] = await selectMany<ConsumerStateRow>(tx, eventConsumerStateTable, { name, instanceId });
       if (!unchanged)
         throw new Error(`Consumer "${name}" (instance_id="${instanceId}") vanished — retry.`);
       return { ...normalizeConsumerState(unchanged), skippedEventId: null };
     }
-    const [updated] = await tx
-      .update(eventConsumerStateTable)
-      .set({
-        lastProcessedEventId: poison.id,
-        status: "idle",
-        attempts: 0,
-        lastError: null,
-        updatedAt: sql`now()`,
-      })
-      .where(
-        and(
-          eq(eventConsumerStateTable.name, name),
-          eq(eventConsumerStateTable.instanceId, instanceId),
-        ),
-      )
-      .returning();
+    const updatedRows = (await asRawClient(tx).unsafe(
+      `UPDATE "kumiko_event_consumers" SET
+         "last_processed_event_id" = $1,
+         "status" = 'idle',
+         "attempts" = 0,
+         "last_error" = NULL,
+         "updated_at" = now()
+       WHERE "name" = $2 AND "instance_id" = $3
+       RETURNING *`,
+      [poison.id, name, instanceId],
+    )) as ReadonlyArray<ConsumerStateRow>;
+    const updated = updatedRows[0];
     if (!updated)
       throw new Error(
         `Consumer "${name}" (instance_id="${instanceId}") vanished mid-skip — retry.`,
@@ -908,7 +901,7 @@ export async function listConsumersWithState(
     readonly lastError: string | null;
   }>
 > {
-  const stateRows = await db.select().from(eventConsumerStateTable);
+  const stateRows = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable);
   const registered = new Set(registeredNames);
 
   // Materialize one output row per (name, instance_id). Registered names

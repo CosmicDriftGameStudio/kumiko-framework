@@ -5,7 +5,6 @@
 // accepted at the type layer during migration: features that pass an
 // array are auto-normalized to { [role]: "all" } at registry build.
 // Long-term: string[] disappears.
-import type { SQL } from "drizzle-orm";
 import type { OwnershipMap } from "../ownership";
 
 export type FieldAccess = {
@@ -503,7 +502,7 @@ export type EntityIndexDef = {
    * man z.B. fuer scharfe BTREE-Indexes nur auf einer Status-Teilmenge
    * statt voller Tabelle).
    */
-  readonly where?: SQL;
+  readonly where?: unknown;
 };
 
 export type FieldsMap = Readonly<Record<string, FieldDefinition>>;

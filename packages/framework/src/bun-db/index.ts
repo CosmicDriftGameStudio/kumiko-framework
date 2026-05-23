@@ -11,6 +11,7 @@ export type {
 export { bunDbConnectionOptionsFromEnv, createBunDbConnection } from "./connection";
 export type { SelectOptions, WhereObject, WhereOperator, WhereValue } from "./query";
 export {
+  asRawClient,
   deleteMany,
   fetchOne,
   insertOne,

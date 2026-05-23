@@ -6,7 +6,7 @@
 // absent or empty the handler-level RBAC is the only gate.
 
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { sql } from "drizzle-orm";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { parseSerializedField } from "./parse-serialized-field";
 
 export type FieldAccessCheckResult =
@@ -32,14 +32,10 @@ async function loadSerializedField(
   // TenantDb's tenant-filtered API doesn't expose raw SQL — for this
   // single-row lookup we drop down to the underlying DbRunner. tenantId
   // is still pinned in the WHERE clause so we don't lose isolation.
-  const rows = await db.raw.execute(sql`
-    SELECT serialized_field
-    FROM read_custom_field_definitions
-    WHERE entity_name = ${entityName}
-      AND field_key = ${fieldKey}
-      AND tenant_id = ${tenantId}
-    LIMIT 1
-  `);
+  const rows = await asRawClient(db.raw).unsafe(
+    "SELECT serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND field_key = $2 AND tenant_id = $3 LIMIT 1",
+    [entityName, fieldKey, tenantId],
+  );
   const first = (rows as ReadonlyArray<Record<string, unknown>>)[0]; // @cast-boundary db-row
   return first ? (first["serialized_field"] ?? null) : null;
 }

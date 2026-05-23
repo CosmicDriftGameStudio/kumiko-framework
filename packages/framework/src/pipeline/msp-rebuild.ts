@@ -1,4 +1,4 @@
-import { and, asc, eq, getTableName, inArray, sql } from "drizzle-orm";
+import { asRawClient, selectMany } from "../bun-db/query";
 import type { DbConnection, DbRunner } from "../db/connection";
 import type { Registry, TenantId } from "../engine/types";
 import { InternalError } from "../errors";
@@ -10,7 +10,6 @@ import type { Meter } from "../observability/types/metric";
 import { eventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context";
 import type { RebuildResult } from "./projection-rebuild";
-import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Rebuild a multi-stream projection (MSP) from the event log. Symmetric to
 // `rebuildProjection` for single-stream projections — same single-TX
@@ -103,6 +102,7 @@ export async function rebuildMultiStreamProjection(
 
   try {
     await db.transaction(async (tx) => {
+      const rawTx = asRawClient(tx);
       // Upsert + lock the consumer row. Rebuild always targets the
       // SHARED-delivery shard: per-instance MSPs are side-effect-only (no
       // table, so the guard above refuses them anyway), and rebuild's
@@ -111,48 +111,48 @@ export async function rebuildMultiStreamProjection(
       // next SELECT is what blocks concurrent rebuilds of the same MSP;
       // live dispatcher passes use SKIP LOCKED on this row and will bail
       // silently while we hold it.
-      await tx
-        .insert(eventConsumerStateTable)
-        .values({
-          name: mspName,
-          instanceId: SHARED_INSTANCE_SENTINEL,
-          lastProcessedEventId: 0n,
-          status: "idle",
-        })
-        .onConflictDoUpdate({
-          target: [eventConsumerStateTable.name, eventConsumerStateTable.instanceId],
-          set: {
-            lastProcessedEventId: 0n,
-            status: "idle",
-            attempts: 0,
-            lastError: null,
-            updatedAt: sql`now()`,
-          },
-        });
-      await tx
-        .select()
-        .from(eventConsumerStateTable)
-        .where(
-          and(
-            eq(eventConsumerStateTable.name, mspName),
-            eq(eventConsumerStateTable.instanceId, SHARED_INSTANCE_SENTINEL),
-          ),
-        )
-        .for("update");
+      await rawTx.unsafe(
+        `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "last_processed_event_id", "status")
+         VALUES ($1, $2, 0, 'idle')
+         ON CONFLICT ("name", "instance_id") DO UPDATE SET
+           "last_processed_event_id" = 0,
+           "status" = 'idle',
+           "attempts" = 0,
+           "last_error" = NULL,
+           "updated_at" = now()`,
+        [mspName, SHARED_INSTANCE_SENTINEL],
+      );
+      await rawTx.unsafe(
+        `SELECT * FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2 FOR UPDATE`,
+        [mspName, SHARED_INSTANCE_SENTINEL],
+      );
 
-      // msp.table is narrowed by the upfront guard; the assertion here is
-      // for TS inside the async closure (narrowing doesn't cross the
-      // transaction boundary).
-      const tableName = getTableName(msp.table as NonNullable<typeof msp.table>); // @cast-boundary db-operator
-      await tx.execute(sql.raw(`TRUNCATE TABLE ${quoteIdent(tableName)}`));
+      // msp.table is narrowed by the upfront guard.
+      const mspTable = msp.table as NonNullable<typeof msp.table>;
+      const tableName = getDrizzleTableName(mspTable);
+      await rawTx.unsafe(`TRUNCATE TABLE ${quoteIdent(tableName)}`);
 
       const subscribedTypes = Object.keys(msp.apply);
       if (subscribedTypes.length > 0) {
-        const events = (await tx
-          .select()
-          .from(eventsTable)
-          .where(inArray(eventsTable.type, subscribedTypes))
-          .orderBy(asc(eventsTable.id))) as ReadonlyArray<typeof eventsTable.$inferSelect>; // @cast-boundary db-row
+        type EventRow = {
+          id: bigint;
+          aggregateId: string;
+          aggregateType: string;
+          tenantId: TenantId;
+          version: number;
+          type: string;
+          eventVersion: number;
+          payload: Record<string, unknown>;
+          metadata: import("../event-store/event-store").EventMetadata;
+          createdAt: Temporal.Instant;
+          createdBy: string;
+        };
+        const events = await selectMany<EventRow>(
+          tx,
+          eventsTable,
+          { type: [...subscribedTypes] },
+          { orderBy: { col: "id", direction: "asc" } },
+        );
 
         const upcasters = registry.getEventUpcasters();
         for (const row of events) {
@@ -182,17 +182,24 @@ export async function rebuildMultiStreamProjection(
         }
       }
 
-      await updateMany(tx, eventConsumerStateTable, {
-          lastProcessedEventId,
-          status: "idle",
-          attempts: 0,
-          lastError: null,
-          updatedAt: sql`now()`,
-        }, { name: mspName, instanceId: SHARED_INSTANCE_SENTINEL });
+      await rawTx.unsafe(
+        `UPDATE "kumiko_event_consumers" SET
+           "last_processed_event_id" = $1,
+           "status" = 'idle',
+           "attempts" = 0,
+           "last_error" = NULL,
+           "updated_at" = now()
+         WHERE "name" = $2 AND "instance_id" = $3`,
+        [lastProcessedEventId, mspName, SHARED_INSTANCE_SENTINEL],
+      );
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await updateMany(db, eventConsumerStateTable, { status: "dead", lastError: message, updatedAt: sql`now()` }, { name: mspName, instanceId: SHARED_INSTANCE_SENTINEL });
+    await asRawClient(db).unsafe(
+      `UPDATE "kumiko_event_consumers" SET "status" = 'dead', "last_error" = $1, "updated_at" = now()
+       WHERE "name" = $2 AND "instance_id" = $3`,
+      [message, mspName, SHARED_INSTANCE_SENTINEL],
+    );
     if (deps.meter) {
       emitProjectionRebuild(
         deps.meter,
@@ -224,4 +231,16 @@ export async function rebuildMultiStreamProjection(
 
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
+}
+
+const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+function getDrizzleTableName(table: unknown): string {
+  if (typeof table !== "object" || table === null) {
+    throw new InternalError({ message: "msp-rebuild: msp.table is not a pgTable object" });
+  }
+  const name = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+  if (typeof name !== "string") {
+    throw new InternalError({ message: "msp-rebuild: msp.table missing drizzle name symbol" });
+  }
+  return name;
 }

@@ -3,8 +3,8 @@ import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/e
 import { append, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobLogEntry, JobMeta, JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { eq } from "drizzle-orm";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
 import { jobRunsTable } from "./job-run-table";
 
@@ -86,10 +86,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
   async function resolveRunId(bullJobId: string): Promise<string | undefined> {
     const cached = cacheGet(bullJobId);
     if (cached) return cached;
-    const [row] = await db
-      .select({ id: jobRunsTable.id })
-      .from(jobRunsTable)
-      .where(eq(jobRunsTable.bullJobId, bullJobId));
+    const row = await fetchOne<{ id: string | number }>(db, jobRunsTable, { bullJobId });
     // buildBaseColumns's signature types `id` as `string | number` because
     // it returns both branches of the idType union. We know this table
     // was built with idType: "uuid" (see job-run-table.ts), so narrowing
@@ -181,10 +178,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       // symmetrically to onJobComplete (which gets duration from the
       // worker). The projection already has started_at from the
       // run-started inline-apply.
-      const [row] = await db
-        .select({ startedAt: jobRunsTable.startedAt })
-        .from(jobRunsTable)
-        .where(eq(jobRunsTable.id, runId));
+      const row = await fetchOne<{ startedAt: Temporal.Instant }>(db, jobRunsTable, { id: runId });
       const now = Temporal.Now.instant();
       const duration = row ? Number(now.since(row.startedAt).total({ unit: "millisecond" })) : 0;
       const payload = runFailedSchema.parse({

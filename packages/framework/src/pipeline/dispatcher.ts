@@ -1,4 +1,4 @@
-import { type AnyColumn, eq } from "drizzle-orm";
+import { asRawClient, selectMany } from "../bun-db/query";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
 import { buildDrizzleTable } from "../db/table-builder";
@@ -510,17 +510,12 @@ export function createDispatcher(
         // filter keeps cross-tenant leaks out unless the handler explicitly
         // opts in. Works with any drizzle-table whose tenant column is named
         // tenantId on the JS side.
-        // @cast-boundary dynamic-key — drizzle's PgTable columns are schema-dependent
-        const tenantCol = (projTable as Record<string, AnyColumn | undefined>)["tenantId"]; // @cast-boundary dynamic-key
-        let rows: readonly Record<string, unknown>[];
-        if (tenantCol && !queryOptions?.unsafeAllTenants) {
-          rows = (await dbSource
-            .select()
-            .from(projTable)
-            .where(eq(tenantCol, user.tenantId))) as readonly Record<string, unknown>[]; // @cast-boundary db-row
-        } else {
-          rows = (await dbSource.select().from(projTable)) as readonly Record<string, unknown>[]; // @cast-boundary db-row
-        }
+        const tenantCol = (projTable as Record<string, unknown>)["tenantId"];
+        const where =
+          tenantCol && !queryOptions?.unsafeAllTenants
+            ? { tenantId: user.tenantId }
+            : undefined;
+        const rows = await selectMany<Record<string, unknown>>(dbSource, projTable, where);
         return rows as readonly T[]; // @cast-boundary engine-payload
       },
       // Thin pass-through: one resolve impl lives on the dispatcher, the
@@ -1120,9 +1115,12 @@ export function createDispatcher(
           // can false-pass; optimistic locking would catch it later, but with
           // a less specific error. Falls back to a plain SELECT if no tx is
           // active (tests without a DB connection).
-          const selectQuery = handlerContext.db.select().from(table);
-          const filtered = selectQuery.where(eq(table["id"], id));
-          const rows = tx ? await filtered.for("update") : await filtered;
+          const rows = tx
+            ? ((await asRawClient(handlerContext.db).unsafe(
+                `SELECT * FROM "${(table as { [key: symbol]: unknown })[Symbol.for("drizzle:Name")]}" WHERE "id" = $1 FOR UPDATE`,
+                [id],
+              )) as readonly unknown[])
+            : await selectMany(handlerContext.db, table, { id });
           const row = rows[0];
 
           if (!row) continue;

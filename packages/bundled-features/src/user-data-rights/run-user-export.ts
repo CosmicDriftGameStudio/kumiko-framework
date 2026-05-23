@@ -29,7 +29,7 @@ import {
   type UserDataExportSnippet,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { eq } from "drizzle-orm";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { tenantMembershipsTable } from "../tenant";
 import { buildFileRefZipPath } from "./zip-path";
 
@@ -116,11 +116,11 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
   const { db, registry, userId, now } = args;
 
   // Memberships → Tenant-Liste fuer Hook-Iteration.
-  // @cast-boundary db-row.
-  const memberships = (await db
-    .select({ tenantId: tenantMembershipsTable["tenantId"] })
-    .from(tenantMembershipsTable)
-    .where(eq(tenantMembershipsTable["userId"], userId))) as Array<{ tenantId: TenantId }>;
+  const memberships = await selectMany<{ tenantId: TenantId }>(
+    db,
+    tenantMembershipsTable,
+    { userId },
+  );
 
   const tenantList: TenantId[] = memberships.map((m) => m.tenantId);
 

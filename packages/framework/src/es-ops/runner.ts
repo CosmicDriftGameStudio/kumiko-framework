@@ -22,7 +22,7 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { eq, sql } from "drizzle-orm";
+import { asRawClient, insertOne, selectMany } from "../bun-db/query";
 import type { DbConnection, DbRunner } from "../db";
 import type { Registry } from "../engine";
 import { esOperationsTable } from "./operations-schema";
@@ -136,24 +136,23 @@ export async function runPendingSeedMigrations(
         // applied-set (außerhalb dieser Funktion in nächster Iteration)
         // und findet den Marker → skip. Lock wird beim Tx-Commit
         // automatisch released (xact-scope).
-        await tx.execute(sql`SELECT pg_advisory_xact_lock(${ES_OPS_LOCK_KEY})`);
+        await asRawClient(tx).unsafe(`SELECT pg_advisory_xact_lock($1)`, [ES_OPS_LOCK_KEY]);
 
         // Re-check applied-set INSIDE Tx + Lock — verhindert Race
         // wo Pod-A schon committed hat während Pod-B vor dem Lock
         // war. Sonst würde Pod-B die Migration nochmal ausführen.
-        const reCheck = (await tx.execute(
-          sql`SELECT 1 FROM kumiko_es_operations WHERE id = ${entry.id} LIMIT 1`,
-        )) as unknown as readonly unknown[];
+        const reCheck = (await asRawClient(tx).unsafe(
+          `SELECT 1 FROM "kumiko_es_operations" WHERE id = $1 LIMIT 1`,
+          [entry.id],
+        )) as readonly unknown[];
         if (reCheck.length > 0) {
           log(`${LOG_PREFIX} race-skip "${entry.id}" — applied by parallel boot`);
-          // skip: race-detected — other replica committed marker between
-          // loadAppliedIds() and this tx; their run already covered the work.
           return;
         }
 
         const ctx = args.createContext(tx);
         await migration.run(ctx);
-        await tx.insert(esOperationsTable).values({
+        await insertOne(tx, esOperationsTable, {
           id: entry.id,
           operationType: "seed-migration",
           durationMs: Date.now() - start,
@@ -204,11 +203,10 @@ async function listSeedFiles(seedsDir: string): Promise<readonly SeedFileEntry[]
 }
 
 async function loadAppliedIds(db: DbConnection): Promise<Set<string>> {
-  const rows = await db
-    .select({ id: esOperationsTable.id })
-    .from(esOperationsTable)
-    .where(eq(esOperationsTable.operationType, "seed-migration"));
-  return new Set(rows.map((r: { id: string }) => r.id));
+  const rows = await selectMany<{ id: string }>(db, esOperationsTable, {
+    operationType: "seed-migration",
+  });
+  return new Set(rows.map((r) => r.id));
 }
 
 async function loadSeedModule(filePath: string): Promise<SeedMigration> {

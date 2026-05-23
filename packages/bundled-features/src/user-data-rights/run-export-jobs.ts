@@ -58,14 +58,13 @@ import {
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { and, asc, eq, isNotNull, or } from "drizzle-orm";
+import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { resolveProfileForTenant } from "../compliance-profiles";
 import { userTable } from "../user";
 import { runUserExport, type UserExportBundle } from "./run-user-export";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/export-job";
 import { generateDownloadToken } from "./token-helpers";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -306,17 +305,9 @@ interface JobRow {
 }
 
 async function fetchPendingJobs(db: DbRunner): Promise<readonly JobRow[]> {
-  // @cast-boundary db-row.
-  return (await db
-    .select({
-      id: exportJobsTable["id"],
-      version: exportJobsTable["version"],
-      userId: exportJobsTable["userId"],
-      requestedFromTenantId: exportJobsTable["requestedFromTenantId"],
-    })
-    .from(exportJobsTable)
-    .where(eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Pending))
-    .orderBy(asc(exportJobsTable["requestedAt"]))) as readonly JobRow[];
+  return selectMany<JobRow>(db, exportJobsTable, { status: EXPORT_JOB_STATUS.Pending }, {
+    orderBy: { col: "requestedAt", direction: "asc" },
+  });
 }
 
 type ProcessOutcome =
@@ -530,23 +521,13 @@ async function staleDetectionPass(args: {
   // wuerde 30-60min-alte stale-Jobs UNERKANNT lassen. Cron laeuft alle
   // 60s, zu jedem Zeitpunkt sind nur wenige Jobs in `running` —
   // alle fetchen + profile-resolve im Loop ist bezahlbar + korrekt.
-  // @cast-boundary db-row.
-  const candidates = (await db
-    .select({
-      id: exportJobsTable["id"],
-      version: exportJobsTable["version"],
-      userId: exportJobsTable["userId"],
-      requestedFromTenantId: exportJobsTable["requestedFromTenantId"],
-      startedAt: exportJobsTable["startedAt"],
-    })
-    .from(exportJobsTable)
-    .where(eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Running))) as readonly {
+  const candidates = await selectMany<{
     id: string;
     version: number;
     userId: string;
     requestedFromTenantId: TenantId;
     startedAt: Instant | null;
-  }[];
+  }>(db, exportJobsTable, { status: EXPORT_JOB_STATUS.Running });
 
   const failed: string[] = [];
   for (const c of candidates) {
@@ -615,36 +596,18 @@ async function storageCleanupPass(args: {
   // bereits in der DB statt im Loop. Bei skalierender DB-Historie (10k+
   // done-jobs nach 30 Tagen) reduziert das den Worker-Roundtrip drastisch.
   //
-  // @cast-boundary db-row.
-  const candidates = (await db
-    .select({
-      id: exportJobsTable["id"],
-      version: exportJobsTable["version"],
-      status: exportJobsTable["status"],
-      requestedFromTenantId: exportJobsTable["requestedFromTenantId"],
-      downloadStorageKey: exportJobsTable["downloadStorageKey"],
-      expiresAt: exportJobsTable["expiresAt"],
-    })
-    .from(exportJobsTable)
-    .where(
-      and(
-        // Beide Pfade: status in (done, failed) + downloadStorageKey gesetzt.
-        // Filter im Loop verfeinert (done braucht expiresAt+grace, failed
-        // sofort).
-        or(
-          eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Done),
-          eq(exportJobsTable["status"], EXPORT_JOB_STATUS.Failed),
-        ),
-        isNotNull(exportJobsTable["downloadStorageKey"]),
-      ),
-    )) as readonly {
+  // or() + isNotNull(): no bun-db helper covers this combination — raw SQL.
+  const candidates = await asRawClient(db).unsafe<{
     id: string;
     version: number;
     status: string;
     requestedFromTenantId: TenantId;
     downloadStorageKey: string | null;
     expiresAt: Instant | null;
-  }[];
+  }>(
+    `SELECT id, version, status, requested_from_tenant_id AS "requestedFromTenantId", download_storage_key AS "downloadStorageKey", expires_at AS "expiresAt" FROM read_export_jobs WHERE status IN ($1, $2) AND download_storage_key IS NOT NULL`,
+    [EXPORT_JOB_STATUS.Done, EXPORT_JOB_STATUS.Failed],
+  );
 
   const cleaned: string[] = [];
   for (const c of candidates) {

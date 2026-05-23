@@ -1,5 +1,5 @@
+import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { downloadAttemptsTable } from "../schema/download-attempt";
 
@@ -24,29 +24,20 @@ export const listDownloadAttemptsQuery = defineQueryHandler({
   access: { roles: ["Admin", "SystemAdmin"] },
   handler: async (query, ctx) => {
     const p = query.payload;
-    const t = downloadAttemptsTable;
-    const conditions = [eq(t["tenantId"], query.user.tenantId)];
-    if (p.result) conditions.push(eq(t["result"], p.result));
-    if (p.ip) conditions.push(eq(t["ip"], p.ip));
-    if (p.from) conditions.push(gte(t["attemptedAt"], Temporal.Instant.from(p.from)));
-    if (p.to) conditions.push(lte(t["attemptedAt"], Temporal.Instant.from(p.to)));
+    const where: WhereObject = { tenantId: query.user.tenantId };
+    if (p.result) where["result"] = p.result;
+    if (p.ip) where["ip"] = p.ip;
+    if (p.from || p.to) {
+      const range: { gte?: unknown; lte?: unknown } = {};
+      if (p.from) range.gte = Temporal.Instant.from(p.from);
+      if (p.to) range.lte = Temporal.Instant.from(p.to);
+      where["attemptedAt"] = range;
+    }
 
-    const rows = await ctx.db
-      .select({
-        id: t["id"],
-        result: t["result"],
-        via: t["via"],
-        tokenHash: t["tokenHash"],
-        jobId: t["jobId"],
-        attemptedByUserId: t["attemptedByUserId"],
-        ip: t["ip"],
-        userAgent: t["userAgent"],
-        attemptedAt: t["attemptedAt"],
-      })
-      .from(t)
-      .where(and(...conditions))
-      .orderBy(desc(t["attemptedAt"]))
-      .limit(p.limit);
+    const rows = await selectMany(ctx.db, downloadAttemptsTable, where, {
+      orderBy: { col: "attemptedAt", direction: "desc" },
+      limit: p.limit,
+    });
 
     return { rows };
   },

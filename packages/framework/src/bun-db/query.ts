@@ -56,11 +56,11 @@ function extractDrizzleColumns(table: unknown): Map<string, { name: string; sqlT
 //   3. drizzle tx-handle — client liegt unter `tx.session.client`
 // Shim extrahiert in allen Fällen ein `{unsafe, begin}`-Surface.
 type RawClient = {
-  unsafe: (sql: string, params?: readonly unknown[]) => Promise<unknown>;
+  unsafe: <TRow = unknown>(sql: string, params?: readonly unknown[]) => Promise<readonly TRow[]>;
   begin: <T>(fn: (tx: unknown) => Promise<T>) => Promise<T>;
 };
 
-function asRawClient(db: unknown): RawClient {
+export function asRawClient(db: unknown): RawClient {
   const dbAny = db as Record<string, unknown>;
   // Bun.SQL: .unsafe() + .begin() direkt auf dem Instance.
   if (typeof dbAny["unsafe"] === "function" && typeof dbAny["begin"] === "function") {

@@ -1,4 +1,16 @@
-import { getTableName, sql } from "drizzle-orm";
+import { asRawClient } from "../bun-db/query";
+
+const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+function getTableName(table: unknown): string {
+  if (typeof table !== "object" || table === null) {
+    throw new Error("table-helpers: table is not a pgTable object");
+  }
+  const name = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+  if (typeof name !== "string") {
+    throw new Error("table-helpers: table missing drizzle name symbol");
+  }
+  return name;
+}
 
 // drizzle-kit/api wird LAZY geladen — nur bei Bedarf importiert. drizzle-kit
 // ist post-Phase-5 ein devDependency; Production-Apps die runProdApp nutzen
@@ -88,7 +100,7 @@ export async function unsafePushTables(
   const targetJson = api.generateDrizzleJson(tables);
   const statements = await api.generateMigration(prevJson, targetJson);
   for (const stmt of statements) {
-    await db.execute(sql.raw(stmt));
+    await asRawClient(db).unsafe(stmt);
   }
 }
 
@@ -127,7 +139,7 @@ export async function resetEventStore(
   ];
   const extraNames = extraTables.map((t) => (typeof t === "string" ? t : getTableName(t)));
   const allTables = [...frameworkTables, ...extraNames];
-  await stack.db.execute(sql.raw(`TRUNCATE ${allTables.join(", ")} RESTART IDENTITY CASCADE`));
+  await asRawClient(stack.db).unsafe(`TRUNCATE ${allTables.join(", ")} RESTART IDENTITY CASCADE`);
   if (stack.eventDispatcher) {
     await stack.eventDispatcher.ensureRegistered();
   }

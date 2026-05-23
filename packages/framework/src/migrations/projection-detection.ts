@@ -11,7 +11,6 @@
 // Damit muss niemand Tabellen-Namen doppelt pflegen (Truth liegt in der
 // Projection-Definition).
 
-import { getTableName } from "drizzle-orm";
 import type { Registry } from "../engine/types/feature";
 import {
   type ColumnSpec,
@@ -88,6 +87,18 @@ function sameColumns(
     if (JSON.stringify(colA.default) !== JSON.stringify(colB.default)) return false;
   }
   return true;
+}
+
+const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
+function getTableName(table: unknown): string {
+  if (typeof table !== "object" || table === null) {
+    throw new Error("projection-detection: table is not a pgTable object");
+  }
+  const name = (table as Record<symbol, unknown>)[DRIZZLE_NAME_SYMBOL];
+  if (typeof name !== "string") {
+    throw new Error("projection-detection: table missing drizzle name symbol");
+  }
+  return name;
 }
 
 /** Index `tableName → projection-name` aus der Registry. Nur Projections

@@ -2,10 +2,9 @@ import { addDurationSpec, type DurationSpec } from "@cosmicdrift/kumiko-framewor
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
-import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Atom 5b — Email-Notification beim deletion-requested-flip. Pattern:
 // password-reset-Callback aus auth-routes.ts. Best-effort — Throw beim
@@ -37,13 +36,9 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
     handler: async (event, ctx) => {
       // ctx.db.raw (kein TenantDb-Wrapper) weil User-Entity tenant-agnostisch
       // ist — siehe Plan-Doc Cross-Tenant-Section.
-      const userRow = await ctx.db.raw
-        .select({ status: userTable["status"], email: userTable["email"] })
-        .from(userTable)
-        .where(eq(userTable["id"], event.user.id))
-        .limit(1);
+      const userRow = await fetchOne<{ status: string; email: string }>(ctx.db.raw, userTable, { id: event.user.id });
 
-      if (userRow.length === 0) {
+      if (!userRow) {
         return writeFailure(
           new UnprocessableError("user_not_found", {
             details: { reason: "user_not_found", userId: event.user.id },
@@ -51,12 +46,12 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
         );
       }
 
-      if (userRow[0]?.status !== USER_STATUS.Active) {
+      if (userRow["status"] !== USER_STATUS.Active) {
         return writeFailure(
           new UnprocessableError("user_not_in_active_state", {
             details: {
               reason: "user_not_in_active_state",
-              currentStatus: userRow[0]?.status,
+              currentStatus: userRow["status"],
             },
           }),
         );
@@ -88,7 +83,7 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       // killen — siehe Type-Doc oben. console.warn ist die Operator-
       // Sichtbarkeit; defineWriteHandler-Context fuehrt aktuell keinen
       // structured-logger durch, Refactor-Kandidat wenn ctx.log threadet.
-      const userEmail = userRow[0]?.email;
+      const userEmail = userRow["email"];
       if (opts.sendDeletionRequestedEmail && userEmail && userEmail.length > 0) {
         try {
           await opts.sendDeletionRequestedEmail({

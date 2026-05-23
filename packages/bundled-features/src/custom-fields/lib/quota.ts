@@ -12,14 +12,13 @@
 // wants e.g. monthly-roll definition allowances.
 
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { sql } from "drizzle-orm";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export async function countTenantFieldDefinitions(db: TenantDb, tenantId: string): Promise<number> {
-  const rowsResult = await db.raw.execute(sql`
-    SELECT COUNT(*)::int AS n
-    FROM read_custom_field_definitions
-    WHERE tenant_id = ${tenantId}
-  `);
+  const rowsResult = await asRawClient(db.raw).unsafe(
+    "SELECT COUNT(*)::int AS n FROM read_custom_field_definitions WHERE tenant_id = $1",
+    [tenantId],
+  );
   const rows = rowsResult as ReadonlyArray<Record<string, unknown>>; // @cast-boundary db-row
   const first = rows[0];
   if (!first) return 0;

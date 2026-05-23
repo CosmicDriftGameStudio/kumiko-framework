@@ -5,7 +5,6 @@ import {
   VersionConflictError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { and, eq, sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import {
@@ -15,7 +14,7 @@ import {
 } from "../constants";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Factory: binds a runtime accessor to the handler at registration time.
 // The runtime holds the in-memory snapshot that the dispatcher's gate
@@ -74,7 +73,7 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
 
       if (!existing) {
         // First-time override: insert.
-        await ctx.db.insert(globalFeatureStateTable).values({
+        await insertOne(ctx.db, globalFeatureStateTable, {
           featureName,
           enabled,
           version: 1,
@@ -85,21 +84,10 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
         // Upsert with optimistic lock. Two operators flipping the same
         // toggle simultaneously is rare but possible — the version-WHERE
         // ensures only one wins; the loser sees VersionConflictError.
-        const updated = await ctx.db
-          .update(globalFeatureStateTable)
-          .set({
-            enabled,
-            version: sql<number>`${globalFeatureStateTable.version} + 1`,
-            updatedBy: event.user.id,
-            updatedAt: Temporal.Now.instant(),
-          })
-          .where(
-            and(
-              eq(globalFeatureStateTable.featureName, featureName),
-              eq(globalFeatureStateTable.version, existing.version),
-            ),
-          )
-          .returning();
+        const updated = (await asRawClient(ctx.db).unsafe(
+          'UPDATE "read_global_feature_state" SET enabled = $1, version = version + 1, updated_by = $2, updated_at = $3 WHERE feature_name = $4 AND version = $5 RETURNING *',
+          [enabled, event.user.id, Temporal.Now.instant(), featureName, existing.version],
+        )) as unknown[];
 
         if (updated.length === 0) {
           return writeFailure(
