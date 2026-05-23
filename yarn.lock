@@ -1450,6 +1450,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@cosmicdrift/kumiko-sample-use-all-bundled@workspace:samples/apps/use-all-bundled":
+  version: 0.0.0-use.local
+  resolution: "@cosmicdrift/kumiko-sample-use-all-bundled@workspace:samples/apps/use-all-bundled"
+  dependencies:
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*"
+    "@cosmicdrift/kumiko-dev-server": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+    zod: "npm:^4.4.3"
+  languageName: unknown
+  linkType: soft
+
 "@cosmicdrift/kumiko-sample-user-data-rights-demo@workspace:samples/apps/user-data-rights-demo":
   version: 0.0.0-use.local
   resolution: "@cosmicdrift/kumiko-sample-user-data-rights-demo@workspace:samples/apps/user-data-rights-demo"
