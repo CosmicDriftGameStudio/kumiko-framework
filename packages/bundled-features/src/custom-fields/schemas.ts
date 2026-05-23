@@ -45,6 +45,19 @@ const serializedFieldSchema = z
     // the host row's customFields jsonb on user-forget when the strategy
     // is "anonymize". Non-sensitive fields are untouched.
     sensitive: z.boolean().optional(),
+    // `retention` (T1.5d): per-field expiry. The retention-cron strips
+    // values whose host-row `modified_at` is older than `keepFor`. Strategy
+    // `delete` removes the key from the customFields jsonb; `anonymize`
+    // sets it to `null` (key stays, value gone — preserves the schema
+    // shape for downstream consumers).
+    retention: z
+      .object({
+        keepFor: z
+          .string()
+          .regex(/^\d+[hdwmy]$/, "keepFor must match /^\\d+[hdwmy]$/ (e.g. '30d', '10y')"),
+        strategy: z.enum(["delete", "anonymize"]),
+      })
+      .optional(),
   })
   .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`");
 
