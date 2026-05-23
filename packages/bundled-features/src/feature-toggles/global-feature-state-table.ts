@@ -5,7 +5,7 @@ import {
   table as pgTable,
   text,
 } from "@cosmicdrift/kumiko-framework/db";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 
 // Global feature-toggle override state. One row per feature that has ever
 // been explicitly flipped by an operator. Missing row = "no override,

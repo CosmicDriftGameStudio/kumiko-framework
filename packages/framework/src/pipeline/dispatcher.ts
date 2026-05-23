@@ -1273,7 +1273,9 @@ export function createDispatcher(
       }
     };
 
-    const db = resolveDbSource(undefined);
+    // batch() opens its own outer transaction — needs the top-level
+    // connection's `.begin()` (TransactionSql exposes only `.savepoint()`).
+    const db = resolveDbSource(undefined) as DbConnection | undefined;
     if (!db) {
       // Without a DB connection there is no transaction to open. Fall back to
       // sequential execution — useful for unit tests that don't touch the DB.
@@ -1301,7 +1303,7 @@ export function createDispatcher(
     }
 
     try {
-      await db.transaction(async (tx) => {
+      await db.begin(async (tx) => {
         for (let i = 0; i < commands.length; i++) {
           const cmd = commands[i];
           if (!cmd) continue;

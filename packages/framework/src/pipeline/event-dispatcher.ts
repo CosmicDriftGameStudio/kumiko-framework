@@ -154,7 +154,30 @@ const DEFAULT_MAX_ATTEMPTS = 10;
 // dispatcher's main pass logic stays under ~50 LOC. Every helper takes an
 // explicit `tx` — none of them use the outer dispatcher's closure state.
 
-type ConsumerStateRow = typeof eventConsumerStateTable.$inferSelect;
+type ConsumerStateRowShape = {
+  readonly name: string;
+  readonly instanceId: string;
+  readonly lastProcessedEventId: bigint;
+  readonly status: string;
+  readonly attempts: number;
+  readonly lastError: string | null;
+  readonly updatedAt: Temporal.Instant;
+};
+type ConsumerStateRow = ConsumerStateRowShape;
+
+type StoredEventRow = {
+  readonly id: bigint;
+  readonly aggregateId: string;
+  readonly aggregateType: string;
+  readonly tenantId: string;
+  readonly version: number;
+  readonly type: string;
+  readonly eventVersion: number;
+  readonly payload: Record<string, unknown>;
+  readonly metadata: import("../event-store/event-store").EventMetadata;
+  readonly createdAt: Temporal.Instant;
+  readonly createdBy: string;
+};
 
 type AcquireOutcome =
   | { readonly state: ConsumerStateRow; readonly skip: null }
@@ -254,13 +277,13 @@ async function fetchPendingEvents(
   tx: DbTx,
   cursor: bigint,
   batchSize: number,
-): Promise<ReadonlyArray<typeof eventsTable.$inferSelect>> {
+): Promise<ReadonlyArray<StoredEventRow>> {
   return (await selectMany(
     tx,
     eventsTable,
     { id: { gt: cursor } },
     { orderBy: { col: "id", direction: "asc" }, limit: batchSize },
-  )) as ReadonlyArray<typeof eventsTable.$inferSelect>; // @cast-boundary db-row
+  )) as ReadonlyArray<StoredEventRow>; // @cast-boundary db-row
 }
 
 type DeliveryOutcome = {
@@ -272,7 +295,7 @@ type DeliveryOutcome = {
   readonly failed: number;
 };
 
-function rowToStoredEvent(row: typeof eventsTable.$inferSelect): StoredEvent {
+function rowToStoredEvent(row: StoredEventRow): StoredEvent {
   return {
     id: String(row.id),
     aggregateId: row.aggregateId,
@@ -295,7 +318,7 @@ function rowToStoredEvent(row: typeof eventsTable.$inferSelect): StoredEvent {
 // restartConsumer / skipPoisonEvent).
 async function deliverEvents(
   consumer: EventConsumer,
-  events: ReadonlyArray<typeof eventsTable.$inferSelect>,
+  events: ReadonlyArray<StoredEventRow>,
   context: AppContext,
   maxAttempts: number,
   state: ConsumerStateRow,
@@ -527,7 +550,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     });
 
     try {
-      await db.transaction(async (tx) => {
+      await db.begin(async (tx) => {
         const acquired = await acquireConsumerState(tx, consumer.name, instanceId);
         // skip: another instance holds the lock, or the consumer is
         // disabled/dead. Nothing to deliver this pass.
@@ -694,7 +717,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
 //                     never succeed (broken payload, removed feature code).
 
 function normalizeConsumerState(
-  row: typeof eventConsumerStateTable.$inferSelect,
+  row: ConsumerStateRowShape,
 ): ConsumerRecoveryState {
   return {
     name: row.name,
@@ -727,7 +750,7 @@ async function requireConsumerRow(
   db: DbConnection,
   name: string,
   instanceId: string,
-): Promise<typeof eventConsumerStateTable.$inferSelect> {
+): Promise<ConsumerStateRowShape> {
   const [row] = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable, { name, instanceId });
   if (!row) {
     throw new Error(
@@ -821,7 +844,7 @@ export async function skipPoisonEvent(
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState & { readonly skippedEventId: bigint | null }> {
   const before = await requireConsumerRow(db, name, instanceId);
-  return db.transaction(async (tx) => {
+  return db.begin(async (tx) => {
     const poisonRows = (await asRawClient(tx).unsafe(
       `SELECT "id" FROM "kumiko_events" WHERE "id" > $1 ORDER BY "id" ASC LIMIT 1`,
       [before.lastProcessedEventId],

@@ -18,7 +18,7 @@
 // Outer-Tx aktiv, BEGIN sonst). Folge: ein failing Hook bei User A
 // rollt nur dessen Sub-Tx zurueck, User B + bisherige User-Status-Flips
 // bleiben commit-able. Ohne diese Sub-Tx wuerde der Outer-Dispatcher-Tx
-// (alle writeHandler laufen in `db.transaction(...)`) den ganzen
+// (alle writeHandler laufen in `db.begin(...)`) den ganzen
 // Cleanup-Run beim ersten Hook-Throw zurueckrollen.
 //
 // **Idempotenz:** Hooks sind idempotent designed (siehe

@@ -12,7 +12,16 @@
 // ops tooling. Replay (re-apply the migration after a code fix) is a
 // separate CLI step — not implemented here, tracked as follow-up.
 
-import { bigint, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  index,
+  integer,
+  jsonb,
+  table as pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "../db/dialect";
 import type { DbConnection, DbRunner } from "../db/connection";
 import { tableExists } from "../db/schema-inspection";
 import { unsafePushTables } from "../stack";
@@ -66,7 +75,8 @@ export async function recordUpcasterDeadLetter(
   },
 ): Promise<void> {
   const message = args.error instanceof Error ? args.error.message : String(args.error);
-  await db.insert(upcasterDeadLetterTable).values({
+  const { insertOne } = await import("../bun-db/query");
+  await insertOne(db, upcasterDeadLetterTable, {
     eventId: args.event.id,
     tenantId: args.event.tenantId,
     aggregateId: args.event.aggregateId,
@@ -99,21 +109,12 @@ export async function listDeadLetters(
   db: DbConnection,
   options: { eventType?: string; limit?: number } = {},
 ): Promise<readonly DeadLetterRow[]> {
-  const { desc, eq } = await import("drizzle-orm");
+  const { selectMany } = await import("../bun-db/query");
   const limit = options.limit ?? 100;
-  const eventType = options.eventType;
-  const rows =
-    eventType !== undefined
-      ? await db
-          .select()
-          .from(upcasterDeadLetterTable)
-          .where(eq(upcasterDeadLetterTable.eventType, eventType))
-          .orderBy(desc(upcasterDeadLetterTable.createdAt))
-          .limit(limit)
-      : await db
-          .select()
-          .from(upcasterDeadLetterTable)
-          .orderBy(desc(upcasterDeadLetterTable.createdAt))
-          .limit(limit);
-  return rows as readonly DeadLetterRow[]; // @cast-boundary db-row
+  const where = options.eventType !== undefined ? { eventType: options.eventType } : undefined;
+  const rows = await selectMany<DeadLetterRow>(db, upcasterDeadLetterTable, where, {
+    orderBy: { col: "createdAt", direction: "desc" },
+    limit,
+  });
+  return rows;
 }

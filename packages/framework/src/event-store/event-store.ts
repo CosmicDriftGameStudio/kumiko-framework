@@ -60,7 +60,19 @@ export type StoredEvent<TPayload = Record<string, unknown>> = {
   readonly createdBy: string;
 };
 
-type SelectedEvent = typeof eventsTable.$inferSelect;
+type SelectedEvent = {
+  readonly id: bigint;
+  readonly aggregateId: string;
+  readonly aggregateType: string;
+  readonly tenantId: TenantId;
+  readonly version: number;
+  readonly type: string;
+  readonly eventVersion: number;
+  readonly payload: Record<string, unknown>;
+  readonly metadata: EventMetadata;
+  readonly createdAt: Temporal.Instant;
+  readonly createdBy: string;
+};
 
 // Append one event atomically. Two guarantees combined:
 //

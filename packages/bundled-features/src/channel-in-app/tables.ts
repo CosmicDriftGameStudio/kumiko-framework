@@ -6,7 +6,7 @@ import {
   text,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 
 export const inAppMessagesTable = pgTable("in_app_messages", {
   id: serial("id").primaryKey(),

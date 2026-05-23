@@ -10,9 +10,9 @@
 //   bunx kumiko ops seed:status      → operation_type = "seed-migration"
 //   bunx kumiko ops projection:status → operation_type = "projection-rebuild"
 
-import { sql } from "drizzle-orm";
+// sql now comes from native dialect
 import { type DbConnection, tableExists } from "../db";
-import { index, integer, table as pgTable, text, timestamp } from "../db/dialect";
+import { sql, index, integer, table as pgTable, text, timestamp  } from "../db/dialect";
 import { unsafePushTables } from "../stack";
 
 export type EsOperationType = "seed-migration";

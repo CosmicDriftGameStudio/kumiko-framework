@@ -1,5 +1,3 @@
-import { sql } from "drizzle-orm";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type {
   EntityDefinition,
   EntityRelations,
@@ -10,29 +8,31 @@ import { assertUnreachable } from "../utils";
 import {
   bigint,
   boolean,
+  type ColumnBuilder,
+  type ColumnHandle,
   index,
   instant,
   integer,
+  type IndexBuilderWithCols,
   jsonb,
   moneyAmount,
   table as pgTable,
   serial,
+  sql,
+  type SqlExpression,
   type TableColumns,
   text,
   uniqueIndex,
   uuid,
 } from "./dialect";
 
-type ColumnBuilder =
-  | ReturnType<typeof text>
-  | ReturnType<typeof integer>
-  | ReturnType<typeof bigint>
-  | ReturnType<typeof boolean>
-  | ReturnType<typeof moneyAmount>
-  | ReturnType<typeof jsonb>
-  | ReturnType<typeof instant>
-  | ReturnType<typeof serial>
-  | ReturnType<typeof uuid>;
+// Local AnyPgColumn alias — kept for legacy field-definition callers that
+// still import this name as a type. ColumnHandle from the native dialect
+// matches the same role (snake_case name + sql type accessor).
+export type AnyPgColumn = ColumnHandle;
+
+// biome-ignore lint/suspicious/noExplicitAny: ColumnBuilder is parameterised over value type; we erase here
+type AnyColumnBuilder = ColumnBuilder<any>;
 
 // Returns column(s) for a field. Most fields return a single entry,
 // money returns two (amount + currency), files/images return none.
@@ -48,7 +48,7 @@ function fieldToColumns(
   name: string,
   field: FieldDefinition,
   entity: EntityDefinition,
-): Record<string, ColumnBuilder> {
+): Record<string, AnyColumnBuilder> {
   const snakeName = toSnakeCase(name);
 
   switch (field.type) {
@@ -246,10 +246,15 @@ export function toTableName(entityName: string): string {
 // fieldToColumns passen. Type-Tests gegen repräsentative Entities (siehe
 // db/__tests__/drizzle-table-types.test.ts) catchen Drift.
 
-// Single drizzle column with concrete data + nullability — preserves
-// Drizzle's `.select`/`eq`/`lt`-Inferenz für T.
-type Col<T> = AnyPgColumn<{ data: T; notNull: true }>;
-type NullCol<T> = AnyPgColumn<{ data: T; notNull: false }>;
+// Single column handle with concrete data + nullability phantom. After the
+// drizzle removal the runtime carries only the snake_case name + pg type
+// (see ColumnHandle); the phantom-typed wrapper preserves the existing
+// generic-inference call-sites without recreating drizzle's full column
+// brand graph.
+// biome-ignore lint/suspicious/noExplicitAny: phantom-typed wrapper retained for source-compat
+type Col<_T> = ColumnHandle & { readonly __notNull: true };
+// biome-ignore lint/suspicious/noExplicitAny: phantom-typed wrapper retained for source-compat
+type NullCol<_T> = ColumnHandle & { readonly __notNull: false };
 
 // Per-field column shape — matches `fieldToColumns`. Money +
 // locatedTimestamp produce two-column pairs; files/images contribute no
@@ -404,7 +409,7 @@ export function buildDrizzleTable<E extends EntityDefinition>(
   options?: BuildDrizzleTableOptions,
 ): DrizzleTable<E> {
   const baseColumns = buildBaseColumns(entity.softDelete ?? false, entity.idType ?? "uuid");
-  const fieldColumns: Record<string, ColumnBuilder> = {};
+  const fieldColumns: Record<string, AnyColumnBuilder> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {
     const cols = fieldToColumns(name, field, entity);
@@ -458,13 +463,18 @@ export function buildDrizzleTable<E extends EntityDefinition>(
     // Every multi-tenant query filters by tenant_id. Without this index, list
     // queries scan the whole table across all tenants. Applies to every table
     // built via buildDrizzleTable since every entity inherits tenantId.
-    // biome-ignore lint/suspicious/noExplicitAny: Drizzle's table callback is generic; we access columns by their JS property name.
-    (table: any) => {
-      const indexes = [index(`${tableName}_tenant_id_idx`).on(table.tenantId)];
+    (table) => {
+      const indexes: Record<string, IndexBuilderWithCols> = {};
+      const tHandle = table as unknown as Record<string, ColumnHandle>;
+      indexes[`${tableName}_tenant_id_idx`] = index(`${tableName}_tenant_id_idx`).on(
+        tHandle["tenantId"]!,
+      );
       for (const fieldName of foreignKeyFields) {
-        const column = table[fieldName];
+        const column = tHandle[fieldName];
         if (column) {
-          indexes.push(index(`${tableName}_${toSnakeCase(fieldName)}_idx`).on(column));
+          indexes[`${tableName}_${toSnakeCase(fieldName)}_idx`] = index(
+            `${tableName}_${toSnakeCase(fieldName)}_idx`,
+          ).on(column);
         }
       }
       // entity.indexes = composite/unique-Indices die der Author explizit
@@ -473,21 +483,20 @@ export function buildDrizzleTable<E extends EntityDefinition>(
       // — Override via index.name möglich.
       for (const def of entity.indexes ?? []) {
         const cols = def.columns
-          .map((fieldName) => table[fieldName])
-          .filter((col): col is unknown => col !== undefined);
-        if (cols.length !== def.columns.length) continue; // Boot-Validator catched das
+          .map((fieldName) => tHandle[fieldName])
+          .filter((col): col is ColumnHandle => col !== undefined);
+        if (cols.length !== def.columns.length) continue;
         const suffix = def.unique === true ? "unique" : "idx";
         const indexName =
           def.name ?? `${tableName}_${def.columns.map((c) => toSnakeCase(c)).join("_")}_${suffix}`;
         const builder = def.unique === true ? uniqueIndex(indexName) : index(indexName);
-        // biome-ignore lint/suspicious/noExplicitAny: drizzle's .on(...cols) is variadic generic
-        let chain = (builder.on as any)(...cols); // @cast-boundary drizzle-bridge
+        let chain = builder.on(...cols);
+        // entity.indexes[].where is now a SqlExpression (was drizzle SQL).
+        // Pass through to the IndexBuilderWithCols.where()-API.
         if (def.where !== undefined) {
-          // Partial-Index: drizzle's IndexBuilder.where(SQL) emittiert das
-          // `WHERE <condition>` ans Ende der `CREATE [UNIQUE] INDEX`-DDL.
-          chain = chain.where(def.where);
+          chain = chain.where(def.where as SqlExpression);
         }
-        indexes.push(chain);
+        indexes[indexName] = chain;
       }
       return indexes;
     },

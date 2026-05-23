@@ -172,8 +172,9 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // Atomic: insert FileRef + append files:event:uploaded in one tx. Either
     // both land or neither — no dangling FileRef without event, no event
     // referencing a row that doesn't exist.
-    await db.transaction(async (tx) => {
-      await tx.insert(fileRefsTable).values({
+    await db.begin(async (tx) => {
+      const { insertOne } = await import("../bun-db/query");
+      await insertOne(tx, fileRefsTable, {
         id: fileRefId,
         tenantId: user.tenantId,
         storageKey,

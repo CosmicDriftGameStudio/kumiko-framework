@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+// sql now comes from native dialect
 import { asRawClient, selectMany } from "../bun-db/query";
 import type { DbConnection, DbRunner } from "../db/connection";
 import {
@@ -6,8 +6,9 @@ import {
   instant,
   integer,
   jsonb,
-  table as pgTable,
   primaryKey,
+  sql,
+  table as pgTable,
   text,
   uuid,
 } from "../db/dialect";

@@ -130,7 +130,7 @@ export async function runPendingSeedMigrations(
 
     const start = Date.now();
     try {
-      await args.db.transaction(async (tx) => {
+      await args.db.begin(async (tx) => {
         // Advisory-Lock: sequentialisiert Multi-Replica-Boots. Zweiter
         // Pod blockt bis erster fertig ist, dann re-checked sein
         // applied-set (außerhalb dieser Funktion in nächster Iteration)

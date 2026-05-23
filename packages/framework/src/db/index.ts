@@ -7,12 +7,19 @@ export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { decodeCursor, encodeCursor } from "./cursor";
 export type { SelectQuery, TableColumns } from "./dialect";
 export {
+  bigint,
+  bigserial,
   boolean,
+  index,
   instant,
+  instantToDriver,
   integer,
   jsonb,
+  moneyAmount,
+  numeric,
   primaryKey,
   serial,
+  sql,
   table,
   text,
   timestamp,

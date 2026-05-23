@@ -14,7 +14,7 @@ import {
   createEntity,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 
 // Delivery-log is an append-only stream of per-attempt records. The stream
 // of truth lives in the events-Tabelle (one aggregate per attempt, event

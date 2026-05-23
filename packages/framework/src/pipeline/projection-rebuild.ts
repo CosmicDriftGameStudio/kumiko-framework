@@ -86,7 +86,7 @@ export async function rebuildProjection(
   let lastProcessedEventId = 0n;
 
   try {
-    await db.transaction(async (tx) => {
+    await db.begin(async (tx) => {
       const rawTx = asRawClient(tx);
       // Lock the state row. Use upsert so a never-rebuilt projection also
       // gets a row. FOR UPDATE would need the row to exist — upsert-first

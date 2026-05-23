@@ -1,4 +1,3 @@
-import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { generateId } from "../utils";
 
@@ -13,7 +12,7 @@ function requireEnv(name: string): string {
 }
 
 export type TestDb = {
-  db: ReturnType<typeof drizzle>;
+  db: ReturnType<typeof postgres>;
   client: ReturnType<typeof postgres>;
   dbName: string;
   cleanup: () => Promise<void>;
@@ -71,7 +70,7 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
 
   const testUrl = url.replace(/\/[^/]+$/, `/${dbName}`);
   const client = postgres(testUrl);
-  const db = drizzle(client);
+  const db = client;
 
   // Every ES-entity writes events; auto-create the events table so tests that
   // go straight to createTestDb (not setupTestStack) also work out of the box.

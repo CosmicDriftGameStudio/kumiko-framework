@@ -7,7 +7,7 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 
 // Export-Job-Lifecycle (S2.U3+U4 Atom 1).
 //

@@ -10,9 +10,9 @@
 // consumer-cursor row. Apps that want it pass filesStorageTrackingFeature
 // into createApp / setupTestStack alongside their domain features.
 
-import { sql } from "drizzle-orm";
+// sql now comes from native dialect
 import { asRawClient } from "../bun-db/query";
-import { bigint, instant, integer, table as pgTable, uuid } from "../db/dialect";
+import { sql, bigint, instant, integer, table as pgTable, uuid  } from "../db/dialect";
 import { defineFeature, typedPayload } from "../engine";
 import { fileUploadedEvent } from "./file-routes";
 

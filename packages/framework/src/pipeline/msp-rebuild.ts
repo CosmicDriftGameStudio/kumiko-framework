@@ -101,7 +101,7 @@ export async function rebuildMultiStreamProjection(
   let lastProcessedEventId = 0n;
 
   try {
-    await db.transaction(async (tx) => {
+    await db.begin(async (tx) => {
       const rawTx = asRawClient(tx);
       // Upsert + lock the consumer row. Rebuild always targets the
       // SHARED-delivery shard: per-instance MSPs are side-effect-only (no
