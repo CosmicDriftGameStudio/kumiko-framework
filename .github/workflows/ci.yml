@@ -122,6 +122,12 @@ jobs:
         run: |
           bun samples/apps/use-all-bundled/drizzle/generate.ts
           git diff --exit-code samples/apps/use-all-bundled/drizzle/schema.generated.ts
+      - name: Coverage lint (M5)
+        # Diffs bundled-features exports gegen FEATURE_IMPORT_REGISTRY +
+        # known held-back. Fail wenn ein neuer feature-export ohne mount
+        # oder ein stale registry-entry.
+        run: bun samples/apps/use-all-bundled/scripts/check-coverage.ts
+
       - name: Boot smoke (no DB)
         # Stub-secrets: validators check Format (base64 32-byte, min-length),
         # nicht echte Crypto-Strength. boot-mode exitiert vor jedem
