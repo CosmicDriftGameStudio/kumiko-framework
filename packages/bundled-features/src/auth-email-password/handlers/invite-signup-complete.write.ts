@@ -33,7 +33,6 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {

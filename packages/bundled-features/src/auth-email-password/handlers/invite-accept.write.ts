@@ -29,7 +29,6 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
 import {
